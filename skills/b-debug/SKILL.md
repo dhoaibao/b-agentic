@@ -26,7 +26,7 @@ If `$ARGUMENTS` explicitly limits scope to investigation-only, honor that limit 
 
 - User pastes an error message or stack trace.
 - Something "should work" but doesn't, with no clear error.
-- Bug appears in one place but root cause may be elsewhere (middleware, config, async)
+- Bug appears in one place but root cause may be elsewhere (middleware, config, async).
 - Previous fix attempts didn't work.
 - User says: "debug", "lỗi", "tại sao", "không hoạt động", "fix bug", "why is X not working".
 
@@ -58,10 +58,10 @@ From `brave-search` MCP server *(optional)*:
 
 From `firecrawl` MCP server *(optional)*:
 - `firecrawl_scrape` — scrape full content of relevant GitHub issue pages, Stack Overflow answers, or changelogs found via web search.
-- `firecrawl_map` — map all URLs on a site when `firecrawl_scrape` returns empty content (JS-rendered or incorrect URL); use to discover the correct URL before retrying scrape.
+- `firecrawl_map` — map all URLs on a site when `firecrawl_scrape` returns empty content; use to discover the correct URL before retrying scrape.
 
-If Serena is unavailable: use Bash search and `Read` to map files manually, proceed with Steps 2.1–2.4. Always note: "⚠️ Serena unavailable — analysis based on Bash/Read; cross-file tracking incomplete."
-If sequential-thinking is unavailable: reason through hypotheses inline, document steps explicitly in response. Format fallback as: `Hypothesis N → Evidence for → Evidence against → Cheapest verification → Confirmed/Rejected`.
+If Serena is unavailable: use Bash search and `Read` to map files manually. Always note: "⚠️ Serena unavailable — analysis based on Bash/Read; cross-file tracking incomplete."
+If sequential-thinking is unavailable: reason inline as `Hypothesis N → Evidence for → Evidence against → Cheapest verification → Confirmed/Rejected`.
 If context7 is unavailable: invoke /b-research for library API questions instead.
 
 Graceful degradation: ✅ Possible — if Serena is unavailable, use Bash/Read for file analysis. Quality is reduced but the skill remains functional.
@@ -91,14 +91,14 @@ Use `serena` to trace the execution path in this order:
 1. `find_symbol` on the chosen entry point (route handler, CLI command, event listener) — locate the best starting symbol.
 2. `get_symbols_overview` on the relevant file — confirm which symbols are worth reading.
 3. `find_referencing_symbols` on the relevant function — trace callers/usages across files.
-4. Use native Bash search on the error string, config key, or suspicious behavior — Serena pattern search is not exposed in this environment.
-5. Use native `Read` on any function or file section that still looks suspicious — inspect the exact implementation.
+4. Use native Bash search on the error string, config key, or suspicious behavior.
+5. Use native `Read` on any function or file section that still looks suspicious.
 
-**Read-order rule**: never jump to native `Read` before completing the supported Serena symbol and reference steps unless the target is prose/config or no relevant symbol exists. Narrowing with symbols and references first typically eliminates 80% of what you'd get from a full-file read — and it's more accurate.
+**Read-order rule**: never jump to native `Read` before completing the supported Serena symbol and reference steps unless the target is prose/config or no relevant symbol exists.
 
 From this, identify:
-- All layers the request/data passes through (middleware, validators, handlers, services, DB)
-- Any async boundaries, error handlers, or silent failure points (try/catch that swallows errors, `.catch(() => {})`)
+- All layers the request/data passes through (middleware, validators, handlers, services, DB).
+- Any async boundaries, error handlers, or silent failure points (try/catch that swallows errors, `.catch(() => {})`).
 - Hidden choke points: auth middleware, rate limiters, interceptors, event listeners.
 
 **Goal**: understand the full execution path, not just the file where the error surfaces.
@@ -106,33 +106,39 @@ The bug is often one layer above or below where it appears.
 
 ---
 
-### Step 3 — Form hypotheses
+### Step 3a — Form hypotheses
 
 Use `sequential-thinking` to reason through possible causes:
 
 - Generate 3–5 hypotheses ranked by likelihood.
-- For each hypothesis, state: *what would cause this symptom* and *how to verify it*
-- For each hypothesis, also state: *evidence for*, *evidence against*, and *cheapest verification step*.
-- Bias toward the simplest explanation first (Occam's razor)
+- For each hypothesis, state: *what would cause this symptom*, *evidence for*, *evidence against*, and *cheapest verification step*.
+- Bias toward the simplest explanation first (Occam's razor).
 - Common categories to consider:
-  - **Wrong layer**: error surfaces in A but is caused by B upstream
-  - **Silent failure**: exception caught and swallowed without logging
-  - **State/order issue**: async race, middleware order, initialization timing
-  - **Config/env**: wrong env var, missing secret, wrong port/host
-  - **Version mismatch**: library API changed between versions
-  - **Data shape**: unexpected null, wrong type, missing field
+  - **Wrong layer**: error surfaces in A but is caused by B upstream.
+  - **Silent failure**: exception caught and swallowed without logging.
+  - **State/order issue**: async race, middleware order, initialization timing.
+  - **Config/env**: wrong env var, missing secret, wrong port/host.
+  - **Version mismatch**: library API changed between versions.
+  - **Data shape**: unexpected null, wrong type, missing field.
 
 Present the ranked hypotheses to the user briefly before investigating.
 
-Do **not** call `sequentialthinking` if the stack trace or code path already identifies one clear root cause with no meaningful competing hypothesis.
+Skip `sequentialthinking` if the stack trace or code path already identifies one clear root cause with no meaningful competing hypothesis.
 
-**Library error shortcut**: If the error message or stack trace references a specific library or framework:
-- Use `brave_web_search` with the exact error message in quotes to find known issues, GitHub issues, or changelog entries.
-- If results include a GitHub issue page, Stack Overflow answer, or changelog URL that looks relevant → call `firecrawl_scrape` on the top 1–2 most relevant URLs before verifying hypotheses. Use `formats: ["markdown"]`. Cap at 2 URLs. If the page returns empty or <200 words → call `firecrawl_map` on the domain root to find the correct URL, then retry scrape on the mapped URL. If still empty, proceed with snippets only.
-- If results point to an API misuse → call `resolve-library-id` + `query-docs` with the specific method/behavior in question. This is faster than /b-research for a single API question. Escalate to /b-research only if context7 has no index for the library.
-- Do this before verifying hypotheses — it may eliminate wrong hypotheses immediately and save significant time.
+---
 
-**Error string search**: If the error message text is short and specific → use native Bash search with the exact error string to find all places in the codebase that produce or handle this error. This often reveals the true origin faster than tracing the call graph.
+### Step 3b — Fast-path lookups
+
+Run before verifying hypotheses — these often eliminate wrong hypotheses immediately.
+
+**Library error shortcut** — if the error message or stack trace references a specific library or framework:
+- `brave_web_search` with the exact error message in quotes to find known issues, GitHub issues, or changelog entries.
+- If results include a GitHub issue, Stack Overflow answer, or changelog URL that looks relevant → `firecrawl_scrape` on the top 1–2 most relevant URLs (`formats: ["markdown"]`). Cap at 2 URLs. If a page returns empty or <200 words → `firecrawl_map` on the domain root to find the correct URL, then retry scrape. If still empty, proceed with snippets only.
+- If results point to API misuse → `resolve-library-id` + `query-docs` with the specific method/behavior in question. Faster than /b-research for a single API question. Escalate to /b-research only if context7 has no index for the library.
+
+**Error string search** — if the error text is short and specific → native Bash search with the exact error string to find all places in the codebase that produce or handle this error. Often reveals the true origin faster than tracing the call graph.
+
+After Step 3b, re-rank hypotheses if findings shifted the picture.
 
 ---
 
@@ -140,22 +146,22 @@ Do **not** call `sequentialthinking` if the stack trace or code path already ide
 
 Test hypotheses starting from the most likely:
 
-- Add targeted logging at the suspected choke point (not scattered everywhere)
+- Add targeted logging at the suspected choke point (not scattered everywhere).
 - Check config/env values if hypothesis points there.
-- Use `get_symbols_overview` first when narrowing within a large file; then native `Read` to re-examine the exact suspicious function.
+- Use `get_symbols_overview` first when narrowing within a large file; then native `Read` to re-examine the suspicious function.
 - Use `find_referencing_symbols` for semantic references or native Bash search when the bug pattern may exist in multiple text locations.
-- If the hypothesis points to library API misuse: call `resolve-library-id` + `query-docs` directly to verify the correct method signature, parameter order, or behavior. Escalate to /b-research only if context7 has no index.
-- **Regression detection**: if the bug appeared after a recent change, compare the current symbol/file content against the recent git diff before changing code.
+- If the hypothesis points to library API misuse: `resolve-library-id` + `query-docs` directly.
+- **Regression detection**: if the bug appeared after a recent change, compare current symbol/file content against the recent git diff before changing code.
 
-**Dynamic verification** — if static analysis is insufficient to confirm root cause (plausible hypothesis but not provable from code alone):
+**Dynamic verification** — if static analysis is insufficient to confirm root cause:
 
 1. Add one or two targeted log statements at the suspected choke point — not scattered across files.
 2. Instruct the user to run the failing scenario and paste the output.
 3. Analyze the output: does it confirm or eliminate the hypothesis?
-4. If confirmed → proceed to Step 5 (Fix). If eliminated → mark hypothesis as ruled out, advance to the next ranked hypothesis, restart from sub-step 1.
+4. If confirmed → proceed to Step 5. If eliminated → mark hypothesis as ruled out, advance to the next ranked hypothesis, restart from sub-step 1.
 5. After root cause is confirmed, remove all debug logging added during this loop.
 
-Cap at **3 iterations** — if root cause is not confirmed after 3 instrumentation rounds, surface current evidence to the user:
+Cap at **3 iterations** — if root cause is not confirmed after 3 instrumentation rounds, surface evidence to the user:
 
 > "Root cause unconfirmed after 3 instrumentation rounds — here's what we know: [evidence gathered]. Consider: adding APM/profiler, reproducing in isolation, or escalating."
 
@@ -167,25 +173,23 @@ State clearly: *"Root cause: [X] because [Y]"* before writing any fix.
 
 ### Step 5 — Fix
 
-Now that root cause is confirmed, the default behavior is to implement the minimal safe fix immediately — not to hand the fix back to the caller as a separate follow-up.
+Default behavior: implement the minimal safe fix immediately.
 
 - Write the minimal fix — don't refactor unrelated code in the same change.
 - Prefer Serena symbolic edits in this order: `replace_symbol_body` → `insert_before_symbol` / `insert_after_symbol` → `rename_symbol` / `safe_delete_symbol`; use native `Edit` when the fix is a small line-level patch inside a larger symbol.
 - If the fix touches a non-obvious API or behavior, add a comment explaining why.
-- If the bug reveals a broader pattern (e.g. same silent-catch pattern exists in 3 other places), flag it to the user as a separate follow-up — don't fix everything at once.
-- After applying the fix, keep the change scoped to the confirmed symbol/file only.
+- If the bug reveals a broader pattern (same silent-catch in 3 other places), flag it as a separate follow-up — don't fix everything at once.
+- Keep the change scoped to the confirmed symbol/file only.
 
 ---
 
 ### Step 6 — Verify fix
 
-After applying the fix:
-
 - State what behavior should now change and how to confirm it.
-- **Detect test command** from the project: check `package.json` scripts, `pytest.ini`, `Makefile`, `Cargo.toml`, or equivalent. Suggest the specific command scoped to the affected module — e.g. `npm test -- --testPathPattern=auth`, `pytest tests/test_auth.py`, `go test ./internal/auth/...`. Do not just say "run your tests".
+- **Detect test command** from the project: `package.json` scripts, `pytest.ini`, `Makefile`, `Cargo.toml`, or equivalent. Suggest the specific command scoped to the affected module — e.g. `npm test -- --testPathPattern=auth`, `pytest tests/test_auth.py`, `go test ./internal/auth/...`. Do not just say "run your tests".
 - If the fix involved a config/env change, remind the user to restart the process.
-- If the fix changed more than 2 files or introduced new functions/modules → suggest running `/b-review` before committing to catch any logic or requirements gaps the fix may have introduced.
-- Do not end at "root cause found". Close the loop by stating the applied fix and the exact verification step unless the caller explicitly requested diagnosis-only mode.
+- If the fix changed more than 2 files or introduced new functions/modules → suggest running `/b-review` before committing.
+- Close the loop with the applied fix and the exact verification step unless the caller explicitly requested diagnosis-only mode.
 
 ---
 
@@ -208,6 +212,9 @@ Note any silent catch blocks or unexpected stops in the path.
 2. ...
 3. ...
 
+**Fast-path findings** *(only if Step 3b returned signal)*
+- [Library/issue/error-string discovery] → [hypothesis confirmed/rejected]
+
 **Root cause**
 [Confirmed cause — one clear sentence]
 
@@ -228,6 +235,6 @@ Note any silent catch blocks or unexpected stops in the path.
 - Always map the full execution path first — the bug is often not where it surfaces.
 - If 2+ hypotheses seem equally likely, verify the cheaper one first.
 - Silent failure points (swallowed exceptions, missing logs) are the most common cause of "no error but not working" bugs — check these first.
-- If the fix requires understanding a library's behavior: use context7 first (`resolve-library-id` + `query-docs`); escalate to /b-research only if context7 has no index for that library.
+- If the fix requires understanding a library's behavior: use context7 first (`resolve-library-id` + `query-docs`); escalate to /b-research only if context7 has no index.
 - Keep fixes minimal — one bug, one fix.
 - Never trigger destructive git commands.

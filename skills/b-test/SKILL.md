@@ -18,8 +18,7 @@ Dedicated skill for test-driven development, test debugging, and coverage evalua
 Failing CI test and runtime bug have different patterns — this skill owns the test path.
 
 If `$ARGUMENTS` is provided, treat it as the test task or failing test symptom.
-Proceed directly. Do not ask "what test do you want to write?" unless `$ARGUMENTS`
-is empty.
+Proceed directly. Do not ask "what test do you want to write?" unless `$ARGUMENTS` is empty.
 
 ## When to use
 
@@ -40,15 +39,16 @@ is empty.
 
 ## Tools required
 
-- `Bash` — run test commands, inspect test output
-- `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols` — from `serena` MCP server *(required for discovering test files and mapping tests to source symbols)*
+- `Bash` — run test commands, inspect test output, locate test files.
+- `Read`, `Edit`, `Write` — native file tools for inspecting tests and creating new test files when no suitable file exists.
+- `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol` — from `serena` MCP server *(required for discovering test files and mapping tests to source symbols)*
 - `resolve-library-id`, `query-docs` — from `context7` MCP server *(optional, for verifying testing framework API — jest, vitest, pytest, etc.)*
 - `sequentialthinking` — from `sequential-thinking` MCP server *(optional, for choosing test strategy: unit vs integration vs e2e)*
 
 If Serena is unavailable: use Bash to find test files (`find`, `ls`) and `Read` for inspection. Note: "⚠️ Serena unavailable — test discovery via file listing."
 If sequential-thinking is unavailable: choose test strategy inline with explicit pros/cons list.
 
-Graceful degradation: ✅ Possible — core test debugging works with Bash + Read.
+Graceful degradation: ✅ Possible — core test debugging works with Bash + Read + Edit/Write.
 
 ## Steps
 
@@ -62,7 +62,7 @@ Find test files and understand the test setup:
    find . -name "*.test.*" -o -name "*.spec.*" | head -20
    cat package.json | grep -A2 '"test"'
    ```
-   (Adapt pattern for Python, Go, Java, Rust — `find` test files with language conventions.)
+   (Adapt for Python, Go, Java, Rust — `find` test files with language conventions.)
 
 2. Call `check_onboarding_performed`. If false, call `onboarding`.
 
@@ -75,14 +75,23 @@ Find test files and understand the test setup:
    on the source code symbol that needs tests, then `find_referencing_symbols`
    to see if it already has tests.
 
-**Goal**: know the framework, the test file structure, and the relationship between
-tests and source code.
+**Goal**: know the framework, the test file structure, and the relationship between tests and source code.
 
 ---
 
-### Step 2 — Analyze the problem
+### Step 2 — Identify task type
 
-**Branch A: Failing test**
+Pick the branch that matches the work:
+
+- **Branch A — Failing test**: a test is red and the user wants it green.
+- **Branch B — Write tests**: TDD or filling a coverage gap with new tests.
+- **Branch C — Evaluate coverage**: report on what is and isn't covered, then recommend (and optionally write) the highest-value missing tests.
+
+Use `sequentialthinking` for branch selection only if the user's request is genuinely ambiguous (e.g. "make my tests better"). Otherwise pick from `$ARGUMENTS` directly.
+
+---
+
+### Step 3 — Branch A: Fix failing test
 
 1. Read the failing test output via Bash:
    ```bash
@@ -93,31 +102,6 @@ tests and source code.
 2. Read the failing test code with `Read` (narrow section, not full file).
 3. Read the source code under test (the function/class being tested).
 4. Identify the gap between expected and actual:
-   - Wrong assertion? (expected value is wrong)
-   - Missing mock? (dependency not stubbed → real call fails)
-   - Setup/teardown issue? (state leaking between tests)
-   - Async timing? (missing await, promise not resolved)
-   - Wrong test data? (input does not match realistic scenario)
-
-**Branch B: Write tests (TDD or coverage gap)**
-
-1. Identify what behavior needs testing:
-   - If from a plan file: read the plan's acceptance criteria
-   - If from `$ARGUMENTS`: parse the behavior description
-   - If from source code: read the source symbol, list its branches and edge cases
-2. Use `sequentialthinking` to choose test strategy:
-   - Pure function → unit test
-   - DB interaction → integration test
-   - User workflow → e2e or integration test
-   - Existing tests → determine what gaps remain
-
----
-
-### Step 3 — Fix or write the test
-
-**Branch A: Fix failing test**
-
-Apply the minimal fix:
 
 | Symptom | Fix |
 |---|---|
@@ -126,21 +110,30 @@ Apply the minimal fix:
 | Leaking state | Reset state in `beforeEach` or `afterEach` |
 | Async timing | Add `await`, return promise, or use `waitFor` |
 | Wrong test data | Provide realistic input matching the scenario |
+| Real bug in production code | Fix production code via symbol-aware edits, then re-run |
 
-Prefer symbol-aware edits (`replace_symbol_body` for test functions) over line-level
-`Edit` when changing whole test functions. Use `insert_before_symbol` to add new tests
-in a describe block.
+Apply the minimal fix. Prefer `replace_symbol_body` for whole test functions over line-level `Edit`.
 
-**Branch B: Write new tests**
+---
 
-Write tests that cover:
-- Happy path (normal input → expected output)
-- Edge cases (empty input, boundary values, null/undefined)
-- Error path (invalid input → error thrown/rejected)
-- Regression prevention (would catch a revert of the current change)
+### Step 4 — Branch B: Write tests
 
-Use `insert_before_symbol` or `insert_after_symbol` to add tests within existing describe
-blocks. Use the repo's supported file-writing tools to create a new test file when no suitable file exists.
+1. Identify what behavior needs testing:
+   - From a plan file → read the acceptance criteria.
+   - From `$ARGUMENTS` → parse the behavior description.
+   - From source code → read the source symbol, list its branches and edge cases.
+2. Use `sequentialthinking` to choose strategy *only if ambiguous*:
+   - Pure function → unit test
+   - DB interaction → integration test
+   - User workflow → e2e (delegate to /b-e2e) or integration test
+3. Cover:
+   - **Happy path** (normal input → expected output)
+   - **Edge cases** (empty input, boundary values, null/undefined)
+   - **Error path** (invalid input → error thrown/rejected)
+   - **Regression prevention** (would catch a revert of the current change)
+4. Insert tests using Serena where possible:
+   - `insert_after_symbol` / `insert_before_symbol` — add tests within an existing describe block.
+   - `Write` — only when no suitable test file exists in the conventional location.
 
 **Framework-specific conventions**:
 - Jest/Vitest: `describe/it`, `beforeEach`, `mock()`
@@ -150,7 +143,25 @@ blocks. Use the repo's supported file-writing tools to create a new test file wh
 
 ---
 
-### Step 4 — Run and verify
+### Step 5 — Branch C: Evaluate coverage
+
+1. Run the project's coverage command via Bash:
+   ```bash
+   npm test -- --coverage
+   pytest --cov=.
+   go test -cover ./...
+   cargo tarpaulin    # if installed
+   ```
+2. Identify uncovered branches/lines, prioritized by:
+   - Symbols implementing explicit requirements
+   - Symbols at service boundaries
+   - Symbols with the broadest references (`find_referencing_symbols`)
+3. Report the gap: file → uncovered branch → why it matters.
+4. Optionally write the top 1–3 missing tests using the Branch B flow. Ask the user before committing to a long batch.
+
+---
+
+### Step 6 — Run and verify
 
 1. Run the specific test(s) via Bash:
    ```bash
@@ -160,14 +171,8 @@ blocks. Use the repo's supported file-writing tools to create a new test file wh
    cargo test test_function
    ```
 2. Confirm the test passes.
-3. For new tests: run the full suite via Bash to confirm no regressions.
-4. For coverage evaluation: run coverage report via Bash.
-   ```bash
-   npm test -- --coverage
-   pytest --cov=.
-   go test -cover ./...
-   ```
-5. If tests fail: go back to Step 2. Maximum 3 iterations.
+3. For new tests: run the full suite to confirm no regressions.
+4. If tests fail: go back to the relevant branch. Maximum 3 iterations.
 
 ---
 
@@ -190,18 +195,17 @@ blocks. Use the repo's supported file-writing tools to create a new test file wh
 [code change — exact assertion, mock, or test added]
 
 #### Verification
-```bash
+\`\`\`bash
 [test command and result]
-```
+\`\`\`
 ✅ Test passes / ❌ Test still failing — [next step]
 
 ---
 
-#### Coverage
-*(skip if not evaluating coverage)*
+#### Coverage *(only when Branch C)*
 - Before: [X%] lines
 - After: [Y%] lines
-- Gaps: [what is still not covered]
+- Gaps: [what is still not covered, ranked by priority]
 ```
 
 ---
@@ -209,14 +213,10 @@ blocks. Use the repo's supported file-writing tools to create a new test file wh
 ## Rules
 
 - Never modify production code to make a test pass unless the production code is actually buggy.
-- A failing test often reveals a bug in production code → if analysis confirms a real bug,
-  fix production code via symbol-aware edits, then re-run the test.
-- Keep test fixes minimal — if one assertion is wrong, fix that assertion; do not rewrite
-  the entire test suite.
+- A failing test often reveals a bug in production code → if analysis confirms a real bug, fix production code via symbol-aware edits, then re-run the test.
+- Keep test fixes minimal — if one assertion is wrong, fix that assertion; do not rewrite the entire test suite.
 - Write behavior tests (assert on output), not implementation tests (assert on internal state).
-- Use `sequentialthinking` for test strategy decisions (unit vs integration) only if the
-  choice is genuinely ambiguous.
+- Use `sequentialthinking` for test strategy decisions only if the choice is genuinely ambiguous.
 - Never trigger destructive git commands.
-- If the test output is truncated in the terminal: increase verbosity or pipe to a file
-  then `Read` the file.
+- If the test output is truncated in the terminal: increase verbosity or pipe to a file then `Read` the file.
 - Prefer running specific tests over the full suite during debugging — faster feedback loop.

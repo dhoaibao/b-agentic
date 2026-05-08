@@ -17,7 +17,7 @@ $ARGUMENTS
 Think before coding. Lock scope, evaluate approaches, decompose into ordered steps,
 surface risks and unknowns, then produce a clear plan file before any implementation.
 
-If `$ARGUMENTS` is provided, treat it as the task description — skip asking "what do you want to build?" in Step 1 and proceed directly with the stated task. Ask only for missing context (constraints, greenfield vs existing, issue URL).
+If `$ARGUMENTS` is provided, treat it as the task description — skip asking "what do you want to build?" and proceed directly with the stated task. Ask only for missing context (constraints, greenfield vs existing, issue URL).
 
 ## When to use
 
@@ -26,14 +26,6 @@ If `$ARGUMENTS` is provided, treat it as the task description — skip asking "w
 - User is about to implement something non-trivial and hasn't thought through the order.
 - Refactoring, architecture changes, or new feature integration.
 - User says: "plan", "thiết kế", "how should I approach X", "lên kế hoạch", "nên bắt đầu từ đâu".
-
-## Planning modes
-
-- **Quick mode** — for scoped daily tasks: clear end state, low risk, usually ≤2 files, no DB/schema migration, no public API contract change, no security-sensitive behavior. Produce a concise chat plan with 2–5 steps, ask for approval, then implementation may proceed in the same session.
-- **Full mode** — for unclear, high-risk, multi-layer, or >2-file work. Follow all steps below and write a plan file to `.claude/b-plans/` before implementation.
-- **Mode selection rule** — choose the mode yourself from task complexity; do not ask the user to choose by default. Announce the selected mode and why in one sentence. Ask the user only when both modes are genuinely valid and preference matters.
-- **Escalate quick → full** when code discovery reveals broad references, unclear requirements, a structural decision, external API uncertainty, or deployment risk.
-- Broad or unclear refactors stay with `b-plan` until they are reduced to concrete mechanical transformations that can be handed off to `b-refactor`.
 
 ## When NOT to use
 
@@ -44,73 +36,82 @@ If `$ARGUMENTS` is provided, treat it as the task description — skip asking "w
 
 ## Tools required
 
-- `sequentialthinking` — from `sequential-thinking` MCP server *(optional, for Steps 3–4: approach evaluation and decomposition when available)*.
-- `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `rename_symbol` — from `serena` MCP server *(required for supported symbol-aware modify-existing-code tasks; optional for pure greenfield)*.
-- `resolve-library-id`, `query-docs` — from `context7` MCP server *(optional, for inline library verification in Step 5 — simple lookups only)*.
-- `brave_web_search` — from `brave-search` MCP server *(optional, for tool/approach comparison in Step 5 — simple lookups only)*.
-- `firecrawl_scrape` — from `firecrawl` MCP server *(optional, for scraping Issue/ticket URL in Step 1)*.
+- `sequentialthinking` — from `sequential-thinking` MCP server *(optional, for approach evaluation and decomposition when available)*.
+- `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `rename_symbol` — from `serena` MCP server *(required for symbol-aware modify-existing-code tasks; optional for greenfield)*.
+- `resolve-library-id`, `query-docs` — from `context7` MCP server *(optional, for inline library verification — simple lookups only)*.
+- `brave_web_search` — from `brave-search` MCP server *(optional, for tool/approach comparison — simple lookups only)*.
+- `firecrawl_scrape` — from `firecrawl` MCP server *(optional, for scraping issue/ticket URL when present)*.
 
-If sequential-thinking is unavailable: reason through plans and trade-offs inline with explicit numbered steps. Format fallback as: `Goal → Constraints → Options → Decision → Ordered steps → Open questions`.
-If Serena is unavailable: use Bash search and `Read` to inspect key files. Note: "⚠️ Serena unavailable — cross-file tracking incomplete."
+If sequential-thinking is unavailable: reason inline as `Goal → Constraints → Options → Decision → Ordered steps → Open questions`.
+If Serena is unavailable: use Bash search and `Read` for narrow code inspection. Note: "⚠️ Serena unavailable — cross-file tracking incomplete."
 If context7 or brave-search is unavailable: delegate to /b-research.
-If firecrawl is unavailable: store the Issue URL as a plain reference without scraping.
+If firecrawl is unavailable: store issue URL as a plain reference without scraping.
 
 Graceful degradation: ✅ Possible — core planning works without MCPs using inline reasoning plus Bash/Read.
 
 ## Steps
 
+### Step 0 — Mode select
+
+Choose the lightest mode that fits the task before any other work.
+
+- **Quick mode** — scoped daily tasks: clear end state, low risk, usually ≤2 files, no DB/schema migration, no public API contract change, no security-sensitive behavior. Output a concise 2–5 step chat plan with a verification step. After approval, implementation may proceed in the same session.
+- **Full mode** — unclear, high-risk, multi-layer, or >2-file work. Run all steps below and write a plan file to `.claude/b-plans/`.
+
+**Selection rule**: choose yourself from task complexity; do not ask the user. Announce the chosen mode in one sentence and why. Ask only when both modes are genuinely valid and preference matters.
+
+**Escalate quick → full** when discovery reveals broad references, unclear requirements, a structural decision, external API uncertainty, or deployment risk.
+
+Broad or unclear refactors stay with `b-plan` until reduced to concrete mechanical transformations that can be handed off to `b-refactor`.
+
+In quick mode: skip Steps 2–6 unless escalation triggers; produce the chat plan, ask for approval, then proceed.
+
+---
+
 ### Step 1 — Scope lock
 
 Confirm what is being built before scanning any code.
 
-Apply the planning mode selected above:
-- In **quick mode**, restate scope in one sentence, produce a concise 2–5 step chat plan with a verification step, ask for approval, and proceed in the same session after approval. Do not ask for issue/ticket URL unless the user already mentioned one or the task references a ticket.
-- In **full mode**, continue with the rest of this workflow and write the plan file in Step 6.
-
 **If the task is clearly scoped** (user already described the full feature, no ambiguity):
 - Restate the scope in one sentence and ask the user to confirm.
-- If confirmed, move directly to Issue URL and greenfield/existing check below.
+- Note greenfield vs existing — if existing → continue to Step 2; if greenfield → skip Step 2.
 
-**If the task has unclear scope or the user hasn't fully thought it through**:
+**If the task has unclear scope**:
 - Ask the three scope questions:
   - **What is the end state?** What does "done" look like exactly?
   - **What are the hard constraints?** Performance, compatibility, deadlines, must-not-break areas.
   - **What does success look like?** 2–4 concrete, verifiable criteria.
 - Ask once. If still unclear, ask one focused follow-up. Don't loop.
 
-**Unknown-ask rule** *(enforced throughout all steps)*: Any requirement or decision that cannot be determined from the task description or the codebase — e.g. behavioral choice, priority, integration contract, naming convention — must be asked to the user immediately. Never self-infer or assume. Surface unknowns as they are discovered; batch them per step if multiple arise at once.
+**Unknown-ask rule** *(enforced throughout all steps)*: any requirement or decision that cannot be determined from the task or codebase — behavioral choice, priority, integration contract, naming — must be asked to the user immediately. Never self-infer or assume. Surface unknowns as discovered; batch per step if multiple arise.
 
-**Decision accumulation** *(running record throughout all steps)*: Each time a user answer, a codebase finding, or an approach choice settles a behavioral or design question, immediately record it as a numbered confirmed decision. These compile into `## Confirmed decisions` in the plan. Format each entry as a single, unambiguous, implementation-actionable statement — no hedging, no "consider", no "may". Example: `"Realtime update must update the existing VoiceCall matched by VendorCallKey; if soft-deleted, insert a new row instead."`
+**Decision accumulation** *(running record across all steps)*: each time a user answer, codebase finding, or approach choice settles a behavioral or design question, record it as a numbered confirmed decision. Compile into `## Confirmed decisions` in the plan. Format each entry as a single, unambiguous, implementation-actionable statement — no hedging, no "consider", no "may". Example: `"Realtime update must update the existing VoiceCall matched by VendorCallKey; if soft-deleted, insert a new row instead."`
 
-**Feasibility check** *(run inline when scope is non-trivial — not a separate step)*:
-- Does the current architecture support this? Use Serena symbol discovery and reference tracing (`find_symbol`, `get_symbols_overview`, `find_referencing_symbols`) where supported; use native file listing/search/Read for file discovery, exact strings, prose, or config.
+**Feasibility check** *(inline when scope is non-trivial)*:
+- Does the current architecture support this? Use Serena symbol discovery and reference tracing where supported; native Read/Bash for prose, config, and exact strings.
 - Any blockers? (Missing infrastructure, incompatible dependencies, architectural gaps.)
 - Effort estimate: S (hours) / M (1–2 days) / L (3–5 days) / XL (1–2 weeks) / XXL (weeks+).
 - If blockers found: state clearly. If no workaround exists, do not proceed until resolved.
 - If the task looks XL–XXL and depends on an unfamiliar pattern or unverified library, stop and run /b-research first.
 
-**Issue/ticket** *(optional)*:
-- Ask once: "Issue/ticket URL or ID? (Leave blank to skip.)"
-- If a URL is provided: call `firecrawl_scrape` with `formats: ["markdown"], onlyMainContent: true`. Trim to 800 words and use as **requirements context** for Steps 3–5. If scrape returns <200 characters or 403: store the URL as a plain reference.
-- If a ticket ID (not a URL): store as-is; no fetch.
-
-**Greenfield vs existing**:
-- Is this a new module/service, or modifying existing code?
-- If existing code → proceed to Step 2. If greenfield → skip Step 2.
-
 ---
 
 ### Step 2 — Scan existing code *(existing-code tasks only)*
 
-Use Serena for supported symbol-aware discovery before planning. Follow this exact order for code-symbol work:
+Use Serena for supported symbol-aware discovery before planning. Follow this exact order:
 
-1. **Initialize project knowledge** — call `check_onboarding_performed`. If it returns false, call `onboarding` once.
-2. **Discover symbols** — call `find_symbol` on the main function, class, command, handler, or module symbol involved in the change.
-3. **Inspect structure** — call `get_symbols_overview` on each relevant source file to see which symbols are worth reading.
-4. **Trace references** — call `find_referencing_symbols` on key exported/shared symbols to confirm callers and dependents.
-5. **Read narrowly** — only if the above still leaves ambiguity: use native `Read` on the exact source section, prose, or config needed. Use native Bash search for exact strings because Serena pattern search is not exposed.
+1. **Initialize project knowledge** — call `check_onboarding_performed`. If false, call `onboarding` once.
+2. **Discover symbols** — `find_symbol` on the main function, class, command, handler, or module involved in the change.
+3. **Inspect structure** — `get_symbols_overview` on each relevant file to see which symbols are worth reading.
+4. **Trace references** — `find_referencing_symbols` on key exported/shared symbols to confirm callers and dependents.
+5. **Read narrowly** — only if the above leaves ambiguity: native `Read` on the exact section needed; native Bash search for exact strings.
 
-**Goal**: reference real paths and symbols. A plan that references wrong file names or non-existent functions fails at execution. Never paste full file contents into the plan — only the names and line references that matter.
+**Issue/ticket** *(optional context source — runs here if relevant)*:
+- Ask once: "Issue/ticket URL or ID? (Leave blank to skip.)"
+- If a URL is provided: `firecrawl_scrape` with `formats: ["markdown"], onlyMainContent: true`. Trim to 800 words; use as **requirements context** for Steps 3–5. If <200 chars or 403: store the URL as a plain reference.
+- If a ticket ID (not URL): store as-is; no fetch.
+
+**Goal**: reference real paths and symbols. A plan that names wrong files or non-existent functions fails at execution. Never paste full file contents into the plan — only names and line references that matter.
 
 ---
 
@@ -119,12 +120,12 @@ Use Serena for supported symbol-aware discovery before planning. Follow this exa
 Run if the task has a structural decision: new module vs extending existing, sync vs async, REST vs event-driven, library A vs B.
 
 1. List 2–3 viable approaches with key trade-offs (complexity, performance, coupling, reversibility).
-2. Use `sequentialthinking` to evaluate them systematically against the current constraints.
-3. Make the reasoning useful for execution: return the chosen approach, alternatives rejected, the assumption that could flip the decision, and the first implementation step.
-4. Pick one and document in `## Decision` (see plan file format below).
-5. Add the approach choice and all structural trade-offs settled here to the running confirmed decisions list.
+2. Use `sequentialthinking` to evaluate them against the current constraints.
+3. Make the reasoning useful for execution: chosen approach, alternatives rejected, the assumption that could flip the decision, the first implementation step.
+4. Pick one and document in `## Decision`.
+5. Add the approach choice and structural trade-offs to the running confirmed decisions list.
 
-Skip this step if the approach is already obvious or decided — do not invent choices where there are none.
+Skip this step if the approach is already obvious — do not invent choices where none exist.
 
 ---
 
@@ -136,13 +137,13 @@ Use `sequentialthinking` to break the chosen approach into atomic, ordered steps
 - Ordered by dependency — not by what's easiest.
 - Usually 4–8 steps. Split into phases if >10.
 - Each step answers: *what*, *why now*, *done when* — and must include:
-  - **Exact file paths** and **symbol names** involved (e.g. `src/auth/middleware.ts:validateToken()`).
-  - **Current state** of anything being changed (what exists today, what interface/behavior will change).
-  - **Concrete done-when** that a fresh agent can verify independently (test command, observable output, specific assertion).
+  - **Exact file paths** and **symbol names** (e.g. `src/auth/middleware.ts:validateToken()`).
+  - **Current state** of anything being changed.
+  - **Concrete done-when** verifiable independently (test command, observable output, specific assertion).
   - Any **API signatures**, **config keys**, or **contract details** needed to implement without further lookup.
-  - **`Exact [X]:`** sub-bullets for any implementation choices that must be locked in to prevent implementor drift — e.g. `Exact insertion points:`, `Exact helper responsibilities:`, `Exact fields to create:`, `Concrete implementation choice:`, `Build rules:`. Add these whenever the step would otherwise leave a structural decision open.
+  - **`Exact [X]:`** sub-bullets for any implementation choices that must be locked in to prevent implementor drift — e.g. `Exact insertion points:`, `Exact helper responsibilities:`, `Exact fields to create:`. Add whenever the step would otherwise leave a structural decision open.
 - **Handoff standard: 90%+** — if a fresh agent with zero prior context would need to ask a follow-up question to implement the step, the step is not detailed enough. Add the missing detail now.
-- Ask for output in this shape: `Goal`, `Constraints`, `Ordered steps`, `Dependencies`, `Open questions`, `First action`.
+- Ask sequentialthinking for output in this shape: `Goal`, `Constraints`, `Ordered steps`, `Dependencies`, `Open questions`, `First action`.
 
 **Impact checkpoint** *(modify-existing-code only)*:
 - `find_referencing_symbols` on the main symbol/module being changed.
@@ -154,22 +155,15 @@ Use `sequentialthinking` to break the chosen approach into atomic, ordered steps
 - DB schema changes → `⚠️ deploy order: [before / after] app deploy`
 - New external service calls → `⚠️ verify availability in target environment`
 
-**Planned touch points** — after decomposing all steps, compile `## Planned touch points` for the plan file: one bullet per file/class that will change, with the exact path and what is added/changed/removed at method or field level. A fresh agent must be able to read this section and know every artifact to touch before opening a single file.
+**Planned touch points** — after decomposing, compile `## Planned touch points`: one bullet per file/class that will change, with the exact path and what is added/changed/removed at method or field level.
 
-**Mapping/contract table** *(conditional — only when the task involves field mapping, data transformation, or protocol contracts)*: produce a `## Mapping outline` section listing every source → target mapping with repo field names, types, and any normalization notes. Prevents implementors from guessing names or semantics.
+**Mapping/contract table** *(conditional — only when the task involves field mapping, data transformation, or protocol contracts)*: produce `## Mapping outline` listing every source → target mapping with repo field names, types, and normalization notes.
 
 ---
 
 ### Step 5 — Identify unknowns
 
-Flag anything unresolved before handing off the plan:
-
-- **Docs needed**: library/API behavior not yet verified.
-- **Research needed**: tool or approach comparison still open.
-- **Decisions needed**: choices that require user input.
-- **Assumptions**: things the plan assumes but hasn't confirmed.
-
-**Classify each unknown before acting:**
+Flag anything unresolved before handing off:
 
 | Type | Action |
 |---|---|
@@ -177,13 +171,13 @@ Flag anything unresolved before handing off the plan:
 | **Tech lookup** — library API behavior, yes/no capability, 2-option comparison | Resolve inline: `query-docs` (context7) or `brave_web_search`. Append `→ Confirmed: [finding]`. |
 | **Complex research** — multi-source or open-ended comparison | Delegate to /b-research. Mark as `Unknown — needs /b-research: [topic]`. Do NOT block the plan on this. |
 
-**Clarification gate** — before proceeding to Step 6, batch all outstanding user-decision unknowns into a single message and wait for answers. Only write the plan after every user-decision unknown is resolved. A plan with unresolved user decisions is not a complete plan.
+**Clarification gate** — before Step 6, batch all outstanding user-decision unknowns into a single message and wait for answers. Only write the plan after every user-decision unknown is resolved.
 
 ---
 
 ### Step 6 — Write plan
 
-**Quick mode**: keep the plan in chat unless the user asks for a saved plan. Present the concise step list and ask for approval. After approval, implementation may proceed in the same session.
+**Quick mode**: keep the plan in chat unless the user asks for a saved plan. Present the step list, ask for approval. After approval, implementation may proceed in the same session.
 
 **Full mode**: write to `.claude/b-plans/[task-slug].md` in the **current project root only**.
 
@@ -191,7 +185,7 @@ Flag anything unresolved before handing off the plan:
 - Create `.claude/b-plans/` if it doesn't exist.
 - Show the exact saved path after writing.
 
-Present a short summary (scope + step count) and ask for confirmation. Update and re-confirm if the user requests changes. After the user approves, implementation may proceed in the same session unless the user wants a separate handoff.
+Present a short summary (scope + step count) and ask for confirmation. Update and re-confirm if the user requests changes. After approval, implementation may proceed in the same session unless the user wants a separate handoff.
 
 ---
 
@@ -218,11 +212,11 @@ Always English, regardless of the user's query language.
 **Why**: [1–2 sentence rationale]
 
 ## Confirmed decisions
-1. [Unambiguous, implementation-actionable statement of a behavioral/design/product decision made during planning.]
+1. [Unambiguous, implementation-actionable statement.]
 2. ...
 
-## Mapping outline *(only if task involves field mapping, data transformation, or protocol contracts)*
-- `[source field / repo property]` → `[target field]` — [normalization notes]
+## Mapping outline *(only if task involves field mapping or protocol contracts)*
+- `[source field]` → `[target field]` — [normalization notes]
 ...
 
 ## Planned touch points
@@ -238,7 +232,7 @@ Always English, regardless of the user's query language.
   - Current state: ... *(what exists today that will change)*
   - Why now: ...
   - Done when: ... *(verifiable by a fresh agent — test command, output, assertion)*
-  - Exact [X]: ... *(optional — lock in implementation choices, field lists, insertion points, build rules that must not be left open)*
+  - Exact [X]: ... *(optional — lock in implementation choices)*
 
 - [ ] 2. [Step name]
   ...
@@ -269,5 +263,5 @@ Always English, regardless of the user's query language.
 - Surface risks and assumptions proactively.
 - Split into phases if 10+ steps.
 - Never trigger destructive git commands.
-- **Never self-infer ambiguous requirements** — if a decision requires user input, ask immediately during planning. A plan built on silent assumptions is not a complete plan.
-- **Handoff standard: 90%+** — every step must be detailed enough that a fresh agent with zero prior context can implement it without asking a follow-up question. If an implementor would need to ask anything, the step is not done.
+- **Never self-infer ambiguous requirements** — ask the user immediately.
+- **Handoff standard: 90%+** — every step must be detailed enough that a fresh agent with zero prior context can implement it without asking a follow-up question.

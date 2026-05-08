@@ -8,20 +8,16 @@ Detailed contract reference for the b-skills suite. For install and overview, se
 
 ### b-plan
 
-Think before coding. Decompose tasks into ordered steps, evaluate competing approaches,
-surface risks, and produce an execution-ready plan file.
+Think before coding. Decompose tasks into ordered steps, evaluate competing approaches, surface risks, and produce an execution-ready plan file.
 
 **Core behavior**
-- Supports **quick mode** for scoped daily tasks: concise chat plan, approval, then same-session implementation may proceed.
-- Supports **full mode** for unclear, high-risk, multi-layer, or broad-impact tasks: write an execution-ready plan file before implementation.
-- Chooses quick vs full automatically from task complexity, announces the selected mode and why, and asks the user only when speed vs durable handoff is a genuine preference trade-off.
+- **Step 0** picks **quick mode** vs **full mode** before any other work. Quick = scoped daily tasks (chat plan, approval, same-session implementation). Full = unclear/high-risk/multi-layer (saved plan file).
+- Auto-selects mode from task complexity, announces it in one sentence, and asks the user only when both modes are genuinely valid and preference matters.
 - Escalates quick → full when discovery reveals broad references, unclear requirements, structural decisions, external API uncertainty, or deployment risk.
-- Keeps ownership of broad or unclear refactors until the work is reduced to concrete rename/extract/move/inline steps that can be handed off to `b-refactor`.
-- Uses `sequential-thinking` to decompose work and rank approaches when available; otherwise reasons inline with the same structure.
-- If Serena is unavailable, falls back to Bash/Read for narrow code inspection with reduced cross-file confidence.
-- For existing-code tasks, follows a strict supported-Serena read-order: onboarding check → symbol discovery → overview → references → narrow native reads only when needed.
-- Uses `get_symbols_overview` before opening source bodies, then reads only the exact sections needed.
-- Uses sequential-thinking for both approach selection and ordered execution steps, with action-oriented output.
+- Owns broad or unclear refactors until they're reduced to concrete rename/extract/move/inline steps that can be handed off to `b-refactor`.
+- Uses `sequentialthinking` for approach selection and ordered execution steps when available; otherwise reasons inline with the same structure.
+- For existing-code tasks, follows a strict supported-Serena read-order in Step 2: onboarding check → symbol discovery → overview → references → narrow native reads only when needed.
+- Issue/ticket scrape (when present) lives in Step 2 as a context source for the scan.
 - Evaluates multiple approaches and documents the chosen one in `## Decision`.
 - Includes a feasibility gate for uncertain or large-scope tasks.
 - Adds deploy-safety annotations (feature flags, migration ordering, external dependencies).
@@ -36,8 +32,7 @@ how should I approach refactoring the auth module?
 **Output**
 - Quick mode: returns a concise 2–5 step chat plan with a verification step.
 - Full mode: writes a plan file to `.claude/b-plans/[task-slug].md`.
-- Full-mode plans include: `## Decision` (approach chosen + alternatives rejected), ordered checkbox steps,
-  dependencies, risks, unknowns, and optional `## Feasibility`.
+- Full-mode plans include: `## Decision` (approach + rejected alternatives), ordered checkbox steps, dependencies, risks, unknowns, and optional `## Feasibility` and `## Mapping outline`.
 - Final plans must be self-contained enough that a fresh agent can execute them without clarifying questions.
 - Saved plan files are always in English.
 
@@ -45,7 +40,7 @@ how should I approach refactoring the auth module?
 - Do not implement until the user approves the plan; after approval, implementation may proceed in the same session.
 - Full mode must write to `.claude/b-plans/`; quick mode may stay in chat unless the user asks for a saved plan.
 - The feasibility gate only confirms blockers and scope; it does not replace `/b-research` for deep unknowns.
-- All unresolved unknowns must be surfaced in the plan — never deferred silently.
+- All unresolved unknowns must be surfaced — never deferred silently.
 - **Handoff standard: 90%+** — every step must be detailed enough that a fresh agent with zero prior context can implement it without asking a follow-up question.
 
 ---
@@ -57,11 +52,10 @@ All external knowledge in one skill: auto-detects quick lookup vs full multi-sou
 **Core behavior**
 - Starts with mode detection: quick lookup for single-fact questions, full mode for comparisons, cited reports, recency, or page-reading.
 - For library/framework API questions: Context7 first.
-- In quick mode: answers in 1–3 sentences with a minimal example, capped at 2 tool calls, and never scrapes.
-- Starts with quick mode when plausible, then escalates automatically to full mode if the answer needs more than 2 tool calls, more than 1 source, or any page scraping.
-- If quick mode is insufficient, escalates automatically to full mode instead of asking the user to switch skills.
+- In quick mode: answers in 1–3 sentences with a minimal example, capped at 2 tool calls, never scrapes.
+- Starts with quick mode when plausible, then escalates automatically when the answer needs more than 2 tool calls, more than 1 source, or any page scraping.
 - In full mode: classifies query into VERSION / COMPARE / NEWS / HOWTO/API → Brave Search → Firecrawl scrape/extract → quality gate → synthesis report.
-- Uses `sequential-thinking` only when conflicting sources materially change the recommendation.
+- Uses `sequentialthinking` only when conflicting sources materially change the recommendation.
 - Prefers 3 high-quality sources over 5 mixed-quality ones.
 
 **Good triggers**
@@ -89,15 +83,13 @@ tra cứu cách dùng thư viện Prisma
 Systematic, hypothesis-driven debugging with full-loop execution by default.
 
 **Core behavior**
-- Uses supported Serena tools to map execution path, references, suspicious symbols, and file structure.
+- Uses supported Serena tools to map execution path, references, suspicious symbols, and file structure (Step 2).
 - If Serena is unavailable, falls back to Bash/Read with reduced cross-file confidence.
 - Initializes Serena project knowledge with onboarding check before tracing when needed.
-- Follows a strict read-order: find symbol → overview → references → native exact-string search/read only when needed → symbolic fix. Never jumps to full-file reads without narrowing first.
-- Narrows with `get_symbols_overview` before opening source where possible.
-- Uses `sequential-thinking` to rank hypotheses.
-- Requires each hypothesis to include evidence for/against and the cheapest verification step.
-- Library error shortcut: web search for known issues before verifying hypotheses.
-- Dynamic verification loop when static analysis is insufficient (max 3 instrumentation rounds).
+- **Step 3a** forms ranked hypotheses with evidence/verification per item.
+- **Step 3b** runs fast-path lookups (library-error shortcut + error-string codebase search) before verifying — these often eliminate wrong hypotheses.
+- Library error shortcut: web search → Firecrawl scrape (top 1–2 URLs) → Context7 verification.
+- Dynamic verification loop in Step 4 when static analysis is insufficient (max 3 instrumentation rounds).
 - After confirming root cause, implements the minimal fix using symbol-aware tools and states exact verification steps.
 
 **Default contract**: `trace → confirm root cause → fix → verify`
@@ -112,7 +104,7 @@ why is this callback not running?
 
 **Output**
 ```
-Symptoms → Code path → Ranked hypotheses → Root cause → Fix → Verification
+Symptoms → Code path → Ranked hypotheses → Fast-path findings → Root cause → Fix → Verification
 ```
 
 **Key rules**
@@ -123,29 +115,35 @@ Symptoms → Code path → Ranked hypotheses → Root cause → Fix → Verifica
 
 ### b-review
 
-Human-judgment pre-PR review: correctness, requirements, edge cases, tests, and minimum
-observability on new entry points.
+Human-judgment pre-PR review: correctness, requirements, edge cases, tests, and minimum observability on new entry points.
 
 **Core behavior**
 - Reads git diff and builds requirements baseline from plan file, `$ARGUMENTS`, or user clarification.
+- Defines fast-path threshold (`≤50 lines AND ≤2 files`) once at the top of the skill — referenced by Steps 2, 3, and 6.
 - Uses supported Serena tools to prioritize review depth by changed symbols, references, and affected files.
 - Initializes Serena project knowledge with onboarding check before reviewing changed symbols when needed.
 - Follows a strict read-order: find symbol → find referencing symbols → overview → narrow reads. Never jumps straight from diff to full file reads.
 - Reviews changed files outline-first, then opens only high-risk symbols/source paths.
-- Uses `sequential-thinking` only when blocker/suggestion classification is genuinely ambiguous, not by default.
+- Uses `sequentialthinking` only when blocker/suggestion classification is genuinely ambiguous.
 - Always checks **injection vectors**, even on very small diffs.
-- Runs observability check only for newly added endpoints/handlers/jobs/consumers.
+- Runs observability check (Step 6) only for newly added endpoints/handlers/jobs/consumers.
+- Skips test-adequacy + observability when `$ARGUMENTS` contains `skip test adequacy`.
 
-**Small-change fast path** — if diff is ≤50 lines AND ≤2 files:
-- Accepts any non-empty requirements baseline
-- Skips vague-response enforcement, observability check, expanded security checklist
-- Still checks **injection vectors**
+**Step layout**
+1. Get the diff
+2. Establish requirements baseline (fast-path eases this)
+3. Logic correctness (fast-path skips expanded security checklist; injection-vector check ALWAYS runs)
+4. Requirements coverage check
+5. Edge case + test adequacy check
+6. Observability check (skipped if fast-path or no new entry points)
+7. Consolidate findings
 
 **Good triggers**
 ```text
 /b-review
 review before PR
 kiểm tra logic trước khi push
+/b-review skip test adequacy
 ```
 
 **Output**
@@ -166,16 +164,13 @@ Test-driven development, test debugging, and test coverage evaluation.
 
 **Core behavior**
 - Discovers test files and framework via Bash, then inspects structure with Serena symbol tools.
-- For failing tests: reads test + source, identifies assertion/mock/setup/async issue.
-- For new tests: maps source symbols, lists branches and edge cases, and adds tests in existing files or creates a new test file with supported repo tools when needed.
+- Step 2 picks a branch:
+  - **Branch A — Failing test**: read test + source, identify assertion/mock/setup/async issue, apply minimal fix.
+  - **Branch B — Write tests**: map source symbol, list edge cases, add tests via Serena symbol tools or `Write` for new files.
+  - **Branch C — Evaluate coverage**: run coverage report, rank gaps, optionally write top 1–3 missing tests.
 - Runs tests via Bash after every change to confirm fix or coverage improvement.
 - Distinguishes test-specific failures from runtime bugs (test failure != production bug).
 - Uses `sequentialthinking` for test strategy only when unit vs integration is ambiguous.
-
-**Branches**
-- **Write tests**: map source symbol → list edge cases → write behavior tests → run suite
-- **Fix failing test**: read error → inspect test + source → identify gap → fix → re-run
-- **Evaluate coverage**: run coverage report → identify uncovered branches → write tests
 
 **Good triggers**
 ```text
@@ -186,7 +181,7 @@ Test-driven development, test debugging, and test coverage evaluation.
 
 **Output**
 ```
-Test type → Test structure → Issue/Requirements → Fix/Implementation → Verification
+Type → Framework → Test structure → Issue/Requirements → Fix/Implementation → Verification → [Coverage if Branch C]
 ```
 
 **Key rules**
@@ -204,12 +199,12 @@ Browser-based frontend testing and E2E script authoring.
 **Core behavior**
 - Uses Playwright MCP to navigate to the target web application.
 - Before navigating to `localhost`, verifies the dev server is reachable via a Bash health check; asks the user to start it if not responding.
-- Creates a temporary directory `.claude/b-e2e/` to store intermediate artifacts (screenshots and snapshots) during testing.
-- Relies on accessibility tree snapshots (`browser_snapshot`) saved to the temp directory to map the UI and get precise target references.
+- Creates a temporary directory `.claude/b-e2e/` to store intermediate artifacts (screenshots and snapshots).
+- Relies on accessibility tree snapshots (`browser_snapshot`) to map the UI and get precise target references.
 - Performs sequential user interactions (clicks, typing, form fills).
 - Verifies UI state changes via updated snapshots; optionally monitors network requests with `browser_network_requests` for API-level assertions.
-- Translates successful manual browser interactions into robust Playwright test code, using Serena symbol tools to insert into existing test files when available.
-- Cleans up the `.claude/b-e2e/` directory entirely when the flow is finished.
+- Translates successful manual interactions into Playwright test code via Serena symbol tools when an existing spec exists, or `Write` when no spec file exists.
+- Closes the browser session and removes `.claude/b-e2e/` entirely when the flow finishes.
 
 **Good triggers**
 ```text
@@ -220,54 +215,16 @@ chạy E2E test cho form đăng ký
 
 **Output**
 ```
-Target URL → UI Snapshot → Interactions Performed → Assertions/Results → [Optional] Test Code → Cleanup
+Target URL → UI Snapshot → Interactions → Assertions → [Optional] Test Code → Cleanup
 ```
 
 **Key rules**
 - Inherently requires the `playwright` MCP to function.
 - Never guess element selectors; always read the `browser_snapshot` first.
-- For `localhost` targets, run a Bash health check before calling `browser_navigate` — do not attempt to navigate to a non-responding server.
+- For `localhost` targets, run a Bash health check before calling `browser_navigate`.
 - All testing artifacts must go into `.claude/b-e2e/` and be removed upon completion.
+- Always close the browser at cleanup.
 - Distinct from `b-test`, which handles code-level unit testing without a live browser.
-
----
-
-### b-lookup
-
-Legacy compatibility alias for `b-research` quick mode.
-
-**Core behavior**
-- Hidden from normal invocation and not auto-triggered.
-- Exists only so older habits or explicit `/b-lookup` calls still work.
-- Uses the same quick-mode behavior as `b-research`: Context7 first for library questions, one Brave fallback, no scraping.
-- Carries its own minimal tool contract and graceful-degradation behavior, but remains compatibility-only.
-- If the answer needs multiple sources or page reads, escalate to `b-research` full mode.
-
-**Recommended entry point**: use `/b-research` for both quick lookups and deep research.
-
-**Good triggers**
-```text
-/b-lookup what's the signature of Array.prototype.flatMap?
-/b-lookup config key for retry in BullMQ
-/b-lookup does Prisma support native upsert?
-```
-
-**Output**
-```
-Library — topic
-[1–3 sentence answer]
-Example:
-```lang
-// minimal code
-```
-Source: Context7(library-id) / Brave Search
-```
-
-**Key rules**
-- Do not auto-invoke this skill.
-- Do not present this as the preferred user-facing choice.
-- Never scrape or crawl here; escalate to /b-research full mode if needed.
-- Output stays in the same quick-answer format as b-research quick mode.
 
 ---
 
@@ -276,13 +233,14 @@ Source: Context7(library-id) / Brave Search
 Code refactoring with impact analysis and safe mechanical transformation.
 
 **Core behavior**
-- Maps full impact radius with find_referencing_symbols before touching any code.
+- Maps full impact radius with `find_referencing_symbols` before touching any code.
 - Requires green test baseline before refactoring — warns if tests are already failing.
-- Uses Serena's symbol-aware tools (rename_symbol, safe_delete_symbol, replace_symbol_body) for cross-file safe edits.
+- Uses Serena's symbol-aware tools (`rename_symbol`, `safe_delete_symbol`, `replace_symbol_body`) for cross-file safe edits.
 - Assumes the target transformation is already concrete; broad or unclear refactors should go through `b-plan` first.
 - Executes in dependency order (inner helpers first, outer callers last).
 - Verifies after every step: compilation → tests → git diff.
-- For large refactors (>3 files or crossing package boundaries): uses sequentialthinking to plan phases.
+- For large refactors (>3 files or crossing package boundaries): uses `sequentialthinking` to plan phases.
+- Hands off post-refactor failures: real regression → `/b-debug`; test-mechanic drift → `/b-test`.
 
 **Transformations supported**
 - Rename symbol/file/directory
@@ -306,9 +264,9 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 
 **Key rules**
 - Never refactor without a green test baseline.
-- Always use find_referencing_symbols before renaming or deleting.
-- Prefer rename_symbol over manual Edit for renames — it updates all references atomically.
-- Prefer safe_delete_symbol over manual deletion — it prevents accidental removal of still-used code.
+- Always use `find_referencing_symbols` before renaming or deleting.
+- Prefer `rename_symbol` over manual Edit for renames — it updates all references atomically.
+- Prefer `safe_delete_symbol` over manual deletion — it prevents accidental removal of still-used code.
 - Run compilation check after every mechanical step.
 - One commit per logical transformation.
 
@@ -360,8 +318,8 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 
 ## Trigger tips
 
-- Invoke skills with `/` prefix: `/b-plan`, `/b-debug`, `/b-review`, `/b-research`, `/b-test`, `/b-refactor`
-- Use explicit intent words: `plan`, `debug`, `review`, `research`, `lookup`, `test`, `refactor`
+- Invoke skills with `/` prefix: `/b-plan`, `/b-debug`, `/b-review`, `/b-research`, `/b-test`, `/b-e2e`, `/b-refactor`.
+- Use explicit intent words: `plan`, `debug`, `review`, `research`, `lookup`, `test`, `refactor`, `E2E`, `UI test`.
 - Mention complexity when relevant: multi-file, unfamiliar module, unclear root cause.
 
 ---
@@ -371,6 +329,7 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 ```
 /b-plan ──────────────── writes ─────────────────► plan file in .claude/b-plans/
         └── unknown library/approach ────────────► /b-research (before or during planning)
+        └── reduced to mechanical steps ─────────► /b-refactor
 
 /b-review ────────────── READY FOR PR ───────────► commit
           └──────────── NEEDS FIXES ─────────────► fix → /b-review again
@@ -381,9 +340,11 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 /b-test ──────────────── test fails ────────────► /b-debug (if failure reveals runtime bug)
         └──────────── coverage gap ─────────────► write tests → run suite
 
-/b-refactor ───────────── rename/move/extract ──► /b-review (after transformation)
-            └──────────── test fails ─────────────► /b-test or /b-debug
+/b-e2e ───────────────── UI flow verified ──────► author Playwright spec → cleanup
+       └──────────── backend failure surfaces ──► /b-debug
+
+/b-refactor ─────────── rename/move/extract ────► /b-review (after transformation)
+            └────── test failure ───────────────► /b-test (mechanic) or /b-debug (regression)
 
 /b-research ──────────── quick lookup or full research, auto-routes internally
-/b-lookup ────────────── legacy alias to /b-research quick mode
 ```

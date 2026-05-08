@@ -33,12 +33,12 @@ If `$ARGUMENTS` is provided, treat it as the refactoring instruction. Proceed di
 - New feature, broad refactor, or unclear scope → use **b-plan** first
 - Runtime bug or test failure → use **b-debug**
 - Review after implementation → use **b-review**
+- Tests fail after refactor → use **b-test** (test-specific) or **b-debug** (real regression)
 - Quick library API lookup → use **b-research**
-- Open-ended research → use **b-research**
 
 ## Tools required
 
-- `Bash` — run tests, check compilation, inspect git diff
+- `Bash` — run tests, check compilation, inspect git diff.
 - `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol`, `rename_symbol`, `safe_delete_symbol` — from `serena` MCP server *(required for impact analysis and safe symbol-level edits)*
 - `sequentialthinking` — from `sequential-thinking` MCP server *(optional, for evaluating trade-offs on large refactors)*
 
@@ -54,22 +54,18 @@ Graceful degradation: ⚠️ Partial — mechanical refactoring still possible w
 1. Call `check_onboarding_performed`. If false, call `onboarding`.
 
 2. Identify the target symbol:
-   - If the user names a function/class: call `find_symbol` with that name.
-   - If the user references a file: call `get_symbols_overview` to inspect top-level symbols.
-   - If the instruction is vague ("clean up the auth module"): call `get_symbols_overview`
-     on the file, then ask the user for a specific target.
+   - User names a function/class → `find_symbol` with that name.
+   - User references a file → `get_symbols_overview` to inspect top-level symbols.
+   - Vague instruction ("clean up the auth module") → `get_symbols_overview` on the file, then ask the user for a specific target.
 
-3. Call `find_referencing_symbols` on the target symbol to map every call site and usage.
-   Record: how many files reference it, whether it's exported/public, and whether any
-   references are in tests.
+3. Call `find_referencing_symbols` on the target to map every call site and usage.
+   Record: how many files reference it, whether it's exported/public, whether any references are in tests.
 
-4. Run tests via Bash to establish a baseline (must pass before refactoring).
+4. Run tests via Bash to establish a baseline (must pass before refactoring):
    ```bash
-   # Run the test suite — adjust for the project's framework
    npm test || pytest || go test ./... || cargo test
    ```
    If tests fail before refactoring: warn the user and ask whether to proceed.
-   Refactoring on a red test suite makes it impossible to verify behavior was preserved.
 
 **Goal**: know the full impact radius before touching any code.
 
@@ -79,11 +75,11 @@ Graceful degradation: ⚠️ Partial — mechanical refactoring still possible w
 
 Choose the mechanical transformation pattern that matches the request:
 
-- **Rename** → use `rename_symbol`, then run verification.
+- **Rename** → `rename_symbol`, then verify.
 - **Extract method** → add the new helper with `insert_before_symbol`, then update the caller with `replace_symbol_body`.
 - **Inline variable** → substitute the expression with `replace_symbol_body`, then remove the symbol with `safe_delete_symbol`.
 - **Move to new file** → insert or replace the declaration in the destination, update imports, then delete from the old location.
-- **Delete dead code** → confirm zero usages, then use `safe_delete_symbol`.
+- **Delete dead code** → confirm zero usages, then `safe_delete_symbol`.
 - **Split large function** → insert helpers first, then update the original function to call them.
 
 If the refactor affects >3 files or crosses package boundaries:
@@ -96,55 +92,37 @@ If the refactor affects >3 files or crosses package boundaries:
 
 Apply edits in dependency order. Prefer Serena's symbol-aware tools over native `Edit`:
 
-1. **`rename_symbol`** — for renaming functions, classes, variables, files, or directories.
-   This is the safest option for cross-file renames because Serena updates all references
-   through the language server.
+1. **`rename_symbol`** — for renaming functions, classes, variables, files, or directories. Safest for cross-file renames.
+2. **`safe_delete_symbol`** — for removing dead code. Returns remaining usages; address them before retrying.
+3. **`replace_symbol_body`** — for changing the full body of a function or method while keeping the signature.
+4. **`insert_before_symbol` / `insert_after_symbol`** — for adding new functions or moving declarations.
+5. **Native `Edit`** — only for line-level import updates, config changes, or prose modifications that are not symbol-relative.
 
-2. **`safe_delete_symbol`** — for removing dead code. Serena checks for remaining usages
-   before deleting. If usages exist, the tool returns a list — address them before retrying.
+**Execution order rule**: apply changes from the inside out — inner helpers first, then outer callers. This prevents broken references during intermediate states.
 
-3. **`replace_symbol_body`** — for changing the full body of a function or method.
-   Use this when the signature stays the same but the implementation changes.
-
-4. **`insert_before_symbol` / `insert_after_symbol`** — for adding new functions or moving
-   declarations. Use these to add helper methods, extract classes, or reorganize modules.
-
-5. **Native `Edit`** — use only for line-level import updates, config changes, or prose
-   modifications that are not symbol-relative. Avoid using `Edit` for structural code changes
-   when a Serena tool is available.
-
-**Execution order rule**: apply changes from the inside out — inner helpers first, then
-outer callers. This prevents broken references during the intermediate state.
-
-**Import update rule**: if the refactor moves code across files, update imports manually
-via native `Edit` after the symbol-level changes are done.
+**Import update rule**: if the refactor moves code across files, update imports manually via native `Edit` after the symbol-level changes are done.
 
 ---
 
 ### Step 4 — Verify
 
-After every mechanical step, run the relevant tests:
+After every mechanical step:
 
-1. **Compilation check**: if the language is compiled (TypeScript, Go, Rust, Java),
-   run the compiler first to catch type errors:
+1. **Compilation check** *(compiled languages)*:
    ```bash
    npx tsc --noEmit || go build ./... || cargo check
    ```
 
-2. **Test check**: run the full test suite or the subset affected by the refactor:
+2. **Test check**:
    ```bash
    npm test || pytest || go test ./... || cargo test
    ```
 
-3. **Git diff inspection**: run `git diff` to confirm only intended changes were made.
-   Look for accidental deletions, wrong import paths, or unintended formatting changes.
+3. **Git diff inspection**: `git diff` to confirm only intended changes. Look for accidental deletions, wrong import paths, unintended formatting.
 
-4. **Impact re-check**: if the refactor changed a public/exported symbol, re-run
-   `find_referencing_symbols` to confirm all references still resolve correctly.
+4. **Impact re-check**: if the refactor changed a public/exported symbol, re-run `find_referencing_symbols` to confirm references resolve.
 
-**Iteration rule**: if tests fail or compilation errors appear, fix them before proceeding.
-   Do not continue to the next transformation step while the previous step is broken.
-   Maximum 2 fix iterations per step.
+**Iteration rule**: if tests or compilation fail, fix before proceeding. Maximum 2 fix iterations per step. If a failure looks like a real bug introduced by the refactor → handoff to /b-debug. If it's a test-mechanic failure (assertion drift, snapshot, mock) → handoff to /b-test.
 
 ---
 
@@ -166,9 +144,9 @@ After every mechanical step, run the relevant tests:
 - `[file:line]` — [what changed]
 
 #### Verification
-```bash
+\`\`\`bash
 [test command and result]
-```
+\`\`\`
 ✅ Tests pass / ❌ [N failures] — [fix status]
 
 #### Next steps
@@ -179,10 +157,8 @@ After every mechanical step, run the relevant tests:
 
 ## Rules
 
-- Never refactor without a green test baseline — if tests are failing before the refactor,
-  warn the user and ask whether to proceed.
-- Always use `find_referencing_symbols` before renaming or deleting — cross-file impact
-  is the most common source of refactoring bugs.
+- Never refactor without a green test baseline — warn and ask if tests are already failing.
+- Always use `find_referencing_symbols` before renaming or deleting — cross-file impact is the most common source of refactoring bugs.
 - Prefer `rename_symbol` over manual `Edit` for renames — it updates all references atomically.
 - Prefer `safe_delete_symbol` over manual deletion — it prevents accidental removal of still-used code.
 - Apply edits from the inside out — inner helpers first, then outer callers.
@@ -193,5 +169,4 @@ After every mechanical step, run the relevant tests:
 - Run the full test suite after the last step, not just the unit test for the changed function.
 - Never trigger destructive git commands.
 - Keep git history clean — one commit per logical transformation (rename, extract, move).
-- If the refactor is too large to verify in one session: stop after a safe checkpoint,
-  run tests, and tell the user: "Safe checkpoint reached. Remaining transformations: [list]."
+- If too large to verify in one session: stop after a safe checkpoint, run tests, and tell the user: "Safe checkpoint reached. Remaining transformations: [list]."
