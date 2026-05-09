@@ -45,7 +45,7 @@ Graceful degradation: ❌ Not possible — this skill inherently requires browse
 
 ### Step 1 — Setup environment and navigate
 
-Use `bash` to ensure the temporary artifact directory exists: `mkdir -p .opencode/b-e2e`.
+Use `bash` to ensure a session-specific artifact directory exists: `.opencode/b-e2e/[timestamp-or-flow-slug]/`. Never write screenshots or snapshots directly into the shared `.opencode/b-e2e/` root.
 
 Determine the target URL (local dev server or staging). If the URL is a `localhost` address, verify the dev server is reachable before navigating:
 ```bash
@@ -59,7 +59,7 @@ Once confirmed reachable (or for remote URLs), call `browser_navigate` to load t
 
 ### Step 2 — Map the UI and capture visuals
 
-Call `browser_snapshot` (saving to `.opencode/b-e2e/snapshot.md`) and `browser_take_screenshot` (saving to `.opencode/b-e2e/screenshot.png`) to capture the accessibility tree and visual state. Always use the accessibility snapshot to find exact target references before attempting to click or type.
+Call `browser_snapshot` and `browser_take_screenshot`, saving both into the session-specific `.opencode/b-e2e/[run]/` directory, to capture the accessibility tree and visual state. Always use the accessibility snapshot to find exact target references before attempting to click or type.
 
 ---
 
@@ -71,7 +71,7 @@ Execute the requested user flow by calling `browser_click`, `browser_fill_form`,
 
 ### Step 4 — Verify state
 
-Capture a new snapshot/screenshot in `.opencode/b-e2e/` or use `browser_evaluate` to assert that the expected text, elements, or state changes have appeared. Optionally use `browser_network_requests` for API-level assertions when the UI depends on backend calls.
+Capture a new snapshot/screenshot in the session-specific artifact directory or use `browser_evaluate` to assert that the expected text, elements, or state changes have appeared. Optionally use `browser_network_requests` for API-level assertions when the UI depends on backend calls.
 
 ---
 
@@ -80,7 +80,7 @@ Capture a new snapshot/screenshot in `.opencode/b-e2e/` or use `browser_evaluate
 If the user asked to write or fix a test file:
 
 1. Locate the appropriate spec file:
-   - Use bash to find existing specs (`find . -name "*.spec.ts" -o -name "*.e2e.ts"`).
+   - Use Glob to find existing specs (`**/*.spec.ts`, `**/*.e2e.ts`, or this repo's Playwright convention).
    - Use `find_symbol` on existing describe blocks to identify the right insertion point.
 2. Map the successful manual interactions from Steps 3–4 into Playwright code:
    - Mirror selectors from the snapshot (prefer accessible roles/names over CSS).
@@ -103,7 +103,7 @@ If no test code is requested, skip this step and just report the verified flow.
 When testing, verification, and code generation are complete:
 
 1. Close the browser session: `browser_close`.
-2. Remove temporary artifacts: `rm -rf .opencode/b-e2e`.
+2. Report the artifact directory path. Do not delete artifacts by default; they are useful evidence for failed UI checks. If the user asks to clean up, delete only the session-specific directory created by this run.
 
 ---
 
@@ -133,15 +133,16 @@ When testing, verification, and code generation are complete:
 Saved to: `[path/to/test.spec.ts]`
 
 #### Cleanup
-✅ Browser closed, `.opencode/b-e2e/` removed
+✅ Browser closed
+Artifacts: `.opencode/b-e2e/[run]/`
 ```
 
 ---
 
 ## Rules
 - Always use `browser_snapshot` to get exact element targets before interacting; never guess selectors blindly.
-- Save all intermediate snapshots, screenshots, and visual outputs strictly to `.opencode/b-e2e/`.
-- Always close the browser and delete `.opencode/b-e2e/` when the testing flow finishes.
+- Save all intermediate snapshots, screenshots, and visual outputs strictly to the session-specific `.opencode/b-e2e/[run]/` directory.
+- Always close the browser when the testing flow finishes. Do not delete artifacts unless the user asks, and only delete this run's directory.
 - Ensure the local dev server is running before attempting to navigate to `localhost`.
 - Keep interactions sequential and verify state changes after major actions.
 - Prefer accessible roles/names from the snapshot over brittle CSS selectors when authoring tests.

@@ -1,6 +1,6 @@
 # b-skills
 
-A lean 7-skill suite for **OpenCode**, optimized around **symbol-first code analysis (Serena MCP)** and **selective structured reasoning (Sequential Thinking only when ambiguity or trade-offs justify it)**.
+A lean 8-skill suite for **OpenCode**, optimized around **symbol-first code analysis (Serena MCP)** and **selective structured reasoning (Sequential Thinking only when ambiguity or trade-offs justify it)**.
 
 It follows a symbol-first workflow: **activate project → symbol/file discovery → symbol overview → references → narrow reads → symbolic edits** before any skill trusts code context.
 
@@ -32,6 +32,7 @@ You can inspect and maintain the suite from this source repository, which contai
 |---|---|---|
 | `/b-plan` | Decide | Think before coding — quick/full planning, task decomposition, approach evaluation, plan file when needed |
 | `/b-research` | Decide | All external knowledge — auto-detects quick lookup vs full research for docs, API facts, comparisons, and reports |
+| `/b-implement` | Build | Approved-plan execution — apply scoped steps one at a time, verify each step, stop for new decisions |
 | `/b-refactor` | Build | Code refactoring — impact analysis, safe mechanical transformation, verify |
 | `/b-debug` | Validate | Full-loop debugging — trace, confirm root cause, fix, verify |
 | `/b-test` | Validate | TDD — write tests, fix failing tests, evaluate coverage |
@@ -45,15 +46,18 @@ You can inspect and maintain the suite from this source repository, which contai
                  │  /b-plan    │ ◄── unknown library/approach ──► /b-research
                  └──────┬──────┘
                         │ approved plan
+                        ▼
+                 /b-implement
+                        │
             ┌───────────┼───────────┬──────────────┐
             ▼           ▼           ▼              ▼
-      /b-refactor   implement   /b-test        /b-e2e
+      /b-refactor   code edits   /b-test        /b-e2e
             │           │           │              │
             └───────────┴─────┬─────┴──────────────┘
                               ▼
                          /b-review ── READY FOR PR ─► commit
                               │
-                         NEEDS FIXES ─► fix → /b-review again
+                         NEEDS FIXES ─► fix → /b-implement or /b-debug
 
   /b-debug fires any time something breaks at runtime.
   /b-research fires any time a fact, API, or comparison is needed.
@@ -61,14 +65,14 @@ You can inspect and maintain the suite from this source repository, which contai
 
 **Typical flow:**
 ```text
-/b-plan [task] → approve plan → implement → /b-test → /b-review → commit
+/b-plan [task] → approve plan → /b-implement → /b-test → /b-review → commit
 /b-research [question]  (any time you need docs, API facts, or comparisons)
 /b-debug [symptom]      (any time something breaks)
 /b-refactor [target]    (mechanical code transformation)
 /b-e2e [flow]           (browser UI verification)
 ```
 
-`/b-plan` supports **quick mode** for scoped daily tasks and **full mode** for unclear, high-risk, or multi-layer work. It owns broad or unclear refactors until they reduce to concrete mechanical steps, at which point `/b-refactor` becomes the safer executor. After the user approves a plan, implementation may continue in the same session.
+`/b-plan` supports **quick mode** for scoped daily tasks and **full mode** for unclear, high-risk, or multi-layer work. It owns broad or unclear refactors until they reduce to concrete mechanical steps, at which point `/b-refactor` becomes the safer executor. After the user approves a plan, `/b-implement` is the default executor.
 
 See [REFERENCE.md](REFERENCE.md) for detailed skill contracts and maintenance conventions.
 
@@ -82,6 +86,7 @@ b-skills/
 ├── commands/
 │   ├── b-plan.md
 │   ├── b-research.md
+│   ├── b-implement.md
 │   ├── b-refactor.md
 │   ├── b-debug.md
 │   ├── b-test.md
@@ -96,6 +101,7 @@ b-skills/
 └── skills/
     ├── b-plan/SKILL.md
     ├── b-research/SKILL.md
+    ├── b-implement/SKILL.md
     ├── b-refactor/SKILL.md
     ├── b-debug/SKILL.md
     ├── b-test/SKILL.md

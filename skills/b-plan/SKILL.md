@@ -1,7 +1,7 @@
 ---
 name: b-plan
 description: >
-  Think before coding. Decompose non-trivial tasks into ordered steps, evaluate approaches, surface risks, and produce an execution-ready plan file. ALWAYS invoke when the user says "plan", "thiết kế", "how should I approach", "lên kế hoạch", "nên bắt đầu từ đâu", or the task spans more than 2 files or has unclear scope. Unlike b-debug (fix broken) or b-research (lookup info), b-plan owns the decision of what to build and in what order.
+  Think before coding. ALWAYS invoke when the user says "plan", "thiết kế", "how should I approach", "lên kế hoạch", "nên bắt đầu từ đâu", or the task spans more than 2 files or has unclear scope. Decomposes work, evaluates approaches, and writes plans. Unlike b-implement, b-plan decides what to build; it does not execute approved steps.
 compatibility: opencode
 metadata:
   suite: b-skills
@@ -28,6 +28,7 @@ If `$ARGUMENTS` is provided, treat it as the task description — skip asking "w
 
 - Simple single-file edit or ≤2-step task → do it directly.
 - Something is broken → use **b-debug**.
+- An approved plan is ready to execute → use **b-implement**.
 - Quick fact or library lookup → use **b-research**.
 - Mechanical refactoring with a clear target already defined → use **b-refactor**.
 
@@ -52,7 +53,7 @@ Graceful degradation: ✅ Possible — core planning works without MCPs using in
 
 Choose the lightest mode that fits the task before any other work.
 
-- **Quick mode** — scoped daily tasks: clear end state, low risk, usually ≤2 files, no DB/schema migration, no public API contract change, no security-sensitive behavior. Output a concise 2–5 step chat plan with a verification step. After approval, implementation may proceed in the same session.
+- **Quick mode** — scoped daily tasks: clear end state, low risk, usually ≤2 files, no DB/schema migration, no public API contract change, no security-sensitive behavior. Output a concise 2–5 step chat plan with a verification step. After approval, hand off to **b-implement** unless the user explicitly asks to continue in the same session.
 - **Full mode** — unclear, high-risk, multi-layer, or >2-file work. Run all steps below and write a plan file to `.opencode/b-plans/`.
 
 **Selection rule**: choose yourself from task complexity; do not ask the user. Announce the chosen mode in one sentence and why. Ask only when both modes are genuinely valid and preference matters.
@@ -61,7 +62,7 @@ Choose the lightest mode that fits the task before any other work.
 
 Broad or unclear refactors stay with `b-plan` until reduced to concrete mechanical transformations that can be handed off to `b-refactor`.
 
-In quick mode: skip Steps 2–6 unless escalation triggers; produce the chat plan, ask for approval, then proceed.
+In quick mode: skip Steps 2–6 unless escalation triggers; produce the chat plan, ask for approval, then hand off to **b-implement** or proceed only when the user explicitly asks to continue.
 
 ---
 
@@ -174,7 +175,7 @@ Flag anything unresolved before handing off:
 
 ### Step 6 — write plan
 
-**Quick mode**: keep the plan in chat unless the user asks for a saved plan. Present the step list, ask for approval. After approval, implementation may proceed in the same session.
+**Quick mode**: keep the plan in chat unless the user asks for a saved plan. Present the step list, ask for approval. After approval, hand off to **b-implement** unless the user explicitly asks to continue in the same session.
 
 **Full mode**: write to `.opencode/b-plans/[task-slug].md` in the **current project root only**.
 
@@ -182,7 +183,7 @@ Flag anything unresolved before handing off:
 - Create `.opencode/b-plans/` if it doesn't exist.
 - Show the exact saved path after writing.
 
-Present a short summary (scope + step count) and ask for confirmation. Update and re-confirm if the user requests changes. After approval, implementation may proceed in the same session unless the user wants a separate handoff.
+Present a short summary (scope + step count) and ask for confirmation. Update and re-confirm if the user requests changes. After approval, hand off to **b-implement** unless the user explicitly asks to continue in the same session.
 
 ---
 
@@ -254,7 +255,7 @@ Always English, regardless of the user's query language.
 - Full mode must write to `.opencode/b-plans/` — never leave full-mode plans only in chat.
 - Quick mode may stay in chat unless the user asks for a saved plan.
 - Always write saved plan files in English.
-- Do not implement until the user approves the plan. After approval, implementation may proceed in the same session.
+- Do not implement until the user approves the plan. After approval, use **b-implement** unless the user explicitly asks to continue in the same session.
 - Steps must be ordered by dependency — wrong order causes cascading failures.
 - Keep steps atomic — one clear action per step.
 - Surface risks and assumptions proactively.

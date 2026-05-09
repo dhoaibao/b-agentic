@@ -12,13 +12,14 @@ Match the user's intent to a skill before answering inline. Don't reinvent skill
 |---|---|
 | Decide what to build / decompose work | `/b-plan` |
 | Library docs, API facts, comparisons, deep research | `/b-research` |
+| Execute an approved plan or scoped implementation | `/b-implement` |
 | Mechanical refactor (rename, extract, move, inline, delete) | `/b-refactor` |
 | Runtime bug, error message, "not working" | `/b-debug` |
 | Write/fix tests, evaluate coverage | `/b-test` |
 | Browser/UI verification, Playwright authoring | `/b-e2e` |
 | Pre-PR review of correctness, requirements, edge cases | `/b-review` |
 
-If a request spans multiple skills, run them sequentially in the order above (Decide → Build → Validate). Don't merge phases.
+If a request spans multiple skills, run them sequentially in the order above (Decide → Implement → Validate). Don't merge phases.
 
 ---
 
@@ -61,7 +62,7 @@ When an MCP is connected, use it before native fallbacks.
 ## Session hygiene
 
 - After compaction: re-read the active plan if one exists, re-check Serena onboarding if project context seems lost, and prefer focused reads and diff inspection over pasting large files into chat.
-- After any `/b-plan` approval, the saved plan in `.opencode/b-plans/[task-slug].md` is the source of truth for the rest of the session — refer back to it instead of re-deriving decisions.
+- After any `/b-plan` approval, the saved plan in `.opencode/b-plans/[task-slug].md` is the source of truth. Use `/b-implement` to execute it instead of re-deriving decisions.
 - When you finish a multi-step task, state what was verified, not just what was changed.
 
 ---

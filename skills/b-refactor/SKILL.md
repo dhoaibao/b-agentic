@@ -59,11 +59,15 @@ Graceful degradation: ⚠️ Partial — mechanical refactoring still possible w
 3. Call `find_referencing_symbols` on the target to map every call site and usage.
    Record: how many files reference it, whether it's exported/public, whether any references are in tests.
 
-4. Run tests via bash to establish a baseline (must pass before refactoring):
-   ```bash
-   npm test || pytest || go test ./... || cargo test
-   ```
-   If tests fail before refactoring: warn the user and ask whether to proceed.
+4. Choose a baseline check based on risk:
+   - **Low risk**: local rename/extract/inline inside one file, no exported API, no behavior change -> baseline may be skipped; record why.
+   - **Medium/high risk**: exported symbol, move across files, delete code, package boundary, or >2 files -> run tests or typecheck before refactoring.
+
+   Suggested baseline commands:
+    ```bash
+    npm test || pytest || go test ./... || cargo test
+    ```
+   If baseline checks fail before a medium/high-risk refactor: warn the user and ask whether to proceed.
 
 **Goal**: know the full impact radius before touching any code.
 
@@ -155,7 +159,7 @@ After every mechanical step:
 
 ## Rules
 
-- Never refactor without a green test baseline — warn and ask if tests are already failing.
+- Never perform a medium/high-risk refactor without a green baseline check — warn and ask if checks are already failing. Low-risk single-file mechanical edits may skip baseline with an explicit note.
 - Always use `find_referencing_symbols` before renaming or deleting — cross-file impact is the most common source of refactoring bugs.
 - Prefer `rename_symbol` over manual `edit` for renames — it updates all references atomically.
 - Prefer `safe_delete_symbol` over manual deletion — it prevents accidental removal of still-used code.

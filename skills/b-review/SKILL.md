@@ -1,7 +1,7 @@
 ---
 name: b-review
 description: >
-  Pre-PR code review — verify logic correctness, requirements fulfillment, edge case coverage, and test adequacy before opening a pull request. Use when the user says "review before PR", "kiểm tra logic", or after implementation is done. Unlike b-debug (fix broken) or b-research (lookup info), b-review validates what was built against what was intended.
+  Pre-PR code review. ALWAYS invoke when the user says "review", "review before PR", "kiểm tra logic", "what would a reviewer flag", or after implementation is done. Verifies correctness, requirements, edge cases, and tests. Unlike b-test, b-review judges adequacy and risk; it does not primarily write tests.
 compatibility: opencode
 metadata:
   suite: b-skills
@@ -94,10 +94,11 @@ Determine what the code was *supposed* to do.
 **Vague response enforcement** *(non-fast-path only)*: if the user's answer is fewer than 2 sentences or lacks specific behavior or acceptance criteria, ask once more with a concrete example prompt:
 > "Please be more specific. For example: 'The retry logic should attempt 3 times with exponential backoff, and log each failure. It should not retry on 4xx errors.' What specific behavior should this code exhibit, and how would you verify it works?"
 
-If still vague, pause:
-> "Cannot review without a clear requirements baseline. Please answer: What specific behavior should the changed code exhibit, and how would you verify it works?"
-
-Do not proceed to Step 3 until a concrete answer is provided.
+If still vague or unavailable, continue in **diff-only risk review** mode instead of blocking:
+- Set `Requirements baseline` to `unavailable`.
+- Mark `Review mode` as `diff-only risk review`.
+- Review correctness, obvious regressions, security risk, edge cases, and test gaps visible from the diff.
+- Skip strict requirements coverage in Step 4 and report that requirements fulfillment could not be fully assessed.
 
 ---
 
@@ -159,7 +160,10 @@ For each issue found: state the file, line range, what the problem is, and what 
 
 ### Step 4 — Requirements coverage check
 
-Map each requirement from Step 2 against the changed code:
+If Step 2 produced no concrete requirements baseline, skip the coverage table and report:
+> Requirements coverage not assessed — no baseline was available. This review is limited to diff-visible correctness and risk.
+
+Otherwise, map each requirement from Step 2 against the changed code:
 
 | Requirement | Covered? | Where |
 |---|---|---|
@@ -224,6 +228,7 @@ Use the output to produce the final report.
 
 **Diff scope**: [N files changed, +X -Y lines] *(fast-path: yes/no)*
 **Requirements baseline**: [plan file / $ARGUMENTS / user-stated]
+**Review mode**: [requirements-based / diff-only risk review]
 
 ---
 
@@ -276,7 +281,7 @@ Suggestions (non-blocking):
 
 ## Rules
 
-- Never review without a requirements baseline — a review without knowing what was intended produces noise, not signal.
+- Prefer a requirements baseline. If none is available after a bounded clarification attempt, proceed only as a clearly labeled diff-only risk review and do not claim requirements coverage.
 - Blocker = anything that would cause a reviewer to request changes before merge.
 - Suggestion = improvement that does not block correctness or requirement fulfillment.
 - Do not re-run automated checks (lint, tests) — those are the user's responsibility; b-review owns human judgment.

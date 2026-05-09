@@ -12,6 +12,7 @@ Guidelines for creating, editing, and maintaining the install-only OpenCode skil
 
 - `skills/b-plan/SKILL.md` — Task decomposition and planning
 - `skills/b-research/SKILL.md` — Library docs and multi-source research
+- `skills/b-implement/SKILL.md` — Approved-plan execution
 - `skills/b-debug/SKILL.md` — Hypothesis-driven debugging
 - `skills/b-review/SKILL.md` — Pre-PR code review
 - `global/AGENTS.md` — Runtime instructions source installed into OpenCode

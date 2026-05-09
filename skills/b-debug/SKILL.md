@@ -1,7 +1,7 @@
 ---
 name: b-debug
 description: >
-  Systematic hypothesis-driven debugging — trace execution paths, form ranked hypotheses, confirm root cause, then fix and verify by default. Use when the user says "debug", "bug", "lỗi", "không chạy", "fix this", or pastes an error message. Unlike b-plan (decide approach) or b-research (lookup info), b-debug traces, confirms, and fixes broken code.
+  Systematic hypothesis-driven debugging. ALWAYS invoke when the user says "debug", "bug", "lỗi", "không chạy", "fix this", "why is X not working", or pastes an error message. Traces execution paths, confirms root cause, then fixes and verifies by default. Unlike b-test, b-debug owns runtime behavior failures, not test mechanics.
 compatibility: opencode
 metadata:
   suite: b-skills

@@ -11,10 +11,11 @@ Detailed contract reference for the b-skills suite. For install and overview, se
 Think before coding. Decompose tasks into ordered steps, evaluate competing approaches, surface risks, and produce an execution-ready plan file.
 
 **Core behavior**
-- **Step 0** picks **quick mode** vs **full mode** before any other work. Quick = scoped daily tasks (chat plan, approval, same-session implementation). Full = unclear/high-risk/multi-layer (saved plan file).
+- **Step 0** picks **quick mode** vs **full mode** before any other work. Quick = scoped daily tasks (chat plan, approval, then `b-implement`). Full = unclear/high-risk/multi-layer (saved plan file, then `b-implement`).
 - Auto-selects mode from task complexity, announces it in one sentence, and asks the user only when both modes are genuinely valid and preference matters.
 - Escalates quick → full when discovery reveals broad references, unclear requirements, structural decisions, external API uncertainty, or deployment risk.
 - Owns broad or unclear refactors until they're reduced to concrete rename/extract/move/inline steps that can be handed off to `b-refactor`.
+- Hands approved implementation work to `b-implement` by default so planning and execution stay distinct.
 - Uses `sequentialthinking` for approach selection and ordered execution steps when available; otherwise reasons inline with the same structure.
 - For existing-code tasks, follows a strict supported-Serena read-order in Step 2: onboarding check → symbol discovery → overview → references → narrow native reads only when needed.
 - Issue/ticket scrape (when present) lives in Step 2 as a context source for the scan.
@@ -37,7 +38,7 @@ how should I approach refactoring the auth module?
 - Saved plan files are always in English.
 
 **Key rules**
-- Do not implement until the user approves the plan; after approval, implementation may proceed in the same session.
+- Do not implement until the user approves the plan; after approval, use `b-implement` unless the user explicitly asks to continue in the same session.
 - Full mode must write to `.opencode/b-plans/`; quick mode may stay in chat unless the user asks for a saved plan.
 - The feasibility gate only confirms blockers and scope; it does not replace `/b-research` for deep unknowns.
 - All unresolved unknowns must be surfaced — never deferred silently.
@@ -75,6 +76,41 @@ tra cứu cách dùng thư viện Prisma
 - Quick mode caps at 2 tool calls before escalating or answering.
 - Default scrape cap in full mode: 3 URLs per session; 5 for COMPARE queries.
 - Never fill factual gaps from training data in full mode when sources do not support them.
+
+---
+
+### b-implement
+
+Approved-plan execution: read the source of truth, apply one step at a time, verify each step, and stop when new decisions appear.
+
+**Core behavior**
+- Resolves implementation source from `$ARGUMENTS`, `.opencode/b-plans/[slug].md`, or an approved chat plan.
+- Extracts confirmed decisions, planned touch points, ordered steps, dependencies, and `Done when` checks before editing.
+- Checks `git status --short` and preserves unrelated user changes.
+- Uses Serena for symbol-aware code changes: onboarding check -> symbol/file discovery -> overview -> references -> minimal edit.
+- Implements exactly one dependency-ready step at a time, then verifies with the plan's `Done when` command or the narrowest relevant check.
+- Marks saved plan checkboxes complete only after verification passes.
+- Stops for new product/behavior decisions instead of self-inferring.
+
+**Good triggers**
+```text
+/b-implement .opencode/b-plans/add-rate-limit.md
+/b-implement add-rate-limit
+implement the approved plan
+làm theo plan vừa duyệt
+```
+
+**Output**
+```
+Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions -> Next
+```
+
+**Key rules**
+- Implement only approved scope; unclear scope goes back to `b-plan`.
+- Work one step at a time and verify before moving on.
+- Do not refactor opportunistically while implementing a feature step.
+- Do not overwrite unrelated user changes.
+- Do not commit unless explicitly asked.
 
 ---
 
@@ -119,6 +155,7 @@ Human-judgment pre-PR review: correctness, requirements, edge cases, tests, and 
 
 **Core behavior**
 - Reads git diff and builds requirements baseline from plan file, `$ARGUMENTS`, or user clarification.
+- If no requirements baseline is available after bounded clarification, continues as a clearly labeled diff-only risk review and skips strict requirements coverage.
 - Defines fast-path threshold (`≤50 lines AND ≤2 files`) once at the top of the skill — referenced by Steps 2, 3, and 6.
 - Uses supported Serena tools to prioritize review depth by changed symbols, references, and affected files.
 - Initializes Serena project knowledge with onboarding check before reviewing changed symbols when needed.
@@ -131,7 +168,7 @@ Human-judgment pre-PR review: correctness, requirements, edge cases, tests, and 
 
 **Step layout**
 1. Get the diff
-2. Establish requirements baseline (fast-path eases this)
+2. Establish requirements baseline or mark diff-only risk review mode (fast-path eases this)
 3. Logic correctness (fast-path skips expanded security checklist; injection-vector check ALWAYS runs)
 4. Requirements coverage check
 5. Edge case + test adequacy check
@@ -148,7 +185,7 @@ kiểm tra logic trước khi push
 
 **Output**
 ```
-Logic findings → Requirements coverage table → Edge cases / test adequacy → Observability
+Logic findings → Requirements coverage table or diff-only limitation → Edge cases / test adequacy → Observability
 → Reviewer question → READY FOR PR or NEEDS FIXES
 ```
 
@@ -169,7 +206,7 @@ Test-driven development, test debugging, and test coverage evaluation.
   - **Branch B — Write tests**: map source symbol, list edge cases, add tests via Serena symbol tools or `write` for new files.
   - **Branch C — Evaluate coverage**: run coverage report, rank gaps, optionally write top 1–3 missing tests.
 - Runs tests via bash after every change to confirm fix or coverage improvement.
-- Distinguishes test-specific failures from runtime bugs (test failure != production bug).
+- Distinguishes test-specific failures from runtime bugs. Unconfirmed production behavior failures hand off to `b-debug` instead of patching production code from test output alone.
 - Uses `sequentialthinking` for test strategy only when unit vs integration is ambiguous.
 
 **Good triggers**
@@ -199,12 +236,12 @@ Browser-based frontend testing and E2E script authoring.
 **Core behavior**
 - Uses Playwright MCP to navigate to the target web application.
 - Before navigating to `localhost`, verifies the dev server is reachable via a bash health check; asks the user to start it if not responding.
-- Creates a temporary directory `.opencode/b-e2e/` to store intermediate artifacts (screenshots and snapshots).
+- Creates a session-specific directory under `.opencode/b-e2e/[run]/` to store intermediate artifacts (screenshots and snapshots).
 - Relies on accessibility tree snapshots (`browser_snapshot`) to map the UI and get precise target references.
 - Performs sequential user interactions (clicks, typing, form fills).
 - Verifies UI state changes via updated snapshots; optionally monitors network requests with `browser_network_requests` for API-level assertions.
 - Translates successful manual interactions into Playwright test code via Serena symbol tools when an existing spec exists, or `write` when no spec file exists.
-- Closes the browser session and removes `.opencode/b-e2e/` entirely when the flow finishes.
+- Closes the browser session when the flow finishes and keeps artifacts unless the user asks to delete this run's directory.
 
 **Good triggers**
 ```text
@@ -222,8 +259,8 @@ Target URL → UI Snapshot → Interactions → Assertions → [Optional] Test C
 - Inherently requires the `playwright` MCP to function.
 - Never guess element selectors; always read the `browser_snapshot` first.
 - For `localhost` targets, run a bash health check before calling `browser_navigate`.
-- All testing artifacts must go into `.opencode/b-e2e/` and be removed upon completion.
-- Always close the browser at cleanup.
+- All testing artifacts must go into a session-specific `.opencode/b-e2e/[run]/` directory.
+- Always close the browser at cleanup; do not delete artifacts by default.
 - Distinct from `b-test`, which handles code-level unit testing without a live browser.
 
 ---
@@ -234,7 +271,7 @@ Code refactoring with impact analysis and safe mechanical transformation.
 
 **Core behavior**
 - Maps full impact radius with `find_referencing_symbols` before touching any code.
-- Requires green test baseline before refactoring — warns if tests are already failing.
+- Requires a green baseline check for medium/high-risk refactors; low-risk single-file mechanical edits may skip baseline with an explicit note.
 - Uses Serena's symbol-aware tools (`rename_symbol`, `safe_delete_symbol`, `replace_symbol_body`) for cross-file safe edits.
 - Assumes the target transformation is already concrete; broad or unclear refactors should go through `b-plan` first.
 - Executes in dependency order (inner helpers first, outer callers last).
@@ -263,7 +300,7 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 ```
 
 **Key rules**
-- Never refactor without a green test baseline.
+- Never perform a medium/high-risk refactor without a green baseline check.
 - Always use `find_referencing_symbols` before renaming or deleting.
 - Prefer `rename_symbol` over manual edit for renames — it updates all references atomically.
 - Prefer `safe_delete_symbol` over manual deletion — it prevents accidental removal of still-used code.
@@ -278,20 +315,15 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 ```
 1. /b-plan [task]
 2. Approve the quick chat plan or full saved plan
-3. Implement from the approved plan/protocol, step by step
+3. /b-implement [approved plan path or slug]
 4. Run the targeted checks from each step's "Done when"
 5. /b-review [task]
 6. commit
 ```
 
-### Implementation protocol
+### Approved-plan implementation
 ```
-1. Use `read` on the approved chat plan or `.opencode/b-plans/[task].md`
-2. Follow confirmed decisions and planned touch points
-3. Execute steps in dependency order
-4. Verify each step with its "Done when" check or the narrowest relevant test/typecheck
-5. Stop and ask if a new product/behavior decision appears
-6. Run /b-review for non-trivial changes before committing
+/b-implement [.opencode/b-plans/task.md or task-slug]
 ```
 
 ### Debug flow
@@ -318,8 +350,8 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 
 ## Trigger tips
 
-- Invoke skills with `/` prefix: `/b-plan`, `/b-debug`, `/b-review`, `/b-research`, `/b-test`, `/b-e2e`, `/b-refactor`.
-- Use explicit intent words: `plan`, `debug`, `review`, `research`, `lookup`, `test`, `refactor`, `E2E`, `UI test`.
+- Invoke skills with `/` prefix: `/b-plan`, `/b-implement`, `/b-debug`, `/b-review`, `/b-research`, `/b-test`, `/b-e2e`, `/b-refactor`.
+- Use explicit intent words: `plan`, `implement`, `execute plan`, `debug`, `review`, `research`, `lookup`, `test`, `refactor`, `E2E`, `UI test`.
 - Mention complexity when relevant: multi-file, unfamiliar module, unclear root cause.
 
 ---
@@ -329,12 +361,18 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 ```
 /b-plan ──────────────── writes ─────────────────► plan file in .opencode/b-plans/
         └── unknown library/approach ────────────► /b-research (before or during planning)
+        └── approved plan ───────────────────────► /b-implement
         └── reduced to mechanical steps ─────────► /b-refactor
+
+/b-implement ─────────── step verified ──────────► next step
+             └────────── new decision needed ────► /b-plan
+             └────────── runtime failure ────────► /b-debug
+             └────────── test mechanics failure ─► /b-test
 
 /b-review ────────────── READY FOR PR ───────────► commit
           └──────────── NEEDS FIXES ─────────────► fix → /b-review again
 
-/b-debug ─────────────── bug found during impl ──► fix inline
+/b-debug ─────────────── bug found during impl ──► fix inline or return to /b-implement
          └──────────── fix introduces new code ──► /b-review (optional)
 
 /b-test ──────────────── test fails ────────────► /b-debug (if failure reveals runtime bug)
@@ -367,7 +405,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - `~/.config/opencode/commands/` — installed command destination created by `install.sh`.
 - `~/.config/opencode/instructions/b-skills.md` — installed runtime instructions file created by `install.sh`.
 - `.opencode/b-plans/` — saved plan files created by `/b-plan`.
-- `.opencode/b-e2e/` — temporary browser artifacts created by `/b-e2e`.
+- `.opencode/b-e2e/[run]/` — browser snapshots and screenshots created by `/b-e2e`.
 
 ### Maintenance rules
 - Keep one folder per skill under `skills/`.

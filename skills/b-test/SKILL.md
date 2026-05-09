@@ -37,12 +37,12 @@ Proceed directly. Do not ask "what test do you want to write?" unless `$ARGUMENT
 ## Tools required
 
 - `bash` — run test commands, inspect test output, locate test files.
-- `read`, `edit`, `write` — native file tools for inspecting tests and creating new test files when no suitable file exists.
+- Native file tools — Glob/Grep/Read for discovery and inspection; apply_patch-style edits for modifying or creating test files when no suitable file exists.
 - `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol` — from `serena` MCP server *(required for discovering test files and mapping tests to source symbols)*
 - `resolve-library-id`, `query-docs` — from `context7` MCP server *(optional, for verifying testing framework API — jest, vitest, pytest, etc.)*
 - `sequentialthinking` — from `sequential-thinking` MCP server *(optional, for choosing test strategy: unit vs integration vs e2e)*
 
-If Serena is unavailable: use bash to find test files (`find`, `ls`) and `read` for inspection. Note: "⚠️ Serena unavailable — test discovery via file listing."
+If Serena is unavailable: use Glob/Grep/Read for test discovery and inspection. Note: "⚠️ Serena unavailable — test discovery via file patterns and text search."
 If sequential-thinking is unavailable: choose test strategy inline with explicit pros/cons list.
 
 Graceful degradation: ✅ Possible — core test debugging works with bash + read + edit/write.
@@ -53,13 +53,11 @@ Graceful degradation: ✅ Possible — core test debugging works with bash + rea
 
 Find test files and understand the test setup:
 
-1. Use bash to locate test files and identify the testing framework:
-   ```bash
-   # Common patterns
-   find . -name "*.test.*" -o -name "*.spec.*" | head -20
-   cat package.json | grep -A2 '"test"'
-   ```
-   (Adapt for Python, Go, Java, Rust — `find` test files with language conventions.)
+1. Use Glob to locate test files and small manifest reads to identify the testing framework:
+   - JavaScript/TypeScript: `**/*.{test,spec}.{js,jsx,ts,tsx}`, then read `package.json` test scripts.
+   - Python: `tests/**/*.py`, `**/test_*.py`, then read `pytest.ini`, `pyproject.toml`, or `tox.ini` if present.
+   - Go: `**/*_test.go`, then read the closest `go.mod`.
+   - Rust: `**/*.rs` with test modules or `tests/**/*.rs`, then read `Cargo.toml`.
 
 2. Call `check_onboarding_performed`. If false, call `onboarding`.
 
@@ -107,7 +105,7 @@ Use `sequentialthinking` for branch selection only if the user's request is genu
 | Leaking state | Reset state in `beforeEach` or `afterEach` |
 | Async timing | Add `await`, return promise, or use `waitFor` |
 | Wrong test data | Provide realistic input matching the scenario |
-| Real bug in production code | Fix production code via symbol-aware edits, then re-run |
+| Real bug in production code | Hand off to **b-debug** unless the root cause is already confirmed and the production fix is minimal |
 
 Apply the minimal fix. Prefer `replace_symbol_body` for whole test functions over line-level `edit`.
 
@@ -210,7 +208,7 @@ Apply the minimal fix. Prefer `replace_symbol_body` for whole test functions ove
 ## Rules
 
 - Never modify production code to make a test pass unless the production code is actually buggy.
-- A failing test often reveals a bug in production code → if analysis confirms a real bug, fix production code via symbol-aware edits, then re-run the test.
+- A failing test often reveals a bug in production code → if root cause is not already confirmed, hand off to **b-debug** rather than patching production code from test output alone.
 - Keep test fixes minimal — if one assertion is wrong, fix that assertion; do not rewrite the entire test suite.
 - write behavior tests (assert on output), not implementation tests (assert on internal state).
 - Use `sequentialthinking` for test strategy decisions only if the choice is genuinely ambiguous.
