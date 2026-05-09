@@ -5,7 +5,6 @@ description: >
 compatibility: opencode
 metadata:
   suite: b-skills
-  effort: high
 ---
 
 # b-plan

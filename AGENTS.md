@@ -34,7 +34,6 @@ description: >
 compatibility: opencode
 metadata:
   suite: b-skills
-  effort: [low | medium | high | max]
 ---
 ```
 
@@ -50,7 +49,6 @@ metadata:
 **Repo conventions:**
 - Set `compatibility: opencode`
 - Set `metadata.suite: b-skills`
-- Store the reasoning-effort label in `metadata.effort`
 
 **Do not carry forward Claude-only frontmatter fields** such as top-level `effort`, `model`, `disable-model-invocation`, `user-invocable`, or `paths`.
 
@@ -90,7 +88,6 @@ description: >
 compatibility: opencode
 metadata:
   suite: b-skills
-  effort: medium
 ---
 
 # b-example
