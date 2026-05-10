@@ -272,7 +272,7 @@ Code refactoring with impact analysis and safe mechanical transformation.
 **Core behavior**
 - Maps full impact radius with `find_referencing_symbols` before touching any code.
 - Requires a green baseline check for medium/high-risk refactors; low-risk single-file mechanical edits may skip baseline with an explicit note.
-- Uses Serena's symbol-aware tools (`rename_symbol`, `safe_delete_symbol`, `replace_symbol_body`) for cross-file safe edits.
+- Uses Serena's symbol-aware tools (`rename_symbol`, `safe_delete_symbol`, `replace_symbol_body`) for cross-file safe edits where symbol-level operations apply.
 - Assumes the target transformation is already concrete; broad or unclear refactors should go through `b-plan` first.
 - Executes in dependency order (inner helpers first, outer callers last).
 - Verifies after every step: compilation → tests → git diff.
@@ -280,7 +280,8 @@ Code refactoring with impact analysis and safe mechanical transformation.
 - Hands off post-refactor failures: real regression → `/b-debug`; test-mechanic drift → `/b-test`.
 
 **Transformations supported**
-- Rename symbol/file/directory
+- Rename symbol
+- Rename file/directory with native move/rename plus Serena impact checks
 - Extract method/function
 - Inline variable/function
 - Move code between files
@@ -302,7 +303,7 @@ Target → Impact → Risk → Transformation plan → Changes → Verification
 **Key rules**
 - Never perform a medium/high-risk refactor without a green baseline check.
 - Always use `find_referencing_symbols` before renaming or deleting.
-- Prefer `rename_symbol` over manual edit for renames — it updates all references atomically.
+- Prefer `rename_symbol` over manual edit for symbol renames — it updates all references atomically.
 - Prefer `safe_delete_symbol` over manual deletion — it prevents accidental removal of still-used code.
 - Run compilation check after every mechanical step.
 - One commit per logical transformation.
@@ -405,6 +406,14 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - `~/.config/opencode/AGENTS.md` — installed runtime rules file created by `install.sh`.
 - `.opencode/b-plans/` — saved plan files created by `/b-plan`.
 - `.opencode/b-e2e/[run]/` — browser snapshots and screenshots created by `/b-e2e`.
+
+### Serena/OpenCode contract
+- `install.sh` configures Serena as `serena start-mcp-server --context=ide --project-from-cwd`.
+- The suite treats OpenCode as a generic Serena `ide` client, not as a custom Serena context with separate runtime semantics.
+- Serena is the semantic layer for symbol discovery, references, and structural edits.
+- OpenCode's native file and shell tools remain the default for overlapping basic operations that Serena's `ide` context assumes the harness already provides.
+- The activated Serena project is expected to follow the current working directory, so core skill guidance must stay single-project and must not depend on project-switching workflows.
+- Serena memory is available for durable project knowledge, but the suite treats it as selective and task-driven rather than a default read/write step in every skill.
 
 ### Maintenance rules
 - Keep one folder per skill under `skills/`.

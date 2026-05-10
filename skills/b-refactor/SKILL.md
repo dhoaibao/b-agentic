@@ -77,7 +77,8 @@ Graceful degradation: ⚠️ Partial — mechanical refactoring still possible w
 
 Choose the mechanical transformation pattern that matches the request:
 
-- **Rename** → `rename_symbol`, then verify.
+- **Rename symbol** → `rename_symbol`, then verify.
+- **Rename file/directory** → use native rename/move operations, then use Serena reference checks plus import verification before proceeding.
 - **Extract method** → add the new helper with `insert_before_symbol`, then update the caller with `replace_symbol_body`.
 - **Inline variable** → substitute the expression with `replace_symbol_body`, then remove the symbol with `safe_delete_symbol`.
 - **Move to new file** → insert or replace the declaration in the destination, update imports, then delete from the old location.
@@ -94,7 +95,7 @@ If the refactor affects >3 files or crosses package boundaries:
 
 Apply edits in dependency order. Prefer Serena's symbol-aware tools over native `edit`:
 
-1. **`rename_symbol`** — for renaming functions, classes, variables, files, or directories. Safest for cross-file renames.
+1. **`rename_symbol`** — for renaming functions, classes, and variables. Safest when the refactor is a real symbol rename across references.
 2. **`safe_delete_symbol`** — for removing dead code. Returns remaining usages; address them before retrying.
 3. **`replace_symbol_body`** — for changing the full body of a function or method while keeping the signature.
 4. **`insert_before_symbol` / `insert_after_symbol`** — for adding new functions or moving declarations.
@@ -161,7 +162,7 @@ After every mechanical step:
 
 - Never perform a medium/high-risk refactor without a green baseline check — warn and ask if checks are already failing. Low-risk single-file mechanical edits may skip baseline with an explicit note.
 - Always use `find_referencing_symbols` before renaming or deleting — cross-file impact is the most common source of refactoring bugs.
-- Prefer `rename_symbol` over manual `edit` for renames — it updates all references atomically.
+- Prefer `rename_symbol` over manual `edit` for symbol renames — it updates all references atomically.
 - Prefer `safe_delete_symbol` over manual deletion — it prevents accidental removal of still-used code.
 - Apply edits from the inside out — inner helpers first, then outer callers.
 - If code moves across files, update imports after the symbol-level changes are done.

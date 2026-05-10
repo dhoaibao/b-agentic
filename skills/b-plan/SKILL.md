@@ -35,7 +35,7 @@ If `$ARGUMENTS` is provided, treat it as the task description — skip asking "w
 ## Tools required
 
 - `sequentialthinking` — from `sequential-thinking` MCP server *(optional, for approach evaluation and decomposition when available)*.
-- `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `rename_symbol` — from `serena` MCP server *(required for symbol-aware modify-existing-code tasks; optional for greenfield)*.
+- `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols` — from `serena` MCP server *(required for symbol-aware modify-existing-code tasks; optional for greenfield)*.
 - `resolve-library-id`, `query-docs` — from `context7` MCP server *(optional, for inline library verification — simple lookups only)*.
 - `brave_web_search` — from `brave-search` MCP server *(optional, for tool/approach comparison — simple lookups only)*.
 - `firecrawl_scrape` — from `firecrawl` MCP server *(optional, for scraping issue/ticket URL when present)*.
@@ -145,7 +145,7 @@ Use `sequentialthinking` to break the chosen approach into atomic, ordered steps
 
 **Impact checkpoint** *(modify-existing-code only)*:
 - `find_referencing_symbols` on the main symbol/module being changed.
-- `rename_symbol` only when the plan explicitly includes a rename of an exported/public symbol; call out broad references as migration risk.
+- If the plan explicitly includes renaming an exported/public symbol, call out broad references as migration risk and leave the actual rename to `b-implement` or `b-refactor`.
 - Wide downstream impact → split into smaller phases or add rollback steps.
 
 **Deploy safety** — annotate any step that matches:

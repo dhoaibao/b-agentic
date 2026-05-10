@@ -129,6 +129,8 @@ When you open this repo in OpenCode, the checked-in `AGENTS.md` provides maintai
 
 Verify all 6 are connected in OpenCode before relying on the full suite.
 
+For OpenCode, `install.sh` intentionally configures Serena as `serena start-mcp-server --context=ide --project-from-cwd`. The suite treats OpenCode as a generic Serena `ide` client: one project is activated from the current working directory, Serena owns symbol-aware code discovery and structural edits, and OpenCode's native file/shell tools handle the overlapping basic operations that `ide` context assumes the harness already provides. Serena memory remains available for durable project knowledge, but this suite uses it selectively when task-relevant rather than as a default workflow step.
+
 ---
 
 ## Repository maintenance

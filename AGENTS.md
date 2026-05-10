@@ -165,6 +165,7 @@ When deciding which MCPs a skill should use:
 - Always document what happens when an optional/secondary MCP is unavailable
 - Label each MCP in "Tools required" with its role: required vs `*(optional, for [condition])*`
 - Always include a `Graceful degradation:` line summarizing fallback behavior
+- Serena-using skills in this repo must assume OpenCode's generic `ide` context: prefer Serena for symbol-aware code work, keep overlapping basic file/shell tasks on native OpenCode tools, and avoid multi-project assumptions unless the runtime contract changes
 
 ---
 

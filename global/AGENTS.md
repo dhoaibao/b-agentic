@@ -27,8 +27,9 @@ If a request spans multiple skills, run them sequentially in the order above (De
 
 When an MCP is connected, use it before native fallbacks.
 
-- **Code symbols / structural edits** → `serena:*` first. Flow: symbol discovery → overview → references → narrow reads → symbol-aware edits. Before symbol-aware work, call `check_onboarding_performed`; if false, call `onboarding` once.
-- Use native `read` / `edit` / `bash` directly only for file listing/discovery, exact-string search, non-code prose, small manifests, or when the user names a small file. Do not bypass Serena for broad code exploration.
+- **Code symbols / structural edits** → `serena:*` first. Flow: symbol discovery → overview → references → narrow reads → symbol-aware edits. This suite targets Serena's generic `ide` context in OpenCode, so assume one project is activated from the current working directory and do not rely on project-switching workflows. Before symbol-aware work, call `check_onboarding_performed`; if false, call `onboarding` once.
+- Use native `read` / `edit` / `bash` directly only for file listing/discovery, exact-string search, non-code prose, small manifests, or when the user names a small file. In Serena's `ide` context, those overlapping basic file/shell tasks stay with OpenCode's native tools; do not bypass Serena for broad code exploration.
+- **Serena memory** → use it only when the information is clearly relevant to the active task and durable enough to help in later sessions. Do not make memory reads or writes a default workflow step.
 - **Library / framework / SDK docs** → `context7:*` first. Resolve the library ID before querying. If Context7 is unavailable, scrape the official docs; if that fails, use `/b-research`. Never fill library-specific gaps from training knowledge alone.
 - **Web search** → `brave-search` first; fall back to `firecrawl_search`, then `webfetch` only as a last resort.
 - **Known URLs / page extraction** → `firecrawl_scrape` first. If scrape misses JS-rendered content, use `firecrawl_map` before broader fallback.
