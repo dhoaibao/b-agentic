@@ -36,6 +36,7 @@ If `$ARGUMENTS` is provided, treat it as the research question — proceed direc
 - **Full-mode page reads**: `firecrawl_scrape` — from `firecrawl` MCP server
 - **Full-mode fallbacks**: `firecrawl_search`, `firecrawl_map`, `firecrawl_extract`, `firecrawl_crawl`, `firecrawl_check_crawl_status`
 - **Conflict resolution**: `sequentialthinking` — from `sequential-thinking` MCP server *(optional)*
+- **GitNexus is intentionally outside the `b-research` workflow.** This skill handles external knowledge only; repo-internal graph intelligence is not its responsibility.
 
 If context7 is unavailable: continue with Brave for library questions.
 If brave-search is unavailable:

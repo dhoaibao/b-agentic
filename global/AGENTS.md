@@ -27,9 +27,19 @@ If a request spans multiple skills, run them sequentially in the order above (De
 
 When an MCP is connected, use it before native fallbacks.
 
+**Two-stage decision tree**
+
+| Task shape | First choice | Then narrow with |
+|---|---|---|
+| Graph overview, architecture discovery, blast radius, changed-scope validation | `gitnexus:*` or `gitnexus://` resources (when repo is indexed) | `serena:*` for exact symbols, bodies, and edits |
+| Exact symbol discovery, body inspection, reference tracing, code edits | `serena:*` | Native `read` / `edit` / `bash` for prose, manifests, and small files |
+
+**Details**
+
+- **Graph intelligence** → `gitnexus:*` first for indexed repos when the task is graph-shaped (cross-file impact, architecture context, execution-flow discovery, stale-index detection, multi-repo mapping). GitNexus narrows or ranks the problem space; it does not perform precise edits. If GitNexus is unavailable, stale, unindexed, or missing FTS, warn once and continue with Serena/native tools.
+- If the target symbol or file is already known, or the task is local to a single file/module, skip GitNexus and go straight to Serena.
 - **Code symbols / structural edits** → `serena:*` first. Flow: symbol discovery → overview → references → narrow reads → symbol-aware edits. This suite targets Serena's generic `ide` context in OpenCode, so assume one project is activated from the current working directory and do not rely on project-switching workflows. Before symbol-aware work, call `check_onboarding_performed`; if false, call `onboarding` once.
 - Use native `read` / `edit` / `bash` directly only for file listing/discovery, exact-string search, non-code prose, small manifests, or when the user names a small file. In Serena's `ide` context, those overlapping basic file/shell tasks stay with OpenCode's native tools; do not bypass Serena for broad code exploration.
-- **Graph intelligence / blast-radius / architecture queries** *(optional, for indexed repos only)* → `gitnexus:*` or `gitnexus://` resources. Use only when the repo has been indexed with `gitnexus analyze` and the task benefits from graph-level context (e.g., cross-file impact, stale-index detection, multi-repo mapping). GitNexus augments but never replaces Serena for precise symbol-level edits; if GitNexus is unavailable or the repo is unindexed, fall back to Serena and native tools.
 - **Serena memory** → use it only when the information is clearly relevant to the active task and durable enough to help in later sessions. Do not make memory reads or writes a default workflow step.
 - **Library / framework / SDK docs** → `context7:*` first. Resolve the library ID before querying. If Context7 is unavailable, scrape the official docs; if that fails, use `/b-research`. Never fill library-specific gaps from training knowledge alone.
 - **Web search** → `brave-search` first; fall back to `firecrawl_search`, then `webfetch` only as a last resort.

@@ -42,14 +42,14 @@ A diff that is **≤50 lines AND ≤2 files** is treated as a small change. The 
 - `firecrawl_scrape` — from `firecrawl` MCP server *(optional, for fetching issue/ticket URL content when an `**Issue**:` URL is present in the plan file)*
 - `resolve-library-id` + `query-docs` — from `context7` MCP server *(optional, for verifying library API calls in changed code)*
 - `brave_web_search` — from `brave-search` MCP server *(optional, for CVE/known-vulnerability lookup when a risky security pattern is found)*
-- `gitnexus` — from `gitnexus` MCP server *(optional, for blast-radius and changed-flow analysis — `detect_changes`/`impact` — only after `gitnexus analyze`)*
+- `gitnexus` — from `gitnexus` MCP server *(optional, preferred first step for blast-radius and changed-flow analysis — `detect_changes`/`impact` — only after `gitnexus analyze`)*
 
 If sequential-thinking is unavailable: reason through review dimensions inline as `Finding → Severity → Why blocker/not blocker → Suggested action`.
 If Serena is unavailable: use read tool to inspect changed files directly. Note: "⚠️ Serena unavailable — symbol-aware impact analysis unavailable."
 If firecrawl is unavailable: skip Issue URL fetch; display ticket ID or URL as a context reference only.
 If context7 is unavailable: skip API verification step; note any suspicious library calls manually.
 If brave-search is unavailable: skip CVE lookup; flag the pattern as a manual security review item.
-If gitnexus is unavailable or the repo is unindexed: continue with git diff and Serena references for impact analysis. Note: "⚠️ GitNexus unavailable — using git diff + Serena for blast-radius check."
+If gitnexus is unavailable, stale, unindexed, or missing FTS: warn once and continue with git diff and Serena references for impact analysis. Note: "⚠️ GitNexus unavailable — using git diff + Serena for blast-radius check."
 
 Graceful degradation: ✅ Possible — core review works with bash + read. Each MCP adds a specific review dimension; none is strictly required.
 
@@ -106,7 +106,14 @@ If still vague or unavailable, continue in **diff-only risk review** mode instea
 
 ### Step 3 — Logic correctness review
 
-Initialize Serena project knowledge first: call `check_onboarding_performed`; if onboarding has not been performed, run `onboarding`. Then follow this exact read-order — never jump straight from `git diff` to full-file reads for code-symbol changes:
+If gitnexus is connected and the repo is indexed, run blast-radius analysis first to prioritize review depth. Then narrow with Serena's symbol-aware read-order — never jump straight from `git diff` to full-file reads for code-symbol changes:
+
+**Blast-radius analysis** *(when gitnexus is connected and the repo is indexed)*:
+- Call `gitnexus detect_changes` or `gitnexus impact` on the changed symbols first to understand affected processes, event flows, or cross-module boundaries beyond what `git diff` shows.
+- If GitNexus reports the repo is unindexed, stale, or missing FTS, warn once and continue immediately with git diff and Serena references.
+- Use the findings to prioritize which changed symbols deserve deeper review, then confirm with `git diff` and Serena reference checks.
+
+Initialize Serena project knowledge next: call `check_onboarding_performed`; if onboarding has not been performed, run `onboarding`. Then follow this exact read-order:
 
 1. `find_symbol` on changed names — map them to real symbols.
 2. `find_referencing_symbols` on top changed symbols — understand downstream impact.
@@ -115,11 +122,6 @@ Initialize Serena project knowledge first: call `check_onboarding_performed`; if
 5. Native bash search when the diff changes a shared helper, exported boundary, exact string, config key, or repeated pattern.
 
 **Impact-first review rule**: prioritize review depth on (a) symbols with the broadest references, (b) symbols at service boundaries, and (c) symbols implementing explicit requirements from Step 2. Raw line-count alone should not determine review depth.
-
-**Optional blast-radius analysis** *(only when gitnexus is connected and the repo is indexed)*:
-- Call `gitnexus detect_changes` or `gitnexus impact` on the changed symbols to understand affected processes, event flows, or cross-module boundaries beyond what `git diff` shows.
-- If GitNexus reports the repo is unindexed or stale, tell the user to run `gitnexus analyze` and continue immediately with git diff and Serena references if the user cannot refresh the index right away.
-- Use the findings to prioritize which changed symbols deserve deeper review, but do not replace `git diff` or Serena reference checks.
 
 read the changed code and check:
 

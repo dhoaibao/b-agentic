@@ -58,13 +58,13 @@ From `firecrawl` MCP server *(optional)*:
 - `firecrawl_scrape` — scrape full content of relevant GitHub issue pages, Stack Overflow answers, or changelogs found via web search.
 - `firecrawl_map` — map all URLs on a site when `firecrawl_scrape` returns empty content; use to discover the correct URL before retrying scrape.
 
-From `gitnexus` MCP server *(optional)*:
-- `gitnexus query` / `gitnexus context` / `gitnexus impact` — graph-level repo intelligence for large-codebase tracing and cross-module impact (only after `gitnexus analyze`).
+From `gitnexus` MCP server *(optional, preferred for large-codebase tracing and cross-module impact — only after `gitnexus analyze`)*:
+- `gitnexus query` / `gitnexus context` / `gitnexus impact` — graph-level repo intelligence for multi-file debugging.
 
 If Serena is unavailable: use bash search and `read` to map files manually. Always note: "⚠️ Serena unavailable — analysis based on bash/read; cross-file tracking incomplete."
 If sequential-thinking is unavailable: reason inline as `Hypothesis N → Evidence for → Evidence against → Cheapest verification → Confirmed/Rejected`.
 If context7 is unavailable: invoke /b-research for library API questions instead.
-If gitnexus is unavailable or the repo is unindexed: continue with Serena and native tools. Note: "⚠️ GitNexus unavailable — using Serena/bash for cross-file tracing."
+If gitnexus is unavailable, stale, unindexed, or missing FTS: warn once and continue with Serena and native tools. Note: "⚠️ GitNexus unavailable — using Serena/bash for cross-file tracing."
 
 Graceful degradation: ✅ Possible — if Serena is unavailable, use bash/read for file analysis. Quality is reduced but the skill remains functional.
 
@@ -87,11 +87,11 @@ or "recent changes" is often the fastest path to root cause.
 
 ### Step 2 — Map the code structure
 
-**Large-codebase fast path** *(optional — only when gitnexus is connected and the repo is indexed)*:
+**Graph-level fast path** *(when gitnexus is connected and the repo is indexed)*:
 - Call `gitnexus query` or `gitnexus context` to understand the module or subsystem where the bug surfaces.
 - Use `gitnexus impact` to identify upstream/downstream dependencies of the entry point.
-- If GitNexus reports the repo is unindexed or stale, tell the user to run `gitnexus analyze` and continue immediately with Serena/bash tracing.
-- After the fast-path context is gathered, narrow with Serena symbol discovery below.
+- If GitNexus reports the repo is unindexed, stale, or missing FTS, warn once and continue immediately with Serena/bash tracing.
+- After GitNexus narrows the problem space, confirm exact symbols and references with Serena below.
 
 Use `serena` to trace the execution path in this order:
 

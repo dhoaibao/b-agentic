@@ -39,11 +39,11 @@ If `$ARGUMENTS` is provided, treat it as the refactoring instruction. Proceed di
 - `bash` — run tests, check compilation, inspect git diff.
 - `check_onboarding_performed`, `onboarding`, `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol`, `rename_symbol`, `safe_delete_symbol` — from `serena` MCP server *(required for impact analysis and safe symbol-level edits)*
 - `sequentialthinking` — from `sequential-thinking` MCP server *(optional, for evaluating trade-offs on large refactors)*
-- `gitnexus` — from `gitnexus` MCP server *(optional, for broad blast-radius discovery before mechanical edits — only after `gitnexus analyze`)*
+- `gitnexus` — from `gitnexus` MCP server *(optional, preferred first step for broad blast-radius discovery before mechanical edits — only after `gitnexus analyze`)*
 
 If Serena is unavailable: use native `read` + `edit` + bash search for manual refactoring. Note: "⚠️ Serena unavailable — cross-file renames and safe deletes require manual verification."
 If sequential-thinking is unavailable: evaluate trade-offs inline with explicit pros/cons.
-If gitnexus is unavailable or the repo is unindexed: fall back to `find_referencing_symbols` and native bash search for impact analysis. Note: "⚠️ GitNexus unavailable — using Serena references for blast-radius check."
+If gitnexus is unavailable, stale, unindexed, or missing FTS: warn once and fall back to `find_referencing_symbols` and native bash search for impact analysis. Note: "⚠️ GitNexus unavailable — using Serena references for blast-radius check."
 
 Graceful degradation: ⚠️ Partial — mechanical refactoring still possible with native edit, but cross-file renames and safe deletes require manual impact checks.
 
@@ -58,9 +58,9 @@ Graceful degradation: ⚠️ Partial — mechanical refactoring still possible w
    - User references a file → `get_symbols_overview` to inspect top-level symbols.
    - Vague instruction ("clean up the auth module") → `get_symbols_overview` on the file, then ask the user for a specific target.
 
-3. **Broad blast-radius discovery** *(optional — only when gitnexus is connected and the repo is indexed)*:
-   - Call `gitnexus impact` or `gitnexus context` on the target symbol to understand cross-module or cross-package impact beyond direct symbol references.
-   - If GitNexus reports the repo is unindexed or stale, warn the user to run `gitnexus analyze` and continue with Serena references alone.
+3. **Broad blast-radius discovery** *(when gitnexus is connected and the repo is indexed)*:
+   - Call `gitnexus impact` or `gitnexus context` on the target symbol first to understand cross-module or cross-package impact beyond direct symbol references.
+   - If GitNexus reports the repo is unindexed, stale, or missing FTS, warn once and continue with Serena references alone.
    - Record any hidden callers, event-driven boundaries, or architecture constraints discovered.
 
 4. Call `find_referencing_symbols` on the target to map every call site and usage.

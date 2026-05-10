@@ -414,7 +414,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - OpenCode's native file and shell tools remain the default for overlapping basic operations that Serena's `ide` context assumes the harness already provides.
 - The activated Serena project is expected to follow the current working directory, so core skill guidance must stay single-project and must not depend on project-switching workflows.
 - Serena memory is available for durable project knowledge, but the suite treats it as selective and task-driven rather than a default read/write step in every skill.
-- **GitNexus** *(optional)* augments Serena with graph-level repo intelligence (cross-file impact, architecture context, stale-index detection, multi-repo mapping). It is only useful after `gitnexus analyze` has indexed the repo. GitNexus never replaces Serena for precise symbol-level edits; when unavailable or unindexed, skills fall back to Serena and native tools.
+- **GitNexus** *(optional)* — graph-level repo intelligence (cross-file impact, architecture context, execution-flow discovery, stale-index detection, multi-repo mapping). It is the preferred first step for graph-shaped tasks on indexed repos; Serena then handles exact symbol inspection and edits. It is only useful after `gitnexus analyze` has indexed the repo. If GitNexus is unavailable, stale, unindexed, or missing FTS, skills warn once and fall back to Serena and native tools.
 
 ### Maintenance rules
 - Keep one folder per skill under `skills/`.

@@ -109,6 +109,10 @@ $ARGUMENTS
 
 If [MCP] is unavailable: [what to do — stop, fallback, or degrade]
 
+If the skill uses GitNexus, prefer this canonical fallback form to avoid wording drift:
+- `If gitnexus is unavailable, stale, unindexed, or missing FTS: warn once and continue with [Serena/native fallback]. Note: "⚠️ GitNexus unavailable — using [fallback summary]."`
+- For step-level conditional GitNexus calls: `If GitNexus reports the repo is unindexed, stale, or missing FTS, warn once and continue with [local Serena/native fallback].`
+
 Graceful degradation: [✅ Possible / ⚠️ Partial / ❌ Not possible] — [brief explanation]
 
 ## Steps
@@ -169,8 +173,10 @@ When deciding which MCPs a skill should use:
 
 **GitNexus-specific criteria:**
 - GitNexus is always **optional** for this suite. It is never a primary dependency of any skill.
-- Add GitNexus to a skill only when graph-level intelligence (cross-file impact, architecture context, stale-index detection, multi-repo mapping) materially improves the workflow beyond what Serena + native tools provide.
-- Every skill that uses GitNexus must document `gitnexus analyze` as a prerequisite and must fall back to Serena/native tools when the repo is unindexed or the MCP is unavailable.
+- Add GitNexus to a skill when graph-level intelligence (cross-file impact, architecture context, execution-flow discovery, stale-index detection, multi-repo mapping) materially improves the workflow. GitNexus should be the preferred first step for graph-shaped tasks on indexed repos; Serena then handles exact symbol inspection and edits.
+- If the target symbol or file is already known, or the task is local to a single file/module, skip GitNexus and go straight to Serena. Use GitNexus only when cross-file, architectural, execution-flow, or blast-radius context is needed.
+- Every skill that uses GitNexus must document `gitnexus analyze` as a prerequisite and must fall back to Serena/native tools when GitNexus is unavailable, stale, unindexed, or missing FTS.
+- Reuse the canonical GitNexus fallback template from `## Skill file structure template` unless a step needs a narrower local fallback target.
 - GitNexus must never replace Serena for precise symbol-level edits (`rename_symbol`, `safe_delete_symbol`, `replace_symbol_body`, etc.).
 
 ---
@@ -271,19 +277,26 @@ This project is indexed by GitNexus as **b-skills** (254 symbols, 249 relationsh
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
+## Two-stage workflow
+
+GitNexus narrows the problem space first; Serena confirms and edits.
+
+1. **Graph-level discovery** → `gitnexus_query`, `gitnexus_impact`, `gitnexus_detect_changes`, `gitnexus_context`
+2. **Exact symbol work** → `serena_find_symbol`, `serena_get_symbols_overview`, `serena_find_referencing_symbols`, `serena_replace_symbol_body`, `serena_rename_symbol`, `serena_safe_delete_symbol`
+
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run impact analysis before editing any shared/exported symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` to scope blast radius, then use Serena for precise reference tracing and edits.
 - **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
 - When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`. Then narrow to exact bodies with Serena.
 
 ## Never Do
 
 - NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph, or `serena_rename_symbol` for single-repo precision.
 - NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
 
 ## Resources

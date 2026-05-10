@@ -35,6 +35,7 @@ Drives a real browser using Playwright to verify frontend user flows, interact w
 - `browser_close` — from `playwright` MCP server *(used in cleanup)*
 - `find_symbol`, `get_symbols_overview`, `insert_before_symbol`, `insert_after_symbol`, `replace_symbol_body` — from `serena` MCP server *(optional, for writing test code in Step 5)*
 - `bash`, `write`, `edit` — for managing temporary artifacts, dev-server health checks, and creating new test files when needed.
+- **GitNexus is intentionally outside the core `b-e2e` workflow.** If graph-level impact analysis becomes necessary (e.g., a backend failure with cross-module scope), hand off to **b-debug** or **b-review** instead.
 
 If `playwright` MCP is unavailable: stop and inform the user that E2E browser interactions require the Playwright MCP server.
 If `serena` is unavailable in Step 5: write test code with native `write`/`edit` instead.
