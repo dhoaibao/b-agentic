@@ -13,14 +13,13 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-skills/main/install.sh |
 The installer deploys this suite into your global OpenCode config directory:
 - `~/.config/opencode/skills/`
 - `~/.config/opencode/commands/`
-- `~/.config/opencode/instructions/b-skills.md`
+- `~/.config/opencode/AGENTS.md`
 
 This repository is the **install-only source layout** for that deployment. OpenCode does **not** load the checked-in `skills/` or `commands/` directories directly from this repo root; `install.sh` copies them into the correct `~/.config/opencode/` paths.
 
 You can inspect and maintain the suite from this source repository, which contains:
 - `AGENTS.md`
 - `global/AGENTS.md`
-- `opencode.json`
 - `skills/`
 - `commands/`
 
@@ -94,7 +93,6 @@ b-skills/
 │   └── b-review.md
 ├── global/
 │   └── AGENTS.md
-├── opencode.json
 ├── README.md
 ├── REFERENCE.md
 ├── install.sh
@@ -112,9 +110,9 @@ b-skills/
 This tree is the source repository layout used by `install.sh`, not a directly discoverable OpenCode runtime layout. The installer copies:
 - `skills/` → `~/.config/opencode/skills/`
 - `commands/` → `~/.config/opencode/commands/`
-- `global/AGENTS.md` → `~/.config/opencode/instructions/b-skills.md`
+- `global/AGENTS.md` → `~/.config/opencode/AGENTS.md`
 
-When you open this repo in OpenCode, the checked-in `AGENTS.md` and `opencode.json` only provide maintainer guidance for editing the source repository itself.
+When you open this repo in OpenCode, the checked-in `AGENTS.md` provides maintainer guidance for editing the source repository itself.
 
 ---
 
@@ -136,10 +134,9 @@ Verify all 6 are connected in OpenCode before relying on the full suite.
 ## Repository maintenance
 
 - `AGENTS.md` is maintainer guidance for working on this source repo locally.
-- `global/AGENTS.md` is the runtime rule source installed into OpenCode by `install.sh`.
+- `global/AGENTS.md` is the runtime rule source installed as `~/.config/opencode/AGENTS.md` by `install.sh`.
 - Skills live in `skills/<name>/SKILL.md`.
 - Commands live in `commands/<name>.md`.
-- `opencode.json` is the local repo config and loads `./AGENTS.md` for maintainers.
 - `install.sh` is responsible for deploying and pruning suite-managed files under `~/.config/opencode/`.
 - Any skill change requires updating both `README.md` and `REFERENCE.md` in the same commit.
 - Keep skill descriptions trigger-focused and concise.

@@ -15,7 +15,7 @@ Guidelines for creating, editing, and maintaining the install-only OpenCode skil
 - `skills/b-implement/SKILL.md` — Approved-plan execution
 - `skills/b-debug/SKILL.md` — Hypothesis-driven debugging
 - `skills/b-review/SKILL.md` — Pre-PR code review
-- `global/AGENTS.md` — Runtime instructions source installed into OpenCode
+- `global/AGENTS.md` — Runtime rules source installed as OpenCode's global `AGENTS.md`
 - `commands/` — Thin slash-command wrappers that load the matching skills
 
 ---
@@ -178,9 +178,9 @@ All skills live in `skills/<name>/SKILL.md`. When changing skill files:
 | **Update** skill | Edit `skills/<name>/SKILL.md` and keep `commands/<name>.md` aligned |
 | **Delete** skill | Delete `skills/<name>/SKILL.md`, `commands/<name>.md`, and the directory if empty |
 
-**`global/AGENTS.md` sync** — when shared runtime behavior changes, update `global/AGENTS.md` in the same commit and keep any related repo docs aligned.
+**`global/AGENTS.md` sync** — when runtime behavior changes, update `global/AGENTS.md` in the same commit and keep any related repo docs aligned.
 
-**`opencode.json` sync** — keep the root `AGENTS.md` loaded via the local `instructions` entry so maintainers get this guidance when working in the repo.
+**Root `AGENTS.md`** — keep repo-level maintainer guidance in the root `AGENTS.md` so it remains available when working in this source repository.
 
 ---
 
@@ -220,11 +220,10 @@ b-skills/
 ├── commands/
 │   └── b-example.md
 ├── global/
-│   └── AGENTS.md            # Runtime instructions source installed into OpenCode
+│   └── AGENTS.md            # Runtime rules source installed as OpenCode's global AGENTS.md
 ├── skills/
 │   └── b-example/
 │       └── SKILL.md
-├── opencode.json            # Local repo config for maintainers
 ├── install.sh
 ├── README.md
 └── REFERENCE.md

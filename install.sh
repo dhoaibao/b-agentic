@@ -22,7 +22,7 @@ readonly OPENCODE_DIR="$HOME/.config/opencode"
 readonly SKILLS_SRC="$LOCAL_REPO/skills"
 readonly COMMANDS_SRC="$LOCAL_REPO/commands"
 readonly RULES_SRC="$LOCAL_REPO/global/AGENTS.md"
-readonly RULES_DST="$OPENCODE_DIR/instructions/b-skills.md"
+readonly RULES_DST="$OPENCODE_DIR/AGENTS.md"
 readonly CONFIG_FILE="$OPENCODE_DIR/opencode.json"
 readonly TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 
@@ -258,11 +258,10 @@ merge_opencode_config() {
   existing=$(cat "$CONFIG_FILE" 2>/dev/null || echo '{}')
 
   local merged
-  merged=$(env EXISTING="$existing" RULES_DST="$RULES_DST" BRAVE_API_KEY_VALUE="$BRAVE_API_KEY_VALUE" CONTEXT7_API_KEY_VALUE="$CONTEXT7_API_KEY_VALUE" FIRECRAWL_API_KEY_VALUE="$FIRECRAWL_API_KEY_VALUE" INSTALL_MCPS_VALUE="$INSTALL_MCPS_VALUE" python3 - <<'PYEOF'
+  merged=$(env EXISTING="$existing" BRAVE_API_KEY_VALUE="$BRAVE_API_KEY_VALUE" CONTEXT7_API_KEY_VALUE="$CONTEXT7_API_KEY_VALUE" FIRECRAWL_API_KEY_VALUE="$FIRECRAWL_API_KEY_VALUE" INSTALL_MCPS_VALUE="$INSTALL_MCPS_VALUE" python3 - <<'PYEOF'
 import json, os
 
 existing_raw = os.environ.get("EXISTING", "{}")
-rules_dst = os.environ["RULES_DST"]
 brave_api_key = os.environ.get("BRAVE_API_KEY_VALUE") or "YOUR_API_KEY"
 context7_api_key = os.environ.get("CONTEXT7_API_KEY_VALUE") or "YOUR_API_KEY"
 firecrawl_api_key = os.environ.get("FIRECRAWL_API_KEY_VALUE") or "YOUR_API_KEY"
@@ -295,10 +294,6 @@ try:
     config = json.loads(existing_raw) if existing_raw.strip() else {}
 except json.JSONDecodeError:
     config = {}
-
-instructions = config.setdefault("instructions", [])
-if rules_dst not in instructions:
-    instructions.append(rules_dst)
 
 permission = config.setdefault("permission", {})
 skill_permission = permission.setdefault("skill", {})
@@ -434,10 +429,10 @@ commands_summary="✅ Commands synced: $synced_commands"
 [ "$pruned_commands" -gt 0 ] && commands_summary="$commands_summary, $pruned_commands stale removed"
 log "$commands_summary"
 
-section "Install shared instructions"
+section "Install AGENTS.md"
 mkdir -p "$(dirname "$RULES_DST")"
 cp "$RULES_SRC" "$RULES_DST"
-log "✅ Rules installed"
+log "✅ AGENTS.md installed"
 
 section "MCP setup"
 prompt_mcp_install_if_needed
@@ -462,7 +457,7 @@ section "Done"
 log "✅ b-skills installed successfully for OpenCode."
 log "   Skills:       $OPENCODE_DIR/skills"
 log "   Commands:     $OPENCODE_DIR/commands"
-log "   Instructions: $RULES_DST"
+  log "   AGENTS.md:    $RULES_DST"
 log "   Config:       $CONFIG_FILE"
 
 trap - EXIT

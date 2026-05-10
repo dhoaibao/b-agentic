@@ -395,22 +395,21 @@ This repository is the install-only source layout for the suite. OpenCode does n
 
 ### Repository source files
 - `AGENTS.md` — maintainer-only guidance for working on this source repo locally.
-- `global/AGENTS.md` — source for shared runtime instructions installed into OpenCode.
-- `opencode.json` — local repo config; loads `./AGENTS.md` for maintainers.
+- `global/AGENTS.md` — source for runtime rules installed as OpenCode's global `AGENTS.md`.
 - `skills/<name>/SKILL.md` — reusable OpenCode skills distributed by the installer.
 - `commands/<name>.md` — explicit slash-command wrappers distributed by the installer.
 
 ### Runtime artifacts
 - `~/.config/opencode/skills/` — installed skill destination created by `install.sh`.
 - `~/.config/opencode/commands/` — installed command destination created by `install.sh`.
-- `~/.config/opencode/instructions/b-skills.md` — installed runtime instructions file created by `install.sh`.
+- `~/.config/opencode/AGENTS.md` — installed runtime rules file created by `install.sh`.
 - `.opencode/b-plans/` — saved plan files created by `/b-plan`.
 - `.opencode/b-e2e/[run]/` — browser snapshots and screenshots created by `/b-e2e`.
 
 ### Maintenance rules
 - Keep one folder per skill under `skills/`.
 - Keep command wrappers thin; they are entrypoints, not duplicate logic stores.
-- Keep repo-level maintainer guidance in the root `AGENTS.md` and shared runtime rule sources under `global/`.
+- Keep repo-level maintainer guidance in the root `AGENTS.md` and runtime rule sources under `global/`.
 - When a skill changes, update `README.md` and `REFERENCE.md` in the same commit.
 - Keep skill descriptions trigger-focused and specific enough for correct routing.
 - Preserve skill behavior; do not silently redesign logic while doing platform migrations.
