@@ -120,7 +120,6 @@ for required in root_required:
         errors.append(f'AGENTS.md: missing GitNexus/Serena contract phrase {required!r}')
 
 root_forbidden = [
-    'If any GitNexus tool warns the index is stale, run `gitnexus analyze`',
     'Prefer GitNexus first for graph-shaped code tasks when the repo is indexed:',
     'when GitNexus is available and indexed',
     'Note: "⚠️ GitNexus unavailable',
@@ -128,6 +127,10 @@ root_forbidden = [
 for forbidden in root_forbidden:
     if forbidden in root_agents:
         errors.append(f'AGENTS.md: stale GitNexus guidance remains: {forbidden!r}')
+
+stale_reindex_prefix = 'If any GitNexus tool warns the index is stale, run `'
+if stale_reindex_prefix in root_agents and '--skip-agents-md' not in root_agents:
+    errors.append('AGENTS.md: stale GitNexus reindex guidance remains: missing `--skip-agents-md`')
 
 if errors:
     print('Skill validation failed:', file=sys.stderr)

@@ -177,7 +177,7 @@ When deciding which MCPs a skill should use:
 - GitNexus must never replace Serena for precise symbol-level edits (`rename_symbol`, `safe_delete_symbol`, `replace_symbol_body`, etc.).
 - When both MCPs appear in one workflow, GitNexus must answer only the graph question first; Serena then becomes the source of truth for symbol lookup, body inspection, references, and edits. Do not keep both active on the same exact question.
 - Avoid skill handoff churn: a skill should switch to another skill only on a real stop/block condition, not for optional enrichment that the current skill can finish inline with bounded evidence.
-- Before maintainers suggest `gitnexus analyze` or add indexing guidance to a skill, verify it is only when indexing is safe.
+- Before maintainers suggest `gitnexus analyze --skip-agents-md` or add indexing guidance to a skill, verify it is only when indexing is safe.
 
 ---
 

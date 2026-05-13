@@ -2,6 +2,8 @@
 
 Detailed contract reference for the b-skills suite. For install and overview, see [README.md](README.md).
 
+GitNexus indexing note: when this suite tells you to refresh an index, use `gitnexus analyze --skip-agents-md` after excluding sensitive and local private artifacts.
+
 ---
 
 ## Skill reference

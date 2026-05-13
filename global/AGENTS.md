@@ -175,4 +175,4 @@ Do not recursively grep, glob, or scan sensitive locations without explicit perm
 
 If unsure whether a file is sensitive, stop and ask first.
 
-Before running `gitnexus analyze`, ensure sensitive and local/generated private artifacts are excluded. If unsure whether indexing is safe, ask first.
+Before running `gitnexus analyze --skip-agents-md`, ensure sensitive and local/generated private artifacts are excluded. If unsure whether indexing is safe, ask first.

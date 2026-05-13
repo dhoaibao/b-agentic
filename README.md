@@ -126,7 +126,7 @@ Verify the **6 core MCPs** are connected in OpenCode before relying on the full 
 **GitNexus best-practice flow:**
 1. Install the GitNexus CLI separately (`npm install -g gitnexus` or your preferred method).
 2. Run `install.sh` with `B_SKILLS_INSTALL_MCP=Y` (or answer `y` at the MCP prompt) — GitNexus is included in the default MCP set.
-3. Index each repo with `gitnexus analyze` only after sensitive files and local private artifacts are excluded.
+3. Index each repo with `gitnexus analyze --skip-agents-md` only after sensitive files and local private artifacts are excluded.
 4. Use GitNexus only when the repo is indexed, fresh, and the target file/symbol is represented.
 5. Selected skills reach for GitNexus first when the task is graph-shaped (architecture, blast radius, changed scope); if GitNexus is unavailable, stale, unindexed, missing FTS, or missing the target, they warn once and continue with Serena and native tools.
 
