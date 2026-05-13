@@ -59,7 +59,7 @@ git diff HEAD
 git status --short
 ```
 
-If the output is empty: try `git diff --staged` (staged but not committed). If still empty, ask the user — "No uncommitted or staged changes found. Which changes should I review? Provide a commit hash, branch name, or comparison range." Do not silently review `HEAD~1`; the last commit may be unrelated.
+If the diff output is empty, ask the user — "No uncommitted or staged changes found. Which changes should I review? Provide a commit hash, branch name, or comparison range." Do not silently review `HEAD~1`; `git diff HEAD` already covers staged and unstaged changes relative to `HEAD`.
 
 Extract:
 - **Files changed**: list of modified, added, deleted files.

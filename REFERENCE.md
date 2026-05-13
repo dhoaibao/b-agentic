@@ -191,9 +191,9 @@ Symptoms → Code path → Ranked hypotheses → Fast-path findings → Root cau
 Human-judgment pre-PR changed-code review: correctness, requirements, edge cases, tests, and minimum observability on new entry points.
 
 **Core behavior**
-- Reads git diff plus `git status --short`, includes related untracked non-sensitive files, and builds requirements baseline from plan file, `$ARGUMENTS`, or user clarification.
+- Reads `git diff HEAD` plus `git status --short`, includes related untracked non-sensitive files, and builds requirements baseline from plan file, `$ARGUMENTS`, or user clarification.
 - If no requirements baseline is available after bounded clarification, continues as a clearly labeled diff-only risk review and skips strict requirements coverage.
-- Does not silently review `HEAD~1` when no diff exists; asks for a commit, branch, or comparison range.
+- Does not silently review `HEAD~1` when no diff exists; asks for a commit, branch, or comparison range instead of retrying a redundant staged-only diff.
 - Defines fast-path threshold (`≤50 lines AND ≤2 files`) once at the top of the skill — referenced by Steps 2, 3, and 6, but never used to skip entry-point security checks.
 - Treats multiple plan-file candidates as ambiguous and asks which requirements source to use instead of guessing.
 - Uses supported Serena tools to prioritize review depth by changed symbols, references, and affected files.
@@ -405,7 +405,9 @@ This repository is the install-only source layout for the suite. OpenCode does n
 
 ### Runtime global conventions
 - Cross-skill handoffs include `source`, `scope`, `files`, `commands`, `blockers`, and `next skill`.
+- Keep one active skill until its documented stop condition is hit; do not switch skills for optional enrichment or minor lookups that the current skill can finish inline.
 - Approval is required before package installs, dev-server starts, migrations, destructive commands, production-like/staging writes, broad refactors, or commits.
+- Use the lightest capable tool for the evidence needed. Native tools stay first for exact strings, manifests, prose, configs, and small reads; MCPs are for semantic or external tasks that materially reduce ambiguity.
 - Verification follows the ladder: narrow check → broader affected-area check → full check only when scope/risk justifies it.
 - Worktree checks include relevant untracked non-sensitive files; sensitive-looking files are never read without explicit permission.
 - Final implementation/debug/test/refactor/review responses include changes or findings, verification evidence, blockers or skipped checks, and the natural next action.
@@ -416,6 +418,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - Serena is the semantic layer for symbol discovery, references, and structural edits.
 - The suite selectively uses Serena additions such as `find_declaration`, `find_implementations`, `search_for_pattern`, and `get_diagnostics_for_file` where they reduce broad reads or replace heavier verification.
 - OpenCode's native file and shell tools remain the default for overlapping basic operations that Serena's `ide` context assumes the harness already provides.
+- Serena onboarding preflight (`check_onboarding_performed`, then `onboarding` if needed) should run once when symbol-aware work starts in a skill run, not before every later Serena step.
 - Manual line/prose/config edits use `apply_patch`; runtime skill instructions should not rely on unavailable native `edit` or `write` tools.
 - The activated Serena project is expected to follow the current working directory, so core skill guidance must stay single-project and must not depend on project-switching workflows.
 - Serena memory is available for durable project knowledge, but the suite treats it as selective and task-driven rather than a default read/write step in every skill.

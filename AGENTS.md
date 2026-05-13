@@ -166,6 +166,7 @@ When deciding which MCPs a skill should use:
 - Label each MCP in "Tools required" with its role: required vs `*(optional, for [condition])`*
 - Always include a `Graceful degradation:` line summarizing fallback behavior
 - Serena-using skills in this repo must assume OpenCode's generic `ide` context: prefer Serena for symbol-aware code work, keep overlapping basic file/shell tasks on native OpenCode tools, and avoid multi-project assumptions unless the runtime contract changes
+- Write skill prose to prefer the lightest capable tool. Do not force MCP-first behavior for exact strings, manifests, prose, small file reads, or other cases where native tools are cheaper and equally reliable.
 
 **GitNexus-specific criteria:**
 - GitNexus is always **optional radar** for this suite. It is never a primary dependency of any skill and never acts as the editing layer.
@@ -175,6 +176,7 @@ When deciding which MCPs a skill should use:
 - Every skill that uses GitNexus must use the global indexing/freshness/target gate and fall back to Serena/native tools when the gate fails.
 - GitNexus must never replace Serena for precise symbol-level edits (`rename_symbol`, `safe_delete_symbol`, `replace_symbol_body`, etc.).
 - When both MCPs appear in one workflow, GitNexus must answer only the graph question first; Serena then becomes the source of truth for symbol lookup, body inspection, references, and edits. Do not keep both active on the same exact question.
+- Avoid skill handoff churn: a skill should switch to another skill only on a real stop/block condition, not for optional enrichment that the current skill can finish inline with bounded evidence.
 - Before maintainers suggest `gitnexus analyze` or add indexing guidance to a skill, verify it is only when indexing is safe.
 
 ---
@@ -219,3 +221,4 @@ Before merging any skill file change, verify:
 4. **Inter-skill handoffs have trigger conditions** — "if [condition] -> use /b-[other]" with the specific condition, not just "consider using"
 5. **No trigger keyword regression** — before rewriting a description, list all current trigger keywords and verify all survive in the new version
 6. **Suite validator passes** — run `scripts/validate-skills.sh` before installing or committing skill changes
+7. **No avoidable churn** — steps should not force repeated Serena preflights, optional MCP escalation, or skill switches when the current skill can complete with bounded evidence

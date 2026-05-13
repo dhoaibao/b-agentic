@@ -19,7 +19,7 @@ Match the user's intent to one active skill before answering inline. If a reques
 | Browser/UI verification or Playwright authoring | `/b-e2e` |
 | Pre-PR changed-code review | `/b-review` |
 
-Switch skills only at a documented handoff condition. Ask the smallest concrete question when a user decision blocks progress.
+Switch skills only at a documented handoff condition. Keep one active skill until its stop condition is hit; do not switch skills for optional enrichment or minor lookups that the current skill can finish with bounded evidence. Ask the smallest concrete question when a user decision blocks progress.
 
 When switching skills, include a compact handoff: `source`, `scope`, `files`, `commands`, `blockers`, and `next skill`. Do not rely on prior chat context when a saved plan or changed artifact is the source of truth.
 
@@ -27,7 +27,7 @@ When switching skills, include a compact handoff: `source`, `scope`, `files`, `c
 
 ## Tool Priority
 
-When a relevant MCP is connected, use it before native fallbacks. Native Glob/Grep/Read/Bash remain appropriate for file discovery, exact strings, manifests, prose, configs, and command execution.
+Use the lightest capable tool that can answer reliably. Prefer a relevant MCP over native fallbacks only when it materially reduces ambiguity, avoids broad manual searching, or provides evidence native tools cannot. Native Glob/Grep/Read/Bash remain appropriate for file discovery, exact strings, manifests, prose, configs, and command execution.
 
 | Task shape | First choice | Then narrow with |
 |---|---|---|
@@ -51,14 +51,16 @@ When a relevant MCP is connected, use it before native fallbacks. Native Glob/Gr
 
 **GitNexus freshness gate**: rely on GitNexus only when the repo is indexed, not stale, and the target file/symbol is represented. If unavailable, stale, unindexed, missing FTS, or missing the target, warn once and continue with Serena/native tools. Stale graph output is not evidence.
 
-For symbol-aware work, call `check_onboarding_performed`; if false, call `onboarding` once. Use `apply_patch` for manual file edits.
+For symbol-aware work, call `check_onboarding_performed`; if false, call `onboarding` once. Run this Serena preflight once per skill run when Serena first becomes necessary, not before every later symbol step in the same run. Use `apply_patch` for manual file edits.
 
 **Tool budget**:
 - Single-file/local task: skip GitNexus.
+- Simple path, manifest, exact-string, prose, or config lookup: native tools first.
 - Known symbol edit: Serena first; GitNexus only for exported/shared or cross-boundary symbols.
 - Large unfamiliar area: GitNexus once to narrow, then Serena confirms.
 - Review/debug: GitNexus only for cross-file, flow, route/API, or changed-scope risk.
 - Never run GitNexus and Serena in parallel for the same symbol hunt; use them sequentially to avoid overlapping evidence.
+- Do not escalate to a second MCP when the first authoritative source already answered the question well enough to act.
 - Tool names in skill prose describe MCP capabilities; actual calls must use the exact tool names exposed by the current OpenCode session.
 
 **Evidence standards**:

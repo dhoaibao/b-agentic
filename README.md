@@ -56,8 +56,10 @@ You can inspect and maintain the suite from this source repository, which contai
 - Temporary command output uses `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 - Skills that create multiple artifacts report or maintain a manifest with artifact paths, generated files, command logs, and cleanup status.
 - Cross-skill handoffs use a compact payload: `source`, `scope`, `files`, `commands`, `blockers`, and `next skill`.
+- Keep one active skill until its stop condition is hit; do not bounce across skills for optional enrichment or minor lookups that the current skill can finish inline.
 - Approval is required before installs, dev servers, migrations, production-like/staging writes, broad refactors, commits, or destructive commands.
 - Manual edits use `apply_patch`; skill instructions should not rely on unavailable native `edit` or `write` tools.
+- Use the lightest capable tool for the evidence needed. Native tools stay first for exact strings, manifests, prose, configs, and small reads; MCPs are for semantic or external tasks that materially reduce ambiguity.
 - Verification commands are discovered from project scripts/CI first. The default ladder is narrow check → broader affected-area check → full check only when scope/risk justifies it.
 - Full research ranks sources as official docs/changelogs, source repos/releases, vendor engineering posts, reputable community sources, then snippets/SEO content.
 - GitNexus is optional radar; Serena is primary hands. GitNexus scopes graph risk, while Serena confirms exact symbols and performs symbol-aware edits.
@@ -142,6 +144,7 @@ Verify the **6 core MCPs** are connected in OpenCode before relying on the full 
 OpenCode integration:
 - Serena runs as `serena start-mcp-server --context=ide --project-from-cwd`.
 - Serena owns symbol discovery, references, and structural edits; native tools handle files, strings, manifests, commands, prose, and configs.
+- Serena preflight (`check_onboarding_performed` → `onboarding` if needed) should happen once when symbol-aware work starts, not before every later Serena step in the same run.
 - Serena tools adopted in this suite: `find_declaration`, `find_implementations`, `search_for_pattern`, and `get_diagnostics_for_file` for tighter navigation, fuzzy code discovery, and narrow local verification.
 - Firecrawl is now used beyond scrape/search: `firecrawl_parse` for local docs, `firecrawl_interact` for JS-heavy known pages, and `firecrawl_agent` only as a last-resort deep-research fallback.
 - Playwright guidance now covers uploads, dialogs, dropdowns, drag/drop, and multi-tab flows, while keeping `playwright_browser_run_code_unsafe` as a strict last resort.
