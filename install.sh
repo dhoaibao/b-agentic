@@ -897,7 +897,7 @@ log "✅ Config updated"
 section "MCP defaults"
 if wants_mcp_install "$INSTALL_MCPS_VALUE"; then
   log "✅ MCP defaults merged"
-  log "   Servers: serena, context7, brave-search, firecrawl, playwright, sequential-thinking, gitnexus"
+  log "   Servers: serena, context7, brave-search, firecrawl, playwright, sequential-thinking (optional), gitnexus"
   log "   brave-search: $(api_key_status "$BRAVE_API_KEY_VALUE")"
   log "   context7: $(api_key_status "$CONTEXT7_API_KEY_VALUE")"
   log "   firecrawl: $(api_key_status "$FIRECRAWL_API_KEY_VALUE")"

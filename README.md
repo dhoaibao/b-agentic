@@ -56,7 +56,7 @@ All shared rules live in `global/AGENTS.md`. The headlines:
 
 - **Definitions** (`§3`): "non-trivial", **small direct request** (≤3 files), **severity** (BLOCKER/MAJOR/MINOR/NIT), **risk** (trivial/low/medium/high), and the **confidence signal** every partial-evidence answer carries.
 - **MCP bundles** (`§4`): skills reference named bundles — `serena-symbol-toolkit`, `gitnexus-radar`, `context7-docs`, `brave-discovery`, `firecrawl-extraction` / `firecrawl-extended` / `firecrawl-deep`, `playwright-browser`. Bundle definitions own session-init, fallback ladder, language-coverage caveats, and cost/approval gates.
-- **Tool-budget overflow** (`§4`): on the 12th MCP call, emit a one-line notice and stop. Fallbacks attach `[degraded: <reason>]` to affected output.
+- **Tool-budget review gate** (`§4`): around the 12th MCP call, emit a one-line notice and reassess; continue only within the same active thread, and ask before starting a new tool-heavy thread or pushing past the hard review gate.
 - **Safety gates** (`§6`): privacy gate, sensitive-file safety, worktree safety, git safety, and the **canonical approval ask** template.
 - **Iteration cap** (`§7`): maximum of 3 fix/verify loops per step before surfacing the blocker.
 - **Empty-state defaults** (`§7`): explicit defaults for missing diff, missing plan, missing framework, or unavailable MCPs.
@@ -66,8 +66,8 @@ All shared rules live in `global/AGENTS.md`. The headlines:
 - **Session lifecycle** (`§11`): preflight and crash/resume rules.
 
 Artifact paths:
-- Plans: `.opencode/b-skills/b-plan/<task-slug>.md` (legacy `.opencode/b-plans/` is deprecated). `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.
-- Skill artifacts: `.opencode/b-skills/<skill>/<run-id>/`; E2E artifacts use `.opencode/b-skills/b-e2e/<run-id>/`; `run-id = <YYYYMMDD-HHMMSS>-<slug>`.
+- Plans: `.opencode/b-skills/b-plan/<task-slug>.md` (legacy `.opencode/b-plans/` is deprecated). Saved plans remain the canonical repo-local source of truth even when non-plan runtime artifacts would fall back to `~/.config/opencode/...` or `/tmp/opencode/...`. `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.
+- Skill artifacts: `.opencode/b-skills/<skill>/<run-id>/` for repo-local non-sensitive artifacts when `.opencode/` is already git-ignored; otherwise use `~/.config/opencode/b-skills/<skill>/<run-id>/` or `/tmp/opencode/b-skills/<skill>/<run-id>/`. E2E auth/session state should use the non-worktree path by default. `run-id = <YYYYMMDD-HHMMSS>-<slug>`.
 - Temporary command output: `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 - Multi-artifact runs include a `manifest.json` per the schema in `global/AGENTS.md` §8.
 
@@ -142,7 +142,7 @@ Skills reference **MCP bundles** defined in `global/AGENTS.md` §4 rather than e
 | `playwright-browser` | `playwright` MCP, or local Playwright CLI via `bash` as fallback | Browser automation. `*_unsafe` variants are excluded from the default toolkit and require approval. |
 | `gitnexus-radar` *(optional)* | `gitnexus` | Optional graph radar — only when indexed, fresh, and target-aware. Never an edit layer. |
 
-`sequential-thinking` is **not bundled**. Opus 4.7 reasons natively; the MCP is invoked inline only when three or more plausible hypotheses remain with equal cheapest-verification cost.
+`sequential-thinking` is **bundled but optional**. The default MCP install includes it, but it remains an escape hatch rather than a routine dependency; invoke it only when three or more plausible hypotheses remain with equal cheapest-verification cost.
 
 Verify the core MCPs are connected in OpenCode before relying on the full suite. GitNexus is optional and augments the suite when a repo has been indexed.
 

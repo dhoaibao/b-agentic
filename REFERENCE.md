@@ -27,7 +27,7 @@ how should I approach this refactor?
 
 **Output**
 - Quick mode: short chat plan.
-- Full mode: English plan file at `.opencode/b-skills/b-plan/<task-slug>.md`, where `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8. Skeleton: `# title`, `Confirmed decisions`, `Planned touch points`, `Dependencies`, `Risks`, `Unknowns`, ordered `Steps`, `Verification`, `Rollback` (only when real), and `Revisions` (added when revised).
+- Full mode: English plan file at `.opencode/b-skills/b-plan/<task-slug>.md`, where `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8. Saved plans remain canonical repo-local source-of-truth files even when non-plan runtime artifacts would fall back to a non-worktree path. Skeleton: `# title`, `Confirmed decisions`, `Planned touch points`, `Dependencies`, `Risks`, `Unknowns`, checkbox-style `Steps`, `Verification`, `Rollback` (only when real), and `Revisions` (added when revised).
 
 **Key rules**
 - Do not implement while planning.
@@ -51,6 +51,7 @@ External knowledge with auto-deepening depth — lookup or research.
 - Uses **lookup** for one fact, one signature, one config key, or a yes/no.
 - Uses **research** for anything requiring more than one source, comparison, multi-step synthesis, or recency-sensitive answer.
 - Auto-deepens from lookup to research when first results are stale, contradictory, non-authoritative, or off-target. Never asks the user to choose a mode.
+- Treats a user-provided URL, file, or document as **direct-source lookup** when one bounded source is likely sufficient; extraction is allowed in that lookup lane.
 - Pins library version from manifests **and** lockfiles; resolves at the closest workspace in monorepos.
 - Uses Context7 first for library and framework APIs; page extraction only when lookup is insufficient.
 - Uses `firecrawl-extraction` for local docs and known URLs; `firecrawl-extended` only for site maps or structured fields; `firecrawl-deep` only with explicit user approval per invocation (cost warning in `global/AGENTS.md` §4).
@@ -69,7 +70,7 @@ tra cứu config key cho NextAuth session timeout
 
 **Key rules**
 - Never ask the user to choose a mode; the skill decides and auto-deepens.
-- Never scrape in lookup.
+- Do not scrape in open-ended lookup when a docs or search result already answers; direct-source lookup from a provided source may extract that one source immediately.
 - Pin the library version (manifests + lockfiles) before any `context7-docs` query.
 - Prefer 2–4 authoritative sources over a long weak list.
 - Resolve cross-source conflicts by preferring the publisher's docs at the pinned version; label the conflict and lower confidence when ambiguity remains.
@@ -91,6 +92,7 @@ tra cứu config key cho NextAuth session timeout
 - Applies the **plan staleness gate** (`global/AGENTS.md` §2) before executing a saved plan.
 - Triggers the **plan revision protocol** (`global/AGENTS.md` §2) when the plan is wrong mid-execution.
 - Verifies each step before moving on, capped by the iteration cap in `global/AGENTS.md` §7.
+- Updates saved-plan task-list progress in place when the plan uses checkbox-style steps.
 
 **Good triggers**
 ```text
@@ -247,9 +249,10 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 **Core behavior**
 - Uses the `playwright-browser` bundle (`global/AGENTS.md` §4): Playwright MCP when available, local Playwright CLI via `bash` as a documented fallback.
 - Creates a session-specific artifact directory under `.opencode/b-skills/b-e2e/<run-id>/` using the run-id format from `global/AGENTS.md` §8.
+- Uses repo-local `.opencode/...` artifact paths only when that path is already git-ignored; otherwise falls back to `~/.config/opencode/b-skills/...` or `/tmp/opencode/b-skills/...`.
 - Verifies localhost targets are reachable before navigating; never starts a dev server without approval.
 - Clarifies only blocking state: auth/session, test data, whether writes are allowed.
-- Reuses or stores auth state (`storageState.json`) so repeated runs don't re-authenticate from scratch.
+- Reuses or stores auth state (`storageState.json`) in a non-worktree path so repeated runs don't re-authenticate from scratch.
 - Uses accessibility snapshots before interaction.
 - Verifies state with snapshots, screenshots, console/network evidence; multi-viewport is opt-in.
 - Defaults to functional snapshots over visual regression; visual regression baselines require approval.
@@ -332,8 +335,9 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - `scripts/validate-skills.sh` — suite validator for frontmatter, required sections, stale phrases, docs coverage, and global-rule guardrails.
 
 ### Runtime artifacts
-- `.opencode/b-skills/b-plan/<task-slug>.md` — saved plans from `b-plan` (legacy `.opencode/b-plans/` is deprecated). `<task-slug>` derives from `global/AGENTS.md` §8.
-- `.opencode/b-skills/<skill>/<run-id>/` — run artifacts, with `run-id = <YYYYMMDD-HHMMSS>-<slug>`.
+- `.opencode/b-skills/b-plan/<task-slug>.md` — saved plans from `b-plan` (legacy `.opencode/b-plans/` is deprecated). These remain canonical repo-local source-of-truth files. `<task-slug>` derives from `global/AGENTS.md` §8.
+- `.opencode/b-skills/<skill>/<run-id>/` — repo-local non-sensitive run artifacts when `.opencode/` is git-ignored, with `run-id = <YYYYMMDD-HHMMSS>-<slug>`.
+- `~/.config/opencode/b-skills/<skill>/<run-id>/` or `/tmp/opencode/b-skills/<skill>/<run-id>/` — non-worktree artifacts for sensitive browser/session state.
 - `/tmp/opencode/b-skills/<skill>/<slug>.log` — large command output and temporary logs.
 - Multi-artifact runs include a `manifest.json` per the schema in `global/AGENTS.md` §8.
 
@@ -348,7 +352,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - Approval-required actions use the **canonical approval ask** template in `global/AGENTS.md` §6.
 - Verification follows the ladder: narrow check → broader affected-area check → full check only when scope or risk justifies it. The iteration cap (3 fix/verify loops per step) is in `global/AGENTS.md` §7.
 - Severity (BLOCKER / MAJOR / MINOR / NIT), risk (trivial / low / medium / high), the **non-trivial** definition, the **small direct request** threshold (≤3 files), and the **confidence signal** all live in `global/AGENTS.md` §3.
-- Tool-budget overflow surfaces a one-line `12/12 reached. Continue?` notice and stops (`global/AGENTS.md` §4).
+- Tool-budget review gate surfaces a one-line notice around `12/12 reached`, continues only within the same active thread, and asks before opening a new tool-heavy thread or pushing past the hard review gate (`global/AGENTS.md` §4).
 - Empty-state defaults (no diff, no plan, no test framework, no MCP) are owned in `global/AGENTS.md` §7.
 - Fallback labeling uses `[degraded: <reason>]` consistently across skills (`global/AGENTS.md` §4).
 - Session-start preflight and crash/resume rules are owned in `global/AGENTS.md` §11.
@@ -359,7 +363,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - Serena is **primary hands** for symbols, references, diagnostics, and symbol-aware edits.
 - GitNexus is **optional radar** for graph-shaped questions only when indexed, fresh, and target-aware.
 - Runtime evidence outranks graph evidence; graph evidence outranks search snippets.
-- `sequential-thinking` is not bundled; reach for it inline only when three or more plausible hypotheses remain with equal cheapest-verification cost.
+- `sequential-thinking` is bundled but optional; reach for it inline only when three or more plausible hypotheses remain with equal cheapest-verification cost.
 
 ### Maintenance rules
 - Keep command wrappers thin.

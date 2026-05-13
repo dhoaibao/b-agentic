@@ -54,7 +54,7 @@ Graceful degradation: ✅ Possible — planning still works with native reads pl
 Use the **non-trivial** definition (`global/AGENTS.md` §3) as the threshold:
 
 - **Quick mode**: the task is trivial — single area, no public contract, no sensitive path, low risk. Return a concise chat plan with a verification step.
-- **Full mode**: anything **non-trivial**, or where a real structural choice exists. Write a saved plan to `.opencode/b-skills/b-plan/<task-slug>.md` using the slug algorithm in `global/AGENTS.md` §8.
+- **Full mode**: anything **non-trivial**, or where a real structural choice exists. Write a saved plan to `.opencode/b-skills/b-plan/<task-slug>.md` using the slug algorithm in `global/AGENTS.md` §8. Saved plans are canonical source-of-truth files and are not rerouted by the repo-local runtime-artifact fallback.
 
 Choose the mode yourself. Only ask when both modes are genuinely valid and the user's preference changes the output.
 
@@ -98,6 +98,8 @@ Produce dependency-ordered steps as short as the work actually is. Each step say
 - why now
 - `Done when` — how to verify
 
+For saved plans, format execution steps as Markdown task-list items so progress can be updated in place during implementation.
+
 For full-mode plans, follow this saved-plan skeleton:
 
 ```markdown
@@ -126,10 +128,10 @@ For full-mode plans, follow this saved-plan skeleton:
 - <open question> — <how it will be resolved or who owns it>
 
 ## Steps
-1. **<imperative step title>**
-   - Changes: <files or symbols>
-   - Why now: <ordering reason>
-   - Done when: <verification>
+- [ ] **<imperative step title>**
+  - Changes: <files or symbols>
+  - Why now: <ordering reason>
+  - Done when: <verification>
 ...
 
 ## Verification

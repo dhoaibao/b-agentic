@@ -29,8 +29,8 @@ Every `skills/<name>/SKILL.md` must begin with YAML frontmatter:
 name: b-skill-name
 description: >
   [Trigger-focused description, <=80 words. Answer only: "when should OpenCode load this skill?"
-  Include: ALWAYS trigger condition, key Vietnamese + English trigger phrases,
-  and one sentence distinguishing this from similar skills.
+  Include: ALWAYS trigger condition and one sentence distinguishing this from
+  similar skills.
   Do NOT include usage instructions — those go in the skill body.]
 compatibility: opencode
 metadata:

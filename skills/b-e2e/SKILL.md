@@ -43,11 +43,11 @@ Graceful degradation: ⚠️ Partial — MCP path is fastest; CLI fallback works
 
 ### Step 1 — Prepare the run
 
-1. Create a session-specific artifact directory under `.opencode/b-skills/b-e2e/<run-id>/` using the run-id format from `global/AGENTS.md` §8.
+1. Create a session-specific artifact directory using the run-id format from `global/AGENTS.md` §8. Use `.opencode/b-skills/b-e2e/<run-id>/` only when `.opencode/` is already ignored by git in the current repo; otherwise use `~/.config/opencode/b-skills/b-e2e/<run-id>/` for persistent artifacts or `/tmp/opencode/b-skills/b-e2e/<run-id>/` for disposable ones.
 2. Determine the **target**: a URL, an extension surface, a local app, or an authenticated entry point. Record the target type.
 3. Before touching `localhost`, verify the server is reachable. Do not start a dev server without approval (canonical approval ask in `global/AGENTS.md` §6).
 4. Clarify only what blocks the flow: auth/session state, test data, and whether writes are allowed.
-5. **Auth state reuse:** if the repo or run directory contains a stored auth state file (e.g., `auth.json`, `storageState.json`), load it instead of re-authenticating. If no auth state exists and the flow needs auth, store the post-login state in `.opencode/b-skills/b-e2e/<run-id>/storage-state.json` so later steps and re-runs can reuse it.
+5. **Auth state reuse:** if a safe stored auth state file already exists (for example under `~/.config/opencode/b-skills/b-e2e/.../storage-state.json`), load it instead of re-authenticating. If no auth state exists and the flow needs auth, store the post-login state in a non-worktree path such as `~/.config/opencode/b-skills/b-e2e/<run-id>/storage-state.json` so later steps and re-runs can reuse it. Do not create real auth state under repo-local `.opencode/...` unless that path is already ignored and the user explicitly wants repo-local persistence.
 
 ### Step 2 — Pick the mode
 
@@ -107,7 +107,7 @@ Close with the skill-exit status block (`global/AGENTS.md` §9).
 - [none / file updated / file created]
 
 #### Artifacts
-- `.opencode/b-skills/b-e2e/<run-id>/`
+- `.opencode/b-skills/b-e2e/<run-id>/` or a non-worktree fallback path
 ```
 
 ## Rules
@@ -121,4 +121,4 @@ Close with the skill-exit status block (`global/AGENTS.md` §9).
 - Do not introduce visual regression baselines without approval; default to functional snapshots.
 - `*_unsafe` tool variants require explicit user approval per invocation (`global/AGENTS.md` §4).
 - Always close the browser when the run is complete.
-- Persist auth state when re-login would be repeated work; never commit auth state files containing real credentials.
+- Persist auth state in a non-worktree path when re-login would be repeated work; never commit auth state files containing real credentials.

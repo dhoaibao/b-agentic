@@ -249,7 +249,7 @@ Skills reference bundles by name rather than enumerating tool lists.
 
 #### Sequential-thinking
 
-Not bundled. Opus 4.7 performs multi-hypothesis reasoning natively. Use the `sequential-thinking` MCP only when **three or more** plausible hypotheses remain with equal cheapest-verification cost.
+Bundled but optional. The default MCP install includes `sequential-thinking`, but most runs should not invoke it. Use the `sequential-thinking` MCP only when **three or more** plausible hypotheses remain with equal cheapest-verification cost.
 
 ### MCP availability and fallback ladder
 
@@ -270,8 +270,10 @@ When any fallback fires, attach a `[degraded: <reason>]` tag to the affected ste
 
 ### Per-skill tool budget
 
-- A skill run must not exceed **12 MCP tool calls** without surfacing progress and asking whether to continue.
-- At call 12: emit a one-line budget notice (`Tool budget: 12/12 reached. Continue? Remaining work: <list>`), then stop. Do not silently exceed.
+- A skill run should normally surface progress by **12 MCP tool calls** and reassess whether the same active thread still needs more tool use.
+- At call 12: emit a one-line budget notice (`Tool budget: 12/12 reached. Remaining work: <list>`). Continue only when the remaining work stays within the same active investigation, edit, or verification thread.
+- After call 12, do not start a new tool-heavy thread without first asking whether to continue.
+- If a run reaches **16 MCP tool calls** without closing the active thread or hitting a natural decision point, stop and ask whether to continue.
 - `firecrawl-deep` invocations require user approval each time.
 - `gitnexus-radar` should rarely exceed 2 calls in one skill run; further graph questions usually mean the wrong skill was chosen.
 - Cross-turn cache: if the same library/URL/symbol was just fetched in this session, reuse the result instead of re-fetching.
@@ -326,6 +328,13 @@ Skills do not restate this. They reference §6.
 
 - Never read, search, print, diff, edit, upload, summarize, or commit likely-secret files (e.g., `.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission.
 - If unsure whether a file is sensitive, stop and ask.
+
+### Repo-local artifact safety
+
+- Saved plans under `.opencode/b-skills/b-plan/` are canonical source-of-truth files, not runtime artifacts; this section does not reroute them.
+- Before writing repo-local artifacts under `.opencode/` inside the current worktree, verify that the path is ignored by git.
+- If repo-local `.opencode/` is not ignored, do not store auth/session state or other sensitive run artifacts there. Use `~/.config/opencode/b-skills/...` or `/tmp/opencode/b-skills/...` instead, or ask.
+- Never store real browser auth/session state under a tracked worktree path.
 
 ### Worktree safety
 
@@ -393,8 +402,9 @@ Examples:
 
 ### Paths
 
-- **Plans:** `.opencode/b-skills/b-plan/<task-slug>.md` (canonical). The legacy `.opencode/b-plans/` is deprecated; do not write there.
-- **Skill artifacts:** `.opencode/b-skills/<skill>/<run-id>/`.
+- **Plans:** `.opencode/b-skills/b-plan/<task-slug>.md` (canonical). Saved plans remain repo-local source-of-truth files even when runtime artifacts would fall back to a non-worktree path. The legacy `.opencode/b-plans/` is deprecated; do not write there.
+- **Skill artifacts:** `.opencode/b-skills/<skill>/<run-id>/` for repo-local non-sensitive artifacts when `.opencode/` is already git-ignored in the current worktree.
+- **Sensitive artifacts:** browser auth/session state and similar secrets default to `~/.config/opencode/b-skills/<skill>/<run-id>/` or `/tmp/opencode/b-skills/<skill>/<run-id>/`; never store them in a tracked worktree path.
 - **Temporary logs:** `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 
 Do not write generated artifacts outside those paths unless editing project source files is the task.

@@ -102,7 +102,7 @@ Apply the iteration cap from `global/AGENTS.md` §7.
 ### Step 5 — Record progress and finish cleanly
 
 After a step passes verification:
-- Update saved-plan checkboxes when a saved plan exists.
+- Update saved-plan checkboxes when present. If the saved plan predates checkbox-style steps, append a short progress note under the completed step instead of rewriting the whole plan format.
 - Keep the diff limited to approved scope.
 - Continue to the next step only if there is one.
 

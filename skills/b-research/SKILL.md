@@ -40,8 +40,6 @@ If `$ARGUMENTS` is provided, treat it as the research question and proceed direc
 - `firecrawl-extraction` (default extraction tier).
 - `firecrawl-extended` *(optional, for site maps or structured field extraction)*.
 - `firecrawl-deep` *(last resort; requires explicit user approval per invocation)*.
-- `brave_news_search` *(inline, only for recency-sensitive topics)*.
-- `brave_image_search` *(inline, only for genuinely visual questions)*.
 
 Fallbacks: `global/AGENTS.md` §4 MCP fallback ladder.
 
@@ -56,7 +54,7 @@ Choose the lightest depth that can plausibly answer:
 - **Lookup** — one fact, one signature, one config key, a yes/no capability, or a tiny example.
 - **Research** — anything requiring more than one source, comparison, multi-step synthesis, or recency-sensitive answer.
 
-If the user already provided a URL, file path, or document, go directly to extraction.
+If the user already provided a URL, file path, or document, decide between **direct-source lookup** and broader research: extract that one source immediately when it is likely sufficient, otherwise continue into research.
 
 ### Step 2 — Pin the version (library/API questions)
 
@@ -75,7 +73,7 @@ Skip this step for non-library research.
 2. Otherwise one focused `brave-discovery` query.
 3. Answer immediately when the result is authoritative and directly responsive.
 4. **Auto-deepen to research** when the first results are stale, mutually contradict, are not authoritative, or do not directly answer. Do not retry the same shape of query forever.
-5. Do not scrape in lookup.
+5. Do not scrape in **open-ended** lookup. The one exception is a **direct-source lookup** from a user-provided URL, file path, or document.
 
 **Research:**
 1. Prefer official docs, release notes, source repos, and vendor materials first.
@@ -159,7 +157,7 @@ Close the run with the skill-exit status block (`global/AGENTS.md` §9) for rese
 - Never ask the user to choose between lookup and research; the skill decides and auto-deepens.
 - Use the lightest depth that can answer correctly.
 - Public-web privacy gate is owned in `global/AGENTS.md` §6; honor it on every external call.
-- Never scrape in lookup.
+- Do not scrape in open-ended lookup when a docs or search result already answers; direct-source lookup from a user-provided URL, file path, or document may extract that one source immediately.
 - Pin the library version (manifests + lockfiles) before any `context7-docs` query.
 - Prefer 2–4 authoritative sources over a long weak list.
 - Do not force an example block for fact-only quick answers.

@@ -92,6 +92,7 @@ readme = (root / 'README.md').read_text()
 reference = (root / 'REFERENCE.md').read_text()
 global_rules = (root / 'global' / 'AGENTS.md').read_text()
 root_agents = (root / 'AGENTS.md').read_text()
+install_sh = (root / 'install.sh').read_text()
 
 for name in skill_names:
     for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
@@ -101,6 +102,15 @@ for name in skill_names:
 for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference), ('global/AGENTS.md', global_rules)]:
     if '.opencode/b-e2e/' in doc_text:
         errors.append(f'{doc_path}: old E2E artifact path still present')
+
+for doc_path, doc_text in [('README.md', readme), ('global/AGENTS.md', global_rules)]:
+    if 'Opus 4.7' in doc_text:
+        errors.append(f'{doc_path}: model-specific reasoning wording should not be present')
+
+if '@modelcontextprotocol/server-sequential-thinking' in install_sh:
+    for doc_path, doc_text in [('README.md', readme), ('global/AGENTS.md', global_rules)]:
+        if 'Not bundled.' in doc_text:
+            errors.append(f'{doc_path}: sequential-thinking wording conflicts with install.sh bundled defaults')
 
 for required in ['Radar/hands boundary', 'Evidence standards', 'GitNexus freshness gate']:
     if required not in global_rules:
@@ -123,10 +133,20 @@ root_forbidden = [
     'Prefer GitNexus first for graph-shaped code tasks when the repo is indexed:',
     'when GitNexus is available and indexed',
     'Note: "⚠️ GitNexus unavailable',
+    'key Vietnamese + English trigger phrases',
 ]
 for forbidden in root_forbidden:
     if forbidden in root_agents:
-        errors.append(f'AGENTS.md: stale GitNexus guidance remains: {forbidden!r}')
+        errors.append(f'AGENTS.md: stale maintainer guidance remains: {forbidden!r}')
+
+b_e2e = (root / 'skills' / 'b-e2e' / 'SKILL.md').read_text()
+if re.search(r'\.opencode/.+(auth\.json|storageState\.json|storage-state\.json)', b_e2e):
+    errors.append('skills/b-e2e/SKILL.md: auth state must not default to repo-local .opencode path')
+
+b_plan = (root / 'skills' / 'b-plan' / 'SKILL.md').read_text()
+b_implement = (root / 'skills' / 'b-implement' / 'SKILL.md').read_text()
+if 'Update saved-plan checkboxes' in b_implement and '- [ ] **<imperative step title>**' not in b_plan:
+    errors.append('skills/b-plan/SKILL.md: saved-plan skeleton must support checkbox-style progress updates used by b-implement')
 
 stale_reindex_prefix = 'If any GitNexus tool warns the index is stale, run `'
 if stale_reindex_prefix in root_agents and '--skip-agents-md' not in root_agents:
