@@ -70,10 +70,10 @@ Skip this step for non-library research.
 
 **Lookup:**
 1. `context7-docs` first for library/framework APIs.
-2. Otherwise one focused `brave-discovery` query.
-3. Answer immediately when the result is authoritative and directly responsive.
+2. Otherwise one focused `brave-discovery` query to find the highest-signal authoritative source.
+3. Answer immediately only when the result is backed by Context7, a direct-source extraction, or another primary source already in hand.
 4. **Auto-deepen to research** when the first results are stale, mutually contradict, are not authoritative, or do not directly answer. Do not retry the same shape of query forever.
-5. Do not scrape in **open-ended** lookup. The one exception is a **direct-source lookup** from a user-provided URL, file path, or document.
+5. Do not scrape a broad result set in **open-ended** lookup. If a search snippet would otherwise be the final evidence, extract at most one highest-signal authoritative source or label the answer snippet-only with `Confidence: low` per `AGENTS.md` §5. A **direct-source lookup** from a user-provided URL, file path, or document may extract that one source immediately.
 
 **Research:**
 1. Prefer official docs, release notes, source repos, and vendor materials first.
@@ -157,7 +157,8 @@ Close the run with the skill-exit status block (`AGENTS.md` §9) for research-mo
 - Never ask the user to choose between lookup and research; the skill decides and auto-deepens.
 - Use the lightest depth that can answer correctly.
 - Public-web privacy gate is owned in `AGENTS.md` §6; honor it on every external call.
-- Do not scrape in open-ended lookup when a docs or search result already answers; direct-source lookup from a user-provided URL, file path, or document may extract that one source immediately.
+- Search snippets are discovery only. Do not use them as final evidence unless the answer is explicitly labeled snippet-only with `Confidence: low`.
+- Do not scrape broad result sets in open-ended lookup; direct-source lookup from a user-provided URL, file path, or document may extract that one source immediately.
 - Pin the library version (manifests + lockfiles) before any `context7-docs` query.
 - Prefer 2–4 authoritative sources over a long weak list.
 - Do not force an example block for fact-only quick answers.

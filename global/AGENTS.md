@@ -85,18 +85,19 @@ status: draft | approved | in-progress | complete | superseded
 created_at: <YYYY-MM-DD>
 approved_at: <YYYY-MM-DDTHH:MM:SSZ | null>
 approved_by: user | null
+approved_head: <git-sha | null>
 risk: trivial | low | medium | high
 touch_points:
   - <path>
 ---
 ```
 
-When the user approves a saved plan, update `status`, `approved_at`, and `approved_by` in place. `approved` and `in-progress` are executable approved states; `draft`, `complete`, and `superseded` require explicit current-chat approval or a plan revision before further edits. Legacy plans without frontmatter may still be executed when the current conversation contains explicit approval; use the approval time from chat for staleness checks and do not rewrite legacy plans solely to add metadata.
+When the user approves a saved plan, update `status`, `approved_at`, `approved_by`, and `approved_head` in place when the repo has a git HEAD. `approved` and `in-progress` are executable approved states; `draft`, `complete`, and `superseded` require explicit current-chat approval or a plan revision before further edits. Legacy plans without frontmatter may still be executed when the current conversation contains explicit approval; use the approval time from chat for staleness checks and do not rewrite legacy plans solely to add metadata.
 
 ### Plan staleness gate
 
 A saved plan is stale if any of these are true:
-- A file listed under `touch_points` frontmatter or `Planned touch points` has been modified (mtime or git history) since approval.
+- A file listed under `touch_points` frontmatter or `Planned touch points` has been modified since approval. Prefer checking both committed drift (`git diff --name-only <approved_head>..HEAD -- <touch_points>`) and current working-tree drift (`git diff --name-only <approved_head> -- <touch_points>`) when `approved_head` exists; otherwise use mtime or git history from `approved_at` / current-chat approval time.
 - A `Confirmed decision` conflicts with the current repo state.
 - The git HEAD has moved past a rebase/merge that touches planned files.
 
@@ -292,6 +293,7 @@ When any fallback fires, attach a `[degraded: <reason>]` tag to the affected ste
 - Around **12 MCP calls** in one skill run, pause and summarize what is still unknown before adding more discovery.
 - Do not open a second tool-heavy thread until the current investigation, edit, or verification thread is closed or the user asks to expand scope.
 - If sustained tool use is not increasing evidence quality, narrow the next check or stop and ask whether to continue.
+- Classify tool failures before retrying or falling back: unavailable, auth/permission denied, rate-limited, timed out, stale index/cache, unsupported language/content type, or malformed request. Retry only when the class is plausibly transient or narrower input can fix it; stop for auth/permission failures unless the user provides corrected access.
 - `firecrawl-deep` invocations require user approval each time.
 - `gitnexus-radar` should usually stay to 1-2 calls per run; more often means the question should move back to Serena or native tools.
 - Reuse recently fetched URLs, docs, and symbol results instead of re-fetching them.
@@ -309,6 +311,8 @@ Use this evidence hierarchy:
 - **Search snippets:** triage only until scraped, documented, or otherwise confirmed.
 
 Graph evidence is useful for review or exploration; it does not prove edits are safe. Stale graph output is not evidence (see §4 freshness gate).
+
+Search snippets are discovery evidence, not final proof. If snippets are the only available evidence after fallbacks, label the answer snippet-only with `Confidence: low` and name the missing primary source or extraction step.
 
 When two authoritative sources disagree (e.g., two versions of vendor docs), prefer the one matching the pinned version (§4); if still ambiguous, present both with the conflict labeled and a `Confidence: medium` line.
 
@@ -363,6 +367,7 @@ Skills do not restate this. They reference §6.
 - Saved plans under `.opencode/b-skills/b-plan/` are canonical source-of-truth files, not runtime artifacts; this section does not reroute them.
 - Before writing repo-local artifacts under `.opencode/` inside the current worktree, verify that the path is ignored by git.
 - If repo-local `.opencode/` is not ignored, do not store auth/session state or other sensitive run artifacts there. Use `~/.config/opencode/b-skills/...` or `/tmp/opencode/b-skills/...` instead, or ask.
+- Persisting reusable browser auth/session state requires explicit user opt-in, even outside the worktree. Without opt-in, use an ephemeral browser session or current-run temporary state only.
 - Never store real browser auth/session state under a tracked worktree path.
 
 ### Generated files and lockfiles
@@ -404,9 +409,16 @@ Security, data-loss, or production-impacting issues found in touched code may be
 
 ### Verification ladder
 
+- Discover baseline commands in this order: explicit plan or user command, project scripts, CI config, repo docs, language-native defaults already present in the repo, then one clarification question. Do not invent new tooling as a side effect of verification.
 - Narrow local check first (touched file diagnostics, single test).
 - Broader affected-area check second (module tests, type/build narrowed to changed area).
 - Full project check only when scope or risk justifies it (high-risk per §3, or shared contracts).
+
+### Long-running commands
+
+- Prefer bounded foreground commands with explicit timeouts.
+- Starting background jobs, dev servers, containers, emulators, or watch modes requires approval under §6 when they are long-lived or mutate local/shared state.
+- If a long-running command is approved, record what was started, how it was stopped, and any remaining process or cleanup action in the final report.
 
 ### Iteration cap
 
@@ -454,6 +466,7 @@ Examples:
 
 - **Plans:** `.opencode/b-skills/b-plan/<task-slug>.md` (canonical). Saved plans remain repo-local source-of-truth files even when runtime artifacts would fall back to a non-worktree path. The legacy `.opencode/b-plans/` is deprecated; do not write there.
 - **Skill artifacts:** `.opencode/b-skills/<skill>/<run-id>/` for repo-local non-sensitive artifacts when `.opencode/` is already git-ignored in the current worktree.
+- **Saved reports:** `.opencode/b-skills/<skill>/<run-id>/report.md` for explicit review/research reports when repo-local `.opencode/` is ignored; otherwise use `~/.config/opencode/b-skills/<skill>/<run-id>/report.md` or `/tmp/opencode/b-skills/<skill>/<run-id>/report.md` depending on sensitivity and retention needs.
 - **Sensitive artifacts:** browser auth/session state and similar secrets default to `~/.config/opencode/b-skills/<skill>/<run-id>/` or `/tmp/opencode/b-skills/<skill>/<run-id>/`; never store them in a tracked worktree path.
 - **Temporary logs:** `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 
@@ -501,6 +514,12 @@ Findings, decisions, or the next action come first. Narration second, if at all.
 ### Skill-exit status block
 
 Every non-trivial skill run ends with a single fenced status block. Use exactly this schema so downstream skills can parse it:
+
+State values:
+- `complete` — requested scope is done and required verification ran or was explicitly skipped.
+- `blocked` — work cannot continue without an external fix, unavailable dependency, or failed required check.
+- `needs-input` — a user decision or approval is required before safe progress.
+- `handed-off` — current skill stopped because another skill owns the next required step.
 
 ```text
 [status]

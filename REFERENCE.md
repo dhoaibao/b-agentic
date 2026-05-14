@@ -14,7 +14,7 @@ Think before coding. `b-plan` exists for unclear, broad, or risky work where the
 
 **Core behavior**
 - Chooses **quick mode** for trivial scoped work and **full mode** for non-trivial work.
-- Writes new full-mode saved plans with durable frontmatter for `slug`, `status`, approval timestamps, risk, and touch points.
+- Writes new full-mode saved plans with durable frontmatter for `slug`, `status`, approval timestamps, approved git HEAD, risk, and touch points.
 - Uses the smallest blocking questions only; does not turn every plan into an interview.
 - Produces dependency-ordered steps as short as the work actually is, with exact files or symbols when known.
 - Keeps broad or unclear refactors in planning until they reduce to concrete mechanical transforms for `b-refactor`.
@@ -61,7 +61,7 @@ External knowledge with auto-deepening depth — lookup or research.
 - Auto-deepens from lookup to research when first results are stale, contradictory, non-authoritative, or off-target. Never asks the user to choose a mode.
 - Treats a user-provided URL, file, or document as **direct-source lookup** when one bounded source is likely sufficient; extraction is allowed in that lookup lane.
 - Pins library version from manifests **and** lockfiles; resolves at the closest workspace in monorepos.
-- Uses Context7 first for library and framework APIs; page extraction only when lookup is insufficient.
+- Uses Context7 first for library and framework APIs; search discovers candidate sources, while final claims require Context7, direct extraction, or another primary source unless explicitly labeled snippet-only and low confidence.
 - Uses `firecrawl-extraction` for local docs and known URLs; `firecrawl-extended` only for site maps or structured fields; `firecrawl-deep` only with explicit user approval per invocation (cost warning in `global/AGENTS.md` §4).
 - Reuses fetched results from earlier in the session instead of re-fetching.
 
@@ -78,7 +78,8 @@ tra cứu config key cho NextAuth session timeout
 
 **Key rules**
 - Never ask the user to choose a mode; the skill decides and auto-deepens.
-- Do not scrape in open-ended lookup when a docs or search result already answers; direct-source lookup from a provided source may extract that one source immediately.
+- Search snippets are discovery only. Do not use them as final evidence unless the answer is explicitly labeled snippet-only with `Confidence: low`.
+- Do not scrape broad result sets in open-ended lookup; direct-source lookup from a provided source may extract that one source immediately.
 - Pin the library version (manifests + lockfiles) before any `context7-docs` query.
 - Prefer 2–4 authoritative sources over a long weak list.
 - Resolve cross-source conflicts by preferring the publisher's docs at the pinned version; label the conflict and lower confidence when ambiguity remains.
@@ -93,7 +94,7 @@ tra cứu config key cho NextAuth session timeout
 
 **Core behavior**
 - Resolves its source of truth from an approved plan file, plan slug (per the slug algorithm in `global/AGENTS.md` §8), approved chat plan, or a request meeting the **small direct request** threshold (`global/AGENTS.md` §3).
-- Reads saved-plan frontmatter when present and requires an executable durable approval state (`approved` or `in-progress`) or explicit current-chat approval before editing.
+- Reads saved-plan frontmatter when present and requires an executable durable approval state (`approved` or `in-progress`) or explicit current-chat approval before editing; chat approval updates `approved_head` when a git HEAD is available.
 - Routes broad or ambiguous work back to `b-plan`.
 - Preserves unrelated worktree changes and edits only files needed for the current step.
 - Uses `serena-symbol-toolkit` for symbol-aware edits and narrow diagnostics before broader checks.
@@ -248,7 +249,7 @@ Findings -> Coverage / Tests / Observability -> READY FOR PR or NEEDS FIXES
 - Captures large failure output under `/tmp/opencode/b-skills/b-test/` instead of depending on truncated terminal output.
 - Treats snapshots, golden files, fixtures, mocks, and async timing as explicit test concerns; updates snapshots only after the **snapshot confirmation procedure** in `global/AGENTS.md` §10.
 - Ranks coverage gaps using the rubric in the skill (required → strong → useful → opportunistic).
-- Hands real-browser flows to `b-e2e` and product-behavior uncertainty to `b-debug`.
+- Hands real-browser flows to `b-e2e`; hands product-behavior uncertainty or confirmed product fixes out of the test lane to `b-debug` or `b-implement` with the failing evidence.
 - Keeps property-based, fuzz, and contract tests in `b-test` only when the repo already has an established runner and pattern; new strategies or frameworks route to `b-plan` first.
 
 **Good triggers**
@@ -287,7 +288,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 - Uses repo-local `.opencode/...` artifact paths only when that path is already git-ignored; otherwise falls back to `~/.config/opencode/b-skills/...` or `/tmp/opencode/b-skills/...`.
 - Verifies localhost targets are reachable before navigating; never starts a dev server without approval.
 - Clarifies only blocking state: auth/session, test data, whether writes are allowed.
-- Reuses or stores auth state (`storageState.json`) in a non-worktree path so repeated runs don't re-authenticate from scratch.
+- Reuses approved stored auth state (`storageState.json`) when available, but saves reusable post-login auth state only with explicit user opt-in and in a non-worktree path by default.
 - Uses accessibility snapshots before interaction.
 - Verifies state with snapshots, screenshots, console/network evidence. Multi-viewport remains opt-in except responsive UI work or UI intended for both mobile and desktop, where one representative mobile and desktop viewport are checked by default.
 - Defaults to functional snapshots over visual regression; visual regression baselines require approval.
@@ -314,7 +315,7 @@ Mode -> Target -> Driver -> Interactions -> Assertions -> Test code -> Artifacts
 - Namespace test data created by browser flows whenever writes are approved, and report what was kept or cleaned up.
 - Visual regression baselines require approval; default to functional snapshots.
 - `*_unsafe` browser tool variants require explicit user approval per invocation (`global/AGENTS.md` §4).
-- Never commit auth-state files containing real credentials.
+- Persist reusable auth state only with explicit user opt-in, store it outside the worktree by default, and never commit auth-state files containing real credentials.
 - Always close the browser when done.
 
 ---
@@ -325,7 +326,7 @@ Mode -> Target -> Driver -> Interactions -> Assertions -> Test code -> Artifacts
 
 **Core behavior**
 - Locks the exact target before editing.
-- Runs `find_referencing_symbols` once as the canonical impact-mapping step.
+- Runs `find_referencing_symbols` as the primary graph-backed static impact-mapping step, while treating dynamic, config-driven, generated, and prose references as outside that proof unless separately searched.
 - Classifies the refactor on the **risk rubric** in `global/AGENTS.md` §3 (trivial / low / medium / high).
 - Supports a **trivial local fast path** only when one file, no contract change, few references, behavior preserved, **and** the language is LSP-supported by Serena. Non-LSP languages auto-promote to at least **low** risk by design.
 - Treats vague "simplify" requests as planning work until the exact behavior-preserving transform is locked.
@@ -356,7 +357,7 @@ Target -> Risk -> Impact -> Changes -> Verification -> Follow-up
 - Keep the work behavior-preserving.
 - Use the trivial-local fast path only when the contract is clearly untouched and the language is LSP-supported.
 - For non-LSP languages, treat every rename or safe-delete as at least **low** risk.
-- For non-LSP languages, generated glue, config-driven references, or text-discovered references outside Serena's graph, add targeted text search to verification.
+- For non-LSP languages, generated glue, dynamic dispatch, config-driven references, or text/prose references outside Serena's graph, add targeted text search to verification.
 - For rename + extract, do extract first, then rename.
 - Ask before broad directory moves or similar cascading changes.
 
@@ -380,6 +381,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 ### Runtime artifacts
 - `.opencode/b-skills/b-plan/<task-slug>.md` — saved plans from `b-plan` (legacy `.opencode/b-plans/` is deprecated). These remain canonical repo-local source-of-truth files. `<task-slug>` derives from `global/AGENTS.md` §8.
 - `.opencode/b-skills/<skill>/<run-id>/` — repo-local non-sensitive run artifacts when `.opencode/` is git-ignored, with `run-id = <YYYYMMDD-HHMMSS>-<slug>`.
+- `.opencode/b-skills/<skill>/<run-id>/report.md` — saved review/research reports when repo-local `.opencode/` is git-ignored; otherwise use the non-worktree fallback path that matches sensitivity and retention needs.
 - `~/.config/opencode/b-skills/<skill>/<run-id>/` or `/tmp/opencode/b-skills/<skill>/<run-id>/` — non-worktree artifacts for sensitive browser/session state.
 - `/tmp/opencode/b-skills/<skill>/<slug>.log` — large command output and temporary logs.
 - Multi-artifact runs include a `manifest.json` per the schema in `global/AGENTS.md` §8.
@@ -388,7 +390,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - One active skill at a time.
 - Trigger precedence is explicit: browser flow → `b-e2e`; DOM-rendered unit test → `b-test`; likely product bug → `b-debug` (per the test-vs-bug decision in `global/AGENTS.md` §10); named behavior-preserving transform → `b-refactor`; unclear scope → `b-plan`; external-knowledge blocker → `b-research`.
 - After `b-plan` approval, the approved plan is the execution source of truth for multi-step implementation, subject to the **plan staleness gate** and **plan revision protocol** in `global/AGENTS.md` §2.
-- New saved plans carry durable frontmatter for approval state, risk, and touch points; legacy plans remain valid with explicit current-chat approval.
+- New saved plans carry durable frontmatter for approval state, approved git HEAD, risk, and touch points; legacy plans remain valid with explicit current-chat approval.
 - Cross-skill handoffs use the **handoff envelope** in `global/AGENTS.md` §9 (`source`, `goal`, `decisions`, `assumptions`, `files`, `verification`, `blockers`, `next-skill`).
 - Non-trivial skill runs end with the **skill-exit status block** in `global/AGENTS.md` §9.
 - Clarification loops are capped (max 2 rounds) unless a real decision gate remains.
@@ -397,6 +399,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - Commands are classified by risk: read-only, project-write, dependency-write, environment-write, external-write, and destructive (`global/AGENTS.md` §6).
 - Generated files, lockfiles, snapshots, goldens, vendored code, and minified files are treated as derived artifacts unless the source or approved generation step is clear.
 - Verification follows the ladder: narrow check → broader affected-area check → full check only when scope or risk justifies it. Non-trivial reports include verification provenance, and the iteration cap (3 fix/verify loops per step) is in `global/AGENTS.md` §7.
+- Verification command discovery follows explicit plan/user command, project scripts, CI config, repo docs, existing language-native defaults, then clarification. Long-running commands and background jobs require approval when they are persistent or mutating, and cleanup is reported.
 - Severity (BLOCKER / MAJOR / MINOR / NIT), risk (trivial / low / medium / high), the **non-trivial** definition, the **small direct request** threshold (≤3 files), and the **confidence signal** all live in `global/AGENTS.md` §3.
 - Tool-use heuristics nudge the agent to narrow scope or summarize remaining unknowns after sustained MCP use instead of following brittle hard call ceilings (`global/AGENTS.md` §4).
 - Empty-state defaults (no diff, no plan, no test framework, no MCP) are owned in `global/AGENTS.md` §7.
@@ -408,7 +411,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - Skills reference **MCP bundles** by name (`serena-symbol-toolkit`, `gitnexus-radar`, `context7-docs`, `brave-discovery`, `firecrawl-extraction`/`firecrawl-extended`/`firecrawl-deep`, `playwright-browser`). Bundle definitions, fallback ladder, cost gates, and language-coverage caveats are owned in `global/AGENTS.md` §4.
 - Serena is **primary hands** for symbols, references, diagnostics, and symbol-aware edits.
 - GitNexus is **optional radar** for graph-shaped questions only when indexed, fresh, and target-aware.
-- Runtime evidence outranks graph evidence; graph evidence outranks search snippets.
+- Runtime evidence outranks graph evidence; graph evidence outranks text evidence; search snippets are discovery only and require primary/fetched support before final claims unless labeled snippet-only with low confidence.
 - `sequential-thinking` is bundled but optional; reach for it inline only when three or more plausible hypotheses remain with equal cheapest-verification cost.
 
 ### Installer behavior

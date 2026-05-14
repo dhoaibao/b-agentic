@@ -69,7 +69,7 @@ Graceful degradation: ✅ Possible — the core workflow still works with native
 
 Use `AGENTS.md` §10 (test failure vs runtime bug) to pick the lane:
 
-- **Failing test** — fix the test, fixture, setup, or clearly confirmed production bug.
+- **Failing test** — fix the test, fixture, or setup when production behavior is confirmed correct. If the test confirms a real product bug, stop the test-lane edit and hand off to **b-debug** or **b-implement** with the intended behavior and failing test evidence.
 - **Write tests** — add new regression, unit, or integration coverage for known behavior.
 - **Coverage review** — identify the highest-value missing tests and optionally add the top ones.
 - **Flaky test** — apply the flake handling procedure in `AGENTS.md` §10 before rewriting or skipping.
@@ -142,7 +142,7 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 
 ## Rules
 
-- Never change production code just because a test is red. Defer to `AGENTS.md` §10.
+- Never change production code just because a test is red. Defer to `AGENTS.md` §10 and route confirmed product fixes out of **b-test**.
 - Never update an assertion, snapshot, or golden file without confirming intended behavior first; follow the snapshot procedure in `AGENTS.md` §10.
 - Real-browser flows belong to **b-e2e**; keep DOM-rendered unit tests here.
 - Do not introduce property-based, fuzz, or contract-testing frameworks without a plan and explicit approval.

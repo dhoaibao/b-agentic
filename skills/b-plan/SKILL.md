@@ -114,6 +114,7 @@ status: draft
 created_at: <YYYY-MM-DD>
 approved_at: null
 approved_by: null
+approved_head: null
 risk: <trivial | low | medium | high>
 touch_points:
   - <path>
@@ -171,7 +172,7 @@ If the task involves field mapping or protocol translation, add a small mapping 
 - Write an English plan to `.opencode/b-skills/b-plan/<task-slug>.md`.
 - Show the saved path.
 - Ask for approval.
-- If approval arrives in the same planning run, update the plan frontmatter in place: `status: approved`, `approved_at: <timestamp>`, `approved_by: user`.
+- If approval arrives in the same planning run, update the plan frontmatter in place: `status: approved`, `approved_at: <timestamp>`, `approved_by: user`, and `approved_head: <git-sha>` when the repo has a git HEAD.
 
 The plan is complete only when a fresh agent could execute it without re-deriving the design.
 

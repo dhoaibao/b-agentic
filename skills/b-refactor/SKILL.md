@@ -60,7 +60,7 @@ Graceful degradation: ⚠️ Partial — small local refactors remain possible w
 
 ### Step 2 — Assess impact and choose verification depth
 
-1. Run `find_referencing_symbols` on the locked target to enumerate impact. This is the single canonical mapping step — do not repeat it under different framings.
+1. Run `find_referencing_symbols` on the locked target to enumerate static symbol impact. Treat this as the primary graph-backed mapping step, not a complete proof for dynamic, config-driven, generated, or prose references.
 2. Classify the refactor on the **risk rubric** in `AGENTS.md` §3 (trivial / low / medium / high).
 3. **Trivial-local fast path** is allowed only when **all** of:
    - One file.
@@ -71,7 +71,7 @@ Graceful degradation: ⚠️ Partial — small local refactors remain possible w
 
    This is intentional: non-LSP languages (Bash, YAML, Markdown, Lua, many DSLs) auto-promote to **low** risk at minimum. The fast path is locked behind LSP support because rename/safe-delete results in non-LSP languages are not authoritative.
 4. For medium or high-risk refactors, optionally use `gitnexus-radar` to scope blast radius before editing. Discover the baseline verification command from project scripts or CI config. If baseline checks are already failing, stop and ask.
-5. For non-LSP languages, generated glue, config-driven references, or text-discovered references outside Serena's graph, add a targeted text search to the verification worklist before editing.
+5. For non-LSP languages, generated glue, dynamic dispatch, config-driven references, or text/prose references outside Serena's graph, add targeted text searches to the verification worklist before editing.
 
 ### Step 3 — Apply the mechanical transform
 

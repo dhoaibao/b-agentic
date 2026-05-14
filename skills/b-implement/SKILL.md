@@ -65,7 +65,7 @@ Apply the **plan staleness gate** (`AGENTS.md` §2) before executing. A stale pl
 
 Extract only what execution needs: frontmatter approval state when present, confirmed decisions, planned touch points, ordered steps or the single scoped request, verification expectations, unresolved blockers.
 
-For saved plans with frontmatter, require `status: approved`, `status: in-progress`, or explicit approval in the current conversation before editing. If approval arrives in chat for a draft plan, update `status`, `approved_at`, and `approved_by` before the first source edit. Legacy plans without frontmatter may execute from explicit current-chat approval per `AGENTS.md` §2.
+For saved plans with frontmatter, require `status: approved`, `status: in-progress`, or explicit approval in the current conversation before editing. If approval arrives in chat for a draft plan, update `status`, `approved_at`, `approved_by`, and `approved_head` when available before the first source edit. Legacy plans without frontmatter may execute from explicit current-chat approval per `AGENTS.md` §2.
 
 ### Step 2 — Check the working state
 

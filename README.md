@@ -71,7 +71,7 @@ You can inspect and maintain the suite from this source repository, which contai
 In this source repo, the shared runtime rules are authored in `global/AGENTS.md` and installed as `~/.config/opencode/AGENTS.b-skills.md`; the installer only replaces `~/.config/opencode/AGENTS.md` when it is missing or you approve replacement. Installed skill prose should still reference `AGENTS.md`, so a preserved third-party `AGENTS.md` leaves the suite in an activation-pending state until you merge or replace it. The headlines:
 
 - **Definitions** (`§3`): "non-trivial", **small direct request** (≤3 files), **severity** (BLOCKER/MAJOR/MINOR/NIT), **risk** (trivial/low/medium/high), and the **confidence signal** every partial-evidence answer carries.
-- **Durable plan metadata** (`§2`): saved plans can carry frontmatter for approval state, timestamps, risk, and touch points; legacy plans remain valid when explicitly approved in chat.
+- **Durable plan metadata** (`§2`): saved plans carry frontmatter for approval state, timestamps, approved git HEAD, risk, and touch points; legacy plans remain valid when explicitly approved in chat.
 - **MCP bundles** (`§4`): skills reference named bundles — `serena-symbol-toolkit`, `gitnexus-radar`, `context7-docs`, `brave-discovery`, `firecrawl-extraction` / `firecrawl-extended` / `firecrawl-deep`, `playwright-browser`. Bundle definitions own session-init, fallback ladder, language-coverage caveats, and cost/approval gates.
 - **Tool-use heuristics** (`§4`): around the 12th MCP call, narrow the active thread or summarize what remains unknown instead of blindly continuing to fan out.
 - **Safety gates** (`§6`): command risk classes, privacy gate, sensitive-file safety, generated-file/lockfile policy, worktree safety, git safety, and the **canonical approval ask** template.
@@ -83,8 +83,9 @@ In this source repo, the shared runtime rules are authored in `global/AGENTS.md`
 - **Session lifecycle** (`§11`): preflight and crash/resume rules.
 
 Artifact paths:
-- Plans: `.opencode/b-skills/b-plan/<task-slug>.md` (legacy `.opencode/b-plans/` is deprecated). New saved plans include frontmatter for durable approval state, risk, and touch points. Saved plans remain the canonical repo-local source of truth even when non-plan runtime artifacts would fall back to `~/.config/opencode/...` or `/tmp/opencode/...`. `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.
+- Plans: `.opencode/b-skills/b-plan/<task-slug>.md` (legacy `.opencode/b-plans/` is deprecated). New saved plans include frontmatter for durable approval state, timestamps, approved git HEAD, risk, and touch points. Saved plans remain the canonical repo-local source of truth even when non-plan runtime artifacts would fall back to `~/.config/opencode/...` or `/tmp/opencode/...`. `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.
 - Skill artifacts: `.opencode/b-skills/<skill>/<run-id>/` for repo-local non-sensitive artifacts when `.opencode/` is already git-ignored; otherwise use `~/.config/opencode/b-skills/<skill>/<run-id>/` or `/tmp/opencode/b-skills/<skill>/<run-id>/`. E2E auth/session state should use the non-worktree path by default. `run-id = <YYYYMMDD-HHMMSS>-<slug>`.
+- Saved reports: `.opencode/b-skills/<skill>/<run-id>/report.md` for explicit review/research reports when repo-local `.opencode/` is ignored; otherwise use the non-worktree fallback path that matches sensitivity and retention needs.
 - Temporary command output: `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 - Multi-artifact runs include a `manifest.json` per the schema in `global/AGENTS.md` §8.
 
@@ -92,12 +93,14 @@ Routing and safety highlights:
 - Keep one active skill until its stop condition is hit; do not bounce across skills for optional enrichment.
 - Trigger precedence is strict: browser flow → `/b-e2e`; DOM-rendered unit test → `/b-test`; likely product bug → `/b-debug`; named behavior-preserving transform → `/b-refactor`; unclear scope → `/b-plan`; external-knowledge blocker → `/b-research`.
 - After `/b-plan` approval, the approved plan becomes the execution source of truth, subject to the **plan staleness gate** and **plan revision protocol** in `global/AGENTS.md` §2.
-- When a saved plan has frontmatter, approval state is updated in place (`status`, `approved_at`, `approved_by`) so later runs do not rely only on chat memory; `approved` and `in-progress` are executable approved states.
+- When a saved plan has frontmatter, approval state is updated in place (`status`, `approved_at`, `approved_by`, `approved_head`) so later runs do not rely only on chat memory; `approved` and `in-progress` are executable approved states.
 - Approval is required before installs, dev servers, migrations, production-like/staging writes, broad refactors, commits, or destructive commands — using the **canonical approval ask** template in `global/AGENTS.md` §6.
 - Commands are classified by risk: read-only, project-write, dependency-write, environment-write, external-write, and destructive.
+- Persisting reusable browser auth/session state requires explicit user opt-in, even when stored outside the worktree.
 - Generated files, lockfiles, snapshots, goldens, vendored code, and minified files are treated as derived artifacts unless the source or approved generation step is clear.
 - Manual edits use `apply_patch`.
 - Verification follows the ladder: narrow check → broader affected-area check → full check only when scope or risk justifies it.
+- Verification command discovery follows: explicit plan/user command → project scripts → CI config → repo docs → existing language-native defaults → clarification.
 - Non-trivial final reports include verification provenance: checks run, evidence used, and skipped or unavailable checks.
 - GitNexus is optional radar; Serena is primary hands.
 - Cross-skill handoffs use the **handoff envelope** in `global/AGENTS.md` §9.
@@ -197,7 +200,7 @@ OpenCode integration:
 - GitNexus augments Serena for graph-level intelligence only when indexed, fresh, and target-aware. Bundle definition and freshness gate live in `global/AGENTS.md` §4.
 - Cost-gated tools (`firecrawl-deep`, browser `*_unsafe` variants) require explicit user approval per invocation.
 
-**Evidence model:** runtime evidence outranks graph evidence; Serena confirms exact symbols and references; text search confirms strings, config, and prose; web/search snippets are weakest and must be backed by fetched sources when confidence matters. Any answer derived from incomplete evidence carries the **confidence signal** defined in `global/AGENTS.md` §3.
+**Evidence model:** runtime evidence outranks graph evidence; Serena confirms exact symbols and references; text search confirms strings, config, and prose; web/search snippets are discovery only and must be backed by fetched or primary sources before final claims. Snippet-only answers are allowed only when labeled `Confidence: low`. Any answer derived from incomplete evidence carries the **confidence signal** defined in `global/AGENTS.md` §3.
 
 ---
 
