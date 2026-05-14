@@ -14,6 +14,7 @@ Think before coding. `b-plan` exists for unclear, broad, or risky work where the
 
 **Core behavior**
 - Chooses **quick mode** for trivial scoped work and **full mode** for non-trivial work.
+- Writes new full-mode saved plans with durable frontmatter for `slug`, `status`, approval timestamps, risk, and touch points.
 - Uses the smallest blocking questions only; does not turn every plan into an interview.
 - Produces dependency-ordered steps as short as the work actually is, with exact files or symbols when known.
 - Keeps broad or unclear refactors in planning until they reduce to concrete mechanical transforms for `b-refactor`.
@@ -33,12 +34,13 @@ how should I approach this refactor?
 
 **Output**
 - Quick mode: short chat plan.
-- Full mode: English plan file at `.opencode/b-skills/b-plan/<task-slug>.md`, where `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8. Saved plans remain canonical repo-local source-of-truth files even when non-plan runtime artifacts would fall back to a non-worktree path. Skeleton: `# title`, `Confirmed decisions`, `Planned touch points`, `Dependencies`, `Risks`, `Unknowns`, checkbox-style `Steps`, `Verification`, `Rollback` (only when real), and `Revisions` (added when revised).
+- Full mode: English plan file at `.opencode/b-skills/b-plan/<task-slug>.md`, where `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8. Saved plans remain canonical repo-local source-of-truth files even when non-plan runtime artifacts would fall back to a non-worktree path. Skeleton: durable frontmatter, `# title`, `Confirmed decisions`, `Planned touch points`, `Dependencies`, `Risks`, `Unknowns`, checkbox-style `Steps`, `Verification`, `Rollback` (only when real), and `Revisions` (added when revised).
 
 **Key rules**
 - Do not implement while planning.
 - Keep quick mode lean.
 - Save only full-mode plans unless the user explicitly asks for a saved quick plan.
+- Include durable plan frontmatter for new saved plans; update approval metadata in place when approval happens during planning.
 - Surface blockers and assumptions explicitly.
 - Quick/full threshold is the **non-trivial** definition in `global/AGENTS.md` §3.
 - Approved plans are subject to the **plan staleness gate** in `global/AGENTS.md` §2.
@@ -91,6 +93,7 @@ tra cứu config key cho NextAuth session timeout
 
 **Core behavior**
 - Resolves its source of truth from an approved plan file, plan slug (per the slug algorithm in `global/AGENTS.md` §8), approved chat plan, or a request meeting the **small direct request** threshold (`global/AGENTS.md` §3).
+- Reads saved-plan frontmatter when present and requires an executable durable approval state (`approved` or `in-progress`) or explicit current-chat approval before editing.
 - Routes broad or ambiguous work back to `b-plan`.
 - Preserves unrelated worktree changes and edits only files needed for the current step.
 - Uses `serena-symbol-toolkit` for symbol-aware edits and narrow diagnostics before broader checks.
@@ -99,6 +102,8 @@ tra cứu config key cho NextAuth session timeout
 - Triggers the **plan revision protocol** (`global/AGENTS.md` §2) when the plan is wrong mid-execution.
 - Verifies each step before moving on, capped by the iteration cap in `global/AGENTS.md` §7.
 - Updates saved-plan task-list progress in place when the plan uses checkbox-style steps.
+- Updates frontmatter progress (`approved` → `in-progress` → `complete`) without stripping metadata.
+- Continues through approved plan steps when the user asks to implement or finish the plan; stops after one verified step when the user asks for only the next step.
 
 **Good triggers**
 ```text
@@ -120,6 +125,7 @@ Closes with the **skill-exit status block** from `global/AGENTS.md` §9.
 
 **Key rules**
 - Implement only approved or clearly scoped work; "small direct request" is the threshold in `global/AGENTS.md` §3 (≤3 files, no contract change, no sensitive path, no remaining design decision).
+- Preserve durable plan frontmatter when updating saved-plan progress.
 - Do not refactor opportunistically while implementing a feature step.
 - Stop for new product decisions instead of inferring them.
 
@@ -134,6 +140,7 @@ Closes with the **skill-exit status block** from `global/AGENTS.md` §9.
 
 **Core behavior**
 - Starts from the concrete symptom or error.
+- For active production impact or data-loss/security risk, identifies the safest containment option first and asks for approval before shared-environment action.
 - Uses an obvious-stack-trace fast path when one file or function is strongly implicated.
 - Maps the path with `serena-symbol-toolkit`, picking the cheapest discovery tool for the next question.
 - Biases toward common first suspects: swallowed errors, auth gates, config drift, async ordering, shared-state leaks, off-by-one in new code, and (for perf) N+1 queries, unbounded retries, hot-loop allocations.
@@ -164,6 +171,7 @@ Symptoms -> Code path -> Hypotheses -> Root cause -> Fix -> Verification
 
 **Key rules**
 - Do not patch before the root cause is confirmed.
+- For active production impact, containment may precede deep investigation, but shared-environment mutations still require approval.
 - Explicitly verify probe removal before reporting success.
 - For perf bugs, report measured before/after, not adjectives.
 - For cannot-reproduce reports, surface the gap rather than speculate-fix.
@@ -187,7 +195,9 @@ Symptoms -> Code path -> Hypotheses -> Root cause -> Fix -> Verification
 - Builds a requirements baseline from `$ARGUMENTS`, `--baseline=<path|url>`, an approved plan, or a short clarification.
 - Falls back to clearly labeled **diff-only risk review** or **repo-audit risk review** when no baseline exists after bounded clarification.
 - Reviews highest-risk symbols and boundaries first.
+- Uses a short surface-specific checklist for `--repo-audit` targets such as installers, runtime contracts, validators, route/tool boundaries, dependency changes, lockfiles, or generated artifacts.
 - Runs the **security checklist** (correctness, input validation, injection, auth/authz, sensitive-data exposure, concurrency, dependency hygiene, secret handling, regex DoS, rate limits, error handling) on every changed entry point and shared boundary, even on the fast path.
+- Treats lockfile, generated, snapshot, golden, vendored, and minified changes as derived artifacts unless the source or approved generation step is clear.
 - Skips test adequacy and observability only when `--skip-tests` is present.
 - Reports findings first, ordered by the **severity rubric** in `global/AGENTS.md` §3 (BLOCKER / MAJOR / MINOR / NIT), and includes "Checked and clean" so the author sees what scope was actually inspected.
 
@@ -215,6 +225,8 @@ Findings -> Coverage / Tests / Observability -> READY FOR PR or NEEDS FIXES
 - Security-checklist items are never skipped for changed entry points, sensitive paths, or shared boundaries.
 - The fast path is gated by risk bucket, not by line/file count.
 - In `--repo-audit` mode, say exactly what area was inspected and avoid implying whole-repo coverage unless the review was actually exhaustive.
+- In `--repo-audit` mode, report which target-specific checklist was applied.
+- Flag unexplained generated/lockfile artifact changes instead of reviewing them as hand-written code.
 - For self-review, bias for author blind spots; for external review, be explicit about blocker-vs-style.
 - If no findings, say so explicitly and note residual risk or skipped checks; attach the confidence signal from `global/AGENTS.md` §3 when evidence is partial.
 
@@ -237,7 +249,7 @@ Findings -> Coverage / Tests / Observability -> READY FOR PR or NEEDS FIXES
 - Treats snapshots, golden files, fixtures, mocks, and async timing as explicit test concerns; updates snapshots only after the **snapshot confirmation procedure** in `global/AGENTS.md` §10.
 - Ranks coverage gaps using the rubric in the skill (required → strong → useful → opportunistic).
 - Hands real-browser flows to `b-e2e` and product-behavior uncertainty to `b-debug`.
-- Treats property-based, fuzz, and contract testing as out of scope and routes them via `b-plan` + `b-implement`.
+- Keeps property-based, fuzz, and contract tests in `b-test` only when the repo already has an established runner and pattern; new strategies or frameworks route to `b-plan` first.
 
 **Good triggers**
 ```text
@@ -260,7 +272,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 - Never change production code just because a test is red.
 - Never update assertions or snapshots without confirming intended behavior.
 - Keep fixture and mock changes as local as practical.
-- Never introduce a test framework or coverage runner without explicit approval.
+- Never introduce a test, coverage, property-based, fuzzing, or contract-testing framework without explicit approval.
 - Explain when broader suites were skipped and why the narrow checks were enough.
 
 ---
@@ -277,7 +289,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 - Clarifies only blocking state: auth/session, test data, whether writes are allowed.
 - Reuses or stores auth state (`storageState.json`) in a non-worktree path so repeated runs don't re-authenticate from scratch.
 - Uses accessibility snapshots before interaction.
-- Verifies state with snapshots, screenshots, console/network evidence; multi-viewport is opt-in.
+- Verifies state with snapshots, screenshots, console/network evidence. Multi-viewport remains opt-in except responsive UI work or UI intended for both mobile and desktop, where one representative mobile and desktop viewport are checked by default.
 - Defaults to functional snapshots over visual regression; visual regression baselines require approval.
 - Applies the **flake handling** procedure in `global/AGENTS.md` §10 before reporting flake.
 - When writing tests, inspects the repo's existing browser-test framework first and preserves it instead of forcing Playwright everywhere.
@@ -298,7 +310,8 @@ Mode -> Target -> Driver -> Interactions -> Assertions -> Test code -> Artifacts
 - Do not start a dev server without approval.
 - Do not mutate production-like data without explicit confirmation.
 - Do not introduce Playwright test files into a repo that uses another framework unless approved.
-- Multi-viewport checks are opt-in.
+- Multi-viewport checks are opt-in except for responsive UI work or UI intended for both mobile and desktop.
+- Namespace test data created by browser flows whenever writes are approved, and report what was kept or cleaned up.
 - Visual regression baselines require approval; default to functional snapshots.
 - `*_unsafe` browser tool variants require explicit user approval per invocation (`global/AGENTS.md` §4).
 - Never commit auth-state files containing real credentials.
@@ -315,6 +328,7 @@ Mode -> Target -> Driver -> Interactions -> Assertions -> Test code -> Artifacts
 - Runs `find_referencing_symbols` once as the canonical impact-mapping step.
 - Classifies the refactor on the **risk rubric** in `global/AGENTS.md` §3 (trivial / low / medium / high).
 - Supports a **trivial local fast path** only when one file, no contract change, few references, behavior preserved, **and** the language is LSP-supported by Serena. Non-LSP languages auto-promote to at least **low** risk by design.
+- Treats vague "simplify" requests as planning work until the exact behavior-preserving transform is locked.
 - Uses `gitnexus-radar` only when exported, shared, route/tool, or broader package boundaries make graph context useful.
 - Uses the `serena-symbol-toolkit` rename/delete/body-replacement tools whenever they fit the transformation.
 - For **rename + extract**, does extract first under the old name, then `rename_symbol`, so each transform is independently verifiable.
@@ -342,6 +356,7 @@ Target -> Risk -> Impact -> Changes -> Verification -> Follow-up
 - Keep the work behavior-preserving.
 - Use the trivial-local fast path only when the contract is clearly untouched and the language is LSP-supported.
 - For non-LSP languages, treat every rename or safe-delete as at least **low** risk.
+- For non-LSP languages, generated glue, config-driven references, or text-discovered references outside Serena's graph, add targeted text search to verification.
 - For rename + extract, do extract first, then rename.
 - Ask before broad directory moves or similar cascading changes.
 
@@ -373,12 +388,15 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - One active skill at a time.
 - Trigger precedence is explicit: browser flow → `b-e2e`; DOM-rendered unit test → `b-test`; likely product bug → `b-debug` (per the test-vs-bug decision in `global/AGENTS.md` §10); named behavior-preserving transform → `b-refactor`; unclear scope → `b-plan`; external-knowledge blocker → `b-research`.
 - After `b-plan` approval, the approved plan is the execution source of truth for multi-step implementation, subject to the **plan staleness gate** and **plan revision protocol** in `global/AGENTS.md` §2.
+- New saved plans carry durable frontmatter for approval state, risk, and touch points; legacy plans remain valid with explicit current-chat approval.
 - Cross-skill handoffs use the **handoff envelope** in `global/AGENTS.md` §9 (`source`, `goal`, `decisions`, `assumptions`, `files`, `verification`, `blockers`, `next-skill`).
 - Non-trivial skill runs end with the **skill-exit status block** in `global/AGENTS.md` §9.
 - Clarification loops are capped (max 2 rounds) unless a real decision gate remains.
 - Public-web privacy gate, sensitive-file safety, worktree safety, and git safety are owned in `global/AGENTS.md` §6.
 - Approval-required actions use the **canonical approval ask** template in `global/AGENTS.md` §6.
-- Verification follows the ladder: narrow check → broader affected-area check → full check only when scope or risk justifies it. The iteration cap (3 fix/verify loops per step) is in `global/AGENTS.md` §7.
+- Commands are classified by risk: read-only, project-write, dependency-write, environment-write, external-write, and destructive (`global/AGENTS.md` §6).
+- Generated files, lockfiles, snapshots, goldens, vendored code, and minified files are treated as derived artifacts unless the source or approved generation step is clear.
+- Verification follows the ladder: narrow check → broader affected-area check → full check only when scope or risk justifies it. Non-trivial reports include verification provenance, and the iteration cap (3 fix/verify loops per step) is in `global/AGENTS.md` §7.
 - Severity (BLOCKER / MAJOR / MINOR / NIT), risk (trivial / low / medium / high), the **non-trivial** definition, the **small direct request** threshold (≤3 files), and the **confidence signal** all live in `global/AGENTS.md` §3.
 - Tool-use heuristics nudge the agent to narrow scope or summarize remaining unknowns after sustained MCP use instead of following brittle hard call ceilings (`global/AGENTS.md` §4).
 - Empty-state defaults (no diff, no plan, no test framework, no MCP) are owned in `global/AGENTS.md` §7.

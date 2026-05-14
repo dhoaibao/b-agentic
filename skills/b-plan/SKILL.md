@@ -105,14 +105,21 @@ Produce dependency-ordered steps as short as the work actually is. Each step say
 
 For saved plans, format execution steps as Markdown task-list items so progress can be updated in place during implementation.
 
-For full-mode plans, follow this saved-plan skeleton:
+For full-mode plans, follow this saved-plan skeleton. New saved plans include durable frontmatter from `AGENTS.md` §2 before the Markdown body:
 
 ```markdown
-# <task title>
+---
+slug: <task-slug>
+status: draft
+created_at: <YYYY-MM-DD>
+approved_at: null
+approved_by: null
+risk: <trivial | low | medium | high>
+touch_points:
+  - <path>
+---
 
-**Slug:** <task-slug>   (per AGENTS.md §8)
-**Created:** <YYYY-MM-DD>
-**Risk:** <trivial | low | medium | high>   (per AGENTS.md §3)
+# <task title>
 
 ## Goal
 <one paragraph stating the end state>
@@ -164,6 +171,7 @@ If the task involves field mapping or protocol translation, add a small mapping 
 - Write an English plan to `.opencode/b-skills/b-plan/<task-slug>.md`.
 - Show the saved path.
 - Ask for approval.
+- If approval arrives in the same planning run, update the plan frontmatter in place: `status: approved`, `approved_at: <timestamp>`, `approved_by: user`.
 
 The plan is complete only when a fresh agent could execute it without re-deriving the design.
 
@@ -181,6 +189,7 @@ Close the run with the skill-exit status block (`AGENTS.md` §9).
 - Do not implement while planning.
 - Keep quick plans lean; do not turn every small task into a full document.
 - Save only full-mode plans to `.opencode/b-skills/b-plan/`. The legacy `.opencode/b-plans/` path is deprecated; do not write there.
+- Include the durable plan frontmatter from `AGENTS.md` §2 in new saved plans; legacy plans without frontmatter remain valid when explicitly approved in chat.
 - Use the slug algorithm in `AGENTS.md` §8; do not invent ad-hoc filenames.
 - Surface blocking unknowns instead of hiding them in vague prose.
 - Broad or unclear refactors stay in **b-plan** until they reduce to concrete mechanical steps for **b-refactor**.

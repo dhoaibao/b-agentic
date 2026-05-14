@@ -71,18 +71,19 @@ You can inspect and maintain the suite from this source repository, which contai
 In this source repo, the shared runtime rules are authored in `global/AGENTS.md` and installed as `~/.config/opencode/AGENTS.b-skills.md`; the installer only replaces `~/.config/opencode/AGENTS.md` when it is missing or you approve replacement. Installed skill prose should still reference `AGENTS.md`, so a preserved third-party `AGENTS.md` leaves the suite in an activation-pending state until you merge or replace it. The headlines:
 
 - **Definitions** (`§3`): "non-trivial", **small direct request** (≤3 files), **severity** (BLOCKER/MAJOR/MINOR/NIT), **risk** (trivial/low/medium/high), and the **confidence signal** every partial-evidence answer carries.
+- **Durable plan metadata** (`§2`): saved plans can carry frontmatter for approval state, timestamps, risk, and touch points; legacy plans remain valid when explicitly approved in chat.
 - **MCP bundles** (`§4`): skills reference named bundles — `serena-symbol-toolkit`, `gitnexus-radar`, `context7-docs`, `brave-discovery`, `firecrawl-extraction` / `firecrawl-extended` / `firecrawl-deep`, `playwright-browser`. Bundle definitions own session-init, fallback ladder, language-coverage caveats, and cost/approval gates.
 - **Tool-use heuristics** (`§4`): around the 12th MCP call, narrow the active thread or summarize what remains unknown instead of blindly continuing to fan out.
-- **Safety gates** (`§6`): privacy gate, sensitive-file safety, worktree safety, git safety, and the **canonical approval ask** template.
+- **Safety gates** (`§6`): command risk classes, privacy gate, sensitive-file safety, generated-file/lockfile policy, worktree safety, git safety, and the **canonical approval ask** template.
 - **Iteration cap** (`§7`): maximum of 3 fix/verify loops per step before surfacing the blocker.
-- **Empty-state defaults** (`§7`): explicit defaults for missing diff, missing plan, missing framework, or unavailable MCPs.
-- **Artifacts** (`§8`): canonical slug algorithm, run-id format, plan path, manifest schema.
+- **Execution discipline** (`§7`): scope-expansion rules, verification provenance, empty-state defaults, and the maximum of 3 fix/verify loops per step before surfacing the blocker.
+- **Artifacts** (`§8`): canonical slug algorithm, run-id format, plan path, manifest schema, and retention/cleanup guidance.
 - **Output contract** (`§9`): chat language vs artifact language, **skill-exit status block**, and **handoff envelope**.
 - **Test-vs-bug decision** (`§10`): the single home for "is this a test problem or a real bug?" — owned in global, referenced by `b-test` and `b-debug`. Also owns the DOM-unit vs browser-flow boundary and the self-review vs external-review distinction.
 - **Session lifecycle** (`§11`): preflight and crash/resume rules.
 
 Artifact paths:
-- Plans: `.opencode/b-skills/b-plan/<task-slug>.md` (legacy `.opencode/b-plans/` is deprecated). Saved plans remain the canonical repo-local source of truth even when non-plan runtime artifacts would fall back to `~/.config/opencode/...` or `/tmp/opencode/...`. `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.
+- Plans: `.opencode/b-skills/b-plan/<task-slug>.md` (legacy `.opencode/b-plans/` is deprecated). New saved plans include frontmatter for durable approval state, risk, and touch points. Saved plans remain the canonical repo-local source of truth even when non-plan runtime artifacts would fall back to `~/.config/opencode/...` or `/tmp/opencode/...`. `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.
 - Skill artifacts: `.opencode/b-skills/<skill>/<run-id>/` for repo-local non-sensitive artifacts when `.opencode/` is already git-ignored; otherwise use `~/.config/opencode/b-skills/<skill>/<run-id>/` or `/tmp/opencode/b-skills/<skill>/<run-id>/`. E2E auth/session state should use the non-worktree path by default. `run-id = <YYYYMMDD-HHMMSS>-<slug>`.
 - Temporary command output: `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 - Multi-artifact runs include a `manifest.json` per the schema in `global/AGENTS.md` §8.
@@ -91,9 +92,13 @@ Routing and safety highlights:
 - Keep one active skill until its stop condition is hit; do not bounce across skills for optional enrichment.
 - Trigger precedence is strict: browser flow → `/b-e2e`; DOM-rendered unit test → `/b-test`; likely product bug → `/b-debug`; named behavior-preserving transform → `/b-refactor`; unclear scope → `/b-plan`; external-knowledge blocker → `/b-research`.
 - After `/b-plan` approval, the approved plan becomes the execution source of truth, subject to the **plan staleness gate** and **plan revision protocol** in `global/AGENTS.md` §2.
+- When a saved plan has frontmatter, approval state is updated in place (`status`, `approved_at`, `approved_by`) so later runs do not rely only on chat memory; `approved` and `in-progress` are executable approved states.
 - Approval is required before installs, dev servers, migrations, production-like/staging writes, broad refactors, commits, or destructive commands — using the **canonical approval ask** template in `global/AGENTS.md` §6.
+- Commands are classified by risk: read-only, project-write, dependency-write, environment-write, external-write, and destructive.
+- Generated files, lockfiles, snapshots, goldens, vendored code, and minified files are treated as derived artifacts unless the source or approved generation step is clear.
 - Manual edits use `apply_patch`.
 - Verification follows the ladder: narrow check → broader affected-area check → full check only when scope or risk justifies it.
+- Non-trivial final reports include verification provenance: checks run, evidence used, and skipped or unavailable checks.
 - GitNexus is optional radar; Serena is primary hands.
 - Cross-skill handoffs use the **handoff envelope** in `global/AGENTS.md` §9.
 - Non-trivial skill runs close with the **skill-exit status block** in `global/AGENTS.md` §9.

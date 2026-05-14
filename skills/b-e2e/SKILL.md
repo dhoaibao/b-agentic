@@ -64,7 +64,7 @@ If the user wants both ("verify it then write a test"), do verify first, then tr
 4. If the MCP bundle is unavailable, run the equivalent flow through the project's local Playwright CLI; record the command.
 5. Re-snapshot or screenshot the relevant state.
 6. Inspect console or network when the UI outcome depends on client errors or API calls.
-7. **Viewport check is opt-in.** Test only the requested viewport unless the user explicitly asks for multi-viewport (or the task is responsive-layout work).
+7. **Viewport check defaults.** Test only the requested viewport unless the user explicitly asks for multi-viewport, the task is responsive-layout work, or the changed UI is intended for both mobile and desktop. For responsive UI work, check one representative mobile and one representative desktop viewport unless the user narrows scope.
 8. If a step looks flaky, apply the flake handling rule in `AGENTS.md` §10 before reporting flake.
 9. Distinguish **functional snapshot** (assert state or text content) from **visual regression** (pixel diff). Use the former by default; do not introduce visual regression baselines without approval.
 
@@ -82,7 +82,8 @@ If the user wants both ("verify it then write a test"), do verify first, then tr
 1. Close the browser.
 2. Clean up only test data created by this run, and only when that cleanup was approved.
 3. **Partial-run cleanup:** if the flow failed mid-way, enumerate every write the run completed before the failure (accounts created, records inserted, files uploaded, sessions opened) and clean those up too — do not assume "test failed → nothing to undo." If cleanup of a partial write was not pre-approved, surface the list explicitly so the user can decide.
-4. Record artifact paths, generated test files, partial writes, and cleanup status in the run manifest per `AGENTS.md` §8.
+4. When writes are allowed, prefer clearly namespaced test data (unique prefix, timestamp, or run id) so cleanup can target only this run's records.
+5. Record artifact paths, generated test files, partial writes, and cleanup status in the run manifest per `AGENTS.md` §8.
 
 Close with the skill-exit status block (`AGENTS.md` §9).
 
@@ -117,7 +118,8 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - Do not mutate production-like data without explicit confirmation.
 - Preserve the repo's existing browser-test framework when editing test files.
 - Do not introduce Playwright test files into a non-Playwright repo unless the user approves.
-- Multi-viewport checks are opt-in, not default.
+- Multi-viewport checks are opt-in except for responsive UI work or UI intended for both mobile and desktop.
+- Namespace test data created by browser flows whenever writes are approved.
 - Do not introduce visual regression baselines without approval; default to functional snapshots.
 - `*_unsafe` tool variants require explicit user approval per invocation (`AGENTS.md` §4).
 - Always close the browser when the run is complete.

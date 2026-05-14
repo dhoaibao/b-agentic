@@ -35,7 +35,7 @@ If `$ARGUMENTS` is provided, treat it as the test task or failing symptom and pr
 - Scope or acceptance is still unclear → use **b-plan**.
 - The request is a pre-PR logic review → use **b-review**.
 - The task is only an external docs or testing-framework lookup → use **b-research**.
-- The task is property-based, fuzzing, or contract testing — these are **out of scope** for this skill; treat them as bespoke implementation work via **b-plan** + **b-implement**.
+- The task is designing a new property-based, fuzzing, or contract-testing strategy/framework → use **b-plan** first. Adding a small test in an already-established project pattern may stay in **b-test**.
 
 ## Boundary examples
 
@@ -102,6 +102,8 @@ If the failure might reflect a real product bug and the correct behavior is not 
 
 Discover the project's existing coverage command before inventing one. If the repo has no coverage runner, ask before adding one. Optionally add the top 1–3 missing tests when the user wants implementation, not just analysis.
 
+**Advanced tests** — property-based, fuzz, and contract tests stay here only when the repo already has an established runner and pattern. If the framework, boundary contract, generator strategy, or CI cost needs design, hand off to **b-plan** instead of inventing it inside a test edit.
+
 Prefer `serena-symbol-toolkit` insertions for existing test bodies. Use `apply_patch` when creating a new test file or when a small non-symbol edit is clearer.
 
 ### Step 4 — Verify
@@ -143,7 +145,7 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - Never change production code just because a test is red. Defer to `AGENTS.md` §10.
 - Never update an assertion, snapshot, or golden file without confirming intended behavior first; follow the snapshot procedure in `AGENTS.md` §10.
 - Real-browser flows belong to **b-e2e**; keep DOM-rendered unit tests here.
-- Property-based, fuzz, and contract testing are out of scope; route them via **b-plan** + **b-implement**.
+- Do not introduce property-based, fuzz, or contract-testing frameworks without a plan and explicit approval.
 - Prefer behavior assertions over implementation-detail assertions.
 - Keep fixture, mock, and setup changes as local as practical.
 - State when broader suite coverage was skipped and why the narrower check was sufficient.

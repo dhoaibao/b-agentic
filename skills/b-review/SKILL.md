@@ -100,6 +100,8 @@ Line/file count alone never decides the path; a 5-line change touching auth is n
 
 In `--repo-audit` mode, start with the highest-risk shared surfaces in the requested area: runtime contracts, install/update entry points, validators, route/tool boundaries, and the most reused rules before lower-risk docs.
 
+Use a surface-specific checklist when the audit target implies one: installer/update paths, runtime contracts, validators, route/tool boundaries, dependency/lockfile changes, generated artifacts, or security-sensitive rules. Keep the checklist short and name it in the report so `--repo-audit` does not read like a generic skim.
+
 Optionally use `gitnexus-radar` once when the diff is graph-shaped or contract-heavy. Initialize Serena per `AGENTS.md` §4 only when symbol-aware inspection adds value.
 
 **Security checklist** (run on changed entry points, sensitive paths, and shared boundaries — never skipped, even on the fast path):
@@ -113,6 +115,8 @@ Optionally use `gitnexus-radar` once when the diff is graph-shaped or contract-h
 - Regex DoS — user-supplied input feeding backtracking patterns.
 - Rate limiting and resource bounds for new entry points or queues.
 - Error handling — swallowed errors, leaky stack traces, fallback behavior under partial failure.
+
+**Generated and lockfile policy:** for generated files, snapshots, golden files, vendored/minified code, and lockfiles, verify the source change or approved generator/dependency action that produced them. If no source or approved generation step exists, flag the artifact change as suspicious rather than reviewing it as hand-written code.
 
 Use diagnostics or a narrow verification command only when review confidence depends on runtime or typed-language evidence.
 
@@ -173,6 +177,8 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - The fast path is gated by **risk bucket**, not by line/file count. Auth/security/migration/contract touches always force standard review.
 - Always include "Checked and clean" so the author sees what scope was actually reviewed.
 - In `--repo-audit` mode, name the audited surface explicitly and avoid implying full-repository coverage unless you actually inspected the full repository.
+- In `--repo-audit` mode, use a target-specific checklist and report which checklist was applied.
+- Treat lockfile, generated, snapshot, golden, vendored, and minified changes as derived artifacts unless the source or approved generation step is clear.
 - For self-review, be harsher on author bias; for external review, be explicit about blocker-vs-style. Concretely:
   - **Self-review** — re-derive intent from the diff alone instead of trusting "I meant to do this"; explicitly question test cases the author skipped, error paths the author treated as "won't happen," and naming the author rationalized late; bias toward MAJOR/BLOCKER over NIT when the author's own confidence may be inflated.
   - **External review** — never suggest stylistic rewrites disguised as findings; clearly separate BLOCKER/MAJOR (must change before merge) from MINOR/NIT (author may decline); give the author the benefit of the doubt on idiomatic choices unless they affect correctness, security, or contract.

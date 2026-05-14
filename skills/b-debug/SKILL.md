@@ -62,6 +62,8 @@ Collect only what is needed to begin:
 - Determinism: reproducible every run, intermittent, or one-shot.
 - For perf bugs: workload shape, baseline timing, threshold or SLO that was violated.
 
+If the bug is currently production-impacting or risks data loss/security exposure, take a mitigation-first branch: identify the safest immediate containment option (disable path, rollback candidate, feature flag, traffic drain, or user-visible workaround), ask for approval before any shared-environment action, then continue root-cause analysis from the contained state.
+
 If a stack trace or diagnostic already points at one function or file, mark it as a **fast path** and go directly to Step 3.
 
 ### Step 2 — Map the path and rank suspects
@@ -129,5 +131,6 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - Use the obvious-stack-trace fast path when one file or function is already strongly implicated.
 - For perf bugs, measure before and after; do not infer speed from code structure.
 - For cannot-reproduce reports, stop and surface the gap; do not speculate-fix.
+- For active production impact, prefer approved containment before deep investigation; do not mutate shared environments without the approval gate in `AGENTS.md` §6.
 - Verify probe removal explicitly before reporting success.
 - Attach the confidence signal (`AGENTS.md` §3) when the fix relies on indirect or partial evidence.

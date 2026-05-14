@@ -22,13 +22,13 @@ If `$ARGUMENTS` is provided, treat it as the refactoring instruction and proceed
 
 ## When to use
 
-- User asks to rename, extract, move, inline, delete dead code, or simplify a named target.
+- User asks to rename, extract, move, inline, delete dead code, or simplify a named target in a clearly behavior-preserving way.
 - The transformation is meant to preserve behavior.
 - The scope is concrete enough to execute without re-deciding product behavior.
 
 ## When NOT to use
 
-- The request is broad, vague, or partly a feature change → use **b-plan** first.
+- The request is broad, vague, partly a feature change, or says only "simplify" without naming the exact behavior-preserving transform → use **b-plan** first.
 - The work is mainly implementing new behavior → use **b-implement**.
 - The task is a runtime bug fix → use **b-debug**.
 - The task is a test-only failure or test rewrite → use **b-test**.
@@ -71,6 +71,7 @@ Graceful degradation: ⚠️ Partial — small local refactors remain possible w
 
    This is intentional: non-LSP languages (Bash, YAML, Markdown, Lua, many DSLs) auto-promote to **low** risk at minimum. The fast path is locked behind LSP support because rename/safe-delete results in non-LSP languages are not authoritative.
 4. For medium or high-risk refactors, optionally use `gitnexus-radar` to scope blast radius before editing. Discover the baseline verification command from project scripts or CI config. If baseline checks are already failing, stop and ask.
+5. For non-LSP languages, generated glue, config-driven references, or text-discovered references outside Serena's graph, add a targeted text search to the verification worklist before editing.
 
 ### Step 3 — Apply the mechanical transform
 
@@ -132,6 +133,7 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - Keep the task behavior-preserving; do not quietly add features while refactoring.
 - Use the trivial-local fast path only when the contract is untouched and the language is LSP-supported.
 - For non-LSP languages, treat every rename or safe-delete as at least **low** risk and verify with broader text-grep plus the project's existing test suite.
+- Treat vague "simplify" requests as planning work until the exact behavior-preserving transform is locked.
 - Use symbol-aware rename/delete tools whenever they fit the transformation.
 - For rename + extract, do extract first, then rename — keep transforms independently verifiable.
 - Ask before broad directory moves or other cascading changes through tooling, docs, and imports.

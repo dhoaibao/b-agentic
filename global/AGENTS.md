@@ -74,10 +74,29 @@ Use this order when instructions compete:
 
 After `/b-plan` approval, the approved plan becomes the execution source of truth for multi-step implementation.
 
+### Durable plan metadata
+
+New saved plans should start with YAML frontmatter so approval and staleness are durable instead of inferred from chat history:
+
+```yaml
+---
+slug: <task-slug>
+status: draft | approved | in-progress | complete | superseded
+created_at: <YYYY-MM-DD>
+approved_at: <YYYY-MM-DDTHH:MM:SSZ | null>
+approved_by: user | null
+risk: trivial | low | medium | high
+touch_points:
+  - <path>
+---
+```
+
+When the user approves a saved plan, update `status`, `approved_at`, and `approved_by` in place. `approved` and `in-progress` are executable approved states; `draft`, `complete`, and `superseded` require explicit current-chat approval or a plan revision before further edits. Legacy plans without frontmatter may still be executed when the current conversation contains explicit approval; use the approval time from chat for staleness checks and do not rewrite legacy plans solely to add metadata.
+
 ### Plan staleness gate
 
 A saved plan is stale if any of these are true:
-- A file listed under `Planned touch points` has been modified (mtime or git history) since approval.
+- A file listed under `touch_points` frontmatter or `Planned touch points` has been modified (mtime or git history) since approval.
 - A `Confirmed decision` conflicts with the current repo state.
 - The git HEAD has moved past a rebase/merge that touches planned files.
 
@@ -303,6 +322,17 @@ When a final answer is derived from anything weaker than runtime or symbol evide
 
 Approval required before installs, dev servers, migrations, destructive commands, production-like or staging writes, broad refactors, commits, or any operation that could mutate shared environments.
 
+### Command risk classes
+
+Classify commands before running them so approval gates are consistent:
+
+- **read-only** — inspect files, git status/diff/log, list dependencies, run non-mutating diagnostics. No approval unless sensitive files would be read.
+- **project-write** — edit source, tests, docs, generated artifacts, or local config inside the approved scope. Allowed only after the relevant skill scope is approved.
+- **dependency-write** — install, remove, update, or regenerate dependencies or lockfiles. Requires approval.
+- **environment-write** — start/stop dev servers, containers, emulators, databases, background jobs, or browser sessions with persisted auth. Requires approval when it mutates local/shared state or runs long-lived processes.
+- **external-write** — call APIs, staging/prod systems, queues, payment providers, email/SMS, or analytics with mutating effects. Requires explicit approval naming the target environment.
+- **destructive** — delete data/files/branches, reset state, rewrite history, clean worktrees, or drop databases. Requires explicit approval and must never target unrelated user work.
+
 ### Canonical approval ask
 
 Use a single template so users see consistent ask shape across skills:
@@ -335,6 +365,13 @@ Skills do not restate this. They reference §6.
 - If repo-local `.opencode/` is not ignored, do not store auth/session state or other sensitive run artifacts there. Use `~/.config/opencode/b-skills/...` or `/tmp/opencode/b-skills/...` instead, or ask.
 - Never store real browser auth/session state under a tracked worktree path.
 
+### Generated files and lockfiles
+
+- Treat generated, vendored, minified, snapshot, golden, and lock files as derived artifacts unless the user explicitly asked to change them or the approved task requires it.
+- Update lockfiles only as part of an approved dependency-write action.
+- Update snapshots or golden files only after the intended behavior is stated and justified by a source change or product decision (§10).
+- When generated output is checked in, prefer changing the source and running the repo's existing generator; if the generator is unavailable, label the manual update as partial evidence.
+
 ### Worktree safety
 
 - Check dirty state before non-trivial edits.
@@ -355,6 +392,16 @@ Define success before non-trivial work. Choose the smallest safe path.
 
 If the user asked only for diagnosis or explanation, stop at confirmed root cause or answer unless they also asked for a fix.
 
+### Scope expansion
+
+When discovery reveals adjacent work, classify it before acting:
+
+- **Required** — necessary to satisfy the approved goal or make verification pass. Include it and mention the expansion in the final report.
+- **Blocking decision** — changes behavior, public contracts, migrations, dependencies, or sensitive paths beyond the approved scope. Stop and ask or revise the plan.
+- **Follow-up** — useful cleanup, hardening, or unrelated defect. Do not fix opportunistically; report it as a follow-up unless the user expands scope.
+
+Security, data-loss, or production-impacting issues found in touched code may be raised immediately, but still require approval before expanding the edit scope.
+
 ### Verification ladder
 
 - Narrow local check first (touched file diagnostics, single test).
@@ -368,6 +415,10 @@ Use a **maximum of 3 fix/verify loops per step** before reporting remaining evid
 ### Truncated output
 
 If command output is truncated or times out, save the full output under `/tmp/opencode/b-skills/<skill>/<slug>.log` and inspect the failing section instead of guessing.
+
+### Verification provenance
+
+Every non-trivial final report must list the verification evidence actually used: commands run, diagnostics checked, browser state inspected, sources fetched, and any checks skipped or unavailable. If a command timed out or produced truncated output, include the saved log path or state that no full log was available.
 
 ### Empty-state defaults
 
@@ -407,6 +458,13 @@ Examples:
 - **Temporary logs:** `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 
 Do not write generated artifacts outside those paths unless editing project source files is the task.
+
+### Retention and cleanup
+
+- Keep saved plans and explicit review/research reports until the user removes them; they are source-of-truth or decision artifacts.
+- Treat `/tmp/opencode/b-skills/...` artifacts as disposable scratch. Report their paths when they matter, but do not promise persistence.
+- Delete or avoid creating sensitive artifacts unless they are required for the task. Browser auth/session state should live in a non-worktree path and be named in the final report.
+- When a run creates test data, browser state, screenshots, logs, or generated files, report what was kept, cleaned up, or left for the user to decide.
 
 ### Manifest schema
 

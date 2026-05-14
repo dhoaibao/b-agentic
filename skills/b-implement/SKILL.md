@@ -63,7 +63,9 @@ If the request fails the threshold and no plan exists, stop and route to **b-pla
 
 Apply the **plan staleness gate** (`AGENTS.md` §2) before executing. A stale plan must be re-planned, not improvised against.
 
-Extract only what execution needs: confirmed decisions, planned touch points, ordered steps or the single scoped request, verification expectations, unresolved blockers.
+Extract only what execution needs: frontmatter approval state when present, confirmed decisions, planned touch points, ordered steps or the single scoped request, verification expectations, unresolved blockers.
+
+For saved plans with frontmatter, require `status: approved`, `status: in-progress`, or explicit approval in the current conversation before editing. If approval arrives in chat for a draft plan, update `status`, `approved_at`, and `approved_by` before the first source edit. Legacy plans without frontmatter may execute from explicit current-chat approval per `AGENTS.md` §2.
 
 ### Step 2 — Check the working state
 
@@ -73,7 +75,7 @@ Run `git status --short` and inspect only the files relevant to the current step
 - If the target file already has unrelated edits, patch around them.
 - If user changes directly conflict with the approved scope, stop and ask.
 
-If the plan is multi-step, choose the next dependency-ready step. If the request is a small direct task, treat it as a one-step implementation; do not invent extra ceremony.
+If the request asks to implement, finish, or continue an approved plan, proceed through dependency-ready steps while verification passes and no new decision appears. If the request asks for only the next step, stop after one verified step. If the request is a small direct task, treat it as a one-step implementation; do not invent extra ceremony.
 
 ### Step 3 — Implement the next smallest step
 
@@ -108,6 +110,7 @@ Apply the iteration cap from `AGENTS.md` §7.
 
 After a step passes verification:
 - Update saved-plan checkboxes when present. If the saved plan predates checkbox-style steps, append a short progress note under the completed step instead of rewriting the whole plan format.
+- For frontmatter plans, set `status: in-progress` after the first completed step and `status: complete` only when every approved step is done.
 - Keep the diff limited to approved scope.
 - Continue to the next step only if there is one.
 
@@ -126,3 +129,4 @@ At the end:
 - A small direct request must still pass a real verification step.
 - Do not commit unless explicitly asked.
 - When the plan is wrong, revise it via `AGENTS.md` §2 — do not silently drift the implementation.
+- Preserve durable plan metadata when editing saved plans; do not strip frontmatter while updating progress.
