@@ -16,111 +16,80 @@ metadata:
 
 $ARGUMENTS
 
-Trace, confirm root cause, fix minimally, verify, and remove probes. Do not patch before the cause is explicit.
-
-If `$ARGUMENTS` includes a symptom, error, or stack trace, start from it directly. If the user asked only for diagnosis, stop after the confirmed root cause and proposed fix.
+Confirm root cause, fix minimally, verify, and remove probes. If the user asks only for diagnosis, stop after root cause and proposed fix.
 
 ## When to use
 
-- The user reports a runtime bug, broken behavior, or error message.
-- A test likely exposes a real product bug rather than a test harness issue (`AGENTS.md` §10).
-- The failure path may cross middleware, async boundaries, configuration, or multiple modules.
-- The bug is non-deterministic (flake, race, time/network dependence) and the test lane has ruled out fixture or harness drift.
-- The symptom is **slow**, not wrong — latency regression, memory leak, runaway CPU, or unbounded growth.
+- The user reports a runtime bug, broken behavior, error, stack trace, race, memory issue, or slowdown.
+- A test likely exposes a real product bug under the global test-vs-bug decision.
+- The failure may cross middleware, async boundaries, configuration, or multiple modules.
 
 ## When NOT to use
 
-- The problem is clearly a test assertion, mock, fixture, or setup issue → use **b-test**.
-- The task is external docs or API lookup only → use **b-research**.
-- The task is a new feature or scoped implementation request → use **b-plan** or **b-implement**.
+- The problem is a test assertion, mock, fixture, or setup issue -> use **b-test**.
+- The task is external docs/API lookup only -> use **b-research**.
+- The task is new scoped work -> use **b-plan** or **b-implement**.
 
 ## Tools required
 
 - `serena-symbol-toolkit` *(preferred for tracing and focused fixes)*
-- `gitnexus-radar` *(optional radar for unfamiliar cross-module paths)*
-- `context7-docs` *(optional, for suspected library/API misuse)*
-- `brave-discovery` + `firecrawl-extraction` *(optional, for known public errors; honor `AGENTS.md` §6 privacy gate)*
-- Native search and `bash` — exact error strings, config keys, repeated patterns, narrow source reads, reproduction commands, profilers.
+- `gitnexus-radar` *(optional, for unfamiliar cross-module paths)*
+- `context7-docs` *(optional, for suspected API misuse)*
+- `brave-discovery` + `firecrawl-extraction` *(optional, for public errors after the privacy gate)*
+- Native search and `bash` - exact errors, config, repro commands, profilers, and diagnostics.
 
-Fallbacks: `AGENTS.md` §4. Graceful degradation: ✅ Possible — native analysis works, but cross-file tracing is slower without Serena.
+Fallbacks: `AGENTS.md` section 4. Graceful degradation: possible with native analysis, slower without Serena.
 
 ## Steps
 
-### Step 1 — Frame the symptom
+### Step 1 - Frame the symptom
 
-Collect only the needed start state: exact failure, expected vs actual, repro notes, determinism, and for perf bugs workload/baseline/threshold.
+Collect exact failure, expected vs actual behavior, repro notes, determinism, and for perf bugs workload/baseline/threshold.
 
-If the bug is currently production-impacting or risks data loss/security exposure, take a mitigation-first branch: identify the safest immediate containment option (disable path, rollback candidate, feature flag, traffic drain, or user-visible workaround), ask for approval before any shared-environment action, then continue root-cause analysis from the contained state.
+If production impact, data loss, or security risk is active, identify the safest containment first and ask before shared-environment action.
 
-If a stack trace or diagnostic already points at one function or file, mark it as a **fast path** and go directly to Step 3.
+### Step 2 - Rank suspects only as needed
 
-### Step 2 — Map the path and rank suspects
+Use the stack trace or diagnostic fast path when one file/function is already strongly implicated. Otherwise map the path with the lightest tool: GitNexus for unfamiliar graph-shaped flows, then Serena/native reads for exact owners and references.
 
-Use `gitnexus-radar` only when the path is unfamiliar, graph-shaped, or route/consumer oriented. Stop once the likely subsystem or boundary is identified.
+Bias first checks toward swallowed errors, auth/authz gates, config drift, missing `await`, async ordering, shared-state leaks, and new boundary errors. For perf, measure N+1 queries, unbounded retries, hot-loop allocations, or blocking I/O before guessing.
 
-Then use `serena-symbol-toolkit` to confirm owners, references, and code shape. Pick the cheapest discovery tool that closes the next question (`AGENTS.md` §4).
+### Step 3 - Confirm root cause
 
-**First-suspect heuristic:** swallowed errors, auth/authz gates, config drift, async ordering/missing `await`, shared-state leaks, new boundary errors; for perf, N+1 queries, unbounded retries, hot-loop allocations, blocking I/O.
+Use the cheapest proof: exact error search, local diagnostics, narrow repro command, targeted docs lookup, benchmark/profiler, forced ordering, fake clock, or stress loop.
 
-For non-deterministic bugs, enumerate the candidate non-determinism sources first (shared state, async ordering, time, network, randomness, environment).
+Temporary probes are allowed only when cheaper evidence is insufficient. Tag every probe with `b-debug-probe` in the language-appropriate comment form.
 
-Rank remaining hypotheses by likelihood × cheapest verification. Example: a "config default flipped" hypothesis (verifiable in one `grep`) outranks a "race in worker pool" hypothesis (requires stress harness) even when the race is slightly more likely — verify the cheap one first, then move on. Skip ranking when the fast path already isolates one cause.
+If the agent cannot reproduce a user-reproducible symptom, follow the global cannot-reproduce protocol and do not patch defensively.
 
-### Step 3 — Confirm root cause cheaply
+Before editing, state: `Root cause: <what fails> because <why>`.
 
-Start with the cheapest verification:
-- Search the codebase for the exact error string or log text.
-- For library/framework errors, check `context7-docs` for exact API/option behavior.
-- For known public errors, optionally use `brave-discovery` + `firecrawl-extraction` after honoring the privacy gate (`AGENTS.md` §6).
-- Local diagnostics: `get_diagnostics_for_file`.
-- A narrow repro command already in the project.
-- Targeted temporary logging at one choke point. **Tag every temporary probe** with the exact marker `// b-debug-probe` (or the language-appropriate comment form, e.g., `# b-debug-probe`, `<!-- b-debug-probe -->`) so probes are greppable at cleanup time and cannot survive accidentally.
-- For perf bugs: profiler, `time`/`hyperfine`, runtime tracing, or a tight benchmark — never guess from code shape alone.
-- For non-deterministic bugs: forced ordering, fake clock, stress loop. Repro must demonstrate the failure under conditions you control before claiming root cause.
+### Step 4 - Apply the minimal fix
 
-If the symptom **cannot be reproduced** by the agent, follow the **agent-cannot-reproduce protocol** in `AGENTS.md` §10: do not patch, capture the environment diff, and ask for the specific signals listed there (command sequence, logs, env, repro snippet) before continuing.
+Use Serena for symbol edits and `apply_patch` for small line/prose/config fixes under the global patch discipline. If `apply_patch` reports missing expected lines, treat it as stale context: re-read and retry with smaller verified context.
 
-State the root cause explicitly before editing:
+Do not bundle cleanup or redesign. If the confirmed cause needs a structural change, hand off to **b-plan** with root cause, evidence, and any attempted minimal fix.
 
-`Root cause: <what fails> because <why>` (extend with conditions when the bug only fires under Z).
+### Step 5 - Verify and clean up
 
-### Step 4 — Apply the minimal fix
+Run the narrowest check that proves the symptom changed. For nondeterminism, run the stress repro long enough to support confidence. For perf, report before/after measurements.
 
-Keep the fix narrow:
-- Use Serena for symbol-scoped edits, `apply_patch` for small line fixes under the patch discipline in `AGENTS.md` §6, and comments only when the fix is non-obvious.
-- If `apply_patch` reports missing expected lines, treat it as stale context; re-read the current target slice and retry only with verified smaller context.
+Remove all `b-debug-probe` markers and scan for untagged debug leftovers (`console.log`, `print`, breakpoints, fake clocks, profiler hooks). Re-run verification after cleanup. Mention restart/reload requirements when config or startup changed.
 
-Do not roll broader cleanup or unrelated refactors into the bug fix.
+## Output format
 
-**Redesign hand-off:** if the confirmed root cause requires a structural change (new abstraction, contract change, ordering rework across modules) rather than a localized fix, stop. Emit a handoff envelope (`AGENTS.md` §9) to **b-plan** with the root-cause statement, evidence, and the minimal-fix attempted (if any). Do not silently expand a debug pass into a redesign.
-
-### Step 5 — Verify and remove probes
-
-1. Run the narrowest relevant command that proves the symptom changed.
-2. For non-deterministic bugs, also run the stress repro from Step 3 long enough to gain confidence the race no longer triggers.
-3. For perf bugs, re-run the benchmark and report the before/after delta, not just "feels faster."
-4. **Re-scan the diff** for every temporary probe added during Step 3. First grep for the `b-debug-probe` tag across the diff and remove every match. Then re-scan for untagged probes (`console.log`, `print`, breakpoints, extra metrics, debug flags, fake clocks, profiler hooks) and remove anything that was not part of the final fix. Re-run verification after removal.
-5. If the fix affects config or process startup, tell the user whether a restart or reload is required.
-6. If the fix touched several files or a shared boundary, emit a handoff envelope (`AGENTS.md` §9) recommending **b-review**.
-
-Apply the verification ladder and iteration cap from `AGENTS.md` §7.
-
-Close with the skill-exit status block (`AGENTS.md` §9).
+```text
+Symptoms -> Root cause -> Fix -> Verification -> Cleanup/next
+```
 
 ## Rules
 
-- Never patch before confirming root cause.
-- Use the obvious-stack-trace fast path when one file or function is already strongly implicated.
-- For perf bugs, measure before and after; do not infer speed from code structure.
-- For cannot-reproduce reports, stop and surface the gap; do not speculate-fix.
-- For active production impact, prefer approved containment before deep investigation; do not mutate shared environments without the approval gate in `AGENTS.md` §6.
-- Verify probe removal explicitly before reporting success.
-- Attach the confidence signal (`AGENTS.md` §3) when the fix relies on indirect or partial evidence.
+- Do not patch before root cause is confirmed.
+- Measure perf bugs before and after.
+- Surface cannot-reproduce gaps instead of speculative fixes.
+- Use global patch discipline, stale context recovery, verification ladder, iteration cap, and skipped-check labels.
+- Verify probe removal before reporting success.
 
 ## Reference pointers
 
-- `references/performance-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) — use when a slowdown spans multiple layers or the repo lacks a clear measurement playbook.
-
-## Common rationalizations
-
-See the suite-wide anti-pattern table in `AGENTS.md` §12. Debug-specific reminders: state `Root cause: <what> because <why>` before editing, remove every `b-debug-probe` before reporting success, and never defensive-patch a cannot-reproduce report.
+- `references/performance-checklist.md` - use when a slowdown spans layers or lacks a clear measurement playbook.

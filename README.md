@@ -38,15 +38,15 @@ You can inspect and maintain the suite from this source repository, which contai
 
 | Skill | Phase | When to use |
 |---|---|---|
-| `/b-spec` | Clarify | Clarify the end state, constraints, acceptance criteria, and explicit assumptions when the request is underspecified or still a rough idea; enforces a hard 2-round clarification exit and sharpens terminology from repo glossary docs when they exist |
-| `/b-plan` | Decide | Turn a clear goal into an execution-ready plan when the work is broad, dependency-heavy, or risky; plan size is bounded by a risk-tiered guardrail |
-| `/b-research` | Decide | External knowledge — lookup or research with citation discipline; auto-deepens, never asks the user to pick a mode |
-| `/b-implement` | Build | Execute approved or clearly scoped work one step at a time, verify each step, and stop for new decisions |
-| `/b-refactor` | Build | Concrete behavior-preserving transforms — rename, extract, move, inline, or delete dead code |
-| `/b-debug` | Validate | Runtime bug ownership — trace, confirm root cause, fix minimally, verify; handles errors, races, perf regressions, and cannot-reproduce reports |
-| `/b-test` | Validate | Code-level tests — write tests, fix test-only failures, or review coverage gaps without confusing them with runtime bugs |
-| `/b-e2e` | Validate | Live browser verification and browser-test authoring, while respecting the repo's existing E2E framework |
-| `/b-review` | Validate | Pre-PR changed-code review, or an explicitly requested repository audit, focused on blockers, regressions, security, and missing coverage; emits one of three verdicts: READY FOR PR, READY WITH FOLLOW-UPS, or NEEDS FIXES |
+| `/b-spec` | Clarify | Clarify unclear end states, constraints, acceptance criteria, non-goals, and assumptions before planning or coding |
+| `/b-plan` | Decide | Turn a clear non-trivial goal into an execution-ready quick or saved plan |
+| `/b-research` | Decide | External knowledge lookup or synthesis with version pinning, source extraction, citation discipline, and news/image routing when needed |
+| `/b-implement` | Build | Execute approved or clearly scoped work in coherent verified steps |
+| `/b-refactor` | Build | Execute concrete behavior-preserving transforms: rename, extract, move, inline, simplify, or delete |
+| `/b-debug` | Validate | Confirm runtime root cause, fix minimally, verify, and remove probes |
+| `/b-test` | Validate | Write tests, fix test-only failures, evaluate coverage gaps, and route product bugs out of the test lane |
+| `/b-e2e` | Validate | Drive a real browser for flow verification or repo-native browser-test authoring with saved artifacts when evidence or cleanup must be auditable |
+| `/b-review` | Validate | Reviewer-style diff/range/audit review focused on blockers, regressions, security, and coverage |
 
 ### Typical Flows
 
@@ -61,7 +61,7 @@ You can inspect and maintain the suite from this source repository, which contai
 /b-review --repo-audit [area]  (reviewer-style repository or maintainer audit)
 ```
 
-`/b-plan` supports **quick mode** for trivial scoped tasks and **full mode** for non-trivial work. It owns broad or unclear refactors until they reduce to concrete mechanical steps, at which point `/b-refactor` becomes the safer executor. After plan approval, `/b-implement` is the default executor for multi-step work, preferring isolated workspace/worktree handling when dirty state, risky scope, or parallel work would otherwise blur verification.
+`/b-plan` supports **quick mode** for low-risk scoped work and **full mode** for non-trivial work. Skill files now keep only task-specific workflow; shared safety, evidence, artifact, output, and fallback rules live in `global/AGENTS.md`. Routine low-risk runs use happy-path compression, while risky boundaries still trigger the full global discipline.
 
 ### Decision boundaries
 
@@ -76,7 +76,7 @@ You can inspect and maintain the suite from this source repository, which contai
 
 In this source repo, shared runtime rules live in `global/AGENTS.md` and install to `~/.config/opencode/AGENTS.b-skills.md`; the installer replaces the active `AGENTS.md` only when missing or approved. Installed skills still cite `AGENTS.md`, so preserved third-party rules leave the suite activation-pending until merged/replaced.
 
-Runtime headlines: definitions and rubrics (§3), durable plan metadata plus the optional domain-docs convention (§2), MCP bundles and fallbacks (§4), evidence standards including documentation-backed decisions and the citation-provenance rule (§5), safety gates plus isolated-workspace preference (§6), execution/verification discipline including review checkpoints, transform rollback, cascading failures, and the completion contract (§7), artifacts (§8), output contract including the verbosity cap that exempts BLOCKERs (§9), cross-cutting decisions including the high-risk challenge gate, test-vs-bug routing, DOM/browser and hybrid component boundaries, and the agent-cannot-reproduce protocol (§10), session lifecycle and cross-skill conventions (§11), and the suite-wide common-rationalizations table (§12).
+Runtime headlines: definitions and rubrics (§3), durable plan metadata plus the optional domain-docs convention (§2), MCP bundles and fallbacks (§4), evidence standards including happy-path compression and citation provenance (§5), safety gates plus isolated-workspace preference (§6), execution/verification discipline including skipped-check labels, review checkpoints, transform rollback, cascading failures, and the completion contract (§7), artifacts (§8), output contract including the verbosity cap that exempts BLOCKERs (§9), cross-cutting decisions including the high-risk challenge gate, test-vs-bug routing, DOM/browser and hybrid component boundaries, and the agent-cannot-reproduce protocol (§10), session lifecycle and cross-skill conventions (§11), and the suite-wide common-rationalizations table (§12).
 
 Artifact paths:
 - Plans: `.opencode/b-skills/b-plan/<task-slug>.md` after applying the `.opencode/.gitignore` guard in `global/AGENTS.md` §6 (legacy `.opencode/b-plans/` is deprecated). New saved plans include frontmatter for durable approval state, timestamps, approved git HEAD, risk, and touch points. Saved plans remain the canonical repo-local source of truth. `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.

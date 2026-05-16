@@ -345,6 +345,12 @@ When framework, library, or vendor API docs materially influence an implementati
 
 Keep runtime prose short. Preserve explicit safety gates, schemas, routing boundaries, and verification requirements; compress examples, duplicated rationale, and restated global concepts into § references.
 
+### Happy-path compression
+
+For low-risk, single-step work with direct evidence, prefer a compact execution path: do the work, run the narrowest useful check, and report only the result, verification, and any skipped checks. Do not create saved artifacts, emit full ceremony, or force a handoff unless the run modifies code, writes required artifacts, hits incomplete evidence, or crosses a non-trivial/risky boundary.
+
+Skill files should present a short happy path plus risk-specific branches. Edge-case machinery belongs here in the global contract unless it is unique to that skill.
+
 ---
 
 ## 6. Safety gates
@@ -508,6 +514,17 @@ If command output is truncated or times out, save the full output under `/tmp/op
 ### Verification provenance
 
 Every non-trivial final report lists evidence used: commands, diagnostics, browser state, sources, and skipped/unavailable checks. If output timed out/truncated, include the saved log path or say no full log exists.
+
+### Skipped-check labels
+
+When a relevant check is skipped, use one of these labels before the reason so downstream skills can read it consistently:
+
+- `not-applicable` — the check does not apply to the touched surface.
+- `no-framework` — the repo has no established tool for that check.
+- `requires-approval` — the check would mutate dependencies, environments, external state, or sensitive data.
+- `tool-unavailable` — the required local/MCP tool is missing or failed after the fallback rules.
+- `too-costly` — the check is broader than the risk justifies.
+- `time-boxed` — the user or run scope intentionally limited verification time.
 
 ### Completion closure
 
@@ -791,6 +808,8 @@ When the user can reproduce a symptom but the agent cannot in the current enviro
 ### Cross-skill conventions
 
 - Skill descriptions cover **intent and disambiguation only**. Trigger keywords live in §1, not duplicated in every skill description.
+- Skill bodies should contain only the trigger boundary, the skill's task-specific workflow, and task-specific stop conditions. Shared operational policy belongs in this file.
+- Each skill should expose a concise happy path and then name only the risk branches that differ from the global default. Do not make every routine run walk every edge-case rule.
 - Skills must not redefine any of the items below. Reference the canonical section instead.
   - **Rubrics (§3):** severity, risk, "non-trivial", "small direct request", confidence signal.
   - **Routing (§1, §10):** test-vs-bug decision, DOM-unit vs browser-flow boundary, hybrid component test boundary, self/external review boundary.

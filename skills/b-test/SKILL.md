@@ -6,7 +6,7 @@ description: >
   evaluate coverage, or work TDD-style. Unlike b-debug, which traces runtime
   bugs, b-test owns test-specific failures: wrong assertions, missing mocks,
   fixture or setup issues, and coverage gaps. Use the test-vs-bug decision in
-  AGENTS.md §10 when a red test could go either way.
+  AGENTS.md section 10 when a red test could go either way.
 compatibility: opencode
 metadata:
   suite: b-skills
@@ -16,140 +16,78 @@ metadata:
 
 $ARGUMENTS
 
-Own code-level tests: write coverage, fix test-only failures, and avoid treating every red test as product failure.
-
-If `$ARGUMENTS` is provided, treat it as the test task or failing symptom and proceed directly.
+Own code-level tests: add coverage, fix test-only failures, and avoid confusing red tests with product bugs.
 
 ## When to use
 
-- User asks to write tests for new or existing behavior.
-- A test is failing and the **test-vs-bug decision** in `AGENTS.md` §10 routes the work to the test lane.
-- User asks about coverage gaps or missing regression tests.
-- DOM-rendered unit tests and hybrid component tests stay here, not in **b-e2e**. See the **DOM-unit vs browser-flow boundary** in `AGENTS.md` §10 for both rules.
+- The user asks to write tests, fix failing tests, evaluate coverage, or work TDD-style.
+- The global test-vs-bug decision routes a failing test to the test lane.
+- DOM-rendered unit tests and hybrid component tests are in scope.
 
 ## When NOT to use
 
-- The failing test likely exposes a real runtime or product bug (`AGENTS.md` §10) → use **b-debug**.
-- The task drives a real browser (Playwright, Cypress, WebdriverIO, Puppeteer) → use **b-e2e**.
-- Scope or acceptance is still unclear → use **b-plan**.
-- The request is a pre-PR logic review → use **b-review**.
-- The task is only an external docs or testing-framework lookup → use **b-research**.
-- The task is designing a new property-based, fuzzing, or contract-testing strategy/framework → use **b-plan** first. Adding a small test in an already-established project pattern may stay in **b-test**.
+- The failing test likely exposes real runtime behavior -> use **b-debug**.
+- The task drives a real browser -> use **b-e2e**.
+- Scope or acceptance is unclear -> use **b-plan**.
+- The task is pre-PR logic review -> use **b-review**.
+- The task needs a new test strategy/framework -> use **b-plan** first.
 
 ## Tools required
 
-- `bash` — run project test and coverage commands, inspect failure output.
-- Native file tools — discover test files, manifests, and focused source/test sections.
-- `serena-symbol-toolkit` *(preferred for mapping tests to source behavior and editing existing test code)*
-- `context7-docs` *(optional, for verifying testing-framework APIs or matcher behavior)*
+- `bash` - run tests/coverage and inspect failure output.
+- Native file tools - discover manifests, test files, and focused source/test sections.
+- `serena-symbol-toolkit` *(preferred for mapping tests to source behavior and editing existing tests)*
+- `context7-docs` *(optional, for testing-framework API or matcher behavior)*
 
-Fallbacks: `AGENTS.md` §4. Without Serena, use native discovery plus careful `apply_patch`; LSP caveat applies. Graceful degradation: ✅ Possible with native tools, `bash`, and `apply_patch`.
+Fallbacks: `AGENTS.md` section 4. Graceful degradation: possible with native tools and `apply_patch`.
 
 ## Steps
 
-### Step 1 — Discover framework and scope
+### Step 1 - Discover framework and scope
 
-1. Locate the relevant test files and project-specific test commands from manifests or CI config.
-2. If the user named a failing test, start from the narrowest runnable target for that test.
-3. Initialize Serena per `AGENTS.md` §4 only when symbol-aware inspection adds value.
-4. Map the test ↔ source relationship with the cheapest discovery tool that closes the next question.
+Find relevant test files and project commands from manifests or CI. If a failing test is named, start with the narrowest runnable target. If no test framework exists, ask before adding one.
 
-**Empty-state** (`AGENTS.md` §7): if the repo has no test framework, do not introduce one as a side effect. Ask the user before adding a framework, even when the request implies tests are wanted.
+### Step 2 - Choose the lane
 
-### Step 2 — Choose the lane
+Use the global test-vs-bug decision:
 
-Use `AGENTS.md` §10 (test failure vs runtime bug) to pick the lane:
+- **Failing test:** fix assertion, mock, fixture, setup, async, snapshot, or harness drift only after intended behavior is confirmed.
+- **Write tests:** add regression/unit/integration coverage for known behavior.
+- **Coverage review:** rank missing tests by value and add only the requested/highest-value gaps.
+- **Flaky test:** use the global flake procedure before rewriting or skipping.
 
-- **Failing test** — fix test/fixture/setup when production behavior is confirmed correct. If it proves a product bug, hand off to **b-debug** or **b-implement** with evidence.
-- **Write tests** — add new regression, unit, or integration coverage for known behavior.
-- **Coverage review** — identify the highest-value missing tests and optionally add the top ones.
-- **Flaky test** — apply the flake handling procedure in `AGENTS.md` §10 before rewriting or skipping.
+If product behavior is uncertain, hand off to **b-debug**.
 
-If the failure might reflect a real product bug and the correct behavior is not already confirmed, switch to **b-debug**.
+### Step 3 - Fix or add tests
 
-### Step 3 — Fix or add tests
+For failing tests, run the narrow command, read the test and exercised source, classify the failure, and apply snapshot/golden confirmation before updating derived artifacts.
 
-**Failing test:**
-1. Run the narrowest test command.
-2. If output is large, capture it under `/tmp/opencode/b-skills/b-test/` (`AGENTS.md` §7) and inspect the failure section.
-3. Read the failing test and the source behavior it exercises.
-4. Classify per the test-vs-bug table in `AGENTS.md` §10.
-5. For snapshot or golden updates, follow the **snapshot confirmation procedure** in `AGENTS.md` §10.
+For new tests, cover behavior that matters: happy path, edge cases, error handling, and the regression that would catch an accidental revert. Prefer local fixtures unless an existing shared fixture fits.
 
-**New tests:**
-1. Identify the behavior, branches, and edge cases that matter.
-2. Choose unit or integration scope; hand real-browser flows to **b-e2e**.
-3. Cover happy path, edge cases, error handling, and the regression that would catch an accidental revert.
-4. Prefer local fixtures unless the repo already has a shared fixture that fits the scenario.
+For coverage review, stop when changed behavior is covered, the next gap is opportunistic, or five gaps have been added with no required gap remaining.
 
-**Coverage review** — rank gaps by value:
+Use Serena for existing test bodies. Use `apply_patch` for new test files or small non-symbol edits under global patch discipline. If `apply_patch` reports missing expected lines, treat it as stale context and retry with smaller verified context.
 
-| Priority | Gap shape |
-|---|---|
-| **1 — required** | Changed behavior in the current diff without any covering test. |
-| **2 — strong** | Public-contract symbols (exports, routes, handlers, CLI flags) without a regression test. |
-| **3 — useful** | Widely referenced internal symbols (high fan-in) without a regression test. |
-| **4 — opportunistic** | Edge cases of branches already partially covered. |
+### Step 4 - Verify
 
-Discover the existing coverage command before inventing one; ask before adding a runner. Add top gaps only when the user wants implementation.
-
-**Stop heuristic.** Coverage review is *bounded*, not exhaustive. Stop when **any** is true:
-- All priority-1 gaps are closed (changed behavior is covered).
-- The next gap is priority-3 or lower and the user has not asked for opportunistic work.
-- 5 gaps have been added in one run and no priority-1 remains — surface the rest as a follow-up list.
-Never loop through priority-4 gaps autonomously.
-
-**Advanced tests** — property-based, fuzz, and contract tests stay here only when the repo already has an established runner and pattern. If the framework, boundary contract, generator strategy, or CI cost needs design, hand off to **b-plan** instead of inventing it inside a test edit.
-
-Prefer `serena-symbol-toolkit` insertions for existing test bodies. Use `apply_patch` when creating a new test file or when a small non-symbol edit is clearer, following the patch discipline in `AGENTS.md` §6.
-
-### Step 4 — Verify
-
-1. Run `get_diagnostics_for_file` on touched files — both the test and the underlying source — when the language supports it.
-2. Re-run the narrowest relevant tests.
-3. Widen to a broader suite only when the change touches shared fixtures/helpers, public contracts, or the repo's normal test workflow requires it (verification ladder in `AGENTS.md` §7).
-4. If `apply_patch` reports missing expected lines, treat it as stale context; re-read the current target slice and retry only with verified smaller context (`AGENTS.md` §6).
-5. Apply the iteration cap from `AGENTS.md` §7.
-
-Close with the skill-exit status block (`AGENTS.md` §9).
+Run diagnostics on touched test/source files when supported, then the narrowest relevant test. Widen only for shared fixtures/helpers, public contracts, or the repo's normal workflow. Use global skipped-check labels when broader checks are intentionally skipped.
 
 ## Output format
 
 ```text
-### b-test: [test task]
-
-**Type:** [failing test / write tests / coverage review / flaky test]
-**Framework:** [jest / vitest / pytest / go test / cargo test / other]
-**Scope:** [unit / integration / DOM-unit / mixed]
-
-#### Findings
-- `[path]` — [what was wrong or what behavior needed coverage]
-
-#### Changes
-- `[path:line]` — [test fix or test added]
-
-#### Verification
-```bash
-[command]
-```
-[result]
-
-#### Remaining gaps
-- [none / uncovered case / follow-up suggestion]
+Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 ```
 
 ## Rules
 
-- Never change production code just because a test is red. Defer to `AGENTS.md` §10 and route confirmed product fixes out of **b-test**.
-- Never update an assertion, snapshot, or golden file without confirming intended behavior first; follow the snapshot procedure in `AGENTS.md` §10.
-- Real-browser flows belong to **b-e2e**; keep DOM-rendered unit tests here.
-- Do not introduce property-based, fuzz, or contract-testing frameworks without a plan and explicit approval.
-- Prefer behavior assertions over implementation-detail assertions.
-- Keep fixture, mock, and setup changes as local as practical.
-- State when broader suite coverage was skipped and why the narrower check was sufficient.
-- Never introduce a test framework or coverage runner without explicit approval.
-- **Test utilities** (factories, builders, custom matchers, shared fixtures) belong here when they are added, edited, or extended to support a test in scope. Mechanical relocation/rename of an existing test utility is **b-refactor**, not **b-test**.
+- Never change production code just because a test is red.
+- Never update assertions, snapshots, or goldens without confirming intended behavior.
+- Real-browser flows belong to **b-e2e**.
+- Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without approval.
+- Keep fixture and mock changes local when practical.
+- Use global patch discipline, stale context recovery, verification ladder, and iteration cap.
+- Test utilities belong here when created or changed to support an in-scope test; mechanical relocation belongs to **b-refactor**.
 
 ## Reference pointers
 
-- `references/testing-patterns.md` (installed under `~/.config/opencode/references/b-skills/`) — fallback guidance for naming, fixtures, mocks, and regression-test shape when the repo's own conventions are weak or conflicting.
+- `references/testing-patterns.md` - fallback guidance when local conventions are weak or conflicting.

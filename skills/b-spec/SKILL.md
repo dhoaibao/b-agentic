@@ -15,75 +15,61 @@ metadata:
 
 $ARGUMENTS
 
-Clarify the end state before planning or coding. Turn a rough ask into a concrete goal, constraints, and acceptance criteria.
+Clarify the target outcome before planning or coding. Keep the loop short and make assumptions visible.
 
-If `$ARGUMENTS` is present, treat it as the rough request and proceed directly. Ask only the smallest questions needed to make the target outcome concrete.
+If `$ARGUMENTS` is present, treat it as the rough request and proceed directly.
 
 ## When to use
 
-- The request is underspecified or has multiple plausible interpretations.
-- The desired end state, acceptance criteria, or non-goals are still unclear.
-- The user has a rough feature idea and needs it turned into something plannable.
-- The codebase context may answer part of the ambiguity, but not the intended outcome.
+- The end state, acceptance criteria, constraints, or non-goals are unclear.
+- The user has a rough idea that needs to become plannable.
+- The codebase can inform terminology or current behavior, but not the user's intent.
 
 ## When NOT to use
 
-- The goal is already clear and the next question is sequencing or implementation approach → use **b-plan**.
-- The request already meets the **small direct request** threshold in `AGENTS.md` §3 and the behavior is obvious → use **b-implement**.
-- The blocker is external feasibility, vendor docs, or library behavior → use **b-research**.
-- Something is broken and needs diagnosis → use **b-debug**.
+- The goal is clear and sequencing matters -> use **b-plan**.
+- The request is small, obvious, and implementation-ready -> use **b-implement**.
+- The blocker is external docs or vendor feasibility -> use **b-research**.
+- Something is broken -> use **b-debug**.
 
 ## Tools required
 
-- `serena-symbol-toolkit` *(preferred for checking existing behavior, ownership, or nearby conventions before asking the user)*
+- `serena-symbol-toolkit` *(optional, for local behavior, ownership, or naming evidence before asking)*
 - `gitnexus-radar` *(optional, for unfamiliar shared surfaces or route/tool context)*
-- `context7-docs` *(optional, for a narrow feasibility check discovered during clarification)*
+- `context7-docs` *(optional, for one narrow feasibility check)*
 
-Fallbacks: `AGENTS.md` §4. If clarification reveals a genuine external-knowledge blocker, stop and use **b-research**. Graceful degradation: ✅ Possible — native reads plus a short clarification loop still work.
+Fallbacks: `AGENTS.md` section 4. Graceful degradation: possible with native reads and a short clarification loop.
 
 ## Steps
 
-### Step 1 — Decide whether discovery is actually needed
+### Step 1 - Confirm this is a spec problem
 
 Stay in **b-spec** only while the target outcome is underdetermined.
 
-- If the goal, constraints, and success criteria are already clear, hand off immediately:
-  - **b-implement** when the request meets the **small direct request** threshold in `AGENTS.md` §3.
-  - **b-plan** when the work is non-trivial and the open question is how to sequence it.
+- If the target is clear and the work is small, hand off to **b-implement**.
+- If the target is clear but the work needs sequencing, hand off to **b-plan**.
 - If two or more plausible outcomes remain, continue.
 
-### Step 2 — Clarify the target outcome
+### Step 2 - Clarify the outcome
 
-Restate the ask in one sentence, then ask only the blocking questions needed to lock:
+Restate the ask in one sentence, then ask only what blocks a concrete spec:
 
 - user-visible outcome
 - hard constraints
 - success criteria
-- explicit non-goals when scope could sprawl
+- non-goals when scope could sprawl
 
-Use the clarification budget from `AGENTS.md` §1. Do not turn this into an open-ended interview.
+Use the global clarification budget. Prefer one blocking question at a time when the answer changes the next question. After two unresolved rounds, stop asking open questions: offer two concrete interpretations with named assumptions and ask the user to pick or override.
 
-Prefer one blocking question at a time when the answer will change the next question. If a single concrete scenario will collapse the ambiguity faster than abstract discussion, ask for that scenario instead.
+### Step 3 - Use local evidence before asking
 
-**Hard 2-round exit.** A "round" is one user response after a clarification ask, regardless of how many sub-questions that ask contained. If after two such rounds the user still cannot name a user-visible outcome or pick between plausible interpretations, **stop asking**. Propose 2 concrete interpretations explicitly, name the assumption each one rests on, and ask the user to pick one or override. Never loop a third round of open clarification.
+Before asking the user something the repo can answer, inspect nearby code, naming, docs, or ownership. If `CONTEXT.md` or `CONTEXT-MAP.md` exists, reuse its terminology and surface contradictions with code instead of guessing.
 
-### Step 3 — Collapse ambiguity from local evidence
+If the remaining blocker is external feasibility, hand off to **b-research**.
 
-Before asking the user to decide something the codebase already answers:
+### Step 4 - Produce the spec and hand off
 
-- Use `serena-symbol-toolkit` to inspect the existing behavior, naming, nearby patterns, or owning area.
-- Use `gitnexus-radar` only when the question is graph-shaped or the area is unfamiliar.
-- If a single narrow docs/API check would settle feasibility, use `context7-docs` inline.
-
-When the repo already has `CONTEXT.md` or `CONTEXT-MAP.md`, read it first and reuse its canonical terminology. If the user uses a vague or overloaded term, name the ambiguity, propose the narrowest wording that matches the glossary, and ask for confirmation only if code and docs do not already settle it.
-
-When the user describes current behavior or boundaries, cross-check that claim against the code before accepting it. If the code and the request disagree, surface the contradiction explicitly instead of building the spec on top of it.
-
-If the remaining blocker is broader external research, stop and hand off to **b-research**.
-
-### Step 4 — Produce the minimal spec
-
-Keep the output in chat by default. Produce a compact, execution-ready spec:
+Return a compact chat spec by default:
 
 ```text
 ### Spec: <goal>
@@ -92,49 +78,24 @@ Keep the output in chat by default. Produce a compact, execution-ready spec:
 **Constraints:** <hard boundaries>
 **Acceptance criteria:**
 - <testable outcome>
-- <testable outcome>
-**Non-goals:** <what this request is not asking for>
-**Assumptions:** <what the spec takes for granted that the user did not explicitly confirm, or `none`>
+**Non-goals:** <excluded scope>
+**Assumptions:** <unconfirmed assumptions, or none>
+**Next:** <b-plan | b-implement | b-research>
 ```
 
-Always include an **Assumptions** line, even when empty (`Assumptions: none`). Spec without assumptions silently becomes a contract the user did not agree to.
-
-Do not create a separate saved artifact by default; this spec is the input to the next skill.
-
-### Step 5 — Hand off cleanly
-
-- Hand off to **b-implement** when the clarified request is now small and obvious.
-- Hand off to **b-plan** when the goal is now clear but the work still needs sequencing, dependencies, or risk management.
-
-Carry the spec's `Assumptions` into the handoff envelope's `assumptions` field (`AGENTS.md` §9) so the downstream skill sees what was taken for granted. Decisions the user explicitly confirmed go to `decisions`; the rest are assumptions.
-
-Close with the handoff envelope and, for non-trivial clarification work, the skill-exit status block (`AGENTS.md` §9).
+Carry confirmed decisions and assumptions into the handoff envelope from `AGENTS.md` when another skill owns the next step.
 
 ## Output format
 
-```text
-### Spec: [goal]
-
-**Goal:** [what should happen]
-**Constraints:** [hard boundaries]
-**Acceptance criteria:**
-- [testable outcome]
-- [testable outcome]
-**Non-goals:** [excluded scope]
-**Assumptions:** [what the spec takes for granted that the user did not explicitly confirm, or `none`]
-**Next:** [b-plan / b-implement / b-research]
-```
+Use the compact spec shape above. Saved artifacts are not created unless the user explicitly asks.
 
 ## Reference pointers
 
-- `references/domain-glossary.md` (installed under `~/.config/opencode/references/b-skills/`) — optional glossary convention for `CONTEXT.md`, `CONTEXT-MAP.md`, and ADR usage when the repo already carries domain docs.
+- `references/domain-glossary.md` - optional glossary convention for `CONTEXT.md`, `CONTEXT-MAP.md`, and ADR usage.
 
 ## Rules
 
-- Clarify the end state; do not turn this skill into implementation planning.
-- Prefer repository evidence over user questions when the codebase already answers the ambiguity.
-- Ask only the minimum questions needed to make the work safely plannable.
-- If one concrete scenario or counterexample will expose the real boundary faster than abstraction, use it.
-- If the repo already has a glossary, prefer its terms over ad-hoc wording.
-- Keep the output compact; avoid writing a second durable artifact unless the user explicitly asks for one.
-- If clarification reveals that the real blocker is external feasibility, stop and use **b-research** instead of guessing.
+- Clarify the outcome; do not plan or implement here.
+- Prefer repo evidence over extra questions when the repo already answers the ambiguity.
+- Keep assumptions explicit; never turn them into confirmed decisions without user confirmation.
+- If external feasibility blocks the spec, use **b-research** instead of guessing.
