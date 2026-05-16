@@ -354,7 +354,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 
 ### Repository source files
 - `AGENTS.md` — maintainer guidance for this source repo.
-- `global/AGENTS.md` — source copy of the runtime global rules, installed as `AGENTS.b-skills.md` and optionally applied to OpenCode's main `AGENTS.md`; installed skill prose should cite `AGENTS.md`. It is intentionally the hot-path contract: concise cross-skill rules live there, while longer playbook detail belongs in skill or reference files.
+- `global/AGENTS.md` — source copy of the runtime global rules, installed as `AGENTS.b-skills.md` and optionally applied to OpenCode's main `AGENTS.md`; installed skill prose should cite `AGENTS.md`.
 - `skills/<name>/SKILL.md` — skill sources.
 - `commands/<name>.md` — thin slash-command wrappers.
 - `references/*.md` — reusable checklists and conventions shared by multiple skills, installed under `~/.config/opencode/references/b-skills/`.
@@ -370,7 +370,6 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - Multi-artifact runs include a `manifest.json` per the schema in `global/AGENTS.md` §8.
 
 ### Runtime global conventions
-- `global/AGENTS.md` is intentionally slimmed for runtime use: keep shared rules, schemas, safety gates, and handoff contracts there; keep long examples and low-frequency playbooks out of the hot path.
 - One active skill at a time.
 - Trigger precedence is explicit: browser flow → `b-e2e`; DOM-rendered unit test → `b-test`; likely product bug → `b-debug` (per the test-vs-bug decision in `global/AGENTS.md` §10); named behavior-preserving transform → `b-refactor`; unclear end state or acceptance → `b-spec`; clear goal but unclear sequencing → `b-plan`; external-knowledge blocker → `b-research`.
 - After `b-plan` approval, the approved plan is the execution source of truth for multi-step implementation, subject to the **plan staleness gate** and **plan revision protocol** in `global/AGENTS.md` §2.
