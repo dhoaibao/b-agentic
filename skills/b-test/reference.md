@@ -1,6 +1,6 @@
-# Testing patterns
+# b-test — reference
 
-Use this as the fallback checklist when a repo's own test conventions are thin or inconsistent.
+Fallback testing patterns for `b-test` when a repo's own test conventions are thin or inconsistent.
 
 ## Test shape
 

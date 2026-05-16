@@ -44,6 +44,9 @@ Turns a clear goal into an execution-ready plan without implementing.
 - Quick mode: chat plan with scope, risk, steps, and verification.
 - Full mode: saved plan using `skills/b-plan/reference.md`.
 
+**Shared reference**
+- `references/domain-glossary.md` — optional convention when glossary docs should guide terminology or bounded-context planning.
+
 **GitNexus use**
 - Optional only for graph-shaped planning.
 
@@ -133,8 +136,10 @@ Reviews diffs, ranges, checkpoints, or explicitly requested repo areas.
 - Scope/mode/path/baseline, findings, checked-clean areas, coverage/tests/observability, verdict.
 
 **Shared references**
-- `references/security-checklist.md`
 - `references/performance-checklist.md`
+
+**Skill reference**
+- `skills/b-review/reference.md` — security checklist for auth, untrusted input, sensitive data, uploads, webhooks, and external integrations.
 
 ---
 
@@ -157,8 +162,8 @@ Owns code-level testing work.
 **Output**
 - Type, framework, findings, changes, verification, remaining gaps.
 
-**Shared reference**
-- `references/testing-patterns.md` — fallback conventions for tests, fixtures, and assertions.
+**Skill reference**
+- `skills/b-test/reference.md` — fallback conventions for tests, fixtures, and assertions.
 
 ---
 
@@ -181,8 +186,8 @@ Uses a real browser for flow verification and browser-test authoring.
 **Output**
 - Mode, target, driver, interactions, assertions, test code, artifacts/cleanup.
 
-**Shared reference**
-- `references/accessibility-checklist.md` — focused a11y fallback checklist.
+**Skill reference**
+- `skills/b-e2e/reference.md` — focused a11y fallback checklist.
 
 ---
 
@@ -220,6 +225,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - `skills/<name>/SKILL.md` — concise skill sources.
 - `commands/<name>.md` — thin slash-command wrappers.
 - `references/*.md` — reusable checklists and conventions shared by multiple skills.
+- `skills/<name>/reference.md` — optional long-form guidance used only by that skill.
 - `scripts/smoke-install.sh` — isolated installer smoke checks.
 - `scripts/validate-skills.sh` — validator for frontmatter, required sections, stale phrases, docs coverage, and global-rule guardrails.
 

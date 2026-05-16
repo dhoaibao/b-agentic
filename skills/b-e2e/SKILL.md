@@ -85,4 +85,4 @@ Mode -> Target -> Driver -> Interactions -> Assertions -> Test code -> Artifacts
 
 ## Reference pointers
 
-- `references/accessibility-checklist.md` - fallback checklist for focused keyboard, label, focus-order, dialog, and responsive checks.
+- `skills/b-e2e/reference.md` - fallback checklist for focused keyboard, label, focus-order, dialog, and responsive checks.

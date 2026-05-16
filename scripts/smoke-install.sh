@@ -24,6 +24,11 @@ assert_file() {
   [ -f "$path" ] || fail "expected file: $path"
 }
 
+assert_no_file() {
+  local path="$1"
+  [ ! -e "$path" ] || fail "unexpected file: $path"
+}
+
 assert_contains() {
   local path="$1" needle="$2"
   grep -Fq "$needle" "$path" || fail "expected '$needle' in $path"
@@ -126,9 +131,14 @@ main() {
   mkdir -p "$sandbox_fresh/home"
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo" N
   assert_file "$sandbox_fresh/home/.config/opencode/skills/b-plan/SKILL.md"
+  assert_file "$sandbox_fresh/home/.config/opencode/skills/b-review/reference.md"
+  assert_file "$sandbox_fresh/home/.config/opencode/skills/b-test/reference.md"
+  assert_file "$sandbox_fresh/home/.config/opencode/skills/b-e2e/reference.md"
   assert_file "$sandbox_fresh/home/.config/opencode/commands/b-plan.md"
   assert_file "$sandbox_fresh/home/.config/opencode/references/b-skills/domain-glossary.md"
-  assert_file "$sandbox_fresh/home/.config/opencode/references/b-skills/security-checklist.md"
+  assert_no_file "$sandbox_fresh/home/.config/opencode/references/b-skills/security-checklist.md"
+  assert_no_file "$sandbox_fresh/home/.config/opencode/references/b-skills/testing-patterns.md"
+  assert_no_file "$sandbox_fresh/home/.config/opencode/references/b-skills/accessibility-checklist.md"
   assert_file "$sandbox_fresh/home/.config/opencode/AGENTS.md"
   assert_file "$sandbox_fresh/home/.config/opencode/AGENTS.b-skills.md"
   assert_file "$sandbox_fresh/home/.config/opencode/b-skills-install.json"

@@ -86,7 +86,7 @@ Full-mode steps use checkbox style so **b-implement** can update progress:
   - Done when: <verification>
 ```
 
-Use `skills/b-plan/reference.md` for the quick-plan template, saved-plan skeleton, supersede rules, and multi-plan dependencies.
+Use `skills/b-plan/reference.md` for the quick-plan template, saved-plan skeleton, supersede rules, and multi-plan dependencies. Use `references/domain-glossary.md` when existing glossary docs should guide naming, context boundaries, or plan terminology.
 
 ### Step 6 - Deliver and request approval
 

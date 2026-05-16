@@ -1,6 +1,6 @@
-# Security checklist
+# b-review — reference
 
-Use this checklist when `b-review` or another skill touches auth, untrusted input, sensitive data, file uploads, webhooks, or external integrations.
+Security checklist for `b-review` when changed code touches auth, untrusted input, sensitive data, file uploads, webhooks, or external integrations.
 
 ## Boundary checks
 

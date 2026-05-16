@@ -89,7 +89,7 @@ Routing/safety highlights: keep one active skill; strict trigger precedence; app
 
 ### Shared references
 
-The suite ships reusable references to `~/.config/opencode/references/b-skills/` so multiple skills can deepen security, testing, accessibility, performance, and optional domain-glossary conventions without duplicating long lists inside every `SKILL.md`.
+The suite ships reusable references to `~/.config/opencode/references/b-skills/` only for cross-skill material such as the runtime contract, performance guidance, and optional domain-glossary conventions. Single-skill long-form guidance lives beside its owning `SKILL.md` as `skills/<name>/reference.md`.
 
 See [REFERENCE.md](REFERENCE.md) for detailed skill contracts and maintenance conventions.
 
@@ -113,11 +113,8 @@ b-skills/
 ├── global/
 │   └── AGENTS.md
 ├── references/
-│   ├── accessibility-checklist.md
 │   ├── domain-glossary.md
 │   ├── performance-checklist.md
-│   ├── security-checklist.md
-│   ├── testing-patterns.md
 │   └── runtime-contract.md
 ├── README.md
 ├── REFERENCE.md
@@ -134,12 +131,18 @@ b-skills/
     ├── b-implement/SKILL.md
     ├── b-refactor/SKILL.md
     ├── b-debug/SKILL.md
-    ├── b-test/SKILL.md
-    ├── b-e2e/SKILL.md
-    └── b-review/SKILL.md
+    ├── b-test/
+    │   ├── SKILL.md
+    │   └── reference.md          # fallback testing patterns
+    ├── b-e2e/
+    │   ├── SKILL.md
+    │   └── reference.md          # focused accessibility checklist
+    └── b-review/
+        ├── SKILL.md
+        └── reference.md          # security review checklist
 ```
 
-Skills are normally a single `SKILL.md`. Optional support files (`reference.md`, `examples.md`, `scripts/`) are added only when externalizing content materially improves maintenance — for example, when a template is long enough to crowd out core instructions under context pressure. See `AGENTS.md` "Skill directory structure template" for the full convention.
+Skills are normally a single `SKILL.md`. Optional support files (`reference.md`, `examples.md`, `scripts/`) are added only when externalizing content materially improves maintenance — for example, when a template or checklist is long enough to crowd out core instructions under context pressure. Do not create a nested per-skill `references/` directory for one file; use `skills/<name>/reference.md`. See `AGENTS.md` "Skill directory structure template" for the full convention.
 
 This tree is the source repository layout used by `install.sh`, not a directly discoverable OpenCode runtime layout. The installer copies:
 - `skills/` → `~/.config/opencode/skills/`
@@ -195,7 +198,7 @@ OpenCode integration: Serena starts without auto-opening the dashboard and owns 
 - `references/runtime-contract.md` is the detailed runtime contract installed with the shared references.
 - Skills live in `skills/<name>/SKILL.md`.
 - Commands live in `commands/<name>.md`.
-- Shared references live in `references/*.md` and install to `~/.config/opencode/references/b-skills/`.
+- Shared references live in `references/*.md` and install to `~/.config/opencode/references/b-skills/`; single-skill references live at `skills/<name>/reference.md` and install with their owning skill.
 - `install.sh` is responsible for deploying and pruning suite-managed files under `~/.config/opencode/`.
 - `scripts/smoke-install.sh` runs isolated installer smoke tests against a temp HOME and repo snapshot.
 - `scripts/validate-skills.sh` checks frontmatter, required sections, stale tool names, old artifact paths, GitNexus scope drift, runtime-kernel/detailed-contract split, runtime-global leakage, and README/REFERENCE coverage.

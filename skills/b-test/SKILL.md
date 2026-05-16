@@ -92,4 +92,4 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 
 ## Reference pointers
 
-- `references/testing-patterns.md` - fallback guidance when local conventions are weak or conflicting.
+- `skills/b-test/reference.md` - fallback guidance when local conventions are weak or conflicting.

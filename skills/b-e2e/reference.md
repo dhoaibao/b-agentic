@@ -1,6 +1,6 @@
-# Accessibility checklist
+# b-e2e — reference
 
-Use this for focused UI verification when `b-e2e` or another skill needs a compact WCAG-oriented pass on the changed surface.
+Focused accessibility checklist for `b-e2e` when browser verification needs a compact WCAG-oriented pass on the changed surface.
 
 ## Interaction basics
 
