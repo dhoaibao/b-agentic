@@ -44,9 +44,9 @@ Fallbacks: `AGENTS.md` section 4. Graceful degradation: possible with native ana
 
 ### Step 1 - Frame the symptom
 
-Collect exact failure, expected vs actual behavior, repro notes, determinism, and for perf bugs workload/baseline/threshold.
+Collect exact failure, expected vs actual behavior, repro notes, determinism, and for perf bugs workload/baseline/threshold. Check the regression window when available: recent commits, dependency or lockfile changes, config drift, feature flags, data shape changes, and environment differences.
 
-For non-trivial or blocked bugs, keep a repro record: command or interaction, workspace or target, relevant versions/config flags, expected behavior, actual behavior, determinism, and strongest evidence. Do not include secret values or private data.
+For non-trivial or blocked bugs, keep a repro record: command or interaction, workspace or target, relevant versions/config flags, data mode, expected behavior, actual behavior, determinism, and strongest evidence. Do not include secret values or private data.
 
 If production impact, data loss, or security risk is active, identify the safest containment first and ask before shared-environment action.
 

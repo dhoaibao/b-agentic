@@ -45,7 +45,7 @@ Identify the target URL/app/surface and whether auth or writes are needed. Verif
 
 Production-like targets are read-only by default. Mutating steps require explicit approval naming the environment. Use ephemeral auth unless reusable stored auth is explicitly approved; if stored auth is expired, ask whether to refresh, re-auth ephemerally, or abort.
 
-Create repo-local artifacts only when evidence must be saved; otherwise rely on the global happy-path compression rule. Sensitive/auth artifacts stay outside the worktree by default. Artifacts and a manifest are required when writing tests, saving screenshots/snapshots, using auth/session state, creating test data, or encountering partial writes/failures.
+Create repo-local artifacts only when evidence must be saved; otherwise rely on the global happy-path compression rule. Sensitive/auth artifacts stay outside the worktree by default. Artifacts and a manifest are required when writing tests, saving screenshots/snapshots, using auth/session state, creating test data, or encountering partial writes/failures. Apply the global test data lifecycle rule before creating, reusing, or cleaning browser data.
 
 ### Step 2 - Pick mode
 
@@ -58,15 +58,15 @@ If the user wants both, verify first, then use the captured flow as the authorin
 
 In verify mode, snapshot before interacting, navigate, execute with browser tools, wait for specific UI state, re-snapshot/screenshot relevant state, and inspect console/network when the outcome depends on client or API behavior.
 
-Check only the requested viewport unless responsive behavior or both mobile/desktop are in scope. Include a focused accessibility check for interacted controls, labels, roles, and focus order. Default to functional assertions; visual baselines require approval.
+Check only the requested viewport and browser unless responsive, mobile/desktop, or cross-browser behavior is in scope. In author mode, follow the repo's configured browser/device matrix instead of inventing one. Include a focused accessibility check for interacted controls, labels, roles, and focus order. Default to functional assertions; visual baselines require approval.
 
 For non-trivial flows, record the browser evidence context: URL, viewport/device, auth mode, data created or reused, key console/network findings, and the final UI assertion. Prefer seeded or namespaced test data; if data cannot be cleaned up safely, report it rather than deleting blindly.
 
-In author mode, translate the verified flow into stable test code with accessible selectors and clear assertions, then run the project's normal browser-test command once.
+In author mode, translate the verified flow into stable test code with accessible selectors and clear assertions, then run the project's normal browser-test command once. Preserve repo-native trace, screenshot, video, and retry settings; do not add new E2E artifacts or retry policy unless the repo already uses them or the user approves.
 
 ### Step 4 - Cleanup and report
 
-Close the browser. Clean up only run-created test data and only when cleanup was approved. If a partial flow wrote data before failing, list those writes and cleanup status. Namespace approved test data with a unique run prefix.
+Close the browser. Clean up only run-created test data and only when cleanup is safe and approved for the target environment. If a partial flow wrote data before failing, list those writes and cleanup status. Namespace approved test data with a unique run prefix and report any residue owner.
 
 ## Output format
 

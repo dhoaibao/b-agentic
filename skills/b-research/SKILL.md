@@ -58,11 +58,11 @@ Skip pinning when the question is conceptual and version is not material.
 
 ### Step 3 - Gather evidence
 
-Use Context7 first for library/framework APIs. Otherwise discover authoritative pages, then extract the highest-signal source. Prefer official docs, release notes, source repos, and vendor materials.
+Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
 
-For recency-sensitive questions, use the news search path before extraction. Use image search only when visual evidence is material to the answer.
+For recency-sensitive questions, use the news search path before extraction and include `as of <date>` or source publication dates in the answer. Use image search only when visual evidence is material to the answer.
 
-For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary vendor or source-repo evidence when available. If only secondary sources are available, label the limitation and lower confidence.
+For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary vendor or source-repo evidence when available and include the evidence date. If only secondary sources are available, label the limitation and lower confidence.
 
 Auto-deepen when first evidence is stale, contradictory, non-authoritative, or indirect. Use search snippets only for discovery unless explicitly labeled snippet-only with low confidence.
 
@@ -89,3 +89,4 @@ Research: answer, key findings, limitations, sources, confidence.
 - Prefer 2-4 authoritative sources over long weak lists.
 - Use limitations and confidence labels instead of filling gaps from memory.
 - Cited URLs must come from fetched or user-provided sources in this session.
+- Include `as of <date>` for recency-sensitive, pricing, security, licensing, compatibility, and migration answers.

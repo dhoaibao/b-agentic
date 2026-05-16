@@ -49,7 +49,7 @@ Find relevant test files and project commands from manifests or CI. If a failing
 
 ### Step 2 - Choose the lane
 
-Use the global test-vs-bug decision:
+Use the global test-vs-bug decision. Acceptable behavior confirmation sources are user-confirmed intent, an approved spec/plan, existing product contract, existing passing tests that define the behavior, source change that intentionally updates behavior, or fetched framework docs for API semantics. If no behavior baseline exists, stop and hand off to **b-spec** for unclear intent or **b-debug** for uncertain product behavior, unless the user explicitly asks for structural coverage only.
 
 - **Failing test:** fix assertion, mock, fixture, setup, async, snapshot, or harness drift only after intended behavior is confirmed.
 - **Write tests:** add regression/unit/integration coverage for known behavior. For TDD or regression work, make the test fail first when feasible before changing implementation.
@@ -64,7 +64,7 @@ If product behavior is uncertain, hand off to **b-debug**.
 
 For failing tests, run the narrow command, read the test and exercised source, classify the failure, and apply snapshot/golden confirmation before updating derived artifacts.
 
-For new tests, cover behavior that matters: happy path, edge cases, error handling, and the regression that would catch an accidental revert. Prefer local fixtures unless an existing shared fixture fits.
+For new tests, cover behavior that matters: happy path, edge cases, error handling, and the regression that would catch an accidental revert. Prefer local fixtures unless an existing shared fixture fits. Apply the global test data lifecycle rule when tests create, mutate, or rely on persistent data.
 
 For coverage review, stop when changed behavior is covered, the next gap is opportunistic, or five gaps have been added with no required gap remaining.
 
@@ -84,6 +84,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 
 - Never change production code just because a test is red.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
+- Add `baseline-missing` tests only when the user explicitly asks for structural coverage; otherwise stop or hand off before writing them.
 - Real-browser flows belong to **b-e2e**.
 - Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without approval.
 - Keep fixture and mock changes local when practical.

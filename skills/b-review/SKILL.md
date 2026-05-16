@@ -57,11 +57,11 @@ Fast path is allowed only for a single non-sensitive area with no public contrac
 
 ### Step 3 - Establish baseline and inspect risk
 
-Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarification to identify intended behavior. Without a baseline, run a labeled diff-only or repo-audit risk review and do not claim requirements coverage.
+Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarification to identify intended behavior. Without a baseline, run a `baseline-missing` diff-only or repo-audit risk review and do not claim requirements coverage.
 
 Inspect highest-risk changed symbols and boundaries first. For audits, use a surface-specific checklist: installer/update path, runtime contract, validator, route/tool boundary, dependency/lockfile, generated artifact, or security-sensitive rule. Name the sampled files/symbols, skipped surfaces, and residual risk so a no-findings audit is not mistaken for exhaustive proof.
 
-Run the security checklist on changed entry points and shared boundaries even on fast path. Treat lockfile, generated, snapshot, golden, vendored, and minified changes as derived unless source or approved generation is clear.
+Run the security checklist on changed entry points and shared boundaries even on fast path, and name the relevant checklist sections when they affect findings or confidence. Treat lockfile, generated, snapshot, golden, vendored, and minified changes as derived unless source or approved generation is clear.
 
 ### Step 4 - Assess tests and operability
 
@@ -86,7 +86,7 @@ Scope/Mode/Path/Baseline -> Findings -> Checked and clean -> Coverage/Tests/Obse
 ## Rules
 
 - Findings come first; summaries are secondary.
-- Do not claim requirements coverage without a baseline.
+- Label no-baseline reviews as `baseline-missing`; do not claim requirements coverage without a baseline.
 - Do not run broad checks by default.
 - Fast path is risk-gated, not line-count-gated.
 - In `--repo-audit`, name the exact inspected surface and checklist.

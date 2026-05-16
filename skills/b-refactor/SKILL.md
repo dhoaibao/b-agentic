@@ -50,9 +50,9 @@ For `simplify`, `inline`, and `extract`, state the observable behavior that must
 
 ### Step 2 - Map impact and risk
 
-Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Use GitNexus only for broad shared/exported blast-radius questions. Moves across public module boundaries, package boundaries, or published entry points require planning unless the approved scope already names the destination and verification.
+Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Add exact text search for exported names, config keys, CLI flags, route strings, filenames, docs, and generated consumers when those surfaces could reference the target. Use GitNexus only for broad shared/exported blast-radius questions. Moves across public module boundaries, package boundaries, or published entry points require planning unless the approved scope already names the destination and verification.
 
-Classify risk with `AGENTS.md`. The local fast path is allowed when the refactor is one file, behavior-preserving, non-exported, LSP-supported, has few/no external references, and has no generated-code consumers.
+Classify risk with `AGENTS.md`. The local fast path is allowed when the refactor is one file, behavior-preserving, non-exported, LSP-supported, covered by direct semantics or narrow tests, has few/no external references, and has no generated-code consumers.
 
 Auto-promote risk when the language is non-LSP, references are dynamic/config/prose, the target is exported/shared, or generated code consumes it. Generated consumers require checking generator source or regeneration.
 
@@ -86,7 +86,7 @@ Target -> Risk -> Impact -> Changes -> Verification -> Follow-up
 ## Rules
 
 - Preserve behavior; do not add features while refactoring.
-- Keep local fast-path refactors low-friction, but promote risk for exports, non-LSP languages, generated consumers, and dynamic/config/prose references.
+- Keep local fast-path refactors low-friction, but promote risk for exports, weak behavior evidence, non-LSP languages, generated consumers, and dynamic/config/prose references.
 - Prefer symbol-aware rename/delete tools when reliable.
 - Ask before broad directory moves or cascading ecosystem changes.
 - Do not push past failing medium/high-risk verification without surfacing the blocker.
