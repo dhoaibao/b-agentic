@@ -41,7 +41,7 @@ Fallbacks: `AGENTS.md` section 4. Graceful degradation: partial; without browser
 
 ### Step 1 - Prepare target and safety
 
-Identify the target URL/app/surface and whether auth or writes are needed. Verify localhost targets are reachable before navigating; do not start a dev server without approval.
+Identify the target URL/app/surface and whether auth or writes are needed. Verify localhost targets are reachable before navigating; if not reachable, ask whether to start the repo's dev server with approval, use a user-started target, or abort. Do not start a dev server without approval.
 
 Production-like targets are read-only by default. Mutating steps require explicit approval naming the environment. Use ephemeral auth unless reusable stored auth is explicitly approved; if stored auth is expired, ask whether to refresh, re-auth ephemerally, or abort.
 

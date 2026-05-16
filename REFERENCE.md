@@ -32,7 +32,7 @@ Clarifies rough or underspecified asks before planning.
 Turns a clear goal into an execution-ready plan without implementing.
 
 **Core behavior**
-- Uses quick mode for low-risk scoped work and full mode for non-trivial/risky coordination.
+- Uses quick mode for low-risk, chat-sized scoped work and full mode for durable, multi-session, dependency-heavy, or risky coordination.
 - Saves full plans under `.opencode/b-skills/b-plan/<task-slug>.md` with durable frontmatter from `global/AGENTS.md`.
 - Promotes quick plans to saved plans when risk, breadth, or coordination grows.
 - Uses repo evidence only when it materially improves sequencing or touch-point accuracy.
@@ -79,6 +79,7 @@ Executes approved or clearly scoped work in coherent verified steps.
 - Uses Serena for symbol-aware edits and `apply_patch` for small prose/config/glue edits under global patch discipline.
 - Allows tiny local mechanical edits required by an approved step; primary or broad mechanical transforms go to `b-refactor`.
 - Verifies each coherent step, classifies failures, and uses global rollback/cascade/iteration rules.
+- Continues to later plan steps only when they are already approved, dependency-ready, not higher risk, and locally verifiable; otherwise stops at the checkpoint.
 
 **Output**
 - Plan source, step progress, changes, verification, blockers/decisions, next action.
@@ -98,6 +99,7 @@ Owns runtime and behavior failures.
 - Ranks suspects only as needed and confirms root cause before editing.
 - Tags temporary probes with `b-debug-probe`, removes probes, and re-verifies after cleanup.
 - Measures perf bugs before and after.
+- Uses bounded instrumentation for intermittent, remote-only, timing-dependent, or swallowed-error symptoms when it can collect decisive evidence.
 - Uses the global cannot-reproduce protocol instead of defensive speculation.
 - Hands structural redesign back to `b-plan`.
 
@@ -119,6 +121,7 @@ Reviews diffs, ranges, checkpoints, or explicitly requested repo areas.
 - Uses fast path only for low-risk single-area changes; contract/auth/security/migration/dependency changes force standard review.
 - Establishes a baseline from arguments, plan, checkpoint, or clarification; otherwise labels the review diff-only/audit-only.
 - Inspects highest-risk symbols and boundaries first.
+- In repo-audit mode, names sampled files/symbols, skipped surfaces, and residual risk.
 - Checks tests/operability unless `--skip-tests` is present.
 - Reports findings first, includes checked-and-clean areas for standard reviews, and emits READY FOR PR, READY WITH FOLLOW-UPS, or NEEDS FIXES.
 
@@ -139,6 +142,8 @@ Owns code-level testing work.
 - Discovers framework and narrowest runnable command from manifests/CI.
 - Routes red tests through the global test-vs-bug decision.
 - Handles failing tests, new tests, coverage review, and flaky tests.
+- Uses red-first behavior when feasible for TDD or regression tests.
+- Ranks coverage gaps by user impact, changed behavior, risk boundary, and edge-case value.
 - Keeps DOM-rendered and hybrid component tests here; real browsers go to `b-e2e`.
 - Updates snapshots/goldens only after intended behavior is confirmed.
 - Bounds coverage work and avoids introducing new frameworks without approval.
@@ -161,6 +166,7 @@ Uses a real browser for flow verification and browser-test authoring.
 - Keeps production-like targets read-only unless mutating approval names the environment.
 - Uses ephemeral auth unless reusable auth persistence is explicitly approved.
 - Snapshots before interaction and verifies concrete UI state.
+- Handles unreachable localhost targets by asking whether to start the repo server with approval, use a user-started target, or abort.
 - Checks focused accessibility on interacted surfaces.
 - Preserves the repo's existing browser-test framework in author mode.
 - Creates artifacts and manifests when evidence or cleanup must be auditable; sensitive/auth artifacts stay outside the worktree by default.
@@ -184,6 +190,7 @@ Handles concrete behavior-preserving transforms.
 - Uses a low-friction local fast path only for one-file, non-exported, LSP-supported, behavior-preserving refactors with no generated consumers.
 - Promotes risk for non-LSP languages, generated consumers, exports/shared APIs, moves, and broad reference maps.
 - Applies the smallest matching transform: rename, safe delete, extract, inline, rename+extract, or move.
+- Requires concrete behavior-preserving boundaries for `simplify`, and sends public/package-boundary moves back to planning unless already approved.
 - Adds move destinations first, updates imports/tests/config/barrels, verifies, then removes origin.
 - Hands behavioral redesign or over-broad transforms back to `b-plan`.
 
@@ -218,8 +225,8 @@ This repository is the install-only source layout for the suite. OpenCode does n
 ### Runtime global conventions
 - One active skill at a time; trigger precedence lives in `global/AGENTS.md`.
 - Skill bodies are intentionally concise: trigger boundary, task-specific workflow, and task-specific stop conditions only.
-- Global rules own rubrics, safety gates, artifacts, status/handoff schemas, skipped-check labels, evidence hierarchy, happy-path compression, fallback labeling, patch discipline, transform rollback, cascading failures, and output caps.
-- Non-trivial runs define success, verify with the global ladder, and report skipped checks with global labels.
+- Global rules own rubrics, safety gates, approval lifetime, artifacts, manifest transitions, status/handoff schemas, skipped-check labels, evidence hierarchy, happy-path compression, fallback labeling, patch discipline, transform rollback, cascading failures, and output caps.
+- Non-trivial runs define success, verify with the global ladder, respect monorepo workspace selection and command budgets, and report skipped checks with global labels.
 - Serena is primary hands for symbols and edits. GitNexus is optional radar only when indexed, fresh, and target-aware.
 - Cited URLs must come from sources fetched or supplied in the current session.
 - Common rationalizations live in `global/AGENTS.md`; skills do not duplicate them.

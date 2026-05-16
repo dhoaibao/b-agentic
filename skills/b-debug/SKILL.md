@@ -58,7 +58,7 @@ Bias first checks toward swallowed errors, auth/authz gates, config drift, missi
 
 Use the cheapest proof: exact error search, local diagnostics, narrow repro command, targeted docs lookup, benchmark/profiler, forced ordering, fake clock, or stress loop.
 
-Temporary probes are allowed only when cheaper evidence is insufficient. Tag every probe with `b-debug-probe` in the language-appropriate comment form.
+Temporary probes are allowed only when cheaper evidence is insufficient. Use instrumentation when the symptom is intermittent, remote-only, timing-dependent, or hidden behind swallowed errors and a bounded probe can collect decisive evidence; otherwise request the missing repro data or hand off to **b-plan** for structural diagnosis work. Tag every probe with `b-debug-probe` in the language-appropriate comment form.
 
 If the agent cannot reproduce a user-reproducible symptom, follow the global cannot-reproduce protocol and do not patch defensively.
 

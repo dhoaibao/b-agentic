@@ -72,7 +72,7 @@ Classify failures: implementation mistake, stale context, test harness issue, ru
 
 ### Step 5 - Record progress and close
 
-After verification passes, update saved-plan checkboxes and frontmatter progress without stripping metadata. Continue through dependency-ready steps when the user asked to implement/finish the plan; stop after one step when asked for only the next step.
+After verification passes, update saved-plan checkboxes and frontmatter progress without stripping metadata. Continue only when the user asked to implement or finish the plan, the next step is already approved, dependency-ready, no higher risk than the completed step, and its verification remains local or already approved. Stop after one step when asked for only the next step, or before the next step crosses a review checkpoint, new decision, broader verification, or risk increase.
 
 At completion, inspect the diff, run final relevant verification, report cleanup/worktree state, and recommend **b-review** for non-trivial or risky changes.
 

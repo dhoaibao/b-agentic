@@ -51,7 +51,7 @@ Fallbacks: `AGENTS.md` section 4. Graceful degradation: possible with native rea
 - **Quick mode:** low-risk scoped work. Return a short chat plan and ask for approval.
 - **Full mode:** non-trivial work, real structural choice, public/sensitive risk, or durable coordination need. Save a plan under `.opencode/b-skills/b-plan/<task-slug>.md` after the global `.opencode/.gitignore` guard.
 
-Escalate quick to full when discovery reveals broad references, public contracts, security-sensitive behavior, deployment risk, or a plan that is no longer readable in chat.
+Default to quick mode when the plan is low/trivial risk, fits in chat, and can be executed in one coherent session. Use full mode when the plan needs durable approval, spans sessions, has more than about five meaningful steps, has unresolved dependencies, or discovery reveals broad references, public contracts, security-sensitive behavior, deployment risk, or a plan that is no longer readable in chat.
 
 ### Step 2 - Lock scope and decisions
 

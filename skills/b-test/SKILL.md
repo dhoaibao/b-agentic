@@ -52,8 +52,8 @@ Find relevant test files and project commands from manifests or CI. If a failing
 Use the global test-vs-bug decision:
 
 - **Failing test:** fix assertion, mock, fixture, setup, async, snapshot, or harness drift only after intended behavior is confirmed.
-- **Write tests:** add regression/unit/integration coverage for known behavior.
-- **Coverage review:** rank missing tests by value and add only the requested/highest-value gaps.
+- **Write tests:** add regression/unit/integration coverage for known behavior. For TDD or regression work, make the test fail first when feasible before changing implementation.
+- **Coverage review:** rank missing tests by user impact, changed behavior, risk boundary, and edge-case value; add only the requested/highest-value gaps.
 - **Flaky test:** use the global flake procedure before rewriting or skipping.
 
 If product behavior is uncertain, hand off to **b-debug**.

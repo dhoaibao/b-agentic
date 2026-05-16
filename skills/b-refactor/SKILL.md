@@ -44,11 +44,11 @@ Fallbacks: `AGENTS.md` section 4. Graceful degradation: partial; native search p
 
 ### Step 1 - Lock target
 
-Resolve the exact symbol, file, or repeated code shape. If the request remains vague after short inspection, ask the smallest question that makes it concrete.
+Resolve the exact symbol, file, or repeated code shape. For `simplify`, require the target and behavior-preserving boundary to be concrete; otherwise hand back to **b-plan**. If the request remains vague after short inspection, ask the smallest question that makes it concrete.
 
 ### Step 2 - Map impact and risk
 
-Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Use GitNexus only for broad shared/exported blast-radius questions.
+Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Use GitNexus only for broad shared/exported blast-radius questions. Moves across public module boundaries, package boundaries, or published entry points require planning unless the approved scope already names the destination and verification.
 
 Classify risk with `AGENTS.md`. The local fast path is allowed when the refactor is one file, behavior-preserving, non-exported, LSP-supported, has few/no external references, and has no generated-code consumers.
 

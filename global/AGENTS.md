@@ -78,6 +78,8 @@ Use this order when instructions compete:
 
 After `/b-plan` approval, the approved plan becomes the execution source of truth for multi-step implementation.
 
+If multiple approved saved plans plausibly match the same request, do not choose by slug similarity. Ask the user to pick the plan or approve superseding/merging them before editing.
+
 ### Durable plan metadata
 
 New saved plans should start with YAML frontmatter so approval and staleness are durable instead of inferred from chat history:
@@ -417,6 +419,12 @@ Skills do not restate this. They reference §6.
 - If a target file already has unrelated edits, patch around them.
 - If user changes directly conflict with the task, stop and ask.
 
+### Approval lifetime
+
+- Approvals apply only to the named action, environment, and current run unless the user explicitly grants a longer-lived scoped approval.
+- A longer-lived approval must name the allowed action class, target environment or path, and expiry condition. If any part is missing, ask again before acting.
+- A new run, changed target, broader blast radius, or risk-class increase requires fresh approval.
+
 ### Isolated workspace preference
 
 - For non-trivial build, refactor, or debug work, prefer an isolated workspace or linked worktree when the current tree is dirty enough to interfere, the task touches public contracts or sensitive paths, parallel user/agent work is likely, or a cleaner review surface materially helps.
@@ -462,9 +470,16 @@ Security, data-loss, or production-impacting issues found in touched code may be
 ### Verification ladder
 
 - Discover baseline commands in this order: explicit plan/user command, project scripts, CI config, repo docs, existing language defaults, then one clarification. Do not invent tooling as verification.
+- In monorepos, choose commands and version sources from the closest workspace manifest, lockfile, and CI config to the touched files. If multiple workspaces are plausible, state the chosen workspace or ask when it changes correctness.
 - Narrow local check first (touched file diagnostics, single test).
 - Broader affected-area check second (module tests, type/build narrowed to changed area).
 - Full project check only when scope or risk justifies it (high-risk per §3, or shared contracts).
+
+### Command budget
+
+- Prefer one narrow verification command per fix loop, then one broader command only when risk justifies it.
+- Before starting a broad, slow, or repeated suite command, state why the narrow checks are insufficient. If it is likely to exceed the current timeout or materially slow the run, ask before continuing unless the user already requested that exact check.
+- When a blocked debug/test/e2e run depends on environment differences, report an environment snapshot: command, workspace root, package manager/runtime versions when available, relevant flags/config, and what differs or remains unknown.
 
 ### Long-running commands
 
@@ -540,6 +555,11 @@ When the expected input is missing, do not silently fall back; ask once with a c
 - No browser-test framework → ask before adding Playwright.
 - No MCP for the requested bundle → see the fallback ladder (§4) and label the run as `[degraded: <bundle> unavailable]`.
 
+### Generated artifact provenance
+
+- When a generated, vendored, minified, snapshot, golden, or lock file is touched, final output must say whether the generator/source command was run, skipped, unavailable, or not applicable.
+- If the generator is unavailable and a manual derived-file edit is kept, label it partial evidence and name the follow-up needed to regenerate or verify it.
+
 ---
 
 ## 8. Artifacts
@@ -590,6 +610,12 @@ Files inside a run directory follow these conventions so they're predictable acr
 
 Do not write generated artifacts outside those paths unless editing project source files is the task.
 
+### Artifact minimization
+
+- Do not create run artifacts for routine chat answers, tiny edits, or successful low-risk checks.
+- Create artifacts only when needed for saved plans, explicit saved reports, browser evidence, large/truncated logs, auth/session state, generated evidence, partial failures, or user-requested auditability.
+- If an artifact is optional, prefer the chat/status summary over writing files.
+
 ### Retention and cleanup
 
 - Keep saved plans and explicit review/research reports until the user removes them; they are source-of-truth or decision artifacts.
@@ -618,6 +644,11 @@ Any run that produces more than one artifact must include `manifest.json` at the
 
 Single-artifact runs may skip the manifest and report these fields inline instead.
 
+### Manifest state transitions
+
+- `partial` means the run produced useful artifacts or edits but did not satisfy completion. A receiving skill must inspect `notes`, `blockers`, and generated files before resuming.
+- Valid forward transitions are `partial -> complete | blocked`, `blocked -> complete | partial` after the blocker is resolved, and `complete` only by a new run or explicit revision. Do not silently overwrite a previous manifest state.
+
 ---
 
 ## 9. Output contract
@@ -630,6 +661,12 @@ Single-artifact runs may skip the manifest and report these fields inline instea
 ### Lead with the result
 
 Findings, decisions, or the next action come first. Narration second, if at all. Be concise.
+
+### Verbosity modes
+
+- Default to compact reports: result, material evidence, skipped checks, and next action.
+- Expand only for blockers, high-risk boundaries, audits, handoffs, incomplete evidence, or when the user asks for detail.
+- Do not include exhaustive tool logs in chat; save or cite logs only when they affect the conclusion.
 
 ### Skill-exit status block
 
