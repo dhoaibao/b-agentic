@@ -106,6 +106,10 @@ Optionally use `gitnexus-radar` once when the diff is graph-shaped or contract-h
 
 **Security checklist** (run on changed entry points, sensitive paths, and shared boundaries, even on fast path): correctness, validation/encoding/injection, auth/authz, sensitive data, concurrency/idempotency, dependencies, secrets, regex DoS, resource bounds, error handling.
 
+For auth/authz, security boundaries, migrations, public or external contracts, or irreversible external writes, run the high-risk challenge gate from `AGENTS.md` §10 before calling the area clean.
+
+If a finding or a clean judgment depends on framework, library, or vendor API semantics, cite the authoritative source in that finding or clean note instead of relying on memory.
+
 **Generated and lockfile policy:** for generated files, snapshots, golden files, vendored/minified code, and lockfiles, verify the source change or approved generator/dependency action that produced them. If no source or approved generation step exists, flag the artifact change as suspicious rather than reviewing it as hand-written code.
 
 Use diagnostics or a narrow verification command only when review confidence depends on runtime or typed-language evidence.
@@ -175,3 +179,14 @@ Close with the skill-exit status block (`AGENTS.md` §9).
   - **Self-review** — re-derive intent from diff; question skipped tests, "won't happen" error paths, and late naming; bias toward real MAJOR/BLOCKER risk.
   - **External review** — do not disguise style as findings; separate must-fix from optional issues; defer idiom unless correctness/security/contract is affected.
 - If the logic cannot be confirmed confidently, say so and attach the confidence signal.
+
+## Reference pointers
+
+- `references/security-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) — use when the diff touches auth, untrusted input, sensitive data, file uploads, webhooks, or external integrations.
+- `references/performance-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) — use when the change touches hot paths, query volume, rendering loops, list endpoints, or retry behavior.
+
+## Common rationalizations
+
+- "The tests pass, so it's probably fine." → Tests do not replace contract, security, or operability review.
+- "The diff is tiny." → Risk bucket, not line count, decides the review depth.
+- "I'll phrase this softly because it might be okay." → Severity should match the actual ship risk, not reviewer comfort.

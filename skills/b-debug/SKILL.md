@@ -116,3 +116,13 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - For active production impact, prefer approved containment before deep investigation; do not mutate shared environments without the approval gate in `AGENTS.md` §6.
 - Verify probe removal explicitly before reporting success.
 - Attach the confidence signal (`AGENTS.md` §3) when the fix relies on indirect or partial evidence.
+
+## Reference pointers
+
+- `references/performance-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) — use when a slowdown spans multiple layers or the repo lacks a clear measurement playbook.
+
+## Common rationalizations
+
+- "This is probably the cause." → Not enough; state `Root cause: <what> because <why>` before editing.
+- "I can leave the probe in until later." → Every `b-debug-probe` must be removed before success is reported.
+- "I can't reproduce it, but a defensive patch is harmless." → Cannot-reproduce is a real evidence gap; surface it unless the user approves instrumentation or containment.

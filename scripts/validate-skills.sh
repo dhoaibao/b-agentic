@@ -14,9 +14,14 @@ errors = []
 
 skill_paths = sorted(root.glob('skills/*/SKILL.md'))
 skill_names = [path.parent.name for path in skill_paths]
+reference_paths = sorted(root.glob('references/*.md'))
+reference_names = [path.name for path in reference_paths]
 
 if not skill_paths:
     errors.append('No skills/*/SKILL.md files found')
+
+if not reference_paths:
+    errors.append('No references/*.md files found')
 
 required_sections = [
     '## When to use',
@@ -103,6 +108,22 @@ for name in skill_names:
     for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
         if name not in doc_text:
             errors.append(f'{doc_path}: missing skill mention {name}')
+
+for name in reference_names:
+    for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
+        if name not in doc_text:
+            errors.append(f'{doc_path}: missing reference mention {name}')
+
+for ref_path in reference_paths:
+    ref_name = ref_path.name
+    if not any(ref_name in path.read_text() for path in skill_paths):
+        errors.append(f'{ref_path}: not referenced by any skill file')
+
+if 'references/b-skills' not in install_sh:
+    errors.append('install.sh: missing managed references install path')
+
+if 'sync_directory "$REFERENCES_SRC" "$REFERENCES_DST"' not in install_sh:
+    errors.append('install.sh: missing references sync step')
 
 for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference), ('global/AGENTS.md', global_rules)]:
     if '.opencode/b-e2e/' in doc_text:

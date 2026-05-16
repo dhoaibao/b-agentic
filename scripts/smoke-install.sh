@@ -127,6 +127,7 @@ main() {
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo" N
   assert_file "$sandbox_fresh/home/.config/opencode/skills/b-plan/SKILL.md"
   assert_file "$sandbox_fresh/home/.config/opencode/commands/b-plan.md"
+  assert_file "$sandbox_fresh/home/.config/opencode/references/b-skills/security-checklist.md"
   assert_file "$sandbox_fresh/home/.config/opencode/AGENTS.md"
   assert_file "$sandbox_fresh/home/.config/opencode/AGENTS.b-skills.md"
   assert_file "$sandbox_fresh/home/.config/opencode/b-skills-install.json"

@@ -124,3 +124,7 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - `*_unsafe` tool variants require explicit user approval per invocation (`AGENTS.md` §4).
 - Always close the browser when the run is complete.
 - Persist reusable auth state only with explicit user opt-in, store it in a non-worktree path by default, and never commit auth state files containing real credentials.
+
+## Reference pointers
+
+- `references/accessibility-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) — focused fallback checklist for keyboard reachability, labels, focus order, dialog behavior, and responsive regressions on the changed surface.

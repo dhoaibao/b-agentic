@@ -28,9 +28,11 @@ readonly REF="${B_SKILLS_REF:-}"
 readonly OPENCODE_DIR="$HOME/.config/opencode"
 readonly SKILLS_SRC="$LOCAL_REPO/skills"
 readonly COMMANDS_SRC="$LOCAL_REPO/commands"
+readonly REFERENCES_SRC="$LOCAL_REPO/references"
 readonly RULES_SRC="$LOCAL_REPO/global/AGENTS.md"
 readonly RULES_DST="$OPENCODE_DIR/AGENTS.md"
 readonly RULES_SNAPSHOT_DST="$OPENCODE_DIR/AGENTS.b-skills.md"
+readonly REFERENCES_DST="$OPENCODE_DIR/references/b-skills"
 readonly CONFIG_FILE="$OPENCODE_DIR/opencode.json"
 readonly INSTALL_MANIFEST="$OPENCODE_DIR/b-skills-install.json"
 readonly TIMESTAMP="$(date +%Y%m%d%H%M%S)"
@@ -357,6 +359,7 @@ payload = {
     "managedPaths": {
         "skillsDir": "~/.config/opencode/skills",
         "commandsDir": "~/.config/opencode/commands",
+        "referencesDir": "~/.config/opencode/references/b-skills",
         "suiteRules": os.environ["RULES_SNAPSHOT_DST"],
         "globalAgents": os.environ["RULES_DST"],
         "config": os.environ["CONFIG_FILE"],
@@ -866,7 +869,7 @@ is_b_skills_skill_dir() {
 
 is_legacy_b_skills_command_name() {
   case "$1" in
-    b-plan|b-research|b-implement|b-refactor|b-debug|b-test|b-e2e|b-review)
+    b-plan|b-spec|b-research|b-implement|b-refactor|b-debug|b-test|b-e2e|b-review)
       return 0
       ;;
     *)
@@ -1441,6 +1444,11 @@ pruned_commands=$(prune_stale_commands "$COMMANDS_SRC" "$OPENCODE_DIR/commands")
 commands_summary="✅ Commands synced: $synced_commands"
 [ "$pruned_commands" -gt 0 ] && commands_summary="$commands_summary, $pruned_commands stale removed"
 log "$commands_summary"
+
+section "Install shared references"
+[ -d "$REFERENCES_SRC" ] || die "Missing references source directory: $REFERENCES_SRC"
+sync_directory "$REFERENCES_SRC" "$REFERENCES_DST"
+log "✅ Shared references synced"
 
 section "Install runtime rules"
 decide_agents_install_action

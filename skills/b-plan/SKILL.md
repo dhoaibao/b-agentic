@@ -1,12 +1,12 @@
 ---
 name: b-plan
 description: >
-  Think before coding. ALWAYS invoke when the task is non-trivial per
-  AGENTS.md §3, scope or acceptance is unclear, or the user explicitly
-  asks for a plan, architecture direction, or ordered implementation steps.
-  Decomposes work, chooses an approach, and writes an execution-ready plan.
-  Unlike b-implement, b-plan decides what to build; it does not execute
-  approved steps.
+  Think before coding. ALWAYS invoke when the goal is already clear but the
+  task is non-trivial per AGENTS.md §3, the implementation approach or
+  sequencing matters, or the user explicitly asks for a plan, architecture
+  direction, or ordered implementation steps. Decomposes work, chooses an
+  approach, and writes an execution-ready plan. Unlike b-spec, b-plan
+  sequences a clear target rather than discovering it.
 compatibility: opencode
 metadata:
   suite: b-skills
@@ -23,7 +23,7 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed. Ask on
 ## When to use
 
 - The task is **non-trivial** per `AGENTS.md` §3.
-- Scope or acceptance criteria are unclear.
+- The goal is clear, but sequencing, dependency order, or approach is not.
 - There are multiple valid approaches and the choice matters.
 - The user wants a plan, architecture direction, or ordered implementation steps.
 - A refactor is still vague and not yet a concrete rename, extract, move, inline, or delete.
@@ -31,6 +31,7 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed. Ask on
 ## When NOT to use
 
 - The request meets the **small direct request** threshold in `AGENTS.md` §3 → use **b-implement**.
+- The end state or acceptance criteria are still ambiguous → use **b-spec**.
 - The user already approved a plan → use **b-implement**.
 - The request is a concrete behavior-preserving mechanical transformation → use **b-refactor**.
 - The blocker is external docs or library behavior → use **b-research**.
@@ -62,10 +63,12 @@ Escalate quick → full if discovery reveals broad references, public contract r
 
 State the interpreted scope in one sentence.
 
-If the task is still ambiguous, ask the smallest set of questions that blocks safe planning:
-- end state
+If the target outcome or acceptance criteria are still ambiguous after that restatement, stop and use **b-spec** before sequencing the work.
+
+If the goal is clear but planning inputs are incomplete, ask the smallest set of questions that blocks safe planning:
 - hard constraints
-- success criteria
+- sequencing or deployment constraints
+- required verification expectations
 
 Record confirmed decisions as short implementation-ready statements. If a decision is behavioral, contractual, or naming-related and the codebase cannot answer it, ask the user.
 

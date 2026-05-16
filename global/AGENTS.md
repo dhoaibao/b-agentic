@@ -6,11 +6,12 @@
 
 ## 1. Routing
 
-Match the user's intent to one active skill before acting. If a request spans phases, sequence `Decide -> Build -> Validate`.
+Match the user's intent to one active skill before acting. If a request spans phases, sequence `Clarify -> Decide -> Build -> Validate`.
 
 | Intent | Skill |
 |---|---|
-| Decide what to build, decompose work | `/b-plan` |
+| Clarify what to build, lock goals/constraints | `/b-spec` |
+| Decide how to build, decompose work | `/b-plan` |
 | External docs, API facts, comparisons | `/b-research` |
 | Execute approved or clearly scoped work | `/b-implement` |
 | Mechanical rename, extract, move, inline, delete | `/b-refactor` |
@@ -24,7 +25,8 @@ Match the user's intent to one active skill before acting. If a request spans ph
 - Browser-driven flow testing beats `b-test`; use `b-e2e`.
 - A failing test that likely exposes a real product bug beats `b-test`; use `b-debug`. See §10.
 - A named behavior-preserving rename/extract/move beats `b-implement`; use `b-refactor`.
-- Unclear scope or acceptance beats `b-implement`; use `b-plan`.
+- Unclear user goal, end state, or acceptance criteria beats `b-plan`; use `b-spec`.
+- Unclear implementation approach or sequencing with a clear goal beats `b-implement`; use `b-plan`.
 - `b-research` is for genuine external-knowledge blockers, not for questions the codebase or repo docs can answer locally.
 - DOM-rendered unit tests (jsdom, React Testing Library, Vue Test Utils) stay in `b-test`; only real browser navigation goes to `b-e2e`.
 
@@ -49,6 +51,7 @@ Match intent regardless of language. The phrases below are routing aids only; do
 
 | Skill | English triggers | Vietnamese triggers |
 |---|---|---|
+| `/b-spec` | clarify, requirements, scope, rough idea, "what exactly should we build" | làm rõ, yêu cầu, phạm vi, ý tưởng thô, chưa rõ cần gì |
 | `/b-plan` | plan, design, decompose, approach, "how should I" | lập kế hoạch, thiết kế, hướng tiếp cận, chia nhỏ |
 | `/b-research` | docs, library, API, compare, look up, "what is" | tra cứu, tài liệu, so sánh, tìm hiểu |
 | `/b-implement` | implement, add, build, execute, finish, ship | triển khai, thực hiện, viết code, hoàn thành |
@@ -323,6 +326,13 @@ Graph evidence helps review/exploration but does not prove edits are safe. Stale
 When two authoritative sources disagree (e.g., two versions of vendor docs), prefer the one matching the pinned version (§4); if still ambiguous, present both with the conflict labeled and a `Confidence: medium` line.
 
 When final evidence is weaker than runtime or symbol evidence, attach the §3 confidence signal.
+
+### Documentation-backed decisions
+
+When framework, library, or vendor API docs materially influence an implementation or review conclusion, cite the supporting source in the relevant output or finding.
+
+- Do not add citations for purely local code changes or obvious language semantics.
+- One narrow authoritative lookup is enough; this rule does not force a separate research pass when the current skill already resolved the question.
 
 ### Token budget
 
@@ -629,6 +639,16 @@ For non-trivial implementation, debug, test, refactor, review, or research work,
 ---
 
 ## 10. Cross-cutting decisions
+
+### High-risk challenge gate
+
+Before a skill reports completion on work touching auth/authz, security boundaries, migrations, public or external contracts, or irreversible external writes:
+
+1. State the claim in one sentence.
+2. Name the strongest remaining risk.
+3. Name the evidence that makes the claim acceptable now.
+
+Keep it short. If the evidence is missing or indirect, do not present the work as settled: widen verification, lower confidence, or stop.
 
 ### Test failure vs runtime bug
 

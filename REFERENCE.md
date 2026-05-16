@@ -1,6 +1,6 @@
 # b-skills — Skill reference
 
-Detailed contract reference for the maintained eight-skill suite. For install and high-level overview, see [README.md](README.md).
+Detailed contract reference for the maintained nine-skill suite. For install and high-level overview, see [README.md](README.md).
 
 When this document cites `global/AGENTS.md`, that is the source-repo path. Installed skill prose should reference the runtime path `AGENTS.md`.
 
@@ -8,9 +8,31 @@ When this document cites `global/AGENTS.md`, that is the source-repo path. Insta
 
 ## Skill reference
 
+### b-spec
+
+Clarify what to build before planning. `b-spec` exists for rough, underspecified asks where the main job is to lock the target outcome, constraints, and acceptance criteria before any sequencing work starts.
+
+**Core behavior**
+- Stays active only while the end state is underdetermined.
+- Uses the smallest clarification loop needed to lock goal, constraints, success criteria, and non-goals.
+- Checks local code context before asking the user to answer something the repo already answers.
+- Hands off to `b-research` when the remaining blocker is real external feasibility or vendor/library behavior.
+- Keeps the output in chat by default instead of creating a second durable artifact.
+- Hands off to `b-implement` when the clarified request is now a small direct request, or to `b-plan` when the goal is clear but the work still needs sequencing.
+
+**Output**
+- Compact chat spec: goal, constraints, acceptance criteria, non-goals, next skill.
+
+**Key rules**
+- Clarify the target outcome; do not drift into implementation planning.
+- Prefer repository evidence over extra user questions whenever the codebase already answers the ambiguity.
+- Keep the clarification loop short; do not turn every rough ask into a long interview.
+
+---
+
 ### b-plan
 
-Think before coding. `b-plan` exists for unclear, broad, or risky work where the main job is to decide scope, approach, ordering, and success criteria before editing code.
+Think before coding. `b-plan` exists for broad or risky work where the goal is already clear and the main job is to decide scope, approach, ordering, and success criteria before editing code.
 
 **Core behavior**
 - Chooses **quick mode** for trivial scoped work and **full mode** for non-trivial work.
@@ -18,6 +40,7 @@ Think before coding. `b-plan` exists for unclear, broad, or risky work where the
 - Uses the smallest blocking questions only; does not turn every plan into an interview.
 - Produces dependency-ordered steps as short as the work actually is, with exact files or symbols when known.
 - For prose/config-heavy work, names stable anchors instead of long quoted paragraphs that can drift before implementation.
+- Hands target-outcome ambiguity back to `b-spec` before trying to sequence the work.
 - Keeps broad or unclear refactors in planning until they reduce to concrete mechanical transforms for `b-refactor`.
 - Routes unresolved external feasibility, contract, migration, or security unknowns to `b-research` instead of guessing.
 - Treats the approved plan as the execution source of truth for later `b-implement` work.
@@ -78,7 +101,7 @@ External knowledge with auto-deepening depth — lookup or research.
 **Core behavior**
 - Resolves its source of truth from an approved plan file, plan slug (per the slug algorithm in `global/AGENTS.md` §8), approved chat plan, or a request meeting the **small direct request** threshold (`global/AGENTS.md` §3).
 - Reads saved-plan frontmatter when present and requires an executable durable approval state (`approved` or `in-progress`) or explicit current-chat approval before editing; chat approval updates `approved_head` when a git HEAD is available.
-- Routes broad or ambiguous work back to `b-plan`.
+- Routes ambiguous end-state questions back to `b-spec`, and broad-but-clear work back to `b-plan`.
 - Preserves unrelated worktree changes and edits only files needed for the current step.
 - Uses `serena-symbol-toolkit` for symbol-aware edits and narrow diagnostics before broader checks.
 - Uses `gitnexus-radar` only when a shared route, tool, or exported boundary makes graph context genuinely useful.
@@ -87,6 +110,8 @@ External knowledge with auto-deepening depth — lookup or research.
 - Verifies each step before moving on, capped by the iteration cap in `global/AGENTS.md` §7. Treats each step as **atomic** — independently verifiable — unless the plan explicitly marks a **tightly coupled group** (e.g., "Steps 3a–3c verify together") where intermediate verification would fail by design; never silently merges atomic steps to dodge a failing check.
 - Detects **cascading failures**: when fixing the current step's failure introduces a new failure in a previously-passing area, allows one attempted cascade fix only, then stops and either triggers the plan revision protocol (`global/AGENTS.md` §2), hands off to `b-debug` for root-cause, or surfaces the cascade to the user. Cascades are not absorbed by the iteration cap.
 - Follows global `apply_patch` discipline: fresh target slice, small hunks, stale-context retry after missing expected lines.
+- Applies the **high-risk challenge gate** from `global/AGENTS.md` §10 on auth/authz, security-boundary, migration, public/external-contract, and irreversible-write work before calling a step done.
+- Cites framework/library/vendor sources in the final report when docs materially drove the chosen implementation pattern.
 - Updates saved-plan task-list progress in place when the plan uses checkbox-style steps.
 - Updates frontmatter progress (`approved` → `in-progress` → `complete`) without stripping metadata.
 - Continues through approved plan steps when the user asks to implement or finish the plan; stops after one verified step when the user asks for only the next step.
@@ -103,6 +128,7 @@ Closes with the **skill-exit status block** from `global/AGENTS.md` §9.
 - Preserve durable plan frontmatter when updating saved-plan progress.
 - Do not refactor opportunistically while implementing a feature step.
 - Stop for new product decisions instead of inferring them.
+- If docs materially drove the implementation choice, cite them instead of relying on memory.
 
 **GitNexus use**
 - Optional radar only for shared/exported boundaries or changed-scope validation.
@@ -128,6 +154,7 @@ Closes with the **skill-exit status block** from `global/AGENTS.md` §9.
 - Applies the smallest fix under global `apply_patch` discipline when manual edits are needed, verifies with the narrowest relevant runtime check, then re-scans the diff: first greps for the `b-debug-probe` tag and removes every match, then scans for untagged probes (`console.log`, `print`, breakpoints, fake clocks, profiler hooks) before reporting success.
 - Hands off to `b-plan` when the confirmed root cause requires a structural redesign (new abstraction, contract change, cross-module ordering rework) rather than a localized fix; does not silently expand a debug pass into a redesign.
 - Defers the "test failure vs runtime bug" decision to `global/AGENTS.md` §10.
+- Points to `references/performance-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) when a slowdown spans multiple layers or the repo lacks a clear measurement playbook.
 
 **Output**
 ```text
@@ -181,6 +208,9 @@ Findings -> Coverage / Tests / Observability -> READY FOR PR or NEEDS FIXES
 - Flag unexplained generated/lockfile artifact changes instead of reviewing them as hand-written code.
 - For self-review, bias for author blind spots; for external review, be explicit about blocker-vs-style.
 - If no findings, say so explicitly and note residual risk or skipped checks; attach the confidence signal from `global/AGENTS.md` §3 when evidence is partial.
+- Apply the **high-risk challenge gate** from `global/AGENTS.md` §10 when the diff touches auth/authz, security boundaries, migrations, public/external contracts, or irreversible external writes.
+- Cite authoritative framework/library/vendor sources when a finding or a clean judgment depends on API semantics.
+- Reuse `references/security-checklist.md` and `references/performance-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) instead of copying long checklists into the skill body.
 
 **GitNexus use**
 - Optional only for broad route/API/tool/shared-flow risk.
@@ -216,6 +246,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 - Keep fixture and mock changes as local as practical.
 - Never introduce a test, coverage, property-based, fuzzing, or contract-testing framework without explicit approval.
 - Explain when broader suites were skipped and why the narrow checks were enough.
+- Reuse `references/testing-patterns.md` (installed under `~/.config/opencode/references/b-skills/`) when local test conventions are weak or conflicting.
 
 ---
 
@@ -253,6 +284,7 @@ Mode -> Target -> Driver -> Interactions -> Assertions -> Test code -> Artifacts
 - `*_unsafe` browser tool variants require explicit user approval per invocation (`global/AGENTS.md` §4).
 - Persist reusable auth state only with explicit user opt-in, store it outside the worktree by default, and never commit auth-state files containing real credentials.
 - Always close the browser when done.
+- Reuse `references/accessibility-checklist.md` (installed under `~/.config/opencode/references/b-skills/`) as the fallback checklist for focused keyboard/label/focus-order verification.
 
 ---
 
@@ -296,13 +328,14 @@ Target -> Risk -> Impact -> Changes -> Verification -> Follow-up
 
 ## Repository layout and maintenance
 
-This repository is the install-only source layout for the suite. OpenCode does not load the checked-in `skills/` or `commands/` directories directly from this repo root.
+This repository is the install-only source layout for the suite. OpenCode does not load the checked-in `skills/`, `commands/`, or `references/` directories directly from this repo root.
 
 ### Repository source files
 - `AGENTS.md` — maintainer guidance for this source repo.
 - `global/AGENTS.md` — source copy of the runtime global rules, installed as `AGENTS.b-skills.md` and optionally applied to OpenCode's main `AGENTS.md`; installed skill prose should cite `AGENTS.md`.
 - `skills/<name>/SKILL.md` — skill sources.
 - `commands/<name>.md` — thin slash-command wrappers.
+- `references/*.md` — reusable checklists shared by multiple skills, installed under `~/.config/opencode/references/b-skills/`.
 - `scripts/smoke-install.sh` — isolated installer smoke checks against a temp HOME and repo snapshot.
 - `scripts/validate-skills.sh` — suite validator for frontmatter, required sections, stale phrases, docs coverage, and global-rule guardrails.
 
@@ -316,7 +349,7 @@ This repository is the install-only source layout for the suite. OpenCode does n
 
 ### Runtime global conventions
 - One active skill at a time.
-- Trigger precedence is explicit: browser flow → `b-e2e`; DOM-rendered unit test → `b-test`; likely product bug → `b-debug` (per the test-vs-bug decision in `global/AGENTS.md` §10); named behavior-preserving transform → `b-refactor`; unclear scope → `b-plan`; external-knowledge blocker → `b-research`.
+- Trigger precedence is explicit: browser flow → `b-e2e`; DOM-rendered unit test → `b-test`; likely product bug → `b-debug` (per the test-vs-bug decision in `global/AGENTS.md` §10); named behavior-preserving transform → `b-refactor`; unclear end state or acceptance → `b-spec`; clear goal but unclear sequencing → `b-plan`; external-knowledge blocker → `b-research`.
 - After `b-plan` approval, the approved plan is the execution source of truth for multi-step implementation, subject to the **plan staleness gate** and **plan revision protocol** in `global/AGENTS.md` §2.
 - New saved plans carry durable frontmatter for approval state, approved git HEAD, risk, and touch points; legacy plans remain valid with explicit current-chat approval.
 - Cross-skill handoffs use the **handoff envelope** in `global/AGENTS.md` §9 (`source`, `run-id`, `goal`, `decisions`, `assumptions`, `files`, `verification`, `blockers`, `carve-outs`, `next-skill`). `run-id` and `carve-outs` are omit-when-empty; the `run-id` propagates per §8 so the receiving skill writes artifacts under the same run directory.
@@ -326,7 +359,9 @@ This repository is the install-only source layout for the suite. OpenCode does n
 - Approval-required actions use the **canonical approval ask** template in `global/AGENTS.md` §6.
 - Commands are classified by risk: read-only, project-write, dependency-write, environment-write, external-write, and destructive (`global/AGENTS.md` §6).
 - Generated files, lockfiles, snapshots, goldens, vendored code, and minified files are treated as derived artifacts unless the source or approved generation step is clear.
+- High-risk work uses the **high-risk challenge gate** in `global/AGENTS.md` §10 before it is reported as settled.
 - Verification follows the ladder: narrow check → broader affected-area check → full check only when scope or risk justifies it. Non-trivial reports include verification provenance, and the iteration cap (3 fix/verify loops per step) is in `global/AGENTS.md` §7.
+- Framework/library/vendor docs that materially drive an implementation or review conclusion are cited in the output instead of being left implicit (`global/AGENTS.md` §5).
 - Verification command discovery follows explicit plan/user command, project scripts, CI config, repo docs, existing language-native defaults, then clarification. Long-running commands and background jobs require approval when they are persistent or mutating, and cleanup is reported.
 - Severity (BLOCKER / MAJOR / MINOR / NIT), risk (trivial / low / medium / high), the **non-trivial** definition, the **small direct request** threshold (≤3 files), and the **confidence signal** all live in `global/AGENTS.md` §3.
 - Tool-use heuristics nudge the agent to narrow scope or summarize remaining unknowns after sustained MCP use instead of following brittle hard call ceilings (`global/AGENTS.md` §4).

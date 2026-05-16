@@ -12,11 +12,13 @@ When authoring runtime-facing skill prose, reference `AGENTS.md`. In this source
 
 ## Quick links
 
+- `skills/b-spec/SKILL.md` — Clarify underspecified requests before planning
 - `skills/b-plan/SKILL.md` — Task decomposition and planning
 - `skills/b-research/SKILL.md` — Library docs and multi-source research
 - `skills/b-implement/SKILL.md` — Approved-plan execution
 - `skills/b-debug/SKILL.md` — Hypothesis-driven debugging
 - `skills/b-review/SKILL.md` — Pre-PR changed-code review
+- `references/` — Reusable checklists shared by multiple skills
 - `global/AGENTS.md` — Runtime rules source installed as `AGENTS.b-skills.md` and optionally applied to OpenCode's main `AGENTS.md`
 - `commands/` — Thin slash-command wrappers that load the matching skills
 
@@ -78,6 +80,14 @@ commands/<name>.md     # Matching slash-command wrapper (required in this repo)
 ```
 
 For this repo, each skill uses a single `SKILL.md` file plus a thin command wrapper. Add extra files (`reference.md`, `examples.md`, `scripts/`) only when they materially improve maintenance — for example, externalize long templates to `reference.md` so `SKILL.md` stays scannable under context pressure (see `skills/b-plan/reference.md`).
+
+## Shared references
+
+Top-level `references/*.md` files are allowed when two or more skills need the same checklist or pattern guidance.
+
+- Keep them short, task-oriented, and reusable across skills.
+- If a skill points at a shared reference, ensure `install.sh` syncs it into `~/.config/opencode/references/b-skills/`.
+- Treat reference-file changes like runtime-facing guidance: keep `README.md` and `REFERENCE.md` aligned in the same commit.
 
 ---
 

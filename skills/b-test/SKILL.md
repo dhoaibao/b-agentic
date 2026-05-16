@@ -150,3 +150,7 @@ Close with the skill-exit status block (`AGENTS.md` §9).
 - State when broader suite coverage was skipped and why the narrower check was sufficient.
 - Never introduce a test framework or coverage runner without explicit approval.
 - **Test utilities** (factories, builders, custom matchers, shared fixtures) belong here when they are added, edited, or extended to support a test in scope. Mechanical relocation/rename of an existing test utility is **b-refactor**, not **b-test**.
+
+## Reference pointers
+
+- `references/testing-patterns.md` (installed under `~/.config/opencode/references/b-skills/`) — fallback guidance for naming, fixtures, mocks, and regression-test shape when the repo's own conventions are weak or conflicting.

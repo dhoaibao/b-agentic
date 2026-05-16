@@ -1,6 +1,6 @@
 # b-skills
 
-A lean 8-skill suite for **OpenCode**, optimized around **Serena for symbol-aware code work**, optional **GitNexus graph radar**, and selective reasoning only when ambiguity warrants it.
+A lean 9-skill suite for **OpenCode**, optimized around **Serena for symbol-aware code work**, optional **GitNexus graph radar**, and selective reasoning only when ambiguity warrants it.
 
 ## Install & Update
 
@@ -17,16 +17,18 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-skills/main/install.sh |
 The installer deploys this suite into your global OpenCode config directory:
 - `~/.config/opencode/skills/`
 - `~/.config/opencode/commands/`
+- `~/.config/opencode/references/b-skills/`
 - `~/.config/opencode/AGENTS.b-skills.md`
 - `~/.config/opencode/AGENTS.md` *(only when missing or when you approve replacement)*
 
 If `~/.config/opencode/AGENTS.md` already exists and you do **not** approve replacement, the installer keeps that file, writes the suite snapshot to `AGENTS.b-skills.md`, and exits with an activation-pending status plus next steps. Full suite behavior requires either replacing `AGENTS.md` or manually merging the snapshot into the active file.
 
-This repository is the **install-only source layout** for that deployment. OpenCode does **not** load the checked-in `skills/` or `commands/` directories directly from this repo root; `install.sh` copies them into the correct `~/.config/opencode/` paths.
+This repository is the **install-only source layout** for that deployment. OpenCode does **not** load the checked-in `skills/`, `commands/`, or `references/` directories directly from this repo root; `install.sh` copies them into the correct `~/.config/opencode/` paths.
 
 You can inspect and maintain the suite from this source repository, which contains:
 - `AGENTS.md`
 - `global/AGENTS.md`
+- `references/`
 - `skills/`
 - `commands/`
 
@@ -36,7 +38,8 @@ You can inspect and maintain the suite from this source repository, which contai
 
 | Skill | Phase | When to use |
 |---|---|---|
-| `/b-plan` | Decide | Clarify scope, choose an approach, and produce an execution-ready plan when the work is broad, unclear, or risky |
+| `/b-spec` | Clarify | Clarify the end state, constraints, and acceptance criteria when the request is underspecified or still a rough idea |
+| `/b-plan` | Decide | Turn a clear goal into an execution-ready plan when the work is broad, dependency-heavy, or risky |
 | `/b-research` | Decide | External knowledge — lookup or research with citation discipline; auto-deepens, never asks the user to pick a mode |
 | `/b-implement` | Build | Execute approved or clearly scoped work one step at a time, verify each step, and stop for new decisions |
 | `/b-refactor` | Build | Concrete behavior-preserving transforms — rename, extract, move, inline, or delete dead code |
@@ -48,7 +51,8 @@ You can inspect and maintain the suite from this source repository, which contai
 ### Typical Flows
 
 ```text
-/b-plan [task] → approve plan → /b-implement → /b-test → /b-review → commit
+/b-spec [rough idea] → /b-plan [scoped task] → approve plan → /b-implement → /b-test → /b-review → commit
+/b-spec [underspecified small ask] → /b-implement
 /b-test [behavior] → write failing/coverage tests → /b-implement or /b-debug
 /b-research [question]  (any time you need docs, API facts, or comparisons)
 /b-debug [symptom]      (any time something breaks or is slow)
@@ -61,6 +65,8 @@ You can inspect and maintain the suite from this source repository, which contai
 
 ### Decision boundaries
 
+- `b-spec` vs `b-plan`: use `b-spec` when the end state or acceptance criteria are still unclear; use `b-plan` when the goal is clear but the sequencing or approach is not.
+- `b-spec` vs `b-implement`: use `b-implement` when the request is already small, obvious, and implementation-ready.
 - `b-plan` vs `b-implement`: use `b-plan` for multi-file or decision-heavy work; use `b-implement` when the change is already scoped and obvious.
 - `b-implement` vs `b-refactor`: use `b-refactor` when the primary job is a behavior-preserving rename, extract, move, inline, or delete.
 - `b-test` vs `b-debug`: a red test with known-correct product behavior stays in `b-test`; a red test that reveals wrong runtime behavior goes to `b-debug`.
@@ -70,7 +76,7 @@ You can inspect and maintain the suite from this source repository, which contai
 
 In this source repo, shared runtime rules live in `global/AGENTS.md` and install to `~/.config/opencode/AGENTS.b-skills.md`; the installer replaces the active `AGENTS.md` only when missing or approved. Installed skills still cite `AGENTS.md`, so preserved third-party rules leave the suite activation-pending until merged/replaced.
 
-Runtime headlines: definitions and rubrics (§3), durable plan metadata (§2), MCP bundles and fallbacks (§4), safety gates (§6), execution/verification discipline (§7), artifacts (§8), output contract (§9), test-vs-bug and DOM/browser boundaries (§10), session lifecycle (§11).
+Runtime headlines: definitions and rubrics (§3), durable plan metadata (§2), MCP bundles and fallbacks (§4), safety gates (§6), execution/verification discipline (§7), artifacts (§8), output contract (§9), documentation-backed decisions (§5), the high-risk challenge gate plus test-vs-bug and DOM/browser boundaries (§10), session lifecycle (§11).
 
 Artifact paths:
 - Plans: `.opencode/b-skills/b-plan/<task-slug>.md` after applying the `.opencode/.gitignore` guard in `global/AGENTS.md` §6 (legacy `.opencode/b-plans/` is deprecated). New saved plans include frontmatter for durable approval state, timestamps, approved git HEAD, risk, and touch points. Saved plans remain the canonical repo-local source of truth. `<task-slug>` follows the slug algorithm in `global/AGENTS.md` §8.
@@ -80,6 +86,10 @@ Artifact paths:
 - Multi-artifact runs include a `manifest.json` per the schema in `global/AGENTS.md` §8.
 
 Routing/safety highlights: keep one active skill; strict trigger precedence; approved plans are execution source of truth; approval gates protect installs, servers, migrations, commits, destructive/shared-environment actions; generated/lock/snapshot files are derived; manual edits use `apply_patch` with fresh-read, small-hunk, stale-context retry discipline; verification narrows before broadening; GitNexus is optional radar and Serena is primary hands; non-trivial runs use the §9 handoff/status schemas. Preserve-mode installs are activation-pending until active `AGENTS.md` is replaced or merged.
+
+### Shared references
+
+The suite ships reusable checklists to `~/.config/opencode/references/b-skills/` so multiple skills can deepen security, testing, accessibility, and performance checks without duplicating long lists inside every `SKILL.md`.
 
 See [REFERENCE.md](REFERENCE.md) for detailed skill contracts and maintenance conventions.
 
@@ -91,6 +101,7 @@ See [REFERENCE.md](REFERENCE.md) for detailed skill contracts and maintenance co
 b-skills/
 ├── AGENTS.md
 ├── commands/
+│   ├── b-spec.md
 │   ├── b-plan.md
 │   ├── b-research.md
 │   ├── b-implement.md
@@ -101,6 +112,11 @@ b-skills/
 │   └── b-review.md
 ├── global/
 │   └── AGENTS.md
+├── references/
+│   ├── accessibility-checklist.md
+│   ├── performance-checklist.md
+│   ├── security-checklist.md
+│   └── testing-patterns.md
 ├── README.md
 ├── REFERENCE.md
 ├── install.sh
@@ -108,6 +124,7 @@ b-skills/
 │   ├── smoke-install.sh
 │   └── validate-skills.sh
 └── skills/
+    ├── b-spec/SKILL.md
     ├── b-plan/
     │   ├── SKILL.md
     │   └── reference.md          # long-form templates (saved-plan skeleton, quick-plan template, supersede/multi-plan rules)
@@ -125,6 +142,7 @@ Skills are normally a single `SKILL.md`. Optional support files (`reference.md`,
 This tree is the source repository layout used by `install.sh`, not a directly discoverable OpenCode runtime layout. The installer copies:
 - `skills/` → `~/.config/opencode/skills/`
 - `commands/` → `~/.config/opencode/commands/`
+- `references/` → `~/.config/opencode/references/b-skills/`
 - `global/AGENTS.md` → `~/.config/opencode/AGENTS.b-skills.md` and optionally `~/.config/opencode/AGENTS.md`
 
 Installed skill prose references `AGENTS.md`, while this repository keeps the source copy at `global/AGENTS.md`.
@@ -173,6 +191,7 @@ OpenCode integration: Serena starts without auto-opening the dashboard and owns 
 - `global/AGENTS.md` is the runtime rule source installed as `~/.config/opencode/AGENTS.b-skills.md` by `install.sh`, and optionally applied to the main `~/.config/opencode/AGENTS.md`.
 - Skills live in `skills/<name>/SKILL.md`.
 - Commands live in `commands/<name>.md`.
+- Shared references live in `references/*.md` and install to `~/.config/opencode/references/b-skills/`.
 - `install.sh` is responsible for deploying and pruning suite-managed files under `~/.config/opencode/`.
 - `scripts/smoke-install.sh` runs isolated installer smoke tests against a temp HOME and repo snapshot.
 - `scripts/validate-skills.sh` checks frontmatter, required sections, stale tool names, old artifact paths, GitNexus scope drift, runtime-global leakage, and README/REFERENCE coverage.
