@@ -114,6 +114,10 @@ for name in skill_names:
     for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
         if name not in doc_text:
             errors.append(f'{doc_path}: missing skill mention {name}')
+    if f'remove_skill_if_managed {name}' not in install_sh:
+        errors.append(f'install.sh: uninstall missing skill removal for {name}')
+    if f'remove_command_if_managed {name}' not in install_sh:
+        errors.append(f'install.sh: uninstall missing command removal for {name}')
 
 for name in reference_names:
     for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:

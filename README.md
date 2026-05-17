@@ -1,6 +1,6 @@
 # b-skills
 
-A lean 9-skill suite for **OpenCode**, optimized around **Serena for symbol-aware code work**, optional **GitNexus graph radar**, and selective reasoning only when ambiguity warrants it.
+A lean 10-skill suite for **OpenCode**, optimized around **Serena for symbol-aware code work**, optional **GitNexus graph radar**, and selective reasoning only when ambiguity warrants it.
 
 ## Install & Update
 
@@ -52,7 +52,8 @@ You can inspect and maintain the suite from this source repository, which contai
 | `/b-debug` | Validate | Confirm runtime root cause, fix minimally, verify, and remove probes |
 | `/b-test` | Validate | Write tests, fix test-only failures, evaluate coverage gaps, and route product bugs out of the test lane |
 | `/b-e2e` | Validate | Drive a real browser for flow verification or repo-native browser-test authoring with saved artifacts when evidence or cleanup must be auditable |
-| `/b-review` | Validate | Reviewer-style diff/range/audit review focused on blockers, regressions, security, and coverage |
+| `/b-review` | Validate | Reviewer-style diff/range review focused on changed-code blockers, regressions, security, and coverage |
+| `/b-audit` | Validate | Reviewer-style repository or suite-slice audit focused on systemic risk, sampled coverage, and residual risk |
 
 ### Typical Flows
 
@@ -65,7 +66,8 @@ You can inspect and maintain the suite from this source repository, which contai
 /b-debug [symptom]      (any time something breaks or is slow)
 /b-refactor [target]    (mechanical code transformation)
 /b-e2e [flow]           (browser UI verification or browser test authoring)
-/b-review --repo-audit [area]  (reviewer-style repository or maintainer audit)
+/b-review [diff/range]  (changed-code review)
+/b-audit [surface]      (repository, maintainer, or suite-slice audit)
 ```
 
 `/b-plan` defaults to **quick mode** for low-risk scoped work and uses **full mode** only when durable coordination, real risk, or multi-session execution needs it. Skill files now keep only task-specific workflow; shared safety, evidence, artifact, output, and fallback rules are summarized in `global/AGENTS.md` and fully defined in `references/runtime-contract.md`. Routine low-risk runs use happy-path compression, while risky boundaries still trigger the full global discipline.
@@ -77,7 +79,7 @@ You can inspect and maintain the suite from this source repository, which contai
 - `b-plan` vs `b-implement`: use `b-plan` for multi-file or decision-heavy work; use `b-implement` when the change is already scoped and obvious.
 - `b-implement` vs `b-refactor`: use `b-refactor` when the primary job is a behavior-preserving rename, extract, move, inline, or delete.
 - `b-test` vs `b-debug` vs `b-spec`: a red test with known-correct product behavior stays in `b-test`; a red test that reveals wrong runtime behavior goes to `b-debug`; unclear intended behavior goes to `b-spec`.
-- `b-review` default vs `--repo-audit`: review a diff or range by default; use `--repo-audit` for a reviewer-style pass over a named repository area.
+- `b-review` vs `b-audit`: use `b-review` for changed-code diffs/ranges/checkpoints; use `b-audit` for a reviewer-style pass over a named repository or suite surface.
 
 ### Runtime conventions
 
@@ -114,7 +116,8 @@ b-skills/
 │   ├── b-debug.md
 │   ├── b-test.md
 │   ├── b-e2e.md
-│   └── b-review.md
+│   ├── b-review.md
+│   └── b-audit.md
 ├── global/
 │   └── AGENTS.md
 ├── references/
@@ -142,9 +145,10 @@ b-skills/
     ├── b-e2e/
     │   ├── SKILL.md
     │   └── reference.md          # focused accessibility checklist
-    └── b-review/
-        ├── SKILL.md
-        └── reference.md          # security review checklist
+    ├── b-review/
+    │   ├── SKILL.md
+    │   └── reference.md          # security review checklist
+    └── b-audit/SKILL.md
 ```
 
 Skills are normally a single `SKILL.md`. Optional support files (`reference.md`, `examples.md`, `scripts/`) are added only when externalizing content materially improves maintenance — for example, when a template or checklist is long enough to crowd out core instructions under context pressure. Do not create a nested per-skill `references/` directory for one file; use `skills/<name>/reference.md`. See `AGENTS.md` "Skill directory structure template" for the full convention.

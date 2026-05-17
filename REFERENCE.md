@@ -1,6 +1,6 @@
 # b-skills — Skill reference
 
-Detailed contract reference for the maintained nine-skill suite. For install and high-level overview, see [README.md](README.md).
+Detailed contract reference for the maintained ten-skill suite. For install and high-level overview, see [README.md](README.md).
 
 When this document cites `global/AGENTS.md`, that is the source-repo runtime kernel path. Installed skill prose should reference the runtime path `AGENTS.md`; detailed runtime behavior lives at `references/runtime-contract.md` in this repo and `references/b-skills/runtime-contract.md` after install.
 
@@ -122,20 +122,19 @@ Owns runtime and behavior failures.
 
 ### b-review
 
-Reviews diffs, ranges, checkpoints, or explicitly requested repo areas.
+Reviews diffs, ranges, or checkpoints.
 
 **Core behavior**
-- Defaults to `git diff HEAD`, supports `--range`, and uses `--repo-audit` for named audit surfaces.
+- Defaults to `git diff HEAD` and supports `--range` for changed-code review.
 - Reviews cumulative WIP diffs from the best available base when appropriate.
 - Uses fast path only for low-risk single-area changes; contract/auth/security/migration/dependency changes force standard review.
-- Establishes a baseline from arguments, plan, checkpoint, or clarification; otherwise labels the review diff-only/audit-only.
+- Establishes a baseline from arguments, plan, checkpoint, or clarification; otherwise labels the review diff-only.
 - Labels no-baseline reviews as `baseline-missing` and avoids requirements-coverage claims.
 - Inspects highest-risk symbols and boundaries first.
-- In repo-audit mode, names sampled files/symbols, skipped surfaces, and residual risk; skill-suite audits check routing boundaries, command wrappers, runtime-contract consistency, docs sync, validator coverage, artifact paths, and safety-gate drift.
 - Names relevant security checklist sections when they affect findings or confidence.
 - Checks tests/operability unless `--skip-tests` is present.
 - Reports findings first, includes checked-and-clean areas for standard reviews, and emits READY FOR PR, READY WITH FOLLOW-UPS, or NEEDS FIXES.
-- Blocks READY FOR PR when there is no baseline, required verification was skipped, or sampled audit coverage leaves material unreviewed risk.
+- Blocks READY FOR PR when there is no baseline or required verification was skipped.
 
 **Output**
 - Scope/mode/path/baseline, findings, checked-clean areas, coverage/tests/observability, verdict.
@@ -145,6 +144,25 @@ Reviews diffs, ranges, checkpoints, or explicitly requested repo areas.
 
 **Skill reference**
 - `skills/b-review/reference.md` — security checklist for auth, untrusted input, sensitive data, uploads, webhooks, and external integrations.
+
+---
+
+### b-audit
+
+Audits named repository or suite surfaces outside diff-first review.
+
+**Core behavior**
+- Locks a named surface from arguments or `--surface` and refuses to default to a whole-repository audit.
+- Establishes a baseline from arguments, `--baseline`, approved plan, checkpoint, or clarification; otherwise labels the audit `baseline-missing`.
+- Chooses a surface-specific checklist: installer/update path, runtime contract, validator, route/tool boundary, dependency/lockfile, generated artifact, or security-sensitive rule.
+- For b-skills suite audits, checks routing boundaries, skill-command wrapper alignment, runtime-contract consistency, docs sync, validator coverage, artifact paths, and safety-gate drift.
+- Names sampled files/symbols, skipped surfaces, and residual risk so no-findings audits are not mistaken for exhaustive proof.
+- Runs only narrow checks that materially support the audit unless `--skip-checks` is present.
+- Reports findings first and emits AUDIT PASS, AUDIT PASS WITH FOLLOW-UPS, or NEEDS FIXES.
+- Blocks AUDIT PASS when there is no baseline, required verification was skipped, or sampled coverage leaves material unreviewed risk.
+
+**Output**
+- Scope/mode/baseline, findings, checked-clean sampled areas, coverage/verification/operability, verdict.
 
 ---
 

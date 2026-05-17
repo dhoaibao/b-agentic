@@ -1057,6 +1057,7 @@ uninstall_b_skills() {
   remove_skill_if_managed b-test
   remove_skill_if_managed b-e2e
   remove_skill_if_managed b-review
+  remove_skill_if_managed b-audit
 
   remove_command_if_managed b-spec
   remove_command_if_managed b-plan
@@ -1067,6 +1068,7 @@ uninstall_b_skills() {
   remove_command_if_managed b-test
   remove_command_if_managed b-e2e
   remove_command_if_managed b-review
+  remove_command_if_managed b-audit
 
   remove_path_if_exists "$REFERENCES_DST" "shared references"
 

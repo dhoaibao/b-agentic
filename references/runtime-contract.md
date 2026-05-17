@@ -29,6 +29,7 @@ Match the user's intent to one active skill before acting. If a request spans ph
 | Unit/integration tests, coverage, failing tests | `/b-test` |
 | Browser/UI verification or browser-driven flow testing | `/b-e2e` |
 | Pre-PR changed-code review | `/b-review` |
+| Repository or suite-slice audit | `/b-audit` |
 
 ### Trigger precedence (when intents overlap)
 
@@ -39,6 +40,7 @@ Match the user's intent to one active skill before acting. If a request spans ph
 - Unclear implementation approach or sequencing with a clear goal beats `b-implement`; use `b-plan`.
 - `b-research` is for genuine external-knowledge blockers, not for questions the codebase or repo docs can answer locally.
 - DOM-rendered unit tests (jsdom, React Testing Library, Vue Test Utils) stay in `b-test`; only real browser navigation goes to `b-e2e`.
+- Explicit repository or suite-slice audits use `b-audit`; changed-code diff/range reviews stay in `b-review`.
 
 ### One active skill
 
@@ -70,6 +72,7 @@ Match intent regardless of language. The phrases below are routing aids only; do
 | `/b-test` | tests, coverage, failing test, snapshot, mock | kiểm thử, viết test, độ bao phủ, mock |
 | `/b-e2e` | E2E, browser, UI flow, Playwright, navigate | trình duyệt, UI, end-to-end, kiểm thử giao diện |
 | `/b-review` | review, PR, lint, pre-PR, "what would a reviewer" | rà soát, review, kiểm tra trước PR |
+| `/b-audit` | audit, repo audit, suite audit, maintainer audit | audit, kiểm toán, rà soát repo, kiểm tra bộ skill |
 
 Ignore legacy or alternate skill trees that do not match the installed runtime contract unless the user explicitly asks to inspect or edit them.
 

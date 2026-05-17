@@ -20,6 +20,7 @@ Guidelines for creating, editing, and maintaining the install-only OpenCode skil
 - `skills/b-test/SKILL.md` — Test writing, coverage, and test-only failures
 - `skills/b-e2e/SKILL.md` — Real-browser flow verification and test authoring
 - `skills/b-review/SKILL.md` — Pre-PR changed-code review
+- `skills/b-audit/SKILL.md` — Repository and suite-slice audits
 - `references/` — Reusable checklists and the detailed runtime contract
 - `global/AGENTS.md` — Runtime kernel source (installs as `AGENTS.b-skills.md`)
 - `commands/` — Thin slash-command wrappers

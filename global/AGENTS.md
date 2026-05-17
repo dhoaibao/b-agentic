@@ -41,6 +41,7 @@ Match the user's intent to one active skill. If a request spans phases, sequence
 | Unit/integration tests, coverage, failing tests | `/b-test` |
 | Browser/UI verification or browser-driven flow testing | `/b-e2e` |
 | Pre-PR changed-code review | `/b-review` |
+| Repository or suite-slice audit | `/b-audit` |
 
 ### Trigger Precedence
 
@@ -51,6 +52,7 @@ Match the user's intent to one active skill. If a request spans phases, sequence
 - Unclear implementation approach or sequencing with a clear goal beats `b-implement`; use `b-plan`.
 - `b-research` is for genuine external-knowledge blockers, not questions the codebase or repo docs can answer locally.
 - DOM-rendered tests stay in `b-test`; only real browser navigation goes to `b-e2e`.
+- Explicit repository or suite-slice audits use `b-audit`; changed-code diff/range reviews stay in `b-review`.
 
 Keep one active skill until its stop condition is hit. Required subtasks are handoffs, not parallel skill runs. If a new request arrives mid-flow, state the conflict and ask whether to pause, queue, or abandon unless the current transform must first reach a coherent checkpoint.
 
