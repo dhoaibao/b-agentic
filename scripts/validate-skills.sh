@@ -133,14 +133,59 @@ for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
         found = ', '.join(str(value) for value in sorted(count_matches))
         errors.append(f'{doc_path}: skill-count claim {found} does not match repo count {expected_skill_count}')
 
-non_trivial_patterns = {
-    'global/AGENTS.md': r'A change is \*\*non-trivial\*\* if it touches more than 3 files, a public contract, a sensitive path, dependencies, CI/build/release config, or requires sequencing\.',
-    'references/runtime-contract.md': r'### Non-trivial work\n\nA change is \*\*non-trivial\*\* if any is true:\n- Touches more than 3 files\.\n- Touches a public contract \(exported API, route, CLI flag, schema, migration\)\.\n- Touches a sensitive path \(auth, authz, billing, secrets, crypto, persistence migrations\)\.\n- Adds, removes, or changes a dependency\.\n- Modifies CI, build, or release configuration\.\n- Requires sequencing\.',
+kernel_detail_sections = {
+    '§2': ['Detailed plan metadata', 'references/b-skills/runtime-contract.md` §2'],
+    '§3': ['Detailed rubrics', 'references/b-skills/runtime-contract.md` §3'],
+    '§5': ['Detailed evidence hierarchy', 'references/b-skills/runtime-contract.md` §5'],
+    '§6': ['Detailed command risk classes', 'references/b-skills/runtime-contract.md` §6'],
+    '§7': ['Detailed scope expansion', 'references/b-skills/runtime-contract.md` §7'],
+    '§8': ['Detailed slug algorithm', 'references/b-skills/runtime-contract.md` §8'],
+    '§9': ['Detailed status schema', 'references/b-skills/runtime-contract.md` §9'],
+    '§10': ['Detailed high-risk gate', 'references/b-skills/runtime-contract.md` §10'],
 }
-for doc_path, pattern in non_trivial_patterns.items():
-    doc_text = global_rules if doc_path == 'global/AGENTS.md' else runtime_contract
-    if not re.search(pattern, doc_text, re.MULTILINE):
-        errors.append(f'{doc_path}: canonical non-trivial definition drifted from the expected rule')
+for section, markers in kernel_detail_sections.items():
+    if not all(marker in global_rules for marker in markers):
+        errors.append(f'global/AGENTS.md: missing kernel-to-contract boundary reference for {section}')
+
+runtime_boundary_sections = [
+    '### Kernel/detail split for the shared sections',
+    '`§2 Source of truth`',
+    '`§3 Definitions and rubrics`',
+    '`§5 Evidence standards`',
+    '`§6 Safety gates`',
+    '`§7 Execution discipline`',
+    '`§8 Artifacts`',
+    '`§9 Output contract`',
+    '`§10 Cross-cutting decisions`',
+    '### Non-trivial work',
+    '### Small direct request',
+    '### Approval-required actions',
+    '### Verification ladder',
+    '### Skill-exit status block',
+    '### Handoff envelope',
+]
+for required in runtime_boundary_sections:
+    if required not in runtime_contract:
+        errors.append(f'references/runtime-contract.md: missing canonical boundary section {required!r}')
+
+runtime_boundary_markers = [
+    'Requires sequencing.',
+    'No remaining design decision',
+    'Required fields are `skill`, `state`, `artifacts`, `next`, `blockers`.',
+    'Required fields are `source`, `goal`, `decisions`, `assumptions`, `files`, `verification`, `blockers`, `next-skill`.',
+]
+for required in runtime_boundary_markers:
+    if required not in runtime_contract:
+        errors.append(f'references/runtime-contract.md: missing canonical boundary marker {required!r}')
+
+kernel_summary_markers = [
+    'Use the shared §3 glossary in `references/b-skills/runtime-contract.md`',
+    'Use the shared slug, run-id, and artifact conventions from `references/b-skills/runtime-contract.md` §8.',
+    'shared `[status]` and `[handoff]` schemas',
+]
+for required in kernel_summary_markers:
+    if required not in global_rules:
+        errors.append(f'global/AGENTS.md: missing kernel summary marker {required!r}')
 
 for name in skill_names:
     for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:

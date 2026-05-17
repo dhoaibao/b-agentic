@@ -8,6 +8,17 @@
 
 The authoritative active runtime kernel lives in `global/AGENTS.md` in this source repo and installs as `AGENTS.md` or `b-skills/AGENTS.md`. This detailed contract must not duplicate the kernel rule list; it expands the schemas, rubrics, tool bundles, and edge-case protocols that the kernel links to.
 
+### Kernel/detail split for the shared sections
+
+- `§2 Source of truth` — keep the conflict ladder, non-invention rule, and glossary-doc reminder in the kernel; plan metadata, executable-state checks, staleness, and revision protocol live here.
+- `§3 Definitions and rubrics` — the kernel may summarize planning/readiness posture, but the canonical definitions of `non-trivial`, `small direct request`, risk, severity, and confidence live here.
+- `§5 Evidence standards` — the kernel may keep evidence posture in one paragraph, but the hierarchy, citation/freshness labels, and happy-path compression live here.
+- `§6 Safety gates` — the kernel may remind users to ask before risky mutation and to protect secrets, but command classes, approval ask shape, privacy gates, artifact safety, patch discipline, and git safety live here.
+- `§7 Execution discipline` — the kernel may keep the smallest-safe-path posture, but scope expansion, verification ladder, iteration cap, rollback, and completion rules live here.
+- `§8 Artifacts` — the kernel may require shared slug/run-id usage, but paths, manifests, retention, and continuity live here.
+- `§9 Output contract` — the kernel may require the use of `[status]` and `[handoff]`, but the exact field schema lives here.
+- `§10 Cross-cutting decisions` — the kernel may keep high-risk completion cues, but the shared decision tables and edge-case procedures live here.
+
 ### Contract Version
 
 This runtime contract version is `2026-05-16`. New saved plans and multi-artifact manifests should include this value as `contract_version` so future agents can detect stale artifact semantics. In schema examples and reusable templates, write the field as `<current-contract-version>` to avoid drift; concrete run artifacts use the actual version string from this section. Legacy artifacts without this field remain valid but should be treated as pre-versioned.
