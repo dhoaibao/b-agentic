@@ -62,7 +62,7 @@ For non-trivial work, decide whether the current checkout is safe or whether iso
 
 Before editing, state the current step in one line: source of truth, files or symbols expected to change, behavior that must not change, planned verification, and whether approval or a review checkpoint is required.
 
-Use Serena for symbol-aware edits and `apply_patch` for small prose/config/glue edits under the global patch discipline. If `apply_patch` reports missing expected lines, treat it as stale context: re-read and retry with smaller verified context.
+Use Serena for symbol-aware edits and `apply_patch` for small prose/config/glue edits under the global patch discipline.
 
 Stay within approved scope. Stop for new product decisions, stale/wrong plans, or unplanned broad transforms. Tiny local mechanical edits required to complete the approved step may stay here; broad or primary mechanical transforms go to **b-refactor**.
 
@@ -70,7 +70,7 @@ Stay within approved scope. Stop for new product decisions, stale/wrong plans, o
 
 Run the plan's check when available; otherwise use the global verification ladder. Prefer touched-file diagnostics when supported, then the narrowest relevant command.
 
-Classify failures: implementation mistake, stale context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Apply the global iteration cap, cascading-failure rule, transform rollback rule, skipped-check labels, and high-risk challenge gate.
+Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Apply the global iteration cap, cascading-failure rule, transform rollback rule, skipped-check labels, and high-risk challenge gate.
 
 ### Step 5 - Record progress and close
 
@@ -94,4 +94,4 @@ Close non-trivial runs with the status/handoff schemas from `AGENTS.md`.
 - Stop for new decisions instead of guessing.
 - A small direct request still needs real verification.
 - Do not commit unless explicitly asked.
-- Use the global patch discipline and stale context recovery for manual edits.
+- Use the global patch discipline for manual edits.

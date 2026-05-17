@@ -67,7 +67,7 @@ Pick the smallest matching transform:
 - Rename + extract -> extract under the old name, verify, then rename.
 - Move between files -> add destination first, update imports/re-exports/tests/config/barrels, verify diagnostics, then remove origin and re-check references.
 
-Use `apply_patch` for imports, config, prose, or non-symbol glue under global patch discipline. If `apply_patch` reports missing expected lines, treat it as stale context: re-read and retry with smaller verified context.
+Use `apply_patch` for imports, config, prose, or non-symbol glue under global patch discipline.
 
 If the work becomes behavioral redesign, hand back to **b-plan** with the locked target and reference map. If the map is too broad for one coherent run, hand back to **b-plan** with proposed verifiable slices.
 

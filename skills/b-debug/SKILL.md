@@ -68,7 +68,7 @@ Before editing, state: `Root cause: <what fails> because <why>`.
 
 ### Step 4 - Apply the minimal fix
 
-Use Serena for symbol edits and `apply_patch` for small line/prose/config fixes under the global patch discipline. If `apply_patch` reports missing expected lines, treat it as stale context: re-read and retry with smaller verified context.
+Use Serena for symbol edits and `apply_patch` for small line/prose/config fixes under the global patch discipline.
 
 Do not bundle cleanup or redesign. If the confirmed cause needs a structural change, hand off to **b-plan** with root cause, evidence, and any attempted minimal fix.
 
@@ -89,9 +89,9 @@ Symptoms -> Root cause -> Fix -> Verification -> Cleanup/next
 - Do not patch before root cause is confirmed.
 - Measure perf bugs before and after.
 - Surface cannot-reproduce gaps instead of speculative fixes.
-- Use global patch discipline, stale context recovery, verification ladder, iteration cap, and skipped-check labels.
+- Use global patch discipline, verification ladder, iteration cap, and skipped-check labels.
 - Verify probe removal before reporting success.
 
 ## Reference pointers
 
-- `references/performance-checklist.md` - use when a slowdown spans layers or lacks a clear measurement playbook.
+- `references/b-skills/performance-checklist.md` - use when a slowdown spans layers or lacks a clear measurement playbook.

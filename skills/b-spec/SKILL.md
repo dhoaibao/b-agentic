@@ -91,7 +91,7 @@ Use the compact spec shape above. Saved artifacts are not created unless the use
 
 ## Reference pointers
 
-- `references/domain-glossary.md` - optional glossary convention for `CONTEXT.md`, `CONTEXT-MAP.md`, and ADR usage.
+- `references/b-skills/domain-glossary.md` - optional glossary convention for `CONTEXT.md`, `CONTEXT-MAP.md`, and ADR usage.
 
 ## Rules
 

@@ -211,16 +211,18 @@ if 'Update saved-plan checkboxes' in b_implement and '- [ ] **<imperative step t
     errors.append('skills/b-plan/SKILL.md: saved-plan skeleton must support checkbox-style progress updates used by b-implement')
 
 patch_skill_expectations = {
-    'b-implement': ['patch discipline', 'stale context'],
-    'b-refactor': ['patch discipline', 'stale context'],
-    'b-test': ['patch discipline', 'stale context'],
-    'b-debug': ['patch discipline', 'stale context'],
+    'b-implement': 'global patch discipline',
+    'b-refactor': 'global patch discipline',
+    'b-test': 'global patch discipline',
+    'b-debug': 'global patch discipline',
 }
-for skill_name, required_phrases in patch_skill_expectations.items():
+for skill_name, required_phrase in patch_skill_expectations.items():
     skill_text = (root / 'skills' / skill_name / 'SKILL.md').read_text()
-    for required in required_phrases:
-        if required not in skill_text:
-            errors.append(f'skills/{skill_name}/SKILL.md: missing patch recovery phrase {required!r}')
+    if required_phrase not in skill_text:
+        errors.append(f'skills/{skill_name}/SKILL.md: missing canonical patch discipline reference {required_phrase!r}')
+    for duplicated_phrase in ['missing expected lines', 'stale context recovery']:
+        if duplicated_phrase in skill_text:
+            errors.append(f'skills/{skill_name}/SKILL.md: duplicated patch protocol phrase {duplicated_phrase!r}')
 
 if 'stable anchors' not in b_plan:
     errors.append('skills/b-plan/SKILL.md: prose/config plans should mention stable anchors for patchable edits')

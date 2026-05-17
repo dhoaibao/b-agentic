@@ -53,7 +53,7 @@ State mode: self-audit or external audit. Use arguments, `--baseline`, approved 
 
 ### Step 2 - Pick the checklist
 
-Choose the smallest surface-specific checklist: installer/update path, runtime contract, validator, route/tool boundary, dependency/lockfile, generated artifact, or security-sensitive rule.
+Choose the smallest surface-specific checklist from `reference.md`: installer/update path, runtime contract, validator, route/tool boundary, dependency/lockfile, generated artifact, or security-sensitive rule.
 
 For b-skills suite audits, check routing boundaries, skill-to-command wrapper alignment, runtime-contract consistency, README/REFERENCE sync, validator coverage, artifact paths, and safety-gate drift.
 
@@ -92,3 +92,7 @@ Scope/Mode/Baseline -> Findings -> Checked and clean -> Coverage/Verification/Op
 - Do not edit files during an audit unless the user explicitly asks for fixes.
 - For self-audit, bias against author blind spots; for external audit, separate blockers from style.
 - Cite authoritative docs when an API-semantic finding or clean judgment depends on them.
+
+## Reference pointers
+
+- `reference.md` - concrete audit criteria for installer/update paths, runtime contracts, validators, route/tool boundaries, dependencies, generated artifacts, security-sensitive rules, and b-skills suite audits.

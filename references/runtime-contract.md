@@ -921,7 +921,7 @@ When the user can reproduce a symptom but the agent cannot in the current enviro
 - Skills must not redefine any of the items below. Reference the canonical section instead.
   - **Rubrics (§3):** severity, risk, "non-trivial", "small direct request", confidence signal.
   - **Routing (§1, §10):** test-vs-bug decision, DOM-unit vs browser-flow boundary, hybrid component test boundary, self/external review boundary.
-  - **Protocols (§5, §6, §7, §10):** citation provenance, privacy gate, onboarding rule, iteration cap, transform rollback, cascading failures, agent-cannot-reproduce protocol, completion contract, snapshot confirmation, flake handling.
+  - **Protocols (§5, §6, §7, §10):** citation provenance, privacy gate, onboarding rule, patch discipline, iteration cap, transform rollback, cascading failures, agent-cannot-reproduce protocol, completion contract, snapshot confirmation, flake handling.
   - **Schemas (§8, §9):** run-id format, slug algorithm, artifact paths, manifest schema, status block, handoff envelope, output verbosity caps.
   - **Anti-patterns (§12):** common rationalizations table — skills reference it; they do not maintain their own copies.
 - A skill should switch to another skill only on a real stop/block condition — not for optional enrichment the current skill can finish inline with bounded evidence.

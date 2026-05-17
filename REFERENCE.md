@@ -23,7 +23,7 @@ Clarifies rough or underspecified asks before planning.
 - Goal, constraints, acceptance criteria, non-goals, assumptions, and next skill.
 
 **Shared reference**
-- `references/domain-glossary.md` — optional convention for persistent project glossary docs.
+- `references/b-skills/domain-glossary.md` — optional convention for persistent project glossary docs.
 
 ---
 
@@ -46,7 +46,7 @@ Turns a clear goal into an execution-ready plan without implementing.
 - Full mode: saved plan using `skills/b-plan/reference.md`.
 
 **Shared reference**
-- `references/domain-glossary.md` — optional convention when glossary docs should guide terminology or bounded-context planning.
+- `references/b-skills/domain-glossary.md` — optional convention when glossary docs should guide terminology or bounded-context planning.
 
 **GitNexus use**
 - Optional only for graph-shaped planning.
@@ -116,7 +116,7 @@ Owns runtime and behavior failures.
 - Symptoms, root cause, fix, verification, cleanup/next.
 
 **Shared reference**
-- `references/performance-checklist.md` — multi-layer slowdown guidance.
+- `references/b-skills/performance-checklist.md` — multi-layer slowdown guidance.
 
 ---
 
@@ -140,7 +140,7 @@ Reviews diffs, ranges, or checkpoints.
 - Scope/mode/path/baseline, findings, checked-clean areas, coverage/tests/observability, verdict.
 
 **Shared references**
-- `references/performance-checklist.md`
+- `references/b-skills/performance-checklist.md`
 
 **Skill reference**
 - `skills/b-review/reference.md` — security checklist for auth, untrusted input, sensitive data, uploads, webhooks, and external integrations.
@@ -160,6 +160,9 @@ Audits named repository or suite surfaces outside diff-first review.
 - Runs only narrow checks that materially support the audit unless `--skip-checks` is present.
 - Reports findings first and emits AUDIT PASS, AUDIT PASS WITH FOLLOW-UPS, or NEEDS FIXES.
 - Blocks AUDIT PASS when there is no baseline, required verification was skipped, or sampled coverage leaves material unreviewed risk.
+
+**Skill reference**
+- `skills/b-audit/reference.md` — concrete audit criteria for installer/update paths, runtime contracts, validators, route/tool boundaries, dependencies, generated artifacts, security-sensitive rules, and b-skills suite audits.
 
 **Output**
 - Scope/mode/baseline, findings, checked-clean sampled areas, coverage/verification/operability, verdict.
@@ -183,7 +186,7 @@ Owns code-level testing work.
 - Updates snapshots/goldens only after intended behavior is confirmed.
 - Uses `baseline-missing` tests only for explicitly requested structural coverage and limits claims to structural coverage.
 - Bounds coverage work and avoids introducing new frameworks without approval.
-- Uses global patch discipline and stale-context recovery for test edits.
+- Uses global patch discipline for test edits.
 
 **Output**
 - Type, framework, findings, changes, verification, remaining gaps.

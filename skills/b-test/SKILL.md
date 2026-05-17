@@ -68,7 +68,7 @@ For new tests, cover behavior that matters: happy path, edge cases, error handli
 
 For coverage review, stop when changed behavior is covered, the next gap is opportunistic, or five gaps have been added with no required gap remaining.
 
-Use Serena for existing test bodies. Use `apply_patch` for new test files or small non-symbol edits under global patch discipline. If `apply_patch` reports missing expected lines, treat it as stale context and retry with smaller verified context.
+Use Serena for existing test bodies. Use `apply_patch` for new test files or small non-symbol edits under global patch discipline.
 
 ### Step 4 - Verify
 
@@ -88,7 +88,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 - Real-browser flows belong to **b-e2e**.
 - Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without approval.
 - Keep fixture and mock changes local when practical.
-- Use global patch discipline, stale context recovery, verification ladder, and iteration cap.
+- Use global patch discipline, verification ladder, and iteration cap.
 - Test utilities belong here when created or changed to support an in-scope test; mechanical relocation belongs to **b-refactor**.
 
 ## Reference pointers

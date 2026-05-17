@@ -96,7 +96,7 @@ Key safety rules (full list in `global/AGENTS.md`): one active skill; approved p
 
 ### Shared references
 
-The suite ships reusable references to `~/.config/opencode/references/b-skills/` only for cross-skill material such as the runtime contract, performance guidance, and optional domain-glossary conventions. Single-skill long-form guidance lives beside its owning `SKILL.md` as `skills/<name>/reference.md`.
+The suite ships reusable references to `~/.config/opencode/references/b-skills/` only for cross-skill material such as the runtime contract, performance guidance, and optional domain-glossary conventions. Installed skill prose references shared files as `references/b-skills/<file>.md`; the source copies live under this repo's `references/` directory. Single-skill long-form guidance lives beside its owning `SKILL.md` as `skills/<name>/reference.md`.
 
 See [REFERENCE.md](REFERENCE.md) for detailed skill contracts and maintenance conventions.
 
@@ -148,7 +148,9 @@ b-skills/
     ├── b-review/
     │   ├── SKILL.md
     │   └── reference.md          # security review checklist
-    └── b-audit/SKILL.md
+    └── b-audit/
+        ├── SKILL.md
+        └── reference.md          # concrete audit surface checklists
 ```
 
 Skills are normally a single `SKILL.md`. Optional support files (`reference.md`, `examples.md`, `scripts/`) are added only when externalizing content materially improves maintenance — for example, when a template or checklist is long enough to crowd out core instructions under context pressure. Do not create a nested per-skill `references/` directory for one file; use `skills/<name>/reference.md`. See `AGENTS.md` "Skill directory structure template" for the full convention.
