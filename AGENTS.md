@@ -18,7 +18,6 @@ Guidelines for creating, editing, and maintaining the install-only OpenCode skil
 - `skills/b-refactor/SKILL.md` — Behavior-preserving code transforms
 - `skills/b-debug/SKILL.md` — Hypothesis-driven debugging
 - `skills/b-test/SKILL.md` — Test writing, coverage, and test-only failures
-- `skills/b-e2e/SKILL.md` — Real-browser flow verification and test authoring
 - `skills/b-review/SKILL.md` — Pre-PR changed-code review
 - `skills/b-audit/SKILL.md` — Repository and suite-slice audits
 - `references/` — Reusable checklists and the detailed runtime contract
@@ -185,7 +184,7 @@ Skills declare MCP usage by referencing **bundles** summarized in `global/AGENTS
 
 | Role | When to add | Example |
 |---|---|---|
-| **Primary** | Skill cannot function without it | `playwright-browser` for `b-e2e` |
+| **Primary** | Skill cannot function without it | `context7-docs` for `b-research` |
 | **Secondary** | Skill uses it conditionally for a specific step | `context7-docs` in `b-debug` for API-misuse checks |
 | **Optional** | Enhances quality but skill works without it | `gitnexus-radar` in any code-touching skill |
 

@@ -95,7 +95,7 @@ for path in skill_paths:
     if 'global/AGENTS.md' in text:
         errors.append(f'{path}: runtime skill files must reference `AGENTS.md`, not `global/AGENTS.md`')
 
-    if name in {'b-research', 'b-test', 'b-e2e'} and re.search(r'gitnexus', text, re.IGNORECASE):
+    if name in {'b-research', 'b-test'} and re.search(r'gitnexus', text, re.IGNORECASE):
         errors.append(f'{path}: GitNexus should stay out of this skill workflow')
 
 readme = (root / 'README.md').read_text()
@@ -200,10 +200,6 @@ root_forbidden = [
 for forbidden in root_forbidden:
     if forbidden in root_agents:
         errors.append(f'AGENTS.md: stale maintainer guidance remains: {forbidden!r}')
-
-b_e2e = (root / 'skills' / 'b-e2e' / 'SKILL.md').read_text()
-if re.search(r'\.opencode/.+(auth\.json|storageState\.json|storage-state\.json)', b_e2e):
-    errors.append('skills/b-e2e/SKILL.md: auth state must not default to repo-local .opencode path')
 
 b_plan = (root / 'skills' / 'b-plan' / 'SKILL.md').read_text()
 b_implement = (root / 'skills' / 'b-implement' / 'SKILL.md').read_text()

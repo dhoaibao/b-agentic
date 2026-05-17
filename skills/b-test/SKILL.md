@@ -27,7 +27,7 @@ Own code-level tests: add coverage, fix test-only failures, and avoid confusing 
 ## When NOT to use
 
 - The failing test likely exposes real runtime behavior -> use **b-debug**.
-- The task drives a real browser -> use **b-e2e**.
+- The task drives a real browser or browser-only test runner -> outside this suite.
 - Scope, acceptance, or intended behavior is unclear -> use **b-spec** or **b-debug** per the global test-vs-bug decision.
 - The task is pre-PR logic review -> use **b-review**.
 - The task needs a new test strategy/framework -> use **b-plan** first.
@@ -56,7 +56,7 @@ Use the global test-vs-bug decision. Acceptable behavior confirmation sources ar
 - **Coverage review:** rank missing tests by user impact, changed behavior, risk boundary, and edge-case value; add only the requested/highest-value gaps.
 - **Flaky test:** use the global flake procedure before rewriting or skipping.
 
-Choose test type by the behavior boundary: pure logic gets unit tests, component behavior gets DOM-rendered tests, cross-module contracts get integration or contract tests if the repo already has them, and real browser behavior goes to **b-e2e**.
+Choose test type by the behavior boundary: pure logic gets unit tests, component behavior gets DOM-rendered tests, and cross-module contracts get integration or contract tests if the repo already has them. Real-browser behavior is outside this suite.
 
 If product behavior is uncertain, hand off to **b-debug**.
 
@@ -85,7 +85,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 - Never change production code just because a test is red.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
 - Add `baseline-missing` tests only when the user explicitly asks for structural coverage; otherwise stop or hand off before writing them.
-- Real-browser flows belong to **b-e2e**.
+- Real-browser flows are outside this suite.
 - Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without approval.
 - Keep fixture and mock changes local when practical.
 - Use global patch discipline, verification ladder, and iteration cap.

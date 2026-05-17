@@ -51,7 +51,6 @@ You can inspect and maintain the suite from this source repository, which contai
 | `/b-refactor` | Build | Execute concrete behavior-preserving transforms: rename, extract, move, inline, simplify, or delete |
 | `/b-debug` | Validate | Confirm runtime root cause, fix minimally, verify, and remove probes |
 | `/b-test` | Validate | Write tests, fix test-only failures, evaluate coverage gaps, and route product bugs out of the test lane |
-| `/b-e2e` | Validate | Drive a real browser for flow verification or repo-native browser-test authoring with saved artifacts when evidence or cleanup must be auditable |
 | `/b-review` | Validate | Reviewer-style diff/range review focused on changed-code blockers, regressions, security, and coverage |
 | `/b-audit` | Validate | Reviewer-style repository or suite-slice audit focused on systemic risk, sampled coverage, and residual risk |
 
@@ -65,7 +64,6 @@ You can inspect and maintain the suite from this source repository, which contai
 /b-research [question]  (any time you need docs, API facts, or comparisons)
 /b-debug [symptom]      (any time something breaks or is slow)
 /b-refactor [target]    (mechanical code transformation)
-/b-e2e [flow]           (browser UI verification or browser test authoring)
 /b-review [diff/range]  (changed-code review)
 /b-audit [surface]      (repository, maintainer, or suite-slice audit)
 ```
@@ -87,7 +85,7 @@ The runtime kernel lives in `global/AGENTS.md` (installs to `~/.config/opencode/
 
 Artifact paths:
 - Plans: `.opencode/b-skills/b-plan/<task-slug>.md` (`.opencode/.gitignore` guard: `global/AGENTS.md` §6; slug: §8; legacy `.opencode/b-plans/` deprecated).
-- Skill artifacts: `.opencode/b-skills/<skill>/<run-id>/` (`run-id = <YYYYMMDD-HHMMSS>-<slug>`); sensitive/E2E auth outside worktree. Repo-native test, coverage, trace, video, and screenshot outputs follow project configuration when produced by verification commands.
+- Skill artifacts: `.opencode/b-skills/<skill>/<run-id>/` (`run-id = <YYYYMMDD-HHMMSS>-<slug>`); sensitive auth/session artifacts stay outside the worktree. Repo-native test, coverage, trace, video, and screenshot outputs follow project configuration when produced by verification commands.
 - Saved reports: `.opencode/b-skills/<skill>/<run-id>/report.md`.
 - Temp logs: `/tmp/opencode/b-skills/<skill>/<slug>.log`.
 - Multi-artifact runs: valid JSON `manifest.json` with `contract_version` per `references/runtime-contract.md` §8.
@@ -115,7 +113,6 @@ b-skills/
 │   ├── b-refactor.md
 │   ├── b-debug.md
 │   ├── b-test.md
-│   ├── b-e2e.md
 │   ├── b-review.md
 │   └── b-audit.md
 ├── global/
@@ -142,9 +139,6 @@ b-skills/
     ├── b-test/
     │   ├── SKILL.md
     │   └── reference.md          # fallback testing patterns
-    ├── b-e2e/
-    │   ├── SKILL.md
-    │   └── reference.md          # focused accessibility checklist
     ├── b-review/
     │   ├── SKILL.md
     │   └── reference.md          # security review checklist
@@ -180,7 +174,6 @@ Skills reference **MCP bundles** summarized in `global/AGENTS.md` §4 and fully 
 | `firecrawl-extraction` | `firecrawl` | Default tier: `firecrawl_scrape`, `firecrawl_parse`. |
 | `firecrawl-extended` | `firecrawl` | Conditional tier: `firecrawl_map`, `firecrawl_extract` for site maps and structured fields. |
 | `firecrawl-deep` | `firecrawl` | Last-resort tier: `firecrawl_interact`, `firecrawl_agent`. Cost warning — minutes-scale. **Per-invocation approval by default**; a run-scoped capped pre-authorization may be granted in lieu of per-call asks per `global/AGENTS.md` §4. |
-| `playwright-browser` | `playwright` MCP, or local Playwright CLI via `bash` as fallback | Browser automation. `*_unsafe` variants are excluded from the default toolkit and require approval. |
 | `gitnexus-radar` *(optional)* | `gitnexus` | Optional graph radar — only when indexed, fresh, and target-aware. Never an edit layer. |
 
 `sequential-thinking` is bundled but optional; use it only when three or more plausible hypotheses have equal cheapest-verification cost. Skills assume MCP bundles are available, then use the runtime fallback ladder when a bundle fails on first use. GitNexus is optional and useful only for indexed repos.
