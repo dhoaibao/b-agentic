@@ -5,10 +5,9 @@ Guidelines for creating, editing, and maintaining the install-only OpenCode skil
 ## Scope
 
 - This file is maintainer guidance for the source repository.
-- Runtime suite behavior lives in the `global/AGENTS.md` kernel, the detailed `references/runtime-contract.md`, and the individual `skills/*/SKILL.md` files.
-- `install.sh` deploys the runtime files into `~/.config/opencode/`, always writes `AGENTS.b-skills.md`, and only replaces the main `AGENTS.md` when missing or approved.
-
-When authoring runtime-facing skill prose, reference `AGENTS.md`. In this source repo, that runtime kernel is authored at `global/AGENTS.md`, installed as the suite snapshot at `AGENTS.b-skills.md`, and optionally applied to the main OpenCode `AGENTS.md` by `install.sh`. Long-form schemas, rubrics, and edge-case protocols live in `references/runtime-contract.md` and install with the shared references.
+- Runtime suite behavior lives in `global/AGENTS.md` (kernel), `references/runtime-contract.md` (detailed contract), and `skills/*/SKILL.md` (per-skill).
+- `install.sh` deploys runtime files to `~/.config/opencode/`, always writes `AGENTS.b-skills.md`, and replaces `AGENTS.md` only when missing or approved.
+- When authoring runtime-facing skill prose, reference `AGENTS.md`. Long-form schemas, rubrics, and edge-case protocols live in `references/runtime-contract.md`.
 
 ## Quick links
 
@@ -16,11 +15,14 @@ When authoring runtime-facing skill prose, reference `AGENTS.md`. In this source
 - `skills/b-plan/SKILL.md` — Task decomposition and planning
 - `skills/b-research/SKILL.md` — Library docs and multi-source research
 - `skills/b-implement/SKILL.md` — Approved-plan execution
+- `skills/b-refactor/SKILL.md` — Behavior-preserving code transforms
 - `skills/b-debug/SKILL.md` — Hypothesis-driven debugging
+- `skills/b-test/SKILL.md` — Test writing, coverage, and test-only failures
+- `skills/b-e2e/SKILL.md` — Real-browser flow verification and test authoring
 - `skills/b-review/SKILL.md` — Pre-PR changed-code review
 - `references/` — Reusable checklists and the detailed runtime contract
-- `global/AGENTS.md` — Runtime kernel source installed as `AGENTS.b-skills.md` and optionally applied to OpenCode's main `AGENTS.md`
-- `commands/` — Thin slash-command wrappers that load the matching skills
+- `global/AGENTS.md` — Runtime kernel source (installs as `AGENTS.b-skills.md`)
+- `commands/` — Thin slash-command wrappers
 
 ---
 
@@ -247,4 +249,4 @@ Before merging any skill file change, verify:
 5. **No trigger keyword regression** — before rewriting a description, list all current trigger keywords and verify all survive in the new version
 6. **Suite validator passes** — run `scripts/validate-skills.sh` before installing or committing skill changes
 7. **No avoidable churn** — steps should not force repeated Serena preflights, optional MCP escalation, or skill switches when the current skill can complete with bounded evidence
-8. **No duplicated global concepts** — slug algorithm, skill-exit status block, handoff envelope, manifest schema, canonical approval ask, fallback labeling, tool-use heuristics, empty-state defaults, plan staleness/revision gates, isolated-workspace preference, review checkpoint cadence, completion closure protocol, and the DOM-unit vs browser-flow boundary live in `global/AGENTS.md` or `references/runtime-contract.md`. Skills reference them; they do not restate them.
+8. **No duplicated global concepts** — slug algorithm, status block, handoff envelope, manifest schema, approval ask, fallback labeling, tool-use heuristics, empty-state defaults, plan staleness gates, workspace isolation preference, review checkpoint cadence, completion closure protocol, and the DOM-unit vs browser boundary all live in `global/AGENTS.md` or `references/runtime-contract.md`. Skills reference them; they do not restate them.
