@@ -799,12 +799,7 @@ if (os.environ.get("INSTALL_GITNEXUS_VALUE") or "").lower() in {"y", "yes"}:
     defaults["gitnexus"] = {"type": "stdio", "command": "gitnexus", "args": ["mcp"]}
 
 for name, value in defaults.items():
-    current = mcp.get(name)
-    if isinstance(current, dict):
-        merged = dict(value)
-        merged.update(current)
-        mcp[name] = merged
-    else:
+    if name not in mcp:
         mcp[name] = value
 
 print(json.dumps(config, indent=2))

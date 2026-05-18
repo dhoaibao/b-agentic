@@ -10,6 +10,7 @@ governance hooks are active.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import sys
@@ -51,13 +52,21 @@ def split_command(command: str) -> list[str]:
 
 def is_dangerous_rm_target(token: str) -> bool:
     target = token.strip().strip("'\"")
-    return target in {"/", "~", "$HOME", "${HOME}"} or target.startswith(("~/", "$HOME/", "${HOME}/"))
+    root_targets = {"/", "/.", "/.."}
+    home_targets = {"~", "$HOME", "${HOME}"}
+    return target in root_targets or target in home_targets or target.startswith(("/*", "/.*", "~/", "$HOME/", "${HOME", "$HOME"))
+
+
+def is_rm_command(token: str) -> bool:
+    return os.path.basename(token) == "rm"
 
 
 def has_dangerous_recursive_rm(command: str) -> bool:
     tokens = split_command(command)
     for index, token in enumerate(tokens):
-        if token != "rm":
+        if token in {"command", "builtin"}:
+            continue
+        if not is_rm_command(token):
             continue
         recursive = False
         for arg in tokens[index + 1 :]:

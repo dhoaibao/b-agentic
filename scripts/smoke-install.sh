@@ -185,10 +185,15 @@ main() {
   assert_contains "$sandbox_fresh/home/.claude/settings.json" 'b-skills-guard.py'
   assert_contains "$sandbox_fresh/home/.claude/settings.json" '"PreToolUse"'
   assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -r /' deny
+  assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -rf /*' deny
+  assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -rf /.*' deny
+  assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" '/bin/rm -rf /' deny
+  assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'command rm -rf /' deny
   assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -R ~/' deny
   assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -r "$HOME"' deny
   assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -rf "$HOME"' deny
   assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -rf ${HOME}' deny
+  assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -rf ${HOME:?}' deny
   assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'rm -rf ~/' deny
   assert_hook_decision "$sandbox_fresh/home/.claude/hooks/b-skills-guard.py" 'git reset --hard HEAD' ask
   assert_contains "$sandbox_fresh/home/.claude/b-skills/install.json" '"runtime": "claude"'
@@ -297,6 +302,7 @@ JSON
   expect_install_status 0 "$sandbox_mcp_existing" "$snapshot_repo" Y --replace-memory
   assert_contains "$sandbox_mcp_existing/home/.claude.json" 'custom-mcp'
   assert_contains "$sandbox_mcp_existing/home/.claude.json" 'custom-serena'
+  assert_not_contains "$sandbox_mcp_existing/home/.claude.json" 'start-mcp-server'
   assert_contains "$sandbox_mcp_existing/home/.claude/b-skills/install.json" '"mcpAddedServers": ['
   assert_contains "$sandbox_mcp_existing/home/.claude/b-skills/install.json" '"context7"'
   assert_contains "$sandbox_mcp_existing/home/.claude/b-skills/install.json" '"brave-search"'

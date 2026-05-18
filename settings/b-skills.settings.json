@@ -66,6 +66,9 @@
       "Bash(rm -r /)",
       "Bash(rm -R /)",
       "Bash(rm -rf /)",
+      "Bash(rm -r /*)",
+      "Bash(rm -R /*)",
+      "Bash(rm -rf /*)",
       "Bash(rm -r ~*)",
       "Bash(rm -R ~*)",
       "Bash(rm -rf ~*)"
