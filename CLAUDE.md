@@ -5,6 +5,7 @@ Guidelines for creating, editing, and maintaining the install-only b-skills suit
 ## Scope
 
 - This file is maintainer guidance for the source repository.
+- Top-level doc targets: keep `README.md` as the brief repo overview and navigation entrypoint, `CLAUDE.md` as maintainer guidelines for this source repo, and `REFERENCE.md` as the reference guide for each skill in this repo.
 - Current runtime suite behavior lives in `global/CLAUDE.md` (concise runtime memory installed as `~/.claude/CLAUDE.md`), `references/runtime-contract.md` (detailed contract), `skills/*/SKILL.md` (per-skill workflow), plus `agents/`, `hooks/`, and `settings/` for Claude-native governance.
 - Approved phase 1 runtime target: Claude Code standalone user-level configuration under `~/.claude/`.
 - Approved phase 1 distribution target: standalone installer first; optional Claude plugin packaging after standalone parity is verified.
