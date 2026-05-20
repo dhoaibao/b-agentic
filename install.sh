@@ -10,6 +10,7 @@
 #   B_AGENTIC_REF   — git ref to check out after clone/pull (default: leave on default branch)
 #   B_AGENTIC_INSTALL_MCP — Y to install core MCP defaults; otherwise skipped
 #   B_AGENTIC_INSTALL_GITNEXUS — Y to install optional GitNexus MCP when MCP defaults are enabled
+#   B_AGENTIC_INSTALL_PLAYWRIGHT_MCP — Y to install optional Playwright MCP for /b-browser when MCP defaults are enabled
 #   B_AGENTIC_DRY_RUN — Y to preview file/config changes without writing into OpenCode config
 #   B_AGENTIC_REPLACE_AGENTS — Y to replace ~/.config/opencode/AGENTS.md without prompting; N to preserve it
 #   B_AGENTIC_UNINSTALL — Y to remove b-agentic-managed files from OpenCode config
@@ -94,6 +95,7 @@ CONTEXT7_API_KEY_VALUE="${CONTEXT7_API_KEY:-}"
 FIRECRAWL_API_KEY_VALUE="${FIRECRAWL_API_KEY:-}"
 INSTALL_MCPS_VALUE="${B_AGENTIC_INSTALL_MCP:-${B_NEXUS_INSTALL_MCP:-${B_SKILLS_INSTALL_MCP:-}}}"
 INSTALL_GITNEXUS_VALUE="${B_AGENTIC_INSTALL_GITNEXUS:-${B_NEXUS_INSTALL_GITNEXUS:-${B_SKILLS_INSTALL_GITNEXUS:-}}}"
+INSTALL_PLAYWRIGHT_VALUE="${B_AGENTIC_INSTALL_PLAYWRIGHT_MCP:-}"
 DRY_RUN_VALUE="${B_AGENTIC_DRY_RUN:-${B_NEXUS_DRY_RUN:-${B_SKILLS_DRY_RUN:-N}}}"
 REPLACE_AGENTS_VALUE="${B_AGENTIC_REPLACE_AGENTS:-${B_NEXUS_REPLACE_AGENTS:-${B_SKILLS_REPLACE_AGENTS:-}}}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-${B_NEXUS_UNINSTALL:-${B_SKILLS_UNINSTALL:-N}}}"
@@ -443,6 +445,7 @@ write_install_manifest() {
     CONFIG_BACKUP_PATH="$CONFIG_BACKUP_PATH" \
     INSTALL_MCPS_VALUE="$INSTALL_MCPS_VALUE" \
     INSTALL_GITNEXUS_VALUE="$INSTALL_GITNEXUS_VALUE" \
+    INSTALL_PLAYWRIGHT_VALUE="$INSTALL_PLAYWRIGHT_VALUE" \
     CUSTOM_PROVIDER_ENABLED_VALUE="$CUSTOM_PROVIDER_ENABLED_VALUE" \
     CUSTOM_PROVIDER_ID_VALUE="$CUSTOM_PROVIDER_ID_VALUE" \
     python3 - <<'PYEOF'
@@ -476,6 +479,7 @@ payload = {
     "managedConfig": {
         "mcpDefaults": is_yes(os.environ.get("INSTALL_MCPS_VALUE", "")),
         "gitnexus": is_yes(os.environ.get("INSTALL_GITNEXUS_VALUE", "")),
+        "playwright": is_yes(os.environ.get("INSTALL_PLAYWRIGHT_VALUE", "")),
         "customProvider": os.environ.get("CUSTOM_PROVIDER_ID_VALUE", "") if is_yes(os.environ.get("CUSTOM_PROVIDER_ENABLED_VALUE", "")) else "none",
     },
 }
@@ -683,6 +687,54 @@ prompt_gitnexus_install_if_needed() {
     INSTALL_GITNEXUS_VALUE="Y"
   else
     INSTALL_GITNEXUS_VALUE="N"
+  fi
+}
+
+prompt_playwright_install_if_needed() {
+  local entered_value
+  local default_choice="N"
+
+  if ! wants_mcp_install "$INSTALL_MCPS_VALUE"; then
+    INSTALL_PLAYWRIGHT_VALUE="N"
+    return 0
+  fi
+
+  if has_existing_mcp_server playwright; then
+    default_choice="Y"
+  fi
+
+  if wants_mcp_install "$INSTALL_PLAYWRIGHT_VALUE"; then
+    INSTALL_PLAYWRIGHT_VALUE="Y"
+    return 0
+  fi
+
+  if [ -n "$INSTALL_PLAYWRIGHT_VALUE" ]; then
+    INSTALL_PLAYWRIGHT_VALUE="N"
+    return 0
+  fi
+
+  if ! prompt_available; then
+    INSTALL_PLAYWRIGHT_VALUE="$default_choice"
+    return 0
+  fi
+
+  if [ "$default_choice" = "Y" ]; then
+    printf 'Install optional Playwright browser automation MCP for /b-browser live UI checks? [Y/n]: ' > /dev/tty
+  else
+    printf 'Install optional Playwright browser automation MCP for /b-browser live UI checks? [y/N]: ' > /dev/tty
+  fi
+  if IFS= read -r entered_value < /dev/tty; then
+    :
+  else
+    entered_value=""
+  fi
+
+  if [ -z "$entered_value" ]; then
+    INSTALL_PLAYWRIGHT_VALUE="$default_choice"
+  elif wants_mcp_install "$entered_value"; then
+    INSTALL_PLAYWRIGHT_VALUE="Y"
+  else
+    INSTALL_PLAYWRIGHT_VALUE="N"
   fi
 }
 
@@ -1142,7 +1194,7 @@ is_b_agentic_skill_dir() {
 
 is_legacy_b_command_name() {
   case "$1" in
-    b-orchestrate|b-plan|b-spec|b-research|b-implement|b-refactor|b-debug|b-test|b-e2e|b-review)
+    b-orchestrate|b-plan|b-spec|b-research|b-implement|b-refactor|b-debug|b-test|b-browser|b-e2e|b-review)
       return 0
       ;;
     *)
@@ -1434,6 +1486,7 @@ uninstall_b_agentic() {
   remove_skill_if_managed b-refactor
   remove_skill_if_managed b-debug
   remove_skill_if_managed b-test
+  remove_skill_if_managed b-browser
   remove_skill_if_managed b-e2e
   remove_skill_if_managed b-review
   remove_skill_if_managed b-audit
@@ -1446,6 +1499,7 @@ uninstall_b_agentic() {
   remove_command_if_managed b-refactor
   remove_command_if_managed b-debug
   remove_command_if_managed b-test
+  remove_command_if_managed b-browser
   remove_command_if_managed b-e2e
   remove_command_if_managed b-review
   remove_command_if_managed b-audit
@@ -1499,6 +1553,8 @@ PYEOF
     CONTEXT7_API_KEY_VALUE="$CONTEXT7_API_KEY_VALUE" \
     FIRECRAWL_API_KEY_VALUE="$FIRECRAWL_API_KEY_VALUE" \
     INSTALL_MCPS_VALUE="$INSTALL_MCPS_VALUE" \
+    INSTALL_GITNEXUS_VALUE="$INSTALL_GITNEXUS_VALUE" \
+    INSTALL_PLAYWRIGHT_VALUE="$INSTALL_PLAYWRIGHT_VALUE" \
     CUSTOM_PROVIDER_ENABLED_VALUE="$CUSTOM_PROVIDER_ENABLED_VALUE" \
     CUSTOM_PROVIDER_ID_VALUE="$CUSTOM_PROVIDER_ID_VALUE" \
     CUSTOM_PROVIDER_NAME_VALUE="$CUSTOM_PROVIDER_NAME_VALUE" \
@@ -1515,6 +1571,7 @@ context7_api_key = os.environ.get("CONTEXT7_API_KEY_VALUE") or "YOUR_API_KEY"
 firecrawl_api_key = os.environ.get("FIRECRAWL_API_KEY_VALUE") or "YOUR_API_KEY"
 install_mcps = (os.environ.get("INSTALL_MCPS_VALUE") or "").strip().lower() in {"y", "yes"}
 install_gitnexus = (os.environ.get("INSTALL_GITNEXUS_VALUE") or "").strip().lower() in {"y", "yes"}
+install_playwright = (os.environ.get("INSTALL_PLAYWRIGHT_VALUE") or "").strip().lower() in {"y", "yes"}
 custom_provider_enabled = (os.environ.get("CUSTOM_PROVIDER_ENABLED_VALUE") or "").strip().lower() in {"y", "yes"}
 custom_provider_id = (os.environ.get("CUSTOM_PROVIDER_ID_VALUE") or "").strip()
 custom_provider_name = (os.environ.get("CUSTOM_PROVIDER_NAME_VALUE") or "").strip()
@@ -1749,6 +1806,18 @@ gitnexus_defaults = {
     },
 }
 
+playwright_defaults = {
+    "playwright": {
+        "type": "local",
+        "command": [
+            "npx",
+            "-y",
+            "@playwright/mcp@latest",
+            "--isolated",
+        ],
+    },
+}
+
 if install_mcps:
     mcp = config.setdefault("mcp", {})
     if not isinstance(mcp, dict):
@@ -1775,6 +1844,14 @@ if install_mcps:
                 mcp[server_name] = defaults
     else:
         mcp.pop("gitnexus", None)
+
+    if install_playwright:
+        for server_name, defaults in playwright_defaults.items():
+            current = mcp.get(server_name)
+            if isinstance(current, dict):
+                deep_fill(current, defaults)
+            else:
+                mcp[server_name] = defaults
 
 custom_provider_models = parse_custom_provider_models(custom_provider_models_raw)
 custom_provider_delete_models = parse_custom_provider_delete_models(custom_provider_delete_models_raw)
@@ -2021,8 +2098,10 @@ prompt_mcp_install_if_needed
 if wants_mcp_install "$INSTALL_MCPS_VALUE"; then
   collect_mcp_api_keys
   prompt_gitnexus_install_if_needed
+  prompt_playwright_install_if_needed
 else
   INSTALL_GITNEXUS_VALUE="N"
+  INSTALL_PLAYWRIGHT_VALUE="N"
 fi
 
 section "Provider setup"
@@ -2041,6 +2120,11 @@ if wants_mcp_install "$INSTALL_MCPS_VALUE"; then
     log "   Optional servers: gitnexus"
   else
     log "   Optional servers: gitnexus (skipped)"
+  fi
+  if wants_mcp_install "$INSTALL_PLAYWRIGHT_VALUE"; then
+    log "   Optional servers: playwright"
+  else
+    log "   Optional servers: playwright (skipped)"
   fi
   log "   brave-search: $(api_key_status "$BRAVE_API_KEY_VALUE")"
   log "   context7: $(api_key_status "$CONTEXT7_API_KEY_VALUE")"

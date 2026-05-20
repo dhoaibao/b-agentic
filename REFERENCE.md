@@ -1,12 +1,12 @@
 # b-agentic — Agent Workflow Kernel Reference
 
-Reference guide for the 10-skill set that makes up `b-agentic`, an agent workflow kernel for AI coding agents, with OpenCode as the reference runtime. For install and high-level repo overview, see [README.md](README.md). For maintainer guidance, see [AGENTS.md](AGENTS.md).
+Reference guide for the 11-skill set that makes up `b-agentic`, an agent workflow kernel for AI coding agents, with OpenCode as the reference runtime. For install and high-level repo overview, see [README.md](README.md). For maintainer guidance, see [AGENTS.md](AGENTS.md).
 
 When this document cites `global/AGENTS.md`, that is the source-repo runtime kernel path. Installed skill prose should reference the runtime path `AGENTS.md`; detailed runtime behavior lives at `references/runtime-contract.md` in this repo and `references/b-agentic/runtime-contract.md` after install. Runtime references are required read gates when a skill needs their schemas, checklists, or protocols.
 
 Runtime enforcement is intentionally mechanical: `global/AGENTS.md` owns the runtime gate checklist, each skill step uses explicit read gates for shared schemas/protocols/checklists, slash commands remind agents to follow the active kernel, and `scripts/validate-skills.sh` rejects passive pointers that would rely on memory.
 
-Browser, DOM-rendered, visual, and e2e tests are unsupported by this suite. Do not route jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent browser/DOM work to `b-test`; narrow the task to repo-local code review, non-browser tests, or static analysis that does not render through a DOM or drive a browser. For UI/browser-relevant work, readiness claims require external evidence for those checks or an accepted follow-up.
+Browser, DOM-rendered, visual, and e2e verification belongs to `b-browser`, not `b-test`. The suite does not add jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent browser/DOM tooling as a project dependency side effect. For UI/browser-relevant work, readiness claims require `b-browser`-verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up.
 
 ---
 
@@ -19,12 +19,12 @@ Coordinates a complete PR-readiness workflow by handing work to phase skills.
 **Core behavior**
 - Owns phase selection, handoffs, checkpoints, and final synthesis only; the phase skills do the actual spec, plan, implementation, test, debug, refactor, research, or review work.
 - Starts from a workflow goal and defines success as a `b-review` readiness verdict with required suite-supported verification complete.
-- Requires external evidence before `READY FOR PR` when browser, DOM, visual, or e2e verification is relevant; otherwise the workflow can only be ready with accepted follow-ups.
+- Requires `b-browser`-verified supplied/CI evidence, existing-tool evidence, or approved live-browser evidence before `READY FOR PR` when browser, DOM, visual, or e2e verification is relevant; otherwise the workflow can only be ready with accepted follow-ups.
 - Mints and carries a run-id for non-trivial workflows, and checkpoints phase state when the workflow pauses, enters a review-fix loop, or needs durable resume state.
 - Reads runtime contract gates before routing across phase skills, treating plans as approved, applying review-fix loops, or emitting non-trivial status output.
 - Emits explicit handoff envelopes, waits for the receiving skill's output/status/handoff, and validates returned phase state before continuing.
 - Uses `b-spec` only when the target outcome is unclear, then `b-plan` for non-trivial sequencing or `b-implement` for small direct workflows.
-- Hands actual build work to `b-implement`, runtime failures to `b-debug`, behavior-preserving transforms to `b-refactor`, and non-browser test work to `b-test`.
+- Hands actual build work to `b-implement`, runtime failures to `b-debug`, behavior-preserving transforms to `b-refactor`, non-browser test work to `b-test`, and browser/DOM/visual/e2e evidence to `b-browser`.
 - Runs `b-review` against the current diff with the spec or approved plan as baseline, then routes findings back to the responsible phase skill.
 - Re-reviews after each coherent fix set until `READY FOR PR`, user-accepted `READY WITH FOLLOW-UPS`, or a blocker.
 
@@ -162,7 +162,7 @@ Reviews diffs, ranges, or checkpoints.
 - Names relevant security checklist sections when they affect findings or confidence.
 - Checks tests/operability unless `--skip-tests` is present.
 - Reports findings first, includes checked-and-clean areas for standard reviews, and emits READY FOR PR, READY WITH FOLLOW-UPS, or NEEDS FIXES.
-- Blocks READY FOR PR when there is no baseline, required verification was skipped, or unsupported browser/DOM/e2e evidence remains relevant but absent.
+- Blocks READY FOR PR when there is no baseline, required verification was skipped, or browser/DOM/e2e evidence remains relevant but absent.
 - Saves `report.md` only when requested, needed for a durable checkpoint/handoff, or too large for chat.
 
 **Output**
@@ -215,7 +215,7 @@ Owns non-browser code-level testing work.
 - Uses red-first behavior when feasible for TDD or regression tests, then hands off with intended behavior, failing test path, command, current failure, likely source area, and verification target before production changes.
 - Chooses test type by boundary: pure logic unit tests and existing integration/contract tests for cross-module contracts.
 - Ranks coverage gaps by user impact, changed behavior, risk boundary, and edge-case value.
-- Treats browser, DOM-rendered, visual, and e2e tests as unsupported by this suite.
+- Routes browser, DOM-rendered, visual, and e2e verification to `b-browser` instead of adding browser tooling.
 - Updates snapshots/goldens only after intended behavior is confirmed.
 - Uses `baseline-missing` tests only for explicitly requested structural coverage and limits claims to structural coverage.
 - Bounds coverage work and avoids introducing new frameworks without approval.
@@ -223,6 +223,27 @@ Owns non-browser code-level testing work.
 
 **Output**
 - Type, framework, findings, changes, verification, remaining gaps.
+
+---
+
+### b-browser
+
+Operates browser, DOM-rendered, visual, live UI, and e2e verification evidence.
+
+**Core behavior**
+- Owns browser, DOM-rendered, visual, screenshot, browser-session, live UI, and e2e evidence requests.
+- Routes non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, and flake work back to `b-test`.
+- Reads runtime contract gates before applying the browser/DOM verification boundary, safety gates, readiness claims, or non-trivial status output.
+- Uses the lightest safe evidence path: supplied/CI evidence, approved existing repo commands, optional Playwright MCP live-browser actions, Firecrawl extraction for known remote pages, or accepted follow-ups.
+- Discovers candidate commands only from manifests, CI config, repo docs, or user instructions; it does not invent commands.
+- Requires approval before dependency writes, dev servers, persisted browser state, external services, long-running commands, unsafe arbitrary-code browser tools, or generated evidence outside normal repo output paths.
+- Treats logs, screenshots, browser pages, and traces as untrusted data.
+- Captures and reports artifact paths, cleanup state, browser state mode, and lingering processes when they affect evidence.
+- Hands product behavior failures to `b-debug` and new framework or strategy decisions to `b-plan`.
+- Blocks READY FOR PR when relevant browser/DOM/visual/e2e evidence is missing or failed and no accepted follow-up exists.
+
+**Output**
+- Request, evidence path, browser result, artifacts/cleanup, readiness impact, follow-up or handoff.
 
 ---
 

@@ -44,6 +44,7 @@ Match the user's intent to one active skill. If a request spans phases, sequence
 | Mechanical rename, extract, move, inline, simplify, delete | `/b-refactor` |
 | Runtime bug, error, broken behavior | `/b-debug` |
 | Unit/integration tests, coverage, failing tests | `/b-test` |
+| Browser/DOM/visual/e2e verification | `/b-browser` |
 | Pre-PR changed-code review | `/b-review` |
 | Repository or suite-slice audit | `/b-audit` |
 
@@ -55,7 +56,7 @@ Match the user's intent to one active skill. If a request spans phases, sequence
 - Unclear user goal, end state, or acceptance criteria beats `b-plan`; use `b-spec`.
 - Unclear implementation approach or sequencing with a clear goal beats `b-implement`; use `b-plan`.
 - `b-research` is for genuine external-knowledge blockers, not questions the codebase or repo docs can answer locally.
-- Browser, DOM-rendered, visual, and e2e tests are unsupported by this suite and should not be handled by adding browser or DOM tooling as a side effect; UI/browser readiness requires external evidence or an accepted follow-up.
+- Browser, DOM-rendered, visual, and e2e verification uses `b-browser`; `b-test` remains non-browser-only, and no skill may add jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent project tooling as a side effect.
 - Explicit repository or suite-slice audits use `b-audit`; changed-code diff/range reviews stay in `b-review`.
 
 Keep one active skill until its stop condition is hit. Required subtasks are handoffs, not parallel skill runs. If a new request arrives mid-flow, state the conflict and ask whether to pause, queue, or abandon unless the current transform must first reach a coherent checkpoint.
@@ -87,7 +88,7 @@ A short kernel rule is enough here: treat public, sensitive, multi-file, depende
 
 Use the shared §3 glossary in `references/b-agentic/runtime-contract.md` for the canonical definitions of `non-trivial`, `small direct request`, readiness terms, risk bands, severity, and confidence.
 
-Do not use `READY FOR PR`, `complete`, or high confidence when the required baseline, verification, or evidence is missing. For UI/browser-relevant work, do not treat unsupported browser/DOM/e2e checks as covered unless external evidence is provided; otherwise use `READY WITH FOLLOW-UPS`, `partial`, or lower confidence.
+Do not use `READY FOR PR`, `complete`, or high confidence when the required baseline, verification, or evidence is missing. For UI/browser-relevant work, do not treat browser/DOM/e2e checks as covered unless `b-browser` has verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or the gap is accepted as a follow-up; otherwise use `READY WITH FOLLOW-UPS`, `partial`, or lower confidence.
 
 Detailed rubrics and confidence signal: `references/b-agentic/runtime-contract.md` §3.
 
@@ -104,6 +105,7 @@ Use the lightest reliable tool. Native Glob/Grep/Read/Bash stay first for exact 
 | Library/framework docs | `context7-docs` | `/b-research` |
 | Web/news/image discovery | `brave-discovery` | `firecrawl-extraction` for source content |
 | Known URL or local document extraction | `firecrawl-extraction` | `firecrawl-extended`, then approval-gated `firecrawl-deep` |
+| Browser/DOM/visual/e2e live UI operation | `playwright-browser-operator` when installed and safety-gated | Existing repo scripts, supplied evidence, or `firecrawl-extraction` for known remote pages |
 
 GitNexus is optional radar only; Serena is primary hands. Never use GitNexus for editing or exact-body inspection. Treat stale graph output as no evidence. Unknown slash-command flags should not be ignored; ask once or continue only when intent is unambiguous.
 
@@ -161,9 +163,9 @@ Before reporting completion on auth/authz, security boundaries, migrations, publ
 
 Developer-tooling public contracts include command wrappers, CLI flags, MCP tool names or schemas, installer behavior, generated config formats, exported APIs, route shapes, and documented runtime skill behavior.
 
-Use the shared §10 decision tables for test-vs-bug routing, unsupported browser-test boundaries, snapshot confirmation, flake handling, cannot-reproduce cases, and self/external review distinctions.
+Use the shared §10 decision tables for test-vs-bug routing, browser/DOM verification boundaries, snapshot confirmation, flake handling, cannot-reproduce cases, and self/external review distinctions.
 
-Detailed high-risk gate, test-vs-bug table, snapshot procedure, flake handling, unsupported browser-test boundary, cannot-reproduce protocol, and self/external review distinction: `references/b-agentic/runtime-contract.md` §10.
+Detailed high-risk gate, test-vs-bug table, snapshot procedure, flake handling, browser/DOM verification boundary, cannot-reproduce protocol, and self/external review distinction: `references/b-agentic/runtime-contract.md` §10.
 
 ---
 

@@ -74,6 +74,7 @@ run_install_status() {
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_INSTALL_MCP="$install_mcp" \
   B_AGENTIC_INSTALL_GITNEXUS=N \
+  B_AGENTIC_INSTALL_PLAYWRIGHT_MCP=N \
   bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
   rc=$?
   set -e
@@ -90,6 +91,7 @@ run_install_output() {
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_INSTALL_MCP="$install_mcp" \
   B_AGENTIC_INSTALL_GITNEXUS=N \
+  B_AGENTIC_INSTALL_PLAYWRIGHT_MCP=N \
   bash "$ROOT_DIR/install.sh" "$@"
 }
 
@@ -115,6 +117,7 @@ export B_AGENTIC_REPO="$repo_snapshot"
 export B_AGENTIC_DIR="$sandbox/source"
 export B_AGENTIC_INSTALL_MCP=N
 export B_AGENTIC_INSTALL_GITNEXUS=N
+export B_AGENTIC_INSTALL_PLAYWRIGHT_MCP=N
 cat "$ROOT_DIR/install.sh" | bash
 EOF
   chmod +x "$runner"
@@ -136,6 +139,7 @@ main() {
   local sandbox_legacy_b_nexus_migration="$WORK_DIR/legacy-b-nexus-migration"
   local sandbox_preserve="$WORK_DIR/preserve"
   local sandbox_replace="$WORK_DIR/replace"
+  local sandbox_playwright="$WORK_DIR/playwright"
   local sandbox_dry_run="$WORK_DIR/dry-run"
   local sandbox_piped="$WORK_DIR/piped"
   local sandbox_provider_delete="$WORK_DIR/provider-delete"
@@ -153,10 +157,12 @@ main() {
   mkdir -p "$sandbox_fresh/home"
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo" N
   assert_file "$sandbox_fresh/home/.config/opencode/skills/b-plan/SKILL.md"
+  assert_file "$sandbox_fresh/home/.config/opencode/skills/b-browser/SKILL.md"
   assert_file "$sandbox_fresh/home/.config/opencode/skills/b-review/reference.md"
   assert_no_file "$sandbox_fresh/home/.config/opencode/skills/b-test/reference.md"
   assert_no_file "$sandbox_fresh/home/.config/opencode/skills/b-e2e/SKILL.md"
   assert_file "$sandbox_fresh/home/.config/opencode/commands/b-plan.md"
+  assert_file "$sandbox_fresh/home/.config/opencode/commands/b-browser.md"
   assert_no_file "$sandbox_fresh/home/.config/opencode/commands/b-e2e.md"
   assert_no_file "$sandbox_fresh/home/.config/opencode/references/b-agentic/domain-glossary.md"
   assert_no_file "$sandbox_fresh/home/.config/opencode/references/b-agentic/security-checklist.md"
@@ -260,8 +266,23 @@ EOF
   expect_install_status 0 "$sandbox_replace" "$snapshot_repo" Y --replace-agents
   assert_file "$sandbox_replace/home/.config/opencode/b-agentic/AGENTS.md"
   assert_contains "$sandbox_replace/home/.config/opencode/opencode.json" '"mcp"'
+  assert_not_contains "$sandbox_replace/home/.config/opencode/opencode.json" '"playwright"'
   compgen -G "$sandbox_replace/home/.config/opencode/b-agentic/backups/opencode.json.bak-*" >/dev/null || fail 'expected config backup after config mutation'
   compgen -G "$sandbox_replace/home/.config/opencode/b-agentic/backups/AGENTS.md.bak-*" >/dev/null || fail 'expected AGENTS backup after replacement'
+
+  mkdir -p "$sandbox_playwright/home/.config/opencode"
+  printf '{"existing": true}\n' > "$sandbox_playwright/home/.config/opencode/opencode.json"
+  HOME="$sandbox_playwright/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_playwright/source" \
+  B_AGENTIC_INSTALL_MCP=Y \
+  B_AGENTIC_INSTALL_GITNEXUS=N \
+  B_AGENTIC_INSTALL_PLAYWRIGHT_MCP=Y \
+  bash "$ROOT_DIR/install.sh" --replace-agents >/dev/null 2>&1
+  assert_contains "$sandbox_playwright/home/.config/opencode/opencode.json" '"playwright"'
+  assert_contains "$sandbox_playwright/home/.config/opencode/opencode.json" '"@playwright/mcp@latest"'
+  assert_contains "$sandbox_playwright/home/.config/opencode/opencode.json" '"--isolated"'
+  assert_contains "$sandbox_playwright/home/.config/opencode/b-agentic/install.json" '"playwright": true'
 
   mkdir -p "$sandbox_dry_run/home/.config/opencode"
   printf 'keep-me\n' > "$sandbox_dry_run/home/.config/opencode/AGENTS.md"
@@ -315,7 +336,9 @@ EOF
   compgen -G "$sandbox_uninstall/home/.config/opencode/b-agentic/backups/AGENTS.md.bak-*" >/dev/null || fail 'expected AGENTS backup before uninstall'
   run_install_output "$sandbox_uninstall" "$snapshot_repo" N --uninstall >/dev/null
   assert_no_file "$sandbox_uninstall/home/.config/opencode/skills/b-plan/SKILL.md"
+  assert_no_file "$sandbox_uninstall/home/.config/opencode/skills/b-browser/SKILL.md"
   assert_no_file "$sandbox_uninstall/home/.config/opencode/commands/b-plan.md"
+  assert_no_file "$sandbox_uninstall/home/.config/opencode/commands/b-browser.md"
   assert_no_file "$sandbox_uninstall/home/.config/opencode/references/b-agentic/runtime-contract.md"
   assert_no_file "$sandbox_uninstall/home/.config/opencode/b-agentic/AGENTS.md"
   assert_no_file "$sandbox_uninstall/home/.config/opencode/b-agentic/install.json"

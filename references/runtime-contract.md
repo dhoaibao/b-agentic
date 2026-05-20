@@ -16,7 +16,7 @@ References to this contract and to other `references/b-agentic/*.md` files are m
 
 Runtime-critical gates are the points where missed instructions most often create incorrect behavior. Skill files must expose these as explicit read-before-use actions at the step that needs them, not as passive pointers at the end of the file.
 
-- **Routing gate (§1, §10):** before acting on overlapping intents, switching skills, test-vs-bug decisions, or unsupported browser/DOM boundaries.
+- **Routing gate (§1, §10):** before acting on overlapping intents, switching skills, test-vs-bug decisions, or browser/DOM verification boundaries.
 - **Source-of-truth gate (§2):** before executing saved or chat plans, checking plan metadata, applying staleness rules, or revising approved plans.
 - **Risk/readiness gate (§3):** before classifying non-trivial work, risk, readiness, severity, or confidence.
 - **Tool/evidence gate (§4, §5):** before using MCP bundles, web extraction, citations, freshness labels, or degraded evidence.
@@ -68,6 +68,7 @@ Match the user's intent to one active skill before acting. If a request spans ph
 | Mechanical rename, extract, move, inline, simplify, delete | `/b-refactor` |
 | Runtime bug, error, "not working" | `/b-debug` |
 | Unit/integration tests, coverage, failing tests | `/b-test` |
+| Browser/DOM/visual/e2e verification | `/b-browser` |
 | Pre-PR changed-code review | `/b-review` |
 | Repository or suite-slice audit | `/b-audit` |
 
@@ -79,7 +80,7 @@ Match the user's intent to one active skill before acting. If a request spans ph
 - Unclear user goal, end state, or acceptance criteria beats `b-plan`; use `b-spec`.
 - Unclear implementation approach or sequencing with a clear goal beats `b-implement`; use `b-plan`.
 - `b-research` is for genuine external-knowledge blockers, not for questions the codebase or repo docs can answer locally.
-- Browser, DOM-rendered, visual, and e2e tests are unsupported by this suite and must not trigger adding jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent tooling as a side effect. UI/browser readiness requires external evidence or an accepted follow-up.
+- Browser, DOM-rendered, visual, and e2e verification routes to `b-browser`; `b-test` remains non-browser-only, and no skill may add jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent tooling as a side effect.
 - Explicit repository or suite-slice audits use `b-audit`; changed-code diff/range reviews stay in `b-review`.
 
 ### One active skill
@@ -111,6 +112,7 @@ Match intent regardless of language. The phrases below are routing aids only; do
 | `/b-refactor` | rename, extract, move, inline, simplify, delete, cleanup | đổi tên, tách, di chuyển, đơn giản hóa, xoá, dọn dẹp |
 | `/b-debug` | bug, broken, error, stack trace, "not working", regression | lỗi, hỏng, không chạy, sai, truy vết |
 | `/b-test` | tests, coverage, failing test, snapshot, mock | kiểm thử, viết test, độ bao phủ, mock |
+| `/b-browser` | browser, DOM, e2e, visual, screenshot, Playwright, Cypress, jsdom | trình duyệt, DOM, e2e, kiểm thử giao diện, ảnh chụp |
 | `/b-review` | review, PR, lint, pre-PR, "what would a reviewer" | rà soát, review, kiểm tra trước PR |
 | `/b-audit` | audit, repo audit, suite audit, maintainer audit | audit, kiểm toán, rà soát repo, kiểm tra bộ skill |
 
@@ -221,7 +223,7 @@ Use these terms consistently across skills:
 - **Partial** means useful progress or artifacts exist, but completion criteria are not satisfied.
 - **Ready** means no known blockers remain within the reviewed or implemented scope; it does not imply unreviewed surfaces are safe.
 
-Do not use `READY FOR PR`, `complete`, or high confidence when the required baseline, verification, or evidence is missing. For UI/browser-relevant work, unsupported browser/DOM/e2e checks are not covered by this suite; use external evidence or report `READY WITH FOLLOW-UPS`, `partial`, or a lower confidence label instead.
+Do not use `READY FOR PR`, `complete`, or high confidence when the required baseline, verification, or evidence is missing. For UI/browser-relevant work, browser/DOM/e2e checks are covered only by `b-browser`-verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up; otherwise use `READY WITH FOLLOW-UPS`, `partial`, or a lower confidence label.
 
 ### Severity rubric (`/b-review`, `/b-debug`, any finding)
 
@@ -271,6 +273,7 @@ Use the lightest reliable tool. Native Glob/Grep/Read/Bash stay first for exact 
 | Web/news/image discovery and unknown-URL source shortlisting | `brave-discovery` | `firecrawl-extraction` for source content |
 | Known URL extraction | `firecrawl-extraction` | `firecrawl-extended`, then `firecrawl-deep` (approval) |
 | Local document extraction | `firecrawl-extraction` (`firecrawl_parse`) | `firecrawl-extraction` (`firecrawl_scrape`) only if already hosted |
+| Browser/DOM/visual/e2e live UI operation | `playwright-browser-operator` when installed and safety-gated | Existing repo scripts, supplied evidence, or `firecrawl-extraction` for known remote pages |
 
 ### Radar/hands boundary
 
@@ -340,6 +343,15 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 - **Tools:** `firecrawl_interact`, `firecrawl_agent`.
 - **Cost warning:** can run for minutes and burn substantial credit. Exhaust lower tiers, then get approval per invocation by default. A user may grant a run-scoped, capped pre-authorization in lieu of per-invocation asks; see "Tool-use heuristics" in this section for the exact rules.
 
+#### `playwright-browser-operator` (optional live-browser tier)
+
+- **Server:** `playwright`.
+- **Install source:** optional installer-managed OpenCode MCP config using `npx -y @playwright/mcp@latest --isolated`.
+- **Use only from:** `b-browser`, unless the user explicitly invokes another skill and that skill hands off to `b-browser` for browser evidence.
+- **Use for:** live page navigation, accessibility snapshots, clicks, typing, form fills, screenshots, tabs, dialogs, console/network inspection, and storage-state assessment when browser/DOM/visual/e2e evidence cannot be satisfied by supplied evidence or existing repo scripts.
+- **Default posture:** prefer accessibility snapshots and ordinary browser actions over arbitrary code execution. Do not use unsafe arbitrary-code tools such as `browser_run_code_unsafe` in the default workflow; require explicit approval, a trusted target, and a reason ordinary actions cannot answer the question.
+- **State safety:** use ephemeral state by default. Persisted profile, cookie, localStorage, or storage-state reuse requires §6 approval, and real auth/session state must never be stored under a tracked worktree path.
+
 ### MCP availability and fallback ladder
 
 Assume bundles are available; do not preflight. On failure, retry once narrower, then fall back and label the limitation.
@@ -351,6 +363,7 @@ Assume bundles are available; do not preflight. On failure, retry once narrower,
 - `firecrawl-extraction` unavailable on a known URL → search snippets only; mark the answer as snippet-only with `Confidence: low`.
 - `firecrawl-extraction` unavailable on a local plain-text, Markdown, or HTML document → use native local reads and exact local tools.
 - `firecrawl-extraction` unavailable on a local PDF, spreadsheet, DOCX, or other rich binary → stop with `[degraded: firecrawl-extraction unavailable]`; do not infer substance from filenames or metadata alone.
+- `playwright-browser-operator` unavailable → use supplied evidence, existing repo-provided browser/DOM/visual/e2e commands, or known-URL Firecrawl extraction when that can answer the browser evidence question; otherwise label `[degraded: playwright-browser-operator unavailable]` or stop with `cause: tool_unavailable` when no approved evidence path exists.
 
 ### Fallback labeling
 
@@ -669,7 +682,7 @@ When the expected input is missing, do not silently fall back; ask once with a c
 - Changed-code review with untracked files → include them from current contents for current-worktree reviews, or state they are excluded when reviewing an explicit commit/range.
 - No approved plan → check if the request meets the small-direct-request threshold (§3); otherwise route to `/b-plan`.
 - No test framework in the repo → ask before adding one; never introduce a framework as a side effect.
-- Browser or DOM test request → unsupported by this suite; do not add jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent tooling as a side effect.
+- Browser or DOM verification request → route to `/b-browser`; do not add jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent tooling as a side effect.
 - No MCP for the requested bundle → see the fallback ladder (§4) and label the run as `[degraded: <bundle> unavailable]`.
 
 ### Generated artifact provenance
@@ -853,7 +866,7 @@ When `state: blocked`, the `cause` field uses one of these canonical classes so 
 | `policy_block` | Action was refused by a safety gate (§6) without approval. |
 | `evidence_gap` | Required evidence (test, repro, baseline) is missing and cannot be synthesized. |
 | `conflict` | Approved plan conflicts with current repo state or another active artifact. |
-| `unsupported` | The request is outside the suite's capability (e.g., browser, DOM, visual, or e2e testing). |
+| `unsupported` | The request is outside the suite's capability or approved evidence path (e.g., adding unavailable browser/DOM tooling as a side effect). |
 
 A single `cause` per status block. If multiple classes apply, pick the one the user can act on first; mention the others in `blockers`.
 
@@ -942,12 +955,13 @@ Never modify production code purely because a test is red. Never modify an asser
 
 Rerun the suspected test up to 2 times in isolation. If it passes some runs and fails others without any code change, mark it `flaky`, capture the failing output under `/tmp/opencode/b-agentic/b-test/`, and investigate ordering, shared state, async timing, or external time/network dependence before either skipping or rewriting it.
 
-### Unsupported browser and DOM testing boundary
+### Browser and DOM verification boundary
 
-- jsdom, happy-dom, React Testing Library, Vue Test Utils, Svelte testing-library, Playwright, Cypress, WebdriverIO, Puppeteer, and any test that renders UI through a DOM or drives a real browser → unsupported by this suite.
-- Visual, screenshot, browser-cookie, browser-session, real-network UI, and e2e flows are unsupported by this suite.
-- Stop with `cause: unsupported` when this is the requested work, unless the user narrows the task to repo-local code review, non-browser tests, or static analysis that does not render through a DOM or drive a browser.
-- If browser, DOM, visual, or e2e evidence is relevant to PR readiness, do not report `READY FOR PR` until that evidence is supplied externally. If the user accepts the gap as a follow-up or skipped check, report `READY WITH FOLLOW-UPS` instead.
+- jsdom, happy-dom, React Testing Library, Vue Test Utils, Svelte testing-library, Playwright, Cypress, WebdriverIO, Puppeteer, and any test that renders UI through a DOM or drives a real browser → route to `b-browser`, not `b-test`.
+- Visual, screenshot, browser-cookie, browser-session, real-network UI, and e2e flows are `b-browser` evidence surfaces.
+- Do not add browser, DOM, visual, or e2e project tooling as a side effect. Adding or choosing a new framework requires `b-plan` first, then explicit dependency-write approval when implementation reaches that point.
+- `b-browser` may assess supplied/CI evidence, run existing repo-provided commands, or use `playwright-browser-operator` after the §6 safety gates allow it. If no approved evidence path exists, stop with `cause: evidence_gap` or report an accepted follow-up.
+- If browser, DOM, visual, or e2e evidence is relevant to PR readiness, do not report `READY FOR PR` until `b-browser` verifies supplied/CI evidence, existing-tool evidence, or approved live-browser evidence. If the user accepts the gap as a follow-up or skipped check, report `READY WITH FOLLOW-UPS` instead.
 
 ### Agent-cannot-reproduce protocol (shared across `b-debug` and `b-test`)
 
@@ -998,7 +1012,7 @@ When the user can reproduce a symptom but the agent cannot in the current enviro
 - Debug and test skills share the test data lifecycle rule in §7.
 - Skills must not redefine any of the items below. Reference the canonical section instead.
   - **Rubrics (§3):** severity, risk, "non-trivial", "small direct request", confidence signal.
-  - **Routing (§1, §10):** test-vs-bug decision, unsupported browser/DOM test boundary, self/external review boundary.
+  - **Routing (§1, §10):** test-vs-bug decision, browser/DOM verification boundary, self/external review boundary.
   - **Protocols (§5, §6, §7, §10):** citation provenance, privacy gate, onboarding rule, patch discipline, iteration cap, transform rollback, cascading failures, agent-cannot-reproduce protocol, completion contract, snapshot confirmation, flake handling.
   - **Schemas (§8, §9):** run-id format, slug algorithm, artifact paths, manifest schema, status block, handoff envelope, output verbosity caps.
   - **Anti-patterns (§12):** common rationalizations table — skills reference it; they do not maintain their own copies.

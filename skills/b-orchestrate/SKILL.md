@@ -36,7 +36,7 @@ If `$ARGUMENTS` is present, treat it as the workflow goal plus any explicit cons
 ## Tools required
 
 - Native tools - inspect status, diffs, docs, and verification commands.
-- Phase skills - **b-spec**, **b-plan**, **b-implement**, **b-test**, **b-review**, plus **b-debug**, **b-refactor**, and **b-research** when a phase routes there. These skills receive the actual work; `b-orchestrate` only coordinates their handoffs and results.
+- Phase skills - **b-spec**, **b-plan**, **b-implement**, **b-test**, **b-browser**, **b-review**, plus **b-debug**, **b-refactor**, and **b-research** when a phase routes there. These skills receive the actual work; `b-orchestrate` only coordinates their handoffs and results.
 - `serena-symbol-toolkit` *(optional, through the active phase skill when symbol work matters)*
 - `gitnexus-radar` *(optional, through the active phase skill for graph-shaped risk)*
 
@@ -46,7 +46,7 @@ If required tools are unavailable, read `references/b-agentic/runtime-contract.m
 
 ### Step 1 - Start the workflow
 
-Run `git status --short`, name the source of truth, and define success as a **b-review** verdict of **READY FOR PR** with required verification complete for suite-supported scope. If UI/browser-relevant work needs browser, DOM, visual, or e2e evidence, require external evidence before **READY FOR PR**; if the user explicitly accepts skipped checks or follow-ups, success may be **READY WITH FOLLOW-UPS** instead.
+Run `git status --short`, name the source of truth, and define success as a **b-review** verdict of **READY FOR PR** with required verification complete for suite-supported scope. If UI/browser-relevant work needs browser, DOM, visual, or e2e evidence, require **b-browser**-verified evidence from supplied/CI evidence, existing repo tooling, or approved live-browser operation before **READY FOR PR**; if the user explicitly accepts skipped checks or follow-ups, success may be **READY WITH FOLLOW-UPS** instead.
 
 For non-trivial workflows, read `references/b-agentic/runtime-contract.md` §8, mint a run-id, and checkpoint phase state when the workflow pauses or needs durable resume state.
 
@@ -74,7 +74,7 @@ After each build phase, require the phase skill's verification result before con
 
 ### Step 5 - Route test coverage work
 
-Hand off to **b-test** when changed behavior needs non-browser unit, integration, or contract coverage, when the user requested tests, or when review confidence depends on tests. Skip this phase when the change is docs-only, tests are explicitly skipped, or only browser/DOM/e2e tooling would satisfy the request; in that case, record the unsupported verification gap instead of treating it as covered.
+Hand off to **b-test** when changed behavior needs non-browser unit, integration, or contract coverage, when the user requested tests, or when review confidence depends on tests. Hand off to **b-browser** when browser, DOM-rendered, visual, screenshot, browser-session, live UI, or e2e evidence is required. Skip this phase when the change is docs-only or tests are explicitly skipped; record any accepted browser follow-up instead of treating it as covered.
 
 If **b-test** finds likely product behavior failure, route to **b-debug** before changing assertions, snapshots, or fixtures.
 
@@ -85,6 +85,7 @@ Hand off to **b-review** against the current diff with the spec or approved plan
 - Implementation gap -> **b-implement**.
 - Runtime behavior failure -> **b-debug**.
 - Test-only gap or harness failure -> **b-test**.
+- Browser/DOM/visual/e2e evidence gap -> **b-browser**.
 - Concrete behavior-preserving transform, including simplify -> **b-refactor**.
 - New product decision or broad redesign -> **b-spec** or **b-plan**.
 
@@ -92,7 +93,7 @@ Read `references/b-agentic/runtime-contract.md` §7 before applying the review-f
 
 ### Step 7 - Close the workflow
 
-Read `references/b-agentic/runtime-contract.md` §9 before reporting non-trivial workflow status or handing off unresolved work. Report the final review verdict, verification run, skipped checks, blockers, and remaining follow-ups. Do not claim **READY FOR PR** when the review had no baseline, required verification was skipped, or unsupported browser/DOM/e2e evidence remains relevant but absent.
+Read `references/b-agentic/runtime-contract.md` §9 before reporting non-trivial workflow status or handing off unresolved work. Report the final review verdict, verification run, skipped checks, blockers, and remaining follow-ups. Do not claim **READY FOR PR** when the review had no baseline, required verification was skipped, or browser/DOM/e2e evidence remains relevant but absent.
 
 ## Output format
 
@@ -110,5 +111,5 @@ Read `references/b-agentic/runtime-contract.md` §9 before closing a non-trivial
 - Preserve unrelated worktree changes and stop on direct conflicts.
 - Keep review fixes scoped to findings or approved follow-up decisions.
 - Do not add browser, DOM-rendered, visual, or e2e test tooling as part of the optional test phase.
-- Do not treat unsupported browser, DOM, visual, or e2e checks as covered by this suite.
+- Do not treat browser, DOM, visual, or e2e checks as covered without **b-browser**-verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up.
 - Do not commit unless explicitly asked.

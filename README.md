@@ -2,11 +2,11 @@
 
 **An agent workflow kernel for AI coding agents, with OpenCode as the reference runtime.**
 
-`b-agentic` is a lean 10-skill agent workflow suite that turns rough developer intent into disciplined loops: clarify, plan, build, test, debug, review, and audit. It is optimized around scoped execution, Serena-backed symbol work, optional GitNexus graph radar, and explicit safety rules when work crosses risky boundaries.
+`b-agentic` is a lean 11-skill agent workflow suite that turns rough developer intent into disciplined loops: clarify, plan, build, test, browser verification, debug, review, and audit. It is optimized around scoped execution, Serena-backed symbol work, optional GitNexus graph radar, and explicit safety rules when work crosses risky boundaries.
 
 Think of it as the coordination layer between user intent, agent skills, repo evidence, MCP tools, verification, and handoffs.
 
-Browser, DOM-rendered, visual, and e2e tests are intentionally unsupported. The suite handles non-browser unit, integration, and contract tests, but it does not add or drive jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent browser/DOM tooling. For UI/browser-relevant work, readiness claims require external evidence for those checks or an accepted follow-up.
+Browser, DOM-rendered, visual, and e2e verification is isolated in `/b-browser`. The suite handles non-browser unit, integration, and contract tests in `/b-test`, and it does not add jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent browser/DOM tooling as a project dependency side effect. For UI/browser-relevant work, readiness claims require `/b-browser`-verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up.
 
 ## Install & Update
 
@@ -32,6 +32,11 @@ The installer deploys this source repo into OpenCode's global config:
 - `references/` -> `~/.config/opencode/references/b-agentic/`
 - `global/AGENTS.md` -> `~/.config/opencode/b-agentic/AGENTS.md`
 - `global/AGENTS.md` -> `~/.config/opencode/AGENTS.md` only when missing or approved
+
+Optional MCP config can be installed by setting environment variables before running the installer:
+- `B_AGENTIC_INSTALL_MCP=Y` merges core MCP defaults: Serena, Context7, Brave Search, and Firecrawl.
+- `B_AGENTIC_INSTALL_GITNEXUS=Y` adds optional GitNexus graph radar when core MCP defaults are enabled.
+- `B_AGENTIC_INSTALL_PLAYWRIGHT_MCP=Y` adds optional Playwright MCP for `/b-browser` live UI automation when core MCP defaults are enabled.
 
 If an existing `~/.config/opencode/AGENTS.md` is preserved, the installer exits with `activationState: pending`. In that state the files are present, but the runtime gate checklist, explicit read gates, and status/handoff rules may not be active until you rerun with `--replace-agents` or merge the snapshot manually.
 
@@ -64,6 +69,7 @@ This repository is an install-only source layout. OpenCode does not load the che
 | `/b-refactor` | Build | Execute concrete behavior-preserving transforms: rename, extract, move, inline, simplify, or delete |
 | `/b-debug` | Validate | Confirm runtime root cause, apply approved containment when urgent, fix minimally, verify, and remove probes |
 | `/b-test` | Validate | Write non-browser unit/integration/contract tests, fix test-only failures, evaluate coverage gaps, and route product bugs out of the test lane |
+| `/b-browser` | Validate | Operate browser, DOM-rendered, visual, screenshot, browser-session, live UI, and e2e evidence through supplied/CI evidence, existing repo tooling, optional Playwright MCP live-browser actions, Firecrawl extraction, or accepted follow-ups |
 | `/b-review` | Validate | Review changed-code diffs, ranges, checkpoints, and in-scope untracked files for blockers, regressions, security, and coverage |
 | `/b-audit` | Validate | Audit named repository or suite surfaces for systemic risk, sampled coverage, and residual risk |
 
@@ -72,6 +78,7 @@ Typical flow:
 ```text
 /b-orchestrate [feature/fix request]  # full PR-readiness workflow
 /b-spec [rough idea] -> /b-plan [scoped task] -> approve plan -> /b-implement -> /b-test -> /b-review
+/b-browser [UI/e2e verification]  # browser/DOM/visual/e2e evidence, live UI operation, or follow-up
 /b-research [question]  # external docs, API facts, comparisons, or recent information
 /b-debug [symptom]      # runtime bugs, errors, broken behavior, slow paths
 /b-refactor [target]    # mechanical behavior-preserving transforms

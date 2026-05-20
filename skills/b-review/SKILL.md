@@ -73,7 +73,7 @@ Use diagnostics or narrow commands only when review confidence depends on runtim
 
 Read `references/b-agentic/runtime-contract.md` §3 and §9 before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
 
-Verdicts: **READY FOR PR**, **READY WITH FOLLOW-UPS**, or **NEEDS FIXES**. Do not use **READY FOR PR** when the review has no baseline, required verification was skipped, or unsupported browser/DOM/e2e evidence remains relevant but absent; use **READY WITH FOLLOW-UPS** or **NEEDS FIXES** instead.
+Verdicts: **READY FOR PR**, **READY WITH FOLLOW-UPS**, or **NEEDS FIXES**. Do not use **READY FOR PR** when the review has no baseline, required verification was skipped, or browser/DOM/e2e evidence remains relevant but absent; **b-browser**-verified supplied/CI evidence, existing-tool evidence, or approved live-browser evidence can satisfy that browser evidence requirement.
 
 If external knowledge is required, resolve one narrow docs lookup inline or hand off to **b-research**.
 

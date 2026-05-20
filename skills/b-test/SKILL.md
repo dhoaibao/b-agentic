@@ -6,7 +6,7 @@ description: >
   evaluate coverage, or work TDD-style. Unlike b-debug, which traces runtime
   bugs, b-test owns non-browser test-specific failures: wrong assertions,
   missing mocks, fixture or setup issues, and coverage gaps. Browser, DOM,
-  visual, and e2e tests are unsupported by this suite.
+  visual, and e2e verification belongs to b-browser.
 compatibility: opencode
 metadata:
   suite: b-agentic
@@ -27,7 +27,7 @@ Own non-browser code-level tests: add coverage, fix test-only failures, and avoi
 ## When NOT to use
 
 - The failing test likely exposes real runtime behavior -> use **b-debug**.
-- The task renders through a DOM, drives a browser, performs visual testing, or runs e2e/browser-only tooling -> unsupported by this suite; stop rather than adding browser or DOM tooling.
+- The task renders through a DOM, drives a browser, performs visual testing, or runs e2e/browser-only tooling -> use **b-browser**; stop rather than adding browser or DOM tooling.
 - Scope, acceptance, or intended behavior is unclear -> use **b-spec** or **b-debug** per the global test-vs-bug decision.
 - The task is pre-PR logic review -> use **b-review**.
 - The task needs a new test strategy/framework -> use **b-plan** first.
@@ -56,7 +56,7 @@ Read `references/b-agentic/runtime-contract.md` §10 before applying the test-vs
 - **Coverage review:** rank missing tests by user impact, changed behavior, risk boundary, and edge-case value; add only the requested/highest-value gaps.
 - **Flaky test:** read `references/b-agentic/runtime-contract.md` §10 before applying flake handling, rewriting, or skipping.
 
-Choose test type by the behavior boundary: pure logic gets unit tests, and cross-module contracts get integration or contract tests if the repo already has them. Browser, DOM-rendered, visual, and e2e behavior is unsupported by this suite; stop rather than adding browser or DOM tooling.
+Choose test type by the behavior boundary: pure logic gets unit tests, and cross-module contracts get integration or contract tests if the repo already has them. Browser, DOM-rendered, visual, and e2e behavior belongs to **b-browser**; stop rather than adding browser or DOM tooling.
 
 If product behavior is uncertain, hand off to **b-debug**.
 
@@ -87,7 +87,7 @@ Read `references/b-agentic/runtime-contract.md` §9 before closing a non-trivial
 - Never change production code just because a test is red.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
 - Add `baseline-missing` tests only when the user explicitly asks for structural coverage; otherwise stop or hand off before writing them.
-- Browser, DOM-rendered, visual, and e2e tests are unsupported by this suite; do not add browser or DOM tooling as a side effect.
+- Browser, DOM-rendered, visual, and e2e verification belongs to **b-browser**; do not add browser or DOM tooling as a side effect.
 - Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without approval.
 - Keep fixture and mock changes local when practical.
 - Read `references/b-agentic/runtime-contract.md` §6 before manual patches and §7 before applying the verification ladder or iteration cap.

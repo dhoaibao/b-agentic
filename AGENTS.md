@@ -155,7 +155,7 @@ Graceful degradation: [✅ Possible / ⚠️ Partial / ❌ Not possible] — [br
 - [Bullet list of constraints and guardrails. Do NOT restate severity,
   risk, iteration cap, privacy gate, onboarding rule, confidence signal,
   run-id format, artifact paths, slug algorithm, status block, handoff
-  envelope, manifest schema, test-vs-bug decision, unsupported browser/DOM test boundary,
+  envelope, manifest schema, test-vs-bug decision, browser/DOM verification boundary,
   or canonical approval ask — those live in AGENTS.md and skills
   reference them.]
 ```
@@ -251,6 +251,6 @@ Before merging any skill file change, verify:
 6. **Suite validator passes** — run `scripts/validate-skills.sh` before installing or committing skill changes
 7. **No avoidable churn** — steps should not force repeated Serena preflights, optional MCP escalation, or skill switches when the current skill can complete with bounded evidence
 8. **Token hygiene preserved** — skill edits should keep MCP bundles lazy, use body-last Serena guidance, classify privacy before extraction, prefer structured extraction for specific data, and shape large command output at the source instead of adding broad full-context reads.
-9. **No duplicated global concepts** — slug algorithm, status block, handoff envelope, manifest schema, saved-report defaults, approval ask, fallback labeling, tool-use heuristics, empty-state defaults, plan staleness gates, workspace isolation preference, review checkpoint cadence, completion closure protocol, and the unsupported browser/DOM test boundary all live in `global/AGENTS.md` or `references/runtime-contract.md`. Skills reference them; they do not restate them.
+9. **No duplicated global concepts** — slug algorithm, status block, handoff envelope, manifest schema, saved-report defaults, approval ask, fallback labeling, tool-use heuristics, empty-state defaults, plan staleness gates, workspace isolation preference, review checkpoint cadence, completion closure protocol, and the browser/DOM verification boundary all live in `global/AGENTS.md` or `references/runtime-contract.md`. Skills reference them; they do not restate them.
 10. **Reference gates preserved** — if a skill step requires a shared schema, checklist, protocol, or output shape, it must tell the agent to read the named section/file before applying it, without copying the full global rule into the skill.
 11. **Runtime enforcement preserved** — `global/AGENTS.md` keeps the runtime gate checklist, skill steps keep explicit read gates at the point of use, command wrappers mention the active runtime kernel, and `scripts/validate-skills.sh` rejects stale passive pointers.
