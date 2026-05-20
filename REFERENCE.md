@@ -14,14 +14,15 @@ Browser, DOM-rendered, visual, and e2e tests are unsupported by this suite. Do n
 
 ### b-orchestrate
 
-Coordinates a complete PR-readiness workflow across phase skills.
+Coordinates a complete PR-readiness workflow by handing work to phase skills.
 
 **Core behavior**
+- Owns phase selection, handoffs, checkpoints, and final synthesis only; the phase skills do the actual spec, plan, implementation, test, debug, refactor, research, or review work.
 - Starts from a workflow goal and defines success as a `b-review` readiness verdict with required suite-supported verification complete.
 - Requires external evidence before `READY FOR PR` when browser, DOM, visual, or e2e verification is relevant; otherwise the workflow can only be ready with accepted follow-ups.
 - Mints and carries a run-id for non-trivial workflows, and checkpoints phase state when the workflow pauses, enters a review-fix loop, or needs durable resume state.
 - Reads runtime contract gates before routing across phase skills, treating plans as approved, applying review-fix loops, or emitting non-trivial status output.
-- Uses `b-spec` only when the target outcome is unclear, then `b-plan` for non-trivial sequencing or a short execution outline for small direct workflows.
+- Uses `b-spec` only when the target outcome is unclear, then `b-plan` for non-trivial sequencing or `b-implement` for small direct workflows.
 - Hands actual build work to `b-implement`, runtime failures to `b-debug`, behavior-preserving transforms to `b-refactor`, and non-browser test work to `b-test`.
 - Runs `b-review` against the current diff with the spec or approved plan as baseline, then routes findings back to the responsible phase skill.
 - Re-reviews after each coherent fix set until `READY FOR PR`, user-accepted `READY WITH FOLLOW-UPS`, or a blocker.

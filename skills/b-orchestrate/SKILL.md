@@ -15,7 +15,7 @@ metadata:
 
 $ARGUMENTS
 
-Coordinate a complete PR-readiness workflow across the phase skills. The phase owner still does the actual spec, plan, implementation, test, debug, refactor, or review work.
+Coordinate a complete PR-readiness workflow across the phase skills. `b-orchestrate` owns phase selection, handoffs, checkpoints, and final synthesis only; the phase owner does the actual spec, plan, implementation, test, debug, refactor, research, or review work.
 
 If `$ARGUMENTS` is present, treat it as the workflow goal plus any explicit constraints such as skipped tests, required verification, or a known plan path.
 
@@ -36,7 +36,7 @@ If `$ARGUMENTS` is present, treat it as the workflow goal plus any explicit cons
 ## Tools required
 
 - Native tools - inspect status, diffs, docs, and verification commands.
-- Phase skills - **b-spec**, **b-plan**, **b-implement**, **b-test**, **b-review**, plus **b-debug**, **b-refactor**, and **b-research** when a phase routes there.
+- Phase skills - **b-spec**, **b-plan**, **b-implement**, **b-test**, **b-review**, plus **b-debug**, **b-refactor**, and **b-research** when a phase routes there. These skills receive the actual work; `b-orchestrate` only coordinates their handoffs and results.
 - `serena-symbol-toolkit` *(optional, through the active phase skill when symbol work matters)*
 - `gitnexus-radar` *(optional, through the active phase skill for graph-shaped risk)*
 
@@ -50,35 +50,35 @@ Run `git status --short`, name the source of truth, and define success as a **b-
 
 For non-trivial workflows, read `references/b-nexus/runtime-contract.md` §8, mint a run-id, and checkpoint phase state when the workflow pauses or needs durable resume state.
 
-Read `references/b-nexus/runtime-contract.md` §1 before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution.
+Read `references/b-nexus/runtime-contract.md` §1 before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution. Resume only from the receiving skill's output, status block, or handoff envelope.
 
-### Step 2 - Lock the spec
+### Step 2 - Route the spec phase
 
-If the goal, constraints, acceptance criteria, non-goals, or intended behavior are unclear, hand off to **b-spec** and resume only after the spec output is concrete enough to plan. If the request is already clear, record the compact spec in chat and continue.
+If the goal, constraints, acceptance criteria, non-goals, or intended behavior are unclear, hand off to **b-spec** and resume only after the spec output is concrete enough to plan. If the request is already clear, skip this phase; do not author a substitute spec inside `b-orchestrate`.
 
 If external feasibility blocks the spec, hand off to **b-research** and resume only after the evidence is sufficient or the blocker is reported.
 
-### Step 3 - Plan before build
+### Step 3 - Route the plan or direct-build phase
 
-Use **b-plan** for non-trivial work, sequencing, risk, public contracts, multi-file edits, or any workflow that needs durable coordination. Read `references/b-nexus/runtime-contract.md` §3 before applying the small-direct threshold. For a small direct workflow, record a short execution outline with scope, expected touch points, and verification, then continue from the user's request as the source of truth.
+Hand off to **b-plan** for non-trivial work, sequencing, risk, public contracts, multi-file edits, or any workflow that needs durable coordination. Read `references/b-nexus/runtime-contract.md` §3 before applying the small-direct threshold. For a small direct workflow, hand off to **b-implement** with the current source of truth, expected scope, and verification need; do not write an execution outline inside `b-orchestrate`.
 
 Read `references/b-nexus/runtime-contract.md` §2 before treating a saved or chat plan as approved. Do not implement from an unapproved non-trivial plan unless the user explicitly delegated that exact approval after seeing the plan.
 
-### Step 4 - Implement and verify the plan
+### Step 4 - Route implementation and verification
 
 Hand off approved build steps to **b-implement**. If a step becomes a runtime root-cause problem, route that phase to **b-debug**. If the needed change is a concrete behavior-preserving rename, extract, move, inline, simplify, or delete, route that phase to **b-refactor**.
 
 After each build phase, require the phase skill's verification result before continuing. If verification fails because the plan is wrong, return to **b-plan** instead of widening implementation scope silently.
 
-### Step 5 - Add or assess tests
+### Step 5 - Route test coverage work
 
-Use **b-test** when changed behavior needs non-browser unit, integration, or contract coverage, when the user requested tests, or when review confidence depends on tests. Skip this phase when the change is docs-only, tests are explicitly skipped, or only browser/DOM/e2e tooling would satisfy the request; in that case, record the unsupported verification gap instead of treating it as covered.
+Hand off to **b-test** when changed behavior needs non-browser unit, integration, or contract coverage, when the user requested tests, or when review confidence depends on tests. Skip this phase when the change is docs-only, tests are explicitly skipped, or only browser/DOM/e2e tooling would satisfy the request; in that case, record the unsupported verification gap instead of treating it as covered.
 
 If **b-test** finds likely product behavior failure, route to **b-debug** before changing assertions, snapshots, or fixtures.
 
-### Step 6 - Review and fix findings
+### Step 6 - Route review and fix findings
 
-Run **b-review** against the current diff with the spec or approved plan as baseline. Findings decide the next phase:
+Hand off to **b-review** against the current diff with the spec or approved plan as baseline. Findings decide the next phase:
 
 - Implementation gap -> **b-implement**.
 - Runtime behavior failure -> **b-debug**.
@@ -103,6 +103,7 @@ Read `references/b-nexus/runtime-contract.md` §9 before closing a non-trivial o
 ## Rules
 
 - Orchestrate phases; do not bypass phase-skill rules or required read gates.
+- Do not spec, plan, implement, test, debug, refactor, research, or review inside `b-orchestrate`; route that work to the owning phase skill and resume from its output.
 - Do not auto-approve a plan the user has not seen.
 - Preserve unrelated worktree changes and stop on direct conflicts.
 - Keep review fixes scoped to findings or approved follow-up decisions.

@@ -73,7 +73,7 @@ Match the user's intent to one active skill before acting. If a request spans ph
 
 ### Trigger precedence (when intents overlap)
 
-- Explicit end-to-end PR-readiness workflows use `b-orchestrate`; single-phase asks stay with the phase owner.
+- Explicit end-to-end PR-readiness workflows use `b-orchestrate` to coordinate phase-skill handoffs; single-phase asks stay with the phase owner.
 - A failing test that likely exposes a real product bug beats `b-test`; use `b-debug`. See §10.
 - A named behavior-preserving rename/extract/move/inline/simplify/delete beats `b-implement`; use `b-refactor`.
 - Unclear user goal, end state, or acceptance criteria beats `b-plan`; use `b-spec`.
