@@ -50,7 +50,9 @@ Run `git status --short`, name the source of truth, and define success as a **b-
 
 For non-trivial workflows, read `references/b-agentic/runtime-contract.md` §8, mint a run-id, and checkpoint phase state when the workflow pauses or needs durable resume state.
 
-Read `references/b-agentic/runtime-contract.md` §1 before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution. Resume only from the receiving skill's output, status block, or handoff envelope.
+Read `references/b-agentic/runtime-contract.md` §1 and §9 before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution.
+
+For each phase transition, emit the handoff envelope, invoke the receiving skill as the only active owner, and wait for that skill's output, status block, or next handoff before continuing. Validate the returned state against the workflow goal: continue only from `complete` or an explicit next-skill handoff, stop on `blocked` or `needs-input`, and ask once if the returned state is absent or ambiguous instead of simulating the phase inside `b-orchestrate`.
 
 ### Step 2 - Route the spec phase
 

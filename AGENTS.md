@@ -246,11 +246,11 @@ Before merging any skill file change, verify:
 1. **Description <=80 words** — verify with `wc -w` on the extracted description text
 2. **Every step has imperative verbs** — "Call X", "Extract Y", "Check Z" — not "X is called" or "Y should be extracted"
 3. **Fallbacks are explicit without duplication** — global MCP fallbacks cover shared behavior; skills state only local stop/degrade differences
-4. **Inter-skill handoffs have trigger conditions** — "if [condition] -> use /b-[other]" with the specific condition, not just "consider using"
+4. **Inter-skill handoffs have trigger conditions and resume expectations** — "if [condition] -> use /b-[other]" with the specific condition, not just "consider using"; orchestration guidance must say how the receiving skill's status or handoff is consumed
 5. **No trigger keyword regression** — before rewriting a description, list all current trigger keywords and verify all survive in the new version
 6. **Suite validator passes** — run `scripts/validate-skills.sh` before installing or committing skill changes
 7. **No avoidable churn** — steps should not force repeated Serena preflights, optional MCP escalation, or skill switches when the current skill can complete with bounded evidence
-8. **Token hygiene preserved** — skill edits should keep MCP bundles lazy, use body-last Serena guidance, prefer structured extraction for specific data, and shape large command output at the source instead of adding broad full-context reads.
+8. **Token hygiene preserved** — skill edits should keep MCP bundles lazy, use body-last Serena guidance, classify privacy before extraction, prefer structured extraction for specific data, and shape large command output at the source instead of adding broad full-context reads.
 9. **No duplicated global concepts** — slug algorithm, status block, handoff envelope, manifest schema, saved-report defaults, approval ask, fallback labeling, tool-use heuristics, empty-state defaults, plan staleness gates, workspace isolation preference, review checkpoint cadence, completion closure protocol, and the unsupported browser/DOM test boundary all live in `global/AGENTS.md` or `references/runtime-contract.md`. Skills reference them; they do not restate them.
 10. **Reference gates preserved** — if a skill step requires a shared schema, checklist, protocol, or output shape, it must tell the agent to read the named section/file before applying it, without copying the full global rule into the skill.
 11. **Runtime enforcement preserved** — `global/AGENTS.md` keeps the runtime gate checklist, skill steps keep explicit read gates at the point of use, command wrappers mention the active runtime kernel, and `scripts/validate-skills.sh` rejects stale passive pointers.

@@ -22,6 +22,7 @@ Coordinates a complete PR-readiness workflow by handing work to phase skills.
 - Requires external evidence before `READY FOR PR` when browser, DOM, visual, or e2e verification is relevant; otherwise the workflow can only be ready with accepted follow-ups.
 - Mints and carries a run-id for non-trivial workflows, and checkpoints phase state when the workflow pauses, enters a review-fix loop, or needs durable resume state.
 - Reads runtime contract gates before routing across phase skills, treating plans as approved, applying review-fix loops, or emitting non-trivial status output.
+- Emits explicit handoff envelopes, waits for the receiving skill's output/status/handoff, and validates returned phase state before continuing.
 - Uses `b-spec` only when the target outcome is unclear, then `b-plan` for non-trivial sequencing or `b-implement` for small direct workflows.
 - Hands actual build work to `b-implement`, runtime failures to `b-debug`, behavior-preserving transforms to `b-refactor`, and non-browser test work to `b-test`.
 - Runs `b-review` against the current diff with the spec or approved plan as baseline, then routes findings back to the responsible phase skill.
@@ -79,9 +80,9 @@ Answers external-knowledge questions from fetched evidence.
 - Chooses lookup for one fact/signature/config/capability and research for synthesis, comparison, recency, or conflicts.
 - Reads runtime contract gates before tool fallback, external extraction/privacy decisions, freshness/citation claims, deep extraction, or non-trivial status output.
 - Pins library versions when APIs, configs, migrations, signatures, or examples depend on version.
-- Treats user-provided URLs/files/documents as direct-source lookup when one source is likely sufficient.
+- Treats user-provided URLs/files/documents as direct-source lookup when one source is likely sufficient, but classifies privacy before extraction.
 - Prefers structured extraction or query for specific fields, parameters, prices, tables, or lists, and keeps full markdown for full-page understanding, summaries, or quoted context.
-- Requires approval before sending local rich documents or likely internal documents to external extraction unless that document class was already approved for the run.
+- Requires approval before sending internal/private URLs, local rich documents, or likely internal documents to external extraction unless that source class was already approved for the run.
 - Uses Context7 for library/framework APIs, `brave-discovery` to find unknown official URLs, recent advisories/release notes, and comparison sources, and Firecrawl extraction for final page/document evidence when page substance matters; searches before extracting when the authoritative URL is unknown.
 - Falls back to native local reads only for plain-text, Markdown, or HTML documents when extraction is unavailable; otherwise stops and reports the limitation instead of guessing from filenames or metadata.
 - Auto-deepens when evidence is stale, contradictory, non-authoritative, or indirect.

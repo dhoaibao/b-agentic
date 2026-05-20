@@ -48,7 +48,7 @@ If required tools are unavailable, read `references/b-agentic/runtime-contract.m
 - **Lookup:** one fact, signature, config key, yes/no capability, or tiny example.
 - **Research:** multi-source synthesis, comparison, recency-sensitive answer, or contradictions.
 
-If the user provides a URL/file/document and one bounded source is likely sufficient, extract it directly. Prefer structured extraction or query for specific fields, parameters, prices, tables, or lists; use full markdown when full-page understanding, summarization, or quoted context is needed. Read `references/b-agentic/runtime-contract.md` §6 before sending a local rich document or likely internal document to external extraction unless the user already approved that exact document class for this run.
+If the user provides a URL/file/document and one bounded source is likely sufficient, classify it before extraction: public URL, internal/private URL, local plain-text source, local rich document, or likely internal document. Read `references/b-agentic/runtime-contract.md` §6 before sending internal/private URLs, local rich documents, or likely internal documents to external extraction unless the user already approved that exact source class for this run. Prefer structured extraction or query for specific fields, parameters, prices, tables, or lists; use full markdown when full-page understanding, summarization, or quoted context is needed.
 
 If the user provides a local document and extraction is unavailable, fall back only for plain-text, Markdown, or HTML sources that local tools can read directly. For PDFs, spreadsheets, DOCX files, or other rich binaries, stop and surface the limitation instead of guessing.
 
@@ -90,7 +90,7 @@ Read `references/b-agentic/runtime-contract.md` §9 before closing a non-trivial
 - Use the lightest depth that answers correctly.
 - Pin versions when they affect the answer.
 - Do not bypass gated sources or paste secrets into fetches.
-- Do not send local rich documents or likely internal documents to external extraction without explicit approval.
+- Do not send internal/private URLs, local rich documents, or likely internal documents to external extraction without explicit approval.
 - Prefer 2-4 authoritative sources over long weak lists.
 - Use limitations and confidence labels instead of filling gaps from memory.
 - Cited URLs must come from fetched or user-provided sources in this session.

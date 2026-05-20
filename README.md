@@ -56,10 +56,10 @@ This repository is an install-only source layout. OpenCode does not load the che
 
 | Skill | Phase | When to use |
 |---|---|---|
-| `/b-orchestrate` | End-to-end | Coordinate handoffs between spec, plan, implementation, optional suite-supported tests, review, and review-fix phase skills until PR-ready, ready with accepted follow-ups, or blocked |
+| `/b-orchestrate` | End-to-end | Coordinate explicit handoff/resume cycles between spec, plan, implementation, optional suite-supported tests, review, and review-fix phase skills until PR-ready, ready with accepted follow-ups, or blocked |
 | `/b-spec` | Clarify | Clarify unclear end states, constraints, acceptance criteria, non-goals, and assumptions before planning or coding |
 | `/b-plan` | Decide | Turn a clear goal into a short chat plan or saved execution plan |
-| `/b-research` | Decide | Fetch external docs, API facts, config keys, method signatures, comparisons, recency-sensitive evidence, or approved local document evidence with structured extraction when specific fields are enough |
+| `/b-research` | Decide | Fetch external docs, API facts, config keys, method signatures, comparisons, recency-sensitive evidence, or approved source/document evidence after privacy classification, using structured extraction when specific fields are enough |
 | `/b-implement` | Build | Execute approved plans or small direct requests in coherent verified steps |
 | `/b-refactor` | Build | Execute concrete behavior-preserving transforms: rename, extract, move, inline, simplify, or delete |
 | `/b-debug` | Validate | Confirm runtime root cause, apply approved containment when urgent, fix minimally, verify, and remove probes |
