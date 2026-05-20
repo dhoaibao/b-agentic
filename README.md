@@ -1,6 +1,6 @@
 # b-nexus
 
-**The agent workflow kernel for OpenCode.**
+**An agent workflow kernel for AI coding agents, with OpenCode as the reference runtime.**
 
 `b-nexus` is a lean 10-skill agent workflow suite that turns rough developer intent into disciplined loops: clarify, plan, build, test, debug, review, and audit. It is optimized around scoped execution, Serena-backed symbol work, optional GitNexus graph radar, and explicit safety rules when work crosses risky boundaries.
 

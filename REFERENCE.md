@@ -1,6 +1,6 @@
 # b-nexus — Agent Workflow Kernel Reference
 
-Reference guide for the 10-skill set that makes up the `b-nexus` agent workflow kernel for OpenCode. For install and high-level repo overview, see [README.md](README.md). For maintainer guidance, see [AGENTS.md](AGENTS.md).
+Reference guide for the 10-skill set that makes up `b-nexus`, an agent workflow kernel for AI coding agents, with OpenCode as the reference runtime. For install and high-level repo overview, see [README.md](README.md). For maintainer guidance, see [AGENTS.md](AGENTS.md).
 
 When this document cites `global/AGENTS.md`, that is the source-repo runtime kernel path. Installed skill prose should reference the runtime path `AGENTS.md`; detailed runtime behavior lives at `references/runtime-contract.md` in this repo and `references/b-nexus/runtime-contract.md` after install. Runtime references are required read gates when a skill needs their schemas, checklists, or protocols.
 
