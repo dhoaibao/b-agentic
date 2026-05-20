@@ -82,7 +82,7 @@ Quick plans stay in chat. Use this minimum shape so quick plans don't drift in f
 **Verification:** <narrowest command or procedure>
 ```
 
-If a quick plan accumulates more than ~5 steps or grows risks/unknowns sections, promote it to full mode and save it under `.opencode/b-agentic/b-plan/<plan-file-slug>.md`.
+If a quick plan accumulates more than ~5 steps or grows risks/unknowns sections, promote it to full mode and save it under `.b-agentic/b-plan/<plan-file-slug>.md`.
 
 ## Supersede vs revise
 

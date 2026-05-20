@@ -49,7 +49,7 @@ If required tools are unavailable, read `references/b-agentic/runtime-contract.m
 ### Step 1 - Choose quick or full mode
 
 - **Quick mode:** default for low-risk scoped work. Return a short chat plan and ask for approval.
-- **Full mode:** use only for non-trivial work, real structural choice, public/sensitive risk, or durable coordination need. Read `references/b-agentic/runtime-contract.md` §6 and §8 before saving a plan under `.opencode/b-agentic/b-plan/<plan-file-slug>.md`.
+- **Full mode:** use only for non-trivial work, real structural choice, public/sensitive risk, or durable coordination need. Read `references/b-agentic/runtime-contract.md` §6 and §8 before saving a plan under `.b-agentic/b-plan/<plan-file-slug>.md`.
 
 Default to quick mode when the plan is low/trivial risk, fits in chat, and can be executed in one coherent session. Do not promote to full mode solely because the task has several routine substeps. Use full mode when the plan needs durable approval, spans sessions, has more than about five meaningful steps, has unresolved dependencies, or discovery reveals broad references, public contracts, security-sensitive behavior, deployment risk, or a plan that is no longer readable in chat.
 

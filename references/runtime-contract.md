@@ -126,7 +126,7 @@ Ignore legacy or alternate skill trees that do not match the installed runtime c
 
 Use this order when instructions compete:
 1. User's latest explicit instruction.
-2. Approved saved plan in `.opencode/b-agentic/b-plan/<plan-file-slug>.md`.
+2. Approved saved plan in `.b-agentic/b-plan/<plan-file-slug>.md`.
 3. Approved chat plan.
 4. Current repository evidence.
 5. Conventional defaults recorded as assumptions.
@@ -512,9 +512,9 @@ Skills do not restate this. They reference §6.
 
 ### Repo-local artifact safety
 
-- Saved plans under `.opencode/b-agentic/b-plan/` are canonical source-of-truth files, not runtime artifacts; do not reroute them.
-- Before any suite write under repo-local `.opencode/`, including saved plans, ensure the root ignore guard: create `.opencode/.gitignore` containing `*` when `.opencode/` or that file is missing; leave an existing `.opencode/.gitignore` unchanged.
-- Do not store auth/session state or other sensitive run artifacts under repo-local `.opencode/` unless the user explicitly opts into repo-local persistence. Use `~/.config/opencode/b-agentic/...` or `/tmp/opencode/b-agentic/...` instead by default.
+- Saved plans under `.b-agentic/b-plan/` are canonical source-of-truth files, not runtime artifacts; do not reroute them.
+- Before any suite write under repo-local `.b-agentic/`, including saved plans, ensure the root ignore guard: create `.b-agentic/.gitignore` containing `*` when `.b-agentic/` or that file is missing; leave an existing `.b-agentic/.gitignore` unchanged.
+- Do not store auth/session state or other sensitive run artifacts under repo-local `.b-agentic/` unless the user explicitly opts into repo-local persistence. Use `~/.config/opencode/b-agentic/...` or `/tmp/opencode/b-agentic/...` instead by default.
 - Persisting reusable browser auth/session state requires explicit opt-in, even outside the worktree; otherwise use ephemeral/current-run state only.
 - Never store real browser auth/session state under a tracked worktree path.
 
@@ -726,12 +726,12 @@ The frontmatter field `slug: <task-slug>` remains the canonical deterministic id
 
 ### Run-id continuity across handoffs
 
-When one skill hands off to another for the same logical task, the receiving skill **reuses** the source skill's `<run-id>` and writes its own artifacts under `.opencode/b-agentic/<receiving-skill>/<run-id>/`. Continuity rules:
+When one skill hands off to another for the same logical task, the receiving skill **reuses** the source skill's `<run-id>` and writes its own artifacts under `.b-agentic/<receiving-skill>/<run-id>/`. Continuity rules:
 
 - A new `<run-id>` is minted only on a fresh user task, not on a handoff.
 - Non-trivial `b-orchestrate` workflows mint a `<run-id>` at workflow start, even before artifacts exist, so every phase handoff can be tied to the same logical task.
 - The handoff envelope (§9) must carry the `run-id` **whenever one exists** — i.e., whenever the source skill wrote artifacts, itself inherited a `run-id` from an earlier handoff, or `b-orchestrate` minted one for a non-trivial workflow. Pure chat-only handoffs that have produced no artifacts and are not part of a non-trivial orchestration may omit the `run-id` field; the receiving skill mints one if and when it first writes an artifact.
-- If the receiving skill creates artifacts, it cross-links the source run directory in its own `manifest.json` `source_run` field (e.g., `".opencode/b-agentic/b-plan/<run-id>/"`).
+- If the receiving skill creates artifacts, it cross-links the source run directory in its own `manifest.json` `source_run` field (e.g., `".b-agentic/b-plan/<run-id>/"`).
 - When a chain of skills (e.g., `b-plan -> b-implement -> b-review`) all act on the same task and any one of them has written artifacts, every subsequent run directory shares the same `<run-id>` even though each lives under a different `<skill>` subdirectory.
 
 ### Non-plan artifact naming
@@ -746,9 +746,9 @@ Files inside a run directory follow these conventions so they're predictable acr
 
 ### Paths
 
-- **Plans:** `.opencode/b-agentic/b-plan/<plan-file-slug>.md` (canonical path) after applying the `.opencode/.gitignore` guard in §6. Saved plans remain repo-local source-of-truth files. Frontmatter `slug: <task-slug>` stays canonical for matching and continuity. The legacy `.opencode/b-plans/` is deprecated; do not write there.
-- **Skill artifacts:** `.opencode/b-agentic/<skill>/<run-id>/` for repo-local non-sensitive b-agentic artifacts after applying the `.opencode/.gitignore` guard in §6.
-- **Saved reports:** `.opencode/b-agentic/<skill>/<run-id>/report.md` for explicit review/research reports after applying the `.opencode/.gitignore` guard in §6.
+- **Plans:** `.b-agentic/b-plan/<plan-file-slug>.md` (canonical path) after applying the `.b-agentic/.gitignore` guard in §6. Saved plans remain repo-local source-of-truth files. Frontmatter `slug: <task-slug>` stays canonical for matching and continuity. The legacy `.opencode/b-agentic/` and `.opencode/b-plans/` paths are deprecated; do not write there.
+- **Skill artifacts:** `.b-agentic/<skill>/<run-id>/` for repo-local non-sensitive b-agentic artifacts after applying the `.b-agentic/.gitignore` guard in §6.
+- **Saved reports:** `.b-agentic/<skill>/<run-id>/report.md` for explicit review/research reports after applying the `.b-agentic/.gitignore` guard in §6.
 - **Sensitive artifacts:** auth/session state and similar secrets default to `~/.config/opencode/b-agentic/<skill>/<run-id>/` or `/tmp/opencode/b-agentic/<skill>/<run-id>/`; never store them in a tracked worktree path.
 - **Temporary logs:** `/tmp/opencode/b-agentic/<skill>/<slug>.log`.
 
@@ -991,13 +991,13 @@ When the user can reproduce a symptom but the agent cannot in the current enviro
 
 1. `git status --short` — note dirty state; preserve unrelated changes (§6).
 2. Note whether the current checkout is already isolated (linked worktree, harness-provided workspace, or equivalent). Reuse existing isolation; do not nest it casually.
-3. Check for an approved plan under `.opencode/b-agentic/b-plan/` matching the current request.
+3. Check for an approved plan under `.b-agentic/b-plan/` matching the current request.
 4. Confirm MCP availability lazily on first use.
 5. Acknowledge dirty state only when it could affect the request.
 
 ### Crash/resume
 
-- If a prior session left a partially complete run directory under `.opencode/b-agentic/<skill>/<run-id>/`, resume from its manifest's last `complete` artifact rather than restarting.
+- If a prior session left a partially complete run directory under `.b-agentic/<skill>/<run-id>/`, resume from its manifest's last `complete` artifact rather than restarting.
 - If no manifest exists, treat the directory as orphaned; do not delete it without asking.
 - For saved plans, use the staleness gate (§2) to decide whether to resume or re-plan.
 

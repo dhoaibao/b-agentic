@@ -45,6 +45,7 @@ This repository is an install-only source layout. OpenCode does not load the che
 ## Runtime Enforcement
 
 - The always-on kernel in `global/AGENTS.md` keeps the compact runtime gate checklist for non-trivial work: source-of-truth at start, approval/safety before edits or external actions, and verification/status before completion or handoff.
+- Repo-local plans, reports, and non-sensitive skill artifacts are written under `.b-agentic/`, guarded by `.b-agentic/.gitignore` containing `*`.
 - Skill steps use explicit read gates such as `Read references/b-agentic/runtime-contract.md §9 before ...` so shared schemas and protocols are read at the point of use instead of remembered from distant prose.
 - Slash-command wrappers reinforce the active runtime kernel and the loaded skill's required read gates without duplicating policy.
 - `scripts/validate-skills.sh` enforces this model by failing stale passive pointers, missing point-of-use read gates, wrapper drift, and docs/runtime drift.
