@@ -99,7 +99,7 @@ Use the lightest reliable tool. Native Glob/Grep/Read/Bash stay first for exact 
 | Known URL or local document extraction | `firecrawl-extraction` | `firecrawl-extended`, then approval-gated `firecrawl-deep` |
 | Browser/DOM/visual/e2e live UI operation | `playwright-browser-operator` when installed and safety-gated | Existing repo scripts, supplied evidence, or `firecrawl-extraction` for known remote pages |
 
-GitNexus is optional radar only; Serena is primary hands. Never use GitNexus for editing or exact-body inspection. Treat stale graph output as no evidence. MCP profiles are opt-in setup templates; they do not make MCP first-choice over native exact evidence. Unknown slash-command flags should not be ignored; ask once or continue only when intent is unambiguous.
+GitNexus is optional radar only; Serena is primary hands. Never use GitNexus for editing or exact-body inspection. Treat stale graph output as no evidence. The default user-scope MCP install provides Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus. Installed MCP config does not make MCP first-choice over native exact evidence. Unknown slash-command flags should not be ignored; ask once or continue only when intent is unambiguous.
 
 Detailed MCP bundles, fallback ladder, tool-use heuristics, flag/mode rules, and cost gates: runtime contract §4.
 

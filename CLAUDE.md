@@ -133,7 +133,7 @@ If required tools are unavailable, read `${CLAUDE_SKILL_DIR}/references/b-agenti
 
 Skills declare MCP usage by referencing bundles summarized in `global/CLAUDE.md` §4 and fully defined in `references/runtime-contract.md` §4. Do not enumerate per-tool MCP lists inside skills. Native tools such as Glob/Grep/Read/Bash are not MCP bundles and may be listed separately when useful.
 
-MCP project configuration lives in profile templates under `claude/mcp.*.template.json`. The installer may copy these templates to `~/.claude/b-agentic/templates/` by default, but it must only write a project `.mcp.json` after explicit `--install-project-mcp` or `--replace-project-mcp` intent. Keep new profiles small, named, documented in `claude/README.md` and `README.md`, and covered by `scripts/validate-skills.sh` plus `scripts/smoke-install.sh`.
+MCP user-scope configuration lives in `claude/mcp.user.template.json`. The installer copies templates to `~/.claude/b-agentic/templates/` and merges the user-scope MCP set into `~/.claude.json` during the normal one-command install. The global MCP set contains Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus; runtime skills still use MCP lazily by evidence need. Keep MCP template changes documented in `claude/README.md` and `README.md`, and covered by `scripts/validate-skills.sh` plus `scripts/smoke-install.sh`.
 
 Rules:
 - Never add a bundle just to increase coverage; every bundle must have a clear use case in the Steps section.
@@ -142,7 +142,7 @@ Rules:
 - Always include a `Graceful degradation:` line summarizing skill-specific fallback.
 - Prefer the lightest capable tool. Do not force MCP-first behavior for exact strings, manifests, prose, small file reads, or other cases where native tools are cheaper and equally reliable.
 - Do not list unsafe tool variants in skill workflows; approval is required per invocation.
-- Do not commit API keys or secret-looking placeholders in MCP templates. Use Claude Code environment expansion such as `${BRAVE_API_KEY}` and `${FIRECRAWL_API_KEY}`.
+- Do not commit API keys or secret-looking placeholders in MCP templates. Use Claude Code environment expansion such as `${CONTEXT7_API_KEY}`, `${BRAVE_API_KEY}`, and `${FIRECRAWL_API_KEY}`.
 
 GitNexus-specific criteria:
 - GitNexus is always optional radar. It is never a primary dependency and never acts as the editing layer.
