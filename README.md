@@ -36,29 +36,34 @@ The installer deploys this repo into Claude Code's personal config:
 - `references/*.md` -> `~/.claude/b-agentic/references/`
 - `references/*.md` -> `~/.claude/skills/<name>/references/b-agentic/` for each skill
 - `claude/*.json` -> `~/.claude/b-agentic/templates/`
+- `claude/settings.recommended.json` -> merged into `~/.claude/settings.json`
+- `claude/mcp.user.template.json` -> merged into `~/.claude.json`
 - install metadata and backups -> `~/.claude/b-agentic/`
 
 If an existing `~/.claude/CLAUDE.md` is preserved, the installer exits with `activationState: pending`. Review `~/.claude/b-agentic/CLAUDE.md`, then rerun with `--replace-memory` or merge the kernel manually.
 
-Settings and MCP configuration are installed as templates only in this release:
-- `claude/settings.recommended.json` contains suggested `permissions`, `skillOverrides`, and `disableSkillShellExecution` settings.
-- `claude/mcp.safe.template.json` contains Serena for local semantic code work.
-- `claude/mcp.research.template.json` contains Context7, Brave Search, and Firecrawl for external evidence.
-- `claude/mcp.browser.template.json` contains isolated Playwright MCP for browser/DOM/visual/e2e evidence.
-- `claude/mcp.architecture.template.json` contains Serena plus optional GitNexus graph radar.
-- `claude/mcp.project.template.json` remains the full convenience example for the original non-GitNexus MCP surfaces in one project config.
+## One Command
 
-To apply those templates instead of only installing copies under `~/.claude/b-agentic/templates/`, use explicit flags after review:
+Plain install syncs the runtime, merges recommended settings, and installs all MCP servers at Claude Code user scope:
 
-```bash
-install.sh --install-settings        # writes ~/.claude/settings.json only when missing
-install.sh --replace-settings        # backs up and replaces ~/.claude/settings.json
-install.sh --install-project-mcp     # writes project profile to .mcp.json only when missing
-install.sh --replace-project-mcp     # backs up and replaces the current project's .mcp.json
-install.sh --install-project-mcp --mcp-profile safe
+```text
+b-agentic Claude Code install complete
+skillsSynced: 11 -> ~/.claude/skills
+kernel: write|replace|preserve -> ~/.claude/CLAUDE.md
+settings: write|merge -> ~/.claude/settings.json
+mcp: write|merge -> ~/.claude.json
+references: sync -> ~/.claude/b-agentic/references
+templates: sync -> ~/.claude/b-agentic/templates
+manifest: write -> ~/.claude/b-agentic/install.json
+backups: ...
+activationState: active|pending
 ```
 
-Available MCP profiles are `safe`, `research`, `browser`, `architecture`, and `project`. The default profile for `--install-project-mcp` is still `project` for compatibility. Profiles use environment placeholders such as `${BRAVE_API_KEY}` and `${FIRECRAWL_API_KEY}`; set secrets in your environment, not in tracked files.
+Settings install merges b-agentic recommendations into existing Claude Code settings. It preserves unknown user keys, appends missing array values, keeps existing scalar values on conflict, and writes a timestamped backup before changing an existing file.
+
+Global MCP setup merges Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus into `~/.claude.json` under user scope. Playwright uses isolated browser state by default. GitNexus indexing, generated skills, hooks, root guidance writes, and `gitnexus setup` remain user-run steps outside the installer.
+
+MCP templates use environment placeholders such as `${CONTEXT7_API_KEY}`, `${BRAVE_API_KEY}`, and `${FIRECRAWL_API_KEY}`; set secrets in your environment, not in tracked files.
 
 The first Claude-native release supports personal-global install only. Project-local `.claude/` installs, plugin packaging, hooks, and dynamic context injection are deferred until validator and smoke coverage prove global parity.
 

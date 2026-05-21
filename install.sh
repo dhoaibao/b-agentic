@@ -4,10 +4,6 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --dry-run
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --replace-memory
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-settings
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-project-mcp
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-project-mcp --mcp-profile safe
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 
 set -euo pipefail
@@ -24,19 +20,13 @@ readonly KERNEL_SNAPSHOT_DST="$METADATA_DIR/CLAUDE.md"
 readonly REFERENCES_DST="$METADATA_DIR/references"
 readonly TEMPLATES_DST="$METADATA_DIR/templates"
 readonly MANIFEST_DST="$METADATA_DIR/install.json"
-readonly PROJECT_DIR="${B_AGENTIC_PROJECT_DIR:-$PWD}"
 readonly SETTINGS_DST="$CLAUDE_DIR/settings.json"
-readonly PROJECT_MCP_DST="$PROJECT_DIR/.mcp.json"
+readonly CLAUDE_JSON_DST="${B_AGENTIC_CLAUDE_JSON:-$HOME/.claude.json}"
 readonly TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 
 DRY_RUN_VALUE="${B_AGENTIC_DRY_RUN:-N}"
 REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
-INSTALL_SETTINGS_VALUE="${B_AGENTIC_INSTALL_SETTINGS:-N}"
-REPLACE_SETTINGS_VALUE="${B_AGENTIC_REPLACE_SETTINGS:-N}"
-INSTALL_PROJECT_MCP_VALUE="${B_AGENTIC_INSTALL_PROJECT_MCP:-N}"
-REPLACE_PROJECT_MCP_VALUE="${B_AGENTIC_REPLACE_PROJECT_MCP:-N}"
-MCP_PROFILE_VALUE="${B_AGENTIC_MCP_PROFILE:-project}"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
@@ -135,28 +125,6 @@ parse_args() {
       --uninstall)
         UNINSTALL_VALUE=Y
         ;;
-      --install-settings)
-        INSTALL_SETTINGS_VALUE=Y
-        ;;
-      --replace-settings)
-        INSTALL_SETTINGS_VALUE=Y
-        REPLACE_SETTINGS_VALUE=Y
-        ;;
-      --install-project-mcp)
-        INSTALL_PROJECT_MCP_VALUE=Y
-        ;;
-      --replace-project-mcp)
-        INSTALL_PROJECT_MCP_VALUE=Y
-        REPLACE_PROJECT_MCP_VALUE=Y
-        ;;
-      --mcp-profile)
-        shift
-        [ "$#" -gt 0 ] || die "--mcp-profile requires one of: safe, research, browser, architecture, project"
-        MCP_PROFILE_VALUE="$1"
-        ;;
-      --mcp-profile=*)
-        MCP_PROFILE_VALUE="${1#--mcp-profile=}"
-        ;;
       *)
         die "unknown argument: $1"
         ;;
@@ -246,6 +214,25 @@ install_skills() {
   done < <(skill_names)
 }
 
+print_install_report() {
+  local activation_state="$1" skill_count="$2" memory_action="$3" memory_backup="$4" settings_action="$5" settings_backup="$6" mcp_action="$7" mcp_backup="$8"
+
+  log ""
+  log "b-agentic Claude Code install complete"
+  log "skillsSynced: $skill_count -> $SKILLS_DST"
+  log "kernel: $memory_action -> $KERNEL_DST"
+  log "settings: $settings_action -> $SETTINGS_DST"
+  log "mcp: $mcp_action -> $CLAUDE_JSON_DST"
+  log "references: sync -> $REFERENCES_DST"
+  log "templates: sync -> $TEMPLATES_DST"
+  log "manifest: write -> $MANIFEST_DST"
+  log "backups:"
+  log "  kernel: $memory_backup"
+  log "  settings: $settings_backup"
+  log "  mcp: $mcp_backup"
+  log "activationState: $activation_state"
+}
+
 install_references_and_templates() {
   copy_dir_replace "$REFERENCES_SRC" "$REFERENCES_DST"
   copy_dir_replace "$TEMPLATES_SRC" "$TEMPLATES_DST"
@@ -280,45 +267,92 @@ install_kernel() {
   printf 'preserve\npending\nnone'
 }
 
-install_optional_config() {
-  local install_value="$1" replace_value="$2" src="$3" dst="$4"
-
-  if ! yes_value "$install_value"; then
-    printf 'skip\nnone\nnone'
-    return 0
-  fi
-
+merge_json_file() {
+  local src="$1" dst="$2" label="$3" backup_key="$4"
   if [ ! -e "$dst" ]; then
     copy_file "$src" "$dst"
-    printf 'install\nactive\nnone'
+    printf 'write\nactive\nnone'
     return 0
   fi
 
-  if yes_value "$replace_value"; then
-    local backup
-    backup="$(backup_file "$dst")"
-    copy_file "$src" "$dst"
-    printf 'replace\nactive\n%s' "${backup:-none}"
+  if dry_run_enabled; then
+    printf '[dry-run] merge %s %s into %s\n' "$label" "$src" "$dst" >&2
+    printf 'merge\nactive\n%s' "$(manifest_backup_value "$backup_key" none)"
     return 0
   fi
 
-  printf 'preserve\npending\nnone'
+  local tmp rc
+  tmp="$(mktemp "${TMPDIR:-/tmp}/b-agentic-${label}.XXXXXX")"
+  if env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_LABEL="$label" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+src = Path(os.environ['JSON_SRC'])
+dst = Path(os.environ['JSON_DST'])
+tmp = Path(os.environ['JSON_TMP'])
+label = os.environ['JSON_LABEL']
+recommended = json.loads(src.read_text())
+current = json.loads(dst.read_text())
+
+def merge(existing, incoming):
+    if isinstance(existing, dict) and isinstance(incoming, dict):
+        merged = dict(existing)
+        for key, value in incoming.items():
+            if key not in merged:
+                merged[key] = value
+            else:
+                merged[key] = merge(merged[key], value)
+        return merged
+    if isinstance(existing, list) and isinstance(incoming, list):
+        merged = list(existing)
+        for item in incoming:
+            if item not in merged:
+                merged.append(item)
+        return merged
+    return existing
+
+if not isinstance(current, dict):
+    raise SystemExit(f'{label} merge requires existing target to be a JSON object')
+
+merged = merge(current, recommended)
+if merged == current:
+    raise SystemExit(2)
+tmp.write_text(json.dumps(merged, indent=2, sort_keys=True) + '\n')
+PY
+  then
+    rc=0
+  else
+    rc=$?
+  fi
+
+  if [ "$rc" -eq 2 ]; then
+    rm -f "$tmp"
+    printf 'merge\nactive\n%s' "$(manifest_backup_value "$backup_key" none)"
+    return 0
+  fi
+  if [ "$rc" -ne 0 ]; then
+    rm -f "$tmp"
+    die "failed to merge $label config: $dst"
+  fi
+
+  local backup
+  backup="$(backup_file "$dst")"
+  run_cmd mv "$tmp" "$dst"
+  printf 'merge\nactive\n%s' "${backup:-none}"
 }
 
-mcp_profile_template() {
-  case "$MCP_PROFILE_VALUE" in
-    safe|research|browser|architecture|project)
-      printf '%s/mcp.%s.template.json' "$TEMPLATES_SRC" "$MCP_PROFILE_VALUE"
-      ;;
-    *)
-      die "unknown MCP profile: $MCP_PROFILE_VALUE (expected safe, research, browser, architecture, or project)"
-      ;;
-  esac
+install_settings_config() {
+  merge_json_file "$TEMPLATES_SRC/settings.recommended.json" "$SETTINGS_DST" "settings" "settings"
+}
+
+install_mcp_config() {
+  merge_json_file "$TEMPLATES_SRC/mcp.user.template.json" "$CLAUDE_JSON_DST" "mcp" "claudeJson"
 }
 
 write_manifest() {
-  local memory_action="$1" activation_state="$2" memory_backup="$3" settings_action="$4" settings_state="$5" settings_backup="$6" mcp_action="$7" mcp_state="$8" mcp_backup="$9" mcp_profile="${10}"
-  shift 10
+  local memory_action="$1" activation_state="$2" memory_backup="$3" settings_action="$4" settings_state="$5" settings_backup="$6" mcp_action="$7" mcp_state="$8" mcp_backup="$9"
+  shift 9
   local skills=("$@")
 
   if dry_run_enabled; then
@@ -339,14 +373,13 @@ write_manifest() {
     MCP_ACTION="$mcp_action" \
     MCP_STATE="$mcp_state" \
     MCP_BACKUP="$mcp_backup" \
-    MCP_PROFILE="$mcp_profile" \
     CLAUDE_DIR="$CLAUDE_DIR" \
+    CLAUDE_JSON_DST="$CLAUDE_JSON_DST" \
     SKILLS_DST="$SKILLS_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SETTINGS_DST="$SETTINGS_DST" \
-    PROJECT_MCP_DST="$PROJECT_MCP_DST" \
     SKILLS="${skills[*]}" \
     python3 - <<'PY'
 import json
@@ -364,21 +397,20 @@ manifest = {
     'settingsState': os.environ['SETTINGS_STATE'],
     'mcpAction': os.environ['MCP_ACTION'],
     'mcpState': os.environ['MCP_STATE'],
-    'mcpProfile': os.environ['MCP_PROFILE'],
     'paths': {
         'claudeDir': os.environ['CLAUDE_DIR'],
+        'claudeJson': os.environ['CLAUDE_JSON_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
         'settings': os.environ['SETTINGS_DST'],
-        'projectMcp': os.environ['PROJECT_MCP_DST'],
     },
     'skills': skills,
     'backups': {
         'claudeMd': os.environ['MEMORY_BACKUP'],
         'settings': os.environ['SETTINGS_BACKUP'],
-        'projectMcp': os.environ['MCP_BACKUP'],
+        'claudeJson': os.environ['MCP_BACKUP'],
     },
 }
 Path(os.environ['MANIFEST_DST']).write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
@@ -416,6 +448,48 @@ except Exception:
 PY
 }
 
+manifest_backup_value() {
+  local key="$1" fallback="$2"
+  if [ ! -f "$MANIFEST_DST" ]; then
+    printf '%s' "$fallback"
+    return 0
+  fi
+  python3 - "$MANIFEST_DST" "$key" "$fallback" <<'PY'
+import json
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+key = sys.argv[2]
+fallback = sys.argv[3]
+try:
+    data = json.loads(path.read_text())
+    print(data.get('backups', {}).get(key, fallback))
+except Exception:
+    print(fallback)
+PY
+}
+
+manifest_action_value() {
+  local key="$1" fallback="$2"
+  if [ ! -f "$MANIFEST_DST" ]; then
+    printf '%s' "$fallback"
+    return 0
+  fi
+  python3 - "$MANIFEST_DST" "$key" "$fallback" <<'PY'
+import json
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+key = sys.argv[2]
+fallback = sys.argv[3]
+try:
+    data = json.loads(path.read_text())
+    print(data.get(key, fallback))
+except Exception:
+    print(fallback)
+PY
+}
+
 remove_managed_config() {
   local path="$1" template="$2" label="$3"
   [ -f "$path" ] || return 0
@@ -426,18 +500,106 @@ remove_managed_config() {
   fi
 }
 
-remove_managed_mcp_config() {
-  local path="$1"
+remove_merged_config() {
+  local path="$1" template="$2" label="$3" backup_key="$4" action_key="$5"
   [ -f "$path" ] || return 0
-  local template
-  for template in "$TEMPLATES_DST"/mcp.*.template.json; do
-    [ -f "$template" ] || continue
-    if cmp -s "$path" "$template"; then
-      run_cmd rm -f "$path"
-      return 0
-    fi
-  done
-  warn "preserving modified .mcp.json: $path"
+  if [ -f "$template" ] && cmp -s "$path" "$template"; then
+    run_cmd rm -f "$path"
+    return 0
+  fi
+
+  local original
+  original="$(manifest_backup_value "$backup_key" "")"
+  if [ ! -f "$original" ] && [ "$(manifest_action_value "$action_key" "")" = "write" ]; then
+    original="empty"
+  fi
+  if [ "$original" != "empty" ] && [ ! -f "$original" ]; then
+    warn "preserving modified $label: $path"
+    return 0
+  fi
+  if dry_run_enabled; then
+    printf '[dry-run] remove managed %s entries from %s\n' "$label" "$path" >&2
+    return 0
+  fi
+
+  local tmp rc
+  tmp="$(mktemp "${TMPDIR:-/tmp}/b-agentic-uninstall-${label}.XXXXXX")"
+  if env JSON_CURRENT="$path" JSON_TEMPLATE="$template" JSON_ORIGINAL="$original" JSON_TMP="$tmp" JSON_LABEL="$label" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+current_path = Path(os.environ['JSON_CURRENT'])
+template_path = Path(os.environ['JSON_TEMPLATE'])
+original_path = Path(os.environ['JSON_ORIGINAL'])
+tmp_path = Path(os.environ['JSON_TMP'])
+label = os.environ['JSON_LABEL']
+
+current = json.loads(current_path.read_text())
+incoming = json.loads(template_path.read_text())
+original = {} if str(original_path) == 'empty' else json.loads(original_path.read_text())
+
+MISSING = object()
+
+def cleanup(current_value, incoming_value, original_value):
+    if isinstance(current_value, dict) and isinstance(incoming_value, dict):
+        original_dict = original_value if isinstance(original_value, dict) else {}
+        result = dict(current_value)
+        for key, incoming_child in incoming_value.items():
+            if key not in result:
+                continue
+            original_child = original_dict.get(key, MISSING)
+            current_child = result[key]
+            if original_child is MISSING:
+                if current_child == incoming_child:
+                    result.pop(key)
+                elif isinstance(current_child, (dict, list)) and isinstance(incoming_child, type(current_child)):
+                    empty_original = {} if isinstance(current_child, dict) else []
+                    cleaned = cleanup(current_child, incoming_child, empty_original)
+                    if cleaned in ({}, []):
+                        result.pop(key)
+                    else:
+                        result[key] = cleaned
+            else:
+                result[key] = cleanup(current_child, incoming_child, original_child)
+        return result
+
+    if isinstance(current_value, list) and isinstance(incoming_value, list):
+        original_list = original_value if isinstance(original_value, list) else []
+        result = list(current_value)
+        for item in incoming_value:
+            if item not in original_list and item in result:
+                result.remove(item)
+        return result
+
+    return current_value
+
+if not isinstance(current, dict) or not isinstance(incoming, dict) or not isinstance(original, dict):
+    raise SystemExit(f'{label} cleanup requires JSON object inputs')
+
+cleaned = cleanup(current, incoming, original)
+if cleaned == current:
+    raise SystemExit(2)
+tmp_path.write_text(json.dumps(cleaned, indent=2, sort_keys=True) + '\n')
+PY
+  then
+    rc=0
+  else
+    rc=$?
+  fi
+
+  if [ "$rc" -eq 2 ]; then
+    rm -f "$tmp"
+    warn "preserving modified $label: $path"
+    return 0
+  fi
+  if [ "$rc" -ne 0 ]; then
+    rm -f "$tmp"
+    warn "preserving modified $label: $path"
+    return 0
+  fi
+
+  mv "$tmp" "$path"
 }
 
 uninstall() {
@@ -467,11 +629,11 @@ PY
   fi
 
   remove_managed_kernel
-  local settings_path project_mcp_path
+  local settings_path claude_json_path
   settings_path="$(manifest_path_value settings "$SETTINGS_DST")"
-  project_mcp_path="$(manifest_path_value projectMcp "$PROJECT_MCP_DST")"
-  remove_managed_config "$settings_path" "$TEMPLATES_DST/settings.recommended.json" "settings.json"
-  remove_managed_mcp_config "$project_mcp_path"
+  claude_json_path="$(manifest_path_value claudeJson "$CLAUDE_JSON_DST")"
+  remove_merged_config "$settings_path" "$TEMPLATES_DST/settings.recommended.json" "settings.json" "settings" "settingsAction"
+  remove_merged_config "$claude_json_path" "$TEMPLATES_DST/mcp.user.template.json" ".claude.json" "claudeJson" "mcpAction"
   run_cmd rm -rf "$METADATA_DIR"
   log "Uninstall complete. User-owned Claude Code files were preserved."
 }
@@ -508,26 +670,23 @@ main() {
 
   local settings_result settings_action settings_state settings_backup
   local -a settings_lines
-  settings_result="$(install_optional_config "$INSTALL_SETTINGS_VALUE" "$REPLACE_SETTINGS_VALUE" "$TEMPLATES_SRC/settings.recommended.json" "$SETTINGS_DST")"
+  settings_result="$(install_settings_config)"
   readarray -t settings_lines <<< "$settings_result"
   settings_action="${settings_lines[0]:-skip}"
   settings_state="${settings_lines[1]:-none}"
   settings_backup="${settings_lines[2]:-none}"
 
-  local mcp_result mcp_action mcp_state mcp_backup mcp_template
+  local mcp_result mcp_action mcp_state mcp_backup
   local -a mcp_lines
-  mcp_template="$(mcp_profile_template)"
-  [ -f "$mcp_template" ] || die "missing MCP profile template: $mcp_template"
-  mcp_result="$(install_optional_config "$INSTALL_PROJECT_MCP_VALUE" "$REPLACE_PROJECT_MCP_VALUE" "$mcp_template" "$PROJECT_MCP_DST")"
+  mcp_result="$(install_mcp_config)"
   readarray -t mcp_lines <<< "$mcp_result"
   mcp_action="${mcp_lines[0]:-skip}"
   mcp_state="${mcp_lines[1]:-none}"
   mcp_backup="${mcp_lines[2]:-none}"
 
-  write_manifest "$memory_action" "$activation_state" "$memory_backup" "$settings_action" "$settings_state" "$settings_backup" "$mcp_action" "$mcp_state" "$mcp_backup" "$MCP_PROFILE_VALUE" "${installed_skills[@]}"
+  write_manifest "$memory_action" "$activation_state" "$memory_backup" "$settings_action" "$settings_state" "$settings_backup" "$mcp_action" "$mcp_state" "$mcp_backup" "${installed_skills[@]}"
 
-  log "b-agentic Claude Code install complete"
-  log "activationState: $activation_state"
+  print_install_report "$activation_state" "${#installed_skills[@]}" "$memory_action" "$memory_backup" "$settings_action" "$settings_backup" "$mcp_action" "$mcp_backup"
   if [ "$activation_state" = "pending" ]; then
     log "Existing $KERNEL_DST was preserved. Review $KERNEL_SNAPSHOT_DST and rerun with --replace-memory to activate the kernel."
     return 2

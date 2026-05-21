@@ -12,7 +12,8 @@ The first Claude-native release supports a personal-global install only:
 - Suite metadata, backups, and source snapshots: `~/.claude/b-agentic/`
 - Shared reference snapshot: `~/.claude/b-agentic/references/*.md`
 - Recommended settings template: `~/.claude/b-agentic/templates/settings.recommended.json`
-- MCP profile templates: `~/.claude/b-agentic/templates/mcp.*.template.json`
+- Global MCP template: `~/.claude/b-agentic/templates/mcp.user.template.json`
+- User-scope MCP config: `~/.claude.json`
 - Sensitive artifacts: `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/claude-code/b-agentic/<skill>/<slug>.log`
 
@@ -24,33 +25,26 @@ Claude Code exposes each skill directory as `/b-*`. Mutating or coordinating ski
 
 ## Safety policy
 
-The installer never overwrites an existing `~/.claude/CLAUDE.md` without `--replace-memory`. Settings and MCP templates are copied as inert templates by default. Users may apply them with `--install-settings`, `--replace-settings`, `--install-project-mcp`, `--replace-project-mcp`, or `--mcp-profile <name>`; replace modes create timestamped backups first.
+The installer never overwrites an existing `~/.claude/CLAUDE.md` without `--replace-memory`. Plain install syncs skills and references, merges recommended settings into `~/.claude/settings.json`, and merges user-scope MCP servers into `~/.claude.json`. Existing settings and MCP config are backed up before merge.
 
-## MCP Profiles
+Settings merge is conservative: unknown keys are preserved, arrays are appended without duplicates, objects are merged recursively, and existing scalar values win conflicts.
 
-MCP profiles are project `.mcp.json` templates. They are not installed into a project unless the user passes an explicit project MCP flag. Keep profiles small so MCP is a lazy capability rather than a default context source.
+## Global MCP Setup
 
-| Profile | Template | Use |
+Plain install merges `mcp.user.template.json` into `~/.claude.json` under top-level `mcpServers`, matching Claude Code's user scope. The global set contains Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus.
+
+| Server | Use |
 |---|---|---|
-| `safe` | `mcp.safe.template.json` | Serena semantic code navigation/editing for local source work. |
-| `research` | `mcp.research.template.json` | Context7 docs plus Brave Search and Firecrawl for external evidence. |
-| `browser` | `mcp.browser.template.json` | Playwright MCP for browser/DOM/visual/e2e evidence with isolated state. |
-| `architecture` | `mcp.architecture.template.json` | Serena plus optional GitNexus graph radar for architecture and blast-radius work. |
+| `serena` | Semantic code navigation/editing for local source work. |
+| `context7` | Library/framework documentation lookup. |
+| `brave-search` | Open-web and news discovery. |
+| `firecrawl` | Known URL and document extraction. |
+| `playwright` | Browser/DOM/visual/e2e evidence with isolated state. |
+| `gitnexus` | Optional graph radar for architecture and blast-radius work. |
 
-`mcp.project.template.json` is a full convenience example for the original non-GitNexus MCP surfaces in one project config. Prefer the smaller profiles for ordinary setup; use `architecture` when you intentionally want GitNexus radar.
-
-Profile safety rules:
-- Use environment-variable placeholders such as `${BRAVE_API_KEY}` and `${FIRECRAWL_API_KEY}`; never commit real API keys.
+MCP safety rules:
+- Use environment-variable placeholders such as `${CONTEXT7_API_KEY}`, `${BRAVE_API_KEY}`, and `${FIRECRAWL_API_KEY}`; never commit real API keys.
 - Keep Playwright configured with `--isolated` unless a user explicitly opts into persistent browser state outside the tracked worktree.
 - Do not include Claude hooks, generated root guidance, indexes, memories, or setup commands in MCP templates.
 - Treat GitNexus as optional power-user radar. Users must run `gitnexus analyze` or `gitnexus setup` themselves if they want indexing, generated skills, hooks, or global MCP config.
-- Context7 may also offer CLI + Skills setup through `npx ctx7 setup`; b-agentic profiles use the MCP HTTP endpoint to avoid writing user config during install.
-
-Apply a profile intentionally:
-
-```bash
-install.sh --install-project-mcp --mcp-profile safe
-install.sh --replace-project-mcp --mcp-profile research
-```
-
-The default profile for `--install-project-mcp` remains `project` for compatibility with the original full template.
+- Context7 may also offer CLI + Skills setup through `npx ctx7 setup`; b-agentic uses the MCP HTTP endpoint with the `${CONTEXT7_API_KEY}` header placeholder and does not run Context7 setup commands during install.

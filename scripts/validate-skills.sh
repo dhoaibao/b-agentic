@@ -206,27 +206,19 @@ for required in [
 if 'global/AGENTS.md' in runtime_contract or '~/.config/opencode' in runtime_contract or '/tmp/opencode' in runtime_contract:
     errors.append('references/runtime-contract.md: contains stale active OpenCode path')
 
+for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'skillsSynced']:
+    if required not in install_sh:
+        errors.append(f'install.sh: missing global one-command installer marker {required!r}')
+
 for required in ['$HOME/.claude', 'global/CLAUDE.md', 'skills', 'references/b-agentic', 'activationState']:
     if required not in install_sh:
         errors.append(f'install.sh: missing Claude installer marker {required!r}')
 if '~/.config/opencode' in install_sh or 'opencode.json' in install_sh:
     errors.append('install.sh: contains stale OpenCode install target')
 
-expected_mcp_profiles = {
-    'safe': root / 'claude' / 'mcp.safe.template.json',
-    'research': root / 'claude' / 'mcp.research.template.json',
-    'browser': root / 'claude' / 'mcp.browser.template.json',
-    'architecture': root / 'claude' / 'mcp.architecture.template.json',
-    'project': root / 'claude' / 'mcp.project.template.json',
-}
-
-for profile, path in expected_mcp_profiles.items():
-    if not path.exists():
-        errors.append(f'{path}: missing MCP profile template')
-    if f'`{profile}`' not in claude_readme and f' {profile} ' not in claude_readme:
-        errors.append(f'claude/README.md: missing MCP profile {profile!r}')
-    if f'mcp.{profile}.template.json' not in claude_readme and profile != 'project':
-        errors.append(f'claude/README.md: missing template name mcp.{profile}.template.json')
+user_mcp_template = root / 'claude' / 'mcp.user.template.json'
+if not user_mcp_template.exists():
+    errors.append(f'{user_mcp_template}: missing global MCP user template')
 
 secret_literal_patterns = [
     re.compile(r'fc-[A-Za-z0-9_-]{8,}'),
@@ -272,12 +264,34 @@ for json_path in sorted((root / 'claude').glob('*.json')):
             server = servers['context7']
             if server.get('type') != 'http' or server.get('url') != 'https://mcp.context7.com/mcp':
                 errors.append(f'{json_path}: context7 must use the official MCP HTTP endpoint')
+            headers = server.get('headers', {})
+            if headers.get('CONTEXT7_API_KEY') != '${CONTEXT7_API_KEY}':
+                errors.append(f'{json_path}: context7 must use ${{CONTEXT7_API_KEY}} header placeholder')
 
-        if 'gitnexus' in servers and json_path.name != 'mcp.architecture.template.json':
-            errors.append(f'{json_path}: gitnexus belongs only in the architecture profile')
+        if 'gitnexus' in servers and json_path.name != 'mcp.user.template.json':
+            errors.append(f'{json_path}: gitnexus belongs only in the global user config')
 
-if '--mcp-profile' not in install_sh or 'mcpProfile' not in install_sh:
-    errors.append('install.sh: missing MCP profile installer support')
+        if json_path.name == 'mcp.user.template.json':
+            expected_user = {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}
+            actual_user = set(servers)
+            if actual_user != expected_user:
+                errors.append(f'{json_path}: user MCP template must contain all default global servers {sorted(expected_user)}, found {sorted(actual_user)}')
+
+for forbidden in ['--install-project-mcp', '--replace-project-mcp', '--mcp-profile', '--with-playwright', '--with-gitnexus', '.mcp.json']:
+    if forbidden in readme:
+        errors.append(f'README.md: should not document per-project/options installer path {forbidden!r}')
+    if forbidden in claude_readme:
+        errors.append(f'claude/README.md: should not document per-project/options installer path {forbidden!r}')
+
+for forbidden in ['--install-project-mcp', '--replace-project-mcp', '--mcp-profile', '--with-playwright', '--with-gitnexus', 'PROJECT_MCP_DST', 'mcpProfile']:
+    if forbidden in install_sh:
+        errors.append(f'install.sh: should not expose per-project/options installer path {forbidden!r}')
+
+if 'One Command' not in readme or 'skillsSynced' not in readme:
+    errors.append('README.md: missing one-command install/output documentation')
+
+if 'Global MCP Setup' not in claude_readme or '~/.claude.json' not in claude_readme:
+    errors.append('claude/README.md: missing global MCP setup documentation')
 
 if errors:
     for error in errors:
