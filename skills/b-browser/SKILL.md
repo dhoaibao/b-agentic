@@ -1,11 +1,10 @@
 ---
 name: b-browser
 description: >
-  Browser automation and evidence operator. ALWAYS invoke when the user asks to
-  run, evaluate, or account for jsdom, Playwright, Cypress, Puppeteer,
-  WebDriver, visual, screenshot, browser-session, or live UI checks. Unlike
-  b-test, b-browser owns browser/DOM readiness evidence, not non-browser unit,
-  integration, or contract tests.
+  Browser automation and evidence operator for jsdom, Playwright, Cypress,
+  Puppeteer, WebDriver, visual, screenshot, browser-session, live UI, and e2e
+  checks. Unlike b-test, b-browser owns browser/DOM readiness evidence, not
+  non-browser unit, integration, or contract tests.
 argument-hint: "[browser-or-e2e-request]"
 disable-model-invocation: true
 ---

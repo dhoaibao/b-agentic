@@ -1,12 +1,12 @@
 ---
 name: b-plan
 description: >
-  Think before coding. ALWAYS invoke when the goal is already clear but the
-  task is non-trivial per CLAUDE.md section 3, the implementation approach or
+  Think before coding when the goal is already clear but the task is
+  non-trivial per CLAUDE.md section 3, the implementation approach or
   sequencing matters, or the user explicitly asks for a plan, architecture
   direction, or ordered implementation steps. Decomposes work, chooses an
-  approach, and writes an execution-ready plan. Unlike b-spec, b-plan
-  sequences a clear target rather than discovering it.
+  approach, and writes an execution-ready plan. Unlike b-spec, b-plan sequences
+  a clear target rather than discovering it.
 argument-hint: "[task]"
 disable-model-invocation: true
 ---

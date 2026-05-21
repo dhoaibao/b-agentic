@@ -1,11 +1,11 @@
 ---
 name: b-orchestrate
 description: >
-  End-to-end PR readiness orchestration. ALWAYS invoke when the user asks for
-  one workflow that spans spec, plan, implementation, optional tests, review,
-  and review-fix loops until ready for PR. Coordinates phase skills and stops
-  at approval, blocker, or readiness. Unlike b-implement, b-orchestrate owns
-  sequencing across multiple skills rather than changing code itself.
+  End-to-end PR readiness orchestration for workflows spanning spec, plan,
+  implementation, optional tests, review, and review-fix loops until ready for
+  PR. Coordinates phase skills and stops at approval, blocker, or readiness.
+  Unlike b-implement, b-orchestrate owns sequencing across multiple skills
+  rather than changing code itself.
 argument-hint: "[workflow-goal]"
 disable-model-invocation: true
 ---

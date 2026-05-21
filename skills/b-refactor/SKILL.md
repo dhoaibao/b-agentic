@@ -2,11 +2,10 @@
 name: b-refactor
 description: >
   Code refactoring: impact analysis, mechanical transformation, and
-  verification. ALWAYS invoke when the user asks for a named
-  behavior-preserving transform — rename, extract, move, inline, delete dead
-  code, or simplify a specific target. Vague cleanups go to b-plan first.
-  Unlike b-plan, which decides what to build, b-refactor owns mechanical
-  edits.
+  verification for named behavior-preserving transforms: rename, extract, move,
+  inline, delete dead code, or simplify a specific target. Vague cleanups go to
+  b-plan first. Unlike b-plan, which decides what to build, b-refactor owns
+  mechanical edits.
 argument-hint: "[refactor-target]"
 disable-model-invocation: true
 ---

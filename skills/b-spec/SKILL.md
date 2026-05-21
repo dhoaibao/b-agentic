@@ -1,11 +1,11 @@
 ---
 name: b-spec
 description: >
-  Clarify what to build before planning. ALWAYS invoke when the request is
-  underspecified, the desired end state or acceptance criteria are unclear, or
-  the user has a rough idea that needs a concrete scope. Extract goals,
-  constraints, and success criteria, then hand off to b-plan or b-implement.
-  Unlike b-plan, b-spec decides the target outcome before sequencing work.
+  Clarify what to build before planning when the request is underspecified, the
+  desired end state or acceptance criteria are unclear, or the user has a rough
+  idea that needs a concrete scope. Extract goals, constraints, and success
+  criteria, then hand off to b-plan or b-implement. Unlike b-plan, b-spec
+  decides the target outcome before sequencing work.
 argument-hint: "[rough-request]"
 ---
 

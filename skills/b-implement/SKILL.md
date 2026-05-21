@@ -1,11 +1,11 @@
 ---
 name: b-implement
 description: >
-  Execute approved or scoped work safely. ALWAYS invoke after /b-plan
-  approval, when the user asks to execute or implement scoped work, or when a
-  small direct request meets the threshold in CLAUDE.md section 3. Reads the
-  approved plan, applies the next small step, verifies it, and stops for new
-  decisions. Unlike b-plan, b-implement changes code.
+  Execute approved or scoped work safely after /b-plan approval, when the user
+  asks to execute or implement scoped work, or when a small direct request meets
+  the threshold in CLAUDE.md section 3. Reads the approved plan, applies the
+  next small step, verifies it, and stops for new decisions. Unlike b-plan,
+  b-implement changes code.
 argument-hint: "[plan-path-or-task]"
 disable-model-invocation: true
 ---

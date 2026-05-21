@@ -1,10 +1,10 @@
 ---
 name: b-audit
 description: >
-  Repository and suite-slice audits. ALWAYS invoke when the user asks for a
-  reviewer-style audit of a named repository area, runtime contract, installer,
-  validator, tool boundary, or skill-suite surface. Unlike b-review, b-audit is
-  not diff/range-first and reports sampled coverage plus residual risk.
+  Repository and suite-slice audits for reviewer-style audits of named
+  repository areas, runtime contracts, installers, validators, tool boundaries,
+  or skill-suite surfaces. Unlike b-review, b-audit is not diff/range-first and
+  reports sampled coverage plus residual risk.
 argument-hint: "[--surface=<area>] [--baseline=<path|url>] [--skip-checks]"
 ---
 

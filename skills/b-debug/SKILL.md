@@ -1,12 +1,11 @@
 ---
 name: b-debug
 description: >
-  Systematic hypothesis-driven debugging. ALWAYS invoke when the user reports
-  a runtime bug, an error, broken behavior, slow path, memory issue, or
-  pastes a stack trace. Traces execution, confirms root cause, then fixes
-  minimally and verifies. Unlike b-test, b-debug owns runtime behavior
-  failures, not test-mechanic issues such as wrong assertions, mocks, or
-  fixtures.
+  Systematic hypothesis-driven debugging for runtime bugs, errors, broken
+  behavior, slow paths, memory issues, and stack traces. Traces execution,
+  confirms root cause, then fixes minimally and verifies. Unlike b-test,
+  b-debug owns runtime behavior failures, not test-mechanic issues such as
+  wrong assertions, mocks, or fixtures.
 argument-hint: "[symptom-or-error]"
 disable-model-invocation: true
 ---

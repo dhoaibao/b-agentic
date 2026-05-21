@@ -1,12 +1,11 @@
 ---
 name: b-research
 description: >
-  External knowledge, from quick lookup to multi-source synthesis. ALWAYS
-  invoke when the user asks for library/framework docs, API facts, config
-  keys, method signatures, comparisons, deep dives, or recency-sensitive
-  topics. Auto-detects depth; never asks the user to pick a mode. Unlike
-  b-debug or b-plan, it fetches docs and web information rather than tracing
-  code or choosing implementation.
+  External knowledge, from quick lookup to multi-source synthesis, for
+  library/framework docs, API facts, config keys, method signatures,
+  comparisons, deep dives, or recency-sensitive topics. Auto-detects depth;
+  never asks the user to pick a mode. Unlike b-debug or b-plan, it fetches docs
+  and web information rather than tracing code or choosing implementation.
 argument-hint: "[question-or-source]"
 ---
 
