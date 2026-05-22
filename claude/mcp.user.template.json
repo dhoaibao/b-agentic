@@ -7,8 +7,7 @@
         "start-mcp-server",
         "--context",
         "claude-code",
-        "--project",
-        "${CLAUDE_PROJECT_DIR:-.}"
+        "--project-from-cwd"
       ],
       "env": {}
     },
