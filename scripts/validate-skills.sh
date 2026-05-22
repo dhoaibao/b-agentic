@@ -170,6 +170,9 @@ contract_version = contract_version_match.group(1) if contract_version_match els
 
 if not kernel_path.exists():
     errors.append('runtimes/claude-code/kernel.md: missing Claude Code kernel source')
+for runtime_dir in sorted((root / 'runtimes').glob('*/')):
+    if not (runtime_dir / 'kernel.md').exists():
+        errors.append(f'{runtime_dir}: runtime adapter missing kernel.md')
 if (root / 'global' / 'AGENTS.md').exists():
     errors.append('global/AGENTS.md: stale OpenCode kernel source should be removed or renamed')
 if (root / 'AGENTS.md').exists():
@@ -225,7 +228,7 @@ for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'skillsSynced
     if required not in install_sh:
         errors.append(f'install.sh: missing global one-command installer marker {required!r}')
 
-for required in ['$HOME/.claude', 'runtimes/claude-code/kernel.md', 'skills', 'references/b-agentic', 'activationState']:
+for required in ['$HOME/.claude', 'runtimes/$RUNTIME/kernel.md', 'skills', 'references/b-agentic', 'activationState']:
     if required not in install_sh:
         errors.append(f'install.sh: missing Claude installer marker {required!r}')
 if '~/.config/opencode' in install_sh or 'opencode.json' in install_sh:

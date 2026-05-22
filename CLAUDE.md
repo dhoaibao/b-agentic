@@ -161,6 +161,32 @@ Runtime contract sync:
 
 Root `CLAUDE.md` remains maintainer guidance for this source repository.
 
+## Runtime Adapters
+
+Each supported runtime has its own adapter directory under `runtimes/<name>/`. The adapter holds delivery artifacts for that runtime only — the skills and shared references are runtime-agnostic and live outside `runtimes/`.
+
+### Adapter directory structure
+
+```text
+runtimes/<name>/
+├── kernel.md      # Always-on runtime rules (installed as the runtime's memory/context file)
+└── configs/       # Runtime-specific config templates (settings, MCP, etc.)
+```
+
+Currently only `claude-code` exists. Do not create adapters for other runtimes without an approved plan.
+
+### Adding a new runtime adapter
+
+1. Create `runtimes/<name>/` with at least `kernel.md`.
+2. Add `configs/` when the runtime needs config templates.
+3. Update `README.md`, `CLAUDE.md`, and `REFERENCE.md` in the same commit.
+
+`install.sh` already supports `--runtime=<name>` and `B_AGENTIC_RUNTIME` for selecting the adapter; `scripts/validate-skills.sh` already enforces the `kernel.md` invariant for every adapter directory. No installer or validator changes are needed when adding a new adapter.
+
+### Runtime file sync rule
+
+When always-on runtime behavior changes, update `runtimes/<name>/kernel.md`. When runtime config templates change, update `runtimes/<name>/configs/`. Keep `README.md` and `CLAUDE.md` aligned in the same commit.
+
 ## Doc Sync Rule
 
 Any change to a skill file requires updating both `README.md` and `REFERENCE.md` in the same commit.

@@ -105,7 +105,10 @@ All skills are model-invocable when their descriptions match the request. Skill 
 ```text
 b-agentic/
 ├── CLAUDE.md              # Claude Code maintainer guidance for this source repo
-├── runtimes/claude-code/          # Claude Code runtime adapter (kernel + configs)
+├── runtimes/              # Per-runtime delivery adapters
+│   └── claude-code/       # Claude Code adapter
+│       ├── kernel.md      # Always-on runtime rules (installs as ~/.claude/CLAUDE.md)
+│       └── configs/       # Settings and MCP config templates
 ├── references/            # shared runtime references copied into skill support dirs
 ├── skills/<name>/         # Claude skill instructions and optional reference.md files
 ├── install.sh             # Claude Code installer, updater, and uninstaller

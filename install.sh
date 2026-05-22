@@ -28,6 +28,7 @@ DRY_RUN_VALUE="${B_AGENTIC_DRY_RUN:-N}"
 REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
+RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
 CONTEXT7_API_KEY_INPUT=""
 BRAVE_API_KEY_INPUT=""
 FIRECRAWL_API_KEY_INPUT=""
@@ -205,6 +206,12 @@ parse_args() {
       --no-prompt-api-keys)
         PROMPT_API_KEYS_VALUE=N
         ;;
+      --runtime=*)
+        RUNTIME="${1#--runtime=}"
+        case "$RUNTIME" in
+          *[^a-z0-9_-]*) die "invalid runtime name: $RUNTIME (use lowercase alphanumeric, dashes, underscores)" ;;
+        esac
+        ;;
       *)
         die "unknown argument: $1"
         ;;
@@ -217,8 +224,8 @@ set_source_dir() {
   SOURCE_DIR="$1"
   SKILLS_SRC="$SOURCE_DIR/skills"
   REFERENCES_SRC="$SOURCE_DIR/references"
-  TEMPLATES_SRC="$SOURCE_DIR/runtimes/claude-code/configs"
-  KERNEL_SRC="$SOURCE_DIR/runtimes/claude-code/kernel.md"
+  TEMPLATES_SRC="$SOURCE_DIR/runtimes/$RUNTIME/configs"
+  KERNEL_SRC="$SOURCE_DIR/runtimes/$RUNTIME/kernel.md"
 }
 
 sync_source() {
@@ -533,6 +540,7 @@ write_manifest() {
   env \
     MANIFEST_DST="$MANIFEST_DST" \
     TIMESTAMP="$TIMESTAMP" \
+    RUNTIME="$RUNTIME" \
     MEMORY_ACTION="$memory_action" \
     ACTIVATION_STATE="$activation_state" \
     MEMORY_BACKUP="$memory_backup" \
@@ -558,7 +566,7 @@ from pathlib import Path
 skills = [name for name in os.environ['SKILLS'].split() if name]
 manifest = {
     'suite': 'b-agentic',
-    'runtime': 'claude-code',
+    'runtime': os.environ['RUNTIME'],
     'installedAt': os.environ['TIMESTAMP'],
     'activationState': os.environ['ACTIVATION_STATE'],
     'memoryAction': os.environ['MEMORY_ACTION'],
