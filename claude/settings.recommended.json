@@ -1,6 +1,14 @@
 {
   "disableSkillShellExecution": true,
   "permissions": {
+    "allow": [
+      "mcp__serena__*",
+      "mcp__context7__*",
+      "mcp__brave-search__*",
+      "mcp__firecrawl__*",
+      "mcp__playwright__*",
+      "mcp__gitnexus__*"
+    ],
     "ask": [
       "Bash(git commit *)",
       "Bash(npm install *)",
@@ -19,14 +27,5 @@
       "Bash(git clean -f *)",
       "Bash(git push --force *)"
     ]
-  },
-  "skillOverrides": {
-    "b-orchestrate": "user-invocable-only",
-    "b-plan": "user-invocable-only",
-    "b-implement": "user-invocable-only",
-    "b-refactor": "user-invocable-only",
-    "b-debug": "user-invocable-only",
-    "b-test": "user-invocable-only",
-    "b-browser": "user-invocable-only"
   }
 }

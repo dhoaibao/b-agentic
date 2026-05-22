@@ -57,8 +57,7 @@ Supported optional fields used by this repo:
 
 Repo conventions:
 - Do not use legacy OpenCode-only compatibility or suite metadata fields.
-- Mutating or coordinating skills are manual-only by default: `b-orchestrate`, `b-plan`, `b-implement`, `b-refactor`, `b-debug`, `b-test`, and `b-browser`.
-- Read-only discovery/review skills may be model-invocable when their descriptions are tight and they do not pre-approve tools.
+- All skills are model-invocable when their descriptions match the request.
 
 ## Skill Directory Structure
 
