@@ -90,4 +90,3 @@ Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §9 before c
 - Prefer symbol-aware rename/delete tools when reliable.
 - Ask before broad directory moves or cascading ecosystem changes.
 - Do not push past failing medium/high-risk verification without surfacing the blocker.
-- Do not commit unless explicitly asked.

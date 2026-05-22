@@ -33,7 +33,7 @@ Confirm root cause, fix minimally, verify, and remove probes. If the user asks o
 - `serena-symbol-toolkit` *(preferred for tracing and focused fixes)*
 - `gitnexus-radar` *(optional, for unfamiliar cross-module paths)*
 - `context7-docs` *(optional, for suspected API misuse)*
-- `brave-discovery` + `firecrawl-extraction` *(optional, for public errors, recent deprecations, or upstream advisories after the privacy gate)*
+- `brave-search` + `firecrawl-extraction` *(optional, for public errors, recent deprecations, or upstream advisories after the privacy gate)*
 - Native search and `bash` - exact errors, config, repro commands, profilers, and diagnostics.
 
 If required tools are unavailable, read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §4 before applying fallbacks. Graceful degradation: possible with native analysis, slower without Serena.

@@ -26,7 +26,7 @@ Own non-browser code-level tests: add coverage, fix test-only failures, and avoi
 ## When NOT to use
 
 - The failing test likely exposes real runtime behavior -> use **b-debug**.
-- The task renders through a DOM, drives a browser, performs visual testing, or runs e2e/browser-only tooling -> use **b-browser**; stop rather than adding browser or DOM tooling.
+- The task renders through a DOM, drives a browser, performs visual testing, or runs e2e/browser-only tooling -> use **b-browser**; stop rather than adding browser or DOM tooling. See `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §10 for the boundary table with concrete examples.
 - Scope, acceptance, or intended behavior is unclear -> use **b-spec** or **b-debug** per the global test-vs-bug decision.
 - The task is pre-PR logic review -> use **b-review**.
 - The task needs a new test strategy/framework -> use **b-plan** first.
@@ -86,7 +86,6 @@ Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §9 before c
 - Never change production code just because a test is red.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
 - Add `baseline-missing` tests only when the user explicitly asks for structural coverage; otherwise stop or hand off before writing them.
-- Browser, DOM-rendered, visual, and e2e verification belongs to **b-browser**; do not add browser or DOM tooling as a side effect.
 - Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without approval.
 - Keep fixture and mock changes local when practical.
 - Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §6 before manual patches and §7 before applying the verification ladder or iteration cap.

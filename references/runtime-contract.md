@@ -281,6 +281,21 @@ Skip the line on trivial high-confidence answers (a single docs lookup with a di
 
 ## 4. Tool model
 
+### Bundle to server quick reference
+
+Skills reference bundles by conceptual name; the actual MCP server name is in the `Server` column.
+
+| Bundle name | Server | Role |
+|---|---|---|
+| `serena-symbol-toolkit` | `serena` | Symbol discovery, references, diagnostics, edits |
+| `gitnexus-radar` | `gitnexus` | Optional graph radar for architecture/blast radius |
+| `context7-docs` | `context7` | Library/framework documentation lookup |
+| `brave-search` | `brave-search` | Open-web and news discovery |
+| `firecrawl-extraction` | `firecrawl` | Known URL and local document extraction (default tier) |
+| `firecrawl-extended` | `firecrawl` | Site maps and structured field extraction (conditional tier) |
+| `firecrawl-deep` | `firecrawl` | Deep interaction and agent research (approval-gated tier) |
+| `playwright-browser-operator` | `playwright` | Live browser/DOM/visual/e2e actions |
+
 ### Tool priority
 
 Use the lightest reliable tool. Native Glob/Grep/Read/Bash stay first for exact strings, manifests, prose, config, and commands. MCP bundles are available capabilities, not default context sources; activate them only when they close the next evidence gap. Native tools are not MCP bundles; skill files may name them separately when they are part of the workflow.
@@ -290,7 +305,7 @@ Use the lightest reliable tool. Native Glob/Grep/Read/Bash stay first for exact 
 | Graph overview, architecture, blast radius, changed-scope validation | `gitnexus-radar` when indexed, fresh, target-aware | `serena-symbol-toolkit` |
 | Exact symbol discovery, declarations, references, symbol edits | `serena-symbol-toolkit` | Native tools + `apply_patch` |
 | Library/framework docs | `context7-docs` | `/b-research` |
-| Web/news/image discovery and unknown-URL source shortlisting | `brave-discovery` | `firecrawl-extraction` for source content |
+| Web/news/image discovery and unknown-URL source shortlisting | `brave-search` | `firecrawl-extraction` for source content |
 | Known URL extraction | `firecrawl-extraction` | `firecrawl-extended`, then `firecrawl-deep` (approval) |
 | Local document extraction | `firecrawl-extraction` (`firecrawl_parse`) | `firecrawl-extraction` (`firecrawl_scrape`) only if already hosted |
 | Browser/DOM/visual/e2e live UI operation | `playwright-browser-operator` when installed and safety-gated | Existing repo scripts, supplied evidence, or `firecrawl-extraction` for known remote pages |
@@ -343,7 +358,7 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 - **Version pinning:** before querying, pin from manifests **and lockfiles** (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `poetry.lock`, `uv.lock`, `go.sum`, `Cargo.lock`, etc.). In monorepos, use the closest workspace. Ask when versions conflict.
 - **Fallback:** if Context7 cannot answer, prefer the library's own documentation URL pattern (e.g., `<library>.dev/docs/`) over generic web search.
 
-#### `brave-discovery`
+#### `brave-search`
 
 - **Server:** `brave-search`
 - **Install source:** default Claude Code user-scope MCP template using `npx -y @brave/brave-search-mcp-server --transport stdio` and the `${BRAVE_API_KEY}` environment placeholder. Interactive installs may write a user-provided concrete key to user-scope `~/.claude.json`.
@@ -384,7 +399,7 @@ Assume bundles are available; do not preflight. On failure, retry once narrower,
 **Fallback ladder:**
 - `serena-symbol-toolkit` unavailable → native Glob/Grep/Read + `apply_patch`. Treat renames and safe-deletes as high-risk; widen verification.
 - `gitnexus-radar` unavailable, stale, or missing target → continue without graph evidence; do not retry.
-- `context7-docs` unavailable → official-docs URL via `brave-discovery` + `firecrawl-extraction`.
+- `context7-docs` unavailable → official-docs URL via `brave-search` + `firecrawl-extraction`.
 - `firecrawl-extraction` unavailable on a known URL → search snippets only; mark the answer as snippet-only with `Confidence: low`.
 - `firecrawl-extraction` unavailable on a local plain-text, Markdown, or HTML document → use native local reads and exact local tools.
 - `firecrawl-extraction` unavailable on a local PDF, spreadsheet, DOCX, or other rich binary → stop with `[degraded: firecrawl-extraction unavailable]`; do not infer substance from filenames or metadata alone.
@@ -448,7 +463,7 @@ When framework, library, or vendor API docs materially influence an implementati
 
 - Do not add citations for purely local code changes or obvious language semantics.
 - One narrow authoritative lookup is enough; this rule does not force a separate research pass when the current skill already resolved the question.
-- **Citation provenance.** Every cited URL must come from a result the agent actually fetched in this session (via `context7-docs`, `brave-discovery`, `firecrawl-extraction`, or a user-supplied URL). Do not cite URLs from memory. If the supporting page is from memory and was not re-fetched, either fetch it now or label the claim as `Confidence: low — uncited recall`.
+- **Citation provenance.** Every cited URL must come from a result the agent actually fetched in this session (via `context7-docs`, `brave-search`, `firecrawl-extraction`, or a user-supplied URL). Do not cite URLs from memory. If the supporting page is from memory and was not re-fetched, either fetch it now or label the claim as `Confidence: low — uncited recall`.
 
 ### Baseline and freshness labels
 
@@ -982,7 +997,19 @@ Rerun the suspected test up to 2 times in isolation. If it passes some runs and 
 
 ### Browser and DOM verification boundary
 
-- jsdom, happy-dom, React Testing Library, Vue Test Utils, Svelte testing-library, Playwright, Cypress, WebdriverIO, Puppeteer, and any test that renders UI through a DOM or drives a real browser → route to `b-browser`, not `b-test`.
+| Test / Task | Skill | Why |
+|---|---|---|
+| React Testing Library + jsdom rendering a `<Button>` component in isolation | `b-test` | Simulated DOM, no real browser, no user interaction |
+| Vue Test Utils mounting a component and checking computed props | `b-test` | Simulated DOM, no browser driver |
+| Playwright clicking through a checkout flow end-to-end | `b-browser` | Real browser, user interaction, real network |
+| Cypress component test mounting a button and firing click events | `b-test` | Component-level, no page navigation or real browser needed |
+| Screenshot diff comparing two page renders | `b-browser` | Visual evidence requires real rendering context |
+| jsdom testing that a form validation error appears on submit | `b-test` | Simulated DOM event, no real browser |
+| Playwright navigating to login, filling credentials, asserting redirect | `b-browser` | Real browser navigation, auth/session state |
+| React Testing Library testing a modal open/close with `fireEvent` | `b-test` | Simulated events, no real browser |
+
+- jsdom, happy-dom, React Testing Library, Vue Test Utils, Svelte testing-library, and component tests using simulated DOM → `b-test`.
+- Playwright, Cypress, WebdriverIO, Puppeteer, WebDriver, and any test that drives a real browser, captures screenshots, or tests across page navigations → `b-browser`.
 - Visual, screenshot, browser-cookie, browser-session, real-network UI, and e2e flows are `b-browser` evidence surfaces.
 - Do not add browser, DOM, visual, or e2e project tooling as a side effect. Adding or choosing a new framework requires `b-plan` first, then explicit dependency-write approval when implementation reaches that point.
 - `b-browser` may assess supplied/CI evidence, run existing repo-provided commands, or use `playwright-browser-operator` after the §6 safety gates allow it. If no approved evidence path exists, stop with `cause: evidence_gap` or report an accepted follow-up.

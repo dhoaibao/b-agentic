@@ -110,6 +110,29 @@ for path in skill_paths:
         if section not in body:
             errors.append(f'{path}: missing required section {section!r}')
 
+    if 'status block' not in text and 'status or handoff' not in text:
+        errors.append(f'{path}: missing status block reference')
+
+    handoff_indicators = ['hand off to', 'handoff', 'hands off to']
+    if any(h in text.lower() for h in handoff_indicators):
+        has_handoff_ref = (
+            '[handoff]' in text
+            or 'handoff envelope' in text
+            or '§9' in text
+        )
+        if not has_handoff_ref:
+            errors.append(f'{path}: mentions handoff but missing [handoff] block, handoff envelope, or §9 reference')
+
+    if '## Output format' in body:
+        output_fmt_start = body.index('## Output format')
+        next_heading = body.find('\n## ', output_fmt_start + 1)
+        output_section = body[output_fmt_start:next_heading] if next_heading != -1 else body[output_fmt_start:]
+        output_lines = [l.strip() for l in output_section.splitlines()[1:] if l.strip()]
+        if len(output_lines) < 2:
+            errors.append(f'{path}: Output format section has fewer than 2 non-empty lines')
+    else:
+        errors.append(f'{path}: missing ## Output format section')
+
     forbidden = [
         'compatibility: opencode',
         'metadata:',

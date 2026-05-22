@@ -37,7 +37,7 @@ Flags: `--baseline=<path|url>`, `--surface=<area>`, `--skip-checks`, `--self`, `
 - `serena-symbol-toolkit` *(preferred for focused code inspection)*
 - `gitnexus-radar` *(optional, for broad route/API/tool/shared-flow risk)*
 - `context7-docs` *(optional, for suspicious third-party API usage)*
-- `brave-discovery` + `firecrawl-extraction` *(optional, for focused public CVE, advisory, or release-drift lookup)*
+- `brave-search` + `firecrawl-extraction` *(optional, for focused public CVE, advisory, or release-drift lookup)*
 
 If required tools are unavailable, read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §4 before applying fallbacks. Graceful degradation: possible with native tools, focused reads, and targeted commands; graph-shaped impact confidence may be lower without optional radar.
 

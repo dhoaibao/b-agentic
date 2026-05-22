@@ -46,6 +46,7 @@ Stay in **b-spec** only while the target outcome is underdetermined.
 
 - If the target is clear and the work is small, hand off to **b-implement**.
 - If the target is clear but the work needs sequencing, hand off to **b-plan**.
+- If the user explicitly waives clarification ("just do it", "skip spec"), log the waiver, restate the interpreted scope and assumptions, lower confidence, and hand off to **b-implement** or **b-plan** accordingly.
 - If two or more plausible outcomes remain, continue.
 
 ### Step 2 - Clarify the outcome
@@ -94,4 +95,5 @@ Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §9 before c
 - Clarify the outcome; do not plan or implement here.
 - Prefer repo evidence over extra questions when the repo already answers the ambiguity.
 - Keep assumptions explicit; never turn them into confirmed decisions without user confirmation.
+- If the user explicitly waives clarification, log the waiver and proceed with `confidence: low — user waived spec`.
 - If external feasibility blocks the spec, use **b-research** instead of guessing.

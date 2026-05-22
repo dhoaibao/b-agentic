@@ -56,6 +56,8 @@ Default to quick mode when the plan is low/trivial risk, fits in chat, and can b
 
 State the interpreted scope in one sentence. If the goal or acceptance criteria are ambiguous, hand off to **b-spec**.
 
+If the user explicitly waives planning ("just implement it", "skip the plan"), check the small-direct threshold. If it passes, log the waiver and hand off to **b-implement** with the interpreted scope and `confidence: low — user waived plan`. If it fails the threshold, explain why a plan is needed for safe execution; if the user still insists, log the override and produce a minimal chat plan.
+
 Ask only for missing inputs that change safe planning: hard constraints, deployment/order constraints, required verification, or behavioral decisions the codebase cannot answer.
 
 Keep assumptions from `b-spec` visible. Move them to confirmed decisions only after explicit user confirmation.
@@ -106,4 +108,5 @@ Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §9 before c
 - Keep quick plans lean; promote to full mode when the plan grows risk or coordination needs.
 - Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §2 and §8 before applying slug, artifact, staleness, revision, or saved-plan filename rules.
 - Surface blockers and assumptions explicitly.
+- If the user waives planning, log the waiver and lower confidence; never proceed without scope confirmation on non-trivial work.
 - Approved plans are the execution source of truth for **b-implement**.

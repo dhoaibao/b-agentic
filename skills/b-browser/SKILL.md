@@ -23,7 +23,7 @@ Operate browser, DOM-rendered, visual, and e2e verification using the lightest s
 
 ## When NOT to use
 
-- The task is non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, or flake work -> use **b-test**.
+- The task is non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, or flake work -> use **b-test**. See `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §10 for the boundary table with concrete examples.
 - The task is UI/UX critique, accessibility design review, or visual design feedback without a runnable verification request -> use the appropriate review skill outside this suite when available.
 - The task is implementing UI behavior or fixing app code -> use **b-implement** or **b-debug**.
 - The task requires adding a new browser test framework, dependency, or strategy -> use **b-plan** first.
@@ -97,7 +97,6 @@ Request -> Evidence path -> Browser result -> Artifacts/cleanup -> Readiness imp
 
 ## Rules
 
-- Do not add jsdom, Playwright, Cypress, Puppeteer, WebDriver, browser drivers, or equivalent project tooling as a side effect.
 - Do not run browser/DOM/visual/e2e commands or live-browser actions before the safety gates allow them.
 - Do not use unsafe arbitrary-code browser tools by default.
 - Do not treat missing browser/DOM/visual/e2e evidence as covered by non-browser tests.

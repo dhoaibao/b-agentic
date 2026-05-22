@@ -49,6 +49,8 @@ Resolve scope in this order: saved plan path, plan slug, explicitly approved cha
 
 For saved plans, read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §2 before validating approval state, applying the plan staleness gate, or updating durable metadata for a draft plan.
 
+If the saved plan has a `blocked_by` array, verify that every listed plan reports `status: complete`. If any blocker is not complete, stop with `cause: conflict` and report the blocking plan slug and status.
+
 If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-spec**.
 
 ### Step 2 - Check worktree and choose execution surface
@@ -88,9 +90,7 @@ Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §9 before c
 ## Rules
 
 - Implement only approved or clearly scoped work.
-- Preserve unrelated user changes.
 - Do not add opportunistic refactors, compatibility code, or side cleanup.
 - Stop for new decisions instead of guessing.
 - A small direct request still needs real verification.
-- Do not commit unless explicitly asked.
 - Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §6 before manual edits under the global patch discipline.

@@ -31,7 +31,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 ## Tools required
 
 - `context7-docs` (primary for library/framework API lookups)
-- `brave-discovery` (open-web discovery for unknown URLs, recent sources, and comparisons)
+- `brave-search` (open-web discovery for unknown URLs, recent sources, and comparisons)
 - `firecrawl-extraction` (known URLs and local documents when extraction is available)
 - `firecrawl-extended` *(optional, for site maps or structured fields)*
 - `firecrawl-deep` *(last resort; approval-gated by `CLAUDE.md`)*
@@ -59,7 +59,7 @@ Skip pinning when the question is conceptual and version is not material.
 
 Read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §4 before choosing MCP/search/extraction depth. Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Search before extracting when the authoritative URL is unknown, and extract only the highest-signal source(s) needed for the answer. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
 
-For recency-sensitive questions, read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §5 before using freshness labels or citations. Use the `brave-discovery` news path before extraction and include `as of <date>` or source publication dates in the answer. Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
+For recency-sensitive questions, read `${CLAUDE_SKILL_DIR}/references/b-agentic/runtime-contract.md` §5 before using freshness labels or citations. Use the `brave-search` news path before extraction and include `as of <date>` or source publication dates in the answer. Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
 
 For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary vendor or source-repo evidence when available and include the evidence date. If only secondary sources are available, label the limitation and lower confidence.
 

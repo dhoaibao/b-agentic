@@ -95,7 +95,7 @@ Use the lightest reliable tool. Native Glob/Grep/Read/Bash stay first for exact 
 | Graph overview, architecture, blast radius | `gitnexus-radar` when indexed, fresh, target-aware | `serena-symbol-toolkit` |
 | Exact symbol/body/references/edits | `serena-symbol-toolkit` | Native tools + `apply_patch` |
 | Library/framework docs | `context7-docs` | `/b-research` |
-| Web/news/image discovery | `brave-discovery` | `firecrawl-extraction` for source content |
+| Web/news/image discovery | `brave-search` | `firecrawl-extraction` for source content |
 | Known URL or local document extraction | `firecrawl-extraction` | `firecrawl-extended`, then approval-gated `firecrawl-deep` |
 | Browser/DOM/visual/e2e live UI operation | `playwright-browser-operator` when installed and safety-gated | Existing repo scripts, supplied evidence, or `firecrawl-extraction` for known remote pages |
 

@@ -18,6 +18,9 @@ approved_head: null
 risk: <trivial | low | medium | high>
 touch_points:
   - <path>
+blocked_by:
+  - slug: <blocking-task-slug>
+    status: <draft | approved | in-progress | complete>
 ---
 
 # <task title>
@@ -98,6 +101,7 @@ When an approved plan needs replacement (not just edits):
 
 When Plan B cannot start until Plan A merges:
 
-- Record the dependency in Plan B's `Dependencies` section: `- Blocked on plan: <task-slug-A> (<status>)`.
-- Do not start `b-implement` on Plan B until Plan A's `status` is `complete` and the touched files have settled.
+- Record the dependency in Plan B's frontmatter `blocked_by` array with the blocking plan's `slug` and expected `status` (usually `complete`).
+- Do not start `b-implement` on Plan B until every plan in `blocked_by` reports `status: complete` and the touched files have settled.
 - If Plan A is still `in-progress` but Plan B has independent steps, scope Plan B to those steps and mark the dependent steps explicitly as "blocked on A."
+- If `b-implement` discovers a `blocked_by` plan that is not `complete`, stop with `cause: conflict` and report the blocker.
