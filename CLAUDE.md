@@ -163,7 +163,7 @@ Root `CLAUDE.md` remains maintainer guidance for this source repository.
 
 ## Runtime Adapters
 
-Each supported runtime has its own adapter directory under `runtimes/<name>/`. The adapter holds delivery artifacts for that runtime only — the skills and shared references are runtime-agnostic and live outside `runtimes/`.
+Each supported runtime has its own adapter directory under `runtimes/<name>/`. The adapter holds delivery artifacts for that runtime only. Skills and shared references live outside `runtimes/`, but today their content is authored against the Claude Code kernel and uses Claude-Code conventions (`${CLAUDE_SKILL_DIR}`, `~/.claude/...`, `/tmp/claude-code/...`). A real second adapter would need to either accept those conventions or re-template the shared content; treat "runtime-agnostic" as a layout property, not a content property.
 
 ### Adapter directory structure
 
@@ -173,15 +173,27 @@ runtimes/<name>/
 └── configs/       # Runtime-specific config templates (settings, MCP, etc.)
 ```
 
-Currently only `claude-code` exists. Do not create adapters for other runtimes without an approved plan.
+Currently only `claude-code` exists end-to-end. Do not create adapters for other runtimes without an approved plan.
+
+### What is wired today vs. what is still TODO
+
+`install.sh` parameterises only the **source** side of the adapter: `--runtime=<name>` and `B_AGENTIC_RUNTIME` resolve `KERNEL_SRC` and `TEMPLATES_SRC` from `runtimes/$RUNTIME/...`, and the name is validated against path traversal. `scripts/validate-skills.sh` enforces the `kernel.md` invariant for every `runtimes/*/` directory.
+
+Destinations and validator policy are still Claude-Code-specific:
+
+- Destination paths (`~/.claude/CLAUDE.md`, `~/.claude/skills/`, `~/.claude/b-agentic/`), env-var defaults (`B_AGENTIC_CLAUDE_DIR`, `B_AGENTIC_CLAUDE_JSON`), and merge targets (`~/.claude/settings.json`, `~/.claude.json` user scope) are all hard-coded for Claude Code in `install.sh`.
+- `scripts/validate-skills.sh` requires Claude-Code-specific markers in `references/contract/index.md` (`${CLAUDE_SKILL_DIR}/references/b-agentic/contract/`, `~/.claude/b-agentic`, `/tmp/claude-code/b-agentic`), in `runtimes/claude-code/configs/README.md`, and in the kernel itself.
+
+Running `install.sh --runtime=<other>` today would still write into Claude Code paths.
 
 ### Adding a new runtime adapter
 
 1. Create `runtimes/<name>/` with at least `kernel.md`.
-2. Add `configs/` when the runtime needs config templates.
-3. Update `README.md`, `CLAUDE.md`, and `REFERENCE.md` in the same commit.
-
-`install.sh` already supports `--runtime=<name>` and `B_AGENTIC_RUNTIME` for selecting the adapter; `scripts/validate-skills.sh` already enforces the `kernel.md` invariant for every adapter directory. No installer or validator changes are needed when adding a new adapter.
+2. Add `configs/` (and a per-adapter `configs/README.md`) when the runtime needs config templates.
+3. Update `install.sh` so destination paths, env-var overrides, settings/MCP merge targets, and the manifest layout are selected by `$RUNTIME` instead of hard-coded to Claude Code.
+4. Generalise `scripts/validate-skills.sh` so its Claude-Code-only markers (contract index paths, configs/README invariant, kernel markers) are scoped per adapter or made adapter-aware.
+5. Either keep skill and shared-reference content Claude-Code-shaped (and document that constraint), or re-template the Claude-Code-specific paths/env-vars out of shared content for the new adapter.
+6. Update `README.md`, `CLAUDE.md`, and `REFERENCE.md` in the same commit.
 
 ### Runtime file sync rule
 

@@ -49,3 +49,7 @@ MCP safety rules:
 - Do not include Claude hooks, generated root guidance, indexes, memories, or setup commands in MCP templates.
 - Treat GitNexus as optional power-user radar. The b-agentic MCP template uses `gitnexus mcp`, so GitNexus must be installed on `PATH`; users must run `gitnexus analyze` or `gitnexus setup` themselves if they want indexing, generated skills, hooks, or GitNexus-owned global MCP config.
 - Context7 may also offer CLI + Skills setup through `npx ctx7 setup`; b-agentic uses the MCP HTTP endpoint with the `${CONTEXT7_API_KEY:-}` optional header placeholder unless the installer prompt writes a concrete key, and does not run Context7 setup commands during install.
+
+## Validator scope
+
+`scripts/validate-skills.sh` currently encodes Claude-Code-specific assertions: required path markers in `references/contract/index.md` (`~/.claude/b-agentic`, `/tmp/claude-code/b-agentic`, `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/`), kernel-marker checks against `runtimes/claude-code/kernel.md`, and the existence and content of this file (`runtimes/claude-code/configs/README.md`). Validator policy is Claude-Code-only until a second adapter generalises those checks; see `CLAUDE.md` "Runtime Adapters" for the full TODO list.

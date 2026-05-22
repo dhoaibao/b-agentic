@@ -42,6 +42,8 @@ The installer deploys this repo into Claude Code's personal config:
 
 If an existing `~/.claude/CLAUDE.md` is preserved, the installer exits with `activationState: pending`. Review `~/.claude/b-agentic/CLAUDE.md`, then rerun with `--replace-memory` or merge the kernel manually.
 
+Only `--runtime=claude-code` (the default) is wired end-to-end today. The `--runtime=<name>` flag and `B_AGENTIC_RUNTIME` env var validate input safely and switch the source kernel/configs the installer reads, but install destinations, settings/MCP merge targets, and validator policy remain Claude-Code-specific. The flag exists for future adapters; see `CLAUDE.md` "Runtime Adapters" for what still needs to be generalised before a second adapter can ship.
+
 ## One Command
 
 Plain install syncs the runtime, merges recommended settings, and installs all MCP servers at Claude Code user scope:
@@ -105,7 +107,7 @@ All skills are model-invocable when their descriptions match the request. Skill 
 ```text
 b-agentic/
 ├── CLAUDE.md              # Claude Code maintainer guidance for this source repo
-├── runtimes/              # Per-runtime delivery adapters
+├── runtimes/              # Runtime adapter directories (only `claude-code` ships today)
 │   └── claude-code/       # Claude Code adapter
 │       ├── kernel.md      # Always-on runtime rules (installs as ~/.claude/CLAUDE.md)
 │       └── configs/       # Settings and MCP config templates
