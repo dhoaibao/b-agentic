@@ -15,7 +15,7 @@ argument-hint: "[--surface=<area>] [--baseline=<path|url>] [--skip-checks]"
 
 $ARGUMENTS
 
-Audit the b-agentic suite for production-readiness risk. Findings first; sampled coverage must be explicit. For any codebase other than b-agentic, use **b-review** instead — see `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` for the tiebreaker.
+Audit the b-agentic suite for systemic correctness, consistency, and operability risk. Findings first; sampled coverage must be explicit. For any codebase other than b-agentic, use **b-review** instead — see `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` for the tiebreaker.
 
 Flags: `--baseline=<path|url>`, `--surface=<area>`, `--skip-checks`, `--self`, `--external`.
 
@@ -54,7 +54,7 @@ State mode: self-audit or external audit. Use `--self` or `--external` when expl
 
 Read `${CLAUDE_SKILL_DIR}/reference.md` before choosing the smallest surface-specific checklist: installer/update path, runtime contract, validator, route/tool boundary, dependency/lockfile, generated artifact, or security-sensitive rule.
 
-For b-agentic suite audits, check routing boundaries, Claude skill layout alignment, contract consistency, README/REFERENCE sync, validator coverage, artifact paths, and safety-gate drift.
+For b-agentic suite audits, check routing boundaries, skill source/generated alignment, contract consistency, runtime-facing docs sync, validator coverage, artifact paths, and safety-gate drift.
 
 ### Step 3 - Inspect risk evidence
 
