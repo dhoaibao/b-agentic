@@ -163,7 +163,8 @@ b-agentic/
 │   │   └── tests/         # Claude-specific smoke lane
 │   ├── opencode/          # OpenCode adapter
 │   │   ├── kernel.md      # Generated OpenCode kernel output (installs as ~/.config/opencode/AGENTS.md)
-│   │   ├── configs/       # Runtime layout documentation
+│   │   ├── commands/      # Managed /b-* command-wrapper sources for OpenCode
+│   │   ├── configs/       # MCP config template and runtime layout docs
 │   │   ├── scripts/       # OpenCode-specific install and validate scripts
 │   │   └── tests/         # OpenCode-specific smoke lane
 │   └── runtime-template/  # Scaffold for adding a new runtime adapter
