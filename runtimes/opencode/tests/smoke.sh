@@ -13,6 +13,7 @@ run_runtime_smoke_cases() {
   local sandbox_opencode_prompt_keys="$WORK_DIR/opencode-prompt-keys"
   local sandbox_opencode_merge="$WORK_DIR/opencode-merge"
   local sandbox_opencode_mcp_migration="$WORK_DIR/opencode-mcp-migration"
+  local sandbox_opencode_install_report="$WORK_DIR/opencode-install-report"
 
   mkdir -p "$sandbox_opencode/home"
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
@@ -57,6 +58,18 @@ run_runtime_smoke_cases() {
   assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/07-execution.md" 'save the full output under `/tmp/claude-code/b-agentic/<skill>/<slug>.log`'
   assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/08-artifacts.md" 'auth/session state and similar secrets default to `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`'
   assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/10-decisions.md" 'capture the failing output under `/tmp/claude-code/b-agentic/b-test/`'
+
+  mkdir -p "$sandbox_opencode_install_report/home"
+  HOME="$sandbox_opencode_install_report/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_opencode_install_report/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  bash "$ROOT_DIR/install.sh" --runtime=opencode >"$sandbox_opencode_install_report/install.log" 2>&1
+  assert_contains "$sandbox_opencode_install_report/install.log" 'mcpReadiness:'
+  assert_contains "$sandbox_opencode_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
+  assert_contains "$sandbox_opencode_install_report/install.log" 'gitnexus: install/index separately if you want graph radar'
+  assert_contains "$sandbox_opencode_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
+
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode --uninstall
   assert_no_path "$sandbox_opencode/home/.config/opencode/b-agentic"
   assert_no_path "$sandbox_opencode/home/.config/opencode/opencode.json"

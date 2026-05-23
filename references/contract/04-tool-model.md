@@ -29,6 +29,15 @@ Use the lightest reliable tool. Native Glob/Grep/Read/Bash stay first for exact 
 | Local document extraction | `firecrawl-extraction` (`firecrawl_parse`) | `firecrawl-extraction` (`firecrawl_scrape`) only if already hosted |
 | Browser/DOM/visual/e2e live UI operation | `playwright-browser-operator` when installed and safety-gated | Existing repo scripts, supplied evidence, or `firecrawl-extraction` for known remote pages |
 
+### Selective leverage by lane
+
+Use deeper MCP guidance where it materially improves evidence quality or coordination, not as a blanket default:
+
+- **High-ROI lanes:** `b-plan` for cross-module or route/tool/consumer scoping, `b-implement` for shared/exported-boundary changes or symbol-heavy edits, `b-review` for blast-radius and shared-risk inspection, `b-research` for external docs/facts, and `b-browser` for browser/DOM/visual evidence.
+- **Native-first lanes:** small direct requests, one-file docs/config/prose edits, exact local string checks, obvious single-symbol edits, and ordinary git/status/diff inspection.
+- **Escalation rule:** if local evidence already answers the next decision, do not add MCP calls just because the bundle exists.
+- **Runtime readiness rule:** installers and runtime docs may explain what still needs user setup, but availability messaging does not justify auto-running onboarding, indexing, or other user-scope setup steps.
+
 ### Radar/hands boundary
 
 GitNexus is optional radar; Serena is primary hands. GitNexus scopes graph risk, flows, routes, consumers, and cross-module impact. Serena confirms exact symbols, bodies, references, and performs symbol-aware edits.
@@ -41,6 +50,7 @@ Rely on GitNexus only when the repo is indexed, not stale, and the target file o
 
 - Single-file or local-only task: skip GitNexus.
 - Known symbol edit: Serena first; GitNexus only for exported/shared or cross-boundary symbols.
+- Planning or review question with no shared/public boundary, process-flow uncertainty, or unfamiliar subsystem: stay native or Serena-first.
 - Body-last symbol workflow: inspect overviews, declarations, diagnostics, or references before full symbol bodies; request bodies only when needed to decide or edit.
 - Large unfamiliar area: one GitNexus pass to narrow, then Serena confirms.
 - Do not use GitNexus and Serena in parallel on the same exact symbol hunt.

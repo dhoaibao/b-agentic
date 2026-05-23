@@ -51,6 +51,13 @@ MCP safety rules:
 - Treat GitNexus as optional power-user radar. The b-agentic MCP template uses `gitnexus mcp`, so GitNexus must be installed on `PATH`; users must run `gitnexus analyze` or `gitnexus setup` themselves if they want indexing, generated skills, hooks, or GitNexus-owned global MCP config.
 - Context7 may also offer CLI + Skills setup through `npx ctx7 setup`; b-agentic uses the MCP HTTP endpoint with the `${CONTEXT7_API_KEY:-}` optional header placeholder unless the installer prompt writes a concrete key, and does not run Context7 setup commands during install.
 
+## MCP readiness after install
+
+- `playwright` is immediately available once Bun is on `PATH`; no extra suite-owned setup runs.
+- `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.claude.json`.
+- `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
+- `gitnexus` entry is installed, but graph radar depends on the user having GitNexus installed and running their own indexing/analyze flow. The installer never runs GitNexus setup or indexing.
+
 ## Validator scope
 
 `scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which runs shared regression checks for runtime-neutral skills and shared contract files plus each registered runtime validator. Claude-specific paths, memory filenames, install-layout details, and runtime caveats stay adapter-owned here and in `runtimes/claude-code/scripts/validate.sh`.

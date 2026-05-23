@@ -83,6 +83,28 @@ def tracked_existing_root_markdown_docs():
     return docs
 
 
+def tool_model_bundle_names(text: str):
+    return set(re.findall(r"^#### `([^`]+)`", text, re.MULTILINE))
+
+
+def prompt_tool_tokens(text: str):
+    match = re.search(r"^## Tools required\n(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL)
+    if not match:
+        return set()
+    tool_refs = set()
+    for line in match.group(1).splitlines():
+        if not re.match(r"^- `", line):
+            continue
+        tool_refs.update(re.findall(r"`([^`]+)`", line))
+    return tool_refs
+
+
+def require_contains(path: Path, text: str, needles, label: str):
+    for needle in needles:
+        if needle not in text:
+            errors.append(f"{rel(path)}: missing {label} {needle!r}")
+
+
 runtime_names = load_runtime_registry()
 
 skill_paths = sorted((ROOT / "skills").glob("*/SKILL.md"))
@@ -211,9 +233,11 @@ else:
 
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
+tool_model_path = ROOT / "references" / "contract" / "04-tool-model.md"
+tool_model_text = read_text(tool_model_path)
 shared_contract_paths = [
     ROOT / "references" / "contract" / "00-kernel.md",
-    ROOT / "references" / "contract" / "04-tool-model.md",
+    tool_model_path,
     ROOT / "references" / "contract" / "05-evidence.md",
     ROOT / "references" / "contract" / "06-safety.md",
     ROOT / "references" / "contract" / "07-execution.md",
@@ -275,6 +299,40 @@ if unexpected_root_docs:
 
 if "One Command" not in readme or "skillsSynced" not in readme:
     errors.append("README.md: missing one-command install/output documentation")
+
+bundle_names = tool_model_bundle_names(tool_model_text)
+if not bundle_names:
+    errors.append(f"{rel(tool_model_path)}: missing MCP bundle definitions")
+else:
+    allowed_native_tool_refs = {"bash", "glob", "grep", "read"}
+    for prompt_path in sorted((ROOT / "skills").glob("*/prompt.md")):
+        tool_refs = prompt_tool_tokens(prompt_path.read_text())
+        unknown_refs = sorted(tool_refs - allowed_native_tool_refs - bundle_names)
+        if unknown_refs:
+            errors.append(
+                f"{rel(prompt_path)}: tool references {unknown_refs} are not defined MCP bundles in {rel(tool_model_path)}"
+            )
+
+runtime_readiness_install_lines = [
+    "mcpReadiness:",
+    "serena: install/init separately; installer never runs onboarding",
+    "gitnexus: install/index separately if you want graph radar",
+    "api-keys: Context7, Brave Search, and Firecrawl need user-scope keys",
+]
+runtime_readiness_doc_lines = [
+    "## MCP readiness after install",
+    "`playwright` is immediately available once Bun is on `PATH`; no extra suite-owned setup runs.",
+    "`serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.",
+    "`gitnexus` entry is installed, but graph radar depends on the user having GitNexus installed and running their own indexing/analyze flow. The installer never runs GitNexus setup or indexing.",
+]
+for runtime_name, api_key_line in [
+    ("claude-code", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.claude.json`."),
+    ("opencode", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`."),
+]:
+    install_path = ROOT / "runtimes" / runtime_name / "scripts" / "install.sh"
+    readme_path = ROOT / "runtimes" / runtime_name / "configs" / "README.md"
+    require_contains(install_path, read_text(install_path), runtime_readiness_install_lines, "runtime readiness install line")
+    require_contains(readme_path, read_text(readme_path), runtime_readiness_doc_lines + [api_key_line], "runtime readiness doc line")
 
 for contract_path in shared_contract_paths:
     if not contract_path.exists():

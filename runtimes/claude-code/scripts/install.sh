@@ -128,6 +128,10 @@ runtime_print_install_report() {
   log "  settings: $INSTALL_SETTINGS_BACKUP"
   log "  mcp: $INSTALL_MCP_BACKUP"
   log "activationState: $INSTALL_ACTIVATION_STATE"
+  log "mcpReadiness:"
+  log "  serena: install/init separately; installer never runs onboarding"
+  log "  gitnexus: install/index separately if you want graph radar"
+  log "  api-keys: Context7, Brave Search, and Firecrawl need user-scope keys"
 }
 
 runtime_uninstall_configs() {

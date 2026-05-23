@@ -26,6 +26,10 @@ Useful flags:
 
 Re-run the installer to update.
 
+## One Command
+
+The installer is designed to be a one-command bootstrap. It installs the kernel, syncs skills, writes runtime templates, and prints a short result summary with fields such as `skillsSynced` so you can see what changed without reading installer internals.
+
 ## What You Get
 
 - A runtime kernel installed into the active tool: `~/.claude/CLAUDE.md` or `~/.config/opencode/AGENTS.md`
@@ -111,6 +115,9 @@ b-agentic/
 - `runtimes/registry.yaml` and `references/contract/kernel.template.md` define runtime behavior
 - `tooling/generate/registry_sync.py` regenerates committed delivery assets
 - `scripts/validate-skills.sh` and `scripts/smoke-install.sh` are the main verification entrypoints
+- `tooling/validate/` contains the shared validation harness
+- `tests/smoke/` contains the shared smoke harness
+- `runtimes/runtime-template/` is the scaffold for a new runtime adapter
 
 ## Docs
 

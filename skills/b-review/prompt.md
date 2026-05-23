@@ -47,6 +47,12 @@ Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarifi
 
 Inspect highest-risk changed symbols and boundaries first. Name sampled files/symbols, skipped changed surfaces, and residual risk so a no-findings review is not mistaken for exhaustive proof.
 
+- Use Serena first for exact changed symbols, local references, typed diagnostics, and nearby implementation context.
+- Use GitNexus only when route/API/tool consumers, exported boundaries, or shared execution flows are part of the risk story; keep it to targeted radar passes, not general code reading.
+- Use Context7 only when a finding or clean judgment depends on third-party API semantics that the repo cannot establish.
+- Use Brave Search plus Firecrawl only for focused public advisories, release drift, or official-doc confirmation when local evidence is insufficient.
+- If the diff is small and local with no shared/public boundary trigger, keep the review native or Serena-first instead of escalating into a graph or web-assisted review.
+
 Read `{{skill_support_path}}/reference.md` before applying the security checklist to changed entry points or shared boundaries. Name the relevant checklist sections when they affect findings or confidence. Treat lockfile, generated, snapshot, golden, vendored, and minified changes as derived unless source or approved generation is clear.
 
 ### Step 4 - Assess tests and operability

@@ -54,6 +54,10 @@ Skip code discovery for greenfield or docs-only work. Otherwise use the lightest
 
 - GitNexus only for graph-shaped subsystem, route, consumer, or process-flow questions.
 - Serena/native tools for exact owners, declarations, references, nearby conventions, and stable anchors for prose/config edits.
+- For small or obvious 1-3 file plans, keep discovery local; do not spend MCP budget unless shared-boundary risk appears.
+- For cross-module, exported, or route/tool planning, do at most one targeted GitNexus pass to map blast radius, then switch back to Serena/native tools for exact files and symbols.
+- Use Context7 only when a versioned third-party API detail changes the plan, step ordering, or acceptance criteria; otherwise keep planning grounded in repo evidence.
+- Use Firecrawl only for user-provided issue/ticket/docs URLs where exact remote text affects scope; do not turn ordinary planning into open-web research.
 
 ### Step 4 - Choose an approach when there is a real choice
 

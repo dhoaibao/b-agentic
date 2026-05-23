@@ -19,6 +19,7 @@ run_runtime_smoke_cases() {
   local sandbox_fresh_modified="$WORK_DIR/fresh-modified"
   local sandbox_invalid_json="$WORK_DIR/invalid-json"
   local sandbox_profile_dry_run="$WORK_DIR/profile-dry-run"
+  local sandbox_install_report="$WORK_DIR/install-report"
 
   mkdir -p "$sandbox_fresh/home"
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo"
@@ -51,6 +52,17 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"settingsAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"mcpAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"skills"'
+
+  mkdir -p "$sandbox_install_report/home"
+  HOME="$sandbox_install_report/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_install_report/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  bash "$ROOT_DIR/install.sh" >"$sandbox_install_report/install.log" 2>&1
+  assert_contains "$sandbox_install_report/install.log" 'mcpReadiness:'
+  assert_contains "$sandbox_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
+  assert_contains "$sandbox_install_report/install.log" 'gitnexus: install/index separately if you want graph radar'
+  assert_contains "$sandbox_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
 
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo"
 

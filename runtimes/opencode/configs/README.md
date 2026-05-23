@@ -49,6 +49,13 @@ MCP safety rules:
 - Keep Playwright configured with `--isolated` unless a user explicitly opts into persistent browser state outside the tracked worktree.
 - Treat GitNexus as optional power-user radar.
 
+## MCP readiness after install
+
+- `playwright` is immediately available once Bun is on `PATH`; no extra suite-owned setup runs.
+- `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`.
+- `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
+- `gitnexus` entry is installed, but graph radar depends on the user having GitNexus installed and running their own indexing/analyze flow. The installer never runs GitNexus setup or indexing.
+
 ## Validator scope
 
 `scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which discovers and runs `runtimes/<name>/scripts/validate.sh` for each registered adapter. Shared checks should fail on runtime-specific wording drift in shared skills and shared contract files, while the OpenCode adapter validator checks only adapter-owned invariants and this documented bridge constraint.
