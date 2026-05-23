@@ -230,6 +230,8 @@ for json_path in sorted((root / 'runtimes').glob('*/configs/*.json')):
                 if env.get('BRAVE_API_KEY') != '{env:BRAVE_API_KEY}':
                     errors.append(f'{json_path}: brave-search must use {{env:BRAVE_API_KEY}} placeholder')
                 cmd = servers['brave-search'].get('command', [])
+                if not cmd or cmd[0] != 'bunx':
+                    errors.append(f'{json_path}: brave-search must use bunx')
                 if '@brave/brave-search-mcp-server' not in cmd:
                     errors.append(f'{json_path}: brave-search must use @brave/brave-search-mcp-server')
 
@@ -237,9 +239,20 @@ for json_path in sorted((root / 'runtimes').glob('*/configs/*.json')):
                 env = servers['firecrawl'].get('environment', {})
                 if env.get('FIRECRAWL_API_KEY') != '{env:FIRECRAWL_API_KEY}':
                     errors.append(f'{json_path}: firecrawl must use {{env:FIRECRAWL_API_KEY}} placeholder')
+                cmd = servers['firecrawl'].get('command', [])
+                if not cmd or cmd[0] != 'bunx':
+                    errors.append(f'{json_path}: firecrawl must use bunx')
+                if 'firecrawl-mcp' not in cmd:
+                    errors.append(f'{json_path}: firecrawl must use firecrawl-mcp')
 
-            if 'playwright' in servers and '--isolated' not in servers['playwright'].get('command', []):
-                errors.append(f'{json_path}: playwright must use --isolated by default')
+            if 'playwright' in servers:
+                cmd = servers['playwright'].get('command', [])
+                if not cmd or cmd[0] != 'bunx':
+                    errors.append(f'{json_path}: playwright must use bunx')
+                if '@playwright/mcp@latest' not in cmd:
+                    errors.append(f'{json_path}: playwright must use @playwright/mcp@latest')
+                if '--isolated' not in cmd:
+                    errors.append(f'{json_path}: playwright must use --isolated by default')
 
             if 'context7' in servers:
                 server = servers['context7']
@@ -260,6 +273,8 @@ for json_path in sorted((root / 'runtimes').glob('*/configs/*.json')):
                 env = servers['brave-search'].get('env', {})
                 if env.get('BRAVE_API_KEY') != '${BRAVE_API_KEY}':
                     errors.append(f'{json_path}: brave-search must use ${{BRAVE_API_KEY}} placeholder')
+                if servers['brave-search'].get('command') != 'bunx':
+                    errors.append(f'{json_path}: brave-search must use bunx')
                 args = servers['brave-search'].get('args', [])
                 if '@brave/brave-search-mcp-server' not in args:
                     errors.append(f'{json_path}: brave-search must use @brave/brave-search-mcp-server')
@@ -268,9 +283,19 @@ for json_path in sorted((root / 'runtimes').glob('*/configs/*.json')):
                 env = servers['firecrawl'].get('env', {})
                 if env.get('FIRECRAWL_API_KEY') != '${FIRECRAWL_API_KEY}':
                     errors.append(f'{json_path}: firecrawl must use ${{FIRECRAWL_API_KEY}} placeholder')
+                if servers['firecrawl'].get('command') != 'bunx':
+                    errors.append(f'{json_path}: firecrawl must use bunx')
+                if 'firecrawl-mcp' not in servers['firecrawl'].get('args', []):
+                    errors.append(f'{json_path}: firecrawl must use firecrawl-mcp')
 
-            if 'playwright' in servers and '--isolated' not in servers['playwright'].get('args', []):
-                errors.append(f'{json_path}: playwright must use --isolated by default')
+            if 'playwright' in servers:
+                if servers['playwright'].get('command') != 'bunx':
+                    errors.append(f'{json_path}: playwright must use bunx')
+                args = servers['playwright'].get('args', [])
+                if '@playwright/mcp@latest' not in args:
+                    errors.append(f'{json_path}: playwright must use @playwright/mcp@latest')
+                if '--isolated' not in args:
+                    errors.append(f'{json_path}: playwright must use --isolated by default')
 
             if 'context7' in servers:
                 server = servers['context7']

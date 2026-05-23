@@ -163,6 +163,9 @@ main() {
   assert_file "$sandbox_fresh/home/.claude.json"
   assert_json_value "$sandbox_fresh/home/.claude.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\${CONTEXT7_API_KEY:-}'"
+  assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['brave-search']['command'] == 'bunx'"
+  assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['firecrawl']['command'] == 'bunx'"
+  assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['playwright']['command'] == 'bunx'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['playwright']['args'][-1] == '--isolated'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['gitnexus']['command'] == 'gitnexus'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['gitnexus']['args'] == ['mcp']"
@@ -189,9 +192,15 @@ main() {
   assert_no_path "$sandbox_prompt_reinstall/home/.claude.json"
 
   mkdir -p "$sandbox_mcp_migration/home"
-  printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"}},"gitnexus":{"type":"stdio","command":"npx","args":["-y","gitnexus@latest","mcp"],"env":{}}}}\n' > "$sandbox_mcp_migration/home/.claude.json"
+  printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"}},"brave-search":{"type":"stdio","command":"npx","args":["-y","@brave/brave-search-mcp-server","--transport","stdio"],"env":{"BRAVE_API_KEY":"${BRAVE_API_KEY}"}},"firecrawl":{"type":"stdio","command":"npx","args":["-y","firecrawl-mcp"],"env":{"FIRECRAWL_API_KEY":"${FIRECRAWL_API_KEY}"}},"playwright":{"type":"stdio","command":"npx","args":["-y","@playwright/mcp@latest","--isolated"],"env":{}},"gitnexus":{"type":"stdio","command":"npx","args":["-y","gitnexus@latest","mcp"],"env":{}}}}\n' > "$sandbox_mcp_migration/home/.claude.json"
   expect_install_status 0 "$sandbox_mcp_migration" "$snapshot_repo"
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\${CONTEXT7_API_KEY:-}'"
+  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['brave-search']['command'] == 'bunx'"
+  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['brave-search']['args'] == ['@brave/brave-search-mcp-server', '--transport', 'stdio']"
+  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['firecrawl']['command'] == 'bunx'"
+  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['firecrawl-mcp']"
+  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['playwright']['command'] == 'bunx'"
+  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['@playwright/mcp@latest', '--isolated']"
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['gitnexus']['command'] == 'gitnexus'"
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['gitnexus']['args'] == ['mcp']"
 
@@ -315,6 +324,9 @@ PY
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "set(data['mcp']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['serena']['command'] == ['serena', 'start-mcp-server', '--context', 'ide', '--project-from-cwd']"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['context7']['headers']['CONTEXT7_API_KEY'] == '{env:CONTEXT7_API_KEY}'"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'][0] == 'bunx'"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'][0] == 'bunx'"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][0] == 'bunx'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][-1] == '--isolated'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['gitnexus']['command'] == ['gitnexus', 'mcp']"
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode --uninstall
@@ -370,6 +382,14 @@ PY
   expect_install_status 0 "$sandbox_opencode_merge" "$snapshot_repo" --runtime=opencode --uninstall
   assert_json_value "$sandbox_opencode_merge/home/.config/opencode/opencode.json" "set(data['mcp']) == {'my-custom'}"
   assert_json_value "$sandbox_opencode_merge/home/.config/opencode/opencode.json" "data.get('userOnly') is True"
+
+  local sandbox_opencode_mcp_migration="$WORK_DIR/opencode-mcp-migration"
+  mkdir -p "$sandbox_opencode_mcp_migration/home/.config/opencode"
+  printf '{"mcp":{"brave-search":{"type":"local","command":["npx","-y","@brave/brave-search-mcp-server","--transport","stdio"],"environment":{"BRAVE_API_KEY":"{env:BRAVE_API_KEY}"}},"firecrawl":{"type":"local","command":["npx","-y","firecrawl-mcp"],"environment":{"FIRECRAWL_API_KEY":"{env:FIRECRAWL_API_KEY}"}},"playwright":{"type":"local","command":["npx","-y","@playwright/mcp@latest","--isolated"]}}}\n' > "$sandbox_opencode_mcp_migration/home/.config/opencode/opencode.json"
+  expect_install_status 0 "$sandbox_opencode_mcp_migration" "$snapshot_repo" --runtime=opencode
+  assert_json_value "$sandbox_opencode_mcp_migration/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'] == ['bunx', '@brave/brave-search-mcp-server', '--transport', 'stdio']"
+  assert_json_value "$sandbox_opencode_mcp_migration/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'] == ['bunx', 'firecrawl-mcp']"
+  assert_json_value "$sandbox_opencode_mcp_migration/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'] == ['bunx', '@playwright/mcp@latest', '--isolated']"
 
   printf 'smoke-install.sh passed\n'
 }

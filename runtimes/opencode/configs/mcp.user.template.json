@@ -13,21 +13,21 @@
     },
     "brave-search": {
       "type": "local",
-      "command": ["npx", "-y", "@brave/brave-search-mcp-server", "--transport", "stdio"],
+      "command": ["bunx", "@brave/brave-search-mcp-server", "--transport", "stdio"],
       "environment": {
         "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
       }
     },
     "firecrawl": {
       "type": "local",
-      "command": ["npx", "-y", "firecrawl-mcp"],
+      "command": ["bunx", "firecrawl-mcp"],
       "environment": {
         "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
       }
     },
     "playwright": {
       "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp@latest", "--isolated"]
+      "command": ["bunx", "@playwright/mcp@latest", "--isolated"]
     },
     "gitnexus": {
       "type": "local",

@@ -33,6 +33,8 @@ OpenCode uses `opencode.json` for configuration. MCP servers are configured unde
 
 The installer also prompts for optional API keys (Context7, Brave Search, Firecrawl) when run with `--prompt-api-keys`. Key values are written only to the user's `opencode.json` and never to the tracked template.
 
+The managed Brave Search, Firecrawl, and Playwright entries launch through `bunx`, so Bun must be available on `PATH` when those MCP servers are started.
+
 | Server | Use |
 |---|---|
 | `serena` | Semantic code navigation/editing for local source work. |
@@ -43,7 +45,7 @@ The installer also prompts for optional API keys (Context7, Brave Search, Firecr
 | `gitnexus` | Optional graph radar for architecture and blast-radius work. |
 
 MCP safety rules:
-- Use environment-variable placeholders such as `${CONTEXT7_API_KEY:-}`, `${BRAVE_API_KEY}`, and `${FIRECRAWL_API_KEY}` in config; never commit real API keys.
+- Use environment-variable placeholders such as `{env:CONTEXT7_API_KEY}`, `{env:BRAVE_API_KEY}`, and `{env:FIRECRAWL_API_KEY}` in config; never commit real API keys.
 - Keep Playwright configured with `--isolated` unless a user explicitly opts into persistent browser state outside the tracked worktree.
 - Treat GitNexus as optional power-user radar.
 

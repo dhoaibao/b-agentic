@@ -80,14 +80,14 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 #### `brave-search`
 
 - **Server:** `brave-search`
-- **Install source:** default Claude Code user-scope MCP template using `npx -y @brave/brave-search-mcp-server --transport stdio` and the `${BRAVE_API_KEY}` environment placeholder. Interactive installs may write a user-provided concrete key to user-scope `~/.claude.json`.
+- **Install source:** default Claude Code user-scope MCP template using `bunx @brave/brave-search-mcp-server --transport stdio` and the `${BRAVE_API_KEY}` environment placeholder. Interactive installs may write a user-provided concrete key to user-scope `~/.claude.json`.
 - **Tools:** `brave_web_search`, plus `brave_news_search` for recency-sensitive questions and `brave_image_search` when visual evidence is material.
 - **Role:** open-web discovery only. Use it to find unknown official URLs, recent advisories/release notes, and comparison sources, then pass discovered URLs to `firecrawl-extraction` when the final answer depends on page substance rather than result metadata.
 
 #### `firecrawl-extraction` (default tier)
 
 - **Server:** `firecrawl`
-- **Install source:** default Claude Code user-scope MCP template using `npx -y firecrawl-mcp` and the `${FIRECRAWL_API_KEY}` environment placeholder. Interactive installs may write a user-provided concrete key to user-scope `~/.claude.json`.
+- **Install source:** default Claude Code user-scope MCP template using `bunx firecrawl-mcp` and the `${FIRECRAWL_API_KEY}` environment placeholder. Interactive installs may write a user-provided concrete key to user-scope `~/.claude.json`.
 - **Tools:** `firecrawl_scrape`, `firecrawl_parse`.
 - **Use for:** content extraction from a known URL or local document.
 - **Format selection:** for specific data points, fields, prices, API parameters, tables, or lists, prefer structured extraction or query over full markdown. Use full markdown only when full-page understanding, summarization, or quoted context is needed.
@@ -105,7 +105,7 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 #### `playwright-browser-operator` (optional live-browser tier)
 
 - **Server:** `playwright`.
-- **Install source:** default Claude Code user-scope MCP template using `npx -y @playwright/mcp@latest --isolated`.
+- **Install source:** default Claude Code user-scope MCP template using `bunx @playwright/mcp@latest --isolated`.
 - **Use only from:** `b-browser`, unless the user explicitly invokes another skill and that skill hands off to `b-browser` for browser evidence.
 - **Use for:** live page navigation, accessibility snapshots, clicks, typing, form fills, screenshots, tabs, dialogs, console/network inspection, and storage-state assessment when browser/DOM/visual/e2e evidence cannot be satisfied by supplied evidence or existing repo scripts.
 - **Default posture:** prefer accessibility snapshots and ordinary browser actions over arbitrary code execution. Do not use unsafe arbitrary-code tools such as `browser_run_code_unsafe` in the default workflow; require explicit approval, a trusted target, and a reason ordinary actions cannot answer the question.
@@ -161,4 +161,3 @@ Only include counters that were actually used. Skip entirely on trivial runs. Th
 - A skill **must not** redefine an approval template, fallback label, iteration cap, severity, risk, confidence signal, slug algorithm, run-id format, manifest schema, status block, or handoff envelope. Reference the canonical section.
 
 ---
-

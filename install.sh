@@ -330,19 +330,77 @@ def merge(existing, incoming):
 def migrate_managed_values(data):
     if label != 'mcp':
         return
-    servers = data.get('mcpServers')
-    if not isinstance(servers, dict):
-        return
 
-    context7 = servers.get('context7')
-    headers = context7.get('headers') if isinstance(context7, dict) else None
-    if isinstance(headers, dict) and headers.get('CONTEXT7_API_KEY') == '${CONTEXT7_API_KEY}':
-        headers['CONTEXT7_API_KEY'] = '${CONTEXT7_API_KEY:-}'
+    def migrate_managed_launcher(server, incoming_server, old_command, old_args=None):
+        if not isinstance(server, dict) or not isinstance(incoming_server, dict):
+            return
 
-    gitnexus = servers.get('gitnexus')
-    if isinstance(gitnexus, dict) and gitnexus.get('command') == 'npx' and gitnexus.get('args') == ['-y', 'gitnexus@latest', 'mcp']:
-        gitnexus['command'] = 'gitnexus'
-        gitnexus['args'] = ['mcp']
+        incoming_command = incoming_server.get('command')
+        if isinstance(incoming_command, str) and isinstance(old_command, str):
+            if server.get('command') == old_command and server.get('args') == old_args:
+                server['command'] = incoming_command
+                server['args'] = list(incoming_server.get('args', []))
+            return
+
+        if isinstance(incoming_command, list) and isinstance(old_command, list):
+            legacy_commands = [list(old_command)]
+            if old_command and old_command[0] == 'npx' and incoming_command and incoming_command[0] == 'bunx':
+                legacy_commands.append(list(old_command) + [incoming_command[0]])
+            if server.get('command') in legacy_commands:
+                server['command'] = list(incoming_command)
+
+    for server_key in ('mcpServers', 'mcp'):
+        servers = data.get(server_key)
+        recommended_servers = recommended.get(server_key, {})
+        if not isinstance(servers, dict) or not isinstance(recommended_servers, dict):
+            continue
+
+        if server_key == 'mcpServers':
+            context7 = servers.get('context7')
+            headers = context7.get('headers') if isinstance(context7, dict) else None
+            if isinstance(headers, dict) and headers.get('CONTEXT7_API_KEY') == '${CONTEXT7_API_KEY}':
+                headers['CONTEXT7_API_KEY'] = '${CONTEXT7_API_KEY:-}'
+
+            gitnexus = servers.get('gitnexus')
+            if isinstance(gitnexus, dict) and gitnexus.get('command') == 'npx' and gitnexus.get('args') == ['-y', 'gitnexus@latest', 'mcp']:
+                gitnexus['command'] = 'gitnexus'
+                gitnexus['args'] = ['mcp']
+
+            migrate_managed_launcher(
+                servers.get('brave-search'),
+                recommended_servers.get('brave-search'),
+                'npx',
+                ['-y', '@brave/brave-search-mcp-server', '--transport', 'stdio'],
+            )
+            migrate_managed_launcher(
+                servers.get('firecrawl'),
+                recommended_servers.get('firecrawl'),
+                'npx',
+                ['-y', 'firecrawl-mcp'],
+            )
+            migrate_managed_launcher(
+                servers.get('playwright'),
+                recommended_servers.get('playwright'),
+                'npx',
+                ['-y', '@playwright/mcp@latest', '--isolated'],
+            )
+            continue
+
+        migrate_managed_launcher(
+            servers.get('brave-search'),
+            recommended_servers.get('brave-search'),
+            ['npx', '-y', '@brave/brave-search-mcp-server', '--transport', 'stdio'],
+        )
+        migrate_managed_launcher(
+            servers.get('firecrawl'),
+            recommended_servers.get('firecrawl'),
+            ['npx', '-y', 'firecrawl-mcp'],
+        )
+        migrate_managed_launcher(
+            servers.get('playwright'),
+            recommended_servers.get('playwright'),
+            ['npx', '-y', '@playwright/mcp@latest', '--isolated'],
+        )
 
 if not isinstance(current, dict):
     raise SystemExit(f'{label} merge requires existing target to be a JSON object')
@@ -526,6 +584,22 @@ def managed_mcp_server(current_server, incoming_server, server_name):
     if not isinstance(current_server, dict) or not isinstance(incoming_server, dict):
         return False
     normalized = json.loads(json.dumps(current_server))
+
+    def normalize_managed_launcher(old_command, old_args=None):
+        incoming_command = incoming_server.get('command')
+        if isinstance(incoming_command, str) and isinstance(old_command, str):
+            if normalized.get('command') == old_command and normalized.get('args') == old_args:
+                normalized['command'] = incoming_command
+                normalized['args'] = list(incoming_server.get('args', []))
+            return
+
+        if isinstance(incoming_command, list) and isinstance(old_command, list):
+            legacy_commands = [list(old_command)]
+            if old_command and old_command[0] == 'npx' and incoming_command and incoming_command[0] == 'bunx':
+                legacy_commands.append(list(old_command) + [incoming_command[0]])
+            if normalized.get('command') in legacy_commands:
+                normalized['command'] = list(incoming_command)
+
     if server_name == 'context7':
         headers = normalized.get('headers')
         incoming_headers = incoming_server.get('headers', {})
@@ -537,12 +611,25 @@ def managed_mcp_server(current_server, incoming_server, server_name):
         incoming_env = incoming_server.get(env_key, {})
         if isinstance(env, dict) and isinstance(incoming_env, dict) and 'BRAVE_API_KEY' in env:
             env['BRAVE_API_KEY'] = incoming_env.get('BRAVE_API_KEY')
+        if env_key == 'env':
+            normalize_managed_launcher('npx', ['-y', '@brave/brave-search-mcp-server', '--transport', 'stdio'])
+        else:
+            normalize_managed_launcher(['npx', '-y', '@brave/brave-search-mcp-server', '--transport', 'stdio'])
     elif server_name == 'firecrawl':
         env_key = 'environment' if 'environment' in incoming_server else 'env'
         env = normalized.get(env_key)
         incoming_env = incoming_server.get(env_key, {})
         if isinstance(env, dict) and isinstance(incoming_env, dict) and 'FIRECRAWL_API_KEY' in env:
             env['FIRECRAWL_API_KEY'] = incoming_env.get('FIRECRAWL_API_KEY')
+        if env_key == 'env':
+            normalize_managed_launcher('npx', ['-y', 'firecrawl-mcp'])
+        else:
+            normalize_managed_launcher(['npx', '-y', 'firecrawl-mcp'])
+    elif server_name == 'playwright':
+        if isinstance(incoming_server.get('command'), str):
+            normalize_managed_launcher('npx', ['-y', '@playwright/mcp@latest', '--isolated'])
+        else:
+            normalize_managed_launcher(['npx', '-y', '@playwright/mcp@latest', '--isolated'])
     elif server_name == 'gitnexus':
         if normalized.get('command') == 'npx' and normalized.get('args') == ['-y', 'gitnexus@latest', 'mcp']:
             normalized['command'] = 'gitnexus'

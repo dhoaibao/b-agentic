@@ -44,6 +44,7 @@ Plain install merges `mcp.user.template.json` into `~/.claude.json` under top-le
 
 MCP safety rules:
 - Use environment-variable placeholders such as `${CONTEXT7_API_KEY:-}`, `${BRAVE_API_KEY}`, and `${FIRECRAWL_API_KEY}` in templates; never commit real API keys.
+- The managed Brave Search, Firecrawl, and Playwright entries launch through `bunx`, so Bun must be available on `PATH` when those MCP servers are started.
 - During an interactive install, prompt for Context7, Brave Search, and Firecrawl API keys and write provided values directly to user-scope `~/.claude.json`. Leave a prompt blank to keep the placeholder. Non-interactive installs skip prompts.
 - Keep Playwright configured with `--isolated` unless a user explicitly opts into persistent browser state outside the tracked worktree.
 - Do not include Claude hooks, generated root guidance, indexes, memories, or setup commands in MCP templates.

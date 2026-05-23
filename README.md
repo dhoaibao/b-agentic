@@ -96,7 +96,7 @@ activationState: active|pending
 
 Settings install merges b-agentic recommendations into existing Claude Code settings. It preserves unknown user keys, appends missing array values, keeps existing scalar values on conflict, and writes a timestamped backup before changing an existing file.
 
-Global MCP setup merges Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus into `~/.claude.json` under user scope. Playwright uses isolated browser state by default. GitNexus uses the installed `gitnexus mcp` command to avoid cold `npx` startup timeouts. GitNexus indexing, generated skills, hooks, root guidance writes, and `gitnexus setup` remain user-run steps outside the installer.
+Global MCP setup merges Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus into `~/.claude.json` under user scope. The managed Brave Search, Firecrawl, and Playwright entries launch through `bunx`, so Bun must be available on `PATH`. Playwright uses isolated browser state by default. GitNexus uses the installed `gitnexus mcp` command to avoid cold `npx` startup timeouts. GitNexus indexing, generated skills, hooks, root guidance writes, and `gitnexus setup` remain user-run steps outside the installer.
 
 MCP templates use environment placeholders such as `${CONTEXT7_API_KEY:-}`, `${BRAVE_API_KEY}`, and `${FIRECRAWL_API_KEY}` so tracked files never contain real keys. During an interactive install, the installer prompts for Context7, Brave Search, and Firecrawl API keys and writes provided values directly to user-scope `~/.claude.json`; leave a prompt blank to keep the placeholder. Non-interactive installs skip prompts.
 
