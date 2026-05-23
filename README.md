@@ -47,7 +47,7 @@ The installer deploys this repo into the active runtime's personal config:
 - `skills/<name>/` -> `~/.claude/skills/<name>/` (cross-tool compatibility)
 - `references/*.md` -> `~/.config/opencode/b-agentic/references/`
 - `references/*.md` -> `~/.claude/skills/<name>/references/b-agentic/` for each skill
-- `runtimes/opencode/configs/mcp.user.template.json` -> merged into `~/.config/opencode/opencode.json`
+- `runtimes/opencode/configs/mcp.user.template.json` -> merged into `~/.config/opencode/opencode.json` with Serena configured as `serena start-mcp-server --context ide --project-from-cwd`
 - `runtimes/opencode/configs/*.md` -> `~/.config/opencode/b-agentic/templates/`
 - install metadata and backups -> `~/.config/opencode/b-agentic/`
 

@@ -129,7 +129,7 @@ Tool fallback rules are centralized in the kernel; skills do not restate them.
 
 Skills declare MCP usage by referencing bundles summarized in `runtimes/claude-code/kernel.md` §4 and fully defined in `references/contract/` §4. Do not enumerate per-tool MCP lists inside skills. Native tools such as Glob/Grep/Read/Bash are not MCP bundles and may be listed separately when useful.
 
-MCP user-scope configuration lives in `runtimes/claude-code/configs/mcp.user.template.json`. The installer copies templates to `~/.claude/b-agentic/templates/` and merges the user-scope MCP set into `~/.claude.json` during the normal one-command install. The global MCP set contains Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus; runtime skills still use MCP lazily by evidence need. Keep MCP template changes documented in `runtimes/claude-code/configs/README.md` and `README.md`, and covered by `scripts/validate-skills.sh` plus `scripts/smoke-install.sh`.
+MCP user-scope configuration lives in the runtime-specific `runtimes/<name>/configs/mcp.user.template.json` templates. Claude Code copies its template to `~/.claude/b-agentic/templates/` and merges the user-scope MCP set into `~/.claude.json`; OpenCode copies its template to `~/.config/opencode/b-agentic/templates/` and merges into `~/.config/opencode/opencode.json`. The global set contains Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus; runtime skills still use MCP lazily by evidence need. Keep MCP template changes documented in the corresponding runtime `configs/README.md` and root `README.md`, and covered by `scripts/validate-skills.sh` plus `scripts/smoke-install.sh`.
 
 Rules:
 - Never add a bundle just to increase coverage; every bundle must have a clear use case in the Steps section.
@@ -190,7 +190,7 @@ Completed:
 
 Still Claude-Code-specific in shared content:
 - Skills remain Claude-Code-shaped (`${CLAUDE_SKILL_DIR}` references, `~/.claude/skills/` install path). OpenCode reads this format natively; full native re-templating is a future iteration.
-- MCP templates ship only for Claude Code (`runtimes/claude-code/configs/mcp.user.template.json`). OpenCode users configure MCP servers manually in `opencode.json`.
+- OpenCode ships its own MCP template at `runtimes/opencode/configs/mcp.user.template.json`, but shared skill prose still assumes Claude Code path and env conventions outside the adapter layer.
 
 ### Adding a new runtime adapter
 

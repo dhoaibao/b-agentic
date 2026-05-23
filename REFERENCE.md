@@ -295,5 +295,5 @@ Supported via a bridge adapter. OpenCode reads Claude Code skills natively, so s
 **Constraints**
 - Skills use `${CLAUDE_SKILL_DIR}` references; this requires Claude Code to be installed or the env var to be set manually.
 - No OpenCode-specific settings template ships; settings remain Claude Code–only.
-- MCP servers are auto-installed into `~/.config/opencode/opencode.json` via `runtimes/opencode/configs/mcp.user.template.json`.
+- MCP servers are auto-installed into `~/.config/opencode/opencode.json` via `runtimes/opencode/configs/mcp.user.template.json`; the Serena entry uses `--context ide`.
 - Temporary artifacts use `/tmp/opencode/b-agentic/`.

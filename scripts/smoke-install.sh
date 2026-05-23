@@ -309,7 +309,7 @@ PY
   assert_no_path "$sandbox_opencode/home/.claude/settings.json"
   assert_file "$sandbox_opencode/home/.config/opencode/opencode.json"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "set(data['mcp']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['serena']['command'][0] == 'serena'"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['serena']['command'] == ['serena', 'start-mcp-server', '--context', 'ide', '--project-from-cwd']"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['context7']['headers']['CONTEXT7_API_KEY'] == '{env:CONTEXT7_API_KEY}'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][-1] == '--isolated'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['gitnexus']['command'] == ['gitnexus', 'mcp']"

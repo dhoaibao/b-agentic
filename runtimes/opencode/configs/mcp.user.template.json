@@ -2,7 +2,7 @@
   "mcp": {
     "serena": {
       "type": "local",
-      "command": ["serena", "start-mcp-server", "--context", "opencode", "--project-from-cwd"]
+      "command": ["serena", "start-mcp-server", "--context", "ide", "--project-from-cwd"]
     },
     "context7": {
       "type": "remote",

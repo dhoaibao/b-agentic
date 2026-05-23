@@ -26,7 +26,7 @@ The installer never overwrites an existing `~/.config/opencode/AGENTS.md` withou
 
 ## Global MCP Setup
 
-OpenCode uses `opencode.json` for configuration. MCP servers are configured under the `mcp` key. The installer merges `mcp.user.template.json` from this directory into `~/.config/opencode/opencode.json` automatically, the same way the Claude Code adapter writes to `~/.claude.json`. Existing user entries are preserved; b-agentic entries are removed on uninstall.
+OpenCode uses `opencode.json` for configuration. MCP servers are configured under the `mcp` key. The installer merges `mcp.user.template.json` from this directory into `~/.config/opencode/opencode.json` automatically, the same way the Claude Code adapter writes to `~/.claude.json`. Existing user entries are preserved; b-agentic entries are removed on uninstall. The default Serena entry runs `serena start-mcp-server --context ide --project-from-cwd` so OpenCode uses Serena's IDE context.
 
 The installer also prompts for optional API keys (Context7, Brave Search, Firecrawl) when run with `--prompt-api-keys`. Key values are written only to the user's `opencode.json` and never to the tracked template.
 

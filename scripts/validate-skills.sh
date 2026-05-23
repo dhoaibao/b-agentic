@@ -221,6 +221,10 @@ for json_path in sorted((root / 'runtimes').glob('*/configs/*.json')):
         expected_user = {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}
 
         if is_opencode:
+            if 'serena' in servers:
+                if servers['serena'].get('command') != ['serena', 'start-mcp-server', '--context', 'ide', '--project-from-cwd']:
+                    errors.append(f'{json_path}: serena must use serena start-mcp-server --context ide --project-from-cwd')
+
             if 'brave-search' in servers:
                 env = servers['brave-search'].get('environment', {})
                 if env.get('BRAVE_API_KEY') != '{env:BRAVE_API_KEY}':
