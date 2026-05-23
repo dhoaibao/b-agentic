@@ -1,6 +1,6 @@
 # b-agentic — Agent Workflow Kernel Contract
 
-> Detailed schemas, rubrics, edge-case protocols, tool bundles, and operational rules for the `b-agentic` agent workflow kernel. The active runtime kernel lives in `CLAUDE.md`; installed skills should consult their bundled supporting files at `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/` when a skill points to detailed behavior. Installed contract files live at `~/.claude/b-agentic/references/contract/` and temporary run artifacts at `/tmp/claude-code/b-agentic/`.
+> Detailed schemas, rubrics, edge-case protocols, tool bundles, and operational rules for the `b-agentic` agent workflow kernel. The active runtime kernel lives in `CLAUDE.md` (Claude Code) or `AGENTS.md` (OpenCode); installed skills should consult their bundled supporting files at `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/` when a skill points to detailed behavior. Installed contract files live at `~/.claude/b-agentic/references/contract/` (Claude Code) or `~/.config/opencode/b-agentic/references/contract/` (OpenCode), and temporary run artifacts at `/tmp/claude-code/b-agentic/` (Claude Code) or `/tmp/opencode/b-agentic/` (OpenCode).
 
 ## Quick Index
 

@@ -1,10 +1,10 @@
 # b-agentic
 
-**An 11-skill agent workflow kernel for Claude Code.**
+**An 11-skill agent workflow kernel for Claude Code and OpenCode.**
 
 `b-agentic` turns rough developer intent into disciplined loops: clarify, plan, build, validate, debug, review, and audit. It is optimized around scoped execution, repo evidence, MCP tools, verification, and clean handoffs.
 
-Claude Code is the reference runtime. Skills install as native Claude skills and appear as `/b-*` slash commands.
+Claude Code is the reference runtime; OpenCode is supported via a bridge adapter. Skills install as native skills and appear as `/b-*` commands.
 
 ## Install & Update
 
@@ -30,7 +30,9 @@ Uninstall managed files:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 ```
 
-The installer deploys this repo into Claude Code's personal config:
+The installer deploys this repo into the active runtime's personal config:
+
+**Claude Code (default):**
 - `runtimes/claude-code/kernel.md` -> `~/.claude/CLAUDE.md` when missing or approved
 - `skills/<name>/` -> `~/.claude/skills/<name>/`
 - `references/*.md` -> `~/.claude/b-agentic/references/`
@@ -40,9 +42,21 @@ The installer deploys this repo into Claude Code's personal config:
 - `runtimes/claude-code/configs/mcp.user.template.json` -> merged into `~/.claude.json`
 - install metadata and backups -> `~/.claude/b-agentic/`
 
-If an existing `~/.claude/CLAUDE.md` is preserved, the installer exits with `activationState: pending`. Review `~/.claude/b-agentic/CLAUDE.md`, then rerun with `--replace-memory` or merge the kernel manually.
+**OpenCode:**
+- `runtimes/opencode/kernel.md` -> `~/.config/opencode/AGENTS.md` when missing or approved
+- `skills/<name>/` -> `~/.claude/skills/<name>/` (cross-tool compatibility)
+- `references/*.md` -> `~/.config/opencode/b-agentic/references/`
+- `references/*.md` -> `~/.claude/skills/<name>/references/b-agentic/` for each skill
+- `runtimes/opencode/configs/*.md` -> `~/.config/opencode/b-agentic/templates/`
+- install metadata and backups -> `~/.config/opencode/b-agentic/`
 
-Only `--runtime=claude-code` (the default) is wired end-to-end today. The `--runtime=<name>` flag and `B_AGENTIC_RUNTIME` env var validate input safely and switch the source kernel/configs the installer reads, but install destinations, settings/MCP merge targets, and validator policy remain Claude-Code-specific. The flag exists for future adapters; see `CLAUDE.md` "Runtime Adapters" for what still needs to be generalised before a second adapter can ship.
+Use `--runtime=opencode` or set `B_AGENTIC_RUNTIME=opencode` to install for OpenCode:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=opencode
+```
+
+If an existing kernel file is preserved, the installer exits with `activationState: pending`. Review the managed snapshot, then rerun with `--replace-memory` or merge the kernel manually.
 
 ## One Command
 
@@ -106,15 +120,20 @@ All skills are model-invocable when their descriptions match the request. Skill 
 
 ```text
 b-agentic/
-├── CLAUDE.md              # Claude Code maintainer guidance for this source repo
-├── runtimes/              # Runtime adapter directories (only `claude-code` ships today)
-│   └── claude-code/       # Claude Code adapter
-│       ├── kernel.md      # Always-on runtime rules (installs as ~/.claude/CLAUDE.md)
-│       └── configs/       # Settings and MCP config templates
+├── CLAUDE.md              # Maintainer guidance for this source repo
+├── runtimes/              # Runtime adapter directories
+│   ├── claude-code/       # Claude Code adapter
+│   │   ├── kernel.md      # Always-on runtime rules (installs as ~/.claude/CLAUDE.md)
+│   │   ├── configs/       # Settings and MCP config templates
+│   │   └── scripts/       # Claude-specific install and validate scripts
+│   └── opencode/          # OpenCode adapter
+│       ├── kernel.md      # Always-on runtime rules (installs as ~/.config/opencode/AGENTS.md)
+│       ├── configs/       # Runtime layout documentation
+│       └── scripts/       # OpenCode-specific install and validate scripts
 ├── references/            # shared runtime references copied into skill support dirs
-├── skills/<name>/         # Claude skill instructions and optional reference.md files
-├── install.sh             # Claude Code installer, updater, and uninstaller
-└── scripts/               # validation and smoke-test helpers
+├── skills/<name>/         # Skill instructions and optional reference.md files
+├── install.sh             # Shared installer entrypoint; delegates to runtime scripts
+└── scripts/               # Shared validation and smoke-test helpers
 ```
 
 ## Docs
@@ -126,5 +145,6 @@ b-agentic/
 - `references/contract/` is the detailed runtime contract; referenced sections are required read gates when a skill needs their schemas, checklists, or protocols.
 - `references/performance-checklist.md` is a reusable cross-skill reference.
 - `runtimes/claude-code/configs/README.md` documents the Claude Code runtime layout and first-release non-goals.
+- `runtimes/opencode/configs/README.md` documents the OpenCode runtime layout and known constraints.
 
 Run `scripts/validate-skills.sh` and `scripts/smoke-install.sh` before installing or committing suite changes.

@@ -7,8 +7,8 @@ Guidelines for creating, editing, and maintaining the Claude Code native `b-agen
 - This file is the Claude Code maintainer guidance for the source repository.
 - Claude Code is the reference runtime. Do not preserve OpenCode behavior as a product requirement unless a new plan explicitly asks for migration compatibility.
 - Keep root docs targeted: `README.md` is the brief repo overview, root `CLAUDE.md` is maintainer guidance for this repo, and `REFERENCE.md` is the reference guide for each skill.
-- Runtime behavior lives in `runtimes/claude-code/kernel.md` (kernel installed as `~/.claude/CLAUDE.md`), `references/contract/` (detailed contract), and `skills/*/SKILL.md` (Claude skills).
-- `install.sh` deploys runtime files to `~/.claude/`, installs each skill under `~/.claude/skills/<name>/`, copies shared references into each skill as supporting files, and replaces `~/.claude/CLAUDE.md` only when missing or approved.
+- Runtime behavior lives in `runtimes/<name>/kernel.md` (kernel installed as the runtime's memory file), `references/contract/` (detailed contract), and `skills/*/SKILL.md` (skills).
+- `install.sh` is the shared orchestrator that delegates to `runtimes/<name>/scripts/install.sh`. It clones/updates the repo, then sources the runtime-specific install script. Each runtime script defines its own destination paths, config merge logic, and manifest format.
 - When authoring runtime-facing skill prose, references to `CLAUDE.md` mean the active runtime kernel installed from `runtimes/claude-code/kernel.md`, not this source-repo maintainer guide. Long-form schemas, rubrics, and edge-case protocols live in `references/contract/`; when a skill depends on one of them, phrase the instruction as a required read gate using the installed skill support path `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/<section-file>.md`.
 - Runtime conformance depends on explicit read gates plus the runtime gate checklist, not passive reminders. Keep those gates local to the step that uses the shared schema, checklist, or protocol.
 
@@ -26,8 +26,10 @@ Guidelines for creating, editing, and maintaining the Claude Code native `b-agen
 - `skills/b-audit/SKILL.md` - b-agentic suite self-audits (suite-only)
 - `skills/b-ship/SKILL.md` - commit, push, and open PR after READY FOR PR
 - `references/` - reusable checklists and the detailed runtime contract
-- `runtimes/claude-code/kernel.md` - runtime kernel source
+- `runtimes/claude-code/kernel.md` - Claude Code runtime kernel source
 - `runtimes/claude-code/configs/` - Claude Code settings and MCP templates
+- `runtimes/opencode/kernel.md` - OpenCode runtime kernel source
+- `runtimes/opencode/configs/` - OpenCode runtime layout docs
 
 ## Claude Skill Frontmatter
 
@@ -155,7 +157,7 @@ All skills live in `skills/<name>/SKILL.md`. When changing skill files:
 | Delete skill | Delete `skills/<name>/SKILL.md`, optional supporting files, and the directory if empty |
 
 Runtime contract sync:
-- When always-on runtime behavior changes, update `runtimes/claude-code/kernel.md`.
+- When always-on runtime behavior changes, update `runtimes/<name>/kernel.md` for every affected runtime.
 - When detailed schemas/rubrics/protocols change, update `references/contract/`.
 - Keep related repo docs aligned in the same commit.
 
@@ -173,27 +175,32 @@ runtimes/<name>/
 └── configs/       # Runtime-specific config templates (settings, MCP, etc.)
 ```
 
-Currently only `claude-code` exists end-to-end. Do not create adapters for other runtimes without an approved plan.
+`claude-code` and `opencode` adapters exist end-to-end. Do not create adapters for other runtimes without an approved plan.
 
 ### What is wired today vs. what is still TODO
 
-`install.sh` parameterises only the **source** side of the adapter: `--runtime=<name>` and `B_AGENTIC_RUNTIME` resolve `KERNEL_SRC` and `TEMPLATES_SRC` from `runtimes/$RUNTIME/...`, and the name is validated against path traversal. `scripts/validate-skills.sh` enforces the `kernel.md` invariant for every `runtimes/*/` directory.
+`install.sh` is a shared orchestrator that parses arguments, clones/updates the repo, and delegates to `runtimes/$RUNTIME/scripts/install.sh` for runtime-specific install logic. Each runtime script defines its own destination paths, config merge logic, and manifest format. `scripts/validate-skills.sh` is a shared orchestrator that runs shared checks, then discovers and calls `runtimes/*/scripts/validate.sh` for each adapter.
 
-Destinations and validator policy are still Claude-Code-specific:
+Completed:
+- Source-side runtime selection (`--runtime`, `B_AGENTIC_RUNTIME`).
+- Per-runtime install scripts under `runtimes/<name>/scripts/install.sh`.
+- Per-runtime validators under `runtimes/<name>/scripts/validate.sh`.
+- OpenCode adapter with kernel, configs, install, and validate scripts.
+- Smoke tests cover both `--runtime=claude-code` and `--runtime=opencode`.
 
-- Destination paths (`~/.claude/CLAUDE.md`, `~/.claude/skills/`, `~/.claude/b-agentic/`), env-var defaults (`B_AGENTIC_CLAUDE_DIR`, `B_AGENTIC_CLAUDE_JSON`), and merge targets (`~/.claude/settings.json`, `~/.claude.json` user scope) are all hard-coded for Claude Code in `install.sh`.
-- `scripts/validate-skills.sh` requires Claude-Code-specific markers in `references/contract/index.md` (`${CLAUDE_SKILL_DIR}/references/b-agentic/contract/`, `~/.claude/b-agentic`, `/tmp/claude-code/b-agentic`), in `runtimes/claude-code/configs/README.md`, and in the kernel itself.
-
-Running `install.sh --runtime=<other>` today would still write into Claude Code paths.
+Still Claude-Code-specific in shared content:
+- Skills remain Claude-Code-shaped (`${CLAUDE_SKILL_DIR}` references, `~/.claude/skills/` install path). OpenCode reads this format natively; full native re-templating is a future iteration.
+- MCP templates ship only for Claude Code (`runtimes/claude-code/configs/mcp.user.template.json`). OpenCode users configure MCP servers manually in `opencode.json`.
 
 ### Adding a new runtime adapter
 
 1. Create `runtimes/<name>/` with at least `kernel.md`.
 2. Add `configs/` (and a per-adapter `configs/README.md`) when the runtime needs config templates.
-3. Update `install.sh` so destination paths, env-var overrides, settings/MCP merge targets, and the manifest layout are selected by `$RUNTIME` instead of hard-coded to Claude Code.
-4. Generalise `scripts/validate-skills.sh` so its Claude-Code-only markers (contract index paths, configs/README invariant, kernel markers) are scoped per adapter or made adapter-aware.
-5. Either keep skill and shared-reference content Claude-Code-shaped (and document that constraint), or re-template the Claude-Code-specific paths/env-vars out of shared content for the new adapter.
+3. Create `runtimes/<name>/scripts/install.sh` with the runtime's destination paths, config merge logic, and manifest format.
+4. Create `runtimes/<name>/scripts/validate.sh` with the runtime's required invariants.
+5. Either keep skill content Claude-Code-shaped (and document that constraint), or re-template the Claude-Code-specific paths/env-vars out of shared content for the new adapter.
 6. Update `README.md`, `CLAUDE.md`, and `REFERENCE.md` in the same commit.
+7. Add smoke-test coverage for the new runtime in `scripts/smoke-install.sh`.
 
 ### Runtime file sync rule
 
@@ -225,4 +232,4 @@ Before merging any skill file change, verify:
 8. Token hygiene is preserved.
 9. No duplicated global concepts from `CLAUDE.md` or `references/contract/`.
 10. Reference gates are explicit at the point of use.
-11. Runtime enforcement is preserved through `runtimes/claude-code/kernel.md`, skill read gates, validator checks, and install smoke tests.
+11. Runtime enforcement is preserved through `runtimes/*/kernel.md`, skill read gates, validator checks, and install smoke tests for every supported runtime.

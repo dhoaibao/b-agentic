@@ -1,12 +1,12 @@
 # b-agentic — Agent Workflow Kernel Reference
 
-Reference guide for the 11-skill set that makes up `b-agentic`, an agent workflow kernel for Claude Code. For install and high-level repo overview, see [README.md](README.md). For maintainer guidance, see [CLAUDE.md](CLAUDE.md).
+Reference guide for the 11-skill set that makes up `b-agentic`, an agent workflow kernel for Claude Code and OpenCode. For install and high-level repo overview, see [README.md](README.md). For maintainer guidance, see [CLAUDE.md](CLAUDE.md).
 
 When this document cites `runtimes/claude-code/kernel.md`, that is the source-repo runtime kernel path. Installed skill prose should reference the active `CLAUDE.md`; detailed runtime behavior lives at `references/contract/` in this repo and at `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/` inside installed skills. Runtime references are required read gates when a skill needs their schemas, checklists, or protocols.
 
 Runtime enforcement is intentionally mechanical: `runtimes/claude-code/kernel.md` owns the runtime gate checklist, each skill step uses explicit read gates for shared schemas/protocols/checklists, Claude skills expose `/b-*` slash commands, and `scripts/validate-skills.sh` rejects passive pointers that would rely on memory.
 
-MCP setup is part of the normal one-command install. The installer merges Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus into Claude Code's user-scope `~/.claude.json`, while runtime skills still choose MCP lazily by evidence need rather than by installed config.
+MCP setup is part of the normal one-command install for Claude Code. The installer merges Serena, Context7, Brave Search, Firecrawl, Playwright, and GitNexus into Claude Code's user-scope `~/.claude.json`, while runtime skills still choose MCP lazily by evidence need rather than by installed config. OpenCode users configure MCP servers manually in `opencode.json`.
 
 Browser, DOM-rendered, visual, and e2e verification belongs to `b-browser`, not `b-test`. The suite does not add jsdom, Playwright, Cypress, Puppeteer, WebDriver, or equivalent browser/DOM tooling as a project dependency side effect. For UI/browser-relevant work, readiness claims require `b-browser`-verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up.
 
@@ -279,3 +279,20 @@ Commit, push, and open a pull request after the suite reaches `READY FOR PR`.
 **Output**
 - Reports branch, staged files, commit, push result, and PR URL.
 - Labeled lines: `Branch`, `Staged files`, `Commit`, `Push`, `PR URL`.
+
+---
+
+## Runtime Adapters
+
+### Claude Code
+
+The reference runtime. Skills install to `~/.claude/skills/` and expose `/b-*` slash commands. The kernel installs to `~/.claude/CLAUDE.md`. Settings and MCP config merge into `~/.claude/settings.json` and `~/.claude.json`.
+
+### OpenCode
+
+Supported via a bridge adapter. OpenCode reads Claude Code skills natively, so skills remain Claude-Code-shaped and install to `~/.claude/skills/` for cross-tool compatibility. The kernel installs to `~/.config/opencode/AGENTS.md`. Suite metadata lives at `~/.config/opencode/b-agentic/`.
+
+**Constraints**
+- Skills use `${CLAUDE_SKILL_DIR}` references; this requires Claude Code to be installed or the env var to be set manually.
+- No OpenCode-specific MCP or settings templates ship in this iteration; configure MCP servers manually in `~/.config/opencode/opencode.json`.
+- Temporary artifacts use `/tmp/opencode/b-agentic/`.

@@ -9,6 +9,7 @@ from pathlib import Path
 import json
 import re
 import sys
+import subprocess
 
 root = Path('.')
 errors = []
@@ -65,7 +66,7 @@ for path in skill_paths:
 
     for key in top_level_keys(frontmatter):
         if key not in allowed_frontmatter:
-            errors.append(f'{path}: unsupported Claude skill frontmatter key {key!r}')
+            errors.append(f'{path}: unsupported skill frontmatter key {key!r}')
 
     name_match = re.search(r'^name:\s*(\S+)\s*$', frontmatter, re.MULTILINE)
     if not name_match:
@@ -93,9 +94,6 @@ for path in skill_paths:
         if section not in body:
             errors.append(f'{path}: missing required section {section!r}')
 
-    # Status block and handoff rules are centralized in runtimes/claude-code/kernel.md §9.
-    # Skills that emit handoff envelopes (not just route to another skill) must
-    # reference the output contract schema.
     if 'handoff envelope' in text.lower() or '[handoff]' in text:
         if 'contract/09-output' not in text:
             errors.append(f'{path}: emits handoff envelope but missing contract/09-output reference')
@@ -116,14 +114,11 @@ for path in skill_paths:
         'suite: b-agentic',
         'active `AGENTS.md` runtime kernel',
         'global/AGENTS.md',
-        '~/.config/opencode',
-        '/tmp/opencode',
     ]
     for needle in forbidden:
         if needle in text:
-            errors.append(f'{path}: stale OpenCode/runtime pattern {needle!r}')
+            errors.append(f'{path}: stale pattern {needle!r}')
 
-    # Check contract/ references use the correct support path
     if 'references/b-agentic/contract/' in text and '${CLAUDE_SKILL_DIR}/references/b-agentic/contract/' not in text:
         errors.append(f'{path}: contract read gates must use ${{CLAUDE_SKILL_DIR}} support path')
 
@@ -136,7 +131,6 @@ for path in skill_paths:
     if re.search(r'Read §\d+', text):
         errors.append(f'{path}: read gates must name the reference file, not only a section number')
 
-    # Graceful degradation rules are centralized in the kernel; skills should not restate them.
     if 'Graceful degradation:' in text:
         errors.append(f'{path}: graceful degradation rules are centralized in the kernel; skills must not restate them')
 
@@ -158,12 +152,12 @@ readme = (root / 'README.md').read_text() if (root / 'README.md').exists() else 
 reference = (root / 'REFERENCE.md').read_text() if (root / 'REFERENCE.md').exists() else ''
 maintainer_path = root / 'CLAUDE.md'
 maintainer = maintainer_path.read_text() if maintainer_path.exists() else ''
+
 kernel_path = root / 'runtimes' / 'claude-code' / 'kernel.md'
 kernel = kernel_path.read_text() if kernel_path.exists() else ''
 contract_index_path = root / 'references' / 'contract' / 'index.md'
 contract_index = contract_index_path.read_text() if contract_index_path.exists() else ''
 install_sh = (root / 'install.sh').read_text() if (root / 'install.sh').exists() else ''
-claude_readme = (root / 'runtimes' / 'claude-code' / 'configs' / 'README.md').read_text() if (root / 'runtimes' / 'claude-code' / 'configs' / 'README.md').exists() else ''
 
 contract_version_match = re.search(r'This runtime contract version is `([0-9]{4}-[0-9]{2}-[0-9]{2})`', kernel)
 contract_version = contract_version_match.group(1) if contract_version_match else None
@@ -173,17 +167,6 @@ if not kernel_path.exists():
 for runtime_dir in sorted((root / 'runtimes').glob('*/')):
     if not (runtime_dir / 'kernel.md').exists():
         errors.append(f'{runtime_dir}: runtime adapter missing kernel.md')
-if (root / 'global' / 'AGENTS.md').exists():
-    errors.append('global/AGENTS.md: stale OpenCode kernel source should be removed or renamed')
-if (root / 'AGENTS.md').exists():
-    errors.append('AGENTS.md: stale root maintainer guide should be renamed to CLAUDE.md')
-if '<!-- b-agentic-managed -->' not in kernel:
-    errors.append('runtimes/claude-code/kernel.md: missing b-agentic managed marker')
-for marker in ['Reference checklist:', 'Runtime gate checklist:', 'CLAUDE.md', 'Detailed routing', 'runtime contract §9']:
-    if marker not in kernel:
-        errors.append(f'runtimes/claude-code/kernel.md: missing kernel marker {marker!r}')
-if 'Reference gate:' in kernel:
-    errors.append("runtimes/claude-code/kernel.md: stale 'Reference gate:' terminology; use 'Reference checklist:'")
 
 for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
     if not doc_text:
@@ -194,49 +177,20 @@ for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
     for name in skill_names:
         if name not in doc_text:
             errors.append(f'{doc_path}: missing skill name {name}')
-    stale_doc_patterns = [
-        'OpenCode as the reference runtime',
-        '~/.config/opencode',
-        'global/AGENTS.md',
-        'commands/<name>.md',
-        'commands/*.md',
-        'compatibility: opencode',
-    ]
-    for needle in stale_doc_patterns:
-        if needle in doc_text:
-            errors.append(f'{doc_path}: stale OpenCode/source-layout phrase {needle!r}')
 
-if 'Claude Code is the reference runtime' not in maintainer:
-    errors.append('CLAUDE.md: must state Claude Code is the reference runtime')
-for needle in ['compatibility: opencode', 'global/AGENTS.md', 'commands/<name>.md']:
-    if needle in maintainer:
-        errors.append(f'CLAUDE.md: stale maintainer phrase {needle!r}')
+if 'One Command' not in readme or 'skillsSynced' not in readme:
+    errors.append('README.md: missing one-command install/output documentation')
 
-for required in [
-    'The active runtime kernel lives in `CLAUDE.md`',
-    '${CLAUDE_SKILL_DIR}/references/b-agentic/contract/',
-    '~/.claude/b-agentic',
-    '/tmp/claude-code/b-agentic',
-]:
-    if required not in contract_index:
-        errors.append(f'references/contract/index.md: missing Claude-native marker {required!r}')
-
-if 'global/AGENTS.md' in contract_index or '~/.config/opencode' in contract_index or '/tmp/opencode' in contract_index:
-    errors.append('references/contract/index.md: contains stale active OpenCode path')
-
-for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'skillsSynced']:
-    if required not in install_sh:
-        errors.append(f'install.sh: missing global one-command installer marker {required!r}')
-
-for required in ['$HOME/.claude', 'runtimes/$RUNTIME/kernel.md', 'skills', 'references/b-agentic', 'activationState']:
-    if required not in install_sh:
-        errors.append(f'install.sh: missing Claude installer marker {required!r}')
-if '~/.config/opencode' in install_sh or 'opencode.json' in install_sh:
-    errors.append('install.sh: contains stale OpenCode install target')
-
-user_mcp_template = root / 'runtimes' / 'claude-code' / 'configs' / 'mcp.user.template.json'
-if not user_mcp_template.exists():
-    errors.append(f'{user_mcp_template}: missing global MCP user template')
+if contract_version:
+    for plan_path in sorted((root / '.b-agentic' / 'b-plan').glob('*.md')):
+        plan_text = plan_path.read_text()
+        plan_version_match = re.search(r'^contract_version:\s*(\S+)', plan_text, re.MULTILINE)
+        if plan_version_match:
+            plan_version = plan_version_match.group(1)
+            if plan_version != contract_version:
+                errors.append(f'{plan_path}: contract_version {plan_version!r} does not match kernel contract version {contract_version!r}')
+else:
+    errors.append('runtimes/claude-code/kernel.md: unable to extract contract version')
 
 secret_literal_patterns = [
     re.compile(r'fc-[A-Za-z0-9_-]{8,}'),
@@ -244,7 +198,7 @@ secret_literal_patterns = [
     re.compile(r'your-api-key', re.IGNORECASE),
 ]
 
-for json_path in sorted((root / 'claude').glob('*.json')):
+for json_path in sorted((root / 'runtimes').glob('*/configs/*.json')):
     try:
         data = json.loads(json_path.read_text())
     except Exception as exc:
@@ -302,34 +256,27 @@ for json_path in sorted((root / 'claude').glob('*.json')):
 for forbidden in ['--install-project-mcp', '--replace-project-mcp', '--mcp-profile', '--with-playwright', '--with-gitnexus', '.mcp.json']:
     if forbidden in readme:
         errors.append(f'README.md: should not document per-project/options installer path {forbidden!r}')
-    if forbidden in claude_readme:
-        errors.append(f'runtimes/claude-code/configs/README.md: should not document per-project/options installer path {forbidden!r}')
 
 for forbidden in ['--install-project-mcp', '--replace-project-mcp', '--mcp-profile', '--with-playwright', '--with-gitnexus', 'PROJECT_MCP_DST', 'mcpProfile']:
     if forbidden in install_sh:
         errors.append(f'install.sh: should not expose per-project/options installer path {forbidden!r}')
-
-if 'One Command' not in readme or 'skillsSynced' not in readme:
-    errors.append('README.md: missing one-command install/output documentation')
-
-if 'Global MCP Setup' not in claude_readme or '~/.claude.json' not in claude_readme:
-    errors.append('runtimes/claude-code/configs/README.md: missing global MCP setup documentation')
-
-if contract_version:
-    for plan_path in sorted((root / '.b-agentic' / 'b-plan').glob('*.md')):
-        plan_text = plan_path.read_text()
-        plan_version_match = re.search(r'^contract_version:\s*(\S+)', plan_text, re.MULTILINE)
-        if plan_version_match:
-            plan_version = plan_version_match.group(1)
-            if plan_version != contract_version:
-                errors.append(f'{plan_path}: contract_version {plan_version!r} does not match kernel contract version {contract_version!r}')
-else:
-    errors.append('runtimes/claude-code/kernel.md: unable to extract contract version')
 
 if errors:
     for error in errors:
         print(error, file=sys.stderr)
     sys.exit(1)
 
-print(f'Skill validation passed ({len(skill_paths)} skills).')
+print(f'Shared skill validation passed ({len(skill_paths)} skills).')
 PY
+
+# Run per-runtime validators
+exit_code=0
+for runtime_script in runtimes/*/scripts/validate.sh; do
+  if [ -f "$runtime_script" ]; then
+    if ! bash "$runtime_script"; then
+      exit_code=1
+    fi
+  fi
+done
+
+exit "$exit_code"

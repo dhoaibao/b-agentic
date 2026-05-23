@@ -295,6 +295,20 @@ PY
   assert_no_path "$sandbox_uninstall/home/.claude/CLAUDE.md"
   assert_no_path "$sandbox_uninstall/home/.claude/b-agentic"
 
+  local sandbox_opencode="$WORK_DIR/opencode"
+  mkdir -p "$sandbox_opencode/home"
+  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
+  assert_file "$sandbox_opencode/home/.config/opencode/AGENTS.md"
+  assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" '<!-- b-agentic-managed -->'
+  assert_file "$sandbox_opencode/home/.claude/skills/b-plan/SKILL.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/install.json"
+  assert_contains "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" '"runtime": "opencode"'
+  assert_contains "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" '"activationState": "active"'
+  assert_no_path "$sandbox_opencode/home/.claude.json"
+  assert_no_path "$sandbox_opencode/home/.claude/settings.json"
+  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode --uninstall
+  assert_no_path "$sandbox_opencode/home/.config/opencode/b-agentic"
+
   printf 'smoke-install.sh passed\n'
 }
 
