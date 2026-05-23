@@ -87,6 +87,7 @@ runtimes/<name>/
 ```
 
 - Adapter directories own runtime-specific kernels, config templates, install hooks, wrappers, and caveats.
+- For MCP launch commands that would otherwise use `npx`, prefer `bunx` when the package supports it so startup is faster.
 - `install.sh` is the bootstrap entrypoint only; shared behavior lives in `tooling/install/common.sh`, and runtime-specific behavior lives in `runtimes/<name>/scripts/install.sh`.
 - `scripts/validate-skills.sh` is a stable wrapper over the shared validation harness plus runtime validators.
 - `scripts/smoke-install.sh` is a stable wrapper over the shared smoke harness plus runtime smoke lanes.
