@@ -1,6 +1,6 @@
 # b-agentic
 
-**An 11-skill agent workflow kernel for Claude Code and OpenCode.**
+**An agent workflow kernel for Claude Code and OpenCode.**
 
 `b-agentic` turns rough developer intent into disciplined loops: clarify, plan, build, validate, debug, review, and audit. It is optimized around scoped execution, repo evidence, MCP tools, verification, and clean handoffs.
 
@@ -68,7 +68,7 @@ For Claude Code, plain install syncs the runtime, merges recommended settings, a
 
 ```text
 b-agentic Claude Code install complete
-skillsSynced: 11 -> ~/.claude/skills
+skillsSynced: <skill count> -> ~/.claude/skills
 kernel: write|replace|preserve -> ~/.claude/CLAUDE.md
 settings: write|merge -> ~/.claude/settings.json
 mcp: write|merge -> ~/.claude.json
@@ -83,8 +83,8 @@ For OpenCode, the install report also includes the managed command wrapper sync:
 
 ```text
 b-agentic OpenCode install complete
-skillsSynced: 11 -> ~/.claude/skills
-commandsSynced: 11 -> ~/.config/opencode/commands
+skillsSynced: <skill count> -> ~/.claude/skills
+commandsSynced: <skill count> -> ~/.config/opencode/commands
 kernel: write|replace|preserve -> ~/.config/opencode/AGENTS.md
 mcp: write|merge -> ~/.config/opencode/opencode.json
 references: sync -> ~/.config/opencode/b-agentic/references
@@ -157,11 +157,12 @@ b-agentic/
 
 ## Docs
 
-- `README.md` is the brief repo overview.
-- `CLAUDE.md` is the Claude Code maintainer guide for editing this source repo.
-- `REFERENCE.md` is the skill-by-skill reference guide.
-- `runtimes/claude-code/kernel.md` is the runtime kernel source.
+- `README.md` is the brief repo overview, install guide, and source-layout map.
+- `skills/*/SKILL.md` files are the authoritative skill behavior and routing source.
+- `runtimes/*/kernel.md` files are the authoritative runtime-kernel source.
 - `references/contract/` is the detailed runtime contract; referenced sections are required read gates when a skill needs their schemas, checklists, or protocols.
+- `skills/*/reference.md` files are optional skill-local support material, not a root mirror doc.
+- `CLAUDE.md` is the Claude Code maintainer guide for editing this source repo.
 - `references/performance-checklist.md` is a reusable cross-skill reference.
 - `runtimes/claude-code/configs/README.md` documents the Claude Code runtime layout and first-release non-goals.
 - `runtimes/opencode/configs/README.md` documents the OpenCode runtime layout and known constraints.

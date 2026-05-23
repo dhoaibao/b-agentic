@@ -39,8 +39,8 @@ required_sections = [
     '## Rules',
 ]
 
-if len(skill_paths) != 11:
-    errors.append(f'skills/: expected 11 SKILL.md files, found {len(skill_paths)}')
+if not skill_paths:
+    errors.append('skills/: no SKILL.md files found')
 
 if (root / 'commands').exists() and any((root / 'commands').glob('*.md')):
     errors.append('commands/: Claude-native runtime should not ship command wrappers; skills create /b-* commands')
@@ -58,6 +58,19 @@ def frontmatter_parts(path: Path):
 
 def top_level_keys(frontmatter: str):
     return re.findall(r'^([A-Za-z0-9_-]+):', frontmatter, re.MULTILINE)
+
+
+def tracked_existing_root_markdown_docs():
+    docs = set()
+    for path in root.glob('*.md'):
+        result = subprocess.run(
+            ['git', 'ls-files', '--error-unmatch', path.name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode == 0:
+            docs.add(path.name)
+    return docs
 
 for path in skill_paths:
     name = path.parent.name
@@ -153,7 +166,6 @@ else:
         errors.append(f'references/contract/01-routing.md: references /{name} but no skills/{name}/ directory exists')
 
 readme = (root / 'README.md').read_text() if (root / 'README.md').exists() else ''
-reference = (root / 'REFERENCE.md').read_text() if (root / 'REFERENCE.md').exists() else ''
 maintainer_path = root / 'CLAUDE.md'
 maintainer = maintainer_path.read_text() if maintainer_path.exists() else ''
 
@@ -182,15 +194,21 @@ for runtime_dir in sorted((root / 'runtimes').glob('*/')):
     if not (runtime_dir / 'kernel.md').exists():
         errors.append(f'{runtime_dir}: runtime adapter missing kernel.md')
 
-for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
-    if not doc_text:
-        errors.append(f'{doc_path}: missing or empty')
-        continue
-    if '11-skill' not in doc_text and '11 skills' not in doc_text:
-        errors.append(f'{doc_path}: missing explicit 11-skill claim')
+if not readme:
+    errors.append('README.md: missing or empty')
+else:
     for name in skill_names:
-        if name not in doc_text:
-            errors.append(f'{doc_path}: missing skill name {name}')
+        if name not in readme:
+            errors.append(f'README.md: missing skill name {name}')
+
+root_markdown_docs = tracked_existing_root_markdown_docs()
+allowed_root_markdown_docs = {'README.md', 'CLAUDE.md'}
+unexpected_root_docs = sorted(root_markdown_docs - allowed_root_markdown_docs)
+if unexpected_root_docs:
+    errors.append(
+        'root docs: unexpected top-level Markdown docs '
+        f'{unexpected_root_docs}; keep root docs targeted and move skill detail or support material under skills/, references/, or runtimes/'
+    )
 
 if 'One Command' not in readme or 'skillsSynced' not in readme:
     errors.append('README.md: missing one-command install/output documentation')

@@ -6,8 +6,9 @@ Guidelines for creating, editing, and maintaining the Claude Code native `b-agen
 
 - This file is the Claude Code maintainer guidance for the source repository.
 - Claude Code is the reference runtime. Do not preserve OpenCode behavior as a product requirement unless a new plan explicitly asks for migration compatibility.
-- Keep root docs targeted: `README.md` is the brief repo overview, root `CLAUDE.md` is maintainer guidance for this repo, and `REFERENCE.md` is the reference guide for each skill.
-- Runtime behavior lives in `runtimes/<name>/kernel.md` (kernel installed as the runtime's memory file), `references/contract/` (detailed contract), and `skills/*/SKILL.md` (skills).
+- Keep root docs targeted: `README.md` is the brief repo overview and install guide, and root `CLAUDE.md` is maintainer guidance for this repo. Do not add a root mirror reference doc.
+- For runtime-facing behavior in this repo, source of truth is: `runtimes/<name>/kernel.md`, `references/contract/`, `skills/*/SKILL.md`, then `README.md` for overview-only orientation.
+- Optional `skills/*/reference.md` files are skill-local support material; they must not become a second root doc surface.
 - `install.sh` is the shared orchestrator that delegates to `runtimes/<name>/scripts/install.sh`. It clones/updates the repo, then sources the runtime-specific install script. Each runtime script defines its own destination paths, config merge logic, and manifest format.
 - Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral. Runtime-specific paths, kernel filenames, install-layout details, and adapter caveats belong under `runtimes/<name>/*`, not in shared skills or shared contract prose.
 - In shared runtime-facing files, `${CLAUDE_SKILL_DIR}` support-path references are the only intentional bridge marker in this iteration. Do not add other Claude- or OpenCode-specific path assumptions to shared skills or shared contract files.
@@ -85,7 +86,7 @@ Top-level `references/*.md` files are allowed when two or more skills need the s
 - Keep them short, task-oriented, and reusable across skills.
 - They may define optional conventions, such as glossary/domain-doc layouts, when adding a whole new skill would be overkill.
 - `install.sh` copies shared references to `~/.claude/b-agentic/references/` and to each installed skill under `references/b-agentic/`.
-- Treat reference-file changes like runtime-facing guidance: keep `README.md` and `REFERENCE.md` aligned in the same commit.
+- Treat shared reference-file changes like runtime-facing guidance: keep `README.md` and affected maintainer/runtime docs aligned in the same commit.
 
 ## Skill File Structure Template
 
@@ -202,7 +203,7 @@ Bridge constraints that still exist:
 3. Create `runtimes/<name>/scripts/install.sh` with the runtime's destination paths, config merge logic, and manifest format.
 4. Create `runtimes/<name>/scripts/validate.sh` with the runtime's required invariants.
 5. Either keep skill content Claude-Code-shaped while preserving runtime-neutral shared prose, or re-template the shared bridge marker out for the new adapter.
-6. Update `README.md`, `CLAUDE.md`, and `REFERENCE.md` in the same commit.
+6. Update `README.md`, `CLAUDE.md`, and any affected adapter/runtime docs in the same commit.
 7. Add smoke-test coverage for the new runtime in `scripts/smoke-install.sh`.
 
 ### Runtime file sync rule
@@ -211,15 +212,15 @@ When always-on runtime behavior changes, update `runtimes/<name>/kernel.md`. Whe
 
 ## Doc Sync Rule
 
-Any change to a skill file requires updating both `README.md` and `REFERENCE.md` in the same commit.
+Any change to a skill file requires updating the maintained docs that actually describe that surface in the same commit. Do not create or revive a root mirror reference doc.
 
-| Change type | README.md | REFERENCE.md |
-|---|---|---|
-| Create skill | Add row to skills overview table | Add full reference section |
-| Update skill | Update the skill overview and install/source-layout notes if changed | Rewrite the skill's reference section to match |
-| Delete skill | Remove the skill from overview/source-layout docs | Remove the skill's reference section |
+| Change type | Required doc follow-through |
+|---|---|
+| Create skill | Add it to `README.md` and any affected routing, runtime, or install docs |
+| Update skill | Update `README.md` only if the public overview, install story, or source layout changed; otherwise update only the affected skill-local or shared references |
+| Delete skill | Remove it from `README.md` and any affected routing, runtime, install, or support docs |
 
-Never leave README or REFERENCE out of sync with a skill file change.
+Never leave `README.md`, routing docs, or affected support files out of sync with a skill change.
 
 ## Quality Checklist
 

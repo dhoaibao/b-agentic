@@ -20,7 +20,6 @@ maintainer = (root / 'CLAUDE.md').read_text() if (root / 'CLAUDE.md').exists() e
 install_sh = (root / 'install.sh').read_text() if (root / 'install.sh').exists() else ''
 claude_install = (root / 'runtimes' / 'claude-code' / 'scripts' / 'install.sh').read_text() if (root / 'runtimes' / 'claude-code' / 'scripts' / 'install.sh').exists() else ''
 readme = (root / 'README.md').read_text() if (root / 'README.md').exists() else ''
-reference = (root / 'REFERENCE.md').read_text() if (root / 'REFERENCE.md').exists() else ''
 
 if (root / 'global' / 'AGENTS.md').exists():
     errors.append('global/AGENTS.md: stale OpenCode kernel source should be removed or renamed')
@@ -50,7 +49,7 @@ stale_doc_patterns = [
     'commands/*.md',
     'compatibility: opencode',
 ]
-for doc_path, doc_text in [('README.md', readme), ('REFERENCE.md', reference)]:
+for doc_path, doc_text in [('README.md', readme)]:
     if not doc_text:
         continue
     for needle in stale_doc_patterns:

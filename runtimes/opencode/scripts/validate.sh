@@ -12,6 +12,26 @@ import sys
 root = Path('.')
 errors = []
 
+
+def command_exposed_skill_names():
+    names = set()
+    for path in root.glob('skills/*/SKILL.md'):
+        text = path.read_text()
+        frontmatter = ''
+        if text.startswith('---\n'):
+            parts = text.split('---', 2)
+            if len(parts) >= 3:
+                frontmatter = parts[1]
+
+        if re.search(r'^user-invocable:\s*false\s*$', frontmatter, re.MULTILINE):
+            continue
+
+        names.add(path.parent.name)
+    return names
+
+
+skill_names = command_exposed_skill_names()
+
 kernel_path = root / 'runtimes' / 'opencode' / 'kernel.md'
 kernel = kernel_path.read_text() if kernel_path.exists() else ''
 opencode_readme = (root / 'runtimes' / 'opencode' / 'configs' / 'README.md').read_text() if (root / 'runtimes' / 'opencode' / 'configs' / 'README.md').exists() else ''
@@ -46,8 +66,15 @@ for required in ['SKILLS_DST', 'KERNEL_DST', 'METADATA_DIR', 'runtime_main', 'OP
 
 if not commands_dir.exists():
     errors.append('runtimes/opencode/commands: missing OpenCode command wrapper source directory')
-elif len(list(commands_dir.glob('*.md'))) != 11:
-    errors.append(f'runtimes/opencode/commands: expected 11 command wrapper files, found {len(list(commands_dir.glob("*.md")))}')
+else:
+    command_names = {path.stem for path in commands_dir.glob('*.md')}
+    missing_commands = sorted(skill_names - command_names)
+    extra_commands = sorted(command_names - skill_names)
+    if missing_commands or extra_commands:
+        errors.append(
+            'runtimes/opencode/commands: command wrappers must match skills/ directories '
+            f'(missing: {missing_commands}, extra: {extra_commands})'
+        )
 
 for required in ['COMMANDS_SRC', 'COMMANDS_DST', 'install_commands', 'commandsSynced']:
     if required not in opencode_install:

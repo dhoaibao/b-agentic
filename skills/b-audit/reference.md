@@ -56,5 +56,5 @@ Use this reference to make audits repeatable without turning `SKILL.md` into a l
 - Check every `skills/*/SKILL.md` for trigger boundary, stop conditions, task-specific workflow, and global-rule duplication.
 - Check that each `skills/*/SKILL.md` installs as one `/b-*` Claude skill.
 - Check `runtimes/claude-code/kernel.md` and `references/contract/` for conflicting schemas, paths, tool priorities, and safety gates.
-- Cross-check `README.md` and `REFERENCE.md` only for consistency with runtime-facing files.
+- Cross-check `README.md`, `skills/*/SKILL.md`, `runtimes/*/kernel.md`, and `references/contract/` only where they define overlapping runtime-facing behavior.
 - Run `scripts/validate-skills.sh` unless explicitly skipped.
