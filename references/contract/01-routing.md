@@ -13,8 +13,8 @@ The intent and trigger tables below are generated from `skills/registry.yaml`; k
 | Execute approved or clearly scoped work | `/b-implement` |
 | Mechanical rename, extract, move, inline, simplify, delete | `/b-refactor` |
 | Runtime bug, error, "not working" | `/b-debug` |
-| Unit/integration tests, coverage, failing tests | `/b-test` |
-| Browser/DOM/visual/e2e verification | `/b-browser` |
+| Unit/integration/component tests, coverage, failing tests | `/b-test` |
+| Real-browser, visual, and e2e verification | `/b-browser` |
 | Pre-PR changed-code review | `/b-review` |
 | b-agentic suite self-audit (suite-only) | `/b-audit` |
 <!-- generated:routing-intents:end -->
@@ -27,7 +27,8 @@ The intent and trigger tables below are generated from `skills/registry.yaml`; k
 - Unclear user goal, end state, or acceptance criteria stays in `b-plan` (Clarification mode).
 - Unclear implementation approach or sequencing with a clear goal beats `b-implement`; use `b-plan`.
 - `b-research` is for genuine external-knowledge blockers, not for questions the codebase or repo docs can answer locally.
-- Browser, DOM-rendered, visual, and e2e verification routes to `b-browser`; `b-test` remains non-browser-only. No skill may add browser or DOM tooling as a side effect; see §10 for the boundary table and tool list.
+- Simulated DOM/component-test work routes to `b-test`; real-browser, visual, browser-session, live UI, and e2e verification routes to `b-browser`. No skill may add browser or DOM tooling as a side effect; see §10 for the boundary table and tool list.
+- `/b-ship` is explicit-command-only after readiness is established; do not route natural-language shipping intent to `b-implement` or any other phase skill.
 - `b-audit` is for b-agentic suite self-audits only; use `b-review` for all other codebase review tasks, including surface-wide checks. See §10 for the tiebreaker and inline Context7 threshold.
 - `b-research` is invoked for ≥ 2 distinct doc questions or any deep extraction; ≤ 1 narrow inline lookup is acceptable within the active skill. See §10.
 
@@ -56,14 +57,16 @@ The phrases below are routing aids only; do not duplicate them inside individual
 | `/b-orchestrate` | orchestrate, workflow, end-to-end, ready for PR, full cycle |
 | `/b-plan` | plan, design, decompose, approach, "how should I", clarify, requirements, scope |
 | `/b-research` | docs, library, API, compare, look up, "what is" |
-| `/b-implement` | implement, add, build, execute, finish, ship |
+| `/b-implement` | implement, add, build, execute, finish |
 | `/b-refactor` | rename, extract, move, inline, simplify, delete, cleanup |
 | `/b-debug` | bug, broken, error, stack trace, "not working", regression |
-| `/b-test` | tests, coverage, failing test, snapshot, mock |
-| `/b-browser` | browser, DOM, e2e, visual, screenshot, Playwright, Cypress, jsdom |
+| `/b-test` | tests, coverage, failing test, snapshot, mock, component test, jsdom, happy-dom, React Testing Library |
+| `/b-browser` | browser, e2e, visual, screenshot, browser session, live UI, Playwright, Cypress e2e, Puppeteer, WebDriver |
 | `/b-review` | review, PR, lint, pre-PR, "what would a reviewer" |
 | `/b-audit` | audit, repo audit, suite audit, maintainer audit |
 <!-- generated:routing-triggers:end -->
+
+`/b-ship` is intentionally absent from the routing tables above because it is invoked explicitly after review readiness is already established.
 
 Ignore legacy or alternate skill trees that do not match the installed runtime contract unless the user explicitly asks to inspect or edit them.
 

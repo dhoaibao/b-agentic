@@ -55,7 +55,7 @@ Rerun the suspected test up to 2 times in isolation. If it passes some runs and 
 - Visual, screenshot, browser-cookie, browser-session, real-network UI, and e2e flows are `b-browser` evidence surfaces.
 - Do not add browser, DOM, visual, or e2e project tooling as a side effect. Adding or choosing a new framework requires `b-plan` first, then explicit dependency-write approval when implementation reaches that point.
 - `b-browser` may assess supplied/CI evidence, run existing repo-provided commands, or use `playwright-browser-operator` after the §6 safety gates allow it. If no approved evidence path exists, stop with `cause: evidence_gap` or report an accepted follow-up.
-- If browser, DOM, visual, or e2e evidence is relevant to PR readiness, do not report `READY FOR PR` until `b-browser` verifies supplied/CI evidence, existing-tool evidence, or approved live-browser evidence. If the user accepts the gap as a follow-up or skipped check, report `READY WITH FOLLOW-UPS` instead.
+- If real-browser, visual, or e2e evidence is relevant to PR readiness, do not report `READY FOR PR` until `b-browser` verifies supplied/CI evidence, existing-tool evidence, or approved live-browser evidence. If the user accepts the gap as a follow-up or skipped check, report `READY WITH FOLLOW-UPS` instead.
 
 ### Agent-cannot-reproduce protocol (shared across `b-debug` and `b-test`)
 
@@ -96,9 +96,11 @@ Hand off to `b-research` when the skill run requires:
 
 ### Commit and PR boundary
 
-The b-agentic suite stops at `READY FOR PR`. Commit, push, and PR creation are user-initiated actions via `/b-ship`. No phase skill (including `b-orchestrate`) creates commits, pushes, or opens PRs as a side effect of a review or implementation step.
+The b-agentic suite stops at `READY FOR PR`. Commit, push, and PR creation are user-initiated actions via `/b-ship`, which is explicit-command-only rather than a natural-language routing target. No phase skill (including `b-orchestrate`) creates commits, pushes, or opens PRs as a side effect of a review or implementation step.
 
-When a workflow closes with `READY FOR PR`, the final output must include: `Next: /b-ship to commit and open the PR`.
+When a review, audit, or workflow uses named readiness labels, put that label in the final `[status]` block's `verdict:` field rather than hiding it in prose or `notes:`.
+
+When a workflow closes with `verdict: READY FOR PR`, the final output must include: `Next: /b-ship to commit and open the PR`.
 
 ### Abandonment protocol
 

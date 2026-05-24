@@ -51,6 +51,7 @@ Skills do not restate this. They reference §6.
 
 - Saved plans under `.b-agentic/b-plan/` are the session-local approval cache and execution source of truth (see §2); they are intentionally gitignored by the root ignore guard. Do not reroute them.
 - Before any suite write under repo-local `.b-agentic/`, including saved plans, ensure the root ignore guard: create `.b-agentic/.gitignore` containing `*` when `.b-agentic/` or that file is missing; leave an existing `.b-agentic/.gitignore` unchanged.
+- User-scope install, update, and uninstall flows must not create or modify `.b-agentic/.gitignore` in the caller's current repo. The guard is only for an active skill or other explicitly repo-local artifact write path.
 - Do not store auth/session state or other sensitive run artifacts under repo-local `.b-agentic/` unless the user explicitly opts into repo-local persistence. Use the active runtime's user-scope b-agentic directory or temp scratch path instead by default (for example, `~/.claude/b-agentic/...`, `~/.config/opencode/b-agentic/...`, `/tmp/claude-code/b-agentic/...`, or `/tmp/opencode/b-agentic/...`).
 - Persisting reusable browser auth/session state requires explicit opt-in, even outside the worktree; otherwise use ephemeral/current-run state only.
 - Never store real browser auth/session state under a tracked worktree path.

@@ -14,6 +14,7 @@ run_runtime_smoke_cases() {
   local sandbox_opencode_merge="$WORK_DIR/opencode-merge"
   local sandbox_opencode_mcp_migration="$WORK_DIR/opencode-mcp-migration"
   local sandbox_opencode_install_report="$WORK_DIR/opencode-install-report"
+  local sandbox_opencode_cwd_repo="$WORK_DIR/opencode-cwd-repo"
 
   mkdir -p "$sandbox_opencode/home"
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
@@ -69,6 +70,13 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_opencode_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_opencode_install_report/install.log" 'gitnexus: install/index separately if you want graph radar'
   assert_contains "$sandbox_opencode_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
+
+  mkdir -p "$sandbox_opencode_cwd_repo/home" "$sandbox_opencode_cwd_repo/current-repo"
+  git -C "$sandbox_opencode_cwd_repo/current-repo" init -q
+  expect_install_status_in_cwd 0 "$sandbox_opencode_cwd_repo/current-repo" "$sandbox_opencode_cwd_repo" "$snapshot_repo" --runtime=opencode
+  assert_no_path "$sandbox_opencode_cwd_repo/current-repo/.b-agentic"
+  expect_install_status_in_cwd 0 "$sandbox_opencode_cwd_repo/current-repo" "$sandbox_opencode_cwd_repo" "$snapshot_repo" --runtime=opencode --uninstall
+  assert_no_path "$sandbox_opencode_cwd_repo/current-repo/.b-agentic"
 
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode --uninstall
   assert_no_path "$sandbox_opencode/home/.config/opencode/b-agentic"

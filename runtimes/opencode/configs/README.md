@@ -15,7 +15,7 @@ The OpenCode release supports a personal-global install:
 - Sensitive artifacts: `~/.config/opencode/b-agentic/<skill>/<run-id>/` or `/tmp/opencode/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/opencode/b-agentic/<skill>/<slug>.log`
 
-> **Constraint:** OpenCode intentionally consumes the shared Claude-shaped skill tree from `~/.claude/skills/`. Shared skills and shared contract files still must stay runtime-neutral; `${CLAUDE_SKILL_DIR}` support-path usage is the only intentional shared bridge marker in this iteration. Full native skill re-templating for OpenCode is a future iteration.
+> **Constraint:** OpenCode intentionally consumes the shared Claude-shaped skill tree from `~/.claude/skills/`. Shared skills and shared contract files still must stay runtime-neutral in behavior; `${CLAUDE_SKILL_DIR}` support-path usage is the current shared delivery bridge marker and temporary delivery mechanic in this iteration. Full native skill re-templating for OpenCode is a future iteration.
 
 ## Invocation policy
 
@@ -58,6 +58,6 @@ MCP safety rules:
 
 ## Validator scope
 
-`scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which discovers and runs `runtimes/<name>/scripts/validate.sh` for each registered adapter. Shared checks should fail on runtime-specific wording drift in shared skills and shared contract files, while the OpenCode adapter validator checks only adapter-owned invariants and this documented bridge constraint.
+`scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which discovers and runs `runtimes/<name>/scripts/validate.sh` for each registered adapter. Shared checks should fail on runtime-specific wording drift in shared skills and shared contract files, while allowing the documented `${CLAUDE_SKILL_DIR}` bridge marker and the adapter-owned OpenCode delivery constraints described here.
 
 `scripts/smoke-install.sh` is the stable wrapper over `tests/smoke/install.sh`. The OpenCode adapter contributes its install coverage through `runtimes/opencode/tests/smoke.sh`.

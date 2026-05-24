@@ -33,12 +33,15 @@ state: complete | blocked | needs-input | handed-off
 artifacts: <comma-separated paths or 'none'>
 next: <skill name or 'none'>
 blockers: <one-line list or 'none'>
-cause: <cause-class>   (required when state is 'blocked'; omit otherwise)
+cause: <cause-class>   (required when state is 'blocked' or 'needs-input'; omit otherwise)
+verdict: <skill-defined terminal label>   (omit when the skill does not define named verdicts)
 confidence: high | medium | low — <reason>   (omit when high and evidence is direct)
 notes: <cost summary, pre-auth carve-outs, or other run-scoped notes>   (required when any [degraded:] label was emitted; omit otherwise when empty)
 ```
 
-Required fields are `skill`, `state`, `artifacts`, `next`, `blockers`. Every other field is **omit-when-empty**: skip the whole line rather than emit a placeholder. The `confidence` line, when present, always sits immediately above `notes` so downstream skills can find it at a fixed offset.
+Required fields are `skill`, `state`, `artifacts`, `next`, `blockers`. Every other field is **omit-when-empty** except `cause`, which is required for `blocked` and `needs-input`. Skip the whole line rather than emit a placeholder when an optional field is empty. The `confidence` line, when present, always sits immediately above `notes` so downstream skills can find it at a fixed offset.
+
+`state` reports execution flow; `verdict` reports the skill-specific outcome. For example, a completed review may emit `state: complete` with `verdict: NEEDS FIXES`, and a completed orchestration run may emit `state: complete` with `verdict: READY WITH FOLLOW-UPS`. When a skill defines named verdicts, emit them in `verdict:` instead of burying them in prose or `notes:`.
 
 Skill prose that says "close with the skill-exit status block" inherits this schema verbatim; skills must not embed their own copy of the block in output templates.
 
@@ -50,7 +53,7 @@ Save `report.md` only when the user asks for a saved report, a review/audit/chec
 
 ### Error envelope (failure cause-class)
 
-When `state: blocked`, the `cause` field uses one of these canonical classes so downstream tooling and skills can branch without parsing prose:
+When `state: blocked` or `state: needs-input`, the `cause` field uses one of these canonical classes so downstream tooling and skills can branch without parsing prose:
 
 | Cause class | Meaning |
 |---|---|
@@ -112,4 +115,3 @@ A single skill report must not pad itself to look thorough. Hard caps:
 When a cap is hit, name it explicitly ("capped at 15 MAJORs") so the user knows the report is bounded, not exhaustive.
 
 ---
-

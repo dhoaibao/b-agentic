@@ -1,5 +1,5 @@
 ---
-description: Write or fix unit, integration, and contract tests
+description: Write or fix unit, integration, contract, and component tests
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

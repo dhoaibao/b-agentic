@@ -110,6 +110,10 @@ def validate_kernel_template(errors: list[str]) -> None:
         errors.append(
             f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must use {RUNTIME_METADATA_ROOT_TOKEN}, not a runtime-specific metadata root"
         )
+    if "${CLAUDE_SKILL_DIR}" in template_text and "bridge" not in template_text.lower():
+        errors.append(
+            f"{KERNEL_TEMPLATE_PATH}: ${{CLAUDE_SKILL_DIR}} bridge usage must be explicitly documented as a delivery bridge marker"
+        )
 
 
 def validate_skill_prompt_source(skill: dict, errors: list[str]) -> None:

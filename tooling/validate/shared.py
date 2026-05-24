@@ -53,6 +53,26 @@ def load_runtime_registry():
     return runtime_names
 
 
+def load_skill_registry():
+    registry_path = ROOT / "skills" / "registry.yaml"
+    if not registry_path.exists():
+        errors.append(f"{rel(registry_path)}: missing skill registry")
+        return []
+
+    try:
+        registry = json.loads(registry_path.read_text())
+    except Exception as exc:
+        errors.append(f"{rel(registry_path)}: invalid JSON-compatible YAML registry: {exc}")
+        return []
+
+    skills = registry.get("skills")
+    if not isinstance(skills, list) or not skills:
+        errors.append(f"{rel(registry_path)}: skills must be a non-empty array")
+        return []
+
+    return skills
+
+
 def frontmatter_parts(path: Path):
     text = path.read_text()
     if not text.startswith("---\n"):
@@ -106,6 +126,7 @@ def require_contains(path: Path, text: str, needles, label: str):
 
 
 runtime_names = load_runtime_registry()
+registry_skills = load_skill_registry()
 
 skill_paths = sorted((ROOT / "skills").glob("*/SKILL.md"))
 skill_names = [path.parent.name for path in skill_paths]
@@ -134,6 +155,14 @@ required_sections = [
 
 if not skill_paths:
     errors.append("skills/: no SKILL.md files found")
+
+registry_skill_map = {}
+for skill in registry_skills:
+    if not isinstance(skill, dict):
+        continue
+    name = skill.get("name")
+    if isinstance(name, str) and name:
+        registry_skill_map[name] = skill
 
 if (ROOT / "commands").exists() and any((ROOT / "commands").glob("*.md")):
     errors.append("commands/: Claude-native runtime should not ship command wrappers; skills create /b-* commands")
@@ -231,6 +260,45 @@ else:
     for name in sorted(referenced_skills - skill_dirs):
         errors.append(f"references/contract/01-routing.md: references /{name} but no skills/{name}/ directory exists")
 
+normalized_routing_triggers = {}
+command_only_terms = {}
+for name, skill in registry_skill_map.items():
+    routing = skill.get("routing")
+    triggers = []
+    if isinstance(routing, dict):
+        trigger_values = routing.get("triggers", [])
+        if isinstance(trigger_values, list):
+            triggers = [trigger.strip().lower() for trigger in trigger_values if isinstance(trigger, str)]
+    normalized_routing_triggers[name] = triggers
+
+    command = skill.get("command")
+    if isinstance(command, dict) and command.get("exposed") is True and routing is None:
+        alias = command.get("alias")
+        if isinstance(alias, str) and alias.startswith("b-"):
+            command_only_terms[name] = alias[2:].strip().lower()
+
+for command_skill, command_term in command_only_terms.items():
+    for routing_skill, triggers in normalized_routing_triggers.items():
+        if command_term and command_term in triggers:
+            errors.append(
+                f"skills/registry.yaml: command-only skill {command_skill!r} must not leak natural-language trigger {command_term!r} into routable skill {routing_skill!r}"
+            )
+
+simulated_dom_terms = {"component test", "jsdom", "happy-dom", "react testing library"}
+browser_triggers = set(normalized_routing_triggers.get("b-browser", []))
+test_triggers = set(normalized_routing_triggers.get("b-test", []))
+browser_conflicts = sorted(browser_triggers & simulated_dom_terms)
+if browser_conflicts:
+    errors.append(
+        f"skills/registry.yaml: b-browser routing must not include simulated-DOM/component-test triggers {browser_conflicts}"
+    )
+
+missing_test_terms = sorted(simulated_dom_terms - test_triggers)
+if missing_test_terms:
+    errors.append(
+        f"skills/registry.yaml: b-test routing must include simulated-DOM/component-test triggers {missing_test_terms}"
+    )
+
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
 tool_model_path = ROOT / "references" / "contract" / "04-tool-model.md"
@@ -248,6 +316,8 @@ kernel_path = ROOT / "runtimes" / "claude-code" / "kernel.md"
 kernel = read_text(kernel_path)
 contract_index_path = ROOT / "references" / "contract" / "index.md"
 contract_index = read_text(contract_index_path)
+output_contract_path = ROOT / "references" / "contract" / "09-output.md"
+output_contract = read_text(output_contract_path)
 install_sh = read_text(ROOT / "install.sh")
 registry_sync = ROOT / "tooling" / "generate" / "registry_sync.py"
 validate_wrapper_path = ROOT / "scripts" / "validate-skills.sh"
@@ -256,6 +326,8 @@ smoke_wrapper_path = ROOT / "scripts" / "smoke-install.sh"
 smoke_runner_path = ROOT / "tests" / "smoke" / "install.sh"
 smoke_lib_path = ROOT / "tests" / "smoke" / "lib.sh"
 runtime_template_root = ROOT / "runtimes" / "runtime-template"
+shared_kernel_template_path = ROOT / "references" / "contract" / "kernel.template.md"
+shared_kernel_template = read_text(shared_kernel_template_path)
 
 contract_version_match = re.search(r"This runtime contract version is `([0-9]{4}-[0-9]{2}-[0-9]{2})`", kernel)
 contract_version = contract_version_match.group(1) if contract_version_match else None
@@ -351,6 +423,49 @@ for contract_path in shared_contract_paths:
 
     if "/tmp/claude-code/b-agentic" in contract_text and "/tmp/opencode/b-agentic" not in contract_text and "active runtime" not in contract_text:
         errors.append(f"{rel(contract_path)}: Claude-only temp artifact paths in shared contract files must be runtime-neutral or dual-runtime")
+
+for bridge_doc_path, bridge_doc_text in [
+    (contract_index_path, contract_index),
+    (ROOT / "references" / "contract" / "00-kernel.md", read_text(ROOT / "references" / "contract" / "00-kernel.md")),
+    (shared_kernel_template_path, shared_kernel_template),
+    (ROOT / "runtimes" / "opencode" / "configs" / "README.md", read_text(ROOT / "runtimes" / "opencode" / "configs" / "README.md")),
+]:
+    if "${CLAUDE_SKILL_DIR}" in bridge_doc_text and "bridge" not in bridge_doc_text.lower():
+        errors.append(f"{rel(bridge_doc_path)}: ${{CLAUDE_SKILL_DIR}} usage must be documented as a bridge marker or delivery mechanic")
+
+if "runtime-neutral" in maintainer and "bridge marker" not in maintainer.lower():
+    errors.append("CLAUDE.md: runtime-neutral guidance must explicitly describe the documented bridge marker exception")
+
+for required_line in [
+    "verdict: <skill-defined terminal label>",
+    "cause: <cause-class>   (required when state is 'blocked' or 'needs-input'; omit otherwise)",
+    "`state` reports execution flow; `verdict` reports the skill-specific outcome.",
+]:
+    if required_line not in output_contract:
+        errors.append(f"{rel(output_contract_path)}: missing status-schema line {required_line!r}")
+
+for verdict_prompt_path in [
+    ROOT / "skills" / "b-review" / "prompt.md",
+    ROOT / "skills" / "b-audit" / "prompt.md",
+    ROOT / "skills" / "b-orchestrate" / "prompt.md",
+]:
+    verdict_prompt = read_text(verdict_prompt_path)
+    if "verdict:" not in verdict_prompt:
+        errors.append(f"{rel(verdict_prompt_path)}: verdict-owning prompt must reference the verdict field explicitly")
+
+required_b_test_intent = "| Unit/integration/component tests, coverage, failing tests | `/b-test` |"
+if required_b_test_intent not in shared_kernel_template:
+    errors.append(
+        f"{rel(shared_kernel_template_path)}: missing updated b-test routing intent for component-test ownership"
+    )
+
+stale_orchestrate_handoff = "- Browser/DOM/visual/e2e evidence gap -> `/b-browser`."
+orchestrate_prompt_path = ROOT / "skills" / "b-orchestrate" / "prompt.md"
+orchestrate_prompt = read_text(orchestrate_prompt_path)
+if stale_orchestrate_handoff in orchestrate_prompt:
+    errors.append(
+        f"{rel(orchestrate_prompt_path)}: stale browser handoff still routes generic DOM evidence to b-browser"
+    )
 
 if contract_version:
     for plan_path in sorted((ROOT / ".b-agentic" / "b-plan").glob("*.md")):
@@ -511,6 +626,8 @@ else:
     validate_wrapper = read_text(validate_wrapper_path)
     if "tooling/validate/run.sh" not in validate_wrapper:
         errors.append("scripts/validate-skills.sh: must delegate to tooling/validate/run.sh")
+    if validate_wrapper_path.stat().st_mode & 0o111 == 0:
+        errors.append("scripts/validate-skills.sh: wrapper must be executable")
 
 if not smoke_runner_path.exists():
     errors.append("tests/smoke/install.sh: missing shared smoke runner")
@@ -518,6 +635,8 @@ else:
     smoke_wrapper = read_text(smoke_wrapper_path)
     if "tests/smoke/install.sh" not in smoke_wrapper:
         errors.append("scripts/smoke-install.sh: must delegate to tests/smoke/install.sh")
+    if smoke_wrapper_path.stat().st_mode & 0o111 == 0:
+        errors.append("scripts/smoke-install.sh: wrapper must be executable")
 
 if not smoke_lib_path.exists():
     errors.append("tests/smoke/lib.sh: missing shared smoke helpers")
@@ -531,6 +650,11 @@ for scaffold_path in [
 ]:
     if not scaffold_path.exists():
         errors.append(f"{rel(scaffold_path)}: missing runtime scaffold asset")
+
+runtime_template_readme = read_text(runtime_template_root / "README.md")
+for forbidden_wrapper in ["bash scripts/validate-skills.sh", "bash scripts/smoke-install.sh"]:
+    if forbidden_wrapper in runtime_template_readme:
+        errors.append(f"{rel(runtime_template_root / 'README.md')}: wrapper usage should rely on executable entrypoints, not {forbidden_wrapper!r}")
 
 for forbidden in ["--install-project-mcp", "--replace-project-mcp", "--mcp-profile", "--with-playwright", "--with-gitnexus", ".mcp.json"]:
     if forbidden in readme:

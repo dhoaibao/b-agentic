@@ -20,6 +20,7 @@ run_runtime_smoke_cases() {
   local sandbox_invalid_json="$WORK_DIR/invalid-json"
   local sandbox_profile_dry_run="$WORK_DIR/profile-dry-run"
   local sandbox_install_report="$WORK_DIR/install-report"
+  local sandbox_cwd_repo="$WORK_DIR/cwd-repo-claude"
 
   mkdir -p "$sandbox_fresh/home"
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo"
@@ -63,6 +64,13 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_install_report/install.log" 'gitnexus: install/index separately if you want graph radar'
   assert_contains "$sandbox_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
+
+  mkdir -p "$sandbox_cwd_repo/home" "$sandbox_cwd_repo/current-repo"
+  git -C "$sandbox_cwd_repo/current-repo" init -q
+  expect_install_status_in_cwd 0 "$sandbox_cwd_repo/current-repo" "$sandbox_cwd_repo" "$snapshot_repo"
+  assert_no_path "$sandbox_cwd_repo/current-repo/.b-agentic"
+  expect_install_status_in_cwd 0 "$sandbox_cwd_repo/current-repo" "$sandbox_cwd_repo" "$snapshot_repo" --uninstall
+  assert_no_path "$sandbox_cwd_repo/current-repo/.b-agentic"
 
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo"
 

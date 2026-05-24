@@ -33,7 +33,7 @@ Use these terms consistently across skills:
 - **Partial** means useful progress or artifacts exist, but completion criteria are not satisfied.
 - **Ready** means no known blockers remain within the reviewed or implemented scope; it does not imply unreviewed surfaces are safe.
 
-Do not use `READY FOR PR`, `complete`, or high confidence when the required baseline, verification, or evidence is missing. For UI/browser-relevant work, browser/DOM/e2e checks are covered only by `b-browser`-verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up; otherwise use `READY WITH FOLLOW-UPS`, `partial`, or a lower confidence label.
+Do not use `READY FOR PR`, `complete`, or high confidence when the required baseline, verification, or evidence is missing. For UI/browser-relevant work, real-browser/visual/e2e checks are covered only by `b-browser`-verified supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up; otherwise use `READY WITH FOLLOW-UPS`, `partial`, or a lower confidence label.
 
 ### Severity rubric (`/b-review`, `/b-debug`, any finding)
 
@@ -68,4 +68,3 @@ When an answer rests on incomplete evidence, end with one line:
 Skip the line on trivial high-confidence answers (a single docs lookup with a direct hit) to avoid ceremony. Always include it on partial, single-source, or recency-sensitive answers.
 
 ---
-

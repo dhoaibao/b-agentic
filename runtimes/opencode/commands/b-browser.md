@@ -1,5 +1,5 @@
 ---
-description: Collect browser, DOM, visual, or e2e evidence
+description: Collect real-browser, visual, or e2e evidence
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

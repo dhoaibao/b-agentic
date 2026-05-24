@@ -4,15 +4,6 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exit 1
 fi
 
-ensure_repo_gitignore_guard() {
-  [ -d .git ] || [ -f .git ] || return 0
-  if [ -f .b-agentic/.gitignore ]; then
-    return 0
-  fi
-  run_cmd mkdir -p .b-agentic
-  printf '*' | run_cmd tee .b-agentic/.gitignore >/dev/null
-}
-
 ensure_dir() {
   local dir_path="$1"
   run_cmd mkdir -p "$dir_path"
@@ -741,7 +732,6 @@ runtime_install_common() {
 
   runtime_write_manifest
   runtime_print_install_report
-  ensure_repo_gitignore_guard
 
   if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
     log "Existing $KERNEL_DST was preserved. Review $KERNEL_SNAPSHOT_DST and rerun with --replace-memory to activate the kernel."

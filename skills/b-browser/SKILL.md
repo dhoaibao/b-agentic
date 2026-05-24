@@ -1,10 +1,10 @@
 ---
 name: b-browser
 description: >
-  Browser automation and evidence operator for Playwright, Cypress,
+  Browser automation and evidence operator for Playwright, Cypress e2e,
   Puppeteer, WebDriver, visual, screenshot, browser-session, live UI, and
-  e2e checks. Unlike b-test, b-browser owns browser/DOM readiness
-  evidence, not non-browser unit, integration, or contract tests.
+  e2e checks. Unlike b-test, b-browser owns real-browser UI evidence, not
+  simulated-DOM unit, integration, or contract tests.
 argument-hint: "[browser-or-e2e-request]"
 ---
 
@@ -14,17 +14,17 @@ argument-hint: "[browser-or-e2e-request]"
 
 $ARGUMENTS
 
-Operate browser, DOM-rendered, visual, and e2e verification using the lightest safe evidence path: supplied evidence, existing repo scripts, optional Playwright MCP live-browser actions, or an explicit follow-up.
+Operate real-browser, visual, and e2e verification using the lightest safe evidence path: supplied evidence, existing repo scripts, optional Playwright MCP live-browser actions, or an explicit follow-up.
 
 ## When to use
 
-- The user asks to run, review, or account for browser, DOM-rendered, visual, screenshot, browser-session, live UI, or e2e checks.
-- PR readiness depends on evidence from jsdom, happy-dom, React Testing Library, Vue Test Utils, Svelte testing-library, Playwright, Cypress, WebdriverIO, Puppeteer, WebDriver, or equivalent tooling.
+- The user asks to run, review, or account for real-browser, visual, screenshot, browser-session, live UI, or e2e checks.
+- PR readiness depends on evidence from Playwright, Cypress e2e, WebdriverIO, Puppeteer, WebDriver, or equivalent real-browser tooling.
 - A prior phase reports a UI/browser verification gap that needs supplied evidence, approved local evidence, live-browser evidence, or an accepted follow-up.
 
 ## When NOT to use
 
-- The task is non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, or flake work -> use **b-test**. See `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` for the boundary table with concrete examples.
+- The task is non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, flake, or simulated-DOM/component-test work -> use **b-test**. See `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` for the boundary table with concrete examples.
 - The task is UI/UX critique, accessibility design review, or visual design feedback without a runnable verification request -> use the appropriate review skill outside this suite when available.
 - The task is implementing UI behavior or fixing app code -> use **b-implement** or **b-debug**.
 - The task is only changed-code review with browser evidence already supplied -> use **b-review** and cite the evidence.
@@ -32,7 +32,7 @@ Operate browser, DOM-rendered, visual, and e2e verification using the lightest s
 ## Tools required
 
 - Native tools - inspect manifests, scripts, CI, existing artifacts, logs, and user-supplied evidence.
-- `bash` - run approved existing browser/DOM/visual/e2e commands when the repo already provides them.
+- `bash` - run approved existing real-browser/visual/e2e commands when the repo already provides them.
 - `playwright-browser-operator` *(optional, for live-browser navigation, snapshots, screenshots, console/network, and browser-state evidence)*
 - `firecrawl-extraction` *(optional, for static remote page content only — when the evidence question is rendered text or markup at a known URL and no DOM state, interaction, screenshot, console, network, or session evidence is required; never a substitute for Playwright)*
 - `serena-symbol-toolkit` *(optional, for mapping a browser failure to source ownership before handing off)*
@@ -42,7 +42,7 @@ Operate browser, DOM-rendered, visual, and e2e verification using the lightest s
 
 ### Step 1 - Classify the verification request
 
-Identify whether the request is a direct browser/DOM/visual/e2e run, live UI exploration, review of supplied evidence, or a readiness gap from another phase. If the check is actually non-browser unit, integration, contract, or coverage work, hand off to **b-test**.
+Identify whether the request is a direct real-browser/visual/e2e run, live UI exploration, review of supplied evidence, or a readiness gap from another phase. If the check is actually non-browser unit, integration, contract, coverage, or simulated-DOM/component-test work, hand off to **b-test**.
 
 Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` before applying the browser and DOM verification boundary or making readiness claims.
 
@@ -54,14 +54,14 @@ Choose the first path that can answer the browser evidence question safely:
 - Existing repo scripts or documented commands, discovered from manifests, CI config, repo docs, or user instructions.
 - `playwright-browser-operator` live-browser actions when existing evidence/scripts are absent, insufficient, or not targeted enough.
 - `firecrawl-extraction` **only** when the evidence question is static remote page content at a known URL and no DOM state, interaction, screenshot, console, network, or session evidence is required. Not interchangeable with Playwright when any of those are needed.
-- If the repo lacks browser/DOM/visual/e2e tooling and no existing path above can answer the question, hand off to **b-plan** with the browser evidence gap. Tooling may be added only after explicit `/b-plan` approval and dependency-write approval.
+- If the repo lacks real-browser/visual/e2e tooling and no existing path above can answer the question, hand off to **b-plan** with the browser evidence gap. Tooling may be added only after explicit `/b-plan` approval and dependency-write approval.
 - Accepted follow-up or skipped check when evidence is unavailable and the user accepts the gap.
 
 Do not invent verification commands.
 
 ### Step 3 - Apply safety gates before running tools
 
-Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/06-safety.md` before running browser, DOM, visual, or e2e tooling, using `playwright-browser-operator`, starting dev servers, using persisted browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments.
+Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/06-safety.md` before running real-browser, visual, or e2e tooling, using `playwright-browser-operator`, starting dev servers, using persisted browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments.
 
 Ask for approval before dependency writes, dev servers, persisted browser state, external services, long-running commands, generated evidence outside normal repo output paths, or unsafe arbitrary-code browser tools.
 
@@ -69,7 +69,7 @@ Ask for approval before dependency writes, dev servers, persisted browser state,
 
 For supplied evidence, validate that it names the relevant command or workflow, environment, target, and pass/fail result.
 
-For existing repo commands, execute the narrowest command that matches the requested browser/DOM/visual/e2e check. Capture generated artifacts only when needed for the result, and report their paths and cleanup state.
+For existing repo commands, execute the narrowest command that matches the requested real-browser/visual/e2e check. Capture generated artifacts only when needed for the result, and report their paths and cleanup state.
 
 For `playwright-browser-operator`, use ordinary browser actions first: navigate, inspect accessibility snapshots, click, type, fill, capture screenshots, and inspect console or network evidence. Prefer ephemeral browser state. Do not use unsafe arbitrary-code execution unless the user explicitly approves it for a trusted target and ordinary actions cannot answer the question.
 
@@ -85,7 +85,7 @@ Clean up or report generated screenshots, videos, traces, logs, browser state, t
 
 ### Step 6 - Report readiness impact
 
-State whether browser/DOM/visual/e2e evidence is verified, missing, failed, or accepted as a follow-up. Do not claim **READY FOR PR** when relevant browser evidence is absent or failed.
+State whether real-browser/visual/e2e evidence is verified, missing, failed, or accepted as a follow-up. Do not claim **READY FOR PR** when relevant browser evidence is absent or failed.
 
 Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/09-output.md` before closing a non-trivial browser verification run with a status block or handoff.
 
@@ -97,9 +97,9 @@ Request -> Evidence path -> Browser result -> Artifacts/cleanup -> Readiness imp
 
 ## Rules
 
-- Do not run browser/DOM/visual/e2e commands or live-browser actions before the safety gates allow them.
+- Do not run real-browser/visual/e2e commands or live-browser actions before the safety gates allow them.
 - Do not use unsafe arbitrary-code browser tools by default.
-- Do not treat missing browser/DOM/visual/e2e evidence as covered by non-browser tests.
+- Do not treat missing real-browser/visual/e2e evidence as covered by non-browser tests.
 - Do not store real browser auth/session state under a tracked worktree path.
 - Keep generated screenshots, videos, traces, and logs only when they are required evidence; otherwise clean up or report what remains.
 - Route unclear product behavior to **b-debug** and new test strategy or dependency choices to **b-plan** with explicit approval.

@@ -26,6 +26,8 @@ Useful flags:
 
 Re-run the installer to update.
 
+The installer writes only to user-scope runtime locations. It does not create `.b-agentic/` or `.b-agentic/.gitignore` in the current repo just because you run install from inside a git worktree.
+
 ## One Command
 
 The installer is designed to be a one-command bootstrap. It installs the kernel, syncs skills, writes runtime templates, and prints a short result summary with fields such as `skillsSynced` so you can see what changed without reading installer internals.
@@ -52,8 +54,8 @@ The table below is generated from `skills/registry.yaml`.
 | `/b-implement` | Build | Execute approved plans or small direct requests |
 | `/b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
 | `/b-debug` | Validate | Confirm runtime root cause and fix minimally |
-| `/b-test` | Validate | Write or fix unit, integration, and contract tests |
-| `/b-browser` | Validate | Collect browser, visual, screenshot, live UI, or e2e evidence |
+| `/b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
+| `/b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `/b-review` | Validate | Review changed code for blockers, regressions, security, and coverage |
 | `/b-audit` | Validate | Audit the b-agentic suite for systemic risk (suite-only) |
 | `/b-ship` | Ship | Commit, push, and open a PR after READY FOR PR |

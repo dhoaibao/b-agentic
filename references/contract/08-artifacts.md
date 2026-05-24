@@ -52,6 +52,7 @@ Files inside a run directory follow these conventions so they're predictable acr
 
 ### Paths
 
+- Global install, update, and uninstall are user-scope flows. They do not create repo-local `.b-agentic/` paths in the caller's current repo; the `.b-agentic/.gitignore` guard is created only when an active skill or other explicitly repo-local artifact path writes there.
 - **Plans:** `.b-agentic/b-plan/<plan-file-slug>.md` (canonical path) after applying the `.b-agentic/.gitignore` guard in §6. Saved plans remain repo-local source-of-truth files. Frontmatter `slug: <task-slug>` stays canonical for matching and continuity. The legacy `.opencode/b-agentic/` and `.opencode/b-plans/` paths are deprecated; do not write there.
 - **Skill artifacts:** `.b-agentic/<skill>/<run-id>/` for repo-local non-sensitive b-agentic artifacts after applying the `.b-agentic/.gitignore` guard in §6.
 - **Saved reports:** `.b-agentic/<skill>/<run-id>/report.md` for explicit review/research reports after applying the `.b-agentic/.gitignore` guard in §6.

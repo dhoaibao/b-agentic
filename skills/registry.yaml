@@ -95,8 +95,7 @@
           "add",
           "build",
           "execute",
-          "finish",
-          "ship"
+          "finish"
         ]
       },
       "prompt": {
@@ -158,51 +157,57 @@
     {
       "name": "b-test",
       "phase": "Validate",
-      "use": "Write or fix unit, integration, and contract tests",
+      "use": "Write or fix unit, integration, contract, and simulated-DOM tests",
       "command": {
         "alias": "b-test",
-        "description": "Write or fix unit, integration, and contract tests",
+        "description": "Write or fix unit, integration, contract, and component tests",
         "exposed": true
       },
       "routing": {
-        "intent": "Unit/integration tests, coverage, failing tests",
+        "intent": "Unit/integration/component tests, coverage, failing tests",
         "triggers": [
           "tests",
           "coverage",
           "failing test",
           "snapshot",
-          "mock"
+          "mock",
+          "component test",
+          "jsdom",
+          "happy-dom",
+          "React Testing Library"
         ]
       },
       "prompt": {
-        "description": "Test-driven development, test debugging, and test coverage evaluation. Use for writing tests, fixing failing tests, evaluating coverage, or working TDD-style. Unlike b-debug, which traces runtime bugs, b-test owns non-browser test-specific failures: wrong assertions, missing mocks, fixture or setup issues, and coverage gaps. Browser, DOM, visual, and e2e verification belongs to b-browser.",
+        "description": "Test-driven development, test debugging, and test coverage evaluation. Use for writing tests, fixing failing tests, evaluating coverage, or working TDD-style. Unlike b-debug, which traces runtime bugs, b-test owns test-specific failures and simulated-DOM/component-test work: wrong assertions, missing mocks, fixture or setup issues, and coverage gaps. Real-browser, visual, browser-session, and e2e verification belongs to b-browser.",
         "argument_hint": "[test-task-or-failure]"
       }
     },
     {
       "name": "b-browser",
       "phase": "Validate",
-      "use": "Collect browser, visual, screenshot, live UI, or e2e evidence",
+      "use": "Collect real-browser, visual, screenshot, live UI, or e2e evidence",
       "command": {
         "alias": "b-browser",
-        "description": "Collect browser, DOM, visual, or e2e evidence",
+        "description": "Collect real-browser, visual, or e2e evidence",
         "exposed": true
       },
       "routing": {
-        "intent": "Browser/DOM/visual/e2e verification",
+        "intent": "Real-browser, visual, and e2e verification",
         "triggers": [
           "browser",
-          "DOM",
           "e2e",
           "visual",
           "screenshot",
+          "browser session",
+          "live UI",
           "Playwright",
-          "Cypress",
-          "jsdom"
+          "Cypress e2e",
+          "Puppeteer",
+          "WebDriver"
         ]
       },
       "prompt": {
-        "description": "Browser automation and evidence operator for Playwright, Cypress, Puppeteer, WebDriver, visual, screenshot, browser-session, live UI, and e2e checks. Unlike b-test, b-browser owns browser/DOM readiness evidence, not non-browser unit, integration, or contract tests.",
+        "description": "Browser automation and evidence operator for Playwright, Cypress e2e, Puppeteer, WebDriver, visual, screenshot, browser-session, live UI, and e2e checks. Unlike b-test, b-browser owns real-browser UI evidence, not simulated-DOM unit, integration, or contract tests.",
         "argument_hint": "[browser-or-e2e-request]"
       }
     },

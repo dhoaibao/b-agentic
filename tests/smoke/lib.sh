@@ -79,6 +79,26 @@ run_install_status() {
   printf '%s' "$rc"
 }
 
+run_install_status_in_cwd() {
+  local install_cwd="$1" sandbox="$2" repo_snapshot="$3"
+  shift 3
+
+  local rc=0
+  set +e
+  (
+    cd "$install_cwd"
+    HOME="$sandbox/home" \
+    B_AGENTIC_REPO="$repo_snapshot" \
+    B_AGENTIC_DIR="$sandbox/source" \
+    B_AGENTIC_PROMPT_API_KEYS=N \
+    bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
+  )
+  rc=$?
+  set -e
+
+  printf '%s' "$rc"
+}
+
 run_install_with_tty_status() {
   local sandbox="$1" repo_snapshot="$2" input="$3"
   shift 3
@@ -111,6 +131,15 @@ expect_install_status() {
 
   local rc
   rc="$(run_install_status "$sandbox" "$repo_snapshot" "$@")"
+  [ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
+}
+
+expect_install_status_in_cwd() {
+  local expected="$1" install_cwd="$2" sandbox="$3" repo_snapshot="$4"
+  shift 4
+
+  local rc
+  rc="$(run_install_status_in_cwd "$install_cwd" "$sandbox" "$repo_snapshot" "$@")"
   [ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
 }
 

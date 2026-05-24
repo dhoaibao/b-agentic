@@ -11,7 +11,7 @@ It is intentionally not listed in `runtimes/registry.yaml`, so validation, smoke
 3. Rerun `python3 tooling/generate/registry_sync.py` so `runtimes/<name>/kernel.md` renders from `references/contract/kernel.template.md`.
 4. Replace every placeholder in `configs/README.md`, `scripts/install.sh`, `scripts/validate.sh`, and `tests/smoke.sh`.
 5. Update `README.md`, `CLAUDE.md`, and any adapter-specific docs in the same change.
-6. Run `bash scripts/validate-skills.sh` and `bash scripts/smoke-install.sh`.
+6. Run `scripts/validate-skills.sh` and `scripts/smoke-install.sh`.
 
 ## Required adapter-owned surfaces
 

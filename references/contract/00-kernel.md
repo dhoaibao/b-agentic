@@ -19,7 +19,7 @@ Runtime-critical gates are the points where missed instructions most often creat
 - **Artifact gate (§8):** before writing saved plans, reports, manifests, run logs, sensitive artifacts, or non-plan run directories.
 - **Output/handoff gate (§9):** before emitting non-trivial final output, status blocks, saved reports, error envelopes, or handoff envelopes.
 
-Use this wording pattern in installed runtime skills when a gate is required: `Read ${CLAUDE_SKILL_DIR}/references/b-agentic/contract/ §N before <action>`. For a per-skill `reference.md`, use: `Read ${CLAUDE_SKILL_DIR}/reference.md before <action>`. Keep schemas in this contract; the skill owns only the local trigger for reading them.
+Use this wording pattern in installed runtime skills when a gate is required: `Read ${CLAUDE_SKILL_DIR}/references/b-agentic/contract/ §N before <action>`. For a per-skill `reference.md`, use: `Read ${CLAUDE_SKILL_DIR}/reference.md before <action>`. `${CLAUDE_SKILL_DIR}` is the current shared delivery bridge marker in generated assets, not a claim that every runtime stores skills in Claude Code-specific locations. Keep schemas in this contract; the skill owns only the local trigger for reading them.
 
 ### Runtime gate checklist
 

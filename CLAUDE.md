@@ -7,7 +7,7 @@ Guidelines for editing and maintaining the `b-agentic` source repository. This f
 - `README.md` stays brief: repo overview, install, and high-level layout.
 - Root `CLAUDE.md` is the shared maintainer guide for this repo, not a Claude-Code-only authoring spec.
 - Claude Code is the reference runtime; OpenCode is supported through a bridge adapter. Do not turn bridge-specific constraints into shared product requirements unless a plan explicitly requires it.
-- Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral.
+- Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral in behavior and path semantics, except for the documented shared delivery bridge markers.
 - Runtime-specific paths, kernel filenames, install-layout details, wrappers, and caveats belong under `runtimes/<name>/`.
 - Do not create a second root reference surface. Use root docs for orientation only, and keep detailed rules close to their owning sources.
 
@@ -25,8 +25,8 @@ Guidelines for editing and maintaining the `b-agentic` source repository. This f
 ## Shared Authoring Rules
 
 - Shared prompts and shared contract prose must not hardcode runtime-specific behavior or paths.
-- `{{skill_support_path}}` is the only intentional bridge token in shared prompt sources.
-- In source prompts, reference support files with `{{skill_support_path}}/...`; the renderer maps that token to the installed skill support path in generated assets.
+- `{{skill_support_path}}` is the only intentional shared delivery bridge token in canonical prompt sources.
+- In source prompts, reference support files with `{{skill_support_path}}/...`; the renderer maps that token to the installed skill support path in generated assets. In the current generated bridge, that path still renders as `${CLAUDE_SKILL_DIR}` even for OpenCode.
 - When a skill depends on a contract section, add an explicit read gate at the step that uses it. Do not rely on passive reminders.
 - Optional `skills/*/reference.md` files are support material, not a second root doc surface.
 - In `skills/*/prompt.md`, references to `CLAUDE.md` mean the active runtime kernel, not this maintainer guide.
@@ -60,7 +60,7 @@ skills/<name>/
 
 ### Generated Skill Asset Rules
 
-- Generated `SKILL.md` files currently use Claude-style frontmatter because Claude Code is the reference runtime and OpenCode consumes the same shared tree through a bridge.
+- Generated `SKILL.md` files currently use Claude-style frontmatter because Claude Code is the reference runtime and OpenCode consumes the same shared tree through a bridge. That is a delivery constraint, not a shared runtime-behavior requirement.
 - Frontmatter values live in `skills/registry.yaml`, not in generated files.
 - Required fields: `name`, `description`.
 - Common optional field: `argument-hint`.
@@ -109,14 +109,14 @@ Before merging runtime-facing changes:
 1. Rerun `python3 tooling/generate/registry_sync.py` when generated surfaces are affected.
 2. Run `scripts/validate-skills.sh`.
 3. Run `scripts/smoke-install.sh` when install, runtime, wrapper, or kernel delivery behavior changed.
-4. Check that shared content stayed runtime-neutral.
+4. Check that shared content stayed runtime-neutral except for documented bridge markers.
 5. Check that docs changed in the same commit when the public or maintainer surface changed.
 6. Check that prompt read gates point to `{{skill_support_path}}/...` in source prompts rather than hardcoded delivery paths.
 
 ## Review Checklist
 
 - Is the change applied at the correct source layer rather than directly in a generated file?
-- Does shared content stay runtime-neutral?
+- Does shared content stay runtime-neutral except for documented bridge markers?
 - Are bridge-specific details kept under `runtimes/opencode/` unless they are true shared constraints?
 - Did the change preserve registry-driven generation and doc sync?
 - Did the change avoid creating new root-level documentation sprawl?

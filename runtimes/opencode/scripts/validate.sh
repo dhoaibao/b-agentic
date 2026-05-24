@@ -124,7 +124,7 @@ if '~/.config/opencode/commands/' not in opencode_readme:
     errors.append('runtimes/opencode/configs/README.md: missing OpenCode command wrapper path documentation')
 if 'runtime-neutral' not in opencode_readme:
     errors.append('runtimes/opencode/configs/README.md: must state that shared skills/contracts stay runtime-neutral')
-if '${CLAUDE_SKILL_DIR}' not in opencode_readme or 'only intentional shared bridge marker' not in opencode_readme:
+if '${CLAUDE_SKILL_DIR}' not in opencode_readme or 'bridge marker' not in opencode_readme.lower() or 'delivery mechanic' not in opencode_readme.lower():
     errors.append('runtimes/opencode/configs/README.md: must keep the shared bridge-marker constraint explicit')
 
 if errors:

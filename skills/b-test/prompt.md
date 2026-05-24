@@ -2,18 +2,18 @@
 
 $ARGUMENTS
 
-Own non-browser code-level tests: add coverage, fix test-only failures, and avoid confusing red tests with product bugs.
+Own code-level and simulated-DOM tests: add coverage, fix test-only failures, and avoid confusing red tests with product bugs.
 
 ## When to use
 
 - The user asks to write tests, fix failing tests, evaluate coverage, or work TDD-style.
 - The global test-vs-bug decision routes a failing test to the test lane.
-- Non-browser unit, integration, and contract tests are in scope when the repo already has the relevant test style.
+- Non-browser unit, integration, contract, simulated-DOM, and component tests are in scope when the repo already has the relevant test style.
 
 ## When NOT to use
 
 - The failing test likely exposes real runtime behavior -> use **b-debug**.
-- The task renders through a DOM, drives a browser, performs visual testing, or runs e2e/browser-only tooling -> use **b-browser**; stop rather than adding browser or DOM tooling. See `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` for the boundary table with concrete examples.
+- The task drives a real browser, performs visual testing, depends on browser/session state, or runs e2e/browser-only tooling -> use **b-browser**; simulated-DOM and component tests stay here. Stop rather than adding browser or DOM tooling. See `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` for the boundary table with concrete examples.
 - Scope, acceptance, or intended behavior is unclear -> use **b-plan** (Clarification mode) or **b-debug** per the global test-vs-bug decision.
 - The task is pre-PR logic review -> use **b-review**.
 - The task needs a new test strategy/framework -> use **b-plan** first.
@@ -41,7 +41,7 @@ Read `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` befo
 - **Coverage review:** rank missing tests by user impact, changed behavior, risk boundary, and edge-case value; add only the requested/highest-value gaps.
 - **Flaky test:** read `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` before applying flake handling, rewriting, or skipping.
 
-Choose test type by the behavior boundary: pure logic gets unit tests, and cross-module contracts get integration or contract tests if the repo already has them.
+Choose test type by the behavior boundary: pure logic gets unit tests, simulated-DOM/component behavior stays here, and cross-module contracts get integration or contract tests if the repo already has them.
 
 If product behavior is uncertain, hand off to **b-debug**.
 
