@@ -125,6 +125,10 @@ def require_contains(path: Path, text: str, needles, label: str):
             errors.append(f"{rel(path)}: missing {label} {needle!r}")
 
 
+def has_contract_09_read_gate(text: str) -> bool:
+    return "contract/09-output" in text
+
+
 runtime_names = load_runtime_registry()
 registry_skills = load_skill_registry()
 
@@ -203,8 +207,12 @@ for path in skill_paths:
             errors.append(f"{rel(path)}: missing required section {section!r}")
 
     if "handoff envelope" in text.lower() or "[handoff]" in text:
-        if "contract/09-output" not in text:
+        if not has_contract_09_read_gate(text):
             errors.append(f"{rel(path)}: emits handoff envelope but missing contract/09-output reference")
+
+    lower_text = text.lower()
+    if ("hand off" in lower_text or "handoff" in lower_text or "[status]" in text or "status block" in lower_text) and not has_contract_09_read_gate(text):
+        errors.append(f"{rel(path)}: mentions handoff or status-block behavior but missing contract/09-output reference")
 
     if "## Output format" in body:
         output_fmt_start = body.index("## Output format")
@@ -254,6 +262,16 @@ for path in skill_paths:
     if skill_reference.exists() and "reference.md" not in text:
         errors.append(f"{rel(path)}: existing reference.md is not discoverable from SKILL.md")
 
+support_doc_paths = sorted(
+    path
+    for path in (ROOT / "skills").glob("*/*.md")
+    if path.name not in {"prompt.md", "SKILL.md"}
+)
+for path in support_doc_paths:
+    text = path.read_text()
+    if any(token in text for token in ["${CLAUDE_SKILL_DIR}", "${B_AGENTIC_RUNTIME_REFERENCES}", "${B_AGENTIC_SKILL_DIR}"]):
+        errors.append(f"{rel(path)}: support docs must not ship unresolved support-path placeholders")
+
 routing_path = ROOT / "references" / "contract" / "01-routing.md"
 if not routing_path.exists():
     errors.append("references/contract/01-routing.md: missing contract routing source")
@@ -302,6 +320,21 @@ if missing_test_terms:
     errors.append(
         f"skills/registry.yaml: b-test routing must include simulated-DOM/component-test triggers {missing_test_terms}"
     )
+
+research_triggers = set(normalized_routing_triggers.get("b-research", []))
+if '"what is"' in research_triggers:
+    errors.append('skills/registry.yaml: b-research routing must not include the low-signal trigger \'"what is"\'')
+
+refactor_triggers = set(normalized_routing_triggers.get("b-refactor", []))
+if "cleanup" in refactor_triggers:
+    errors.append("skills/registry.yaml: b-refactor routing must not include the vague trigger 'cleanup'")
+
+audit_triggers = set(normalized_routing_triggers.get("b-audit", []))
+for forbidden_trigger in ["audit", "repo audit"]:
+    if forbidden_trigger in audit_triggers:
+        errors.append(
+            f"skills/registry.yaml: b-audit routing must not include the generic trigger {forbidden_trigger!r}"
+        )
 
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
@@ -439,6 +472,20 @@ for shared_doc_path, shared_doc_text in [
 
 if "bridge marker" in maintainer.lower() or "delivery bridge" in maintainer.lower():
     errors.append("CLAUDE.md: maintainer guidance should no longer rely on bridge-marker exceptions")
+
+for path in sorted((ROOT / "skills").glob("*/prompt.md")):
+    text = path.read_text()
+    if "Skill tool" in text:
+        errors.append(f"{rel(path)}: unsupported Skill tool claim; use handoff/status semantics instead")
+
+if "Skill tool" in read_text(ROOT / "skills" / "registry.yaml"):
+    errors.append("skills/registry.yaml: unsupported Skill tool claim; registry descriptions must use handoff/status semantics")
+
+b_ship_prompt = read_text(ROOT / "skills" / "b-ship" / "prompt.md")
+if "reviewed plan" in b_ship_prompt:
+    errors.append("skills/b-ship/prompt.md: reviewed plans must not count as review evidence")
+if "`b-review` status block" not in b_ship_prompt or "explicit current-session user override" not in b_ship_prompt:
+    errors.append("skills/b-ship/prompt.md: missing explicit b-review or current-session override shipping gate")
 
 for required_line in [
     "verdict: <skill-defined terminal label>",

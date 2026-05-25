@@ -48,6 +48,8 @@ Ask only for missing inputs that change safe planning: hard constraints, deploym
 
 Keep assumptions visible. Move them to confirmed decisions only after explicit user confirmation.
 
+Read `{{runtime_reference_root}}/contract/09-output.md` before handing off to another skill or closing a non-trivial planning run with a status block.
+
 ### Step 3 - Scan existing code only when useful
 
 Skip code discovery for greenfield or docs-only work. Otherwise use the lightest tool that answers the next planning question:

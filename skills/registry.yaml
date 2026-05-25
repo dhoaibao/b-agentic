@@ -23,7 +23,7 @@
         ]
       },
       "prompt": {
-        "description": "End-to-end PR readiness orchestration for workflows spanning plan, implementation, optional tests, review, and review-fix loops until ready for PR. Invokes phase skills via the Skill tool, parses their status blocks, and stops at approval, blocker, or readiness. Unlike b-implement, b-orchestrate owns sequencing across multiple skills rather than changing code itself.",
+        "description": "End-to-end PR readiness orchestration for workflows spanning plan, implementation, optional tests, review, and review-fix loops until ready for PR. Coordinates phase handoffs, parses returned status blocks, and stops at approval, blocker, or readiness. Unlike b-implement, b-orchestrate owns sequencing across multiple skills rather than changing code itself.",
         "argument_hint": "[workflow-goal]"
       }
     },
@@ -70,8 +70,7 @@
           "library",
           "API",
           "compare",
-          "look up",
-          "\"what is\""
+          "look up"
         ]
       },
       "prompt": {
@@ -120,8 +119,7 @@
           "move",
           "inline",
           "simplify",
-          "delete",
-          "cleanup"
+          "delete"
         ]
       },
       "prompt": {
@@ -247,8 +245,7 @@
       "routing": {
         "intent": "b-agentic suite self-audit (suite-only)",
         "triggers": [
-          "audit",
-          "repo audit",
+          "b-agentic audit",
           "suite audit",
           "maintainer audit"
         ]

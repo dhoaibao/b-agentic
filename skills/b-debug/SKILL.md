@@ -62,6 +62,8 @@ Temporary probes are allowed only when cheaper evidence is insufficient. Use ins
 
 If the agent cannot reproduce a user-reproducible symptom, read `../../b-agentic/references/contract/10-decisions.md` before applying the cannot-reproduce protocol; do not patch defensively.
 
+Read `../../b-agentic/references/contract/09-output.md` before handing off to another skill or closing a non-trivial debug run with a status block.
+
 Before applying the final fix, state: `Root cause: <what fails> because <why>`.
 
 ### Step 4 - Apply the minimal fix

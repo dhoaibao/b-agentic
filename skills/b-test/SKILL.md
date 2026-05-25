@@ -51,6 +51,8 @@ Find relevant test files and project commands from manifests or CI. If a failing
 
 Read `../../b-agentic/references/contract/10-decisions.md` before applying the test-vs-bug decision. Read `../../b-agentic/references/contract/05-evidence.md` before using the baseline source taxonomy. Acceptable behavior confirmation sources are user-confirmed intent, an approved spec/plan, existing product contract, existing passing tests that define the behavior, source change that intentionally updates behavior, or fetched framework docs for API semantics. If no behavior baseline exists, stop and hand off to **b-plan** (Clarification mode) for unclear intent or **b-debug** for uncertain product behavior, unless the user explicitly asks for structural coverage only.
 
+Read `../../b-agentic/references/contract/09-output.md` before handing off to another skill or closing a non-trivial test run with a status block.
+
 - **Failing test:** fix assertion, mock, fixture, setup, async, snapshot, or harness drift only after intended behavior is confirmed.
 - **Write tests:** add regression/unit/integration coverage for known behavior. For TDD or regression work, make the test fail first when feasible, then hand off with the intended behavior, failing test path, command, current failure, likely source area, and verification target before production changes.
 - **Coverage review:** rank missing tests by user impact, changed behavior, risk boundary, and edge-case value; add only the requested/highest-value gaps.

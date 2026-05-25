@@ -21,6 +21,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_opencode/home/.config/opencode/AGENTS.md"
   assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" '<!-- b-agentic-managed -->'
   assert_file "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md"
   assert_file "$sandbox_opencode/home/.config/opencode/commands/b-plan.md"
   assert_contains "$sandbox_opencode/home/.config/opencode/commands/b-plan.md" 'Load the `b-plan` skill'
   assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/install.json"
@@ -53,9 +54,12 @@ run_runtime_smoke_cases() {
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-implement/SKILL.md" 'CLAUDE.md section 3'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-research/SKILL.md" 'approval-gated by `CLAUDE.md`'
   assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" '../../b-agentic/references/contract/02-source-of-truth.md'
+  assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
   assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" './reference.md'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_RUNTIME_REFERENCES'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_SKILL_DIR'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md" 'B_AGENTIC_RUNTIME_REFERENCES'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md" 'B_AGENTIC_SKILL_DIR'
   assert_no_path "$sandbox_opencode/home/.config/opencode/skills/b-plan/references"
 
   mkdir -p "$sandbox_opencode_install_report/home"

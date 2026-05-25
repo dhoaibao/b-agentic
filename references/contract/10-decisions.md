@@ -98,6 +98,8 @@ Hand off to `b-research` when the skill run requires:
 
 The b-agentic suite stops at `READY FOR PR`. Commit, push, and PR creation are user-initiated actions via `b-ship`, which is explicit-command-only rather than a natural-language routing target. No phase skill (including `b-orchestrate`) creates commits, pushes, or opens PRs as a side effect of a review or implementation step.
 
+For `b-ship`, review evidence means a `b-review` status block with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, or an explicit current-session user override. Approved plans and implementation status are not review evidence.
+
 When a review, audit, or workflow uses named readiness labels, put that label in the final `[status]` block's `verdict:` field rather than hiding it in prose or `notes:`.
 
 When a workflow closes with `verdict: READY FOR PR`, the final output must include: `Next: b-ship to commit and open the PR`.

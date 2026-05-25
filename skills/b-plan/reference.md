@@ -4,7 +4,7 @@ Long-form templates for `b-plan`. The SKILL.md links here so the main file stays
 
 ## Saved-plan skeleton (full mode)
 
-Before using this skeleton, read `${B_AGENTIC_RUNTIME_REFERENCES}/contract/02-source-of-truth.md` and `${B_AGENTIC_RUNTIME_REFERENCES}/contract/08-artifacts.md`. New saved plans include durable frontmatter before the Markdown body. Use the path and slug conventions to save the file with an English `<plan-file-slug>` filename, while frontmatter `slug` stays the canonical `<task-slug>`.
+Before using this skeleton, read `../../b-agentic/references/contract/02-source-of-truth.md` and `../../b-agentic/references/contract/08-artifacts.md`. New saved plans include durable frontmatter before the Markdown body. Use the path and slug conventions to save the file with an English `<plan-file-slug>` filename, while frontmatter `slug` stays the canonical `<task-slug>`.
 
 ```markdown
 ---
@@ -75,7 +75,7 @@ Quick plans stay in chat. Use this minimum shape so quick plans don't drift in f
 ### Plan: <one-line goal>
 
 **Scope:** <files or area>
-**Risk:** <trivial | low>   (after reading `${B_AGENTIC_RUNTIME_REFERENCES}/contract/03-definitions.md`)
+**Risk:** <trivial | low>   (after reading `../../b-agentic/references/contract/03-definitions.md`)
 
 **Steps:**
 1. <imperative step> — Done when: <check>
@@ -91,7 +91,7 @@ If a quick plan accumulates more than ~5 steps or grows risks/unknowns sections,
 
 When an approved plan needs replacement (not just edits):
 
-- **Revise in place** when the goal, touch points, and most steps survive. Read `${B_AGENTIC_RUNTIME_REFERENCES}/contract/02-source-of-truth.md` before applying the revision protocol.
+- **Revise in place** when the goal, touch points, and most steps survive. Read `../../b-agentic/references/contract/02-source-of-truth.md` before applying the revision protocol.
 - **Supersede** when the goal itself changed, or the approach is being replaced wholesale:
   1. Set the old plan's `status: superseded` and add a final `## Revisions` entry: `- <date> — superseded by <new-task-slug>`.
   2. Create a new plan with a distinct slug. Reference the superseded plan in the new plan's `Dependencies` or `Goal` section.

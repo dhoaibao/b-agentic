@@ -56,14 +56,14 @@ The phrases below are routing aids only; do not duplicate them inside individual
 |---|---|
 | `b-orchestrate` | orchestrate, workflow, end-to-end, ready for PR, full cycle |
 | `b-plan` | plan, design, decompose, approach, "how should I", clarify, requirements, scope |
-| `b-research` | docs, library, API, compare, look up, "what is" |
+| `b-research` | docs, library, API, compare, look up |
 | `b-implement` | implement, add, build, execute, finish |
-| `b-refactor` | rename, extract, move, inline, simplify, delete, cleanup |
+| `b-refactor` | rename, extract, move, inline, simplify, delete |
 | `b-debug` | bug, broken, error, stack trace, "not working", regression |
 | `b-test` | tests, coverage, failing test, snapshot, mock, component test, jsdom, happy-dom, React Testing Library |
 | `b-browser` | browser, e2e, visual, screenshot, browser session, live UI, Playwright, Cypress e2e, Puppeteer, WebDriver |
 | `b-review` | review, PR, lint, pre-PR, "what would a reviewer" |
-| `b-audit` | audit, repo audit, suite audit, maintainer audit |
+| `b-audit` | b-agentic audit, suite audit, maintainer audit |
 <!-- generated:routing-triggers:end -->
 
 `b-ship` is intentionally absent from the routing tables above because it is invoked explicitly after review readiness is already established.

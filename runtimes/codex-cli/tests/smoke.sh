@@ -25,6 +25,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_codex/home/.codex/AGENTS.md"
   assert_contains "$sandbox_codex/home/.codex/AGENTS.md" '<!-- b-agentic-managed -->'
   assert_file "$sandbox_codex/home/.codex/skills/b-plan/SKILL.md"
+  assert_file "$sandbox_codex/home/.codex/skills/b-plan/reference.md"
   assert_file "$sandbox_codex/home/.codex/b-agentic/install.json"
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"runtime": "codex-cli"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"activationState": "active"'
@@ -38,6 +39,9 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex/home/.codex/config.toml" '[[skills.config]]'
   assert_contains "$sandbox_codex/home/.codex/config.toml" 'enabled = true'
   assert_contains "$sandbox_codex/home/.codex/config.toml" 'path = "/'
+  assert_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
+  assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_RUNTIME_REFERENCES'
+  assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_SKILL_DIR'
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "'serena' in data['mcp_servers']"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['serena']['args'] == ['start-mcp-server', '--context', 'ide', '--project-from-cwd']"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "any(item['path'].endswith('/.codex/skills/b-plan') for item in data['skills']['config'])"

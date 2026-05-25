@@ -46,6 +46,7 @@ For **small direct requests** (no saved plan), verify all four §3 criteria befo
 If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-plan** (Clarification mode).
 
 Read `{{runtime_reference_root}}/contract/06-safety.md` once as a preflight before any editing begins — it covers safety gates, command risk classes, worktree isolation decisions, and patch discipline for all subsequent steps.
+Read `{{runtime_reference_root}}/contract/09-output.md` before handing off to another skill or closing a non-trivial implementation run with a status block.
 
 ### Step 2 - Check worktree and choose execution surface
 
