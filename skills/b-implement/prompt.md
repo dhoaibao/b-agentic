@@ -45,7 +45,7 @@ For **small direct requests** (no saved plan), verify all four §3 criteria befo
 
 If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-plan** (Clarification mode).
 
-Read `{{skill_support_path}}/references/b-agentic/contract/06-safety.md` once as a preflight before any editing begins — it covers safety gates, command risk classes, worktree isolation decisions, and patch discipline for all subsequent steps.
+Read `{{runtime_reference_root}}/contract/06-safety.md` once as a preflight before any editing begins — it covers safety gates, command risk classes, worktree isolation decisions, and patch discipline for all subsequent steps.
 
 ### Step 2 - Check worktree and choose execution surface
 
@@ -67,9 +67,9 @@ Stay within approved scope. Stop for new product decisions, stale/wrong plans, o
 
 ### Step 4 - Verify before continuing
 
-Run the plan's check when available. Otherwise read `{{skill_support_path}}/references/b-agentic/contract/07-execution.md` before choosing verification from the ladder. Prefer touched-file diagnostics when supported, then the narrowest relevant command.
+Run the plan's check when available. Otherwise read `{{runtime_reference_root}}/contract/07-execution.md` before choosing verification from the ladder. Prefer touched-file diagnostics when supported, then the narrowest relevant command.
 
-Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Read `{{skill_support_path}}/references/b-agentic/contract/07-execution.md` before applying iteration cap, cascading-failure, transform rollback, or skipped-check labels. Read `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` before high-risk completion claims.
+Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Read `{{runtime_reference_root}}/contract/07-execution.md` before applying iteration cap, cascading-failure, transform rollback, or skipped-check labels. Read `{{runtime_reference_root}}/contract/10-decisions.md` before high-risk completion claims.
 
 ### Step 5 - Record progress and close
 
@@ -90,4 +90,4 @@ Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions ->
 - Do not add opportunistic refactors, compatibility code, or side cleanup.
 - Stop for new decisions instead of guessing.
 - A small direct request still needs real verification.
-- Safety gates and patch discipline: read `{{skill_support_path}}/references/b-agentic/contract/06-safety.md` as the Step 1 preflight (not at each later step).
+- Safety gates and patch discipline: read `{{runtime_reference_root}}/contract/06-safety.md` as the Step 1 preflight (not at each later step).

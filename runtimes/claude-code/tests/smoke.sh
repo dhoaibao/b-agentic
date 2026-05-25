@@ -27,8 +27,11 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md"
   assert_file "$sandbox_fresh/home/.claude/skills/b-browser/SKILL.md"
   assert_file "$sandbox_fresh/home/.claude/skills/b-review/reference.md"
-  assert_file "$sandbox_fresh/home/.claude/skills/b-plan/references/b-agentic/contract/index.md"
-  assert_file "$sandbox_fresh/home/.claude/skills/b-plan/references/b-agentic/performance-checklist.md"
+  assert_no_path "$sandbox_fresh/home/.claude/skills/b-plan/references"
+  assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md" '../../b-agentic/references/contract/02-source-of-truth.md'
+  assert_contains "$sandbox_fresh/home/.claude/skills/b-review/SKILL.md" './reference.md'
+  assert_not_contains "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md" 'B_AGENTIC_RUNTIME_REFERENCES'
+  assert_not_contains "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md" 'B_AGENTIC_SKILL_DIR'
   assert_file "$sandbox_fresh/home/.claude/CLAUDE.md"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/CLAUDE.md"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/references/contract/index.md"

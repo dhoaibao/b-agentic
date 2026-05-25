@@ -27,7 +27,7 @@
       "memory_file": "AGENTS.md",
       "memory_install_path": "~/.config/opencode/AGENTS.md",
       "metadata_root": "~/.config/opencode/b-agentic",
-      "skills_install_root": "~/.claude/skills",
+      "skills_install_root": "~/.config/opencode/skills",
       "config_template_dir": "runtimes/opencode/configs",
       "config_schema_family": "opencode-json",
       "command_wrappers": {

@@ -20,7 +20,7 @@ run_runtime_smoke_cases() {
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
   assert_file "$sandbox_opencode/home/.config/opencode/AGENTS.md"
   assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" '<!-- b-agentic-managed -->'
-  assert_file "$sandbox_opencode/home/.claude/skills/b-plan/SKILL.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md"
   assert_file "$sandbox_opencode/home/.config/opencode/commands/b-plan.md"
   assert_contains "$sandbox_opencode/home/.config/opencode/commands/b-plan.md" 'Load the `b-plan` skill'
   assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/install.json"
@@ -48,17 +48,15 @@ run_runtime_smoke_cases() {
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/07-execution.md" 'save the full output under `/tmp/claude-code/b-agentic/<skill>/<slug>.log`'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/08-artifacts.md" 'auth/session state and similar secrets default to `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/10-decisions.md" 'capture the failing output under `/tmp/claude-code/b-agentic/b-test/`'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/SKILL.md" 'CLAUDE.md section 3'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/SKILL.md" 'per `CLAUDE.md` §3'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-implement/SKILL.md" 'CLAUDE.md section 3'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-research/SKILL.md" 'approval-gated by `CLAUDE.md`'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/index.md" 'The active runtime kernel lives in `CLAUDE.md` (Claude Code) or `AGENTS.md` (OpenCode)'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/00-kernel.md" 'runtimes/claude-code/kernel.md'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/05-evidence.md" 'active `CLAUDE.md`'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/06-safety.md" 'Use `~/.claude/b-agentic/...` or `/tmp/claude-code/b-agentic/...` instead by default.'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/07-execution.md" 'save the full output under `/tmp/claude-code/b-agentic/<skill>/<slug>.log`'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/08-artifacts.md" 'auth/session state and similar secrets default to `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`'
-  assert_not_contains "$sandbox_opencode/home/.claude/skills/b-plan/references/b-agentic/contract/10-decisions.md" 'capture the failing output under `/tmp/claude-code/b-agentic/b-test/`'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'CLAUDE.md section 3'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'per `CLAUDE.md` §3'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-implement/SKILL.md" 'CLAUDE.md section 3'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-research/SKILL.md" 'approval-gated by `CLAUDE.md`'
+  assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" '../../b-agentic/references/contract/02-source-of-truth.md'
+  assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" './reference.md'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_RUNTIME_REFERENCES'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_SKILL_DIR'
+  assert_no_path "$sandbox_opencode/home/.config/opencode/skills/b-plan/references"
 
   mkdir -p "$sandbox_opencode_install_report/home"
   HOME="$sandbox_opencode_install_report/home" \

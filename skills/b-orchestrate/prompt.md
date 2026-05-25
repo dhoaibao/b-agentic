@@ -36,9 +36,9 @@ If `$ARGUMENTS` is present, treat it as the workflow goal plus any explicit cons
 
 Run `git status --short`, name the source of truth, and define success as a **b-review** status block with `verdict: READY FOR PR` plus required verification complete for suite-supported scope. If UI/browser-relevant work needs real-browser, visual, or e2e evidence, require **b-browser**-verified evidence from supplied/CI evidence, existing repo tooling, or approved live-browser operation before `verdict: READY FOR PR`; if the user explicitly accepts skipped checks or follow-ups, success may be `verdict: READY WITH FOLLOW-UPS` instead.
 
-For non-trivial workflows, read `{{skill_support_path}}/references/b-agentic/contract/08-artifacts.md`, mint a run-id, and write a checkpoint manifest under `.b-agentic/b-orchestrate/<run-id>/manifest.json` when the workflow pauses or needs durable resume state.
+For non-trivial workflows, read `{{runtime_reference_root}}/contract/08-artifacts.md`, mint a run-id, and write a checkpoint manifest under `.b-agentic/b-orchestrate/<run-id>/manifest.json` when the workflow pauses or needs durable resume state.
 
-Read `{{skill_support_path}}/references/b-agentic/contract/01-routing.md` and `{{skill_support_path}}/references/b-agentic/contract/09-output.md` before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution.
+Read `{{runtime_reference_root}}/contract/01-routing.md` and `{{runtime_reference_root}}/contract/09-output.md` before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution.
 
 For each phase transition, emit the handoff envelope in chat as audit trail, then invoke the next phase skill via the Skill tool with the workflow goal, source of truth, and any prior phase output. The invoked skill writes its `[status]` block into the shared context; read the `state` field from that block and the `verdict` field when the phase defines named outcomes. Branch on `state`: `complete` → continue to the next phase; `blocked` → surface the blocker and stop; `needs-input` → relay the question to the user, resume on answer; `handed-off` → follow the envelope's `next-skill`. If `state` is present but `verdict` is missing for a review, audit, or workflow-close decision, ask the user once instead of inferring readiness from prose or `notes:`.
 
@@ -48,9 +48,9 @@ If the user signals stop, cancel, or abort at any point, emit a final `[status]`
 
 If the goal, constraints, acceptance criteria, non-goals, or intended behavior are unclear, emit a handoff envelope and invoke `/b-plan` (Clarification mode) via the Skill tool; resume only after the returned spec is concrete enough to plan. If external feasibility blocks the spec, invoke `/b-research` via the Skill tool and resume only after the returned evidence is sufficient or the blocker is reported.
 
-For non-trivial work, sequencing, risk, public contracts, multi-file edits, or any workflow that needs durable coordination, invoke `/b-plan` via the Skill tool. Read `{{skill_support_path}}/references/b-agentic/contract/03-definitions.md` before applying the small-direct threshold. For a small direct workflow, invoke `/b-implement` via the Skill tool with the current source of truth, expected scope, and verification need; do not write an execution outline inside `b-orchestrate`.
+For non-trivial work, sequencing, risk, public contracts, multi-file edits, or any workflow that needs durable coordination, invoke `/b-plan` via the Skill tool. Read `{{runtime_reference_root}}/contract/03-definitions.md` before applying the small-direct threshold. For a small direct workflow, invoke `/b-implement` via the Skill tool with the current source of truth, expected scope, and verification need; do not write an execution outline inside `b-orchestrate`.
 
-Read `{{skill_support_path}}/references/b-agentic/contract/02-source-of-truth.md` before treating a saved or chat plan as approved. Do not invoke `/b-implement` from an unapproved non-trivial plan unless the user explicitly delegated that exact approval after seeing the plan.
+Read `{{runtime_reference_root}}/contract/02-source-of-truth.md` before treating a saved or chat plan as approved. Do not invoke `/b-implement` from an unapproved non-trivial plan unless the user explicitly delegated that exact approval after seeing the plan.
 
 ### Step 3 - Route implementation and verification
 
@@ -75,11 +75,11 @@ Invoke `/b-review` via the Skill tool against the current diff with the spec or 
 - Concrete behavior-preserving transform, including simplify -> `/b-refactor`.
 - New product decision or broad redesign -> `/b-plan` (Clarification mode).
 
-Read `{{skill_support_path}}/references/b-agentic/contract/07-execution.md` before applying the review-fix loop or stopping on repeated failures. Re-invoke `/b-review` after each coherent fix set. Stop when the review returns `verdict: READY FOR PR`, returns `verdict: READY WITH FOLLOW-UPS` accepted by the user, reports a blocker, or after **3 review-fix iterations** — whichever comes first. If the cap is reached without readiness, surface the remaining findings as accepted follow-ups or hand off to **b-plan** for redesign.
+Read `{{runtime_reference_root}}/contract/07-execution.md` before applying the review-fix loop or stopping on repeated failures. Re-invoke `/b-review` after each coherent fix set. Stop when the review returns `verdict: READY FOR PR`, returns `verdict: READY WITH FOLLOW-UPS` accepted by the user, reports a blocker, or after **3 review-fix iterations** — whichever comes first. If the cap is reached without readiness, surface the remaining findings as accepted follow-ups or hand off to **b-plan** for redesign.
 
 ### Step 6 - Close the workflow
 
-Read `{{skill_support_path}}/references/b-agentic/contract/09-output.md` before reporting non-trivial workflow status or handing off unresolved work. Report the final review verdict, verification run, skipped checks, blockers, and remaining follow-ups. Do not claim `verdict: READY FOR PR` when the review had no baseline, required verification was skipped, or real-browser/visual/e2e evidence remains relevant but absent.
+Read `{{runtime_reference_root}}/contract/09-output.md` before reporting non-trivial workflow status or handing off unresolved work. Report the final review verdict, verification run, skipped checks, blockers, and remaining follow-ups. Do not claim `verdict: READY FOR PR` when the review had no baseline, required verification was skipped, or real-browser/visual/e2e evidence remains relevant but absent.
 
 When closing with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, include a one-line next-action: `Next: /b-ship to commit and open the PR`.
 
@@ -87,7 +87,7 @@ When closing with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, i
 
 ## Output format
 
-Non-trivial workflow runs close with the standard `[status]` block per `{{skill_support_path}}/references/b-agentic/contract/09-output.md`.
+Non-trivial workflow runs close with the standard `[status]` block per `{{runtime_reference_root}}/contract/09-output.md`.
 
 Use `verdict:` for the workflow outcome (`READY FOR PR`, `READY WITH FOLLOW-UPS`, `BLOCKED`, or `IN PROGRESS`) and `notes:` only for skipped-check summary, resume hints, or degraded-bundle context.
 

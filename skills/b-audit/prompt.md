@@ -2,7 +2,7 @@
 
 $ARGUMENTS
 
-Audit the b-agentic suite for systemic correctness, consistency, and operability risk. Findings first; sampled coverage must be explicit. For any codebase other than b-agentic, use **b-review** instead — see `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` for the tiebreaker.
+Audit the b-agentic suite for systemic correctness, consistency, and operability risk. Findings first; sampled coverage must be explicit. For any codebase other than b-agentic, use **b-review** instead — see `{{runtime_reference_root}}/contract/10-decisions.md` for the tiebreaker.
 
 Flags: `--baseline=<path|url>`, `--surface=<area>`, `--skip-checks`, `--self`, `--external`.
 
@@ -35,7 +35,7 @@ Flags: `--baseline=<path|url>`, `--surface=<area>`, `--skip-checks`, `--self`, `
 
 Lock the requested surface from arguments or `--surface`. If the surface is absent or too broad, ask for the smallest clarification that names the target area. Do not default to a whole-repository audit.
 
-State mode: self-audit or external audit. Use `--self` or `--external` when explicitly passed; otherwise infer from context, `--baseline`, approved plan, checkpoint handoff, or short clarification. Read `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` before applying the self/external audit distinction. Read `{{skill_support_path}}/references/b-agentic/contract/05-evidence.md` before applying the baseline source taxonomy. Without a sufficient baseline, label the run `baseline-missing` and do not claim requirements coverage.
+State mode: self-audit or external audit. Use `--self` or `--external` when explicitly passed; otherwise infer from context, `--baseline`, approved plan, checkpoint handoff, or short clarification. Read `{{runtime_reference_root}}/contract/10-decisions.md` before applying the self/external audit distinction. Read `{{runtime_reference_root}}/contract/05-evidence.md` before applying the baseline source taxonomy. Without a sufficient baseline, label the run `baseline-missing` and do not claim requirements coverage.
 
 ### Step 2 - Pick the checklist
 
@@ -57,7 +57,7 @@ Assess observability, cleanup, installation/update behavior, and rollback expect
 
 ### Step 5 - Report verdict
 
-Read `{{skill_support_path}}/references/b-agentic/contract/03-definitions.md` and `{{skill_support_path}}/references/b-agentic/contract/09-output.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
+Read `{{runtime_reference_root}}/contract/03-definitions.md` and `{{runtime_reference_root}}/contract/09-output.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
 
 Verdicts: **AUDIT PASS**, **AUDIT PASS WITH FOLLOW-UPS**, or **NEEDS FIXES**. Emit the chosen label in the final `[status]` block's `verdict:` field. Do not use **AUDIT PASS** when the audit has no baseline, required verification was skipped, or sampled coverage leaves material unreviewed risk; use **AUDIT PASS WITH FOLLOW-UPS** or **NEEDS FIXES** instead.
 

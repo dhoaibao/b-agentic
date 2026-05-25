@@ -52,7 +52,7 @@ Effect: commits and opens a PR without a b-review verdict.
 Proceed? (y/n)
 ```
 
-Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/06-safety.md` before any commit or push action.
+Read `../../b-agentic/references/contract/06-safety.md` before any commit or push action.
 
 ### Step 2 - Commit
 
@@ -111,5 +111,5 @@ Branch -> Staged files -> Commit -> Push -> PR URL
 - Do not open a PR with an empty or vague test plan unless the user explicitly approves that gap.
 - Stop after printing the PR URL. Do not continue to merge, deploy, or tag.
 - If any step fails, surface the error and stop; do not silently retry.
-- Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/06-safety.md` at Step 1 before any git mutation.
-- Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/09-output.md` before closing a non-trivial run with a status block.
+- Read `../../b-agentic/references/contract/06-safety.md` at Step 1 before any git mutation.
+- Read `../../b-agentic/references/contract/09-output.md` before closing a non-trivial run with a status block.

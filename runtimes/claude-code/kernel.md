@@ -9,7 +9,7 @@
 
 Use these rules before any skill-specific instruction. If context pressure is high, preserve this kernel first.
 
-Reference checklist: when a kernel rule, skill step, output format, or handoff says to use a schema, rubric, protocol, checklist, or reference section from a b-agentic runtime contract, read the named section file before applying that rule. Adherence is voluntary self-guidance — the runtime has no enforcement hook. Installed skills should reference their bundled supporting files at `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/*.md`. `${CLAUDE_SKILL_DIR}` is the current shared delivery bridge marker in generated assets, not a runtime-specific behavior requirement.
+Reference checklist: when a kernel rule, skill step, output format, or handoff says to use a schema, rubric, protocol, checklist, or reference section from a b-agentic runtime contract, read the named section file before applying that rule. Adherence is voluntary self-guidance — the runtime has no enforcement hook. Installed skills should read shared contract files from the runtime's shared reference snapshot under `~/.claude/b-agentic/references/contract/*.md` and skill-local support files from their own directory when a skill points there.
 
 Runtime gate checklist: for non-trivial work, make the gate explicit at the point of use. Before acting, confirm the active skill and source of truth; before editing or external/mutating actions, confirm approval, staleness, worktree, and safety gates; before reporting done or switching skills, confirm verification and read runtime contract §9 when a status block or handoff is required.
 

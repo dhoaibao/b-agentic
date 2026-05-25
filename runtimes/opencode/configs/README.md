@@ -7,15 +7,15 @@ This directory contains OpenCode runtime templates that are copied or referenced
 The OpenCode release supports a personal-global install:
 
 - Kernel memory: `~/.config/opencode/AGENTS.md`
-- Skills: `~/.claude/skills/<skill-name>/SKILL.md` (cross-tool compatibility; OpenCode reads Claude Code skill directories natively)
+- Skills: `~/.config/opencode/skills/<skill-name>/SKILL.md`
 - Command wrappers: `~/.config/opencode/commands/<command-name>.md`
-- Skill-local shared references: `~/.claude/skills/<skill-name>/references/b-agentic/*.md`
+- Skill-local support files: `~/.config/opencode/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.config/opencode/b-agentic/`
 - Shared reference snapshot: `~/.config/opencode/b-agentic/references/*.md`
 - Sensitive artifacts: `~/.config/opencode/b-agentic/<skill>/<run-id>/` or `/tmp/opencode/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/opencode/b-agentic/<skill>/<slug>.log`
 
-> **Constraint:** OpenCode intentionally consumes the shared Claude-shaped skill tree from `~/.claude/skills/`. Shared skills and shared contract files still must stay runtime-neutral in behavior; `${CLAUDE_SKILL_DIR}` support-path usage is the current shared delivery bridge marker and temporary delivery mechanic in this iteration. Full native skill re-templating for OpenCode is a future iteration.
+> OpenCode installs and reads its own runtime-local skill tree under `~/.config/opencode/skills/`. Shared skills and shared contract files still stay runtime-neutral in behavior; runtime-specific install paths are resolved by the renderer and installer.
 
 ## Invocation policy
 
@@ -25,7 +25,7 @@ The adapter also installs thin markdown command wrappers into `~/.config/opencod
 
 ## Safety policy
 
-The installer never overwrites an existing `~/.config/opencode/AGENTS.md` without `--replace-memory`. Plain install syncs skills and references, and writes the kernel. Existing colliding command files are preserved in place, and uninstall removes only wrapper files that still match the managed snapshot.
+The installer never overwrites an existing `~/.config/opencode/AGENTS.md` without `--replace-memory`. Plain install syncs runtime-local skills, installs the shared reference snapshot under `~/.config/opencode/b-agentic/references/`, and writes the kernel. Existing colliding command files are preserved in place, and uninstall removes only wrapper files that still match the managed snapshot.
 
 ## Global MCP Setup
 
@@ -58,6 +58,6 @@ MCP safety rules:
 
 ## Validator scope
 
-`scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which discovers and runs `runtimes/<name>/scripts/validate.sh` for each registered adapter. Shared checks should fail on runtime-specific wording drift in shared skills and shared contract files, while allowing the documented `${CLAUDE_SKILL_DIR}` bridge marker and the adapter-owned OpenCode delivery constraints described here.
+`scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which discovers and runs `runtimes/<name>/scripts/validate.sh` for each registered adapter. Shared checks should fail on runtime-specific wording drift in shared skills and shared contract files, while runtime-owned checks enforce the OpenCode install layout documented here.
 
 `scripts/smoke-install.sh` is the stable wrapper over `tests/smoke/install.sh`. The OpenCode adapter contributes its install coverage through `runtimes/opencode/tests/smoke.sh`.

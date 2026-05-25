@@ -23,9 +23,12 @@ ROUTING_TRIGGERS_START = "<!-- generated:routing-triggers:start -->"
 ROUTING_TRIGGERS_END = "<!-- generated:routing-triggers:end -->"
 
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
+RUNTIME_REFERENCE_ROOT_TOKEN = "{{runtime_reference_root}}"
 RUNTIME_DISPLAY_NAME_TOKEN = "{{runtime_display_name}}"
 RUNTIME_METADATA_ROOT_TOKEN = "{{runtime_metadata_root}}"
 RUNTIME_MEMORY_FILE_TOKEN = "{{runtime_memory_file}}"
+RENDERED_SKILL_SUPPORT_PATH = "."
+RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/references"
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
 
 PROMPT_FRONTMATTER_FIELDS = [
@@ -110,10 +113,8 @@ def validate_kernel_template(errors: list[str]) -> None:
         errors.append(
             f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must use {RUNTIME_METADATA_ROOT_TOKEN}, not a runtime-specific metadata root"
         )
-    if "${CLAUDE_SKILL_DIR}" in template_text and "bridge" not in template_text.lower():
-        errors.append(
-            f"{KERNEL_TEMPLATE_PATH}: ${{CLAUDE_SKILL_DIR}} bridge usage must be explicitly documented as a delivery bridge marker"
-        )
+    if "${CLAUDE_SKILL_DIR}" in template_text:
+        errors.append(f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must not use ${{CLAUDE_SKILL_DIR}}")
 
 
 def validate_skill_prompt_source(skill: dict, errors: list[str]) -> None:
@@ -147,7 +148,7 @@ def validate_skill_prompt_source(skill: dict, errors: list[str]) -> None:
     unresolved = sorted(
         token
         for token in set(TEMPLATE_TOKEN_RE.findall(prompt_text))
-        if token != SKILL_SUPPORT_PATH_TOKEN
+        if token not in {SKILL_SUPPORT_PATH_TOKEN, RUNTIME_REFERENCE_ROOT_TOKEN}
     )
     if unresolved:
         errors.append(f"{prompt_path}: unexpected canonical prompt tokens {unresolved}")
@@ -371,7 +372,10 @@ def render_skill_file(skill: dict) -> str:
     prompt_text = prompt_path.read_text().rstrip() + "\n"
     body = apply_template_tokens(
         prompt_text,
-        {SKILL_SUPPORT_PATH_TOKEN: "${CLAUDE_SKILL_DIR}"},
+        {
+            SKILL_SUPPORT_PATH_TOKEN: RENDERED_SKILL_SUPPORT_PATH,
+            RUNTIME_REFERENCE_ROOT_TOKEN: RENDERED_RUNTIME_REFERENCE_ROOT,
+        },
         prompt_path,
     ).rstrip()
 

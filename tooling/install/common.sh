@@ -48,24 +48,12 @@ for path in sorted(root.glob('*/SKILL.md')):
 PY
 }
 
-sync_references_into_skill() {
-  local skill_dir="$1"
-  local support_dir="$skill_dir/references/b-agentic"
-  ensure_dir "$support_dir"
-  if dry_run_enabled; then
-    printf '[dry-run] cp -r %s/* %s/\n' "$REFERENCES_SRC" "$support_dir" >&2
-    return 0
-  fi
-  cp -r "$REFERENCES_SRC"/* "$support_dir"/
-}
-
 install_skills() {
   ensure_dir "$SKILLS_DST"
   local name
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     copy_dir_replace "$SKILLS_SRC/$name" "$SKILLS_DST/$name"
-    sync_references_into_skill "$SKILLS_DST/$name"
   done < <(skill_names)
 }
 

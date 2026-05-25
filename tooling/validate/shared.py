@@ -231,14 +231,18 @@ for path in skill_paths:
         if runtime_doc in text:
             errors.append(f"{rel(path)}: shared skills must stay runtime-neutral and must not mention {runtime_doc}")
 
-    if "references/b-agentic/contract/" in text and "${CLAUDE_SKILL_DIR}/references/b-agentic/contract/" not in text:
-        errors.append(f"{rel(path)}: contract read gates must use ${{CLAUDE_SKILL_DIR}} support path")
+    if "${B_AGENTIC_RUNTIME_REFERENCES}" in text or "${B_AGENTIC_SKILL_DIR}" in text:
+        errors.append(f"{rel(path)}: generated skills must not ship unresolved support-path placeholders")
 
-    if "performance-checklist.md" in text and "${CLAUDE_SKILL_DIR}/references/b-agentic/performance-checklist.md" not in text:
-        errors.append(f"{rel(path)}: performance checklist read gates must use ${{CLAUDE_SKILL_DIR}} support path")
+    if "references/contract/" in text and "../../b-agentic/references/contract/" not in text:
+        errors.append(f"{rel(path)}: contract read gates must use the installed shared reference path ../../b-agentic/references/contract/")
+
+    if "performance-checklist.md" in text and "../../b-agentic/references/performance-checklist.md" not in text:
+        errors.append(f"{rel(path)}: performance checklist read gates must use the installed shared reference path ../../b-agentic/references/performance-checklist.md")
 
     if "Read `reference.md` before" in text or re.search(r"Read\s+`?reference\.md`?", text):
-        errors.append(f"{rel(path)}: local reference.md read gates must use ${{CLAUDE_SKILL_DIR}}/reference.md")
+        if "./reference.md" not in text:
+            errors.append(f"{rel(path)}: local reference.md read gates must use the installed skill-local path ./reference.md")
 
     if re.search(r"Read §\d+", text):
         errors.append(f"{rel(path)}: read gates must name the reference file, not only a section number")
@@ -424,17 +428,16 @@ for contract_path in shared_contract_paths:
     if "/tmp/claude-code/b-agentic" in contract_text and "/tmp/opencode/b-agentic" not in contract_text and "active runtime" not in contract_text:
         errors.append(f"{rel(contract_path)}: Claude-only temp artifact paths in shared contract files must be runtime-neutral or dual-runtime")
 
-for bridge_doc_path, bridge_doc_text in [
+for shared_doc_path, shared_doc_text in [
     (contract_index_path, contract_index),
     (ROOT / "references" / "contract" / "00-kernel.md", read_text(ROOT / "references" / "contract" / "00-kernel.md")),
     (shared_kernel_template_path, shared_kernel_template),
-    (ROOT / "runtimes" / "opencode" / "configs" / "README.md", read_text(ROOT / "runtimes" / "opencode" / "configs" / "README.md")),
 ]:
-    if "${CLAUDE_SKILL_DIR}" in bridge_doc_text and "bridge" not in bridge_doc_text.lower():
-        errors.append(f"{rel(bridge_doc_path)}: ${{CLAUDE_SKILL_DIR}} usage must be documented as a bridge marker or delivery mechanic")
+    if "${CLAUDE_SKILL_DIR}" in shared_doc_text or "${B_AGENTIC_RUNTIME_REFERENCES}" in shared_doc_text or "${B_AGENTIC_SKILL_DIR}" in shared_doc_text:
+        errors.append(f"{rel(shared_doc_path)}: shared contract docs must not use unresolved support-path placeholders")
 
-if "runtime-neutral" in maintainer and "bridge marker" not in maintainer.lower():
-    errors.append("CLAUDE.md: runtime-neutral guidance must explicitly describe the documented bridge marker exception")
+if "bridge marker" in maintainer.lower() or "delivery bridge" in maintainer.lower():
+    errors.append("CLAUDE.md: maintainer guidance should no longer rely on bridge-marker exceptions")
 
 for required_line in [
     "verdict: <skill-defined terminal label>",

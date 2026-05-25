@@ -8,7 +8,7 @@ The first Claude-native release supports a personal-global install only:
 
 - Kernel memory: `~/.claude/CLAUDE.md`
 - Skills: `~/.claude/skills/<skill-name>/SKILL.md`
-- Skill-local shared references: `~/.claude/skills/<skill-name>/references/b-agentic/*.md`
+- Skill-local support files: `~/.claude/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.claude/b-agentic/`
 - Shared reference snapshot: `~/.claude/b-agentic/references/*.md`
 - Recommended settings template: `~/.claude/b-agentic/templates/settings.template.json`
@@ -25,7 +25,7 @@ Claude Code exposes each skill directory as `/b-*`. All skills are model-invocab
 
 ## Safety policy
 
-The installer never overwrites an existing `~/.claude/CLAUDE.md` without `--replace-memory`. Plain install syncs skills and references, merges recommended settings into `~/.claude/settings.json`, and merges user-scope MCP servers into `~/.claude.json`. Existing settings and MCP config are backed up before merge.
+The installer never overwrites an existing `~/.claude/CLAUDE.md` without `--replace-memory`. Plain install syncs skills, installs the shared reference snapshot under `~/.claude/b-agentic/references/`, merges recommended settings into `~/.claude/settings.json`, and merges user-scope MCP servers into `~/.claude.json`. Existing settings and MCP config are backed up before merge.
 
 Settings merge is conservative: unknown keys are preserved, arrays are appended without duplicates, objects are merged recursively, and existing scalar values win conflicts.
 
@@ -64,4 +64,4 @@ MCP safety rules:
 
 `scripts/smoke-install.sh` is the stable wrapper over `tests/smoke/install.sh`. The Claude adapter contributes its install coverage through `runtimes/claude-code/tests/smoke.sh`.
 
-The only shared bridge marker intentionally permitted outside the Claude adapter is `${CLAUDE_SKILL_DIR}` support-path usage in shared skills.
+Shared skills and shared contract files stay runtime-neutral; Claude-specific install paths remain adapter-owned here and in `runtimes/claude-code/scripts/validate.sh`.

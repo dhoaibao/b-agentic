@@ -30,7 +30,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 - Something is broken and needs root-cause tracing -> use **b-debug**.
 - The task is writing or fixing tests -> use **b-test**.
 - The task is external lookup -> use **b-research**.
-- The user requests a b-agentic suite self-audit (not a diff review) -> use **b-audit**. For any other codebase audit, stay in **b-review**. See `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` for the tiebreaker.
+- The user requests a b-agentic suite self-audit (not a diff review) -> use **b-audit**. For any other codebase audit, stay in **b-review**. See `../../b-agentic/references/contract/10-decisions.md` for the tiebreaker.
 - The request is plan review, UX critique, or research synthesis review.
 
 ## Tools required
@@ -48,7 +48,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 
 Run `git status --short` before scoping. For current-worktree reviews, include staged, unstaged, and untracked files; review untracked files from their current contents because they are absent from `git diff`. Default tracked changes to `git diff HEAD`. Use `--range` when supplied and state whether current dirty or untracked files are excluded from that range review. If there is no diff and no untracked file in scope, ask for a branch, commit, range, or checkpoint.
 
-For WIP branches or dirty state, review the cumulative diff from the best available base: supplied range, upstream merge-base, origin default merge-base, then working tree if no base resolves. State scope, included untracked files, and mode: self-review or external review. Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` before applying the self/external review distinction.
+For WIP branches or dirty state, review the cumulative diff from the best available base: supplied range, upstream merge-base, origin default merge-base, then working tree if no base resolves. State scope, included untracked files, and mode: self-review or external review. Read `../../b-agentic/references/contract/10-decisions.md` before applying the self/external review distinction.
 
 ### Step 2 - Pick fast or standard path
 
@@ -56,7 +56,7 @@ Fast path is allowed only for a single non-sensitive area with no public contrac
 
 ### Step 3 - Establish baseline and inspect risk
 
-Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarification to identify intended behavior. Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/05-evidence.md` before applying the baseline source taxonomy. Without a sufficient baseline, run a `baseline-missing` diff-only risk review and do not claim requirements coverage.
+Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarification to identify intended behavior. Read `../../b-agentic/references/contract/05-evidence.md` before applying the baseline source taxonomy. Without a sufficient baseline, run a `baseline-missing` diff-only risk review and do not claim requirements coverage.
 
 Inspect highest-risk changed symbols and boundaries first. Name sampled files/symbols, skipped changed surfaces, and residual risk so a no-findings review is not mistaken for exhaustive proof.
 
@@ -66,7 +66,7 @@ Inspect highest-risk changed symbols and boundaries first. Name sampled files/sy
 - Use Brave Search plus Firecrawl only for focused public advisories, release drift, or official-doc confirmation when local evidence is insufficient.
 - If the diff is small and local with no shared/public boundary trigger, keep the review native or Serena-first instead of escalating into a graph or web-assisted review.
 
-Read `${CLAUDE_SKILL_DIR}/reference.md` before applying the security checklist to changed entry points or shared boundaries. Name the relevant checklist sections when they affect findings or confidence. Treat lockfile, generated, snapshot, golden, vendored, and minified changes as derived unless source or approved generation is clear.
+Read `./reference.md` before applying the security checklist to changed entry points or shared boundaries. Name the relevant checklist sections when they affect findings or confidence. Treat lockfile, generated, snapshot, golden, vendored, and minified changes as derived unless source or approved generation is clear.
 
 ### Step 4 - Assess tests and operability
 
@@ -76,7 +76,7 @@ Use diagnostics or narrow commands only when review confidence depends on runtim
 
 ### Step 5 - Report verdict
 
-Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/03-definitions.md` and `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/09-output.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
+Read `../../b-agentic/references/contract/03-definitions.md` and `../../b-agentic/references/contract/09-output.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
 
 Verdicts: **READY FOR PR**, **READY WITH FOLLOW-UPS**, or **NEEDS FIXES**. Emit the chosen label in the final `[status]` block's `verdict:` field. Do not use **READY FOR PR** when the review has no baseline, required verification was skipped, or real-browser/visual/e2e evidence remains relevant but absent; **b-browser**-verified supplied/CI evidence, existing-tool evidence, or approved live-browser evidence can satisfy that browser evidence requirement.
 
@@ -101,5 +101,5 @@ Scope/Mode/Path/Baseline -> Findings -> Checked and clean -> Coverage/Tests/Obse
 
 ## Reference pointers
 
-- Read `${CLAUDE_SKILL_DIR}/reference.md` before reviewing auth, untrusted input, sensitive data, uploads, webhooks, or integrations.
-- Read `${CLAUDE_SKILL_DIR}/references/b-agentic/performance-checklist.md` before reviewing hot paths, query volume, rendering loops, list endpoints, or retry behavior.
+- Read `./reference.md` before reviewing auth, untrusted input, sensitive data, uploads, webhooks, or integrations.
+- Read `../../b-agentic/references/performance-checklist.md` before reviewing hot paths, query volume, rendering loops, list endpoints, or retry behavior.

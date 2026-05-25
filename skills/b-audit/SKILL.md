@@ -15,7 +15,7 @@ argument-hint: "[--surface=<area>] [--baseline=<path|url>] [--skip-checks]"
 
 $ARGUMENTS
 
-Audit the b-agentic suite for systemic correctness, consistency, and operability risk. Findings first; sampled coverage must be explicit. For any codebase other than b-agentic, use **b-review** instead — see `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` for the tiebreaker.
+Audit the b-agentic suite for systemic correctness, consistency, and operability risk. Findings first; sampled coverage must be explicit. For any codebase other than b-agentic, use **b-review** instead — see `../../b-agentic/references/contract/10-decisions.md` for the tiebreaker.
 
 Flags: `--baseline=<path|url>`, `--surface=<area>`, `--skip-checks`, `--self`, `--external`.
 
@@ -48,11 +48,11 @@ Flags: `--baseline=<path|url>`, `--surface=<area>`, `--skip-checks`, `--self`, `
 
 Lock the requested surface from arguments or `--surface`. If the surface is absent or too broad, ask for the smallest clarification that names the target area. Do not default to a whole-repository audit.
 
-State mode: self-audit or external audit. Use `--self` or `--external` when explicitly passed; otherwise infer from context, `--baseline`, approved plan, checkpoint handoff, or short clarification. Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/10-decisions.md` before applying the self/external audit distinction. Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/05-evidence.md` before applying the baseline source taxonomy. Without a sufficient baseline, label the run `baseline-missing` and do not claim requirements coverage.
+State mode: self-audit or external audit. Use `--self` or `--external` when explicitly passed; otherwise infer from context, `--baseline`, approved plan, checkpoint handoff, or short clarification. Read `../../b-agentic/references/contract/10-decisions.md` before applying the self/external audit distinction. Read `../../b-agentic/references/contract/05-evidence.md` before applying the baseline source taxonomy. Without a sufficient baseline, label the run `baseline-missing` and do not claim requirements coverage.
 
 ### Step 2 - Pick the checklist
 
-Read `${CLAUDE_SKILL_DIR}/reference.md` before choosing the smallest surface-specific checklist: installer/update path, runtime contract, validator, route/tool boundary, dependency/lockfile, generated artifact, or security-sensitive rule.
+Read `./reference.md` before choosing the smallest surface-specific checklist: installer/update path, runtime contract, validator, route/tool boundary, dependency/lockfile, generated artifact, or security-sensitive rule.
 
 For b-agentic suite audits, check routing boundaries, skill source/generated alignment, contract consistency, runtime-facing docs sync, validator coverage, artifact paths, and safety-gate drift.
 
@@ -70,7 +70,7 @@ Assess observability, cleanup, installation/update behavior, and rollback expect
 
 ### Step 5 - Report verdict
 
-Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/03-definitions.md` and `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/09-output.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
+Read `../../b-agentic/references/contract/03-definitions.md` and `../../b-agentic/references/contract/09-output.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
 
 Verdicts: **AUDIT PASS**, **AUDIT PASS WITH FOLLOW-UPS**, or **NEEDS FIXES**. Emit the chosen label in the final `[status]` block's `verdict:` field. Do not use **AUDIT PASS** when the audit has no baseline, required verification was skipped, or sampled coverage leaves material unreviewed risk; use **AUDIT PASS WITH FOLLOW-UPS** or **NEEDS FIXES** instead.
 
@@ -95,4 +95,4 @@ Scope/Mode/Baseline -> Findings -> Checked and clean -> Coverage/Verification/Op
 
 ## Reference pointers
 
-- Read `${CLAUDE_SKILL_DIR}/reference.md` before applying concrete audit criteria for installer/update paths, runtime contracts, validators, route/tool boundaries, dependencies, generated artifacts, security-sensitive rules, or b-agentic suite audits.
+- Read `./reference.md` before applying concrete audit criteria for installer/update paths, runtime contracts, validators, route/tool boundaries, dependencies, generated artifacts, security-sensitive rules, or b-agentic suite audits.

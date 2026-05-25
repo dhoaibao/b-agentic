@@ -58,7 +58,7 @@ for doc_path, doc_text in [('README.md', readme)]:
 
 for required in [
     "runtime kernel lives in the runtime's installed memory file",
-    '${CLAUDE_SKILL_DIR}/references/b-agentic/contract/',
+    '~/.claude/b-agentic/references/contract/',
     '~/.claude/b-agentic',
     '/tmp/claude-code/b-agentic',
 ]:

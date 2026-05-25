@@ -16,7 +16,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 - Planning/sequencing work -> use **b-plan**.
 - Changed-code review -> use **b-review**.
 - The repo itself can answer the question with one local lookup/read.
-- The active skill needs only ≤ 1 narrow inline lookup (one method sig, one config key) — handle inline; route here when ≥ 2 distinct questions or deep extraction needed. See `{{skill_support_path}}/references/b-agentic/contract/10-decisions.md` for the threshold.
+- The active skill needs only ≤ 1 narrow inline lookup (one method sig, one config key) — handle inline; route here when ≥ 2 distinct questions or deep extraction needed. See `{{runtime_reference_root}}/contract/10-decisions.md` for the threshold.
 
 ## Tools required
 
@@ -33,7 +33,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 
 Default to the lightest authoritative source. Do not ask the user to choose between a quick lookup and deep research; Step 3 handles auto-deepening when first evidence is stale, contradictory, non-authoritative, or indirect.
 
-If the user provides a URL, file, or document, classify it before extraction: public URL, internal/private URL, local plain-text source, local rich document, or likely internal document. Read `{{skill_support_path}}/references/b-agentic/contract/06-safety.md` before sending internal/private URLs, local rich documents, or likely internal documents to external extraction unless the user already approved that exact source class for this run. Prefer structured extraction or query for specific fields, parameters, prices, tables, or lists; use full markdown when full-page understanding, summarization, or quoted context is needed.
+If the user provides a URL, file, or document, classify it before extraction: public URL, internal/private URL, local plain-text source, local rich document, or likely internal document. Read `{{runtime_reference_root}}/contract/06-safety.md` before sending internal/private URLs, local rich documents, or likely internal documents to external extraction unless the user already approved that exact source class for this run. Prefer structured extraction or query for specific fields, parameters, prices, tables, or lists; use full markdown when full-page understanding, summarization, or quoted context is needed.
 
 If the user provides a local document and extraction is unavailable, fall back only for plain-text, Markdown, or HTML sources that local tools can read directly. For PDFs, spreadsheets, DOCX files, or other rich binaries, stop and surface the limitation instead of guessing.
 
@@ -45,15 +45,15 @@ Skip pinning when the question is conceptual and version is not material.
 
 ### Step 3 - Gather evidence
 
-Read `{{skill_support_path}}/references/b-agentic/contract/04-tool-model.md` before choosing MCP/search/extraction depth. Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Search before extracting when the authoritative URL is unknown, and extract only the highest-signal source(s) needed for the answer. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
+Read `{{runtime_reference_root}}/contract/04-tool-model.md` before choosing MCP/search/extraction depth. Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Search before extracting when the authoritative URL is unknown, and extract only the highest-signal source(s) needed for the answer. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
 
-For recency-sensitive questions, read `{{skill_support_path}}/references/b-agentic/contract/05-evidence.md` before using freshness labels or citations. Use the `brave-search` news path before extraction and include `as of <date>` or source publication dates in the answer. Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
+For recency-sensitive questions, read `{{runtime_reference_root}}/contract/05-evidence.md` before using freshness labels or citations. Use the `brave-search` news path before extraction and include `as of <date>` or source publication dates in the answer. Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
 
 For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary vendor or source-repo evidence when available and include the evidence date. If only secondary sources are available, label the limitation and lower confidence.
 
 Auto-deepen when first evidence is stale, contradictory, non-authoritative, or indirect. Use search snippets only for discovery unless explicitly labeled snippet-only with low confidence.
 
-Use `firecrawl-extended` only for maps or structured fields. Read `{{skill_support_path}}/references/b-agentic/contract/04-tool-model.md` and `{{skill_support_path}}/references/b-agentic/contract/06-safety.md` before using `firecrawl-deep` or applying public-web privacy gates.
+Use `firecrawl-extended` only for maps or structured fields. Read `{{runtime_reference_root}}/contract/04-tool-model.md` and `{{runtime_reference_root}}/contract/06-safety.md` before using `firecrawl-deep` or applying public-web privacy gates.
 
 ### Step 4 - Resolve conflicts and synthesize
 
@@ -82,4 +82,4 @@ Research (deep): answer, key findings, limitations, sources, confidence.
 - Cited URLs must come from fetched or user-provided sources in this session.
 - Include `as of <date>` for recency-sensitive, pricing, security, licensing, compatibility, and migration answers.
 - Do not infer document substance from filenames, metadata, or snippets when a rich local document could not be extracted.
-- Read `{{skill_support_path}}/references/b-agentic/contract/09-output.md` before closing a non-trivial research run with a status block or saved report.
+- Read `{{runtime_reference_root}}/contract/09-output.md` before closing a non-trivial research run with a status block or saved report.

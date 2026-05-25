@@ -46,7 +46,7 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed.
 ### Step 1 - Choose quick or full mode
 
 - **Quick mode:** default for low-risk scoped work. Return a short chat plan and ask for approval.
-- **Full mode:** use only for non-trivial work, real structural choice, public/sensitive risk, or durable coordination need. Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/06-safety.md` and `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/08-artifacts.md` before saving a plan under `.b-agentic/b-plan/<plan-file-slug>.md`.
+- **Full mode:** use only for non-trivial work, real structural choice, public/sensitive risk, or durable coordination need. Read `../../b-agentic/references/contract/06-safety.md` and `../../b-agentic/references/contract/08-artifacts.md` before saving a plan under `.b-agentic/b-plan/<plan-file-slug>.md`.
 
 Default to quick mode when the plan is low/trivial risk, fits in chat, and can be executed in one coherent session. Do not promote to full mode solely because the task has several routine substeps. Use full mode when the plan is non-trivial per the shared §3 glossary (touches more than 3 files, a public contract, a sensitive path, CI/build config, or adds/changes a dependency), needs durable approval, spans sessions, has unresolved dependencies, or discovery reveals broad references, security-sensitive behavior, deployment risk, or a plan that is no longer readable in chat.
 
@@ -89,11 +89,11 @@ Full-mode steps use checkbox style so **b-implement** can update progress:
   - Done when: <verification>
 ```
 
-Read `${CLAUDE_SKILL_DIR}/reference.md` before writing a quick-plan template, saved-plan skeleton, supersede rule, or multi-plan dependency.
+Read `./reference.md` before writing a quick-plan template, saved-plan skeleton, supersede rule, or multi-plan dependency.
 
 ### Step 6 - Deliver and request approval
 
-Quick mode stays in chat. For full mode, read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/02-source-of-truth.md` before writing durable frontmatter. Show the path and ask for approval.
+Quick mode stays in chat. For full mode, read `../../b-agentic/references/contract/02-source-of-truth.md` before writing durable frontmatter. Show the path and ask for approval.
 
 If approval arrives during the same run, update `status`, `approved_at`, `approved_by`, and `approved_head` when available.
 
@@ -116,7 +116,7 @@ Restate the ask in one sentence, then ask only what blocks a concrete spec:
 - success criteria
 - non-goals when scope could sprawl
 
-Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/01-routing.md` before applying the clarification budget. Prefer one blocking question at a time when the answer changes the next question. After two unresolved rounds, stop asking open questions: offer two concrete interpretations with named assumptions and ask the user to pick or override.
+Read `../../b-agentic/references/contract/01-routing.md` before applying the clarification budget. Prefer one blocking question at a time when the answer changes the next question. After two unresolved rounds, stop asking open questions: offer two concrete interpretations with named assumptions and ask the user to pick or override.
 
 ### C3 - Use local evidence before asking
 
@@ -151,7 +151,7 @@ Carry confirmed decisions and assumptions back into the plan. Do not hand off to
 
 - Do not implement while planning.
 - Keep quick plans lean; promote to full mode when the plan grows risk or coordination needs.
-- Read `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/02-source-of-truth.md` and `${CLAUDE_SKILL_DIR}/references/b-agentic/contract/08-artifacts.md` before applying slug, artifact, staleness, revision, or saved-plan filename rules.
+- Read `../../b-agentic/references/contract/02-source-of-truth.md` and `../../b-agentic/references/contract/08-artifacts.md` before applying slug, artifact, staleness, revision, or saved-plan filename rules.
 - Surface blockers and assumptions explicitly.
 - If the user waives planning, log the waiver and lower confidence; never proceed without scope confirmation on non-trivial work.
 - Approved plans are the execution source of truth for **b-implement**.
