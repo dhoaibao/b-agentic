@@ -8,7 +8,7 @@ The Gemini adapter supports a personal-global install:
 
 - Kernel memory: `~/.gemini/GEMINI.md`
 - Skills: `~/.gemini/skills/<skill-name>/SKILL.md`
-- Command wrappers: `~/.gemini/commands/<command-name>.toml`
+- Skill commands: `/b-*` from `~/.gemini/skills/<skill-name>/SKILL.md`
 - Skill-local support files: `~/.gemini/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.gemini/b-agentic/`
 - Shared reference snapshot: `~/.gemini/b-agentic/references/*.md`
@@ -17,18 +17,18 @@ The Gemini adapter supports a personal-global install:
 - Sensitive artifacts: `~/.gemini/b-agentic/<skill>/<run-id>/` or `/tmp/gemini-cli/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/gemini-cli/b-agentic/<skill>/<slug>.log`
 
-> Gemini CLI reads global custom commands from `~/.gemini/commands/` and user settings from `~/.gemini/settings.json`. The adapter installs the runtime kernel as `~/.gemini/GEMINI.md` and also snapshots it under `~/.gemini/b-agentic/GEMINI.md` for uninstall safety.
+> Gemini CLI reads user settings from `~/.gemini/settings.json` and exposes installed skills as slash commands. The adapter installs the runtime kernel as `~/.gemini/GEMINI.md` and also snapshots it under `~/.gemini/b-agentic/GEMINI.md` for uninstall safety.
 > Shared skills and shared contract files still stay runtime-neutral in behavior; runtime-specific install paths are resolved by the renderer and installer.
 
 ## Invocation policy
 
-Gemini CLI custom commands are TOML files. The adapter installs one global command per exposed b-agentic skill into `~/.gemini/commands/`, so users can invoke `/b-plan`, `/b-implement`, `/b-review`, and the rest of the `/b-*` surface. Each TOML command delegates back to the matching installed skill and forwards `{{args}}`.
+Gemini CLI exposes each installed b-agentic skill as a native slash command, so users can invoke `/b-plan`, `/b-implement`, `/b-review`, and the rest of the `/b-*` surface directly from the installed skill tree.
 
-If a user command with the same name already exists, the installer preserves it and skips that managed wrapper. Project-local `.gemini/commands/` files can still override user-global commands under Gemini's documented precedence rules.
+The adapter does not install duplicate TOML wrappers into `~/.gemini/commands/`. During upgrade, it removes prior managed wrappers that still match the managed snapshot and preserves user-edited or user-owned command files. A preserved user command with the same `/b-*` name can still collide with Gemini's native skill command; rename or remove that user command if Gemini reports a conflict.
 
 ## Safety policy
 
-The installer never overwrites an existing `~/.gemini/GEMINI.md` without `--replace-memory`. Plain install syncs runtime-local skills, installs the shared reference snapshot under `~/.gemini/b-agentic/references/`, writes the kernel snapshot, and merges b-agentic MCP entries into `~/.gemini/settings.json`. Existing user settings are preserved, and uninstall removes only managed settings and command files that still match the managed snapshot.
+The installer never overwrites an existing `~/.gemini/GEMINI.md` without `--replace-memory`. Plain install syncs runtime-local skills, installs the shared reference snapshot under `~/.gemini/b-agentic/references/`, writes the kernel snapshot, and merges b-agentic MCP entries into `~/.gemini/settings.json`. Existing user settings are preserved, and uninstall removes only managed settings and legacy command files that still match the managed snapshot.
 
 ## Global MCP Setup
 

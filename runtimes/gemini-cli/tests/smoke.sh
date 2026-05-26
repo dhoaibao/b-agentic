@@ -14,6 +14,7 @@ run_runtime_smoke_cases() {
   local sandbox_gemini_merge="$WORK_DIR/gemini-merge"
   local sandbox_gemini_command_collision="$WORK_DIR/gemini-command-collision"
   local sandbox_gemini_modified_command="$WORK_DIR/gemini-modified-command"
+  local sandbox_gemini_legacy_command="$WORK_DIR/gemini-legacy-command"
   local sandbox_gemini_install_report="$WORK_DIR/gemini-install-report"
   local sandbox_gemini_cwd_repo="$WORK_DIR/gemini-cwd-repo"
 
@@ -24,13 +25,11 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_gemini/home/.gemini/skills/b-plan/SKILL.md"
   assert_file "$sandbox_gemini/home/.gemini/skills/b-plan/reference.md"
   assert_contains "$sandbox_gemini/home/.gemini/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
-  assert_file "$sandbox_gemini/home/.gemini/commands/b-plan.toml"
-  assert_contains "$sandbox_gemini/home/.gemini/commands/b-plan.toml" 'Load the `b-plan` skill'
-  assert_contains "$sandbox_gemini/home/.gemini/commands/b-plan.toml" '{{args}}'
+  assert_no_path "$sandbox_gemini/home/.gemini/commands/b-plan.toml"
   assert_file "$sandbox_gemini/home/.gemini/b-agentic/install.json"
   assert_json_value "$sandbox_gemini/home/.gemini/b-agentic/install.json" "data['runtime'] == 'gemini-cli'"
   assert_json_value "$sandbox_gemini/home/.gemini/b-agentic/install.json" "data['activationState'] == 'active'"
-  assert_json_value "$sandbox_gemini/home/.gemini/b-agentic/install.json" "'b-plan' in data['commands']"
+  assert_json_value "$sandbox_gemini/home/.gemini/b-agentic/install.json" "data['commands'] == []"
   assert_file "$sandbox_gemini/home/.gemini/settings.json"
   assert_json_value "$sandbox_gemini/home/.gemini/settings.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
   assert_json_value "$sandbox_gemini/home/.gemini/settings.json" "data['mcpServers']['context7']['httpUrl'] == 'https://mcp.context7.com/mcp'"
@@ -54,7 +53,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_gemini_install_report/install.log" '==> [1/7] Syncing skills'
   assert_contains "$sandbox_gemini_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_gemini_install_report/install.log" 'activation: active'
-  assert_contains "$sandbox_gemini_install_report/install.log" 'commands: '
+  assert_contains "$sandbox_gemini_install_report/install.log" 'commands: native Gemini skill commands; TOML wrappers disabled'
   assert_contains "$sandbox_gemini_install_report/install.log" 'settings: write ->'
   assert_contains "$sandbox_gemini_install_report/install.log" 'launch: start a new Gemini CLI session so it picks up'
 
@@ -107,16 +106,52 @@ run_runtime_smoke_cases() {
   printf 'description = "User command"\nprompt = "user command"\n' > "$sandbox_gemini_command_collision/home/.gemini/commands/b-plan.toml"
   expect_install_status 0 "$sandbox_gemini_command_collision" "$snapshot_repo" --runtime=gemini-cli
   assert_contains "$sandbox_gemini_command_collision/home/.gemini/commands/b-plan.toml" 'user command'
-  assert_json_value "$sandbox_gemini_command_collision/home/.gemini/b-agentic/install.json" "'b-plan' not in data['commands']"
+  assert_json_value "$sandbox_gemini_command_collision/home/.gemini/b-agentic/install.json" "data['commands'] == []"
   expect_install_status 0 "$sandbox_gemini_command_collision" "$snapshot_repo" --runtime=gemini-cli --uninstall
   assert_contains "$sandbox_gemini_command_collision/home/.gemini/commands/b-plan.toml" 'user command'
 
   mkdir -p "$sandbox_gemini_modified_command/home"
   expect_install_status 0 "$sandbox_gemini_modified_command" "$snapshot_repo" --runtime=gemini-cli
+  mkdir -p "$sandbox_gemini_modified_command/home/.gemini/commands" "$sandbox_gemini_modified_command/home/.gemini/b-agentic/commands"
+  printf 'description = "Legacy managed command"\nprompt = "Load the `b-plan` skill and follow it for this request.\\n\\n{{args}}"\n' > "$sandbox_gemini_modified_command/home/.gemini/commands/b-plan.toml"
+  cp "$sandbox_gemini_modified_command/home/.gemini/commands/b-plan.toml" "$sandbox_gemini_modified_command/home/.gemini/b-agentic/commands/b-plan.toml"
   printf '\n# user edit\n' >> "$sandbox_gemini_modified_command/home/.gemini/commands/b-plan.toml"
+  python3 - "$sandbox_gemini_modified_command/home/.gemini/b-agentic/install.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['commands'] = ['b-plan']
+path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+PY
+  expect_install_status 0 "$sandbox_gemini_modified_command" "$snapshot_repo" --runtime=gemini-cli
   expect_install_status 0 "$sandbox_gemini_modified_command" "$snapshot_repo" --runtime=gemini-cli --uninstall
   assert_file "$sandbox_gemini_modified_command/home/.gemini/commands/b-plan.toml"
   assert_contains "$sandbox_gemini_modified_command/home/.gemini/commands/b-plan.toml" 'user edit'
+
+  mkdir -p "$sandbox_gemini_legacy_command/home/.gemini/commands" "$sandbox_gemini_legacy_command/home/.gemini/b-agentic/commands"
+  printf 'description = "Legacy managed command"\nprompt = "Load the `b-plan` skill and follow it for this request.\\n\\n{{args}}"\n' > "$sandbox_gemini_legacy_command/home/.gemini/commands/b-plan.toml"
+  cp "$sandbox_gemini_legacy_command/home/.gemini/commands/b-plan.toml" "$sandbox_gemini_legacy_command/home/.gemini/b-agentic/commands/b-plan.toml"
+  cat > "$sandbox_gemini_legacy_command/home/.gemini/b-agentic/install.json" <<'JSON'
+{
+  "commands": ["b-plan"],
+  "paths": {
+    "commands": "__COMMANDS_DST__"
+  }
+}
+JSON
+  python3 - "$sandbox_gemini_legacy_command/home/.gemini/b-agentic/install.json" "$sandbox_gemini_legacy_command/home/.gemini/commands" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+path.write_text(path.read_text().replace('__COMMANDS_DST__', sys.argv[2]))
+PY
+  expect_install_status 0 "$sandbox_gemini_legacy_command" "$snapshot_repo" --runtime=gemini-cli
+  assert_no_path "$sandbox_gemini_legacy_command/home/.gemini/commands/b-plan.toml"
+  assert_json_value "$sandbox_gemini_legacy_command/home/.gemini/b-agentic/install.json" "data['commands'] == []"
 
   expect_install_status 0 "$sandbox_gemini" "$snapshot_repo" --runtime=gemini-cli --uninstall
   assert_no_path "$sandbox_gemini/home/.gemini/b-agentic"

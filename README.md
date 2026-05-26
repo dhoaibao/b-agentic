@@ -62,7 +62,7 @@ The installer is designed to be a one-command bootstrap. It installs the kernel,
 - Recommended runtime config templates, MCP config, and shared references
 - For OpenCode, thin `/b-*` command wrappers in `~/.config/opencode/commands/`
 - For Codex CLI, skill registration and MCP server config in `~/.codex/config.toml`
-- For Gemini CLI, thin `/b-*` TOML command wrappers in `~/.gemini/commands/`
+- For Gemini CLI, `/b-*` commands exposed by installed Gemini skills in `~/.gemini/skills/`
 
 If an existing kernel file is preserved, the install stays in a pending state until you replace or merge it.
 
@@ -129,7 +129,6 @@ b-agentic/
 │   │   └── tests/         # Runtime-specific smoke lane
 │   ├── gemini-cli/
 │   │   ├── kernel.md      # Gemini CLI runtime kernel
-│   │   ├── commands/      # Thin /b-* TOML command wrappers
 │   │   ├── configs/       # Runtime config templates and docs
 │   │   ├── scripts/       # Runtime-specific install and validate scripts
 │   │   └── tests/         # Runtime-specific smoke lane

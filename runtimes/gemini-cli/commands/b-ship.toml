@@ -1,4 +1,0 @@
-description = "Commit, push, and open a PR after approval"
-
-# Generated from skills/registry.yaml. Edit the registry, not this wrapper.
-prompt = "Load the `b-ship` skill and follow it for this request.\n\n{{args}}"

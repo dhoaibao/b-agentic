@@ -65,9 +65,9 @@
       "config_template_dir": "runtimes/gemini-cli/configs",
       "config_schema_family": "gemini-settings-json",
       "command_wrappers": {
-        "supported": true,
-        "source_dir": "runtimes/gemini-cli/commands",
-        "install_root": "~/.gemini/commands"
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
       }
     }
   ]

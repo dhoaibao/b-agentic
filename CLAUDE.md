@@ -111,7 +111,7 @@ Before merging runtime-facing changes:
 2. Run `scripts/validate-skills.sh`.
 3. Run `scripts/smoke-install.sh` when install, runtime, wrapper, or kernel delivery behavior changed.
 4. Codex runtime install, validation, and smoke paths rely on Python 3.11+ standard-library `tomllib` support.
-5. Gemini runtime commands are generated TOML wrappers under `runtimes/gemini-cli/commands/`.
+5. Gemini CLI exposes `/b-*` through its native skill command loader; do not add duplicate TOML wrappers under `~/.gemini/commands/`.
 6. Check that shared content stayed runtime-neutral.
 7. Check that docs changed in the same commit when the public or maintainer surface changed.
 8. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.

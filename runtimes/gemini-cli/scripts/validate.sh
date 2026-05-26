@@ -47,7 +47,6 @@ gemini_readme = (root / 'runtimes' / 'gemini-cli' / 'configs' / 'README.md').rea
 contract_index = (root / 'references' / 'contract' / 'index.md').read_text() if (root / 'references' / 'contract' / 'index.md').exists() else ''
 maintainer = (root / 'CLAUDE.md').read_text() if (root / 'CLAUDE.md').exists() else ''
 gemini_install = (root / 'runtimes' / 'gemini-cli' / 'scripts' / 'install.sh').read_text() if (root / 'runtimes' / 'gemini-cli' / 'scripts' / 'install.sh').exists() else ''
-commands_dir = root / 'runtimes' / 'gemini-cli' / 'commands'
 runtime_registry_path = root / 'runtimes' / 'registry.yaml'
 settings_template_path = root / 'runtimes' / 'gemini-cli' / 'configs' / 'settings.template.json'
 
@@ -82,10 +81,10 @@ else:
     if gemini_runtime.get('skills_install_root') != '~/.gemini/skills':
         errors.append('runtimes/registry.yaml: gemini-cli skills_install_root must be ~/.gemini/skills')
     command_wrappers = gemini_runtime.get('command_wrappers')
-    if not isinstance(command_wrappers, dict) or command_wrappers.get('supported') is not True:
-        errors.append('runtimes/registry.yaml: gemini-cli must declare supported command wrappers')
-    elif command_wrappers.get('source_dir') != 'runtimes/gemini-cli/commands':
-        errors.append('runtimes/registry.yaml: gemini-cli command wrapper source_dir must be runtimes/gemini-cli/commands')
+    if not isinstance(command_wrappers, dict) or command_wrappers.get('supported') is not False:
+        errors.append('runtimes/registry.yaml: gemini-cli must not declare command wrappers; Gemini exposes skills as slash commands')
+    elif command_wrappers.get('source_dir') is not None or command_wrappers.get('install_root') is not None:
+        errors.append('runtimes/registry.yaml: gemini-cli command wrapper paths must be null')
 
 for required in [
     '~/.gemini/b-agentic',
@@ -98,6 +97,7 @@ for required in [
     'GEMINI_DIR',
     'GEMINI_SETTINGS_DST',
     'COMMANDS_DST',
+    'remove_legacy_managed_commands',
     'install_mcp_config',
     'runtime_main',
     'report_item "commands"',
@@ -105,21 +105,9 @@ for required in [
     if required not in gemini_install:
         errors.append(f'runtimes/gemini-cli/scripts/install.sh: missing Gemini installer marker {required!r}')
 
-if not commands_dir.exists():
-    errors.append('runtimes/gemini-cli/commands: missing Gemini command wrapper source directory')
-else:
-    command_names = {path.stem for path in commands_dir.glob('*.toml')}
-    missing_commands = sorted(skill_names - command_names)
-    extra_commands = sorted(command_names - skill_names)
-    if missing_commands or extra_commands:
-        errors.append(
-            'runtimes/gemini-cli/commands: command wrappers must match exposed skill aliases '
-            f'(missing: {missing_commands}, extra: {extra_commands})'
-        )
-    for path in commands_dir.glob('*.toml'):
-        text = path.read_text()
-        if 'prompt =' not in text or '{{args}}' not in text:
-            errors.append(f'{path}: Gemini command wrapper must define prompt with {{args}} forwarding')
+gemini_command_files = list((root / 'runtimes' / 'gemini-cli').glob('commands/*.toml'))
+if gemini_command_files:
+    errors.append('runtimes/gemini-cli/commands: Gemini must not ship TOML wrappers that duplicate native skill commands')
 
 if not settings_template_path.exists():
     errors.append('runtimes/gemini-cli/configs/settings.template.json: missing settings template')
@@ -140,7 +128,7 @@ else:
 
 if 'Gemini CLI Runtime Layout' not in gemini_readme:
     errors.append('runtimes/gemini-cli/configs/README.md: missing title')
-for needle in ['~/.gemini/settings.json', '~/.gemini/commands/', '~/.gemini/skills/', 'settings.template.json', 'runtime-neutral', 'TOML']:
+for needle in ['~/.gemini/settings.json', '~/.gemini/skills/', 'settings.template.json', 'runtime-neutral', 'native slash command', 'TOML wrappers']:
     if needle not in gemini_readme:
         errors.append(f'runtimes/gemini-cli/configs/README.md: missing Gemini documentation marker {needle!r}')
 

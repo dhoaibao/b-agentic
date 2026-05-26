@@ -10,7 +10,6 @@ readonly GEMINI_DIR="${B_AGENTIC_GEMINI_DIR:-$HOME/.gemini}"
 readonly METADATA_DIR="$GEMINI_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="${B_AGENTIC_SKILLS_DST:-$HOME/.gemini/skills}"
-readonly COMMANDS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/commands"
 readonly COMMANDS_DST="${B_AGENTIC_GEMINI_COMMANDS_DIR:-$HOME/.gemini/commands}"
 readonly COMMANDS_SNAPSHOT_DST="$METADATA_DIR/commands"
 readonly KERNEL_DST="$GEMINI_DIR/GEMINI.md"
@@ -40,65 +39,48 @@ runtime_install_config_stage_count() {
   printf '1'
 }
 
-command_names() {
-  python3 - "$COMMANDS_SRC" <<'PY'
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1])
-for path in sorted(root.glob('*.toml')):
-    print(path.stem)
-PY
+manifest_or_snapshot_command_names() {
+  if [ -f "$MANIFEST_DST" ]; then
+    manifest_array_values commands
+    return 0
+  fi
+  if [ -d "$COMMANDS_SNAPSHOT_DST" ]; then
+    find "$COMMANDS_SNAPSHOT_DST" -maxdepth 1 -type f -name '*.toml' -print | sed 's#^.*/##; s#\.toml$##'
+  fi
 }
 
-install_commands() {
-  local -n installed_ref="$1"
-  ensure_dir "$COMMANDS_DST"
-  installed_ref=()
-
-  local name src dst previous_snapshot next_snapshot
-  next_snapshot="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-gemini-commands.XXXXXX")"
+remove_legacy_managed_commands() {
+  local name commands_path command_snapshot removed_count=0 preserved_count=0
+  commands_path="$(manifest_path_value commands "$COMMANDS_DST")"
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-
-    src="$COMMANDS_SRC/$name.toml"
-    dst="$COMMANDS_DST/$name.toml"
-    previous_snapshot="$COMMANDS_SNAPSHOT_DST/$name.toml"
-
-    if [ -f "$dst" ]; then
-      if [ -f "$previous_snapshot" ] && cmp -s "$dst" "$previous_snapshot"; then
-        copy_file "$src" "$dst"
-        copy_file "$src" "$next_snapshot/$name.toml"
-        installed_ref+=("$name")
-        continue
-      fi
-
-      if cmp -s "$dst" "$src"; then
-        if [ -f "$previous_snapshot" ]; then
-          copy_file "$src" "$next_snapshot/$name.toml"
-          installed_ref+=("$name")
-        else
-          warn "preserving existing Gemini command: $dst"
-        fi
-        continue
-      fi
-
-      warn "preserving modified Gemini command wrapper: $dst"
+    command_snapshot="$COMMANDS_SNAPSHOT_DST/$name.toml"
+    if [ ! -f "$commands_path/$name.toml" ]; then
       continue
     fi
-
-    copy_file "$src" "$dst"
-    copy_file "$src" "$next_snapshot/$name.toml"
-    installed_ref+=("$name")
-  done < <(command_names)
-
-  copy_dir_replace "$next_snapshot" "$COMMANDS_SNAPSHOT_DST"
-  rm -rf "$next_snapshot"
+    if [ ! -f "$command_snapshot" ]; then
+      warn "preserving Gemini command with no managed snapshot: $commands_path/$name.toml"
+      preserved_count=$((preserved_count + 1))
+      continue
+    fi
+    if cmp -s "$commands_path/$name.toml" "$command_snapshot"; then
+      run_cmd rm -f "$commands_path/$name.toml"
+      removed_count=$((removed_count + 1))
+    else
+      warn "preserving modified Gemini command wrapper: $commands_path/$name.toml"
+      preserved_count=$((preserved_count + 1))
+    fi
+  done < <(manifest_or_snapshot_command_names)
+  if [ -d "$COMMANDS_SNAPSHOT_DST" ]; then
+    run_cmd rm -rf "$COMMANDS_SNAPSHOT_DST"
+  fi
+  INSTALL_COMMAND_CLEANUP="removed:$removed_count preserved:$preserved_count"
 }
 
 runtime_install_extra_assets() {
-  [ -d "$COMMANDS_SRC" ] || die "missing command source directory: $COMMANDS_SRC"
-  install_commands INSTALL_COMMAND_NAMES
+  INSTALL_COMMAND_NAMES=()
+  INSTALL_COMMAND_CLEANUP="removed:0 preserved:0"
+  remove_legacy_managed_commands
 }
 
 runtime_install_configs() {
@@ -175,7 +157,7 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
-  report_item "commands" "${#INSTALL_COMMAND_NAMES[@]} synced -> $COMMANDS_DST"
+  report_item "commands" "native Gemini skill commands; TOML wrappers disabled ($INSTALL_COMMAND_CLEANUP)"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "settings" "$INSTALL_MCP_ACTION -> $GEMINI_SETTINGS_DST"
   report_item "references" "sync -> $REFERENCES_DST"
@@ -189,32 +171,9 @@ runtime_print_install_report() {
   print_install_report_next_steps "Gemini CLI"
 }
 
-manifest_command_names() {
-  if manifest_array_values commands; then
-    return 0
-  fi
-  command_names
-}
-
 runtime_uninstall_extra_assets() {
-  local name commands_path command_snapshot
-  commands_path="$(manifest_path_value commands "$COMMANDS_DST")"
-  while IFS= read -r name; do
-    [ -n "$name" ] || continue
-    command_snapshot="$COMMANDS_SNAPSHOT_DST/$name.toml"
-    if [ ! -f "$commands_path/$name.toml" ]; then
-      continue
-    fi
-    if [ ! -f "$command_snapshot" ]; then
-      warn "preserving Gemini command with no managed snapshot: $commands_path/$name.toml"
-      continue
-    fi
-    if cmp -s "$commands_path/$name.toml" "$command_snapshot"; then
-      run_cmd rm -f "$commands_path/$name.toml"
-    else
-      warn "preserving modified Gemini command wrapper: $commands_path/$name.toml"
-    fi
-  done < <(manifest_command_names)
+  INSTALL_COMMAND_CLEANUP="removed:0 preserved:0"
+  remove_legacy_managed_commands
 }
 
 runtime_uninstall_configs() {
