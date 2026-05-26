@@ -100,10 +100,11 @@ else:
     if set(servers) != expected_servers:
         errors.append(f'runtimes/kimi-cli/configs/mcp_config.template.json: expected default MCP servers {sorted(expected_servers)}, found {sorted(servers)}')
     context7 = servers.get('context7', {})
-    if context7.get('serverUrl') != 'https://mcp.context7.com/mcp':
-        errors.append('runtimes/kimi-cli/configs/mcp_config.template.json: context7 must use serverUrl')
-    if 'httpUrl' in context7:
-        errors.append('runtimes/kimi-cli/configs/mcp_config.template.json: context7 must not use httpUrl')
+    if context7.get('url') != 'https://mcp.context7.com/mcp':
+        errors.append('runtimes/kimi-cli/configs/mcp_config.template.json: context7 must use url')
+    for forbidden in ('serverUrl', 'httpUrl'):
+        if forbidden in context7:
+            errors.append(f'runtimes/kimi-cli/configs/mcp_config.template.json: context7 must not use {forbidden}')
     if context7.get('headers', {}).get('CONTEXT7_API_KEY') != '$CONTEXT7_API_KEY':
         errors.append('runtimes/kimi-cli/configs/mcp_config.template.json: context7 must use $CONTEXT7_API_KEY header placeholder')
     if servers.get('playwright', {}).get('args', [])[-1:] != ['--isolated']:
@@ -115,7 +116,8 @@ for needle in [
     '~/.kimi/mcp.json',
     '~/.kimi/skills/',
     'mcp_config.template.json',
-    'serverUrl',
+    '`url`',
+    'fastmcp',
     'runtime-neutral',
     'native skill loader',
     'config.toml',

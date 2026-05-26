@@ -38,7 +38,7 @@ The installer never overwrites an existing `~/.kimi/AGENTS.md` without `--replac
 
 Kimi Code CLI uses a separate `~/.kimi/mcp.json` file for MCP servers. MCP servers are configured under the top-level `mcpServers` object (a format compatible with other MCP clients). The installer merges `mcp_config.template.json` from this directory into `~/.kimi/mcp.json` automatically. Existing user entries are preserved; b-agentic entries are removed on uninstall.
 
-Remote MCP entries use `serverUrl`. The managed Context7 entry therefore uses `serverUrl`, while stdio servers continue to use `command` and `args`.
+Remote MCP entries use `url` (the upstream fastmcp canonical field). The managed Context7 entry therefore uses `url`, while stdio servers continue to use `command` and `args`. Kimi rejects `serverUrl` because its fastmcp `RemoteMCPServer` schema requires `url`.
 
 The installer also prompts for optional API keys (Context7, Brave Search, Firecrawl) when run with `--prompt-api-keys`. Key values are written only to the user's `~/.kimi/mcp.json` and never to the tracked template.
 

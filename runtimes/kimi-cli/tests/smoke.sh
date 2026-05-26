@@ -28,7 +28,8 @@ run_runtime_smoke_cases() {
   assert_json_value "$sandbox_kimi/home/.kimi/b-agentic/install.json" "data['paths']['kimiMcpConfig'].endswith('/.kimi/mcp.json')"
   assert_file "$sandbox_kimi/home/.kimi/mcp.json"
   assert_json_value "$sandbox_kimi/home/.kimi/mcp.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
-  assert_json_value "$sandbox_kimi/home/.kimi/mcp.json" "data['mcpServers']['context7']['serverUrl'] == 'https://mcp.context7.com/mcp'"
+  assert_json_value "$sandbox_kimi/home/.kimi/mcp.json" "data['mcpServers']['context7']['url'] == 'https://mcp.context7.com/mcp'"
+  assert_json_value "$sandbox_kimi/home/.kimi/mcp.json" "'serverUrl' not in data['mcpServers']['context7']"
   assert_json_value "$sandbox_kimi/home/.kimi/mcp.json" "'httpUrl' not in data['mcpServers']['context7']"
   assert_json_value "$sandbox_kimi/home/.kimi/mcp.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\$CONTEXT7_API_KEY'"
   assert_json_value "$sandbox_kimi/home/.kimi/mcp.json" "data['mcpServers']['brave-search']['command'] == 'pnpm'"
@@ -79,7 +80,7 @@ run_runtime_smoke_cases() {
   assert_no_path "$sandbox_kimi_prompt_keys/home/.kimi/mcp.json"
 
   mkdir -p "$sandbox_kimi_merge/home/.kimi"
-  printf '{"mcpServers":{"custom":{"serverUrl":"https://example.com/mcp"}},"userOnly":true}\n' > "$sandbox_kimi_merge/home/.kimi/mcp.json"
+  printf '{"mcpServers":{"custom":{"url":"https://example.com/mcp"}},"userOnly":true}\n' > "$sandbox_kimi_merge/home/.kimi/mcp.json"
   expect_install_status 0 "$sandbox_kimi_merge" "$snapshot_repo" --runtime=kimi-cli
   assert_json_value "$sandbox_kimi_merge/home/.kimi/mcp.json" "'custom' in data['mcpServers']"
   assert_json_value "$sandbox_kimi_merge/home/.kimi/mcp.json" "'gitnexus' in data['mcpServers']"
