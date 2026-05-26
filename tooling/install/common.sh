@@ -612,7 +612,7 @@ if not isinstance(current, dict) or not isinstance(incoming, dict) or not isinst
     raise SystemExit(f'{label} cleanup requires JSON object inputs')
 
 cleaned = cleanup(current, incoming, original)
-if label in ('.claude.json', 'opencode.json', 'gemini-settings.json', 'antigravity-mcp_config.json'):
+if label in ('.claude.json', 'opencode.json', 'gemini-settings.json', 'antigravity-mcp_config.json', 'kimi-mcp_config.json'):
     mcp_key = 'mcp' if label == 'opencode.json' else 'mcpServers'
     cleaned_servers = cleaned.get(mcp_key)
     incoming_servers = incoming.get(mcp_key, {})

@@ -71,6 +71,23 @@
       }
     },
     {
+      "name": "kimi-cli",
+      "display_name": "Kimi Code CLI",
+      "reference_runtime": false,
+      "kernel_source": "runtimes/kimi-cli/kernel.md",
+      "memory_file": "AGENTS.md",
+      "memory_install_path": "~/.kimi/AGENTS.md",
+      "metadata_root": "~/.kimi/b-agentic",
+      "skills_install_root": "~/.kimi/skills",
+      "config_template_dir": "runtimes/kimi-cli/configs",
+      "config_schema_family": "kimi-mcp-json",
+      "command_wrappers": {
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
+      }
+    },
+    {
       "name": "gemini-cli",
       "display_name": "Gemini CLI",
       "reference_runtime": false,

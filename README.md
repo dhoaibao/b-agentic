@@ -1,10 +1,10 @@
 # b-agentic
 
-**An agent workflow kernel for Claude Code, OpenCode, Codex CLI, and Antigravity CLI.**
+**An agent workflow kernel for Claude Code, OpenCode, Codex CLI, Antigravity CLI, and Kimi Code CLI.**
 
-`b-agentic` turns rough developer intent into disciplined loops: clarify, plan, build, validate, debug, review, and ship. Claude Code is the reference runtime; OpenCode, Codex CLI, and Antigravity CLI are supported through runtime-specific adapters. Gemini CLI remains available as a legacy compatibility runtime.
+`b-agentic` turns rough developer intent into disciplined loops: clarify, plan, build, validate, debug, review, and ship. Claude Code is the reference runtime; OpenCode, Codex CLI, Antigravity CLI, and Kimi Code CLI are supported through runtime-specific adapters. Gemini CLI remains available as a legacy compatibility runtime.
 
-Skill names are runtime-neutral: Claude Code, OpenCode, Antigravity CLI, and Gemini CLI commonly expose `/b-*`, while Codex CLI uses `/skills`, `$skill-name`, or implicit matching.
+Skill names are runtime-neutral: Claude Code, OpenCode, Antigravity CLI, Kimi Code CLI, and Gemini CLI commonly expose `/b-*`, while Codex CLI uses `/skills`, `$skill-name`, or implicit matching.
 
 ## Install
 
@@ -30,6 +30,12 @@ Install for Antigravity CLI:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=antigravity-cli
+```
+
+Install for Kimi Code CLI:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=kimi-cli
 ```
 
 Legacy Gemini CLI compatibility install:
@@ -63,12 +69,13 @@ The installer is designed to be a one-command bootstrap. It installs the kernel,
 
 ## What You Get
 
-- A runtime kernel installed into the active tool: `~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`, `~/.codex/AGENTS.md`, or `~/.gemini/GEMINI.md`
-- The `b-agentic` skill set under the runtime-local skills tree (`~/.claude/skills/`, `~/.config/opencode/skills/`, `~/.codex/skills/`, `~/.gemini/antigravity-cli/skills/`, or legacy `~/.gemini/skills/`)
+- A runtime kernel installed into the active tool: `~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, or `~/.kimi/AGENTS.md`
+- The `b-agentic` skill set under the runtime-local skills tree (`~/.claude/skills/`, `~/.config/opencode/skills/`, `~/.codex/skills/`, `~/.gemini/antigravity-cli/skills/`, `~/.kimi/skills/`, or legacy `~/.gemini/skills/`)
 - Recommended runtime config templates, MCP config, and shared references
 - For OpenCode, thin `/b-*` command wrappers in `~/.config/opencode/commands/`
 - For Codex CLI, skill registration and MCP server config in `~/.codex/config.toml`
 - For Antigravity CLI, `/b-*` commands exposed by installed Antigravity skills in `~/.gemini/antigravity-cli/skills/`
+- For Kimi Code CLI, `/b-*` commands exposed by installed Kimi skills in `~/.kimi/skills/`
 - For legacy Gemini CLI, `/b-*` commands exposed by installed Gemini skills in `~/.gemini/skills/`
 
 If an existing kernel file is preserved, the install stays in a pending state until you replace or merge it.
@@ -136,6 +143,11 @@ b-agentic/
 │   │   └── tests/         # Runtime-specific smoke lane
 │   ├── antigravity-cli/
 │   │   ├── kernel.md      # Antigravity CLI runtime kernel
+│   │   ├── configs/       # Runtime config templates and docs
+│   │   ├── scripts/       # Runtime-specific install and validate scripts
+│   │   └── tests/         # Runtime-specific smoke lane
+│   ├── kimi-cli/
+│   │   ├── kernel.md      # Kimi Code CLI runtime kernel
 │   │   ├── configs/       # Runtime config templates and docs
 │   │   ├── scripts/       # Runtime-specific install and validate scripts
 │   │   └── tests/         # Runtime-specific smoke lane
