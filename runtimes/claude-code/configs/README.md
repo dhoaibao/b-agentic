@@ -71,4 +71,6 @@ The installer never auto-installs these packages.
 
 `scripts/smoke-install.sh` is the stable wrapper over `tests/smoke/install.sh`. The Claude adapter contributes its install coverage through `runtimes/claude-code/tests/smoke.sh`.
 
+For release-critical delivery changes, prefer `scripts/validate-skills.sh --release`; it keeps the same shared validation path but also runs installer smoke so launcher and install regressions fail the maintained entrypoint.
+
 Shared skills and shared contract files stay runtime-neutral; Claude-specific install paths remain adapter-owned here and in `runtimes/claude-code/scripts/validate.sh`.

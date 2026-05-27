@@ -2,14 +2,14 @@
 
 $ARGUMENTS
 
-Commit the reviewed diff, push, and open a pull request. Each destructive git action requires confirmation unless it was already approved in the current session.
+Commit the reviewed diff, push, and open a pull request, but only on explicit ship intent. Each destructive git action requires confirmation unless it was already approved in the current session.
 
 Flags: `--draft` (open as draft PR), `--title=<title>` (skip interactive prompt), `--base=<branch>` (target branch, default: main).
 
 ## When to use
 
-- The user asks to commit, push, open a PR, or ship after a review verdict of `READY FOR PR` or `READY WITH FOLLOW-UPS`.
-- `b-orchestrate` closes a workflow with `Next: b-ship`.
+- The user explicitly asks to commit, push, open a PR, or ship after a review verdict of `READY FOR PR` or `READY WITH FOLLOW-UPS`.
+- `b-orchestrate` closes a workflow with `Next: b-ship`, but that is a recommendation, not an implicit shipping handoff.
 
 ## When NOT to use
 

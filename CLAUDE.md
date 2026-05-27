@@ -90,7 +90,7 @@ runtimes/<name>/
 - Adapter directories own runtime-specific kernels, config templates, install hooks, wrappers, and caveats.
 - For MCP launch commands that would otherwise use `npx`, prefer `pnpm dlx` when the package supports it so startup is faster.
 - `install.sh` is the bootstrap entrypoint only; shared behavior lives in `tooling/install/common.sh`, and runtime-specific behavior lives in `runtimes/<name>/scripts/install.sh`.
-- `scripts/validate-skills.sh` is a stable wrapper over the shared validation harness plus runtime validators.
+- `scripts/validate-skills.sh` is a stable wrapper over the shared validation harness plus runtime validators, and `scripts/validate-skills.sh --release` adds installer smoke coverage for delivery-sensitive changes.
 - `scripts/smoke-install.sh` is a stable wrapper over the shared smoke harness plus runtime smoke lanes.
 - Use `runtimes/runtime-template/` as the starting point for a new adapter.
 - Do not add a new runtime without updating generation, validation, smoke coverage, and docs in the same change.
@@ -109,14 +109,15 @@ Before merging runtime-facing changes:
 
 1. Rerun `python3 tooling/generate/registry_sync.py` when generated surfaces are affected.
 2. Run `scripts/validate-skills.sh`.
-3. Run `scripts/smoke-install.sh` when install, runtime, wrapper, or kernel delivery behavior changed.
-4. Codex runtime install, validation, and smoke paths rely on Python 3.11+ standard-library `tomllib` support.
-5. Antigravity CLI exposes `/b-*` through its native skill command loader from `~/.gemini/antigravity-cli/skills/`; keep MCP in `~/.gemini/antigravity-cli/mcp_config.json` and use `serverUrl` for remote MCP entries.
-6. Kimi Code CLI exposes `/b-*` through its native skill loader from `~/.kimi/skills/`; keep MCP in `~/.kimi/mcp.json` and use `url` (fastmcp canonical) for remote MCP entries; do not touch `~/.kimi/config.toml`.
-7. Gemini CLI remains a legacy compatibility runtime; do not add duplicate TOML wrappers under `~/.gemini/commands/`.
-8. Check that shared content stayed runtime-neutral.
-9. Check that docs changed in the same commit when the public or maintainer surface changed.
-10. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.
+3. Run `scripts/validate-skills.sh --release` when install, runtime, wrapper, or kernel delivery behavior changed.
+4. Run `scripts/smoke-install.sh` directly only when you need the smoke suite by itself while iterating.
+5. Codex runtime install, validation, and smoke paths rely on Python 3.11+ standard-library `tomllib` support.
+6. Antigravity CLI exposes `/b-*` through its native skill command loader from `~/.gemini/antigravity-cli/skills/`; keep MCP in `~/.gemini/antigravity-cli/mcp_config.json` and use `serverUrl` for remote MCP entries.
+7. Kimi Code CLI exposes `/b-*` through its native skill loader from `~/.kimi/skills/`; keep MCP in `~/.kimi/mcp.json` and use `url` (fastmcp canonical) for remote MCP entries; do not touch `~/.kimi/config.toml`.
+8. Gemini CLI remains a legacy compatibility runtime; do not add duplicate TOML wrappers under `~/.gemini/commands/`.
+9. Check that shared content stayed runtime-neutral.
+10. Check that docs changed in the same commit when the public or maintainer surface changed.
+11. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.
 
 ## Review Checklist
 

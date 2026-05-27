@@ -5,10 +5,10 @@
     {
       "name": "b-orchestrate",
       "phase": "End-to-end",
-      "use": "Coordinate phase handoffs until PR-ready, ready with follow-ups, or blocked",
+      "use": "Coordinate resumed phase handoffs until PR-ready, ready with follow-ups, or blocked",
       "command": {
         "alias": "b-orchestrate",
-        "description": "Coordinate an end-to-end PR-readiness workflow",
+        "description": "Coordinate PR-readiness phase handoffs",
         "exposed": true,
         "target": "workflow"
       },
@@ -23,7 +23,7 @@
         ]
       },
       "prompt": {
-        "description": "End-to-end PR readiness orchestration for workflows spanning plan, implementation, optional tests, review, and review-fix loops until ready for PR. Coordinates phase handoffs, parses returned status blocks, and stops at approval, blocker, or readiness. Unlike b-implement, b-orchestrate owns sequencing across multiple skills rather than changing code itself.",
+        "description": "Coordinate phase-skill handoffs across resumed turns until PR-ready, ready with follow-ups, or blocked. Tracks audit trail through handoff envelopes and returned status blocks instead of assuming automatic phase execution. Unlike b-implement, b-orchestrate owns sequencing and checkpoints; the phase owner does the actual work.",
         "argument_hint": "[workflow-goal]"
       }
     },
@@ -222,8 +222,6 @@
         "intent": "Pre-PR changed-code review",
         "triggers": [
           "review",
-          "PR",
-          "lint",
           "pre-PR",
           "\"what would a reviewer\""
         ]
@@ -258,15 +256,15 @@
     {
       "name": "b-ship",
       "phase": "Ship",
-      "use": "Commit, push, and open a PR after READY FOR PR",
+      "use": "Commit, push, and open a PR on explicit request after review readiness",
       "command": {
         "alias": "b-ship",
-        "description": "Commit, push, and open a PR after approval",
+        "description": "Commit, push, and open a PR on explicit request",
         "exposed": true
       },
       "routing": null,
       "prompt": {
-        "description": "Commit, push, and open a pull request after the suite reaches READY FOR PR. Invoked by the user or b-orchestrate when a reviewed diff is ready to ship. Safety-gates each git action (commit, push, PR creation); never force-pushes. Stops after the PR URL is printed; post-PR automation is out of scope.",
+        "description": "Commit, push, and open a pull request only on explicit ship intent after a reviewed diff is ready. `b-orchestrate` may point to `b-ship` as the next action, but it does not invoke shipping implicitly. Safety-gates each git action (commit, push, PR creation); never force-pushes. Stops after the PR URL is printed; post-PR automation is out of scope.",
         "argument_hint": "[--draft] [--title=<title>] [--base=<branch>]"
       }
     }

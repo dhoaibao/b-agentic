@@ -4,6 +4,20 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+run_release=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --release)
+      run_release=1
+      ;;
+    *)
+      printf 'usage: %s [--release]\n' "${BASH_SOURCE[0]}" >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
 runtime_names() {
   python3 - <<'PY'
 from pathlib import Path
@@ -32,5 +46,9 @@ while IFS= read -r runtime_name; do
     exit_code=1
   fi
 done < <(runtime_names)
+
+if [ "$run_release" -eq 1 ]; then
+  bash "$ROOT_DIR/tests/smoke/install.sh"
+fi
 
 exit "$exit_code"

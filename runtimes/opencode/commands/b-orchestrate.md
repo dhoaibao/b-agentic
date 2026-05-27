@@ -1,5 +1,5 @@
 ---
-description: Coordinate an end-to-end PR-readiness workflow
+description: Coordinate PR-readiness phase handoffs
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

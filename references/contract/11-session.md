@@ -18,7 +18,7 @@
 
 - Skill descriptions cover **intent and disambiguation only**. Trigger keywords live in §1, not duplicated in every skill description.
 - Skill bodies should contain only the trigger boundary, the skill's task-specific workflow, and task-specific stop conditions. Shared operational policy belongs in this file.
-- Handoff envelopes and status blocks are the suite's only portable cross-skill contract. No skill may assume a runtime-native in-context skill invocation mechanism unless a runtime adapter explicitly documents it; otherwise the current skill stops at handoff and waits for the next skill's output.
+- Handoff envelopes and status blocks are the suite's only portable cross-skill contract. No skill may assume a runtime-native in-context skill invocation mechanism unless a runtime adapter explicitly documents it; otherwise the current skill stops at handoff and waits for the next skill's output. At the current shipped adapters, assume that no native phase-to-phase continuation exists unless a runtime-specific adapter doc in this repo says otherwise.
 - Reference pointers in skill bodies are not optional decoration. When the current run hits a referenced checklist, schema, protocol, or specialized guidance, read that named reference before continuing.
 - Each skill should expose a concise happy path and then name only the risk branches that differ from the global default. Do not make every routine run walk every edge-case rule.
 - Missing baselines use the shared `baseline-missing` label and cannot support requirements-coverage claims.

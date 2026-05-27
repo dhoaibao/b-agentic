@@ -246,17 +246,25 @@ def migrate_managed_values(data):
         if not isinstance(server, dict) or not isinstance(incoming_server, dict):
             return
 
+        def merged_sequence(existing_items, incoming_items):
+            merged = list(existing_items)
+            for item in incoming_items:
+                if item not in merged:
+                    merged.append(item)
+            return merged
+
         incoming_command = incoming_server.get('command')
         if isinstance(incoming_command, str) and isinstance(old_command, str):
-            if server.get('command') == old_command and server.get('args') == old_args:
+            legacy_args = [old_args]
+            if isinstance(old_args, list):
+                legacy_args.append(merged_sequence(old_args, incoming_server.get('args', [])))
+            if server.get('command') == old_command and server.get('args') in legacy_args:
                 server['command'] = incoming_command
                 server['args'] = list(incoming_server.get('args', []))
             return
 
         if isinstance(incoming_command, list) and isinstance(old_command, list):
-            legacy_commands = [list(old_command)]
-            if old_command and old_command[0] == 'npx' and incoming_command and incoming_command[0] == 'pnpm':
-                legacy_commands.append(list(old_command) + ['bunx'])
+            legacy_commands = [list(old_command), merged_sequence(old_command, incoming_command)]
             if server.get('command') in legacy_commands:
                 server['command'] = list(incoming_command)
 
@@ -552,17 +560,25 @@ def managed_mcp_server(current_server, incoming_server, server_name):
     normalized = json.loads(json.dumps(current_server))
 
     def normalize_managed_launcher(old_command, old_args=None):
+        def merged_sequence(existing_items, incoming_items):
+            merged = list(existing_items)
+            for item in incoming_items:
+                if item not in merged:
+                    merged.append(item)
+            return merged
+
         incoming_command = incoming_server.get('command')
         if isinstance(incoming_command, str) and isinstance(old_command, str):
-            if normalized.get('command') == old_command and normalized.get('args') == old_args:
+            legacy_args = [old_args]
+            if isinstance(old_args, list):
+                legacy_args.append(merged_sequence(old_args, incoming_server.get('args', [])))
+            if normalized.get('command') == old_command and normalized.get('args') in legacy_args:
                 normalized['command'] = incoming_command
                 normalized['args'] = list(incoming_server.get('args', []))
             return
 
         if isinstance(incoming_command, list) and isinstance(old_command, list):
-            legacy_commands = [list(old_command)]
-            if old_command and old_command[0] == 'npx' and incoming_command and incoming_command[0] == 'pnpm':
-                legacy_commands.append(list(old_command) + ['bunx'])
+            legacy_commands = [list(old_command), merged_sequence(old_command, incoming_command)]
             if normalized.get('command') in legacy_commands:
                 normalized['command'] = list(incoming_command)
 

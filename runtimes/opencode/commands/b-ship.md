@@ -1,5 +1,5 @@
 ---
-description: Commit, push, and open a PR after approval
+description: Commit, push, and open a PR on explicit request
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

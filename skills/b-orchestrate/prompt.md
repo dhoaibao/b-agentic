@@ -2,9 +2,9 @@
 
 $ARGUMENTS
 
-Coordinate a complete PR-readiness workflow across the phase skills. `b-orchestrate` owns phase selection, checkpoint manifests, handoff envelopes, and final synthesis only; the phase owner does the actual plan, implementation, test, debug, refactor, research, or review work.
+Coordinate a PR-readiness workflow across the phase skills. `b-orchestrate` owns phase selection, checkpoint manifests, handoff envelopes, and final synthesis only; the phase owner does the actual plan, implementation, test, debug, refactor, research, or review work.
 
-Phase skills do not rely on an assumed in-context skill-invocation API. `b-orchestrate` coordinates by emitting `[handoff]` envelopes and consuming returned `[status]` blocks when the runtime or operator resumes the next phase in the same workflow. The audit trail is the chain of handoff envelopes and status blocks the workflow produces.
+Phase skills do not rely on an assumed in-context skill-invocation API. The portable workflow path is handoff envelopes plus returned `[status]` blocks when the operator resumes the next phase. No shipped adapter currently documents native phase-to-phase continuation, so do not imply automatic multi-phase execution inside one `b-orchestrate` turn.
 
 If `$ARGUMENTS` is present, treat it as the workflow goal plus any explicit constraints such as skipped tests, required verification, or a known plan path.
 
@@ -40,7 +40,7 @@ For non-trivial workflows, read `{{runtime_reference_root}}/contract/08-artifact
 
 Read `{{runtime_reference_root}}/contract/01-routing.md`, `{{runtime_reference_root}}/contract/09-output.md`, and `{{runtime_reference_root}}/contract/11-session.md` before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution.
 
-For each phase transition, emit the handoff envelope in chat as audit trail. Continue within the same workflow only when the active runtime explicitly documents a native phase-skill continuation mechanism or the operator resumes the workflow with the next phase's `[status]` block in context. When a phase status block is available, read the `state` field from that block and the `verdict` field when the phase defines named outcomes. Branch on `state`: `complete` → continue to the next phase; `blocked` → surface the blocker and stop; `needs-input` → relay the question to the user, resume on answer; `handed-off` → follow the envelope's `next-skill`. If `state` is present but `verdict` is missing for a review, audit, or workflow-close decision, ask the user once instead of inferring readiness from prose or `notes:`. If the next phase is not run inside the same workflow turn, stop after the handoff instead of simulating its work.
+For each phase transition, emit the handoff envelope in chat as audit trail. Continue within the same workflow only when the active runtime explicitly documents a native phase-skill continuation mechanism or the operator resumes the workflow with the next phase's `[status]` block in context. In the current shipped adapters, assume the operator-resumed path unless you have runtime-specific evidence to the contrary. When a phase status block is available, read the `state` field from that block and the `verdict` field when the phase defines named outcomes. Branch on `state`: `complete` → continue to the next phase; `blocked` → surface the blocker and stop; `needs-input` → relay the question to the user, resume on answer; `handed-off` → follow the envelope's `next-skill`. If `state` is present but `verdict` is missing for a review, audit, or workflow-close decision, ask the user once instead of inferring readiness from prose or `notes:`. If the next phase is not run inside the same workflow turn, stop after the handoff instead of simulating its work.
 
 If the user signals stop, cancel, or abort at any point, emit a final `[status]` block with `state: needs-input`, `cause: user_blocked`, list outstanding artifacts and their paths, and include a one-line resume hint (e.g., `resume: b-orchestrate <goal> -- continue from <phase>`). Do not delete artifacts on abandonment.
 

@@ -29,6 +29,7 @@ The intent and trigger tables below are generated from `skills/registry.yaml`; k
 - `b-research` is for genuine external-knowledge blockers, not for questions the codebase or repo docs can answer locally.
 - Simulated DOM/component-test work routes to `b-test`; real-browser, visual, browser-session, live UI, and e2e verification routes to `b-browser`. No skill may add browser or DOM tooling as a side effect; see §10 for the boundary table and tool list.
 - `b-ship` is explicit-command-only after readiness is established; do not route natural-language shipping intent to `b-implement` or any other phase skill.
+- Bare mentions like `PR`, `ship`, or `lint` are ambiguous. Ask one clarifying question unless the user explicitly invoked `b-review`, `b-ship`, or a native command.
 - `b-audit` is for b-agentic suite self-audits only; use `b-review` for all other codebase review tasks, including surface-wide checks. See §10 for the tiebreaker and inline Context7 threshold.
 - `b-research` is invoked for ≥ 2 distinct doc questions or any deep extraction; ≤ 1 narrow inline lookup is acceptable within the active skill. See §10.
 
@@ -62,7 +63,7 @@ The phrases below are routing aids only; do not duplicate them inside individual
 | `b-debug` | bug, broken, error, stack trace, "not working", regression |
 | `b-test` | tests, coverage, failing test, snapshot, mock, component test, jsdom, happy-dom, React Testing Library |
 | `b-browser` | browser, e2e, visual, screenshot, browser session, live UI, Playwright, Cypress e2e, Puppeteer, WebDriver |
-| `b-review` | review, PR, lint, pre-PR, "what would a reviewer" |
+| `b-review` | review, pre-PR, "what would a reviewer" |
 | `b-audit` | b-agentic audit, suite audit, maintainer audit |
 <!-- generated:routing-triggers:end -->
 

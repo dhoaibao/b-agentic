@@ -87,7 +87,7 @@ The table below is generated from `skills/registry.yaml`.
 <!-- generated:skills-table:start -->
 | Skill | Phase | Use |
 |---|---|---|
-| `b-orchestrate` | End-to-end | Coordinate phase handoffs until PR-ready, ready with follow-ups, or blocked |
+| `b-orchestrate` | End-to-end | Coordinate resumed phase handoffs until PR-ready, ready with follow-ups, or blocked |
 | `b-plan` | Decide | Clarify unclear goals or turn a clear goal into an execution plan |
 | `b-research` | Decide | Fetch external docs, API facts, comparisons, or recent evidence |
 | `b-implement` | Build | Execute approved plans or small direct requests |
@@ -97,20 +97,22 @@ The table below is generated from `skills/registry.yaml`.
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `b-review` | Validate | Review changed code for blockers, regressions, security, and coverage |
 | `b-audit` | Validate | Audit the b-agentic suite for systemic risk (suite-only) |
-| `b-ship` | Ship | Commit, push, and open a PR after READY FOR PR |
+| `b-ship` | Ship | Commit, push, and open a PR on explicit request after review readiness |
 <!-- generated:skills-table:end -->
 
 Typical flow:
 
 ```text
-b-orchestrate [feature/fix request]
+b-orchestrate [workflow request] -> handoff/status across resumed turns
 b-plan [goal] -> approve plan -> b-implement -> b-test -> b-review
 b-browser [UI/e2e verification]
 b-research [external docs or recent info]
 b-debug [runtime bug]
 b-refactor [behavior-preserving change]
-b-ship [commit, push, open PR]
+b-ship [explicit ship request after review readiness]
 ```
+
+`b-orchestrate` coordinates via handoff envelopes and returned status blocks; it does not auto-run every phase inside one invocation. `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
 
 ## Repository Layout
 
@@ -175,7 +177,8 @@ b-agentic/
 - `skills/registry.yaml` and `skills/*/prompt.md` define the skill surface
 - `runtimes/registry.yaml` and `references/contract/kernel.template.md` define runtime behavior
 - `tooling/generate/registry_sync.py` regenerates committed delivery assets
-- `scripts/validate-skills.sh` and `scripts/smoke-install.sh` are the main verification entrypoints
+- `scripts/validate-skills.sh` is the main shared validation entrypoint; use `scripts/validate-skills.sh --release` when delivery changes must also pass installer smoke coverage
+- `scripts/smoke-install.sh` remains the standalone smoke entrypoint when you need the installer suite by itself
 - `tooling/validate/` contains the shared validation harness
 - `tests/smoke/` contains the shared smoke harness
 - `runtimes/runtime-template/` is the scaffold for a new runtime adapter

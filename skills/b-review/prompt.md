@@ -18,6 +18,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 - The task is writing or fixing tests -> use **b-test**.
 - The task is external lookup -> use **b-research**.
 - The user requests a b-agentic suite self-audit (not a diff review) -> use **b-audit**. For any other codebase audit, stay in **b-review**. See `{{runtime_reference_root}}/contract/10-decisions.md` for the tiebreaker.
+- The user asks only to run lint, format, or build commands without a review goal -> use native commands or the active build skill.
 - The request is plan review, UX critique, or research synthesis review.
 
 ## Tools required

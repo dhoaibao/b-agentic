@@ -75,3 +75,5 @@ The installer never auto-installs these packages.
 `scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which discovers and runs `runtimes/<name>/scripts/validate.sh` for each registered adapter. Runtime-owned checks enforce the Kimi install layout documented here.
 
 `scripts/smoke-install.sh` is the stable wrapper over `tests/smoke/install.sh`. The Kimi adapter contributes its install coverage through `runtimes/kimi-cli/tests/smoke.sh`.
+
+For release-critical delivery changes, prefer `scripts/validate-skills.sh --release`; it keeps the same shared validation path but also runs installer smoke so launcher and install regressions fail the maintained entrypoint.

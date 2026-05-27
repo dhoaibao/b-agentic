@@ -281,6 +281,8 @@ else:
     skill_dirs = set(skill_names)
     for name in sorted(referenced_skills - skill_dirs):
         errors.append(f"references/contract/01-routing.md: references /{name} but no skills/{name}/ directory exists")
+    if "Bare mentions like `PR`, `ship`, or `lint` are ambiguous." not in routing_text:
+        errors.append("references/contract/01-routing.md: missing ambiguous PR/ship/lint clarification rule")
 
 normalized_routing_triggers = {}
 command_only_terms = {}
@@ -336,6 +338,13 @@ for forbidden_trigger in ["audit", "repo audit"]:
             f"skills/registry.yaml: b-audit routing must not include the generic trigger {forbidden_trigger!r}"
         )
 
+review_triggers = set(normalized_routing_triggers.get("b-review", []))
+for forbidden_trigger in ["pr", "lint"]:
+    if forbidden_trigger in review_triggers:
+        errors.append(
+            f"skills/registry.yaml: b-review routing must not include the ambiguous trigger {forbidden_trigger!r}"
+        )
+
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
 tool_model_path = ROOT / "references" / "contract" / "04-tool-model.md"
@@ -355,6 +364,8 @@ contract_index_path = ROOT / "references" / "contract" / "index.md"
 contract_index = read_text(contract_index_path)
 output_contract_path = ROOT / "references" / "contract" / "09-output.md"
 output_contract = read_text(output_contract_path)
+session_contract_path = ROOT / "references" / "contract" / "11-session.md"
+session_contract = read_text(session_contract_path)
 install_sh = read_text(ROOT / "install.sh")
 registry_sync = ROOT / "tooling" / "generate" / "registry_sync.py"
 validate_wrapper_path = ROOT / "scripts" / "validate-skills.sh"
@@ -392,10 +403,14 @@ else:
     for required in ["tooling/validate/", "tests/smoke/", "runtimes/runtime-template/"]:
         if required not in readme:
             errors.append(f"README.md: missing phase-4 architecture path {required!r}")
+    if "scripts/validate-skills.sh --release" not in readme:
+        errors.append("README.md: missing release-critical validation entrypoint scripts/validate-skills.sh --release")
 
 for required in ["tooling/validate/", "tests/smoke/", "runtimes/runtime-template/"]:
     if required not in maintainer:
         errors.append(f"CLAUDE.md: missing phase-4 maintainer path {required!r}")
+if "scripts/validate-skills.sh --release" not in maintainer:
+    errors.append("CLAUDE.md: missing release-critical validation entrypoint scripts/validate-skills.sh --release")
 
 root_markdown_docs = tracked_existing_root_markdown_docs()
 allowed_root_markdown_docs = {"README.md", "CLAUDE.md"}
@@ -426,6 +441,11 @@ runtime_readiness_install_lines = [
     'print_install_report_readiness',
     "print_shell_tool_recommendations",
     'print_install_report_next_steps',
+]
+release_validation_lines = [
+    "run_release=0",
+    "--release)",
+    'bash "$ROOT_DIR/tests/smoke/install.sh"',
 ]
 shared_shell_install_lines = [
     "recommended_shell_commands() {",
@@ -462,6 +482,7 @@ for runtime_name, api_key_line in [
     require_contains(install_path, read_text(install_path), runtime_readiness_install_lines, "runtime readiness install line")
     require_contains(readme_path, read_text(readme_path), runtime_readiness_doc_lines + runtime_shell_doc_lines + [api_key_line], "runtime readiness doc line")
 require_contains(ROOT / "tooling" / "install" / "common.sh", read_text(ROOT / "tooling" / "install" / "common.sh"), shared_shell_install_lines, "shared shell tooling install line")
+require_contains(validate_runner_path, read_text(validate_runner_path), release_validation_lines, "release validation line")
 
 for contract_path in shared_contract_paths:
     if not contract_path.exists():
@@ -505,6 +526,8 @@ if "reviewed plan" in b_ship_prompt:
     errors.append("skills/b-ship/prompt.md: reviewed plans must not count as review evidence")
 if "`b-review` status block" not in b_ship_prompt or "explicit current-session user override" not in b_ship_prompt:
     errors.append("skills/b-ship/prompt.md: missing explicit b-review or current-session override shipping gate")
+if "explicit ship intent" not in b_ship_prompt or "recommendation, not an implicit shipping handoff" not in b_ship_prompt:
+    errors.append("skills/b-ship/prompt.md: missing explicit-request-only shipping wording")
 
 for required_line in [
     "verdict: <skill-defined terminal label>",
@@ -535,6 +558,18 @@ orchestrate_prompt = read_text(orchestrate_prompt_path)
 if stale_orchestrate_handoff in orchestrate_prompt:
     errors.append(
         f"{rel(orchestrate_prompt_path)}: stale browser handoff still routes generic DOM evidence to b-browser"
+    )
+if "No shipped adapter currently documents native phase-to-phase continuation" not in orchestrate_prompt:
+    errors.append(
+        f"{rel(orchestrate_prompt_path)}: missing explicit no-native-continuation wording for current shipped adapters"
+    )
+if "assume the operator-resumed path unless you have runtime-specific evidence to the contrary" not in orchestrate_prompt:
+    errors.append(
+        f"{rel(orchestrate_prompt_path)}: missing operator-resumed continuation rule for current shipped adapters"
+    )
+if "assume that no native phase-to-phase continuation exists" not in session_contract:
+    errors.append(
+        f"{rel(session_contract_path)}: missing shipped-adapter continuation assumption for cross-skill handoffs"
     )
 
 if contract_version:
