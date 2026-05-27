@@ -6,7 +6,7 @@ Guidelines for editing and maintaining the `b-agentic` source repository. This f
 
 - `README.md` stays brief: repo overview, install, and high-level layout.
 - Root `CLAUDE.md` is the shared maintainer guide for this repo, not a Claude-Code-only authoring spec.
-- Claude Code is the reference runtime and primary native-first target; OpenCode, Codex CLI, and Antigravity CLI are separate supported runtimes with their own install layouts. Gemini CLI remains as a legacy compatibility runtime.
+- Claude Code is the reference runtime and primary native-first target; OpenCode, Codex CLI, and Antigravity CLI are separate supported runtimes with their own install layouts.
 - Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral in behavior and path semantics.
 - Runtime-specific paths, kernel filenames, install-layout details, wrappers, and caveats belong under `runtimes/<name>/`.
 - Do not create a second root reference surface. Use root docs for orientation only, and keep detailed rules close to their owning sources.
@@ -113,7 +113,6 @@ Before merging runtime-facing changes:
 4. Run `scripts/smoke-install.sh` directly only when you need the smoke suite by itself while iterating.
 5. Codex runtime install, validation, and smoke paths rely on Python 3.11+ standard-library `tomllib` support.
 6. Antigravity CLI exposes `/b-*` through its native skill command loader from `~/.gemini/antigravity-cli/skills/`; keep MCP in `~/.gemini/antigravity-cli/mcp_config.json` and use `serverUrl` for remote MCP entries.
-7. Gemini CLI remains a legacy compatibility runtime; do not add duplicate TOML wrappers under `~/.gemini/commands/`.
 8. Check that shared content stayed runtime-neutral.
 9. Check that docs changed in the same commit when the public or maintainer surface changed.
 10. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.

@@ -119,7 +119,6 @@ for needle in [
     'serverUrl',
     'runtime-neutral',
     'native slash command',
-    'legacy compatibility path',
 ]:
     if needle not in runtime_readme:
         errors.append(f'runtimes/antigravity-cli/configs/README.md: missing Antigravity documentation marker {needle!r}')

@@ -25,7 +25,7 @@ The Antigravity adapter supports a personal-global install:
 
 Antigravity CLI exposes each installed b-agentic skill as a native slash command, so users can invoke `/b-plan`, `/b-implement`, `/b-review`, and the rest of the `/b-*` surface directly from the installed skill tree.
 
-The adapter does not install duplicate TOML wrappers into `~/.gemini/commands/`. Existing `--runtime=gemini-cli` installs remain a legacy compatibility path; new Google-runtime installs should use `--runtime=antigravity-cli`.
+The adapter does not install duplicate TOML wrappers into `~/.gemini/commands/`.
 
 ## Safety policy
 
@@ -68,10 +68,6 @@ Install reports print a default shell-tooling tier for `rg`, `fd`/`fdfind`, `jq`
 The tier-2 block is aimed at readable file previews, YAML-heavy work, better git diffs, and GitHub-heavy workflows.
 When the installer can detect Homebrew, `apt`, or `dnf`, it prints matching package commands for both tiers; otherwise it falls back to manual-install notes.
 The installer never auto-installs these packages.
-
-## Migration from Gemini CLI
-
-`gemini-cli` remains registered as a legacy runtime so existing `--runtime=gemini-cli` install and uninstall scripts keep deterministic behavior for this release. Antigravity CLI is the primary Google runtime going forward. To migrate, run the installer with `--runtime=antigravity-cli`; after verifying Antigravity sees the installed `/b-*` skills and MCP servers, uninstall the legacy adapter with `--runtime=gemini-cli --uninstall` if you no longer need the old `~/.gemini/skills/` and `~/.gemini/settings.json` layout.
 
 ## Validator scope
 

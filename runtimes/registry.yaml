@@ -69,23 +69,6 @@
         "source_dir": null,
         "install_root": null
       }
-    },
-    {
-      "name": "gemini-cli",
-      "display_name": "Gemini CLI",
-      "reference_runtime": false,
-      "kernel_source": "runtimes/gemini-cli/kernel.md",
-      "memory_file": "GEMINI.md",
-      "memory_install_path": "~/.gemini/GEMINI.md",
-      "metadata_root": "~/.gemini/b-agentic",
-      "skills_install_root": "~/.gemini/skills",
-      "config_template_dir": "runtimes/gemini-cli/configs",
-      "config_schema_family": "gemini-settings-json",
-      "command_wrappers": {
-        "supported": false,
-        "source_dir": null,
-        "install_root": null
-      }
     }
   ]
 }

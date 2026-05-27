@@ -291,32 +291,11 @@ PY
 }
 
 runtime_names_for_all_install() {
-  require_bin python3
-  python3 - "$SOURCE_DIR/runtimes/registry.yaml" <<'PY'
-from pathlib import Path
-import json
-import sys
-
-registry = json.loads(Path(sys.argv[1]).read_text())
-names = [
-    runtime.get('name')
-    for runtime in registry.get('runtimes', [])
-    if isinstance(runtime.get('name'), str) and runtime.get('name')
-]
-skip_legacy_gemini = 'antigravity-cli' in names
-for name in names:
-    if skip_legacy_gemini and name == 'gemini-cli':
-        continue
-    print(name)
-PY
+  runtime_names
 }
 
 runtime_names_for_all() {
-  if uninstall_enabled; then
-    runtime_names
-  else
-    runtime_names_for_all_install
-  fi
+  runtime_names
 }
 
 runtime_registered() {

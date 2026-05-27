@@ -499,7 +499,6 @@ for runtime_name, api_key_line in [
     ("opencode", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`."),
     ("codex-cli", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.codex/config.toml` or matching shell environment variables."),
     ("antigravity-cli", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.gemini/antigravity-cli/mcp_config.json` or matching shell environment variables."),
-    ("gemini-cli", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.gemini/settings.json` or matching shell environment variables."),
 ]:
     install_path = ROOT / "runtimes" / runtime_name / "scripts" / "install.sh"
     readme_path = ROOT / "runtimes" / runtime_name / "configs" / "README.md"
@@ -641,9 +640,8 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
         if pattern.search(text):
             errors.append(f"{rel(json_path)}: contains secret-looking placeholder/literal {pattern.pattern!r}")
 
-    if json_path.name.startswith("mcp.") or ("gemini-cli" in json_path.parts and json_path.name == "settings.template.json") or ("antigravity-cli" in json_path.parts and json_path.name == "mcp_config.template.json"):
+    if json_path.name.startswith("mcp.") or ("antigravity-cli" in json_path.parts and json_path.name == "mcp_config.template.json"):
         is_opencode = "opencode" in json_path.parts
-        is_gemini = "gemini-cli" in json_path.parts
         is_antigravity = "antigravity-cli" in json_path.parts
         mcp_key = "mcp" if is_opencode else "mcpServers"
         servers = data.get(mcp_key)
@@ -701,7 +699,7 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
                 if servers["gitnexus"].get("command") != ["gitnexus", "mcp"]:
                     errors.append(f"{rel(json_path)}: gitnexus must use installed gitnexus mcp command")
 
-        elif is_gemini or is_antigravity:
+        elif is_antigravity:
             if "brave-search" in servers:
                 env = servers["brave-search"].get("env", {})
                 if env.get("BRAVE_API_KEY") != "$BRAVE_API_KEY":
@@ -739,11 +737,8 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
 
             if "context7" in servers:
                 server = servers["context7"]
-                if is_antigravity:
-                    if server.get("serverUrl") != "https://mcp.context7.com/mcp" or "httpUrl" in server:
-                        errors.append(f"{rel(json_path)}: context7 must use the official MCP serverUrl endpoint")
-                elif server.get("httpUrl") != "https://mcp.context7.com/mcp":
-                    errors.append(f"{rel(json_path)}: context7 must use the official MCP HTTP endpoint")
+                if server.get("serverUrl") != "https://mcp.context7.com/mcp" or "httpUrl" in server:
+                    errors.append(f"{rel(json_path)}: context7 must use the official MCP serverUrl endpoint")
                 headers = server.get("headers", {})
                 if headers.get("CONTEXT7_API_KEY") != "$CONTEXT7_API_KEY":
                     errors.append(f"{rel(json_path)}: context7 must use $CONTEXT7_API_KEY header placeholder")
@@ -804,7 +799,7 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
                 if gitnexus.get("command") != "gitnexus" or gitnexus.get("args") != ["mcp"]:
                     errors.append(f"{rel(json_path)}: gitnexus must use installed gitnexus mcp command")
 
-        if json_path.name == "mcp.user.template.json" or (is_gemini and json_path.name == "settings.template.json") or (is_antigravity and json_path.name == "mcp_config.template.json"):
+        if json_path.name == "mcp.user.template.json" or (is_antigravity and json_path.name == "mcp_config.template.json"):
             actual_user = set(servers)
             if actual_user != expected_user:
                 errors.append(f"{rel(json_path)}: user MCP template must contain all default global servers {sorted(expected_user)}, found {sorted(actual_user)}")

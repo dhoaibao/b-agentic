@@ -90,7 +90,7 @@ Shape large command outputs at the source before they enter chat: use targeted f
 
 ### Truncated output
 
-If command output is truncated or times out, save the full output under the active runtime's temp scratch path (for example, `/tmp/claude-code/b-agentic/<skill>/<slug>.log`, `/tmp/opencode/b-agentic/<skill>/<slug>.log`, `/tmp/codex-cli/b-agentic/<skill>/<slug>.log`, `/tmp/antigravity-cli/b-agentic/<skill>/<slug>.log`, or `/tmp/gemini-cli/b-agentic/<skill>/<slug>.log`) and inspect the failing section instead of guessing.
+If command output is truncated or times out, save the full output under the active runtime's temp scratch path (for example, `/tmp/claude-code/b-agentic/<skill>/<slug>.log`, `/tmp/opencode/b-agentic/<skill>/<slug>.log`, `/tmp/codex-cli/b-agentic/<skill>/<slug>.log`, or `/tmp/antigravity-cli/b-agentic/<skill>/<slug>.log`) and inspect the failing section instead of guessing.
 
 ### Verification provenance
 
