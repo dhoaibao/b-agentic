@@ -97,7 +97,7 @@ b-refactor [behavior-preserving change]
 b-ship [explicit ship request after review readiness]
 ```
 
-`b-orchestrate` coordinates via handoff envelopes and returned status blocks; it does not auto-run every phase inside one invocation. `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
+`b-orchestrate` coordinates via handoff envelopes and returned status blocks; it does not auto-run every phase inside one invocation. Operators resume the next phase with a new explicit invocation. `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
 
 ## Repository Layout
 

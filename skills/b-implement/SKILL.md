@@ -53,7 +53,7 @@ For saved plans, validate before executing:
 3. **Staleness check:** Run `git diff --name-only <approved_head>..HEAD -- <touch_points>` and `git diff --name-only <approved_head> -- <touch_points>` when `approved_head` exists. If any touched file has drift, stop with `cause: conflict` and report the stale plan.
 4. **Blocked-by check:** If the plan has a `blocked_by` array, verify every listed plan reports `status: complete`. If any blocker is not complete, stop with `cause: conflict` and report the blocking plan slug and status.
 
-For **small direct requests** (no saved plan), verify all four §3 criteria before executing: (1) ≤ 3 files touched, (2) no exported/public contract change, (3) no sensitive path (auth, security, billing, migration), (4) no remaining design decision — behavior is obvious. If any criterion fails, stop with `cause: conflict` and route to **b-plan**.
+For **small direct requests** (no saved plan), read `../../b-agentic/references/contract/03-definitions.md` before applying the small-direct-request threshold. If any criterion fails, stop with `cause: conflict` and route to **b-plan**.
 
 If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-plan** (Clarification mode).
 
@@ -76,6 +76,8 @@ Use Serena for symbol-aware edits.
 - Do not widen scope or add MCP calls just because the runtime bundle is installed.
 
 Stay within approved scope. Stop for new product decisions, stale/wrong plans, or unplanned broad transforms. Tiny local mechanical edits required to complete the approved step may stay here; broad or primary mechanical transforms go to **b-refactor**.
+
+Read `../../b-agentic/references/contract/07-execution.md` before classifying adjacent discoveries as Required, Blocking decision, or Follow-up.
 
 ### Step 4 - Verify before continuing
 

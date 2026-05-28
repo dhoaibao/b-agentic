@@ -31,7 +31,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 
 ### Step 1 - Classify the question and any provided sources
 
-Default to the lightest authoritative source. Do not ask the user to choose between a quick lookup and deep research; Step 3 handles auto-deepening when first evidence is stale, contradictory, non-authoritative, or indirect.
+Default to the lightest authoritative source. Do not ask the user to choose between a quick lookup and deep research; Step 3 handles auto-deepening when first evidence is stale, contradictory, non-authoritative, or indirect. Auto-deepening stops at the extraction tier; `firecrawl-deep` never triggers automatically and always requires explicit approval.
 
 If the user provides a URL, file, or document, classify it before extraction: public URL, internal/private URL, local plain-text source, local rich document, or likely internal document. Read `{{runtime_reference_root}}/contract/06-safety.md` before sending internal/private URLs, local rich documents, or likely internal documents to external extraction unless the user already approved that exact source class for this run. Prefer structured extraction or query for specific fields, parameters, prices, tables, or lists; use full markdown when full-page understanding, summarization, or quoted context is needed.
 
@@ -53,7 +53,7 @@ For security, licensing, pricing, breaking migrations, or production-impacting c
 
 Auto-deepen when first evidence is stale, contradictory, non-authoritative, or indirect. Use search snippets only for discovery unless explicitly labeled snippet-only with low confidence.
 
-Use `firecrawl-extended` only for maps or structured fields. Read `{{runtime_reference_root}}/contract/04-tool-model.md` and `{{runtime_reference_root}}/contract/06-safety.md` before using `firecrawl-deep` or applying public-web privacy gates.
+Use `firecrawl-extended` only for maps or structured fields. Read `{{runtime_reference_root}}/contract/04-tool-model.md` and `{{runtime_reference_root}}/contract/06-safety.md` before using `firecrawl-deep`; the deep tier always requires explicit per-run approval per §4 carve-out rules and never auto-triggers.
 
 ### Step 4 - Resolve conflicts and synthesize
 
@@ -75,7 +75,7 @@ Research (deep): answer, key findings, limitations, sources, confidence.
 - Never ask the user to choose lookup vs research; decide and auto-deepen.
 - Use the lightest depth that answers correctly.
 - Pin versions when they affect the answer.
-- Do not bypass gated sources or paste secrets into fetches.
+- Do not bypass gated sources or paste secrets into fetches. Read `{{runtime_reference_root}}/contract/04-tool-model.md` for `firecrawl-deep` carve-out rules; the deep tier always requires explicit approval.
 - Do not send internal/private URLs, local rich documents, or likely internal documents to external extraction without explicit approval.
 - Prefer 2-4 authoritative sources over long weak lists.
 - Use limitations and confidence labels instead of filling gaps from memory.

@@ -848,6 +848,36 @@ for _scan_path in _skill_ref_scan_paths:
             continue
         errors.append(f"{rel(_scan_path)}: references unresolved skill name {_name!r} (not in skills/registry.yaml)")
 
+_rr_gate_re = re.compile(r'\{\{runtime_reference_root\}\}/contract/([a-z0-9-]+\.md)')
+_sp_gate_re = re.compile(r'\{\{skill_support_path\}\}/([a-zA-Z0-9_.-]+)')
+for _prompt_path in sorted((ROOT / "skills").glob("*/prompt.md")):
+    _prompt_text = _prompt_path.read_text()
+    _skill_dir = _prompt_path.parent
+    for _m in _rr_gate_re.finditer(_prompt_text):
+        _target = ROOT / "references" / "contract" / _m.group(1)
+        if not _target.exists():
+            errors.append(f"{rel(_prompt_path)}: read gate references non-existent contract file references/contract/{_m.group(1)}")
+    for _m in _sp_gate_re.finditer(_prompt_text):
+        _target = _skill_dir / _m.group(1)
+        if not _target.exists():
+            errors.append(f"{rel(_prompt_path)}: read gate references non-existent skill support file {rel(_target)}")
+
+_examples_required_literals = {
+    "b-debug": ["Root cause:"],
+}
+_output_block_re = re.compile(r'\*\*Output:\*\*\s*```text\n(.*?)```', re.DOTALL)
+for _skill_name, _required_literals in _examples_required_literals.items():
+    _examples_path = ROOT / "skills" / _skill_name / "examples.md"
+    if not _examples_path.exists():
+        errors.append(f"skills/{_skill_name}/examples.md: required examples file missing")
+    else:
+        _examples_text = _examples_path.read_text()
+        for _block_m in _output_block_re.finditer(_examples_text):
+            _block_text = _block_m.group(1)
+            for _literal in _required_literals:
+                if _literal not in _block_text:
+                    errors.append(f"skills/{_skill_name}/examples.md: Output block missing required literal {_literal!r} (required by {_skill_name}/prompt.md Step contract)")
+
 if errors:
     for error in errors:
         print(error, file=sys.stderr)

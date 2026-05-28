@@ -53,7 +53,7 @@ Default to quick mode when the plan is low/trivial risk, fits in chat, and can b
 
 State the interpreted scope in one sentence. If the goal or acceptance criteria are ambiguous, enter **Clarification mode** (below) before planning.
 
-If the user explicitly waives planning ("just implement it", "skip the plan"), check the small-direct threshold. If it passes, log the waiver and hand off to **b-implement** with the interpreted scope and `confidence: low — user waived plan`. If it fails the threshold, explain why a plan is needed for safe execution; if the user still insists, log the override and produce a minimal chat plan.
+If the user explicitly waives planning ("just implement it", "skip the plan"), check the small-direct threshold. If it passes, log the waiver and hand off to **b-implement** with the interpreted scope and confidence appropriate to the unverified scope; lower when material decisions remain. If it fails the threshold, explain why a plan is needed for safe execution; if the user still insists, log the override and produce a minimal chat plan.
 
 Ask only for missing inputs that change safe planning: hard constraints, deployment/order constraints, required verification, or behavioral decisions the codebase cannot answer.
 

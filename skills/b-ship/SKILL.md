@@ -43,7 +43,7 @@ Run `git status --short`, `git branch --show-current`, `git diff --staged`, `git
 
 Confirm that the staged set is the intended commit payload. If nothing is staged, or if the staged and unstaged changes are mixed in a way that risks committing unrelated work, stop and ask the user to confirm the exact files to stage. Do not auto-stage unrelated files.
 
-Check for evidence of prior review: a `b-review` status block with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, or an explicit current-session user override. A saved plan or implementation note is context only; it does not satisfy shipping readiness. If no review evidence exists, stop and ask the user to confirm:
+Check for evidence of prior review: a `b-review` status block with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, or an explicit current-session user override. A saved plan or implementation note is context only; it does not satisfy shipping readiness. In a fresh session without context continuity, prior-review verification is operator-memory only and cannot be machine-checked; when this applies, prompt the user to re-run **b-review** rather than waving the gate. If no review evidence exists, stop and ask the user to confirm:
 
 ```text
 No prior review evidence found. b-ship expects review before commit.

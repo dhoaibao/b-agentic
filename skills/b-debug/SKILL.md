@@ -75,7 +75,7 @@ Do not bundle cleanup or redesign. If urgent containment was applied before root
 
 Read `../../b-agentic/references/contract/07-execution.md` before choosing verification or applying skipped-check labels. Run the narrowest check that proves the symptom changed. For nondeterminism, run the stress repro long enough to support confidence. For perf, report before/after measurements.
 
-Remove all `b-debug-probe` markers and scan for untagged debug leftovers (`console.log`, `print`, breakpoints, fake clocks, profiler hooks). Run `rg --hidden 'b-debug-probe' -- <touched-paths>` and verify zero matches before reporting success. Re-run verification after cleanup. Mention restart/reload requirements when config or startup changed.
+Remove all `b-debug-probe` markers and scan for untagged debug leftovers (`console.log`, `print`, breakpoints, fake clocks, profiler hooks). Run `rg --hidden 'b-debug-probe' -- <touched-paths>` (or `grep -RIn 'b-debug-probe' <touched-paths>` when `rg` is unavailable) and verify zero matches before reporting success. Re-run verification after cleanup. Mention restart/reload requirements when config or startup changed.
 
 If `git-delta` is configured as `core.pager`, `git diff` output may be reformatted for display; use `GIT_PAGER=cat git diff` or `git --no-pager diff` when parsing diff output programmatically.
 
