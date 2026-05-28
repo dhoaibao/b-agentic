@@ -30,7 +30,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 
 ### Step 1 - Discover framework and scope
 
-Find relevant test files and project commands from manifests or CI. If a failing test is named, start with the narrowest runnable target. If no test framework exists, ask before adding one.
+Find relevant test files and project commands from manifests or CI. If a failing test is named, start with the narrowest runnable target. If no test framework exists, hand off to **b-plan** before adding one — framework introduction is a dependency-write that requires explicit approval per `{{runtime_reference_root}}/contract/10-decisions.md`.
 
 ### Step 2 - Choose the lane
 
@@ -73,7 +73,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 - Never change production code just because a test is red.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
 - Add `baseline-missing` tests only when the user explicitly asks for structural coverage; otherwise stop or hand off before writing them.
-- Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without approval.
+- Do not introduce test, coverage, property-based, fuzzing, or contract-test frameworks without first routing to **b-plan** and obtaining explicit dependency-write approval.
 - Keep fixture and mock changes local when practical.
 - Read `{{runtime_reference_root}}/contract/06-safety.md` before manual patches and `{{runtime_reference_root}}/contract/07-execution.md` before applying the verification ladder or iteration cap.
 - Test utilities belong here when created or changed to support an in-scope test; mechanical relocation belongs to **b-refactor**.

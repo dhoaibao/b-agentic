@@ -18,7 +18,7 @@
 **Output:**
 ```text
 Symptoms: TypeError when calling getUserProfile with non-existent user ID
-Root cause: getUserProfile dereferences findUserById result without null check
+Root cause: getUserProfile dereferences findUserById result because findUserById returns null when the user is not found
 Fix: Added null guard at src/auth.js:41
 Verification: npm test -- auth.test.js passes
 Cleanup: none
@@ -41,7 +41,7 @@ Cleanup: none
 **Output:**
 ```text
 Symptoms: /api/users degraded from 200ms to 8s
-Root cause: N+1 query in getUsers — 501 queries for 500 users
+Root cause: getUsers issues N+1 queries because it calls getDepartment individually for each user instead of joining
 Fix: Replaced loop with JOIN query in src/services/userService.js
 Verification: before 8.2s, after 180ms (curl measured)
 Cleanup: none

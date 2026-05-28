@@ -43,6 +43,25 @@ Required fields are `skill`, `state`, `artifacts`, `next`, `blockers`. Every oth
 
 `state` reports execution flow; `verdict` reports the skill-specific outcome. For example, a completed review may emit `state: complete` with `verdict: NEEDS FIXES`, and a completed orchestration run may emit `state: complete` with `verdict: READY WITH FOLLOW-UPS`. When a skill defines named verdicts, emit them in `verdict:` instead of burying them in prose or `notes:`.
 
+#### Named verdicts by skill
+
+**Workflow verdicts** (owned by `b-orchestrate`; emit in `verdict:` on non-trivial workflow close):
+
+| Verdict | Meaning |
+|---|---|
+| `READY FOR PR` | All phases complete; review passed; required verification ran or accepted skipped checks. |
+| `READY WITH FOLLOW-UPS` | Review passed but one or more checks are accepted gaps; safe to ship with named follow-ups. |
+| `BLOCKED` | Workflow cannot continue without an external fix or user decision. |
+| `IN PROGRESS` | Workflow paused mid-phase; a phase owner is active or a handoff is pending. |
+
+**Diff verdicts** (owned by `b-review`; emit in `verdict:` on review close):
+
+| Verdict | Meaning |
+|---|---|
+| `READY FOR PR` | Changed code is safe to merge; no blocking findings. |
+| `READY WITH FOLLOW-UPS` | Changed code is mergeable with accepted gaps; follow-ups noted. |
+| `NEEDS FIXES` | One or more BLOCKER or MAJOR findings must be resolved before merge. |
+
 Skill prose that says "close with the skill-exit status block" inherits this schema verbatim; skills must not embed their own copy of the block in output templates.
 
 For trivial happy-path runs (a one-line answer, a tiny edit, or a low-risk local check with direct evidence), omit the block unless the user asked for an audit trail, verification is incomplete, or another skill must continue.

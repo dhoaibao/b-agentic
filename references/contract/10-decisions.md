@@ -71,13 +71,6 @@ When the user can reproduce a symptom but the agent cannot in the current enviro
 4. If the user cannot supply more, offer three options explicitly: (a) instrument and wait, (b) treat as one-shot and close, (c) investigate the captured environment diff.
 5. Never silently substitute speculation for a real repro.
 
-### b-audit vs b-review tiebreaker
-
-`b-audit` is scoped exclusively to auditing the b-agentic suite itself — runtime contract consistency, skill layout alignment, installer, validator, tool boundaries, safety-gate drift, and documentation sync. It is not a general-purpose codebase auditing tool.
-
-- For any codebase other than b-agentic, use `b-review` for all code inspection tasks, including surface-wide checks.
-- For b-agentic suite work: use `b-review` when the request is diff/range-first (changed code review after implementation); use `b-audit` when the request is a surface-wide correctness, consistency, or operability check of the suite itself.
-
 ### Inline Context7 lookup threshold
 
 A skill may resolve ≤ 1 narrow, self-contained Context7 lookup inline without invoking `b-research` — for example, one method signature, one config key, or one version-specific flag.

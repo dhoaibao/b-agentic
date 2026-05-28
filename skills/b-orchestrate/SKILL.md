@@ -31,7 +31,7 @@ If `$ARGUMENTS` is present, treat it as the workflow goal plus any explicit cons
 
 - The user asks for only one phase -> use that phase skill directly.
 - The request is a simple scoped edit with no workflow loop -> use **b-implement**.
-- The user asks only for a code review or audit -> use **b-review** or **b-audit**.
+- The user asks only for a code review or audit -> use **b-review**.
 - The user asks only to diagnose a runtime bug -> use **b-debug**.
 - The user asks only for a named behavior-preserving transform -> use **b-refactor**.
 

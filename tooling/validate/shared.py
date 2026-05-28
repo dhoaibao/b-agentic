@@ -829,6 +829,25 @@ for forbidden in ["--install-project-mcp", "--replace-project-mcp", "--mcp-profi
     if forbidden in install_sh:
         errors.append(f"install.sh: should not expose per-project/options installer path {forbidden!r}")
 
+_known_non_skill_b_names = {"b-agentic", "b-debug-probe"}
+_skill_name_ref_re = re.compile(r'`(b-[a-z][a-z0-9-]+)`|\*\*(b-[a-z][a-z0-9-]+)\*\*')
+_skill_ref_scan_paths = [
+    *sorted((ROOT / "references" / "contract").glob("*.md")),
+    *sorted((ROOT / "skills").glob("*/prompt.md")),
+    *sorted((ROOT / "skills").glob("*/SKILL.md")),
+    ROOT / "README.md",
+]
+_registry_skill_names = set(registry_skill_map)
+for _scan_path in _skill_ref_scan_paths:
+    if not _scan_path.exists():
+        continue
+    _scan_text = _scan_path.read_text()
+    for _m in _skill_name_ref_re.finditer(_scan_text):
+        _name = _m.group(1) or _m.group(2)
+        if _name in _registry_skill_names or _name in _known_non_skill_b_names:
+            continue
+        errors.append(f"{rel(_scan_path)}: references unresolved skill name {_name!r} (not in skills/registry.yaml)")
+
 if errors:
     for error in errors:
         print(error, file=sys.stderr)
