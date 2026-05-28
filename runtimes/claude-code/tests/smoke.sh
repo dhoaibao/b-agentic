@@ -50,14 +50,12 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"activationState": "active"'
   assert_file "$sandbox_fresh/home/.claude/settings.json"
   assert_file "$sandbox_fresh/home/.claude.json"
-  assert_json_value "$sandbox_fresh/home/.claude.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
+  assert_json_value "$sandbox_fresh/home/.claude.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\${CONTEXT7_API_KEY:-}'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['brave-search']['command'] == 'pnpm'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['firecrawl']['command'] == 'pnpm'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['playwright']['command'] == 'pnpm'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['playwright']['args'][-1] == '--isolated'"
-  assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['gitnexus']['command'] == 'gitnexus'"
-  assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['gitnexus']['args'] == ['mcp']"
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"settingsAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"mcpAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"skills"'
@@ -73,7 +71,6 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_install_report/install.log" 'activation: active'
   assert_contains "$sandbox_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
-  assert_contains "$sandbox_install_report/install.log" 'gitnexus: install/index separately if you want graph radar'
   assert_contains "$sandbox_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
   assert_contains "$sandbox_install_report/install.log" 'Shell tooling:'
   assert_contains "$sandbox_install_report/install.log" 'core: rg, fd/fdfind, jq, tmux, fzf'
@@ -145,7 +142,7 @@ run_runtime_smoke_cases() {
   assert_no_path "$sandbox_prompt_reinstall/home/.claude.json"
 
   mkdir -p "$sandbox_mcp_migration/home"
-  printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"}},"brave-search":{"type":"stdio","command":"npx","args":["-y","@brave/brave-search-mcp-server","--transport","stdio"],"env":{"BRAVE_API_KEY":"${BRAVE_API_KEY}"}},"firecrawl":{"type":"stdio","command":"npx","args":["-y","firecrawl-mcp"],"env":{"FIRECRAWL_API_KEY":"${FIRECRAWL_API_KEY}"}},"playwright":{"type":"stdio","command":"npx","args":["-y","@playwright/mcp@latest","--isolated"],"env":{}},"gitnexus":{"type":"stdio","command":"npx","args":["-y","gitnexus@latest","mcp"],"env":{}}}}\n' > "$sandbox_mcp_migration/home/.claude.json"
+  printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"}},"brave-search":{"type":"stdio","command":"npx","args":["-y","@brave/brave-search-mcp-server","--transport","stdio"],"env":{"BRAVE_API_KEY":"${BRAVE_API_KEY}"}},"firecrawl":{"type":"stdio","command":"npx","args":["-y","firecrawl-mcp"],"env":{"FIRECRAWL_API_KEY":"${FIRECRAWL_API_KEY}"}},"playwright":{"type":"stdio","command":"npx","args":["-y","@playwright/mcp@latest","--isolated"],"env":{}}}}\n' > "$sandbox_mcp_migration/home/.claude.json"
   expect_install_status 0 "$sandbox_mcp_migration" "$snapshot_repo"
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\${CONTEXT7_API_KEY:-}'"
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['brave-search']['command'] == 'pnpm'"
@@ -154,11 +151,9 @@ run_runtime_smoke_cases() {
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'firecrawl-mcp']"
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['playwright']['command'] == 'pnpm'"
   assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@playwright/mcp@latest', '--isolated']"
-  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['gitnexus']['command'] == 'gitnexus'"
-  assert_json_value "$sandbox_mcp_migration/home/.claude.json" "data['mcpServers']['gitnexus']['args'] == ['mcp']"
 
   mkdir -p "$sandbox_bunx_migration/home"
-  printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY:-}"}},"brave-search":{"type":"stdio","command":"bunx","args":["@brave/brave-search-mcp-server","--transport","stdio"],"env":{"BRAVE_API_KEY":"${BRAVE_API_KEY}"}},"firecrawl":{"type":"stdio","command":"bunx","args":["firecrawl-mcp"],"env":{"FIRECRAWL_API_KEY":"${FIRECRAWL_API_KEY}"}},"playwright":{"type":"stdio","command":"bunx","args":["@playwright/mcp@latest","--isolated"],"env":{}},"gitnexus":{"type":"stdio","command":"gitnexus","args":["mcp"],"env":{}}}}\n' > "$sandbox_bunx_migration/home/.claude.json"
+  printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY:-}"}},"brave-search":{"type":"stdio","command":"bunx","args":["@brave/brave-search-mcp-server","--transport","stdio"],"env":{"BRAVE_API_KEY":"${BRAVE_API_KEY}"}},"firecrawl":{"type":"stdio","command":"bunx","args":["firecrawl-mcp"],"env":{"FIRECRAWL_API_KEY":"${FIRECRAWL_API_KEY}"}},"playwright":{"type":"stdio","command":"bunx","args":["@playwright/mcp@latest","--isolated"],"env":{}}}}\n' > "$sandbox_bunx_migration/home/.claude.json"
   expect_install_status 0 "$sandbox_bunx_migration" "$snapshot_repo"
   assert_json_value "$sandbox_bunx_migration/home/.claude.json" "data['mcpServers']['brave-search']['command'] == 'pnpm'"
   assert_json_value "$sandbox_bunx_migration/home/.claude.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@brave/brave-search-mcp-server', '--transport', 'stdio']"
@@ -166,7 +161,6 @@ run_runtime_smoke_cases() {
   assert_json_value "$sandbox_bunx_migration/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'firecrawl-mcp']"
   assert_json_value "$sandbox_bunx_migration/home/.claude.json" "data['mcpServers']['playwright']['command'] == 'pnpm'"
   assert_json_value "$sandbox_bunx_migration/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@playwright/mcp@latest', '--isolated']"
-  assert_json_value "$sandbox_bunx_migration/home/.claude.json" "data['mcpServers']['gitnexus']['command'] == 'gitnexus'"
 
   mkdir -p "$sandbox_preserve/home/.claude"
   printf '# User Claude Memory\n' > "$sandbox_preserve/home/.claude/CLAUDE.md"
@@ -197,7 +191,6 @@ run_runtime_smoke_cases() {
   assert_json_value "$sandbox_config/home/.claude.json" "'brave-search' in data['mcpServers']"
   assert_json_value "$sandbox_config/home/.claude.json" "'firecrawl' in data['mcpServers']"
   assert_json_value "$sandbox_config/home/.claude.json" "'playwright' in data['mcpServers']"
-  assert_json_value "$sandbox_config/home/.claude.json" "'gitnexus' in data['mcpServers']"
   expect_install_status 0 "$sandbox_config" "$snapshot_repo" --uninstall
   assert_no_path "$sandbox_config/home/.claude/settings.json"
   assert_no_path "$sandbox_config/home/.claude.json"
@@ -214,7 +207,6 @@ run_runtime_smoke_cases() {
   assert_json_value "$sandbox_settings_merge/home/.claude/settings.json" "'Read(./.env)' in data['permissions']['deny']"
   assert_json_value "$sandbox_settings_merge/home/.claude.json" "data['userOnly'] is True"
   assert_json_value "$sandbox_settings_merge/home/.claude.json" "'custom' in data['mcpServers']"
-  assert_json_value "$sandbox_settings_merge/home/.claude.json" "'gitnexus' in data['mcpServers']"
   assert_contains "$sandbox_settings_merge/home/.claude/b-agentic/install.json" '"settingsAction": "merge"'
   assert_contains "$sandbox_settings_merge/home/.claude/b-agentic/install.json" '"mcpAction": "merge"'
   assert_glob "$sandbox_settings_merge/home/.claude/b-agentic/backups/settings.json.bak-*"

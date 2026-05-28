@@ -35,8 +35,6 @@ Execute concrete behavior-preserving transforms: lock target, map impact, transf
 
 - `bash` - inspect git state and run checks.
 - `serena-symbol-toolkit` *(preferred for target locking, references, diagnostics, and symbol edits)*
-- `gitnexus-radar` *(optional, for broad exported/shared impact)*
-
 
 ## Steps
 
@@ -48,7 +46,7 @@ For `simplify`, `inline`, and `extract`, state the observable behavior that must
 
 ### Step 2 - Map impact and risk
 
-Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Add exact text search for exported names, config keys, CLI flags, route strings, filenames, docs, and generated consumers when those surfaces could reference the target. Use GitNexus only for broad shared/exported blast-radius questions. Moves across public module boundaries, package boundaries, or published entry points require planning unless the approved scope already names the destination and verification.
+Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Add exact text search for exported names, config keys, CLI flags, route strings, filenames, docs, and generated consumers when those surfaces could reference the target. Moves across public module boundaries, package boundaries, or published entry points require planning unless the approved scope already names the destination and verification.
 
 Read `../../b-agentic/references/contract/03-definitions.md` before classifying risk. The local fast path is allowed when the refactor is one file, behavior-preserving, non-exported, LSP-supported, covered by direct semantics or narrow tests, has few/no external references, and has no generated-code consumers.
 

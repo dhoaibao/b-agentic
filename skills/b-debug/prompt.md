@@ -19,7 +19,6 @@ Confirm root cause, fix minimally, verify, and remove probes. If the user asks o
 ## Tools required
 
 - `serena-symbol-toolkit` *(preferred for tracing and focused fixes)*
-- `gitnexus-radar` *(optional, for unfamiliar cross-module paths)*
 - `context7-docs` *(optional, for suspected API misuse)*
 - `brave-search` + `firecrawl-extraction` *(optional, for public errors, recent deprecations, or upstream advisories after the privacy gate)*
 - Native search and `bash` - exact errors, config, repro commands, profilers, and diagnostics.
@@ -37,7 +36,7 @@ If production impact, data loss, or security risk is active, read `{{runtime_ref
 
 ### Step 2 - Rank suspects only as needed
 
-Use the stack trace or diagnostic fast path when one file/function is already strongly implicated. Otherwise map the path with the lightest tool: GitNexus for unfamiliar graph-shaped flows, then Serena/native reads for exact owners and references.
+Use the stack trace or diagnostic fast path when one file/function is already strongly implicated. Otherwise map the path with the lightest tool: Serena/native reads for exact owners and references.
 
 Bias first checks toward swallowed errors, auth/authz gates, config drift, missing `await`, async ordering, shared-state leaks, and new boundary errors. For perf, measure N+1 queries, unbounded retries, hot-loop allocations, or blocking I/O before guessing.
 

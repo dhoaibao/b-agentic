@@ -20,6 +20,3 @@ env_vars = ["FIRECRAWL_API_KEY"]
 command = "pnpm"
 args = ["dlx", "@playwright/mcp@latest", "--isolated"]
 
-[mcp_servers.gitnexus]
-command = "gitnexus"
-args = ["mcp"]

@@ -26,7 +26,6 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 
 - `bash` - inspect diff/status/log and run narrow verification when needed.
 - `serena-symbol-toolkit` *(preferred for focused code inspection)*
-- `gitnexus-radar` *(optional, for broad route/API/tool/shared-flow risk)*
 - `context7-docs` *(optional, for suspicious third-party API usage)*
 - `brave-search` + `firecrawl-extraction` *(optional, for focused public CVE, advisory, or release-drift lookup)*
 
@@ -50,7 +49,6 @@ Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarifi
 Inspect highest-risk changed symbols and boundaries first. Name sampled files/symbols, skipped changed surfaces, and residual risk so a no-findings review is not mistaken for exhaustive proof.
 
 - Use Serena first for exact changed symbols, local references, typed diagnostics, and nearby implementation context.
-- Use GitNexus only when route/API/tool consumers, exported boundaries, or shared execution flows are part of the risk story; keep it to targeted radar passes, not general code reading.
 - Use Context7 only when a finding or clean judgment depends on third-party API semantics that the repo cannot establish.
 - Use Brave Search plus Firecrawl only for focused public advisories, release drift, or official-doc confirmation when local evidence is insufficient.
 - If the diff is small and local with no shared/public boundary trigger, keep the review native or Serena-first instead of escalating into a graph or web-assisted review.

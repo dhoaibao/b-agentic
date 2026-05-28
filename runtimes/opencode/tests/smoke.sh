@@ -34,14 +34,13 @@ run_runtime_smoke_cases() {
   assert_no_path "$sandbox_opencode/home/.claude.json"
   assert_no_path "$sandbox_opencode/home/.claude/settings.json"
   assert_file "$sandbox_opencode/home/.config/opencode/opencode.json"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "set(data['mcp']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "set(data['mcp']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['serena']['command'] == ['serena', 'start-mcp-server', '--context', 'ide', '--project-from-cwd']"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['context7']['headers']['CONTEXT7_API_KEY'] == '{env:CONTEXT7_API_KEY}'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'][0] == 'pnpm'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'][0] == 'pnpm'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][0] == 'pnpm'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][-1] == '--isolated'"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['gitnexus']['command'] == ['gitnexus', 'mcp']"
   assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/index.md"
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/index.md" 'The active runtime kernel lives in `CLAUDE.md` (Claude Code) or `AGENTS.md` (OpenCode)'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/00-kernel.md" 'runtimes/claude-code/kernel.md'
@@ -75,7 +74,6 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_opencode_install_report/install.log" 'commands: '
   assert_contains "$sandbox_opencode_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_opencode_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
-  assert_contains "$sandbox_opencode_install_report/install.log" 'gitnexus: install/index separately if you want graph radar'
   assert_contains "$sandbox_opencode_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
   assert_contains "$sandbox_opencode_install_report/install.log" 'Shell tooling:'
   assert_contains "$sandbox_opencode_install_report/install.log" 'core: rg, fd/fdfind, jq, tmux, fzf'
@@ -170,7 +168,6 @@ run_runtime_smoke_cases() {
   printf '{"mcp":{"my-custom":{"type":"local","command":["my-tool"]}},"userOnly":true}\n' > "$sandbox_opencode_merge/home/.config/opencode/opencode.json"
   expect_install_status 0 "$sandbox_opencode_merge" "$snapshot_repo" --runtime=opencode
   assert_json_value "$sandbox_opencode_merge/home/.config/opencode/opencode.json" "'my-custom' in data['mcp']"
-  assert_json_value "$sandbox_opencode_merge/home/.config/opencode/opencode.json" "'gitnexus' in data['mcp']"
   assert_json_value "$sandbox_opencode_merge/home/.config/opencode/opencode.json" "data.get('userOnly') is True"
   assert_contains "$sandbox_opencode_merge/home/.config/opencode/b-agentic/install.json" '"mcpAction": "merge"'
   expect_install_status 0 "$sandbox_opencode_merge" "$snapshot_repo" --runtime=opencode --uninstall

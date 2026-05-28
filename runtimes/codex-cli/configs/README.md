@@ -43,19 +43,16 @@ The default Serena entry runs `serena start-mcp-server --context ide --project-f
 | `brave-search` | Open-web and news discovery. |
 | `firecrawl` | Known URL and document extraction. |
 | `playwright` | Browser/DOM/visual/e2e evidence with isolated state. |
-| `gitnexus` | Optional graph radar for architecture and blast-radius work. |
 
 MCP safety rules:
 - Prefer shell-environment forwarding by default, or write literal user-scope values into `~/.codex/config.toml` with `--prompt-api-keys`; never commit real API keys.
 - Keep Playwright configured with `--isolated` unless a user explicitly opts into persistent browser state outside the tracked worktree.
-- Treat GitNexus as optional power-user radar.
 
 ## MCP readiness after install
 
 - `playwright` is immediately available once Bun is on `PATH`; no extra suite-owned setup runs.
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.codex/config.toml` or matching shell environment variables.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
-- `gitnexus` entry is installed, but graph radar depends on the user having GitNexus installed and running their own indexing/analyze flow. The installer never runs GitNexus setup or indexing.
 
 ## Optional shell tooling recommendations
 

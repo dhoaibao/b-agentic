@@ -2,11 +2,11 @@
 
 Evidence hierarchy depends on the claim:
 
-- **Code behavior:** runtime evidence (tests, builds, logs, browser/network) > symbol evidence (Serena bodies, declarations, references, diagnostics, edits) > graph evidence (GitNexus routes, processes, impact, consumers) > exact text > search snippets.
-- **Prose, config, command wrappers, contracts, manifests, and docs:** exact text from the current repository > runtime validation that consumes that text > symbol evidence when applicable > graph evidence for impact/radar only > search snippets.
-- **Blast radius and architecture:** fresh, target-aware graph evidence can scope impact, but exact source/symbol/runtime evidence must confirm any final safety claim.
+- **Code behavior:** runtime evidence (tests, builds, logs, browser/network) > symbol evidence (Serena bodies, declarations, references, diagnostics, edits) > exact text > search snippets.
+- **Prose, config, command wrappers, contracts, manifests, and docs:** exact text from the current repository > runtime validation that consumes that text > symbol evidence when applicable > search snippets.
+- **Blast radius and architecture:** symbol evidence (Serena references, declarations, diagnostics) confirms impact; exact source/runtime evidence confirms safety.
 
-Graph evidence helps review/exploration but does not prove edits are safe. Stale graph output is not evidence (see §4 freshness gate). Exact text is authoritative for current prose/config/contract content. Search snippets are discovery only; if they are the final source after fallbacks, label snippet-only with `Confidence: low` and name the missing primary source or extraction step.
+Exact text is authoritative for current prose/config/contract content. Search snippets are discovery only; if they are the final source after fallbacks, label snippet-only with `Confidence: low` and name the missing primary source or extraction step.
 
 When two authoritative sources disagree (e.g., two versions of vendor docs), prefer the one matching the pinned version (§4); if still ambiguous, present both with the conflict labeled and a `Confidence: medium` line.
 

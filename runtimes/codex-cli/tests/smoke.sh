@@ -63,7 +63,6 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex_install_report/install.log" 'activation: active'
   assert_contains "$sandbox_codex_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_codex_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
-  assert_contains "$sandbox_codex_install_report/install.log" 'gitnexus: install/index separately if you want graph radar'
   assert_contains "$sandbox_codex_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
   assert_contains "$sandbox_codex_install_report/install.log" 'Shell tooling:'
   assert_contains "$sandbox_codex_install_report/install.log" 'core: rg, fd/fdfind, jq, tmux, fzf'

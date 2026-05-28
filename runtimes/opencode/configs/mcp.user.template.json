@@ -28,10 +28,6 @@
     "playwright": {
       "type": "local",
       "command": ["pnpm", "dlx", "@playwright/mcp@latest", "--isolated"]
-    },
-    "gitnexus": {
-      "type": "local",
-      "command": ["gitnexus", "mcp"]
     }
   }
 }

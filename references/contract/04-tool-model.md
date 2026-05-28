@@ -7,7 +7,6 @@ Skills reference bundles by conceptual name; the actual MCP server name is in th
 | Bundle name | Server | Role |
 |---|---|---|
 | `serena-symbol-toolkit` | `serena` | Symbol discovery, references, diagnostics, edits |
-| `gitnexus-radar` | `gitnexus` | Optional graph radar for architecture/blast radius |
 | `context7-docs` | `context7` | Library/framework documentation lookup |
 | `brave-search` | `brave-search` | Open-web and news discovery |
 | `firecrawl-extraction` | `firecrawl` | Known URL and local document extraction (default tier) |
@@ -21,7 +20,6 @@ Use the lightest reliable tool. Native local tools such as exact file reads, `rg
 
 | Task shape | First choice | Then narrow with |
 |---|---|---|
-| Graph overview, architecture, blast radius, changed-scope validation | `gitnexus-radar` when indexed, fresh, target-aware | `serena-symbol-toolkit` |
 | Exact symbol discovery, declarations, references, symbol edits | `serena-symbol-toolkit` | Native tools + `apply_patch` |
 | Library/framework docs | `context7-docs` | `b-research` |
 | Web/news/image discovery and unknown-URL source shortlisting | `brave-search` | `firecrawl-extraction` for source content |
@@ -38,22 +36,12 @@ Use deeper MCP guidance where it materially improves evidence quality or coordin
 - **Escalation rule:** if local evidence already answers the next decision, do not add MCP calls just because the bundle exists.
 - **Runtime readiness rule:** installers and runtime docs may explain what still needs user setup, but availability messaging does not justify auto-running onboarding, indexing, or other user-scope setup steps.
 
-### Radar/hands boundary
-
-GitNexus is optional radar; Serena is primary hands. GitNexus scopes graph risk, flows, routes, consumers, and cross-module impact. Serena confirms exact symbols, bodies, references, and performs symbol-aware edits.
-
-### GitNexus freshness gate
-
-Rely on GitNexus only when the repo is indexed, not stale, and the target file or symbol is represented. If unavailable, stale, unindexed, missing FTS, or missing the target, warn once and continue with Serena or native tools. If a GitNexus result references a file whose mtime is newer than the index timestamp, treat the result as stale. Stale graph output is not evidence.
-
 ### Tool selection rules
 
-- Single-file or local-only task: skip GitNexus.
-- Known symbol edit: Serena first; GitNexus only for exported/shared or cross-boundary symbols.
-- Planning or review question with no shared/public boundary, process-flow uncertainty, or unfamiliar subsystem: stay native or Serena-first.
+- Single-file or local-only task: use native tools or Serena for exact symbols.
+- Known symbol edit: Serena first.
+- Planning or review question with no shared/public boundary: stay native or Serena-first.
 - Body-last symbol workflow: inspect overviews, declarations, diagnostics, or references before full symbol bodies; request bodies only when needed to decide or edit.
-- Large unfamiliar area: one GitNexus pass to narrow, then Serena confirms.
-- Do not use GitNexus and Serena in parallel on the same exact symbol hunt.
 - Do not escalate to a second MCP when the first authoritative source already answered.
 - Pick the cheapest discovery tool that closes the next question; there is no required ordering among Serena discovery tools.
 
@@ -70,14 +58,6 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 - **Verification:** `get_diagnostics_for_file`.
 - **Edits:** `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol`, `rename_symbol`, `safe_delete_symbol`.
 - **LSP caveat:** strong for TS/JS, Python, and similar; weak for Bash, YAML, Markdown, Lua, and many DSLs. Treat non-LSP renames/safe-deletes/diagnostics as **not authoritative**; widen verification.
-
-#### `gitnexus-radar`
-
-- **Server:** `gitnexus`
-- **Install source:** default user-scope MCP template uses `gitnexus mcp` after the user installs GitNexus. Indexing, generated skills, hooks, root guidance writes, and `gitnexus setup` remain user-run steps outside the b-agentic installer. Avoid cold `npx` for the default MCP entry because GitNexus native dependency startup can exceed runtime MCP timeouts.
-- **Role:** optional graph radar for scoping blast radius, route/consumer surfaces, or unfamiliar architecture.
-- **Use only when** indexed, fresh, and the target is represented.
-- **Never use for** symbol editing, exact-body inspection, or anything Serena can answer directly.
 
 #### `context7-docs`
 
@@ -127,7 +107,6 @@ Assume bundles are available; do not preflight. On failure, retry once narrower,
 
 **Fallback ladder:**
 - `serena-symbol-toolkit` unavailable → native Glob/Grep/Read + `apply_patch`. Treat renames and safe-deletes as high-risk; widen verification.
-- `gitnexus-radar` unavailable, stale, or missing target → continue without graph evidence; do not retry.
 - `context7-docs` unavailable → official-docs URL via `brave-search` + `firecrawl-extraction`.
 - `firecrawl-extraction` unavailable on a known URL → search snippets only; mark the answer as snippet-only with `Confidence: low`.
 - `firecrawl-extraction` unavailable on a local plain-text, Markdown, or HTML document → use native local reads and exact local tools.
@@ -146,7 +125,6 @@ When fallback changes the intended tool path, evidence source, or verification r
 - If sustained tool use is not increasing evidence quality, narrow the next check or stop and ask whether to continue.
 - Classify failures before retry/fallback: unavailable, auth/permission, rate-limit, timeout, stale index/cache, unsupported content, malformed request. Retry only transient or fixable-by-narrowing failures; stop for auth failures.
 - `firecrawl-deep` invocations require user approval **per invocation by default**. **Run-scoped pre-authorization carve-out:** the per-invocation default may be relaxed only when the user issues an explicit, scoped grant (e.g., "approved: use deep mode up to 3 times for this research pass") that names **both** (a) a numeric invocation cap and (b) the current run. Without an explicit cap, the carve-out is invalid and the per-invocation rule still applies. Record the granted cap in the status block `notes` and the handoff envelope `carve-outs` field; decrement on each use and surface the remaining count in the next status block. The carve-out expires when the run ends, when the cap is exhausted, or when the user revokes it — whichever comes first. The carve-out never overrides §6 safety gates (privacy, sensitive files, destructive actions).
-- `gitnexus-radar` should usually stay to 1-2 calls per run; more often means the question should move back to Serena or native tools.
 - Reuse recently fetched URLs, docs, and symbol results instead of re-fetching them.
 - The verification iteration cap (§7) still applies.
 
@@ -160,7 +138,7 @@ Mode precedence is skill-specific, but the global default is: explicit user flag
 
 When a non-trivial run consumes notable budget, include a one-line cost summary in the status block `notes` field:
 
-`cost: gitnexus=2, serena=14, context7=1, firecrawl-deep=1, iterations=2/3`
+`cost: serena=14, context7=1, firecrawl-deep=1, iterations=2/3`
 
 Only include counters that were actually used. Skip entirely on trivial runs. This lets the next skill in a chain see whether to slow down before adding more tool work.
 

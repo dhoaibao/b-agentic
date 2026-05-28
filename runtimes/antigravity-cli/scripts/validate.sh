@@ -97,7 +97,7 @@ else:
         errors.append(f'runtimes/antigravity-cli/configs/mcp_config.template.json: invalid JSON: {exc}')
         template = {}
     servers = template.get('mcpServers', {})
-    expected_servers = {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}
+    expected_servers = {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}
     if set(servers) != expected_servers:
         errors.append(f'runtimes/antigravity-cli/configs/mcp_config.template.json: expected default MCP servers {sorted(expected_servers)}, found {sorted(servers)}')
     context7 = servers.get('context7', {})

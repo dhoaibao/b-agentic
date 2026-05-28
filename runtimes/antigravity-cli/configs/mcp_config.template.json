@@ -32,10 +32,6 @@
     "playwright": {
       "command": "pnpm",
       "args": ["dlx", "@playwright/mcp@latest", "--isolated"]
-    },
-    "gitnexus": {
-      "command": "gitnexus",
-      "args": ["mcp"]
     }
   }
 }

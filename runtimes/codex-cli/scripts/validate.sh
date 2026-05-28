@@ -89,7 +89,7 @@ else:
         template = {}
 
     servers = template.get('mcp_servers', {})
-    expected = {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}
+    expected = {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}
     if set(servers) != expected:
         errors.append(f'runtimes/codex-cli/configs/mcp.user.template.toml: expected default MCP servers {sorted(expected)}, found {sorted(servers)}')
     if servers.get('serena', {}).get('command') != 'serena':
@@ -104,9 +104,6 @@ else:
         errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: firecrawl must default to env_vars forwarding')
     if servers.get('playwright', {}).get('args', [])[-1:] != ['--isolated']:
         errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: playwright must use --isolated by default')
-    if servers.get('gitnexus', {}).get('args') != ['mcp']:
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: gitnexus must use gitnexus mcp')
-
 if 'Codex CLI Runtime Layout' not in codex_readme:
     errors.append('runtimes/codex-cli/configs/README.md: missing title')
 for needle in ['~/.codex/config.toml', '~/.codex/skills/', 'mcp.user.template.toml', 'skills.config', 'runtime-neutral']:

@@ -39,12 +39,6 @@
       "command": "pnpm",
       "args": ["dlx", "@playwright/mcp@latest", "--isolated"],
       "env": {}
-    },
-    "gitnexus": {
-      "type": "stdio",
-      "command": "gitnexus",
-      "args": ["mcp"],
-      "env": {}
     }
   }
 }

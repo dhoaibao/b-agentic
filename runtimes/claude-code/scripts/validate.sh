@@ -79,7 +79,7 @@ for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'report_item 
 if 'Global MCP Setup' not in claude_readme or '~/.claude.json' not in claude_readme:
     errors.append('runtimes/claude-code/configs/README.md: missing global MCP setup documentation')
 
-for forbidden in ['--install-project-mcp', '--replace-project-mcp', '--mcp-profile', '--with-playwright', '--with-gitnexus', '.mcp.json']:
+for forbidden in ['--install-project-mcp', '--replace-project-mcp', '--mcp-profile', '--with-playwright', '.mcp.json']:
     if forbidden in claude_readme:
         errors.append(f'runtimes/claude-code/configs/README.md: should not document per-project/options installer path {forbidden!r}')
 

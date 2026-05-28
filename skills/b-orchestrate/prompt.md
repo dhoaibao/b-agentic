@@ -27,7 +27,6 @@ If `$ARGUMENTS` is present, treat it as the workflow goal plus any explicit cons
 - Native tools - inspect status, diffs, docs, and verification commands.
 - Phase skills - **b-plan**, **b-implement**, **b-test**, **b-browser**, **b-review**, plus **b-debug**, **b-refactor**, and **b-research** when a phase routes there. These skills receive the actual work; `b-orchestrate` only coordinates transitions by emitting handoff envelopes, checkpoint manifests, and reading returned status blocks when they are available.
 - `serena-symbol-toolkit` *(optional, through the active phase skill when symbol work matters)*
-- `gitnexus-radar` *(optional, through the active phase skill for graph-shaped risk)*
 
 
 ## Steps

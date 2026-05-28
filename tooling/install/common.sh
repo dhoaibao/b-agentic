@@ -280,11 +280,6 @@ def migrate_managed_values(data):
             if isinstance(headers, dict) and headers.get('CONTEXT7_API_KEY') == '${CONTEXT7_API_KEY}':
                 headers['CONTEXT7_API_KEY'] = '${CONTEXT7_API_KEY:-}'
 
-            gitnexus = servers.get('gitnexus')
-            if isinstance(gitnexus, dict) and gitnexus.get('command') == 'npx' and gitnexus.get('args') == ['-y', 'gitnexus@latest', 'mcp']:
-                gitnexus['command'] = 'gitnexus'
-                gitnexus['args'] = ['mcp']
-
             migrate_managed_launcher(
                 servers.get('brave-search'),
                 recommended_servers.get('brave-search'),
@@ -618,10 +613,6 @@ def managed_mcp_server(current_server, incoming_server, server_name):
         else:
             normalize_managed_launcher(['npx', '-y', '@playwright/mcp@latest', '--isolated'])
             normalize_managed_launcher(['bunx', '@playwright/mcp@latest', '--isolated'])
-    elif server_name == 'gitnexus':
-        if normalized.get('command') == 'npx' and normalized.get('args') == ['-y', 'gitnexus@latest', 'mcp']:
-            normalized['command'] = 'gitnexus'
-            normalized['args'] = ['mcp']
     return normalized == incoming_server
 
 if not isinstance(current, dict) or not isinstance(incoming, dict) or not isinstance(original, dict):
@@ -863,7 +854,6 @@ print_install_report_header() {
 print_install_report_readiness() {
   report_section "Readiness"
   report_item "serena" "install/init separately; installer never runs onboarding"
-  report_item "gitnexus" "install/index separately if you want graph radar"
   report_item "api-keys" "Context7, Brave Search, and Firecrawl need user-scope keys"
 }
 

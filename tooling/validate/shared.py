@@ -485,7 +485,6 @@ runtime_readiness_doc_lines = [
     "## MCP readiness after install",
     "`playwright` is immediately available once Bun is on `PATH`; no extra suite-owned setup runs.",
     "`serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.",
-    "`gitnexus` entry is installed, but graph radar depends on the user having GitNexus installed and running their own indexing/analyze flow. The installer never runs GitNexus setup or indexing.",
 ]
 runtime_shell_doc_lines = [
     "## Optional shell tooling recommendations",
@@ -649,7 +648,7 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
             errors.append(f"{rel(json_path)}: missing non-empty {mcp_key} object")
             continue
 
-        expected_user = {"serena", "context7", "brave-search", "firecrawl", "playwright", "gitnexus"}
+        expected_user = {"serena", "context7", "brave-search", "firecrawl", "playwright"}
 
         if is_opencode:
             if "serena" in servers:
@@ -692,12 +691,6 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
                 headers = server.get("headers", {})
                 if headers.get("CONTEXT7_API_KEY") != "{env:CONTEXT7_API_KEY}":
                     errors.append(f"{rel(json_path)}: context7 must use {{env:CONTEXT7_API_KEY}} header placeholder")
-
-            if "gitnexus" in servers and json_path.name != "mcp.user.template.json":
-                errors.append(f"{rel(json_path)}: gitnexus belongs only in the global user config")
-            if "gitnexus" in servers:
-                if servers["gitnexus"].get("command") != ["gitnexus", "mcp"]:
-                    errors.append(f"{rel(json_path)}: gitnexus must use installed gitnexus mcp command")
 
         elif is_antigravity:
             if "brave-search" in servers:
@@ -743,11 +736,6 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
                 if headers.get("CONTEXT7_API_KEY") != "$CONTEXT7_API_KEY":
                     errors.append(f"{rel(json_path)}: context7 must use $CONTEXT7_API_KEY header placeholder")
 
-            if "gitnexus" in servers:
-                gitnexus = servers["gitnexus"]
-                if gitnexus.get("command") != "gitnexus" or gitnexus.get("args") != ["mcp"]:
-                    errors.append(f"{rel(json_path)}: gitnexus must use installed gitnexus mcp command")
-
         else:
             if "brave-search" in servers:
                 env = servers["brave-search"].get("env", {})
@@ -792,13 +780,6 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
                 if headers.get("CONTEXT7_API_KEY") != "${CONTEXT7_API_KEY:-}":
                     errors.append(f"{rel(json_path)}: context7 must use ${{CONTEXT7_API_KEY:-}} optional header placeholder")
 
-            if "gitnexus" in servers and json_path.name != "mcp.user.template.json":
-                errors.append(f"{rel(json_path)}: gitnexus belongs only in the global user config")
-            if "gitnexus" in servers:
-                gitnexus = servers["gitnexus"]
-                if gitnexus.get("command") != "gitnexus" or gitnexus.get("args") != ["mcp"]:
-                    errors.append(f"{rel(json_path)}: gitnexus must use installed gitnexus mcp command")
-
         if json_path.name == "mcp.user.template.json" or (is_antigravity and json_path.name == "mcp_config.template.json"):
             actual_user = set(servers)
             if actual_user != expected_user:
@@ -840,11 +821,11 @@ for forbidden_wrapper in ["bash scripts/validate-skills.sh", "bash scripts/smoke
     if forbidden_wrapper in runtime_template_readme:
         errors.append(f"{rel(runtime_template_root / 'README.md')}: wrapper usage should rely on executable entrypoints, not {forbidden_wrapper!r}")
 
-for forbidden in ["--install-project-mcp", "--replace-project-mcp", "--mcp-profile", "--with-playwright", "--with-gitnexus", ".mcp.json"]:
+for forbidden in ["--install-project-mcp", "--replace-project-mcp", "--mcp-profile", "--with-playwright", ".mcp.json"]:
     if forbidden in readme:
         errors.append(f"README.md: should not document per-project/options installer path {forbidden!r}")
 
-for forbidden in ["--install-project-mcp", "--replace-project-mcp", "--mcp-profile", "--with-playwright", "--with-gitnexus", "PROJECT_MCP_DST", "mcpProfile"]:
+for forbidden in ["--install-project-mcp", "--replace-project-mcp", "--mcp-profile", "--with-playwright", "PROJECT_MCP_DST", "mcpProfile"]:
     if forbidden in install_sh:
         errors.append(f"install.sh: should not expose per-project/options installer path {forbidden!r}")
 

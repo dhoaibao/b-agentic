@@ -24,7 +24,6 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed.
 ## Tools required
 
 - `serena-symbol-toolkit` *(preferred for planning against existing code)*
-- `gitnexus-radar` *(optional, for graph-shaped planning)*
 - `context7-docs` *(optional, for one narrow API check)*
 - `firecrawl-extraction` *(optional, for a user-provided issue or ticket URL)*
 
@@ -54,10 +53,8 @@ Read `{{runtime_reference_root}}/contract/09-output.md` before handing off to an
 
 Skip code discovery for greenfield or docs-only work. Otherwise use the lightest tool that answers the next planning question:
 
-- GitNexus only for graph-shaped subsystem, route, consumer, or process-flow questions.
 - Serena/native tools for exact owners, declarations, references, nearby conventions, and stable anchors for prose/config edits; prefer `rg`, `fd`/`fdfind`, and `jq` when they exist and materially speed local evidence.
 - For small or obvious 1-3 file plans, keep discovery local; do not spend MCP budget unless shared-boundary risk appears.
-- For cross-module, exported, or route/tool planning, do at most one targeted GitNexus pass to map blast radius, then switch back to Serena/native tools for exact files and symbols.
 - Use Context7 only when a versioned third-party API detail changes the plan, step ordering, or acceptance criteria; otherwise keep planning grounded in repo evidence.
 - Use Firecrawl only for user-provided issue/ticket/docs URLs where exact remote text affects scope; do not turn ordinary planning into open-web research.
 

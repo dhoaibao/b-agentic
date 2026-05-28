@@ -248,15 +248,6 @@ add_server(
     ],
 )
 
-add_server(
-    "gitnexus",
-    [
-        "[mcp_servers.gitnexus]",
-        'command = "gitnexus"',
-        'args = ["mcp"]',
-    ],
-)
-
 for name in skills:
     skill_path = str(skills_root / name)
     if skill_path in existing_skill_paths:

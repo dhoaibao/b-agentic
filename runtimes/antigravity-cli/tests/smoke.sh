@@ -30,14 +30,13 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/settings.json"
   assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/settings.json" "data == {}"
-  assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright', 'gitnexus'}"
+  assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['context7']['serverUrl'] == 'https://mcp.context7.com/mcp'"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "'httpUrl' not in data['mcpServers']['context7']"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\$CONTEXT7_API_KEY'"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['brave-search']['command'] == 'pnpm'"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['firecrawl']['command'] == 'pnpm'"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['playwright']['args'][-1] == '--isolated'"
-  assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['gitnexus']['command'] == 'gitnexus'"
   assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/b-agentic/references/contract/index.md"
   assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/b-agentic/templates/mcp_config.template.json"
   assert_no_path "$sandbox_antigravity/home/.gemini/settings.json"
@@ -85,7 +84,6 @@ run_runtime_smoke_cases() {
   printf '{"mcpServers":{"custom":{"serverUrl":"https://example.com/mcp"}},"userOnly":true}\n' > "$sandbox_antigravity_merge/home/.gemini/antigravity-cli/mcp_config.json"
   expect_install_status 0 "$sandbox_antigravity_merge" "$snapshot_repo" --runtime=antigravity-cli
   assert_json_value "$sandbox_antigravity_merge/home/.gemini/antigravity-cli/mcp_config.json" "'custom' in data['mcpServers']"
-  assert_json_value "$sandbox_antigravity_merge/home/.gemini/antigravity-cli/mcp_config.json" "'gitnexus' in data['mcpServers']"
   assert_json_value "$sandbox_antigravity_merge/home/.gemini/antigravity-cli/mcp_config.json" "data.get('userOnly') is True"
   expect_install_status 0 "$sandbox_antigravity_merge" "$snapshot_repo" --runtime=antigravity-cli --uninstall
   assert_json_value "$sandbox_antigravity_merge/home/.gemini/antigravity-cli/mcp_config.json" "set(data['mcpServers']) == {'custom'}"
