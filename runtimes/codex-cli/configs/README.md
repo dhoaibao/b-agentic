@@ -30,6 +30,18 @@ The installer never overwrites an existing `~/.codex/AGENTS.md` without `--repla
 
 Codex runtime install and maintainer validation/smoke checks require Python 3.11+ because TOML parsing uses the standard-library `tomllib` module.
 
+## Serena hooks
+
+The installer writes Codex-native inline TOML hooks into the b-agentic managed block in `~/.codex/config.toml`. Fresh installs enable `[features].hooks = true` in that managed block, then add:
+
+- `[[hooks.SessionStart]]` to run `serena-hooks activate --client=codex`.
+- `[[hooks.PreToolUse]]` to run `serena-hooks remind --client=codex`.
+- `[[hooks.Stop]]` to run `serena-hooks cleanup --client=codex`.
+
+Existing user-owned hooks outside the managed block are preserved, and uninstall removes only the b-agentic managed hook entries. If a user already owns a `[features]` table, the installer leaves that table untouched instead of duplicating it, so user or admin hook feature policy remains authoritative.
+
+Codex may require users to review and trust newly installed non-managed command hooks through `/hooks` before they run. This adapter documents that trust step but does not install bypass flags.
+
 ## Global MCP Setup
 
 Codex uses `config.toml` for configuration. MCP servers are configured under `[mcp_servers.<name>]` tables. The installer writes the recommended MCP block from `mcp.user.template.toml` into `~/.codex/config.toml`, alongside the skill-registration block. Existing user config is preserved outside the managed block, and uninstall removes only that block.

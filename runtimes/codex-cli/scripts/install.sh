@@ -184,6 +184,37 @@ lines = [
     "",
 ]
 
+if "features" not in base:
+    lines.extend([
+        "[features]",
+        "hooks = true",
+        "",
+    ])
+
+lines.extend([
+    "[[hooks.SessionStart]]",
+    'matcher = "startup|resume|clear|compact"',
+    "",
+    "[[hooks.SessionStart.hooks]]",
+    'type = "command"',
+    'command = "serena-hooks activate --client=codex"',
+    "",
+    "[[hooks.PreToolUse]]",
+    'matcher = ".*"',
+    "",
+    "[[hooks.PreToolUse.hooks]]",
+    'type = "command"',
+    'command = "serena-hooks remind --client=codex"',
+    "",
+    "[[hooks.Stop]]",
+    'matcher = ".*"',
+    "",
+    "[[hooks.Stop.hooks]]",
+    'type = "command"',
+    'command = "serena-hooks cleanup --client=codex"',
+    "",
+])
+
 
 def add_server(name: str, body_lines: list[str]):
     if name in base_servers:

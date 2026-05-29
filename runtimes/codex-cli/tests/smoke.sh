@@ -20,6 +20,9 @@ run_runtime_smoke_cases() {
   local managed_skill_entries_expr="[item for item in data['skills']['config'] if '/.codex/skills/' in item.get('path', '')]"
   local managed_skill_enabled_expr="$managed_skill_entries_expr and all(item.get('enabled') is True for item in data['skills']['config'] if '/.codex/skills/' in item.get('path', ''))"
   local managed_skill_missing_enabled_expr="$managed_skill_entries_expr and all('enabled' not in item for item in data['skills']['config'] if '/.codex/skills/' in item.get('path', ''))"
+  local codex_activate_hook_expr="any(hook.get('matcher') == 'startup|resume|clear|compact' and any(command.get('command') == 'serena-hooks activate --client=codex' for command in hook.get('hooks', [])) for hook in data['hooks']['SessionStart'])"
+  local codex_remind_hook_expr="any(hook.get('matcher') == '.*' and any(command.get('command') == 'serena-hooks remind --client=codex' for command in hook.get('hooks', [])) for hook in data['hooks']['PreToolUse'])"
+  local codex_cleanup_hook_expr="any(hook.get('matcher') == '.*' and any(command.get('command') == 'serena-hooks cleanup --client=codex' for command in hook.get('hooks', [])) for hook in data['hooks']['Stop'])"
 
   mkdir -p "$sandbox_codex/home"
   expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
@@ -40,11 +43,23 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex/home/.codex/config.toml" '[[skills.config]]'
   assert_contains "$sandbox_codex/home/.codex/config.toml" 'enabled = true'
   assert_contains "$sandbox_codex/home/.codex/config.toml" 'path = "/'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" '[features]'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" 'hooks = true'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" '[[hooks.SessionStart]]'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" 'serena-hooks activate --client=codex'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" '[[hooks.PreToolUse]]'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" 'serena-hooks remind --client=codex'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" '[[hooks.Stop]]'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" 'serena-hooks cleanup --client=codex'
   assert_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_RUNTIME_REFERENCES'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_SKILL_DIR'
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "'serena' in data['mcp_servers']"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['serena']['args'] == ['start-mcp-server', '--context', 'ide', '--project-from-cwd']"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['features']['hooks'] is True"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_activate_hook_expr"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_remind_hook_expr"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_cleanup_hook_expr"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "any(item['path'].endswith('/.codex/skills/b-plan') for item in data['skills']['config'])"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$managed_skill_enabled_expr"
   assert_file "$sandbox_codex/home/.codex/b-agentic/references/contract/index.md"
@@ -173,6 +188,13 @@ model = "gpt-5.4"
 [mcp_servers.custom]
 command = "custom-mcp"
 
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "custom-hook"
+
 [[skills.config]]
 path = "/tmp/custom-skill"
 enabled = true
@@ -180,10 +202,12 @@ EOF
   expect_install_status 0 "$sandbox_codex_merge" "$snapshot_repo" --runtime=codex-cli
   assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "data['model'] == 'gpt-5.4'"
   assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "data['mcp_servers']['custom']['command'] == 'custom-mcp'"
+  assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "any(hook.get('matcher') == '^Bash$' and hook.get('hooks', [{}])[0].get('command') == 'custom-hook' for hook in data['hooks']['PreToolUse'])"
+  assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "$codex_remind_hook_expr"
   assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "'/tmp/custom-skill' in [item['path'] for item in data['skills']['config']]"
   assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "any(item['path'].endswith('/.codex/skills/b-plan') for item in data['skills']['config'])"
   expect_install_status 0 "$sandbox_codex_merge" "$snapshot_repo" --runtime=codex-cli --uninstall
-  assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "data == {'model': 'gpt-5.4', 'mcp_servers': {'custom': {'command': 'custom-mcp'}}, 'skills': {'config': [{'path': '/tmp/custom-skill', 'enabled': True}]}}"
+  assert_toml_value "$sandbox_codex_merge/home/.codex/config.toml" "data == {'model': 'gpt-5.4', 'mcp_servers': {'custom': {'command': 'custom-mcp'}}, 'hooks': {'PreToolUse': [{'matcher': '^Bash$', 'hooks': [{'type': 'command', 'command': 'custom-hook'}]}]}, 'skills': {'config': [{'path': '/tmp/custom-skill', 'enabled': True}]}}"
 
   mkdir -p "$sandbox_codex_legacy_managed/home"
   expect_install_status 0 "$sandbox_codex_legacy_managed" "$snapshot_repo" --runtime=codex-cli
@@ -192,24 +216,34 @@ from pathlib import Path
 import sys
 
 path = Path(sys.argv[1])
-path.write_text(path.read_text().replace("\nenabled = true", ""))
+text = path.read_text().replace("\nenabled = true", "")
+text = text.replace("serena-hooks remind --client=codex", "serena-hooks stale-remind --client=codex")
+path.write_text(text)
 PY
   assert_toml_value "$sandbox_codex_legacy_managed/home/.codex/config.toml" "$managed_skill_missing_enabled_expr"
+  assert_contains "$sandbox_codex_legacy_managed/home/.codex/config.toml" 'serena-hooks stale-remind --client=codex'
   expect_install_status 0 "$sandbox_codex_legacy_managed" "$snapshot_repo" --runtime=codex-cli
   assert_toml_value "$sandbox_codex_legacy_managed/home/.codex/config.toml" "$managed_skill_enabled_expr"
+  assert_toml_value "$sandbox_codex_legacy_managed/home/.codex/config.toml" "$codex_remind_hook_expr"
+  assert_not_contains "$sandbox_codex_legacy_managed/home/.codex/config.toml" 'serena-hooks stale-remind --client=codex'
   expect_install_status 0 "$sandbox_codex_legacy_managed" "$snapshot_repo" --runtime=codex-cli --uninstall
   assert_no_path "$sandbox_codex_legacy_managed/home/.codex/config.toml"
 
   mkdir -p "$sandbox_codex_conflict/home/.codex"
   cat <<'EOF' > "$sandbox_codex_conflict/home/.codex/config.toml"
+[features]
+hooks = false
+
 [mcp_servers.context7]
 url = "https://example.com/custom-context7"
 EOF
   expect_install_status 0 "$sandbox_codex_conflict" "$snapshot_repo" --runtime=codex-cli
+  assert_toml_value "$sandbox_codex_conflict/home/.codex/config.toml" "data['features']['hooks'] is False"
   assert_toml_value "$sandbox_codex_conflict/home/.codex/config.toml" "data['mcp_servers']['context7']['url'] == 'https://example.com/custom-context7'"
+  assert_toml_value "$sandbox_codex_conflict/home/.codex/config.toml" "$codex_activate_hook_expr"
   assert_contains "$sandbox_codex_conflict/home/.codex/config.toml" '[mcp_servers.brave-search]'
   expect_install_status 0 "$sandbox_codex_conflict" "$snapshot_repo" --runtime=codex-cli --uninstall
-  assert_toml_value "$sandbox_codex_conflict/home/.codex/config.toml" "data == {'mcp_servers': {'context7': {'url': 'https://example.com/custom-context7'}}}"
+  assert_toml_value "$sandbox_codex_conflict/home/.codex/config.toml" "data == {'features': {'hooks': False}, 'mcp_servers': {'context7': {'url': 'https://example.com/custom-context7'}}}"
 
   expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli --uninstall
   assert_no_path "$sandbox_codex/home/.codex/b-agentic"
