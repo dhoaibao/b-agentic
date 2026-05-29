@@ -716,15 +716,15 @@ collect_api_keys() {
 }
 
 recommended_shell_commands() {
-  printf 'rg, fd/fdfind, jq, tmux, fzf'
+  printf 'rg, fd/fdfind, jq'
 }
 
 optional_shell_commands() {
-  printf 'bat/batcat, yq, git-delta, gh'
+  printf 'bat/batcat, yq, git-delta, gh, tmux, fzf'
 }
 
 optional_shell_tool_workflows() {
-  printf 'readable file previews, YAML-heavy work, better git diffs, and GitHub-heavy workflows'
+  printf 'readable file previews, YAML-heavy work, better git diffs, GitHub-heavy workflows, long-running jobs, and non-interactive scoring'
 }
 
 linux_distribution_family() {
@@ -812,19 +812,19 @@ detect_shell_tool_package_manager() {
 
 shell_tool_install_hint() {
   case "$1" in
-    brew) printf 'brew install ripgrep fd jq tmux fzf' ;;
-    apt) printf 'sudo apt install -y ripgrep fd-find jq tmux fzf' ;;
-    dnf) printf 'sudo dnf install -y ripgrep fd-find jq tmux fzf' ;;
-    *) printf 'install manually: ripgrep, fd or fd-find, jq, tmux, fzf' ;;
+    brew) printf 'brew install ripgrep fd jq' ;;
+    apt) printf 'sudo apt install -y ripgrep fd-find jq' ;;
+    dnf) printf 'sudo dnf install -y ripgrep fd-find jq' ;;
+    *) printf 'install manually: ripgrep, fd or fd-find, jq' ;;
   esac
 }
 
 optional_shell_tool_install_hint() {
   case "$1" in
-    brew) printf 'brew install bat yq git-delta gh' ;;
-    apt) printf 'sudo apt install -y bat yq git-delta gh' ;;
-    dnf) printf 'sudo dnf install -y bat yq git-delta gh' ;;
-    *) printf 'install manually: bat or batcat, yq, git-delta, gh' ;;
+    brew) printf 'brew install bat yq git-delta gh tmux fzf' ;;
+    apt) printf 'sudo apt install -y bat yq git-delta gh tmux fzf' ;;
+    dnf) printf 'sudo dnf install -y bat yq git-delta gh tmux fzf' ;;
+    *) printf 'install manually: bat or batcat, yq, git-delta, gh, tmux, fzf' ;;
   esac
 }
 

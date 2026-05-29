@@ -85,9 +85,9 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_codex_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
   assert_contains "$sandbox_codex_install_report/install.log" 'Shell tooling:'
-  assert_contains "$sandbox_codex_install_report/install.log" 'core: rg, fd/fdfind, jq, tmux, fzf'
-  assert_contains "$sandbox_codex_install_report/install.log" 'optional: bat/batcat, yq, git-delta, gh'
-  assert_contains "$sandbox_codex_install_report/install.log" 'optional-use: readable file previews, YAML-heavy work, better git diffs, and GitHub-heavy workflows'
+  assert_contains "$sandbox_codex_install_report/install.log" 'core: rg, fd/fdfind, jq'
+  assert_contains "$sandbox_codex_install_report/install.log" 'optional: bat/batcat, yq, git-delta, gh, tmux, fzf'
+  assert_contains "$sandbox_codex_install_report/install.log" 'optional-use: readable file previews, YAML-heavy work, better git diffs, GitHub-heavy workflows, long-running jobs, and non-interactive scoring'
   assert_contains "$sandbox_codex_install_report/install.log" 'installer: suggestions only; no packages were installed automatically'
   assert_contains "$sandbox_codex_install_report/install.log" 'Next steps:'
   assert_contains "$sandbox_codex_install_report/install.log" 'launch: start a new Codex CLI session so it picks up'
@@ -98,8 +98,8 @@ run_runtime_smoke_cases() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=brew \
   bash "$ROOT_DIR/install.sh" --runtime=codex-cli >"$sandbox_codex_install_report/install-brew.log" 2>&1
-  assert_contains "$sandbox_codex_install_report/install-brew.log" 'core-install: brew install ripgrep fd jq tmux fzf'
-  assert_contains "$sandbox_codex_install_report/install-brew.log" 'optional-install: brew install bat yq git-delta gh'
+  assert_contains "$sandbox_codex_install_report/install-brew.log" 'core-install: brew install ripgrep fd jq'
+  assert_contains "$sandbox_codex_install_report/install-brew.log" 'optional-install: brew install bat yq git-delta gh tmux fzf'
 
   HOME="$sandbox_codex_install_report/home" \
   B_AGENTIC_REPO="$snapshot_repo" \
@@ -107,8 +107,8 @@ run_runtime_smoke_cases() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=apt \
   bash "$ROOT_DIR/install.sh" --runtime=codex-cli >"$sandbox_codex_install_report/install-apt.log" 2>&1
-  assert_contains "$sandbox_codex_install_report/install-apt.log" 'core-install: sudo apt install -y ripgrep fd-find jq tmux fzf'
-  assert_contains "$sandbox_codex_install_report/install-apt.log" 'optional-install: sudo apt install -y bat yq git-delta gh'
+  assert_contains "$sandbox_codex_install_report/install-apt.log" 'core-install: sudo apt install -y ripgrep fd-find jq'
+  assert_contains "$sandbox_codex_install_report/install-apt.log" 'optional-install: sudo apt install -y bat yq git-delta gh tmux fzf'
 
   HOME="$sandbox_codex_install_report/home" \
   B_AGENTIC_REPO="$snapshot_repo" \
@@ -116,8 +116,8 @@ run_runtime_smoke_cases() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=dnf \
   bash "$ROOT_DIR/install.sh" --runtime=codex-cli >"$sandbox_codex_install_report/install-dnf.log" 2>&1
-  assert_contains "$sandbox_codex_install_report/install-dnf.log" 'core-install: sudo dnf install -y ripgrep fd-find jq tmux fzf'
-  assert_contains "$sandbox_codex_install_report/install-dnf.log" 'optional-install: sudo dnf install -y bat yq git-delta gh'
+  assert_contains "$sandbox_codex_install_report/install-dnf.log" 'core-install: sudo dnf install -y ripgrep fd-find jq'
+  assert_contains "$sandbox_codex_install_report/install-dnf.log" 'optional-install: sudo dnf install -y bat yq git-delta gh tmux fzf'
 
   HOME="$sandbox_codex_install_report/home" \
   B_AGENTIC_REPO="$snapshot_repo" \
@@ -125,8 +125,8 @@ run_runtime_smoke_cases() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=manual \
   bash "$ROOT_DIR/install.sh" --runtime=codex-cli >"$sandbox_codex_install_report/install-manual.log" 2>&1
-  assert_contains "$sandbox_codex_install_report/install-manual.log" 'core-install: install manually: ripgrep, fd or fd-find, jq, tmux, fzf'
-  assert_contains "$sandbox_codex_install_report/install-manual.log" 'optional-install: install manually: bat or batcat, yq, git-delta, gh'
+  assert_contains "$sandbox_codex_install_report/install-manual.log" 'core-install: install manually: ripgrep, fd or fd-find, jq'
+  assert_contains "$sandbox_codex_install_report/install-manual.log" 'optional-install: install manually: bat or batcat, yq, git-delta, gh, tmux, fzf'
 
   mkdir -p "$sandbox_codex_cwd_repo/home" "$sandbox_codex_cwd_repo/current-repo"
   git -C "$sandbox_codex_cwd_repo/current-repo" init -q

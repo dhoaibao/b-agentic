@@ -49,14 +49,14 @@ MCP safety rules:
 
 ## MCP readiness after install
 
-- `playwright` is immediately available once Bun is on `PATH`; no extra suite-owned setup runs.
+- `playwright` is immediately available once `pnpm` is on `PATH`; no extra suite-owned setup runs.
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
 
 ## Optional shell tooling recommendations
 
-Install reports print a default shell-tooling tier for `rg`, `fd`/`fdfind`, `jq`, `tmux`, and `fzf`, plus a separate optional tier for `bat`/`batcat`, `yq`, `git-delta`, and `gh`.
-The tier-2 block is aimed at readable file previews, YAML-heavy work, better git diffs, and GitHub-heavy workflows.
+Install reports print a default shell-tooling tier for `rg`, `fd`/`fdfind`, and `jq`, plus a separate optional tier for `bat`/`batcat`, `yq`, `git-delta`, `gh`, `tmux`, and `fzf`.
+The tier-2 block is aimed at readable file previews, YAML-heavy work, better git diffs, GitHub-heavy workflows, long-running jobs, and non-interactive scoring.
 When the installer can detect Homebrew, `apt`, or `dnf`, it prints matching package commands for both tiers; otherwise it falls back to manual-install notes.
 The installer never auto-installs these packages.
 

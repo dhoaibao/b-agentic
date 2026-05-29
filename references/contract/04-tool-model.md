@@ -38,16 +38,16 @@ Use deeper MCP guidance where it materially improves evidence quality or coordin
 
 ### Shell tool quick reference
 
-The installer lists these in core (`rg`, `fd`/`fdfind`, `jq`, `tmux`, `fzf`) and optional (`bat`/`batcat`, `yq`, `git-delta`, `gh`) tiers. Use them when available and faster than broader fallbacks.
+The installer lists these in core (`rg`, `fd`/`fdfind`, `jq`) and optional (`bat`/`batcat`, `yq`, `git-delta`, `gh`, `tmux`, `fzf`) tiers. Use them when available and faster than broader fallbacks.
 
 | Tool | When to use | Agent note | Conditionality |
 |---|---|---|---|
 | `yq` | Parse/query YAML registries and configs | YAML counterpart to `jq`; check `command -v yq` | Optional |
-| `gh` | CI status, PR ops, issue queries, auth checks | Prefer over manual `curl` GitHub API calls; check `gh auth status` before use | Optional |
+| `gh` | CI status, PR ops, issue queries, auth checks | Prefer over manual `curl` GitHub API calls; check `gh auth status` before use. Required for `b-ship`; optional otherwise | Optional / `b-ship` required |
 | `git-delta` | Syntax-highlighted diff display | When set as `core.pager`, auto-applies to `git diff`; use `GIT_PAGER=cat git diff` or `git --no-pager diff` for raw machine-readable output | Optional |
 | `bat`/`batcat` | Syntax-highlighted file display for user-visible output | Agents read files directly; use only when producing visible shell output for the user | Optional |
-| `fzf` | Non-interactive `--filter` scoring | `fzf --filter "<q>" < list` only; never pipe to interactive fzf in agent workflows; prefer `rg`/`grep` unless scoring is needed | Core |
-| `tmux` | Multi-hour detached background jobs | For short tasks prefer direct background (`&`) or shell `run_in_background`; `tmux new-session -d -s <n>` for long-lived sessions | Core |
+| `fzf` | Non-interactive `--filter` scoring | `fzf --filter "<q>" < list` only; never pipe to interactive fzf in agent workflows; prefer `rg`/`grep` unless scoring is needed | Optional |
+| `tmux` | Multi-hour detached background jobs | For short tasks prefer direct background (`&`) or shell `run_in_background`; `tmux new-session -d -s <n>` for long-lived sessions | Optional |
 
 ### Tool selection rules
 

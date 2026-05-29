@@ -20,7 +20,7 @@ Flags: `--draft` (open as draft PR), `--title=<title>` (skip interactive prompt)
 
 ## Tools required
 
-- `bash` - git and gh CLI for all actions.
+- `bash` - git actions; gh CLI is required for GitHub auth checks, push-adjacent PR status, and PR creation.
 
 ## Steps
 
@@ -98,4 +98,3 @@ Branch -> Staged files -> Commit -> Push -> PR URL
 - Do not open a PR with an empty or vague test plan unless the user explicitly approves that gap.
 - Stop after printing the PR URL. Do not continue to merge, deploy, or tag.
 - If any step fails, surface the error and stop; do not silently retry.
-
