@@ -81,7 +81,7 @@ The table below is generated from `skills/registry.yaml`.
 | `b-debug` | Validate | Confirm runtime root cause and fix minimally |
 | `b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
-| `b-review` | Validate | Review changed code for blockers, regressions, security, and coverage |
+| `b-review` | Validate | Review changed code or run a b-agentic suite self-audit |
 | `b-ship` | Ship | Commit, push, and open a PR on explicit request after review readiness |
 <!-- generated:skills-table:end -->
 

@@ -21,6 +21,11 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_antigravity/home/.gemini/GEMINI.md" '<!-- b-agentic-managed -->'
   assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/skills/b-plan/SKILL.md"
   assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/skills/b-plan/reference.md"
+  assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/skills/b-review/SKILL.md"
+  assert_contains "$sandbox_antigravity/home/.gemini/antigravity-cli/skills/b-review/SKILL.md" 'self-audits when invoked with `--audit-suite`'
+  assert_not_contains "$sandbox_antigravity/home/.gemini/antigravity-cli/skills/b-review/SKILL.md" 'Do NOT invoke for repo/suite audits'
+  assert_contains "$sandbox_antigravity/home/.gemini/GEMINI.md" 'Avoid common runtime rationalizations such as opportunistic scope expansion'
+  assert_not_contains "$sandbox_antigravity/home/.gemini/GEMINI.md" '"I'\''ll fix this adjacent thing while I'\''m here."'
   assert_contains "$sandbox_antigravity/home/.gemini/antigravity-cli/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
   assert_file "$sandbox_antigravity/home/.gemini/antigravity-cli/b-agentic/install.json"
   assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/b-agentic/install.json" "data['runtime'] == 'antigravity-cli'"

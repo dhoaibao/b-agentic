@@ -212,10 +212,10 @@
     {
       "name": "b-review",
       "phase": "Validate",
-      "use": "Review changed code for blockers, regressions, security, and coverage",
+      "use": "Review changed code or run a b-agentic suite self-audit",
       "command": {
         "alias": "b-review",
-        "description": "Review changed code for blockers and regressions",
+        "description": "Review changed code or b-agentic suite audit",
         "exposed": true
       },
       "routing": {
@@ -230,7 +230,7 @@
         ]
       },
       "prompt": {
-        "description": "Pre-PR changed-code review for reviewer-style reads of a diff, commit range, or checkpoint after implementation. Do NOT invoke for repo/suite audits, UI/design review, plan review, or research synthesis review. Unlike b-orchestrate, b-review is diff/range-first and judges changed code adequacy, risk, and missing tests.",
+        "description": "Pre-PR changed-code review for reviewer-style reads of a diff, commit range, or checkpoint after implementation, plus b-agentic suite self-audits when invoked with `--audit-suite`. Do NOT invoke for general repo audits, UI/design review, plan review, or research synthesis review. Unlike b-orchestrate, b-review judges changed-code adequacy or suite-runtime risk without editing files.",
         "argument_hint": "[--range=<ref>..<ref>] [--baseline=<path|url>] [--skip-tests] [--audit-suite]"
       }
     },

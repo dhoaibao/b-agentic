@@ -340,6 +340,42 @@ for forbidden_trigger in ["pr", "lint"]:
             f"skills/registry.yaml: b-review routing must not include the ambiguous trigger {forbidden_trigger!r}"
         )
 
+review_skill = registry_skill_map.get("b-review", {})
+review_routing = review_skill.get("routing") if isinstance(review_skill, dict) else None
+review_prompt_meta = review_skill.get("prompt") if isinstance(review_skill, dict) else None
+review_routing_text = ""
+if isinstance(review_routing, dict):
+    review_routing_text = " ".join(
+        str(value)
+        for value in [
+            review_routing.get("intent", ""),
+            *review_routing.get("triggers", []),
+        ]
+    ).lower()
+review_prompt_description = ""
+if isinstance(review_prompt_meta, dict):
+    review_prompt_description = str(review_prompt_meta.get("description", ""))
+review_prompt_source = read_text(ROOT / "skills" / "b-review" / "prompt.md")
+review_audit_surface = " ".join(
+    [review_routing_text, review_prompt_description, review_prompt_source]
+).lower()
+if "suite audit" in review_routing_text or "b-agentic audit" in review_routing_text:
+    required_audit_markers = ["--audit-suite", "b-agentic suite self-audit"]
+    for marker in required_audit_markers:
+        if marker not in review_audit_surface:
+            errors.append(
+                f"skills/registry.yaml and skills/b-review/prompt.md: b-review suite-audit routing must mention {marker!r}"
+            )
+    forbidden_audit_patterns = [
+        r"do not invoke for (?:repo/)?suite audits",
+    ]
+    for pattern in forbidden_audit_patterns:
+        if re.search(pattern, review_audit_surface):
+            errors.append(
+                "skills/registry.yaml and skills/b-review/prompt.md: "
+                "b-review suite-audit routing contradicts prompt text that forbids suite audits"
+            )
+
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
 tool_model_path = ROOT / "references" / "contract" / "04-tool-model.md"

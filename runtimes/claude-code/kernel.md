@@ -138,14 +138,6 @@ Detailed session lifecycle, crash/resume, and cross-skill conventions: runtime c
 
 ## 12. Anti-Patterns
 
-Do not act on these rationalizations:
-- "I'll fix this adjacent thing while I'm here." Classify scope expansion first.
-- "I'll verify after the whole feature lands." Verify each coherent step.
-- "The framework behavior is obvious." Cite fetched docs when docs drive the claim.
-- "This dirty workspace is probably fine." Decide isolation intentionally for non-trivial work.
-- "Tests pass, so it's probably fine." Tests do not replace contract/security/operability review.
-- "This is probably the cause." Confirm root cause before editing.
-- "I can't reproduce it, but a defensive patch is harmless." Follow cannot-reproduce protocol.
-- "I'll cite this from memory." Fetch or mark low confidence.
+Avoid common runtime rationalizations such as opportunistic scope expansion, delayed verification, speculative root cause, or memory-only citations.
 
-Full rationalizations table: runtime contract §12.
+Full rationalizations table and required counter-actions: runtime contract §12.

@@ -1,5 +1,5 @@
 ---
-description: Review changed code for blockers and regressions
+description: Review changed code or b-agentic suite audit
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->
