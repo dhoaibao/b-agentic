@@ -47,13 +47,13 @@ Skip pinning when the question is conceptual and version is not material.
 
 Read `{{runtime_reference_root}}/contract/04-tool-model.md` before choosing MCP/search/extraction depth. Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Search before extracting when the authoritative URL is unknown, and extract only the highest-signal source(s) needed for the answer. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
 
-For recency-sensitive questions, read `{{runtime_reference_root}}/contract/05-evidence.md` before using freshness labels or citations. Use the `brave-search` news path before extraction and include `as of <date>` or source publication dates in the answer. Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
+For recency-sensitive questions, use the `brave-search` news path before extraction and include `as of <date>` or source publication dates in the answer. Use freshness labels as needed: `baseline-missing` (no primary evidence), `stale` (doc predates current session), `current-session` (fetched this run). Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
 
 For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary vendor or source-repo evidence when available and include the evidence date. If only secondary sources are available, label the limitation and lower confidence.
 
 Auto-deepen when first evidence is stale, contradictory, non-authoritative, or indirect. Use search snippets only for discovery unless explicitly labeled snippet-only with low confidence.
 
-Use `firecrawl-extended` only for maps or structured fields. Read `{{runtime_reference_root}}/contract/04-tool-model.md` and `{{runtime_reference_root}}/contract/06-safety.md` before using `firecrawl-deep`; the deep tier always requires explicit per-run approval per §4 carve-out rules and never auto-triggers.
+Use `firecrawl-extended` only for maps or structured fields. Use `firecrawl-deep` only with explicit per-run approval per §4 carve-out rules; the deep tier never auto-triggers.
 
 ### Step 4 - Resolve conflicts and synthesize
 
@@ -75,5 +75,4 @@ Research (deep): answer, key findings, limitations, sources, confidence.
 - Never ask the user to choose lookup vs research; decide and auto-deepen.
 - Use the lightest depth that answers correctly; pin versions when they affect the answer.
 - Prefer 2–4 authoritative sources over long weak lists.
-- Read `{{runtime_reference_root}}/contract/04-tool-model.md` and `{{runtime_reference_root}}/contract/06-safety.md` before applying deep-tier approval, gated-source, or external-extraction rules.
-- Read `{{runtime_reference_root}}/contract/05-evidence.md` before applying freshness labels, citation provenance, or confidence signals.
+

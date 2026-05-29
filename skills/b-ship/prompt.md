@@ -98,4 +98,4 @@ Branch -> Staged files -> Commit -> Push -> PR URL
 - Do not open a PR with an empty or vague test plan unless the user explicitly approves that gap.
 - Stop after printing the PR URL. Do not continue to merge, deploy, or tag.
 - If any step fails, surface the error and stop; do not silently retry.
-- Read `{{runtime_reference_root}}/contract/06-safety.md` at Step 1 before any git mutation.
+

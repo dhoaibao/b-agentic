@@ -41,7 +41,7 @@ Confirm root cause, fix minimally, verify, and remove probes. If the user asks o
 
 ### Step 1 - Frame the symptom
 
-Collect exact failure, expected vs actual behavior, repro notes, determinism, and for perf bugs workload/baseline/threshold. Read `../../b-agentic/references/contract/05-evidence.md` before using the baseline source taxonomy when expected behavior is disputed or weak. Check the regression window when available: recent commits, dependency or lockfile changes, config drift, feature flags, data shape changes, and environment differences.
+Collect exact failure, expected vs actual behavior, repro notes, determinism, and for perf bugs workload/baseline/threshold. Check the regression window when available: recent commits, dependency or lockfile changes, config drift, feature flags, data shape changes, and environment differences.
 
 For non-trivial or blocked bugs, keep a repro record: command or interaction, workspace or target, relevant versions/config flags, data mode, expected behavior, actual behavior, determinism, and strongest evidence. Do not include secret values or private data.
 
@@ -65,9 +65,7 @@ Before applying the final fix, state: `Root cause: <what fails> because <why>`.
 
 ### Step 4 - Apply the minimal fix
 
-Use Serena for symbol edits. Read `../../b-agentic/references/contract/06-safety.md` before applying small line/prose/config patches under the global patch discipline.
-
-Do not bundle cleanup or redesign. If urgent containment was applied before root cause, continue diagnosis or hand off with the mitigation clearly labeled as containment. If the confirmed cause needs a structural change, hand off to **b-plan** with root cause, evidence, and any attempted minimal fix.
+Use Serena for symbol edits. Do not bundle cleanup or redesign. If urgent containment was applied before root cause, continue diagnosis or hand off with the mitigation clearly labeled as containment. If the confirmed cause needs a structural change, hand off to **b-plan** with root cause, evidence, and any attempted minimal fix.
 
 ### Step 5 - Verify and clean up
 
@@ -89,7 +87,7 @@ Symptoms -> Root cause -> Fix -> Verification -> Cleanup/next
 - Do not apply the final fix before root cause is confirmed. Approved containment may happen first only to reduce active production, data-loss, or security impact, and must be labeled as containment.
 - Measure perf bugs before and after.
 - Surface cannot-reproduce gaps instead of speculative fixes.
-- Read `../../b-agentic/references/contract/06-safety.md` before manual patches under the global patch discipline and `../../b-agentic/references/contract/07-execution.md` before applying the verification ladder, iteration cap, or skipped-check labels.
+- Read `../../b-agentic/references/contract/07-execution.md` before applying the verification ladder, iteration cap, or skipped-check labels.
 - Verify probe removal before reporting success.
 
 ## Reference pointers

@@ -113,7 +113,7 @@ Restate the ask in one sentence, then ask only what blocks a concrete spec:
 - success criteria
 - non-goals when scope could sprawl
 
-Read `../../b-agentic/references/contract/01-routing.md` before applying the clarification budget. Prefer one blocking question at a time when the answer changes the next question. After two unresolved rounds, stop asking open questions: offer two concrete interpretations with named assumptions and ask the user to pick or override.
+Prefer one blocking question at a time when the answer changes the next question. After two unresolved rounds, stop asking open questions: offer two concrete interpretations with named assumptions and ask the user to pick or override.
 
 ### C3 - Use local evidence before asking
 
@@ -148,7 +148,6 @@ Carry confirmed decisions and assumptions back into the plan. Do not hand off to
 
 - Do not implement while planning.
 - Keep quick plans lean; promote to full mode when the plan grows risk or coordination needs.
-- Read `../../b-agentic/references/contract/02-source-of-truth.md` and `../../b-agentic/references/contract/08-artifacts.md` before applying slug, artifact, staleness, revision, or saved-plan filename rules.
 - Surface blockers and assumptions explicitly.
 - If the user waives planning, log the waiver and lower confidence; never proceed without scope confirmation on non-trivial work.
 - Approved plans are the execution source of truth for **b-implement**.

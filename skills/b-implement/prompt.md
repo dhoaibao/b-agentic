@@ -40,7 +40,7 @@ For saved plans, validate before executing:
 3. **Staleness check:** Run `git diff --name-only <approved_head>..HEAD -- <touch_points>` and `git diff --name-only <approved_head> -- <touch_points>` when `approved_head` exists. If any touched file has drift, stop with `cause: conflict` and report the stale plan.
 4. **Blocked-by check:** If the plan has a `blocked_by` array, verify every listed plan reports `status: complete`. If any blocker is not complete, stop with `cause: conflict` and report the blocking plan slug and status.
 
-For **small direct requests** (no saved plan), read `{{runtime_reference_root}}/contract/03-definitions.md` before applying the small-direct-request threshold. If any criterion fails, stop with `cause: conflict` and route to **b-plan**.
+For **small direct requests** (no saved plan), if any small-direct criterion fails, stop with `cause: conflict` and route to **b-plan**.
 
 If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-plan** (Clarification mode).
 
@@ -63,7 +63,7 @@ Use Serena for symbol-aware edits.
 
 Stay within approved scope. Stop for new product decisions, stale/wrong plans, or unplanned broad transforms. Tiny local mechanical edits required to complete the approved step may stay here; broad or primary mechanical transforms go to **b-refactor**.
 
-Read `{{runtime_reference_root}}/contract/07-execution.md` before classifying adjacent discoveries as Required, Blocking decision, or Follow-up.
+Classify adjacent discoveries before expanding scope (Required: must fix now; Blocking decision: stop and ask; Follow-up: record and skip).
 
 ### Step 4 - Verify before continuing
 
@@ -90,4 +90,4 @@ Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions ->
 - Do not add opportunistic refactors, compatibility code, or side cleanup.
 - Stop for new decisions instead of guessing.
 - A small direct request still needs real verification.
-- Safety gates and patch discipline: read `{{runtime_reference_root}}/contract/06-safety.md` as the Step 1 preflight (not at each later step).
+

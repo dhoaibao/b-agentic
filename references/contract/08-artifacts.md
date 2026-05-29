@@ -37,7 +37,6 @@ When one skill hands off to another for the same logical task, the receiving ski
 - A new `<run-id>` is minted only on a fresh user task, not on a handoff.
 - Non-trivial `b-orchestrate` workflows mint a `<run-id>` at workflow start, even before artifacts exist, so every phase handoff can be tied to the same logical task.
 - The handoff envelope (§9) must carry the `run-id` **whenever one exists** — i.e., whenever the source skill wrote artifacts, itself inherited a `run-id` from an earlier handoff, or `b-orchestrate` minted one for a non-trivial workflow. Pure chat-only handoffs that have produced no artifacts and are not part of a non-trivial orchestration may omit the `run-id` field; the receiving skill mints one if and when it first writes an artifact.
-- If the receiving skill creates artifacts, it cross-links the source run directory in its own `manifest.json` `source_run` field (e.g., `".b-agentic/b-plan/<run-id>/"`).
 - When a chain of skills (e.g., `b-plan -> b-implement -> b-review`) all act on the same task and any one of them has written artifacts, every subsequent run directory shares the same `<run-id>` even though each lives under a different `<skill>` subdirectory.
 
 ### Non-plan artifact naming
@@ -85,16 +84,10 @@ Any run that produces more than one artifact must include `manifest.json` at the
 
 ```json
 {
-  "contract_version": "<current-contract-version>",
   "run_id": "<YYYYMMDD-HHMMSS>-<task-slug>",
   "skill": "<b-skill-name>",
   "status": "complete | blocked | partial",
-  "source_run": "<relative path to upstream skill's run dir, or null>",
   "artifacts": ["<relative-path>", "..."],
-  "commands": ["<command run>", "..."],
-  "generated_files": ["<source path edited or created>", "..."],
-  "cleanup": "<what was cleaned up, or 'none'>",
-  "cost": "<one-line cost summary, see §4, or null>",
   "notes": "<one-line summary>"
 }
 ```

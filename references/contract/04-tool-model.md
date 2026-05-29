@@ -65,7 +65,6 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 #### `serena-symbol-toolkit`
 
 - **Server:** `serena`
-- **Install source:** runtime-specific user-scope MCP templates use the Serena MCP server after the user installs and initializes Serena. Do not auto-run `serena setup`, `serena init`, hooks, onboarding, or memory writes from the b-agentic installer.
 - **Session init:** once per session, only when symbol-aware work first becomes necessary: `check_onboarding_performed`, then `onboarding` if needed. If onboarding would require persistent memory writes during a review-only/no-mutation run, skip Serena unless symbol evidence is necessary; when it is necessary, ask before writing persistent memories and keep summaries free of secrets or private data.
 - **Discovery:** `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `find_declaration`, `find_implementations`, `search_for_pattern`.
 - **Verification:** `get_diagnostics_for_file`.
@@ -75,7 +74,6 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 #### `context7-docs`
 
 - **Server:** `context7`
-- **Install source:** runtime-specific user-scope MCP templates use `https://mcp.context7.com/mcp` with the runtime-appropriate API-key placeholder format. Interactive installs may write a user-provided concrete key to the active runtime's user-scope config. Context7 CLI + Skills setup remains a user-run alternative, not part of b-agentic install.
 - **Tools:** `resolve-library-id`, `query-docs`.
 - **Version pinning:** before querying, pin from manifests **and lockfiles** (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `poetry.lock`, `uv.lock`, `go.sum`, `Cargo.lock`, etc.). In monorepos, use the closest workspace. Ask when versions conflict.
 - **Fallback:** if Context7 cannot answer, prefer the library's own documentation URL pattern (e.g., `<library>.dev/docs/`) over generic web search.
@@ -83,14 +81,12 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 #### `brave-search`
 
 - **Server:** `brave-search`
-- **Install source:** runtime-specific user-scope MCP templates use `pnpm dlx @brave/brave-search-mcp-server --transport stdio` and the runtime-appropriate API-key placeholder format. Interactive installs may write a user-provided concrete key to the active runtime's user-scope config.
 - **Tools:** `brave_web_search`, plus `brave_news_search` for recency-sensitive questions and `brave_image_search` when visual evidence is material.
 - **Role:** open-web discovery only. Use it to find unknown official URLs, recent advisories/release notes, and comparison sources, then pass discovered URLs to `firecrawl-extraction` when the final answer depends on page substance rather than result metadata.
 
 #### `firecrawl-extraction` (default tier)
 
 - **Server:** `firecrawl`
-- **Install source:** runtime-specific user-scope MCP templates use `pnpm dlx firecrawl-mcp` and the runtime-appropriate API-key placeholder format. Interactive installs may write a user-provided concrete key to the active runtime's user-scope config.
 - **Tools:** `firecrawl_scrape`, `firecrawl_parse`.
 - **Use for:** content extraction from a known URL or local document.
 - **Format selection:** for specific data points, fields, prices, API parameters, tables, or lists, prefer structured extraction or query over full markdown. Use full markdown only when full-page understanding, summarization, or quoted context is needed.
@@ -108,7 +104,6 @@ Skills reference MCP bundles by name instead of repeating per-tool MCP lists. Na
 #### `playwright-browser-operator` (optional live-browser tier)
 
 - **Server:** `playwright`.
-- **Install source:** default user-scope MCP template uses `pnpm dlx @playwright/mcp@latest --isolated`.
 - **Use only from:** `b-browser`, unless the user explicitly invokes another skill and that skill hands off to `b-browser` for browser evidence.
 - **Use for:** live page navigation, accessibility snapshots, clicks, typing, form fills, screenshots, tabs, dialogs, console/network inspection, and storage-state assessment when browser/DOM/visual/e2e evidence cannot be satisfied by supplied evidence or existing repo scripts.
 - **Default posture:** prefer accessibility snapshots and ordinary browser actions over arbitrary code execution. Do not use unsafe arbitrary-code tools such as `browser_run_code_unsafe` in the default workflow; require explicit approval, a trusted target, and a reason ordinary actions cannot answer the question.
