@@ -54,15 +54,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'b-agentic checklist: read the cited contract section before edit/external/mutate.'"
-          }
-        ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
             "command": "serena-hooks activate --client=claude-code"
           }
         ]
