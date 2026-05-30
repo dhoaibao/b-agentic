@@ -4,7 +4,7 @@ Long-form templates for `b-plan`. The SKILL.md links here so the main file stays
 
 ## Saved-plan skeleton (full mode)
 
-Before using this skeleton, read `../../b-agentic/references/contract/02-source-of-truth.md` and `../../b-agentic/references/contract/08-artifacts.md`. New saved plans include durable frontmatter before the Markdown body. Use the path and slug conventions to save the file with an English `<plan-file-slug>` filename, while frontmatter `slug` stays the canonical `<task-slug>`.
+Before using this skeleton, read `../../b-agentic/references/contract/02-source-of-truth.md`, `../../b-agentic/references/contract/08-artifacts.md`, and `../../b-agentic/references/contract/09-output.md`. New saved plans include durable frontmatter before the Markdown body. Use the path and slug conventions to save the file with an English `<plan-file-slug>` filename, while frontmatter `slug` stays the canonical `<task-slug>`.
 
 ```markdown
 ---

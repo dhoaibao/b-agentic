@@ -78,7 +78,7 @@ Read `{{skill_support_path}}/reference.md` before writing a quick-plan template,
 
 ### Step 6 - Deliver and request approval
 
-Quick mode stays in chat. For full mode, read `{{runtime_reference_root}}/contract/02-source-of-truth.md` before writing durable frontmatter. Show the path and ask for approval.
+Quick mode stays in chat. For full mode, read `{{runtime_reference_root}}/contract/02-source-of-truth.md` and `{{runtime_reference_root}}/contract/09-output.md` before writing durable frontmatter. Show the path and ask for approval.
 
 If approval arrives during the same run, update `status`, `approved_at`, `approved_by`, and `approved_head` when available.
 
