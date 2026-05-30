@@ -22,6 +22,7 @@ run_runtime_smoke_cases() {
   local sandbox_profile_dry_run="$WORK_DIR/profile-dry-run"
   local sandbox_install_report="$WORK_DIR/install-report"
   local sandbox_cwd_repo="$WORK_DIR/cwd-repo-claude"
+  local sandbox_stale_skill="$WORK_DIR/stale-skill"
 
   mkdir -p "$sandbox_fresh/home"
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo"
@@ -144,6 +145,40 @@ run_runtime_smoke_cases() {
   expect_install_with_tty_status 0 "$sandbox_prompt_reinstall" "$snapshot_repo" $'ctx7-reinstall-key\nbrave-reinstall-key\nfirecrawl-reinstall-key\n' --prompt-api-keys
   expect_install_status 0 "$sandbox_prompt_reinstall" "$snapshot_repo" --uninstall
   assert_no_path "$sandbox_prompt_reinstall/home/.claude.json"
+
+  mkdir -p "$sandbox_stale_skill/home"
+  expect_install_status 0 "$sandbox_stale_skill" "$snapshot_repo"
+  mkdir -p "$sandbox_stale_skill/home/.claude/skills/b-old-managed" "$sandbox_stale_skill/home/.claude/skills/b-old-user"
+  mkdir -p "$sandbox_stale_skill/home/.claude/sentinel"
+  printf '<!-- Generated from skills/registry.yaml -->\n' > "$sandbox_stale_skill/home/.claude/skills/b-old-managed/SKILL.md"
+  printf 'user skill\n' > "$sandbox_stale_skill/home/.claude/skills/b-old-user/SKILL.md"
+  printf '<!-- Generated from skills/registry.yaml -->\n' > "$sandbox_stale_skill/home/.claude/sentinel/SKILL.md"
+  python3 - "$sandbox_stale_skill/home/.claude/b-agentic/install.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['skills'].extend(['b-old-managed', 'b-old-user', '../sentinel'])
+path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+PY
+  expect_install_status 0 "$sandbox_stale_skill" "$snapshot_repo"
+  assert_no_path "$sandbox_stale_skill/home/.claude/skills/b-old-managed"
+  assert_file "$sandbox_stale_skill/home/.claude/skills/b-old-user/SKILL.md"
+  assert_file "$sandbox_stale_skill/home/.claude/sentinel/SKILL.md"
+  python3 - "$sandbox_stale_skill/home/.claude/b-agentic/install.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['skills'].append('../sentinel')
+path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+PY
+  expect_install_status 0 "$sandbox_stale_skill" "$snapshot_repo" --uninstall
+  assert_file "$sandbox_stale_skill/home/.claude/sentinel/SKILL.md"
 
   mkdir -p "$sandbox_mcp_migration/home"
   printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"}},"brave-search":{"type":"stdio","command":"npx","args":["-y","@brave/brave-search-mcp-server","--transport","stdio"],"env":{"BRAVE_API_KEY":"${BRAVE_API_KEY}"}},"firecrawl":{"type":"stdio","command":"npx","args":["-y","firecrawl-mcp"],"env":{"FIRECRAWL_API_KEY":"${FIRECRAWL_API_KEY}"}},"playwright":{"type":"stdio","command":"npx","args":["-y","@playwright/mcp@latest","--isolated"],"env":{}}}}\n' > "$sandbox_mcp_migration/home/.claude.json"

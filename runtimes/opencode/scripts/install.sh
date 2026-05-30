@@ -50,6 +50,38 @@ for path in sorted(root.glob('*.md')):
 PY
 }
 
+command_name_is_current() {
+  local target="$1" name
+  while IFS= read -r name; do
+    [ "$name" = "$target" ] && return 0
+  done < <(command_names)
+  return 1
+}
+
+prune_stale_commands() {
+  [ -f "$MANIFEST_DST" ] || return 0
+
+  local name command_path command_snapshot
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if ! managed_asset_name_is_safe "$name"; then
+      warn "preserving stale OpenCode command with unsafe manifest name"
+      continue
+    fi
+    command_name_is_current "$name" && continue
+
+    command_path="$COMMANDS_DST/$name.md"
+    command_snapshot="$COMMANDS_SNAPSHOT_DST/$name.md"
+    [ -f "$command_path" ] || continue
+
+    if [ -f "$command_snapshot" ] && cmp -s "$command_path" "$command_snapshot"; then
+      run_cmd rm -f "$command_path"
+    else
+      warn "preserving stale OpenCode command wrapper without matching managed snapshot: $command_path"
+    fi
+  done < <(manifest_array_values commands)
+}
+
 install_commands() {
   local -n installed_ref="$1"
   ensure_dir "$COMMANDS_DST"
@@ -95,6 +127,7 @@ install_commands() {
     installed_ref+=("$name")
   done < <(command_names)
 
+  prune_stale_commands
   copy_dir_replace "$next_snapshot" "$COMMANDS_SNAPSHOT_DST"
   rm -rf "$next_snapshot"
 }
@@ -200,22 +233,26 @@ manifest_command_names() {
 }
 
 runtime_uninstall_extra_assets() {
-  local name commands_path command_snapshot
-  commands_path="$(manifest_path_value commands "$COMMANDS_DST")"
+  local name command_path command_snapshot
   while IFS= read -r name; do
     [ -n "$name" ] || continue
+    if ! managed_asset_name_is_safe "$name"; then
+      warn "preserving OpenCode command with unsafe manifest name"
+      continue
+    fi
+    command_path="$COMMANDS_DST/$name.md"
     command_snapshot="$COMMANDS_SNAPSHOT_DST/$name.md"
-    if [ ! -f "$commands_path/$name.md" ]; then
+    if [ ! -f "$command_path" ]; then
       continue
     fi
     if [ ! -f "$command_snapshot" ]; then
-      warn "preserving OpenCode command with no managed snapshot: $commands_path/$name.md"
+      warn "preserving OpenCode command with no managed snapshot: $command_path"
       continue
     fi
-    if cmp -s "$commands_path/$name.md" "$command_snapshot"; then
-      run_cmd rm -f "$commands_path/$name.md"
+    if cmp -s "$command_path" "$command_snapshot"; then
+      run_cmd rm -f "$command_path"
     else
-      warn "preserving modified OpenCode command wrapper: $commands_path/$name.md"
+      warn "preserving modified OpenCode command wrapper: $command_path"
     fi
   done < <(manifest_command_names)
 }

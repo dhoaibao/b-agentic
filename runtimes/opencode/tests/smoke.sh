@@ -16,6 +16,7 @@ run_runtime_smoke_cases() {
   local sandbox_opencode_bunx_migration="$WORK_DIR/opencode-bunx-migration"
   local sandbox_opencode_install_report="$WORK_DIR/opencode-install-report"
   local sandbox_opencode_cwd_repo="$WORK_DIR/opencode-cwd-repo"
+  local sandbox_opencode_stale_command="$WORK_DIR/opencode-stale-command"
 
   mkdir -p "$sandbox_opencode/home"
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
@@ -135,6 +136,47 @@ run_runtime_smoke_cases() {
   assert_no_path "$sandbox_opencode/home/.config/opencode/b-agentic"
   assert_no_path "$sandbox_opencode/home/.config/opencode/opencode.json"
   assert_no_path "$sandbox_opencode/home/.config/opencode/commands/b-plan.md"
+
+  mkdir -p "$sandbox_opencode_stale_command/home"
+  expect_install_status 0 "$sandbox_opencode_stale_command" "$snapshot_repo" --runtime=opencode
+  printf 'managed old\n' > "$sandbox_opencode_stale_command/home/.config/opencode/commands/b-old-managed.md"
+  printf 'managed old\n' > "$sandbox_opencode_stale_command/home/.config/opencode/b-agentic/commands/b-old-managed.md"
+  printf 'user edit\n' > "$sandbox_opencode_stale_command/home/.config/opencode/commands/b-old-user.md"
+  printf 'snapshot old\n' > "$sandbox_opencode_stale_command/home/.config/opencode/b-agentic/commands/b-old-user.md"
+  printf 'unsafe command\n' > "$sandbox_opencode_stale_command/home/.config/opencode/sentinel.md"
+  printf 'unsafe command\n' > "$sandbox_opencode_stale_command/home/.config/opencode/b-agentic/sentinel.md"
+  python3 - "$sandbox_opencode_stale_command/home/.config/opencode/b-agentic/install.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['commands'].extend(['b-old-managed', 'b-old-user', '../sentinel'])
+path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+PY
+  expect_install_status 0 "$sandbox_opencode_stale_command" "$snapshot_repo" --runtime=opencode
+  assert_no_path "$sandbox_opencode_stale_command/home/.config/opencode/commands/b-old-managed.md"
+  assert_file "$sandbox_opencode_stale_command/home/.config/opencode/commands/b-old-user.md"
+  assert_contains "$sandbox_opencode_stale_command/home/.config/opencode/commands/b-old-user.md" 'user edit'
+  assert_file "$sandbox_opencode_stale_command/home/.config/opencode/sentinel.md"
+  mkdir -p "$sandbox_opencode_stale_command/home/.config/opencode/poisoned-commands"
+  cp "$sandbox_opencode_stale_command/home/.config/opencode/b-agentic/commands/b-plan.md" \
+    "$sandbox_opencode_stale_command/home/.config/opencode/poisoned-commands/b-plan.md"
+  python3 - "$sandbox_opencode_stale_command/home/.config/opencode/b-agentic/install.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['commands'].append('../sentinel')
+data['paths']['commands'] = str(path.parent.parent / 'poisoned-commands')
+path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+PY
+  expect_install_status 0 "$sandbox_opencode_stale_command" "$snapshot_repo" --runtime=opencode --uninstall
+  assert_file "$sandbox_opencode_stale_command/home/.config/opencode/sentinel.md"
+  assert_file "$sandbox_opencode_stale_command/home/.config/opencode/poisoned-commands/b-plan.md"
 
   mkdir -p "$sandbox_opencode_command_collision/home/.config/opencode/commands"
   printf 'user command\n' > "$sandbox_opencode_command_collision/home/.config/opencode/commands/b-plan.md"

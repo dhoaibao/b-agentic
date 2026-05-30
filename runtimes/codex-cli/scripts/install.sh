@@ -228,7 +228,7 @@ add_server(
     [
         "[mcp_servers.serena]",
         'command = "serena"',
-        'args = ["start-mcp-server", "--context", "ide", "--project-from-cwd"]',
+        'args = ["start-mcp-server", "--context", "codex", "--project-from-cwd"]',
     ],
 )
 

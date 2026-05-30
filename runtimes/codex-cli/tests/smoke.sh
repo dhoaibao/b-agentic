@@ -60,7 +60,7 @@ run_runtime_smoke_cases() {
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_RUNTIME_REFERENCES'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_SKILL_DIR'
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "'serena' in data['mcp_servers']"
-  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['serena']['args'] == ['start-mcp-server', '--context', 'ide', '--project-from-cwd']"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['serena']['args'] == ['start-mcp-server', '--context', 'codex', '--project-from-cwd']"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['features']['hooks'] is True"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_activate_hook_expr"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_remind_hook_expr"

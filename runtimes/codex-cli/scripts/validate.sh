@@ -102,6 +102,8 @@ else:
         errors.append(f'runtimes/codex-cli/configs/mcp.user.template.toml: expected default MCP servers {sorted(expected)}, found {sorted(servers)}')
     if servers.get('serena', {}).get('command') != 'serena':
         errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: serena must use the installed serena binary')
+    if servers.get('serena', {}).get('args') != ['start-mcp-server', '--context', 'codex', '--project-from-cwd']:
+        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: serena must use --context codex')
     if servers.get('context7', {}).get('url') != 'https://mcp.context7.com/mcp':
         errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: context7 must use the official MCP endpoint')
     if servers.get('context7', {}).get('env_http_headers', {}).get('CONTEXT7_API_KEY') != 'CONTEXT7_API_KEY':
@@ -114,7 +116,7 @@ else:
         errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: playwright must use --isolated by default')
 if 'Codex CLI Runtime Layout' not in codex_readme:
     errors.append('runtimes/codex-cli/configs/README.md: missing title')
-for needle in ['~/.codex/config.toml', '~/.codex/skills/', 'mcp.user.template.toml', 'skills.config', 'runtime-neutral']:
+for needle in ['~/.codex/config.toml', '~/.codex/skills/', 'mcp.user.template.toml', 'skills.config', 'runtime-neutral', '--context codex']:
     if needle not in codex_readme:
         errors.append(f'runtimes/codex-cli/configs/README.md: missing Codex documentation marker {needle!r}')
 

@@ -140,8 +140,61 @@ for path in sorted(root.glob('*/SKILL.md')):
 PY
 }
 
+managed_asset_name_is_safe() {
+  local name="$1"
+  case "$name" in
+    b-[a-z]*)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "$name" in
+    *[!a-z0-9-]*|*-)
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
+skill_name_is_current() {
+  local target="$1" name
+  while IFS= read -r name; do
+    [ "$name" = "$target" ] && return 0
+  done < <(skill_names)
+  return 1
+}
+
+prune_stale_installed_skills() {
+  [ -f "$MANIFEST_DST" ] || return 0
+
+  local name skill_dir skill_file
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if ! managed_asset_name_is_safe "$name"; then
+      warn "preserving stale skill with unsafe manifest name"
+      continue
+    fi
+    skill_name_is_current "$name" && continue
+
+    skill_dir="$SKILLS_DST/$name"
+    skill_file="$skill_dir/SKILL.md"
+    [ -e "$skill_dir" ] || continue
+
+    if [ -f "$skill_file" ] && grep -Fq 'Generated from skills/registry.yaml' "$skill_file"; then
+      run_cmd rm -rf "$skill_dir"
+    else
+      warn "preserving stale skill without managed marker: $skill_dir"
+    fi
+  done < <(manifest_array_values skills)
+}
+
 install_skills() {
   ensure_dir "$SKILLS_DST"
+  prune_stale_installed_skills
+
   local name
   while IFS= read -r name; do
     [ -n "$name" ] || continue
@@ -1006,6 +1059,10 @@ uninstall_installed_skills() {
   local name
   while IFS= read -r name; do
     [ -n "$name" ] || continue
+    if ! managed_asset_name_is_safe "$name"; then
+      warn "preserving skill with unsafe manifest name"
+      continue
+    fi
     run_cmd rm -rf "$SKILLS_DST/$name"
   done < <(manifest_skill_names)
 }

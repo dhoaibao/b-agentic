@@ -46,7 +46,7 @@ Codex may require users to review and trust newly installed non-managed command 
 
 Codex uses `config.toml` for configuration. MCP servers are configured under `[mcp_servers.<name>]` tables. The installer writes the recommended MCP block from `mcp.user.template.toml` into `~/.codex/config.toml`, alongside the skill-registration block. Existing user config is preserved outside the managed block, and uninstall removes only that block.
 
-The default Serena entry runs `serena start-mcp-server --context ide --project-from-cwd` so Codex uses Serena's IDE context. By default, the managed template forwards the Context7, Brave Search, and Firecrawl API keys from the local shell environment; `--prompt-api-keys` writes literal user-scope values into `~/.codex/config.toml` instead.
+The default Serena entry runs `serena start-mcp-server --context codex --project-from-cwd` so Codex uses Serena's Codex context. By default, the managed template forwards the Context7, Brave Search, and Firecrawl API keys from the local shell environment; `--prompt-api-keys` writes literal user-scope values into `~/.codex/config.toml` instead.
 
 | Server | Use |
 |---|---|
