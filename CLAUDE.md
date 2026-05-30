@@ -113,9 +113,9 @@ Before merging runtime-facing changes:
 4. Run `scripts/smoke-install.sh` directly only when you need the smoke suite by itself while iterating.
 5. Codex runtime install, validation, and smoke paths rely on Python 3.11+ standard-library `tomllib` support.
 6. Antigravity CLI exposes `/b-*` through its native skill command loader from `~/.gemini/antigravity-cli/skills/`; keep MCP in `~/.gemini/antigravity-cli/mcp_config.json` and use `serverUrl` for remote MCP entries.
-8. Check that shared content stayed runtime-neutral.
-9. Check that docs changed in the same commit when the public or maintainer surface changed.
-10. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.
+7. Check that shared content stayed runtime-neutral.
+8. Check that docs changed in the same commit when the public or maintainer surface changed.
+9. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.
 
 ## Review Checklist
 

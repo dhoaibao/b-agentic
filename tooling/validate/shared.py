@@ -368,19 +368,21 @@ if "suite audit" in review_routing_text or "b-agentic audit" in review_routing_t
                 "b-review suite-audit routing contradicts prompt text that forbids suite audits"
             )
 
+if not re.search(r'--audit-suite.*\{\{skill_support_path\}\}/reference\.md', review_prompt_source):
+    errors.append(
+        "skills/b-review/prompt.md: missing --audit-suite read-gate to "
+        "{{skill_support_path}}/reference.md (Audit-suite checklists); "
+        "add an explicit read instruction scoped to --audit-suite distinct from the changed-code security-checklist gate"
+    )
+
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
 tool_model_path = ROOT / "references" / "contract" / "04-tool-model.md"
 tool_model_text = read_text(tool_model_path)
-shared_contract_paths = [
-    ROOT / "references" / "contract" / "00-kernel.md",
-    tool_model_path,
-    ROOT / "references" / "contract" / "05-evidence.md",
-    ROOT / "references" / "contract" / "06-safety.md",
-    ROOT / "references" / "contract" / "07-execution.md",
-    ROOT / "references" / "contract" / "08-artifacts.md",
-    ROOT / "references" / "contract" / "10-decisions.md",
-]
+shared_contract_paths = sorted(
+    p for p in (ROOT / "references" / "contract").glob("*.md")
+    if re.match(r"[0-9]{2}-", p.name)
+)
 kernel_path = ROOT / "runtimes" / "claude-code" / "kernel.md"
 kernel = read_text(kernel_path)
 contract_index_path = ROOT / "references" / "contract" / "index.md"
@@ -484,6 +486,38 @@ for runtime_name in runtime_names:
         errors.append(f"runtimes/{runtime_name}/scripts/validate.sh: missing registered runtime validator")
     if not (runtime_dir / "tests" / "smoke.sh").exists():
         errors.append(f"runtimes/{runtime_name}/tests/smoke.sh: missing registered runtime smoke suite")
+
+# --- SKILL.md sibling-layout invariant ---
+# Renderer hardcodes RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/references".
+# For a SKILL.md at skills_install_root/<skill>/SKILL.md this path resolves to
+# <parent>/b-agentic/references, so skills_install_root and metadata_root must share
+# a parent and metadata_root must be named "b-agentic".
+_runtimes_registry_path = ROOT / "runtimes" / "registry.yaml"
+try:
+    _runtimes_full = json.loads(_runtimes_registry_path.read_text())
+    for _rt in _runtimes_full.get("runtimes", []):
+        _rt_name = _rt.get("name", "?")
+        _skills_root_str = _rt.get("skills_install_root", "")
+        _meta_root_str = _rt.get("metadata_root", "")
+        if not _skills_root_str or not _meta_root_str:
+            continue
+        _skills_root = Path(_skills_root_str)
+        _meta_root = Path(_meta_root_str)
+        if _skills_root.parent != _meta_root.parent:
+            errors.append(
+                f"runtimes/registry.yaml: runtime {_rt_name!r} skills_install_root "
+                f"({_skills_root_str}) and metadata_root ({_meta_root_str}) do not share "
+                f"a parent directory; the rendered SKILL.md read-gate path "
+                f"'../../b-agentic/references' would resolve incorrectly at install time"
+            )
+        elif _meta_root.name != "b-agentic":
+            errors.append(
+                f"runtimes/registry.yaml: runtime {_rt_name!r} metadata_root "
+                f"({_meta_root_str}) must be named 'b-agentic'; the rendered SKILL.md "
+                f"read-gate path '../../b-agentic/references' expects a sibling named 'b-agentic'"
+            )
+except Exception:
+    pass  # registry parse errors already reported by load_runtime_registry()
 
 if not readme:
     errors.append("README.md: missing or empty")

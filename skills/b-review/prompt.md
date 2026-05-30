@@ -34,7 +34,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 
 ### Step 1 - Scope the review
 
-For `--audit-suite` or explicit suite-audit intent, scope the audited b-agentic surface and baseline directly, then skip changed-code diff requirements. Name the surface under audit, source files sampled, generated/runtime consumers checked when relevant, and any skipped suite areas.
+For `--audit-suite` or explicit suite-audit intent, scope the audited b-agentic surface and baseline directly, then skip changed-code diff requirements. Name the surface under audit, source files sampled, generated/runtime consumers checked when relevant, and any skipped suite areas. For `--audit-suite`, read `{{skill_support_path}}/reference.md` "Audit-suite checklists" before sampling.
 
 Run `git status --short` before scoping. For current-worktree reviews, include staged, unstaged, and untracked files; review untracked files from their current contents because they are absent from `git diff`. Default tracked changes to `git diff HEAD`. Use `--range` when supplied and state whether current dirty or untracked files are excluded from that range review. If there is no diff and no untracked file in scope, ask for a branch, commit, range, or checkpoint.
 
@@ -42,13 +42,17 @@ For WIP branches or dirty state, review the cumulative diff from the best availa
 
 ### Step 2 - Pick fast or standard path
 
-Fast path is allowed only for a single non-sensitive area with no public contract, auth/security/billing/migration touch, or dependency change. Everything else uses standard review.
+For `--audit-suite`: pick the smallest matching surface checklist loaded in Step 1; skip the fast/standard path evaluation entirely.
+
+For changed-code: Fast path is allowed only for a single non-sensitive area with no public contract, auth/security/billing/migration touch, or dependency change. Everything else uses standard review.
 
 ### Step 3 - Establish baseline and inspect risk
 
-Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarification to identify intended behavior. Without a sufficient baseline, run a `baseline-missing` diff-only risk review and do not claim requirements coverage.
+For `--audit-suite`: name the audited surface and checklists applied; inspect highest-risk samples against the chosen checklist; for no-findings audits, list checked-and-clean samples plus skipped areas and residual risk.
 
-Inspect highest-risk changed symbols and boundaries first. Name sampled files/symbols, skipped changed surfaces, and residual risk so a no-findings review is not mistaken for exhaustive proof.
+For changed-code: Use arguments, `--baseline`, approved plan, checkpoint handoff, or short clarification to identify intended behavior. Without a sufficient baseline, run a `baseline-missing` diff-only risk review and do not claim requirements coverage.
+
+For changed-code: Inspect highest-risk changed symbols and boundaries first. Name sampled files/symbols, skipped changed surfaces, and residual risk so a no-findings review is not mistaken for exhaustive proof.
 
 - Use Serena first for exact changed symbols, local references, typed diagnostics, and nearby implementation context.
 - Use Context7 only when a finding or clean judgment depends on third-party API semantics that the repo cannot establish.
