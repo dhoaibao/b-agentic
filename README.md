@@ -1,8 +1,8 @@
 # b-agentic
 
-**An agent workflow kernel for Claude Code, OpenCode, Codex CLI, and Antigravity CLI.**
+**An agentic workflow harness for Claude Code, OpenCode, Codex CLI, and Antigravity CLI.**
 
-`b-agentic` turns rough developer intent into disciplined loops: clarify, plan, build, validate, debug, review, and ship. Claude Code is the reference runtime; OpenCode, Codex CLI, and Antigravity CLI are supported through runtime-specific adapters.
+`b-agentic` is a behavioral harness, not a skill suite. A runtime kernel enforces routing, safety gates, evidence standards, and handoff contracts. Skills are phase owners that execute within that envelope: clarify, plan, build, validate, debug, review, and ship. Claude Code is the reference runtime; OpenCode, Codex CLI, and Antigravity CLI are supported through runtime-specific adapters.
 
 Skill names are runtime-neutral: Claude Code, OpenCode, and Antigravity CLI commonly expose `/b-*`, while Codex CLI uses `/skills`, `$skill-name`, or implicit matching.
 
