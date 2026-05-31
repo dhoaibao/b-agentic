@@ -68,9 +68,12 @@ for required in [
 if 'global/AGENTS.md' in contract_index:
     errors.append('references/contract/index.md: contains stale active OpenCode path global/AGENTS.md')
 
-for required in ['runtimes/$RUNTIME/kernel.md', 'skills', 'references/b-agentic']:
+for required in ['runtimes/$RUNTIME/kernel.md', 'skills', 'shared references support sync']:
     if required not in install_sh:
         errors.append(f'install.sh: missing shared installer marker {required!r}')
+
+if 'references/b-agentic' in install_sh:
+    errors.append("install.sh: stale shared reference path 'references/b-agentic'")
 
 for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'report_item "skills"', '$HOME/.claude', 'report_item "activation"']:
     if required not in claude_install:

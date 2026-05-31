@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install.sh - Bootstrap or update b-agentic
-# Bootstraps source sync, then delegates skills, references/b-agentic support sync,
+# Bootstraps source sync, then delegates skills, shared references support sync,
 # and runtimes/$RUNTIME/kernel.md installation to the shared installer core.
 #
 # Usage:

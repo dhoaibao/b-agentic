@@ -4,7 +4,7 @@ The authoritative active runtime kernel lives under `runtimes/<name>/kernel.md` 
 
 ### Reference checklist
 
-References to this contract and to other `references/b-agentic/*.md` files are checklist hints — read the smallest named section or file before using it; do not reconstruct shared details from memory. Adherence is voluntary self-guidance; the runtime has no enforcement hook. This applies especially to saved-plan metadata, plan staleness, MCP bundle rules, approval asks, privacy gates, artifact manifests, status blocks, handoff envelopes, review/audit checklists, and performance guidance.
+References to this contract and to other shared files under `references/contract/*.md` or `references/*.md` are checklist hints — read the smallest named section or file before using it; do not reconstruct shared details from memory. Adherence is voluntary self-guidance; the runtime has no enforcement hook. This applies especially to saved-plan metadata, plan staleness, MCP bundle rules, approval asks, privacy gates, artifact manifests, status blocks, handoff envelopes, review/audit checklists, and performance guidance.
 
 ### Runtime gate taxonomy
 

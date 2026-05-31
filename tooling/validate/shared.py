@@ -519,6 +519,67 @@ try:
 except Exception:
     pass  # registry parse errors already reported by load_runtime_registry()
 
+# Keep registered runtime reference and artifact examples aligned with the shared
+# contract so agents do not invent per-runtime paths from partial examples.
+_RUNTIME_CONTRACT_EXAMPLES = {
+    "claude-code": {
+        "reference": "~/.claude/b-agentic/references/contract/",
+        "temp_root": "/tmp/claude-code/b-agentic/",
+        "sensitive": "~/.claude/b-agentic/<skill>/<run-id>/",
+        "temp_run": "/tmp/claude-code/b-agentic/<skill>/<run-id>/",
+        "temp_log": "/tmp/claude-code/b-agentic/<skill>/<slug>.log",
+        "retention": "/tmp/claude-code/b-agentic/...",
+    },
+    "opencode": {
+        "reference": "~/.config/opencode/b-agentic/references/contract/",
+        "temp_root": "/tmp/opencode/b-agentic/",
+        "sensitive": "~/.config/opencode/b-agentic/<skill>/<run-id>/",
+        "temp_run": "/tmp/opencode/b-agentic/<skill>/<run-id>/",
+        "temp_log": "/tmp/opencode/b-agentic/<skill>/<slug>.log",
+        "retention": "/tmp/opencode/b-agentic/...",
+    },
+    "codex-cli": {
+        "reference": "~/.codex/b-agentic/references/contract/",
+        "temp_root": "/tmp/codex-cli/b-agentic/",
+        "sensitive": "~/.codex/b-agentic/<skill>/<run-id>/",
+        "temp_run": "/tmp/codex-cli/b-agentic/<skill>/<run-id>/",
+        "temp_log": "/tmp/codex-cli/b-agentic/<skill>/<slug>.log",
+        "retention": "/tmp/codex-cli/b-agentic/...",
+    },
+    "antigravity-cli": {
+        "reference": "~/.gemini/antigravity-cli/b-agentic/references/contract/",
+        "temp_root": "/tmp/antigravity-cli/b-agentic/",
+        "sensitive": "~/.gemini/antigravity-cli/b-agentic/<skill>/<run-id>/",
+        "temp_run": "/tmp/antigravity-cli/b-agentic/<skill>/<run-id>/",
+        "temp_log": "/tmp/antigravity-cli/b-agentic/<skill>/<slug>.log",
+        "retention": "/tmp/antigravity-cli/b-agentic/...",
+    },
+    "zed": {
+        "reference": "~/.agents/b-agentic/references/contract/",
+        "temp_root": "/tmp/zed/b-agentic/",
+        "sensitive": "~/.agents/b-agentic/<skill>/<run-id>/",
+        "temp_run": "/tmp/zed/b-agentic/<skill>/<run-id>/",
+        "temp_log": "/tmp/zed/b-agentic/<skill>/<slug>.log",
+        "retention": "/tmp/zed/b-agentic/...",
+    },
+}
+artifact_contract_path = ROOT / "references" / "contract" / "08-artifacts.md"
+artifact_contract = read_text(artifact_contract_path)
+for _runtime_name in runtime_names:
+    _examples = _RUNTIME_CONTRACT_EXAMPLES.get(_runtime_name)
+    if not _examples:
+        continue
+    for _key in ["reference", "temp_root"]:
+        if _examples[_key] not in contract_index:
+            errors.append(
+                f"{rel(contract_index_path)}: missing {_runtime_name} {_key} example {_examples[_key]!r}"
+            )
+    for _key in ["sensitive", "temp_run", "temp_log", "retention"]:
+        if _examples[_key] not in artifact_contract:
+            errors.append(
+                f"{rel(artifact_contract_path)}: missing {_runtime_name} {_key} example {_examples[_key]!r}"
+            )
+
 if not readme:
     errors.append("README.md: missing or empty")
 else:
