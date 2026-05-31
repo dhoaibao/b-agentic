@@ -3,10 +3,10 @@ name: b-review
 description: >
   Pre-PR changed-code review for reviewer-style reads of a diff, commit
   range, or checkpoint after implementation, plus b-agentic suite
-  self-audits when invoked with `--audit-suite`. Do NOT invoke for general
-  repo audits, UI/design review, plan review, or research synthesis
-  review. Unlike b-orchestrate, b-review judges changed-code adequacy or
-  suite-runtime risk without editing files.
+  self-audits when explicitly requested or invoked with `--audit-suite`.
+  Do NOT invoke for general repo audits, UI/design review, plan review, or
+  research synthesis review. Unlike b-orchestrate, b-review judges
+  changed-code adequacy or suite-runtime risk without editing files.
 argument-hint: "[--range=<ref>..<ref>] [--baseline=<path|url>] [--skip-tests] [--audit-suite]"
 ---
 
@@ -25,14 +25,13 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 - The user wants a pre-PR/pre-commit changed-code review.
 - A risky milestone needs reviewer scrutiny before continuing.
 - The goal is to find correctness, regression, security, edge-case, or coverage risks.
-- The user requests a b-agentic suite self-audit with `--audit-suite` (not a diff review). For any other codebase audit, stay in **b-review** without the flag. See `../../b-agentic/references/contract/10-decisions.md` for the tiebreaker.
+- The user requests a b-agentic suite self-audit, with or without `--audit-suite` (not a diff review). For any other codebase audit, stay in **b-review** without the flag. See `../../b-agentic/references/contract/10-decisions.md` for the tiebreaker.
 
 ## When NOT to use
 
 - Something is broken and needs root-cause tracing -> use **b-debug**.
 - The task is writing or fixing tests -> use **b-test**.
 - The task is external lookup -> use **b-research**.
-- The user requests a b-agentic suite self-audit without `--audit-suite` -> ask whether to run with `--audit-suite` or treat as a normal review.
 - The user asks only to run lint, format, or build commands without a review goal -> use native commands or the active build skill.
 - The request is plan review, UX critique, or research synthesis review.
 
@@ -48,7 +47,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 
 ### Step 1 - Scope the review
 
-For `--audit-suite` or explicit suite-audit intent, scope the audited b-agentic surface and baseline directly, then skip changed-code diff requirements. Name the surface under audit, source files sampled, generated/runtime consumers checked when relevant, and any skipped suite areas. For `--audit-suite`, read `./reference.md` "Audit-suite checklists" before sampling.
+For `--audit-suite` or explicit suite-audit intent, scope the audited b-agentic surface and baseline directly, then skip changed-code diff requirements. Treat explicit suite-audit prose as equivalent to `--audit-suite` for routing. Name the surface under audit, source files sampled, generated/runtime consumers checked when relevant, and any skipped suite areas. For `--audit-suite` or explicit suite-audit intent, read `./reference.md` "Audit-suite checklists" before sampling.
 
 Run `git status --short` before scoping. For current-worktree reviews, include staged, unstaged, and untracked files; review untracked files from their current contents because they are absent from `git diff`. Default tracked changes to `git diff HEAD`. Use `--range` when supplied and state whether current dirty or untracked files are excluded from that range review. If there is no diff and no untracked file in scope, ask for a branch, commit, range, or checkpoint.
 

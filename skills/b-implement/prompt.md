@@ -35,10 +35,12 @@ Resolve scope in this order: saved plan path, plan slug, explicitly approved cha
 
 For saved plans, **read `{{runtime_reference_root}}/contract/02-source-of-truth.md` before validating**, then run the §2 plan-validation and staleness gates and map each failure to an execution outcome:
 
-1. **Frontmatter/validation fails** (missing frontmatter, non-executable `status`, empty `touch_points`, or an unchecked step without `Done when`): stop with `cause: conflict` and report the failing check.
+1. **Versioned frontmatter/validation fails** (non-executable `status`, empty `touch_points`, or an unchecked step without `Done when`): stop with `cause: conflict` and report the failing check.
 2. **No explicit approval** (neither current-chat approval nor durable `approved_at` per §2): stop with `cause: user_blocked` and request approval.
 3. **§2 staleness gate trips** (any `touch_points` drift): stop with `cause: conflict` and report the stale plan.
 4. **Blocked-by check** (b-implement-specific, not in §2): if the plan has a `blocked_by` array, verify every listed plan reports `status: complete`. If any blocker is not complete, stop with `cause: conflict` and report the blocking plan slug and status.
+
+Legacy saved plans without frontmatter may execute only when the current conversation contains explicit approval. Use the current-chat approval time for staleness checks, require each unchecked step to include `Done when` verification, and do not rewrite the legacy plan solely to add metadata.
 
 For **small direct requests** (no saved plan), if any small-direct criterion fails, stop with `cause: conflict` and route to **b-plan**.
 
@@ -90,4 +92,3 @@ Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions ->
 - Do not add opportunistic refactors, compatibility code, or side cleanup.
 - Stop for new decisions instead of guessing.
 - A small direct request still needs real verification.
-

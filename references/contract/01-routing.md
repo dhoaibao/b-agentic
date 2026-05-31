@@ -29,7 +29,7 @@ The intent and trigger tables below are generated from `skills/registry.yaml`; k
 - Simulated DOM/component-test work routes to `b-test`; real-browser, visual, browser-session, live UI, and e2e verification routes to `b-browser`. No skill may add browser or DOM tooling as a side effect; see §10 for the boundary table and tool list.
 - `b-ship` is explicit-command-only after readiness is established; do not route natural-language shipping intent to `b-implement` or any other phase skill.
 - Bare mentions like `PR`, `ship`, or `lint` are ambiguous. Ask one clarifying question unless the user explicitly invoked `b-review`, `b-ship`, or a native command.
-- b-agentic suite self-audits use `b-review --audit-suite`; use `b-review` without the flag for all other codebase review tasks, including surface-wide checks. See §10 for the tiebreaker and inline Context7 threshold.
+- b-agentic suite self-audits use `b-review --audit-suite` or explicit suite-audit prose; use `b-review` without the flag for all other codebase review tasks, including surface-wide checks. See §10 for the tiebreaker and inline Context7 threshold.
 - `b-research` is invoked for ≥ 2 distinct doc questions or any deep extraction; ≤ 1 narrow inline lookup is acceptable within the active skill. See §10.
 
 ### One active skill

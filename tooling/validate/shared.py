@@ -277,6 +277,8 @@ else:
         errors.append(f"references/contract/01-routing.md: references /{name} but no skills/{name}/ directory exists")
     if "Bare mentions like `PR`, `ship`, or `lint` are ambiguous." not in routing_text:
         errors.append("references/contract/01-routing.md: missing ambiguous PR/ship/lint clarification rule")
+    if "b-agentic suite self-audits use `b-review --audit-suite` or explicit suite-audit prose" not in routing_text:
+        errors.append("references/contract/01-routing.md: suite-audit routing must allow explicit prose intent, not only --audit-suite")
 
 normalized_routing_triggers = {}
 command_only_terms = {}
@@ -374,6 +376,28 @@ if not re.search(r'--audit-suite.*\{\{skill_support_path\}\}/reference\.md', rev
         "{{skill_support_path}}/reference.md (Audit-suite checklists); "
         "add an explicit read instruction scoped to --audit-suite distinct from the changed-code security-checklist gate"
     )
+if "suite self-audit without `--audit-suite` -> ask" in review_prompt_source:
+    errors.append(
+        "skills/b-review/prompt.md: explicit suite-audit intent must route directly to audit mode; "
+        "do not ask for --audit-suite when prose already names a b-agentic suite self-audit"
+    )
+if "with or without `--audit-suite`" not in review_prompt_source:
+    errors.append(
+        "skills/b-review/prompt.md: suite-audit routing must accept explicit prose intent with or without --audit-suite"
+    )
+
+b_implement_prompt_source = read_text(ROOT / "skills" / "b-implement" / "prompt.md")
+if "missing frontmatter, non-executable `status`" in b_implement_prompt_source:
+    errors.append(
+        "skills/b-implement/prompt.md: missing frontmatter must not be a hard validation failure; "
+        "contract/02 allows legacy no-frontmatter plans with current-chat approval"
+    )
+for required_line in [
+    "Legacy saved plans without frontmatter may execute only when the current conversation contains explicit approval.",
+    "Use the current-chat approval time for staleness checks",
+]:
+    if required_line not in b_implement_prompt_source:
+        errors.append(f"skills/b-implement/prompt.md: missing legacy-plan guard {required_line!r}")
 
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
@@ -404,6 +428,16 @@ shared_kernel_template = read_text(shared_kernel_template_path)
 
 if shared_kernel_template and "09-output" not in shared_kernel_template:
     errors.append(f"{rel(shared_kernel_template_path)}: kernel template must reference contract/09-output for the shared status-block schema")
+
+browser_evidence_row = (
+    "| Browser/DOM/visual/e2e evidence | Supplied/CI evidence or existing repo scripts "
+    "when they answer the question | `playwright-browser-operator` when live-browser evidence is needed "
+    "and safety-gated; `firecrawl-extraction` only for static known remote pages |"
+)
+if browser_evidence_row not in tool_model_text:
+    errors.append(
+        f"{rel(tool_model_path)}: browser evidence priority must prefer supplied/CI evidence or existing repo scripts before live-browser operation"
+    )
 
 # --- Read-gate resolvability guard (locks the M1/n1 broken-pointer class) ---
 # Every contract read-gate path shipped in a kernel or SKILL must resolve to a real

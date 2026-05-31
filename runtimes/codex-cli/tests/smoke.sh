@@ -31,7 +31,9 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_codex/home/.codex/skills/b-plan/SKILL.md"
   assert_file "$sandbox_codex/home/.codex/skills/b-plan/reference.md"
   assert_file "$sandbox_codex/home/.codex/skills/b-review/SKILL.md"
-  assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'self-audits when invoked with `--audit-suite`'
+  assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'self-audits when explicitly requested or invoked with `--audit-suite`'
+  assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'with or without `--audit-suite`'
+  assert_not_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'suite self-audit without `--audit-suite` -> ask'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'Do NOT invoke for repo/suite audits'
   assert_contains "$sandbox_codex/home/.codex/AGENTS.md" 'Avoid common runtime rationalizations such as opportunistic scope expansion'
   assert_not_contains "$sandbox_codex/home/.codex/AGENTS.md" '"I'\''ll fix this adjacent thing while I'\''m here."'

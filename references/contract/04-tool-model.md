@@ -25,7 +25,7 @@ Use the lightest reliable tool. Native local tools such as exact file reads, `rg
 | Web/news/image discovery and unknown-URL source shortlisting | `brave-search` | `firecrawl-extraction` for source content |
 | Known URL extraction | `firecrawl-extraction` | `firecrawl-extended`, then `firecrawl-deep` (approval) |
 | Local document extraction | `firecrawl-extraction` (`firecrawl_parse`) | `firecrawl-extraction` (`firecrawl_scrape`) only if already hosted |
-| Browser/DOM/visual/e2e live UI operation | `playwright-browser-operator` when installed and safety-gated | Existing repo scripts, supplied evidence, or `firecrawl-extraction` for known remote pages |
+| Browser/DOM/visual/e2e evidence | Supplied/CI evidence or existing repo scripts when they answer the question | `playwright-browser-operator` when live-browser evidence is needed and safety-gated; `firecrawl-extraction` only for static known remote pages |
 
 ### Selective leverage by lane
 
