@@ -14,34 +14,10 @@ Default install for Claude Code:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-Install for OpenCode:
+Install for a specific runtime — replace `<name>` with one of `opencode`, `codex-cli`, `antigravity-cli`, `cursor`, or `zed`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=opencode
-```
-
-Install for Codex CLI:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=codex-cli
-```
-
-Install for Antigravity CLI:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=antigravity-cli
-```
-
-Install for Cursor:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=cursor
-```
-
-Install for Zed:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=zed
+curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
 Install for all registered runtimes:
