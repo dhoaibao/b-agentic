@@ -272,7 +272,8 @@ dst = Path(os.environ['JSON_DST'])
 tmp = Path(os.environ['JSON_TMP'])
 label = os.environ['JSON_LABEL']
 recommended = json.loads(src.read_text())
-current = json.loads(dst.read_text())
+current_text = dst.read_text().strip()
+current = json.loads(current_text) if current_text else {}
 
 def merge(existing, incoming):
     if isinstance(existing, dict) and isinstance(incoming, dict):
@@ -563,7 +564,8 @@ original_path = Path(os.environ['JSON_ORIGINAL'])
 tmp_path = Path(os.environ['JSON_TMP'])
 label = os.environ['JSON_LABEL']
 
-current = json.loads(current_path.read_text())
+current_text = current_path.read_text().strip()
+current = json.loads(current_text) if current_text else {}
 incoming = json.loads(template_path.read_text())
 original = {} if str(original_path) == 'empty' else json.loads(original_path.read_text())
 
