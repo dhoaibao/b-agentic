@@ -85,6 +85,20 @@ b-ship [explicit ship request after review readiness]
 
 `b-orchestrate` coordinates via handoff envelopes and returned status blocks; it does not auto-run every phase inside one invocation. Operators resume the next phase with a new explicit invocation. `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
 
+## MCPs
+
+The installer writes a recommended MCP config template to the runtime's standard MCP config location. All runtimes include the same five servers:
+
+| MCP | Role | API Key |
+|---|---|---|
+| `serena` | Symbol discovery, references, diagnostics, and edits — primary code navigation hands | none |
+| `context7` | Library and framework documentation lookup | `CONTEXT7_API_KEY` (optional) |
+| `brave-search` | Open-web and news discovery | `BRAVE_API_KEY` |
+| `firecrawl` | URL extraction, local document parsing, and agent-driven research | `FIRECRAWL_API_KEY` |
+| `playwright` | Live browser, DOM, visual, and e2e actions | none |
+
+The template is a starting point. Skills use MCPs as lazy capabilities — activated only when they close a specific evidence gap, not as defaults. `serena` and native local tools take priority for exact local evidence.
+
 ## Repository Layout
 
 ```text
