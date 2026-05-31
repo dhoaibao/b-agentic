@@ -11,7 +11,7 @@ The OpenCode release supports a personal-global install:
 - Command wrappers: `~/.config/opencode/commands/<command-name>.md`
 - Skill-local support files: `~/.config/opencode/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.config/opencode/b-agentic/`
-- Shared reference snapshot: `~/.config/opencode/b-agentic/references/*.md`
+- Shared contract reference snapshot: `~/.config/opencode/b-agentic/references/contract/*.md`
 - Sensitive artifacts: `~/.config/opencode/b-agentic/<skill>/<run-id>/` or `/tmp/opencode/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/opencode/b-agentic/<skill>/<slug>.log`
 

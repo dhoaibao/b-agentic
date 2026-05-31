@@ -10,7 +10,7 @@ The Codex adapter supports a personal-global install:
 - Skills: `~/.codex/skills/<skill-name>/SKILL.md`
 - Skill-local support files: `~/.codex/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.codex/b-agentic/`
-- Shared reference snapshot: `~/.codex/b-agentic/references/*.md`
+- Shared contract reference snapshot: `~/.codex/b-agentic/references/contract/*.md`
 - Recommended MCP template: `~/.codex/b-agentic/templates/mcp.user.template.toml`
 - User-scope config: `~/.codex/config.toml`
 - Sensitive artifacts: `~/.codex/b-agentic/<skill>/<run-id>/` or `/tmp/codex-cli/b-agentic/<skill>/<run-id>/`

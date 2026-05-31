@@ -10,7 +10,7 @@ The Cursor adapter supports a personal-global install:
 - Skills: `~/.cursor/skills/<skill-name>/SKILL.md`
 - Skill-local support files: `~/.cursor/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.cursor/b-agentic/`
-- Shared reference snapshot: `~/.cursor/b-agentic/references/*.md`
+- Shared contract reference snapshot: `~/.cursor/b-agentic/references/contract/*.md`
 - Recommended MCP template: `~/.cursor/b-agentic/templates/mcp.user.template.json`
 - User-scope MCP config: `~/.cursor/mcp.json`
 - Sensitive artifacts: `~/.cursor/b-agentic/<skill>/<run-id>/` or `/tmp/cursor/b-agentic/<skill>/<run-id>/`

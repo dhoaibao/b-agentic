@@ -11,7 +11,7 @@ The Antigravity adapter supports a personal-global install:
 - Skill commands: `/b-*` from `~/.gemini/antigravity-cli/skills/<skill-name>/SKILL.md`
 - Skill-local support files: `~/.gemini/antigravity-cli/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.gemini/antigravity-cli/b-agentic/`
-- Shared reference snapshot: `~/.gemini/antigravity-cli/b-agentic/references/*.md`
+- Shared contract reference snapshot: `~/.gemini/antigravity-cli/b-agentic/references/contract/*.md`
 - Recommended MCP template: `~/.gemini/antigravity-cli/b-agentic/templates/mcp_config.template.json`
 - User-scope settings: `~/.gemini/antigravity-cli/settings.json`
 - User-scope MCP config: `~/.gemini/antigravity-cli/mcp_config.json`

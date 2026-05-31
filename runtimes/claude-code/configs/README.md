@@ -10,7 +10,7 @@ The first Claude-native release supports a personal-global install only:
 - Skills: `~/.claude/skills/<skill-name>/SKILL.md`
 - Skill-local support files: `~/.claude/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.claude/b-agentic/`
-- Shared reference snapshot: `~/.claude/b-agentic/references/*.md`
+- Shared contract reference snapshot: `~/.claude/b-agentic/references/contract/*.md`
 - Recommended settings template: `~/.claude/b-agentic/templates/settings.template.json`
 - Global MCP template: `~/.claude/b-agentic/templates/mcp.user.template.json`
 - User-scope MCP config: `~/.claude.json`
