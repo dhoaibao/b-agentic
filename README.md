@@ -117,48 +117,13 @@ b-ship [explicit ship request after review readiness]
 
 ```text
 b-agentic/
-├── CLAUDE.md              # Maintainer guide for this source repo
-├── skills/
-│   ├── registry.yaml      # Skill metadata and generated SKILL.md frontmatter
-│   └── <name>/
-│       ├── prompt.md      # Canonical skill prompt source
-│       ├── SKILL.md       # Generated delivery asset
-│       └── reference.md   # Optional skill-local support material
-├── runtimes/
-│   ├── registry.yaml      # Runtime metadata for generation and validation
-│   ├── claude-code/
-│   │   ├── kernel.md      # Claude Code runtime kernel
-│   │   ├── configs/       # Settings and MCP templates
-│   │   ├── scripts/       # Runtime-specific install and validate scripts
-│   │   └── tests/         # Runtime-specific smoke lane
-│   ├── opencode/
-│   │   ├── kernel.md      # OpenCode runtime kernel
-│   │   ├── commands/      # Thin /b-* command wrappers
-│   │   ├── configs/       # Runtime config templates and docs
-│   │   ├── scripts/       # Runtime-specific install and validate scripts
-│   │   └── tests/         # Runtime-specific smoke lane
-│   ├── codex-cli/
-│   │   ├── kernel.md      # Codex CLI runtime kernel
-│   │   ├── configs/       # Runtime config templates and docs
-│   │   ├── scripts/       # Runtime-specific install and validate scripts
-│   │   └── tests/         # Runtime-specific smoke lane
-│   ├── antigravity-cli/
-│   │   ├── kernel.md      # Antigravity CLI runtime kernel
-│   │   ├── configs/       # Runtime config templates and docs
-│   │   ├── scripts/       # Runtime-specific install and validate scripts
-│   │   └── tests/         # Runtime-specific smoke lane
-│   └── runtime-template/  # Scaffold for a future runtime adapter
-├── references/
-│   ├── contract/          # Detailed runtime contract
-│   └── *.md               # Shared support references
-├── tooling/
-│   ├── generate/          # Renderers for kernels, skills, wrappers, and doc blocks
-│   ├── install/           # Shared installer core
-│   └── validate/          # Shared validation harness
-├── tests/
-│   └── smoke/             # Shared smoke harness
-├── install.sh             # Bootstrap installer entrypoint
-└── scripts/               # Stable validate and smoke wrappers
+├── skills/          # Skill sources and generated delivery assets
+├── runtimes/        # Runtime adapters, configs, scripts, and smoke lanes
+├── references/      # Shared support references and detailed runtime contract
+├── tooling/         # Renderers, shared installer core, and validation harness
+├── tests/           # Shared smoke harness
+├── install.sh       # Bootstrap installer entrypoint
+└── scripts/         # Stable validate and smoke wrappers
 ```
 
 ## Source Of Truth
