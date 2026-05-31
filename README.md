@@ -1,10 +1,10 @@
 # b-agentic
 
-**An agentic workflow harness for Claude Code, OpenCode, Codex CLI, Antigravity CLI, and Zed.**
+**An agentic workflow harness for Claude Code, OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed.**
 
-`b-agentic` is a behavioral harness, not a skill suite. A runtime kernel enforces routing, safety gates, evidence standards, and handoff contracts. Skills are phase owners that execute within that envelope: clarify, plan, build, validate, debug, review, and ship. Claude Code is the reference runtime; OpenCode, Codex CLI, Antigravity CLI, and Zed are supported through runtime-specific adapters.
+`b-agentic` is a behavioral harness, not a skill suite. A runtime kernel enforces routing, safety gates, evidence standards, and handoff contracts. Skills are phase owners that execute within that envelope: clarify, plan, build, validate, debug, review, and ship. Claude Code is the reference runtime; OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed are supported through runtime-specific adapters.
 
-Skill names are runtime-neutral: Claude Code, OpenCode, Antigravity CLI, and Zed commonly expose `/b-*`, while Codex CLI uses `/skills`, `$skill-name`, or implicit matching.
+Skill names are runtime-neutral: Claude Code, OpenCode, Antigravity CLI, Cursor, and Zed commonly expose `/b-*`, while Codex CLI uses `/skills`, `$skill-name`, or implicit matching.
 
 ## Install
 
@@ -30,6 +30,12 @@ Install for Antigravity CLI:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=antigravity-cli
+```
+
+Install for Cursor:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=cursor
 ```
 
 Install for Zed:
@@ -63,12 +69,13 @@ The installer is designed to be a one-command bootstrap. It installs the kernel,
 
 ## What You Get
 
-- A runtime kernel installed into the active tool: `~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, or `~/.config/zed/AGENTS.md`
-- The `b-agentic` skill set under the runtime-local skills tree (`~/.claude/skills/`, `~/.config/opencode/skills/`, `~/.codex/skills/`, `~/.gemini/antigravity-cli/skills/`, or `~/.agents/skills/`)
+- A runtime kernel installed into the active tool: `~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, `~/.cursor/AGENTS.md`, or `~/.config/zed/AGENTS.md`
+- The `b-agentic` skill set under the runtime-local skills tree (`~/.claude/skills/`, `~/.config/opencode/skills/`, `~/.codex/skills/`, `~/.gemini/antigravity-cli/skills/`, `~/.cursor/skills/`, or `~/.agents/skills/`)
 - Recommended runtime config templates, MCP config, and shared references
 - For OpenCode, thin `/b-*` command wrappers in `~/.config/opencode/commands/`
 - For Codex CLI, skill registration and MCP server config in `~/.codex/config.toml`
 - For Antigravity CLI, `/b-*` commands exposed by installed Antigravity skills in `~/.gemini/antigravity-cli/skills/`
+- For Cursor, `/b-*` commands exposed by installed skills in `~/.cursor/skills/`
 - For Zed, `/b-*` commands exposed by installed skills in `~/.agents/skills/`
 
 If an existing kernel file is preserved, the install stays in a pending state until you replace or merge it.

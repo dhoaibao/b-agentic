@@ -71,6 +71,23 @@
       }
     },
     {
+      "name": "cursor",
+      "display_name": "Cursor",
+      "reference_runtime": false,
+      "kernel_source": "runtimes/cursor/kernel.md",
+      "memory_file": "AGENTS.md",
+      "memory_install_path": "~/.cursor/AGENTS.md",
+      "metadata_root": "~/.cursor/b-agentic",
+      "skills_install_root": "~/.cursor/skills",
+      "config_template_dir": "runtimes/cursor/configs",
+      "config_schema_family": "cursor-json",
+      "command_wrappers": {
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
+      }
+    },
+    {
       "name": "zed",
       "display_name": "Zed",
       "reference_runtime": false,

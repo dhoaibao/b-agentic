@@ -6,7 +6,7 @@ Guidelines for editing and maintaining the `b-agentic` source repository. This f
 
 - `README.md` stays brief: repo overview, install, and high-level layout.
 - Root `CLAUDE.md` is the shared maintainer guide for this repo, not a Claude-Code-only authoring spec.
-- Claude Code is the reference runtime and primary native-first target; OpenCode, Codex CLI, Antigravity CLI, and Zed are separate supported runtimes with their own install layouts.
+- Claude Code is the reference runtime and primary native-first target; OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed are separate supported runtimes with their own install layouts.
 - Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral in behavior and path semantics.
 - Runtime-specific paths, kernel filenames, install-layout details, wrappers, and caveats belong under `runtimes/<name>/`.
 - Do not create a second root reference surface. Use root docs for orientation only, and keep detailed rules close to their owning sources.
