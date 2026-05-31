@@ -607,9 +607,6 @@ if unexpected_root_docs:
         f"{unexpected_root_docs}; keep root docs targeted and move skill detail or support material under skills/, references/, or runtimes/"
     )
 
-if "One Command" not in readme or "Summary" not in readme or "Next steps" not in readme:
-    errors.append("README.md: missing one-command install/output documentation")
-
 bundle_names = tool_model_bundle_names(tool_model_text)
 if not bundle_names:
     errors.append(f"{rel(tool_model_path)}: missing MCP bundle definitions")

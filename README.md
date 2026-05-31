@@ -39,10 +39,6 @@ Re-run the installer to update.
 
 The installer writes only to user-scope runtime locations. It does not create `.b-agentic/` or `.b-agentic/.gitignore` in the current repo just because you run install from inside a git worktree.
 
-## One Command
-
-The installer is designed to be a one-command bootstrap. It installs the kernel, syncs skills, writes runtime templates, and prints numbered stage progress followed by a short `Summary`, `Readiness`, `Shell tooling`, and `Next steps` report so you can see what changed without reading installer internals. The shell-tooling section includes a default core tier for `rg`, `fd`/`fdfind`, `jq`, `tmux`, and `fzf`, plus a separate optional tier for `bat`/`batcat`, `yq`, `git-delta`, and `gh`. When the installer can detect Homebrew, `apt`, or `dnf`, it prints matching package commands for both tiers. The installer never auto-installs those packages.
-
 ## What You Get
 
 - A runtime kernel installed into the active tool: `~/.claude/CLAUDE.md`, `~/.config/opencode/AGENTS.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`, `~/.cursor/AGENTS.md`, or `~/.config/zed/AGENTS.md`
