@@ -69,6 +69,23 @@
         "source_dir": null,
         "install_root": null
       }
+    },
+    {
+      "name": "zed",
+      "display_name": "Zed",
+      "reference_runtime": false,
+      "kernel_source": "runtimes/zed/kernel.md",
+      "memory_file": "AGENTS.md",
+      "memory_install_path": "~/.config/zed/AGENTS.md",
+      "metadata_root": "~/.agents/b-agentic",
+      "skills_install_root": "~/.agents/skills",
+      "config_template_dir": "runtimes/zed/configs",
+      "config_schema_family": "zed-json",
+      "command_wrappers": {
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
+      }
     }
   ]
 }
