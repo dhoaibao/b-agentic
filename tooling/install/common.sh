@@ -265,15 +265,23 @@ merge_json_file() {
   if env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_LABEL="$label" python3 - <<'PY'
 import json
 import os
+import re
 from pathlib import Path
 
 src = Path(os.environ['JSON_SRC'])
 dst = Path(os.environ['JSON_DST'])
 tmp = Path(os.environ['JSON_TMP'])
 label = os.environ['JSON_LABEL']
+
+def _load_jsonc(text):
+    text = re.sub(r'"(?:[^"\\]|\\.)*"|//[^\n]*',
+                  lambda m: m.group(0) if m.group(0).startswith('"') else '',
+                  text.strip())
+    text = re.sub(r',(\s*[}\]])', r'\1', text)
+    return json.loads(text) if text.strip() else {}
+
 recommended = json.loads(src.read_text())
-current_text = dst.read_text().strip()
-current = json.loads(current_text) if current_text else {}
+current = _load_jsonc(dst.read_text())
 
 def merge(existing, incoming):
     if isinstance(existing, dict) and isinstance(incoming, dict):
@@ -556,6 +564,7 @@ remove_merged_config() {
   if env JSON_CURRENT="$path" JSON_TEMPLATE="$template" JSON_ORIGINAL="$original" JSON_TMP="$tmp" JSON_LABEL="$label" python3 - <<'PY'
 import json
 import os
+import re
 from pathlib import Path
 
 current_path = Path(os.environ['JSON_CURRENT'])
@@ -564,8 +573,14 @@ original_path = Path(os.environ['JSON_ORIGINAL'])
 tmp_path = Path(os.environ['JSON_TMP'])
 label = os.environ['JSON_LABEL']
 
-current_text = current_path.read_text().strip()
-current = json.loads(current_text) if current_text else {}
+def _load_jsonc(text):
+    text = re.sub(r'"(?:[^"\\]|\\.)*"|//[^\n]*',
+                  lambda m: m.group(0) if m.group(0).startswith('"') else '',
+                  text.strip())
+    text = re.sub(r',(\s*[}\]])', r'\1', text)
+    return json.loads(text) if text.strip() else {}
+
+current = _load_jsonc(current_path.read_text())
 incoming = json.loads(template_path.read_text())
 original = {} if str(original_path) == 'empty' else json.loads(original_path.read_text())
 
