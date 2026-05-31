@@ -689,8 +689,15 @@ if not isinstance(current, dict) or not isinstance(incoming, dict) or not isinst
     raise SystemExit(f'{label} cleanup requires JSON object inputs')
 
 cleaned = cleanup(current, incoming, original)
-if label in ('.claude.json', 'opencode.json', 'antigravity-mcp_config.json'):
-    mcp_key = 'mcp' if label == 'opencode.json' else 'mcpServers'
+mcp_labels = {
+    '.claude.json': 'mcpServers',
+    'opencode.json': 'mcp',
+    'antigravity-mcp_config.json': 'mcpServers',
+    'cursor-mcp.json': 'mcpServers',
+    'zed-settings.json': 'context_servers',
+}
+mcp_key = mcp_labels.get(label)
+if mcp_key is not None:
     cleaned_servers = cleaned.get(mcp_key)
     incoming_servers = incoming.get(mcp_key, {})
     original_servers = original.get(mcp_key, {})
