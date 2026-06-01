@@ -1,25 +1,10 @@
 # b-agentic
 
-**An agentic workflow harness for Claude Code, OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed.**
+**Agentic workflow kernel for Claude Code, OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed.**
 
-`b-agentic` is a behavioral harness, not a skill suite. A runtime kernel enforces routing, safety gates, evidence standards, and handoff contracts. Skills are phase owners that execute within that envelope: clarify, plan, build, validate, debug, review, and ship.
+`b-agentic` is a behavioral harness, not just a skill bundle. It installs a runtime kernel, phase skills, a shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
 
-Claude Code is the reference runtime; OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed are supported through runtime-specific adapters.
-
-Skill names are runtime-neutral: Claude Code, OpenCode, Antigravity CLI, Cursor, and Zed commonly expose `/b-*`, while Codex CLI uses `/skills`, `$skill-name`, or implicit matching.
-
-## Runtime Support
-
-All supported runtimes install the same runtime-neutral skills, detailed contract snapshot, and recommended MCP bundle. Runtime adapters own only the user-scope paths, command exposure, config merge format, and documented limitations.
-
-| Runtime | Skill invocation | MCP config | Continuation support |
-|---|---|---|---|
-| Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` | Operator-resumed via `[status]` and `[handoff]` blocks |
-| OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` | Operator-resumed; wrappers do not automate phase-to-phase continuation |
-| Codex CLI | `/skills`, `$skill-name`, or implicit skill matching | `~/.codex/config.toml` | Operator-resumed via `[status]` and `[handoff]` blocks |
-| Antigravity CLI | Native `/b-*` skills from `~/.gemini/antigravity-cli/skills/` | `~/.gemini/antigravity-cli/mcp_config.json` | Operator-resumed via `[status]` and `[handoff]` blocks |
-| Cursor | Native slash commands from `~/.cursor/skills/` | `~/.cursor/mcp.json` | Operator-resumed via `[status]` and `[handoff]` blocks |
-| Zed | Native slash commands from `~/.agents/skills/` | `~/.config/zed/settings.json` | Operator-resumed via `[status]` and `[handoff]` blocks |
+Claude Code is the reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure, and caveats.
 
 ## Install
 
@@ -29,45 +14,34 @@ Default install for Claude Code:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-Install for a specific runtime — replace `<name>` with one of `opencode`, `codex-cli`, `antigravity-cli`, `cursor`, or `zed`:
+Install another runtime:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Install for all registered runtimes:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=all
-```
-
-Codex CLI config merge uses Python 3.11+ standard-library TOML parsing.
+Use `<name>` as `opencode`, `codex-cli`, `antigravity-cli`, `cursor`, or `zed`. Use `--runtime=all` for every registered runtime.
 
 Useful flags:
 
-- `--runtime=all` to install the default runtime set or uninstall across every runtime in `runtimes/registry.yaml`
-- `--dry-run` to preview changes
-- `--replace-memory` to replace an existing managed kernel file
-- `--uninstall` to remove managed files
+- `--dry-run` previews changes
+- `--replace-memory` replaces an existing managed kernel file
+- `--uninstall` removes managed files
 
-Re-run the installer to update.
+The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI install and validation require Python 3.11+ for standard-library TOML parsing.
 
-The installer writes only to user-scope runtime locations. It does not create `.b-agentic/` or `.b-agentic/.gitignore` in the current repo just because you run install from inside a git worktree.
+## Runtime Support
 
-## Upgrade And Operator Notes
+| Runtime | Skill invocation | MCP config |
+|---|---|---|
+| Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
+| OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
+| Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
+| Antigravity CLI | Native `/b-*` skills from `~/.gemini/antigravity-cli/skills/` | `~/.gemini/antigravity-cli/mcp_config.json` |
+| Cursor | Native slash commands from `~/.cursor/skills/` | `~/.cursor/mcp.json` |
+| Zed | Native slash commands from `~/.agents/skills/` | `~/.config/zed/settings.json` |
 
-After upgrading from an older b-agentic install, re-run the installer for every runtime you use so the kernel, skills, shared contract snapshot, MCP templates, and command wrappers stay aligned. Use `--runtime=all` for the registered runtime set, or repeat `--runtime=<name>` for selected runtimes.
-
-Daily workflows remain operator-resumed: run a phase skill, keep the returned `[status]` or `[handoff]` block in context, then invoke the next skill explicitly. No runtime adapter promises native phase-to-phase automation. OpenCode command wrappers and native slash-command runtimes preserve invocation ergonomics, not automatic continuation.
-
-Release checks live behind stable wrappers:
-
-- `bash scripts/internal-check-conformance.sh --self-test tests/internal/conformance/cases.json`
-- `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json`
-- `bash scripts/validate-skills.sh`
-- `bash scripts/validate-skills.sh --release`
-
-Known caveats: live MCP requests still need user-scope API keys where a server requires them, Codex CLI validation needs Python 3.11+, and real-browser or visual readiness requires existing browser evidence or a `b-browser` pass before claiming PR readiness.
+All runtimes are operator-resumed: run a phase skill, keep the returned `[status]` or `[handoff]` block in context, then invoke the next skill explicitly. Runtime adapters preserve invocation ergonomics; they do not promise automatic phase-to-phase continuation.
 
 ## Skills
 
@@ -98,31 +72,13 @@ b-refactor [behavior-preserving change]
 b-ship [explicit ship request after review readiness]
 ```
 
-Operators resume the next phase with a new explicit invocation. `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
+`b-ship` remains explicit even when another skill closes with `Next: b-ship`.
 
-## Behavior Modes
+## Modes And MCPs
 
-`b-agentic` uses three behavior modes:
+Behavior modes are `lite` for trivial local work, `standard` by default, and `strict` for public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, and shared-environment or external mutation.
 
-- `lite` for trivial local work with no remaining design decision.
-- `standard` as the default day-to-day mode.
-- `strict` for public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, and shared-environment or external mutation.
-
-The runtime infers the mode from risk, and users may always ask for stricter handling. `lite` is never allowed when a strict trigger applies. The detailed contract under `references/contract/` remains authoritative.
-
-## MCPs
-
-The installer writes a recommended MCP config template to the runtime's standard MCP config location. All runtimes include the same five servers:
-
-| MCP | Role | API Key |
-|---|---|---|
-| `serena` | Symbol discovery, references, diagnostics, and edits — primary code navigation hands | none |
-| `context7` | Library and framework documentation lookup | `CONTEXT7_API_KEY` (optional) |
-| `brave-search` | Open-web and news discovery | `BRAVE_API_KEY` |
-| `firecrawl` | URL extraction, local document parsing, and agent-driven research | `FIRECRAWL_API_KEY` |
-| `playwright` | Live browser, DOM, visual, and e2e actions | none |
-
-The template is a starting point. Skills use MCPs as lazy capabilities — activated only when they close a specific evidence gap, not as defaults. `serena` and native local tools take priority for exact local evidence.
+The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. Skills use MCPs lazily when they close a specific evidence gap; native local tools and Serena stay first for exact local evidence.
 
 ## Repository Layout
 
@@ -132,57 +88,33 @@ b-agentic/
 ├── runtimes/        # Runtime adapters, configs, scripts, and smoke lanes
 ├── references/      # Shared support references and detailed runtime contract
 ├── tooling/         # Renderers, shared installer core, and validation harness
-├── tests/           # Shared smoke harness
+├── tests/           # Shared smoke and internal release fixtures
 ├── install.sh       # Bootstrap installer entrypoint
 └── scripts/         # Stable validate and smoke wrappers
 ```
 
-## Source Of Truth
+Source of truth:
 
-- `skills/registry.yaml` and `skills/*/prompt.md` define the skill surface
-- `runtimes/registry.yaml` and `references/contract/kernel.template.md` define runtime behavior
-- `references/contract/` defines the detailed runtime contract used by prompts and kernels
-- `tooling/policy/schema.json` and `tooling/policy/output-policy.json` define the machine-readable output/readiness policy used by validation
-- `tooling/conformance/checker.py` checks transcript status blocks, handoff envelopes, and readiness claims against the policy model
-- `tooling/generate/registry_sync.py` regenerates committed delivery assets
-- `scripts/validate-skills.sh` is the main shared validation entrypoint; use `scripts/validate-skills.sh --release` when delivery changes must also pass installer smoke coverage
-- `scripts/smoke-install.sh` remains the standalone smoke entrypoint when you need the installer suite by itself
-- `tooling/validate/` contains the shared validation harness
-- `tests/smoke/` contains the shared smoke harness
-- `runtimes/runtime-template/` is the scaffold for a new runtime adapter
+- `skills/registry.yaml` and `skills/*/prompt.md` define skills.
+- `runtimes/registry.yaml` and `references/contract/kernel.template.md` define runtime behavior.
+- `references/contract/` defines the detailed runtime contract.
+- `tooling/generate/registry_sync.py` regenerates committed delivery assets.
+- `tooling/validate/`, `tooling/conformance/`, `tooling/scenarios/`, `tests/smoke/`, and `runtimes/runtime-template/` protect generated assets, runtime adapters, installer behavior, and release governance.
+
+Validation entrypoints:
+
+```bash
+scripts/validate-skills.sh
+scripts/validate-skills.sh --release
+scripts/smoke-install.sh
+bash scripts/internal-check-conformance.sh --self-test tests/internal/conformance/cases.json
+bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json
+```
+
+`scripts/validate-skills.sh --release` adds conformance, scenario, and smoke coverage for delivery-sensitive changes. Use `bash scripts/internal-check-conformance.sh <transcript-file>` for a saved status/handoff snippet, and `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json` for golden workflow scenarios.
 
 ## Docs
 
-- `CLAUDE.md` is the maintainer guide for this source repo
-- `references/contract/` contains the detailed runtime contract
-- `runtimes/<name>/configs/README.md` describes runtime-specific layout details
-
-## Conformance Checker
-
-Use `bash scripts/internal-check-conformance.sh <transcript-file>` to validate a saved transcript or snippet that contains canonical fenced `[status]` or `[handoff]` blocks.
-
-Examples:
-
-```bash
-bash scripts/internal-check-conformance.sh tests/internal/conformance/valid-status.md
-bash scripts/internal-check-conformance.sh tests/internal/conformance/valid-handoff.md
-```
-
-The checker is fixture-tested through `tests/internal/conformance/cases.json`.
-
-## Scenario Runner
-
-Use `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json` to run the golden workflow scenario suite.
-
-Examples covered in the first suite:
-
-- small direct edit
-- stale approved plan
-- dirty worktree conflict
-- review-fix loop
-- browser evidence missing
-- dependency approval denied
-- test failure routed to debug
-- unsafe success overclaim
-
-Scenario fixtures assert structured outcomes instead of whole-prose snapshots. The runner reuses the conformance checker and is wired into `bash scripts/validate-skills.sh --release`.
+- `CLAUDE.md` is the maintainer guide for this source repo.
+- `references/contract/` contains the detailed runtime contract.
+- `runtimes/<name>/configs/README.md` documents runtime-specific layout details.
