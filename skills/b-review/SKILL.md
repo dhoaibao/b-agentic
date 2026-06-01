@@ -82,7 +82,7 @@ Use diagnostics or narrow commands only when review confidence depends on runtim
 
 ### Step 5 - Report verdict
 
-Read `../../b-agentic/references/contract/09-output.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
+Read `../../b-agentic/references/cards/review-verdict.md` and `../../b-agentic/references/cards/output-handoff.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
 
 Verdicts: **READY FOR PR**, **READY WITH FOLLOW-UPS**, or **NEEDS FIXES**. Emit the chosen label in the final `[status]` block's `verdict:` field. Do not use **READY FOR PR** when the review has no baseline, required verification was skipped, or real-browser/visual/e2e evidence remains relevant but absent; **b-browser**-verified supplied/CI evidence, existing-tool evidence, or approved live-browser evidence can satisfy that browser evidence requirement.
 

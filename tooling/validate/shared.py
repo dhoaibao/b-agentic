@@ -8,6 +8,15 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tooling.policy.load import (
+    load_output_policy,
+    validate_mode_policy_contract,
+    validate_output_policy_contract,
+)
+
 errors = []
 
 
@@ -413,6 +422,8 @@ contract_index_path = ROOT / "references" / "contract" / "index.md"
 contract_index = read_text(contract_index_path)
 output_contract_path = ROOT / "references" / "contract" / "09-output.md"
 output_contract = read_text(output_contract_path)
+definitions_contract_path = ROOT / "references" / "contract" / "03-definitions.md"
+definitions_contract = read_text(definitions_contract_path)
 session_contract_path = ROOT / "references" / "contract" / "11-session.md"
 session_contract = read_text(session_contract_path)
 install_sh = read_text(ROOT / "install.sh")
@@ -422,12 +433,81 @@ validate_runner_path = ROOT / "tooling" / "validate" / "run.sh"
 smoke_wrapper_path = ROOT / "scripts" / "smoke-install.sh"
 smoke_runner_path = ROOT / "tests" / "smoke" / "install.sh"
 smoke_lib_path = ROOT / "tests" / "smoke" / "lib.sh"
+conformance_manifest_path = ROOT / "tests" / "conformance" / "cases.json"
 runtime_template_root = ROOT / "runtimes" / "runtime-template"
 shared_kernel_template_path = ROOT / "references" / "contract" / "kernel.template.md"
 shared_kernel_template = read_text(shared_kernel_template_path)
 
 if shared_kernel_template and "09-output" not in shared_kernel_template:
     errors.append(f"{rel(shared_kernel_template_path)}: kernel template must reference contract/09-output for the shared status-block schema")
+
+_policy_schema, _output_policy = load_output_policy(errors)
+validate_output_policy_contract(_output_policy, output_contract, errors)
+validate_mode_policy_contract(
+    _output_policy,
+    definitions_contract,
+    shared_kernel_template,
+    readme,
+    errors,
+)
+
+cards_root = ROOT / "references" / "cards"
+required_card_files = {
+    "routing.md",
+    "before-edit.md",
+    "before-ready.md",
+    "review-verdict.md",
+    "browser-boundary.md",
+    "output-handoff.md",
+}
+for _card_name in sorted(required_card_files):
+    _card_path = cards_root / _card_name
+    if not _card_path.exists():
+        errors.append(f"{rel(_card_path)}: missing required decision card")
+
+card_reference_pattern = re.compile(
+    r"(?:\{\{runtime_reference_root\}\}|(?:\.\./)+b-agentic/references|references)/cards/([a-z0-9-]+\.md)"
+)
+for _path in sorted(
+    list((ROOT / "skills").glob("*/prompt.md"))
+    + list((ROOT / "skills").glob("*/SKILL.md"))
+    + list((ROOT / "runtimes").glob("*/kernel.md"))
+    + [ROOT / "README.md", shared_kernel_template_path]
+):
+    _text = read_text(_path)
+    for _card_ref in card_reference_pattern.findall(_text):
+        if _card_ref not in required_card_files:
+            errors.append(f"{rel(_path)}: references unknown decision card {_card_ref!r}")
+        elif not (cards_root / _card_ref).exists():
+            errors.append(f"{rel(_path)}: references missing decision card {_card_ref!r}")
+
+required_card_prompt_refs = {
+    ROOT / "skills" / "b-implement" / "prompt.md": ["before-edit.md", "before-ready.md"],
+    ROOT / "skills" / "b-plan" / "prompt.md": ["before-edit.md", "output-handoff.md"],
+    ROOT / "skills" / "b-orchestrate" / "prompt.md": ["routing.md", "output-handoff.md", "review-verdict.md"],
+    ROOT / "skills" / "b-review" / "prompt.md": ["review-verdict.md", "output-handoff.md"],
+    ROOT / "skills" / "b-browser" / "prompt.md": ["browser-boundary.md", "before-edit.md"],
+    ROOT / "skills" / "b-test" / "prompt.md": ["browser-boundary.md"],
+}
+for _path, _required_cards in required_card_prompt_refs.items():
+    _text = read_text(_path)
+    for _card_name in _required_cards:
+        if f"/cards/{_card_name}" not in _text:
+            errors.append(f"{rel(_path)}: missing required decision-card reference {_card_name!r}")
+
+conformance_selftest = subprocess.run(
+    ["python3", "-m", "tooling.conformance.checker", "--self-test", str(conformance_manifest_path)],
+    cwd=ROOT,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True,
+)
+if conformance_selftest.returncode != 0:
+    output = conformance_selftest.stderr.strip() or conformance_selftest.stdout.strip()
+    if output:
+        errors.extend(line for line in output.splitlines() if line.strip())
+    else:
+        errors.append("tooling.conformance.checker --self-test failed")
 
 browser_evidence_row = (
     "| Browser/DOM/visual/e2e evidence | Supplied/CI evidence or existing repo scripts "

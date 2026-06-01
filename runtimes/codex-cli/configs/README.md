@@ -11,6 +11,7 @@ The Codex adapter supports a personal-global install:
 - Skill-local support files: `~/.codex/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.codex/b-agentic/`
 - Shared contract reference snapshot: `~/.codex/b-agentic/references/contract/*.md`
+- Shared decision cards: `~/.codex/b-agentic/references/cards/*.md`
 - Recommended MCP template: `~/.codex/b-agentic/templates/mcp.user.template.toml`
 - User-scope config: `~/.codex/config.toml`
 - Sensitive artifacts: `~/.codex/b-agentic/<skill>/<run-id>/` or `/tmp/codex-cli/b-agentic/<skill>/<run-id>/`
@@ -23,6 +24,10 @@ The Codex adapter supports a personal-global install:
 Codex exposes installed skills through `/skills` and `$skill-name`, and can also choose them implicitly from the skill description. The adapter installs skills under `~/.codex/skills/` and registers them through `[[skills.config]]` entries whose `path` points to the skill folder that contains `SKILL.md` and whose `enabled = true` flag keeps the entry valid under the current Codex config schema.
 
 The adapter does not install custom `/b-*` wrapper files. Codex-native skill discovery is the supported invocation surface unless Codex later documents a first-class wrapper mechanism.
+
+## Continuation and resume guarantees
+
+This adapter does not provide native phase-to-phase automation. b-agentic workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable resume state, when a skill writes it, follows the shared run-id and artifact rules under `~/.codex/b-agentic/references/contract/08-artifacts.md` and `~/.codex/b-agentic/references/contract/11-session.md`.
 
 ## Safety policy
 

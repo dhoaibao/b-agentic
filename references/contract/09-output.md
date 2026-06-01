@@ -1,5 +1,7 @@
 ## 9. Output contract
 
+In this source repo, `tooling/policy/output-policy.json` is the machine-readable owner for status, handoff, verdict, cause-class, run-id, and readiness policy. This Markdown file remains the human-readable contract and explanation layer.
+
 ### Language
 
 - **Chat:** match the language of the user's most recent message. Code identifiers, paths, and command examples stay in their natural form.
@@ -70,6 +72,8 @@ Required fields are `skill`, `state`, `artifacts`, `next`, `blockers`. Every oth
 | `READY FOR PR` | Changed code is safe to merge; no blocking findings. |
 | `READY WITH FOLLOW-UPS` | Changed code is mergeable with accepted gaps; follow-ups noted. |
 | `NEEDS FIXES` | One or more BLOCKER or MAJOR findings must be resolved before merge. |
+
+For UI/browser-relevant work, use `READY FOR PR` only when the relevant browser evidence is covered by supplied/CI evidence, existing-tool evidence, or approved live-browser evidence.
 
 Skill prose that says "close with the skill-exit status block" inherits this schema verbatim; skills must not embed their own copy of the block in output templates.
 

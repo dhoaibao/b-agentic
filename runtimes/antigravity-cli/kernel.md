@@ -11,6 +11,8 @@ Use these rules before any skill-specific instruction. If context pressure is hi
 
 Reference checklist: when a kernel rule, skill step, output format, or handoff says to use a schema, rubric, protocol, checklist, or reference section from a b-agentic runtime contract, read the named section file before applying that rule. Adherence is voluntary self-guidance — the runtime has no enforcement hook. Installed skills should read shared contract files from the runtime's shared reference snapshot under `~/.gemini/antigravity-cli/b-agentic/references/contract/*.md` and skill-local support files from their own directory when a skill points there.
 
+Decision cards live under `~/.gemini/antigravity-cli/b-agentic/references/cards/*.md`. Use them as the short point-of-use path, then fall back to the detailed contract section when a card does not settle the question.
+
 Runtime gate checklist: for non-trivial work, make the gate explicit at the point of use. Before acting, confirm the active skill and source of truth; before editing or external/mutating actions, confirm approval, staleness, worktree, and safety gates; before reporting done or switching skills, confirm verification and read `~/.gemini/antigravity-cli/b-agentic/references/contract/09-output.md` (§9) when a status block or handoff is required.
 
 1. Route to exactly one active skill by intent; switch only at a stop condition or explicit user override.
@@ -63,6 +65,8 @@ Detailed plan metadata, staleness gate, and revision protocol: runtime contract 
 ## 3. Risk, Readiness, And Confidence
 
 A short kernel rule is enough here: treat public, sensitive, multi-file, dependency, CI/build/release, or sequenced work as non-trivial; keep obvious local requests on the shortest safe path only when no design decision remains.
+
+Use one behavior mode per run: `lite` for trivial local work, `standard` by default, and `strict` whenever public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, or shared-environment/external mutation are in scope. Users may ask for stricter handling, but `lite` is not allowed when a strict trigger applies.
 
 Use the shared §3 glossary in the runtime contract for the canonical definitions of `non-trivial`, `small direct request`, readiness terms, risk bands, severity, and confidence.
 

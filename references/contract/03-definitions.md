@@ -24,6 +24,18 @@ A request that may bypass `b-plan` and go straight to `b-implement` must meet **
 
 Anything failing this threshold goes back to `b-plan`.
 
+### Behavior modes
+
+Use these mode labels consistently across the kernel, cards, docs, and prompts:
+
+- **lite** — trivial local work, no public/sensitive/dependency/CI/release/sequenced risk, and no remaining design decision. Keep ceremony low, but still honor source-of-truth and worktree checks.
+- **standard** — default operating mode for ordinary code and docs work. Use the decision cards for point-of-use reminders and escalate to the detailed contract when a card does not settle the question.
+- **strict** — required for any public contract, sensitive path, dependency change, CI/build/release change, multi-phase or orchestrated work, or shared-environment or external mutation. Make approval, staleness, worktree, verification, and output gates explicit at the point of use.
+
+Override rules:
+- user may request stricter mode
+- lite is not allowed when any strict trigger applies
+
 ### Readiness vocabulary
 
 Use these terms consistently across skills:

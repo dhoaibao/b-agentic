@@ -50,7 +50,7 @@ Run `git status --short`, name the source of truth, and define success as a **b-
 
 For non-trivial workflows, read `../../b-agentic/references/contract/08-artifacts.md`, mint a run-id, and write a checkpoint manifest under `.b-agentic/b-orchestrate/<run-id>/manifest.json` when the workflow pauses or needs durable resume state.
 
-Read `../../b-agentic/references/contract/01-routing.md`, `../../b-agentic/references/contract/09-output.md`, and `../../b-agentic/references/contract/11-session.md` before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution.
+Read `../../b-agentic/references/cards/routing.md`, `../../b-agentic/references/cards/output-handoff.md`, and `../../b-agentic/references/contract/11-session.md` before routing across phase skills. Keep exactly one phase owner active at a time; every phase transition is a stop condition plus handoff, not parallel execution.
 
 For each phase transition, emit the handoff envelope in chat as audit trail. Continue within the same workflow only when the active runtime explicitly documents a native phase-skill continuation mechanism or the operator resumes the workflow with the next phase's `[status]` block in context. No shipped adapter currently documents native phase-to-phase continuation, so assume the operator-resumed path unless you have runtime-specific evidence to the contrary. When a phase status block is available, read its `state` and `verdict` fields. The `state` value vocabulary is defined in §9 (`09-output.md`, gated above); orchestration owns only the action each implies: `complete` → continue to the next phase; `blocked` → surface the blocker and stop; `needs-input` → relay the question to the user, resume on answer; `handed-off` → follow the envelope's `next-skill`. If `state` is present but `verdict` is missing for a review, audit, or workflow-close decision, ask the user once instead of inferring readiness from prose or `notes:`. If the next phase is not run inside the same workflow turn, stop after the handoff instead of simulating its work.
 
@@ -91,7 +91,7 @@ Hand off to `b-review` again after each coherent fix set. Stop when the review r
 
 ### Step 6 - Close the workflow
 
-Read `../../b-agentic/references/contract/09-output.md` before reporting non-trivial workflow status or handing off unresolved work. Report the final review verdict, verification run, skipped checks, blockers, and remaining follow-ups. Do not claim `verdict: READY FOR PR` when the review had no baseline, required verification was skipped, or real-browser/visual/e2e evidence remains relevant but absent.
+Read `../../b-agentic/references/cards/output-handoff.md` and `../../b-agentic/references/cards/review-verdict.md` before reporting non-trivial workflow status or handing off unresolved work. Report the final review verdict, verification run, skipped checks, blockers, and remaining follow-ups. Do not claim `verdict: READY FOR PR` when the review had no baseline, required verification was skipped, or real-browser/visual/e2e evidence remains relevant but absent.
 
 When closing with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, include a one-line next-action: `Next: b-ship to commit and open the PR`.
 

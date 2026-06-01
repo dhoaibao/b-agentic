@@ -11,6 +11,7 @@ The Zed adapter supports a personal-global install:
 - Skill-local support files: `~/.agents/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.agents/b-agentic/`
 - Shared contract reference snapshot: `~/.agents/b-agentic/references/contract/*.md`
+- Shared decision cards: `~/.agents/b-agentic/references/cards/*.md`
 - Recommended MCP template: `~/.agents/b-agentic/templates/mcp.user.template.json`
 - User-scope MCP config: `~/.config/zed/settings.json`
 - Sensitive artifacts: `~/.agents/b-agentic/<skill>/<run-id>/` or `/tmp/zed/b-agentic/<skill>/<run-id>/`
@@ -24,6 +25,10 @@ The Zed adapter supports a personal-global install:
 Zed exposes installed b-agentic skills as native slash commands, so users can invoke `/b-plan`, `/b-implement`, `/b-review`, and the rest of the `/b-*` surface directly using the native slash command surface.
 
 The adapter does not install wrapper files; Zed discovers skills from `~/.agents/skills/` automatically.
+
+## Continuation and resume guarantees
+
+This adapter does not provide native phase-to-phase automation. b-agentic workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable resume state, when a skill writes it, follows the shared run-id and artifact rules under `~/.agents/b-agentic/references/contract/08-artifacts.md` and `~/.agents/b-agentic/references/contract/11-session.md`.
 
 ## Safety policy
 

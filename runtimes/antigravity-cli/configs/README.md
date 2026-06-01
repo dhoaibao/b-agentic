@@ -12,6 +12,7 @@ The Antigravity adapter supports a personal-global install:
 - Skill-local support files: `~/.gemini/antigravity-cli/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.gemini/antigravity-cli/b-agentic/`
 - Shared contract reference snapshot: `~/.gemini/antigravity-cli/b-agentic/references/contract/*.md`
+- Shared decision cards: `~/.gemini/antigravity-cli/b-agentic/references/cards/*.md`
 - Recommended MCP template: `~/.gemini/antigravity-cli/b-agentic/templates/mcp_config.template.json`
 - User-scope settings: `~/.gemini/antigravity-cli/settings.json`
 - User-scope MCP config: `~/.gemini/antigravity-cli/mcp_config.json`
@@ -26,6 +27,10 @@ The Antigravity adapter supports a personal-global install:
 Antigravity CLI exposes each installed b-agentic skill as a native slash command, so users can invoke `/b-plan`, `/b-implement`, `/b-review`, and the rest of the `/b-*` surface directly from the installed skill tree.
 
 The adapter does not install duplicate TOML wrappers into `~/.gemini/commands/`.
+
+## Continuation and resume guarantees
+
+This adapter does not provide native phase-to-phase automation. b-agentic workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable resume state, when a skill writes it, follows the shared run-id and artifact rules under `~/.gemini/antigravity-cli/b-agentic/references/contract/08-artifacts.md` and `~/.gemini/antigravity-cli/b-agentic/references/contract/11-session.md`.
 
 ## Safety policy
 

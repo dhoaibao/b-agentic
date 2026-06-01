@@ -46,7 +46,7 @@ For **small direct requests** (no saved plan), if any small-direct criterion fai
 
 If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-plan** (Clarification mode).
 
-Read `{{runtime_reference_root}}/contract/06-safety.md` once as a preflight before any editing begins — it covers safety gates, command risk classes, worktree isolation decisions, and patch discipline for all subsequent steps.
+Read `{{runtime_reference_root}}/cards/before-edit.md` once as a preflight before any editing begins, then open `{{runtime_reference_root}}/contract/06-safety.md` only when the card does not settle a safety, approval, or worktree question.
 
 ### Step 2 - Check worktree and choose execution surface
 
@@ -69,9 +69,9 @@ Classify adjacent discoveries before expanding scope (Required: must fix now; Bl
 
 ### Step 4 - Verify before continuing
 
-Run the plan's check when available. Otherwise read `{{runtime_reference_root}}/contract/07-execution.md` before choosing verification from the ladder. Prefer touched-file diagnostics when supported, then the narrowest relevant command.
+Run the plan's check when available. Otherwise read `{{runtime_reference_root}}/contract/07-execution.md` and `{{runtime_reference_root}}/cards/before-ready.md` before choosing verification from the ladder or making a completion claim. Prefer touched-file diagnostics when supported, then the narrowest relevant command.
 
-Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Read `{{runtime_reference_root}}/contract/07-execution.md` before applying iteration cap, cascading-failure, transform rollback, or skipped-check labels. Read `{{runtime_reference_root}}/contract/10-decisions.md` before high-risk completion claims.
+Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Read `{{runtime_reference_root}}/contract/07-execution.md` before applying iteration cap, cascading-failure, transform rollback, or skipped-check labels. Use `{{runtime_reference_root}}/cards/before-ready.md` as the fast path before high-risk completion claims, then fall back to `{{runtime_reference_root}}/contract/10-decisions.md` when the card is not enough.
 
 ### Step 5 - Record progress and close
 

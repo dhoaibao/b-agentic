@@ -11,6 +11,7 @@ The first Claude-native release supports a personal-global install only:
 - Skill-local support files: `~/.claude/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.claude/b-agentic/`
 - Shared contract reference snapshot: `~/.claude/b-agentic/references/contract/*.md`
+- Shared decision cards: `~/.claude/b-agentic/references/cards/*.md`
 - Recommended settings template: `~/.claude/b-agentic/templates/settings.template.json`
 - Global MCP template: `~/.claude/b-agentic/templates/mcp.user.template.json`
 - User-scope MCP config: `~/.claude.json`
@@ -22,6 +23,10 @@ Project-local `.claude/` install, plugin packaging, hooks, and dynamic context i
 ## Invocation policy
 
 Claude Code exposes each skill directory as `/b-*`. All skills are model-invocable when their descriptions match the request. Skill descriptions are the primary routing signal.
+
+## Continuation and resume guarantees
+
+This adapter does not provide native phase-to-phase automation. b-agentic workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable resume state, when a skill writes it, follows the shared run-id and artifact rules under `~/.claude/b-agentic/references/contract/08-artifacts.md` and `~/.claude/b-agentic/references/contract/11-session.md`.
 
 ## Safety policy
 

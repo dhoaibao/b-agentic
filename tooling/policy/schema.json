@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "top_level_required": [
+    "policy_version",
+    "status_block",
+    "handoff_block",
+    "cause_classes",
+    "skill_verdicts",
+    "readiness",
+    "modes"
+  ],
+  "modes_required": [
+    "default",
+    "allowed",
+    "lite_when",
+    "strict_when",
+    "override_rules"
+  ],
+  "status_block_required": [
+    "required_fields",
+    "optional_fields",
+    "state_values",
+    "confidence_values",
+    "run_id_format",
+    "run_id_conditions"
+  ],
+  "handoff_block_required": [
+    "required_fields",
+    "optional_fields"
+  ],
+  "readiness_required": [
+    "workflow_ready_for_pr_requires",
+    "review_ready_for_pr_requires",
+    "browser_evidence_prerequisites"
+  ],
+  "required_verdict_owners": [
+    "b-orchestrate",
+    "b-review"
+  ],
+  "allowed_status_states": [
+    "complete",
+    "blocked",
+    "needs-input",
+    "handed-off"
+  ],
+  "allowed_confidence_values": [
+    "high",
+    "medium",
+    "low"
+  ],
+  "allowed_modes": [
+    "lite",
+    "standard",
+    "strict"
+  ],
+  "cause_class_pattern": "^[a-z_]+$"
+}

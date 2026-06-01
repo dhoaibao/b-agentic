@@ -1,10 +1,23 @@
 # b-agentic — Agent Workflow Kernel Contract
 
-> Detailed schemas, rubrics, edge-case protocols, tool bundles, and operational rules for the `b-agentic` agent workflow kernel. The active runtime kernel lives in the runtime's installed memory file. Installed skills should read shared contract files from the runtime's shared reference snapshot (for example, `~/.claude/b-agentic/references/contract/`, `~/.config/opencode/b-agentic/references/contract/`, `~/.codex/b-agentic/references/contract/`, `~/.gemini/antigravity-cli/b-agentic/references/contract/`, or `~/.agents/b-agentic/references/contract/`) and skill-local support files from their own skill directory when a skill points to detailed behavior. Installed contract files live in the active runtime's b-agentic reference directory, and temporary run artifacts in the active runtime's temp scratch path (for example, `/tmp/claude-code/b-agentic/`, `/tmp/opencode/b-agentic/`, `/tmp/codex-cli/b-agentic/`, `/tmp/antigravity-cli/b-agentic/`, or `/tmp/zed/b-agentic/`).
+> Detailed schemas, rubrics, edge-case protocols, tool bundles, and operational rules for the `b-agentic` agent workflow kernel. The active runtime kernel lives in the runtime's installed memory file. Installed skills should read shared contract files from the runtime's shared reference snapshot (for example, `~/.claude/b-agentic/references/contract/`, `~/.config/opencode/b-agentic/references/contract/`, `~/.codex/b-agentic/references/contract/`, `~/.gemini/antigravity-cli/b-agentic/references/contract/`, `~/.cursor/b-agentic/references/contract/`, or `~/.agents/b-agentic/references/contract/`) and skill-local support files from their own skill directory when a skill points to detailed behavior. Installed contract files live in the active runtime's b-agentic reference directory, and temporary run artifacts in the active runtime's temp scratch path (for example, `/tmp/claude-code/b-agentic/`, `/tmp/opencode/b-agentic/`, `/tmp/codex-cli/b-agentic/`, `/tmp/antigravity-cli/b-agentic/`, `/tmp/cursor/b-agentic/`, or `/tmp/zed/b-agentic/`).
 
 ## Quick Index
 
 Use this index to jump to the smallest section file that owns the needed schema, rubric, protocol, or checklist. Skills should keep referencing stable section files, not copy these rules locally.
+
+## Decision Cards
+
+Use these when you need a short point-of-use reminder before opening the full contract section.
+
+| Card | File | Use before |
+|---|---|---|
+| Routing | `cards/routing.md` | switching skills or choosing between nearby phase owners |
+| Before edit | `cards/before-edit.md` | editing files, mutating environments, or writing artifacts |
+| Before ready | `cards/before-ready.md` | claiming completion or readiness |
+| Review verdict | `cards/review-verdict.md` | closing `b-review` or a review-driven workflow |
+| Browser boundary | `cards/browser-boundary.md` | deciding between `b-test` and `b-browser` |
+| Output and handoff | `cards/output-handoff.md` | emitting `[status]`, `[handoff]`, or a non-trivial closeout |
 
 | Section | File | Owns | Read before |
 |---|---|---|---|

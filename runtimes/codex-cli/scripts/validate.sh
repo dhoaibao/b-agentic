@@ -46,6 +46,8 @@ if '<!-- b-agentic-managed -->' not in kernel:
 for marker in ['Reference checklist:', 'Runtime gate checklist:', 'AGENTS.md', 'Detailed routing', 'runtime contract §9']:
     if marker not in kernel:
         errors.append(f'runtimes/codex-cli/kernel.md: missing kernel marker {marker!r}')
+if '~/.codex/b-agentic/references/cards/' not in kernel:
+    errors.append('runtimes/codex-cli/kernel.md: missing Codex decision-card path')
 
 if 'Codex CLI' not in maintainer:
     errors.append('CLAUDE.md: must mention Codex CLI as a supported runtime')
@@ -119,6 +121,14 @@ if 'Codex CLI Runtime Layout' not in codex_readme:
 for needle in ['~/.codex/config.toml', '~/.codex/skills/', 'mcp.user.template.toml', 'skills.config', 'runtime-neutral', '--context codex']:
     if needle not in codex_readme:
         errors.append(f'runtimes/codex-cli/configs/README.md: missing Codex documentation marker {needle!r}')
+for required in [
+    'Shared decision cards: `~/.codex/b-agentic/references/cards/*.md`',
+    'Continuation and resume guarantees',
+    'does not provide native phase-to-phase automation',
+    'operator-issued skill invocations',
+]:
+    if required not in codex_readme:
+        errors.append(f'runtimes/codex-cli/configs/README.md: missing continuation/card marker {required!r}')
 
 if errors:
     for error in errors:

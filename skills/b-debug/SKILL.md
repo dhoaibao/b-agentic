@@ -45,7 +45,7 @@ Collect exact failure, expected vs actual behavior, repro notes, determinism, an
 
 For non-trivial or blocked bugs, keep a repro record: command or interaction, workspace or target, relevant versions/config flags, data mode, expected behavior, actual behavior, determinism, and strongest evidence. Do not include secret values or private data.
 
-If production impact, data loss, or security risk is active, read `../../b-agentic/references/contract/06-safety.md` before identifying containment or asking for shared-environment action. Treat containment as a reversible mitigation, not the final fix; record what remains unproven until root cause is confirmed.
+If production impact, data loss, or security risk is active, read `../../b-agentic/references/cards/before-edit.md` before identifying containment or asking for shared-environment action, then fall back to `../../b-agentic/references/contract/06-safety.md` when needed. Treat containment as a reversible mitigation, not the final fix; record what remains unproven until root cause is confirmed.
 
 ### Step 2 - Rank suspects only as needed
 

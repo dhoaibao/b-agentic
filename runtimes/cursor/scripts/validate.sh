@@ -42,6 +42,8 @@ for marker in ['Reference checklist:', 'Runtime gate checklist:', 'AGENTS.md', '
         errors.append(f'runtimes/cursor/kernel.md: missing kernel marker {marker!r}')
 if '~/.cursor/b-agentic/references/contract/' not in kernel:
     errors.append('runtimes/cursor/kernel.md: missing Cursor reference path')
+if '~/.cursor/b-agentic/references/cards/' not in kernel:
+    errors.append('runtimes/cursor/kernel.md: missing Cursor decision-card path')
 
 if 'Cursor' not in maintainer:
     errors.append('CLAUDE.md: must mention Cursor as a supported runtime')
@@ -106,6 +108,10 @@ for needle in [
     'url',
     'runtime-neutral',
     'native slash command',
+    'Shared decision cards: `~/.cursor/b-agentic/references/cards/*.md`',
+    'Continuation and resume guarantees',
+    'does not provide native phase-to-phase automation',
+    'operator-issued skill invocations',
 ]:
     if needle not in runtime_readme:
         errors.append(f'runtimes/cursor/configs/README.md: missing Cursor documentation marker {needle!r}')

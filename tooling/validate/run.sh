@@ -48,6 +48,7 @@ while IFS= read -r runtime_name; do
 done < <(runtime_names)
 
 if [ "$run_release" -eq 1 ]; then
+  bash "$ROOT_DIR/scripts/check-scenarios.sh" --self-test tests/scenarios/cases.json
   bash "$ROOT_DIR/tests/smoke/install.sh"
 fi
 

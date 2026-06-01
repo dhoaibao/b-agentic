@@ -32,7 +32,7 @@ Operate real-browser, visual, and e2e verification using the lightest safe evide
 
 Identify whether the request is a direct real-browser/visual/e2e run, live UI exploration, review of supplied evidence, or a readiness gap from another phase. If the check is actually non-browser unit, integration, contract, coverage, or simulated-DOM/component-test work, hand off to **b-test**.
 
-Read `{{runtime_reference_root}}/contract/10-decisions.md` before applying the browser and DOM verification boundary or making readiness claims.
+Read `{{runtime_reference_root}}/cards/browser-boundary.md` before applying the browser and DOM verification boundary or making readiness claims. Fall back to `{{runtime_reference_root}}/contract/10-decisions.md` when the card is not enough.
 
 ### Step 2 - Choose the evidence ladder
 
@@ -49,7 +49,7 @@ Do not invent verification commands.
 
 ### Step 3 - Apply safety gates before running tools
 
-Read `{{runtime_reference_root}}/contract/06-safety.md` before running real-browser, visual, or e2e tooling, using `playwright-browser-operator`, starting dev servers, using persisted browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments.
+Read `{{runtime_reference_root}}/cards/before-edit.md` before running real-browser, visual, or e2e tooling, using `playwright-browser-operator`, starting dev servers, using persisted browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments. Fall back to `{{runtime_reference_root}}/contract/06-safety.md` when the card is not enough.
 
 Ask for approval before dependency writes, dev servers, persisted browser state, external services, long-running commands, generated evidence outside normal repo output paths, or unsafe arbitrary-code browser tools.
 

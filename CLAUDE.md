@@ -108,14 +108,16 @@ runtimes/<name>/
 Before merging runtime-facing changes:
 
 1. Rerun `python3 tooling/generate/registry_sync.py` when generated surfaces are affected.
-2. Run `scripts/validate-skills.sh`.
-3. Run `scripts/validate-skills.sh --release` when install, runtime, wrapper, or kernel delivery behavior changed.
-4. Run `scripts/smoke-install.sh` directly only when you need the smoke suite by itself while iterating.
-5. Codex runtime install, validation, and smoke paths rely on Python 3.11+ standard-library `tomllib` support.
-6. Antigravity CLI exposes `/b-*` through its native skill command loader from `~/.gemini/antigravity-cli/skills/`; keep MCP in `~/.gemini/antigravity-cli/mcp_config.json` and use `serverUrl` for remote MCP entries.
-7. Check that shared content stayed runtime-neutral.
-8. Check that docs changed in the same commit when the public or maintainer surface changed.
-9. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.
+2. Run `scripts/check-conformance.sh --self-test tests/conformance/cases.json` when output-policy, conformance, readiness, or status/handoff behavior changed.
+3. Run `scripts/check-scenarios.sh --self-test tests/scenarios/cases.json` when routing, phase handoffs, readiness, or workflow behavior changed.
+4. Run `scripts/validate-skills.sh`.
+5. Run `scripts/validate-skills.sh --release` when install, runtime, wrapper, kernel delivery, or release-readiness behavior changed.
+6. Run `scripts/smoke-install.sh` directly only when you need the smoke suite by itself while iterating.
+7. Codex runtime install, validation, and smoke paths rely on Python 3.11+ standard-library `tomllib` support.
+8. Antigravity CLI exposes `/b-*` through its native skill command loader from `~/.gemini/antigravity-cli/skills/`; keep MCP in `~/.gemini/antigravity-cli/mcp_config.json` and use `serverUrl` for remote MCP entries.
+9. Check that shared content stayed runtime-neutral.
+10. Check that docs changed in the same commit when the public or maintainer surface changed.
+11. Check that prompt read gates point to `{{skill_support_path}}/...` for skill-local files and `{{runtime_reference_root}}/...` for shared references rather than hardcoded delivery paths.
 
 ## Review Checklist
 

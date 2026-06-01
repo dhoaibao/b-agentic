@@ -12,6 +12,7 @@ The OpenCode release supports a personal-global install:
 - Skill-local support files: `~/.config/opencode/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.config/opencode/b-agentic/`
 - Shared contract reference snapshot: `~/.config/opencode/b-agentic/references/contract/*.md`
+- Shared decision cards: `~/.config/opencode/b-agentic/references/cards/*.md`
 - Sensitive artifacts: `~/.config/opencode/b-agentic/<skill>/<run-id>/` or `/tmp/opencode/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/opencode/b-agentic/<skill>/<slug>.log`
 
@@ -22,6 +23,10 @@ The OpenCode release supports a personal-global install:
 OpenCode exposes each skill directory via its native skill tool. Skills are loaded on-demand when the agent invokes the `skill` tool. Skill descriptions are the primary routing signal.
 
 The adapter also installs thin markdown command wrappers into `~/.config/opencode/commands/` so `/b-*` commands stay available in the TUI. Each wrapper delegates back to the matching skill instead of duplicating the full skill body. If a command file with the same name already exists, the installer preserves it and skips that managed wrapper.
+
+## Continuation and resume guarantees
+
+This adapter does not provide native phase-to-phase automation. b-agentic workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. OpenCode command wrappers preserve invocation ergonomics only; they do not automatically advance a workflow phase. Durable resume state, when a skill writes it, follows the shared run-id and artifact rules under `~/.config/opencode/b-agentic/references/contract/08-artifacts.md` and `~/.config/opencode/b-agentic/references/contract/11-session.md`.
 
 ## Safety policy
 

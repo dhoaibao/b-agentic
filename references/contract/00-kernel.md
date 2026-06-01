@@ -6,6 +6,8 @@ The authoritative active runtime kernel lives under `runtimes/<name>/kernel.md` 
 
 References to this contract and to other shared files under `references/contract/*.md` or `references/*.md` are checklist hints — read the smallest named section or file before using it; do not reconstruct shared details from memory. Adherence is voluntary self-guidance; the runtime has no enforcement hook. This applies especially to saved-plan metadata, plan staleness, MCP bundle rules, approval asks, privacy gates, artifact manifests, status blocks, handoff envelopes, review/audit checklists, and performance guidance.
 
+Short decision cards live under `references/cards/*.md`. Cards are the fast path for point-of-use reminders; the section files under `references/contract/*.md` remain authoritative when a card does not answer the question or a skill names the detailed section explicitly.
+
 ### Runtime gate taxonomy
 
 Runtime-critical gates are the points where missed instructions most often create incorrect behavior. Skill files must expose these as explicit read-before-use actions at the step that needs them, not as passive pointers at the end of the file.
@@ -30,6 +32,16 @@ For non-trivial runs, apply the gates as checkpoints rather than as ceremony on 
 3. **Pre-final or pre-switch:** confirm required verification, artifact state, unresolved blockers, and read §9 before status or handoff output.
 
 Trivial happy paths keep the compact path in §7 and §9; do not add status blocks or saved artifacts solely to prove that the checklist was considered.
+
+### Behavior modes
+
+Use one inferred behavior mode per run:
+
+- `lite` — trivial local work, no public/sensitive/dependency/CI/release risk, and no remaining design decision.
+- `standard` — default day-to-day mode.
+- `strict` — mandatory for public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, or shared-environment/external mutation.
+
+Users may request a stricter mode. They may not force `lite` when a strict trigger applies.
 
 ### Kernel/detail split for the shared sections
 

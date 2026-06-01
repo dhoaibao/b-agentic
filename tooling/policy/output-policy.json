@@ -1,0 +1,133 @@
+{
+  "policy_version": 1,
+  "status_block": {
+    "required_fields": [
+      "skill",
+      "state",
+      "artifacts",
+      "next",
+      "blockers"
+    ],
+    "optional_fields": [
+      "run-id",
+      "cause",
+      "verdict",
+      "confidence",
+      "notes"
+    ],
+    "state_values": [
+      "complete",
+      "blocked",
+      "needs-input",
+      "handed-off"
+    ],
+    "confidence_values": [
+      "high",
+      "medium",
+      "low"
+    ],
+    "run_id_format": "<YYYYMMDD-HHMMSS>-<task-slug>",
+    "run_id_conditions": [
+      {
+        "condition": "Wrote artifacts to disk",
+        "include": true
+      },
+      {
+        "condition": "Part of a handoff chain (source or receiver)",
+        "include": true
+      },
+      {
+        "condition": "Minted or inherited a non-trivial orchestration run-id",
+        "include": true
+      },
+      {
+        "condition": "Pure-chat run — no artifacts, no handoff chain",
+        "include": false
+      }
+    ]
+  },
+  "handoff_block": {
+    "required_fields": [
+      "source",
+      "goal",
+      "decisions",
+      "assumptions",
+      "files",
+      "verification",
+      "blockers",
+      "next-skill"
+    ],
+    "optional_fields": [
+      "run-id",
+      "carve-outs"
+    ]
+  },
+  "cause_classes": [
+    "tool_unavailable",
+    "auth_required",
+    "user_blocked",
+    "iteration_cap",
+    "external_outage",
+    "stale_index",
+    "policy_block",
+    "evidence_gap",
+    "conflict",
+    "unsupported"
+  ],
+  "skill_verdicts": {
+    "b-orchestrate": [
+      "READY FOR PR",
+      "READY WITH FOLLOW-UPS",
+      "BLOCKED",
+      "IN PROGRESS"
+    ],
+    "b-review": [
+      "READY FOR PR",
+      "READY WITH FOLLOW-UPS",
+      "NEEDS FIXES"
+    ]
+  },
+  "readiness": {
+    "workflow_ready_for_pr_requires": [
+      "review passed",
+      "required verification ran or accepted skipped checks"
+    ],
+    "review_ready_for_pr_requires": [
+      "no blocking findings"
+    ],
+    "browser_evidence_prerequisites": {
+      "applies_to": "UI/browser-relevant work",
+      "required_for": "READY FOR PR",
+      "accepted_sources": [
+        "supplied/CI evidence",
+        "existing-tool evidence",
+        "approved live-browser evidence"
+      ]
+    }
+  },
+  "modes": {
+    "default": "standard",
+    "allowed": [
+      "lite",
+      "standard",
+      "strict"
+    ],
+    "lite_when": [
+      "trivial local request",
+      "no remaining design decision",
+      "no public, sensitive, dependency, CI/build/release, or sequenced risk"
+    ],
+    "strict_when": [
+      "public contract",
+      "sensitive path",
+      "dependency change",
+      "CI/build/release change",
+      "multi-phase or orchestrated work",
+      "shared-environment or external mutation"
+    ],
+    "override_rules": [
+      "user may request stricter mode",
+      "lite is not allowed when any strict trigger applies"
+    ]
+  }
+}

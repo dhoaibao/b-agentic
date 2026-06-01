@@ -11,6 +11,7 @@ The Cursor adapter supports a personal-global install:
 - Skill-local support files: `~/.cursor/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.cursor/b-agentic/`
 - Shared contract reference snapshot: `~/.cursor/b-agentic/references/contract/*.md`
+- Shared decision cards: `~/.cursor/b-agentic/references/cards/*.md`
 - Recommended MCP template: `~/.cursor/b-agentic/templates/mcp.user.template.json`
 - User-scope MCP config: `~/.cursor/mcp.json`
 - Sensitive artifacts: `~/.cursor/b-agentic/<skill>/<run-id>/` or `/tmp/cursor/b-agentic/<skill>/<run-id>/`
@@ -27,6 +28,10 @@ The Cursor adapter supports a personal-global install:
 Cursor exposes installed b-agentic skills as native slash commands, so users can invoke `/b-plan`, `/b-implement`, `/b-review`, and the rest of the `/b-*` surface directly using the native slash command surface.
 
 The adapter does not install wrapper files; Cursor discovers skills from `~/.cursor/skills/` automatically.
+
+## Continuation and resume guarantees
+
+This adapter does not provide native phase-to-phase automation. b-agentic workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable resume state, when a skill writes it, follows the shared run-id and artifact rules under `~/.cursor/b-agentic/references/contract/08-artifacts.md` and `~/.cursor/b-agentic/references/contract/11-session.md`.
 
 ## Safety policy
 
