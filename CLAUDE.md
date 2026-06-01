@@ -2,6 +2,14 @@
 
 Guidelines for editing this source repository. This file is maintainer guidance, not an installed runtime kernel.
 
+## Product Direction
+
+`b-agentic` is a workflow harness, not just a skill suite. Its job is to give AI agents a small, reliable operating system for developer work: route by intent, apply safety gates, ground claims in evidence, verify before claiming completion, and hand off between phases without losing context.
+
+The product vision is multi-runtime support. Claude Code is the reference runtime, but shared behavior must remain portable across OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed through runtime adapters.
+
+The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer contracts, and validation that protects real behavior. Remove layers that only make agents carry more ceremony; keep tooling that improves correctness, install reliability, or cross-runtime delivery.
+
 ## Scope
 
 - `README.md` stays brief: overview, install, supported runtimes, skills, layout, and validation.
