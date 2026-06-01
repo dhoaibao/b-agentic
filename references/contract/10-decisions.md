@@ -71,39 +71,13 @@ When the user can reproduce a symptom but the agent cannot in the current enviro
 4. If the user cannot supply more, offer three options explicitly: (a) instrument and wait, (b) treat as one-shot and close, (c) investigate the captured environment diff.
 5. Never silently substitute speculation for a real repro.
 
-### Inline Context7 lookup threshold
-
-A skill may resolve ≤ 1 narrow, self-contained Context7 lookup inline without invoking `b-research` — for example, one method signature, one config key, or one version-specific flag.
-
-Hand off to `b-research` when the skill run requires:
-- ≥ 2 distinct doc questions, regardless of source,
-- deep extraction across multiple pages, versions, or documents,
-- comparative analysis across libraries or frameworks, or
-- any synthesis that would produce meaningful new content beyond a direct citation.
-
-### Self-review vs reviewing-someone-else's-code
-
-`b-review` handles both. The skill must state which mode it is in:
-- **Self-review:** assume author bias. Be harsher on "obviously correct" assumptions; verify the spec the author claims to satisfy.
-- **External review:** assume the author cannot answer follow-ups. Be explicit about what would block the merge vs what is style.
-
-### Commit and PR boundary
-
-The b-agentic suite stops at `READY FOR PR`. Commit, push, and PR creation are user-initiated actions via `b-ship`, which is explicit-command-only rather than a natural-language routing target. No phase skill (including `b-orchestrate`) creates commits, pushes, or opens PRs as a side effect of a review or implementation step.
-
-For `b-ship`, review evidence means a `b-review` status block with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, or an explicit current-session user override. Approved plans and implementation status are not review evidence.
-
-When a review, audit, or workflow uses named readiness labels, put that label in the final `[status]` block's `verdict:` field rather than hiding it in prose or `notes:`.
-
-When a workflow closes with `verdict: READY FOR PR`, the final output must include: `Next: b-ship to commit and open the PR`.
-
 ### Abandonment protocol
 
 When the user signals stop, cancel, or abort mid-workflow or mid-skill:
 
 1. Emit a final `[status]` block with `state: needs-input`, `cause: user_blocked`.
 2. List outstanding artifacts and their paths in the status block's `artifacts:` field.
-3. Include a one-line resume hint in `notes:` (e.g., `resume: b-orchestrate <goal> -- continue from <phase>` or `resume: b-implement <plan-slug>`).
+3. Include a one-line resume hint in `notes:` (e.g., `resume: b-implement <plan-slug>` or `resume: b-plan <goal>`).
 4. Do not delete artifacts. Leave the worktree in its current state; report any mid-transform leftovers.
 5. Do not continue work after the abandonment signal unless the user explicitly resumes.
 

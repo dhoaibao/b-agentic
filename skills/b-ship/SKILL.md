@@ -2,8 +2,8 @@
 name: b-ship
 description: >
   Commit, push, and open a pull request only on explicit ship intent after
-  a reviewed diff is ready. `b-orchestrate` may point to `b-ship` as the
-  next action, but it does not invoke shipping implicitly. Safety-gates
+  a reviewed diff is ready. A prior skill may close with Next: b-ship, but
+  that is a recommendation, not an implicit shipping handoff. Safety-gates
   each git action (commit, push, PR creation); never force-pushes. Stops
   after the PR URL is printed; post-PR automation is out of scope.
 argument-hint: "[--draft] [--title=<title>] [--base=<branch>]"
@@ -22,7 +22,7 @@ Flags: `--draft` (open as draft PR), `--title=<title>` (skip interactive prompt)
 ## When to use
 
 - The user explicitly asks to commit, push, open a PR, or ship after a review verdict of `READY FOR PR` or `READY WITH FOLLOW-UPS`.
-- `b-orchestrate` closes a workflow with `Next: b-ship`, but that is a recommendation, not an implicit shipping handoff.
+- A prior skill may close with `Next: b-ship`, but that is a recommendation, not an implicit shipping handoff.
 
 ## When NOT to use
 

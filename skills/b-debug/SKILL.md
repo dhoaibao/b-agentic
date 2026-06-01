@@ -45,7 +45,7 @@ Collect exact failure, expected vs actual behavior, repro notes, determinism, an
 
 For non-trivial or blocked bugs, keep a repro record: command or interaction, workspace or target, relevant versions/config flags, data mode, expected behavior, actual behavior, determinism, and strongest evidence. Do not include secret values or private data.
 
-If production impact, data loss, or security risk is active, read `../../b-agentic/references/cards/before-edit.md` before identifying containment or asking for shared-environment action, then fall back to `../../b-agentic/references/contract/06-safety.md` when needed. Treat containment as a reversible mitigation, not the final fix; record what remains unproven until root cause is confirmed.
+If production impact, data loss, or security risk is active, read `../../b-agentic/references/contract/06-safety.md` before identifying containment or asking for shared-environment action. Treat containment as a reversible mitigation, not the final fix; record what remains unproven until root cause is confirmed.
 
 ### Step 2 - Rank suspects only as needed
 
@@ -59,7 +59,7 @@ Use the cheapest proof: exact error search, local diagnostics, narrow repro comm
 
 Temporary probes are allowed only when cheaper evidence is insufficient. Use instrumentation when the symptom is intermittent, remote-only, timing-dependent, or hidden behind swallowed errors and a bounded probe can collect decisive evidence; otherwise request the missing repro data or hand off to **b-plan** for structural diagnosis work. Tag every probe with `b-debug-probe` in the language-appropriate comment form.
 
-If the agent cannot reproduce a user-reproducible symptom, read `../../b-agentic/references/contract/10-decisions.md` before applying the cannot-reproduce protocol; do not patch defensively.
+If the agent cannot reproduce a user-reproducible symptom, capture environment differences and ask for exact repro steps, logs, or a minimal test. Do not patch defensively.
 
 Before applying the final fix, state: `Root cause: <what fails> because <why>`.
 
@@ -69,7 +69,7 @@ Use Serena for symbol edits. Do not bundle cleanup or redesign. If urgent contai
 
 ### Step 5 - Verify and clean up
 
-Read `../../b-agentic/references/contract/07-execution.md` before choosing verification or applying skipped-check labels. Run the narrowest check that proves the symptom changed. For nondeterminism, run the stress repro long enough to support confidence. For perf, report before/after measurements.
+Run the narrowest check that proves the symptom changed. For nondeterminism, run the stress repro long enough to support confidence. For perf, report before/after measurements.
 
 Remove all `b-debug-probe` markers and scan for untagged debug leftovers (`console.log`, `print`, breakpoints, fake clocks, profiler hooks). Run `rg --hidden 'b-debug-probe' -- <touched-paths>` (or `grep -RIn 'b-debug-probe' <touched-paths>` when `rg` is unavailable) and verify zero matches before reporting success. Re-run verification after cleanup. Mention restart/reload requirements when config or startup changed.
 
@@ -87,7 +87,7 @@ Symptoms -> Root cause -> Fix -> Verification -> Cleanup/next
 - Do not apply the final fix before root cause is confirmed. Approved containment may happen first only to reduce active production, data-loss, or security impact, and must be labeled as containment.
 - Measure perf bugs before and after.
 - Surface cannot-reproduce gaps instead of speculative fixes.
-- Read `../../b-agentic/references/contract/07-execution.md` before applying the verification ladder, iteration cap, or skipped-check labels.
+- Stop after hitting the class-aware iteration cap; do not continue blindly.
 - Verify probe removal before reporting success.
 
 ## Reference pointers

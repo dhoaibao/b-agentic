@@ -37,10 +37,6 @@
         "include": true
       },
       {
-        "condition": "Minted or inherited a non-trivial orchestration run-id",
-        "include": true
-      },
-      {
         "condition": "Pure-chat run — no artifacts, no handoff chain",
         "include": false
       }
@@ -75,12 +71,6 @@
     "unsupported"
   ],
   "skill_verdicts": {
-    "b-orchestrate": [
-      "READY FOR PR",
-      "READY WITH FOLLOW-UPS",
-      "BLOCKED",
-      "IN PROGRESS"
-    ],
     "b-review": [
       "READY FOR PR",
       "READY WITH FOLLOW-UPS",
@@ -88,10 +78,6 @@
     ]
   },
   "readiness": {
-    "workflow_ready_for_pr_requires": [
-      "review passed",
-      "required verification ran or accepted skipped checks"
-    ],
     "review_ready_for_pr_requires": [
       "no blocking findings"
     ],

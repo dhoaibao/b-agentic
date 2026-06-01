@@ -31,8 +31,8 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_fresh/home/.claude/skills/b-browser/SKILL.md"
   assert_file "$sandbox_fresh/home/.claude/skills/b-review/reference.md"
   assert_no_path "$sandbox_fresh/home/.claude/skills/b-plan/references"
-  assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md" '../../b-agentic/references/contract/02-source-of-truth.md'
-  assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
+  assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md" 'include durable frontmatter'
+  assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/reference.md" 'slug: <task-slug>'
   assert_contains "$sandbox_fresh/home/.claude/skills/b-review/SKILL.md" './reference.md'
   assert_contains "$sandbox_fresh/home/.claude/skills/b-review/SKILL.md" 'self-audits when explicitly requested or invoked with `--audit-suite`'
   assert_contains "$sandbox_fresh/home/.claude/skills/b-review/SKILL.md" 'with or without `--audit-suite`'
@@ -51,8 +51,7 @@ run_runtime_smoke_cases() {
   assert_no_path "$sandbox_fresh/home/.claude/commands"
   assert_no_path "$sandbox_fresh/home/.config/opencode"
   assert_equal_files "$sandbox_fresh/home/.claude/CLAUDE.md" "$sandbox_fresh/home/.claude/b-agentic/CLAUDE.md"
-  assert_contains "$sandbox_fresh/home/.claude/CLAUDE.md" 'Avoid common runtime rationalizations such as opportunistic scope expansion'
-  assert_not_contains "$sandbox_fresh/home/.claude/CLAUDE.md" '"I'\''ll fix this adjacent thing while I'\''m here."'
+  assert_contains "$sandbox_fresh/home/.claude/CLAUDE.md" 'Runtime gate checklist:'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"runtime": "claude-code"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"activationState": "active"'
   assert_file "$sandbox_fresh/home/.claude/settings.json"

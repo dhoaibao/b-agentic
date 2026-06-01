@@ -25,9 +25,8 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_zed/home/.agents/skills/b-review/SKILL.md" 'with or without `--audit-suite`'
   assert_not_contains "$sandbox_zed/home/.agents/skills/b-review/SKILL.md" 'suite self-audit without `--audit-suite` -> ask'
   assert_not_contains "$sandbox_zed/home/.agents/skills/b-review/SKILL.md" 'Do NOT invoke for repo/suite audits'
-  assert_contains "$sandbox_zed/home/.config/zed/AGENTS.md" 'Avoid common runtime rationalizations such as opportunistic scope expansion'
-  assert_not_contains "$sandbox_zed/home/.config/zed/AGENTS.md" '"I'\''ll fix this adjacent thing while I'\''m here."'
-  assert_contains "$sandbox_zed/home/.agents/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
+  assert_contains "$sandbox_zed/home/.config/zed/AGENTS.md" 'Runtime gate checklist:'
+  assert_contains "$sandbox_zed/home/.agents/skills/b-plan/reference.md" 'slug: <task-slug>'
   assert_file "$sandbox_zed/home/.agents/b-agentic/install.json"
   assert_json_value "$sandbox_zed/home/.agents/b-agentic/install.json" "data['runtime'] == 'zed'"
   assert_json_value "$sandbox_zed/home/.agents/b-agentic/install.json" "data['activationState'] == 'active'"

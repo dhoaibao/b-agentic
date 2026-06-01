@@ -5,8 +5,7 @@ description: >
   range, or checkpoint after implementation, plus b-agentic suite
   self-audits when explicitly requested or invoked with `--audit-suite`.
   Do NOT invoke for general repo audits, UI/design review, plan review, or
-  research synthesis review. Unlike b-orchestrate, b-review judges
-  changed-code adequacy or suite-runtime risk without editing files.
+  research synthesis review.
 argument-hint: "[--range=<ref>..<ref>] [--baseline=<path|url>] [--skip-tests] [--audit-suite]"
 ---
 
@@ -25,7 +24,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 - The user wants a pre-PR/pre-commit changed-code review.
 - A risky milestone needs reviewer scrutiny before continuing.
 - The goal is to find correctness, regression, security, edge-case, or coverage risks.
-- The user requests a b-agentic suite self-audit, with or without `--audit-suite` (not a diff review). For any other codebase audit, stay in **b-review** without the flag. See `../../b-agentic/references/contract/10-decisions.md` for the tiebreaker.
+- The user requests a b-agentic suite self-audit, with or without `--audit-suite` (not a diff review). For any other codebase audit, stay in **b-review** without the flag.
 
 ## When NOT to use
 
@@ -51,7 +50,7 @@ For `--audit-suite` or explicit suite-audit intent, scope the audited b-agentic 
 
 Run `git status --short` before scoping. For current-worktree reviews, include staged, unstaged, and untracked files; review untracked files from their current contents because they are absent from `git diff`. Default tracked changes to `git diff HEAD`. Use `--range` when supplied and state whether current dirty or untracked files are excluded from that range review. If there is no diff and no untracked file in scope, ask for a branch, commit, range, or checkpoint.
 
-For WIP branches or dirty state, review the cumulative diff from the best available base: supplied range, upstream merge-base, origin default merge-base, then working tree if no base resolves. State scope, included untracked files, and mode: self-review or external review. Read `../../b-agentic/references/contract/10-decisions.md` before applying the self/external review distinction.
+For WIP branches or dirty state, review the cumulative diff from the best available base: supplied range, upstream merge-base, origin default merge-base, then working tree if no base resolves. State scope, included untracked files, and mode: self-review or external review.
 
 ### Step 2 - Pick fast or standard path
 
@@ -82,7 +81,7 @@ Use diagnostics or narrow commands only when review confidence depends on runtim
 
 ### Step 5 - Report verdict
 
-Read `../../b-agentic/references/cards/review-verdict.md` and `../../b-agentic/references/cards/output-handoff.md` before reporting severity-ordered findings, checked-and-clean caps, saved reports, or status output. If no findings, say so and name residual risk or skipped checks.
+Emit findings severity-ordered; cap non-BLOCKER findings at 15 per severity. Read `../../b-agentic/references/contract/09-output.md` before emitting a status block. If no findings, say so and name residual risk or skipped checks.
 
 Verdicts: **READY FOR PR**, **READY WITH FOLLOW-UPS**, or **NEEDS FIXES**. Emit the chosen label in the final `[status]` block's `verdict:` field. Do not use **READY FOR PR** when the review has no baseline, required verification was skipped, or real-browser/visual/e2e evidence remains relevant but absent; **b-browser**-verified supplied/CI evidence, existing-tool evidence, or approved live-browser evidence can satisfy that browser evidence requirement.
 

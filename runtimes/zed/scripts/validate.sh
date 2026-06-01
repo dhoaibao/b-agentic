@@ -42,8 +42,6 @@ for marker in ['Reference checklist:', 'Runtime gate checklist:', 'AGENTS.md', '
         errors.append(f'runtimes/zed/kernel.md: missing kernel marker {marker!r}')
 if '~/.agents/b-agentic/references/contract/' not in kernel:
     errors.append('runtimes/zed/kernel.md: missing Zed reference path')
-if '~/.agents/b-agentic/references/cards/' not in kernel:
-    errors.append('runtimes/zed/kernel.md: missing Zed decision-card path')
 
 if 'Zed' not in maintainer:
     errors.append('CLAUDE.md: must mention Zed as a supported runtime')
@@ -108,7 +106,6 @@ for needle in [
     'url',
     'runtime-neutral',
     'native slash command',
-    'Shared decision cards: `~/.agents/b-agentic/references/cards/*.md`',
     'Continuation and resume guarantees',
     'does not provide native phase-to-phase automation',
     'operator-issued skill invocations',

@@ -2,7 +2,7 @@
   "cases": [
     {
       "name": "small-direct-edit",
-      "path": "tests/scenarios/small-direct-edit.md",
+      "path": "tests/internal/scenarios/small-direct-edit.md",
       "kind": "status",
       "expect_conformance": true,
       "expected_route": {
@@ -15,7 +15,7 @@
     },
     {
       "name": "stale-approved-plan",
-      "path": "tests/scenarios/stale-approved-plan.md",
+      "path": "tests/internal/scenarios/stale-approved-plan.md",
       "kind": "status",
       "expect_conformance": true,
       "expected_route": {
@@ -28,7 +28,7 @@
     },
     {
       "name": "dirty-worktree-conflict",
-      "path": "tests/scenarios/dirty-worktree-conflict.md",
+      "path": "tests/internal/scenarios/dirty-worktree-conflict.md",
       "kind": "status",
       "expect_conformance": true,
       "expected_route": {
@@ -41,7 +41,7 @@
     },
     {
       "name": "review-fix-loop",
-      "path": "tests/scenarios/review-fix-loop.md",
+      "path": "tests/internal/scenarios/review-fix-loop.md",
       "kind": "handoff",
       "expect_conformance": true,
       "expected_route": {
@@ -53,7 +53,7 @@
     },
     {
       "name": "browser-evidence-missing",
-      "path": "tests/scenarios/browser-evidence-missing.md",
+      "path": "tests/internal/scenarios/browser-evidence-missing.md",
       "kind": "status",
       "expect_conformance": false,
       "expected_error_contains": "READY FOR PR cannot be used while unresolved browser evidence gaps are present",
@@ -67,7 +67,7 @@
     },
     {
       "name": "dependency-approval-denied",
-      "path": "tests/scenarios/dependency-approval-denied.md",
+      "path": "tests/internal/scenarios/dependency-approval-denied.md",
       "kind": "status",
       "expect_conformance": true,
       "expected_route": {
@@ -80,7 +80,7 @@
     },
     {
       "name": "test-failure-routed-to-debug",
-      "path": "tests/scenarios/test-failure-routed-to-debug.md",
+      "path": "tests/internal/scenarios/test-failure-routed-to-debug.md",
       "kind": "handoff",
       "expect_conformance": true,
       "expected_route": {
@@ -92,7 +92,7 @@
     },
     {
       "name": "overclaim-complete-without-cause",
-      "path": "tests/scenarios/overclaim-complete-without-cause.md",
+      "path": "tests/internal/scenarios/overclaim-complete-without-cause.md",
       "kind": "status",
       "expect_conformance": false,
       "expected_error_contains": "state 'blocked' requires a cause",

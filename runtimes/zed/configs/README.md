@@ -11,7 +11,6 @@ The Zed adapter supports a personal-global install:
 - Skill-local support files: `~/.agents/skills/<skill-name>/reference.md`
 - Suite metadata, backups, and source snapshots: `~/.agents/b-agentic/`
 - Shared contract reference snapshot: `~/.agents/b-agentic/references/contract/*.md`
-- Shared decision cards: `~/.agents/b-agentic/references/cards/*.md`
 - Recommended MCP template: `~/.agents/b-agentic/templates/mcp.user.template.json`
 - User-scope MCP config: `~/.config/zed/settings.json`
 - Sensitive artifacts: `~/.agents/b-agentic/<skill>/<run-id>/` or `/tmp/zed/b-agentic/<skill>/<run-id>/`

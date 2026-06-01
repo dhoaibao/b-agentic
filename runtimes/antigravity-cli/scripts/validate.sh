@@ -43,8 +43,6 @@ for marker in ['Reference checklist:', 'Runtime gate checklist:', 'GEMINI.md', '
         errors.append(f'runtimes/antigravity-cli/kernel.md: missing kernel marker {marker!r}')
 if '~/.gemini/antigravity-cli/b-agentic/references/contract/' not in kernel:
     errors.append('runtimes/antigravity-cli/kernel.md: missing Antigravity reference path')
-if '~/.gemini/antigravity-cli/b-agentic/references/cards/' not in kernel:
-    errors.append('runtimes/antigravity-cli/kernel.md: missing Antigravity decision-card path')
 
 if 'Antigravity CLI' not in maintainer:
     errors.append('CLAUDE.md: must mention Antigravity CLI as a supported runtime')
@@ -121,7 +119,6 @@ for needle in [
     'serverUrl',
     'runtime-neutral',
     'native slash command',
-    'Shared decision cards: `~/.gemini/antigravity-cli/b-agentic/references/cards/*.md`',
     'Continuation and resume guarantees',
     'does not provide native phase-to-phase automation',
     'operator-issued skill invocations',

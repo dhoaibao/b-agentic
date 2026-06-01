@@ -30,7 +30,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 - Planning/sequencing work -> use **b-plan**.
 - Changed-code review -> use **b-review**.
 - The repo itself can answer the question with one local lookup/read.
-- The active skill needs only ≤ 1 narrow inline lookup (one method sig, one config key) — handle inline; route here when ≥ 2 distinct questions or deep extraction needed. See `../../b-agentic/references/contract/10-decisions.md` for the threshold.
+- The active skill needs only ≤ 1 narrow inline lookup (one method sig, one config key) — handle inline; route here when ≥ 2 distinct questions or deep extraction needed.
 
 ## Tools required
 
@@ -59,7 +59,7 @@ Skip pinning when the question is conceptual and version is not material.
 
 ### Step 3 - Gather evidence
 
-Read `../../b-agentic/references/contract/04-tool-model.md` before choosing MCP/search/extraction depth. Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Search before extracting when the authoritative URL is unknown, and extract only the highest-signal source(s) needed for the answer. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
+Use the lightest tool first. Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Search before extracting when the authoritative URL is unknown, and extract only the highest-signal source(s) needed for the answer. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
 
 For recency-sensitive questions, use the `brave-search` news path before extraction and include `as of <date>` or source publication dates in the answer. Use freshness labels as needed: `baseline-missing` (no primary evidence), `stale` (doc predates current session), `current-session` (fetched this run). Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
 

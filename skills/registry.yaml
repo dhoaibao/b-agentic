@@ -3,31 +3,6 @@
   "format": "json-subset-of-yaml",
   "skills": [
     {
-      "name": "b-orchestrate",
-      "phase": "End-to-end",
-      "use": "Coordinate resumed phase handoffs until PR-ready, ready with follow-ups, or blocked",
-      "command": {
-        "alias": "b-orchestrate",
-        "description": "Coordinate PR-readiness phase handoffs",
-        "exposed": true,
-        "target": "workflow"
-      },
-      "routing": {
-        "intent": "End-to-end PR readiness workflow across phases",
-        "triggers": [
-          "orchestrate",
-          "workflow",
-          "end-to-end",
-          "ready for PR",
-          "full cycle"
-        ]
-      },
-      "prompt": {
-        "description": "Coordinate phase-skill handoffs across resumed turns until PR-ready, ready with follow-ups, or blocked. Tracks audit trail through handoff envelopes and returned status blocks instead of assuming automatic phase execution. Unlike b-implement, b-orchestrate owns sequencing and checkpoints; the phase owner does the actual work.",
-        "argument_hint": "[workflow-goal]"
-      }
-    },
-    {
       "name": "b-plan",
       "phase": "Decide",
       "use": "Clarify unclear goals or turn a clear goal into an execution plan",
@@ -230,7 +205,7 @@
         ]
       },
       "prompt": {
-        "description": "Pre-PR changed-code review for reviewer-style reads of a diff, commit range, or checkpoint after implementation, plus b-agentic suite self-audits when explicitly requested or invoked with `--audit-suite`. Do NOT invoke for general repo audits, UI/design review, plan review, or research synthesis review. Unlike b-orchestrate, b-review judges changed-code adequacy or suite-runtime risk without editing files.",
+        "description": "Pre-PR changed-code review for reviewer-style reads of a diff, commit range, or checkpoint after implementation, plus b-agentic suite self-audits when explicitly requested or invoked with `--audit-suite`. Do NOT invoke for general repo audits, UI/design review, plan review, or research synthesis review.",
         "argument_hint": "[--range=<ref>..<ref>] [--baseline=<path|url>] [--skip-tests] [--audit-suite]"
       }
     },
@@ -246,7 +221,7 @@
       },
       "routing": null,
       "prompt": {
-        "description": "Commit, push, and open a pull request only on explicit ship intent after a reviewed diff is ready. `b-orchestrate` may point to `b-ship` as the next action, but it does not invoke shipping implicitly. Safety-gates each git action (commit, push, PR creation); never force-pushes. Stops after the PR URL is printed; post-PR automation is out of scope.",
+        "description": "Commit, push, and open a pull request only on explicit ship intent after a reviewed diff is ready. A prior skill may close with Next: b-ship, but that is a recommendation, not an implicit shipping handoff. Safety-gates each git action (commit, push, PR creation); never force-pushes. Stops after the PR URL is printed; post-PR automation is out of scope.",
         "argument_hint": "[--draft] [--title=<title>] [--base=<branch>]"
       }
     }

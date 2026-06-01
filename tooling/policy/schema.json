@@ -29,12 +29,10 @@
     "optional_fields"
   ],
   "readiness_required": [
-    "workflow_ready_for_pr_requires",
     "review_ready_for_pr_requires",
     "browser_evidence_prerequisites"
   ],
   "required_verdict_owners": [
-    "b-orchestrate",
     "b-review"
   ],
   "allowed_status_states": [

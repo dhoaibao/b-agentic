@@ -7,7 +7,6 @@ The intent and trigger tables below are generated from `skills/registry.yaml`; k
 <!-- generated:routing-intents:start -->
 | Intent | Skill |
 |---|---|
-| End-to-end PR readiness workflow across phases | `b-orchestrate` |
 | Decide how to build, decompose work | `b-plan` |
 | External docs, API facts, comparisons | `b-research` |
 | Execute approved or clearly scoped work | `b-implement` |
@@ -20,7 +19,7 @@ The intent and trigger tables below are generated from `skills/registry.yaml`; k
 
 ### Trigger precedence (when intents overlap)
 
-- Explicit end-to-end PR-readiness workflows use `b-orchestrate` to coordinate phase-skill handoffs; single-phase asks stay with the phase owner.
+- Multi-phase asks sequence `Decide -> Build -> Validate`; single-phase asks stay with the phase owner.
 - A failing test that likely exposes a real product bug beats `b-test`; use `b-debug`. See §10.
 - A named behavior-preserving rename/extract/move/inline/simplify/delete beats `b-implement`; use `b-refactor`.
 - Unclear user goal, end state, or acceptance criteria stays in `b-plan` (Clarification mode).
@@ -54,7 +53,6 @@ The phrases below are routing aids only; do not duplicate them inside individual
 <!-- generated:routing-triggers:start -->
 | Skill | Triggers |
 |---|---|
-| `b-orchestrate` | orchestrate, workflow, end-to-end, ready for PR, full cycle |
 | `b-plan` | plan, design, decompose, approach, "how should I", clarify, requirements, scope |
 | `b-research` | docs, library, API, compare, look up |
 | `b-implement` | implement, add, build, execute, finish |

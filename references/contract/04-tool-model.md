@@ -36,19 +36,6 @@ Use deeper MCP guidance where it materially improves evidence quality or coordin
 - **Escalation rule:** if local evidence already answers the next decision, do not add MCP calls just because the bundle exists.
 - **Runtime readiness rule:** installers and runtime docs may explain what still needs user setup, but availability messaging does not justify auto-running onboarding, indexing, or other user-scope setup steps.
 
-### Shell tool quick reference
-
-The installer lists these in core (`rg`, `fd`/`fdfind`, `jq`) and optional (`bat`/`batcat`, `yq`, `git-delta`, `gh`, `tmux`, `fzf`) tiers. Use them when available and faster than broader fallbacks.
-
-| Tool | When to use | Agent note | Conditionality |
-|---|---|---|---|
-| `yq` | Parse/query YAML registries and configs | YAML counterpart to `jq`; check `command -v yq` | Optional |
-| `gh` | CI status, PR ops, issue queries, auth checks | Prefer over manual `curl` GitHub API calls; check `gh auth status` before use. Required for `b-ship`; optional otherwise | Optional / `b-ship` required |
-| `git-delta` | Syntax-highlighted diff display | When set as `core.pager`, auto-applies to `git diff`; use `GIT_PAGER=cat git diff` or `git --no-pager diff` for raw machine-readable output | Optional |
-| `bat`/`batcat` | Syntax-highlighted file display for user-visible output | Agents read files directly; use only when producing visible shell output for the user | Optional |
-| `fzf` | Non-interactive `--filter` scoring | `fzf --filter "<q>" < list` only; never pipe to interactive fzf in agent workflows; prefer `rg`/`grep` unless scoring is needed | Optional |
-| `tmux` | Multi-hour detached background jobs | For short tasks prefer direct background (`&`) or shell `run_in_background`; `tmux new-session -d -s <n>` for long-lived sessions | Optional |
-
 ### Tool selection rules
 
 - Single-file or local-only task: use native tools or Serena for exact symbols.
@@ -141,14 +128,6 @@ When fallback changes the intended tool path, evidence source, or verification r
 When a skill declares flags or modes, parse them before tool use. Unknown flags should not be ignored: ask once or continue only if the intended behavior is still unambiguous. For conflicting flags, prefer the safer or narrower mode and state the choice; if both modes would mutate state or change evidence requirements, ask.
 
 Mode precedence is skill-specific, but the global default is: explicit user flag, explicit user prose, approved plan or handoff, then skill default. When a user requests multiple modes in one run, execute the evidence-gathering mode before the authoring or mutation mode unless the skill says otherwise.
-
-### Run cost signal
-
-When a non-trivial run consumes notable budget, include a one-line cost summary in the status block `notes` field:
-
-`cost: serena=14, context7=1, firecrawl-deep=1, iterations=2/3`
-
-Only include counters that were actually used. Skip entirely on trivial runs. This lets the next skill in a chain see whether to slow down before adding more tool work.
 
 ### Global bundle/path guards (runtime, not just maintainer norm)
 

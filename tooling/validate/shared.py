@@ -433,7 +433,6 @@ validate_runner_path = ROOT / "tooling" / "validate" / "run.sh"
 smoke_wrapper_path = ROOT / "scripts" / "smoke-install.sh"
 smoke_runner_path = ROOT / "tests" / "smoke" / "install.sh"
 smoke_lib_path = ROOT / "tests" / "smoke" / "lib.sh"
-conformance_manifest_path = ROOT / "tests" / "conformance" / "cases.json"
 runtime_template_root = ROOT / "runtimes" / "runtime-template"
 shared_kernel_template_path = ROOT / "references" / "contract" / "kernel.template.md"
 shared_kernel_template = read_text(shared_kernel_template_path)
@@ -451,63 +450,8 @@ validate_mode_policy_contract(
     errors,
 )
 
-cards_root = ROOT / "references" / "cards"
-required_card_files = {
-    "routing.md",
-    "before-edit.md",
-    "before-ready.md",
-    "review-verdict.md",
-    "browser-boundary.md",
-    "output-handoff.md",
-}
-for _card_name in sorted(required_card_files):
-    _card_path = cards_root / _card_name
-    if not _card_path.exists():
-        errors.append(f"{rel(_card_path)}: missing required decision card")
-
-card_reference_pattern = re.compile(
-    r"(?:\{\{runtime_reference_root\}\}|(?:\.\./)+b-agentic/references|references)/cards/([a-z0-9-]+\.md)"
-)
-for _path in sorted(
-    list((ROOT / "skills").glob("*/prompt.md"))
-    + list((ROOT / "skills").glob("*/SKILL.md"))
-    + list((ROOT / "runtimes").glob("*/kernel.md"))
-    + [ROOT / "README.md", shared_kernel_template_path]
-):
-    _text = read_text(_path)
-    for _card_ref in card_reference_pattern.findall(_text):
-        if _card_ref not in required_card_files:
-            errors.append(f"{rel(_path)}: references unknown decision card {_card_ref!r}")
-        elif not (cards_root / _card_ref).exists():
-            errors.append(f"{rel(_path)}: references missing decision card {_card_ref!r}")
-
-required_card_prompt_refs = {
-    ROOT / "skills" / "b-implement" / "prompt.md": ["before-edit.md", "before-ready.md"],
-    ROOT / "skills" / "b-plan" / "prompt.md": ["before-edit.md", "output-handoff.md"],
-    ROOT / "skills" / "b-orchestrate" / "prompt.md": ["routing.md", "output-handoff.md", "review-verdict.md"],
-    ROOT / "skills" / "b-review" / "prompt.md": ["review-verdict.md", "output-handoff.md"],
-    ROOT / "skills" / "b-browser" / "prompt.md": ["browser-boundary.md", "before-edit.md"],
-    ROOT / "skills" / "b-test" / "prompt.md": ["browser-boundary.md"],
-}
-for _path, _required_cards in required_card_prompt_refs.items():
-    _text = read_text(_path)
-    for _card_name in _required_cards:
-        if f"/cards/{_card_name}" not in _text:
-            errors.append(f"{rel(_path)}: missing required decision-card reference {_card_name!r}")
-
-conformance_selftest = subprocess.run(
-    ["python3", "-m", "tooling.conformance.checker", "--self-test", str(conformance_manifest_path)],
-    cwd=ROOT,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-    text=True,
-)
-if conformance_selftest.returncode != 0:
-    output = conformance_selftest.stderr.strip() or conformance_selftest.stdout.strip()
-    if output:
-        errors.extend(line for line in output.splitlines() if line.strip())
-    else:
-        errors.append("tooling.conformance.checker --self-test failed")
+# Decision cards removed in slim-down refactor; no card checks needed.
+# Internal conformance/scenario self-tests run only in --release mode.
 
 browser_evidence_row = (
     "| Browser/DOM/visual/e2e evidence | Supplied/CI evidence or existing repo scripts "
@@ -556,13 +500,12 @@ for _skill_path in skill_paths:
 kernel_contract_version_match = re.search(r"This runtime contract version is `([0-9]{4}-[0-9]{2}-[0-9]{2})`", kernel)
 kernel_contract_version = kernel_contract_version_match.group(1) if kernel_contract_version_match else None
 
-kernel_00_path = ROOT / "references" / "contract" / "00-kernel.md"
-kernel_00_text = read_text(kernel_00_path)
-canonical_version_match = re.search(r"This runtime contract version is `([0-9]{4}-[0-9]{2}-[0-9]{2})`", kernel_00_text)
+# Extract canonical contract version from kernel template (00-kernel.md removed in slim-down)
+canonical_version_match = re.search(r"This runtime contract version is `([0-9]{4}-[0-9]{2}-[0-9]{2})`", shared_kernel_template)
 canonical_contract_version = canonical_version_match.group(1) if canonical_version_match else None
 
 if not canonical_contract_version:
-    errors.append("references/contract/00-kernel.md: unable to extract canonical contract version")
+    errors.append("references/contract/kernel.template.md: unable to extract canonical contract version")
 
 if not kernel_path.exists():
     errors.append("runtimes/claude-code/kernel.md: missing Claude Code kernel source")
@@ -642,7 +585,6 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "sensitive": "~/.claude/b-agentic/<skill>/<run-id>/",
         "temp_run": "/tmp/claude-code/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/claude-code/b-agentic/<skill>/<slug>.log",
-        "retention": "/tmp/claude-code/b-agentic/...",
     },
     "opencode": {
         "reference": "~/.config/opencode/b-agentic/references/contract/",
@@ -650,7 +592,6 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "sensitive": "~/.config/opencode/b-agentic/<skill>/<run-id>/",
         "temp_run": "/tmp/opencode/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/opencode/b-agentic/<skill>/<slug>.log",
-        "retention": "/tmp/opencode/b-agentic/...",
     },
     "codex-cli": {
         "reference": "~/.codex/b-agentic/references/contract/",
@@ -658,7 +599,6 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "sensitive": "~/.codex/b-agentic/<skill>/<run-id>/",
         "temp_run": "/tmp/codex-cli/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/codex-cli/b-agentic/<skill>/<slug>.log",
-        "retention": "/tmp/codex-cli/b-agentic/...",
     },
     "antigravity-cli": {
         "reference": "~/.gemini/antigravity-cli/b-agentic/references/contract/",
@@ -666,7 +606,6 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "sensitive": "~/.gemini/antigravity-cli/b-agentic/<skill>/<run-id>/",
         "temp_run": "/tmp/antigravity-cli/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/antigravity-cli/b-agentic/<skill>/<slug>.log",
-        "retention": "/tmp/antigravity-cli/b-agentic/...",
     },
     "zed": {
         "reference": "~/.agents/b-agentic/references/contract/",
@@ -674,7 +613,6 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "sensitive": "~/.agents/b-agentic/<skill>/<run-id>/",
         "temp_run": "/tmp/zed/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/zed/b-agentic/<skill>/<slug>.log",
-        "retention": "/tmp/zed/b-agentic/...",
     },
 }
 artifact_contract_path = ROOT / "references" / "contract" / "08-artifacts.md"
@@ -688,7 +626,7 @@ for _runtime_name in runtime_names:
             errors.append(
                 f"{rel(contract_index_path)}: missing {_runtime_name} {_key} example {_examples[_key]!r}"
             )
-    for _key in ["sensitive", "temp_run", "temp_log", "retention"]:
+    for _key in ["sensitive", "temp_run", "temp_log"]:
         if _examples[_key] not in artifact_contract:
             errors.append(
                 f"{rel(artifact_contract_path)}: missing {_runtime_name} {_key} example {_examples[_key]!r}"
@@ -834,7 +772,6 @@ for required_line in [
 
 for verdict_prompt_path in [
     ROOT / "skills" / "b-review" / "prompt.md",
-    ROOT / "skills" / "b-orchestrate" / "prompt.md",
 ]:
     verdict_prompt = read_text(verdict_prompt_path)
     if "verdict:" not in verdict_prompt:
@@ -846,32 +783,14 @@ if required_b_test_intent not in shared_kernel_template and required_b_test_inte
         f"{rel(shared_kernel_template_path)} and references/contract/01-routing.md: missing updated b-test routing intent for component-test ownership"
     )
 
-stale_orchestrate_handoff = "- Browser/DOM/visual/e2e evidence gap -> `/b-browser`."
-orchestrate_prompt_path = ROOT / "skills" / "b-orchestrate" / "prompt.md"
-orchestrate_prompt = read_text(orchestrate_prompt_path)
-if stale_orchestrate_handoff in orchestrate_prompt:
-    errors.append(
-        f"{rel(orchestrate_prompt_path)}: stale browser handoff still routes generic DOM evidence to b-browser"
-    )
-if "No shipped adapter currently documents native phase-to-phase continuation" not in orchestrate_prompt:
-    errors.append(
-        f"{rel(orchestrate_prompt_path)}: missing explicit no-native-continuation wording for current shipped adapters"
-    )
-if "assume the operator-resumed path unless you have runtime-specific evidence to the contrary" not in orchestrate_prompt:
-    errors.append(
-        f"{rel(orchestrate_prompt_path)}: missing operator-resumed continuation rule for current shipped adapters"
-    )
-if "assume that no native phase-to-phase continuation exists" not in session_contract:
-    errors.append(
-        f"{rel(session_contract_path)}: missing shipped-adapter continuation assumption for cross-skill handoffs"
-    )
+# b-orchestrate removed in slim-down refactor; no orchestrate-specific checks needed
 
 if contract_version:
     for plan_path in sorted((ROOT / ".b-agentic" / "b-plan").glob("*.md")):
         plan_text = plan_path.read_text()
         plan_version_match = re.search(r"^contract_version:\s*(\S+)", plan_text, re.MULTILINE)
         if plan_version_match:
-            plan_version = plan_version_match.group(1)
+            plan_version = plan_version_match.group(1).strip('"')
             if plan_version != contract_version:
                 errors.append(f"{rel(plan_path)}: contract_version {plan_version!r} does not match kernel contract version {contract_version!r}")
 else:
@@ -1187,29 +1106,7 @@ for _prompt_path in sorted((ROOT / "skills").glob("*/prompt.md")):
         if not _target.exists():
             errors.append(f"{rel(_prompt_path)}: read gate references non-existent skill support file {rel(_target)}")
 
-_examples_required_literals = {
-    "b-debug": ["Root cause:"],
-    "b-implement": ["Plan source:", "Verification:", "Next:"],
-    "b-refactor": ["Target:", "Verification:", "Follow-up:"],
-}
-# Every skill that ships examples.md must declare its Step-contract literals above, so the
-# mirror rule cannot silently lapse when a new examples.md is added (CLAUDE.md authoring rule).
-for _ex_path in sorted((ROOT / "skills").glob("*/examples.md")):
-    _ex_skill = _ex_path.parent.name
-    if _ex_skill not in _examples_required_literals:
-        errors.append(f"{rel(_ex_path)}: ships examples.md but declares no Step-contract literals in tooling/validate/shared.py")
-_output_block_re = re.compile(r'\*\*Output:\*\*\s*```text\n(.*?)```', re.DOTALL)
-for _skill_name, _required_literals in _examples_required_literals.items():
-    _examples_path = ROOT / "skills" / _skill_name / "examples.md"
-    if not _examples_path.exists():
-        errors.append(f"skills/{_skill_name}/examples.md: required examples file missing")
-    else:
-        _examples_text = _examples_path.read_text()
-        for _block_m in _output_block_re.finditer(_examples_text):
-            _block_text = _block_m.group(1)
-            for _literal in _required_literals:
-                if _literal not in _block_text:
-                    errors.append(f"skills/{_skill_name}/examples.md: Output block missing required literal {_literal!r} (required by {_skill_name}/prompt.md Step contract)")
+# Examples removed in slim-down refactor; no examples checks needed
 
 if errors:
     for error in errors:

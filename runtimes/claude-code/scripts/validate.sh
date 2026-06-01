@@ -33,8 +33,6 @@ if '<!-- b-agentic-managed -->' not in kernel:
 for marker in ['Reference checklist:', 'Runtime gate checklist:', 'CLAUDE.md', 'Detailed routing', 'runtime contract §9']:
     if marker not in kernel:
         errors.append(f'runtimes/claude-code/kernel.md: missing kernel marker {marker!r}')
-if '~/.claude/b-agentic/references/cards/' not in kernel:
-    errors.append('runtimes/claude-code/kernel.md: missing Claude decision-card path')
 if 'Reference gate:' in kernel:
     errors.append("runtimes/claude-code/kernel.md: stale 'Reference gate:' terminology; use 'Reference checklist:'")
 
@@ -84,7 +82,6 @@ for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'report_item 
 if 'Global MCP Setup' not in claude_readme or '~/.claude.json' not in claude_readme:
     errors.append('runtimes/claude-code/configs/README.md: missing global MCP setup documentation')
 for required in [
-    'Shared decision cards: `~/.claude/b-agentic/references/cards/*.md`',
     'Continuation and resume guarantees',
     'does not provide native phase-to-phase automation',
     'operator-issued skill invocations',

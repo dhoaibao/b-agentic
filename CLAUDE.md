@@ -108,8 +108,8 @@ runtimes/<name>/
 Before merging runtime-facing changes:
 
 1. Rerun `python3 tooling/generate/registry_sync.py` when generated surfaces are affected.
-2. Run `scripts/check-conformance.sh --self-test tests/conformance/cases.json` when output-policy, conformance, readiness, or status/handoff behavior changed.
-3. Run `scripts/check-scenarios.sh --self-test tests/scenarios/cases.json` when routing, phase handoffs, readiness, or workflow behavior changed.
+2. Run `bash scripts/internal-check-conformance.sh --self-test tests/internal/conformance/cases.json` when output-policy, conformance, readiness, or status/handoff behavior changed.
+3. Run `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json` when routing, phase handoffs, readiness, or workflow behavior changed.
 4. Run `scripts/validate-skills.sh`.
 5. Run `scripts/validate-skills.sh --release` when install, runtime, wrapper, kernel delivery, or release-readiness behavior changed.
 6. Run `scripts/smoke-install.sh` directly only when you need the smoke suite by itself while iterating.

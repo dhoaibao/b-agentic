@@ -70,8 +70,6 @@ if '<!-- b-agentic-managed -->' not in kernel:
 for marker in ['Reference checklist:', 'Runtime gate checklist:', 'AGENTS.md', 'Detailed routing', 'runtime contract §9']:
     if marker not in kernel:
         errors.append(f'runtimes/opencode/kernel.md: missing kernel marker {marker!r}')
-if '~/.config/opencode/b-agentic/references/cards/' not in kernel:
-    errors.append('runtimes/opencode/kernel.md: missing OpenCode decision-card path')
 if 'Reference gate:' in kernel:
     errors.append("runtimes/opencode/kernel.md: stale 'Reference gate:' terminology; use 'Reference checklist:'")
 
@@ -129,7 +127,6 @@ if 'runtime-neutral' not in opencode_readme:
 if '~/.config/opencode/skills/' not in opencode_readme:
     errors.append('runtimes/opencode/configs/README.md: must document the OpenCode skills install root')
 for required in [
-    'Shared decision cards: `~/.config/opencode/b-agentic/references/cards/*.md`',
     'Continuation and resume guarantees',
     'does not provide native phase-to-phase automation',
     'operator-issued skill invocations',

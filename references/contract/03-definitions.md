@@ -26,10 +26,10 @@ Anything failing this threshold goes back to `b-plan`.
 
 ### Behavior modes
 
-Use these mode labels consistently across the kernel, cards, docs, and prompts:
+Use these mode labels consistently across the kernel, docs, and prompts:
 
 - **lite** — trivial local work, no public/sensitive/dependency/CI/release/sequenced risk, and no remaining design decision. Keep ceremony low, but still honor source-of-truth and worktree checks.
-- **standard** — default operating mode for ordinary code and docs work. Use the decision cards for point-of-use reminders and escalate to the detailed contract when a card does not settle the question.
+- **standard** — default operating mode for ordinary code and docs work. Make point-of-use gates explicit when a check matters, and escalate to the detailed contract when the kernel or skill prompt does not settle the question.
 - **strict** — required for any public contract, sensitive path, dependency change, CI/build/release change, multi-phase or orchestrated work, or shared-environment or external mutation. Make approval, staleness, worktree, verification, and output gates explicit at the point of use.
 
 Override rules:
@@ -66,17 +66,5 @@ Do not use `READY FOR PR`, `complete`, or high confidence when the required base
 | **high** | Public contract, schema, migration, auth/security/billing path, or known broad blast radius. |
 
 Match verification depth to the risk band per the verification ladder (§7).
-
-### Confidence signal
-
-When an answer rests on incomplete evidence, end with one line:
-
-`Confidence: high | medium | low — <one-clause reason>.`
-
-- **high** = direct evidence (runtime, primary docs, symbol bodies). Omit the line entirely.
-- **medium** = consistent secondary evidence.
-- **low** = single weak source, snippet only, or material gap.
-
-Skip the line on trivial high-confidence answers (a single docs lookup with a direct hit) to avoid ceremony. Always include it on partial, single-source, or recency-sensitive answers.
 
 ---

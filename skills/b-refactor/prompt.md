@@ -35,7 +35,7 @@ For `simplify`, `inline`, and `extract`, state the observable behavior that must
 
 Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Add exact text search for exported names, config keys, CLI flags, route strings, filenames, docs, and generated consumers when those surfaces could reference the target. Moves across public module boundaries, package boundaries, or published entry points require planning unless the approved scope already names the destination and verification.
 
-Read `{{runtime_reference_root}}/contract/03-definitions.md` before classifying risk. The local fast path is allowed when the refactor is one file, behavior-preserving, non-exported, LSP-supported, covered by direct semantics or narrow tests, has few/no external references, and has no generated-code consumers.
+Classify risk before editing: trivial = one file, no exported change, few/no external refs, behavior preserved; low = single module, internal refs only; medium = multi-file, exported/shared symbol, or partial test coverage; high = public contract, schema, migration, auth/security path, or known broad blast radius. The local fast path is allowed when the refactor is one file, behavior-preserving, non-exported, LSP-supported, covered by direct semantics or narrow tests, has few/no external references, and has no generated-code consumers.
 
 Auto-promote risk when the language is non-LSP, references are dynamic/config/prose, the target is exported/shared, or generated code consumes it. Generated consumers require checking generator source or regeneration.
 
@@ -56,7 +56,7 @@ If the work becomes behavioral redesign, hand back to **b-plan** with the locked
 
 Run diagnostics when supported, then the narrowest risk-appropriate typecheck/build/test. Re-check references for shared/exported targets and inspect diff for unintended scope.
 
-Read `{{runtime_reference_root}}/contract/07-execution.md` before applying transform rollback, cascading failure handling, iteration cap, or skipped-check labels. If failures indicate real regression, use **b-debug**; test-mechanic drift goes to **b-test**.
+If verification fails, classify: implementation mistake, stale context, test harness issue, runtime uncertainty, or external outage. Apply transform rollback when needed. If failures indicate real regression, use **b-debug**; test-mechanic drift goes to **b-test**.
 
 ## Output format
 

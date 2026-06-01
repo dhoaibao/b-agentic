@@ -33,9 +33,9 @@ If `$ARGUMENTS` is present, treat it as a plan path, plan slug, approved chat pl
 
 Resolve scope in this order: saved plan path, plan slug, explicitly approved chat plan, then small direct request.
 
-For saved plans, **read `{{runtime_reference_root}}/contract/02-source-of-truth.md` before validating**, then run the §2 plan-validation and staleness gates and map each failure to an execution outcome:
+For saved plans, validate durable frontmatter, executable status, matching touch_points, and non-stale plan head; map each failure to an execution outcome:
 
-1. **Versioned frontmatter/validation fails** (non-executable `status`, empty `touch_points`, or an unchecked step without `Done when`): stop with `cause: conflict` and report the failing check.
+1. **Durable frontmatter/validation fails** (non-executable `status`, empty `touch_points`, or an unchecked step without `Done when`): stop with `cause: conflict` and report the failing check.
 2. **No explicit approval** (neither current-chat approval nor durable `approved_at` per §2): stop with `cause: user_blocked` and request approval.
 3. **§2 staleness gate trips** (any `touch_points` drift): stop with `cause: conflict` and report the stale plan.
 4. **Blocked-by check** (b-implement-specific, not in §2): if the plan has a `blocked_by` array, verify every listed plan reports `status: complete`. If any blocker is not complete, stop with `cause: conflict` and report the blocking plan slug and status.
@@ -46,7 +46,7 @@ For **small direct requests** (no saved plan), if any small-direct criterion fai
 
 If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-plan** (Clarification mode).
 
-Read `{{runtime_reference_root}}/cards/before-edit.md` once as a preflight before any editing begins, then open `{{runtime_reference_root}}/contract/06-safety.md` only when the card does not settle a safety, approval, or worktree question.
+Read `{{runtime_reference_root}}/contract/06-safety.md` before any editing begins.
 
 ### Step 2 - Check worktree and choose execution surface
 
@@ -69,9 +69,9 @@ Classify adjacent discoveries before expanding scope (Required: must fix now; Bl
 
 ### Step 4 - Verify before continuing
 
-Run the plan's check when available. Otherwise read `{{runtime_reference_root}}/contract/07-execution.md` and `{{runtime_reference_root}}/cards/before-ready.md` before choosing verification from the ladder or making a completion claim. Prefer touched-file diagnostics when supported, then the narrowest relevant command.
+Run the plan's check when available. Otherwise prefer touched-file diagnostics, then the narrowest relevant command. Do not claim completion without verification.
 
-Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Read `{{runtime_reference_root}}/contract/07-execution.md` before applying iteration cap, cascading-failure, transform rollback, or skipped-check labels. Use `{{runtime_reference_root}}/cards/before-ready.md` as the fast path before high-risk completion claims, then fall back to `{{runtime_reference_root}}/contract/10-decisions.md` when the card is not enough.
+Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Read `{{runtime_reference_root}}/contract/06-safety.md` before applying transform rollback or cascading-failure handling. Read `{{runtime_reference_root}}/contract/09-output.md` before emitting a status block.
 
 ### Step 5 - Record progress and close
 

@@ -44,7 +44,7 @@ run_runtime_smoke_cases() {
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][-1] == '--isolated'"
   assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/index.md"
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/index.md" 'The active runtime kernel lives in `CLAUDE.md` (Claude Code) or `AGENTS.md` (OpenCode)'
-  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/00-kernel.md" 'runtimes/claude-code/kernel.md'
+  assert_no_path "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/00-kernel.md"
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/05-evidence.md" 'active `CLAUDE.md`'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/06-safety.md" 'Use `~/.claude/b-agentic/...` or `/tmp/claude-code/b-agentic/...` instead by default.'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/07-execution.md" 'save the full output under `/tmp/claude-code/b-agentic/<skill>/<slug>.log`'
@@ -54,16 +54,15 @@ run_runtime_smoke_cases() {
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'per `CLAUDE.md` §3'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-implement/SKILL.md" 'CLAUDE.md section 3'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-research/SKILL.md" 'approval-gated by `CLAUDE.md`'
-  assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" '../../b-agentic/references/contract/02-source-of-truth.md'
-  assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md" '../../b-agentic/references/contract/02-source-of-truth.md'
+  assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'include durable frontmatter'
+  assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md" 'slug: <task-slug>'
   assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" './reference.md'
   assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" 'self-audits when explicitly requested or invoked with `--audit-suite`'
   assert_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" 'with or without `--audit-suite`'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" 'suite self-audit without `--audit-suite` -> ask'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" 'Do NOT invoke for repo/suite audits'
   assert_contains "$sandbox_opencode/home/.config/opencode/commands/b-review.md" 'description: Review changed code or b-agentic suite audit'
-  assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" 'Avoid common runtime rationalizations such as opportunistic scope expansion'
-  assert_not_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" '"I'\''ll fix this adjacent thing while I'\''m here."'
+  assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" 'Runtime gate checklist:'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_RUNTIME_REFERENCES'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_SKILL_DIR'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md" 'B_AGENTIC_RUNTIME_REFERENCES'

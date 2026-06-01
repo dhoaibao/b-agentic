@@ -21,7 +21,6 @@ New saved plans should start with YAML frontmatter so approval and staleness are
 
 ```yaml
 ---
-contract_version: <current-contract-version>
 slug: <task-slug>
 status: draft | approved | in-progress | complete | superseded
 created_at: <YYYY-MM-DD>

@@ -1,45 +1,45 @@
 {
   "cases": [
     {
-      "path": "tests/conformance/valid-status.md",
+      "path": "tests/internal/conformance/valid-status.md",
       "valid": true
     },
     {
-      "path": "tests/conformance/invalid-status-missing-field.md",
+      "path": "tests/internal/conformance/invalid-status-missing-field.md",
       "valid": false,
       "error_contains": "missing required field 'blockers'"
     },
     {
-      "path": "tests/conformance/invalid-status-invalid-cause.md",
+      "path": "tests/internal/conformance/invalid-status-invalid-cause.md",
       "valid": false,
       "error_contains": "unknown cause 'bad_cause'"
     },
     {
-      "path": "tests/conformance/invalid-status-unknown-verdict.md",
+      "path": "tests/internal/conformance/invalid-status-unknown-verdict.md",
       "valid": false,
       "error_contains": "unknown verdict 'ALMOST READY'"
     },
     {
-      "path": "tests/conformance/invalid-status-ready-without-verification.md",
+      "path": "tests/internal/conformance/invalid-status-ready-without-verification.md",
       "valid": false,
       "error_contains": "READY FOR PR requires explicit verification evidence"
     },
     {
-      "path": "tests/conformance/invalid-status-missing-run-id.md",
+      "path": "tests/internal/conformance/invalid-status-missing-run-id.md",
       "valid": false,
       "error_contains": "run-id is required when artifacts are named"
     },
     {
-      "path": "tests/conformance/valid-handoff.md",
+      "path": "tests/internal/conformance/valid-handoff.md",
       "valid": true
     },
     {
-      "path": "tests/conformance/invalid-handoff-malformed.md",
+      "path": "tests/internal/conformance/invalid-handoff-malformed.md",
       "valid": false,
       "error_contains": "malformed field line"
     },
     {
-      "path": "tests/conformance/valid-status.md",
+      "path": "tests/internal/conformance/valid-status.md",
       "valid": false,
       "simulate_policy_failure": true,
       "error_contains": "simulated policy failure"

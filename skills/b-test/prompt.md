@@ -13,7 +13,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 ## When NOT to use
 
 - The failing test likely exposes real runtime behavior -> use **b-debug**.
-- The task drives a real browser, performs visual testing, depends on browser/session state, or runs e2e/browser-only tooling -> use **b-browser**; simulated-DOM and component tests stay here. Stop rather than adding browser or DOM tooling. See `{{runtime_reference_root}}/contract/10-decisions.md` for the boundary table with concrete examples.
+- The task drives a real browser, performs visual testing, depends on browser/session state, or runs e2e/browser-only tooling -> use **b-browser**; simulated-DOM and component tests stay here. Stop rather than adding browser or DOM tooling.
 - Scope, acceptance, or intended behavior is unclear -> use **b-plan** (Clarification mode) or **b-debug** per the global test-vs-bug decision.
 - The task is pre-PR logic review -> use **b-review**.
 - The task needs a new test strategy/framework -> use **b-plan** first.
@@ -30,16 +30,16 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 
 ### Step 1 - Discover framework and scope
 
-Find relevant test files and project commands from manifests or CI. If a failing test is named, start with the narrowest runnable target. If no test framework exists, hand off to **b-plan** before adding one — framework introduction is a dependency-write that requires explicit approval per `{{runtime_reference_root}}/contract/10-decisions.md`.
+Find relevant test files and project commands from manifests or CI. If a failing test is named, start with the narrowest runnable target. If no test framework exists, hand off to **b-plan** before adding one — framework introduction is a dependency-write that requires explicit approval.
 
 ### Step 2 - Choose the lane
 
-Read `{{runtime_reference_root}}/contract/10-decisions.md` before applying the test-vs-bug decision, and use `{{runtime_reference_root}}/cards/browser-boundary.md` as the fast path for deciding whether the work stays in `b-test` or moves to `b-browser`. Acceptable behavior confirmation sources are user-confirmed intent, an approved spec/plan, existing product contract, existing passing tests that define the behavior, source change that intentionally updates behavior, or fetched framework docs for API semantics. If no behavior baseline exists, stop and hand off to **b-plan** (Clarification mode) for unclear intent or **b-debug** for uncertain product behavior, unless the user explicitly asks for structural coverage only.
+Apply the test-vs-bug decision: assertion/mock/fixture/setup drift goes to b-test; uncertain or disputed product behavior goes to b-debug. Acceptable behavior confirmation sources are user-confirmed intent, an approved spec/plan, existing product contract, existing passing tests that define the behavior, source change that intentionally updates behavior, or fetched framework docs for API semantics. If no behavior baseline exists, stop and hand off to **b-plan** (Clarification mode) for unclear intent or **b-debug** for uncertain product behavior, unless the user explicitly asks for structural coverage only.
 
 - **Failing test:** fix assertion, mock, fixture, setup, async, snapshot, or harness drift only after intended behavior is confirmed.
 - **Write tests:** add regression/unit/integration coverage for known behavior. For TDD or regression work, make the test fail first when feasible, then hand off with the intended behavior, failing test path, command, current failure, likely source area, and verification target before production changes.
 - **Coverage review:** rank missing tests by user impact, changed behavior, risk boundary, and edge-case value; add only the requested/highest-value gaps.
-- **Flaky test:** read `{{runtime_reference_root}}/contract/10-decisions.md` before applying flake handling, rewriting, or skipping.
+- **Flaky test:** rerun up to 2 times in isolation; if still flaky, mark it and investigate ordering, shared state, async timing, or external dependence before skipping or rewriting.
 
 Choose test type by the behavior boundary: pure logic gets unit tests, simulated-DOM/component behavior stays here, and cross-module contracts get integration or contract tests if the repo already has them.
 
@@ -57,7 +57,7 @@ Use Serena for existing test bodies.
 
 ### Step 4 - Verify
 
-Run diagnostics on touched test/source files when supported, then the narrowest relevant test. Widen only for shared fixtures/helpers, public contracts, or the repo's normal workflow. Read `{{runtime_reference_root}}/contract/07-execution.md` before using skipped-check labels.
+Run diagnostics on touched test/source files when supported, then the narrowest relevant test. Widen only for shared fixtures/helpers, public contracts, or the repo's normal workflow.
 
 ## Output format
 

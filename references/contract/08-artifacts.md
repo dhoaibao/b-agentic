@@ -35,8 +35,7 @@ The frontmatter field `slug: <task-slug>` remains the canonical deterministic id
 When one skill hands off to another for the same logical task, the receiving skill **reuses** the source skill's `<run-id>` and writes its own artifacts under `.b-agentic/<receiving-skill>/<run-id>/`. Continuity rules:
 
 - A new `<run-id>` is minted only on a fresh user task, not on a handoff.
-- Non-trivial `b-orchestrate` workflows mint a `<run-id>` at workflow start, even before artifacts exist, so every phase handoff can be tied to the same logical task.
-- The handoff envelope (§9) must carry the `run-id` **whenever one exists** — i.e., whenever the source skill wrote artifacts, itself inherited a `run-id` from an earlier handoff, or `b-orchestrate` minted one for a non-trivial workflow. Pure chat-only handoffs that have produced no artifacts and are not part of a non-trivial orchestration may omit the `run-id` field; the receiving skill mints one if and when it first writes an artifact.
+- The handoff envelope (§9) must carry the `run-id` **whenever one exists** — i.e., whenever the source skill wrote artifacts or inherited a `run-id` from an earlier handoff. Pure chat-only handoffs that have produced no artifacts may omit the `run-id` field; the receiving skill mints one if and when it first writes an artifact.
 - When a chain of skills (e.g., `b-plan -> b-implement -> b-review`) all act on the same task and any one of them has written artifacts, every subsequent run directory shares the same `<run-id>` even though each lives under a different `<skill>` subdirectory.
 - Runtime adapters must not imply automatic continuation unless they implement and document it explicitly. The portable resume mechanism is the latest `[status]` or `[handoff]` block plus any run artifacts named by that block; the operator resumes by invoking the next skill and preserving the same `<run-id>` when one exists.
 
@@ -67,20 +66,6 @@ Do not invent new b-agentic artifact paths. Project-native verification outputs 
 - Create b-agentic artifacts only when needed for saved plans, explicit saved reports, screenshot evidence, large/truncated logs, auth/session state, generated evidence, partial failures, or user-requested auditability.
 - If an artifact is optional, prefer the chat/status summary over writing files.
 
-### Workflow checkpoints
-
-For non-trivial `b-orchestrate` workflows, checkpoint the phase state whenever the workflow pauses for approval, a blocker, a review-fix loop, or a session handoff. Use the existing `b-orchestrate` run-id. If the workflow cannot continue in the same turn or needs durable resume evidence, write `report.md`; otherwise carry the checkpoint in the required status/handoff blocks.
-
-For non-orchestrated workflows, a completed or partial status block is the minimum resume state. If a skill created artifacts, the status or handoff must name the run-id and any artifact paths needed to continue. If no durable artifact exists, the receiving skill resumes from the chat context and re-checks the relevant source of truth before editing.
-
-### Retention and cleanup
-
-- Keep saved plans and explicit review/research reports until the user removes them; they are source-of-truth or decision artifacts.
-- Treat active-runtime temp scratch artifacts (for example, `/tmp/claude-code/b-agentic/...`, `/tmp/opencode/b-agentic/...`, `/tmp/codex-cli/b-agentic/...`, `/tmp/antigravity-cli/b-agentic/...`, `/tmp/cursor/b-agentic/...`, or `/tmp/zed/b-agentic/...`) as disposable scratch. Report their paths when they matter, but do not promise persistence.
-- Delete or avoid creating sensitive artifacts unless they are required for the task. Auth/session state should live in a non-worktree path and be named in the final report.
-- When a run creates test data, browser state, screenshots, logs, or generated files, report what was kept, cleaned up, or left for the user to decide.
-- Old run directories or saved plans that do not match the current task are historical artifacts. Do not delete or reuse them unless a manifest or plan status explicitly says to resume, or the user asks for cleanup.
-
 ### Manifest schema
 
 Any run that produces more than one artifact must include `manifest.json` at the root of its run directory:
@@ -96,10 +81,5 @@ Any run that produces more than one artifact must include `manifest.json` at the
 ```
 
 Single-artifact runs may skip the manifest and report these fields inline instead. Manifests must be valid JSON and should not include comments or trailing commas.
-
-### Manifest state transitions
-
-- `partial` means the run produced useful artifacts or edits but did not satisfy completion. A receiving skill must inspect `notes`, `blockers`, and generated files before resuming.
-- Valid forward transitions are `partial -> complete | blocked`, `blocked -> complete | partial` after the blocker is resolved, and `complete` only by a new run or explicit revision. Do not silently overwrite a previous manifest state.
 
 ---

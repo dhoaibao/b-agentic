@@ -47,13 +47,12 @@ run_all_runtime_smoke_case() {
     manifest_path="$sandbox_all/home/$metadata_root/install.json"
     assert_file "$manifest_path"
     assert_json_value "$manifest_path" "data['runtime'] == '$runtime_name'"
-    assert_file "$sandbox_all/home/$metadata_root/references/cards/routing.md"
-    assert_file "$sandbox_all/home/$metadata_root/references/cards/output-handoff.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/contract/01-routing.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/contract/09-output.md"
   done < <(registry_runtime_records install)
 
   assert_contains "$sandbox_all/home/.gemini/GEMINI.md" 'Agent Workflow Kernel for Antigravity CLI'
   assert_contains "$sandbox_all/home/.gemini/GEMINI.md" '~/.gemini/antigravity-cli/b-agentic/references/contract/'
-  assert_contains "$sandbox_all/home/.gemini/GEMINI.md" '~/.gemini/antigravity-cli/b-agentic/references/cards/'
 
   expect_install_status 0 "$sandbox_all" "$snapshot_repo" --runtime=all --uninstall
 

@@ -206,11 +206,6 @@ def load_output_policy(errors: list[str]) -> tuple[dict, dict]:
             errors,
         )
         _require_string_list(
-            readiness.get("workflow_ready_for_pr_requires"),
-            "tooling/policy/output-policy.json readiness.workflow_ready_for_pr_requires",
-            errors,
-        )
-        _require_string_list(
             readiness.get("review_ready_for_pr_requires"),
             "tooling/policy/output-policy.json readiness.review_ready_for_pr_requires",
             errors,
@@ -331,7 +326,7 @@ def validate_output_policy_contract(policy: dict, contract_text: str, errors: li
                 )
 
     readiness = policy["readiness"]
-    for requirement in readiness["workflow_ready_for_pr_requires"]:
+    for requirement in readiness.get("workflow_ready_for_pr_requires", []):
         if requirement not in contract_text:
             errors.append(
                 "references/contract/09-output.md: missing workflow readiness requirement "

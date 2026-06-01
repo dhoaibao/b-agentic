@@ -24,7 +24,7 @@ Operate real-browser, visual, and e2e verification using the lightest safe evide
 
 ## When NOT to use
 
-- The task is non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, flake, or simulated-DOM/component-test work -> use **b-test**. See `../../b-agentic/references/contract/10-decisions.md` for the boundary table with concrete examples.
+- The task is non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, flake, or simulated-DOM/component-test work -> use **b-test**. Simulated DOM stays in b-test; real browser/visual/e2e stays here.
 - The task is UI/UX critique, accessibility design review, or visual design feedback without a runnable verification request -> use the appropriate review skill outside this suite when available.
 - The task is implementing UI behavior or fixing app code -> use **b-implement** or **b-debug**.
 - The task is only changed-code review with browser evidence already supplied -> use **b-review** and cite the evidence.
@@ -44,7 +44,7 @@ Operate real-browser, visual, and e2e verification using the lightest safe evide
 
 Identify whether the request is a direct real-browser/visual/e2e run, live UI exploration, review of supplied evidence, or a readiness gap from another phase. If the check is actually non-browser unit, integration, contract, coverage, or simulated-DOM/component-test work, hand off to **b-test**.
 
-Read `../../b-agentic/references/cards/browser-boundary.md` before applying the browser and DOM verification boundary or making readiness claims. Fall back to `../../b-agentic/references/contract/10-decisions.md` when the card is not enough.
+Do not add browser or DOM tooling as a side effect.
 
 ### Step 2 - Choose the evidence ladder
 
@@ -61,7 +61,7 @@ Do not invent verification commands.
 
 ### Step 3 - Apply safety gates before running tools
 
-Read `../../b-agentic/references/cards/before-edit.md` before running real-browser, visual, or e2e tooling, using `playwright-browser-operator`, starting dev servers, using persisted browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments. Fall back to `../../b-agentic/references/contract/06-safety.md` when the card is not enough.
+Read `../../b-agentic/references/contract/06-safety.md` before running real-browser, visual, or e2e tooling, using `playwright-browser-operator`, starting dev servers, using persisted browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments.
 
 Ask for approval before dependency writes, dev servers, persisted browser state, external services, long-running commands, generated evidence outside normal repo output paths, or unsafe arbitrary-code browser tools.
 

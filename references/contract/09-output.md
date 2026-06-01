@@ -56,15 +56,6 @@ Required fields are `skill`, `state`, `artifacts`, `next`, `blockers`. Every oth
 
 #### Named verdicts by skill
 
-**Workflow verdicts** (owned by `b-orchestrate`; emit in `verdict:` on non-trivial workflow close):
-
-| Verdict | Meaning |
-|---|---|
-| `READY FOR PR` | All phases complete; review passed; required verification ran or accepted skipped checks. |
-| `READY WITH FOLLOW-UPS` | Review passed but one or more checks are accepted gaps; safe to ship with named follow-ups. |
-| `BLOCKED` | Workflow cannot continue without an external fix or user decision. |
-| `IN PROGRESS` | Workflow paused mid-phase; a phase owner is active or a handoff is pending. |
-
 **Diff verdicts** (owned by `b-review`; emit in `verdict:` on review close):
 
 | Verdict | Meaning |

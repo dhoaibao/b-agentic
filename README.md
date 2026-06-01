@@ -10,7 +10,7 @@ Skill names are runtime-neutral: Claude Code, OpenCode, Antigravity CLI, Cursor,
 
 ## Runtime Support
 
-All supported runtimes install the same runtime-neutral skills, detailed contract snapshot, decision cards, and recommended MCP bundle. Runtime adapters own only the user-scope paths, command exposure, config merge format, and documented limitations.
+All supported runtimes install the same runtime-neutral skills, detailed contract snapshot, and recommended MCP bundle. Runtime adapters own only the user-scope paths, command exposure, config merge format, and documented limitations.
 
 | Runtime | Skill invocation | MCP config | Continuation support |
 |---|---|---|---|
@@ -56,14 +56,14 @@ The installer writes only to user-scope runtime locations. It does not create `.
 
 ## Upgrade And Operator Notes
 
-After upgrading from an older b-agentic install, re-run the installer for every runtime you use so the kernel, skills, shared contract snapshot, decision cards, MCP templates, and command wrappers stay aligned. Use `--runtime=all` for the registered runtime set, or repeat `--runtime=<name>` for selected runtimes.
+After upgrading from an older b-agentic install, re-run the installer for every runtime you use so the kernel, skills, shared contract snapshot, MCP templates, and command wrappers stay aligned. Use `--runtime=all` for the registered runtime set, or repeat `--runtime=<name>` for selected runtimes.
 
 Daily workflows remain operator-resumed: run a phase skill, keep the returned `[status]` or `[handoff]` block in context, then invoke the next skill explicitly. No runtime adapter promises native phase-to-phase automation. OpenCode command wrappers and native slash-command runtimes preserve invocation ergonomics, not automatic continuation.
 
 Release checks live behind stable wrappers:
 
-- `bash scripts/check-conformance.sh --self-test tests/conformance/cases.json`
-- `bash scripts/check-scenarios.sh --self-test tests/scenarios/cases.json`
+- `bash scripts/internal-check-conformance.sh --self-test tests/internal/conformance/cases.json`
+- `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json`
 - `bash scripts/validate-skills.sh`
 - `bash scripts/validate-skills.sh --release`
 
@@ -76,7 +76,6 @@ The table below is generated from `skills/registry.yaml`.
 <!-- generated:skills-table:start -->
 | Skill | Phase | Use |
 |---|---|---|
-| `b-orchestrate` | End-to-end | Coordinate resumed phase handoffs until PR-ready, ready with follow-ups, or blocked |
 | `b-plan` | Decide | Clarify unclear goals or turn a clear goal into an execution plan |
 | `b-research` | Decide | Fetch external docs, API facts, comparisons, or recent evidence |
 | `b-implement` | Build | Execute approved plans or small direct requests |
@@ -91,7 +90,6 @@ The table below is generated from `skills/registry.yaml`.
 Typical flow:
 
 ```text
-b-orchestrate [workflow request] -> handoff/status across resumed turns
 b-plan [goal] -> approve plan -> b-implement -> b-test -> b-review
 b-browser [UI/e2e verification]
 b-research [external docs or recent info]
@@ -100,7 +98,7 @@ b-refactor [behavior-preserving change]
 b-ship [explicit ship request after review readiness]
 ```
 
-`b-orchestrate` coordinates via handoff envelopes and returned status blocks; it does not auto-run every phase inside one invocation. Operators resume the next phase with a new explicit invocation. `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
+Operators resume the next phase with a new explicit invocation. `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
 
 ## Behavior Modes
 
@@ -110,7 +108,7 @@ b-ship [explicit ship request after review readiness]
 - `standard` as the default day-to-day mode.
 - `strict` for public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, and shared-environment or external mutation.
 
-The runtime infers the mode from risk, and users may always ask for stricter handling. `lite` is never allowed when a strict trigger applies. Point-of-use summaries live under `references/cards/`; the detailed contract under `references/contract/` remains authoritative.
+The runtime infers the mode from risk, and users may always ask for stricter handling. `lite` is never allowed when a strict trigger applies. The detailed contract under `references/contract/` remains authoritative.
 
 ## MCPs
 
@@ -143,7 +141,7 @@ b-agentic/
 
 - `skills/registry.yaml` and `skills/*/prompt.md` define the skill surface
 - `runtimes/registry.yaml` and `references/contract/kernel.template.md` define runtime behavior
-- `references/cards/*.md` define the short point-of-use decision cards used by prompts and kernels
+- `references/contract/` defines the detailed runtime contract used by prompts and kernels
 - `tooling/policy/schema.json` and `tooling/policy/output-policy.json` define the machine-readable output/readiness policy used by validation
 - `tooling/conformance/checker.py` checks transcript status blocks, handoff envelopes, and readiness claims against the policy model
 - `tooling/generate/registry_sync.py` regenerates committed delivery assets
@@ -161,20 +159,20 @@ b-agentic/
 
 ## Conformance Checker
 
-Use `bash scripts/check-conformance.sh <transcript-file>` to validate a saved transcript or snippet that contains canonical fenced `[status]` or `[handoff]` blocks.
+Use `bash scripts/internal-check-conformance.sh <transcript-file>` to validate a saved transcript or snippet that contains canonical fenced `[status]` or `[handoff]` blocks.
 
 Examples:
 
 ```bash
-bash scripts/check-conformance.sh tests/conformance/valid-status.md
-bash scripts/check-conformance.sh tests/conformance/valid-handoff.md
+bash scripts/internal-check-conformance.sh tests/internal/conformance/valid-status.md
+bash scripts/internal-check-conformance.sh tests/internal/conformance/valid-handoff.md
 ```
 
-The checker is fixture-tested through `tests/conformance/cases.json` and runs as part of `bash scripts/validate-skills.sh`. The first version validates canonical block fields, policy vocabularies, run-id shape, next-skill names, and narrow readiness overclaim rules such as `READY FOR PR` without explicit verification evidence.
+The checker is fixture-tested through `tests/internal/conformance/cases.json`.
 
 ## Scenario Runner
 
-Use `bash scripts/check-scenarios.sh --self-test tests/scenarios/cases.json` to run the golden workflow scenario suite.
+Use `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json` to run the golden workflow scenario suite.
 
 Examples covered in the first suite:
 

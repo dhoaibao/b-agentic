@@ -163,8 +163,6 @@ def validate_status_block(
     elif not run_id:
         if has_named_artifacts(fields.get("artifacts")):
             errors.append("[status]: run-id is required when artifacts are named")
-        if skill == "b-orchestrate":
-            errors.append("[status]: run-id is required for b-orchestrate workflow status")
 
     if verdict == "READY FOR PR":
         if not has_verification_evidence(transcript):
