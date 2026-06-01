@@ -26,65 +26,45 @@ If `$ARGUMENTS` is present, treat it as a plan path, plan slug, approved chat pl
 - `serena-symbol-toolkit` *(preferred for symbol-aware edits and diagnostics)*
 - `context7-docs` *(optional, for one narrow API uncertainty)*
 
-
 ## Steps
 
 ### Step 1 - Load source of truth
 
-Resolve scope in this order: saved plan path, plan slug, explicitly approved chat plan, then small direct request.
+Resolve scope: saved plan path, plan slug, approved chat plan, then small direct request.
 
-For saved plans, validate durable frontmatter, executable status, matching touch_points, and non-stale plan head; map each failure to an execution outcome:
+For saved plans, validate durable frontmatter, explicit approval, matching touch points, staleness, and every unchecked step's `Done when`. Stop with `cause: user_blocked` when approval is missing; stop with `cause: conflict` for invalid metadata, stale touch points, blocked dependencies, or missing step verification.
 
-1. **Durable frontmatter/validation fails** (non-executable `status`, empty `touch_points`, or an unchecked step without `Done when`): stop with `cause: conflict` and report the failing check.
-2. **No explicit approval** (neither current-chat approval nor durable `approved_at` per §2): stop with `cause: user_blocked` and request approval.
-3. **§2 staleness gate trips** (any `touch_points` drift): stop with `cause: conflict` and report the stale plan.
-4. **Blocked-by check** (b-implement-specific, not in §2): if the plan has a `blocked_by` array, verify every listed plan reports `status: complete`. If any blocker is not complete, stop with `cause: conflict` and report the blocking plan slug and status.
+Legacy saved plans without frontmatter may execute only when the current conversation contains explicit approval. Use the current-chat approval time for staleness checks, require unchecked steps to include `Done when`, and do not rewrite the legacy plan solely to add metadata.
 
-Legacy saved plans without frontmatter may execute only when the current conversation contains explicit approval. Use the current-chat approval time for staleness checks, require each unchecked step to include `Done when` verification, and do not rewrite the legacy plan solely to add metadata.
+If no plan exists and the request fails the small-direct threshold, hand off to **b-plan**. Read `{{runtime_reference_root}}/contract/06-safety.md` before editing.
 
-For **small direct requests** (no saved plan), if any small-direct criterion fails, stop with `cause: conflict` and route to **b-plan**.
+### Step 2 - Check worktree
 
-If scope fails the small-direct threshold and no approved plan exists, hand off to **b-plan**. If the goal itself is ambiguous, hand off to **b-plan** (Clarification mode).
-
-Read `{{runtime_reference_root}}/contract/06-safety.md` before any editing begins.
-
-### Step 2 - Check worktree and choose execution surface
-
-Run `git status --short`. Preserve unrelated changes, patch around unrelated edits in touched files, and stop if user changes directly conflict.
+Run `git status --short`. Preserve unrelated changes; patch around unrelated edits; stop if user changes directly conflict.
 
 ### Step 3 - Implement the smallest coherent step
 
-Before editing, state the current step in one line: source of truth, files or symbols expected to change, behavior that must not change, planned verification, and whether approval or a review checkpoint is required.
+Before editing, state source of truth, files/symbols expected to change, behavior that must not change, planned verification, and any approval/review checkpoint.
 
-Use Serena for symbol-aware edits.
+Use native tools for simple prose/config/string edits; use Serena for declarations, references, diagnostics, and symbol-aware edits. Use Context7 only when a third-party API uncertainty blocks the next local edit or verification choice.
 
-- Keep native tools first for one-file prose/config/string edits where symbol or graph evidence adds nothing; prefer `rg`, `fd`/`fdfind`, and `jq`/`yq` when those commands are available and materially faster.
-- Use Serena first when the step needs exact declarations, references, diagnostics, or symbol-aware edits.
-- Use Context7 only when one narrow third-party API uncertainty blocks the next local edit or verification choice; pin the relevant version before trusting the result.
-- Do not widen scope or add MCP calls just because the runtime bundle is installed.
+Stay within approved scope. Classify adjacent discoveries as Required, Blocking decision, or Follow-up.
 
-Stay within approved scope. Stop for new product decisions, stale/wrong plans, or unplanned broad transforms. Tiny local mechanical edits required to complete the approved step may stay here; broad or primary mechanical transforms go to **b-refactor**.
+### Step 4 - Verify
 
-Classify adjacent discoveries before expanding scope (Required: must fix now; Blocking decision: stop and ask; Follow-up: record and skip).
-
-### Step 4 - Verify before continuing
-
-Run the plan's check when available. Otherwise prefer touched-file diagnostics, then the narrowest relevant command. Do not claim completion without verification.
-
-Classify failures: implementation mistake, stale local context, test harness issue, runtime uncertainty, unresolved API behavior, or external outage. Read `{{runtime_reference_root}}/contract/06-safety.md` before applying transform rollback or cascading-failure handling. Read `{{runtime_reference_root}}/contract/09-output.md` before emitting a status block.
+Run the plan's check when available; otherwise use touched-file diagnostics and the narrowest relevant command. Classify failures before another edit. Read `{{runtime_reference_root}}/contract/09-output.md` before emitting a status block.
 
 ### Step 5 - Record progress and close
 
-After verification passes, update saved-plan checkboxes and frontmatter progress without stripping metadata. Continue only when the user asked to implement or finish the plan, the next step is already approved, dependency-ready, no higher risk than the completed step, and its verification remains local or already approved. Stop after one step when asked for only the next step, or before the next step crosses a review checkpoint, new decision, broader verification, or risk increase.
+After verification passes, update saved-plan checkboxes/progress without stripping metadata. Continue only when the next step is approved, dependency-ready, no higher risk, and locally verifiable. Stop before new decisions, broader verification, or review checkpoints.
 
-At completion, inspect the diff, run final relevant verification, report cleanup/worktree state, and recommend **b-review** for non-trivial or risky changes.
+At completion, inspect the diff, report verification and cleanup state, and recommend **b-review** for non-trivial or risky changes.
 
 ## Output format
 
 ```text
 Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions -> Next
 ```
-
 
 ## Rules
 

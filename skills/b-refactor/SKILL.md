@@ -15,12 +15,11 @@ argument-hint: "[refactor-target]"
 
 $ARGUMENTS
 
-Execute concrete behavior-preserving transforms: lock target, map impact, transform, verify.
+Execute concrete behavior-preserving transforms: rename, extract, move, inline, delete, or simplify.
 
 ## When to use
 
-- The user asks to rename, extract, move, inline, delete dead code, or simplify a named target.
-- The work is intended to preserve behavior.
+- The user asks for a named behavior-preserving transform.
 - The target is concrete enough to execute without product decisions.
 
 ## When NOT to use
@@ -40,36 +39,19 @@ Execute concrete behavior-preserving transforms: lock target, map impact, transf
 
 ### Step 1 - Lock target
 
-Resolve the exact symbol, file, or repeated code shape. For `simplify`, require the target and behavior-preserving boundary to be concrete; otherwise hand back to **b-plan**. If the request remains vague after short inspection, ask the smallest question that makes it concrete.
-
-For `simplify`, `inline`, and `extract`, state the observable behavior that must remain equivalent before editing. If equivalence cannot be named from tests, call sites, or local semantics, treat the work as redesign and hand back to **b-plan**.
+Resolve the exact symbol, file, or repeated code shape. For simplify/inline/extract, state the observable behavior that must remain equivalent. If the target or equivalence is unclear, hand back to **b-plan**.
 
 ### Step 2 - Map impact and risk
 
-Use Serena references as the primary static map, but do not treat them as complete proof for dynamic, config-driven, generated, or prose references. Add exact text search for exported names, config keys, CLI flags, route strings, filenames, docs, and generated consumers when those surfaces could reference the target. Moves across public module boundaries, package boundaries, or published entry points require planning unless the approved scope already names the destination and verification.
+Use Serena references first, plus exact text search for exported names, config keys, CLI flags, routes, filenames, docs, and generated consumers. Promote risk for public/module boundaries, dynamic references, non-LSP languages, weak coverage, generated consumers, or partial behavior evidence.
 
-Classify risk before editing: trivial = one file, no exported change, few/no external refs, behavior preserved; low = single module, internal refs only; medium = multi-file, exported/shared symbol, or partial test coverage; high = public contract, schema, migration, auth/security path, or known broad blast radius. The local fast path is allowed when the refactor is one file, behavior-preserving, non-exported, LSP-supported, covered by direct semantics or narrow tests, has few/no external references, and has no generated-code consumers.
+### Step 3 - Transform
 
-Auto-promote risk when the language is non-LSP, references are dynamic/config/prose, the target is exported/shared, or generated code consumes it. Generated consumers require checking generator source or regeneration.
-
-### Step 3 - Apply the mechanical transform
-
-Pick the smallest matching transform:
-
-- Rename symbol -> symbol rename when supported.
-- Delete dead code -> safe delete after zero references.
-- Extract helper -> insert helper, update callers, verify.
-- Inline local logic -> update callers, then remove old symbol safely.
-- Rename + extract -> extract under the old name, verify, then rename.
-- Move between files -> add destination first, update imports/re-exports/tests/config/barrels, verify diagnostics, then remove origin and re-check references.
-
-If the work becomes behavioral redesign, hand back to **b-plan** with the locked target and reference map. If the map is too broad for one coherent run, hand back to **b-plan** with proposed verifiable slices.
+Pick the smallest matching transform. For moves, add destination, update imports/re-exports/tests/config/barrels, verify, then remove origin and re-check references. If the map grows too broad or behavioral redesign appears, hand back to **b-plan** with the locked target and reference map.
 
 ### Step 4 - Verify
 
-Run diagnostics when supported, then the narrowest risk-appropriate typecheck/build/test. Re-check references for shared/exported targets and inspect diff for unintended scope.
-
-If verification fails, classify: implementation mistake, stale context, test harness issue, runtime uncertainty, or external outage. Apply transform rollback when needed. If failures indicate real regression, use **b-debug**; test-mechanic drift goes to **b-test**.
+Run diagnostics when supported, then the narrowest risk-appropriate typecheck/build/test. Re-check references for shared/exported targets and inspect diff for unintended scope. If failures show real regression, use **b-debug**; test-mechanic drift goes to **b-test**.
 
 ## Output format
 
@@ -77,11 +59,9 @@ If verification fails, classify: implementation mistake, stale context, test har
 Target -> Risk -> Impact -> Changes -> Verification -> Follow-up
 ```
 
-
 ## Rules
 
-- Preserve behavior; do not add features while refactoring.
-- Keep local fast-path refactors low-friction, but promote risk for exports, weak behavior evidence, non-LSP languages, generated consumers, and dynamic/config/prose references.
+- Preserve behavior; do not add features.
 - Prefer symbol-aware rename/delete tools when reliable.
 - Ask before broad directory moves or cascading ecosystem changes.
 - Do not push past failing medium/high-risk verification without surfacing the blocker.

@@ -8,7 +8,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 
 - Library, framework, SDK, API, config, method signature, setup, migration, or capability questions.
 - Comparisons, deep dives, cited reports, recency-sensitive topics, or multi-source synthesis.
-- Questions about known URLs, local docs, PDFs, spreadsheets, or other source material when the suite can extract them reliably.
+- Questions about known URLs, local docs, PDFs, spreadsheets, or other source material when extraction is needed.
 
 ## When NOT to use
 
@@ -16,64 +16,49 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 - Planning/sequencing work -> use **b-plan**.
 - Changed-code review -> use **b-review**.
 - The repo itself can answer the question with one local lookup/read.
-- The active skill needs only ≤ 1 narrow inline lookup (one method sig, one config key) — handle inline; route here when ≥ 2 distinct questions or deep extraction needed.
+- The active skill needs only one narrow inline lookup.
 
 ## Tools required
 
 - `context7-docs` (primary for library/framework API lookups)
 - `brave-search` (open-web discovery for unknown URLs, recent sources, and comparisons)
-- `firecrawl-extraction` (known URLs and local documents when extraction is available)
+- `firecrawl-extraction` (known URLs and local documents)
 - `firecrawl-extended` *(optional, for site maps or structured fields)*
 - `firecrawl-deep` *(last resort; explicit approval required)*
 
-
 ## Steps
 
-### Step 1 - Classify the question and any provided sources
+### Step 1 - Classify question and sources
 
-Default to the lightest authoritative source. Do not ask the user to choose between a quick lookup and deep research; Step 3 handles auto-deepening when first evidence is stale, contradictory, non-authoritative, or indirect. Auto-deepening stops at the extraction tier; `firecrawl-deep` never triggers automatically and always requires explicit approval.
+Default to the lightest authoritative source. Auto-deepen when evidence is stale, contradictory, non-authoritative, or indirect; never auto-trigger `firecrawl-deep`.
 
-If the user provides a URL, file, or document, classify it before extraction: public URL, internal/private URL, local plain-text source, local rich document, or likely internal document. Read `{{runtime_reference_root}}/contract/06-safety.md` before sending internal/private URLs, local rich documents, or likely internal documents to external extraction unless the user already approved that exact source class for this run. Prefer structured extraction or query for specific fields, parameters, prices, tables, or lists; use full markdown when full-page understanding, summarization, or quoted context is needed.
-
-If the user provides a local document and extraction is unavailable, fall back only for plain-text, Markdown, or HTML sources that local tools can read directly. For PDFs, spreadsheets, DOCX files, or other rich binaries, stop and surface the limitation instead of guessing.
+If the user provides a URL/file/document, classify it as public URL, internal/private URL, local plain text, local rich document, or likely internal document. Read `{{runtime_reference_root}}/contract/06-safety.md` before external extraction of internal/private URLs, rich documents, or likely internal documents unless already approved.
 
 ### Step 2 - Pin version when material
 
-For APIs, config keys, migrations, method signatures, or code examples, pin library version from the closest manifest and lockfile before Context7. If version is floating, absent, conflicting, or docs mismatch the pinned version, state the limitation and lower confidence or ask when it blocks correctness.
-
-Skip pinning when the question is conceptual and version is not material.
+For APIs, config keys, migrations, method signatures, or code examples, pin the closest manifest and lockfile version before Context7. State limitations when versions float, conflict, or docs mismatch. Skip pinning for conceptual questions.
 
 ### Step 3 - Gather evidence
 
-Use the lightest tool first. Use Context7 first for library/framework APIs when it can match the pinned version; otherwise discover authoritative pages, then extract the highest-signal source. Search before extracting when the authoritative URL is unknown, and extract only the highest-signal source(s) needed for the answer. Prefer official docs, source repos, release notes, standards, and vendor materials over blogs or tutorials.
+Use Context7 first for pinned library/framework APIs when it can answer. Otherwise search to discover authoritative URLs, then extract only the highest-signal source(s). Prefer official docs, source repos, release notes, standards, and vendor materials.
 
-For recency-sensitive questions, use the `brave-search` news path before extraction and include `as of <date>` or source publication dates in the answer. Use freshness labels as needed: `baseline-missing` (no primary evidence), `stale` (doc predates current session), `current-session` (fetched this run). Use Brave to shortlist unknown official URLs, recent advisories/release notes, or comparison sources before extraction. Use image search only when visual evidence is material to the answer.
+For recency-sensitive topics, use news/search before extraction and include `as of <date>` or publication dates. For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary evidence when available.
 
-For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary vendor or source-repo evidence when available and include the evidence date. If only secondary sources are available, label the limitation and lower confidence.
+Use `firecrawl-extended` only for maps or structured fields. Use `firecrawl-deep` only with explicit per-run approval per §4 carve-out rules.
 
-Auto-deepen when first evidence is stale, contradictory, non-authoritative, or indirect. Use search snippets only for discovery unless explicitly labeled snippet-only with low confidence.
+### Step 4 - Synthesize
 
-Use `firecrawl-extended` only for maps or structured fields. Use `firecrawl-deep` only with explicit per-run approval per §4 carve-out rules; the deep tier never auto-triggers.
-
-### Step 4 - Resolve conflicts and synthesize
-
-Prefer the source matching the pinned version, then publisher docs over third-party tutorials. If authoritative sources still disagree, present both and lower confidence.
-
-Answer only from gathered evidence. Include limitations for freshness, access, gated sources, or single-source answers. Cite only fetched/session-provided sources.
+Prefer pinned-version sources, then publisher docs over third-party tutorials. If authoritative sources disagree, present both and lower confidence. Answer only from gathered evidence and cite fetched/session-provided sources.
 
 ## Output format
 
-Depth is auto-determined by Steps 1–3; no user selection required.
+Lookup: direct answer, optional minimal example, source, confidence when not high.
 
-Lookup (shallow): direct answer, optional minimal example, source, confidence when not high.
-
-Research (deep): answer, key findings, limitations, sources, confidence.
-
+Research: answer, key findings, limitations, sources, confidence.
 
 ## Rules
 
 - Never ask the user to choose lookup vs research; decide and auto-deepen.
-- Use the lightest depth that answers correctly; pin versions when they affect the answer.
-- Prefer 2–4 authoritative sources over long weak lists.
-- Stop at the cited answer; hand off code changes to **b-implement**, runtime tracing to **b-debug**, and planning or new decisions to **b-plan** rather than acting on the findings here.
-
+- Use the lightest depth that answers correctly.
+- Prefer 2-4 authoritative sources over long weak lists.
+- Hand off code changes to **b-implement**, tracing to **b-debug**, and planning to **b-plan**.

@@ -33,47 +33,38 @@ Confirm root cause, fix minimally, verify, and remove probes. If the user asks o
 
 - `serena-symbol-toolkit` *(preferred for tracing and focused fixes)*
 - `context7-docs` *(optional, for suspected API misuse)*
-- `brave-search` + `firecrawl-extraction` *(optional, for public errors, recent deprecations, or upstream advisories after the privacy gate)*
-- Native search and `bash` - exact errors, config, repro commands, profilers, and diagnostics.
-
+- `brave-search` + `firecrawl-extraction` *(optional, for public errors, deprecations, or advisories after privacy gate)*
+- `bash` - exact errors, config, repro commands, profilers, and diagnostics.
 
 ## Steps
 
-### Step 1 - Frame the symptom
+### Step 1 - Frame symptom
 
-Collect exact failure, expected vs actual behavior, repro notes, determinism, and for perf bugs workload/baseline/threshold. Check the regression window when available: recent commits, dependency or lockfile changes, config drift, feature flags, data shape changes, and environment differences.
+Capture exact failure, expected vs actual behavior, repro, determinism, environment, and for perf bugs workload/baseline/threshold. Check recent commits, dependency/lockfile changes, config drift, flags, data shape, and environment differences.
 
-For non-trivial or blocked bugs, keep a repro record: command or interaction, workspace or target, relevant versions/config flags, data mode, expected behavior, actual behavior, determinism, and strongest evidence. Do not include secret values or private data.
+For active production impact, data loss, or security risk, read `../../b-agentic/references/contract/06-safety.md` before containment. Label containment as reversible mitigation, not final fix.
 
-If production impact, data loss, or security risk is active, read `../../b-agentic/references/contract/06-safety.md` before identifying containment or asking for shared-environment action. Treat containment as a reversible mitigation, not the final fix; record what remains unproven until root cause is confirmed.
+### Step 2 - Rank suspects
 
-### Step 2 - Rank suspects only as needed
-
-Use the stack trace or diagnostic fast path when one file/function is already strongly implicated. Otherwise map the path with the lightest tool: Serena/native reads for exact owners and references.
-
-Bias first checks toward swallowed errors, auth/authz gates, config drift, missing `await`, async ordering, shared-state leaks, and new boundary errors. For perf, measure N+1 queries, unbounded retries, hot-loop allocations, or blocking I/O before guessing.
+Use stack traces and diagnostics first. Otherwise map the path with Serena/native reads. Bias checks toward swallowed errors, auth/authz gates, config drift, missing awaits, async ordering, shared state, new boundary errors, and for perf N+1 queries, retries, hot allocations, or blocking I/O.
 
 ### Step 3 - Confirm root cause
 
-Use the cheapest proof: exact error search, local diagnostics, narrow repro command, targeted docs lookup, benchmark/profiler, forced ordering, fake clock, or stress loop.
+Use the cheapest proof: exact error search, local diagnostics, narrow repro, targeted docs lookup, benchmark/profiler, forced ordering, fake clock, or stress loop.
 
-Temporary probes are allowed only when cheaper evidence is insufficient. Use instrumentation when the symptom is intermittent, remote-only, timing-dependent, or hidden behind swallowed errors and a bounded probe can collect decisive evidence; otherwise request the missing repro data or hand off to **b-plan** for structural diagnosis work. Tag every probe with `b-debug-probe` in the language-appropriate comment form.
+Temporary probes are allowed only when cheaper evidence is insufficient; tag every probe with `b-debug-probe`. If the symptom cannot be reproduced, capture environment differences and ask for exact repro/logs instead of patching defensively.
 
-If the agent cannot reproduce a user-reproducible symptom, capture environment differences and ask for exact repro steps, logs, or a minimal test. Do not patch defensively.
+Before the final fix, state: `Root cause: <what fails> because <why>`.
 
-Before applying the final fix, state: `Root cause: <what fails> because <why>`.
+### Step 4 - Fix minimally
 
-### Step 4 - Apply the minimal fix
-
-Use Serena for symbol edits. Do not bundle cleanup or redesign. If urgent containment was applied before root cause, continue diagnosis or hand off with the mitigation clearly labeled as containment. If the confirmed cause needs a structural change, hand off to **b-plan** with root cause, evidence, and any attempted minimal fix.
+Use Serena for symbol edits. Do not bundle cleanup or redesign. If the confirmed cause needs structural work, hand off to **b-plan** with root cause, evidence, and attempted minimal fix.
 
 ### Step 5 - Verify and clean up
 
-Run the narrowest check that proves the symptom changed. For nondeterminism, run the stress repro long enough to support confidence. For perf, report before/after measurements.
+Run the narrowest check that proves the symptom changed. For nondeterminism, run a sufficient stress repro; for perf, report before/after measurements. Remove `b-debug-probe` markers and scan for debug leftovers. Re-run verification after cleanup.
 
-Remove all `b-debug-probe` markers and scan for untagged debug leftovers (`console.log`, `print`, breakpoints, fake clocks, profiler hooks). Run `rg --hidden 'b-debug-probe' -- <touched-paths>` (or `grep -RIn 'b-debug-probe' <touched-paths>` when `rg` is unavailable) and verify zero matches before reporting success. Re-run verification after cleanup. Mention restart/reload requirements when config or startup changed.
-
-If `git-delta` is configured as `core.pager`, `git diff` output may be reformatted for display; use `GIT_PAGER=cat git diff` or `git --no-pager diff` when parsing diff output programmatically.
+If `git-delta` is configured as `core.pager`, use `GIT_PAGER=cat git diff` or `git --no-pager diff` when parsing diff output.
 
 ## Output format
 
@@ -81,13 +72,12 @@ If `git-delta` is configured as `core.pager`, `git diff` output may be reformatt
 Symptoms -> Root cause -> Fix -> Verification -> Cleanup/next
 ```
 
-
 ## Rules
 
-- Do not apply the final fix before root cause is confirmed. Approved containment may happen first only to reduce active production, data-loss, or security impact, and must be labeled as containment.
+- Do not apply the final fix before root cause is confirmed.
 - Measure perf bugs before and after.
 - Surface cannot-reproduce gaps instead of speculative fixes.
-- Stop after hitting the class-aware iteration cap; do not continue blindly.
+- Stop at the class-aware iteration cap.
 - Verify probe removal before reporting success.
 
 ## Reference pointers

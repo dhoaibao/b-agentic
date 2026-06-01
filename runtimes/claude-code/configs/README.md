@@ -1,57 +1,37 @@
 # Claude Code Runtime Layout
 
-This directory contains Claude Code runtime templates that are copied or referenced by `install.sh`.
+Adapter-owned layout for Claude Code. Shared skills and contracts stay runtime-neutral; Claude-specific paths live here and in `runtimes/claude-code/scripts/`.
 
-## Supported distribution mode
-
-The first Claude-native release supports a personal-global install only:
+## Install layout
 
 - Kernel memory: `~/.claude/CLAUDE.md`
 - Skills: `~/.claude/skills/<skill-name>/SKILL.md`
-- Skill-local support files: `~/.claude/skills/<skill-name>/reference.md`
-- Suite metadata, backups, and source snapshots: `~/.claude/b-agentic/`
-- Shared contract reference snapshot: `~/.claude/b-agentic/references/contract/*.md`
-- Recommended settings template: `~/.claude/b-agentic/templates/settings.template.json`
-- Global MCP template: `~/.claude/b-agentic/templates/mcp.user.template.json`
+- Skill support: `~/.claude/skills/<skill-name>/reference.md`
+- Suite metadata/backups/snapshots: `~/.claude/b-agentic/`
+- Shared references: `~/.claude/b-agentic/references/contract/*.md`
+- Settings template: `~/.claude/b-agentic/templates/settings.template.json`
+- MCP template: `~/.claude/b-agentic/templates/mcp.user.template.json`
 - User-scope MCP config: `~/.claude.json`
 - Sensitive artifacts: `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/claude-code/b-agentic/<skill>/<slug>.log`
 
-Project-local `.claude/` install, plugin packaging, hooks, and dynamic context injection are non-goals for the first migrated release. Add them only after validator and smoke coverage prove global parity.
+Project-local install, plugin packaging, hooks, and dynamic context injection are non-goals until validator and smoke coverage prove global parity.
 
-## Invocation policy
+## Invocation
 
-Claude Code exposes each skill directory as `/b-*`. All skills are model-invocable when their descriptions match the request. Skill descriptions are the primary routing signal.
+Claude Code exposes each skill directory as `/b-*`; descriptions are the primary routing signal.
 
 ## Continuation and resume guarantees
 
-This adapter does not provide native phase-to-phase automation. b-agentic workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable resume state, when a skill writes it, follows the shared run-id and artifact rules under `~/.claude/b-agentic/references/contract/08-artifacts.md` and `~/.claude/b-agentic/references/contract/11-session.md`.
+This adapter does not provide native phase-to-phase automation. Workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable state follows `08-artifacts.md` and `11-session.md` under the installed shared reference snapshot.
 
-## Safety policy
+## Safety and merge policy
 
-The installer never overwrites an existing `~/.claude/CLAUDE.md` without `--replace-memory`. Plain install syncs skills, installs the shared reference snapshot under `~/.claude/b-agentic/references/`, merges recommended settings into `~/.claude/settings.json`, and merges user-scope MCP servers into `~/.claude.json`. Existing settings and MCP config are backed up before merge.
-
-Settings merge is conservative: unknown keys are preserved, arrays are appended without duplicates, objects are merged recursively, and existing scalar values win conflicts.
+The installer never overwrites `~/.claude/CLAUDE.md` without `--replace-memory`. Plain install syncs skills, shared references, settings, and MCP entries. Existing settings and MCP config are backed up; unknown keys are preserved, arrays append without duplicates, objects merge recursively, and existing scalar values win conflicts.
 
 ## Global MCP Setup
 
-Plain install merges `mcp.user.template.json` into `~/.claude.json` under top-level `mcpServers`, matching Claude Code's user scope. The global set contains Serena, Context7, Brave Search, Firecrawl, and Playwright.
-
-| Server | Use |
-|---|---|---|
-| `serena` | Semantic code navigation/editing for local source work. |
-| `context7` | Library/framework documentation lookup. |
-| `brave-search` | Open-web and news discovery. |
-| `firecrawl` | Known URL and document extraction. |
-| `playwright` | Browser/DOM/visual/e2e evidence with isolated state. |
-
-MCP safety rules:
-- Use environment-variable placeholders such as `${CONTEXT7_API_KEY:-}`, `${BRAVE_API_KEY}`, and `${FIRECRAWL_API_KEY}` in templates; never commit real API keys.
-- The managed Brave Search, Firecrawl, and Playwright entries launch through `pnpm dlx`, so pnpm must be available on `PATH` when those MCP servers are started.
-- During an interactive install, prompt for Context7, Brave Search, and Firecrawl API keys and write provided values directly to user-scope `~/.claude.json`. Leave a prompt blank to keep the placeholder. Non-interactive installs skip prompts.
-- Keep Playwright configured with `--isolated` unless a user explicitly opts into persistent browser state outside the tracked worktree.
-- Do not include Claude hooks, generated root guidance, indexes, memories, or setup commands in MCP templates.
-- Context7 may also offer CLI + Skills setup through `npx ctx7 setup`; b-agentic uses the MCP HTTP endpoint with the `${CONTEXT7_API_KEY:-}` optional header placeholder unless the installer prompt writes a concrete key, and does not run Context7 setup commands during install.
+Plain install merges `mcp.user.template.json` into `~/.claude.json` under `mcpServers`. The set is Serena, Context7, Brave Search, Firecrawl, and Playwright. Templates use API-key placeholders; interactive install may write user-scope key values. Brave Search, Firecrawl, and Playwright launch through `pnpm dlx`; Playwright stays `--isolated`. The installer does not run Context7, Serena, or browser setup commands.
 
 ## MCP readiness after install
 
@@ -66,12 +46,6 @@ The tier-2 block is aimed at readable file previews, YAML-heavy work, better git
 When the installer can detect Homebrew, `apt`, or `dnf`, it prints matching package commands for both tiers; otherwise it falls back to manual-install notes.
 The installer never auto-installs these packages.
 
-## Validator scope
+## Validation
 
-`scripts/validate-skills.sh` is the stable wrapper over `tooling/validate/run.sh`, which runs shared regression checks for runtime-neutral skills and shared contract files plus each registered runtime validator. Claude-specific paths, memory filenames, install-layout details, and runtime caveats stay adapter-owned here and in `runtimes/claude-code/scripts/validate.sh`.
-
-`scripts/smoke-install.sh` is the stable wrapper over `tests/smoke/install.sh`. The Claude adapter contributes its install coverage through `runtimes/claude-code/tests/smoke.sh`.
-
-For release-critical delivery changes, prefer `scripts/validate-skills.sh --release`; it keeps the same shared validation path but also runs installer smoke so launcher and install regressions fail the maintained entrypoint.
-
-Shared skills and shared contract files stay runtime-neutral; Claude-specific install paths remain adapter-owned here and in `runtimes/claude-code/scripts/validate.sh`.
+`scripts/validate-skills.sh` runs shared validation plus runtime validators. `scripts/smoke-install.sh` runs the shared smoke harness; Claude coverage lives in `runtimes/claude-code/tests/smoke.sh`. Use `scripts/validate-skills.sh --release` for delivery-sensitive changes.

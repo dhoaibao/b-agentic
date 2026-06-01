@@ -1,10 +1,10 @@
-# b-plan — reference
+# b-plan reference
 
-Long-form templates for `b-plan`. The SKILL.md links here so the main file stays scannable under context pressure.
+Compact templates for `b-plan`.
 
-## Saved-plan skeleton (full mode)
+## Saved-plan skeleton
 
-New saved plans include durable frontmatter before the Markdown body. Use the path and slug conventions to save the file with an English `<plan-file-slug>` filename, while frontmatter `slug` stays the canonical `<task-slug>`.
+Use durable frontmatter plus checkbox steps:
 
 ```markdown
 ---
@@ -22,73 +22,59 @@ touch_points:
 # <task title>
 
 ## Goal
-<one paragraph stating the end state>
+<end state>
 
 ## Confirmed decisions
-- <decision> — <one-line rationale>
+- <decision> - <rationale>
 
 ## Assumptions
-- <what the plan takes for granted that the user did not explicitly confirm>   (omit the section when there are none; do not silently elide unconfirmed assumptions)
+- <unconfirmed assumption, or omit section>
 
 ## Planned touch points
-- `<path>` — <what changes here>
+- `<path>` - <change>
 
 ## Dependencies
-- <upstream constraint, feature flag, migration order, external readiness>
+- <real dependency, or omit section>
 
 ## Risks
-- <risk> — <mitigation or accepted residual>
-
-## Unknowns
-- <open question> — <how it will be resolved or who owns it>
+- <risk> - <mitigation>
 
 ## Steps
 - [ ] **<imperative step title>**
   - Changes: <files or symbols>
   - Why now: <ordering reason>
   - Done when: <verification>
-...
 
 ## Verification
-- <project-specific command or procedure>
+- <project command or procedure>
 
 ## Rollback
-- <how to revert if Step N fails after merge>   (only when real)
+- <real rollback note, or omit section>
 
 ## Revisions
-- <YYYY-MM-DD> — <one-line delta>   (added when the plan is revised)
+- <YYYY-MM-DD> - <delta, only when revised>
 ```
 
-Add deployment notes only when they are real: feature flags, migration order, external dependency readiness, or rollback risk.
+Add deployment notes or mapping outlines only when they affect execution.
 
-If the task involves field mapping or protocol translation, add a small mapping outline instead of burying it in prose.
-
-## Quick-plan template (chat mode)
-
-Quick plans stay in chat. Use this minimum shape so quick plans don't drift in form:
+## Quick-plan template
 
 ```text
-### Plan: <one-line goal>
+### Plan: <goal>
 
 **Scope:** <files or area>
 **Risk:** <trivial | low>
 
 **Steps:**
-1. <imperative step> — Done when: <check>
-2. <imperative step> — Done when: <check>
-3. ...
+1. <step> - Done when: <check>
+2. <step> - Done when: <check>
 
 **Verification:** <narrowest command or procedure>
 ```
 
-If a quick plan accumulates more than ~5 steps or grows risks/unknowns sections, promote it to full mode and save it under `.b-agentic/b-plan/<plan-file-slug>.md`.
+Promote to a saved plan when the quick plan grows beyond about five steps, touches public/sensitive/release surfaces, or needs durable approval.
 
 ## Supersede vs revise
 
-When an approved plan needs replacement (not just edits):
-
-- **Revise in place** when the goal, touch points, and most steps survive.
-- **Supersede** when the goal itself changed, or the approach is being replaced wholesale:
-  1. Set the old plan's `status: superseded` and add a final `## Revisions` entry: `- <date> — superseded by <new-task-slug>`.
-  2. Create a new plan with a distinct slug. Reference the superseded plan in the new plan's `Dependencies` or `Goal` section.
-  3. Do not delete the superseded plan; it remains audit history.
+- Revise in place when goal, touch points, and most steps survive.
+- Supersede when the goal or approach changes wholesale: set old `status: superseded`, add a revision note, create a new slug, and keep the old plan as audit history.

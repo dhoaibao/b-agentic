@@ -20,10 +20,9 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed.
 
 ## When to use
 
-- The task is non-trivial under the shared §3 glossary.
-- The goal is clear, but approach, sequencing, risk, or dependencies matter.
-- The end state, acceptance criteria, constraints, or non-goals are unclear.
 - The user asks for a plan, architecture direction, or ordered implementation steps.
+- The goal is clear but approach, sequencing, risk, dependencies, or acceptance criteria matter.
+- Scope, constraints, non-goals, or end state are unclear.
 - A refactor is still broad or vague and not yet a concrete mechanical transform.
 
 ## When NOT to use
@@ -39,44 +38,29 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed.
 - `context7-docs` *(optional, for one narrow API check)*
 - `firecrawl-extraction` *(optional, for a user-provided issue or ticket URL)*
 
-
 ## Steps
 
-### Step 1 - Choose quick or full mode
+### Step 1 - Choose mode
 
-- **Quick mode:** default for low-risk scoped work. Return a short chat plan and ask for approval.
-- **Full mode:** use only for non-trivial work, real structural choice, public/sensitive risk, or durable coordination need. Confirm approval, worktree state, and planned verification before saving a plan under `.b-agentic/b-plan/<plan-file-slug>.md`.
+Use quick mode for low-risk plans that fit in chat. Use full mode when work touches more than 3 files, public/sensitive contracts, CI/build/dependencies, broad references, durable coordination, or a plan too large for chat. Full mode saves `.b-agentic/b-plan/<plan-file-slug>.md`.
 
-Default to quick mode when the plan is low/trivial risk, fits in chat, and can be executed in one coherent session. Do not promote to full mode solely because the task has several routine substeps. Use full mode when the plan is non-trivial per the shared §3 glossary (touches more than 3 files, a public contract, a sensitive path, CI/build config, or adds/changes a dependency), needs durable approval, spans sessions, has unresolved dependencies, or discovery reveals broad references, security-sensitive behavior, deployment risk, or a plan that is no longer readable in chat.
+### Step 2 - Lock scope
 
-### Step 2 - Lock scope and decisions
+State the interpreted scope in one sentence. If the outcome is underdetermined, enter Clarification mode before sequencing work.
 
-State the interpreted scope in one sentence. If the goal or acceptance criteria are ambiguous, enter **Clarification mode** (below) before planning.
+If the user waives planning, check the small-direct threshold. If it passes, hand off to **b-implement** with assumptions and lowered confidence when decisions remain; otherwise produce a minimal plan and explain why planning is still needed.
 
-If the user explicitly waives planning ("just implement it", "skip the plan"), check the small-direct threshold. If it passes, log the waiver and hand off to **b-implement** with the interpreted scope and confidence appropriate to the unverified scope; lower when material decisions remain. If it fails the threshold, explain why a plan is needed for safe execution; if the user still insists, log the override and produce a minimal chat plan.
+Ask only for inputs that change safe planning: hard constraints, deployment order, required verification, or behavioral decisions the repo cannot answer. Keep assumptions visible until confirmed.
 
-Ask only for missing inputs that change safe planning: hard constraints, deployment/order constraints, required verification, or behavioral decisions the codebase cannot answer.
+### Step 3 - Inspect only what helps the plan
 
-Keep assumptions visible. Move them to confirmed decisions only after explicit user confirmation.
+Skip discovery for greenfield or docs-only work. Otherwise use local/Serena evidence for owners, references, conventions, and stable anchors. Use Context7 only for a versioned API detail that changes the plan. Use Firecrawl only for user-provided issue/ticket/docs URLs whose exact text affects scope.
 
-### Step 3 - Scan existing code only when useful
+### Step 4 - Choose approach and steps
 
-Skip code discovery for greenfield or docs-only work. Otherwise use the lightest tool that answers the next planning question:
+Compare alternatives only when the choice matters. Steps must be dependency ordered and include changes, why now, and `Done when` verification.
 
-- Serena/native tools for exact owners, declarations, references, nearby conventions, and stable anchors for prose/config edits; prefer `rg`, `fd`/`fdfind`, and `jq` when they exist and materially speed local evidence.
-- For small or obvious 1-3 file plans, keep discovery local; do not spend MCP budget unless shared-boundary risk appears.
-- Use Context7 only when a versioned third-party API detail changes the plan, step ordering, or acceptance criteria; otherwise keep planning grounded in repo evidence.
-- Use Firecrawl only for user-provided issue/ticket/docs URLs where exact remote text affects scope; do not turn ordinary planning into open-web research.
-
-### Step 4 - Choose an approach when there is a real choice
-
-If multiple viable approaches matter, compare 2-3 options, pick one, and record why. If the approach is obvious, do not invent alternatives.
-
-### Step 5 - Write dependency-ordered steps
-
-Each step states changes, exact paths/symbols when known, why it comes now, and `Done when` verification. Quick plans should usually stay to 2-5 bullets. Use stable anchors for prose/config plans instead of long quoted text.
-
-Full-mode steps use checkbox style so **b-implement** can update progress:
+Quick plans stay to 2-5 bullets. Full-mode steps use checkbox style:
 
 ```markdown
 ## Steps
@@ -88,42 +72,17 @@ Full-mode steps use checkbox style so **b-implement** can update progress:
 
 Read `./reference.md` before writing a quick-plan template, saved-plan skeleton, supersede rule, or multi-plan dependency.
 
-### Step 6 - Deliver and request approval
+### Step 5 - Deliver
 
-Quick mode stays in chat. For full mode, include durable frontmatter (slug, status, created_at, approved_at, approved_by, approved_head, risk, touch_points) and show the path; ask for approval. Read `../../b-agentic/references/contract/09-output.md` before emitting a status block.
+Quick mode stays in chat and asks for approval. Full mode must include durable frontmatter (`slug`, `status`, `created_at`, `approved_at`, `approved_by`, `approved_head`, `risk`, `touch_points`), show the path, and ask for approval. Read `../../b-agentic/references/contract/09-output.md` before emitting a status block.
 
-If approval arrives during the same run, update `status`, `approved_at`, `approved_by`, and `approved_head` when available.
+If approval arrives in the same run, update `status`, `approved_at`, `approved_by`, and `approved_head` when available.
 
 ## Clarification mode
 
-Use this sub-mode when the target outcome is underdetermined. Clarify before planning; do not sequence work until the goal is concrete.
+Use when two or more plausible outcomes remain. Restate the ask, ask only blocking questions, and prefer repo evidence before asking. After two unresolved rounds, offer two concrete interpretations and ask the user to pick or override.
 
-### C1 - Confirm this is a clarification problem
-
-- If the target is clear and the work is small, hand off to **b-implement**.
-- If the user explicitly waives clarification ("just do it", "skip spec"), log the waiver, restate the interpreted scope and assumptions, lower confidence, and hand off to **b-implement** or continue planning accordingly.
-- If two or more plausible outcomes remain, continue.
-
-### C2 - Ask only blocking questions
-
-Restate the ask in one sentence, then ask only what blocks a concrete spec:
-
-- user-visible outcome
-- hard constraints
-- success criteria
-- non-goals when scope could sprawl
-
-Prefer one blocking question at a time when the answer changes the next question. After two unresolved rounds, stop asking open questions: offer two concrete interpretations with named assumptions and ask the user to pick or override.
-
-### C3 - Use local evidence before asking
-
-Before asking the user something the repo can answer, inspect nearby code, naming, docs, or ownership. If `CONTEXT.md` or `CONTEXT-MAP.md` exists, reuse its terminology and surface contradictions with code instead of guessing.
-
-If the remaining blocker is external feasibility, hand off to **b-research**.
-
-### C4 - Produce the spec and continue
-
-Return a compact chat spec:
+Return a compact spec:
 
 ```text
 ### Spec: <goal>
@@ -136,19 +95,16 @@ Return a compact chat spec:
 **Assumptions:** <unconfirmed assumptions, or none>
 ```
 
-Carry confirmed decisions and assumptions back into the plan. Do not hand off to a separate skill.
+Carry confirmed decisions into the plan. If external feasibility blocks the spec, hand off to **b-research**.
 
 ## Output format
 
 - Quick mode: concise chat plan with scope, risk, steps, and verification.
 - Full mode: saved Markdown plan using `reference.md`.
 
-
 ## Rules
 
 - Do not implement while planning.
-- Keep quick plans lean; promote to full mode when the plan grows risk or coordination needs.
+- Keep quick plans lean; promote only for real risk or coordination need.
 - Surface blockers and assumptions explicitly.
-- If the user waives planning, log the waiver and lower confidence; never proceed without scope confirmation on non-trivial work.
 - Approved plans are the execution source of truth for **b-implement**.
-- In Clarification mode: prefer repo evidence over extra questions; keep assumptions explicit; if external feasibility blocks the spec, use **b-research** instead of guessing.
