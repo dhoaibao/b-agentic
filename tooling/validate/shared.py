@@ -215,7 +215,7 @@ for path in skill_paths:
     # kernel-global: every runtime installs the kernel into its memory file, which carries
     # the contract/09-output read-gate. A per-skill 09-reference assertion is intentionally
     # NOT enforced here — most skills correctly defer to the kernel gate rather than
-    # embedding their own (only b-orchestrate and b-review carry one, by point-of-use need).
+    # embedding their own (b-review keeps one by point-of-use need).
 
     if "## Output format" in body:
         output_fmt_start = body.index("## Output format")
