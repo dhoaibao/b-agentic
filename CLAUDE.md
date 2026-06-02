@@ -108,3 +108,7 @@ Before merging runtime-facing changes:
 - Runtime-specific details under `runtimes/<name>/`?
 - Registry-driven generation and docs still synced?
 - No new root-level documentation sprawl?
+
+## Development Hygiene
+
+Keep local runtime state out of the source tree. The installer writes to user-scope paths (`~/.claude/`, `~/.config/opencode/`, `~/.codex/`). Do not install runtimes into the repo root during development; `.gitignore` covers common local directories, but the cleanest setup is to let the installer use its default paths.

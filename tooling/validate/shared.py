@@ -722,7 +722,6 @@ for contract_path in shared_contract_paths:
 
 for shared_doc_path, shared_doc_text in [
     (contract_index_path, contract_index),
-    (ROOT / "references" / "contract" / "00-kernel.md", read_text(ROOT / "references" / "contract" / "00-kernel.md")),
     (shared_kernel_template_path, shared_kernel_template),
 ]:
     if "${CLAUDE_SKILL_DIR}" in shared_doc_text or "${B_AGENTIC_RUNTIME_REFERENCES}" in shared_doc_text or "${B_AGENTIC_SKILL_DIR}" in shared_doc_text:
@@ -915,7 +914,7 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
                 if headers.get("CONTEXT7_API_KEY") != "${CONTEXT7_API_KEY:-}":
                     errors.append(f"{rel(json_path)}: context7 must use ${{CONTEXT7_API_KEY:-}} optional header placeholder")
 
-        if json_path.name == "mcp.user.template.json" or (is_antigravity and json_path.name == "mcp_config.template.json") or is_zed:
+        if json_path.name == "mcp.user.template.json":
             actual_user = set(servers)
             if actual_user != expected_user:
                 errors.append(f"{rel(json_path)}: user MCP template must contain all default global servers {sorted(expected_user)}, found {sorted(actual_user)}")

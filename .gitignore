@@ -1,5 +1,12 @@
+# Local runtime state — never commit
+.agents/
+.b-agentic/
+.claude/
+.codex/
+.openclaude/
 .opencode/
 .serena/
-.claude/
+
+# Python artifacts
 __pycache__/
 *.pyc
