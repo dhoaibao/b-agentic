@@ -692,9 +692,6 @@ cleaned = cleanup(current, incoming, original)
 mcp_labels = {
     '.claude.json': 'mcpServers',
     'opencode.json': 'mcp',
-    'antigravity-mcp_config.json': 'mcpServers',
-    'cursor-mcp.json': 'mcpServers',
-    'zed-settings.json': 'context_servers',
 }
 mcp_key = mcp_labels.get(label)
 if mcp_key is not None:
@@ -771,8 +768,6 @@ if placeholder_style == 'claude':
     sys.exit(1 if value.startswith('${') else 0)
 if placeholder_style == 'opencode':
     sys.exit(1 if value.startswith('{env:') else 0)
-if placeholder_style == 'gemini':
-    sys.exit(1 if value.startswith('$') else 0)
 sys.exit(1)
 PY
 }

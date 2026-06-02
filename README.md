@@ -1,6 +1,6 @@
 # b-agentic
 
-**Agentic workflow kernel for Claude Code, OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed.**
+**Agentic workflow kernel for Claude Code, OpenCode, and Codex CLI.**
 
 `b-agentic` is a behavioral harness, not just a skill bundle. It installs a runtime kernel, phase skills, a shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
 
@@ -20,7 +20,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `opencode`, `codex-cli`, `antigravity-cli`, `cursor`, or `zed`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
 
 Useful flags:
 
@@ -37,9 +37,6 @@ The installer writes only to user-scope runtime locations. Re-run it to update. 
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
-| Antigravity CLI | Native `/b-*` skills from `~/.gemini/antigravity-cli/skills/` | `~/.gemini/antigravity-cli/mcp_config.json` |
-| Cursor | Native slash commands from `~/.cursor/skills/` | `~/.cursor/mcp.json` |
-| Zed | Native slash commands from `~/.agents/skills/` | `~/.config/zed/settings.json` |
 
 All runtimes are operator-resumed: run a phase skill, keep the returned `[status]` or `[handoff]` block in context, then invoke the next skill explicitly. Runtime adapters preserve invocation ergonomics; they do not promise automatic phase-to-phase continuation.
 

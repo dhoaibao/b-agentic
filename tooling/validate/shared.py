@@ -600,20 +600,6 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "temp_run": "/tmp/codex-cli/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/codex-cli/b-agentic/<skill>/<slug>.log",
     },
-    "antigravity-cli": {
-        "reference": "~/.gemini/antigravity-cli/b-agentic/references/contract/",
-        "temp_root": "/tmp/antigravity-cli/b-agentic/",
-        "sensitive": "~/.gemini/antigravity-cli/b-agentic/<skill>/<run-id>/",
-        "temp_run": "/tmp/antigravity-cli/b-agentic/<skill>/<run-id>/",
-        "temp_log": "/tmp/antigravity-cli/b-agentic/<skill>/<slug>.log",
-    },
-    "zed": {
-        "reference": "~/.agents/b-agentic/references/contract/",
-        "temp_root": "/tmp/zed/b-agentic/",
-        "sensitive": "~/.agents/b-agentic/<skill>/<run-id>/",
-        "temp_run": "/tmp/zed/b-agentic/<skill>/<run-id>/",
-        "temp_log": "/tmp/zed/b-agentic/<skill>/<slug>.log",
-    },
 }
 artifact_contract_path = ROOT / "references" / "contract" / "08-artifacts.md"
 artifact_contract = read_text(artifact_contract_path)
@@ -708,7 +694,6 @@ for runtime_name, api_key_line in [
     ("claude-code", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.claude.json`."),
     ("opencode", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`."),
     ("codex-cli", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.codex/config.toml` or matching shell environment variables."),
-    ("antigravity-cli", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.gemini/antigravity-cli/mcp_config.json` or matching shell environment variables."),
 ]:
     install_path = ROOT / "runtimes" / runtime_name / "scripts" / "install.sh"
     readme_path = ROOT / "runtimes" / runtime_name / "configs" / "README.md"
@@ -831,14 +816,10 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
         if pattern.search(text):
             errors.append(f"{rel(json_path)}: contains secret-looking placeholder/literal {pattern.pattern!r}")
 
-    if json_path.name.startswith("mcp.") or ("antigravity-cli" in json_path.parts and json_path.name == "mcp_config.template.json"):
+    if json_path.name.startswith("mcp."):
         is_opencode = "opencode" in json_path.parts
-        is_antigravity = "antigravity-cli" in json_path.parts
-        is_zed = "zed" in json_path.parts
         if is_opencode:
             mcp_key = "mcp"
-        elif is_zed:
-            mcp_key = "context_servers"
         else:
             mcp_key = "mcpServers"
         servers = data.get(mcp_key)
@@ -889,96 +870,6 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
                 headers = server.get("headers", {})
                 if headers.get("CONTEXT7_API_KEY") != "{env:CONTEXT7_API_KEY}":
                     errors.append(f"{rel(json_path)}: context7 must use {{env:CONTEXT7_API_KEY}} header placeholder")
-
-        elif is_antigravity:
-            if "brave-search" in servers:
-                env = servers["brave-search"].get("env", {})
-                if env.get("BRAVE_API_KEY") != "$BRAVE_API_KEY":
-                    errors.append(f"{rel(json_path)}: brave-search must use $BRAVE_API_KEY placeholder")
-                if servers["brave-search"].get("command") != "pnpm":
-                    errors.append(f"{rel(json_path)}: brave-search must use pnpm dlx")
-                args = servers["brave-search"].get("args", [])
-                if not args or args[0] != "dlx":
-                    errors.append(f"{rel(json_path)}: brave-search must use pnpm dlx")
-                if "@brave/brave-search-mcp-server" not in args:
-                    errors.append(f"{rel(json_path)}: brave-search must use @brave/brave-search-mcp-server")
-
-            if "firecrawl" in servers:
-                env = servers["firecrawl"].get("env", {})
-                if env.get("FIRECRAWL_API_KEY") != "$FIRECRAWL_API_KEY":
-                    errors.append(f"{rel(json_path)}: firecrawl must use $FIRECRAWL_API_KEY placeholder")
-                if servers["firecrawl"].get("command") != "pnpm":
-                    errors.append(f"{rel(json_path)}: firecrawl must use pnpm dlx")
-                firecrawl_args = servers["firecrawl"].get("args", [])
-                if not firecrawl_args or firecrawl_args[0] != "dlx":
-                    errors.append(f"{rel(json_path)}: firecrawl must use pnpm dlx")
-                if "firecrawl-mcp" not in firecrawl_args:
-                    errors.append(f"{rel(json_path)}: firecrawl must use firecrawl-mcp")
-
-            if "playwright" in servers:
-                if servers["playwright"].get("command") != "pnpm":
-                    errors.append(f"{rel(json_path)}: playwright must use pnpm dlx")
-                args = servers["playwright"].get("args", [])
-                if not args or args[0] != "dlx":
-                    errors.append(f"{rel(json_path)}: playwright must use pnpm dlx")
-                if "@playwright/mcp@latest" not in args:
-                    errors.append(f"{rel(json_path)}: playwright must use @playwright/mcp@latest")
-                if "--isolated" not in args:
-                    errors.append(f"{rel(json_path)}: playwright must use --isolated by default")
-
-            if "context7" in servers:
-                server = servers["context7"]
-                if server.get("serverUrl") != "https://mcp.context7.com/mcp" or "httpUrl" in server:
-                    errors.append(f"{rel(json_path)}: context7 must use the official MCP serverUrl endpoint")
-                headers = server.get("headers", {})
-                if headers.get("CONTEXT7_API_KEY") != "$CONTEXT7_API_KEY":
-                    errors.append(f"{rel(json_path)}: context7 must use $CONTEXT7_API_KEY header placeholder")
-
-        elif is_zed:
-            if "brave-search" in servers:
-                env = servers["brave-search"].get("env", {})
-                if env.get("BRAVE_API_KEY") != "$BRAVE_API_KEY":
-                    errors.append(f"{rel(json_path)}: brave-search must use $BRAVE_API_KEY placeholder")
-                if servers["brave-search"].get("command") != "pnpm":
-                    errors.append(f"{rel(json_path)}: brave-search must use pnpm dlx")
-                args = servers["brave-search"].get("args", [])
-                if not args or args[0] != "dlx":
-                    errors.append(f"{rel(json_path)}: brave-search must use pnpm dlx")
-                if "@brave/brave-search-mcp-server" not in args:
-                    errors.append(f"{rel(json_path)}: brave-search must use @brave/brave-search-mcp-server")
-
-            if "firecrawl" in servers:
-                env = servers["firecrawl"].get("env", {})
-                if env.get("FIRECRAWL_API_KEY") != "$FIRECRAWL_API_KEY":
-                    errors.append(f"{rel(json_path)}: firecrawl must use $FIRECRAWL_API_KEY placeholder")
-                if servers["firecrawl"].get("command") != "pnpm":
-                    errors.append(f"{rel(json_path)}: firecrawl must use pnpm dlx")
-                firecrawl_args = servers["firecrawl"].get("args", [])
-                if not firecrawl_args or firecrawl_args[0] != "dlx":
-                    errors.append(f"{rel(json_path)}: firecrawl must use pnpm dlx")
-                if "firecrawl-mcp" not in firecrawl_args:
-                    errors.append(f"{rel(json_path)}: firecrawl must use firecrawl-mcp")
-
-            if "playwright" in servers:
-                if servers["playwright"].get("command") != "pnpm":
-                    errors.append(f"{rel(json_path)}: playwright must use pnpm dlx")
-                args = servers["playwright"].get("args", [])
-                if not args or args[0] != "dlx":
-                    errors.append(f"{rel(json_path)}: playwright must use pnpm dlx")
-                if "@playwright/mcp@latest" not in args:
-                    errors.append(f"{rel(json_path)}: playwright must use @playwright/mcp@latest")
-                if "--isolated" not in args:
-                    errors.append(f"{rel(json_path)}: playwright must use --isolated by default")
-
-            if "context7" in servers:
-                server = servers["context7"]
-                if server.get("url") != "https://mcp.context7.com/mcp":
-                    errors.append(f"{rel(json_path)}: context7 must use the official MCP url endpoint")
-                if "serverUrl" in server:
-                    errors.append(f"{rel(json_path)}: context7 must not use serverUrl")
-                headers = server.get("headers", {})
-                if headers.get("CONTEXT7_API_KEY") != "$CONTEXT7_API_KEY":
-                    errors.append(f"{rel(json_path)}: context7 must use $CONTEXT7_API_KEY header placeholder")
 
         else:
             if "brave-search" in servers:

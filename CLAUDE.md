@@ -6,7 +6,7 @@ Guidelines for editing this source repository. This file is maintainer guidance,
 
 `b-agentic` is a workflow harness, not just a skill suite. Its job is to give AI agents a small, reliable operating system for developer work: route by intent, apply safety gates, ground claims in evidence, verify before claiming completion, and hand off between phases without losing context.
 
-The product vision is multi-runtime support. Claude Code is the reference runtime, but shared behavior must remain portable across OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed through runtime adapters.
+The product vision is multi-runtime support. Claude Code is the reference runtime, but shared behavior must remain portable across OpenCode and Codex CLI through runtime adapters.
 
 The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer contracts, and validation that protects real behavior. Remove layers that only make agents carry more ceremony; keep tooling that improves correctness, install reliability, or cross-runtime delivery.
 
@@ -14,7 +14,7 @@ The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer co
 
 - `README.md` stays brief: overview, install, supported runtimes, skills, layout, and validation.
 - Root `CLAUDE.md` is shared repo guidance, not a Claude-Code-only authoring spec.
-- Claude Code is the reference runtime; OpenCode, Codex CLI, Antigravity CLI, Cursor, and Zed are supported through runtime adapters.
+- Claude Code is the reference runtime; OpenCode and Codex CLI are supported through runtime adapters.
 - Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral.
 - Runtime-specific paths, kernel filenames, install layout, wrappers, and caveats belong under `runtimes/<name>/`.
 - Do not create a second root reference surface.
@@ -98,9 +98,8 @@ Before merging runtime-facing changes:
 5. Run `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json` while iterating on routing, phase handoffs, readiness, or workflow behavior.
 6. Run `scripts/smoke-install.sh` directly only when you need installer smoke coverage by itself.
 7. Codex CLI install, validation, and smoke paths require Python 3.11+ `tomllib`.
-8. Antigravity CLI exposes `/b-*` through `~/.gemini/antigravity-cli/skills/`; MCP config lives at `~/.gemini/antigravity-cli/mcp_config.json` and remote MCP entries use `serverUrl`.
-9. Confirm shared content stayed runtime-neutral and docs changed with public or maintainer surface changes.
-10. Confirm prompt read gates use `{{skill_support_path}}/...` or `{{runtime_reference_root}}/...`, not hardcoded delivery paths.
+8. Confirm shared content stayed runtime-neutral and docs changed with public or maintainer surface changes.
+9. Confirm prompt read gates use `{{skill_support_path}}/...` or `{{runtime_reference_root}}/...`, not hardcoded delivery paths.
 
 ## Review Checklist
 

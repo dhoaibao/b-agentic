@@ -51,9 +51,6 @@ run_all_runtime_smoke_case() {
     assert_file "$sandbox_all/home/$metadata_root/references/contract/09-output.md"
   done < <(registry_runtime_records install)
 
-  assert_contains "$sandbox_all/home/.gemini/GEMINI.md" 'Agent Workflow Kernel for Antigravity CLI'
-  assert_contains "$sandbox_all/home/.gemini/GEMINI.md" '~/.gemini/antigravity-cli/b-agentic/references/contract/'
-
   expect_install_status 0 "$sandbox_all" "$snapshot_repo" --runtime=all --uninstall
 
   while IFS=$'\t' read -r runtime_name metadata_root kernel_path; do
