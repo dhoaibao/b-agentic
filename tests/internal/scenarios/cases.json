@@ -102,6 +102,97 @@
       },
       "expected_verification": false,
       "expected_failure_mode": "none"
+    },
+    {
+      "name": "ambiguous-ship-request",
+      "path": "tests/internal/scenarios/ambiguous-ship-request.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-plan",
+        "state": "needs-input",
+        "cause": "user_blocked"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "user_blocked"
+    },
+    {
+      "name": "approval-denied-then-resumed",
+      "path": "tests/internal/scenarios/approval-denied-then-resumed.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-implement",
+        "state": "complete",
+        "next": "b-review"
+      },
+      "expected_verification": true,
+      "expected_failure_mode": "none"
+    },
+    {
+      "name": "stale-handoff",
+      "path": "tests/internal/scenarios/stale-handoff.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-implement",
+        "state": "blocked",
+        "cause": "conflict"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "conflict"
+    },
+    {
+      "name": "baseline-missing-review",
+      "path": "tests/internal/scenarios/baseline-missing-review.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-review",
+        "state": "complete",
+        "verdict": "READY WITH FOLLOW-UPS"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "none"
+    },
+    {
+      "name": "external-tool-unavailable",
+      "path": "tests/internal/scenarios/external-tool-unavailable.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-research",
+        "state": "blocked",
+        "cause": "tool_unavailable"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "tool_unavailable"
+    },
+    {
+      "name": "browser-evidence-skipped",
+      "path": "tests/internal/scenarios/browser-evidence-skipped.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-browser",
+        "state": "blocked",
+        "cause": "evidence_gap"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "evidence_gap"
+    },
+    {
+      "name": "user-owned-runtime-config-conflict",
+      "path": "tests/internal/scenarios/user-owned-runtime-config-conflict.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-implement",
+        "state": "blocked",
+        "cause": "conflict"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "conflict"
     }
   ]
 }

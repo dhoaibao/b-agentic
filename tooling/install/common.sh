@@ -902,14 +902,6 @@ recommended_shell_commands() {
   printf 'rg, fd/fdfind, jq'
 }
 
-optional_shell_commands() {
-  printf 'bat/batcat, yq, git-delta, gh, tmux, fzf'
-}
-
-optional_shell_tool_workflows() {
-  printf 'readable file previews, YAML-heavy work, better git diffs, GitHub-heavy workflows, long-running jobs, and non-interactive scoring'
-}
-
 linux_distribution_family() {
   [ -r /etc/os-release ] || {
     printf 'unknown'
@@ -1002,15 +994,6 @@ shell_tool_install_hint() {
   esac
 }
 
-optional_shell_tool_install_hint() {
-  case "$1" in
-    brew) printf 'brew install bat yq git-delta gh tmux fzf' ;;
-    apt) printf 'sudo apt install -y bat yq git-delta gh tmux fzf' ;;
-    dnf) printf 'sudo dnf install -y bat yq git-delta gh tmux fzf' ;;
-    *) printf 'install manually: bat or batcat, yq, git-delta, gh, tmux, fzf' ;;
-  esac
-}
-
 report_section() {
   log ""
   log "$1:"
@@ -1047,9 +1030,6 @@ print_shell_tool_recommendations() {
   report_section "Shell tooling"
   report_item "core" "$(recommended_shell_commands)"
   report_item "core-install" "$(shell_tool_install_hint "$package_manager")"
-  report_item "optional" "$(optional_shell_commands)"
-  report_item "optional-use" "$(optional_shell_tool_workflows)"
-  report_item "optional-install" "$(optional_shell_tool_install_hint "$package_manager")"
   report_item "installer" "suggestions only; no packages were installed automatically"
 }
 

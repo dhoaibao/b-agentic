@@ -92,6 +92,8 @@ for required in [
     'uninstall_managed_profiles',
     'report_item "agents"',
     'report_item "rules"',
+    'report_item "hooks"',
+    'hooksState',
     'runtime_main',
 ]:
     if required not in codex_install:
@@ -160,6 +162,9 @@ for needle in ['~/.codex/config.toml', '~/.codex/skills/', '~/.codex/agents/', '
 for required in ['Optional subagent profiles', 'command governance rules', 'User-owned or modified profiles are preserved']:
     if required not in codex_readme:
         errors.append(f'runtimes/codex-cli/configs/README.md: missing governance marker {required!r}')
+for required in ['hooks: disabled', 'set hooks true to activate Serena reminders']:
+    if required not in codex_readme:
+        errors.append(f'runtimes/codex-cli/configs/README.md: missing hook readiness marker {required!r}')
 for required in [
     'Continuation and resume guarantees',
     'does not provide native phase-to-phase automation',

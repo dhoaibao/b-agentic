@@ -359,6 +359,229 @@ prepare_source() {
   sync_source
 }
 
+manifest_path_for_runtime() {
+  case "$1" in
+    claude-code) printf '%s/.claude/b-agentic/install.json' "$HOME" ;;
+    opencode) printf '%s/.config/opencode/b-agentic/install.json' "$HOME" ;;
+    codex-cli) printf '%s/.codex/b-agentic/install.json' "$HOME" ;;
+    *) return 1 ;;
+  esac
+}
+
+manifest_only_runtime_names() {
+  printf '%s\n' claude-code opencode codex-cli
+}
+
+manifest_only_uninstall_one() {
+  local runtime_name="$1" manifest_path="$2"
+  [ -f "$manifest_path" ] || return 1
+  run_cmd python3 - "$manifest_path" <<'PY'
+import json
+import shutil
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1]).expanduser()
+home = Path.home().resolve()
+
+
+def warn(message: str) -> None:
+    print(f"warning: {message}", file=sys.stderr)
+
+
+def under_home(path: Path) -> bool:
+    try:
+        path.resolve().relative_to(home)
+        return True
+    except Exception:
+        return False
+
+
+def safe_name(name: object) -> bool:
+    if not isinstance(name, str) or not name.startswith("b-"):
+        return False
+    return all(ch.islower() or ch.isdigit() or ch == "-" for ch in name) and not name.endswith("-")
+
+
+def remove_tree(path: Path) -> None:
+    if path.exists() and under_home(path):
+        shutil.rmtree(path)
+
+
+def remove_file(path: Path) -> None:
+    if path.exists() and under_home(path):
+        path.unlink()
+
+
+def files_equal(left: Path, right: Path) -> bool:
+    try:
+        return left.read_bytes() == right.read_bytes()
+    except Exception:
+        return False
+
+
+def remove_snapshot_profiles(names: list, dst_root: Path, snapshot_root: Path, extension: str, label: str) -> None:
+    for name in names:
+        if not safe_name(name):
+            warn(f"preserving {label} with unsafe manifest name")
+            continue
+        dst = dst_root / f"{name}.{extension}"
+        snapshot = snapshot_root / f"{name}.{extension}"
+        if not dst.exists():
+            continue
+        if snapshot.exists() and files_equal(dst, snapshot):
+            remove_file(dst)
+        else:
+            warn(f"preserving modified {label}: {dst}")
+
+
+def remove_config_if_template(path_value: str | None, template: Path, label: str) -> None:
+    if not isinstance(path_value, str):
+        return
+    path = Path(path_value).expanduser()
+    if path.exists() and template.exists() and files_equal(path, template):
+        remove_file(path)
+    elif path.exists():
+        warn(f"preserving modified {label}: {path}")
+
+
+def remove_codex_managed_block(path_value: str | None) -> None:
+    if not isinstance(path_value, str):
+        return
+    path = Path(path_value).expanduser()
+    if not path.exists():
+        return
+    begin = "# BEGIN b-agentic managed config"
+    end = "# END b-agentic managed config"
+    text = path.read_text()
+    if begin not in text:
+        return
+    if end not in text:
+        warn(f"preserving modified Codex config: {path}")
+        return
+    prefix, remainder = text.split(begin, 1)
+    _managed, suffix = remainder.split(end, 1)
+    cleaned = (prefix + suffix).strip()
+    if cleaned:
+        path.write_text(cleaned + "\n")
+    else:
+        remove_file(path)
+
+
+data = json.loads(manifest_path.read_text())
+runtime = data.get("runtime")
+paths = data.get("paths", {})
+metadata = manifest_path.parent
+
+runtime_defaults = {
+    "claude-code": {
+        "metadata": home / ".claude" / "b-agentic",
+        "skills": home / ".claude" / "skills",
+        "kernel": home / ".claude" / "CLAUDE.md",
+        "agents": home / ".claude" / "agents",
+        "settings": home / ".claude" / "settings.json",
+        "claudeJson": home / ".claude.json",
+    },
+    "opencode": {
+        "metadata": home / ".config" / "opencode" / "b-agentic",
+        "skills": home / ".config" / "opencode" / "skills",
+        "kernel": home / ".config" / "opencode" / "AGENTS.md",
+        "agents": home / ".config" / "opencode" / "agents",
+        "commands": home / ".config" / "opencode" / "commands",
+        "opencodeJson": home / ".config" / "opencode" / "opencode.json",
+    },
+    "codex-cli": {
+        "metadata": home / ".codex" / "b-agentic",
+        "skills": home / ".codex" / "skills",
+        "kernel": home / ".codex" / "AGENTS.md",
+        "agents": home / ".codex" / "agents",
+        "rules": home / ".codex" / "rules",
+        "codexConfig": home / ".codex" / "config.toml",
+    },
+}
+
+defaults = runtime_defaults.get(runtime)
+if defaults is None:
+    raise SystemExit(f"unsupported manifest runtime: {runtime!r}")
+if metadata.resolve() != defaults["metadata"].resolve():
+    raise SystemExit(f"manifest path does not match runtime metadata root: {manifest_path}")
+
+
+def managed_skill_dir(path: Path) -> bool:
+    skill_file = path / "SKILL.md"
+    if not skill_file.exists():
+        return False
+    try:
+        text = skill_file.read_text()
+    except Exception:
+        return False
+    return "Generated from skills/registry.yaml" in text
+
+
+skills_root = defaults["skills"]
+for name in data.get("skills", []):
+    if not safe_name(name):
+        warn("preserving skill with unsafe manifest name")
+        continue
+    skill_dir = skills_root / name
+    if managed_skill_dir(skill_dir):
+        remove_tree(skill_dir)
+    elif skill_dir.exists():
+        warn(f"preserving skill without managed marker: {skill_dir}")
+
+kernel_path = defaults["kernel"]
+kernel_snapshot = metadata / kernel_path.name
+if kernel_path.exists():
+    try:
+        kernel_text = kernel_path.read_text()
+    except Exception:
+        kernel_text = ""
+    if "<!-- b-agentic-managed -->" in kernel_text and kernel_snapshot.exists() and files_equal(kernel_path, kernel_snapshot):
+        remove_file(kernel_path)
+    else:
+        warn(f"preserving modified managed kernel: {kernel_path}")
+
+if runtime == "claude-code":
+    remove_snapshot_profiles(data.get("agents", []), defaults["agents"], metadata / "agents", "md", "Claude Code agent")
+    remove_config_if_template(str(defaults["settings"]), metadata / "templates" / "settings.template.json", "settings.json")
+    remove_config_if_template(str(defaults["claudeJson"]), metadata / "templates" / "mcp.user.template.json", ".claude.json")
+elif runtime == "opencode":
+    remove_snapshot_profiles(data.get("agents", []), defaults["agents"], metadata / "agents", "md", "OpenCode agent")
+    remove_snapshot_profiles(data.get("commands", []), defaults["commands"], metadata / "commands", "md", "OpenCode command")
+    remove_config_if_template(str(defaults["opencodeJson"]), metadata / "templates" / "mcp.user.template.json", "opencode.json")
+elif runtime == "codex-cli":
+    remove_snapshot_profiles(data.get("agents", []), defaults["agents"], metadata / "agents", "toml", "Codex agent")
+    remove_snapshot_profiles(data.get("rules", []), defaults["rules"], metadata / "rules", "rules", "Codex rule")
+    remove_codex_managed_block(str(defaults["codexConfig"]))
+
+remove_tree(metadata)
+print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
+PY
+}
+
+try_manifest_only_uninstall() {
+  uninstall_enabled || return 1
+  { [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; } && return 1
+
+  local runtime_name manifest_path installed_count=0
+  if [ "$RUNTIME" = "all" ]; then
+    while IFS= read -r runtime_name; do
+      [ -n "$runtime_name" ] || continue
+      manifest_path="$(manifest_path_for_runtime "$runtime_name")" || continue
+      if [ -f "$manifest_path" ]; then
+        manifest_only_uninstall_one "$runtime_name" "$manifest_path"
+        installed_count=$((installed_count + 1))
+      fi
+    done < <(manifest_only_runtime_names)
+    [ "$installed_count" -gt 0 ] || return 1
+    return 0
+  fi
+
+  manifest_path="$(manifest_path_for_runtime "$RUNTIME")" || return 1
+  [ -f "$manifest_path" ] || return 1
+  manifest_only_uninstall_one "$RUNTIME" "$manifest_path"
+}
+
 source_installer_core() {
   local common_src="$SOURCE_DIR/tooling/install/common.sh"
   [ -f "$common_src" ] || die "missing installer core: $common_src"
@@ -440,6 +663,9 @@ main() {
   parse_args "$@"
   ui_init
   ui_print_intro
+  if try_manifest_only_uninstall; then
+    return 0
+  fi
   prepare_source
 
   if [ "$RUNTIME" = "all" ]; then

@@ -751,10 +751,6 @@ release_validation_lines = [
 shared_shell_install_lines = [
     "recommended_shell_commands() {",
     "printf 'rg, fd/fdfind, jq'",
-    "optional_shell_commands() {",
-    "printf 'bat/batcat, yq, git-delta, gh, tmux, fzf'",
-    "optional_shell_tool_workflows() {",
-    "printf 'readable file previews, YAML-heavy work, better git diffs, GitHub-heavy workflows, long-running jobs, and non-interactive scoring'",
     'report_section "Shell tooling"',
     'report_item "installer" "suggestions only; no packages were installed automatically"',
 ]
@@ -764,10 +760,9 @@ runtime_readiness_doc_lines = [
     "`serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.",
 ]
 runtime_shell_doc_lines = [
-    "## Optional shell tooling recommendations",
-    "Install reports print a default shell-tooling tier for `rg`, `fd`/`fdfind`, and `jq`, plus a separate optional tier for `bat`/`batcat`, `yq`, `git-delta`, `gh`, `tmux`, and `fzf`.",
-    "The tier-2 block is aimed at readable file previews, YAML-heavy work, better git diffs, GitHub-heavy workflows, long-running jobs, and non-interactive scoring.",
-    "When the installer can detect Homebrew, `apt`, or `dnf`, it prints matching package commands for both tiers; otherwise it falls back to manual-install notes.",
+    "## Shell tooling recommendations",
+    "Install reports print a core shell-tooling tier for `rg`, `fd`/`fdfind`, and `jq`.",
+    "When the installer can detect Homebrew, `apt`, or `dnf`, it prints a matching package command for that core tier; otherwise it falls back to manual-install notes.",
     "The installer never auto-installs these packages.",
 ]
 for runtime_name, api_key_line in [

@@ -79,6 +79,25 @@ for runtime in registry.get('runtimes', []):
 PY
 }
 
+run_manifest_only_corrupted_manifest_case() {
+  local sandbox_corrupt="$WORK_DIR/manifest-only-corrupt"
+
+  mkdir -p "$sandbox_corrupt/home/Documents/b-owned" "$sandbox_corrupt/home/.claude/b-agentic"
+  printf 'sentinel\n' > "$sandbox_corrupt/home/Documents/b-owned/file.txt"
+  cat > "$sandbox_corrupt/home/.claude/b-agentic/install.json" <<EOF
+{"runtime":"claude-code","paths":{"skills":"$sandbox_corrupt/home/Documents","kernel":"$sandbox_corrupt/home/.claude/CLAUDE.md"},"skills":["b-owned"],"agents":[]}
+EOF
+
+  HOME="$sandbox_corrupt/home" \
+  B_AGENTIC_REPO="$sandbox_corrupt/missing-source" \
+  B_AGENTIC_DIR="$sandbox_corrupt/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox_corrupt/uninstall.log" 2>&1
+
+  assert_file "$sandbox_corrupt/home/Documents/b-owned/file.txt"
+  assert_no_path "$sandbox_corrupt/source"
+}
+
 run_all_runtime_smoke_case() {
   local snapshot_repo="$1"
   local sandbox_all="$WORK_DIR/all-runtimes"
@@ -100,12 +119,32 @@ run_all_runtime_smoke_case() {
     assert_file "$sandbox_all/home/$metadata_root/references/contract/decisions.md"
   done < <(registry_runtime_records install)
 
-  expect_install_status 0 "$sandbox_all" "$snapshot_repo" --runtime=all --uninstall
+  rm -rf "$sandbox_all/source"
+  HOME="$sandbox_all/home" \
+  B_AGENTIC_REPO="$sandbox_all/missing-source" \
+  B_AGENTIC_DIR="$sandbox_all/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  bash "$ROOT_DIR/install.sh" --runtime=all --uninstall >"$sandbox_all/manifest-only-uninstall.log" 2>&1
+  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for claude-code'
+  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for opencode'
+  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for codex-cli'
+  assert_no_path "$sandbox_all/source"
 
   while IFS=$'\t' read -r runtime_name metadata_root kernel_path; do
     [ -n "$runtime_name" ] || continue
     assert_no_path "$sandbox_all/home/$metadata_root/install.json"
   done < <(registry_runtime_records)
+  assert_no_path "$sandbox_all/home/.claude/skills/b-plan"
+  assert_no_path "$sandbox_all/home/.claude/CLAUDE.md"
+  assert_no_path "$sandbox_all/home/.claude/agents/b-explore.md"
+  assert_no_path "$sandbox_all/home/.config/opencode/skills/b-plan"
+  assert_no_path "$sandbox_all/home/.config/opencode/AGENTS.md"
+  assert_no_path "$sandbox_all/home/.config/opencode/commands/b-plan.md"
+  assert_no_path "$sandbox_all/home/.config/opencode/agents/b-explore.md"
+  assert_no_path "$sandbox_all/home/.codex/skills/b-plan"
+  assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
+  assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
+  assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
 
   mkdir -p "$sandbox_pending/home"
   IFS=$'\t' read -r pending_runtime_name _ pending_kernel_path < <(registry_runtime_records)
@@ -180,6 +219,7 @@ main() {
   require_bin python3
   make_repo_snapshot "$snapshot_repo"
   run_all_runtime_smoke_case "$snapshot_repo"
+  run_manifest_only_corrupted_manifest_case
   run_skill_collision_smoke_case "$snapshot_repo"
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
 

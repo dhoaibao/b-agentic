@@ -34,6 +34,7 @@
     "evidence_gap",
     "user_blocked",
     "policy_block",
-    "iteration_cap"
+    "iteration_cap",
+    "tool_unavailable"
   ]
 }

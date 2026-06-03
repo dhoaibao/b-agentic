@@ -30,6 +30,7 @@ readonly CODEX_MANAGED_END="# END b-agentic managed config"
 CONTEXT7_API_KEY_INPUT=""
 BRAVE_API_KEY_INPUT=""
 FIRECRAWL_API_KEY_INPUT=""
+INSTALL_HOOKS_STATE="unknown"
 
 runtime_require_tomllib() {
   python3 - <<'PY' >/dev/null 2>&1 || die "Codex CLI install requires Python 3.11+ (stdlib tomllib)."
@@ -336,11 +337,38 @@ PY
   printf '%s\nactive\n%s' "$action" "${backup:-none}"
 }
 
+codex_hooks_state() {
+  [ -f "$CODEX_CONFIG_DST" ] || {
+    printf 'unknown'
+    return 0
+  }
+  python3 - "$CODEX_CONFIG_DST" <<'PY'
+import sys
+from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    print("unknown")
+    raise SystemExit
+
+try:
+    data = tomllib.loads(Path(sys.argv[1]).read_text())
+except Exception:
+    print("unknown")
+    raise SystemExit
+
+hooks = data.get("features", {}).get("hooks")
+print("disabled" if hooks is False else "active")
+PY
+}
+
 runtime_install_configs() {
   collect_codex_api_keys
 
   run_install_triplet_stage "Updating Codex config" install_codex_config "skip" "none" "none" \
     INSTALL_CONFIG_ACTION INSTALL_CONFIG_STATE INSTALL_CONFIG_BACKUP
+  INSTALL_HOOKS_STATE="$(codex_hooks_state)"
 }
 
 runtime_write_manifest() {
@@ -364,6 +392,7 @@ runtime_write_manifest() {
     CONFIG_ACTION="$INSTALL_CONFIG_ACTION" \
     CONFIG_STATE="$INSTALL_CONFIG_STATE" \
     CONFIG_BACKUP="$INSTALL_CONFIG_BACKUP" \
+    HOOKS_STATE="$INSTALL_HOOKS_STATE" \
     CODEX_DIR="$CODEX_DIR" \
     CODEX_CONFIG_DST="$CODEX_CONFIG_DST" \
     SKILLS_DST="$SKILLS_DST" \
@@ -391,6 +420,7 @@ manifest = {
     'memoryAction': os.environ['MEMORY_ACTION'],
     'configAction': os.environ['CONFIG_ACTION'],
     'configState': os.environ['CONFIG_STATE'],
+    'hooksState': os.environ['HOOKS_STATE'],
     'paths': {
         'codexDir': os.environ['CODEX_DIR'],
         'codexConfig': os.environ['CODEX_CONFIG_DST'],
@@ -422,6 +452,7 @@ runtime_print_install_report() {
   report_item "rules" "${#INSTALL_RULE_NAMES[@]} synced -> $RULES_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "config" "$INSTALL_CONFIG_ACTION -> $CODEX_CONFIG_DST"
+  report_item "hooks" "$INSTALL_HOOKS_STATE"
   report_item "references" "sync -> $REFERENCES_DST"
   report_item "templates" "sync -> $TEMPLATES_DST"
   report_item "manifest" "write -> $MANIFEST_DST"
@@ -429,6 +460,9 @@ runtime_print_install_report() {
   report_item "kernel" "$INSTALL_MEMORY_BACKUP"
   report_item "config" "$INSTALL_CONFIG_BACKUP"
   print_install_report_readiness
+  if [ "$INSTALL_HOOKS_STATE" = "disabled" ]; then
+    report_item "codex-hooks" "disabled by existing [features].hooks = false; run /hooks or set hooks = true to activate Serena reminders"
+  fi
   print_shell_tool_recommendations
   print_install_report_next_steps "Codex CLI"
 }
