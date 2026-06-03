@@ -1,4 +1,5 @@
 ---
+name: b-review
 description: Read-only reviewer for changed-code risk, correctness, security, and missing verification. Use for bounded review slices.
 tools:
   - Read

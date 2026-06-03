@@ -1,4 +1,5 @@
 ---
+name: b-explore
 description: Read-only codebase exploration for b-agentic planning, review, and debugging. Use when broad search output would crowd the main context.
 tools:
   - Read

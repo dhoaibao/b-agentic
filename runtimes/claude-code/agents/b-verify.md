@@ -1,4 +1,5 @@
 ---
+name: b-verify
 description: Verification support for b-agentic. Use to inspect existing checks, diagnostics, and evidence paths without changing code.
 tools:
   - Read

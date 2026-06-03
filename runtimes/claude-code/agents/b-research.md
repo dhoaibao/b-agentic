@@ -1,4 +1,5 @@
 ---
+name: b-research
 description: External and documentation research support for b-agentic. Use when the active skill needs source-backed facts without flooding the main context.
 tools:
   - Read
