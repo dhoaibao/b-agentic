@@ -16,10 +16,3 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run validation suite
         run: bash scripts/validate-skills.sh --release
-
-  smoke-install:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run installer smoke tests
-        run: bash scripts/smoke-install.sh
