@@ -1205,12 +1205,21 @@ runtime_install_common() {
     INSTALL_MCP_BACKUP="$prompted_mcp_backup"
   fi
 
+  run_stage "Installing uninstall helper" install_uninstall_helper
   run_stage "Writing install manifest" runtime_write_manifest
   runtime_print_install_report
 
   if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
     return 2
   fi
+}
+
+install_uninstall_helper() {
+  local script_src="$SOURCE_DIR/tooling/install/manifest_uninstall.py"
+  local script_dst="$METADATA_DIR/tooling/install/manifest_uninstall.py"
+  [ -f "$script_src" ] || return 0
+  ensure_dir "$(dirname "$script_dst")"
+  copy_file "$script_src" "$script_dst"
 }
 
 runtime_uninstall_common() {

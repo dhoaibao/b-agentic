@@ -69,3 +69,8 @@ Request -> Evidence path -> Browser result -> Artifacts/cleanup -> Readiness imp
 - Do not treat missing browser evidence as covered by non-browser tests.
 - Do not store real auth/session state under a tracked worktree path.
 - Route unclear product behavior to **b-debug** and new tool strategy to **b-plan**.
+
+## Reference pointers
+
+- Read `./reference.md` before choosing between evidence paths, classifying browser failures, or when screenshot guidelines are unclear.
+- Read `{{runtime_reference_root}}/performance-checklist.md` before collecting evidence for latency, rendering cost, bundle size, or hot-path browser behavior.

@@ -69,4 +69,5 @@ Symptoms -> Root cause -> Fix -> Verification -> Cleanup/next
 
 ## Reference pointers
 
+- Read `./reference.md` before adding temporary probes, framing perf bugs, or when the symptom spans multiple layers.
 - Read `{{runtime_reference_root}}/performance-checklist.md` before diagnosing a slowdown that spans layers or lacks a clear measurement playbook.

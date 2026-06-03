@@ -13,6 +13,15 @@ It is intentionally not listed in `runtimes/registry.yaml`, so validation, smoke
 5. Update `README.md`, `CLAUDE.md`, and any adapter-specific docs in the same change.
 6. Run `scripts/validate-skills.sh` and `scripts/smoke-install.sh`.
 
+## Examples
+
+Annotated examples from existing adapters live in `examples/`:
+
+- [`examples/opencode-config-merge.md`](examples/opencode-config-merge.md) — JSON config merge for OpenCode's `opencode.json`
+- [`examples/codex-config-merge.md`](examples/codex-config-merge.md) — TOML config merge with managed blocks for Codex CLI's `config.toml`
+
+These show the two most complex patterns: preserving user-owned config while injecting managed MCP servers.
+
 ## Required adapter-owned surfaces
 
 - `configs/README.md` documents runtime layout, config shape, and adapter caveats.

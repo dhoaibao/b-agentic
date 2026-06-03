@@ -72,3 +72,7 @@ Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions ->
 - Do not add opportunistic refactors, compatibility code, or side cleanup.
 - Stop for new decisions instead of guessing.
 - A small direct request still needs real verification.
+
+## Reference pointers
+
+- Read `./reference.md` before validating saved plans, classifying adjacent discoveries, or when the small-direct-request threshold is unclear.

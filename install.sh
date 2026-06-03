@@ -290,10 +290,6 @@ for runtime in registry.get('runtimes', []):
 PY
 }
 
-runtime_names_for_all_install() {
-  runtime_names
-}
-
 runtime_names_for_all() {
   runtime_names
 }
@@ -375,6 +371,15 @@ manifest_only_runtime_names() {
 manifest_only_uninstall_one() {
   local runtime_name="$1" manifest_path="$2"
   [ -f "$manifest_path" ] || return 1
+  local installed_script="$(dirname "$manifest_path")/tooling/install/manifest_uninstall.py"
+  if [ -f "$installed_script" ]; then
+    run_cmd python3 "$installed_script" "$manifest_path"
+    return $?
+  fi
+  if [ -n "${SOURCE_DIR:-}" ] && [ -f "$SOURCE_DIR/tooling/install/manifest_uninstall.py" ]; then
+    run_cmd python3 "$SOURCE_DIR/tooling/install/manifest_uninstall.py" "$manifest_path"
+    return $?
+  fi
   run_cmd python3 - "$manifest_path" <<'PY'
 import json
 import shutil

@@ -448,7 +448,6 @@ if shared_kernel_template and "output.md" not in shared_kernel_template:
 
 _policy_schema, _output_policy = load_output_policy(errors)
 validate_output_policy_contract(_output_policy, output_contract, errors)
-# Decision cards removed in slim-down refactor; no card checks needed.
 # Internal conformance/scenario self-tests run only in --release mode.
 
 runtime_registry_text = read_text(runtime_registry_path)
@@ -580,7 +579,7 @@ for _skill_path in skill_paths:
 kernel_contract_version_match = re.search(r"This runtime contract version is `([0-9]{4}-[0-9]{2}-[0-9]{2})`", kernel)
 kernel_contract_version = kernel_contract_version_match.group(1) if kernel_contract_version_match else None
 
-# Extract canonical contract version from kernel template (00-kernel.md removed in slim-down)
+# Extract canonical contract version from kernel template
 canonical_version_match = re.search(r"This runtime contract version is `([0-9]{4}-[0-9]{2}-[0-9]{2})`", shared_kernel_template)
 canonical_contract_version = canonical_version_match.group(1) if canonical_version_match else None
 
@@ -842,8 +841,6 @@ if required_b_test_intent not in shared_kernel_template and required_b_test_inte
         f"{rel(shared_kernel_template_path)} and references/contract/runtime.md: missing updated b-test routing intent for component-test ownership"
     )
 
-# b-orchestrate removed in slim-down refactor; no orchestrate-specific checks needed
-
 if contract_version:
     for plan_path in sorted((ROOT / ".b-agentic" / "b-plan").glob("*.md")):
         plan_text = plan_path.read_text()
@@ -1075,8 +1072,6 @@ for _prompt_path in sorted((ROOT / "skills").glob("*/prompt.md")):
         _target = _skill_dir / _m.group(1)
         if not _target.exists():
             errors.append(f"{rel(_prompt_path)}: read gate references non-existent skill support file {rel(_target)}")
-
-# Examples removed in slim-down refactor; no examples checks needed
 
 if errors:
     for error in errors:
