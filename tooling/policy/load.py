@@ -228,46 +228,6 @@ def load_output_policy(errors: list[str]) -> tuple[dict, dict]:
                 errors,
             )
 
-    modes = policy.get("modes")
-    if not isinstance(modes, dict):
-        errors.append("tooling/policy/output-policy.json: modes must be an object")
-    else:
-        _require_keys(
-            modes,
-            schema.get("modes_required", []),
-            "tooling/policy/output-policy.json modes",
-            errors,
-        )
-        default_mode = modes.get("default")
-        allowed_modes = _require_string_list(
-            modes.get("allowed"),
-            "tooling/policy/output-policy.json modes.allowed",
-            errors,
-        )
-        if allowed_modes and allowed_modes != schema.get("allowed_modes", []):
-            errors.append(
-                "tooling/policy/output-policy.json: modes.allowed must match schema allowed_modes"
-            )
-        if not isinstance(default_mode, str) or not default_mode:
-            errors.append("tooling/policy/output-policy.json modes.default: expected non-empty string")
-        elif allowed_modes and default_mode not in allowed_modes:
-            errors.append("tooling/policy/output-policy.json modes.default: must be one of modes.allowed")
-        _require_string_list(
-            modes.get("lite_when"),
-            "tooling/policy/output-policy.json modes.lite_when",
-            errors,
-        )
-        _require_string_list(
-            modes.get("strict_when"),
-            "tooling/policy/output-policy.json modes.strict_when",
-            errors,
-        )
-        _require_string_list(
-            modes.get("override_rules"),
-            "tooling/policy/output-policy.json modes.override_rules",
-            errors,
-        )
-
     return schema, policy
 
 
@@ -354,41 +314,3 @@ def validate_output_policy_contract(policy: dict, contract_text: str, errors: li
             )
 
 
-def validate_mode_policy_contract(
-    policy: dict,
-    definitions_text: str,
-    kernel_text: str,
-    readme_text: str,
-    errors: list[str],
-) -> None:
-    if not policy:
-        return
-
-    modes = policy.get("modes")
-    if not isinstance(modes, dict):
-        return
-
-    for mode in modes["allowed"]:
-        for label, text in [
-            ("references/contract/runtime.md", definitions_text),
-            ("references/contract/kernel.template.md", kernel_text),
-            ("README.md", readme_text),
-        ]:
-            if mode not in text:
-                errors.append(
-                    f"{label}: missing mode {mode!r} from tooling/policy/output-policy.json"
-                )
-
-    for trigger in modes["strict_when"]:
-        if trigger not in definitions_text:
-            errors.append(
-                "references/contract/runtime.md: missing strict trigger "
-                f"{trigger!r} from tooling/policy/output-policy.json"
-            )
-
-    for rule in modes["override_rules"]:
-        if rule not in definitions_text:
-            errors.append(
-                "references/contract/runtime.md: missing mode override rule "
-                f"{rule!r} from tooling/policy/output-policy.json"
-            )

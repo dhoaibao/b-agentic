@@ -90,30 +90,5 @@
         "approved live-browser evidence"
       ]
     }
-  },
-  "modes": {
-    "default": "standard",
-    "allowed": [
-      "lite",
-      "standard",
-      "strict"
-    ],
-    "lite_when": [
-      "trivial local request",
-      "no remaining design decision",
-      "no public, sensitive, dependency, CI/build/release, or sequenced risk"
-    ],
-    "strict_when": [
-      "public contract",
-      "sensitive path",
-      "dependency change",
-      "CI/build/release change",
-      "multi-phase or orchestrated work",
-      "shared-environment or external mutation"
-    ],
-    "override_rules": [
-      "user may request stricter mode",
-      "lite is not allowed when any strict trigger applies"
-    ]
   }
 }

@@ -48,10 +48,6 @@ Read a detailed ref only when the active rule, skill step, output format, or han
 
 For overlaps, read `{{runtime_metadata_root}}/references/contract/runtime.md`.
 
-## Modes
-
-Use `standard` by default. Use `lite` only for a trivial local request, no remaining design decision, and no public, sensitive, dependency, CI/build/release, or sequenced risk. Use `strict` for public contract, sensitive path, dependency change, CI/build/release change, multi-phase or orchestrated work, or shared-environment or external mutation.
-
 Do not use `READY FOR PR`, `complete`, or high confidence when baseline, verification, or evidence is missing. UI/browser-relevant work needs supplied/CI evidence, existing-tool evidence, approved live-browser evidence, or an accepted follow-up.
 
 ## Runtime Posture

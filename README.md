@@ -85,8 +85,6 @@ b-ship [explicit ship request after review readiness]
 
 ## Runtime Kernel And MCPs
 
-Behavior modes are `lite` for trivial local work, `standard` by default, and `strict` for public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, and shared-environment or external mutation.
-
 The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, and `decisions.md`. Runtime adapters may also install managed permissions, hooks, rules, and optional subagent profiles when the capability registry allows the shared intent. Runtime details stay in adapters; skill-specific detail stays with each skill.
 
 The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. These are not decorative add-ons: Serena owns symbol work, Context7 owns versioned official docs, Brave owns current/open discovery, Firecrawl owns extraction and approved deeper research, and Playwright owns live browser/e2e evidence through `b-browser`. Native local tools remain first for exact repo evidence.

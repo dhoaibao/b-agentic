@@ -13,7 +13,6 @@ if str(ROOT) not in sys.path:
 
 from tooling.policy.load import (
     load_output_policy,
-    validate_mode_policy_contract,
     validate_output_policy_contract,
 )
 
@@ -449,14 +448,6 @@ if shared_kernel_template and "output.md" not in shared_kernel_template:
 
 _policy_schema, _output_policy = load_output_policy(errors)
 validate_output_policy_contract(_output_policy, output_contract, errors)
-validate_mode_policy_contract(
-    _output_policy,
-    runtime_contract,
-    shared_kernel_template,
-    readme,
-    errors,
-)
-
 # Decision cards removed in slim-down refactor; no card checks needed.
 # Internal conformance/scenario self-tests run only in --release mode.
 

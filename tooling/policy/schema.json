@@ -6,15 +6,7 @@
     "handoff_block",
     "cause_classes",
     "skill_verdicts",
-    "readiness",
-    "modes"
-  ],
-  "modes_required": [
-    "default",
-    "allowed",
-    "lite_when",
-    "strict_when",
-    "override_rules"
+    "readiness"
   ],
   "status_block_required": [
     "required_fields",
@@ -45,11 +37,6 @@
     "high",
     "medium",
     "low"
-  ],
-  "allowed_modes": [
-    "lite",
-    "standard",
-    "strict"
   ],
   "cause_class_pattern": "^[a-z_]+$"
 }

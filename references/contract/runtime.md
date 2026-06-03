@@ -68,16 +68,7 @@ Runtime-native capabilities include skills, permissions, hooks, rules, subagents
 
 Subagents are optional accelerators. They may gather evidence, isolate broad search output, or review bounded slices, but the active b-agentic skill owns final decisions, verification claims, status blocks, handoffs, and verdicts. Do not use subagents to auto-continue phase-to-phase workflow or bypass approval gates.
 
-### Risk and behavior modes
-
-Use these labels consistently:
-- **lite** - trivial local request, no remaining design decision, no public, sensitive, dependency, CI/build/release, or sequenced risk.
-- **standard** - default mode for ordinary work.
-- **strict** - required for any public contract, sensitive path, dependency change, CI/build/release change, multi-phase or orchestrated work, or shared-environment or external mutation.
-
-Override rules:
-- user may request stricter mode
-- lite is not allowed when any strict trigger applies
+### Risk and bypass rules
 
 Small direct requests may bypass `b-plan` only when they touch 3 or fewer files, have no public contract change, have no sensitive path, and leave no design decision.
 
