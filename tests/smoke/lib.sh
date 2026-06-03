@@ -123,11 +123,44 @@ run_install_with_tty_status() {
 
   local rc=0
   set +e
-  env \
-    HOME="$sandbox/home" \
-    B_AGENTIC_REPO="$repo_snapshot" \
-    B_AGENTIC_DIR="$sandbox/source" \
-    script -q -e -c "bash '$ROOT_DIR/install.sh' $*" /dev/null <<< "$input" >/dev/null 2>&1
+  python3 - "$sandbox" "$repo_snapshot" "$input" "$ROOT_DIR/install.sh" "$@" <<'PY' >/dev/null 2>&1
+import os, pty, select, sys
+
+sandbox, repo_snapshot, input_data, install_script = sys.argv[1:5]
+args = sys.argv[5:]
+
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.update(env)
+    os.execv("/bin/bash", ["bash", install_script] + args)
+
+if input_data:
+    os.write(fd, input_data.encode())
+
+status = None
+while True:
+    try:
+        result, status = os.waitpid(pid, os.WNOHANG)
+        if result:
+            break
+        ready, _, _ = select.select([fd], [], [], 0.1)
+        if ready and not os.read(fd, 4096):
+            _, status = os.waitpid(pid, 0)
+            break
+    except (OSError, select.error):
+        break
+
+os.close(fd)
+if status is None:
+    _, status = os.waitpid(pid, 0)
+
+sys.exit(os.WEXITSTATUS(status))
+PY
   rc=$?
   set -e
 
