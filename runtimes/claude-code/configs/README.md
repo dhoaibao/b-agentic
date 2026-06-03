@@ -23,7 +23,7 @@ Claude Code exposes each skill directory as `/b-*`; descriptions are the primary
 
 ## Continuation and resume guarantees
 
-This adapter does not provide native phase-to-phase automation. Workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable state follows `08-artifacts.md` and `11-session.md` under the installed shared reference snapshot.
+This adapter does not provide native phase-to-phase automation. Workflows resume through operator-issued skill invocations plus the previous `[status]` or `[handoff]` block in context. Durable state follows `runtime.md` and `output.md` under the installed shared reference snapshot.
 
 ## Safety and merge policy
 

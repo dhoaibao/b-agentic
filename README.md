@@ -2,7 +2,7 @@
 
 **Agentic workflow kernel for Claude Code, OpenCode, and Codex CLI.**
 
-`b-agentic` is a behavioral harness, not just a skill bundle. It installs a runtime kernel, phase skills, a shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
+`b-agentic` is a workflow harness, not just a skill bundle. It installs a compact runtime kernel, phase skills, a slim shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
 
 Claude Code is the reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure, and caveats.
 
@@ -71,11 +71,13 @@ b-ship [explicit ship request after review readiness]
 
 `b-ship` remains explicit even when another skill closes with `Next: b-ship`.
 
-## Modes And MCPs
+## Runtime Kernel And MCPs
 
 Behavior modes are `lite` for trivial local work, `standard` by default, and `strict` for public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, and shared-environment or external mutation.
 
-The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. Skills use MCPs lazily when they close a specific evidence gap; native local tools and Serena stay first for exact local evidence.
+The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, and `decisions.md`. Runtime details stay in adapters; skill-specific detail stays with each skill.
+
+The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. These are not decorative add-ons: Serena owns symbol work, Context7 owns versioned official docs, Brave owns current/open discovery, Firecrawl owns extraction and approved deeper research, and Playwright owns live browser/e2e evidence through `b-browser`. Native local tools remain first for exact repo evidence.
 
 ## Repository Layout
 
@@ -83,7 +85,7 @@ The installer writes a recommended MCP template with `serena`, `context7`, `brav
 b-agentic/
 ├── skills/          # Skill sources and generated delivery assets
 ├── runtimes/        # Runtime adapters, configs, scripts, and smoke lanes
-├── references/      # Shared support references and detailed runtime contract
+├── references/      # Shared support references and slim runtime contract
 ├── tooling/         # Renderers, shared installer core, and validation harness
 ├── tests/           # Shared smoke and internal release fixtures
 ├── install.sh       # Bootstrap installer entrypoint
@@ -94,7 +96,7 @@ Source of truth:
 
 - `skills/registry.yaml` and `skills/*/prompt.md` define skills.
 - `runtimes/registry.yaml` and `references/contract/kernel.template.md` define runtime behavior.
-- `references/contract/` defines the detailed runtime contract.
+- `references/contract/` defines the slim runtime contract.
 - `tooling/generate/registry_sync.py` regenerates committed delivery assets.
 - `tooling/validate/`, `tooling/conformance/`, `tooling/scenarios/`, `tests/smoke/`, and `runtimes/runtime-template/` protect generated assets, runtime adapters, installer behavior, and release governance.
 

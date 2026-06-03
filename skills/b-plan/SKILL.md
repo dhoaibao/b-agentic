@@ -74,7 +74,7 @@ Read `./reference.md` before writing a quick-plan template, saved-plan skeleton,
 
 ### Step 5 - Deliver
 
-Quick mode stays in chat and asks for approval. Full mode must include durable frontmatter (`slug`, `status`, `created_at`, `approved_at`, `approved_by`, `approved_head`, `risk`, `touch_points`), show the path, and ask for approval. Read `../../b-agentic/references/contract/09-output.md` before emitting a status block.
+Quick mode stays in chat and asks for approval. Full mode must include durable frontmatter (`slug`, `status`, `created_at`, `approved_at`, `approved_by`, `approved_head`, `risk`, `touch_points`), show the path, and ask for approval. Read `../../b-agentic/references/contract/output.md` before emitting a status block.
 
 If approval arrives in the same run, update `status`, `approved_at`, `approved_by`, and `approved_head` when available.
 

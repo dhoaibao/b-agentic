@@ -281,25 +281,25 @@ def validate_output_policy_contract(policy: dict, contract_text: str, errors: li
     for field in status_block["required_fields"] + status_block["optional_fields"]:
         if f"{field}:" not in contract_text:
             errors.append(
-                f"references/contract/09-output.md: missing status-block field marker {field!r} required by tooling/policy/output-policy.json"
+                f"references/contract/output.md: missing status-block field marker {field!r} required by tooling/policy/output-policy.json"
             )
 
     for field in handoff_block["required_fields"] + handoff_block["optional_fields"]:
         if f"{field}:" not in contract_text:
             errors.append(
-                f"references/contract/09-output.md: missing handoff field marker {field!r} required by tooling/policy/output-policy.json"
+                f"references/contract/output.md: missing handoff field marker {field!r} required by tooling/policy/output-policy.json"
             )
 
     for state in status_block["state_values"]:
         if f"- `{state}`" not in contract_text:
             errors.append(
-                f"references/contract/09-output.md: missing state value {state!r} from tooling/policy/output-policy.json"
+                f"references/contract/output.md: missing state value {state!r} from tooling/policy/output-policy.json"
             )
 
     expected_run_id_line = f"run-id: {status_block['run_id_format']}"
     if contract_text.count(expected_run_id_line) < 2:
         errors.append(
-            "references/contract/09-output.md: missing run-id format line "
+            "references/contract/output.md: missing run-id format line "
             f"{expected_run_id_line!r} in both status and handoff blocks"
         )
 
@@ -308,34 +308,34 @@ def validate_output_policy_contract(policy: dict, contract_text: str, errors: li
         table_row = f"| {condition['condition']} | {expected_include} |"
         if table_row not in contract_text:
             errors.append(
-                "references/contract/09-output.md: missing run-id condition row "
+                "references/contract/output.md: missing run-id condition row "
                 f"{table_row!r} from tooling/policy/output-policy.json"
             )
 
     for cause in policy["cause_classes"]:
         if f"| `{cause}` |" not in contract_text:
             errors.append(
-                f"references/contract/09-output.md: missing cause class {cause!r} from tooling/policy/output-policy.json"
+                f"references/contract/output.md: missing cause class {cause!r} from tooling/policy/output-policy.json"
             )
 
     for owner, owner_verdicts in policy["skill_verdicts"].items():
         for verdict in owner_verdicts:
             if f"| `{verdict}` |" not in contract_text:
                 errors.append(
-                    f"references/contract/09-output.md: missing verdict {verdict!r} for {owner} from tooling/policy/output-policy.json"
+                    f"references/contract/output.md: missing verdict {verdict!r} for {owner} from tooling/policy/output-policy.json"
                 )
 
     readiness = policy["readiness"]
     for requirement in readiness.get("workflow_ready_for_pr_requires", []):
         if requirement not in contract_text:
             errors.append(
-                "references/contract/09-output.md: missing workflow readiness requirement "
+                "references/contract/output.md: missing workflow readiness requirement "
                 f"{requirement!r} from tooling/policy/output-policy.json"
             )
     for requirement in readiness["review_ready_for_pr_requires"]:
         if requirement not in contract_text:
             errors.append(
-                "references/contract/09-output.md: missing review readiness requirement "
+                "references/contract/output.md: missing review readiness requirement "
                 f"{requirement!r} from tooling/policy/output-policy.json"
             )
 
@@ -343,13 +343,13 @@ def validate_output_policy_contract(policy: dict, contract_text: str, errors: li
     for required_text in [browser_evidence["required_for"], browser_evidence["applies_to"]]:
         if required_text not in contract_text:
             errors.append(
-                "references/contract/09-output.md: missing browser-evidence readiness text "
+                "references/contract/output.md: missing browser-evidence readiness text "
                 f"{required_text!r} from tooling/policy/output-policy.json"
             )
     for source in browser_evidence["accepted_sources"]:
         if source not in contract_text:
             errors.append(
-                "references/contract/09-output.md: missing browser-evidence source "
+                "references/contract/output.md: missing browser-evidence source "
                 f"{source!r} from tooling/policy/output-policy.json"
             )
 
@@ -370,7 +370,7 @@ def validate_mode_policy_contract(
 
     for mode in modes["allowed"]:
         for label, text in [
-            ("references/contract/03-definitions.md", definitions_text),
+            ("references/contract/runtime.md", definitions_text),
             ("references/contract/kernel.template.md", kernel_text),
             ("README.md", readme_text),
         ]:
@@ -382,13 +382,13 @@ def validate_mode_policy_contract(
     for trigger in modes["strict_when"]:
         if trigger not in definitions_text:
             errors.append(
-                "references/contract/03-definitions.md: missing strict trigger "
+                "references/contract/runtime.md: missing strict trigger "
                 f"{trigger!r} from tooling/policy/output-policy.json"
             )
 
     for rule in modes["override_rules"]:
         if rule not in definitions_text:
             errors.append(
-                "references/contract/03-definitions.md: missing mode override rule "
+                "references/contract/runtime.md: missing mode override rule "
                 f"{rule!r} from tooling/policy/output-policy.json"
             )

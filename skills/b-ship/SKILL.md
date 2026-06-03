@@ -52,7 +52,7 @@ Effect: commits and opens a PR without a b-review verdict.
 Proceed? (y/n)
 ```
 
-Read `../../b-agentic/references/contract/06-safety.md` before commit or push.
+Read `../../b-agentic/references/contract/safety-tools.md` before commit or push.
 
 ### Step 2 - Commit
 

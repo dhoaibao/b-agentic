@@ -38,7 +38,7 @@ Do not invent verification commands.
 
 ### Step 3 - Apply safety gates
 
-Read `{{runtime_reference_root}}/contract/06-safety.md` before running browser/e2e tooling, using Playwright, starting dev servers, persisting browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments.
+Read `{{runtime_reference_root}}/contract/safety-tools.md` before running browser/e2e tooling, using Playwright, starting dev servers, persisting browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments.
 
 Unsafe arbitrary-code browser execution requires explicit approval naming target URL and why ordinary browser actions cannot answer.
 

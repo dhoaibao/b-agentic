@@ -113,7 +113,9 @@ def tracked_existing_root_markdown_docs():
 
 
 def tool_model_bundle_names(text: str):
-    return set(re.findall(r"^#### `([^`]+)`", text, re.MULTILINE))
+    table_names = set(re.findall(r"^\| `([^`]+)` \|", text, re.MULTILINE))
+    heading_names = set(re.findall(r"^#### `([^`]+)`", text, re.MULTILINE))
+    return table_names | heading_names
 
 
 def prompt_tool_tokens(text: str):
@@ -211,9 +213,9 @@ for path in skill_paths:
         if section not in body:
             errors.append(f"{rel(path)}: missing required section {section!r}")
 
-    # Per kernel §9 ("Skills do not restate this rule"), the status/handoff read-gate is
-    # kernel-global: every runtime installs the kernel into its memory file, which carries
-    # the contract/09-output read-gate. A per-skill 09-reference assertion is intentionally
+    # Per kernel output rules ("Skills do not restate this rule"), the status/handoff
+    # read-gate is kernel-global: every runtime installs the kernel into its memory file,
+    # which carries the contract/output read-gate. A per-skill output-reference assertion is intentionally
     # NOT enforced here — most skills correctly defer to the kernel gate rather than
     # embedding their own (b-review keeps one by point-of-use need).
 
@@ -275,19 +277,19 @@ for path in support_doc_paths:
     if any(token in text for token in ["${CLAUDE_SKILL_DIR}", "${B_AGENTIC_RUNTIME_REFERENCES}", "${B_AGENTIC_SKILL_DIR}"]):
         errors.append(f"{rel(path)}: support docs must not ship unresolved support-path placeholders")
 
-routing_path = ROOT / "references" / "contract" / "01-routing.md"
+routing_path = ROOT / "references" / "contract" / "runtime.md"
 if not routing_path.exists():
-    errors.append("references/contract/01-routing.md: missing contract routing source")
+    errors.append("references/contract/runtime.md: missing contract routing source")
 else:
     routing_text = routing_path.read_text()
     referenced_skills = set(re.findall(r"`/(b-[a-z][a-z0-9-]*)`", routing_text))
     skill_dirs = set(skill_names)
     for name in sorted(referenced_skills - skill_dirs):
-        errors.append(f"references/contract/01-routing.md: references /{name} but no skills/{name}/ directory exists")
+        errors.append(f"references/contract/runtime.md: references /{name} but no skills/{name}/ directory exists")
     if "Bare mentions like `PR`, `ship`, or `lint` are ambiguous." not in routing_text:
-        errors.append("references/contract/01-routing.md: missing ambiguous PR/ship/lint clarification rule")
+        errors.append("references/contract/runtime.md: missing ambiguous PR/ship/lint clarification rule")
     if "b-agentic suite self-audits use `b-review --audit-suite` or explicit suite-audit prose" not in routing_text:
-        errors.append("references/contract/01-routing.md: suite-audit routing must allow explicit prose intent, not only --audit-suite")
+        errors.append("references/contract/runtime.md: suite-audit routing must allow explicit prose intent, not only --audit-suite")
 
 normalized_routing_triggers = {}
 command_only_terms = {}
@@ -410,22 +412,26 @@ for required_line in [
 
 readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
-tool_model_path = ROOT / "references" / "contract" / "04-tool-model.md"
+tool_model_path = ROOT / "references" / "contract" / "safety-tools.md"
 tool_model_text = read_text(tool_model_path)
-shared_contract_paths = sorted(
-    p for p in (ROOT / "references" / "contract").glob("*.md")
-    if re.match(r"[0-9]{2}-", p.name)
-)
+expected_contract_files = {"runtime.md", "safety-tools.md", "output.md", "decisions.md", "index.md", "kernel.template.md"}
+actual_contract_files = {p.name for p in (ROOT / "references" / "contract").glob("*.md")}
+missing_contract_files = sorted(expected_contract_files - actual_contract_files)
+extra_contract_files = sorted(actual_contract_files - expected_contract_files)
+if missing_contract_files or extra_contract_files:
+    errors.append(
+        "references/contract/: runtime surface must stay slim "
+        f"(missing: {missing_contract_files}, extra: {extra_contract_files})"
+    )
+shared_contract_paths = sorted((ROOT / "references" / "contract").glob("*.md"))
 kernel_path = ROOT / "runtimes" / "claude-code" / "kernel.md"
 kernel = read_text(kernel_path)
 contract_index_path = ROOT / "references" / "contract" / "index.md"
 contract_index = read_text(contract_index_path)
-output_contract_path = ROOT / "references" / "contract" / "09-output.md"
+output_contract_path = ROOT / "references" / "contract" / "output.md"
 output_contract = read_text(output_contract_path)
-definitions_contract_path = ROOT / "references" / "contract" / "03-definitions.md"
-definitions_contract = read_text(definitions_contract_path)
-session_contract_path = ROOT / "references" / "contract" / "11-session.md"
-session_contract = read_text(session_contract_path)
+runtime_contract_path = ROOT / "references" / "contract" / "runtime.md"
+runtime_contract = read_text(runtime_contract_path)
 install_sh = read_text(ROOT / "install.sh")
 registry_sync = ROOT / "tooling" / "generate" / "registry_sync.py"
 validate_wrapper_path = ROOT / "scripts" / "validate-skills.sh"
@@ -437,14 +443,14 @@ runtime_template_root = ROOT / "runtimes" / "runtime-template"
 shared_kernel_template_path = ROOT / "references" / "contract" / "kernel.template.md"
 shared_kernel_template = read_text(shared_kernel_template_path)
 
-if shared_kernel_template and "09-output" not in shared_kernel_template:
-    errors.append(f"{rel(shared_kernel_template_path)}: kernel template must reference contract/09-output for the shared status-block schema")
+if shared_kernel_template and "output.md" not in shared_kernel_template:
+    errors.append(f"{rel(shared_kernel_template_path)}: kernel template must reference contract/output.md for the shared status-block schema")
 
 _policy_schema, _output_policy = load_output_policy(errors)
 validate_output_policy_contract(_output_policy, output_contract, errors)
 validate_mode_policy_contract(
     _output_policy,
-    definitions_contract,
+    runtime_contract,
     shared_kernel_template,
     readme,
     errors,
@@ -468,7 +474,7 @@ if browser_evidence_row not in tool_model_text:
 # source under references/contract/, and the kernel template must never carry a bare
 # unanchored `contract/<f>.md` gate path (the M1 defect class). Scoped to explicit
 # references/contract/<f>.md citations and skill-local ./reference.md gates so ordinary
-# prose ("runtime contract §N", the `references/contract/*.md` glob) is not flagged.
+# prose about the contract directory is not flagged.
 _contract_dir = ROOT / "references" / "contract"
 _contract_ref_re = re.compile(r"references/contract/([0-9A-Za-z][0-9A-Za-z._-]*\.md)")
 _bare_contract_re = re.compile(r"(?<![\w/])contract/([0-9][0-9A-Za-z._-]*\.md)")
@@ -601,7 +607,7 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "temp_log": "/tmp/codex-cli/b-agentic/<skill>/<slug>.log",
     },
 }
-artifact_contract_path = ROOT / "references" / "contract" / "08-artifacts.md"
+artifact_contract_path = ROOT / "references" / "contract" / "safety-tools.md"
 artifact_contract = read_text(artifact_contract_path)
 for _runtime_name in runtime_names:
     _examples = _RUNTIME_CONTRACT_EXAMPLES.get(_runtime_name)
@@ -762,9 +768,9 @@ for verdict_prompt_path in [
         errors.append(f"{rel(verdict_prompt_path)}: verdict-owning prompt must reference the verdict field explicitly")
 
 required_b_test_intent = "| Unit/integration/component tests, coverage, failing tests | `b-test` |"
-if required_b_test_intent not in shared_kernel_template and required_b_test_intent not in read_text(ROOT / 'references' / 'contract' / '01-routing.md'):
+if required_b_test_intent not in shared_kernel_template and required_b_test_intent not in read_text(ROOT / 'references' / 'contract' / 'runtime.md'):
     errors.append(
-        f"{rel(shared_kernel_template_path)} and references/contract/01-routing.md: missing updated b-test routing intent for component-test ownership"
+        f"{rel(shared_kernel_template_path)} and references/contract/runtime.md: missing updated b-test routing intent for component-test ownership"
     )
 
 # b-orchestrate removed in slim-down refactor; no orchestrate-specific checks needed

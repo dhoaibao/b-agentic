@@ -43,7 +43,7 @@ if not kernel_path.exists():
     errors.append('runtimes/codex-cli/kernel.md: missing')
 if '<!-- b-agentic-managed -->' not in kernel:
     errors.append('runtimes/codex-cli/kernel.md: missing b-agentic managed marker')
-for marker in ['Reference checklist:', 'Runtime gate checklist:', 'AGENTS.md', 'Detailed routing', 'runtime contract §9']:
+for marker in ['Runtime Kernel', 'AGENTS.md', 'runtime.md', 'safety-tools.md', 'output.md', 'decisions.md']:
     if marker not in kernel:
         errors.append(f'runtimes/codex-cli/kernel.md: missing kernel marker {marker!r}')
 

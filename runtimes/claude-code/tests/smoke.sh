@@ -51,7 +51,7 @@ run_runtime_smoke_cases() {
   assert_no_path "$sandbox_fresh/home/.claude/commands"
   assert_no_path "$sandbox_fresh/home/.config/opencode"
   assert_equal_files "$sandbox_fresh/home/.claude/CLAUDE.md" "$sandbox_fresh/home/.claude/b-agentic/CLAUDE.md"
-  assert_contains "$sandbox_fresh/home/.claude/CLAUDE.md" 'Runtime gate checklist:'
+  assert_contains "$sandbox_fresh/home/.claude/CLAUDE.md" 'Runtime Kernel'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"runtime": "claude-code"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"activationState": "active"'
   assert_file "$sandbox_fresh/home/.claude/settings.json"

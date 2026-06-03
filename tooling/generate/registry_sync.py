@@ -433,7 +433,7 @@ def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
         render_readme_skills_table(skills),
     )
 
-    routing_path = ROOT / "references" / "contract" / "01-routing.md"
+    routing_path = ROOT / "references" / "contract" / "runtime.md"
     routing_text = routing_path.read_text()
     routing_text = replace_block(
         routing_text,

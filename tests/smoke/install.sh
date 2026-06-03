@@ -32,6 +32,53 @@ for runtime in registry.get('runtimes', []):
 PY
 }
 
+first_runtime_skill_collision_record() {
+  python3 - "$ROOT_DIR/runtimes/registry.yaml" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+registry = json.loads(Path(sys.argv[1]).read_text())
+for runtime in registry.get('runtimes', []):
+    name = runtime.get('name')
+    metadata_root = runtime.get('metadata_root')
+    memory_install_path = runtime.get('memory_install_path')
+    skills_install_root = runtime.get('skills_install_root')
+    if (
+        isinstance(name, str) and name
+        and isinstance(metadata_root, str) and metadata_root.startswith('~/')
+        and isinstance(memory_install_path, str) and memory_install_path.startswith('~/')
+        and isinstance(skills_install_root, str) and skills_install_root.startswith('~/')
+    ):
+        print(f"{name}\t{metadata_root[2:]}\t{memory_install_path[2:]}\t{skills_install_root[2:]}")
+        break
+PY
+}
+
+opencode_skill_collision_record() {
+  python3 - "$ROOT_DIR/runtimes/registry.yaml" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+registry = json.loads(Path(sys.argv[1]).read_text())
+for runtime in registry.get('runtimes', []):
+    if runtime.get('name') != 'opencode':
+        continue
+    metadata_root = runtime.get('metadata_root')
+    skills_install_root = runtime.get('skills_install_root')
+    wrappers = runtime.get('command_wrappers', {})
+    commands_root = wrappers.get('install_root') if isinstance(wrappers, dict) else None
+    if (
+        isinstance(metadata_root, str) and metadata_root.startswith('~/')
+        and isinstance(skills_install_root, str) and skills_install_root.startswith('~/')
+        and isinstance(commands_root, str) and commands_root.startswith('~/')
+    ):
+        print(f"{metadata_root[2:]}\t{skills_install_root[2:]}\t{commands_root[2:]}")
+    break
+PY
+}
+
 run_all_runtime_smoke_case() {
   local snapshot_repo="$1"
   local sandbox_all="$WORK_DIR/all-runtimes"
@@ -47,8 +94,10 @@ run_all_runtime_smoke_case() {
     manifest_path="$sandbox_all/home/$metadata_root/install.json"
     assert_file "$manifest_path"
     assert_json_value "$manifest_path" "data['runtime'] == '$runtime_name'"
-    assert_file "$sandbox_all/home/$metadata_root/references/contract/01-routing.md"
-    assert_file "$sandbox_all/home/$metadata_root/references/contract/09-output.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/contract/runtime.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/contract/safety-tools.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/contract/output.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/contract/decisions.md"
   done < <(registry_runtime_records install)
 
   expect_install_status 0 "$sandbox_all" "$snapshot_repo" --runtime=all --uninstall
@@ -79,6 +128,49 @@ run_all_runtime_smoke_case() {
   done < <(registry_runtime_records install)
 }
 
+run_skill_collision_smoke_case() {
+  local snapshot_repo="$1"
+  local sandbox_collision="$WORK_DIR/skill-collision"
+  local runtime_name metadata_root kernel_path skills_root manifest_path skill_path
+
+  IFS=$'\t' read -r runtime_name metadata_root kernel_path skills_root < <(first_runtime_skill_collision_record)
+  [ -n "$runtime_name" ] || fail "expected at least one registered runtime"
+
+  mkdir -p "$sandbox_collision/home/$skills_root/b-plan"
+  skill_path="$sandbox_collision/home/$skills_root/b-plan/SKILL.md"
+  printf 'user-owned b-plan\n' > "$skill_path"
+
+  expect_install_status 0 "$sandbox_collision" "$snapshot_repo" --runtime="$runtime_name"
+
+  manifest_path="$sandbox_collision/home/$metadata_root/install.json"
+  assert_file "$manifest_path"
+  assert_contains "$skill_path" 'user-owned b-plan'
+  assert_json_value "$manifest_path" "'b-plan' not in data['skills']"
+}
+
+run_opencode_skill_command_collision_smoke_case() {
+  local snapshot_repo="$1"
+  local sandbox_collision="$WORK_DIR/opencode-skill-command-collision"
+  local metadata_root skills_root commands_root manifest_path skill_path command_path
+
+  IFS=$'\t' read -r metadata_root skills_root commands_root < <(opencode_skill_collision_record)
+  [ -n "$metadata_root" ] || fail "expected opencode runtime collision record"
+
+  mkdir -p "$sandbox_collision/home/$skills_root/b-plan"
+  skill_path="$sandbox_collision/home/$skills_root/b-plan/SKILL.md"
+  command_path="$sandbox_collision/home/$commands_root/b-plan.md"
+  printf 'user-owned b-plan\n' > "$skill_path"
+
+  expect_install_status 0 "$sandbox_collision" "$snapshot_repo" --runtime=opencode
+
+  manifest_path="$sandbox_collision/home/$metadata_root/install.json"
+  assert_file "$manifest_path"
+  assert_contains "$skill_path" 'user-owned b-plan'
+  assert_no_path "$command_path"
+  assert_json_value "$manifest_path" "'b-plan' not in data['skills']"
+  assert_json_value "$manifest_path" "'b-plan' not in data['commands']"
+}
+
 main() {
   local snapshot_repo="$WORK_DIR/repo-snapshot"
   local runtime_name runtime_script
@@ -88,6 +180,8 @@ main() {
   require_bin python3
   make_repo_snapshot "$snapshot_repo"
   run_all_runtime_smoke_case "$snapshot_repo"
+  run_skill_collision_smoke_case "$snapshot_repo"
+  run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue

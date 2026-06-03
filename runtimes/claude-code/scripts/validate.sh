@@ -30,11 +30,11 @@ if not kernel_path.exists():
     errors.append('runtimes/claude-code/kernel.md: missing')
 if '<!-- b-agentic-managed -->' not in kernel:
     errors.append('runtimes/claude-code/kernel.md: missing b-agentic managed marker')
-for marker in ['Reference checklist:', 'Runtime gate checklist:', 'CLAUDE.md', 'Detailed routing', 'runtime contract §9']:
+for marker in ['Runtime Kernel', 'CLAUDE.md', 'runtime.md', 'safety-tools.md', 'output.md', 'decisions.md']:
     if marker not in kernel:
         errors.append(f'runtimes/claude-code/kernel.md: missing kernel marker {marker!r}')
 if 'Reference gate:' in kernel:
-    errors.append("runtimes/claude-code/kernel.md: stale 'Reference gate:' terminology; use 'Reference checklist:'")
+    errors.append("runtimes/claude-code/kernel.md: stale 'Reference gate:' terminology; use the runtime kernel contract list")
 
 if 'Claude Code is the reference runtime' not in maintainer:
     errors.append('CLAUDE.md: must state Claude Code is the reference runtime')
@@ -57,7 +57,7 @@ for doc_path, doc_text in [('README.md', readme)]:
             errors.append(f'{doc_path}: stale pattern {needle!r}')
 
 for required in [
-    "runtime kernel lives in the runtime's installed memory file",
+    'Slim shared reference snapshot',
     '~/.claude/b-agentic/references/contract/',
     '~/.claude/b-agentic',
     '/tmp/claude-code/b-agentic',

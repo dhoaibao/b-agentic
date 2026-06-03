@@ -58,6 +58,14 @@ command_name_is_current() {
   return 1
 }
 
+command_skill_was_installed() {
+  local target="$1" name
+  for name in "${INSTALL_SKILL_NAMES[@]}"; do
+    [ "$name" = "$target" ] && return 0
+  done
+  return 1
+}
+
 prune_stale_commands() {
   [ -f "$MANIFEST_DST" ] || return 0
 
@@ -95,6 +103,15 @@ install_commands() {
     src="$COMMANDS_SRC/$name.md"
     dst="$COMMANDS_DST/$name.md"
     previous_snapshot="$COMMANDS_SNAPSHOT_DST/$name.md"
+
+    if ! command_skill_was_installed "$name"; then
+      if [ -f "$dst" ] && [ -f "$previous_snapshot" ] && cmp -s "$dst" "$previous_snapshot"; then
+        run_cmd rm -f "$dst"
+      elif [ -f "$dst" ]; then
+        warn "preserving OpenCode command for skipped skill: $dst"
+      fi
+      continue
+    fi
 
     if [ -f "$dst" ]; then
       if [ -f "$previous_snapshot" ] && cmp -s "$dst" "$previous_snapshot"; then

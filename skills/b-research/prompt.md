@@ -32,7 +32,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 
 Default to the lightest authoritative source. Auto-deepen when evidence is stale, contradictory, non-authoritative, or indirect; never auto-trigger `firecrawl-deep`.
 
-If the user provides a URL/file/document, classify it as public URL, internal/private URL, local plain text, local rich document, or likely internal document. Read `{{runtime_reference_root}}/contract/06-safety.md` before external extraction of internal/private URLs, rich documents, or likely internal documents unless already approved.
+If the user provides a URL/file/document, classify it as public URL, internal/private URL, local plain text, local rich document, or likely internal document. Read `{{runtime_reference_root}}/contract/safety-tools.md` before external extraction of internal/private URLs, rich documents, or likely internal documents unless already approved.
 
 ### Step 2 - Pin version when material
 
@@ -44,7 +44,7 @@ Use Context7 first for pinned library/framework APIs when it can answer. Otherwi
 
 For recency-sensitive topics, use news/search before extraction and include `as of <date>` or publication dates. For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary evidence when available.
 
-Use `firecrawl-extended` only for maps or structured fields. Use `firecrawl-deep` only with explicit per-run approval per §4 carve-out rules.
+Use `firecrawl-extended` only for maps or structured fields. Use `firecrawl-deep` only with explicit per-run approval or a run-scoped numeric cap recorded in the status/handoff.
 
 ### Step 4 - Synthesize
 

@@ -35,7 +35,8 @@ The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer co
 - Shared prompts and contract prose must not hardcode runtime-specific behavior or paths.
 - Use `{{skill_support_path}}` for skill-local support files and `{{runtime_reference_root}}` for installed shared references.
 - Add explicit read gates at the step that uses a contract section.
-- Keep long schemas, rubrics, and edge-case protocols in `references/contract/`, not prompts.
+- Keep shared schemas, rubrics, and edge-case protocols in the few `references/contract/` files, not prompts.
+- Keep `references/contract/` slim: `runtime.md`, `safety-tools.md`, `output.md`, `decisions.md`, `index.md`, and `kernel.template.md`.
 - Optional `skills/*/reference.md`, `examples.md`, and `scripts/` are support material, not a second root doc surface.
 - In `skills/*/prompt.md`, `CLAUDE.md` means the active runtime kernel, not this maintainer guide.
 
@@ -43,7 +44,7 @@ The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer co
 
 - `skills/` - skill sources and generated delivery assets
 - `runtimes/` - runtime adapters, configs, scripts, and smoke lanes
-- `references/contract/` - detailed runtime contract
+- `references/contract/` - slim runtime contract
 - `tooling/generate/` - renderers and doc generators
 - `tooling/install/` - shared installer core
 - `tooling/validate/` - shared validation harness
@@ -84,6 +85,7 @@ Do not add a runtime without updating generation, validation, smoke coverage, an
 - Skill metadata: edit `skills/registry.yaml`, rerun `python3 tooling/generate/registry_sync.py`, then update hand-authored docs if the public surface changed.
 - Skill prompt: edit `skills/*/prompt.md`, rerender generated assets, and update support docs only when needed.
 - Kernel behavior: edit `references/contract/kernel.template.md`, rerender affected `runtimes/*/kernel.md`, and keep docs aligned.
+- Contract behavior: edit one of `runtime.md`, `safety-tools.md`, `output.md`, or `decisions.md`; do not add a new contract file unless the four-file runtime surface is demonstrably insufficient.
 - Runtime behavior: update `runtimes/registry.yaml` and affected adapter docs/scripts together.
 - Keep `README.md` overview-level.
 

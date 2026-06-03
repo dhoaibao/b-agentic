@@ -29,7 +29,7 @@ Confirm root cause, fix minimally, verify, and remove probes. If the user asks o
 
 Capture exact failure, expected vs actual behavior, repro, determinism, environment, and for perf bugs workload/baseline/threshold. Check recent commits, dependency/lockfile changes, config drift, flags, data shape, and environment differences.
 
-For active production impact, data loss, or security risk, read `{{runtime_reference_root}}/contract/06-safety.md` before containment. Label containment as reversible mitigation, not final fix.
+For active production impact, data loss, or security risk, read `{{runtime_reference_root}}/contract/safety-tools.md` before containment. Label containment as reversible mitigation, not final fix.
 
 ### Step 2 - Rank suspects
 

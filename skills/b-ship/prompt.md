@@ -39,7 +39,7 @@ Effect: commits and opens a PR without a b-review verdict.
 Proceed? (y/n)
 ```
 
-Read `{{runtime_reference_root}}/contract/06-safety.md` before commit or push.
+Read `{{runtime_reference_root}}/contract/safety-tools.md` before commit or push.
 
 ### Step 2 - Commit
 

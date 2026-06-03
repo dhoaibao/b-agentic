@@ -35,7 +35,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'with or without `--audit-suite`'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'suite self-audit without `--audit-suite` -> ask'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'Do NOT invoke for repo/suite audits'
-  assert_contains "$sandbox_codex/home/.codex/AGENTS.md" 'Runtime gate checklist:'
+  assert_contains "$sandbox_codex/home/.codex/AGENTS.md" 'Runtime Kernel'
   assert_file "$sandbox_codex/home/.codex/b-agentic/install.json"
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"runtime": "codex-cli"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"activationState": "active"'

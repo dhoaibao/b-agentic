@@ -67,11 +67,11 @@ if not kernel_path.exists():
     errors.append('runtimes/opencode/kernel.md: missing')
 if '<!-- b-agentic-managed -->' not in kernel:
     errors.append('runtimes/opencode/kernel.md: missing b-agentic managed marker')
-for marker in ['Reference checklist:', 'Runtime gate checklist:', 'AGENTS.md', 'Detailed routing', 'runtime contract §9']:
+for marker in ['Runtime Kernel', 'AGENTS.md', 'runtime.md', 'safety-tools.md', 'output.md', 'decisions.md']:
     if marker not in kernel:
         errors.append(f'runtimes/opencode/kernel.md: missing kernel marker {marker!r}')
 if 'Reference gate:' in kernel:
-    errors.append("runtimes/opencode/kernel.md: stale 'Reference gate:' terminology; use 'Reference checklist:'")
+    errors.append("runtimes/opencode/kernel.md: stale 'Reference gate:' terminology; use the runtime kernel contract list")
 
 if 'OpenCode' not in maintainer:
     errors.append('CLAUDE.md: must mention OpenCode as a supported runtime')

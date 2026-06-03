@@ -10,7 +10,7 @@ If `$ARGUMENTS` is present, treat it as a plan path, plan slug, approved chat pl
 
 - The user approved a saved or chat plan.
 - The next action is to edit code or docs within known scope.
-- The request meets the small direct request threshold in the shared §3 glossary.
+- The request meets the small direct request threshold in the shared runtime contract.
 
 ## When NOT to use
 
@@ -36,7 +36,7 @@ For saved plans, validate durable frontmatter, explicit approval, matching touch
 
 Legacy saved plans without frontmatter may execute only when the current conversation contains explicit approval. Use the current-chat approval time for staleness checks, require unchecked steps to include `Done when`, and do not rewrite the legacy plan solely to add metadata.
 
-If no plan exists and the request fails the small-direct threshold, hand off to **b-plan**. Read `{{runtime_reference_root}}/contract/06-safety.md` before editing.
+If no plan exists and the request fails the small-direct threshold, hand off to **b-plan**. Read `{{runtime_reference_root}}/contract/safety-tools.md` before editing.
 
 ### Step 2 - Check worktree
 
@@ -52,7 +52,7 @@ Stay within approved scope. Classify adjacent discoveries as Required, Blocking 
 
 ### Step 4 - Verify
 
-Run the plan's check when available; otherwise use touched-file diagnostics and the narrowest relevant command. Classify failures before another edit. Read `{{runtime_reference_root}}/contract/09-output.md` before emitting a status block.
+Run the plan's check when available; otherwise use touched-file diagnostics and the narrowest relevant command. Classify failures before another edit. Read `{{runtime_reference_root}}/contract/output.md` before emitting a status block.
 
 ### Step 5 - Record progress and close
 

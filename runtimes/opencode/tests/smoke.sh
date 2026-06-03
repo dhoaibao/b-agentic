@@ -45,11 +45,15 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/index.md"
   assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/index.md" 'The active runtime kernel lives in `CLAUDE.md` (Claude Code) or `AGENTS.md` (OpenCode)'
   assert_no_path "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/00-kernel.md"
-  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/05-evidence.md" 'active `CLAUDE.md`'
-  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/06-safety.md" 'Use `~/.claude/b-agentic/...` or `/tmp/claude-code/b-agentic/...` instead by default.'
-  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/07-execution.md" 'save the full output under `/tmp/claude-code/b-agentic/<skill>/<slug>.log`'
-  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/08-artifacts.md" 'auth/session state and similar secrets default to `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`'
-  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/10-decisions.md" 'capture the failing output under `/tmp/claude-code/b-agentic/b-test/`'
+  assert_no_path "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/01-routing.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/runtime.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/safety-tools.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/output.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/decisions.md"
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/runtime.md" 'active `CLAUDE.md`'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/safety-tools.md" 'Use `~/.claude/b-agentic/...` or `/tmp/claude-code/b-agentic/...` instead by default.'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/safety-tools.md" 'auth/session state and similar secrets default to `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`'
+  assert_not_contains "$sandbox_opencode/home/.config/opencode/b-agentic/references/contract/decisions.md" 'capture the failing output under `/tmp/claude-code/b-agentic/b-test/`'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'CLAUDE.md section 3'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'per `CLAUDE.md` §3'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-implement/SKILL.md" 'CLAUDE.md section 3'
@@ -62,7 +66,7 @@ run_runtime_smoke_cases() {
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" 'suite self-audit without `--audit-suite` -> ask'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-review/SKILL.md" 'Do NOT invoke for repo/suite audits'
   assert_contains "$sandbox_opencode/home/.config/opencode/commands/b-review.md" 'description: Review changed code or b-agentic suite audit'
-  assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" 'Runtime gate checklist:'
+  assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" 'Runtime Kernel'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_RUNTIME_REFERENCES'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md" 'B_AGENTIC_SKILL_DIR'
   assert_not_contains "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md" 'B_AGENTIC_RUNTIME_REFERENCES'

@@ -191,14 +191,35 @@ prune_stale_installed_skills() {
   done < <(manifest_array_values skills)
 }
 
+skill_dir_is_managed() {
+  local skill_dir="$1" skill_file
+  skill_file="$skill_dir/SKILL.md"
+  [ -f "$skill_file" ] && grep -Fq 'Generated from skills/registry.yaml' "$skill_file"
+}
+
+install_one_skill() {
+  local name="$1" src="$SKILLS_SRC/$name" dst="$SKILLS_DST/$name"
+
+  if [ -e "$dst" ] && ! skill_dir_is_managed "$dst"; then
+    warn "preserving user-owned skill directory: $dst"
+    return 1
+  fi
+
+  copy_dir_replace "$src" "$dst"
+  return 0
+}
+
 install_skills() {
   ensure_dir "$SKILLS_DST"
   prune_stale_installed_skills
 
   local name
+  INSTALL_SKILL_NAMES=()
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-    copy_dir_replace "$SKILLS_SRC/$name" "$SKILLS_DST/$name"
+    if install_one_skill "$name"; then
+      INSTALL_SKILL_NAMES+=("$name")
+    fi
   done < <(skill_names)
 }
 
