@@ -360,12 +360,13 @@ manifest_path_for_runtime() {
     claude-code) printf '%s/.claude/b-agentic/install.json' "$HOME" ;;
     opencode) printf '%s/.config/opencode/b-agentic/install.json' "$HOME" ;;
     codex-cli) printf '%s/.codex/b-agentic/install.json' "$HOME" ;;
+    kimi-code-cli) printf '%s/.kimi-code/b-agentic/install.json' "$HOME" ;;
     *) return 1 ;;
   esac
 }
 
 manifest_only_runtime_names() {
-  printf '%s\n' claude-code opencode codex-cli
+  printf '%s\n' claude-code opencode codex-cli kimi-code-cli
 }
 
 manifest_only_uninstall_one() {
@@ -450,6 +451,78 @@ def remove_config_if_template(path_value: str | None, template: Path, label: str
         warn(f"preserving modified {label}: {path}")
 
 
+def managed_kimi_mcp_server(current_server: object, template_server: object, server_name: str) -> bool:
+    if not isinstance(current_server, dict) or not isinstance(template_server, dict):
+        return False
+    normalized = json.loads(json.dumps(current_server))
+
+    if server_name == "context7":
+        headers = normalized.get("headers")
+        template_headers = template_server.get("headers", {})
+        if isinstance(headers, dict) and isinstance(template_headers, dict) and "CONTEXT7_API_KEY" in headers:
+            headers["CONTEXT7_API_KEY"] = template_headers.get("CONTEXT7_API_KEY")
+    elif server_name in {"brave-search", "firecrawl"}:
+        key_name = "BRAVE_API_KEY" if server_name == "brave-search" else "FIRECRAWL_API_KEY"
+        env = normalized.get("env")
+        template_env = template_server.get("env", {})
+        if isinstance(env, dict) and isinstance(template_env, dict) and key_name in env:
+            env[key_name] = template_env.get(key_name)
+
+    return normalized == template_server
+
+
+def remove_kimi_mcp_config(path_value: str | None, template: Path) -> None:
+    if not isinstance(path_value, str):
+        return
+    path = Path(path_value).expanduser()
+    if not path.exists():
+        return
+    if not template.exists():
+        warn(f"preserving modified mcp.json: {path}")
+        return
+    if files_equal(path, template):
+        remove_file(path)
+        return
+
+    try:
+        current = json.loads(path.read_text())
+        incoming = json.loads(template.read_text())
+    except Exception:
+        warn(f"preserving modified mcp.json: {path}")
+        return
+
+    if not isinstance(current, dict) or not isinstance(incoming, dict):
+        warn(f"preserving modified mcp.json: {path}")
+        return
+
+    cleaned = json.loads(json.dumps(current))
+    servers = cleaned.get("mcpServers")
+    incoming_servers = incoming.get("mcpServers")
+    if not isinstance(servers, dict) or not isinstance(incoming_servers, dict):
+        warn(f"preserving modified mcp.json: {path}")
+        return
+
+    changed = False
+    for server_name, template_server in incoming_servers.items():
+        if server_name not in servers:
+            continue
+        if managed_kimi_mcp_server(servers[server_name], template_server, server_name):
+            servers.pop(server_name)
+            changed = True
+
+    if not servers:
+        cleaned.pop("mcpServers", None)
+
+    if not changed or cleaned == current:
+        warn(f"preserving modified mcp.json: {path}")
+        return
+    if cleaned == {}:
+        remove_file(path)
+        return
+
+    path.write_text(json.dumps(cleaned, indent=2, sort_keys=True) + "\n")
+
+
 def remove_codex_managed_block(path_value: str | None) -> None:
     if not isinstance(path_value, str):
         return
@@ -463,6 +536,29 @@ def remove_codex_managed_block(path_value: str | None) -> None:
         return
     if end not in text:
         warn(f"preserving modified Codex config: {path}")
+        return
+    prefix, remainder = text.split(begin, 1)
+    _managed, suffix = remainder.split(end, 1)
+    cleaned = (prefix + suffix).strip()
+    if cleaned:
+        path.write_text(cleaned + "\n")
+    else:
+        remove_file(path)
+
+
+def remove_kimi_managed_block(path_value: str | None) -> None:
+    if not isinstance(path_value, str):
+        return
+    path = Path(path_value).expanduser()
+    if not path.exists():
+        return
+    begin = "# BEGIN b-agentic managed config"
+    end = "# END b-agentic managed config"
+    text = path.read_text()
+    if begin not in text:
+        return
+    if end not in text:
+        warn(f"preserving modified Kimi config: {path}")
         return
     prefix, remainder = text.split(begin, 1)
     _managed, suffix = remainder.split(end, 1)
@@ -502,6 +598,13 @@ runtime_defaults = {
         "agents": home / ".codex" / "agents",
         "rules": home / ".codex" / "rules",
         "codexConfig": home / ".codex" / "config.toml",
+    },
+    "kimi-code-cli": {
+        "metadata": home / ".kimi-code" / "b-agentic",
+        "skills": home / ".kimi-code" / "skills",
+        "kernel": home / ".kimi-code" / "b-agentic-kernel.md",
+        "kimiConfig": home / ".kimi-code" / "config.toml",
+        "kimiMcpJson": home / ".kimi-code" / "mcp.json",
     },
 }
 
@@ -558,6 +661,9 @@ elif runtime == "codex-cli":
     remove_snapshot_profiles(data.get("agents", []), defaults["agents"], metadata / "agents", "toml", "Codex agent")
     remove_snapshot_profiles(data.get("rules", []), defaults["rules"], metadata / "rules", "rules", "Codex rule")
     remove_codex_managed_block(str(defaults["codexConfig"]))
+elif runtime == "kimi-code-cli":
+    remove_kimi_managed_block(str(defaults["kimiConfig"]))
+    remove_kimi_mcp_config(str(defaults["kimiMcpJson"]), metadata / "templates" / "mcp.user.template.json")
 
 remove_tree(metadata)
 print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
