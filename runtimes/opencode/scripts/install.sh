@@ -94,9 +94,9 @@ prune_stale_commands() {
 }
 
 install_commands() {
-  local -n installed_ref="$1"
+  local output_var="$1"
   ensure_dir "$COMMANDS_DST"
-  installed_ref=()
+  eval "$output_var=()"
 
   local name src dst previous_snapshot next_snapshot
   next_snapshot="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-opencode-commands.XXXXXX")"
@@ -120,14 +120,14 @@ install_commands() {
       if [ -f "$previous_snapshot" ] && cmp -s "$dst" "$previous_snapshot"; then
         copy_file "$src" "$dst"
         copy_file "$src" "$next_snapshot/$name.md"
-        installed_ref+=("$name")
+        eval "$output_var+=(\"$name\")"
         continue
       fi
 
       if cmp -s "$dst" "$src"; then
         if [ -f "$previous_snapshot" ]; then
           copy_file "$src" "$next_snapshot/$name.md"
-          installed_ref+=("$name")
+          eval "$output_var+=(\"$name\")"
         else
           warn "preserving existing OpenCode command: $dst"
         fi
@@ -144,7 +144,7 @@ install_commands() {
 
     copy_file "$src" "$dst"
     copy_file "$src" "$next_snapshot/$name.md"
-    installed_ref+=("$name")
+    eval "$output_var+=(\"$name\")"
   done < <(command_names)
 
   prune_stale_commands

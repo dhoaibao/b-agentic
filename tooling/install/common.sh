@@ -65,8 +65,7 @@ run_stage() {
 }
 
 capture_output_stage() {
-  local label="$1"
-  local -n output_ref="$2"
+  local label="$1" output_var="$2"
   shift 2
   local output="" rc=0 stage_label=""
 
@@ -75,7 +74,8 @@ capture_output_stage() {
   announce_install_stage "$stage_label"
 
   if dry_run_enabled; then
-    output_ref="$("$@")"
+    output="$("$@")"
+    printf -v "$output_var" '%s' "$output"
     return $?
   fi
 
@@ -88,7 +88,7 @@ capture_output_stage() {
   ui_stop_spinner "$rc" "$stage_label"
   [ "$rc" -eq 0 ] || return "$rc"
 
-  output_ref="$output"
+  printf -v "$output_var" '%s' "$output"
 }
 
 run_install_triplet_stage() {
@@ -178,8 +178,7 @@ PY
 
 install_managed_profiles() {
   local src_dir="$1" dst_dir="$2" snapshot_dir="$3" extension="$4" label="$5" output_var="$6"
-  local -n installed_ref="$output_var"
-  installed_ref=()
+  eval "$output_var=()"
 
   [ -d "$src_dir" ] || return 0
   ensure_dir "$dst_dir"
@@ -196,13 +195,13 @@ install_managed_profiles() {
       if [ -f "$previous_snapshot" ] && cmp -s "$dst" "$previous_snapshot"; then
         copy_file "$src" "$dst"
         copy_file "$src" "$next_snapshot/$name.$extension"
-        installed_ref+=("$name")
+        eval "$output_var+=(\"$name\")"
         continue
       fi
       if cmp -s "$dst" "$src"; then
         if [ -f "$previous_snapshot" ]; then
           copy_file "$src" "$next_snapshot/$name.$extension"
-          installed_ref+=("$name")
+          eval "$output_var+=(\"$name\")"
         else
           warn "preserving existing $label profile: $dst"
         fi
@@ -218,7 +217,7 @@ install_managed_profiles() {
 
     copy_file "$src" "$dst"
     copy_file "$src" "$next_snapshot/$name.$extension"
-    installed_ref+=("$name")
+    eval "$output_var+=(\"$name\")"
   done < <(managed_profile_names "$src_dir" "$extension")
 
   copy_dir_replace "$next_snapshot" "$snapshot_dir"
@@ -1137,24 +1136,26 @@ PY
 
 read_install_triplet() {
   local result="$1" default_action="$2" default_state="$3" default_backup="$4"
-  local -n action_ref="$5"
-  local -n state_ref="$6"
-  local -n backup_ref="$7"
+  local action_var="$5" state_var="$6" backup_var="$7"
   local -a lines=()
+  local line
 
-  readarray -t lines <<< "$result"
-  action_ref="${lines[0]:-$default_action}"
-  state_ref="${lines[1]:-$default_state}"
-  backup_ref="${lines[2]:-$default_backup}"
+  while IFS= read -r line; do
+    lines+=("$line")
+  done <<< "$result"
+
+  printf -v "$action_var" '%s' "${lines[0]:-$default_action}"
+  printf -v "$state_var" '%s' "${lines[1]:-$default_state}"
+  printf -v "$backup_var" '%s' "${lines[2]:-$default_backup}"
 }
 
 collect_installed_skills() {
-  local -n skills_ref="$1"
+  local skills_var="$1"
   local skill
-  skills_ref=()
+  eval "$skills_var=()"
   while IFS= read -r skill; do
     [ -n "$skill" ] || continue
-    skills_ref+=("$skill")
+    eval "$skills_var+=(\"$skill\")"
   done < <(skill_names)
 }
 
