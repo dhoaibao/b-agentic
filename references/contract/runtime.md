@@ -60,6 +60,14 @@ Saved plans under `.b-agentic/b-plan/` are the local approval cache and executio
 
 Plan frontmatter for durable plans: `slug`, `status`, `created_at`, `approved_at`, `approved_by`, `approved_head`, `risk`, `touch_points`.
 
+### Runtime-native capabilities
+
+Claude Code is the reference runtime and capability ceiling. A runtime-native capability may become shared b-agentic intent only when the Claude Code entry in `runtimes/registry.yaml` marks that capability with `adoption: "shared"`. Other runtimes may adapt that shared intent with `support: "native"` or `support: "adapter"`, but they must not promote a capability to shared behavior when the Claude Code entry is `deferred`, `adapter-only`, or `unsupported`.
+
+Runtime-native capabilities include skills, permissions, hooks, rules, subagents, plugins, command wrappers, and custom tools. Adapter-only capabilities can improve one runtime's ergonomics, but shared prompts and contract prose must not require them. Deferred capabilities are acknowledged but not part of the active workflow contract.
+
+Subagents are optional accelerators. They may gather evidence, isolate broad search output, or review bounded slices, but the active b-agentic skill owns final decisions, verification claims, status blocks, handoffs, and verdicts. Do not use subagents to auto-continue phase-to-phase workflow or bypass approval gates.
+
 ### Risk and behavior modes
 
 Use these labels consistently:

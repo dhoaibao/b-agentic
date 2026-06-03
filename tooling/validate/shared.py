@@ -432,6 +432,7 @@ output_contract_path = ROOT / "references" / "contract" / "output.md"
 output_contract = read_text(output_contract_path)
 runtime_contract_path = ROOT / "references" / "contract" / "runtime.md"
 runtime_contract = read_text(runtime_contract_path)
+runtime_registry_path = ROOT / "runtimes" / "registry.yaml"
 install_sh = read_text(ROOT / "install.sh")
 registry_sync = ROOT / "tooling" / "generate" / "registry_sync.py"
 validate_wrapper_path = ROOT / "scripts" / "validate-skills.sh"
@@ -458,6 +459,88 @@ validate_mode_policy_contract(
 
 # Decision cards removed in slim-down refactor; no card checks needed.
 # Internal conformance/scenario self-tests run only in --release mode.
+
+runtime_registry_text = read_text(runtime_registry_path)
+try:
+    runtime_registry_data = json.loads(runtime_registry_text) if runtime_registry_text else {}
+except Exception as exc:
+    errors.append(f"{rel(runtime_registry_path)}: invalid JSON-compatible YAML registry during shared validation: {exc}")
+    runtime_registry_data = {}
+
+runtime_records = runtime_registry_data.get("runtimes", [])
+if isinstance(runtime_records, list):
+    reference_records = [
+        runtime
+        for runtime in runtime_records
+        if isinstance(runtime, dict) and runtime.get("reference_runtime") is True
+    ]
+    if len(reference_records) == 1:
+        reference_record = reference_records[0]
+        if reference_record.get("name") != "claude-code":
+            errors.append("runtimes/registry.yaml: Claude Code must remain the single reference runtime")
+        reference_capabilities = reference_record.get("capabilities", {})
+        if isinstance(reference_capabilities, dict):
+            for capability in ["permissions", "hooks", "rules", "subagents"]:
+                adoption = reference_capabilities.get(capability, {}).get("adoption")
+                if adoption != "shared":
+                    errors.append(
+                        f"runtimes/registry.yaml: Claude Code {capability} must stay adoption 'shared' while shared assets depend on it"
+                    )
+            if reference_capabilities.get("plugins", {}).get("adoption") != "deferred":
+                errors.append("runtimes/registry.yaml: plugin packaging must remain deferred until explicitly adopted")
+
+capability_policy_markers = [
+    (
+        ROOT / "references" / "contract" / "runtime.md",
+        runtime_contract,
+        [
+            "Claude Code is the reference runtime and capability ceiling",
+            'adoption: "shared"',
+            "Subagents are optional accelerators.",
+            "Do not use subagents to auto-continue phase-to-phase workflow or bypass approval gates.",
+        ],
+    ),
+    (
+        tool_model_path,
+        tool_model_text,
+        [
+            "Runtime-native permission, hook, rule, subagent, and plugin assets are governance surfaces.",
+            "New shared capability intent requires the Claude Code capability entry",
+            "Hooks and subagents must not bypass approval gates.",
+        ],
+    ),
+    (
+        ROOT / "README.md",
+        readme,
+        [
+            "Claude Code is the primary reference runtime",
+            "If Claude Code supports a capability and marks it shared, b-agentic may adopt it",
+            "managed permissions, hooks, rules, and optional subagent profiles",
+        ],
+    ),
+    (
+        ROOT / "CLAUDE.md",
+        maintainer,
+        [
+            "Runtime-native assets such as permissions, hooks, rules, subagents, plugins, wrappers, and custom tools must be declared in `runtimes/registry.yaml`.",
+            'unless Claude Code has `adoption: "shared"`',
+            "Optional subagent profiles are evidence helpers",
+        ],
+    ),
+]
+for _policy_path, _policy_text, _policy_markers in capability_policy_markers:
+    require_contains(_policy_path, _policy_text, _policy_markers, "runtime capability policy marker")
+
+subagent_prompt_requirements = {
+    "b-plan": ["Optional runtime subagent: `b-explore`", "The active **b-plan** skill owns scope, decisions, saved-plan content, status, and handoff."],
+    "b-research": ["Optional runtime subagent: `b-research`", "The active **b-research** skill owns source selection, synthesis, citations, status, and handoff."],
+    "b-review": ["Optional runtime subagent: `b-review`", "The active **b-review** skill owns finding severity, final verdict, status, and handoff."],
+    "b-test": ["Optional runtime subagent: `b-verify`", "The active **b-test** skill owns failure classification, fixes, assertions, status, and handoff."],
+}
+for _skill_name, _markers in subagent_prompt_requirements.items():
+    _prompt_path = ROOT / "skills" / _skill_name / "prompt.md"
+    _prompt_text = read_text(_prompt_path)
+    require_contains(_prompt_path, _prompt_text, _markers + ["Subagents are optional accelerators"], "optional subagent delegation marker")
 
 browser_evidence_row = (
     "| Browser/DOM/visual/e2e evidence | Supplied/CI evidence or existing repo scripts "
@@ -969,7 +1052,12 @@ for forbidden in ["--install-project-mcp", "--replace-project-mcp", "--mcp-profi
     if forbidden in install_sh:
         errors.append(f"install.sh: should not expose per-project/options installer path {forbidden!r}")
 
-_known_non_skill_b_names = {"b-agentic", "b-debug-probe"}
+_known_non_skill_b_names = {
+    "b-agentic",
+    "b-debug-probe",
+    "b-explore",
+    "b-verify",
+}
 _skill_name_ref_re = re.compile(r'`(b-[a-z][a-z0-9-]+)`|\*\*(b-[a-z][a-z0-9-]+)\*\*')
 _skill_ref_scan_paths = [
     *sorted((ROOT / "references" / "contract").glob("*.md")),

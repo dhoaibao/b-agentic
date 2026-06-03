@@ -6,6 +6,7 @@ Adapter-owned layout for Claude Code. Shared skills and contracts stay runtime-n
 
 - Kernel memory: `~/.claude/CLAUDE.md`
 - Skills: `~/.claude/skills/<skill-name>/SKILL.md`
+- Optional subagent profiles: `~/.claude/agents/<agent-name>.md`
 - Skill support: `~/.claude/skills/<skill-name>/reference.md`
 - Suite metadata/backups/snapshots: `~/.claude/b-agentic/`
 - Shared references: `~/.claude/b-agentic/references/contract/*.md`
@@ -15,7 +16,7 @@ Adapter-owned layout for Claude Code. Shared skills and contracts stay runtime-n
 - Sensitive artifacts: `~/.claude/b-agentic/<skill>/<run-id>/` or `/tmp/claude-code/b-agentic/<skill>/<run-id>/`
 - Temporary logs: `/tmp/claude-code/b-agentic/<skill>/<slug>.log`
 
-Project-local install, plugin packaging, hooks, and dynamic context injection are non-goals until validator and smoke coverage prove global parity.
+Project-local install, plugin packaging, and dynamic context injection are non-goals until validator and smoke coverage prove global parity.
 
 ## Invocation
 
@@ -32,6 +33,10 @@ The installer never overwrites `~/.claude/CLAUDE.md` without `--replace-memory`.
 ## Global MCP Setup
 
 Plain install merges `mcp.user.template.json` into `~/.claude.json` under `mcpServers`. The set is Serena, Context7, Brave Search, Firecrawl, and Playwright. Templates use API-key placeholders; interactive install may write user-scope key values. Brave Search, Firecrawl, and Playwright launch through `pnpm dlx`; Playwright stays `--isolated`. The installer does not run Context7, Serena, or browser setup commands.
+
+## Governance assets
+
+Plain install merges `settings.template.json` into `~/.claude/settings.json`. That template contains conservative permissions, secret-path denies, destructive-command denies, dependency-install asks, Serena lifecycle hooks, and status-line support. Optional b-agentic subagent profiles are synced under `~/.claude/agents/`; user-owned or modified profiles are preserved.
 
 ## MCP readiness after install
 

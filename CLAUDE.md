@@ -24,6 +24,7 @@ The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer co
 - `skills/registry.yaml` owns skill metadata and generated `SKILL.md` frontmatter.
 - `skills/*/prompt.md` owns canonical skill bodies.
 - `runtimes/registry.yaml` owns runtime metadata.
+- `runtimes/registry.yaml` also owns runtime-native capability support and adoption intent. Claude Code is the capability ceiling: shared intent may depend on a capability only when the Claude Code entry marks it `adoption: "shared"`.
 - `references/contract/kernel.template.md` owns the shared kernel source.
 - `skills/*/SKILL.md` and `runtimes/*/kernel.md` are committed generated assets.
 - Registry files must stay in the JSON-compatible YAML subset so repo tooling can use Python standard library only.
@@ -78,6 +79,8 @@ runtimes/<name>/
 
 `scripts/validate-skills.sh` wraps shared validation plus runtime validators. `scripts/validate-skills.sh --release` adds installer smoke and internal release checks. `scripts/smoke-install.sh` runs the smoke suite directly.
 
+Runtime-native assets such as permissions, hooks, rules, subagents, plugins, wrappers, and custom tools must be declared in `runtimes/registry.yaml`. Adapter-only capabilities may improve one runtime, but shared prompts and contracts must not require them unless Claude Code has `adoption: "shared"` for the same capability. Optional subagent profiles are evidence helpers; they do not own b-agentic status blocks, verdicts, handoffs, or phase transitions.
+
 Do not add a runtime without updating generation, validation, smoke coverage, and docs in the same change.
 
 ## Sync Rules
@@ -86,7 +89,7 @@ Do not add a runtime without updating generation, validation, smoke coverage, an
 - Skill prompt: edit `skills/*/prompt.md`, rerender generated assets, and update support docs only when needed.
 - Kernel behavior: edit `references/contract/kernel.template.md`, rerender affected `runtimes/*/kernel.md`, and keep docs aligned.
 - Contract behavior: edit one of `runtime.md`, `safety-tools.md`, `output.md`, or `decisions.md`; do not add a new contract file unless the four-file runtime surface is demonstrably insufficient.
-- Runtime behavior: update `runtimes/registry.yaml` and affected adapter docs/scripts together.
+- Runtime behavior: update `runtimes/registry.yaml` and affected adapter docs/scripts together. If runtime-native capabilities change, update the generated README capability table and validate the Claude-first adoption gate.
 - Keep `README.md` overview-level.
 
 ## Validation

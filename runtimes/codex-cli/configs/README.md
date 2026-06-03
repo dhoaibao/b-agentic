@@ -6,6 +6,8 @@ Adapter-owned layout for Codex CLI. Shared skills and contracts stay runtime-neu
 
 - Kernel memory: `~/.codex/AGENTS.md`
 - Skills: `~/.codex/skills/<skill-name>/SKILL.md`
+- Optional subagent profiles: `~/.codex/agents/<agent-name>.toml`
+- Command governance rules: `~/.codex/rules/b-agentic.rules`
 - Skill support: `~/.codex/skills/<skill-name>/reference.md`
 - Suite metadata/backups/snapshots: `~/.codex/b-agentic/`
 - Shared references: `~/.codex/b-agentic/references/contract/*.md`
@@ -26,9 +28,13 @@ This adapter does not provide native phase-to-phase automation. Workflows resume
 
 ## Safety, hooks, and MCP
 
-The installer never overwrites `~/.codex/AGENTS.md` without `--replace-memory`. Plain install syncs skills, shared references, and a managed `~/.codex/config.toml` block for `mcp_servers.*`, hooks, and `skills.config`; user config outside the managed block is preserved.
+The installer never overwrites `~/.codex/AGENTS.md` without `--replace-memory`. Plain install syncs skills, optional subagent profiles, command governance rules, shared references, and a managed `~/.codex/config.toml` block for `mcp_servers.*`, hooks, and `skills.config`; user config outside the managed block is preserved.
 
 Managed hooks enable `[features].hooks = true`, then add SessionStart/PreToolUse/Stop Serena hooks. Existing user hooks outside the block remain authoritative. Codex may ask users to trust new hooks through `/hooks`; b-agentic does not bypass that step.
+
+Optional b-agentic subagent profiles are read-only helpers for exploration, research, review, and verification. User-owned or modified profiles are preserved.
+
+Managed `b-agentic.rules` blocks force-push/reset/clean commands and prompts for dependency installs that request to run outside the sandbox. Existing user rules remain authoritative and modified managed rules are preserved on update or uninstall.
 
 MCP uses `[mcp_servers.<name>]` tables from `mcp.user.template.toml`. Serena runs `serena start-mcp-server --context codex --project-from-cwd`. API keys default to shell forwarding unless `--prompt-api-keys` writes user-scope values. Playwright stays `--isolated`; pnpm must be available for `pnpm dlx` entries.
 

@@ -31,6 +31,11 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_codex/home/.codex/skills/b-plan/SKILL.md"
   assert_file "$sandbox_codex/home/.codex/skills/b-plan/reference.md"
   assert_file "$sandbox_codex/home/.codex/skills/b-review/SKILL.md"
+  assert_file "$sandbox_codex/home/.codex/agents/b-explore.toml"
+  assert_file "$sandbox_codex/home/.codex/agents/b-research.toml"
+  assert_file "$sandbox_codex/home/.codex/agents/b-review.toml"
+  assert_file "$sandbox_codex/home/.codex/agents/b-verify.toml"
+  assert_file "$sandbox_codex/home/.codex/rules/b-agentic.rules"
   assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'self-audits when explicitly requested or invoked with `--audit-suite`'
   assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'with or without `--audit-suite`'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'suite self-audit without `--audit-suite` -> ask'
@@ -40,6 +45,10 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"runtime": "codex-cli"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"activationState": "active"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"configAction": "write"'
+  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "set(data['agents']) == {'b-explore', 'b-research', 'b-review', 'b-verify'}"
+  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "data['rules'] == ['b-agentic']"
+  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "data['paths']['agents'].endswith('/.codex/agents')"
+  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "data['paths']['rules'].endswith('/.codex/rules')"
   assert_file "$sandbox_codex/home/.codex/config.toml"
   assert_contains "$sandbox_codex/home/.codex/config.toml" '# BEGIN b-agentic managed config'
   assert_contains "$sandbox_codex/home/.codex/config.toml" '[mcp_servers.context7]'
@@ -79,9 +88,11 @@ run_runtime_smoke_cases() {
   B_AGENTIC_DIR="$sandbox_codex_install_report/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
   bash "$ROOT_DIR/install.sh" --runtime=codex-cli >"$sandbox_codex_install_report/install.log" 2>&1
-  assert_contains "$sandbox_codex_install_report/install.log" '==> [1/5] Syncing skills'
+  assert_contains "$sandbox_codex_install_report/install.log" '==> [1/6] Syncing skills'
   assert_contains "$sandbox_codex_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_codex_install_report/install.log" 'activation: active'
+  assert_contains "$sandbox_codex_install_report/install.log" 'agents: '
+  assert_contains "$sandbox_codex_install_report/install.log" 'rules: '
   assert_contains "$sandbox_codex_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_codex_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_codex_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'

@@ -10,6 +10,9 @@ readonly CLAUDE_DIR="${B_AGENTIC_CLAUDE_DIR:-$HOME/.claude}"
 readonly METADATA_DIR="$CLAUDE_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="$CLAUDE_DIR/skills"
+readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
+readonly AGENTS_DST="$CLAUDE_DIR/agents"
+readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 readonly KERNEL_DST="$CLAUDE_DIR/CLAUDE.md"
 readonly KERNEL_SNAPSHOT_DST="$METADATA_DIR/CLAUDE.md"
 readonly REFERENCES_DST="$METADATA_DIR/references"
@@ -41,6 +44,10 @@ install_settings_config() {
   merge_json_file "$TEMPLATES_SRC/settings.template.json" "$SETTINGS_DST" "settings" "settings"
 }
 
+runtime_install_extra_assets() {
+  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "md" "Claude Code agent" INSTALL_AGENT_NAMES
+}
+
 runtime_install_configs() {
   run_install_triplet_stage "Merging Claude settings" install_settings_config "skip" "none" "none" \
     INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_STATE INSTALL_SETTINGS_BACKUP
@@ -50,6 +57,7 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
+  local agents_string="${INSTALL_AGENT_NAMES[*]}"
 
   if dry_run_enabled; then
     printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
@@ -73,17 +81,20 @@ runtime_write_manifest() {
     CLAUDE_DIR="$CLAUDE_DIR" \
     CLAUDE_JSON_DST="$CLAUDE_JSON_DST" \
     SKILLS_DST="$SKILLS_DST" \
+    AGENTS_DST="$AGENTS_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SETTINGS_DST="$SETTINGS_DST" \
     SKILLS="$skills_string" \
+    AGENTS="$agents_string" \
     python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
+agents = [name for name in os.environ['AGENTS'].split() if name]
 manifest = {
     'suite': 'b-agentic',
     'runtime': os.environ['RUNTIME'],
@@ -99,11 +110,13 @@ manifest = {
         'claudeJson': os.environ['CLAUDE_JSON_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
+        'agents': os.environ['AGENTS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
         'settings': os.environ['SETTINGS_DST'],
     },
     'skills': skills,
+    'agents': agents,
     'backups': {
         'claudeMd': os.environ['MEMORY_BACKUP'],
         'settings': os.environ['SETTINGS_BACKUP'],
@@ -119,6 +132,7 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
+  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "settings" "$INSTALL_SETTINGS_ACTION -> $SETTINGS_DST"
   report_item "mcp" "$INSTALL_MCP_ACTION -> $CLAUDE_JSON_DST"
@@ -140,6 +154,12 @@ runtime_uninstall_configs() {
   claude_json_path="$(manifest_path_value claudeJson "$CLAUDE_JSON_DST")"
   remove_merged_config "$settings_path" "$TEMPLATES_DST/settings.template.json" "settings.json" "settings" "settingsAction"
   remove_merged_config "$claude_json_path" "$TEMPLATES_DST/mcp.user.template.json" ".claude.json" "claudeJson" "mcpAction"
+}
+
+runtime_uninstall_extra_assets() {
+  local agents_path
+  agents_path="$(manifest_path_value agents "$AGENTS_DST")"
+  uninstall_managed_profiles agents "$agents_path" "$AGENTS_SNAPSHOT_DST" "md" "Claude Code agent"
 }
 
 runtime_main() {

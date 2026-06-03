@@ -159,6 +159,96 @@ managed_asset_name_is_safe() {
   return 0
 }
 
+managed_profile_name_is_safe() {
+  managed_asset_name_is_safe "$1"
+}
+
+managed_profile_names() {
+  local src_dir="$1" extension="$2"
+  python3 - "$src_dir" "$extension" <<'PY'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+extension = sys.argv[2]
+for path in sorted(root.glob(f'*.{extension}')):
+    print(path.stem)
+PY
+}
+
+install_managed_profiles() {
+  local src_dir="$1" dst_dir="$2" snapshot_dir="$3" extension="$4" label="$5" output_var="$6"
+  local -n installed_ref="$output_var"
+  installed_ref=()
+
+  [ -d "$src_dir" ] || return 0
+  ensure_dir "$dst_dir"
+
+  local name src dst previous_snapshot next_snapshot
+  next_snapshot="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-${label}.XXXXXX")"
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    src="$src_dir/$name.$extension"
+    dst="$dst_dir/$name.$extension"
+    previous_snapshot="$snapshot_dir/$name.$extension"
+
+    if [ -f "$dst" ]; then
+      if [ -f "$previous_snapshot" ] && cmp -s "$dst" "$previous_snapshot"; then
+        copy_file "$src" "$dst"
+        copy_file "$src" "$next_snapshot/$name.$extension"
+        installed_ref+=("$name")
+        continue
+      fi
+      if cmp -s "$dst" "$src"; then
+        if [ -f "$previous_snapshot" ]; then
+          copy_file "$src" "$next_snapshot/$name.$extension"
+          installed_ref+=("$name")
+        else
+          warn "preserving existing $label profile: $dst"
+        fi
+        continue
+      fi
+      if [ -f "$previous_snapshot" ]; then
+        warn "preserving modified $label profile: $dst"
+      else
+        warn "preserving existing $label profile: $dst"
+      fi
+      continue
+    fi
+
+    copy_file "$src" "$dst"
+    copy_file "$src" "$next_snapshot/$name.$extension"
+    installed_ref+=("$name")
+  done < <(managed_profile_names "$src_dir" "$extension")
+
+  copy_dir_replace "$next_snapshot" "$snapshot_dir"
+  rm -rf "$next_snapshot"
+}
+
+uninstall_managed_profiles() {
+  local manifest_key="$1" dst_dir="$2" snapshot_dir="$3" extension="$4" label="$5"
+  local name path snapshot
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if ! managed_profile_name_is_safe "$name"; then
+      warn "preserving $label profile with unsafe manifest name"
+      continue
+    fi
+    path="$dst_dir/$name.$extension"
+    snapshot="$snapshot_dir/$name.$extension"
+    [ -f "$path" ] || continue
+    if [ ! -f "$snapshot" ]; then
+      warn "preserving $label profile with no managed snapshot: $path"
+      continue
+    fi
+    if cmp -s "$path" "$snapshot"; then
+      run_cmd rm -f "$path"
+    else
+      warn "preserving modified $label profile: $path"
+    fi
+  done < <(manifest_array_values "$manifest_key" || managed_profile_names "$snapshot_dir" "$extension")
+}
+
 skill_name_is_current() {
   local target="$1" name
   while IFS= read -r name; do

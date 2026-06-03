@@ -10,6 +10,12 @@ readonly CODEX_DIR="${B_AGENTIC_CODEX_DIR:-$HOME/.codex}"
 readonly METADATA_DIR="$CODEX_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="${B_AGENTIC_SKILLS_DST:-$HOME/.codex/skills}"
+readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
+readonly AGENTS_DST="${B_AGENTIC_CODEX_AGENTS_DIR:-$HOME/.codex/agents}"
+readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
+readonly RULES_SRC="$SOURCE_DIR/runtimes/$RUNTIME/rules"
+readonly RULES_DST="${B_AGENTIC_CODEX_RULES_DIR:-$HOME/.codex/rules}"
+readonly RULES_SNAPSHOT_DST="$METADATA_DIR/rules"
 readonly KERNEL_DST="$CODEX_DIR/AGENTS.md"
 readonly KERNEL_SNAPSHOT_DST="$METADATA_DIR/AGENTS.md"
 readonly REFERENCES_DST="$METADATA_DIR/references"
@@ -339,6 +345,8 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
+  local agents_string="${INSTALL_AGENT_NAMES[*]}"
+  local rules_string="${INSTALL_RULE_NAMES[*]}"
 
   if dry_run_enabled; then
     printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
@@ -359,16 +367,22 @@ runtime_write_manifest() {
     CODEX_DIR="$CODEX_DIR" \
     CODEX_CONFIG_DST="$CODEX_CONFIG_DST" \
     SKILLS_DST="$SKILLS_DST" \
+    AGENTS_DST="$AGENTS_DST" \
+    RULES_DST="$RULES_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SKILLS="$skills_string" \
+    AGENTS="$agents_string" \
+    RULES="$rules_string" \
     python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
+agents = [name for name in os.environ['AGENTS'].split() if name]
+rules = [name for name in os.environ['RULES'].split() if name]
 manifest = {
     'suite': 'b-agentic',
     'runtime': os.environ['RUNTIME'],
@@ -382,10 +396,14 @@ manifest = {
         'codexConfig': os.environ['CODEX_CONFIG_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
+        'agents': os.environ['AGENTS_DST'],
+        'rules': os.environ['RULES_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
     },
     'skills': skills,
+    'agents': agents,
+    'rules': rules,
     'backups': {
         'agentsMd': os.environ['MEMORY_BACKUP'],
         'codexConfig': os.environ['CONFIG_BACKUP'],
@@ -400,6 +418,8 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
+  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
+  report_item "rules" "${#INSTALL_RULE_NAMES[@]} synced -> $RULES_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "config" "$INSTALL_CONFIG_ACTION -> $CODEX_CONFIG_DST"
   report_item "references" "sync -> $REFERENCES_DST"
@@ -481,13 +501,29 @@ runtime_uninstall_configs() {
   remove_codex_config_block "$codex_config_path"
 }
 
+runtime_install_extra_assets() {
+  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "toml" "Codex agent" INSTALL_AGENT_NAMES
+  install_managed_profiles "$RULES_SRC" "$RULES_DST" "$RULES_SNAPSHOT_DST" "rules" "Codex rule" INSTALL_RULE_NAMES
+}
+
+runtime_uninstall_extra_assets() {
+  local agents_path
+  agents_path="$(manifest_path_value agents "$AGENTS_DST")"
+  uninstall_managed_profiles agents "$agents_path" "$AGENTS_SNAPSHOT_DST" "toml" "Codex agent"
+
+  local rules_path
+  rules_path="$(manifest_path_value rules "$RULES_DST")"
+  uninstall_managed_profiles rules "$rules_path" "$RULES_SNAPSHOT_DST" "rules" "Codex rule"
+}
+
 runtime_main() {
   runtime_warn_missing_cli
   runtime_require_tomllib
-  set_install_stage_total 5
+  set_install_stage_total 6
 
   collect_installed_skills INSTALL_SKILL_NAMES
   run_stage "Syncing skills" install_skills
+  run_stage "Installing agent profiles" runtime_install_extra_assets
   run_stage "Syncing references and templates" install_references_and_templates
 
   run_install_triplet_stage "Installing kernel" install_kernel "preserve" "pending" "none" \
@@ -504,9 +540,10 @@ runtime_main() {
 
 runtime_uninstall() {
   require_bin python3
-  set_install_stage_total 3
+  set_install_stage_total 4
   log "Uninstalling b-agentic from $RUNTIME_UNINSTALL_LABEL"
   run_stage "Removing managed skills" uninstall_installed_skills
+  run_stage "Removing runtime extras" runtime_uninstall_extra_assets
   run_stage "Removing managed kernel" remove_managed_kernel
   run_stage "Cleaning runtime config" runtime_uninstall_configs
   run_cmd rm -rf "$METADATA_DIR"

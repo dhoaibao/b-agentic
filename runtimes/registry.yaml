@@ -13,6 +13,40 @@
       "skills_install_root": "~/.claude/skills",
       "config_template_dir": "runtimes/claude-code/configs",
       "config_schema_family": "claude-user-config",
+      "capabilities": {
+        "skills": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "permissions": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "hooks": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "rules": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "subagents": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "plugins": {
+          "support": "native",
+          "adoption": "deferred"
+        },
+        "command_wrappers": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        },
+        "custom_tools": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        }
+      },
       "command_wrappers": {
         "supported": false,
         "source_dir": null,
@@ -30,6 +64,40 @@
       "skills_install_root": "~/.config/opencode/skills",
       "config_template_dir": "runtimes/opencode/configs",
       "config_schema_family": "opencode-json",
+      "capabilities": {
+        "skills": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "permissions": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "hooks": {
+          "support": "adapter",
+          "adoption": "shared"
+        },
+        "rules": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "subagents": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "plugins": {
+          "support": "native",
+          "adoption": "deferred"
+        },
+        "command_wrappers": {
+          "support": "native",
+          "adoption": "adapter-only"
+        },
+        "custom_tools": {
+          "support": "native",
+          "adoption": "adapter-only"
+        }
+      },
       "command_wrappers": {
         "supported": true,
         "source_dir": "runtimes/opencode/commands",
@@ -47,6 +115,40 @@
       "skills_install_root": "~/.codex/skills",
       "config_template_dir": "runtimes/codex-cli/configs",
       "config_schema_family": "codex-toml",
+      "capabilities": {
+        "skills": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "permissions": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "hooks": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "rules": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "subagents": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "plugins": {
+          "support": "native",
+          "adoption": "deferred"
+        },
+        "command_wrappers": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        },
+        "custom_tools": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        }
+      },
       "command_wrappers": {
         "supported": false,
         "source_dir": null,

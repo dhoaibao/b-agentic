@@ -30,6 +30,10 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_fresh/home/.claude/skills/b-plan/reference.md"
   assert_file "$sandbox_fresh/home/.claude/skills/b-browser/SKILL.md"
   assert_file "$sandbox_fresh/home/.claude/skills/b-review/reference.md"
+  assert_file "$sandbox_fresh/home/.claude/agents/b-explore.md"
+  assert_file "$sandbox_fresh/home/.claude/agents/b-research.md"
+  assert_file "$sandbox_fresh/home/.claude/agents/b-review.md"
+  assert_file "$sandbox_fresh/home/.claude/agents/b-verify.md"
   assert_no_path "$sandbox_fresh/home/.claude/skills/b-plan/references"
   assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md" 'include durable frontmatter'
   assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/reference.md" 'slug: <task-slug>'
@@ -65,6 +69,8 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"settingsAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"mcpAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"skills"'
+  assert_json_value "$sandbox_fresh/home/.claude/b-agentic/install.json" "set(data['agents']) == {'b-explore', 'b-research', 'b-review', 'b-verify'}"
+  assert_json_value "$sandbox_fresh/home/.claude/b-agentic/install.json" "data['paths']['agents'].endswith('/.claude/agents')"
 
   mkdir -p "$sandbox_install_report/home"
   HOME="$sandbox_install_report/home" \
@@ -75,6 +81,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_install_report/install.log" '==> [1/8] Syncing skills'
   assert_contains "$sandbox_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_install_report/install.log" 'activation: active'
+  assert_contains "$sandbox_install_report/install.log" 'agents: '
   assert_contains "$sandbox_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'

@@ -29,5 +29,30 @@
       "type": "local",
       "command": ["pnpm", "dlx", "@playwright/mcp@latest", "--isolated"]
     }
+  },
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "*": "ask",
+      "git diff *": "allow",
+      "git status *": "allow",
+      "git log *": "allow",
+      "rg *": "allow",
+      "fd *": "allow",
+      "grep *": "allow",
+      "git reset --hard *": "deny",
+      "git clean -f *": "deny",
+      "git push --force *": "deny",
+      "rm *": "deny",
+      "npm install *": "ask",
+      "pnpm install *": "ask",
+      "yarn install *": "ask",
+      "bun install *": "ask",
+      "cargo install *": "ask",
+      "go install *": "ask"
+    },
+    "skill": {
+      "b-*": "allow"
+    }
   }
 }

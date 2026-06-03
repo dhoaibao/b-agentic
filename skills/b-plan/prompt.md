@@ -25,6 +25,7 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed.
 - `serena-symbol-toolkit` *(preferred for planning against existing code)*
 - `context7-docs` *(optional, for one narrow API check)*
 - `firecrawl-extraction` *(optional, for a user-provided issue or ticket URL)*
+- Optional runtime subagent: `b-explore` may gather bounded repo evidence for broad plans. The active **b-plan** skill owns scope, decisions, saved-plan content, status, and handoff.
 
 ## Steps
 
@@ -93,6 +94,7 @@ Carry confirmed decisions into the plan. If external feasibility blocks the spec
 ## Rules
 
 - Do not implement while planning.
+- Subagents are optional accelerators; never require them for ordinary planning or let them own decisions, status blocks, or phase transitions.
 - Keep quick plans lean; promote only for real risk or coordination need.
 - Surface blockers and assumptions explicitly.
 - Approved plans are the execution source of truth for **b-implement**.

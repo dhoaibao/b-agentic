@@ -23,6 +23,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 - `bash` - run tests/coverage and inspect failure output.
 - `serena-symbol-toolkit` *(preferred for mapping tests to source behavior and editing existing tests)*
 - `context7-docs` *(optional, for testing-framework API or matcher behavior)*
+- Optional runtime subagent: `b-verify` may gather existing command, diagnostic, or coverage evidence. The active **b-test** skill owns failure classification, fixes, assertions, status, and handoff.
 
 ## Steps
 
@@ -55,6 +56,7 @@ Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 ## Rules
 
 - Never change production code just because a test is red.
+- Subagents are optional accelerators; never let them update assertions, snapshots, goldens, or status blocks.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
 - Add `baseline-missing` tests only when the user explicitly asks for structural coverage.
 - Do not introduce testing frameworks without **b-plan** and dependency-write approval.

@@ -14,6 +14,10 @@ Command classes:
 - **external-write** - mutate APIs, staging/prod, queues, payments, email/SMS, or analytics. Requires approval naming the environment.
 - **destructive** - delete data/files/branches, reset state, rewrite history, clean worktrees, or drop DBs. Requires explicit approval and never targets unrelated user work.
 
+Runtime-native permission, hook, rule, subagent, and plugin assets are governance surfaces. Installers may sync managed templates and profiles, but they must preserve user-owned runtime config, avoid broad permission escalation, and report installed assets visibly. New shared capability intent requires the Claude Code capability entry in `runtimes/registry.yaml` to be `adoption: "shared"`.
+
+Hooks and subagents must not bypass approval gates. Hooks should be deterministic or advisory checks, and subagents inherit or narrow the parent safety posture. Any hook, profile, or agent that can mutate files, run dependency installs, commit, push, start services, or contact external systems remains subject to the approval classes below.
+
 Canonical approval ask:
 
 ```text

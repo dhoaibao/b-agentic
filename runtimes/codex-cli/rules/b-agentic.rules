@@ -1,0 +1,44 @@
+# Managed b-agentic command governance for Codex CLI.
+# These rules only cover commands that request to run outside the sandbox.
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "b-agentic never resets user work autonomously.",
+)
+
+prefix_rule(
+    pattern = ["git", "clean", "-f"],
+    decision = "forbidden",
+    justification = "b-agentic never deletes untracked user work autonomously.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "--force"],
+    decision = "forbidden",
+    justification = "b-agentic never force-pushes.",
+)
+
+prefix_rule(
+    pattern = ["npm", "install"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["pnpm", "install"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["yarn", "install"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["bun", "install"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)

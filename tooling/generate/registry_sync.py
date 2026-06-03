@@ -17,6 +17,8 @@ KERNEL_TEMPLATE_PATH = ROOT / "references" / "contract" / "kernel.template.md"
 
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
+README_RUNTIME_CAPABILITIES_START = "<!-- generated:runtime-capabilities:start -->"
+README_RUNTIME_CAPABILITIES_END = "<!-- generated:runtime-capabilities:end -->"
 ROUTING_INTENTS_START = "<!-- generated:routing-intents:start -->"
 ROUTING_INTENTS_END = "<!-- generated:routing-intents:end -->"
 ROUTING_TRIGGERS_START = "<!-- generated:routing-triggers:start -->"
@@ -41,6 +43,18 @@ PROMPT_FRONTMATTER_FIELDS = [
     ("shell", "shell"),
 ]
 ALLOWED_PROMPT_KEYS = {"description", *[field for field, _ in PROMPT_FRONTMATTER_FIELDS]}
+RUNTIME_CAPABILITY_KEYS = [
+    "skills",
+    "permissions",
+    "hooks",
+    "rules",
+    "subagents",
+    "plugins",
+    "command_wrappers",
+    "custom_tools",
+]
+RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
+RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
 
 
 def load_json_subset_yaml(path: Path) -> dict:
@@ -242,6 +256,7 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
 
     registry_runtime_names: list[str] = []
     reference_runtime_count = 0
+    reference_capabilities: dict[str, dict] | None = None
     for index, runtime in enumerate(runtimes, start=1):
         if not isinstance(runtime, dict):
             errors.append(f"runtimes[{index}]: expected object")
@@ -263,6 +278,47 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         elif reference_runtime:
             reference_runtime_count += 1
 
+        capabilities = runtime.get("capabilities")
+        if not isinstance(capabilities, dict):
+            errors.append(f"runtimes[{index}].capabilities: expected object")
+        else:
+            missing_capabilities = sorted(set(RUNTIME_CAPABILITY_KEYS) - set(capabilities))
+            extra_capabilities = sorted(set(capabilities) - set(RUNTIME_CAPABILITY_KEYS))
+            if missing_capabilities or extra_capabilities:
+                errors.append(
+                    f"runtimes[{index}].capabilities: keys must match {RUNTIME_CAPABILITY_KEYS} "
+                    f"(missing: {missing_capabilities}, extra: {extra_capabilities})"
+                )
+            for capability in RUNTIME_CAPABILITY_KEYS:
+                capability_record = capabilities.get(capability)
+                if not isinstance(capability_record, dict):
+                    errors.append(f"runtimes[{index}].capabilities.{capability}: expected object")
+                    continue
+                support = capability_record.get("support")
+                adoption = capability_record.get("adoption")
+                if support not in RUNTIME_CAPABILITY_SUPPORT:
+                    errors.append(
+                        f"runtimes[{index}].capabilities.{capability}.support: "
+                        f"expected one of {sorted(RUNTIME_CAPABILITY_SUPPORT)}, found {support!r}"
+                    )
+                if adoption not in RUNTIME_CAPABILITY_ADOPTION:
+                    errors.append(
+                        f"runtimes[{index}].capabilities.{capability}.adoption: "
+                        f"expected one of {sorted(RUNTIME_CAPABILITY_ADOPTION)}, found {adoption!r}"
+                    )
+                if support == "unsupported" and adoption != "unsupported":
+                    errors.append(
+                        f"runtimes[{index}].capabilities.{capability}: unsupported capabilities "
+                        "must use adoption 'unsupported'"
+                    )
+                if support != "unsupported" and adoption == "unsupported":
+                    errors.append(
+                        f"runtimes[{index}].capabilities.{capability}: supported capabilities "
+                        "must not use adoption 'unsupported'"
+                    )
+            if reference_runtime is True:
+                reference_capabilities = capabilities
+
         command_wrappers = runtime.get("command_wrappers")
         if not isinstance(command_wrappers, dict):
             errors.append(f"runtimes[{index}].command_wrappers: expected object")
@@ -280,6 +336,20 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
                     errors.append(
                         f"runtimes[{index}].command_wrappers: unsupported runtimes must use null wrapper paths"
                     )
+            if isinstance(capabilities, dict):
+                wrapper_capability = capabilities.get("command_wrappers")
+                if isinstance(wrapper_capability, dict):
+                    wrapper_support = wrapper_capability.get("support")
+                    if supported is True and wrapper_support == "unsupported":
+                        errors.append(
+                            f"runtimes[{index}].capabilities.command_wrappers: "
+                            "supported command wrappers cannot be marked unsupported"
+                        )
+                    if supported is False and wrapper_support != "unsupported":
+                        errors.append(
+                            f"runtimes[{index}].capabilities.command_wrappers: "
+                            "unsupported command wrappers must be marked unsupported"
+                        )
 
         if name:
             registry_runtime_names.append(name)
@@ -288,6 +358,23 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         errors.append("runtimes/registry.yaml: duplicate runtime names")
     if reference_runtime_count != 1:
         errors.append("runtimes/registry.yaml: expected exactly one reference runtime")
+    elif isinstance(reference_capabilities, dict):
+        for runtime_index, runtime in enumerate(runtimes, start=1):
+            if not isinstance(runtime, dict):
+                continue
+            capabilities = runtime.get("capabilities")
+            if not isinstance(capabilities, dict):
+                continue
+            for capability in RUNTIME_CAPABILITY_KEYS:
+                record = capabilities.get(capability)
+                reference_record = reference_capabilities.get(capability)
+                if not isinstance(record, dict) or not isinstance(reference_record, dict):
+                    continue
+                if record.get("adoption") == "shared" and reference_record.get("adoption") != "shared":
+                    errors.append(
+                        f"runtimes[{runtime_index}].capabilities.{capability}: shared adoption "
+                        "requires shared adoption in the reference runtime"
+                    )
 
     scaffold_runtime_dirs = {"runtime-template"}
     missing_runtimes = sorted((runtime_dirs - scaffold_runtime_dirs) - set(registry_runtime_names))
@@ -305,6 +392,37 @@ def render_readme_skills_table(skills: list[dict]) -> str:
     lines = ["| Skill | Phase | Use |", "|---|---|---|"]
     for skill in skills:
         lines.append(f"| `{skill['name']}` | {skill['phase']} | {skill['use']} |")
+    return "\n".join(lines)
+
+
+def render_capability_cell(record: dict) -> str:
+    support = record["support"]
+    adoption = record["adoption"]
+    if support == adoption:
+        return support
+    if adoption == "shared":
+        return support
+    return f"{support}; {adoption}"
+
+
+def render_readme_runtime_capabilities_table(runtimes: list[dict]) -> str:
+    capability_labels = {
+        "skills": "Skills",
+        "permissions": "Permissions",
+        "hooks": "Hooks",
+        "rules": "Rules",
+        "subagents": "Subagents",
+        "plugins": "Plugins",
+        "command_wrappers": "Wrappers",
+        "custom_tools": "Custom tools",
+    }
+    headers = ["Runtime", *[capability_labels[key] for key in RUNTIME_CAPABILITY_KEYS]]
+    lines = ["| " + " | ".join(headers) + " |", "|" + "|".join(["---"] * len(headers)) + "|"]
+    for runtime in runtimes:
+        capabilities = runtime["capabilities"]
+        cells = [runtime["display_name"]]
+        cells.extend(render_capability_cell(capabilities[key]) for key in RUNTIME_CAPABILITY_KEYS)
+        lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 
@@ -426,11 +544,17 @@ def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
 
     readme_path = ROOT / "README.md"
     readme_text = readme_path.read_text()
-    outputs[readme_path] = replace_block(
+    readme_text = replace_block(
         readme_text,
         README_SKILLS_START,
         README_SKILLS_END,
         render_readme_skills_table(skills),
+    )
+    outputs[readme_path] = replace_block(
+        readme_text,
+        README_RUNTIME_CAPABILITIES_START,
+        README_RUNTIME_CAPABILITIES_END,
+        render_readme_runtime_capabilities_table(runtimes),
     )
 
     routing_path = ROOT / "references" / "contract" / "runtime.md"

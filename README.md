@@ -4,7 +4,7 @@
 
 `b-agentic` is a workflow harness, not just a skill bundle. It installs a compact runtime kernel, phase skills, a slim shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
 
-Claude Code is the reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure, and caveats.
+Claude Code is the primary reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure, and caveats.
 
 ## Install
 
@@ -37,6 +37,18 @@ The installer writes only to user-scope runtime locations. Re-run it to update. 
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
+
+Capability support and adoption intent are generated from `runtimes/registry.yaml`. `native` means the runtime has a first-class surface, `adapter` means b-agentic can approximate the shared intent through adapter-owned runtime behavior, and `unsupported` means the adapter must not rely on that capability. Non-shared adoption labels are `adapter-only`, `deferred`, or `unsupported`.
+
+<!-- generated:runtime-capabilities:start -->
+| Runtime | Skills | Permissions | Hooks | Rules | Subagents | Plugins | Wrappers | Custom tools |
+|---|---|---|---|---|---|---|---|---|
+| Claude Code | native | native | native | native | native | native; deferred | unsupported | unsupported |
+| OpenCode | native | native | adapter | native | native | native; deferred | native; adapter-only | native; adapter-only |
+| Codex CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
+<!-- generated:runtime-capabilities:end -->
+
+Claude Code is the capability ceiling: shared b-agentic behavior can adopt a runtime-native capability only when the Claude Code registry entry marks that capability as `adoption: "shared"`. If Claude Code supports a capability and marks it shared, b-agentic may adopt it even when other runtimes need adapters or lack parity. Other runtimes can provide native or adapter implementations for that shared intent, but non-Claude-only capabilities stay adapter-only.
 
 All runtimes are operator-resumed: run a phase skill, keep the returned `[status]` or `[handoff]` block in context, then invoke the next skill explicitly. Runtime adapters preserve invocation ergonomics; they do not promise automatic phase-to-phase continuation.
 
@@ -75,7 +87,7 @@ b-ship [explicit ship request after review readiness]
 
 Behavior modes are `lite` for trivial local work, `standard` by default, and `strict` for public contracts, sensitive paths, dependency changes, CI/build/release work, multi-phase workflows, and shared-environment or external mutation.
 
-The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, and `decisions.md`. Runtime details stay in adapters; skill-specific detail stays with each skill.
+The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, and `decisions.md`. Runtime adapters may also install managed permissions, hooks, rules, and optional subagent profiles when the capability registry allows the shared intent. Runtime details stay in adapters; skill-specific detail stays with each skill.
 
 The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. These are not decorative add-ons: Serena owns symbol work, Context7 owns versioned official docs, Brave owns current/open discovery, Firecrawl owns extraction and approved deeper research, and Playwright owns live browser/e2e evidence through `b-browser`. Native local tools remain first for exact repo evidence.
 
