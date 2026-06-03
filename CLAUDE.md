@@ -1,5 +1,7 @@
 # b-agentic - Maintainer Guide
 
+> This is the maintainer guide for the b-agentic source repository. For the public overview, install instructions, and user-facing documentation, see `README.md`.
+
 Guidelines for editing this source repository. This file is maintainer guidance, not an installed runtime kernel.
 
 ## Product Direction

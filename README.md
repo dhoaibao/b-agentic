@@ -93,34 +93,29 @@ The installer writes a recommended MCP template with `serena`, `context7`, `brav
 
 ```text
 b-agentic/
-├── skills/          # Skill sources and generated delivery assets
-├── runtimes/        # Runtime adapters, configs, scripts, and smoke lanes
-├── references/      # Shared support references and slim runtime contract
-├── tooling/         # Renderers, shared installer core, and validation harness
-├── tests/           # Shared smoke and internal release fixtures
-├── install.sh       # Bootstrap installer entrypoint
-└── scripts/         # Stable validate and smoke wrappers
+├── skills/                # Skill sources and generated delivery assets
+├── runtimes/              # Runtime adapters, configs, scripts, and smoke lanes
+│   └── runtime-template/  # Scaffold for new runtime adapters
+├── references/            # Shared support references and slim runtime contract
+├── tooling/               # Renderers, shared installer core, and validation harness
+│   ├── validate/          # Shared validation harness
+│   ├── conformance/       # Status/handoff policy checker
+│   └── scenarios/         # Golden workflow scenario runner
+├── tests/                 # Shared smoke and internal release fixtures
+│   └── smoke/             # Smoke test harness
+├── install.sh             # Bootstrap installer entrypoint
+└── scripts/               # Stable validate and smoke wrappers
 ```
 
-Source of truth:
-
-- `skills/registry.yaml` and `skills/*/prompt.md` define skills.
-- `runtimes/registry.yaml` and `references/contract/kernel.template.md` define runtime behavior.
-- `references/contract/` defines the slim runtime contract.
-- `tooling/generate/registry_sync.py` regenerates committed delivery assets.
-- `tooling/validate/`, `tooling/conformance/`, `tooling/scenarios/`, `tests/smoke/`, and `runtimes/runtime-template/` protect generated assets, runtime adapters, installer behavior, and release governance.
+Key directories: `tooling/validate/`, `tooling/conformance/`, `tooling/scenarios/`, `tests/smoke/`, and `runtimes/runtime-template/`.
 
 Validation entrypoints:
 
 ```bash
-scripts/validate-skills.sh
-scripts/validate-skills.sh --release
-scripts/smoke-install.sh
-bash scripts/internal-check-conformance.sh --self-test tests/internal/conformance/cases.json
-bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json
+scripts/validate-skills.sh          # shared + runtime validation
+scripts/validate-skills.sh --release # adds conformance, scenario, and smoke coverage
+scripts/smoke-install.sh             # installer smoke tests
 ```
-
-`scripts/validate-skills.sh --release` adds conformance, scenario, and smoke coverage for delivery-sensitive changes. Use `bash scripts/internal-check-conformance.sh <transcript-file>` for a saved status/handoff snippet, and `bash scripts/internal-check-scenarios.sh --self-test tests/internal/scenarios/cases.json` for golden workflow scenarios.
 
 ## Docs
 
