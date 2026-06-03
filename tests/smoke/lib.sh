@@ -167,6 +167,63 @@ PY
   printf '%s' "$rc"
 }
 
+run_install_with_tty_log() {
+  local sandbox="$1" repo_snapshot="$2" log_path="$3"
+  shift 3
+
+  local rc=0
+  set +e
+  python3 - "$sandbox" "$repo_snapshot" "$log_path" "$ROOT_DIR/install.sh" "$@" <<'PY'
+import os, pty, select, sys
+
+sandbox, repo_snapshot, log_path, install_script = sys.argv[1:5]
+args = sys.argv[5:]
+
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.update(env)
+    os.execv("/bin/bash", ["bash", install_script] + args)
+
+status = None
+with open(log_path, "wb") as log:
+    while True:
+        try:
+            result, status = os.waitpid(pid, os.WNOHANG)
+            if result:
+                break
+            ready, _, _ = select.select([fd], [], [], 0.1)
+            if ready:
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    _, status = os.waitpid(pid, 0)
+                    break
+                log.write(chunk)
+                log.flush()
+        except (OSError, select.error):
+            break
+
+os.close(fd)
+if status is None:
+    _, status = os.waitpid(pid, 0)
+
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+PY
+  rc=$?
+  set -e
+
+  return "$rc"
+}
+
 expect_install_with_tty_status() {
   local expected="$1" sandbox="$2" repo_snapshot="$3" input="$4"
   shift 4

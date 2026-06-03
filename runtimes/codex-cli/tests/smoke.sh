@@ -161,13 +161,8 @@ run_runtime_smoke_cases() {
   assert_no_path "$sandbox_codex_dry_run/source"
 
   mkdir -p "$sandbox_codex_dry_run_tty/home"
-  env \
-    HOME="$sandbox_codex_dry_run_tty/home" \
-    B_AGENTIC_REPO="$snapshot_repo" \
-    B_AGENTIC_DIR="$sandbox_codex_dry_run_tty/source" \
-    B_AGENTIC_PROMPT_API_KEYS=N \
-    script -q -e -c "bash '$ROOT_DIR/install.sh' --runtime=codex-cli --dry-run" \
-      "$sandbox_codex_dry_run_tty/install.log" >/dev/null 2>&1
+  run_install_with_tty_log "$sandbox_codex_dry_run_tty" "$snapshot_repo" "$sandbox_codex_dry_run_tty/install.log" \
+    --runtime=codex-cli --dry-run || fail "TTY dry-run install failed"
   python3 - "$sandbox_codex_dry_run_tty/install.log" <<'PY'
 import re
 import sys
