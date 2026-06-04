@@ -18,8 +18,16 @@ VERIFICATION_RE = re.compile(
     r"(^|\n)(Verification:|Coverage / Tests / Operability:|Coverage/Tests/Observability:|Checked and clean:)",
     re.MULTILINE,
 )
-COMMAND_RE = re.compile(r"`[^`]+`")
-PASSED_RE = re.compile(r"\bpassed\b", re.IGNORECASE)
+COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
+COMMAND_START_RE = re.compile(
+    r"^(?:[A-Za-z_][A-Za-z0-9_-]*=[^\s]+\s+)*(?:"
+    r"(?:bash|sh|zsh|python3?|node|npm|pnpm|yarn|bun|npx|cargo|go|pytest|ruff|mypy|tsc|git|gh|make|cmake|gradle|mvn|swift|ruby|bundle|rspec|deno|jq|rg|fd|grep|sed|awk|scripts/|\./)"
+    r")(?:\s|$)"
+)
+FAILED_VERIFICATION_RE = re.compile(
+    r"\b(fail(?:ed|ing)?|error|errored|skipp?ed|not run|did not run|not executed)\b",
+    re.IGNORECASE,
+)
 UNRESOLVED_BROWSER_GAP_RE = re.compile(
     r"(real-browser/visual/e2e evidence remains relevant but absent|browser gap|unresolved browser gap)",
     re.IGNORECASE,
@@ -90,9 +98,18 @@ def parse_blocks(text: str) -> tuple[list[ParsedBlock], list[str]]:
 
 
 def has_verification_evidence(text: str) -> bool:
-    if not VERIFICATION_RE.search(text):
-        return False
-    return bool(COMMAND_RE.search(text) or PASSED_RE.search(text))
+    for match in VERIFICATION_RE.finditer(text):
+        section_start = match.end()
+        status_start = text.find("```text\n[status]", section_start)
+        handoff_start = text.find("```text\n[handoff]", section_start)
+        block_starts = [index for index in [status_start, handoff_start] if index != -1]
+        section_end = min(block_starts) if block_starts else len(text)
+        section = text[section_start:section_end]
+        for line in section.splitlines():
+            commands = [match.group("command").strip() for match in COMMAND_RE.finditer(line)]
+            if any(COMMAND_START_RE.search(command) for command in commands) and not FAILED_VERIFICATION_RE.search(line):
+                return True
+    return False
 
 
 def has_browser_evidence_gap(text: str) -> bool:
@@ -166,7 +183,7 @@ def validate_status_block(
 
     if verdict == "READY FOR PR":
         if not has_verification_evidence(transcript):
-            errors.append("[status]: READY FOR PR requires explicit verification evidence in the transcript")
+            errors.append("[status]: READY FOR PR requires explicit passing verification command evidence in the transcript")
         if has_browser_evidence_gap(transcript):
             errors.append("[status]: READY FOR PR cannot be used while unresolved browser evidence gaps are present")
 

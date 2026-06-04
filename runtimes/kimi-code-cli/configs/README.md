@@ -24,9 +24,25 @@ The installer merges `mcp.user.template.json` into `~/.kimi-code/mcp.json` under
 
 The template keeps API key values as placeholders. Use `install.sh --runtime=kimi-code-cli --prompt-api-keys` to write prompted values into the user config, or edit `~/.kimi-code/mcp.json` manually.
 
+## MCP readiness after install
+
+- `playwright` is immediately available once `pnpm` is on `PATH`; no extra suite-owned setup runs.
+- `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.kimi-code/mcp.json`.
+- `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
+
+## Shell tooling recommendations
+
+Install reports print a core shell-tooling tier for `rg`, `fd`/`fdfind`, and `jq`.
+When the installer can detect Homebrew, `apt`, or `dnf`, it prints a matching package command for that core tier; otherwise it falls back to manual-install notes.
+The installer never auto-installs these packages.
+
 ## Permissions
 
 The managed `config.toml` block adds conservative deny rules for destructive shell patterns and keeps other approval behavior with Kimi's runtime defaults. It does not enable YOLO mode or broad MCP allowlists.
+
+## Validation
+
+`scripts/validate-skills.sh` runs shared validation plus runtime validators. `scripts/smoke-install.sh` runs the shared smoke harness; Kimi coverage lives in `runtimes/kimi-code-cli/tests/smoke.sh`. Use `scripts/validate-skills.sh --release` for delivery-sensitive changes.
 
 ## Uninstall
 

@@ -22,7 +22,32 @@
     {
       "path": "tests/internal/conformance/invalid-status-ready-without-verification.md",
       "valid": false,
-      "error_contains": "READY FOR PR requires explicit verification evidence"
+      "error_contains": "READY FOR PR requires explicit passing verification command evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-ready-with-empty-verification.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires explicit passing verification command evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-ready-with-failed-command.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires explicit passing verification command evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-ready-with-skipped-command.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires explicit passing verification command evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-ready-with-vague-passed.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires explicit passing verification command evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-ready-with-backticked-path.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires explicit passing verification command evidence"
     },
     {
       "path": "tests/internal/conformance/invalid-status-missing-run-id.md",
