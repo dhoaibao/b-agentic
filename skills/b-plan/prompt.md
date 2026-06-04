@@ -45,6 +45,13 @@ Ask only for inputs that change safe planning: hard constraints, deployment orde
 
 Skip discovery for greenfield or docs-only work. Otherwise use local/Serena evidence for owners, references, conventions, and stable anchors. Use Context7 only for a versioned API detail that changes the plan. Use Firecrawl only for user-provided issue/ticket/docs URLs whose exact text affects scope.
 
+**Serena discovery workflow for existing code:**
+1. `get_symbols_overview` on a key file to understand its structure and identify relevant symbols.
+2. `find_symbol` with `include_body=True` on the symbol(s) that own the behavior you need to plan around.
+3. `find_referencing_symbols` on those symbols to understand call sites and coupling.
+
+Use this sequence when the plan must account for existing implementations, interfaces, or call graphs. Skip it when the work is purely additive in a greenfield area.
+
 ### Step 4 - Choose approach and steps
 
 Compare alternatives only when the choice matters. Steps must be dependency ordered and include changes, why now, and `Done when` verification.

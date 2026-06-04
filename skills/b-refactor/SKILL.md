@@ -45,6 +45,16 @@ Resolve the exact symbol, file, or repeated code shape. For simplify/inline/extr
 
 Use Serena references first, plus exact text search for exported names, config keys, CLI flags, routes, filenames, docs, and generated consumers. Promote risk for public/module boundaries, dynamic references, non-LSP languages, weak coverage, generated consumers, or partial behavior evidence.
 
+**Serena rename/move workflow:**
+1. `find_symbol` to lock the target symbol and confirm it exists.
+2. `find_implementations` to discover overrides or interface realizations.
+3. `find_referencing_symbols` to map all call sites and imports.
+4. Perform the transform with `rename_symbol` (or manual edits when the language lacks LSP support).
+5. `find_referencing_symbols` again to confirm references resolved.
+6. `get_diagnostics_for_file` on affected files to catch type errors.
+
+Skip the Serena sequence for non-LSP languages (e.g., plain shell, CSS, protobuf); use exact text search and manual edits instead.
+
 ### Step 3 - Transform
 
 Pick the smallest matching transform. For moves, add destination, update imports/re-exports/tests/config/barrels, verify, then remove origin and re-check references. If the map grows too broad or behavioral redesign appears, hand back to **b-plan** with the locked target and reference map.

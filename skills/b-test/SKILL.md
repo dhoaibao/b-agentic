@@ -68,6 +68,10 @@ Run diagnostics when supported, then the narrowest relevant test. Widen only for
 Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
 ```
 
+## Reference pointers
+
+- Read `./reference.md` for framework detection, snapshot procedures, mock/fixture debugging, assertion failure classifications, and handoff guidance.
+
 ## Rules
 
 - Never change production code just because a test is red.

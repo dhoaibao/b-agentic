@@ -1076,6 +1076,24 @@ for _prompt_path in sorted((ROOT / "skills").glob("*/prompt.md")):
         if not _target.exists():
             errors.append(f"{rel(_prompt_path)}: read gate references non-existent skill support file {rel(_target)}")
 
+# --- MCP workflow depth checks ---
+_skill_workflow_checks = {
+    "b-plan": ["get_symbols_overview", "find_symbol", "find_referencing_symbols"],
+    "b-implement": ["get_symbols_overview", "replace_symbol_body", "get_diagnostics_for_file"],
+    "b-refactor": ["find_symbol", "find_implementations", "find_referencing_symbols", "rename_symbol"],
+    "b-research": ["resolve-library-id", "query-docs"],
+    "b-browser": ["browser_navigate", "browser_snapshot", "browser_take_screenshot"],
+}
+for _skill_name, _markers in _skill_workflow_checks.items():
+    _prompt_path = ROOT / "skills" / _skill_name / "prompt.md"
+    _prompt_text = read_text(_prompt_path)
+    for _marker in _markers:
+        if _marker not in _prompt_text:
+            errors.append(f"{rel(_prompt_path)}: missing MCP workflow marker {_marker!r}")
+
+if not (ROOT / "skills" / "b-test" / "reference.md").exists():
+    errors.append("skills/b-test/reference.md: missing required reference file")
+
 if errors:
     for error in errors:
         print(error, file=sys.stderr)

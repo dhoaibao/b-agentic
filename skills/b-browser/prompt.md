@@ -44,7 +44,17 @@ Unsafe arbitrary-code browser execution requires explicit approval naming target
 
 ### Step 4 - Collect evidence
 
-For supplied evidence, confirm command/workflow, environment, target, timestamp when available, and pass/fail result. For repo commands, run the narrowest existing command. For Playwright, prefer ordinary actions: navigate, snapshot, click, type, fill, screenshot, console/network inspection, and ephemeral state. For Firecrawl, keep extraction bounded to the known URL and static question.
+For supplied evidence, confirm command/workflow, environment, target, timestamp when available, and pass/fail result. For repo commands, run the narrowest existing command.
+
+**Playwright MCP workflow:**
+1. `browser_navigate` to the target URL.
+2. `browser_snapshot` to capture the current page structure.
+3. `browser_click`, `browser_type`, or `browser_fill_form` to interact.
+4. `browser_take_screenshot` to collect visual evidence.
+5. `browser_console_messages` and `browser_network_requests` to inspect errors and API calls.
+6. `browser_close` to clean up.
+
+For Firecrawl, keep extraction bounded to the known URL and static question.
 
 ### Step 5 - Classify failures and cleanup
 

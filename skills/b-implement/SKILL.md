@@ -61,6 +61,15 @@ Before editing, state source of truth, files/symbols expected to change, behavio
 
 Use native tools for simple prose/config/string edits; use Serena for declarations, references, diagnostics, and symbol-aware edits. Use Context7 only when a third-party API uncertainty blocks the next local edit or verification choice.
 
+**Serena editing workflow:**
+1. `get_symbols_overview` on the target file to locate the symbol.
+2. `find_symbol` with `include_body=True` to read the full definition before editing.
+3. Perform the edit with the appropriate Serena tool (`replace_symbol_body`, `insert_after_symbol`, `insert_before_symbol`, or `rename_symbol`).
+4. `get_diagnostics_for_file` to verify the edit introduced no errors.
+5. `find_referencing_symbols` to confirm callers still resolve correctly.
+
+Prefer symbol-level edits for functions, methods, classes, and fields. Use file-level native tools for config, prose, or when Serena reports the language has no LSP support.
+
 Stay within approved scope. Classify adjacent discoveries as Required, Blocking decision, or Follow-up.
 
 ### Step 4 - Verify

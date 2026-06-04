@@ -55,6 +55,11 @@ For APIs, config keys, migrations, method signatures, or code examples, pin the 
 
 ### Step 3 - Gather evidence
 
+**Context7 workflow for library/framework APIs:**
+1. `resolve-library-id` with the exact official library name to get the Context7-compatible ID.
+2. `query-docs` with that ID and a specific, detailed question.
+3. If Context7 returns nothing relevant, fall back to Brave search for authoritative URLs, then extract.
+
 Use Context7 first for pinned library/framework APIs when it can answer. Otherwise search to discover authoritative URLs, then extract only the highest-signal source(s). Prefer official docs, source repos, release notes, standards, and vendor materials.
 
 For recency-sensitive topics, use news/search before extraction and include `as of <date>` or publication dates. For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary evidence when available.

@@ -42,3 +42,57 @@ prefix_rule(
     decision = "prompt",
     justification = "Dependency writes require explicit approval.",
 )
+
+prefix_rule(
+    pattern = ["git", "branch", "-D"],
+    decision = "forbidden",
+    justification = "b-agentic never deletes branches autonomously.",
+)
+
+prefix_rule(
+    pattern = ["git", "push", "--force-with-lease"],
+    decision = "forbidden",
+    justification = "b-agentic never force-pushes.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf"],
+    decision = "prompt",
+    justification = "Recursive deletion requires explicit approval; temp/build cleanups are allowed when scoped.",
+)
+
+prefix_rule(
+    pattern = ["docker", "system", "prune"],
+    decision = "forbidden",
+    justification = "b-agentic never prunes Docker resources autonomously.",
+)
+
+prefix_rule(
+    pattern = ["docker", "volume", "rm"],
+    decision = "forbidden",
+    justification = "b-agentic never removes Docker volumes autonomously.",
+)
+
+prefix_rule(
+    pattern = ["pip", "install"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["poetry", "add"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["cargo", "add"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["go", "get"],
+    decision = "prompt",
+    justification = "Dependency writes require explicit approval.",
+)

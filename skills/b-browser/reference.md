@@ -11,6 +11,14 @@ Prefer evidence sources in this order:
 3. **Playwright MCP** — live browser operation after safety gates
 4. **Firecrawl extraction** — static pages only; not a substitute for live browser
 
+## Firecrawl depth criteria
+
+Reference names map to MCP invocations: `firecrawl_scrape` → `mcp__firecrawl__firecrawl_scrape`, etc.
+
+- **Extraction** (`firecrawl_scrape` or `firecrawl_extract`) for single static pages with known URLs.
+- **Extended** (`firecrawl_map`) for discovering URLs or structured fields across a site section.
+- **Deep** (`firecrawl_crawl` or `firecrawl_agent`) only with explicit approval and a stated scope cap; never as a default.
+
 If no approved evidence path exists, stop with `cause: evidence_gap`.
 
 ## Screenshot guidelines
