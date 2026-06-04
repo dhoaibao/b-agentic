@@ -23,6 +23,7 @@ readonly TEMPLATES_DST="$METADATA_DIR/templates"
 readonly MANIFEST_DST="$METADATA_DIR/install.json"
 readonly CODEX_CONFIG_DST="${B_AGENTIC_CODEX_CONFIG:-$HOME/.codex/config.toml}"
 readonly CODEX_CONFIG_BACKUP_KEY="codexConfig"
+readonly HOOK_CHECKER_DST="$METADATA_DIR/hooks/check-runtime.py"
 
 readonly CODEX_MANAGED_BEGIN="# BEGIN b-agentic managed config"
 readonly CODEX_MANAGED_END="# END b-agentic managed config"
@@ -114,6 +115,8 @@ install_codex_config() {
     CONTEXT7_API_KEY_INPUT="$CONTEXT7_API_KEY_INPUT" \
     BRAVE_API_KEY_INPUT="$BRAVE_API_KEY_INPUT" \
     FIRECRAWL_API_KEY_INPUT="$FIRECRAWL_API_KEY_INPUT" \
+    HOOK_CHECKER_DST="$HOOK_CHECKER_DST" \
+    SOURCE_DIR="$SOURCE_DIR" \
     python3 - <<'PY'
 import json
 import os
@@ -148,6 +151,8 @@ path = Path(os.environ["CODEX_CONFIG_DST"])
 begin = os.environ["CODEX_MANAGED_BEGIN"]
 end = os.environ["CODEX_MANAGED_END"]
 skills_root = Path(os.environ["SKILLS_DST"])
+hook_checker = os.environ["HOOK_CHECKER_DST"]
+source_dir = os.environ["SOURCE_DIR"]
 skills = [name for name in os.environ.get("SKILLS", "").split() if name]
 current_text = path.read_text() if path.exists() else ""
 base_text, _managed_text = split_managed_block(current_text, begin, end)
@@ -183,6 +188,7 @@ def current_literal(server_name: str, section: str, key: str) -> str | None:
 context7_key = os.environ.get("CONTEXT7_API_KEY_INPUT") or current_literal("context7", "http_headers", "CONTEXT7_API_KEY")
 brave_key = os.environ.get("BRAVE_API_KEY_INPUT") or current_literal("brave-search", "env", "BRAVE_API_KEY")
 firecrawl_key = os.environ.get("FIRECRAWL_API_KEY_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_KEY")
+hook_check_command = f"python3 {json.dumps(hook_checker)} --client codex --event stop --source {json.dumps(source_dir)}"
 
 lines = [
     begin,
@@ -219,6 +225,10 @@ lines.extend([
     "[[hooks.Stop.hooks]]",
     'type = "command"',
     'command = "serena-hooks cleanup --client=codex"',
+    "",
+    "[[hooks.Stop.hooks]]",
+    'type = "command"',
+    f"command = {json.dumps(hook_check_command)}",
     "",
 ])
 
@@ -400,6 +410,7 @@ runtime_write_manifest() {
     RULES_DST="$RULES_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
+    HOOK_CHECKER_DST="$HOOK_CHECKER_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SKILLS="$skills_string" \
     AGENTS="$agents_string" \
@@ -430,6 +441,7 @@ manifest = {
         'rules': os.environ['RULES_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
+        'hookChecker': os.environ['HOOK_CHECKER_DST'],
     },
     'skills': skills,
     'agents': agents,
@@ -538,6 +550,7 @@ runtime_uninstall_configs() {
 runtime_install_extra_assets() {
   install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "toml" "Codex agent" INSTALL_AGENT_NAMES
   install_managed_profiles "$RULES_SRC" "$RULES_DST" "$RULES_SNAPSHOT_DST" "rules" "Codex rule" INSTALL_RULE_NAMES
+  install_hook_checker
 }
 
 runtime_uninstall_extra_assets() {

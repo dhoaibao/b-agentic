@@ -63,8 +63,11 @@ for marker in [
         errors.append(f"runtimes/kimi-code-cli/scripts/install.sh: missing marker {marker!r}")
 
 hook = root / "runtimes" / "kimi-code-cli" / "hooks" / "inject-kernel.py"
-if "session_id" not in hook.read_text():
+hook_text = hook.read_text()
+if "session_id" not in hook_text:
     errors.append("runtimes/kimi-code-cli/hooks/inject-kernel.py: missing session_id handling")
+if "kernel injection failed open" not in hook_text:
+    errors.append("runtimes/kimi-code-cli/hooks/inject-kernel.py: missing fail-open diagnostic")
 
 readme = (root / "runtimes" / "kimi-code-cli" / "configs" / "README.md").read_text()
 for marker in ["~/.kimi-code/config.toml", "~/.kimi-code/mcp.json", "UserPromptSubmit", "fail-open"]:

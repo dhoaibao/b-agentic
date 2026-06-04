@@ -66,6 +66,10 @@
           {
             "type": "command",
             "command": "serena-hooks cleanup --client=claude-code"
+          },
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/b-agentic/hooks/check-runtime.py --client claude-code --event stop --source {{B_AGENTIC_SOURCE_DIR}}"
           }
         ]
       }

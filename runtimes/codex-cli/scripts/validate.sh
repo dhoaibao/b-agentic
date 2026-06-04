@@ -83,6 +83,9 @@ for required in [
     'serena-hooks activate --client=codex',
     'serena-hooks remind --client=codex',
     'serena-hooks cleanup --client=codex',
+    'check-runtime.py',
+    '--client codex',
+    '--event stop',
     '# BEGIN b-agentic managed config',
     'AGENTS_SRC',
     'AGENTS_DST',
@@ -94,6 +97,7 @@ for required in [
     'report_item "rules"',
     'report_item "hooks"',
     'hooksState',
+    'install_hook_checker',
     'runtime_main',
 ]:
     if required not in codex_install:

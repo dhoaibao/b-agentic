@@ -23,6 +23,7 @@ run_runtime_smoke_cases() {
   local codex_activate_hook_expr="any(hook.get('matcher') == 'startup|resume|clear|compact' and any(command.get('command') == 'serena-hooks activate --client=codex' for command in hook.get('hooks', [])) for hook in data['hooks']['SessionStart'])"
   local codex_remind_hook_expr="any(hook.get('matcher') == '.*' and any(command.get('command') == 'serena-hooks remind --client=codex' for command in hook.get('hooks', [])) for hook in data['hooks']['PreToolUse'])"
   local codex_cleanup_hook_expr="any(hook.get('matcher') == '.*' and any(command.get('command') == 'serena-hooks cleanup --client=codex' for command in hook.get('hooks', [])) for hook in data['hooks']['Stop'])"
+  local codex_check_hook_expr="any(hook.get('matcher') == '.*' and any('check-runtime.py' in command.get('command', '') and '--client codex' in command.get('command', '') and '--event stop' in command.get('command', '') for command in hook.get('hooks', [])) for hook in data['hooks']['Stop'])"
 
   mkdir -p "$sandbox_codex/home"
   expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
@@ -36,6 +37,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_codex/home/.codex/agents/b-review.toml"
   assert_file "$sandbox_codex/home/.codex/agents/b-verify.toml"
   assert_file "$sandbox_codex/home/.codex/rules/b-agentic.rules"
+  assert_file "$sandbox_codex/home/.codex/b-agentic/hooks/check-runtime.py"
   assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'self-audits when explicitly requested or invoked with `--audit-suite`'
   assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'with or without `--audit-suite`'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'suite self-audit without `--audit-suite` -> ask'
@@ -66,6 +68,9 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex/home/.codex/config.toml" 'serena-hooks remind --client=codex'
   assert_contains "$sandbox_codex/home/.codex/config.toml" '[[hooks.Stop]]'
   assert_contains "$sandbox_codex/home/.codex/config.toml" 'serena-hooks cleanup --client=codex'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" 'check-runtime.py'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" ' --client codex'
+  assert_contains "$sandbox_codex/home/.codex/config.toml" ' --event stop'
   assert_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'slug: <task-slug>'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_RUNTIME_REFERENCES'
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-plan/reference.md" 'B_AGENTIC_SKILL_DIR'
@@ -75,6 +80,7 @@ run_runtime_smoke_cases() {
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_activate_hook_expr"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_remind_hook_expr"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_cleanup_hook_expr"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$codex_check_hook_expr"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "any(item['path'].endswith('/.codex/skills/b-plan') for item in data['skills']['config'])"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "$managed_skill_enabled_expr"
   assert_file "$sandbox_codex/home/.codex/b-agentic/references/contract/index.md"
@@ -232,6 +238,7 @@ PY
   expect_install_status 0 "$sandbox_codex_legacy_managed" "$snapshot_repo" --runtime=codex-cli
   assert_toml_value "$sandbox_codex_legacy_managed/home/.codex/config.toml" "$managed_skill_enabled_expr"
   assert_toml_value "$sandbox_codex_legacy_managed/home/.codex/config.toml" "$codex_remind_hook_expr"
+  assert_toml_value "$sandbox_codex_legacy_managed/home/.codex/config.toml" "$codex_check_hook_expr"
   assert_not_contains "$sandbox_codex_legacy_managed/home/.codex/config.toml" 'serena-hooks stale-remind --client=codex'
   expect_install_status 0 "$sandbox_codex_legacy_managed" "$snapshot_repo" --runtime=codex-cli --uninstall
   assert_no_path "$sandbox_codex_legacy_managed/home/.codex/config.toml"

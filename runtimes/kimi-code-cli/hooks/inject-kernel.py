@@ -21,12 +21,14 @@ def main() -> int:
 
     kernel_path = Path(sys.argv[1]).expanduser()
     if not kernel_path.exists():
+        print(f"[b-agentic hook] kernel injection failed open: missing {kernel_path}", file=sys.stderr)
         return 0
 
     try:
         payload = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:
         payload = {}
+        print("[b-agentic hook] kernel injection failed open: invalid hook payload", file=sys.stderr)
 
     state_root_env = os.environ.get("B_AGENTIC_KIMI_HOOK_STATE", "")
     if state_root_env:

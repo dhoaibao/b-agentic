@@ -76,9 +76,14 @@ for required in ['runtimes/$RUNTIME/kernel.md', 'skills', 'shared references sup
 if 'references/b-agentic' in install_sh:
     errors.append("install.sh: stale shared reference path 'references/b-agentic'")
 
-for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'report_item "skills"', 'report_item "agents"', '$HOME/.claude', 'report_item "activation"']:
+for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'report_item "skills"', 'report_item "agents"', '$HOME/.claude', 'report_item "activation"', 'install_hook_checker']:
     if required not in claude_install:
         errors.append(f'runtimes/claude-code/scripts/install.sh: missing Claude installer marker {required!r}')
+
+settings_template = (root / 'runtimes' / 'claude-code' / 'configs' / 'settings.template.json').read_text()
+for required in ['check-runtime.py', '--client claude-code', '--event stop']:
+    if required not in settings_template:
+        errors.append(f'runtimes/claude-code/configs/settings.template.json: missing hook checker marker {required!r}')
 
 if not agents_dir.exists():
     errors.append('runtimes/claude-code/agents: missing Claude agent profile source directory')

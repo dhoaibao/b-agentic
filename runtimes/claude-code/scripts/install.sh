@@ -41,11 +41,41 @@ runtime_install_config_stage_count() {
 }
 
 install_settings_config() {
-  merge_json_file "$TEMPLATES_SRC/settings.template.json" "$SETTINGS_DST" "settings" "settings"
+  local template_src="$TEMPLATES_SRC/settings.template.json"
+  local rendered_template
+  rendered_template="$(mktemp "${TMPDIR:-/tmp}/b-agentic-claude-settings.XXXXXX")"
+
+  env \
+    TEMPLATE_SRC="$template_src" \
+    TEMPLATE_DST="$rendered_template" \
+    SOURCE_DIR="$SOURCE_DIR" \
+    python3 - <<'PY'
+import json
+import os
+import shlex
+from pathlib import Path
+
+src = Path(os.environ["TEMPLATE_SRC"])
+dst = Path(os.environ["TEMPLATE_DST"])
+source_dir = os.environ["SOURCE_DIR"]
+text = src.read_text()
+source_arg = json.dumps(shlex.quote(source_dir))[1:-1]
+text = text.replace("{{B_AGENTIC_SOURCE_DIR}}", source_arg)
+json.loads(text)
+dst.write_text(text)
+PY
+
+  if ! dry_run_enabled; then
+    copy_file "$rendered_template" "$TEMPLATES_DST/settings.template.json"
+  fi
+
+  merge_json_file "$rendered_template" "$SETTINGS_DST" "settings" "settings"
+  rm -f "$rendered_template"
 }
 
 runtime_install_extra_assets() {
   install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "md" "Claude Code agent" INSTALL_AGENT_NAMES
+  install_hook_checker
 }
 
 runtime_install_configs() {
@@ -113,6 +143,7 @@ manifest = {
         'agents': os.environ['AGENTS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
+        'hookChecker': os.environ['REFERENCES_DST'].replace('/references', '/hooks/check-runtime.py'),
         'settings': os.environ['SETTINGS_DST'],
     },
     'skills': skills,

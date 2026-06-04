@@ -50,6 +50,10 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_kimi_report/install.log" 'kimi-hooks: UserPromptSubmit is fail-open'
   assert_contains "$sandbox_kimi_report/install.log" 'launch: start a new Kimi Code CLI session so it picks up'
 
+  python3 "$snapshot_repo/runtimes/kimi-code-cli/hooks/inject-kernel.py" "$sandbox_kimi_report/home/.kimi-code/missing-kernel.md" \
+    >"$sandbox_kimi_report/missing-kernel.out" 2>"$sandbox_kimi_report/missing-kernel.err"
+  assert_contains "$sandbox_kimi_report/missing-kernel.err" 'kernel injection failed open: missing'
+
   mkdir -p "$sandbox_kimi_merge/home/.kimi-code"
   cat <<'EOF' > "$sandbox_kimi_merge/home/.kimi-code/config.toml"
 default_model = "custom"

@@ -1223,6 +1223,14 @@ install_uninstall_helper() {
   copy_file "$script_src" "$script_dst"
 }
 
+install_hook_checker() {
+  local script_src="$SOURCE_DIR/tooling/hooks/check-runtime.py"
+  local script_dst="$METADATA_DIR/hooks/check-runtime.py"
+  [ -f "$script_src" ] || return 0
+  ensure_dir "$(dirname "$script_dst")"
+  copy_file "$script_src" "$script_dst"
+}
+
 runtime_uninstall_common() {
   require_bin python3
   set_install_stage_total 4

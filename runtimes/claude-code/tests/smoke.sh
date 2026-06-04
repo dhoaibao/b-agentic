@@ -49,6 +49,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_fresh/home/.claude/CLAUDE.md"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/CLAUDE.md"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/references/contract/index.md"
+  assert_file "$sandbox_fresh/home/.claude/b-agentic/hooks/check-runtime.py"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/templates/settings.template.json"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/templates/mcp.user.template.json"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/install.json"
@@ -59,6 +60,11 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"runtime": "claude-code"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"activationState": "active"'
   assert_file "$sandbox_fresh/home/.claude/settings.json"
+  assert_contains "$sandbox_fresh/home/.claude/settings.json" 'check-runtime.py --client claude-code --event stop'
+  assert_contains "$sandbox_fresh/home/.claude/settings.json" " --source $sandbox_fresh/source"
+  assert_contains "$sandbox_fresh/home/.claude/b-agentic/templates/settings.template.json" " --source $sandbox_fresh/source"
+  assert_not_contains "$sandbox_fresh/home/.claude/settings.json" '{{B_AGENTIC_SOURCE_DIR}}'
+  assert_not_contains "$sandbox_fresh/home/.claude/b-agentic/templates/settings.template.json" '{{B_AGENTIC_SOURCE_DIR}}'
   assert_file "$sandbox_fresh/home/.claude.json"
   assert_json_value "$sandbox_fresh/home/.claude.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\${CONTEXT7_API_KEY:-}'"
