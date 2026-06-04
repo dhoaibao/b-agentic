@@ -56,7 +56,7 @@ For WIP branches, choose the best base: supplied range, upstream merge-base, ori
 
 Fast path is allowed only for a single non-sensitive area with no public contract, auth/security/billing/migration touch, or dependency change. Everything else uses standard review.
 
-Use arguments, `--baseline`, approved plan, checkpoint handoff, or clarification to identify intended behavior. Without a sufficient baseline, run a `baseline-missing` diff-only risk review and do not claim requirements coverage.
+Use arguments, `--baseline`, approved plan, checkpoint handoff, or clarification to identify intended behavior. Without a sufficient baseline, run a `baseline-missing` diff-only risk review, do not claim requirements coverage, and do not use **READY FOR PR**.
 
 ### Step 3 - Inspect risk
 
@@ -74,7 +74,7 @@ Skip only with `--skip-tests`. Otherwise check requirement coverage when a basel
 
 Emit findings severity-ordered; cap non-BLOCKER findings at 15 per severity. If no findings, say so and name residual risk or skipped checks.
 
-Verdicts: **READY FOR PR**, **READY WITH FOLLOW-UPS**, or **NEEDS FIXES**. Emit the chosen label in the final `[status]` block's `verdict:` field after reading `../../b-agentic/references/contract/output.md`. Do not use **READY FOR PR** without baseline, required verification, or relevant browser evidence.
+Verdicts: **READY FOR PR**, **READY WITH FOLLOW-UPS**, or **NEEDS FIXES**. Emit the chosen label in the final `[status]` block's `verdict:` field after reading `../../b-agentic/references/contract/output.md`. Use **READY FOR PR** only with `state: complete`, `blockers: none`, no BLOCKER or MAJOR findings, sufficient baseline evidence, required verification, and relevant browser evidence. Use **READY WITH FOLLOW-UPS** only when every accepted gap or skipped check is named.
 
 If external knowledge is required, resolve one narrow docs lookup inline or hand off to **b-research**.
 

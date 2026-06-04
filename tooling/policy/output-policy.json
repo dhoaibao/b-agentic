@@ -79,7 +79,12 @@
   },
   "readiness": {
     "review_ready_for_pr_requires": [
-      "no blocking findings"
+      "complete state",
+      "blockers: none",
+      "no BLOCKER or MAJOR findings",
+      "baseline evidence",
+      "explicit passing verification command evidence",
+      "no unresolved required browser evidence gap"
     ],
     "browser_evidence_prerequisites": {
       "applies_to": "UI/browser-relevant work",

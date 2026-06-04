@@ -36,6 +36,7 @@ OpenCode uses `~/.config/opencode/opencode.json`; MCP servers live under the `mc
 - `playwright` is immediately available once `pnpm` is on `PATH`; no extra suite-owned setup runs.
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
+- Runtime conformance hooks warn by default where adapter hooks are active. Set `B_AGENTIC_HOOK_STRICT=1` in the OpenCode environment to make invalid status/handoff output block.
 
 ## Shell tooling recommendations
 

@@ -88,12 +88,18 @@ run_manifest_only_corrupted_manifest_case() {
 {"runtime":"claude-code","paths":{"skills":"$sandbox_corrupt/home/Documents","kernel":"$sandbox_corrupt/home/.claude/CLAUDE.md"},"skills":["b-owned"],"agents":[]}
 EOF
 
+  local rc=0
+  set +e
   HOME="$sandbox_corrupt/home" \
   B_AGENTIC_REPO="$sandbox_corrupt/missing-source" \
   B_AGENTIC_DIR="$sandbox_corrupt/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
   bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox_corrupt/uninstall.log" 2>&1
+  rc=$?
+  set -e
 
+  [ "$rc" -ne 0 ] || fail "corrupt manifest-only uninstall without helper should fail safely"
+  assert_contains "$sandbox_corrupt/uninstall.log" "requires $sandbox_corrupt/home/.claude/b-agentic/tooling/install/manifest_uninstall.py"
   assert_file "$sandbox_corrupt/home/Documents/b-owned/file.txt"
   assert_no_path "$sandbox_corrupt/source"
 }

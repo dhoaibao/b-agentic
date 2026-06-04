@@ -30,7 +30,7 @@ Run `git status --short`, current branch, staged diff, unstaged diff, and recent
 
 Confirm the staged set is the intended payload. If staged/unstaged changes are mixed or nothing is staged, stop and ask which files to stage.
 
-Require review evidence: a `b-review` status block with `verdict: READY FOR PR` or `verdict: READY WITH FOLLOW-UPS`, or an explicit current-session user override. In a fresh session without context continuity, ask the user to re-run **b-review** rather than waiving the gate. If no review evidence exists, ask:
+Require review evidence: a `b-review` status block with `state: complete`, `blockers: none`, and `verdict: READY FOR PR`; or an explicit current-session user override. Treat `READY WITH FOLLOW-UPS` as ship-ready only when the user explicitly accepts the named follow-ups in the current session. In a fresh session without context continuity, ask the user to re-run **b-review** rather than waiving the gate. If no review evidence exists, ask:
 
 ```text
 No prior review evidence found. b-ship expects review before commit.

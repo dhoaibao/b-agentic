@@ -44,6 +44,7 @@ run_runtime_smoke_cases() {
   assert_not_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'Do NOT invoke for repo/suite audits'
   assert_contains "$sandbox_codex/home/.codex/AGENTS.md" 'Runtime Kernel'
   assert_file "$sandbox_codex/home/.codex/b-agentic/install.json"
+  assert_file "$sandbox_codex/home/.codex/b-agentic/tooling/install/manifest_uninstall.py"
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"runtime": "codex-cli"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"activationState": "active"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"configAction": "write"'
@@ -102,7 +103,9 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex_install_report/install.log" 'hooks: active'
   assert_contains "$sandbox_codex_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_codex_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
+  assert_contains "$sandbox_codex_install_report/install.log" 'mcp-config: templates installed only; external MCP servers are not started or authenticated by installer'
   assert_contains "$sandbox_codex_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
+  assert_contains "$sandbox_codex_install_report/install.log" 'hooks: runtime conformance hooks warn by default; set B_AGENTIC_HOOK_STRICT=1 to block on failures'
   assert_contains "$sandbox_codex_install_report/install.log" 'Shell tooling:'
   assert_contains "$sandbox_codex_install_report/install.log" 'core: rg, fd/fdfind, jq'
   assert_contains "$sandbox_codex_install_report/install.log" 'installer: suggestions only; no packages were installed automatically'

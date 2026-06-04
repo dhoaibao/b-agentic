@@ -30,7 +30,7 @@ This adapter does not provide native phase-to-phase automation. Workflows resume
 
 The installer never overwrites `~/.codex/AGENTS.md` without `--replace-memory`. Plain install syncs skills, optional subagent profiles, command governance rules, shared references, and a managed `~/.codex/config.toml` block for `mcp_servers.*`, hooks, and `skills.config`; user config outside the managed block is preserved.
 
-Managed hooks enable `[features].hooks = true` only when the user has no existing `[features]` table, then add SessionStart/PreToolUse/Stop Serena hooks. If existing user config sets `hooks = false`, install reports `hooks: disabled` and preserves that choice; run `/hooks` or set hooks true to activate Serena reminders. Existing user hooks outside the block remain authoritative. Codex may ask users to trust new hooks through `/hooks`; b-agentic does not bypass that step.
+Managed hooks enable `[features].hooks = true` only when the user has no existing `[features]` table, then add SessionStart/PreToolUse/Stop Serena hooks. If existing user config sets `hooks = false`, install reports `hooks: disabled` and preserves that choice; run `/hooks` or set hooks true to activate Serena reminders. Existing user hooks outside the block remain authoritative. Codex may ask users to trust new hooks through `/hooks`; b-agentic does not bypass that step. Runtime conformance hooks warn by default; set `B_AGENTIC_HOOK_STRICT=1` in the Codex CLI environment to block invalid status/handoff output.
 
 Optional b-agentic subagent profiles are read-only helpers for exploration, research, review, and verification. User-owned or modified profiles are preserved.
 
@@ -43,6 +43,7 @@ MCP uses `[mcp_servers.<name>]` tables from `mcp.user.template.toml`. Serena run
 - `playwright` is immediately available once `pnpm` is on `PATH`; no extra suite-owned setup runs.
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.codex/config.toml` or matching shell environment variables.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
+- Runtime conformance hooks report installed command paths, but they do not prove the external Serena server is installed or authenticated.
 
 ## Shell tooling recommendations
 

@@ -59,11 +59,13 @@ Run-id conditions:
 
 | Verdict | Meaning |
 |---|---|
-| `READY FOR PR` | Changed code is safe to merge: no blocking findings and required evidence is covered. |
-| `READY WITH FOLLOW-UPS` | Changed code is mergeable with accepted gaps. |
+| `READY FOR PR` | Changed code is safe to merge: baseline, verification, and required evidence are covered with no blocking findings. |
+| `READY WITH FOLLOW-UPS` | Changed code is mergeable with named accepted gaps or skipped checks. |
 | `NEEDS FIXES` | One or more BLOCKER or MAJOR findings must be resolved before merge. |
 
-For reviews, `READY FOR PR` requires no blocking findings. For UI/browser-relevant work, `READY FOR PR` requires accepted browser evidence from supplied/CI evidence, existing-tool evidence, or approved live-browser evidence.
+For reviews, `READY FOR PR` requires complete state, `state: complete`, `blockers: none`, no BLOCKER or MAJOR findings, sufficient baseline evidence, explicit passing verification command evidence, and no unresolved required browser evidence gap. For UI/browser-relevant work, `READY FOR PR` requires accepted browser evidence from supplied/CI evidence, existing-tool evidence, or approved live-browser evidence.
+
+Use `READY WITH FOLLOW-UPS` only when each accepted gap or skipped check is named in the report. A no-baseline review can be useful as a risk read, but it cannot claim `READY FOR PR`.
 
 ### Handoff envelope
 

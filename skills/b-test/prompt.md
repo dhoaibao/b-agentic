@@ -43,6 +43,12 @@ For new tests, cover requested or changed behavior first. Add edge/error/regress
 
 Use Serena for existing test bodies.
 
+**Serena test workflow:**
+1. `get_symbols_overview` on the failing or target test file.
+2. `find_symbol` with `include_body=True` for the test, helper, or fixture under change.
+3. `find_referencing_symbols` before changing shared helpers, mocks, or fixtures.
+4. `get_diagnostics_for_file` after edits when the language server supports the file.
+
 ### Step 4 - Verify
 
 Run diagnostics when supported, then the narrowest relevant test. Widen only for shared fixtures/helpers, public contracts, or normal repo workflow.

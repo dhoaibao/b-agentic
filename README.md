@@ -30,6 +30,8 @@ Useful flags:
 
 The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI config installs require Python 3.11+ for standard-library TOML parsing.
 
+Requirements for every install path: `bash`, `git`, and `python3`. Codex CLI config installs additionally require Python 3.11+ because they use standard-library TOML parsing.
+
 ## Runtime Support
 
 | Runtime | Skill invocation | MCP config |
@@ -88,6 +90,8 @@ b-ship [explicit ship request after review readiness]
 The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, and `decisions.md`. Runtime adapters may also install managed permissions, hooks, rules, and optional subagent profiles when the capability registry allows the shared intent. Runtime details stay in adapters; skill-specific detail stays with each skill.
 
 The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. These are not decorative add-ons: Serena owns symbol work, Context7 owns versioned official docs, Brave owns current/open discovery, Firecrawl owns extraction and approved deeper research, and Playwright owns live browser/e2e evidence through `b-browser`. Native local tools remain first for exact repo evidence.
+
+Install reports distinguish installed configuration from operational readiness. The installer does not start MCP servers, run Serena onboarding, verify API-key auth, or install package-manager dependencies for `pnpm dlx` MCP entries. Runtime conformance hooks warn by default; set `B_AGENTIC_HOOK_STRICT=1` in the runtime environment when you want invalid status/handoff output to block.
 
 ## Repository Layout
 

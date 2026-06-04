@@ -53,6 +53,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_fresh/home/.claude/b-agentic/templates/settings.template.json"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/templates/mcp.user.template.json"
   assert_file "$sandbox_fresh/home/.claude/b-agentic/install.json"
+  assert_file "$sandbox_fresh/home/.claude/b-agentic/tooling/install/manifest_uninstall.py"
   assert_no_path "$sandbox_fresh/home/.claude/commands"
   assert_no_path "$sandbox_fresh/home/.config/opencode"
   assert_equal_files "$sandbox_fresh/home/.claude/CLAUDE.md" "$sandbox_fresh/home/.claude/b-agentic/CLAUDE.md"
@@ -62,11 +63,15 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_fresh/home/.claude/settings.json"
   assert_contains "$sandbox_fresh/home/.claude/settings.json" 'check-runtime.py --client claude-code --event stop'
   assert_contains "$sandbox_fresh/home/.claude/settings.json" " --source $sandbox_fresh/source"
+  assert_not_contains "$sandbox_fresh/home/.claude/settings.json" '"statusLine"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/templates/settings.template.json" " --source $sandbox_fresh/source"
+  assert_not_contains "$sandbox_fresh/home/.claude/b-agentic/templates/settings.template.json" '"statusLine"'
   assert_not_contains "$sandbox_fresh/home/.claude/settings.json" '{{B_AGENTIC_SOURCE_DIR}}'
   assert_not_contains "$sandbox_fresh/home/.claude/b-agentic/templates/settings.template.json" '{{B_AGENTIC_SOURCE_DIR}}'
   assert_file "$sandbox_fresh/home/.claude.json"
   assert_json_value "$sandbox_fresh/home/.claude.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}"
+  assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['serena']['command'] == 'serena'"
+  assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['serena']['args'] == ['start-mcp-server', '--context', 'claude-code', '--project-from-cwd']"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == '\${CONTEXT7_API_KEY:-}'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['brave-search']['command'] == 'pnpm'"
   assert_json_value "$sandbox_fresh/home/.claude.json" "data['mcpServers']['firecrawl']['command'] == 'pnpm'"
@@ -88,9 +93,12 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_install_report/install.log" 'activation: active'
   assert_contains "$sandbox_install_report/install.log" 'agents: '
+  assert_contains "$sandbox_install_report/install.log" 'status-line: omitted by default; set B_AGENTIC_CLAUDE_STATUS_LINE=1 to install it'
   assert_contains "$sandbox_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
+  assert_contains "$sandbox_install_report/install.log" 'mcp-config: templates installed only; external MCP servers are not started or authenticated by installer'
   assert_contains "$sandbox_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
+  assert_contains "$sandbox_install_report/install.log" 'hooks: runtime conformance hooks warn by default; set B_AGENTIC_HOOK_STRICT=1 to block on failures'
   assert_contains "$sandbox_install_report/install.log" 'Shell tooling:'
   assert_contains "$sandbox_install_report/install.log" 'core: rg, fd/fdfind, jq'
   assert_contains "$sandbox_install_report/install.log" 'installer: suggestions only; no packages were installed automatically'
@@ -128,6 +136,30 @@ run_runtime_smoke_cases() {
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=manual \
   bash "$ROOT_DIR/install.sh" >"$sandbox_install_report/install-manual.log" 2>&1
   assert_contains "$sandbox_install_report/install-manual.log" 'core-install: install manually: ripgrep, fd or fd-find, jq'
+
+  local hook_transcript="$sandbox_install_report/invalid-status.md"
+  printf '```text\n[status]\nskill: b-review\nstate: complete\nartifacts: none\nnext: b-ship\nblockers: none\nverdict: READY FOR PR\n```\n' > "$hook_transcript"
+  printf '{"transcript_path":"%s"}\n' "$hook_transcript" | \
+    python3 "$sandbox_install_report/home/.claude/b-agentic/hooks/check-runtime.py" --client claude-code --event stop --source "$sandbox_install_report/source" >/dev/null 2>&1 || \
+    fail "runtime hook should warn and return 0 by default"
+  local strict_rc=0
+  set +e
+  printf '{"transcript_path":"%s"}\n' "$hook_transcript" | \
+    B_AGENTIC_HOOK_STRICT=1 python3 "$sandbox_install_report/home/.claude/b-agentic/hooks/check-runtime.py" --client claude-code --event stop --source "$sandbox_install_report/source" >/dev/null 2>&1
+  strict_rc=$?
+  set -e
+  [ "$strict_rc" -ne 0 ] || fail "runtime hook should block when B_AGENTIC_HOOK_STRICT=1"
+
+  local sandbox_status_line="$WORK_DIR/status-line"
+  mkdir -p "$sandbox_status_line/home"
+  HOME="$sandbox_status_line/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_status_line/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_CLAUDE_STATUS_LINE=1 \
+  bash "$ROOT_DIR/install.sh" >"$sandbox_status_line/install.log" 2>&1
+  assert_contains "$sandbox_status_line/home/.claude/settings.json" '"statusLine"'
+  assert_contains "$sandbox_status_line/install.log" 'status-line: enabled by B_AGENTIC_CLAUDE_STATUS_LINE=1'
 
   mkdir -p "$sandbox_cwd_repo/home" "$sandbox_cwd_repo/current-repo"
   git -C "$sandbox_cwd_repo/current-repo" init -q

@@ -1,7 +1,7 @@
 Findings:
 - No blocking code defect was established from the diff-only review.
 
-Skipped:
+Skipped checks:
 - Requirements coverage was not claimed because no baseline or acceptance criteria were supplied.
 
 ```text

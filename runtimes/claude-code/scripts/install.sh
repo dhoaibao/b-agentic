@@ -27,10 +27,18 @@ readonly MCP_CONTEXT7_SECTION="headers"
 readonly MCP_BRAVE_SECTION="env"
 readonly MCP_FIRECRAWL_SECTION="env"
 readonly MCP_BACKUP_KEY="claudeJson"
+readonly CLAUDE_STATUS_LINE="${B_AGENTIC_CLAUDE_STATUS_LINE:-0}"
 
 CONTEXT7_API_KEY_INPUT=""
 BRAVE_API_KEY_INPUT=""
 FIRECRAWL_API_KEY_INPUT=""
+
+claude_status_line_enabled() {
+  case "$CLAUDE_STATUS_LINE" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 runtime_warn_missing_cli() {
   command -v claude >/dev/null 2>&1 || warn "claude CLI not found; files will still be installed for Claude Code to discover later."
@@ -49,6 +57,7 @@ install_settings_config() {
     TEMPLATE_SRC="$template_src" \
     TEMPLATE_DST="$rendered_template" \
     SOURCE_DIR="$SOURCE_DIR" \
+    CLAUDE_STATUS_LINE="$CLAUDE_STATUS_LINE" \
     python3 - <<'PY'
 import json
 import os
@@ -61,8 +70,10 @@ source_dir = os.environ["SOURCE_DIR"]
 text = src.read_text()
 source_arg = json.dumps(shlex.quote(source_dir))[1:-1]
 text = text.replace("{{B_AGENTIC_SOURCE_DIR}}", source_arg)
-json.loads(text)
-dst.write_text(text)
+data = json.loads(text)
+if os.environ.get("CLAUDE_STATUS_LINE") not in {"1", "true", "TRUE", "yes", "YES", "on", "ON"}:
+    data.pop("statusLine", None)
+dst.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n")
 PY
 
   if ! dry_run_enabled; then
@@ -166,6 +177,11 @@ runtime_print_install_report() {
   report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "settings" "$INSTALL_SETTINGS_ACTION -> $SETTINGS_DST"
+  if claude_status_line_enabled; then
+    report_item "status-line" "enabled by B_AGENTIC_CLAUDE_STATUS_LINE=1"
+  else
+    report_item "status-line" "omitted by default; set B_AGENTIC_CLAUDE_STATUS_LINE=1 to install it"
+  fi
   report_item "mcp" "$INSTALL_MCP_ACTION -> $CLAUDE_JSON_DST"
   report_item "references" "sync -> $REFERENCES_DST"
   report_item "templates" "sync -> $TEMPLATES_DST"

@@ -1019,7 +1019,9 @@ print_install_report_header() {
 print_install_report_readiness() {
   report_section "Readiness"
   report_item "serena" "install/init separately; installer never runs onboarding"
+  report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"
   report_item "api-keys" "Context7, Brave Search, and Firecrawl need user-scope keys"
+  report_item "hooks" "runtime conformance hooks warn by default; set B_AGENTIC_HOOK_STRICT=1 to block on failures"
 }
 
 print_shell_tool_recommendations() {

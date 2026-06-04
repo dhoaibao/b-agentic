@@ -551,6 +551,7 @@ runtime_install_extra_assets() {
   install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "toml" "Codex agent" INSTALL_AGENT_NAMES
   install_managed_profiles "$RULES_SRC" "$RULES_DST" "$RULES_SNAPSHOT_DST" "rules" "Codex rule" INSTALL_RULE_NAMES
   install_hook_checker
+  install_uninstall_helper
 }
 
 runtime_uninstall_extra_assets() {

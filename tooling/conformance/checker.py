@@ -32,6 +32,17 @@ UNRESOLVED_BROWSER_GAP_RE = re.compile(
     r"(real-browser/visual/e2e evidence remains relevant but absent|browser gap|unresolved browser gap)",
     re.IGNORECASE,
 )
+BLOCKING_FINDING_RE = re.compile(r"(^|\n)\s*[-*]\s*(?:BLOCKER|MAJOR)\s*:", re.IGNORECASE)
+BASELINE_SECTION_RE = re.compile(r"(^|\n)(Baseline|Source of truth|Requirements coverage):\s*\n", re.IGNORECASE)
+BASELINE_MISSING_RE = re.compile(
+    r"\b(no baseline|baseline missing|baseline-missing|baseline could not be established|without baseline|"
+    r"requirements coverage was not claimed|requirements coverage is not claimed)\b",
+    re.IGNORECASE,
+)
+FOLLOWUP_EVIDENCE_RE = re.compile(
+    r"(^|\n)(Follow-ups?|Skipped checks?|Accepted gaps?):\s*\n(?:[^\n]*\n)*?\s*[-*]\s+\S",
+    re.IGNORECASE,
+)
 RUN_ID_RE = re.compile(r"^[0-9]{8}-[0-9]{6}-[a-z0-9-]+$")
 
 
@@ -116,6 +127,23 @@ def has_browser_evidence_gap(text: str) -> bool:
     return bool(UNRESOLVED_BROWSER_GAP_RE.search(text))
 
 
+def has_blocking_findings(text: str) -> bool:
+    return bool(BLOCKING_FINDING_RE.search(text))
+
+
+def has_baseline_evidence(text: str) -> bool:
+    return bool(BASELINE_SECTION_RE.search(text)) and not BASELINE_MISSING_RE.search(text)
+
+
+def has_baseline_missing_signal(text: str) -> bool:
+    return bool(BASELINE_MISSING_RE.search(text))
+
+
+def has_followup_or_skipped_evidence(text: str) -> bool:
+    body = re.sub(r"```text\s*\n\[(?:status|handoff)\][\s\S]*?\n```", "", text, flags=re.MULTILINE)
+    return bool(FOLLOWUP_EVIDENCE_RE.search(body))
+
+
 def has_named_artifacts(value: str | None) -> bool:
     if not value:
         return False
@@ -182,14 +210,26 @@ def validate_status_block(
             errors.append("[status]: run-id is required when artifacts are named")
 
     if verdict == "READY FOR PR":
+        if state != "complete":
+            errors.append("[status]: READY FOR PR cannot be combined with blocked state")
+        if fields.get("blockers", "").strip().lower() != "none":
+            errors.append("[status]: READY FOR PR requires blockers: none")
+        if has_blocking_findings(transcript):
+            errors.append("[status]: READY FOR PR requires no BLOCKER or MAJOR findings")
+        if skill == "b-review" and not has_baseline_evidence(transcript):
+            errors.append("[status]: READY FOR PR requires baseline evidence")
+        if has_baseline_missing_signal(transcript):
+            errors.append("[status]: READY FOR PR requires baseline evidence")
         if not has_verification_evidence(transcript):
             errors.append("[status]: READY FOR PR requires explicit passing verification command evidence in the transcript")
         if has_browser_evidence_gap(transcript):
             errors.append("[status]: READY FOR PR cannot be used while unresolved browser evidence gaps are present")
 
     if verdict == "READY WITH FOLLOW-UPS":
-        if "follow-up" not in transcript.lower() and "skipped" not in transcript.lower():
-            errors.append("[status]: READY WITH FOLLOW-UPS requires a follow-up or skipped-check signal in the transcript")
+        if state != "complete":
+            errors.append("[status]: READY WITH FOLLOW-UPS requires complete state")
+        if not has_followup_or_skipped_evidence(transcript):
+            errors.append("[status]: READY WITH FOLLOW-UPS requires named follow-up or skipped evidence")
 
     if verdict == "NEEDS FIXES" and "findings" not in transcript.lower():
         errors.append("[status]: NEEDS FIXES requires findings context in the transcript")

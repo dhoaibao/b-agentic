@@ -50,6 +50,31 @@
       "error_contains": "READY FOR PR requires explicit passing verification command evidence"
     },
     {
+      "path": "tests/internal/conformance/invalid-review-ready-with-blocking-finding.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires no BLOCKER or MAJOR findings"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-review-ready-with-blockers.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires blockers: none"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-review-ready-with-baseline-missing.md",
+      "valid": false,
+      "error_contains": "READY FOR PR requires baseline evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-ready-with-followups-unnamed.md",
+      "valid": false,
+      "error_contains": "READY WITH FOLLOW-UPS requires named follow-up or skipped evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-contradictory-ready-blocked.md",
+      "valid": false,
+      "error_contains": "READY FOR PR cannot be combined with blocked state"
+    },
+    {
       "path": "tests/internal/conformance/invalid-status-missing-run-id.md",
       "valid": false,
       "error_contains": "run-id is required when artifacts are named"

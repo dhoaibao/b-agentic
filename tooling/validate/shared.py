@@ -711,6 +711,9 @@ else:
             errors.append(f"README.md: missing phase-4 architecture path {required!r}")
     if "scripts/validate-skills.sh --release" not in readme:
         errors.append("README.md: missing release-critical validation entrypoint scripts/validate-skills.sh --release")
+    for required in ["`bash`", "`git`", "`python3`", "Python 3.11+"]:
+        if required not in readme:
+            errors.append(f"README.md: missing install prerequisite {required!r}")
 
 for required in ["tooling/validate/", "tests/smoke/", "runtimes/runtime-template/"]:
     if required not in maintainer:
@@ -755,11 +758,14 @@ shared_shell_install_lines = [
     "printf 'rg, fd/fdfind, jq'",
     'report_section "Shell tooling"',
     'report_item "installer" "suggestions only; no packages were installed automatically"',
+    'report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"',
+    'report_item "hooks" "runtime conformance hooks warn by default; set B_AGENTIC_HOOK_STRICT=1 to block on failures"',
 ]
 runtime_readiness_doc_lines = [
     "## MCP readiness after install",
     "`playwright` is immediately available once `pnpm` is on `PATH`; no extra suite-owned setup runs.",
     "`serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.",
+    "B_AGENTIC_HOOK_STRICT=1",
 ]
 runtime_shell_doc_lines = [
     "## Shell tooling recommendations",
@@ -1081,6 +1087,7 @@ _skill_workflow_checks = {
     "b-plan": ["get_symbols_overview", "find_symbol", "find_referencing_symbols"],
     "b-implement": ["get_symbols_overview", "replace_symbol_body", "get_diagnostics_for_file"],
     "b-refactor": ["find_symbol", "find_implementations", "find_referencing_symbols", "rename_symbol"],
+    "b-test": ["get_symbols_overview", "find_symbol", "find_referencing_symbols", "get_diagnostics_for_file"],
     "b-research": ["resolve-library-id", "query-docs"],
     "b-browser": ["browser_navigate", "browser_snapshot", "browser_take_screenshot"],
 }
