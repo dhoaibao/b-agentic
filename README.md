@@ -20,7 +20,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `opencode`, `codex-cli`, or `kimi-code-cli`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
 
 Useful flags:
 
@@ -28,7 +28,7 @@ Useful flags:
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
 
-The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI and Kimi Code CLI config installs require Python 3.11+ for standard-library TOML parsing.
+The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI config installs require Python 3.11+ for standard-library TOML parsing.
 
 ## Runtime Support
 
@@ -37,7 +37,6 @@ The installer writes only to user-scope runtime locations. Re-run it to update. 
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
-| Kimi Code CLI | Native `/skill:<name>` skills plus a managed kernel hook | `~/.kimi-code/mcp.json` |
 
 Capability support and adoption intent are generated from `runtimes/registry.yaml`. `native` means the runtime has a first-class surface, `adapter` means b-agentic can approximate the shared intent through adapter-owned runtime behavior, and `unsupported` means the adapter must not rely on that capability. Non-shared adoption labels are `adapter-only`, `deferred`, or `unsupported`.
 
@@ -47,7 +46,6 @@ Capability support and adoption intent are generated from `runtimes/registry.yam
 | Claude Code | native | native | native | native | native | native; deferred | unsupported | unsupported |
 | OpenCode | native | native | adapter | native | native | native; deferred | native; adapter-only | native; adapter-only |
 | Codex CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
-| Kimi Code CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Claude Code is the capability ceiling: shared b-agentic behavior can adopt a runtime-native capability only when the Claude Code registry entry marks that capability as `adoption: "shared"`. If Claude Code supports a capability and marks it shared, b-agentic may adopt it even when other runtimes need adapters or lack parity. Other runtimes can provide native or adapter implementations for that shared intent, but non-Claude-only capabilities stay adapter-only.

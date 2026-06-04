@@ -128,7 +128,6 @@ run_all_runtime_smoke_case() {
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for claude-code'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for opencode'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for codex-cli'
-  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for kimi-code-cli'
   assert_no_path "$sandbox_all/source"
 
   while IFS=$'\t' read -r runtime_name metadata_root kernel_path; do
@@ -146,8 +145,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
   assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
-  assert_no_path "$sandbox_all/home/.kimi-code/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.kimi-code/b-agentic-kernel.md"
 
   mkdir -p "$sandbox_pending/home"
   IFS=$'\t' read -r pending_runtime_name _ pending_kernel_path < <(registry_runtime_records)

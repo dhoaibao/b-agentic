@@ -154,57 +154,6 @@
         "source_dir": null,
         "install_root": null
       }
-    },
-    {
-      "name": "kimi-code-cli",
-      "display_name": "Kimi Code CLI",
-      "reference_runtime": false,
-      "kernel_source": "runtimes/kimi-code-cli/kernel.md",
-      "memory_file": "b-agentic-kernel.md",
-      "memory_install_path": "~/.kimi-code/b-agentic-kernel.md",
-      "metadata_root": "~/.kimi-code/b-agentic",
-      "skills_install_root": "~/.kimi-code/skills",
-      "config_template_dir": "runtimes/kimi-code-cli/configs",
-      "config_schema_family": "kimi-code-toml-json",
-      "capabilities": {
-        "skills": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "permissions": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "hooks": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "rules": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "subagents": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "plugins": {
-          "support": "native",
-          "adoption": "deferred"
-        },
-        "command_wrappers": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
-        "custom_tools": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        }
-      },
-      "command_wrappers": {
-        "supported": false,
-        "source_dir": null,
-        "install_root": null
-      }
     }
   ]
 }

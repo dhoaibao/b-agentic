@@ -679,13 +679,6 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "temp_run": "/tmp/codex-cli/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/codex-cli/b-agentic/<skill>/<slug>.log",
     },
-    "kimi-code-cli": {
-        "reference": "~/.kimi-code/b-agentic/references/contract/",
-        "temp_root": "/tmp/kimi-code-cli/b-agentic/",
-        "sensitive": "~/.kimi-code/b-agentic/<skill>/<run-id>/",
-        "temp_run": "/tmp/kimi-code-cli/b-agentic/<skill>/<run-id>/",
-        "temp_log": "/tmp/kimi-code-cli/b-agentic/<skill>/<slug>.log",
-    },
 }
 artifact_contract_path = ROOT / "references" / "contract" / "safety-tools.md"
 artifact_contract = read_text(artifact_contract_path)
@@ -778,7 +771,6 @@ for runtime_name, api_key_line in [
     ("claude-code", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.claude.json`."),
     ("opencode", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`."),
     ("codex-cli", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.codex/config.toml` or matching shell environment variables."),
-    ("kimi-code-cli", "`context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.kimi-code/mcp.json`."),
 ]:
     install_path = ROOT / "runtimes" / runtime_name / "scripts" / "install.sh"
     readme_path = ROOT / "runtimes" / runtime_name / "configs" / "README.md"

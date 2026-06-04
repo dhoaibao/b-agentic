@@ -70,6 +70,5 @@ Runtime-sensitive artifact examples:
 - Claude Code: `~/.claude/b-agentic/<skill>/<run-id>/`, `/tmp/claude-code/b-agentic/<skill>/<run-id>/`, `/tmp/claude-code/b-agentic/<skill>/<slug>.log`
 - OpenCode: `~/.config/opencode/b-agentic/<skill>/<run-id>/`, `/tmp/opencode/b-agentic/<skill>/<run-id>/`, `/tmp/opencode/b-agentic/<skill>/<slug>.log`
 - Codex CLI: `~/.codex/b-agentic/<skill>/<run-id>/`, `/tmp/codex-cli/b-agentic/<skill>/<run-id>/`, `/tmp/codex-cli/b-agentic/<skill>/<slug>.log`
-- Kimi Code CLI: `~/.kimi-code/b-agentic/<skill>/<run-id>/`, `/tmp/kimi-code-cli/b-agentic/<skill>/<run-id>/`, `/tmp/kimi-code-cli/b-agentic/<skill>/<slug>.log`
 
 ---
