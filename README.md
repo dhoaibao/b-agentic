@@ -2,6 +2,8 @@
 
 **Agentic workflow kernel for Claude Code, OpenCode, and Codex CLI.**
 
+This README is the repository overview. It describes what b-agentic is, how to install it, which runtimes it supports, and where the main source areas live. Maintainer-only editing guidance belongs in `CLAUDE.md`.
+
 `b-agentic` is a workflow harness, not just a skill bundle. It installs a compact runtime kernel, phase skills, a slim shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
 
 Claude Code is the primary reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure, and caveats.
@@ -123,6 +125,7 @@ scripts/smoke-install.sh             # installer smoke tests
 
 ## Docs
 
-- `CLAUDE.md` is the maintainer guide for this source repo.
+- `README.md` is the repository overview for users and contributors.
+- `CLAUDE.md` is the maintainer guide for editing this source repo.
 - `references/contract/` contains the detailed runtime contract.
 - `runtimes/<name>/configs/README.md` documents runtime-specific layout details.

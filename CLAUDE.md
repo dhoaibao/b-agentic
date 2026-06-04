@@ -2,7 +2,7 @@
 
 > This is the maintainer guide for the b-agentic source repository. For the public overview, install instructions, and user-facing documentation, see `README.md`.
 
-Guidelines for editing this source repository. This file is maintainer guidance, not an installed runtime kernel.
+This file is maintainer guidance for editing the repository itself. It is not the repository overview and it is not an installed runtime kernel.
 
 ## Product Direction
 
@@ -14,7 +14,8 @@ The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer co
 
 ## Scope
 
-- `README.md` stays brief: overview, install, supported runtimes, skills, layout, and validation.
+- `README.md` is the repository overview. Keep it brief: product summary, install, supported runtimes, skills, layout, validation, and links to deeper docs.
+- `CLAUDE.md` is the maintainer guide. Keep source-of-truth, authoring, sync, validation, and review guidance here.
 - Root `CLAUDE.md` is shared repo guidance, not a Claude-Code-only authoring spec.
 - Claude Code is the reference runtime; OpenCode and Codex CLI are supported through runtime adapters.
 - Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral.
