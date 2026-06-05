@@ -284,7 +284,7 @@ ui_print_intro() {
 
   print_logo
   printf '  %bInstall / Upgrade%b  %b%s%b\n' \
-    "$UI_COLOR_BOLD" "$UI_COLOR_RESET" "$UI_COLOR_ACCENT$UI_COLOR_BOLD" "$target" "$UI_COLOR_RESET" >&2
+    "$UI_COLOR_BOLD" "$UI_COLOR_RESET" "$UI_COLOR_LOGO_ALT$UI_COLOR_BOLD" "$target" "$UI_COLOR_RESET" >&2
   printf '  %b%s%b\n' "$UI_COLOR_DIM" "$action" "$UI_COLOR_RESET" >&2
 }
 
