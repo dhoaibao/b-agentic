@@ -62,11 +62,11 @@ ui_timeline_pulse() {
 
   # Pure ANSI cursor control: redraw one ephemeral timeline row before
   # printing the final state row. No external animation helper is needed.
-  for frame in '·' '•' '●'; do
+  for frame in '·' '∙' '•' '●'; do
     printf '\r\033[2K  %b│%b %b%s%b  %s' \
       "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" \
       "$UI_COLOR_LOGO_ALT" "$frame" "$UI_COLOR_RESET" "$message" >&2
-    sleep 0.035
+    sleep 0.04
   done
   printf '\r\033[2K' >&2
 }
@@ -254,7 +254,7 @@ spinner() {
       "$UI_COLOR_LOGO_ALT" "$UI_ICON_RUNNING" "$UI_COLOR_RESET" \
       "$label" "$UI_COLOR_DIM" "${frames[$index]}" "$UI_COLOR_RESET" >&2
     index=$(((index + 1) % ${#frames[@]}))
-    sleep 0.1
+    sleep 0.08
   done
 }
 
