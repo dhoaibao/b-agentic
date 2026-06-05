@@ -34,16 +34,72 @@ UI_ENABLED=0
 UI_SPINNER_ACTIVE=0
 UI_SPINNER_LABEL=""
 UI_SPINNER_PID=""
+UI_DONE_PRINTED=0
+UI_COLOR_BOLD=""
 UI_COLOR_DIM=""
 UI_COLOR_ACCENT=""
+UI_COLOR_LOGO_ALT=""
 UI_COLOR_SUCCESS=""
 UI_COLOR_WARN=""
 UI_COLOR_ERROR=""
 UI_COLOR_RESET=""
 
+readonly UI_ICON_RUNNING="●"
+readonly UI_ICON_SUCCESS="✓"
+readonly UI_ICON_WARNING="▲"
+readonly UI_ICON_ERROR="✕"
+
 ui_clear_ephemeral_line() {
   [ "${UI_SPINNER_ACTIVE:-0}" -eq 1 ] || return 0
   printf '\r\033[2K' >&2
+}
+
+print_logo() {
+  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
+
+  printf '\n' >&2
+  printf '  %b██████╗        █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
+  printf '  %b██╔══██╗      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
+  printf '  %b██████╔╝█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║██║     %b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
+  printf '  %b██╔══██╗╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║██║     %b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
+  printf '  %b██████╔╝      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║╚██████╗%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
+  printf '  %b╚═════╝       ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
+  printf '\n' >&2
+}
+
+print_header() {
+  local title="$1"
+  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
+
+  printf '  %b%s%b\n' "$UI_COLOR_BOLD" "$title" "$UI_COLOR_RESET" >&2
+  printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
+}
+
+print_step() {
+  local state="$1" message="$2" color="$UI_COLOR_DIM" icon=" "
+  [ "${UI_ENABLED:-0}" -eq 1 ] || return 1
+
+  case "$state" in
+    running)
+      color="$UI_COLOR_LOGO_ALT"
+      icon="$UI_ICON_RUNNING"
+      ;;
+    success)
+      color="$UI_COLOR_SUCCESS"
+      icon="$UI_ICON_SUCCESS"
+      ;;
+    warning)
+      color="$UI_COLOR_WARN"
+      icon="$UI_ICON_WARNING"
+      ;;
+    error)
+      color="$UI_COLOR_ERROR"
+      icon="$UI_ICON_ERROR"
+      ;;
+  esac
+
+  printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
+  printf '  %b%s%b  %s\n' "$color" "$icon" "$UI_COLOR_RESET" "$message" >&2
 }
 
 ui_stop_spinner() {
@@ -61,20 +117,29 @@ ui_stop_spinner() {
   UI_SPINNER_PID=""
 
   if [ "$rc" -eq 0 ]; then
-    marker="${UI_COLOR_SUCCESS}[ok]${UI_COLOR_RESET}"
+    marker="${UI_COLOR_SUCCESS}${UI_ICON_SUCCESS}${UI_COLOR_RESET}"
   else
-    marker="${UI_COLOR_ERROR}[!!]${UI_COLOR_RESET}"
+    marker="${UI_COLOR_ERROR}${UI_ICON_ERROR}${UI_COLOR_RESET}"
   fi
-  printf '%b %s\n' "$marker" "$label" >&2
+  printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
+  printf '  %b  %s\n' "$marker" "$label" >&2
 }
 
 log() {
   ui_clear_ephemeral_line
+  if [ "${UI_ENABLED:-0}" -eq 1 ] && [ -n "${1:-}" ]; then
+    print_step success "$*"
+    return 0
+  fi
   printf '%s\n' "$*"
 }
 
 warn() {
   ui_clear_ephemeral_line
+  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
+    print_step warning "$*"
+    return 0
+  fi
   printf '%bwarning:%b %s\n' "$UI_COLOR_WARN" "$UI_COLOR_RESET" "$*" >&2
 }
 
@@ -84,7 +149,11 @@ die() {
   else
     ui_clear_ephemeral_line
   fi
-  printf '%berror:%b %s\n' "$UI_COLOR_ERROR" "$UI_COLOR_RESET" "$*" >&2
+  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
+    print_step error "$*"
+  else
+    printf '%berror:%b %s\n' "$UI_COLOR_ERROR" "$UI_COLOR_RESET" "$*" >&2
+  fi
   exit 1
 }
 
@@ -108,22 +177,28 @@ ui_init() {
   esac
 
   if [ "$UI_ENABLED" -eq 1 ]; then
+    UI_COLOR_BOLD=$'\033[1m'
     UI_COLOR_DIM=$'\033[2m'
-    UI_COLOR_ACCENT=$'\033[36m'
-    UI_COLOR_SUCCESS=$'\033[32m'
-    UI_COLOR_WARN=$'\033[33m'
-    UI_COLOR_ERROR=$'\033[31m'
+    UI_COLOR_ACCENT=$'\033[38;5;68m'
+    UI_COLOR_LOGO_ALT=$'\033[38;5;147m'
+    UI_COLOR_SUCCESS=$'\033[38;5;82m'
+    UI_COLOR_WARN=$'\033[38;5;220m'
+    UI_COLOR_ERROR=$'\033[38;5;203m'
     UI_COLOR_RESET=$'\033[0m'
   fi
 }
 
-ui_spinner_loop() {
+spinner() {
   local label="$1"
-  local -a frames=('-' '\' '|' '/')
+  local -a frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
   local index=0
 
+  # Keep spinner output on a single ephemeral line so completed steps remain clean.
   while :; do
-    printf '\r\033[2K%b[%s]%b %s' "$UI_COLOR_ACCENT" "${frames[$index]}" "$UI_COLOR_RESET" "$label" >&2
+    printf '\r\033[2K  %b│%b %b%s%b  %s %b%s%b' \
+      "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" \
+      "$UI_COLOR_LOGO_ALT" "$UI_ICON_RUNNING" "$UI_COLOR_RESET" \
+      "$label" "$UI_COLOR_DIM" "${frames[$index]}" "$UI_COLOR_RESET" >&2
     index=$(((index + 1) % ${#frames[@]}))
     sleep 0.1
   done
@@ -135,7 +210,7 @@ ui_start_spinner() {
   ui_clear_ephemeral_line
   UI_SPINNER_ACTIVE=1
   UI_SPINNER_LABEL="$label"
-  ui_spinner_loop "$label" &
+  spinner "$label" &
   UI_SPINNER_PID=$!
 }
 
@@ -153,18 +228,29 @@ ui_print_intro() {
     target="all runtimes"
   fi
 
-  printf '\n%b==%b b-agentic installer\n' \
-    "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-  printf '%b::%b mode %s | runtime %s\n' \
-    "$UI_COLOR_DIM" "$UI_COLOR_RESET" "$action" "$target" >&2
+  print_logo
+  print_header "Install / Upgrade"
+  print_step success "Mode: $action"
+  print_step success "Runtime: $target"
 }
 
 ui_print_runtime_banner() {
   local runtime_label="$1" activation_state="$2"
   [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
 
-  printf '\n%b==%b %s %b::%b activation %s\n' \
-    "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" "$runtime_label" "$UI_COLOR_DIM" "$UI_COLOR_RESET" "$activation_state" >&2
+  print_step running "$runtime_label activation: $activation_state"
+}
+
+ui_print_done() {
+  [ "${UI_DONE_PRINTED:-0}" -eq 0 ] || return 0
+  UI_DONE_PRINTED=1
+
+  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
+    printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
+    printf '  Done\n' >&2
+  else
+    printf 'Done\n' >&2
+  fi
 }
 
 cleanup() {
@@ -218,6 +304,28 @@ run_cmd() {
 
 require_bin() {
   command -v "$1" >/dev/null 2>&1 || die "required binary not found: $1"
+}
+
+check_dependencies() {
+  print_step running "Checking dependencies" || true
+
+  if command -v curl >/dev/null 2>&1; then
+    print_step success "Using method: curl" || true
+  else
+    print_step warning "curl not found; install with the documented curl command will not work on this machine" || true
+  fi
+
+  # git is needed only when the installer must fetch or update its source checkout.
+  if uninstall_enabled && { [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; }; then
+    print_step success "Using existing source checkout" || true
+  else
+    require_bin git
+    print_step success "Found dependency: git" || true
+  fi
+
+  # Runtime installers use Python for structured config and manifest updates.
+  require_bin python3
+  print_step success "Found dependency: python3" || true
 }
 
 parse_args() {
@@ -359,6 +467,24 @@ prepare_source() {
   sync_source
 }
 
+install_app() {
+  if uninstall_enabled; then
+    print_step running "Preparing uninstall source" || true
+    prepare_source
+    print_step success "Uninstall source ready" || true
+    return 0
+  fi
+
+  if [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; then
+    print_step warning "b-agentic is already installed; running upgrade" || true
+  else
+    print_step running "b-agentic is not installed; downloading installer source" || true
+  fi
+
+  prepare_source
+  print_step success "Installer source ready" || true
+}
+
 manifest_path_for_runtime() {
   case "$1" in
     claude-code) printf '%s/.claude/b-agentic/install.json' "$HOME" ;;
@@ -489,17 +615,27 @@ run_all_runtimes() {
 }
 
 main() {
+  local rc=0
+
   parse_args "$@"
   ui_init
   ui_print_intro
+
   if try_manifest_only_uninstall; then
+    ui_print_done
     return 0
   fi
-  prepare_source
+
+  check_dependencies
+  install_app
 
   if [ "$RUNTIME" = "all" ]; then
-    run_all_runtimes
-    return $?
+    set +e
+    ( set -e; run_all_runtimes )
+    rc=$?
+    set -e
+    ui_print_done
+    return "$rc"
   fi
 
   runtime_registered "$RUNTIME" || die "unknown runtime: $RUNTIME"
@@ -509,11 +645,20 @@ main() {
   load_runtime_driver
 
   if uninstall_enabled; then
-    runtime_uninstall
-    return 0
+    set +e
+    ( set -e; runtime_uninstall )
+    rc=$?
+    set -e
+    ui_print_done
+    return "$rc"
   fi
 
-  runtime_main
+  set +e
+  ( set -e; runtime_main )
+  rc=$?
+  set -e
+  ui_print_done
+  return "$rc"
 }
 
 main "$@"
