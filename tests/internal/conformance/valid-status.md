@@ -1,5 +1,11 @@
 Mode: changed-code
 
+Task start:
+- Active skill: `b-review`
+- Source of truth: changed diff and approved review request
+- Success: reviewer verdict grounded in baseline and verification evidence
+- Worktree: `git status --short` returned only the reviewed changes
+
 Baseline:
 - Approved plan and changed diff were available for review.
 

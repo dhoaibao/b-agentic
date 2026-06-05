@@ -1,3 +1,9 @@
+Task start:
+- Active skill: `b-review`
+- Source of truth: changed-code review request without baseline
+- Success: reviewer verdict does not overclaim readiness
+- Worktree: `git status --short` showed the reviewed diff only
+
 Findings:
 - No blocking code defect was established from the diff-only review.
 

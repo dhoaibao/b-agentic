@@ -82,6 +82,14 @@ Use the lightest reliable evidence: runtime or symbol evidence for code behavior
 
 Before non-trivial work, define success, run `git status --short`, note relevant dirty state, check for matching approved plans, and confirm the active skill. Preserve unrelated worktree changes.
 
+Task-start checkpoint for non-trivial work:
+- `Active skill`: the single b-agentic skill currently owning the work.
+- `Source of truth`: latest user instruction, approved saved plan, approved chat plan, repo evidence, or stated assumption.
+- `Success`: the outcome and verification required before completion can be claimed.
+- `Worktree`: `git status --short` result or an explicit reason local repo state is not applicable.
+
+Execution, refactor, debug, test, browser, and review phases must leave enough transcript evidence for runtime hooks to detect the checkpoint. Missing checkpoint evidence is a governance failure in strict mode and a warning in advisory mode.
+
 Implement the smallest coherent step. Classify adjacent discoveries as required, blocking decision, or follow-up before expanding scope. Verify narrowly first, then widen only when risk justifies it. Never report complete while the tree is mid-transform.
 
 Completion requires the requested scope done, required verification run or explicitly skipped, cleanup state known, and no unreported blocker. Use `baseline-missing`, `degraded`, or lower confidence when evidence is incomplete.

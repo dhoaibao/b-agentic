@@ -34,6 +34,8 @@ Read a detailed ref only when the active rule, skill step, output format, or han
 11. Make the smallest coherent change, verify with the narrowest useful check, and never leave a mid-transform tree.
 12. For non-trivial final output or any handoff, read `{{runtime_metadata_root}}/references/contract/output.md` and use its schema.
 
+Task-start checkpoint for non-trivial work: before tools or edits, identify `Active skill`, `Source of truth`, `Success`, and `Worktree` evidence. The `Worktree` evidence must include `git status --short` unless the task is outside a repository or the active skill explicitly does not require local repo state.
+
 ## Routing Cheatsheet
 
 - Clear plan/design/sequencing question -> `b-plan`.

@@ -24,6 +24,8 @@ notes: <cost summary, pre-auth carve-outs, or other run-scoped notes>
 
 Required fields: `skill`, `state`, `artifacts`, `next`, `blockers`. Optional fields: `run-id`, `cause`, `verdict`, `confidence`, `notes`. Omit optional lines when empty. `confidence`, when present, sits immediately above `notes`.
 
+For execution, refactor, debug, test, browser, and review phases, a complete status assumes the transcript contains task-start checkpoint evidence from `runtime.md`: active skill, source of truth or success criteria, and `git status --short` worktree evidence unless explicitly not applicable.
+
 State values:
 - `complete` - requested scope is done and required verification ran or was explicitly skipped.
 - `blocked` - cannot continue without an external fix, unavailable dependency, or failed required check.

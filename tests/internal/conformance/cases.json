@@ -70,6 +70,16 @@
       "error_contains": "READY WITH FOLLOW-UPS requires named follow-up or skipped evidence"
     },
     {
+      "path": "tests/internal/conformance/invalid-status-complete-without-task-start.md",
+      "valid": false,
+      "error_contains": "complete status requires task-start active skill evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-status-complete-without-git-status.md",
+      "valid": false,
+      "error_contains": "complete status requires git status --short worktree evidence"
+    },
+    {
       "path": "tests/internal/conformance/invalid-status-contradictory-ready-blocked.md",
       "valid": false,
       "error_contains": "READY FOR PR cannot be combined with blocked state"

@@ -44,6 +44,14 @@ FOLLOWUP_EVIDENCE_RE = re.compile(
     re.IGNORECASE,
 )
 RUN_ID_RE = re.compile(r"^[0-9]{8}-[0-9]{6}-[a-z0-9-]+$")
+TASK_START_SKILLS = {"b-implement", "b-refactor", "b-debug", "b-test", "b-browser", "b-review"}
+TASK_START_ACTIVE_RE = re.compile(r"\bActive skill\s*:\s*`?(?P<skill>b-[a-z-]+)`?", re.IGNORECASE)
+TASK_START_CONTEXT_RE = re.compile(r"\b(Source of truth|Success)\s*:", re.IGNORECASE)
+GIT_STATUS_SHORT_RE = re.compile(r"`?git status --short`?")
+GIT_STATUS_NOT_APPLICABLE_RE = re.compile(
+    r"\b(git status --short|worktree|repo state)\b.*\b(not applicable|outside (?:a )?repo|not a repo)",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -142,6 +150,30 @@ def has_baseline_missing_signal(text: str) -> bool:
 def has_followup_or_skipped_evidence(text: str) -> bool:
     body = re.sub(r"```text\s*\n\[(?:status|handoff)\][\s\S]*?\n```", "", text, flags=re.MULTILINE)
     return bool(FOLLOWUP_EVIDENCE_RE.search(body))
+
+
+def task_start_errors(block: ParsedBlock, transcript: str) -> list[str]:
+    skill = block.fields.get("skill")
+    state = block.fields.get("state")
+    if skill not in TASK_START_SKILLS or state != "complete":
+        return []
+
+    errors: list[str] = []
+    active_match = TASK_START_ACTIVE_RE.search(transcript)
+    if not active_match:
+        errors.append(f"[status]: skill {skill!r} complete status requires task-start active skill evidence")
+    elif active_match.group("skill") != skill:
+        errors.append(
+            f"[status]: skill {skill!r} complete status conflicts with task-start active skill {active_match.group('skill')!r}"
+        )
+
+    if not TASK_START_CONTEXT_RE.search(transcript):
+        errors.append(f"[status]: skill {skill!r} complete status requires task-start source-of-truth or success evidence")
+
+    if not GIT_STATUS_SHORT_RE.search(transcript) and not GIT_STATUS_NOT_APPLICABLE_RE.search(transcript):
+        errors.append(f"[status]: skill {skill!r} complete status requires git status --short worktree evidence")
+
+    return errors
 
 
 def has_named_artifacts(value: str | None) -> bool:
@@ -298,6 +330,7 @@ def check_transcript(path: Path) -> list[str]:
     for block in blocks:
         if block.kind == "status":
             errors.extend(validate_status_block(block, transcript, policy, skill_names))
+            errors.extend(task_start_errors(block, transcript))
         elif block.kind == "handoff":
             errors.extend(validate_handoff_block(block, policy, skill_names))
 
