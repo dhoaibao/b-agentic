@@ -34,6 +34,23 @@ State values:
 
 `state` reports execution flow; `verdict` reports the skill-specific outcome.
 
+### Pre-action intent block
+
+High-risk actions use this machine-readable intent record before the tool call. The runtime validator may block if the record is missing, malformed, mismatched with state, or missing required approval.
+
+```text
+[intent]
+skill: <b-skill-name>
+action: project-write | dependency-write | environment-write | external-write | destructive
+files: <comma-separated paths or 'none'>
+commands: <comma-separated command fragments or 'none'>
+source: <plan, handoff, user instruction, or evidence anchor>
+approval: not-required | pending | approved | denied
+reason: <why this action is required now>
+```
+
+At least one target field, `files` or `commands`, must be present. Do not claim `strict: enforced` unless the transcript or runtime output contains pre-action enforcement evidence and no `advisory-only` gap for the claimed surface.
+
 Run-id conditions:
 
 | Condition | Include? |

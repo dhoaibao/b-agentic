@@ -16,6 +16,7 @@ Installed detailed refs live under `~/.codex/b-agentic/references/contract/`. Th
 - `safety-tools.md` - approvals, privacy, patch/git safety, MCP/tool ownership, fallbacks.
 - `output.md` - `[status]`, `[handoff]`, cause classes, verdicts, readiness.
 - `decisions.md` - high-risk gates, test-vs-bug, browser boundary, snapshots, flakes, cannot-reproduce.
+- `state-machine.md` - strict/advisory state, intent, action validation, and runtime capability reporting.
 
 Read a detailed ref only when the active rule, skill step, output format, or handoff names it or when the kernel is not precise enough. Installed skills read shared refs from `~/.codex/b-agentic/references/contract/` and skill-local support files from their own directory.
 
@@ -32,7 +33,8 @@ Read a detailed ref only when the active rule, skill step, output format, or han
 9. Use the lightest reliable evidence: exact local text for prose/config/contracts, runtime or symbol evidence for code behavior, fetched primary sources for external facts.
 10. Prefer native local tools for exact repo evidence; use Serena for symbol-aware work; use Context7, Brave, Firecrawl, and Playwright only through their intended skill paths in `safety-tools.md`.
 11. Make the smallest coherent change, verify with the narrowest useful check, and never leave a mid-transform tree.
-12. For non-trivial final output or any handoff, read `~/.codex/b-agentic/references/contract/output.md` and use its schema.
+12. Strict governance is runtime-enforced, not model-enforced: read state/capabilities when present, emit machine-readable intent for high-risk actions, and treat advisory-only surfaces as not strict.
+13. For non-trivial final output or any handoff, read `~/.codex/b-agentic/references/contract/output.md` and use its schema.
 
 Task-start checkpoint for non-trivial work: before tools or edits, identify `Active skill`, `Source of truth`, `Success`, and `Worktree` evidence. The `Worktree` evidence must include `git status --short` unless the task is outside a repository or the active skill explicitly does not require local repo state.
 

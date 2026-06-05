@@ -28,6 +28,7 @@ Useful flags:
 
 - `--dry-run` previews changes
 - `--replace-memory` replaces an existing managed kernel file
+- `--strict` requests blocking runtime hooks where pre-action payloads are available
 - `--uninstall` removes managed files
 
 The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI config installs require Python 3.11+ for standard-library TOML parsing.
@@ -89,11 +90,11 @@ b-ship [explicit ship request after review readiness]
 
 ## Runtime Kernel And MCPs
 
-The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, and `decisions.md`. Runtime adapters may also install managed permissions, hooks, rules, and optional subagent profiles when the capability registry allows the shared intent. Runtime details stay in adapters; skill-specific detail stays with each skill.
+The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, `state-machine.md`, and `decisions.md`. Runtime adapters may also install managed permissions, hooks, rules, and optional subagent profiles when the capability registry allows the shared intent. Runtime details stay in adapters; skill-specific detail stays with each skill.
 
 The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. These are not decorative add-ons: Serena owns symbol work, Context7 owns versioned official docs, Brave owns current/open discovery, Firecrawl owns extraction and approved deeper research, and Playwright owns live browser/e2e evidence through `b-browser`. Native local tools remain first for exact repo evidence.
 
-Install reports distinguish installed configuration from operational readiness. The installer does not start MCP servers, run Serena onboarding, verify API-key auth, or install package-manager dependencies for `pnpm dlx` MCP entries. Runtime conformance hooks warn by default; set `B_AGENTIC_HOOK_STRICT=1` in the runtime environment when you want invalid status/handoff output to block.
+Install reports distinguish installed configuration from operational readiness. The installer does not start MCP servers, run Serena onboarding, verify API-key auth, or install package-manager dependencies for `pnpm dlx` MCP entries. Runtime conformance hooks warn by default. Use `--strict` or `B_AGENTIC_STRICT=1` to request blocking, but strict claims apply only to runtime surfaces with pre-action payloads; unsupported surfaces are advisory-only.
 
 ## Repository Layout
 
@@ -105,7 +106,7 @@ b-agentic/
 ├── references/            # Shared support references and slim runtime contract
 ├── tooling/               # Renderers, shared installer core, and validation harness
 │   ├── validate/          # Shared validation harness
-│   ├── conformance/       # Status/handoff policy checker
+│   ├── conformance/       # Status/handoff/intent policy checker
 │   └── scenarios/         # Golden workflow scenario runner
 ├── tests/                 # Shared smoke and internal release fixtures
 │   └── smoke/             # Smoke test harness

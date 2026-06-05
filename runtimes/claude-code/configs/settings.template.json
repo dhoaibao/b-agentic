@@ -34,6 +34,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "{{B_AGENTIC_STRICT_PREFIX}}python3 ~/.claude/b-agentic/hooks/check-runtime.py --client claude-code --event pre-action --source {{B_AGENTIC_SOURCE_DIR}}"
+          },
+          {
+            "type": "command",
             "command": "serena-hooks remind --client=claude-code"
           }
         ]
@@ -69,7 +73,7 @@
           },
           {
             "type": "command",
-            "command": "python3 ~/.claude/b-agentic/hooks/check-runtime.py --client claude-code --event stop --source {{B_AGENTIC_SOURCE_DIR}}"
+            "command": "{{B_AGENTIC_STRICT_PREFIX}}python3 ~/.claude/b-agentic/hooks/check-runtime.py --client claude-code --event stop --source {{B_AGENTIC_SOURCE_DIR}}"
           }
         ]
       }

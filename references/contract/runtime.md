@@ -68,6 +68,14 @@ Runtime-native capabilities include skills, permissions, hooks, rules, subagents
 
 Subagents are optional accelerators. They may gather evidence, isolate broad search output, or review bounded slices, but the active b-agentic skill owns final decisions, verification claims, status blocks, handoffs, and verdicts. Do not use subagents to auto-continue phase-to-phase workflow or bypass approval gates.
 
+### State-centric governance
+
+Read `state-machine.md` when strict/advisory enforcement, runtime hooks, action risk, or state recovery affects the task. b-agentic strictness is runtime-enforced, not model-enforced: supported runtimes block defined invalid high-risk actions before execution when they expose pre-action payloads. Runtimes or tool surfaces without pre-action interception are `advisory-only` and must not be described as strict.
+
+Workflow state lives at `.b-agentic/state.json` and is written only by deterministic tooling. The model may request a transition or emit an `[intent]` record, but the validator decides whether state changes or tool actions are allowed.
+
+Before high-risk actions, the runtime validator classifies the action as `project-write`, `dependency-write`, `environment-write`, `external-write`, or `destructive`, then checks the active skill, source of truth, target files or commands, approval state, and runtime capability report.
+
 ### Risk and bypass rules
 
 Small direct requests may bypass `b-plan` only when they touch 3 or fewer files, have no public contract change, have no sensitive path, and leave no design decision.

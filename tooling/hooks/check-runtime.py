@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Fail-open b-agentic runtime hook checks."""
+"""b-agentic runtime hook checks.
+
+Stop hooks validate transcript conformance after a run. Pre-action hooks validate
+observable tool/action payloads before execution when runtimes provide them.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,10 @@ from typing import Any
 
 def warn(message: str) -> None:
     print(f"[b-agentic hook] {message}", file=sys.stderr)
+
+
+def strict_enabled() -> bool:
+    return os.environ.get("B_AGENTIC_STRICT") == "1" or os.environ.get("B_AGENTIC_HOOK_STRICT") == "1"
 
 
 def find_key(value: Any, keys: set[str]) -> str | None:
@@ -48,6 +56,25 @@ def transcript_path_from_stdin(stdin_text: str) -> str | None:
     except json.JSONDecodeError:
         return None
     return find_key(payload, {"transcript_path", "transcriptPath", "transcript_file", "transcriptFile"})
+
+
+def load_payload(stdin_text: str) -> dict[str, Any]:
+    if not stdin_text.strip():
+        return {}
+    try:
+        payload = json.loads(stdin_text)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def workspace_root_from_payload(payload: dict[str, Any]) -> Path:
+    value = find_key(payload, {"cwd", "current_dir", "currentDir", "workspace", "workspaceRoot", "project_dir", "projectDir"})
+    if value:
+        path = Path(value).expanduser()
+        if path.exists():
+            return path
+    return Path.cwd()
 
 
 def checker_path(source_root: Path) -> Path:
@@ -104,13 +131,56 @@ def check_stop_event(source_root: Path, stdin_text: str) -> int:
 
     for error in errors:
         warn(f"conformance warning: {error}")
-    return 1 if errors and os.environ.get("B_AGENTIC_HOOK_STRICT") == "1" else 0
+    return 1 if errors and strict_enabled() else 0
+
+
+def check_pre_action(source_root: Path, client: str, stdin_text: str) -> int:
+    sys.path.insert(0, str(source_root))
+    try:
+        from tooling.state.validator import validate_action
+    except Exception as exc:
+        warn(f"state validator unavailable: {exc}")
+        return 1 if strict_enabled() else 0
+
+    payload = load_payload(stdin_text)
+    workspace_root = workspace_root_from_payload(payload)
+    transcript_path = transcript_path_from_stdin(stdin_text)
+    transcript = None
+    if transcript_path:
+        try:
+            transcript = Path(transcript_path).expanduser().read_text()
+        except OSError as exc:
+            warn(f"could not read transcript for pre-action validation: {exc}")
+
+    decision = validate_action(
+        workspace_root,
+        payload,
+        runtime=client,
+        strict=strict_enabled(),
+        transcript=transcript,
+    )
+    if decision.verdict == "allow":
+        return 0
+    warn(f"pre-action {decision.verdict}: risk={decision.risk}; capability={decision.capability}; reason={decision.reason}")
+    return 1 if decision.verdict == "block" else 0
+
+
+def report_capabilities(source_root: Path, client: str, stdin_text: str) -> int:
+    payload = load_payload(stdin_text)
+    sys.path.insert(0, str(source_root))
+    try:
+        from tooling.state.capabilities import format_report, runtime_capabilities
+    except Exception as exc:
+        warn(f"capability reporter unavailable: {exc}")
+        return 1
+    print(format_report(runtime_capabilities(client, strict=strict_enabled(), pre_action_payload=bool(payload))))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run fail-open b-agentic runtime hook checks.")
+    parser = argparse.ArgumentParser(description="Run b-agentic runtime hook checks.")
     parser.add_argument("--client", required=True, help="Runtime client name for diagnostics.")
-    parser.add_argument("--event", required=True, choices=["stop"], help="Runtime hook event.")
+    parser.add_argument("--event", required=True, choices=["stop", "pre-action", "capabilities"], help="Runtime hook event.")
     parser.add_argument("--source", default=os.environ.get("B_AGENTIC_SOURCE_DIR", "~/.b-agentic"), help="b-agentic source checkout.")
     args = parser.parse_args(argv)
 
@@ -118,6 +188,10 @@ def main(argv: list[str] | None = None) -> int:
     stdin_text = read_stdin()
     if args.event == "stop":
         return check_stop_event(source_root, stdin_text)
+    if args.event == "pre-action":
+        return check_pre_action(source_root, args.client, stdin_text)
+    if args.event == "capabilities":
+        return report_capabilities(source_root, args.client, stdin_text)
     return 0
 
 

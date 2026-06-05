@@ -50,6 +50,8 @@ For `--audit-suite` or explicit b-agentic suite self-audit intent with or withou
 
 For changed-code review, run `git status --short`. Include staged, unstaged, and untracked files for current-worktree reviews; use `git diff HEAD` for tracked changes. With `--range`, state whether current dirty/untracked files are excluded. If no diff/untracked scope exists, ask for a branch, commit, range, or checkpoint.
 
+When reviewing state-governance changes, inspect `.b-agentic/state.json` handling, action classification, validator fail-open/fail-closed behavior, and runtime capability claims. A strictness claim is a finding if the changed runtime cannot block pre-action payloads for the claimed surface.
+
 For WIP branches, choose the best base: supplied range, upstream merge-base, origin default merge-base, then working tree.
 
 ### Step 2 - Choose path and baseline
@@ -93,6 +95,7 @@ Scope/Path/Baseline -> Findings -> Checked and clean -> Coverage/Tests/Observabi
 - Do not run broad checks by default.
 - Do not edit files during review unless the user asks for fixes.
 - Fast path is risk-gated, not line-count-gated.
+- Treat strict/advisory capability overclaims as correctness findings.
 - Cite authoritative docs when API semantics matter.
 
 ## Reference pointers

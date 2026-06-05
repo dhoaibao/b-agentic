@@ -18,6 +18,23 @@ Runtime-native permission, hook, rule, subagent, and plugin assets are governanc
 
 Hooks and subagents must not bypass approval gates. Hooks should be deterministic or advisory checks, and subagents inherit or narrow the parent safety posture. Runtime conformance hooks are fail-open by default: they warn on invalid status/handoff output and block only when `B_AGENTIC_HOOK_STRICT=1` is set for the runtime process. Any hook, profile, or agent that can mutate files, run dependency installs, commit, push, start services, or contact external systems remains subject to the approval classes below.
 
+Strict runtime governance uses the same command classes, but enforcement is only claimed for surfaces with active pre-action interception. Set `B_AGENTIC_STRICT=1` to request blocking behavior. If the runtime cannot provide tool/action payloads before execution, b-agentic must report that surface as `advisory-only` rather than claiming strict protection.
+
+Machine-readable intent for high-risk actions:
+
+```text
+[intent]
+skill: <b-skill-name>
+action: project-write | dependency-write | environment-write | external-write | destructive
+files: <comma-separated paths or 'none'>
+commands: <comma-separated command fragments or 'none'>
+source: <plan, handoff, user instruction, or evidence anchor>
+approval: not-required | pending | approved | denied
+reason: <why this action is required now>
+```
+
+Project writes may use `approval: not-required` when the current source of truth authorizes the edit. Dependency, environment, external, and destructive actions require `approval: approved`. Unknown or ambiguous mutating commands are blocked in strict mode unless explicitly approved by policy.
+
 Canonical approval ask:
 
 ```text

@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +16,8 @@ from tooling.policy.load import (
     load_output_policy,
     validate_output_policy_contract,
 )
+from tooling.state.state import init_state
+from tooling.state.validator import validate_action
 
 errors = []
 
@@ -413,7 +416,7 @@ readme = read_text(ROOT / "README.md")
 maintainer = read_text(ROOT / "CLAUDE.md")
 tool_model_path = ROOT / "references" / "contract" / "safety-tools.md"
 tool_model_text = read_text(tool_model_path)
-expected_contract_files = {"runtime.md", "safety-tools.md", "output.md", "decisions.md", "index.md", "kernel.template.md"}
+expected_contract_files = {"runtime.md", "safety-tools.md", "output.md", "decisions.md", "state-machine.md", "index.md", "kernel.template.md"}
 actual_contract_files = {p.name for p in (ROOT / "references" / "contract").glob("*.md")}
 missing_contract_files = sorted(expected_contract_files - actual_contract_files)
 extra_contract_files = sorted(actual_contract_files - expected_contract_files)
@@ -759,13 +762,13 @@ shared_shell_install_lines = [
     'report_section "Shell tooling"',
     'report_item "installer" "suggestions only; no packages were installed automatically"',
     'report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"',
-    'report_item "hooks" "runtime conformance hooks warn by default; set B_AGENTIC_HOOK_STRICT=1 to block on failures"',
+    'report_item "hooks" "runtime conformance hooks warn by default; use --strict or set B_AGENTIC_STRICT=1 to request blocking"',
 ]
 runtime_readiness_doc_lines = [
     "## MCP readiness after install",
     "`playwright` is immediately available once `pnpm` is on `PATH`; no extra suite-owned setup runs.",
     "`serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.",
-    "B_AGENTIC_HOOK_STRICT=1",
+    "B_AGENTIC_STRICT=1",
 ]
 runtime_shell_doc_lines = [
     "## Shell tooling recommendations",
@@ -1100,6 +1103,50 @@ for _skill_name, _markers in _skill_workflow_checks.items():
 
 if not (ROOT / "skills" / "b-test" / "reference.md").exists():
     errors.append("skills/b-test/reference.md: missing required reference file")
+
+with tempfile.TemporaryDirectory(prefix="b-agentic-validate-state-") as _state_tmp:
+    _state_root = Path(_state_tmp)
+    _state = init_state(_state_root, active_skill="b-implement", phase="implementing")
+    _intent_text = """```text
+[intent]
+skill: b-implement
+action: project-write
+files: references/contract/runtime.md
+source: validation fixture
+approval: not-required
+reason: validate strict project-write target matching
+```"""
+
+    _targetless = validate_action(
+        _state_root,
+        {"tool": "apply_patch"},
+        runtime="claude-code",
+        strict=True,
+        transcript=_intent_text,
+    )
+    if _targetless.verdict != "block" or "target" not in _targetless.reason:
+        errors.append("tooling/state/validator.py: strict project-write without action target must block")
+
+    _unsupported = validate_action(
+        _state_root,
+        {"tool": "apply_patch", "files": ["references/contract/runtime.md"]},
+        runtime="made-up-runtime",
+        strict=True,
+        transcript=_intent_text,
+    )
+    if _unsupported.verdict != "block" or _unsupported.capability != "unsupported":
+        errors.append("tooling/state/validator.py: unsupported runtime strict project-write must block")
+
+with tempfile.TemporaryDirectory(prefix="b-agentic-validate-missing-state-") as _missing_tmp:
+    _missing = validate_action(
+        Path(_missing_tmp),
+        {"tool": "apply_patch", "files": ["references/contract/runtime.md"]},
+        runtime="claude-code",
+        strict=True,
+        transcript=_intent_text,
+    )
+    if _missing.verdict != "block" or "state file missing" not in _missing.reason:
+        errors.append("tooling/state/validator.py: strict high-risk action with missing state must block")
 
 if errors:
     for error in errors:

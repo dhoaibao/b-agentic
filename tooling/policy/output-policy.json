@@ -58,6 +58,32 @@
       "carve-outs"
     ]
   },
+  "intent_block": {
+    "required_fields": [
+      "skill",
+      "action",
+      "source",
+      "approval",
+      "reason"
+    ],
+    "target_fields": [
+      "files",
+      "commands"
+    ],
+    "action_values": [
+      "project-write",
+      "dependency-write",
+      "environment-write",
+      "external-write",
+      "destructive"
+    ],
+    "approval_values": [
+      "not-required",
+      "pending",
+      "approved",
+      "denied"
+    ]
+  },
   "cause_classes": [
     "tool_unavailable",
     "auth_required",

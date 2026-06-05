@@ -18,6 +18,7 @@ readonly KERNEL_SNAPSHOT_DST="$METADATA_DIR/CLAUDE.md"
 readonly REFERENCES_DST="$METADATA_DIR/references"
 readonly TEMPLATES_DST="$METADATA_DIR/templates"
 readonly MANIFEST_DST="$METADATA_DIR/install.json"
+readonly RUNTIME_PRE_ACTION_ENFORCEMENT="enforced"
 readonly SETTINGS_DST="$CLAUDE_DIR/settings.json"
 readonly CLAUDE_JSON_DST="${B_AGENTIC_CLAUDE_JSON:-$HOME/.claude.json}"
 readonly MCP_CONFIG_DST="$CLAUDE_JSON_DST"
@@ -58,6 +59,7 @@ install_settings_config() {
     TEMPLATE_DST="$rendered_template" \
     SOURCE_DIR="$SOURCE_DIR" \
     CLAUDE_STATUS_LINE="$CLAUDE_STATUS_LINE" \
+    STRICT_VALUE="${STRICT_VALUE:-N}" \
     python3 - <<'PY'
 import json
 import os
@@ -70,6 +72,8 @@ source_dir = os.environ["SOURCE_DIR"]
 text = src.read_text()
 source_arg = json.dumps(shlex.quote(source_dir))[1:-1]
 text = text.replace("{{B_AGENTIC_SOURCE_DIR}}", source_arg)
+strict_prefix = "B_AGENTIC_STRICT=1 " if os.environ.get("STRICT_VALUE") in {"Y", "y", "yes", "YES", "true", "TRUE", "1"} else ""
+text = text.replace("{{B_AGENTIC_STRICT_PREFIX}}", strict_prefix)
 data = json.loads(text)
 if os.environ.get("CLAUDE_STATUS_LINE") not in {"1", "true", "TRUE", "yes", "YES", "on", "ON"}:
     data.pop("statusLine", None)

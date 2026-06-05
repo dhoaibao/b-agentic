@@ -1021,7 +1021,18 @@ print_install_report_readiness() {
   report_item "serena" "install/init separately; installer never runs onboarding"
   report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"
   report_item "api-keys" "Context7, Brave Search, and Firecrawl need user-scope keys"
-  report_item "hooks" "runtime conformance hooks warn by default; set B_AGENTIC_HOOK_STRICT=1 to block on failures"
+  if yes_value "${STRICT_VALUE:-N}"; then
+    case "${RUNTIME_PRE_ACTION_ENFORCEMENT:-advisory-only}" in
+      enforced)
+        report_item "hooks" "strict requested; pre-action blocking is installed for supported payloads, advisory-only gaps are still reported by capability checks"
+        ;;
+      *)
+        report_item "hooks" "strict requested; this runtime has no b-agentic pre-action blocking hook, so high-risk tool actions remain advisory-only"
+        ;;
+    esac
+  else
+    report_item "hooks" "runtime conformance hooks warn by default; use --strict or set B_AGENTIC_STRICT=1 to request blocking"
+  fi
 }
 
 print_shell_tool_recommendations() {

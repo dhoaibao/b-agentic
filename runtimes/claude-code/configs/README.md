@@ -36,14 +36,14 @@ Plain install merges `mcp.user.template.json` into `~/.claude.json` under `mcpSe
 
 ## Governance assets
 
-Plain install merges `settings.template.json` into `~/.claude/settings.json`. That template contains conservative permissions, secret-path denies, destructive-command denies, dependency-install asks, and Serena lifecycle hooks. The b-agentic status line is omitted by default because it is optional UI ceremony; set `B_AGENTIC_CLAUDE_STATUS_LINE=1` during install to merge it. Optional b-agentic subagent profiles are synced under `~/.claude/agents/`; user-owned or modified profiles are preserved.
+Plain install merges `settings.template.json` into `~/.claude/settings.json`. That template contains conservative permissions, secret-path denies, destructive-command denies, dependency-install asks, Serena lifecycle hooks, and b-agentic pre-action/stop hooks. The b-agentic status line is omitted by default because it is optional UI ceremony; set `B_AGENTIC_CLAUDE_STATUS_LINE=1` during install to merge it. Optional b-agentic subagent profiles are synced under `~/.claude/agents/`; user-owned or modified profiles are preserved.
 
 ## MCP readiness after install
 
 - `playwright` is immediately available once `pnpm` is on `PATH`; no extra suite-owned setup runs.
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.claude.json`.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
-- Runtime conformance hooks warn by default. Set `B_AGENTIC_HOOK_STRICT=1` in the Claude Code environment to make invalid status/handoff output block.
+- Runtime conformance hooks warn by default. Use installer `--strict` or set `B_AGENTIC_STRICT=1` in the Claude Code environment to request pre-action and stop-hook blocking. Strict enforcement applies only to hook payloads that expose enough action data; unsupported surfaces must be treated as advisory-only.
 
 ## Shell tooling recommendations
 

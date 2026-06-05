@@ -21,6 +21,7 @@ REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
+STRICT_VALUE="${B_AGENTIC_STRICT_INSTALL:-N}"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
@@ -240,6 +241,9 @@ parse_args() {
       --no-prompt-api-keys)
         PROMPT_API_KEYS_VALUE=N
         ;;
+      --strict)
+        STRICT_VALUE=Y
+        ;;
       --runtime=*)
         RUNTIME="${1#--runtime=}"
         case "$RUNTIME" in
@@ -427,6 +431,7 @@ run_runtime_action() {
   set +e
   (
     RUNTIME="$runtime_name"
+    STRICT_VALUE="$STRICT_VALUE"
     set_source_dir "$SOURCE_DIR"
     validate_runtime_source_layout
     source_installer_core

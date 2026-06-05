@@ -49,7 +49,7 @@ For saved plans, validate durable frontmatter, explicit approval, matching touch
 
 Legacy saved plans without frontmatter may execute only when the current conversation contains explicit approval. Use the current-chat approval time for staleness checks, require unchecked steps to include `Done when`, and do not rewrite the legacy plan solely to add metadata.
 
-If no plan exists and the request fails the small-direct threshold, hand off to **b-plan**. Read `../../b-agentic/references/contract/safety-tools.md` before editing.
+If no plan exists and the request fails the small-direct threshold, hand off to **b-plan**. Read `../../b-agentic/references/contract/safety-tools.md` before editing. If `.b-agentic/state.json` exists, treat validator state and runtime capability output as authoritative over your own phase judgment.
 
 ### Step 2 - Check worktree
 
@@ -57,7 +57,7 @@ Run `git status --short`. Preserve unrelated changes; patch around unrelated edi
 
 ### Step 3 - Implement the smallest coherent step
 
-Before editing, state source of truth, files/symbols expected to change, behavior that must not change, planned verification, and any approval/review checkpoint.
+Before editing, state source of truth, files/symbols expected to change, behavior that must not change, planned verification, and any approval/review checkpoint. For project-write, dependency-write, environment-write, external-write, or destructive actions, emit the machine-readable `[intent]` record from `../../b-agentic/references/contract/output.md` before the action. If the validator blocks, stop with `cause: policy_block` rather than retrying around it.
 
 Use native tools for simple prose/config/string edits; use Serena for declarations, references, diagnostics, and symbol-aware edits. Use Context7 only when a third-party API uncertainty blocks the next local edit or verification choice.
 
@@ -91,6 +91,7 @@ Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions ->
 ## Rules
 
 - Implement only approved or clearly scoped work.
+- Validator approval or rejection is authoritative for high-risk actions; do not bypass a blocked pre-action check.
 - Do not add opportunistic refactors, compatibility code, or side cleanup.
 - Stop for new decisions instead of guessing.
 - A small direct request still needs real verification.

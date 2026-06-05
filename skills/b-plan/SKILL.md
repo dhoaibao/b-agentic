@@ -45,6 +45,8 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed.
 
 Use quick mode for low-risk plans that fit in chat. Use full mode when work touches more than 3 files, public/sensitive contracts, CI/build/dependencies, broad references, durable coordination, or a plan too large for chat. Full mode saves `.b-agentic/b-plan/<plan-file-slug>.md`.
 
+When planning strict or stateful governance work, read `../../b-agentic/references/contract/state-machine.md` and name which runtime surfaces are enforced, advisory, or unsupported.
+
 ### Step 2 - Lock scope
 
 State the interpreted scope in one sentence. If the outcome is underdetermined, enter Clarification mode before sequencing work.
@@ -82,7 +84,7 @@ Read `./reference.md` before writing a quick-plan template, saved-plan skeleton,
 
 ### Step 5 - Deliver
 
-Quick mode stays in chat and asks for approval. Full mode must include durable frontmatter (`slug`, `status`, `created_at`, `approved_at`, `approved_by`, `approved_head`, `risk`, `touch_points`), show the path, and ask for approval. Read `../../b-agentic/references/contract/output.md` before emitting a status block.
+Quick mode stays in chat and asks for approval. Full mode must include durable frontmatter (`slug`, `status`, `created_at`, `approved_at`, `approved_by`, `approved_head`, `risk`, `touch_points`), show the path, and ask for approval. If state governance is active, request or initialize state through deterministic tooling rather than asking the model to hand-edit `.b-agentic/state.json`. Read `../../b-agentic/references/contract/output.md` before emitting a status block.
 
 If approval arrives in the same run, update `status`, `approved_at`, `approved_by`, and `approved_head` when available.
 
@@ -117,3 +119,4 @@ Carry confirmed decisions into the plan. If external feasibility blocks the spec
 - Keep quick plans lean; promote only for real risk or coordination need.
 - Surface blockers and assumptions explicitly.
 - Approved plans are the execution source of truth for **b-implement**.
+- Strictness claims must distinguish enforced runtime surfaces from advisory-only guidance.

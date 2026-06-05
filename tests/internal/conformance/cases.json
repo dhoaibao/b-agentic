@@ -94,6 +94,30 @@
       "valid": true
     },
     {
+      "path": "tests/internal/conformance/valid-intent-status.md",
+      "valid": true
+    },
+    {
+      "path": "tests/internal/conformance/invalid-intent-missing-target.md",
+      "valid": false,
+      "error_contains": "missing required field 'files' or 'commands'"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-intent-dependency-without-approval.md",
+      "valid": false,
+      "error_contains": "requires approval 'approved'"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-strict-claim-without-preaction.md",
+      "valid": false,
+      "error_contains": "strict-mode enforced claim requires pre-action enforcement evidence"
+    },
+    {
+      "path": "tests/internal/conformance/invalid-strict-claim-advisory-gap.md",
+      "valid": false,
+      "error_contains": "strict-mode claim conflicts with advisory-only runtime surface"
+    },
+    {
       "path": "tests/internal/conformance/invalid-handoff-malformed.md",
       "valid": false,
       "error_contains": "malformed field line"

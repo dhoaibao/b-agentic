@@ -95,7 +95,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_opencode_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_opencode_install_report/install.log" 'mcp-config: templates installed only; external MCP servers are not started or authenticated by installer'
   assert_contains "$sandbox_opencode_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
-  assert_contains "$sandbox_opencode_install_report/install.log" 'hooks: runtime conformance hooks warn by default; set B_AGENTIC_HOOK_STRICT=1 to block on failures'
+  assert_contains "$sandbox_opencode_install_report/install.log" 'hooks: runtime conformance hooks warn by default; use --strict or set B_AGENTIC_STRICT=1 to request blocking'
   assert_contains "$sandbox_opencode_install_report/install.log" 'Shell tooling:'
   assert_contains "$sandbox_opencode_install_report/install.log" 'core: rg, fd/fdfind, jq'
   assert_contains "$sandbox_opencode_install_report/install.log" 'installer: suggestions only; no packages were installed automatically'

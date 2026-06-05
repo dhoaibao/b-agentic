@@ -193,6 +193,46 @@
       },
       "expected_verification": false,
       "expected_failure_mode": "conflict"
+    },
+    {
+      "name": "strict-project-write-approved",
+      "path": "tests/internal/scenarios/strict-project-write-approved.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-implement",
+        "state": "complete",
+        "next": "b-review"
+      },
+      "expected_verification": true,
+      "expected_failure_mode": "none"
+    },
+    {
+      "name": "strict-intent-action-mismatch",
+      "path": "tests/internal/scenarios/strict-intent-action-mismatch.md",
+      "kind": "status",
+      "expect_conformance": false,
+      "expected_error_contains": "requires approval 'approved'",
+      "expected_route": {
+        "skill": "b-implement",
+        "state": "blocked",
+        "cause": "policy_block"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "policy_block"
+    },
+    {
+      "name": "advisory-only-runtime-gap",
+      "path": "tests/internal/scenarios/advisory-only-runtime-gap.md",
+      "kind": "status",
+      "expect_conformance": true,
+      "expected_route": {
+        "skill": "b-plan",
+        "state": "complete",
+        "next": "none"
+      },
+      "expected_verification": false,
+      "expected_failure_mode": "none"
     }
   ]
 }

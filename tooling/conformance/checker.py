@@ -8,6 +8,7 @@ import re
 import sys
 
 from tooling.policy.load import load_output_policy
+from tooling.state.intent import parse_intents
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +53,17 @@ GIT_STATUS_NOT_APPLICABLE_RE = re.compile(
     r"\b(git status --short|worktree|repo state)\b.*\b(not applicable|outside (?:a )?repo|not a repo)",
     re.IGNORECASE,
 )
+STRICT_ENFORCED_RE = re.compile(r"\bstrict(?:-mode)?\s*:\s*enforced\b", re.IGNORECASE)
+ADVISORY_ONLY_RE = re.compile(r"\badvisory-only\b", re.IGNORECASE)
+PRE_ACTION_EVIDENCE_RE = re.compile(r"\bpre-action\b.*\b(enforced|blocked|validated)\b", re.IGNORECASE)
+VALID_INTENT_ACTIONS = {
+    "project-write",
+    "dependency-write",
+    "environment-write",
+    "external-write",
+    "destructive",
+}
+VALID_INTENT_APPROVALS = {"not-required", "pending", "approved", "denied"}
 
 
 @dataclass
@@ -150,6 +162,35 @@ def has_baseline_missing_signal(text: str) -> bool:
 def has_followup_or_skipped_evidence(text: str) -> bool:
     body = re.sub(r"```text\s*\n\[(?:status|handoff)\][\s\S]*?\n```", "", text, flags=re.MULTILINE)
     return bool(FOLLOWUP_EVIDENCE_RE.search(body))
+
+
+def validate_intent_records(transcript: str, skill_names: set[str]) -> list[str]:
+    errors: list[str] = []
+    intents, parse_errors = parse_intents(transcript)
+    errors.extend(parse_errors)
+    for intent in intents:
+        if intent.skill not in skill_names:
+            errors.append(f"[intent]: unknown skill {intent.skill!r}")
+        if intent.action not in VALID_INTENT_ACTIONS:
+            errors.append(f"[intent]: unknown action {intent.action!r}")
+        if intent.approval not in VALID_INTENT_APPROVALS:
+            errors.append(f"[intent]: unknown approval {intent.approval!r}")
+        if intent.action == "project-write" and intent.approval not in {"not-required", "approved"}:
+            errors.append("[intent]: project-write requires approval 'not-required' or 'approved'")
+        if intent.action != "project-write" and intent.approval != "approved":
+            errors.append(f"[intent]: action {intent.action!r} requires approval 'approved'")
+    return errors
+
+
+def validate_strict_claims(transcript: str) -> list[str]:
+    if not STRICT_ENFORCED_RE.search(transcript):
+        return []
+    errors: list[str] = []
+    if ADVISORY_ONLY_RE.search(transcript):
+        errors.append("strict-mode claim conflicts with advisory-only runtime surface")
+    if not PRE_ACTION_EVIDENCE_RE.search(transcript):
+        errors.append("strict-mode enforced claim requires pre-action enforcement evidence")
+    return errors
 
 
 def task_start_errors(block: ParsedBlock, transcript: str) -> list[str]:
@@ -314,7 +355,7 @@ def check_transcript(path: Path) -> list[str]:
     if errors or not isinstance(policy, dict):
         return errors or ["policy model could not be loaded"]
 
-    required_policy_keys = {"status_block", "handoff_block", "cause_classes", "skill_verdicts", "readiness"}
+    required_policy_keys = {"status_block", "handoff_block", "cause_classes", "skill_verdicts", "readiness", "intent_block"}
     missing_policy_keys = sorted(required_policy_keys - set(policy))
     if missing_policy_keys:
         errors.append(
@@ -324,6 +365,8 @@ def check_transcript(path: Path) -> list[str]:
         return errors
 
     skill_names = load_skill_names()
+    errors.extend(validate_intent_records(transcript, skill_names))
+    errors.extend(validate_strict_claims(transcript))
     blocks, parse_errors = parse_blocks(transcript)
     errors.extend(parse_errors)
 
