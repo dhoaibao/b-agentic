@@ -30,7 +30,9 @@ TEMPLATES_SRC="$SOURCE_DIR/runtimes/$RUNTIME/configs"
 KERNEL_SRC="$SOURCE_DIR/runtimes/$RUNTIME/kernel.md"
 DRY_RUN_SOURCE_DIR=""
 UI_MODE="${B_AGENTIC_UI:-auto}"
+UI_ANIMATE_MODE="${B_AGENTIC_ANIMATE:-auto}"
 UI_ENABLED=0
+UI_ANIMATION_ENABLED=0
 UI_SPINNER_ACTIVE=0
 UI_SPINNER_LABEL=""
 UI_SPINNER_PID=""
@@ -54,16 +56,28 @@ ui_clear_ephemeral_line() {
   printf '\r\033[2K' >&2
 }
 
+ui_timeline_pulse() {
+  local message="$1" frame
+  [ "${UI_ANIMATION_ENABLED:-0}" -eq 1 ] || return 0
+
+  # Pure ANSI cursor control: redraw one ephemeral timeline row before
+  # printing the final state row. No external animation helper is needed.
+  for frame in '·' '•' '●'; do
+    printf '\r\033[2K  %b│%b %b%s%b  %s' \
+      "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" \
+      "$UI_COLOR_LOGO_ALT" "$frame" "$UI_COLOR_RESET" "$message" >&2
+    sleep 0.035
+  done
+  printf '\r\033[2K' >&2
+}
+
 print_logo() {
   [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
 
   printf '\n' >&2
-  printf '  %b██████╗        █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-  printf '  %b██╔══██╗      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-  printf '  %b██████╔╝█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║██║     %b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
-  printf '  %b██╔══██╗╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║██║     %b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
-  printf '  %b██████╔╝      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║╚██████╗%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
-  printf '  %b╚═════╝       ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
+  printf '  %b██╗ %b-agentic%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
+  printf '  %b██║ workflow kernel%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
+  printf '  %b╚═╝%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
   printf '\n' >&2
 }
 
@@ -72,7 +86,6 @@ print_header() {
   [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
 
   printf '  %b%s%b\n' "$UI_COLOR_BOLD" "$title" "$UI_COLOR_RESET" >&2
-  printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
 }
 
 print_step() {
@@ -96,6 +109,10 @@ print_step() {
       color="$UI_COLOR_ERROR"
       icon="$UI_ICON_ERROR"
       ;;
+  esac
+
+  case "$state" in
+    success|warning|error) ui_timeline_pulse "$message" ;;
   esac
 
   printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
@@ -126,12 +143,28 @@ ui_stop_spinner() {
 }
 
 log() {
+  local message="$*"
+
   ui_clear_ephemeral_line
-  if [ "${UI_ENABLED:-0}" -eq 1 ] && [ -n "${1:-}" ]; then
-    print_step success "$*"
+  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
+    [ -n "$message" ] || return 0
+    case "$message" in
+      "==> "*)
+        print_step success "${message#==> }"
+        ;;
+      "b-agentic "*complete*)
+        print_step success "$message"
+        ;;
+      "Uninstall complete."*)
+        print_step success "$message"
+        ;;
+      "  activation:"*|"  launch:"*|"  activate:"*|"  apply:"*)
+        printf '     %s\n' "${message#"  "}" >&2
+        ;;
+    esac
     return 0
   fi
-  printf '%s\n' "$*"
+  printf '%s\n' "$message"
 }
 
 warn() {
@@ -186,6 +219,24 @@ ui_init() {
     UI_COLOR_ERROR=$'\033[38;5;203m'
     UI_COLOR_RESET=$'\033[0m'
   fi
+
+  case "$UI_ANIMATE_MODE" in
+    auto|"")
+      if [ "$UI_ENABLED" -eq 1 ] && [ -t 2 ]; then
+        UI_ANIMATION_ENABLED=1
+      fi
+      ;;
+    always)
+      [ "$UI_ENABLED" -eq 1 ] && UI_ANIMATION_ENABLED=1
+      ;;
+    never)
+      UI_ANIMATION_ENABLED=0
+      ;;
+    *)
+      printf 'error: invalid B_AGENTIC_ANIMATE value: %s\n' "$UI_ANIMATE_MODE" >&2
+      exit 1
+      ;;
+  esac
 }
 
 spinner() {
@@ -229,9 +280,9 @@ ui_print_intro() {
   fi
 
   print_logo
-  print_header "Install / Upgrade"
-  print_step success "Mode: $action"
-  print_step success "Runtime: $target"
+  printf '  %bInstall / Upgrade%b  %b%s%b\n' \
+    "$UI_COLOR_BOLD" "$UI_COLOR_RESET" "$UI_COLOR_ACCENT$UI_COLOR_BOLD" "$target" "$UI_COLOR_RESET" >&2
+  printf '  %b%s%b\n' "$UI_COLOR_DIM" "$action" "$UI_COLOR_RESET" >&2
 }
 
 ui_print_runtime_banner() {
@@ -307,25 +358,25 @@ require_bin() {
 }
 
 check_dependencies() {
-  print_step running "Checking dependencies" || true
+  local dependency_label="curl, git, python3"
 
   if command -v curl >/dev/null 2>&1; then
-    print_step success "Using method: curl" || true
+    :
   else
     print_step warning "curl not found; install with the documented curl command will not work on this machine" || true
+    dependency_label="git, python3"
   fi
 
   # git is needed only when the installer must fetch or update its source checkout.
   if uninstall_enabled && { [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; }; then
-    print_step success "Using existing source checkout" || true
+    dependency_label="${dependency_label}, local source"
   else
     require_bin git
-    print_step success "Found dependency: git" || true
   fi
 
   # Runtime installers use Python for structured config and manifest updates.
   require_bin python3
-  print_step success "Found dependency: python3" || true
+  print_step success "Using $dependency_label" || true
 }
 
 parse_args() {
@@ -429,27 +480,27 @@ sync_source() {
     else
       DRY_RUN_SOURCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-dry-run.XXXXXX")"
       log "Dry-run source clone: $REPO_URL -> $DRY_RUN_SOURCE_DIR"
-      git clone "$REPO_URL" "$DRY_RUN_SOURCE_DIR"
+      git clone --quiet "$REPO_URL" "$DRY_RUN_SOURCE_DIR"
       if [ -n "$REF" ]; then
-        git -C "$DRY_RUN_SOURCE_DIR" checkout "$REF"
+        git -C "$DRY_RUN_SOURCE_DIR" checkout --quiet "$REF"
       fi
       set_source_dir "$DRY_RUN_SOURCE_DIR"
     fi
   elif [ -d "$LOCAL_REPO/.git" ]; then
     log "Updating source: $LOCAL_REPO"
-    git -C "$LOCAL_REPO" fetch --all --tags --prune
+    git -C "$LOCAL_REPO" fetch --all --tags --prune --quiet
     if [ -n "$REF" ]; then
-      git -C "$LOCAL_REPO" checkout "$REF"
+      git -C "$LOCAL_REPO" checkout --quiet "$REF"
     else
-      git -C "$LOCAL_REPO" pull --ff-only
+      git -C "$LOCAL_REPO" pull --ff-only --quiet
     fi
     set_source_dir "$LOCAL_REPO"
   else
     log "Cloning source: $REPO_URL -> $LOCAL_REPO"
     mkdir -p "$(dirname "$LOCAL_REPO")"
-    git clone "$REPO_URL" "$LOCAL_REPO"
+    git clone --quiet "$REPO_URL" "$LOCAL_REPO"
     if [ -n "$REF" ]; then
-      git -C "$LOCAL_REPO" checkout "$REF"
+      git -C "$LOCAL_REPO" checkout --quiet "$REF"
     fi
     set_source_dir "$LOCAL_REPO"
   fi
