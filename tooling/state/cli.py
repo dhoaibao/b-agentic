@@ -30,6 +30,9 @@ def main(argv: list[str] | None = None) -> int:
     init_parser.add_argument("--root", default=".")
     init_parser.add_argument("--active-skill")
     init_parser.add_argument("--phase", default="idle")
+    init_parser.add_argument("--source-of-truth")
+    init_parser.add_argument("--runtime", help="Record runtime capability state for strict-mode readiness")
+    init_parser.add_argument("--strict", action="store_true", help="Record capabilities as strict-mode requested")
 
     validate_parser = subparsers.add_parser("validate-action", help="Validate one runtime action from stdin JSON")
     validate_parser.add_argument("--root", default=".")
@@ -52,7 +55,20 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(getattr(args, "root", ".")).resolve()
 
     if args.command == "init":
-        state = init_state(root, active_skill=args.active_skill, phase=args.phase)
+        capabilities = {}
+        if args.runtime:
+            capabilities = runtime_capabilities(
+                args.runtime,
+                strict=args.strict,
+                pre_action_payload=args.strict,
+            ).as_dict()
+        state = init_state(
+            root,
+            active_skill=args.active_skill,
+            phase=args.phase,
+            source_of_truth=args.source_of_truth,
+            capabilities=capabilities,
+        )
         print(json.dumps(state.to_dict(), indent=2, sort_keys=True))
         return 0
 

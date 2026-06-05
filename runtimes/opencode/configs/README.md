@@ -37,6 +37,7 @@ OpenCode uses `~/.config/opencode/opencode.json`; MCP servers live under the `mc
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.config/opencode/opencode.json`.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
 - Runtime conformance hooks warn by default where adapter hooks are active. Use installer `--strict` or set `B_AGENTIC_STRICT=1` in the OpenCode environment to request blocking. Current strict claims depend on adapter hooks or command wrappers passing pre-action payloads; unsupported surfaces are advisory-only and must be reported that way.
+- If strict-capable OpenCode payloads are available in the active setup, initialize repo-local state first: `python3 ~/.b-agentic/tooling/state/cli.py init --root . --runtime=opencode --strict --source-of-truth="operator initialized strict state"`. Current OpenCode pre-action surfaces remain advisory-only unless the adapter receives compatible payloads.
 
 ## Shell tooling recommendations
 

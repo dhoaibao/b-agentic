@@ -96,6 +96,16 @@ The installer writes a recommended MCP template with `serena`, `context7`, `brav
 
 Install reports distinguish installed configuration from operational readiness. The installer does not start MCP servers, run Serena onboarding, verify API-key auth, or install package-manager dependencies for `pnpm dlx` MCP entries. Runtime conformance hooks warn by default. Use `--strict` or `B_AGENTIC_STRICT=1` to request blocking, but strict claims apply only to runtime surfaces with pre-action payloads; unsupported surfaces are advisory-only.
 
+## First Successful Run
+
+After install, start a new runtime session so it loads the kernel and skills, then verify the basics before depending on strict governance:
+
+1. Confirm the install report shows active kernel state, synced skills, and the user-scope manifest path.
+2. Install or initialize external tools you plan to use: Serena for symbol work, `pnpm` for `dlx` MCP servers, and API keys for Context7, Brave Search, or Firecrawl.
+3. If using strict mode in a repo, initialize workflow state before the first high-risk action: `python3 ~/.b-agentic/tooling/state/cli.py init --root . --runtime=claude-code --strict --source-of-truth="operator initialized strict state"`. Use the matching source checkout path if `B_AGENTIC_DIR` points somewhere else.
+4. Invoke one skill, such as `/b-plan` or the runtime's native skill command, and keep the returned `[status]` or `[handoff]` block in context for the next phase.
+5. For source changes to this suite, run `scripts/validate-skills.sh`; before release-sensitive changes, run `scripts/validate-skills.sh --release`.
+
 ## Repository Layout
 
 ```text

@@ -1137,6 +1137,60 @@ reason: validate strict project-write target matching
     if _unsupported.verdict != "block" or _unsupported.capability != "unsupported":
         errors.append("tooling/state/validator.py: unsupported runtime strict project-write must block")
 
+    _unknown_unapproved = validate_action(
+        _state_root,
+        {"tool": "bash", "command": "python3 tooling/custom_check.py"},
+        runtime="claude-code",
+        strict=True,
+        transcript="""```text
+[intent]
+skill: b-implement
+action: project-write
+commands: python3 tooling/custom_check.py
+source: validation fixture
+approval: not-required
+reason: validate unknown command approval gate
+```""",
+    )
+    if _unknown_unapproved.verdict != "block" or "approved" not in _unknown_unapproved.reason:
+        errors.append("tooling/state/validator.py: strict unknown command without approved intent must block")
+
+    _unknown_approved = validate_action(
+        _state_root,
+        {"tool": "bash", "command": "python3 tooling/custom_check.py"},
+        runtime="claude-code",
+        strict=True,
+        transcript="""```text
+[intent]
+skill: b-implement
+action: project-write
+commands: python3 tooling/custom_check.py
+source: validation fixture
+approval: approved
+reason: validate approved unknown command gate
+```""",
+    )
+    if _unknown_approved.verdict != "allow" or _unknown_approved.reason != "approved unknown action intent validated":
+        errors.append("tooling/state/validator.py: strict unknown command with approved matching intent must allow")
+
+    _known_dependency = validate_action(
+        _state_root,
+        {"tool": "bash", "command": "npm install left-pad"},
+        runtime="claude-code",
+        strict=True,
+        transcript="""```text
+[intent]
+skill: b-implement
+action: project-write
+commands: npm install left-pad
+source: validation fixture
+approval: approved
+reason: validate dangerous classifier still wins
+```""",
+    )
+    if _known_dependency.verdict != "block" or "classified risk" not in _known_dependency.reason:
+        errors.append("tooling/state/validator.py: known dependency command must not pass as approved unknown/project-write")
+
 with tempfile.TemporaryDirectory(prefix="b-agentic-validate-missing-state-") as _missing_tmp:
     _missing = validate_action(
         Path(_missing_tmp),

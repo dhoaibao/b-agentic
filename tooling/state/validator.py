@@ -70,6 +70,23 @@ def _has_approval(action: Action, intent: Intent | None, state: State | None) ->
     return any(item.get("risk") == action.risk and item.get("status") == "approved" for item in state.approvals)
 
 
+def _state_and_intent(root: Path, transcript: str | None) -> tuple[State | None, Intent | None, list[str]]:
+    try:
+        state = load_state(root)
+    except Exception as exc:
+        return None, None, [f"invalid state: {exc}"]
+
+    if state is None:
+        return None, None, ["state file missing; strict enforcement not initialized"]
+
+    intent, intent_errors = _latest_intent(transcript, state)
+    if intent_errors:
+        return state, None, intent_errors
+    if intent is None:
+        return state, None, ["high-risk action requires machine-readable intent"]
+    return state, intent, []
+
+
 def validate_action(
     root: Path,
     payload: dict[str, Any],
@@ -86,7 +103,22 @@ def validate_action(
 
     if action.risk == UNKNOWN:
         if strict_mode:
-            return Decision("block", action.reason, action.risk, risk_capability)
+            if risk_capability in {ADVISORY, UNSUPPORTED}:
+                return Decision("block", f"pre-action capability is {risk_capability}", action.risk, risk_capability)
+            if risk_capability != ENFORCED:
+                return Decision("block", f"unknown pre-action capability {risk_capability!r}", action.risk, risk_capability)
+
+            state, intent, errors = _state_and_intent(root, transcript)
+            if errors:
+                return Decision("block", "; ".join(errors), action.risk, risk_capability)
+            assert state is not None and intent is not None
+            if state.active_skill and intent.skill != state.active_skill:
+                return Decision("block", "intent skill does not match active state skill", action.risk, risk_capability)
+            if intent.approval != "approved":
+                return Decision("block", "unknown action requires explicit approved intent", action.risk, risk_capability)
+            if not _matches_target(action, intent):
+                return Decision("block", "intent target does not match action target", action.risk, risk_capability)
+            return Decision("allow", "approved unknown action intent validated", action.risk, risk_capability)
         return Decision("advisory", action.reason, action.risk, risk_capability)
 
     if action.risk not in HIGH_RISK:
@@ -100,20 +132,10 @@ def validate_action(
     if risk_capability != ENFORCED:
         return Decision("block", f"unknown pre-action capability {risk_capability!r}", action.risk, risk_capability)
 
-    try:
-        state = load_state(root)
-    except Exception as exc:
-        return Decision("block", f"invalid state: {exc}", action.risk, risk_capability)
-
-    if state is None:
-        return Decision("block", "state file missing; strict enforcement not initialized", action.risk, risk_capability)
-
-    intent, intent_errors = _latest_intent(transcript, state)
-    if intent_errors:
-        return Decision("block", "; ".join(intent_errors), action.risk, risk_capability)
-
-    if intent is None:
-        return Decision("block", "high-risk action requires machine-readable intent", action.risk, risk_capability)
+    state, intent, errors = _state_and_intent(root, transcript)
+    if errors:
+        return Decision("block", "; ".join(errors), action.risk, risk_capability)
+    assert state is not None and intent is not None
     if state.active_skill and intent.skill != state.active_skill:
         return Decision("block", "intent skill does not match active state skill", action.risk, risk_capability)
     if intent.action != action.risk and not (action.risk == PROJECT_WRITE and intent.action == "project-write"):

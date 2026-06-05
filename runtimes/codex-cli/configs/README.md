@@ -44,6 +44,7 @@ MCP uses `[mcp_servers.<name>]` tables from `mcp.user.template.toml`. Serena run
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.codex/config.toml` or matching shell environment variables.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
 - Runtime conformance hooks report installed command paths, but they do not prove the external Serena server is installed or authenticated.
+- If strict-capable Codex hook payloads are available in the active setup, initialize repo-local state first: `python3 ~/.b-agentic/tooling/state/cli.py init --root . --runtime=codex-cli --strict --source-of-truth="operator initialized strict state"`. Surfaces without pre-action payloads remain advisory-only.
 
 ## Shell tooling recommendations
 

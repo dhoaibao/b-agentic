@@ -111,7 +111,19 @@ def save_state(root: Path, state: State) -> None:
             temp_path.unlink()
 
 
-def init_state(root: Path, *, active_skill: str | None = None, phase: str = "idle") -> State:
-    state = State(active_skill=active_skill, phase=phase)
+def init_state(
+    root: Path,
+    *,
+    active_skill: str | None = None,
+    phase: str = "idle",
+    source_of_truth: str | None = None,
+    capabilities: dict[str, str] | None = None,
+) -> State:
+    state = State(
+        active_skill=active_skill,
+        phase=phase,
+        source_of_truth=source_of_truth,
+        capabilities=capabilities or {},
+    )
     save_state(root, state)
     return state

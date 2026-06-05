@@ -104,6 +104,31 @@ EOF
   assert_no_path "$sandbox_corrupt/source"
 }
 
+run_manifest_only_custom_paths_case() {
+  local sandbox_custom="$WORK_DIR/manifest-only-custom-paths"
+  local manifest_path skill_dir kernel_path snapshot_path
+
+  mkdir -p "$sandbox_custom/home/custom-meta" "$sandbox_custom/home/custom-skills/b-plan" "$sandbox_custom/home/custom-kernel"
+  manifest_path="$sandbox_custom/home/custom-meta/install.json"
+  skill_dir="$sandbox_custom/home/custom-skills/b-plan"
+  kernel_path="$sandbox_custom/home/custom-kernel/CLAUDE.md"
+  snapshot_path="$sandbox_custom/home/custom-meta/CLAUDE.md"
+
+  printf 'Generated from skills/registry.yaml\n' > "$skill_dir/SKILL.md"
+  printf '<!-- b-agentic-managed -->\ncustom kernel\n' > "$kernel_path"
+  printf '<!-- b-agentic-managed -->\ncustom kernel\n' > "$snapshot_path"
+  cat > "$manifest_path" <<EOF
+{"runtime":"claude-code","paths":{"skills":"$sandbox_custom/home/custom-skills","kernel":"$kernel_path"},"skills":["b-plan"],"agents":[]}
+EOF
+
+  HOME="$sandbox_custom/home" python3 "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$manifest_path" >"$sandbox_custom/uninstall.log" 2>&1
+
+  assert_contains "$sandbox_custom/uninstall.log" 'Manifest-only uninstall complete for claude-code'
+  assert_no_path "$skill_dir"
+  assert_no_path "$kernel_path"
+  assert_no_path "$sandbox_custom/home/custom-meta"
+}
+
 run_all_runtime_smoke_case() {
   local snapshot_repo="$1"
   local sandbox_all="$WORK_DIR/all-runtimes"
@@ -226,6 +251,7 @@ main() {
   make_repo_snapshot "$snapshot_repo"
   run_all_runtime_smoke_case "$snapshot_repo"
   run_manifest_only_corrupted_manifest_case
+  run_manifest_only_custom_paths_case
   run_skill_collision_smoke_case "$snapshot_repo"
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
 

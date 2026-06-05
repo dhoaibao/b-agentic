@@ -44,6 +44,7 @@ Plain install merges `settings.template.json` into `~/.claude/settings.json`. Th
 - `context7`, `brave-search`, and `firecrawl` entries are installed immediately, but live requests need user-scope API keys in `~/.claude.json`.
 - `serena` entry is installed, but full symbol-aware value still depends on the user having Serena installed and completing first-use setup when needed. The installer never runs `serena setup`, `serena init`, or onboarding.
 - Runtime conformance hooks warn by default. Use installer `--strict` or set `B_AGENTIC_STRICT=1` in the Claude Code environment to request pre-action and stop-hook blocking. Strict enforcement applies only to hook payloads that expose enough action data; unsupported surfaces must be treated as advisory-only.
+- Before using strict mode for repo work, initialize repo-local state from the b-agentic source checkout: `python3 ~/.b-agentic/tooling/state/cli.py init --root . --runtime=claude-code --strict --source-of-truth="operator initialized strict state"`. Use the matching source checkout if `B_AGENTIC_DIR` is customized.
 
 ## Shell tooling recommendations
 

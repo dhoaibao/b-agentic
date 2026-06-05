@@ -42,6 +42,17 @@ def remove_file(path: Path) -> None:
         path.unlink()
 
 
+def manifest_managed_path(paths: dict, key: str, fallback: Path) -> Path:
+    value = paths.get(key)
+    if not isinstance(value, str) or not value:
+        return fallback
+    path = Path(value).expanduser()
+    if under_home(path):
+        return path
+    warn(f"ignoring manifest path outside home for {key}: {path}")
+    return fallback
+
+
 def files_equal(left: Path, right: Path) -> bool:
     try:
         return left.read_bytes() == right.read_bytes()
@@ -145,8 +156,8 @@ def main() -> None:
     defaults = runtime_defaults.get(runtime)
     if defaults is None:
         raise SystemExit(f"unsupported manifest runtime: {runtime!r}")
-    if metadata.resolve() != defaults["metadata"].resolve():
-        raise SystemExit(f"manifest path does not match runtime metadata root: {manifest_path}")
+    if not under_home(metadata):
+        raise SystemExit(f"manifest path is outside home: {manifest_path}")
 
     def managed_skill_dir(path: Path) -> bool:
         skill_file = path / "SKILL.md"
@@ -158,7 +169,7 @@ def main() -> None:
             return False
         return "Generated from skills/registry.yaml" in text
 
-    skills_root = defaults["skills"]
+    skills_root = manifest_managed_path(paths, "skills", defaults["skills"])
     for name in data.get("skills", []):
         if not safe_name(name):
             warn("preserving skill with unsafe manifest name")
@@ -169,7 +180,7 @@ def main() -> None:
         elif skill_dir.exists():
             warn(f"preserving skill without managed marker: {skill_dir}")
 
-    kernel_path = defaults["kernel"]
+    kernel_path = manifest_managed_path(paths, "kernel", defaults["kernel"])
     kernel_snapshot = metadata / kernel_path.name
     if kernel_path.exists():
         try:
@@ -182,17 +193,17 @@ def main() -> None:
             warn(f"preserving modified managed kernel: {kernel_path}")
 
     if runtime == "claude-code":
-        remove_snapshot_profiles(data.get("agents", []), defaults["agents"], metadata / "agents", "md", "Claude Code agent")
-        remove_config_if_template(str(defaults["settings"]), metadata / "templates" / "settings.template.json", "settings.json")
-        remove_config_if_template(str(defaults["claudeJson"]), metadata / "templates" / "mcp.user.template.json", ".claude.json")
+        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Claude Code agent")
+        remove_config_if_template(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json")
+        remove_config_if_template(str(manifest_managed_path(paths, "claudeJson", defaults["claudeJson"])), metadata / "templates" / "mcp.user.template.json", ".claude.json")
     elif runtime == "opencode":
-        remove_snapshot_profiles(data.get("agents", []), defaults["agents"], metadata / "agents", "md", "OpenCode agent")
-        remove_snapshot_profiles(data.get("commands", []), defaults["commands"], metadata / "commands", "md", "OpenCode command")
-        remove_config_if_template(str(defaults["opencodeJson"]), metadata / "templates" / "mcp.user.template.json", "opencode.json")
+        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "OpenCode agent")
+        remove_snapshot_profiles(data.get("commands", []), manifest_managed_path(paths, "commands", defaults["commands"]), metadata / "commands", "md", "OpenCode command")
+        remove_config_if_template(str(manifest_managed_path(paths, "opencodeJson", defaults["opencodeJson"])), metadata / "templates" / "mcp.user.template.json", "opencode.json")
     elif runtime == "codex-cli":
-        remove_snapshot_profiles(data.get("agents", []), defaults["agents"], metadata / "agents", "toml", "Codex agent")
-        remove_snapshot_profiles(data.get("rules", []), defaults["rules"], metadata / "rules", "rules", "Codex rule")
-        remove_codex_managed_block(str(defaults["codexConfig"]))
+        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
+        remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
+        remove_codex_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])))
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 

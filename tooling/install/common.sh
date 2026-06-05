@@ -1021,6 +1021,7 @@ print_install_report_readiness() {
   report_item "serena" "install/init separately; installer never runs onboarding"
   report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"
   report_item "api-keys" "Context7, Brave Search, and Firecrawl need user-scope keys"
+  report_item "strict-state" "strict mode needs repo-local .b-agentic/state.json initialized with tooling/state/cli.py init"
   if yes_value "${STRICT_VALUE:-N}"; then
     case "${RUNTIME_PRE_ACTION_ENFORCEMENT:-advisory-only}" in
       enforced)
