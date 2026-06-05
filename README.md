@@ -1,5 +1,11 @@
 # b-agentic
 
+```text
+██╗ b-agentic
+██║ workflow kernel
+╚═╝
+```
+
 **Agentic workflow kernel for Claude Code, OpenCode, and Codex CLI.**
 
 This README is the repository overview. It describes what b-agentic is, how to install it, which runtimes it supports, and where the main source areas live. Maintainer-only editing guidance belongs in `CLAUDE.md`.
