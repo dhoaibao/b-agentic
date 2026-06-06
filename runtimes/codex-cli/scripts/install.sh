@@ -32,6 +32,7 @@ readonly CODEX_MANAGED_END="# END b-agentic managed config"
 CONTEXT7_API_KEY_INPUT=""
 BRAVE_API_KEY_INPUT=""
 FIRECRAWL_API_KEY_INPUT=""
+FIRECRAWL_API_URL_INPUT=""
 INSTALL_HOOKS_STATE="unknown"
 
 runtime_require_tomllib() {
@@ -85,6 +86,9 @@ collect_codex_api_keys() {
   if ! codex_secret_configured firecrawl env FIRECRAWL_API_KEY; then
     FIRECRAWL_API_KEY_INPUT="$(prompt_secret 'Firecrawl API key')"
   fi
+  if ! codex_secret_configured firecrawl env FIRECRAWL_API_URL; then
+    FIRECRAWL_API_URL_INPUT="$(prompt_value 'Firecrawl API URL' 'leave blank to use current default')"
+  fi
 }
 
 install_codex_config() {
@@ -116,6 +120,7 @@ install_codex_config() {
     CONTEXT7_API_KEY_INPUT="$CONTEXT7_API_KEY_INPUT" \
     BRAVE_API_KEY_INPUT="$BRAVE_API_KEY_INPUT" \
     FIRECRAWL_API_KEY_INPUT="$FIRECRAWL_API_KEY_INPUT" \
+    FIRECRAWL_API_URL_INPUT="$FIRECRAWL_API_URL_INPUT" \
     HOOK_CHECKER_DST="$HOOK_CHECKER_DST" \
     SOURCE_DIR="$SOURCE_DIR" \
     python3 - <<'PY'
@@ -189,6 +194,7 @@ def current_literal(server_name: str, section: str, key: str) -> str | None:
 context7_key = os.environ.get("CONTEXT7_API_KEY_INPUT") or current_literal("context7", "http_headers", "CONTEXT7_API_KEY")
 brave_key = os.environ.get("BRAVE_API_KEY_INPUT") or current_literal("brave-search", "env", "BRAVE_API_KEY")
 firecrawl_key = os.environ.get("FIRECRAWL_API_KEY_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_KEY")
+firecrawl_url = os.environ.get("FIRECRAWL_API_URL_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_URL")
 hook_check_command = f"python3 {json.dumps(hook_checker)} --client codex --event stop --source {json.dumps(source_dir)}"
 
 lines = [
@@ -283,6 +289,14 @@ if firecrawl_key:
     firecrawl_lines.extend([
         "[mcp_servers.firecrawl.env]",
         f"FIRECRAWL_API_KEY = {toml_string(firecrawl_key)}",
+    ])
+    if firecrawl_url:
+        firecrawl_lines.append(f"FIRECRAWL_API_URL = {toml_string(firecrawl_url)}")
+elif firecrawl_url:
+    firecrawl_lines.append('env_vars = ["FIRECRAWL_API_KEY"]')
+    firecrawl_lines.extend([
+        "[mcp_servers.firecrawl.env]",
+        f"FIRECRAWL_API_URL = {toml_string(firecrawl_url)}",
     ])
 else:
     firecrawl_lines.append('env_vars = ["FIRECRAWL_API_KEY"]')

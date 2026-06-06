@@ -188,10 +188,11 @@ for marker in ('[ok]', '[-]', '[\\]', '[|]', '[/]'):
 PY
 
   mkdir -p "$sandbox_codex_prompt_keys/home"
-  expect_install_with_tty_status 0 "$sandbox_codex_prompt_keys" "$snapshot_repo" $'ctx7-codex-key\nbrave-codex-key\nfirecrawl-codex-key\n' --runtime=codex-cli --prompt-api-keys
+  expect_install_with_tty_status 0 "$sandbox_codex_prompt_keys" "$snapshot_repo" $'ctx7-codex-key\nbrave-codex-key\nfirecrawl-codex-key\nhttps://firecrawl.codex\n' --runtime=codex-cli --prompt-api-keys
   assert_contains "$sandbox_codex_prompt_keys/home/.codex/config.toml" 'http_headers = { CONTEXT7_API_KEY = "ctx7-codex-key" }'
   assert_contains "$sandbox_codex_prompt_keys/home/.codex/config.toml" 'BRAVE_API_KEY = "brave-codex-key"'
   assert_contains "$sandbox_codex_prompt_keys/home/.codex/config.toml" 'FIRECRAWL_API_KEY = "firecrawl-codex-key"'
+  assert_contains "$sandbox_codex_prompt_keys/home/.codex/config.toml" 'FIRECRAWL_API_URL = "https://firecrawl.codex"'
   assert_contains "$sandbox_codex_prompt_keys/home/.codex/b-agentic/templates/mcp.user.template.toml" 'env_vars = ["BRAVE_API_KEY"]'
   assert_not_contains "$sandbox_codex_prompt_keys/home/.codex/b-agentic/templates/mcp.user.template.toml" 'brave-codex-key'
   expect_install_status 0 "$sandbox_codex_prompt_keys" "$snapshot_repo" --runtime=codex-cli --uninstall

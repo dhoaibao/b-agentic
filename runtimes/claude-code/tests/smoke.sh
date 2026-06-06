@@ -171,10 +171,11 @@ run_runtime_smoke_cases() {
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo"
 
   mkdir -p "$sandbox_prompt_keys/home"
-  expect_install_with_tty_status 0 "$sandbox_prompt_keys" "$snapshot_repo" $'ctx7-test-key\nbrave-test-key\nfirecrawl-test-key\n' --prompt-api-keys
+  expect_install_with_tty_status 0 "$sandbox_prompt_keys" "$snapshot_repo" $'ctx7-test-key\nbrave-test-key\nfirecrawl-test-key\nhttps://firecrawl.test\n' --prompt-api-keys
   assert_json_value "$sandbox_prompt_keys/home/.claude.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == 'ctx7-test-key'"
   assert_json_value "$sandbox_prompt_keys/home/.claude.json" "data['mcpServers']['brave-search']['env']['BRAVE_API_KEY'] == 'brave-test-key'"
   assert_json_value "$sandbox_prompt_keys/home/.claude.json" "data['mcpServers']['firecrawl']['env']['FIRECRAWL_API_KEY'] == 'firecrawl-test-key'"
+  assert_json_value "$sandbox_prompt_keys/home/.claude.json" "data['mcpServers']['firecrawl']['env']['FIRECRAWL_API_URL'] == 'https://firecrawl.test'"
   assert_contains "$sandbox_prompt_keys/home/.claude/b-agentic/templates/mcp.user.template.json" '${BRAVE_API_KEY}'
   assert_not_contains "$sandbox_prompt_keys/home/.claude/b-agentic/templates/mcp.user.template.json" 'brave-test-key'
   expect_install_status 0 "$sandbox_prompt_keys" "$snapshot_repo" --uninstall
@@ -182,7 +183,8 @@ run_runtime_smoke_cases() {
 
   mkdir -p "$sandbox_prompt_reinstall/home"
   expect_install_status 0 "$sandbox_prompt_reinstall" "$snapshot_repo"
-  expect_install_with_tty_status 0 "$sandbox_prompt_reinstall" "$snapshot_repo" $'ctx7-reinstall-key\nbrave-reinstall-key\nfirecrawl-reinstall-key\n' --prompt-api-keys
+  expect_install_with_tty_status 0 "$sandbox_prompt_reinstall" "$snapshot_repo" $'ctx7-reinstall-key\nbrave-reinstall-key\nfirecrawl-reinstall-key\n\n' --prompt-api-keys
+  assert_json_value "$sandbox_prompt_reinstall/home/.claude.json" "'FIRECRAWL_API_URL' not in data['mcpServers']['firecrawl']['env']"
   expect_install_status 0 "$sandbox_prompt_reinstall" "$snapshot_repo" --uninstall
   assert_no_path "$sandbox_prompt_reinstall/home/.claude.json"
 

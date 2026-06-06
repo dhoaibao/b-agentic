@@ -212,10 +212,11 @@ PY
   assert_contains "$sandbox_opencode_modified_command/home/.config/opencode/commands/b-plan.md" 'user edit'
 
   mkdir -p "$sandbox_opencode_prompt_keys/home"
-  expect_install_with_tty_status 0 "$sandbox_opencode_prompt_keys" "$snapshot_repo" $'ctx7-oc-key\nbrave-oc-key\nfirecrawl-oc-key\n' --runtime=opencode --prompt-api-keys
+  expect_install_with_tty_status 0 "$sandbox_opencode_prompt_keys" "$snapshot_repo" $'ctx7-oc-key\nbrave-oc-key\nfirecrawl-oc-key\nhttps://firecrawl.oc\n' --runtime=opencode --prompt-api-keys
   assert_json_value "$sandbox_opencode_prompt_keys/home/.config/opencode/opencode.json" "data['mcp']['context7']['headers']['CONTEXT7_API_KEY'] == 'ctx7-oc-key'"
   assert_json_value "$sandbox_opencode_prompt_keys/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['environment']['BRAVE_API_KEY'] == 'brave-oc-key'"
   assert_json_value "$sandbox_opencode_prompt_keys/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['environment']['FIRECRAWL_API_KEY'] == 'firecrawl-oc-key'"
+  assert_json_value "$sandbox_opencode_prompt_keys/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['environment']['FIRECRAWL_API_URL'] == 'https://firecrawl.oc'"
   assert_contains "$sandbox_opencode_prompt_keys/home/.config/opencode/b-agentic/templates/mcp.user.template.json" '{env:BRAVE_API_KEY}'
   assert_not_contains "$sandbox_opencode_prompt_keys/home/.config/opencode/b-agentic/templates/mcp.user.template.json" 'brave-oc-key'
   expect_install_status 0 "$sandbox_opencode_prompt_keys" "$snapshot_repo" --runtime=opencode --uninstall

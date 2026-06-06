@@ -856,6 +856,13 @@ prompt_secret() {
   printf '%s' "$value"
 }
 
+prompt_value() {
+  local label="$1" help="$2" value=""
+  printf '%s (%s): ' "$label" "$help" > /dev/tty
+  IFS= read -r value < /dev/tty || value=""
+  printf '%s' "$value"
+}
+
 mcp_secret_configured() {
   local server="$1" section="$2" key="$3"
   [ -f "$MCP_CONFIG_DST" ] || return 1
@@ -894,6 +901,9 @@ collect_api_keys() {
   fi
   if ! mcp_secret_configured firecrawl "$MCP_FIRECRAWL_SECTION" FIRECRAWL_API_KEY; then
     FIRECRAWL_API_KEY_INPUT="$(prompt_secret 'Firecrawl API key')"
+  fi
+  if ! mcp_secret_configured firecrawl "$MCP_FIRECRAWL_SECTION" FIRECRAWL_API_URL; then
+    FIRECRAWL_API_URL_INPUT="$(prompt_value 'Firecrawl API URL' 'leave blank to use current default')"
   fi
 }
 
@@ -1074,7 +1084,7 @@ install_mcp_config() {
 
 apply_prompted_mcp_keys() {
   local action="$1" current_backup="$2"
-  if [ -z "$CONTEXT7_API_KEY_INPUT" ] && [ -z "$BRAVE_API_KEY_INPUT" ] && [ -z "$FIRECRAWL_API_KEY_INPUT" ]; then
+  if [ -z "$CONTEXT7_API_KEY_INPUT" ] && [ -z "$BRAVE_API_KEY_INPUT" ] && [ -z "$FIRECRAWL_API_KEY_INPUT" ] && [ -z "$FIRECRAWL_API_URL_INPUT" ]; then
     printf 'none'
     return 0
   fi
@@ -1096,6 +1106,7 @@ apply_prompted_mcp_keys() {
     CONTEXT7_API_KEY_INPUT="$CONTEXT7_API_KEY_INPUT" \
     BRAVE_API_KEY_INPUT="$BRAVE_API_KEY_INPUT" \
     FIRECRAWL_API_KEY_INPUT="$FIRECRAWL_API_KEY_INPUT" \
+    FIRECRAWL_API_URL_INPUT="$FIRECRAWL_API_URL_INPUT" \
     python3 - <<'PY'
 import json
 import os
@@ -1111,6 +1122,7 @@ updates = [
     ('context7', os.environ['MCP_CONTEXT7_SECTION'], 'CONTEXT7_API_KEY', os.environ.get('CONTEXT7_API_KEY_INPUT', '')),
     ('brave-search', os.environ['MCP_BRAVE_SECTION'], 'BRAVE_API_KEY', os.environ.get('BRAVE_API_KEY_INPUT', '')),
     ('firecrawl', os.environ['MCP_FIRECRAWL_SECTION'], 'FIRECRAWL_API_KEY', os.environ.get('FIRECRAWL_API_KEY_INPUT', '')),
+    ('firecrawl', os.environ['MCP_FIRECRAWL_SECTION'], 'FIRECRAWL_API_URL', os.environ.get('FIRECRAWL_API_URL_INPUT', '')),
 ]
 
 for server_name, section_name, key_name, value in updates:

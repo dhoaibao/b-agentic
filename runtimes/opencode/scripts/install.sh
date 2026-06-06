@@ -34,6 +34,7 @@ readonly MCP_BACKUP_KEY="opencodeJson"
 CONTEXT7_API_KEY_INPUT=""
 BRAVE_API_KEY_INPUT=""
 FIRECRAWL_API_KEY_INPUT=""
+FIRECRAWL_API_URL_INPUT=""
 
 runtime_warn_missing_cli() {
   command -v opencode >/dev/null 2>&1 || warn "opencode CLI not found; files will still be installed for OpenCode to discover later."
