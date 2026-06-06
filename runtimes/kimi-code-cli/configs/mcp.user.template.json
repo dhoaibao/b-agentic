@@ -41,7 +41,7 @@
       "args": [
         "start-mcp-server",
         "--context",
-        "kimi-code-cli",
+        "ide",
         "--project-from-cwd"
       ],
       "command": "serena"
