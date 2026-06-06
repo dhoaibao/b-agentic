@@ -107,8 +107,8 @@ else:
         errors.append(f'runtimes/kimi-code-cli/configs/mcp.user.template.json: expected default MCP servers {sorted(expected)}, found {sorted(servers)}')
     if servers.get('serena', {}).get('command') != 'serena':
         errors.append('runtimes/kimi-code-cli/configs/mcp.user.template.json: serena must use the installed serena binary')
-    if servers.get('serena', {}).get('args') != ['start-mcp-server', '--context', 'kimi-code-cli', '--project-from-cwd']:
-        errors.append('runtimes/kimi-code-cli/configs/mcp.user.template.json: serena must use --context kimi-code-cli')
+    if servers.get('serena', {}).get('args') != ['start-mcp-server', '--context', 'ide', '--project-from-cwd']:
+        errors.append('runtimes/kimi-code-cli/configs/mcp.user.template.json: serena must use --context ide')
     if servers.get('context7', {}).get('url') != 'https://mcp.context7.com/mcp':
         errors.append('runtimes/kimi-code-cli/configs/mcp.user.template.json: context7 must use the official MCP endpoint')
     if servers.get('brave-search', {}).get('args') != ['dlx', '@brave/brave-search-mcp-server', '--transport', 'stdio']:
@@ -129,7 +129,7 @@ for needle in [
     'does not install `/b-*` command wrapper files',
     'fail-open',
     'advisory-only',
-    '--context kimi-code-cli',
+    '--context ide',
 ]:
     if needle not in kimi_readme:
         errors.append(f'runtimes/kimi-code-cli/configs/README.md: missing Kimi documentation marker {needle!r}')

@@ -39,7 +39,7 @@ run_runtime_smoke_cases() {
   assert_toml_value "$sandbox_kimi/home/.kimi-code/config.toml" "$kimi_stop_hook_expr"
   assert_file "$sandbox_kimi/home/.kimi-code/mcp.json"
   assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "set(data['mcpServers']) == {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}"
-  assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['serena']['args'] == ['start-mcp-server', '--context', 'kimi-code-cli', '--project-from-cwd']"
+  assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['serena']['args'] == ['start-mcp-server', '--context', 'ide', '--project-from-cwd']"
   assert_no_path "$sandbox_kimi/home/.claude"
   assert_no_path "$sandbox_kimi/home/.codex"
   assert_no_path "$sandbox_kimi/home/.config/opencode"

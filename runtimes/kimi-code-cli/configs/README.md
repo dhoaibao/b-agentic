@@ -31,7 +31,7 @@ The installer never overwrites `~/.kimi-code/AGENTS.md` without `--replace-memor
 
 Kimi hooks use `[[hooks]]` entries in `config.toml`. b-agentic installs a `Stop` hook that runs the conformance checker, but Kimi hooks are fail-open: hook errors, timeouts, and non-blocking events must not be treated as strict security enforcement. Kimi supports blocking for selected hook events and has permission/manual approval modes for high-risk operations; b-agentic reports pre-action enforcement as advisory-only for this adapter.
 
-MCP uses `mcpServers` entries from `mcp.user.template.json`. Serena runs `serena start-mcp-server --context kimi-code-cli --project-from-cwd`. API keys can be written with `--prompt-api-keys` or maintained directly in `~/.kimi-code/mcp.json`. Playwright stays `--isolated`; pnpm must be available for `pnpm dlx` entries.
+MCP uses `mcpServers` entries from `mcp.user.template.json`. Serena runs `serena start-mcp-server --context ide --project-from-cwd`. API keys can be written with `--prompt-api-keys` or maintained directly in `~/.kimi-code/mcp.json`. Playwright stays `--isolated`; pnpm must be available for `pnpm dlx` entries.
 
 ## MCP readiness after install
 
