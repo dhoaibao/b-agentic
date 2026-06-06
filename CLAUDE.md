@@ -8,7 +8,7 @@ This file is maintainer guidance for editing the repository itself. It is not th
 
 `b-agentic` is a workflow harness, not just a skill suite. Its job is to give AI agents a small, reliable operating system for developer work: route by intent, apply safety gates, ground claims in evidence, verify before claiming completion, and hand off between phases without losing context.
 
-The product vision is multi-runtime support. Claude Code is the reference runtime, but shared behavior must remain portable across OpenCode and Codex CLI through runtime adapters.
+The product vision is multi-runtime support. Claude Code is the reference runtime, but shared behavior must remain portable across OpenCode, Codex CLI, and Kimi Code CLI through runtime adapters.
 
 The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer contracts, and validation that protects real behavior. Remove layers that only make agents carry more ceremony; keep tooling that improves correctness, install reliability, or cross-runtime delivery.
 
@@ -17,7 +17,7 @@ The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer co
 - `README.md` is the repository overview. Keep it brief: product summary, install, supported runtimes, skills, layout, validation, and links to deeper docs.
 - `CLAUDE.md` is the maintainer guide. Keep source-of-truth, authoring, sync, validation, and review guidance here.
 - Root `CLAUDE.md` is shared repo guidance, not a Claude-Code-only authoring spec.
-- Claude Code is the reference runtime; OpenCode and Codex CLI are supported through runtime adapters.
+- Claude Code is the reference runtime; OpenCode, Codex CLI, and Kimi Code CLI are supported through runtime adapters.
 - Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral.
 - Runtime-specific paths, kernel filenames, install layout, wrappers, and caveats belong under `runtimes/<name>/`.
 - Do not create a second root reference surface.

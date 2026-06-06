@@ -85,7 +85,7 @@ def remove_config_if_template(path_value: str | None, template: Path, label: str
         warn(f"preserving modified {label}: {path}")
 
 
-def remove_codex_managed_block(path_value: str | None) -> None:
+def remove_toml_managed_block(path_value: str | None, label: str) -> None:
     if not isinstance(path_value, str):
         return
     path = Path(path_value).expanduser()
@@ -97,7 +97,7 @@ def remove_codex_managed_block(path_value: str | None) -> None:
     if begin not in text:
         return
     if end not in text:
-        warn(f"preserving modified Codex config: {path}")
+        warn(f"preserving modified {label}: {path}")
         return
     prefix, remainder = text.split(begin, 1)
     _managed, suffix = remainder.split(end, 1)
@@ -151,6 +151,13 @@ def main() -> None:
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
         },
+        "kimi-code-cli": {
+            "metadata": home / ".kimi-code" / "b-agentic",
+            "skills": home / ".kimi-code" / "skills",
+            "kernel": home / ".kimi-code" / "AGENTS.md",
+            "kimiConfig": home / ".kimi-code" / "config.toml",
+            "kimiMcp": home / ".kimi-code" / "mcp.json",
+        },
     }
 
     defaults = runtime_defaults.get(runtime)
@@ -203,7 +210,10 @@ def main() -> None:
     elif runtime == "codex-cli":
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
-        remove_codex_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])))
+        remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
+    elif runtime == "kimi-code-cli":
+        remove_toml_managed_block(str(manifest_managed_path(paths, "kimiConfig", defaults["kimiConfig"])), "Kimi config")
+        remove_config_if_template(str(manifest_managed_path(paths, "kimiMcp", defaults["kimiMcp"])), metadata / "templates" / "mcp.user.template.json", "mcp.json")
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 

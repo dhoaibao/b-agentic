@@ -6,13 +6,13 @@
 ╚═╝
 ```
 
-**Agentic workflow kernel for Claude Code, OpenCode, and Codex CLI.**
+**Agentic workflow kernel for Claude Code, OpenCode, Codex CLI, and Kimi Code CLI.**
 
 This README is the repository overview. It describes what b-agentic is, how to install it, which runtimes it supports, and where the main source areas live. Maintainer-only editing guidance belongs in `CLAUDE.md`.
 
 `b-agentic` is a workflow harness, not just a skill bundle. It installs a compact runtime kernel, phase skills, a slim shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
 
-Claude Code is the primary reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure, and caveats.
+Claude Code is the primary reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure when applicable, and caveats.
 
 ## Install
 
@@ -28,7 +28,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `opencode`, `codex-cli`, or `kimi-code-cli`. Use `--runtime=all` for every registered runtime.
 
 Useful flags:
 
@@ -37,9 +37,9 @@ Useful flags:
 - `--strict` requests blocking runtime hooks where pre-action payloads are available
 - `--uninstall` removes managed files
 
-The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI config installs require Python 3.11+ for standard-library TOML parsing.
+The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI and Kimi Code CLI config installs require Python 3.11+ for standard-library TOML parsing.
 
-Requirements for every install path: `bash`, `git`, and `python3`. Codex CLI config installs additionally require Python 3.11+ because they use standard-library TOML parsing.
+Requirements for every install path: `bash`, `git`, and `python3`. Codex CLI and Kimi Code CLI config installs additionally require Python 3.11+ because they use standard-library TOML parsing.
 
 ## Runtime Support
 
@@ -48,6 +48,7 @@ Requirements for every install path: `bash`, `git`, and `python3`. Codex CLI con
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
+| Kimi Code CLI | Agent Skills from `~/.kimi-code/skills/`; no `/b-*` wrappers | `~/.kimi-code/mcp.json` |
 
 Capability support and adoption intent are generated from `runtimes/registry.yaml`. `native` means the runtime has a first-class surface, `adapter` means b-agentic can approximate the shared intent through adapter-owned runtime behavior, and `unsupported` means the adapter must not rely on that capability. Non-shared adoption labels are `adapter-only`, `deferred`, or `unsupported`.
 
@@ -57,6 +58,7 @@ Capability support and adoption intent are generated from `runtimes/registry.yam
 | Claude Code | native | native | native | native | native | native; deferred | unsupported | unsupported |
 | OpenCode | native | native | adapter | native | native | native; deferred | native; adapter-only | native; adapter-only |
 | Codex CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
+| Kimi Code CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Claude Code is the capability ceiling: shared b-agentic behavior can adopt a runtime-native capability only when the Claude Code registry entry marks that capability as `adoption: "shared"`. If Claude Code supports a capability and marks it shared, b-agentic may adopt it even when other runtimes need adapters or lack parity. Other runtimes can provide native or adapter implementations for that shared intent, but non-Claude-only capabilities stay adapter-only.

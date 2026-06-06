@@ -682,6 +682,13 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "temp_run": "/tmp/codex-cli/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/codex-cli/b-agentic/<skill>/<slug>.log",
     },
+    "kimi-code-cli": {
+        "reference": "~/.kimi-code/b-agentic/references/contract/",
+        "temp_root": "/tmp/kimi-code-cli/b-agentic/",
+        "sensitive": "~/.kimi-code/b-agentic/<skill>/<run-id>/",
+        "temp_run": "/tmp/kimi-code-cli/b-agentic/<skill>/<run-id>/",
+        "temp_log": "/tmp/kimi-code-cli/b-agentic/<skill>/<slug>.log",
+    },
 }
 artifact_contract_path = ROOT / "references" / "contract" / "safety-tools.md"
 artifact_contract = read_text(artifact_contract_path)

@@ -1,0 +1,50 @@
+{
+  "mcpServers": {
+    "brave-search": {
+      "args": [
+        "dlx",
+        "@brave/brave-search-mcp-server",
+        "--transport",
+        "stdio"
+      ],
+      "command": "pnpm",
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    },
+    "context7": {
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY:-}"
+      },
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "firecrawl": {
+      "args": [
+        "dlx",
+        "firecrawl-mcp"
+      ],
+      "command": "pnpm",
+      "env": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+      }
+    },
+    "playwright": {
+      "args": [
+        "dlx",
+        "@playwright/mcp@latest",
+        "--isolated"
+      ],
+      "command": "pnpm"
+    },
+    "serena": {
+      "args": [
+        "start-mcp-server",
+        "--context",
+        "kimi-code-cli",
+        "--project-from-cwd"
+      ],
+      "command": "serena"
+    }
+  }
+}
