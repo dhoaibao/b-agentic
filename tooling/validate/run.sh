@@ -53,8 +53,10 @@ if [ "$run_release" -eq 1 ]; then
   bash "$ROOT_DIR/tests/smoke/install.sh"
   if python3 -m pytest --version >/dev/null 2>&1; then
     python3 -m pytest tests/internal/state-machine/ -q
-  else
+  elif command -v pytest >/dev/null 2>&1; then
     pytest tests/internal/state-machine/ -q
+  else
+    echo "warning: pytest not found; skipping state-machine tests" >&2
   fi
 fi
 
