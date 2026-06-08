@@ -151,13 +151,6 @@ def main() -> None:
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
         },
-        "kimi-code-cli": {
-            "metadata": home / ".kimi-code" / "b-agentic",
-            "skills": home / ".kimi-code" / "skills",
-            "kernel": home / ".kimi-code" / "AGENTS.md",
-            "kimiConfig": home / ".kimi-code" / "config.toml",
-            "kimiMcp": home / ".kimi-code" / "mcp.json",
-        },
     }
 
     defaults = runtime_defaults.get(runtime)
@@ -211,9 +204,6 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
-    elif runtime == "kimi-code-cli":
-        remove_toml_managed_block(str(manifest_managed_path(paths, "kimiConfig", defaults["kimiConfig"])), "Kimi config")
-        remove_config_if_template(str(manifest_managed_path(paths, "kimiMcp", defaults["kimiMcp"])), metadata / "templates" / "mcp.user.template.json", "mcp.json")
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 
