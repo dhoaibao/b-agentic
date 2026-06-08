@@ -44,6 +44,7 @@ claude_status_line_enabled() {
 
 runtime_warn_missing_cli() {
   command -v claude >/dev/null 2>&1 || warn "claude CLI not found; files will still be installed for Claude Code to discover later."
+  command -v pnpm >/dev/null 2>&1 || warn "pnpm not found; MCP servers that use 'pnpm dlx' (Brave, Firecrawl, Playwright) will not start until pnpm is installed."
 }
 
 runtime_install_config_stage_count() {

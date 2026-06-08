@@ -39,7 +39,7 @@ Useful flags:
 
 The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI config installs require Python 3.11+ for standard-library TOML parsing.
 
-Requirements for every install path: `bash`, `git`, and `python3`. Codex CLI config installs additionally require Python 3.11+ because they use standard-library TOML parsing.
+Requirements for every install path: `bash`, `git`, `python3`, and `pnpm`. Codex CLI config installs additionally require Python 3.11+ because they use standard-library TOML parsing.
 
 ## Runtime Support
 
