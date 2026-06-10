@@ -1,13 +1,47 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 
 ENFORCED = "enforced"
 ADVISORY = "advisory"
 UNSUPPORTED = "unsupported"
-SUPPORTED_RUNTIMES = {"claude-code", "opencode", "codex-cli"}
-PRE_ACTION_ENFORCED_RUNTIMES = {"claude-code"}
+
+_RUNTIMES_REGISTRY_PATH = Path(__file__).resolve().parents[2] / "runtimes" / "registry.yaml"
+
+
+def _load_runtime_registry() -> dict:
+    import json
+    return json.loads(_RUNTIMES_REGISTRY_PATH.read_text())
+
+
+def _runtime_names_with_hooks_support() -> set[str]:
+    registry = _load_runtime_registry()
+    names: set[str] = set()
+    for runtime in registry.get("runtimes", []):
+        name = runtime.get("name")
+        caps = runtime.get("capabilities", {})
+        hooks = caps.get("hooks", {})
+        if isinstance(name, str) and name and hooks.get("support") in ("native", "adapter"):
+            names.add(name)
+    return names
+
+
+def _runtime_names_with_native_hooks() -> set[str]:
+    registry = _load_runtime_registry()
+    names: set[str] = set()
+    for runtime in registry.get("runtimes", []):
+        name = runtime.get("name")
+        caps = runtime.get("capabilities", {})
+        hooks = caps.get("hooks", {})
+        if isinstance(name, str) and name and hooks.get("support") == "native":
+            names.add(name)
+    return names
+
+
+SUPPORTED_RUNTIMES = _runtime_names_with_hooks_support()
+PRE_ACTION_ENFORCED_RUNTIMES = _runtime_names_with_native_hooks()
 
 
 @dataclass(frozen=True)

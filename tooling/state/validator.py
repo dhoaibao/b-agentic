@@ -48,7 +48,7 @@ def _matches_target(action: Action, intent: Intent) -> bool:
     if action.files and intent.files:
         action_files = set(action.files)
         intent_files = set(intent.files)
-        return bool(action_files <= intent_files or intent_files <= action_files)
+        return action_files <= intent_files
     return False
 
 

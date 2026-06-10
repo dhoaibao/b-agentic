@@ -43,7 +43,7 @@ PROJECT_WRITE_TOOLS = {
 }
 
 DESTRUCTIVE_RE = re.compile(
-    r"(^|\s)(rm\s+-|git\s+reset\s+--hard|git\s+clean\s+-f|git\s+branch\s+-D|"
+    r"(^|\s)(rm\s+-\S+|git\s+reset\s+--hard|git\s+clean\s+-f|git\s+branch\s+-D|"
     r"git\s+push\s+--force|drop\s+database|truncate\s+table)(\s|$)",
     re.IGNORECASE,
 )

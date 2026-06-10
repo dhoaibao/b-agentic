@@ -124,3 +124,64 @@ def test_unknown_tool_advisory_when_not_strict(tmp_path):
     decision = validate_action(tmp_path, {"tool": "some_custom_tool"}, runtime="claude-code", strict=False)
     assert decision.verdict == "advisory"
     assert decision.risk == "unknown"
+
+
+def test_action_exceeding_intent_scope_is_blocked(tmp_path):
+    init_state(tmp_path, active_skill="b-implement", phase="implementing", capabilities={
+        "pre_action_project_write": "enforced",
+    })
+    transcript = (
+        "```text\n"
+        "[intent]\n"
+        "skill: b-implement\n"
+        "action: project-write\n"
+        "files: foo.py\n"
+        "commands: none\n"
+        "source: plan\n"
+        "approval: not-required\n"
+        "reason: editing foo\n"
+        "```"
+    )
+    decision = validate_action(
+        tmp_path,
+        {"tool": "write", "files": ["foo.py", "bar.py"]},
+        runtime="claude-code",
+        strict=True,
+        transcript=transcript,
+    )
+    assert decision.verdict == "block"
+    assert "target" in decision.reason
+
+
+def test_action_within_intent_scope_is_allowed(tmp_path):
+    init_state(tmp_path, active_skill="b-implement", phase="implementing", capabilities={
+        "pre_action_project_write": "enforced",
+    })
+    transcript = (
+        "```text\n"
+        "[intent]\n"
+        "skill: b-implement\n"
+        "action: project-write\n"
+        "files: src/utils.py,src/helpers.py\n"
+        "commands: none\n"
+        "source: plan\n"
+        "approval: not-required\n"
+        "reason: editing helpers\n"
+        "```"
+    )
+    decision = validate_action(
+        tmp_path,
+        {"tool": "write", "files": ["src/helpers.py"]},
+        runtime="claude-code",
+        strict=True,
+        transcript=transcript,
+    )
+    assert decision.verdict == "allow"
+
+
+def test_codex_cli_native_hooks_supported_by_registry(tmp_path):
+    from tooling.state.capabilities import PRE_ACTION_ENFORCED_RUNTIMES, SUPPORTED_RUNTIMES
+    assert "codex-cli" in PRE_ACTION_ENFORCED_RUNTIMES
+    assert "claude-code" in PRE_ACTION_ENFORCED_RUNTIMES
+    assert "kilo-code" not in PRE_ACTION_ENFORCED_RUNTIMES
+    assert "kilo-code" not in SUPPORTED_RUNTIMES
