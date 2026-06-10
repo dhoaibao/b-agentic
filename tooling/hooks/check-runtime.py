@@ -147,6 +147,17 @@ def check_pre_action(source_root: Path, client: str, stdin_text: str) -> int:
 
     payload = load_payload(stdin_text)
     workspace_root = workspace_root_from_payload(payload)
+
+    if strict_enabled():
+        try:
+            from tooling.state.state import load_state, init_state
+            from tooling.state.capabilities import runtime_capabilities
+            if load_state(workspace_root) is None:
+                caps = runtime_capabilities(client, strict=True, pre_action_payload=bool(payload)).as_dict()
+                init_state(workspace_root, source_of_truth="auto-initialized by hook", capabilities=caps)
+        except Exception:
+            pass
+
     transcript_path = transcript_path_from_stdin(stdin_text)
     transcript = None
     if transcript_path:
