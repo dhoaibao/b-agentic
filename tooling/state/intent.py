@@ -5,7 +5,9 @@ import re
 
 
 INTENT_BLOCK_RE = re.compile(r"```text\s*\n(?P<body>\[intent\][\s\S]*?)\n```", re.MULTILINE)
+APPROVAL_BLOCK_RE = re.compile(r"```text\s*\n(?P<body>\[approval\][\s\S]*?)\n```", re.MULTILINE)
 FIELD_RE = re.compile(r"^(?P<key>[a-z-]+):\s(?P<value>.+)$")
+APPROVED_RESPONSE_RE = re.compile(r"\b(y|yes|yeah|yep|sure|ok|okay|proceed|go ahead)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -70,3 +72,41 @@ def parse_intents(text: str) -> tuple[list[Intent], list[str]]:
         intents.append(Intent.from_fields(fields, raw))
 
     return intents, errors
+
+
+def parse_approval_blocks(text: str) -> list[dict[str, str]]:
+    """Parse [approval] blocks from transcript.
+
+    Returns a list of approval records with keys: action, effect, response.
+    Only approvals with an affirmative response are considered valid.
+    """
+    approvals: list[dict[str, str]] = []
+    for match in APPROVAL_BLOCK_RE.finditer(text):
+        raw = match.group("body")
+        lines = [line.rstrip() for line in raw.splitlines() if line.strip()]
+        if not lines or not lines[0].startswith("[approval]"):
+            continue
+
+        fields: dict[str, str] = {}
+        for line in lines[1:]:
+            field_match = FIELD_RE.match(line)
+            if field_match:
+                fields[field_match.group("key")] = field_match.group("value")
+
+        # Check for affirmative response after the block, up to the next structured block
+        block_end = match.end()
+        next_block_start = len(text)
+        for next_match in re.finditer(r"```text\s*\n\[(?:intent|status|handoff|approval)", text[block_end:]):
+            next_block_start = block_end + next_match.start()
+            break
+        following_text = text[block_end:next_block_start]
+        is_approved = bool(APPROVED_RESPONSE_RE.search(following_text))
+
+        if is_approved:
+            approvals.append({
+                "action": fields.get("action", ""),
+                "effect": fields.get("effect", ""),
+                "response": "approved",
+            })
+
+    return approvals

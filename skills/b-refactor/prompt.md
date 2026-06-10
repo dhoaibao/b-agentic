@@ -20,7 +20,7 @@ Execute concrete behavior-preserving transforms: rename, extract, move, inline, 
 ## Tools required
 
 - `bash` - inspect git state and run checks.
-- `serena-symbol-toolkit` *(preferred for target locking, references, diagnostics, and symbol edits)*
+- `serena-symbol-toolkit` - required for target locking, references, diagnostics, and symbol edits.
 
 ## Steps
 

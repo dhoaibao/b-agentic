@@ -121,6 +121,29 @@ def _shell_risk(command: str) -> tuple[RiskClass, str]:
     return UNKNOWN, "unclassified shell command"
 
 
+def derive_intent_from_action(action: Action, active_skill: str | None = None) -> dict[str, str]:
+    """Derive an intent record from a classified action.
+
+    Returns a dict with the same fields as an [intent] block.
+    Project-write actions are auto-approved (source of truth already authorizes).
+    All other high-risk actions get approval: pending (hook will block until
+    explicit approval is recorded or a manual [intent] with approval: approved
+    is emitted).
+    """
+    files_value = ",".join(action.files) if action.files else "none"
+    commands_value = action.command if action.command else "none"
+    approval = "not-required" if action.risk == PROJECT_WRITE else "pending"
+    return {
+        "skill": active_skill or "unknown",
+        "action": action.risk,
+        "files": files_value,
+        "commands": commands_value,
+        "source": "auto-derived",
+        "approval": approval,
+        "reason": f"auto-derived from {action.tool} payload",
+    }
+
+
 def classify_action(payload: dict[str, Any]) -> Action:
     tool_value = _payload_value(payload, "tool", "tool_name", "toolName", "name")
     tool = str(tool_value or "unknown")

@@ -31,10 +31,8 @@ Confirm root cause, fix minimally, verify, and remove probes. If the user asks o
 
 ## Tools required
 
-- `serena-symbol-toolkit` *(preferred for tracing and focused fixes)*
-- `context7-docs` *(optional, for suspected API misuse)*
-- `brave-search` + `firecrawl-extraction` *(optional, for public errors, deprecations, or advisories after privacy gate)*
 - `bash` - exact errors, config, repro commands, profilers, and diagnostics.
+- `serena-symbol-toolkit` - trace symbols, inspect call sites, and perform focused fixes.
 
 ## Steps
 
@@ -46,7 +44,16 @@ For active production impact, data loss, or security risk, read `../../b-agentic
 
 ### Step 2 - Rank suspects
 
-Use stack traces and diagnostics first. Otherwise map the path with Serena/native reads. Bias checks toward swallowed errors, auth/authz gates, config drift, missing awaits, async ordering, shared state, new boundary errors, and for perf N+1 queries, retries, hot allocations, or blocking I/O.
+Use stack traces and diagnostics first. Otherwise map the path with Serena.
+
+**Serena tracing workflow:**
+1. `get_symbols_overview` on the error location file to understand structure.
+2. `find_symbol` with `include_body=True` on the failing function, method, or class.
+3. `find_referencing_symbols` on that symbol to trace call sites and coupling.
+4. `find_implementations` when the symptom spans an interface/implementation boundary.
+5. `get_diagnostics_for_file` on files in the suspect path for type errors and warnings.
+
+Bias checks toward swallowed errors, auth/authz gates, config drift, missing awaits, async ordering, shared state, new boundary errors, and for perf N+1 queries, retries, hot allocations, or blocking I/O.
 
 ### Step 3 - Confirm root cause
 
@@ -59,6 +66,13 @@ Before the final fix, state: `Root cause: <what fails> because <why>`.
 ### Step 4 - Fix minimally
 
 Use Serena for symbol edits. Do not bundle cleanup or redesign. If the confirmed cause needs structural work, hand off to **b-plan** with root cause, evidence, and attempted minimal fix.
+
+**Serena editing workflow:**
+1. `get_symbols_overview` on the target file to locate the symbol.
+2. `find_symbol` with `include_body=True` to read the full definition before editing.
+3. Perform the edit with `replace_symbol_body` or `replace_content`.
+4. `get_diagnostics_for_file` to verify the edit introduced no errors.
+5. `find_referencing_symbols` to confirm callers still resolve correctly.
 
 ### Step 5 - Verify and clean up
 
@@ -79,6 +93,7 @@ Symptoms -> Root cause -> Fix -> Verification -> Cleanup/next
 - Surface cannot-reproduce gaps instead of speculative fixes.
 - Stop at the class-aware iteration cap.
 - Verify probe removal before reporting success.
+- Use Serena for every code trace and edit; do not guess symbol locations or edit without reading definitions first.
 
 ## Reference pointers
 

@@ -10,11 +10,17 @@ If a runtime or tool surface cannot provide pre-action interception, b-agentic m
 
 #### Current enforcement status
 
-Two enforcement paths exist, at different operational readiness levels:
+Strict enforcement is **ON by default** for runtimes with native hook support. Use `B_AGENTIC_ADVISORY=1` or `--advisory` to opt out.
 
-1. **Hook-based advisory enforcement** (working by default) — Claude Code hooks run `tooling/state/cli.py pre-action` before each tool call. Without `B_AGENTIC_HOOK_STRICT=1`, the hook warns but does not block. This path is active for all Claude Code sessions where the hooks are installed.
+1. **Claude Code** — Native `PreToolUse` hooks with full pre-action payload blocking. Strict is ON by default.
 
-2. **Hook-based blocking enforcement** (`B_AGENTIC_HOOK_STRICT=1`) — Setting this environment variable causes the same hook path to return a non-zero exit code on block decisions, preventing the tool call. This path is available today and is the recommended way to enable strict enforcement on Claude Code.
+2. **Codex CLI** — Native `PreToolUse` hooks with pre-action payload blocking via TOML config. Strict is ON by default.
+
+3. **OpenCode** — Hooks unsupported. Enforcement is advisory-only regardless of strict setting.
+
+4. **Kilo Code** — Hooks unsupported. Enforcement is advisory-only regardless of strict setting.
+
+For advisory-only runtimes, the harness warns on invalid output after the fact but cannot block pre-action tool calls.
 
 ### State file
 
@@ -48,7 +54,9 @@ Valid values are:
 
 ### Intent record
 
-High-risk actions require a machine-readable intent record before execution:
+High-risk actions require a machine-readable intent record before execution. The runtime hook auto-derives intent from the tool payload when no explicit `[intent]` block is found in the transcript.
+
+Explicit intent (still accepted for all actions):
 
 ```text
 [intent]
@@ -61,7 +69,11 @@ approval: not-required | pending | approved | denied
 reason: <why this action is required now>
 ```
 
-At least one target field, `files` or `commands`, must name the intended target. Project writes may use `approval: not-required` when the source of truth already authorizes them. Dependency, environment, external, and destructive actions require `approval: approved`.
+Auto-derived intent behavior:
+- `project-write`: `approval: not-required` (source of truth already authorizes the edit).
+- All other high-risk actions: `approval: pending` (blocks until explicit approval is recorded or an `[approval]` block with affirmative response is found in the transcript).
+
+At least one target field, `files` or `commands`, must name the intended target. Dependency, environment, external, and destructive actions require `approval: approved` when using explicit intent, or an `[approval]` block in the transcript when relying on auto-derive.
 
 ### Action validation
 

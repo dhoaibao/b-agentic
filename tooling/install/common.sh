@@ -1032,7 +1032,7 @@ print_install_report_readiness() {
         ;;
     esac
   else
-    report_item "hooks" "runtime conformance hooks warn by default; use --strict or set B_AGENTIC_STRICT=1 to request blocking"
+    report_item "hooks" "strict enforcement ON by default; use --advisory or set B_AGENTIC_ADVISORY=1 to opt out"
   fi
 }
 

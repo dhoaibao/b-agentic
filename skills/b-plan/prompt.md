@@ -22,9 +22,9 @@ If `$ARGUMENTS` is present, treat it as the task description and proceed.
 
 ## Tools required
 
-- `serena-symbol-toolkit` *(preferred for planning against existing code)*
-- `context7-docs` *(optional, for one narrow API check)*
-- `firecrawl-extraction` *(optional, for a user-provided issue or ticket URL)*
+- `serena-symbol-toolkit` - required for planning against existing code.
+- `context7-docs` - use only for one narrow API check that changes the plan.
+- `firecrawl-extraction` - use only for user-provided issue, ticket, or docs URLs whose exact text affects scope.
 - Optional runtime subagent: `b-explore` may gather bounded repo evidence for broad plans. The active **b-plan** skill owns scope, decisions, saved-plan content, status, and handoff.
 
 ## Steps

@@ -38,11 +38,14 @@ def main(argv: list[str] | None = None) -> int:
     validate_parser.add_argument("--root", default=".")
     validate_parser.add_argument("--runtime", required=True)
     validate_parser.add_argument("--strict", action="store_true")
+    validate_parser.add_argument("--advisory", action="store_true", help="Disable strict enforcement for this validation")
+    validate_parser.add_argument("--no-auto-derive", action="store_true", help="Require explicit [intent] blocks; do not auto-derive from payload")
     validate_parser.add_argument("--transcript")
 
     capability_parser = subparsers.add_parser("capabilities", help="Print runtime enforcement capabilities")
     capability_parser.add_argument("--runtime", required=True)
     capability_parser.add_argument("--strict", action="store_true")
+    capability_parser.add_argument("--advisory", action="store_true", help="Report advisory-only capabilities")
     capability_parser.add_argument("--pre-action-payload", action="store_true")
 
     transition_parser = subparsers.add_parser("transition", help="Apply a state transition")
@@ -84,12 +87,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "validate-action":
         payload = _read_stdin_json()
         transcript = Path(args.transcript).read_text() if args.transcript else None
-        decision = validate_action(root, payload, runtime=args.runtime, strict=args.strict, transcript=transcript)
+        strict_mode = not args.advisory  # strict is ON by default; --advisory opts out
+        auto_derive = not args.no_auto_derive
+        decision = validate_action(root, payload, runtime=args.runtime, strict=strict_mode, transcript=transcript, auto_derive=auto_derive)
         print(json.dumps(decision.__dict__, indent=2, sort_keys=True))
         return 0 if decision.allowed else 1
 
     if args.command == "capabilities":
-        print(format_report(runtime_capabilities(args.runtime, strict=args.strict, pre_action_payload=args.pre_action_payload)))
+        strict_mode = not args.advisory
+        print(format_report(runtime_capabilities(args.runtime, strict=strict_mode, pre_action_payload=args.pre_action_payload)))
         return 0
 
     if args.command == "transition":

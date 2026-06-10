@@ -22,7 +22,10 @@ def warn(message: str) -> None:
 
 
 def strict_enabled() -> bool:
-    return os.environ.get("B_AGENTIC_STRICT") == "1" or os.environ.get("B_AGENTIC_HOOK_STRICT") == "1"
+    """Strict enforcement is ON by default. Use B_AGENTIC_ADVISORY=1 to opt out."""
+    if os.environ.get("B_AGENTIC_ADVISORY") == "1":
+        return False
+    return os.environ.get("B_AGENTIC_STRICT") != "0" and os.environ.get("B_AGENTIC_HOOK_STRICT") != "0"
 
 
 def find_key(value: Any, keys: set[str]) -> str | None:

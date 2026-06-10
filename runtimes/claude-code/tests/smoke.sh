@@ -98,7 +98,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_install_report/install.log" 'mcp-config: templates installed only; external MCP servers are not started or authenticated by installer'
   assert_contains "$sandbox_install_report/install.log" 'api-keys: Context7, Brave Search, and Firecrawl need user-scope keys'
-  assert_contains "$sandbox_install_report/install.log" 'hooks: runtime conformance hooks warn by default; use --strict or set B_AGENTIC_STRICT=1 to request blocking'
+  assert_contains "$sandbox_install_report/install.log" 'hooks: strict enforcement ON by default; use --advisory or set B_AGENTIC_ADVISORY=1 to opt out'
   assert_contains "$sandbox_install_report/install.log" 'Shell tooling:'
   assert_contains "$sandbox_install_report/install.log" 'core: rg, fd/fdfind, jq'
   assert_contains "$sandbox_install_report/install.log" 'installer: suggestions only; no packages were installed automatically'
@@ -139,9 +139,20 @@ run_runtime_smoke_cases() {
 
   local hook_transcript="$sandbox_install_report/invalid-status.md"
   printf '```text\n[status]\nskill: b-review\nstate: complete\nartifacts: none\nnext: b-ship\nblockers: none\nverdict: READY FOR PR\n```\n' > "$hook_transcript"
+  local advisory_rc=0
+  set +e
   printf '{"transcript_path":"%s"}\n' "$hook_transcript" | \
-    python3 "$sandbox_install_report/home/.claude/b-agentic/hooks/check-runtime.py" --client claude-code --event stop --source "$sandbox_install_report/source" >/dev/null 2>&1 || \
-    fail "runtime hook should warn and return 0 by default"
+    B_AGENTIC_ADVISORY=1 python3 "$sandbox_install_report/home/.claude/b-agentic/hooks/check-runtime.py" --client claude-code --event stop --source "$sandbox_install_report/source" >/dev/null 2>&1
+  advisory_rc=$?
+  set -e
+  [ "$advisory_rc" -eq 0 ] || fail "runtime hook should warn and return 0 in advisory mode"
+  local default_rc=0
+  set +e
+  printf '{"transcript_path":"%s"}\n' "$hook_transcript" | \
+    python3 "$sandbox_install_report/home/.claude/b-agentic/hooks/check-runtime.py" --client claude-code --event stop --source "$sandbox_install_report/source" >/dev/null 2>&1
+  default_rc=$?
+  set -e
+  [ "$default_rc" -ne 0 ] || fail "runtime hook should block by default (strict=ON)"
   local strict_rc=0
   set +e
   printf '{"transcript_path":"%s"}\n' "$hook_transcript" | \

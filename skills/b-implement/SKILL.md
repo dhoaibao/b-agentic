@@ -36,8 +36,8 @@ If `$ARGUMENTS` is present, treat it as a plan path, plan slug, approved chat pl
 ## Tools required
 
 - `bash` - inspect status/diff and run verification.
-- `serena-symbol-toolkit` *(preferred for symbol-aware edits and diagnostics)*
-- `context7-docs` *(optional, for one narrow API uncertainty)*
+- `serena-symbol-toolkit` - required for symbol-aware edits and diagnostics.
+- `context7-docs` - use only when a third-party API uncertainty blocks the next local edit or verification choice.
 
 ## Steps
 

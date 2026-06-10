@@ -4,9 +4,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from tooling.state.actions import APPROVAL_REQUIRED, HIGH_RISK, PROJECT_WRITE, UNKNOWN, Action, classify_action
+from tooling.state.actions import (
+    APPROVAL_REQUIRED,
+    HIGH_RISK,
+    PROJECT_WRITE,
+    UNKNOWN,
+    Action,
+    classify_action,
+    derive_intent_from_action,
+)
 from tooling.state.capabilities import ADVISORY, ENFORCED, UNSUPPORTED, runtime_capabilities
-from tooling.state.intent import Intent, parse_intents
+from tooling.state.intent import Intent, parse_approval_blocks, parse_intents
 from tooling.state.state import State, load_state
 
 
@@ -23,22 +31,40 @@ class Decision:
 
 
 def _strict_enabled(strict: bool | None) -> bool:
-    return bool(strict)
+    if strict is None:
+        return True  # strict is ON by default
+    return strict
 
 
-def _latest_intent(transcript: str | None, state: State | None) -> tuple[Intent | None, list[str]]:
+def _latest_intent(
+    transcript: str | None,
+    state: State | None,
+    *,
+    auto_derive: bool = True,
+    action: Action | None = None,
+    active_skill: str | None = None,
+) -> tuple[Intent | None, list[str]]:
+    # 1. Try explicit [intent] blocks in transcript
     if transcript:
         intents, errors = parse_intents(transcript)
         if intents:
             return intents[-1], errors
         if errors:
             return None, errors
+
+    # 2. Try state.pending_intent
     if state and state.pending_intent:
         intent = Intent.from_fields(
             {key: str(value) for key, value in state.pending_intent.items()},
             raw="state.pending_intent",
         )
         return intent, []
+
+    # 3. Auto-derive from action payload
+    if auto_derive and action is not None:
+        fields = derive_intent_from_action(action, active_skill=active_skill)
+        return Intent.from_fields(fields, raw="auto-derived"), []
+
     return None, []
 
 
@@ -60,17 +86,40 @@ def _capability_for_risk(action: Action, capability) -> str:
     return capability.pre_action_project_write
 
 
-def _has_approval(action: Action, intent: Intent | None, state: State | None) -> bool:
+def _has_approval(
+    action: Action,
+    intent: Intent | None,
+    state: State | None,
+    transcript: str | None = None,
+) -> bool:
     if action.risk not in APPROVAL_REQUIRED:
         return True
     if intent and intent.approval == "approved":
         return True
+    # Check transcript for [approval] blocks with affirmative response
+    if transcript:
+        approvals = parse_approval_blocks(transcript)
+        for approval in approvals:
+            if action.command and action.command in approval.get("action", ""):
+                return True
+            if action.files:
+                action_files = set(action.files)
+                for f in action_files:
+                    if f in approval.get("effect", ""):
+                        return True
     if not state:
         return False
     return any(item.get("risk") == action.risk and item.get("status") == "approved" for item in state.approvals)
 
 
-def _state_and_intent(root: Path, transcript: str | None) -> tuple[State | None, Intent | None, list[str]]:
+def _state_and_intent(
+    root: Path,
+    transcript: str | None,
+    *,
+    auto_derive: bool = True,
+    action: Action | None = None,
+    active_skill: str | None = None,
+) -> tuple[State | None, Intent | None, list[str]]:
     try:
         state = load_state(root)
     except Exception as exc:
@@ -79,7 +128,9 @@ def _state_and_intent(root: Path, transcript: str | None) -> tuple[State | None,
     if state is None:
         return None, None, ["state file missing; strict enforcement not initialized"]
 
-    intent, intent_errors = _latest_intent(transcript, state)
+    intent, intent_errors = _latest_intent(
+        transcript, state, auto_derive=auto_derive, action=action, active_skill=active_skill
+    )
     if intent_errors:
         return state, None, intent_errors
     if intent is None:
@@ -94,12 +145,22 @@ def validate_action(
     runtime: str,
     strict: bool | None = None,
     transcript: str | None = None,
+    auto_derive: bool = True,
 ) -> Decision:
     strict_mode = _strict_enabled(strict)
     action = classify_action(payload)
     has_action_payload = action.tool != "unknown" or action.command is not None
     capability = runtime_capabilities(runtime, pre_action_payload=has_action_payload, strict=strict_mode)
     risk_capability = _capability_for_risk(action, capability)
+
+    # Resolve active skill from state for auto-derive
+    active_skill: str | None = None
+    try:
+        state_for_skill = load_state(root)
+        if state_for_skill:
+            active_skill = state_for_skill.active_skill
+    except Exception:
+        pass
 
     if action.risk == UNKNOWN:
         if strict_mode:
@@ -108,7 +169,9 @@ def validate_action(
             if risk_capability != ENFORCED:
                 return Decision("block", f"unknown pre-action capability {risk_capability!r}", action.risk, risk_capability)
 
-            state, intent, errors = _state_and_intent(root, transcript)
+            state, intent, errors = _state_and_intent(
+                root, transcript, auto_derive=auto_derive, action=action, active_skill=active_skill
+            )
             if errors:
                 return Decision("block", "; ".join(errors), action.risk, risk_capability)
             assert state is not None and intent is not None
@@ -132,7 +195,9 @@ def validate_action(
     if risk_capability != ENFORCED:
         return Decision("block", f"unknown pre-action capability {risk_capability!r}", action.risk, risk_capability)
 
-    state, intent, errors = _state_and_intent(root, transcript)
+    state, intent, errors = _state_and_intent(
+        root, transcript, auto_derive=auto_derive, action=action, active_skill=active_skill
+    )
     if errors:
         return Decision("block", "; ".join(errors), action.risk, risk_capability)
     assert state is not None and intent is not None
@@ -142,7 +207,7 @@ def validate_action(
         return Decision("block", "intent action does not match classified risk", action.risk, risk_capability)
     if not _matches_target(action, intent):
         return Decision("block", "intent target does not match action target", action.risk, risk_capability)
-    if not _has_approval(action, intent, state):
+    if not _has_approval(action, intent, state, transcript=transcript):
         return Decision("block", "action requires explicit approval", action.risk, risk_capability)
 
     return Decision("allow", "intent and state validated", action.risk, risk_capability)

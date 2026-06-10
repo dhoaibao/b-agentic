@@ -21,8 +21,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 ## Tools required
 
 - `bash` - run tests/coverage and inspect failure output.
-- `serena-symbol-toolkit` *(preferred for mapping tests to source behavior and editing existing tests)*
-- `context7-docs` *(optional, for testing-framework API or matcher behavior)*
+- `serena-symbol-toolkit` - map tests to source behavior and edit test symbols.
 - Optional runtime subagent: `b-verify` may gather existing command, diagnostic, or coverage evidence. The active **b-test** skill owns failure classification, fixes, assertions, status, and handoff.
 
 ## Steps

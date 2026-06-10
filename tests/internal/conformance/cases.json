@@ -5,6 +5,10 @@
       "valid": true
     },
     {
+      "path": "tests/internal/conformance/valid-auto-derived-intent.md",
+      "valid": true
+    },
+    {
       "path": "tests/internal/conformance/invalid-status-missing-field.md",
       "valid": false,
       "error_contains": "missing required field 'blockers'"

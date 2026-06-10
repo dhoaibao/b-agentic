@@ -24,9 +24,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 ## Tools required
 
 - `bash` - inspect diff/status/log and run narrow verification when needed.
-- `serena-symbol-toolkit` *(preferred for focused code inspection)*
-- `context7-docs` *(optional, for suspicious third-party API usage)*
-- `brave-search` + `firecrawl-extraction` *(optional, for focused public CVE, advisory, or release-drift lookup)*
+- `serena-symbol-toolkit` - inspect changed symbols, references, diagnostics, and boundaries.
 - Optional runtime subagent: `b-review` may inspect bounded diff slices. The active **b-review** skill owns finding severity, final verdict, status, and handoff.
 
 ## Steps
@@ -51,7 +49,11 @@ Use arguments, `--baseline`, approved plan, checkpoint handoff, or clarification
 
 Inspect highest-risk changed symbols and boundaries first. Name sampled files/symbols, skipped changed surfaces, and residual risk.
 
-Use Serena for changed symbols, references, diagnostics, and nearby context. Use Context7 only when an API-semantic finding or clean judgment depends on it. Use Brave plus Firecrawl only for focused advisories, release drift, or official-doc confirmation.
+**Serena review workflow:**
+1. `get_symbols_overview` on each changed file to identify modified symbols.
+2. `find_symbol` with `include_body=True` on changed functions, methods, or classes.
+3. `find_referencing_symbols` on boundary symbols to understand consumer impact.
+4. `get_diagnostics_for_file` on changed files to catch type errors and warnings.
 
 Read `{{skill_support_path}}/reference.md` before applying the security checklist to changed entry points or shared boundaries. Treat lockfile, generated, snapshot, golden, vendored, and minified changes as derived unless source or approved generation is clear.
 
@@ -84,6 +86,7 @@ Scope/Path/Baseline -> Findings -> Checked and clean -> Coverage/Tests/Observabi
 - Fast path is risk-gated, not line-count-gated.
 - Treat strict/advisory capability overclaims as correctness findings.
 - Cite authoritative docs when API semantics matter.
+- Use Serena for every symbol inspection; do not review code without reading symbol definitions and references.
 
 ## Reference pointers
 

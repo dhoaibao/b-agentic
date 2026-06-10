@@ -482,6 +482,37 @@ if isinstance(runtime_records, list):
             if reference_capabilities.get("plugins", {}).get("adoption") != "deferred":
                 errors.append("runtimes/registry.yaml: plugin packaging must remain deferred until explicitly adopted")
 
+    # Verify tooling/state/capabilities.py matches runtime registry claims
+    registry_native_hook_runtimes = {
+        r.get("name")
+        for r in runtime_records
+        if isinstance(r, dict)
+        and r.get("capabilities", {}).get("hooks", {}).get("support") == "native"
+    }
+    registry_supported_hook_runtimes = {
+        r.get("name")
+        for r in runtime_records
+        if isinstance(r, dict)
+        and r.get("capabilities", {}).get("hooks", {}).get("support") in ("native", "adapter")
+    }
+    try:
+        import tooling.state.capabilities as caps_module
+        caps_module._load_runtime_registry()  # force refresh
+        derived_enforced = caps_module.PRE_ACTION_ENFORCED_RUNTIMES
+        derived_supported = caps_module.SUPPORTED_RUNTIMES
+        if derived_enforced != registry_native_hook_runtimes:
+            errors.append(
+                f"tooling/state/capabilities.py: PRE_ACTION_ENFORCED_RUNTIMES {sorted(derived_enforced)} "
+                f"does not match runtimes/registry.yaml native hooks {sorted(registry_native_hook_runtimes)}"
+            )
+        if derived_supported != registry_supported_hook_runtimes:
+            errors.append(
+                f"tooling/state/capabilities.py: SUPPORTED_RUNTIMES {sorted(derived_supported)} "
+                f"does not match runtimes/registry.yaml supported hooks {sorted(registry_supported_hook_runtimes)}"
+            )
+    except Exception as exc:
+        errors.append(f"tooling/state/capabilities.py: drift check failed: {exc}")
+
 capability_policy_markers = [
     (
         ROOT / "references" / "contract" / "runtime.md",
@@ -769,7 +800,7 @@ shared_shell_install_lines = [
     'report_section "Shell tooling"',
     'report_item "installer" "suggestions only; no packages were installed automatically"',
     'report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"',
-    'report_item "hooks" "runtime conformance hooks warn by default; use --strict or set B_AGENTIC_STRICT=1 to request blocking"',
+    'report_item "hooks" "strict enforcement ON by default; use --advisory or set B_AGENTIC_ADVISORY=1 to opt out"',
 ]
 runtime_readiness_doc_lines = [
     "## MCP readiness after install",

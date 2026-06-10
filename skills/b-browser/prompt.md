@@ -20,9 +20,9 @@ Own real-browser, visual, screenshot, browser-session, live UI, and e2e evidence
 ## Tools required
 
 - `bash` - run approved existing real-browser/visual/e2e commands.
-- `playwright-browser-operator` *(optional, for live-browser navigation, snapshots, screenshots, console/network, and browser state)*
-- `firecrawl-extraction` *(optional, for static known remote page content only; never a Playwright substitute)*
-- `serena-symbol-toolkit` *(optional, for mapping browser failures to source ownership)*
+- `playwright-browser-operator` - required for live-browser navigation, snapshots, screenshots, console/network, and browser state.
+- `firecrawl-extraction` - use only for static known remote page content; never a Playwright substitute.
+- `serena-symbol-toolkit` - use for mapping browser failures to source ownership.
 
 ## Steps
 
