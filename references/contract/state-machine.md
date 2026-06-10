@@ -100,4 +100,16 @@ Unknown or ambiguous mutating actions are blocked in strict mode unless explicit
 
 If state is stale, corrupt, or belongs to a different session, stop and use the state tooling recovery path. Do not hand-edit `.b-agentic/state.json` in a model response. Recovery may reinitialize state, transition to `blocked`, or record advisory-only capabilities.
 
+When reinitializing state, pass `--strict` for runtimes with native hook support (claude-code, codex-cli) so the capabilities field accurately reflects the hook's default enforcement posture:
+
+```bash
+# Hook-capable runtimes — strict ON by default in the hook; state must match
+python3 -m tooling.state.cli init --runtime=claude-code --strict
+
+# Advisory-only runtimes — no pre-action interception; do not pass --strict
+python3 -m tooling.state.cli init --runtime=opencode
+```
+
+The hook's `strict_enabled()` function is independently default-true (returns true unless `B_AGENTIC_ADVISORY=1` is set or `B_AGENTIC_STRICT=0`). The state.json capabilities field must be initialized with `--strict` to accurately report this posture to governance tooling.
+
 ---

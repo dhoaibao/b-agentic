@@ -29,6 +29,7 @@ RUNTIME_REFERENCE_ROOT_TOKEN = "{{runtime_reference_root}}"
 RUNTIME_DISPLAY_NAME_TOKEN = "{{runtime_display_name}}"
 RUNTIME_METADATA_ROOT_TOKEN = "{{runtime_metadata_root}}"
 RUNTIME_MEMORY_FILE_TOKEN = "{{runtime_memory_file}}"
+RUNTIME_ENFORCEMENT_NOTICE_TOKEN = "{{runtime_enforcement_notice}}"
 RENDERED_SKILL_SUPPORT_PATH = "."
 RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/references"
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
@@ -516,6 +517,18 @@ def render_skill_file(skill: dict) -> str:
     return "\n".join(lines)
 
 
+def _enforcement_notice(runtime: dict) -> str:
+    hooks_support = runtime.get("capabilities", {}).get("hooks", {}).get("support", "unsupported")
+    if hooks_support in ("native", "adapter"):
+        return ""
+    return (
+        "> **Advisory-only runtime:** This runtime does not support pre-action hook interception. "
+        "Strict governance is a model-level recommendation only — high-risk actions are warned "
+        "about after the fact but cannot be blocked before execution. "
+        "Set `B_AGENTIC_ADVISORY=1` or use `--advisory` to make this explicit."
+    )
+
+
 def render_kernel(runtime: dict) -> str:
     template_text = KERNEL_TEMPLATE_PATH.read_text()
     return apply_template_tokens(
@@ -524,6 +537,7 @@ def render_kernel(runtime: dict) -> str:
             RUNTIME_DISPLAY_NAME_TOKEN: runtime["display_name"],
             RUNTIME_METADATA_ROOT_TOKEN: runtime["metadata_root"],
             RUNTIME_MEMORY_FILE_TOKEN: runtime["memory_file"],
+            RUNTIME_ENFORCEMENT_NOTICE_TOKEN: _enforcement_notice(runtime),
         },
         KERNEL_TEMPLATE_PATH,
     )

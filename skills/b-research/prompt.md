@@ -50,7 +50,15 @@ Use Context7 first for pinned library/framework APIs when it can answer. Otherwi
 
 For recency-sensitive topics, use news/search before extraction and include `as of <date>` or publication dates. For security, licensing, pricing, breaking migrations, or production-impacting compatibility, require primary evidence when available.
 
-Use `firecrawl-extended` only for maps or structured fields. Use `firecrawl-deep` only with explicit per-run approval or a run-scoped numeric cap recorded in the status/handoff.
+Use `firecrawl-extended` only for maps or structured fields. Auto-depth stops at `firecrawl-extended`. Do not escalate to `firecrawl-deep` automatically — it requires an explicit approval ask before use:
+
+```text
+[approval] firecrawl-deep agent research
+Effect: runs an autonomous web agent; may fetch many pages, incur significant credits, and take minutes.
+Proceed? (y/n)
+```
+
+Only proceed with `firecrawl-deep` after an affirmative response in the current session, or when the user has pre-authorized it with a run-scoped numeric cap recorded in the status/handoff.
 
 ### Step 4 - Synthesize
 

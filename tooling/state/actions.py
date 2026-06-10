@@ -52,6 +52,10 @@ DEPENDENCY_RE = re.compile(
     r"(install|add|remove|update|upgrade|sync|dlx)(\s|$)",
     re.IGNORECASE,
 )
+PACKAGE_RUNNER_RE = re.compile(
+    r"(^|\s)(npx|bunx|pnpx)\s+\S",
+    re.IGNORECASE,
+)
 ENVIRONMENT_RE = re.compile(
     r"(^|\s)(docker|docker-compose|podman|kubectl|terraform|make)\s+"
     r"(up|run|start|apply|deploy|serve|dev)(\s|$)",
@@ -105,6 +109,8 @@ def _shell_risk(command: str) -> tuple[RiskClass, str]:
         return DESTRUCTIVE, "destructive shell command"
     if DEPENDENCY_RE.search(stripped):
         return DEPENDENCY_WRITE, "dependency-changing shell command"
+    if PACKAGE_RUNNER_RE.search(stripped):
+        return DEPENDENCY_WRITE, "package-runner command (may install package)"
     if ENVIRONMENT_RE.search(stripped):
         return ENVIRONMENT_WRITE, "environment-mutating shell command"
     if EXTERNAL_RE.search(stripped):

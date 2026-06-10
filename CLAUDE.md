@@ -36,7 +36,7 @@ The guiding standard is: slim, strong, usable. Prefer fewer concepts, clearer co
 
 ## Authoring Rules
 
-- Shared prompts and contract prose must not hardcode runtime-specific behavior or paths.
+- Shared prompts and contract prose must not hardcode runtime-specific behavior or paths. Exception: `$ARGUMENTS` is the shared argument injection token used in skill prompts — each runtime adapter resolves it natively when a skill is invoked with arguments; treat unresolved `$ARGUMENTS` as "no arguments provided."
 - Use `{{skill_support_path}}` for skill-local support files and `{{runtime_reference_root}}` for installed shared references.
 - Add explicit read gates at the step that uses a contract section.
 - Keep shared schemas, rubrics, and edge-case protocols in the few `references/contract/` files, not prompts.

@@ -17,8 +17,11 @@ Installed detailed refs live under `~/.codex/b-agentic/references/contract/`. Th
 - `output.md` - `[status]`, `[handoff]`, cause classes, verdicts, readiness.
 - `decisions.md` - high-risk gates, test-vs-bug, browser boundary, snapshots, flakes, cannot-reproduce.
 - `state-machine.md` - strict/advisory state, intent, action validation, and runtime capability reporting.
+- `index.md` - navigation aid listing all installed contract files.
 
 Read a detailed ref only when the active rule, skill step, output format, or handoff names it or when the kernel is not precise enough. Installed skills read shared refs from `~/.codex/b-agentic/references/contract/` and skill-local support files from their own directory.
+
+
 
 ## Core Rules
 
@@ -37,6 +40,8 @@ Read a detailed ref only when the active rule, skill step, output format, or han
 13. For non-trivial final output or any handoff, read `~/.codex/b-agentic/references/contract/output.md` and use its schema.
 
 Task-start checkpoint for non-trivial work: before tools or edits, identify `Active skill`, `Source of truth`, `Success`, and `Worktree` evidence. The `Worktree` evidence must include `git status --short` unless the task is outside a repository or the active skill explicitly does not require local repo state.
+
+Skill argument injection: `$ARGUMENTS` is the shared argument injection token used in skill prompts. Each runtime adapter resolves it natively when a skill is invoked with arguments (e.g. `/b-plan some task`). Treat unresolved `$ARGUMENTS` as "no arguments provided."
 
 ## Routing Cheatsheet
 

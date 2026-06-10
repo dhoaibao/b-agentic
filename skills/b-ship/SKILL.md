@@ -105,3 +105,7 @@ Branch -> Staged files -> Commit -> Push -> PR URL
 - Do not auto-stage unrelated files or silently drop unstaged changes from expected scope.
 - Never force-push, amend published commits, or skip hooks without explicit instruction.
 - Do not open a PR with an empty or vague test plan unless the user approves that gap.
+
+## Reference pointers
+
+- Read `./reference.md` before handling mixed staged/unstaged changes, multi-remote or diverged upstreams, push failures, failed gh auth, draft PRs, or empty test plans.
