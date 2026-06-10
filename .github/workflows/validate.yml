@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install pytest
-        run: pip install pytest
+        run: python3 -m pip install pytest
       - name: Check generated assets are in sync
         run: python3 tooling/generate/registry_sync.py --check
       - name: Run validation suite
