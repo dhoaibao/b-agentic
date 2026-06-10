@@ -196,6 +196,7 @@ brave_key = os.environ.get("BRAVE_API_KEY_INPUT") or current_literal("brave-sear
 firecrawl_key = os.environ.get("FIRECRAWL_API_KEY_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_KEY")
 firecrawl_url = os.environ.get("FIRECRAWL_API_URL_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_URL")
 hook_check_command = f"python3 {json.dumps(hook_checker)} --client codex --event stop --source {json.dumps(source_dir)}"
+pre_action_check_command = f"python3 {json.dumps(hook_checker)} --client codex --event pre-action --source {json.dumps(source_dir)}"
 
 lines = [
     begin,
@@ -225,6 +226,10 @@ lines.extend([
     "[[hooks.PreToolUse.hooks]]",
     'type = "command"',
     'command = "serena-hooks remind --client=codex"',
+    "",
+    "[[hooks.PreToolUse.hooks]]",
+    'type = "command"',
+    f"command = {json.dumps(pre_action_check_command)}",
     "",
     "[[hooks.Stop]]",
     'matcher = ".*"',

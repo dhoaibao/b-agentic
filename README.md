@@ -41,6 +41,21 @@ The installer writes only to user-scope runtime locations. Re-run it to update. 
 
 Requirements for every install path: `bash`, `git`, `python3`, and `pnpm`. Codex CLI config installs additionally require Python 3.11+ because they use standard-library TOML parsing.
 
+### Verify install
+
+Pin to a tagged release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/v1.0.0/install.sh | B_AGENTIC_REF=v1.0.0 bash
+```
+
+For a local install from a cloned checkout:
+
+```bash
+git clone https://github.com/dhoaibao/b-agentic.git ~/.b-agentic
+bash ~/.b-agentic/install.sh
+```
+
 ## Runtime Support
 
 | Runtime | Skill invocation | MCP config |
@@ -56,9 +71,9 @@ Capability support and adoption intent are generated from `runtimes/registry.yam
 | Runtime | Skills | Permissions | Hooks | Rules | Subagents | Plugins | Wrappers | Custom tools |
 |---|---|---|---|---|---|---|---|---|
 | Claude Code | native | native | native | native | native | native; deferred | unsupported | unsupported |
-| OpenCode | native | native | adapter | native | native | native; deferred | native; adapter-only | native; adapter-only |
+| OpenCode | native | native | unsupported | native | native | native; deferred | native; adapter-only | native; adapter-only |
 | Codex CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
-| Kilo Code | native | native | adapter | native | native | native; deferred | unsupported | unsupported |
+| Kilo Code | native | native | unsupported | native | native | native; deferred | unsupported | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Claude Code is the capability ceiling: shared b-agentic behavior can adopt a runtime-native capability only when the Claude Code registry entry marks that capability as `adoption: "shared"`. If Claude Code supports a capability and marks it shared, b-agentic may adopt it even when other runtimes need adapters or lack parity. Other runtimes can provide native or adapter implementations for that shared intent, but non-Claude-only capabilities stay adapter-only.

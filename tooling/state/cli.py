@@ -69,6 +69,15 @@ def main(argv: list[str] | None = None) -> int:
             source_of_truth=args.source_of_truth,
             capabilities=capabilities,
         )
+
+        gitignore_path = root / ".gitignore"
+        if gitignore_path.exists():
+            gitignore_text = gitignore_path.read_text()
+            if ".b-agentic/" not in gitignore_text:
+                print("Warning: .b-agentic/ is not in .gitignore. Add it to prevent committing workflow state.", file=sys.stderr)
+        else:
+            print("Warning: .gitignore not found. Consider adding .b-agentic/ to prevent committing workflow state.", file=sys.stderr)
+
         print(json.dumps(state.to_dict(), indent=2, sort_keys=True))
         return 0
 

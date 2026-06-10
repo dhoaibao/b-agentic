@@ -32,11 +32,6 @@ set_next_install_stage_label() {
 
 announce_install_stage() {
   local stage_label="$1"
-
-  if [ "${UI_ENABLED:-0}" -eq 1 ] && ! dry_run_enabled; then
-    return 0
-  fi
-
   log "==> $stage_label"
 }
 
@@ -54,13 +49,11 @@ run_stage() {
     return $?
   fi
 
-  ui_start_spinner "$stage_label"
   if "$@"; then
     rc=0
   else
     rc=$?
   fi
-  ui_stop_spinner "$rc" "$stage_label"
   return "$rc"
 }
 
@@ -79,13 +72,11 @@ capture_output_stage() {
     return $?
   fi
 
-  ui_start_spinner "$stage_label"
-  if output="$("$@")"; then
+  if output=$("$@"); then
     rc=0
   else
     rc=$?
   fi
-  ui_stop_spinner "$rc" "$stage_label"
   [ "$rc" -eq 0 ] || return "$rc"
 
   printf -v "$output_var" '%s' "$output"
@@ -1022,8 +1013,6 @@ print_install_report_header() {
     action_label="dry-run"
   fi
 
-  ui_print_runtime_banner "$runtime_label" "$INSTALL_ACTIVATION_STATE"
-  log ""
   log "b-agentic $action_label complete for $runtime_label"
 }
 

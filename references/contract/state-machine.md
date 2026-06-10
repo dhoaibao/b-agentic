@@ -10,13 +10,11 @@ If a runtime or tool surface cannot provide pre-action interception, b-agentic m
 
 #### Current enforcement status
 
-Three enforcement paths exist, at different operational readiness levels:
+Two enforcement paths exist, at different operational readiness levels:
 
 1. **Hook-based advisory enforcement** (working by default) — Claude Code hooks run `tooling/state/cli.py pre-action` before each tool call. Without `B_AGENTIC_HOOK_STRICT=1`, the hook warns but does not block. This path is active for all Claude Code sessions where the hooks are installed.
 
 2. **Hook-based blocking enforcement** (`B_AGENTIC_HOOK_STRICT=1`) — Setting this environment variable causes the same hook path to return a non-zero exit code on block decisions, preventing the tool call. This path is available today and is the recommended way to enable strict enforcement on Claude Code.
-
-3. **MCP server enforcement** (`tooling/mcp/b-agentic-state-server/server.py`) — An MCP tool that exposes `validate_action` as a callable endpoint for runtimes that support pre-action MCP interception. This server is implemented and runnable but is **not auto-wired** during installation. It requires explicit MCP server activation in the runtime configuration. Until a runtime connects to it, this path is equivalent to no-op.
 
 ### State file
 

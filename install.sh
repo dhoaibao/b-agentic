@@ -29,288 +29,22 @@ REFERENCES_SRC="$SOURCE_DIR/references"
 TEMPLATES_SRC="$SOURCE_DIR/runtimes/$RUNTIME/configs"
 KERNEL_SRC="$SOURCE_DIR/runtimes/$RUNTIME/kernel.md"
 DRY_RUN_SOURCE_DIR=""
-UI_MODE="${B_AGENTIC_UI:-auto}"
-UI_ANIMATE_MODE="${B_AGENTIC_ANIMATE:-auto}"
-UI_ENABLED=0
-UI_ANIMATION_ENABLED=0
-UI_SPINNER_ACTIVE=0
-UI_SPINNER_LABEL=""
-UI_SPINNER_PID=""
-UI_DONE_PRINTED=0
-UI_COLOR_BOLD=""
-UI_COLOR_DIM=""
-UI_COLOR_ACCENT=""
-UI_COLOR_LOGO_ALT=""
-UI_COLOR_SUCCESS=""
-UI_COLOR_WARN=""
-UI_COLOR_ERROR=""
-UI_COLOR_RESET=""
-
-readonly UI_ICON_RUNNING="●"
-readonly UI_ICON_SUCCESS="✓"
-readonly UI_ICON_WARNING="▲"
-readonly UI_ICON_ERROR="✕"
-
-ui_clear_ephemeral_line() {
-  [ "${UI_SPINNER_ACTIVE:-0}" -eq 1 ] || return 0
-  printf '\r\033[2K' >&2
-}
-
-ui_timeline_pulse() {
-  local message="$1" frame
-  [ "${UI_ANIMATION_ENABLED:-0}" -eq 1 ] || return 0
-
-  # Pure ANSI cursor control: redraw one ephemeral timeline row before
-  # printing the final state row. No external animation helper is needed.
-  for frame in '·' '∙' '•' '●'; do
-    printf '\r\033[2K  %b│%b %b%s%b  %s' \
-      "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" \
-      "$UI_COLOR_LOGO_ALT" "$frame" "$UI_COLOR_RESET" "$message" >&2
-    sleep 0.04
-  done
-  printf '\r\033[2K' >&2
-}
-
-print_logo() {
-  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
-
-  printf '\n' >&2
-  printf '  %b██████╗        █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-  printf '  %b██╔══██╗      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-  printf '  %b██████╔╝█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██║██║     %b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
-  printf '  %b██╔══██╗╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║██║     %b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
-  printf '  %b██████╔╝      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║╚██████╗%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
-  printf '  %b╚═════╝       ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝%b\n' "$UI_COLOR_LOGO_ALT" "$UI_COLOR_RESET" >&2
-  printf '\n' >&2
-}
-
-print_header() {
-  local title="$1"
-  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
-
-  printf '  %b%s%b\n' "$UI_COLOR_BOLD" "$title" "$UI_COLOR_RESET" >&2
-}
-
-print_step() {
-  local state="$1" message="$2" color="$UI_COLOR_DIM" icon=" "
-  [ "${UI_ENABLED:-0}" -eq 1 ] || return 1
-
-  case "$state" in
-    running)
-      color="$UI_COLOR_LOGO_ALT"
-      icon="$UI_ICON_RUNNING"
-      ;;
-    success)
-      color="$UI_COLOR_SUCCESS"
-      icon="$UI_ICON_SUCCESS"
-      ;;
-    warning)
-      color="$UI_COLOR_WARN"
-      icon="$UI_ICON_WARNING"
-      ;;
-    error)
-      color="$UI_COLOR_ERROR"
-      icon="$UI_ICON_ERROR"
-      ;;
-  esac
-
-  case "$state" in
-    success|warning|error) ui_timeline_pulse "$message" ;;
-  esac
-
-  printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-  printf '  %b%s%b  %s\n' "$color" "$icon" "$UI_COLOR_RESET" "$message" >&2
-}
-
-ui_stop_spinner() {
-  local rc="${1:-0}" label="${2:-$UI_SPINNER_LABEL}" marker=""
-  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
-
-  if [ -n "${UI_SPINNER_PID:-}" ]; then
-    kill "$UI_SPINNER_PID" >/dev/null 2>&1 || true
-    wait "$UI_SPINNER_PID" 2>/dev/null || true
-  fi
-
-  printf '\r\033[2K' >&2
-  UI_SPINNER_ACTIVE=0
-  UI_SPINNER_LABEL=""
-  UI_SPINNER_PID=""
-
-  if [ "$rc" -eq 0 ]; then
-    marker="${UI_COLOR_SUCCESS}${UI_ICON_SUCCESS}${UI_COLOR_RESET}"
-  else
-    marker="${UI_COLOR_ERROR}${UI_ICON_ERROR}${UI_COLOR_RESET}"
-  fi
-  printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-  printf '  %b  %s\n' "$marker" "$label" >&2
-}
+UI_ENABLED=1
 
 log() {
-  local message="$*"
-
-  ui_clear_ephemeral_line
-  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
-    [ -n "$message" ] || return 0
-    case "$message" in
-      "==> "*)
-        print_step success "${message#==> }"
-        ;;
-      "b-agentic "*complete*)
-        print_step success "$message"
-        ;;
-      "Uninstall complete."*)
-        print_step success "$message"
-        ;;
-      "  activation:"*|"  launch:"*|"  activate:"*|"  apply:"*)
-        printf '     %s\n' "${message#"  "}" >&2
-        ;;
-    esac
-    return 0
-  fi
-  printf '%s\n' "$message"
+  printf '%s\n' "$*"
 }
 
 warn() {
-  ui_clear_ephemeral_line
-  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
-    print_step warning "$*"
-    return 0
-  fi
-  printf '%bwarning:%b %s\n' "$UI_COLOR_WARN" "$UI_COLOR_RESET" "$*" >&2
+  printf 'warning: %s\n' "$*" >&2
 }
 
 die() {
-  if [ "${UI_SPINNER_ACTIVE:-0}" -eq 1 ]; then
-    ui_stop_spinner 1 "$UI_SPINNER_LABEL"
-  else
-    ui_clear_ephemeral_line
-  fi
-  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
-    print_step error "$*"
-  else
-    printf '%berror:%b %s\n' "$UI_COLOR_ERROR" "$UI_COLOR_RESET" "$*" >&2
-  fi
+  printf 'error: %s\n' "$*" >&2
   exit 1
 }
 
-ui_init() {
-  case "$UI_MODE" in
-    auto|"")
-      if [ -t 2 ] && [ "${TERM:-}" != "dumb" ]; then
-        UI_ENABLED=1
-      fi
-      ;;
-    always)
-      UI_ENABLED=1
-      ;;
-    never)
-      UI_ENABLED=0
-      ;;
-    *)
-      printf 'error: invalid B_AGENTIC_UI value: %s\n' "$UI_MODE" >&2
-      exit 1
-      ;;
-  esac
-
-  if [ "$UI_ENABLED" -eq 1 ]; then
-    UI_COLOR_BOLD=$'\033[1m'
-    UI_COLOR_DIM=$'\033[2m'
-    UI_COLOR_ACCENT=$'\033[38;5;68m'
-    UI_COLOR_LOGO_ALT=$'\033[38;5;147m'
-    UI_COLOR_SUCCESS=$'\033[38;5;82m'
-    UI_COLOR_WARN=$'\033[38;5;220m'
-    UI_COLOR_ERROR=$'\033[38;5;203m'
-    UI_COLOR_RESET=$'\033[0m'
-  fi
-
-  case "$UI_ANIMATE_MODE" in
-    auto|"")
-      if [ "$UI_ENABLED" -eq 1 ] && [ -t 2 ]; then
-        UI_ANIMATION_ENABLED=1
-      fi
-      ;;
-    always)
-      [ "$UI_ENABLED" -eq 1 ] && UI_ANIMATION_ENABLED=1
-      ;;
-    never)
-      UI_ANIMATION_ENABLED=0
-      ;;
-    *)
-      printf 'error: invalid B_AGENTIC_ANIMATE value: %s\n' "$UI_ANIMATE_MODE" >&2
-      exit 1
-      ;;
-  esac
-}
-
-spinner() {
-  local label="$1"
-  local -a frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-  local index=0
-
-  # Keep spinner output on a single ephemeral line so completed steps remain clean.
-  while :; do
-    printf '\r\033[2K  %b│%b %b%s%b  %s %b%s%b' \
-      "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" \
-      "$UI_COLOR_LOGO_ALT" "$UI_ICON_RUNNING" "$UI_COLOR_RESET" \
-      "$label" "$UI_COLOR_DIM" "${frames[$index]}" "$UI_COLOR_RESET" >&2
-    index=$(((index + 1) % ${#frames[@]}))
-    sleep 0.08
-  done
-}
-
-ui_start_spinner() {
-  local label="$1"
-  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
-  ui_clear_ephemeral_line
-  UI_SPINNER_ACTIVE=1
-  UI_SPINNER_LABEL="$label"
-  spinner "$label" &
-  UI_SPINNER_PID=$!
-}
-
-ui_print_intro() {
-  local action="install"
-  local target="$RUNTIME"
-  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
-
-  if uninstall_enabled; then
-    action="uninstall"
-  elif dry_run_enabled; then
-    action="dry-run install"
-  fi
-  if [ "$RUNTIME" = "all" ]; then
-    target="all runtimes"
-  fi
-
-  print_logo
-  printf '  %bInstall / Upgrade%b  %b%s%b\n' \
-    "$UI_COLOR_BOLD" "$UI_COLOR_RESET" "$UI_COLOR_LOGO_ALT$UI_COLOR_BOLD" "$target" "$UI_COLOR_RESET" >&2
-  printf '  %b%s%b\n' "$UI_COLOR_DIM" "$action" "$UI_COLOR_RESET" >&2
-}
-
-ui_print_runtime_banner() {
-  local runtime_label="$1" activation_state="$2"
-  [ "${UI_ENABLED:-0}" -eq 1 ] || return 0
-
-  print_step running "$runtime_label activation: $activation_state"
-}
-
-ui_print_done() {
-  [ "${UI_DONE_PRINTED:-0}" -eq 0 ] || return 0
-  UI_DONE_PRINTED=1
-
-  if [ "${UI_ENABLED:-0}" -eq 1 ]; then
-    printf '  %b│%b\n' "$UI_COLOR_ACCENT" "$UI_COLOR_RESET" >&2
-    printf '  Done\n' >&2
-  else
-    printf 'Done\n' >&2
-  fi
-}
-
 cleanup() {
-  if [ "${UI_SPINNER_ACTIVE:-0}" -eq 1 ]; then
-    ui_stop_spinner 1 "$UI_SPINNER_LABEL"
-  fi
   if [ -n "$DRY_RUN_SOURCE_DIR" ]; then
     rm -rf "$DRY_RUN_SOURCE_DIR"
   fi
@@ -349,7 +83,6 @@ can_prompt_api_keys() {
 
 run_cmd() {
   if dry_run_enabled; then
-    ui_clear_ephemeral_line
     printf '[dry-run] %s\n' "$*" >&2
     return 0
   fi
@@ -366,7 +99,7 @@ check_dependencies() {
   if command -v curl >/dev/null 2>&1; then
     :
   else
-    print_step warning "curl not found; install with the documented curl command will not work on this machine" || true
+    warn "curl not found; install with the documented curl command will not work on this machine"
     dependency_label="git, python3"
   fi
 
@@ -379,7 +112,7 @@ check_dependencies() {
 
   # Runtime installers use Python for structured config and manifest updates.
   require_bin python3
-  print_step success "Using $dependency_label" || true
+  log "Using $dependency_label"
 }
 
 parse_args() {
@@ -523,20 +256,20 @@ prepare_source() {
 
 install_app() {
   if uninstall_enabled; then
-    print_step running "Preparing uninstall source" || true
+    log "Preparing uninstall source"
     prepare_source
-    print_step success "Uninstall source ready" || true
+    log "Uninstall source ready"
     return 0
   fi
 
   if [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; then
-    print_step warning "b-agentic is already installed; running upgrade" || true
+    warn "b-agentic is already installed; running upgrade"
   else
-    print_step running "b-agentic is not installed; downloading installer source" || true
+    log "b-agentic is not installed; downloading installer source"
   fi
 
   prepare_source
-  print_step success "Installer source ready" || true
+  log "Installer source ready"
 }
 
 manifest_path_for_runtime() {
@@ -673,11 +406,8 @@ main() {
   local rc=0
 
   parse_args "$@"
-  ui_init
-  ui_print_intro
 
   if try_manifest_only_uninstall; then
-    ui_print_done
     return 0
   fi
 
@@ -689,7 +419,6 @@ main() {
     ( set -e; run_all_runtimes )
     rc=$?
     set -e
-    ui_print_done
     return "$rc"
   fi
 
@@ -704,7 +433,6 @@ main() {
     ( set -e; runtime_uninstall )
     rc=$?
     set -e
-    ui_print_done
     return "$rc"
   fi
 
@@ -712,7 +440,6 @@ main() {
   ( set -e; runtime_main )
   rc=$?
   set -e
-  ui_print_done
   return "$rc"
 }
 

@@ -74,8 +74,8 @@
           "adoption": "shared"
         },
         "hooks": {
-          "support": "adapter",
-          "adoption": "shared"
+          "support": "unsupported",
+          "adoption": "unsupported"
         },
         "rules": {
           "support": "native",
@@ -176,8 +176,8 @@
           "adoption": "shared"
         },
         "hooks": {
-          "support": "adapter",
-          "adoption": "shared"
+          "support": "unsupported",
+          "adoption": "unsupported"
         },
         "rules": {
           "support": "native",
