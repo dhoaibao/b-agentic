@@ -117,5 +117,6 @@ Runtime user-scope and temp examples:
 - Claude Code references: `~/.claude/b-agentic/references/contract/`; temp root: `/tmp/claude-code/b-agentic/`
 - OpenCode references: `~/.config/opencode/b-agentic/references/contract/`; temp root: `/tmp/opencode/b-agentic/`
 - Codex CLI references: `~/.codex/b-agentic/references/contract/`; temp root: `/tmp/codex-cli/b-agentic/`
+- Kilo Code references: `~/.config/kilo/b-agentic/references/contract/`; temp root: `/tmp/kilo-code/b-agentic/`
 
 ---

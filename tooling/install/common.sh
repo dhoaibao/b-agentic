@@ -802,6 +802,7 @@ cleaned = cleanup(current, incoming, original)
 mcp_labels = {
     '.claude.json': 'mcpServers',
     'opencode.json': 'mcp',
+    'kilo.jsonc': 'mcp',
 }
 mcp_key = mcp_labels.get(label)
 if mcp_key is not None:

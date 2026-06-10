@@ -6,11 +6,13 @@ Installed contract roots:
 - Claude Code: `~/.claude/b-agentic/references/contract/`
 - OpenCode: `~/.config/opencode/b-agentic/references/contract/`
 - Codex CLI: `~/.codex/b-agentic/references/contract/`
+- Kilo Code: `~/.config/kilo/b-agentic/references/contract/`
 
 Temporary scratch roots:
 - Claude Code: `/tmp/claude-code/b-agentic/`
 - OpenCode: `/tmp/opencode/b-agentic/`
 - Codex CLI: `/tmp/codex-cli/b-agentic/`
+- Kilo Code: `/tmp/kilo-code/b-agentic/`
 
 ## Runtime Surface
 

@@ -151,6 +151,13 @@ def main() -> None:
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
         },
+        "kilo-code": {
+            "metadata": home / ".config" / "kilo" / "b-agentic",
+            "skills": home / ".config" / "kilo" / "skills",
+            "kernel": home / ".config" / "kilo" / "AGENTS.md",
+            "agents": home / ".config" / "kilo" / "agents",
+            "kiloJsonc": home / ".config" / "kilo" / "kilo.jsonc",
+        },
     }
 
     defaults = runtime_defaults.get(runtime)
@@ -204,6 +211,9 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
+    elif runtime == "kilo-code":
+        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Kilo Code agent")
+        remove_config_if_template(str(manifest_managed_path(paths, "kiloJsonc", defaults["kiloJsonc"])), metadata / "templates" / "mcp.user.template.json", "kilo.jsonc")
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 

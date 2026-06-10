@@ -682,6 +682,13 @@ _RUNTIME_CONTRACT_EXAMPLES = {
         "temp_run": "/tmp/codex-cli/b-agentic/<skill>/<run-id>/",
         "temp_log": "/tmp/codex-cli/b-agentic/<skill>/<slug>.log",
     },
+    "kilo-code": {
+        "reference": "~/.config/kilo/b-agentic/references/contract/",
+        "temp_root": "/tmp/kilo-code/b-agentic/",
+        "sensitive": "~/.config/kilo/b-agentic/<skill>/<run-id>/",
+        "temp_run": "/tmp/kilo-code/b-agentic/<skill>/<run-id>/",
+        "temp_log": "/tmp/kilo-code/b-agentic/<skill>/<slug>.log",
+    },
 }
 artifact_contract_path = ROOT / "references" / "contract" / "safety-tools.md"
 artifact_contract = read_text(artifact_contract_path)
@@ -900,7 +907,7 @@ for json_path in sorted((ROOT / "runtimes").glob("*/configs/*.json")):
             errors.append(f"{rel(json_path)}: contains secret-looking placeholder/literal {pattern.pattern!r}")
 
     if json_path.name.startswith("mcp."):
-        is_opencode = "opencode" in json_path.parts
+        is_opencode = "opencode" in json_path.parts or "kilo-code" in json_path.parts
         if is_opencode:
             mcp_key = "mcp"
         else:

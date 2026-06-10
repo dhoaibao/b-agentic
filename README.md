@@ -6,7 +6,7 @@
 ╚═╝
 ```
 
-**Agentic workflow kernel for Claude Code, OpenCode, and Codex CLI.**
+**Agentic workflow kernel for Claude Code, OpenCode, Codex CLI, and Kilo Code.**
 
 This README is the repository overview. It describes what b-agentic is, how to install it, which runtimes it supports, and where the main source areas live. Maintainer-only editing guidance belongs in `CLAUDE.md`.
 
@@ -28,7 +28,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `opencode`, `codex-cli`, or `kilo-code`. Use `--runtime=all` for every registered runtime.
 
 Useful flags:
 
@@ -48,6 +48,7 @@ Requirements for every install path: `bash`, `git`, `python3`, and `pnpm`. Codex
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
+| Kilo Code | Native skill tool from `~/.config/kilo/skills/` | `~/.config/kilo/kilo.jsonc` |
 
 Capability support and adoption intent are generated from `runtimes/registry.yaml`. `native` means the runtime has a first-class surface, `adapter` means b-agentic can approximate the shared intent through adapter-owned runtime behavior, and `unsupported` means the adapter must not rely on that capability. Non-shared adoption labels are `adapter-only`, `deferred`, or `unsupported`.
 
@@ -57,6 +58,7 @@ Capability support and adoption intent are generated from `runtimes/registry.yam
 | Claude Code | native | native | native | native | native | native; deferred | unsupported | unsupported |
 | OpenCode | native | native | adapter | native | native | native; deferred | native; adapter-only | native; adapter-only |
 | Codex CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
+| Kilo Code | native | native | adapter | native | native | native; deferred | unsupported | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Claude Code is the capability ceiling: shared b-agentic behavior can adopt a runtime-native capability only when the Claude Code registry entry marks that capability as `adoption: "shared"`. If Claude Code supports a capability and marks it shared, b-agentic may adopt it even when other runtimes need adapters or lack parity. Other runtimes can provide native or adapter implementations for that shared intent, but non-Claude-only capabilities stay adapter-only.
