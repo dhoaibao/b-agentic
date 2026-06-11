@@ -2,87 +2,43 @@
 
 $ARGUMENTS
 
-Execute approved or clearly scoped work one coherent step at a time.
-
-If `$ARGUMENTS` is present, treat it as a plan path, plan slug, approved chat plan, or small direct request.
+Execute approved or clearly scoped work in the smallest coherent step.
 
 ## When to use
 
-- The user approved a saved or chat plan.
-- The next action is to edit code or docs within known scope.
-- The request meets the small direct request threshold in the shared runtime contract.
+- The user approved a plan or gave a small direct request.
+- The next action is an edit within known scope.
 
 ## When NOT to use
 
-- Scope is unclear -> use **b-plan** (Clarification mode).
-- The primary job is a named mechanical transform -> use **b-refactor**.
+- Scope or behavior is unclear -> use **b-plan**.
+- The primary task is a named refactor -> use **b-refactor**.
 - The task is only tests -> use **b-test**.
-- A runtime root cause is unknown -> use **b-debug**.
-- The blocker is external lookup -> use **b-research**.
+- Root cause is unknown -> use **b-debug**.
+- External lookup blocks the edit -> use **b-research**.
 
 ## Tools required
 
-- `bash` - inspect status/diff and run verification.
-- `serena-symbol-toolkit` - required for symbol-aware edits and diagnostics.
-- `context7-docs` - use only when a third-party API uncertainty blocks the next local edit or verification choice.
+- `bash` - inspect git state, diffs, and verification output.
+- `serena-symbol-toolkit` - symbol-aware code edits and diagnostics.
+- `context7-docs` - narrow third-party API checks when needed.
 
 ## Steps
 
-### Step 1 - Load source of truth
-
-Resolve scope: saved plan path, plan slug, approved chat plan, then small direct request.
-
-For saved plans, validate durable frontmatter, explicit approval, matching touch points, staleness, and every unchecked step's `Done when`. Stop with `cause: user_blocked` when approval is missing; stop with `cause: conflict` for invalid metadata, stale touch points, blocked dependencies, or missing step verification.
-
-Legacy saved plans without frontmatter may execute only when the current conversation contains explicit approval. Use the current-chat approval time for staleness checks, require unchecked steps to include `Done when`, and do not rewrite the legacy plan solely to add metadata.
-
-If no plan exists and the request fails the small-direct threshold, hand off to **b-plan**. Read `{{runtime_reference_root}}/contract/safety-tools.md` before editing. If `.b-agentic/state.json` exists, treat validator state and runtime capability output as authoritative over your own phase judgment.
-
-### Step 2 - Check worktree
-
-Run `git status --short`. Preserve unrelated changes; patch around unrelated edits; stop if user changes directly conflict.
-
-### Step 3 - Implement the smallest coherent step
-
-Before editing, state source of truth, files/symbols expected to change, behavior that must not change, planned verification, and any approval/review checkpoint. For project-write, dependency-write, environment-write, external-write, or destructive actions, emit the machine-readable `[intent]` record from `{{runtime_reference_root}}/contract/output.md` before the action. If the validator blocks, stop with `cause: policy_block` rather than retrying around it.
-
-Use native tools for simple prose/config/string edits; use Serena for declarations, references, diagnostics, and symbol-aware edits. Use Context7 only when a third-party API uncertainty blocks the next local edit or verification choice.
-
-**Serena editing workflow:**
-1. `get_symbols_overview` on the target file to locate the symbol.
-2. `find_symbol` with `include_body=True` to read the full definition before editing.
-3. Perform the edit with the appropriate Serena tool (`replace_symbol_body`, `insert_after_symbol`, `insert_before_symbol`, or `rename_symbol`).
-4. `get_diagnostics_for_file` to verify the edit introduced no errors.
-5. `find_referencing_symbols` to confirm callers still resolve correctly.
-
-Prefer symbol-level edits for functions, methods, classes, and fields. Use file-level native tools for config, prose, or when Serena reports the language has no LSP support.
-
-Stay within approved scope. Classify adjacent discoveries as Required, Blocking decision, or Follow-up.
-
-### Step 4 - Verify
-
-Run the plan's check when available; otherwise use touched-file diagnostics and the narrowest relevant command. Classify failures before another edit. Read `{{runtime_reference_root}}/contract/output.md` before emitting a status block.
-
-### Step 5 - Record progress and close
-
-After verification passes, update saved-plan checkboxes/progress without stripping metadata. Continue only when the next step is approved, dependency-ready, no higher risk, and locally verifiable. Stop before new decisions, broader verification, or review checkpoints.
-
-At completion, inspect the diff, report verification and cleanup state, and recommend **b-review** for non-trivial or risky changes.
+1. Resolve the source of truth: approved plan, approved chat instruction, or small direct request.
+2. Run `git status --short` and preserve unrelated changes.
+3. State expected files/symbols, invariant behavior, and verification.
+4. Edit the smallest coherent slice. Use Serena for symbol work and native edits for prose/config/string changes.
+5. Run the narrowest useful verification.
+6. Inspect the diff and report changes, verification, and remaining gaps.
 
 ## Output format
 
-```text
-Plan source -> Step progress -> Changes -> Verification -> Blockers/Decisions -> Next
-```
+Changes, verification, and any blockers or follow-up. Recommend **b-review** for non-trivial changes.
 
 ## Rules
 
-- Implement only approved or clearly scoped work.
-- Validator approval or rejection is authoritative for high-risk actions; do not bypass a blocked pre-action check.
-- Do not add opportunistic refactors, compatibility code, or side cleanup.
-- Stop for new decisions instead of guessing.
-- A small direct request still needs real verification.
-
-## Reference pointers
-
-- Read `./reference.md` before validating saved plans, classifying adjacent discoveries, or when the small-direct-request threshold is unclear.
+- Stay within approved scope.
+- Ask before dependencies, services, destructive commands, commits, pushes, PRs, or broad refactors.
+- Do not add opportunistic cleanup or compatibility code.
+- Do not claim done when required verification is missing or failed.

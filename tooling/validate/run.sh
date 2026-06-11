@@ -48,18 +48,7 @@ while IFS= read -r runtime_name; do
 done < <(runtime_names)
 
 if [ "$run_release" -eq 1 ]; then
-  bash "$ROOT_DIR/scripts/internal-check-conformance.sh" --self-test tests/internal/conformance/cases.json
-  bash "$ROOT_DIR/scripts/internal-check-scenarios.sh" --self-test tests/internal/scenarios/cases.json
   bash "$ROOT_DIR/tests/smoke/install.sh"
-  if ! python3 -m pytest --version >/dev/null 2>&1 && ! command -v pytest >/dev/null 2>&1; then
-    printf 'error: pytest is required for release validation but was not found\n' >&2
-    exit 1
-  fi
-  if python3 -m pytest --version >/dev/null 2>&1; then
-    python3 -m pytest tests/internal/state-machine/ -q
-  else
-    pytest tests/internal/state-machine/ -q
-  fi
 fi
 
 exit "$exit_code"

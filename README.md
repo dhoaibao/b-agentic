@@ -1,18 +1,8 @@
 # b-agentic
 
-```text
-██╗ b-agentic
-██║ workflow kernel
-╚═╝
-```
+**Slim workflow kernel for coding agents across Claude Code, OpenCode, Codex CLI, and Kilo Code.**
 
-**Agentic workflow kernel for Claude Code, OpenCode, Codex CLI, and Kilo Code.**
-
-This README is the repository overview. It describes what b-agentic is, how to install it, which runtimes it supports, and where the main source areas live. Maintainer-only editing guidance belongs in `CLAUDE.md`.
-
-`b-agentic` is a workflow harness, not just a skill bundle. It installs a compact runtime kernel, phase skills, a slim shared contract snapshot, and recommended MCP config so agents route work, preserve safety gates, ground claims in evidence, verify before reporting, and hand off cleanly.
-
-Claude Code is the primary reference runtime. Other runtimes are supported through adapters that own install paths, config merge behavior, command exposure when applicable, and caveats.
+b-agentic installs a compact runtime kernel, focused phase skills, runtime adapters, and recommended MCP config. Its job is simple: route work, preserve safety gates, use the right evidence, verify before claiming done, and keep multi-runtime setup consistent.
 
 ## Install
 
@@ -34,27 +24,9 @@ Useful flags:
 
 - `--dry-run` previews changes
 - `--replace-memory` replaces an existing managed kernel file
-- `--strict` requests blocking runtime hooks where pre-action payloads are available
 - `--uninstall` removes managed files
 
-The installer writes only to user-scope runtime locations. Re-run it to update. Codex CLI config installs require Python 3.11+ for standard-library TOML parsing.
-
-Requirements for every install path: `bash`, `git`, `python3`, and `pnpm`. Codex CLI config installs additionally require Python 3.11+ because they use standard-library TOML parsing.
-
-### Verify install
-
-Pin to a tagged release:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/v1.0.0/install.sh | B_AGENTIC_REF=v1.0.0 bash
-```
-
-For a local install from a cloned checkout:
-
-```bash
-git clone https://github.com/dhoaibao/b-agentic.git ~/.b-agentic
-bash ~/.b-agentic/install.sh
-```
+Requirements: `bash`, `git`, `python3`, and `pnpm` for MCP entries that use `pnpm dlx`. Codex CLI config install requires Python 3.11+ for standard-library TOML parsing.
 
 ## Runtime Support
 
@@ -65,24 +37,18 @@ bash ~/.b-agentic/install.sh
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
 | Kilo Code | Native skill tool from `~/.config/kilo/skills/` | `~/.config/kilo/kilo.jsonc` |
 
-Capability support and adoption intent are generated from `runtimes/registry.yaml`. `native` means the runtime has a first-class surface, `adapter` means b-agentic can approximate the shared intent through adapter-owned runtime behavior, and `unsupported` means the adapter must not rely on that capability. Non-shared adoption labels are `adapter-only`, `deferred`, or `unsupported`.
-
 <!-- generated:runtime-capabilities:start -->
-| Runtime | Skills | Permissions | Hooks | Rules | Subagents | Plugins | Wrappers | Custom tools |
-|---|---|---|---|---|---|---|---|---|
-| Claude Code | native | native | native | native | native | native; deferred | unsupported | unsupported |
-| OpenCode | native | native | unsupported | native | native | native; deferred | native; adapter-only | native; adapter-only |
-| Codex CLI | native | native | native | native | native | native; deferred | unsupported | unsupported |
-| Kilo Code | native | native | unsupported | native | native | native; deferred | unsupported | unsupported |
+| Runtime | Skills | Permissions | Rules | Wrappers |
+|---|---|---|---|---|
+| Claude Code | native | native | native | unsupported |
+| OpenCode | native | native | native | native; adapter-only |
+| Codex CLI | native | native | native | unsupported |
+| Kilo Code | native | native | native | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
-Claude Code is the capability ceiling: shared b-agentic behavior can adopt a runtime-native capability only when the Claude Code registry entry marks that capability as `adoption: "shared"`. If Claude Code supports a capability and marks it shared, b-agentic may adopt it even when other runtimes need adapters or lack parity. Other runtimes can provide native or adapter implementations for that shared intent, but non-Claude-only capabilities stay adapter-only.
-
-All runtimes are operator-resumed: run a phase skill, keep the returned `[status]` or `[handoff]` block in context, then invoke the next skill explicitly. Runtime adapters preserve invocation ergonomics; they do not promise automatic phase-to-phase continuation.
+Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
 ## Skills
-
-The table below is generated from `skills/registry.yaml`.
 
 <!-- generated:skills-table:start -->
 | Skill | Phase | Use |
@@ -101,33 +67,24 @@ The table below is generated from `skills/registry.yaml`.
 Typical flow:
 
 ```text
-b-plan [goal] -> approve plan -> b-implement -> b-test -> b-review
-b-browser [UI/e2e verification]
-b-research [external docs or recent info]
+b-plan [goal] -> approve -> b-implement -> b-test -> b-review -> b-ship
+b-research [external facts]
 b-debug [runtime bug]
-b-refactor [behavior-preserving change]
-b-ship [explicit ship request after review readiness]
+b-browser [UI/e2e evidence]
+b-refactor [behavior-preserving transform]
 ```
 
-`b-ship` remains explicit even when another skill closes with `Next: b-ship`.
+## MCPs
 
-## Runtime Kernel And MCPs
+The installer writes recommended MCP entries for:
 
-The installed runtime surface is intentionally small: the kernel plus `runtime.md`, `safety-tools.md`, `output.md`, `state-machine.md`, and `decisions.md`. Runtime adapters may also install managed permissions, hooks, rules, and optional subagent profiles when the capability registry allows the shared intent. Runtime details stay in adapters; skill-specific detail stays with each skill.
+- Serena: symbol discovery, references, diagnostics, and symbol edits.
+- Context7: versioned library/framework docs.
+- Brave Search: public/current discovery.
+- Firecrawl: bounded extraction and approved deeper research.
+- Playwright: live browser, visual, console/network, and e2e evidence.
 
-The installer writes a recommended MCP template with `serena`, `context7`, `brave-search`, `firecrawl`, and `playwright`. These are not decorative add-ons: Serena owns symbol work, Context7 owns versioned official docs, Brave owns current/open discovery, Firecrawl owns extraction and approved deeper research, and Playwright owns live browser/e2e evidence through `b-browser`. Native local tools remain first for exact repo evidence.
-
-Install reports distinguish installed configuration from operational readiness. The installer does not start MCP servers, run Serena onboarding, verify API-key auth, or install package-manager dependencies for `pnpm dlx` MCP entries. Runtime conformance hooks warn by default. Use `--strict` or `B_AGENTIC_STRICT=1` to request blocking, but strict claims apply only to runtime surfaces with pre-action payloads; unsupported surfaces are advisory-only.
-
-## First Successful Run
-
-After install, start a new runtime session so it loads the kernel and skills, then verify the basics before depending on strict governance:
-
-1. Confirm the install report shows active kernel state, synced skills, and the user-scope manifest path.
-2. Install or initialize external tools you plan to use: Serena for symbol work, `pnpm` for `dlx` MCP servers, and API keys for Context7, Brave Search, or Firecrawl.
-3. If using strict mode in a repo, initialize workflow state before the first high-risk action: `python3 ~/.b-agentic/tooling/state/cli.py init --root . --runtime=claude-code --strict --source-of-truth="operator initialized strict state"`. Use the matching source checkout path if `B_AGENTIC_DIR` points somewhere else.
-4. Invoke one skill, such as `/b-plan` or the runtime's native skill command, and keep the returned `[status]` or `[handoff]` block in context for the next phase.
-5. For source changes to this suite, run `scripts/validate-skills.sh`; before release-sensitive changes, run `scripts/validate-skills.sh --release`.
+The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run Serena onboarding, or verify API keys.
 
 ## Repository Layout
 
@@ -135,31 +92,25 @@ After install, start a new runtime session so it loads the kernel and skills, th
 b-agentic/
 ├── skills/                # Skill sources and generated delivery assets
 ├── runtimes/              # Runtime adapters, configs, scripts, and smoke lanes
-│   └── runtime-template/  # Scaffold for new runtime adapters
-├── references/            # Shared support references and slim runtime contract
-├── tooling/               # Renderers, shared installer core, and validation harness
-│   ├── validate/          # Shared validation harness
-│   ├── conformance/       # Status/handoff/intent policy checker
-│   └── scenarios/         # Golden workflow scenario runner
-├── tests/                 # Shared smoke and internal release fixtures
-│   └── smoke/             # Smoke test harness
+├── references/contract/   # Slim runtime contract
+├── tooling/generate/      # Registry and generated asset sync
+├── tooling/install/       # Shared installer core
+├── tooling/validate/      # Validation harness
+├── tests/smoke/           # Installer smoke tests
 ├── install.sh             # Bootstrap installer entrypoint
-└── scripts/               # Stable validate and smoke wrappers
+└── scripts/               # Validation and smoke wrappers
 ```
 
-Key directories: `tooling/validate/`, `tooling/conformance/`, `tooling/scenarios/`, `tests/smoke/`, and `runtimes/runtime-template/`.
-
-Validation entrypoints:
+Validation:
 
 ```bash
-scripts/validate-skills.sh          # shared + runtime validation
-scripts/validate-skills.sh --release # adds conformance, scenario, and smoke coverage
-scripts/smoke-install.sh             # installer smoke tests
+scripts/validate-skills.sh
+scripts/validate-skills.sh --release
+scripts/smoke-install.sh
 ```
 
 ## Docs
 
-- `README.md` is the repository overview for users and contributors.
-- `CLAUDE.md` is the maintainer guide for editing this source repo.
-- `references/contract/` contains the detailed runtime contract.
-- `runtimes/<name>/configs/README.md` documents runtime-specific layout details.
+- `README.md` is the repository overview.
+- `CLAUDE.md` is maintainer guidance.
+- `references/contract/` contains the runtime contract shipped to adapters.

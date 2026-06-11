@@ -1021,26 +1021,7 @@ print_install_report_readiness() {
   report_item "serena" "install/init separately; installer never runs onboarding"
   report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"
   report_item "api-keys" "Context7, Brave Search, and Firecrawl need user-scope keys"
-  case "${RUNTIME_PRE_ACTION_ENFORCEMENT:-advisory-only}" in
-    enforced)
-      report_item "strict-state" "strict mode needs repo-local .b-agentic/state.json; init with: python3 -m tooling.state.cli init --runtime=$RUNTIME --strict"
-      ;;
-    *)
-      report_item "strict-state" "advisory-only runtime; init state with: python3 -m tooling.state.cli init --runtime=$RUNTIME (no --strict; enforcement is model-level only)"
-      ;;
-  esac
-  if yes_value "${STRICT_VALUE:-N}"; then
-    case "${RUNTIME_PRE_ACTION_ENFORCEMENT:-advisory-only}" in
-      enforced)
-        report_item "hooks" "strict requested; pre-action blocking is installed for supported payloads, advisory-only gaps are still reported by capability checks"
-        ;;
-      *)
-        report_item "hooks" "strict requested; this runtime has no b-agentic pre-action blocking hook, so high-risk tool actions remain advisory-only"
-        ;;
-    esac
-  else
-    report_item "hooks" "strict enforcement ON by default; use --advisory or set B_AGENTIC_ADVISORY=1 to opt out"
-  fi
+  report_item "safety" "runtime permissions plus kernel approval gates; no separate hook/state setup"
 }
 
 print_shell_tool_recommendations() {
@@ -1241,14 +1222,6 @@ runtime_install_common() {
 install_uninstall_helper() {
   local script_src="$SOURCE_DIR/tooling/install/manifest_uninstall.py"
   local script_dst="$METADATA_DIR/tooling/install/manifest_uninstall.py"
-  [ -f "$script_src" ] || return 0
-  ensure_dir "$(dirname "$script_dst")"
-  copy_file "$script_src" "$script_dst"
-}
-
-install_hook_checker() {
-  local script_src="$SOURCE_DIR/tooling/hooks/check-runtime.py"
-  local script_dst="$METADATA_DIR/hooks/check-runtime.py"
   [ -f "$script_src" ] || return 0
   ensure_dir "$(dirname "$script_dst")"
   copy_file "$script_src" "$script_dst"

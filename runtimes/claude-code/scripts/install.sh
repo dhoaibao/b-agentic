@@ -10,15 +10,12 @@ readonly CLAUDE_DIR="${B_AGENTIC_CLAUDE_DIR:-$HOME/.claude}"
 readonly METADATA_DIR="$CLAUDE_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="$CLAUDE_DIR/skills"
-readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
-readonly AGENTS_DST="$CLAUDE_DIR/agents"
-readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 readonly KERNEL_DST="$CLAUDE_DIR/CLAUDE.md"
 readonly KERNEL_SNAPSHOT_DST="$METADATA_DIR/CLAUDE.md"
 readonly REFERENCES_DST="$METADATA_DIR/references"
 readonly TEMPLATES_DST="$METADATA_DIR/templates"
 readonly MANIFEST_DST="$METADATA_DIR/install.json"
-readonly RUNTIME_PRE_ACTION_ENFORCEMENT="enforced"
+readonly RUNTIME_PRE_ACTION_ENFORCEMENT="advisory-only"
 readonly SETTINGS_DST="$CLAUDE_DIR/settings.json"
 readonly CLAUDE_JSON_DST="${B_AGENTIC_CLAUDE_JSON:-$HOME/.claude.json}"
 readonly MCP_CONFIG_DST="$CLAUDE_JSON_DST"
@@ -28,19 +25,11 @@ readonly MCP_CONTEXT7_SECTION="headers"
 readonly MCP_BRAVE_SECTION="env"
 readonly MCP_FIRECRAWL_SECTION="env"
 readonly MCP_BACKUP_KEY="claudeJson"
-readonly CLAUDE_STATUS_LINE="${B_AGENTIC_CLAUDE_STATUS_LINE:-0}"
 
 CONTEXT7_API_KEY_INPUT=""
 BRAVE_API_KEY_INPUT=""
 FIRECRAWL_API_KEY_INPUT=""
 FIRECRAWL_API_URL_INPUT=""
-
-claude_status_line_enabled() {
-  case "$CLAUDE_STATUS_LINE" in
-    1|true|TRUE|yes|YES|on|ON) return 0 ;;
-    *) return 1 ;;
-  esac
-}
 
 runtime_warn_missing_cli() {
   command -v claude >/dev/null 2>&1 || warn "claude CLI not found; files will still be installed for Claude Code to discover later."
@@ -59,26 +48,15 @@ install_settings_config() {
   env \
     TEMPLATE_SRC="$template_src" \
     TEMPLATE_DST="$rendered_template" \
-    SOURCE_DIR="$SOURCE_DIR" \
-    CLAUDE_STATUS_LINE="$CLAUDE_STATUS_LINE" \
-    STRICT_VALUE="${STRICT_VALUE:-N}" \
     python3 - <<'PY'
 import json
 import os
-import shlex
 from pathlib import Path
 
 src = Path(os.environ["TEMPLATE_SRC"])
 dst = Path(os.environ["TEMPLATE_DST"])
-source_dir = os.environ["SOURCE_DIR"]
 text = src.read_text()
-source_arg = json.dumps(shlex.quote(source_dir))[1:-1]
-text = text.replace("{{B_AGENTIC_SOURCE_DIR}}", source_arg)
-strict_prefix = "B_AGENTIC_STRICT=1 " if os.environ.get("STRICT_VALUE") in {"Y", "y", "yes", "YES", "true", "TRUE", "1"} else ""
-text = text.replace("{{B_AGENTIC_STRICT_PREFIX}}", strict_prefix)
 data = json.loads(text)
-if os.environ.get("CLAUDE_STATUS_LINE") not in {"1", "true", "TRUE", "yes", "YES", "on", "ON"}:
-    data.pop("statusLine", None)
 dst.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n")
 PY
 
@@ -91,8 +69,7 @@ PY
 }
 
 runtime_install_extra_assets() {
-  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "md" "Claude Code agent" INSTALL_AGENT_NAMES
-  install_hook_checker
+  :
 }
 
 runtime_install_configs() {
@@ -104,7 +81,6 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
-  local agents_string="${INSTALL_AGENT_NAMES[*]}"
 
   if dry_run_enabled; then
     printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
@@ -128,20 +104,17 @@ runtime_write_manifest() {
     CLAUDE_DIR="$CLAUDE_DIR" \
     CLAUDE_JSON_DST="$CLAUDE_JSON_DST" \
     SKILLS_DST="$SKILLS_DST" \
-    AGENTS_DST="$AGENTS_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SETTINGS_DST="$SETTINGS_DST" \
     SKILLS="$skills_string" \
-    AGENTS="$agents_string" \
     python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
-agents = [name for name in os.environ['AGENTS'].split() if name]
 manifest = {
     'suite': 'b-agentic',
     'runtime': os.environ['RUNTIME'],
@@ -157,14 +130,11 @@ manifest = {
         'claudeJson': os.environ['CLAUDE_JSON_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
-        'agents': os.environ['AGENTS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
-        'hookChecker': os.environ['REFERENCES_DST'].replace('/references', '/hooks/check-runtime.py'),
         'settings': os.environ['SETTINGS_DST'],
     },
     'skills': skills,
-    'agents': agents,
     'backups': {
         'claudeMd': os.environ['MEMORY_BACKUP'],
         'settings': os.environ['SETTINGS_BACKUP'],
@@ -180,14 +150,8 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
-  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "settings" "$INSTALL_SETTINGS_ACTION -> $SETTINGS_DST"
-  if claude_status_line_enabled; then
-    report_item "status-line" "enabled by B_AGENTIC_CLAUDE_STATUS_LINE=1"
-  else
-    report_item "status-line" "omitted by default; set B_AGENTIC_CLAUDE_STATUS_LINE=1 to install it"
-  fi
   report_item "mcp" "$INSTALL_MCP_ACTION -> $CLAUDE_JSON_DST"
   report_item "references" "sync -> $REFERENCES_DST"
   report_item "templates" "sync -> $TEMPLATES_DST"
@@ -209,11 +173,7 @@ runtime_uninstall_configs() {
   remove_merged_config "$claude_json_path" "$TEMPLATES_DST/mcp.user.template.json" ".claude.json" "claudeJson" "mcpAction"
 }
 
-runtime_uninstall_extra_assets() {
-  local agents_path
-  agents_path="$(manifest_path_value agents "$AGENTS_DST")"
-  uninstall_managed_profiles agents "$agents_path" "$AGENTS_SNAPSHOT_DST" "md" "Claude Code agent"
-}
+runtime_uninstall_extra_assets() { :; }
 
 runtime_main() {
   runtime_install_common

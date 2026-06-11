@@ -21,7 +21,6 @@ REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
-STRICT_VALUE="${B_AGENTIC_STRICT_INSTALL:-N}"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
@@ -136,9 +135,6 @@ parse_args() {
       --no-prompt-api-keys)
         PROMPT_API_KEYS_VALUE=N
         ;;
-      --strict)
-        STRICT_VALUE=Y
-        ;;
       --runtime=*)
         RUNTIME="${1#--runtime=}"
         case "$RUNTIME" in
@@ -203,25 +199,6 @@ runtime_registered() {
     fi
   done < <(runtime_names)
   return 1
-}
-
-maybe_setup_rtk() {
-  local runtime_name="$1"
-  command -v rtk >/dev/null 2>&1 || return 0
-  case "$runtime_name" in
-    claude-code)
-      log "Setting up RTK for $runtime_name"
-      run_cmd rtk init -g --auto-patch || warn "rtk init failed for $runtime_name (continuing)"
-      ;;
-    codex-cli)
-      log "Setting up RTK for $runtime_name"
-      run_cmd rtk init -g --codex --auto-patch || warn "rtk init failed for $runtime_name (continuing)"
-      ;;
-    kilo-code)
-      log "Setting up RTK for $runtime_name"
-      run_cmd rtk init --agent kilocode --auto-patch || warn "rtk init failed for $runtime_name (continuing)"
-      ;;
-  esac
 }
 
 sync_source() {
@@ -364,7 +341,6 @@ run_runtime_action() {
   set +e
   (
     RUNTIME="$runtime_name"
-    STRICT_VALUE="$STRICT_VALUE"
     set_source_dir "$SOURCE_DIR"
     validate_runtime_source_layout
     source_installer_core
@@ -400,7 +376,6 @@ run_all_runtimes() {
 
     if run_runtime_action "$runtime_name"; then
       rc=0
-      maybe_setup_rtk "$runtime_name"
     else
       rc=$?
     fi
@@ -460,9 +435,6 @@ main() {
   ( set -e; runtime_main )
   rc=$?
   set -e
-  if [ "$rc" -eq 0 ]; then
-    maybe_setup_rtk "$RUNTIME"
-  fi
   return "$rc"
 }
 

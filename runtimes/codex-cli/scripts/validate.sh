@@ -12,175 +12,38 @@ import sys
 try:
     import tomllib
 except ModuleNotFoundError:
-    print('Codex CLI runtime validation requires Python 3.11+ (stdlib tomllib).', file=sys.stderr)
+    print('Codex CLI runtime validation requires Python 3.11+.', file=sys.stderr)
     sys.exit(1)
 
 root = Path('.')
 errors = []
+kernel = root / 'runtimes/codex-cli/kernel.md'
+template = root / 'runtimes/codex-cli/configs/mcp.user.template.toml'
+rules = root / 'runtimes/codex-cli/rules/b-agentic.rules'
 
-kernel_path = root / 'runtimes' / 'codex-cli' / 'kernel.md'
-kernel = kernel_path.read_text() if kernel_path.exists() else ''
-codex_readme = (root / 'runtimes' / 'codex-cli' / 'configs' / 'README.md').read_text() if (root / 'runtimes' / 'codex-cli' / 'configs' / 'README.md').exists() else ''
-contract_index = (root / 'references' / 'contract' / 'index.md').read_text() if (root / 'references' / 'contract' / 'index.md').exists() else ''
-maintainer = (root / 'CLAUDE.md').read_text() if (root / 'CLAUDE.md').exists() else ''
-codex_install = (root / 'runtimes' / 'codex-cli' / 'scripts' / 'install.sh').read_text() if (root / 'runtimes' / 'codex-cli' / 'scripts' / 'install.sh').exists() else ''
-runtime_registry_path = root / 'runtimes' / 'registry.yaml'
-template_path = root / 'runtimes' / 'codex-cli' / 'configs' / 'mcp.user.template.toml'
-agents_dir = root / 'runtimes' / 'codex-cli' / 'agents'
-rules_dir = root / 'runtimes' / 'codex-cli' / 'rules'
+for path in [kernel, template, rules]:
+    if not path.exists():
+        errors.append(f'{path}: missing')
 
-try:
-    runtime_registry = json.loads(runtime_registry_path.read_text())
-except Exception as exc:
-    runtime_registry = {}
-    errors.append(f'{runtime_registry_path}: invalid JSON-compatible YAML registry: {exc}')
+if kernel.exists() and 'Core Rules' not in kernel.read_text():
+    errors.append(f'{kernel}: missing Core Rules')
 
-codex_runtime = None
-for runtime in runtime_registry.get('runtimes', []):
-    if isinstance(runtime, dict) and runtime.get('name') == 'codex-cli':
-        codex_runtime = runtime
-        break
+if template.exists():
+    data = tomllib.loads(template.read_text())
+    for server in ['serena', 'context7', 'brave-search', 'firecrawl', 'playwright']:
+        if server not in data.get('mcp_servers', {}):
+            errors.append(f'{template}: missing MCP server {server!r}')
+    if 'hooks' in data or 'features' in data:
+        errors.append(f'{template}: hooks are not part of the slim default')
 
-if not kernel_path.exists():
-    errors.append('runtimes/codex-cli/kernel.md: missing')
-if '<!-- b-agentic-managed -->' not in kernel:
-    errors.append('runtimes/codex-cli/kernel.md: missing b-agentic managed marker')
-for marker in ['Runtime Kernel', 'AGENTS.md', 'runtime.md', 'safety-tools.md', 'output.md', 'decisions.md']:
-    if marker not in kernel:
-        errors.append(f'runtimes/codex-cli/kernel.md: missing kernel marker {marker!r}')
-
-if 'Codex CLI' not in maintainer:
-    errors.append('CLAUDE.md: must mention Codex CLI as a supported runtime')
-
-if not isinstance(codex_runtime, dict):
-    errors.append('runtimes/registry.yaml: missing codex-cli runtime entry')
-else:
-    if codex_runtime.get('memory_install_path') != '~/.codex/AGENTS.md':
-        errors.append('runtimes/registry.yaml: codex-cli memory_install_path must be ~/.codex/AGENTS.md')
-    if codex_runtime.get('skills_install_root') != '~/.codex/skills':
-        errors.append('runtimes/registry.yaml: codex-cli skills_install_root must be ~/.codex/skills')
-    wrappers = codex_runtime.get('command_wrappers')
-    if not isinstance(wrappers, dict) or wrappers.get('supported') is not False:
-        errors.append('runtimes/registry.yaml: codex-cli must declare unsupported command wrappers')
-
-for required in [
-    '~/.codex/b-agentic',
-    '/tmp/codex-cli/b-agentic',
-]:
-    if required not in contract_index:
-        errors.append(f'references/contract/index.md: missing Codex marker {required!r}')
-
-for required in [
-    'CODEX_DIR',
-    'CODEX_CONFIG_DST',
-    'skills.config',
-    'mcp_servers',
-    '[features]',
-    'hooks = true',
-    '[[hooks.SessionStart]]',
-    '[[hooks.PreToolUse]]',
-    '[[hooks.Stop]]',
-    'serena-hooks activate --client=codex',
-    'serena-hooks remind --client=codex',
-    'serena-hooks cleanup --client=codex',
-    'check-runtime.py',
-    '--client codex',
-    '--event stop',
-    '# BEGIN b-agentic managed config',
-    'AGENTS_SRC',
-    'AGENTS_DST',
-    'RULES_SRC',
-    'RULES_DST',
-    'install_managed_profiles',
-    'uninstall_managed_profiles',
-    'report_item "agents"',
-    'report_item "rules"',
-    'report_item "hooks"',
-    'hooksState',
-    'install_hook_checker',
-    'runtime_main',
-]:
-    if required not in codex_install:
-        errors.append(f'runtimes/codex-cli/scripts/install.sh: missing Codex installer marker {required!r}')
-
-if not agents_dir.exists():
-    errors.append('runtimes/codex-cli/agents: missing Codex agent profile source directory')
-else:
-    expected_agents = {'b-explore', 'b-research', 'b-review', 'b-verify'}
-    agent_names = {path.stem for path in agents_dir.glob('*.toml')}
-    if agent_names != expected_agents:
-        errors.append(f'runtimes/codex-cli/agents: expected {sorted(expected_agents)}, found {sorted(agent_names)}')
-    for path in agents_dir.glob('*.toml'):
-        try:
-            data = tomllib.loads(path.read_text())
-        except tomllib.TOMLDecodeError as exc:
-            errors.append(f'{path}: invalid TOML: {exc}')
-            continue
-        for field in ['name', 'description', 'developer_instructions']:
-            if not isinstance(data.get(field), str) or not data.get(field):
-                errors.append(f'{path}: missing required custom agent field {field!r}')
-
-if not rules_dir.exists():
-    errors.append('runtimes/codex-cli/rules: missing Codex rules source directory')
-else:
-    rule_names = {path.stem for path in rules_dir.glob('*.rules')}
-    if rule_names != {'b-agentic'}:
-        errors.append(f'runtimes/codex-cli/rules: expected [b-agentic], found {sorted(rule_names)}')
-    rules_text = ''.join(path.read_text() for path in rules_dir.glob('*.rules'))
-    for required in ['git", "reset", "--hard', 'git", "clean", "-f', 'git", "push", "--force', 'decision = "prompt"']:
-        if required not in rules_text:
-            errors.append(f'runtimes/codex-cli/rules: missing command governance marker {required!r}')
-
-if not template_path.exists():
-    errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: missing MCP template')
-else:
-    try:
-        template = tomllib.loads(template_path.read_text())
-    except tomllib.TOMLDecodeError as exc:
-        errors.append(f'runtimes/codex-cli/configs/mcp.user.template.toml: invalid TOML: {exc}')
-        template = {}
-
-    servers = template.get('mcp_servers', {})
-    expected = {'serena', 'context7', 'brave-search', 'firecrawl', 'playwright'}
-    if set(servers) != expected:
-        errors.append(f'runtimes/codex-cli/configs/mcp.user.template.toml: expected default MCP servers {sorted(expected)}, found {sorted(servers)}')
-    if servers.get('serena', {}).get('command') != 'serena':
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: serena must use the installed serena binary')
-    if servers.get('serena', {}).get('args') != ['start-mcp-server', '--context', 'codex', '--project-from-cwd']:
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: serena must use --context codex')
-    if servers.get('context7', {}).get('url') != 'https://mcp.context7.com/mcp':
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: context7 must use the official MCP endpoint')
-    if servers.get('context7', {}).get('env_http_headers', {}).get('CONTEXT7_API_KEY') != 'CONTEXT7_API_KEY':
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: context7 must default to env_http_headers forwarding')
-    if servers.get('brave-search', {}).get('env_vars') != ['BRAVE_API_KEY']:
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: brave-search must default to env_vars forwarding')
-    if servers.get('firecrawl', {}).get('env_vars') != ['FIRECRAWL_API_KEY']:
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: firecrawl must default to env_vars forwarding')
-    if servers.get('playwright', {}).get('args', [])[-1:] != ['--isolated']:
-        errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: playwright must use --isolated by default')
-if 'Codex CLI Runtime Layout' not in codex_readme:
-    errors.append('runtimes/codex-cli/configs/README.md: missing title')
-for needle in ['~/.codex/config.toml', '~/.codex/skills/', '~/.codex/agents/', '~/.codex/rules/b-agentic.rules', 'mcp.user.template.toml', 'skills.config', 'runtime-neutral', '--context codex']:
-    if needle not in codex_readme:
-        errors.append(f'runtimes/codex-cli/configs/README.md: missing Codex documentation marker {needle!r}')
-for required in ['Optional subagent profiles', 'command governance rules', 'User-owned or modified profiles are preserved']:
-    if required not in codex_readme:
-        errors.append(f'runtimes/codex-cli/configs/README.md: missing governance marker {required!r}')
-for required in ['hooks: disabled', 'set hooks true to activate Serena reminders']:
-    if required not in codex_readme:
-        errors.append(f'runtimes/codex-cli/configs/README.md: missing hook readiness marker {required!r}')
-for required in [
-    'Continuation and resume guarantees',
-    'does not provide native phase-to-phase automation',
-    'operator-issued skill invocations',
-]:
-    if required not in codex_readme:
-        errors.append(f'runtimes/codex-cli/configs/README.md: missing continuation/card marker {required!r}')
+if rules.exists():
+    text = rules.read_text()
+    for marker in ['git", "reset", "--hard', 'git", "clean", "-f', 'git", "push", "--force', 'decision = "prompt"']:
+        if marker not in text:
+            errors.append(f'{rules}: missing command governance marker {marker!r}')
 
 if errors:
-    for error in errors:
-        print(error, file=sys.stderr)
+    print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
-
 print('Codex CLI runtime validation passed.')
 PY

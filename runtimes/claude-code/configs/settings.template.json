@@ -11,14 +11,6 @@
       "mcp__firecrawl__firecrawl_interact",
       "mcp__firecrawl__firecrawl_interact_stop",
       "mcp__firecrawl__firecrawl_map",
-      "mcp__firecrawl__firecrawl_monitor_check",
-      "mcp__firecrawl__firecrawl_monitor_checks",
-      "mcp__firecrawl__firecrawl_monitor_create",
-      "mcp__firecrawl__firecrawl_monitor_delete",
-      "mcp__firecrawl__firecrawl_monitor_get",
-      "mcp__firecrawl__firecrawl_monitor_list",
-      "mcp__firecrawl__firecrawl_monitor_run",
-      "mcp__firecrawl__firecrawl_monitor_update",
       "mcp__firecrawl__firecrawl_parse",
       "mcp__firecrawl__firecrawl_scrape",
       "mcp__firecrawl__firecrawl_search",
@@ -45,61 +37,5 @@
       "Bash(git clean -f *)",
       "Bash(git push --force *)"
     ]
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{B_AGENTIC_STRICT_PREFIX}}python3 ~/.claude/b-agentic/hooks/check-runtime.py --client claude-code --event pre-action --source {{B_AGENTIC_SOURCE_DIR}}"
-          },
-          {
-            "type": "command",
-            "command": "serena-hooks remind --client=claude-code"
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__serena__*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "serena-hooks auto-approve --client=claude-code"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "serena-hooks activate --client=claude-code"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "serena-hooks cleanup --client=claude-code"
-          },
-          {
-            "type": "command",
-            "command": "{{B_AGENTIC_STRICT_PREFIX}}python3 ~/.claude/b-agentic/hooks/check-runtime.py --client claude-code --event stop --source {{B_AGENTIC_SOURCE_DIR}}"
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "command": "input=$(cat); model=$(echo \"$input\" | jq -r '.model.display_name // empty'); dir=$(echo \"$input\" | jq -r '.workspace.current_dir // empty'); project_dir=$(echo \"$input\" | jq -r '.workspace.project_dir // empty'); repo_name=$(echo \"$input\" | jq -r '.workspace.repo.name // empty'); total_input=$(echo \"$input\" | jq -r '.context_window.total_input_tokens // 0'); total_output=$(echo \"$input\" | jq -r '.context_window.total_output_tokens // 0'); window_size=$(echo \"$input\" | jq -r '.context_window.context_window_size // 0'); used_pct=$(echo \"$input\" | jq -r '.context_window.used_percentage // 0'); R='\\033[0m'; B='\\033[1m'; C='\\033[36m'; G='\\033[32m'; Y='\\033[33m'; R2='\\033[31m'; M='\\033[35m'; W='\\033[37m'; DIM='\\033[2m'; if [ -n \"$repo_name\" ] && [ \"$repo_name\" != 'null' ]; then project=\"$repo_name\"; elif [ -n \"$project_dir\" ] && [ \"$project_dir\" != 'null' ]; then project=$(basename \"$project_dir\"); elif [ -n \"$dir\" ] && [ \"$dir\" != 'null' ]; then project=$(basename \"$dir\"); else project=''; fi; branch=''; dirty=''; if [ -n \"$dir\" ] && [ \"$dir\" != 'null' ] && git -C \"$dir\" rev-parse --git-dir >/dev/null 2>&1; then branch=$(git -C \"$dir\" -c core.fsmonitor=false symbolic-ref --short HEAD 2>/dev/null || git -C \"$dir\" -c core.fsmonitor=false rev-parse --short HEAD 2>/dev/null || true); if [ -n \"$branch\" ]; then gs=$(git -C \"$dir\" -c core.fsmonitor=false status --porcelain 2>/dev/null | head -c 1); [ -n \"$gs\" ] && dirty='*'; fi; fi; bar=''; pct_int=0; if [ -n \"$used_pct\" ] && [ \"$used_pct\" != 'null' ]; then pct_int=$(echo \"$used_pct\" | cut -d. -f1); [ -z \"$pct_int\" ] && pct_int=0; f=$(( pct_int * 10 / 100 )); [ \"$f\" -gt 10 ] && f=10; e=$(( 10 - f )); i=0; while [ $i -lt $f ]; do bar=\"${bar}\u2593\"; i=$((i+1)); done; i=0; while [ $i -lt $e ]; do bar=\"${bar}\u2591\"; i=$((i+1)); done; if [ \"$pct_int\" -lt 50 ]; then bc=$G; elif [ \"$pct_int\" -lt 80 ]; then bc=$Y; else bc=$R2; fi; tt=$(( total_input + total_output )); ft=$(printf '%\\''d\\n' \"$tt\" 2>/dev/null || echo \"$tt\"); fm=$(printf '%\\''d\\n' \"$window_size\" 2>/dev/null || echo \"$window_size\"); cs=\"${bc}${bar}${R} ${pct_int}% ${DIM}(${ft} / ${fm})${R}\"; else cs=\"${DIM}no context yet${R}\"; fi; out=''; [ -n \"$model\" ] && out=\"${out}${C}${B}${model}${R}\"; [ -n \"$out\" ] && out=\"${out} ${DIM}\u2502${R} \"; out=\"${out}${cs}\"; if [ -n \"$project\" ]; then [ -n \"$out\" ] && out=\"${out} ${DIM}\u2502${R} \"; out=\"${out}${M}${B}${project}${R}\"; fi; if [ -n \"$branch\" ]; then [ -n \"$out\" ] && out=\"${out} ${DIM}\u2502${R} \"; out=\"${out}${G}\u2387 ${branch}${R2}${dirty}${R}\"; fi; printf '%b\\n' \"$out\"",
-    "type": "command"
   }
 }

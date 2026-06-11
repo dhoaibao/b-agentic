@@ -7,66 +7,36 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 ## When to use
 
 - The user asks to write tests, fix failing tests, evaluate coverage, or work TDD-style.
-- The global test-vs-bug decision routes a failing test to this lane.
-- Non-browser unit, integration, contract, simulated-DOM, and component tests are in scope when the repo already has the style.
+- The issue is assertion, mock, fixture, setup, snapshot, or test coverage.
+- Non-browser unit, integration, contract, simulated-DOM, and component tests are in scope.
 
 ## When NOT to use
 
-- The failing test likely exposes real runtime behavior -> use **b-debug**.
-- Real browser, visual, session, or e2e tooling is needed -> use **b-browser**.
-- Scope or intended behavior is unclear -> use **b-plan** or **b-debug** per the global decision.
-- The task is pre-PR logic review -> use **b-review**.
-- The task needs a new test strategy/framework -> use **b-plan** first.
+- The failing test likely exposes product behavior -> use **b-debug**.
+- Real browser, visual, session, or e2e evidence is needed -> use **b-browser**.
+- Intended behavior is unclear -> use **b-plan** or **b-debug**.
+- A new test framework is needed -> use **b-plan** first.
 
 ## Tools required
 
-- `bash` - run tests/coverage and inspect failure output.
+- `bash` - run tests and inspect failure output.
 - `serena-symbol-toolkit` - map tests to source behavior and edit test symbols.
-- Optional runtime subagent: `b-verify` may gather existing command, diagnostic, or coverage evidence. The active **b-test** skill owns failure classification, fixes, assertions, status, and handoff.
 
 ## Steps
 
-### Step 1 - Discover framework and scope
-
-Find test files and commands from manifests or CI. If a failing test is named, start with the narrowest runnable target. If no framework exists, hand off to **b-plan** before adding one.
-
-### Step 2 - Choose lane
-
-Assertion/mock/fixture/setup drift stays in **b-test**; uncertain product behavior goes to **b-debug**. Confirm intended behavior from user intent, approved spec/plan, product contract, existing passing tests, intentional source change, or framework docs. If no baseline exists, hand off unless the user explicitly asks for structural coverage only.
-
-### Step 3 - Fix or add tests
-
-For failing tests, run the narrow command, read the test and exercised source, classify the failure, and confirm snapshots/goldens before updating derived artifacts.
-
-For new tests, cover requested or changed behavior first. Add edge/error/regression cases only when baseline or risk makes them required; otherwise list follow-up gaps. For coverage review, stop when requested/high-value gaps are covered or the next gap is opportunistic.
-
-Use Serena for existing test bodies.
-
-**Serena test workflow:**
-1. `get_symbols_overview` on the failing or target test file.
-2. `find_symbol` with `include_body=True` for the test, helper, or fixture under change.
-3. `find_referencing_symbols` before changing shared helpers, mocks, or fixtures.
-4. `get_diagnostics_for_file` after edits when the language server supports the file.
-
-### Step 4 - Verify
-
-Run diagnostics when supported, then the narrowest relevant test. Widen only for shared fixtures/helpers, public contracts, or normal repo workflow.
+1. Find the test framework and narrowest runnable command from manifests, CI, or existing tests.
+2. Confirm intended behavior from user intent, product contract, source change, existing passing tests, or framework docs.
+3. For failing tests, run the narrow target, read the test and exercised source, and classify the failure.
+4. For new tests, cover requested or changed behavior first; add edge cases only when risk requires them.
+5. Run diagnostics when useful, then the narrowest relevant test.
 
 ## Output format
 
-```text
-Type -> Framework -> Findings -> Changes -> Verification -> Remaining gaps
-```
-
-## Reference pointers
-
-- Read `./reference.md` for framework detection, snapshot procedures, mock/fixture debugging, assertion failure classifications, and handoff guidance.
+Test scope, changes, verification, and remaining gaps.
 
 ## Rules
 
-- Never change production code just because a test is red.
-- Subagents are optional accelerators; never let them update assertions, snapshots, goldens, or status blocks.
+- Never change production code only because a test is red.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
-- Add `baseline-missing` tests only when the user explicitly asks for structural coverage.
-- Do not introduce testing frameworks without **b-plan** and dependency-write approval.
+- Do not introduce frameworks without approval.
 - Keep fixture and mock changes local when practical.

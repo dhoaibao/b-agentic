@@ -22,27 +22,11 @@
           "support": "native",
           "adoption": "shared"
         },
-        "hooks": {
-          "support": "native",
-          "adoption": "shared"
-        },
         "rules": {
           "support": "native",
           "adoption": "shared"
         },
-        "subagents": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "plugins": {
-          "support": "native",
-          "adoption": "deferred"
-        },
         "command_wrappers": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
-        "custom_tools": {
           "support": "unsupported",
           "adoption": "unsupported"
         }
@@ -73,27 +57,11 @@
           "support": "native",
           "adoption": "shared"
         },
-        "hooks": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
         "rules": {
           "support": "native",
           "adoption": "shared"
         },
-        "subagents": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "plugins": {
-          "support": "native",
-          "adoption": "deferred"
-        },
         "command_wrappers": {
-          "support": "native",
-          "adoption": "adapter-only"
-        },
-        "custom_tools": {
           "support": "native",
           "adoption": "adapter-only"
         }
@@ -124,27 +92,11 @@
           "support": "native",
           "adoption": "shared"
         },
-        "hooks": {
-          "support": "native",
-          "adoption": "shared"
-        },
         "rules": {
           "support": "native",
           "adoption": "shared"
         },
-        "subagents": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "plugins": {
-          "support": "native",
-          "adoption": "deferred"
-        },
         "command_wrappers": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
-        "custom_tools": {
           "support": "unsupported",
           "adoption": "unsupported"
         }
@@ -175,27 +127,11 @@
           "support": "native",
           "adoption": "shared"
         },
-        "hooks": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
         "rules": {
           "support": "native",
           "adoption": "shared"
         },
-        "subagents": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "plugins": {
-          "support": "native",
-          "adoption": "deferred"
-        },
         "command_wrappers": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
-        "custom_tools": {
           "support": "unsupported",
           "adoption": "unsupported"
         }

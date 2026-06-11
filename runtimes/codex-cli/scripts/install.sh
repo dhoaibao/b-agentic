@@ -10,9 +10,6 @@ readonly CODEX_DIR="${B_AGENTIC_CODEX_DIR:-$HOME/.codex}"
 readonly METADATA_DIR="$CODEX_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="${B_AGENTIC_SKILLS_DST:-$HOME/.codex/skills}"
-readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
-readonly AGENTS_DST="${B_AGENTIC_CODEX_AGENTS_DIR:-$HOME/.codex/agents}"
-readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 readonly RULES_SRC="$SOURCE_DIR/runtimes/$RUNTIME/rules"
 readonly RULES_DST="${B_AGENTIC_CODEX_RULES_DIR:-$HOME/.codex/rules}"
 readonly RULES_SNAPSHOT_DST="$METADATA_DIR/rules"
@@ -23,7 +20,6 @@ readonly TEMPLATES_DST="$METADATA_DIR/templates"
 readonly MANIFEST_DST="$METADATA_DIR/install.json"
 readonly CODEX_CONFIG_DST="${B_AGENTIC_CODEX_CONFIG:-$HOME/.codex/config.toml}"
 readonly CODEX_CONFIG_BACKUP_KEY="codexConfig"
-readonly HOOK_CHECKER_DST="$METADATA_DIR/hooks/check-runtime.py"
 readonly RUNTIME_PRE_ACTION_ENFORCEMENT="advisory-only"
 
 readonly CODEX_MANAGED_BEGIN="# BEGIN b-agentic managed config"
@@ -33,7 +29,6 @@ CONTEXT7_API_KEY_INPUT=""
 BRAVE_API_KEY_INPUT=""
 FIRECRAWL_API_KEY_INPUT=""
 FIRECRAWL_API_URL_INPUT=""
-INSTALL_HOOKS_STATE="unknown"
 
 runtime_require_tomllib() {
   python3 - <<'PY' >/dev/null 2>&1 || die "Codex CLI install requires Python 3.11+ (stdlib tomllib)."
@@ -121,7 +116,6 @@ install_codex_config() {
     BRAVE_API_KEY_INPUT="$BRAVE_API_KEY_INPUT" \
     FIRECRAWL_API_KEY_INPUT="$FIRECRAWL_API_KEY_INPUT" \
     FIRECRAWL_API_URL_INPUT="$FIRECRAWL_API_URL_INPUT" \
-    HOOK_CHECKER_DST="$HOOK_CHECKER_DST" \
     SOURCE_DIR="$SOURCE_DIR" \
     python3 - <<'PY'
 import json
@@ -157,7 +151,6 @@ path = Path(os.environ["CODEX_CONFIG_DST"])
 begin = os.environ["CODEX_MANAGED_BEGIN"]
 end = os.environ["CODEX_MANAGED_END"]
 skills_root = Path(os.environ["SKILLS_DST"])
-hook_checker = os.environ["HOOK_CHECKER_DST"]
 source_dir = os.environ["SOURCE_DIR"]
 skills = [name for name in os.environ.get("SKILLS", "").split() if name]
 current_text = path.read_text() if path.exists() else ""
@@ -195,55 +188,12 @@ context7_key = os.environ.get("CONTEXT7_API_KEY_INPUT") or current_literal("cont
 brave_key = os.environ.get("BRAVE_API_KEY_INPUT") or current_literal("brave-search", "env", "BRAVE_API_KEY")
 firecrawl_key = os.environ.get("FIRECRAWL_API_KEY_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_KEY")
 firecrawl_url = os.environ.get("FIRECRAWL_API_URL_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_URL")
-hook_check_command = f"python3 {json.dumps(hook_checker)} --client codex --event stop --source {json.dumps(source_dir)}"
-pre_action_check_command = f"python3 {json.dumps(hook_checker)} --client codex --event pre-action --source {json.dumps(source_dir)}"
-
 lines = [
     begin,
     "# Managed by b-agentic for Codex CLI.",
     "# Remove by rerunning install.sh --runtime=codex-cli --uninstall.",
     "",
 ]
-
-if "features" not in base:
-    lines.extend([
-        "[features]",
-        "hooks = true",
-        "",
-    ])
-
-lines.extend([
-    "[[hooks.SessionStart]]",
-    'matcher = "startup|resume|clear|compact"',
-    "",
-    "[[hooks.SessionStart.hooks]]",
-    'type = "command"',
-    'command = "serena-hooks activate --client=codex"',
-    "",
-    "[[hooks.PreToolUse]]",
-    'matcher = ".*"',
-    "",
-    "[[hooks.PreToolUse.hooks]]",
-    'type = "command"',
-    'command = "serena-hooks remind --client=codex"',
-    "",
-    "[[hooks.PreToolUse.hooks]]",
-    'type = "command"',
-    f"command = {json.dumps(pre_action_check_command)}",
-    "",
-    "[[hooks.Stop]]",
-    'matcher = ".*"',
-    "",
-    "[[hooks.Stop.hooks]]",
-    'type = "command"',
-    'command = "serena-hooks cleanup --client=codex"',
-    "",
-    "[[hooks.Stop.hooks]]",
-    'type = "command"',
-    f"command = {json.dumps(hook_check_command)}",
-    "",
-])
-
 
 def add_server(name: str, body_lines: list[str]):
     if name in base_servers:
@@ -367,43 +317,15 @@ PY
   printf '%s\nactive\n%s' "$action" "${backup:-none}"
 }
 
-codex_hooks_state() {
-  [ -f "$CODEX_CONFIG_DST" ] || {
-    printf 'unknown'
-    return 0
-  }
-  python3 - "$CODEX_CONFIG_DST" <<'PY'
-import sys
-from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    print("unknown")
-    raise SystemExit
-
-try:
-    data = tomllib.loads(Path(sys.argv[1]).read_text())
-except Exception:
-    print("unknown")
-    raise SystemExit
-
-hooks = data.get("features", {}).get("hooks")
-print("disabled" if hooks is False else "active")
-PY
-}
-
 runtime_install_configs() {
   collect_codex_api_keys
 
   run_install_triplet_stage "Updating Codex config" install_codex_config "skip" "none" "none" \
     INSTALL_CONFIG_ACTION INSTALL_CONFIG_STATE INSTALL_CONFIG_BACKUP
-  INSTALL_HOOKS_STATE="$(codex_hooks_state)"
 }
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
-  local agents_string="${INSTALL_AGENT_NAMES[*]}"
   local rules_string="${INSTALL_RULE_NAMES[*]}"
 
   if dry_run_enabled; then
@@ -422,18 +344,14 @@ runtime_write_manifest() {
     CONFIG_ACTION="$INSTALL_CONFIG_ACTION" \
     CONFIG_STATE="$INSTALL_CONFIG_STATE" \
     CONFIG_BACKUP="$INSTALL_CONFIG_BACKUP" \
-    HOOKS_STATE="$INSTALL_HOOKS_STATE" \
     CODEX_DIR="$CODEX_DIR" \
     CODEX_CONFIG_DST="$CODEX_CONFIG_DST" \
     SKILLS_DST="$SKILLS_DST" \
-    AGENTS_DST="$AGENTS_DST" \
     RULES_DST="$RULES_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
-    HOOK_CHECKER_DST="$HOOK_CHECKER_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SKILLS="$skills_string" \
-    AGENTS="$agents_string" \
     RULES="$rules_string" \
     python3 - <<'PY'
 import json
@@ -441,7 +359,6 @@ import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
-agents = [name for name in os.environ['AGENTS'].split() if name]
 rules = [name for name in os.environ['RULES'].split() if name]
 manifest = {
     'suite': 'b-agentic',
@@ -451,23 +368,18 @@ manifest = {
     'memoryAction': os.environ['MEMORY_ACTION'],
     'configAction': os.environ['CONFIG_ACTION'],
     'configState': os.environ['CONFIG_STATE'],
-    'hooksState': os.environ['HOOKS_STATE'],
     'paths': {
         'codexDir': os.environ['CODEX_DIR'],
         'codexConfig': os.environ['CODEX_CONFIG_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
-        'agents': os.environ['AGENTS_DST'],
         'rules': os.environ['RULES_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
-        'hookChecker': os.environ['HOOK_CHECKER_DST'],
     },
     'skills': skills,
-    'agents': agents,
     'rules': rules,
     'backups': {
-        'agentsMd': os.environ['MEMORY_BACKUP'],
         'codexConfig': os.environ['CONFIG_BACKUP'],
     },
 }
@@ -480,11 +392,9 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
-  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "rules" "${#INSTALL_RULE_NAMES[@]} synced -> $RULES_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "config" "$INSTALL_CONFIG_ACTION -> $CODEX_CONFIG_DST"
-  report_item "hooks" "$INSTALL_HOOKS_STATE"
   report_item "references" "sync -> $REFERENCES_DST"
   report_item "templates" "sync -> $TEMPLATES_DST"
   report_item "manifest" "write -> $MANIFEST_DST"
@@ -492,9 +402,6 @@ runtime_print_install_report() {
   report_item "kernel" "$INSTALL_MEMORY_BACKUP"
   report_item "config" "$INSTALL_CONFIG_BACKUP"
   print_install_report_readiness
-  if [ "$INSTALL_HOOKS_STATE" = "disabled" ]; then
-    report_item "codex-hooks" "disabled by existing [features].hooks = false; run /hooks or set hooks = true to activate Serena reminders"
-  fi
   print_shell_tool_recommendations
   print_install_report_next_steps "Codex CLI"
 }
@@ -568,17 +475,11 @@ runtime_uninstall_configs() {
 }
 
 runtime_install_extra_assets() {
-  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "toml" "Codex agent" INSTALL_AGENT_NAMES
   install_managed_profiles "$RULES_SRC" "$RULES_DST" "$RULES_SNAPSHOT_DST" "rules" "Codex rule" INSTALL_RULE_NAMES
-  install_hook_checker
   install_uninstall_helper
 }
 
 runtime_uninstall_extra_assets() {
-  local agents_path
-  agents_path="$(manifest_path_value agents "$AGENTS_DST")"
-  uninstall_managed_profiles agents "$agents_path" "$AGENTS_SNAPSHOT_DST" "toml" "Codex agent"
-
   local rules_path
   rules_path="$(manifest_path_value rules "$RULES_DST")"
   uninstall_managed_profiles rules "$rules_path" "$RULES_SNAPSHOT_DST" "rules" "Codex rule"
@@ -591,7 +492,7 @@ runtime_main() {
 
   collect_installed_skills INSTALL_SKILL_NAMES
   run_stage "Syncing skills" install_skills
-  run_stage "Installing agent profiles" runtime_install_extra_assets
+  run_stage "Installing runtime extras" runtime_install_extra_assets
   run_stage "Syncing references and templates" install_references_and_templates
 
   run_install_triplet_stage "Installing kernel" install_kernel "preserve" "pending" "none" \

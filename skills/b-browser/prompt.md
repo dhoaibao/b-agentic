@@ -2,85 +2,43 @@
 
 $ARGUMENTS
 
-Own real-browser, visual, screenshot, browser-session, live UI, and e2e evidence.
+Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence.
 
 ## When to use
 
-- The user asks for real-browser, visual, screenshot, browser-session, live UI, or e2e checks.
-- PR readiness depends on Playwright, Cypress e2e, WebdriverIO, Puppeteer, WebDriver, or equivalent real-browser evidence.
+- The user asks for browser, visual, screenshot, live UI, or e2e checks.
+- PR readiness depends on real-browser evidence.
 - Another phase reports a browser evidence gap.
 
 ## When NOT to use
 
-- Non-browser unit, integration, contract, coverage, mock, fixture, assertion, snapshot, flake, or simulated-DOM/component-test work -> use **b-test**.
-- UI/UX critique or visual design feedback without runnable verification.
+- Unit, integration, contract, mock, fixture, snapshot, or simulated-DOM work -> use **b-test**.
 - Implementing UI behavior or fixing app code -> use **b-implement** or **b-debug**.
-- Changed-code review with browser evidence already supplied -> use **b-review**.
+- Changed-code review with sufficient browser evidence already supplied -> use **b-review**.
 
 ## Tools required
 
-- `bash` - run approved existing real-browser/visual/e2e commands.
-- `playwright-browser-operator` - required for live-browser navigation, snapshots, screenshots, console/network, and browser state.
-- `firecrawl-extraction` - use only for static known remote page content; never a Playwright substitute.
-- `serena-symbol-toolkit` - use for mapping browser failures to source ownership.
+- `bash` - run existing approved browser/e2e commands.
+- `playwright-browser-operator` - live navigation, snapshots, screenshots, console/network, and browser state.
+- `firecrawl-extraction` - static known remote page content only.
+- `serena-symbol-toolkit` - map browser failures to source ownership.
 
 ## Steps
 
-### Step 1 - Classify request
-
-Name whether this is a direct run, live exploration, supplied-evidence review, or readiness gap. If it is actually unit/component/simulated-DOM work, hand off to **b-test**. Do not add browser or DOM tooling as a side effect.
-
-### Step 2 - Choose evidence path
-
-Use the first sufficient path: supplied/CI evidence, existing repo script/documented command, Playwright live-browser actions, Firecrawl for static known remote content only, accepted follow-up/skipped check. If no path exists, hand off to **b-plan** for tool strategy and dependency approval.
-
-Do not invent verification commands.
-
-### Step 3 - Apply safety gates
-
-Read `{{runtime_reference_root}}/contract/safety-tools.md` before running browser/e2e tooling, using Playwright, starting dev servers, persisting browser/session state, writing screenshots/videos/traces, installing dependencies, or mutating shared environments.
-
-Unsafe arbitrary-code browser execution requires explicit approval naming target URL and why ordinary browser actions cannot answer.
-
-### Step 4 - Collect evidence
-
-For supplied evidence, confirm command/workflow, environment, target, timestamp when available, and pass/fail result. For repo commands, run the narrowest existing command.
-
-**Playwright MCP workflow:**
-1. `browser_navigate` to the target URL.
-2. `browser_snapshot` to capture the current page structure.
-3. `browser_click`, `browser_type`, or `browser_fill_form` to interact.
-4. `browser_take_screenshot` to collect visual evidence.
-5. `browser_console_messages` and `browser_network_requests` to inspect errors and API calls.
-6. `browser_close` to clean up.
-
-For Firecrawl, keep extraction bounded to the known URL and static question.
-
-### Step 5 - Classify failures and cleanup
-
-Classify failures as product behavior, harness/setup, environment, auth/session, external-service, flaky/timing, or tool-unavailable. Record command or interaction sequence, URL/target, environment, artifacts, and unknowns.
-
-Product behavior failures hand off to **b-debug** with command, artifacts, summary, environment, and likely source area. Clean up or report screenshots, traces, logs, browser state, test data, and lingering processes.
-
-### Step 6 - Report readiness impact
-
-State whether real-browser/visual/e2e evidence is verified, missing, failed, or accepted as follow-up. Do not claim **READY FOR PR** when relevant browser evidence is absent or failed.
+1. Classify the request: direct command, supplied evidence, live exploration, or readiness gap.
+2. Prefer supplied/CI evidence or existing repo scripts before live browser operation.
+3. Ask before starting dev servers, installing tools, persisting sessions, or unsafe arbitrary browser code.
+4. Collect evidence with the narrowest sufficient command or Playwright interaction.
+5. Classify failures as product, harness/setup, environment, auth/session, external-service, flaky/timing, or tool-unavailable.
+6. Clean up browser state, artifacts, and lingering processes where applicable.
 
 ## Output format
 
-```text
-Request -> Evidence path -> Browser result -> Artifacts/cleanup -> Readiness impact -> Follow-up/Handoff
-```
+Evidence path, browser result, artifacts/cleanup, and readiness impact.
 
 ## Rules
 
-- Do not run browser/e2e commands before safety gates allow them.
-- Do not use unsafe arbitrary-code browser tools by default.
+- Do not invent browser commands.
 - Do not treat missing browser evidence as covered by non-browser tests.
-- Do not store real auth/session state under a tracked worktree path.
-- Route unclear product behavior to **b-debug** and new tool strategy to **b-plan**.
-
-## Reference pointers
-
-- Read `./reference.md` before choosing between evidence paths, classifying browser failures, or when screenshot guidelines are unclear.
-- Read `{{runtime_reference_root}}/performance-checklist.md` before collecting evidence for latency, rendering cost, bundle size, or hot-path browser behavior.
+- Do not store auth/session state under tracked paths.
+- Route product failures to **b-debug**.

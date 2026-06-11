@@ -2,109 +2,44 @@
 
 $ARGUMENTS
 
-Turn a goal into the smallest execution-ready plan. Clarify first when the target is unclear. Do not implement.
-
-If `$ARGUMENTS` is present, treat it as the task description and proceed.
+Turn unclear or high-risk goals into the smallest executable plan. Do not implement.
 
 ## When to use
 
-- The user asks for a plan, architecture direction, or ordered implementation steps.
-- The goal is clear but approach, sequencing, risk, dependencies, or acceptance criteria matter.
-- Scope, constraints, non-goals, or end state are unclear.
-- A refactor is still broad or vague and not yet a concrete mechanical transform.
+- The user asks for a plan, approach, design, decomposition, or requirements clarification.
+- Scope, acceptance criteria, risk, sequencing, or ownership is unclear.
+- The change is broad enough that direct implementation would require guessing.
 
 ## When NOT to use
 
-- The request is small, obvious, and scoped -> use **b-implement**.
-- A concrete rename, extract, move, inline, simplify, or delete is requested -> use **b-refactor**.
-- External feasibility blocks the decision -> use **b-research**.
+- The request is small and clear -> use **b-implement**.
+- The request is a concrete behavior-preserving transform -> use **b-refactor**.
+- External facts are the blocker -> use **b-research**.
 - Something is broken -> use **b-debug**.
 
 ## Tools required
 
-- `serena-symbol-toolkit` - required for planning against existing code.
-- `context7-docs` - use only for one narrow API check that changes the plan.
-- `firecrawl-extraction` - use only for user-provided issue, ticket, or docs URLs whose exact text affects scope.
-- Optional runtime subagent: `b-explore` may gather bounded repo evidence for broad plans. The active **b-plan** skill owns scope, decisions, saved-plan content, status, and handoff.
+- `serena-symbol-toolkit` - inspect existing code when the plan depends on current structure.
+- `context7-docs` - one narrow versioned API check when it changes the plan.
+- `firecrawl-extraction` - user-provided public docs or issue URLs when exact text changes scope.
 
 ## Steps
 
-### Step 1 - Choose mode
+1. State the interpreted goal, constraints, and non-goals.
+2. Ask only blocking questions. Prefer repo evidence over questions.
+3. Inspect only files/symbols needed to avoid guessing.
+4. Choose the smallest safe approach and list ordered steps.
+5. Include `Done when` verification for each step.
 
-Use quick mode for low-risk plans that fit in chat. Use full mode when work touches more than 3 files, public/sensitive contracts, CI/build/dependencies, broad references, durable coordination, or a plan too large for chat. Full mode saves `.b-agentic/b-plan/<plan-file-slug>.md`.
-
-When planning strict or stateful governance work, read `{{runtime_reference_root}}/contract/state-machine.md` and name which runtime surfaces are enforced, advisory, or unsupported.
-
-### Step 2 - Lock scope
-
-State the interpreted scope in one sentence. If the outcome is underdetermined, enter Clarification mode before sequencing work.
-
-If the user waives planning, check the small-direct threshold. If it passes, hand off to **b-implement** with assumptions and lowered confidence when decisions remain; otherwise produce a minimal plan and explain why planning is still needed.
-
-Ask only for inputs that change safe planning: hard constraints, deployment order, required verification, or behavioral decisions the repo cannot answer. Keep assumptions visible until confirmed.
-
-### Step 3 - Inspect only what helps the plan
-
-Skip discovery for greenfield or docs-only work. Otherwise use local/Serena evidence for owners, references, conventions, and stable anchors. Use Context7 only for a versioned API detail that changes the plan. Use Firecrawl only for user-provided issue/ticket/docs URLs whose exact text affects scope.
-
-**Serena discovery workflow for existing code:**
-1. `get_symbols_overview` on a key file to understand its structure and identify relevant symbols.
-2. `find_symbol` with `include_body=True` on the symbol(s) that own the behavior you need to plan around.
-3. `find_referencing_symbols` on those symbols to understand call sites and coupling.
-
-Use this sequence when the plan must account for existing implementations, interfaces, or call graphs. Skip it when the work is purely additive in a greenfield area.
-
-### Step 4 - Choose approach and steps
-
-Compare alternatives only when the choice matters. Steps must be dependency ordered and include changes, why now, and `Done when` verification.
-
-Quick plans stay to 2-5 bullets. Full-mode steps use checkbox style:
-
-```markdown
-## Steps
-- [ ] **<imperative step title>**
-  - Changes: <files or symbols>
-  - Why now: <ordering reason>
-  - Done when: <verification>
-```
-
-Read `{{skill_support_path}}/reference.md` before writing a quick-plan template, saved-plan skeleton, supersede rule, or multi-plan dependency.
-
-### Step 5 - Deliver
-
-Quick mode stays in chat and asks for approval. Full mode must include durable frontmatter (`slug`, `status`, `created_at`, `approved_at`, `approved_by`, `approved_head`, `risk`, `touch_points`), show the path, and ask for approval. If state governance is active, request or initialize state through deterministic tooling rather than asking the model to hand-edit `.b-agentic/state.json`. Read `{{runtime_reference_root}}/contract/output.md` before emitting a status block.
-
-If approval arrives in the same run, update `status`, `approved_at`, `approved_by`, and `approved_head` when available.
-
-## Clarification mode
-
-Use when two or more plausible outcomes remain. Restate the ask, ask only blocking questions, and prefer repo evidence before asking. After two unresolved rounds, offer two concrete interpretations and ask the user to pick or override.
-
-Return a compact spec:
-
-```text
-### Spec: <goal>
-
-**Goal:** <what should exist or change>
-**Constraints:** <hard boundaries>
-**Acceptance criteria:**
-- <testable outcome>
-**Non-goals:** <excluded scope>
-**Assumptions:** <unconfirmed assumptions, or none>
-```
-
-Carry confirmed decisions into the plan. If external feasibility blocks the spec, hand off to **b-research**.
+For plans spanning more than 3 files, public contracts, dependencies, CI/build, or durable coordination, save a plan under `.b-agentic/b-plan/` only if it will materially help execution.
 
 ## Output format
 
-- Quick mode: concise chat plan with scope, risk, steps, and verification.
-- Full mode: saved Markdown plan using `reference.md`.
+Concise scope, risk, ordered steps, and verification. Ask for approval before implementation.
 
 ## Rules
 
-- Do not implement while planning.
-- Subagents are optional accelerators; never require them for ordinary planning or let them own decisions, status blocks, or phase transitions.
-- Keep quick plans lean; promote only for real risk or coordination need.
-- Surface blockers and assumptions explicitly.
-- Approved plans are the execution source of truth for **b-implement**.
-- Strictness claims must distinguish enforced runtime surfaces from advisory-only guidance.
+- Do not implement.
+- Keep plans short unless risk requires detail.
+- Do not invent behavior, names, acceptance criteria, or commands.
+- Surface assumptions and blockers explicitly.

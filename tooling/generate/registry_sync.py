@@ -47,12 +47,8 @@ ALLOWED_PROMPT_KEYS = {"description", *[field for field, _ in PROMPT_FRONTMATTER
 RUNTIME_CAPABILITY_KEYS = [
     "skills",
     "permissions",
-    "hooks",
     "rules",
-    "subagents",
-    "plugins",
     "command_wrappers",
-    "custom_tools",
 ]
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
@@ -115,7 +111,6 @@ def validate_kernel_template(errors: list[str]) -> None:
     for token in [
         RUNTIME_DISPLAY_NAME_TOKEN,
         RUNTIME_METADATA_ROOT_TOKEN,
-        RUNTIME_MEMORY_FILE_TOKEN,
     ]:
         if token not in template_text:
             errors.append(f"{KERNEL_TEMPLATE_PATH}: missing kernel template token {token!r}")
@@ -410,12 +405,8 @@ def render_readme_runtime_capabilities_table(runtimes: list[dict]) -> str:
     capability_labels = {
         "skills": "Skills",
         "permissions": "Permissions",
-        "hooks": "Hooks",
         "rules": "Rules",
-        "subagents": "Subagents",
-        "plugins": "Plugins",
         "command_wrappers": "Wrappers",
-        "custom_tools": "Custom tools",
     }
     headers = ["Runtime", *[capability_labels[key] for key in RUNTIME_CAPABILITY_KEYS]]
     lines = ["| " + " | ".join(headers) + " |", "|" + "|".join(["---"] * len(headers)) + "|"]
@@ -518,15 +509,7 @@ def render_skill_file(skill: dict) -> str:
 
 
 def _enforcement_notice(runtime: dict) -> str:
-    hooks_support = runtime.get("capabilities", {}).get("hooks", {}).get("support", "unsupported")
-    if hooks_support in ("native", "adapter"):
-        return ""
-    return (
-        "> **Advisory-only runtime:** This runtime does not support pre-action hook interception. "
-        "Strict governance is a model-level recommendation only — high-risk actions are warned "
-        "about after the fact but cannot be blocked before execution. "
-        "Set `B_AGENTIC_ADVISORY=1` or use `--advisory` to make this explicit."
-    )
+    return ""
 
 
 def render_kernel(runtime: dict) -> str:
