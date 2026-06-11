@@ -6,7 +6,6 @@ Adapter-owned layout for OpenCode. Shared skills and contracts stay runtime-neut
 
 - Kernel memory: `~/.config/opencode/AGENTS.md`
 - Skills: `~/.config/opencode/skills/<skill-name>/SKILL.md`
-- Optional subagent profiles: `~/.config/opencode/agents/<agent-name>.md`
 - Command wrappers: `~/.config/opencode/commands/<command-name>.md`
 - Skill support: `~/.config/opencode/skills/<skill-name>/reference.md`
 - Suite metadata/backups/snapshots: `~/.config/opencode/b-agentic/`
@@ -25,9 +24,9 @@ This adapter does not provide native phase-to-phase automation. Workflows resume
 
 ## Safety and MCP
 
-The installer never overwrites `~/.config/opencode/AGENTS.md` without `--replace-memory`. Plain install syncs skills, optional subagent profiles, shared references, kernel, wrappers, and MCP config; uninstall removes only managed wrappers and profiles that still match the managed snapshot.
+The installer never overwrites `~/.config/opencode/AGENTS.md` without `--replace-memory`. Plain install syncs skills, shared references, kernel, wrappers, and MCP config; uninstall removes only managed wrappers and previously managed profiles that still match the managed snapshot.
 
-Optional b-agentic subagent profiles are read-only or ask-gated helpers for exploration, research, review, and verification. User-owned or modified profiles are preserved.
+Default install does not create subagent profiles; previously managed profiles can still be removed by uninstall when they match their saved snapshots.
 
 OpenCode uses `~/.config/opencode/opencode.json`; MCP servers live under the `mcp` key. The installer merges `mcp.user.template.json`, preserves user entries, and removes only b-agentic entries on uninstall. The Serena entry uses `--context ide`; API keys stay as `{env:...}` placeholders unless `--prompt-api-keys` writes user-scope values. Playwright stays `--isolated`; pnpm must be available for `pnpm dlx` entries.
 

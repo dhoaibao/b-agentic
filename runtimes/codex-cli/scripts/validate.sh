@@ -26,7 +26,6 @@ maintainer = (root / 'CLAUDE.md').read_text() if (root / 'CLAUDE.md').exists() e
 codex_install = (root / 'runtimes' / 'codex-cli' / 'scripts' / 'install.sh').read_text() if (root / 'runtimes' / 'codex-cli' / 'scripts' / 'install.sh').exists() else ''
 runtime_registry_path = root / 'runtimes' / 'registry.yaml'
 template_path = root / 'runtimes' / 'codex-cli' / 'configs' / 'mcp.user.template.toml'
-agents_dir = root / 'runtimes' / 'codex-cli' / 'agents'
 rules_dir = root / 'runtimes' / 'codex-cli' / 'rules'
 
 try:
@@ -87,13 +86,10 @@ for required in [
     '--client codex',
     '--event stop',
     '# BEGIN b-agentic managed config',
-    'AGENTS_SRC',
-    'AGENTS_DST',
     'RULES_SRC',
     'RULES_DST',
     'install_managed_profiles',
     'uninstall_managed_profiles',
-    'report_item "agents"',
     'report_item "rules"',
     'report_item "hooks"',
     'hooksState',
@@ -103,22 +99,14 @@ for required in [
     if required not in codex_install:
         errors.append(f'runtimes/codex-cli/scripts/install.sh: missing Codex installer marker {required!r}')
 
-if not agents_dir.exists():
-    errors.append('runtimes/codex-cli/agents: missing Codex agent profile source directory')
-else:
-    expected_agents = {'b-explore', 'b-research', 'b-review', 'b-verify'}
-    agent_names = {path.stem for path in agents_dir.glob('*.toml')}
-    if agent_names != expected_agents:
-        errors.append(f'runtimes/codex-cli/agents: expected {sorted(expected_agents)}, found {sorted(agent_names)}')
-    for path in agents_dir.glob('*.toml'):
-        try:
-            data = tomllib.loads(path.read_text())
-        except tomllib.TOMLDecodeError as exc:
-            errors.append(f'{path}: invalid TOML: {exc}')
-            continue
-        for field in ['name', 'description', 'developer_instructions']:
-            if not isinstance(data.get(field), str) or not data.get(field):
-                errors.append(f'{path}: missing required custom agent field {field!r}')
+if (root / 'runtimes' / 'codex-cli' / 'agents').exists():
+    errors.append('runtimes/codex-cli/agents: default subagent profiles must not be shipped')
+for forbidden in ['AGENTS_SRC', 'report_item "agents"', 'install_managed_profiles "$AGENTS_SRC"']:
+    if forbidden in codex_install:
+        errors.append(f'runtimes/codex-cli/scripts/install.sh: stale default subagent install marker {forbidden!r}')
+for required in ['AGENTS_DST', 'AGENTS_SNAPSHOT_DST', 'uninstall_managed_profiles']:
+    if required not in codex_install:
+        errors.append(f'runtimes/codex-cli/scripts/install.sh: missing old-agent cleanup marker {required!r}')
 
 if not rules_dir.exists():
     errors.append('runtimes/codex-cli/rules: missing Codex rules source directory')
@@ -160,10 +148,10 @@ else:
         errors.append('runtimes/codex-cli/configs/mcp.user.template.toml: playwright must use --isolated by default')
 if 'Codex CLI Runtime Layout' not in codex_readme:
     errors.append('runtimes/codex-cli/configs/README.md: missing title')
-for needle in ['~/.codex/config.toml', '~/.codex/skills/', '~/.codex/agents/', '~/.codex/rules/b-agentic.rules', 'mcp.user.template.toml', 'skills.config', 'runtime-neutral', '--context codex']:
+for needle in ['~/.codex/config.toml', '~/.codex/skills/', '~/.codex/rules/b-agentic.rules', 'mcp.user.template.toml', 'skills.config', 'runtime-neutral', '--context codex']:
     if needle not in codex_readme:
         errors.append(f'runtimes/codex-cli/configs/README.md: missing Codex documentation marker {needle!r}')
-for required in ['Optional subagent profiles', 'command governance rules', 'User-owned or modified profiles are preserved']:
+for required in ['Default install does not create subagent profiles', 'command governance rules', 'previously managed profiles can still be removed by uninstall']:
     if required not in codex_readme:
         errors.append(f'runtimes/codex-cli/configs/README.md: missing governance marker {required!r}')
 for required in ['hooks: disabled', 'set hooks true to activate Serena reminders']:

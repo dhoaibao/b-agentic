@@ -66,7 +66,7 @@ Claude Code is the reference runtime and capability ceiling. A runtime-native ca
 
 Runtime-native capabilities include skills, permissions, hooks, rules, subagents, plugins, command wrappers, and custom tools. Adapter-only capabilities can improve one runtime's ergonomics, but shared prompts and contract prose must not require them. Deferred capabilities are acknowledged but not part of the active workflow contract.
 
-Subagents are optional accelerators. They may gather evidence, isolate broad search output, or review bounded slices, but the active b-agentic skill owns final decisions, verification claims, status blocks, handoffs, and verdicts. Do not use subagents to auto-continue phase-to-phase workflow or bypass approval gates.
+Subagents are deferred runtime extras. Do not make subagents part of the default workflow contract. They must not be required by shared prompts, install defaults, or validation. If explicitly adopted later, the active b-agentic skill still owns final decisions, verification claims, status blocks, handoffs, and verdicts; subagents must not auto-continue phase-to-phase workflow or bypass approval gates.
 
 ### State-centric governance
 

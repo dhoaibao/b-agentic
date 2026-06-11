@@ -6,7 +6,6 @@ Adapter-owned layout for Claude Code. Shared skills and contracts stay runtime-n
 
 - Kernel memory: `~/.claude/CLAUDE.md`
 - Skills: `~/.claude/skills/<skill-name>/SKILL.md`
-- Optional subagent profiles: `~/.claude/agents/<agent-name>.md`
 - Skill support: `~/.claude/skills/<skill-name>/reference.md`
 - Suite metadata/backups/snapshots: `~/.claude/b-agentic/`
 - Shared references: `~/.claude/b-agentic/references/contract/*.md`
@@ -36,7 +35,7 @@ Plain install merges `mcp.user.template.json` into `~/.claude.json` under `mcpSe
 
 ## Governance assets
 
-Plain install merges `settings.template.json` into `~/.claude/settings.json`. That template contains conservative permissions, secret-path denies, destructive-command denies, dependency-install asks, Serena lifecycle hooks, and b-agentic pre-action/stop hooks. The b-agentic status line is omitted by default because it is optional UI ceremony; set `B_AGENTIC_CLAUDE_STATUS_LINE=1` during install to merge it. Optional b-agentic subagent profiles are synced under `~/.claude/agents/`; user-owned or modified profiles are preserved.
+Plain install merges `settings.template.json` into `~/.claude/settings.json`. That template contains conservative permissions, secret-path denies, destructive-command denies, dependency-install asks, Serena lifecycle hooks, and b-agentic pre-action/stop hooks. The b-agentic status line is omitted by default because it is optional UI ceremony; set `B_AGENTIC_CLAUDE_STATUS_LINE=1` during install to merge it. Default install does not create subagent profiles; uninstall can still remove previously managed profiles that match their saved snapshots.
 
 ## MCP readiness after install
 

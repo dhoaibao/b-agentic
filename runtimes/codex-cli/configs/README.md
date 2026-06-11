@@ -6,7 +6,6 @@ Adapter-owned layout for Codex CLI. Shared skills and contracts stay runtime-neu
 
 - Kernel memory: `~/.codex/AGENTS.md`
 - Skills: `~/.codex/skills/<skill-name>/SKILL.md`
-- Optional subagent profiles: `~/.codex/agents/<agent-name>.toml`
 - Command governance rules: `~/.codex/rules/b-agentic.rules`
 - Skill support: `~/.codex/skills/<skill-name>/reference.md`
 - Suite metadata/backups/snapshots: `~/.codex/b-agentic/`
@@ -28,11 +27,11 @@ This adapter does not provide native phase-to-phase automation. Workflows resume
 
 ## Safety, hooks, and MCP
 
-The installer never overwrites `~/.codex/AGENTS.md` without `--replace-memory`. Plain install syncs skills, optional subagent profiles, command governance rules, shared references, and a managed `~/.codex/config.toml` block for `mcp_servers.*`, hooks, and `skills.config`; user config outside the managed block is preserved.
+The installer never overwrites `~/.codex/AGENTS.md` without `--replace-memory`. Plain install syncs skills, command governance rules, shared references, and a managed `~/.codex/config.toml` block for `mcp_servers.*`, hooks, and `skills.config`; user config outside the managed block is preserved.
 
 Managed hooks enable `[features].hooks = true` only when the user has no existing `[features]` table, then add SessionStart/PreToolUse/Stop Serena hooks and b-agentic conformance hooks where Codex exposes compatible hook payloads. If existing user config sets `hooks = false`, install reports `hooks: disabled` and preserves that choice; run `/hooks` or set hooks true to activate Serena reminders and b-agentic hooks. Existing user hooks outside the block remain authoritative. Codex may ask users to trust new hooks through `/hooks`; b-agentic does not bypass that step. Runtime conformance hooks warn by default; use installer `--strict` or set `B_AGENTIC_STRICT=1` to request blocking. Surfaces without pre-action payloads are advisory-only.
 
-Optional b-agentic subagent profiles are read-only helpers for exploration, research, review, and verification. User-owned or modified profiles are preserved.
+Default install does not create subagent profiles; previously managed profiles can still be removed by uninstall when they match their saved snapshots.
 
 Managed `b-agentic.rules` blocks force-push/reset/clean commands and prompts for dependency installs that request to run outside the sandbox. Existing user rules remain authoritative and modified managed rules are preserved on update or uninstall.
 

@@ -10,7 +10,6 @@ readonly KILO_DIR="${B_AGENTIC_KILO_DIR:-$HOME/.config/kilo}"
 readonly METADATA_DIR="$KILO_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="${B_AGENTIC_SKILLS_DST:-$HOME/.config/kilo/skills}"
-readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
 readonly AGENTS_DST="${B_AGENTIC_KILO_AGENTS_DIR:-$HOME/.config/kilo/agents}"
 readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 readonly KERNEL_DST="$KILO_DIR/AGENTS.md"
@@ -41,10 +40,6 @@ runtime_install_config_stage_count() {
   printf '1'
 }
 
-runtime_install_extra_assets() {
-  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "md" "Kilo Code agent" INSTALL_AGENT_NAMES
-}
-
 runtime_install_configs() {
   run_install_triplet_stage "Merging MCP config" install_mcp_config "skip" "none" "none" \
     INSTALL_MCP_ACTION INSTALL_MCP_STATE INSTALL_MCP_BACKUP
@@ -52,7 +47,6 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
-  local agents_string="${INSTALL_AGENT_NAMES[*]}"
 
   if dry_run_enabled; then
     printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
@@ -73,19 +67,16 @@ runtime_write_manifest() {
     KILO_DIR="$KILO_DIR" \
     KILO_JSONC_DST="$KILO_JSONC_DST" \
     SKILLS_DST="$SKILLS_DST" \
-    AGENTS_DST="$AGENTS_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SKILLS="$skills_string" \
-    AGENTS="$agents_string" \
     python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
-agents = [name for name in os.environ['AGENTS'].split() if name]
 manifest = {
     'suite': 'b-agentic',
     'runtime': os.environ['RUNTIME'],
@@ -99,12 +90,10 @@ manifest = {
         'kiloJsonc': os.environ['KILO_JSONC_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
-        'agents': os.environ['AGENTS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
     },
     'skills': skills,
-    'agents': agents,
     'backups': {
         'agentsMd': os.environ['MEMORY_BACKUP'],
         'kiloJsonc': os.environ['MCP_BACKUP'],
@@ -119,7 +108,6 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
-  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "mcp" "$INSTALL_MCP_ACTION -> $KILO_JSONC_DST"
   report_item "references" "sync -> $REFERENCES_DST"

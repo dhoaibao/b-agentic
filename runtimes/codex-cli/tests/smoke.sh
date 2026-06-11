@@ -32,10 +32,10 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_codex/home/.codex/skills/b-plan/SKILL.md"
   assert_file "$sandbox_codex/home/.codex/skills/b-plan/reference.md"
   assert_file "$sandbox_codex/home/.codex/skills/b-review/SKILL.md"
-  assert_file "$sandbox_codex/home/.codex/agents/b-explore.toml"
-  assert_file "$sandbox_codex/home/.codex/agents/b-research.toml"
-  assert_file "$sandbox_codex/home/.codex/agents/b-review.toml"
-  assert_file "$sandbox_codex/home/.codex/agents/b-verify.toml"
+  assert_no_path "$sandbox_codex/home/.codex/agents/b-explore.toml"
+  assert_no_path "$sandbox_codex/home/.codex/agents/b-research.toml"
+  assert_no_path "$sandbox_codex/home/.codex/agents/b-review.toml"
+  assert_no_path "$sandbox_codex/home/.codex/agents/b-verify.toml"
   assert_file "$sandbox_codex/home/.codex/rules/b-agentic.rules"
   assert_file "$sandbox_codex/home/.codex/b-agentic/hooks/check-runtime.py"
   assert_contains "$sandbox_codex/home/.codex/skills/b-review/SKILL.md" 'self-audits when explicitly requested or invoked with `--audit-suite`'
@@ -48,9 +48,9 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"runtime": "codex-cli"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"activationState": "active"'
   assert_contains "$sandbox_codex/home/.codex/b-agentic/install.json" '"configAction": "write"'
-  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "set(data['agents']) == {'b-explore', 'b-research', 'b-review', 'b-verify'}"
+  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "'agents' not in data"
   assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "data['rules'] == ['b-agentic']"
-  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "data['paths']['agents'].endswith('/.codex/agents')"
+  assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "'agents' not in data['paths']"
   assert_json_value "$sandbox_codex/home/.codex/b-agentic/install.json" "data['paths']['rules'].endswith('/.codex/rules')"
   assert_file "$sandbox_codex/home/.codex/config.toml"
   assert_contains "$sandbox_codex/home/.codex/config.toml" '# BEGIN b-agentic managed config'
@@ -98,7 +98,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_codex_install_report/install.log" '==> [1/6] Syncing skills'
   assert_contains "$sandbox_codex_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_codex_install_report/install.log" 'activation: active'
-  assert_contains "$sandbox_codex_install_report/install.log" 'agents: '
+  assert_not_contains "$sandbox_codex_install_report/install.log" 'agents: '
   assert_contains "$sandbox_codex_install_report/install.log" 'rules: '
   assert_contains "$sandbox_codex_install_report/install.log" 'hooks: active'
   assert_contains "$sandbox_codex_install_report/install.log" 'Readiness:'

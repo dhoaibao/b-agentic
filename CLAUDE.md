@@ -82,7 +82,7 @@ runtimes/<name>/
 
 `scripts/validate-skills.sh` wraps shared validation plus runtime validators. `scripts/validate-skills.sh --release` adds installer smoke and internal release checks. `scripts/smoke-install.sh` runs the smoke suite directly.
 
-Runtime-native assets such as permissions, hooks, rules, subagents, plugins, wrappers, and custom tools must be declared in `runtimes/registry.yaml`. Adapter-only capabilities may improve one runtime, but shared prompts and contracts must not require them unless Claude Code has `adoption: "shared"` for the same capability. Optional subagent profiles are evidence helpers; they do not own b-agentic status blocks, verdicts, handoffs, or phase transitions.
+Runtime-native assets such as permissions, hooks, rules, subagents, plugins, wrappers, and custom tools must be declared in `runtimes/registry.yaml`. Adapter-only capabilities may improve one runtime, but shared prompts and contracts must not require them unless Claude Code has `adoption: "shared"` for the same capability. Subagent profiles are deferred extras, not default install surface; do not make them part of the shared workflow contract without explicit adoption and validation.
 
 Do not add a runtime without updating generation, validation, smoke coverage, and docs in the same change.
 

@@ -32,7 +32,7 @@
         },
         "subagents": {
           "support": "native",
-          "adoption": "shared"
+          "adoption": "deferred"
         },
         "plugins": {
           "support": "native",
@@ -83,7 +83,7 @@
         },
         "subagents": {
           "support": "native",
-          "adoption": "shared"
+          "adoption": "deferred"
         },
         "plugins": {
           "support": "native",
@@ -134,7 +134,7 @@
         },
         "subagents": {
           "support": "native",
-          "adoption": "shared"
+          "adoption": "deferred"
         },
         "plugins": {
           "support": "native",
@@ -185,7 +185,7 @@
         },
         "subagents": {
           "support": "native",
-          "adoption": "shared"
+          "adoption": "deferred"
         },
         "plugins": {
           "support": "native",

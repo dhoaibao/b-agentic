@@ -23,6 +23,7 @@ run_runtime_smoke_cases() {
   local sandbox_install_report="$WORK_DIR/install-report"
   local sandbox_cwd_repo="$WORK_DIR/cwd-repo-claude"
   local sandbox_stale_skill="$WORK_DIR/stale-skill"
+  local sandbox_legacy_agents="$WORK_DIR/legacy-agents"
 
   mkdir -p "$sandbox_fresh/home"
   expect_install_status 0 "$sandbox_fresh" "$snapshot_repo"
@@ -30,10 +31,10 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_fresh/home/.claude/skills/b-plan/reference.md"
   assert_file "$sandbox_fresh/home/.claude/skills/b-browser/SKILL.md"
   assert_file "$sandbox_fresh/home/.claude/skills/b-review/reference.md"
-  assert_file "$sandbox_fresh/home/.claude/agents/b-explore.md"
-  assert_file "$sandbox_fresh/home/.claude/agents/b-research.md"
-  assert_file "$sandbox_fresh/home/.claude/agents/b-review.md"
-  assert_file "$sandbox_fresh/home/.claude/agents/b-verify.md"
+  assert_no_path "$sandbox_fresh/home/.claude/agents/b-explore.md"
+  assert_no_path "$sandbox_fresh/home/.claude/agents/b-research.md"
+  assert_no_path "$sandbox_fresh/home/.claude/agents/b-review.md"
+  assert_no_path "$sandbox_fresh/home/.claude/agents/b-verify.md"
   assert_no_path "$sandbox_fresh/home/.claude/skills/b-plan/references"
   assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/SKILL.md" 'include durable frontmatter'
   assert_contains "$sandbox_fresh/home/.claude/skills/b-plan/reference.md" 'slug: <task-slug>'
@@ -80,8 +81,8 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"settingsAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"mcpAction": "write"'
   assert_contains "$sandbox_fresh/home/.claude/b-agentic/install.json" '"skills"'
-  assert_json_value "$sandbox_fresh/home/.claude/b-agentic/install.json" "set(data['agents']) == {'b-explore', 'b-research', 'b-review', 'b-verify'}"
-  assert_json_value "$sandbox_fresh/home/.claude/b-agentic/install.json" "data['paths']['agents'].endswith('/.claude/agents')"
+  assert_json_value "$sandbox_fresh/home/.claude/b-agentic/install.json" "'agents' not in data"
+  assert_json_value "$sandbox_fresh/home/.claude/b-agentic/install.json" "'agents' not in data['paths']"
 
   mkdir -p "$sandbox_install_report/home"
   HOME="$sandbox_install_report/home" \
@@ -92,7 +93,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_install_report/install.log" '==> [1/8] Syncing skills'
   assert_contains "$sandbox_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_install_report/install.log" 'activation: active'
-  assert_contains "$sandbox_install_report/install.log" 'agents: '
+  assert_not_contains "$sandbox_install_report/install.log" 'agents: '
   assert_contains "$sandbox_install_report/install.log" 'status-line: omitted by default; set B_AGENTIC_CLAUDE_STATUS_LINE=1 to install it'
   assert_contains "$sandbox_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
@@ -232,6 +233,33 @@ path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
 PY
   expect_install_status 0 "$sandbox_stale_skill" "$snapshot_repo" --uninstall
   assert_file "$sandbox_stale_skill/home/.claude/sentinel/SKILL.md"
+
+  mkdir -p "$sandbox_legacy_agents/home"
+  expect_install_status 0 "$sandbox_legacy_agents" "$snapshot_repo"
+  mkdir -p "$sandbox_legacy_agents/home/.claude/agents" "$sandbox_legacy_agents/home/.claude/b-agentic/agents"
+  printf 'managed old agent\n' > "$sandbox_legacy_agents/home/.claude/agents/b-explore.md"
+  printf 'managed old agent\n' > "$sandbox_legacy_agents/home/.claude/b-agentic/agents/b-explore.md"
+  printf 'modified old agent\n' > "$sandbox_legacy_agents/home/.claude/agents/b-review.md"
+  printf 'managed old agent\n' > "$sandbox_legacy_agents/home/.claude/b-agentic/agents/b-review.md"
+  python3 - "$sandbox_legacy_agents/home/.claude/b-agentic/install.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['agents'] = ['b-explore', 'b-review']
+data.setdefault('paths', {})['agents'] = str(path.parents[1] / 'agents')
+path.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
+PY
+  expect_install_status 0 "$sandbox_legacy_agents" "$snapshot_repo"
+  assert_file "$sandbox_legacy_agents/home/.claude/agents/b-explore.md"
+  assert_file "$sandbox_legacy_agents/home/.claude/agents/b-review.md"
+  assert_json_value "$sandbox_legacy_agents/home/.claude/b-agentic/install.json" "'agents' not in data"
+  expect_install_status 0 "$sandbox_legacy_agents" "$snapshot_repo" --uninstall
+  assert_no_path "$sandbox_legacy_agents/home/.claude/agents/b-explore.md"
+  assert_file "$sandbox_legacy_agents/home/.claude/agents/b-review.md"
+  assert_contains "$sandbox_legacy_agents/home/.claude/agents/b-review.md" 'modified old agent'
 
   mkdir -p "$sandbox_mcp_migration/home"
   printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp","headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"}},"brave-search":{"type":"stdio","command":"npx","args":["-y","@brave/brave-search-mcp-server","--transport","stdio"],"env":{"BRAVE_API_KEY":"${BRAVE_API_KEY}"}},"firecrawl":{"type":"stdio","command":"npx","args":["-y","firecrawl-mcp"],"env":{"FIRECRAWL_API_KEY":"${FIRECRAWL_API_KEY}"}},"playwright":{"type":"stdio","command":"npx","args":["-y","@playwright/mcp@latest","--isolated"],"env":{}}}}\n' > "$sandbox_mcp_migration/home/.claude.json"
