@@ -205,6 +205,25 @@ runtime_registered() {
   return 1
 }
 
+maybe_setup_rtk() {
+  local runtime_name="$1"
+  command -v rtk >/dev/null 2>&1 || return 0
+  case "$runtime_name" in
+    claude-code)
+      log "Setting up RTK for $runtime_name"
+      run_cmd rtk init -g --auto-patch || warn "rtk init failed for $runtime_name (continuing)"
+      ;;
+    codex-cli)
+      log "Setting up RTK for $runtime_name"
+      run_cmd rtk init -g --codex --auto-patch || warn "rtk init failed for $runtime_name (continuing)"
+      ;;
+    kilo-code)
+      log "Setting up RTK for $runtime_name"
+      run_cmd rtk init --agent kilocode --auto-patch || warn "rtk init failed for $runtime_name (continuing)"
+      ;;
+  esac
+}
+
 sync_source() {
   require_bin git
   require_bin python3
@@ -381,6 +400,7 @@ run_all_runtimes() {
 
     if run_runtime_action "$runtime_name"; then
       rc=0
+      maybe_setup_rtk "$runtime_name"
     else
       rc=$?
     fi
@@ -440,6 +460,9 @@ main() {
   ( set -e; runtime_main )
   rc=$?
   set -e
+  if [ "$rc" -eq 0 ]; then
+    maybe_setup_rtk "$RUNTIME"
+  fi
   return "$rc"
 }
 

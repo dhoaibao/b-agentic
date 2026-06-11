@@ -39,6 +39,7 @@ Answer external-knowledge questions at the lightest reliable depth, with fetched
 - `firecrawl-extraction` (known URLs and local documents)
 - `firecrawl-extended` *(optional, for site maps or structured fields)*
 - `firecrawl-deep` *(last resort; explicit approval required)*
+- Optional runtime subagent: `b-research` may gather bounded public-source evidence. The active **b-research** skill owns source selection, synthesis, citations, status, and handoff.
 
 ## Steps
 
@@ -86,6 +87,7 @@ Research: answer, key findings, limitations, sources, confidence.
 ## Rules
 
 - Never ask the user to choose lookup vs research; decide and auto-deepen.
+- Subagents are optional accelerators; never use them for private/internal material without the same approval gates, and never let them own conclusions or status blocks.
 - Use the lightest depth that answers correctly.
 - Prefer 2-4 authoritative sources over long weak lists.
 - Hand off code changes to **b-implement**, tracing to **b-debug**, and planning to **b-plan**.

@@ -8,6 +8,8 @@ run_runtime_smoke_cases() {
   local snapshot_repo="$1"
   local sandbox_kilo="$WORK_DIR/kilo"
   local sandbox_kilo_collision="$WORK_DIR/kilo-collision"
+  local sandbox_kilo_identical="$WORK_DIR/kilo-identical"
+  local sandbox_kilo_modified="$WORK_DIR/kilo-modified"
   local sandbox_kilo_merge="$WORK_DIR/kilo-merge"
   local sandbox_kilo_prompt_keys="$WORK_DIR/kilo-prompt-keys"
   local sandbox_kilo_install_report="$WORK_DIR/kilo-install-report"
@@ -18,10 +20,10 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_kilo/home/.config/kilo/AGENTS.md" '<!-- b-agentic-managed -->'
   assert_file "$sandbox_kilo/home/.config/kilo/skills/b-plan/SKILL.md"
   assert_file "$sandbox_kilo/home/.config/kilo/skills/b-plan/reference.md"
-  assert_no_path "$sandbox_kilo/home/.config/kilo/agents/b-explore.md"
-  assert_no_path "$sandbox_kilo/home/.config/kilo/agents/b-research.md"
-  assert_no_path "$sandbox_kilo/home/.config/kilo/agents/b-review.md"
-  assert_no_path "$sandbox_kilo/home/.config/kilo/agents/b-verify.md"
+  assert_file "$sandbox_kilo/home/.config/kilo/agents/b-explore.md"
+  assert_file "$sandbox_kilo/home/.config/kilo/agents/b-research.md"
+  assert_file "$sandbox_kilo/home/.config/kilo/agents/b-review.md"
+  assert_file "$sandbox_kilo/home/.config/kilo/agents/b-verify.md"
   assert_file "$sandbox_kilo/home/.config/kilo/b-agentic/install.json"
   assert_contains "$sandbox_kilo/home/.config/kilo/b-agentic/install.json" '"runtime": "kilo-code"'
   assert_contains "$sandbox_kilo/home/.config/kilo/b-agentic/install.json" '"activationState": "active"'
@@ -49,7 +51,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_kilo_install_report/install.log" '==> [1/7] Syncing skills'
   assert_contains "$sandbox_kilo_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_kilo_install_report/install.log" 'activation: active'
-  assert_not_contains "$sandbox_kilo_install_report/install.log" 'agents: '
+  assert_contains "$sandbox_kilo_install_report/install.log" 'agents: '
   assert_contains "$sandbox_kilo_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_kilo_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'
   assert_contains "$sandbox_kilo_install_report/install.log" 'mcp-config: templates installed only; external MCP servers are not started or authenticated by installer'
@@ -68,6 +70,20 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_kilo_collision/home/.config/kilo/agents/b-explore.md" 'user agent'
   expect_install_status 0 "$sandbox_kilo_collision" "$snapshot_repo" --runtime=kilo-code --uninstall
   assert_contains "$sandbox_kilo_collision/home/.config/kilo/agents/b-explore.md" 'user agent'
+
+  mkdir -p "$sandbox_kilo_identical/home/.config/kilo/agents"
+  cp "$snapshot_repo/runtimes/kilo-code/agents/b-explore.md" "$sandbox_kilo_identical/home/.config/kilo/agents/b-explore.md"
+  expect_install_status 0 "$sandbox_kilo_identical" "$snapshot_repo" --runtime=kilo-code
+  assert_file "$sandbox_kilo_identical/home/.config/kilo/agents/b-explore.md"
+  expect_install_status 0 "$sandbox_kilo_identical" "$snapshot_repo" --runtime=kilo-code --uninstall
+  assert_file "$sandbox_kilo_identical/home/.config/kilo/agents/b-explore.md"
+
+  mkdir -p "$sandbox_kilo_modified/home"
+  expect_install_status 0 "$sandbox_kilo_modified" "$snapshot_repo" --runtime=kilo-code
+  printf 'user edit\n' >> "$sandbox_kilo_modified/home/.config/kilo/agents/b-explore.md"
+  expect_install_status 0 "$sandbox_kilo_modified" "$snapshot_repo" --runtime=kilo-code --uninstall
+  assert_file "$sandbox_kilo_modified/home/.config/kilo/agents/b-explore.md"
+  assert_contains "$sandbox_kilo_modified/home/.config/kilo/agents/b-explore.md" 'user edit'
 
   mkdir -p "$sandbox_kilo_merge/home/.config/kilo"
   printf '{"mcp":{"my-custom":{"type":"local","command":["my-tool"]}},"userOnly":true}\n' > "$sandbox_kilo_merge/home/.config/kilo/kilo.jsonc"

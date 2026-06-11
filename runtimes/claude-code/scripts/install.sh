@@ -10,6 +10,7 @@ readonly CLAUDE_DIR="${B_AGENTIC_CLAUDE_DIR:-$HOME/.claude}"
 readonly METADATA_DIR="$CLAUDE_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="$CLAUDE_DIR/skills"
+readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
 readonly AGENTS_DST="$CLAUDE_DIR/agents"
 readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 readonly KERNEL_DST="$CLAUDE_DIR/CLAUDE.md"
@@ -90,6 +91,7 @@ PY
 }
 
 runtime_install_extra_assets() {
+  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "md" "Claude Code agent" INSTALL_AGENT_NAMES
   install_hook_checker
 }
 
@@ -102,6 +104,7 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
+  local agents_string="${INSTALL_AGENT_NAMES[*]}"
 
   if dry_run_enabled; then
     printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
@@ -125,17 +128,20 @@ runtime_write_manifest() {
     CLAUDE_DIR="$CLAUDE_DIR" \
     CLAUDE_JSON_DST="$CLAUDE_JSON_DST" \
     SKILLS_DST="$SKILLS_DST" \
+    AGENTS_DST="$AGENTS_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SETTINGS_DST="$SETTINGS_DST" \
     SKILLS="$skills_string" \
+    AGENTS="$agents_string" \
     python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
+agents = [name for name in os.environ['AGENTS'].split() if name]
 manifest = {
     'suite': 'b-agentic',
     'runtime': os.environ['RUNTIME'],
@@ -151,12 +157,14 @@ manifest = {
         'claudeJson': os.environ['CLAUDE_JSON_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
+        'agents': os.environ['AGENTS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
         'hookChecker': os.environ['REFERENCES_DST'].replace('/references', '/hooks/check-runtime.py'),
         'settings': os.environ['SETTINGS_DST'],
     },
     'skills': skills,
+    'agents': agents,
     'backups': {
         'claudeMd': os.environ['MEMORY_BACKUP'],
         'settings': os.environ['SETTINGS_BACKUP'],
@@ -172,6 +180,7 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
+  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "settings" "$INSTALL_SETTINGS_ACTION -> $SETTINGS_DST"
   if claude_status_line_enabled; then

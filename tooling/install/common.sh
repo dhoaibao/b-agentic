@@ -217,12 +217,7 @@ install_managed_profiles() {
 
 uninstall_managed_profiles() {
   local manifest_key="$1" dst_dir="$2" snapshot_dir="$3" extension="$4" label="$5"
-  local name path snapshot names_source
-  names_source="$(mktemp "${TMPDIR:-/tmp}/b-agentic-${manifest_key}.XXXXXX")"
-  manifest_array_values "$manifest_key" >"$names_source" || true
-  if [ ! -s "$names_source" ]; then
-    managed_profile_names "$snapshot_dir" "$extension" >"$names_source"
-  fi
+  local name path snapshot
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     if ! managed_profile_name_is_safe "$name"; then
@@ -241,8 +236,7 @@ uninstall_managed_profiles() {
     else
       warn "preserving modified $label profile: $path"
     fi
-  done < "$names_source"
-  rm -f "$names_source"
+  done < <(manifest_array_values "$manifest_key" || managed_profile_names "$snapshot_dir" "$extension")
 }
 
 skill_name_is_current() {

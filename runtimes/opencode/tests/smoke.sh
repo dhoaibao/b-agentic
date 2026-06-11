@@ -24,10 +24,10 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_opencode/home/.config/opencode/AGENTS.md" '<!-- b-agentic-managed -->'
   assert_file "$sandbox_opencode/home/.config/opencode/skills/b-plan/SKILL.md"
   assert_file "$sandbox_opencode/home/.config/opencode/skills/b-plan/reference.md"
-  assert_no_path "$sandbox_opencode/home/.config/opencode/agents/b-explore.md"
-  assert_no_path "$sandbox_opencode/home/.config/opencode/agents/b-research.md"
-  assert_no_path "$sandbox_opencode/home/.config/opencode/agents/b-review.md"
-  assert_no_path "$sandbox_opencode/home/.config/opencode/agents/b-verify.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/agents/b-explore.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/agents/b-research.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/agents/b-review.md"
+  assert_file "$sandbox_opencode/home/.config/opencode/agents/b-verify.md"
   assert_file "$sandbox_opencode/home/.config/opencode/commands/b-plan.md"
   assert_contains "$sandbox_opencode/home/.config/opencode/commands/b-plan.md" 'Load the `b-plan` skill'
   assert_file "$sandbox_opencode/home/.config/opencode/b-agentic/install.json"
@@ -36,9 +36,9 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" '"activationState": "active"'
   assert_contains "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" '"mcpAction": "write"'
   assert_json_value "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" "'b-plan' in data['commands']"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" "'agents' not in data"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" "set(data['agents']) == {'b-explore', 'b-research', 'b-review', 'b-verify'}"
   assert_json_value "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" "data['paths']['commands'].endswith('/.config/opencode/commands')"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" "'agents' not in data['paths']"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/b-agentic/install.json" "data['paths']['agents'].endswith('/.config/opencode/agents')"
   assert_no_path "$sandbox_opencode/home/.claude.json"
   assert_no_path "$sandbox_opencode/home/.claude/settings.json"
   assert_file "$sandbox_opencode/home/.config/opencode/opencode.json"
@@ -89,7 +89,7 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox_opencode_install_report/install.log" '==> [1/7] Syncing skills'
   assert_contains "$sandbox_opencode_install_report/install.log" 'Summary:'
   assert_contains "$sandbox_opencode_install_report/install.log" 'activation: active'
-  assert_not_contains "$sandbox_opencode_install_report/install.log" 'agents: '
+  assert_contains "$sandbox_opencode_install_report/install.log" 'agents: '
   assert_contains "$sandbox_opencode_install_report/install.log" 'commands: '
   assert_contains "$sandbox_opencode_install_report/install.log" 'Readiness:'
   assert_contains "$sandbox_opencode_install_report/install.log" 'serena: install/init separately; installer never runs onboarding'

@@ -10,6 +10,7 @@ readonly CODEX_DIR="${B_AGENTIC_CODEX_DIR:-$HOME/.codex}"
 readonly METADATA_DIR="$CODEX_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="${B_AGENTIC_SKILLS_DST:-$HOME/.codex/skills}"
+readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
 readonly AGENTS_DST="${B_AGENTIC_CODEX_AGENTS_DIR:-$HOME/.codex/agents}"
 readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 readonly RULES_SRC="$SOURCE_DIR/runtimes/$RUNTIME/rules"
@@ -402,6 +403,7 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
+  local agents_string="${INSTALL_AGENT_NAMES[*]}"
   local rules_string="${INSTALL_RULE_NAMES[*]}"
 
   if dry_run_enabled; then
@@ -424,12 +426,14 @@ runtime_write_manifest() {
     CODEX_DIR="$CODEX_DIR" \
     CODEX_CONFIG_DST="$CODEX_CONFIG_DST" \
     SKILLS_DST="$SKILLS_DST" \
+    AGENTS_DST="$AGENTS_DST" \
     RULES_DST="$RULES_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     HOOK_CHECKER_DST="$HOOK_CHECKER_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SKILLS="$skills_string" \
+    AGENTS="$agents_string" \
     RULES="$rules_string" \
     python3 - <<'PY'
 import json
@@ -437,6 +441,7 @@ import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
+agents = [name for name in os.environ['AGENTS'].split() if name]
 rules = [name for name in os.environ['RULES'].split() if name]
 manifest = {
     'suite': 'b-agentic',
@@ -452,12 +457,14 @@ manifest = {
         'codexConfig': os.environ['CODEX_CONFIG_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
+        'agents': os.environ['AGENTS_DST'],
         'rules': os.environ['RULES_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
         'hookChecker': os.environ['HOOK_CHECKER_DST'],
     },
     'skills': skills,
+    'agents': agents,
     'rules': rules,
     'backups': {
         'agentsMd': os.environ['MEMORY_BACKUP'],
@@ -473,6 +480,7 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
+  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "rules" "${#INSTALL_RULE_NAMES[@]} synced -> $RULES_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "config" "$INSTALL_CONFIG_ACTION -> $CODEX_CONFIG_DST"
@@ -560,6 +568,7 @@ runtime_uninstall_configs() {
 }
 
 runtime_install_extra_assets() {
+  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "toml" "Codex agent" INSTALL_AGENT_NAMES
   install_managed_profiles "$RULES_SRC" "$RULES_DST" "$RULES_SNAPSHOT_DST" "rules" "Codex rule" INSTALL_RULE_NAMES
   install_hook_checker
   install_uninstall_helper
@@ -582,7 +591,7 @@ runtime_main() {
 
   collect_installed_skills INSTALL_SKILL_NAMES
   run_stage "Syncing skills" install_skills
-  run_stage "Installing runtime extras" runtime_install_extra_assets
+  run_stage "Installing agent profiles" runtime_install_extra_assets
   run_stage "Syncing references and templates" install_references_and_templates
 
   run_install_triplet_stage "Installing kernel" install_kernel "preserve" "pending" "none" \

@@ -20,6 +20,7 @@ maintainer = (root / 'CLAUDE.md').read_text() if (root / 'CLAUDE.md').exists() e
 install_sh = (root / 'install.sh').read_text() if (root / 'install.sh').exists() else ''
 claude_install = (root / 'runtimes' / 'claude-code' / 'scripts' / 'install.sh').read_text() if (root / 'runtimes' / 'claude-code' / 'scripts' / 'install.sh').exists() else ''
 readme = (root / 'README.md').read_text() if (root / 'README.md').exists() else ''
+agents_dir = root / 'runtimes' / 'claude-code' / 'agents'
 
 if (root / 'global' / 'AGENTS.md').exists():
     errors.append('global/AGENTS.md: stale OpenCode kernel source should be removed or renamed')
@@ -75,7 +76,7 @@ for required in ['runtimes/$RUNTIME/kernel.md', 'skills', 'shared references sup
 if 'references/b-agentic' in install_sh:
     errors.append("install.sh: stale shared reference path 'references/b-agentic'")
 
-for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'report_item "skills"', '$HOME/.claude', 'report_item "activation"', 'install_hook_checker']:
+for required in ['settingsAction', 'mcpAction', 'CLAUDE_JSON_DST', 'report_item "skills"', 'report_item "agents"', '$HOME/.claude', 'report_item "activation"', 'install_hook_checker']:
     if required not in claude_install:
         errors.append(f'runtimes/claude-code/scripts/install.sh: missing Claude installer marker {required!r}')
 
@@ -84,14 +85,16 @@ for required in ['check-runtime.py', '--client claude-code', '--event stop']:
     if required not in settings_template:
         errors.append(f'runtimes/claude-code/configs/settings.template.json: missing hook checker marker {required!r}')
 
-if (root / 'runtimes' / 'claude-code' / 'agents').exists():
-    errors.append('runtimes/claude-code/agents: default subagent profiles must not be shipped')
-for forbidden in ['AGENTS_SRC', 'report_item "agents"', 'install_managed_profiles "$AGENTS_SRC"']:
-    if forbidden in claude_install:
-        errors.append(f'runtimes/claude-code/scripts/install.sh: stale default subagent install marker {forbidden!r}')
-for required in ['AGENTS_DST', 'AGENTS_SNAPSHOT_DST', 'uninstall_managed_profiles']:
+if not agents_dir.exists():
+    errors.append('runtimes/claude-code/agents: missing Claude agent profile source directory')
+else:
+    expected_agents = {'b-explore', 'b-research', 'b-review', 'b-verify'}
+    agent_names = {path.stem for path in agents_dir.glob('*.md')}
+    if agent_names != expected_agents:
+        errors.append(f'runtimes/claude-code/agents: expected {sorted(expected_agents)}, found {sorted(agent_names)}')
+for required in ['AGENTS_SRC', 'AGENTS_DST', 'install_managed_profiles', 'uninstall_managed_profiles']:
     if required not in claude_install:
-        errors.append(f'runtimes/claude-code/scripts/install.sh: missing old-agent cleanup marker {required!r}')
+        errors.append(f'runtimes/claude-code/scripts/install.sh: missing Claude agent profile marker {required!r}')
 
 if 'Global MCP Setup' not in claude_readme or '~/.claude.json' not in claude_readme:
     errors.append('runtimes/claude-code/configs/README.md: missing global MCP setup documentation')
@@ -102,7 +105,7 @@ for required in [
 ]:
     if required not in claude_readme:
         errors.append(f'runtimes/claude-code/configs/README.md: missing continuation/card marker {required!r}')
-for required in ['Governance assets', 'Default install does not create subagent profiles']:
+for required in ['Optional subagent profiles', 'Governance assets', '~/.claude/agents/']:
     if required not in claude_readme:
         errors.append(f'runtimes/claude-code/configs/README.md: missing governance marker {required!r}')
 

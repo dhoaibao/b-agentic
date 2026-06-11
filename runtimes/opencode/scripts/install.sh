@@ -10,6 +10,7 @@ readonly OPENCODE_DIR="${B_AGENTIC_OPENCODE_DIR:-$HOME/.config/opencode}"
 readonly METADATA_DIR="$OPENCODE_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
 readonly SKILLS_DST="${B_AGENTIC_SKILLS_DST:-$HOME/.config/opencode/skills}"
+readonly AGENTS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/agents"
 readonly AGENTS_DST="${B_AGENTIC_OPENCODE_AGENTS_DIR:-$HOME/.config/opencode/agents}"
 readonly AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 readonly COMMANDS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/commands"
@@ -155,6 +156,7 @@ install_commands() {
 
 runtime_install_extra_assets() {
   [ -d "$COMMANDS_SRC" ] || die "missing command source directory: $COMMANDS_SRC"
+  install_managed_profiles "$AGENTS_SRC" "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" "md" "OpenCode agent" INSTALL_AGENT_NAMES
   install_commands INSTALL_COMMAND_NAMES
 }
 
@@ -165,6 +167,7 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
   local skills_string="${INSTALL_SKILL_NAMES[*]}"
+  local agents_string="${INSTALL_AGENT_NAMES[*]}"
   local commands_string="${INSTALL_COMMAND_NAMES[*]}"
 
   if dry_run_enabled; then
@@ -186,11 +189,13 @@ runtime_write_manifest() {
     OPENCODE_DIR="$OPENCODE_DIR" \
     OPENCODE_JSON_DST="$OPENCODE_JSON_DST" \
     SKILLS_DST="$SKILLS_DST" \
+    AGENTS_DST="$AGENTS_DST" \
     COMMANDS_DST="$COMMANDS_DST" \
     REFERENCES_DST="$REFERENCES_DST" \
     TEMPLATES_DST="$TEMPLATES_DST" \
     KERNEL_DST="$KERNEL_DST" \
     SKILLS="$skills_string" \
+    AGENTS="$agents_string" \
     COMMANDS="$commands_string" \
     python3 - <<'PY'
 import json
@@ -198,6 +203,7 @@ import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
+agents = [name for name in os.environ['AGENTS'].split() if name]
 commands = [name for name in os.environ['COMMANDS'].split() if name]
 manifest = {
     'suite': 'b-agentic',
@@ -212,11 +218,13 @@ manifest = {
         'opencodeJson': os.environ['OPENCODE_JSON_DST'],
         'kernel': os.environ['KERNEL_DST'],
         'skills': os.environ['SKILLS_DST'],
+        'agents': os.environ['AGENTS_DST'],
         'commands': os.environ['COMMANDS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'templates': os.environ['TEMPLATES_DST'],
     },
     'skills': skills,
+    'agents': agents,
     'commands': commands,
     'backups': {
         'agentsMd': os.environ['MEMORY_BACKUP'],
@@ -232,6 +240,7 @@ runtime_print_install_report() {
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
+  report_item "agents" "${#INSTALL_AGENT_NAMES[@]} synced -> $AGENTS_DST"
   report_item "commands" "${#INSTALL_COMMAND_NAMES[@]} synced -> $COMMANDS_DST"
   report_item "kernel" "$INSTALL_MEMORY_ACTION -> $KERNEL_DST"
   report_item "mcp" "$INSTALL_MCP_ACTION -> $OPENCODE_JSON_DST"

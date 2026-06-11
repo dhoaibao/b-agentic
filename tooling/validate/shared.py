@@ -473,14 +473,12 @@ if isinstance(runtime_records, list):
             errors.append("runtimes/registry.yaml: Claude Code must remain the single reference runtime")
         reference_capabilities = reference_record.get("capabilities", {})
         if isinstance(reference_capabilities, dict):
-            for capability in ["permissions", "hooks", "rules"]:
+            for capability in ["permissions", "hooks", "rules", "subagents"]:
                 adoption = reference_capabilities.get(capability, {}).get("adoption")
                 if adoption != "shared":
                     errors.append(
                         f"runtimes/registry.yaml: Claude Code {capability} must stay adoption 'shared' while shared assets depend on it"
                     )
-            if reference_capabilities.get("subagents", {}).get("adoption") != "deferred":
-                errors.append("runtimes/registry.yaml: subagent profiles must remain deferred unless explicitly adopted")
             if reference_capabilities.get("plugins", {}).get("adoption") != "deferred":
                 errors.append("runtimes/registry.yaml: plugin packaging must remain deferred until explicitly adopted")
 
@@ -522,8 +520,8 @@ capability_policy_markers = [
         [
             "Claude Code is the reference runtime and capability ceiling",
             'adoption: "shared"',
-            "Subagents are deferred runtime extras.",
-            "Do not make subagents part of the default workflow contract.",
+            "Subagents are optional accelerators.",
+            "Do not use subagents to auto-continue phase-to-phase workflow or bypass approval gates.",
         ],
     ),
     (
@@ -541,7 +539,7 @@ capability_policy_markers = [
         [
             "Claude Code is the primary reference runtime",
             "If Claude Code supports a capability and marks it shared, b-agentic may adopt it",
-            "Subagent profiles are deferred and are not installed by default",
+            "managed permissions, hooks, rules, and optional subagent profiles",
         ],
     ),
     (
@@ -550,21 +548,23 @@ capability_policy_markers = [
         [
             "Runtime-native assets such as permissions, hooks, rules, subagents, plugins, wrappers, and custom tools must be declared in `runtimes/registry.yaml`.",
             'unless Claude Code has `adoption: "shared"`',
-            "Subagent profiles are deferred extras",
+            "Optional subagent profiles are evidence helpers",
         ],
     ),
 ]
 for _policy_path, _policy_text, _policy_markers in capability_policy_markers:
     require_contains(_policy_path, _policy_text, _policy_markers, "runtime capability policy marker")
 
-for _runtime_name in runtime_names:
-    if (ROOT / "runtimes" / _runtime_name / "agents").exists():
-        errors.append(f"runtimes/{_runtime_name}/agents: default subagent profiles must not be shipped")
-
-for _skill_path in skill_paths:
-    _skill_text = read_text(_skill_path)
-    if "Optional runtime subagent:" in _skill_text or "Subagents are optional accelerators" in _skill_text:
-        errors.append(f"{rel(_skill_path)}: default skills must not require or advertise subagent delegation")
+subagent_prompt_requirements = {
+    "b-plan": ["Optional runtime subagent: `b-explore`", "The active **b-plan** skill owns scope, decisions, saved-plan content, status, and handoff."],
+    "b-research": ["Optional runtime subagent: `b-research`", "The active **b-research** skill owns source selection, synthesis, citations, status, and handoff."],
+    "b-review": ["Optional runtime subagent: `b-review`", "The active **b-review** skill owns finding severity, final verdict, status, and handoff."],
+    "b-test": ["Optional runtime subagent: `b-verify`", "The active **b-test** skill owns failure classification, fixes, assertions, status, and handoff."],
+}
+for _skill_name, _markers in subagent_prompt_requirements.items():
+    _prompt_path = ROOT / "skills" / _skill_name / "prompt.md"
+    _prompt_text = read_text(_prompt_path)
+    require_contains(_prompt_path, _prompt_text, _markers + ["Subagents are optional accelerators"], "optional subagent delegation marker")
 
 browser_evidence_row = (
     "| Browser/DOM/visual/e2e evidence | Supplied/CI evidence or existing repo scripts "

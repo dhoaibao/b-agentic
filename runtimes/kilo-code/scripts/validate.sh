@@ -19,6 +19,7 @@ kilo_readme = (root / 'runtimes' / 'kilo-code' / 'configs' / 'README.md').read_t
 contract_index = (root / 'references' / 'contract' / 'index.md').read_text() if (root / 'references' / 'contract' / 'index.md').exists() else ''
 maintainer = (root / 'CLAUDE.md').read_text() if (root / 'CLAUDE.md').exists() else ''
 kilo_install = (root / 'runtimes' / 'kilo-code' / 'scripts' / 'install.sh').read_text() if (root / 'runtimes' / 'kilo-code' / 'scripts' / 'install.sh').exists() else ''
+agents_dir = root / 'runtimes' / 'kilo-code' / 'agents'
 runtime_registry_path = root / 'runtimes' / 'registry.yaml'
 
 try:
@@ -64,14 +65,16 @@ for required in ['SKILLS_DST', 'KERNEL_DST', 'METADATA_DIR', 'runtime_main', 'KI
     if required not in kilo_install:
         errors.append(f'runtimes/kilo-code/scripts/install.sh: missing Kilo Code installer marker {required!r}')
 
-if (root / 'runtimes' / 'kilo-code' / 'agents').exists():
-    errors.append('runtimes/kilo-code/agents: default subagent profiles must not be shipped')
-for forbidden in ['AGENTS_SRC', 'report_item "agents"', 'install_managed_profiles "$AGENTS_SRC"']:
-    if forbidden in kilo_install:
-        errors.append(f'runtimes/kilo-code/scripts/install.sh: stale default subagent install marker {forbidden!r}')
-for required in ['AGENTS_DST', 'AGENTS_SNAPSHOT_DST', 'uninstall_managed_profiles']:
+if not agents_dir.exists():
+    errors.append('runtimes/kilo-code/agents: missing Kilo Code agent profile source directory')
+else:
+    expected_agents = {'b-explore', 'b-research', 'b-review', 'b-verify'}
+    agent_names = {path.stem for path in agents_dir.glob('*.md')}
+    if agent_names != expected_agents:
+        errors.append(f'runtimes/kilo-code/agents: expected {sorted(expected_agents)}, found {sorted(agent_names)}')
+for required in ['AGENTS_SRC', 'AGENTS_DST', 'install_managed_profiles', 'uninstall_managed_profiles', 'report_item "agents"']:
     if required not in kilo_install:
-        errors.append(f'runtimes/kilo-code/scripts/install.sh: missing old-agent cleanup marker {required!r}')
+        errors.append(f'runtimes/kilo-code/scripts/install.sh: missing Kilo Code agent profile marker {required!r}')
 
 mcp_template_path = root / 'runtimes' / 'kilo-code' / 'configs' / 'mcp.user.template.json'
 if not mcp_template_path.exists():
@@ -85,7 +88,7 @@ if 'runtime-neutral' not in kilo_readme:
     errors.append('runtimes/kilo-code/configs/README.md: must state that shared skills/contracts stay runtime-neutral')
 if '~/.config/kilo/skills/' not in kilo_readme:
     errors.append('runtimes/kilo-code/configs/README.md: must document the Kilo Code skills install root')
-for required in ['Default install does not create subagent profiles', 'previously managed profiles can still be removed by uninstall']:
+for required in ['Optional subagent profiles', '~/.config/kilo/agents/', 'User-owned or modified profiles are preserved']:
     if required not in kilo_readme:
         errors.append(f'runtimes/kilo-code/configs/README.md: missing governance marker {required!r}')
 for required in [

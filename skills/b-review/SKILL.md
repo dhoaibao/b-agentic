@@ -38,6 +38,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--self`
 
 - `bash` - inspect diff/status/log and run narrow verification when needed.
 - `serena-symbol-toolkit` - inspect changed symbols, references, diagnostics, and boundaries.
+- Optional runtime subagent: `b-review` may inspect bounded diff slices. The active **b-review** skill owns finding severity, final verdict, status, and handoff.
 
 ## Steps
 
@@ -91,6 +92,7 @@ Scope/Path/Baseline -> Findings -> Checked and clean -> Coverage/Tests/Observabi
 ## Rules
 
 - Findings come first; summaries are secondary.
+- Subagents are optional accelerators; never let them emit final verdicts, status blocks, or unverified findings without active-skill review.
 - Label no-baseline reviews as `baseline-missing`.
 - Do not run broad checks by default.
 - Do not edit files during review unless the user asks for fixes.

@@ -6,6 +6,7 @@ Adapter-owned layout for Kilo Code. Shared skills and contracts stay runtime-neu
 
 - Kernel memory: `~/.config/kilo/AGENTS.md`
 - Skills: `~/.config/kilo/skills/<skill-name>/SKILL.md`
+- Optional subagent profiles: `~/.config/kilo/agents/<agent-name>.md`
 - Skill support: `~/.config/kilo/skills/<skill-name>/reference.md`
 - Suite metadata/backups/snapshots: `~/.config/kilo/b-agentic/`
 - Shared references: `~/.config/kilo/b-agentic/references/contract/*.md`
@@ -23,11 +24,11 @@ This adapter does not provide native phase-to-phase automation. Workflows resume
 
 ## Safety and MCP
 
-The installer never overwrites `~/.config/kilo/AGENTS.md` without `--replace-memory`. Plain install syncs skills, shared references, kernel, and MCP config; uninstall removes only managed assets that still match the managed snapshot.
+The installer never overwrites `~/.config/kilo/AGENTS.md` without `--replace-memory`. Plain install syncs skills, optional subagent profiles, shared references, kernel, and MCP config; uninstall removes only managed assets that still match the managed snapshot.
 
 Kilo Code uses `~/.config/kilo/kilo.jsonc` (global) and `./kilo.jsonc` or `.kilo/kilo.jsonc` (project). MCP servers live under the `mcp` key and permissions under the `permission` key. The installer merges `mcp.user.template.json`, preserves user entries, and removes only b-agentic entries on uninstall. The merge normalizes JSONC to plain JSON; user comments inside the managed config file are preserved where possible but may be stripped during merge operations.
 
-Default install does not create subagent profiles; previously managed profiles can still be removed by uninstall when they match their saved snapshots.
+Optional b-agentic subagent profiles are read-only or ask-gated helpers for exploration, research, review, and verification. User-owned or modified profiles are preserved.
 
 ## MCP readiness after install
 

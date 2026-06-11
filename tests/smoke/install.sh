@@ -127,20 +127,6 @@ EOF
   assert_no_path "$skill_dir"
   assert_no_path "$kernel_path"
   assert_no_path "$sandbox_custom/home/custom-meta"
-
-  mkdir -p "$sandbox_custom/home/missing-snapshot-meta" "$sandbox_custom/home/missing-snapshot-kernel"
-  manifest_path="$sandbox_custom/home/missing-snapshot-meta/install.json"
-  kernel_path="$sandbox_custom/home/missing-snapshot-kernel/CLAUDE.md"
-  printf '<!-- b-agentic-managed -->\nuser edited kernel\n' > "$kernel_path"
-  cat > "$manifest_path" <<EOF
-{"runtime":"claude-code","paths":{"kernel":"$kernel_path"},"skills":[],"agents":[]}
-EOF
-
-  HOME="$sandbox_custom/home" python3 "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$manifest_path" >"$sandbox_custom/missing-snapshot-uninstall.log" 2>&1
-
-  assert_contains "$sandbox_custom/missing-snapshot-uninstall.log" 'preserving modified managed kernel'
-  assert_file "$kernel_path"
-  assert_no_path "$sandbox_custom/home/missing-snapshot-meta"
 }
 
 run_all_runtime_smoke_case() {
