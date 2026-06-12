@@ -26,7 +26,7 @@ Useful flags:
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
 
-Requirements: `bash`, `git`, `python3`, and `pnpm` for MCP entries that use `pnpm dlx`. Codex CLI config install requires Python 3.11+ for standard-library TOML parsing.
+Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`.
 
 ## Runtime Support
 

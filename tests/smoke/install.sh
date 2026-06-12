@@ -335,26 +335,35 @@ run_skill_doctor_case() {
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
   local doctor_log="$WORK_DIR/skill-doctor.log"
+  local expected_skill_count
   mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
+  expected_skill_count="$(registry_skill_count)"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
+  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
   assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" 'skill: ready'
+  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'discovery: ready:'
+  rm -rf "$sandbox_claude/home/.claude/skills/b-review"
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'skills: missing or mismatched: missing b-review'
+  assert_contains "$doctor_log" 'discovery: blocked: install complete skill payload'
 
   expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
   python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
+  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
   assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" 'skill: ready'
+  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'config: ready'
   assert_contains "$doctor_log" 'discovery: ready:'
 
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
   python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
   assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" 'skill: ready'
-  assert_contains "$doctor_log" 'wrapper: ready'
+  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
+  assert_contains "$doctor_log" "wrappers: ready: $expected_skill_count wrappers installed"
   assert_contains "$doctor_log" 'discovery: ready:'
 
 }

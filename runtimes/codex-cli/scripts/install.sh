@@ -20,7 +20,6 @@ readonly TEMPLATES_DST="$METADATA_DIR/templates"
 readonly MANIFEST_DST="$METADATA_DIR/install.json"
 readonly CODEX_CONFIG_DST="${B_AGENTIC_CODEX_CONFIG:-$HOME/.codex/config.toml}"
 readonly CODEX_CONFIG_BACKUP_KEY="codexConfig"
-readonly RUNTIME_PRE_ACTION_ENFORCEMENT="advisory-only"
 
 readonly CODEX_MANAGED_BEGIN="# BEGIN b-agentic managed config"
 readonly CODEX_MANAGED_END="# END b-agentic managed config"

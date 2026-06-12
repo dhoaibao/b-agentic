@@ -46,6 +46,8 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 4. Check tests, edge cases, security, operability, and evidence quality.
 5. Emit findings ordered by severity. If none, say so and name residual risk.
 
+For `--audit-suite` or explicit b-agentic audits, check kernel slimness, source/generated sync, runtime parity, installer safety, MCP leverage, validation evidence, and cleanup candidates. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.
+
 ## Output format
 
 Findings, checked-and-clean areas, coverage/verification, and verdict: `READY FOR PR`, `READY WITH FOLLOW-UPS`, or `NEEDS FIXES`.

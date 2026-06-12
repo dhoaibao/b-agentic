@@ -19,6 +19,8 @@ The installer never overwrites `~/.codex/AGENTS.md` without `--replace-memory`. 
 
 MCP entries cover Serena, Context7, Brave Search, Firecrawl, and Playwright. API-key-backed tools require user-scope keys or matching shell environment variables. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
 
+Codex CLI uses managed command governance rules for baseline gates. The managed rules prompt before commits, pushes, pulls, reverts, dependency writes, and recursive removes; they forbid destructive git history/worktree commands and broad Docker resource deletion.
+
 ## Validation
 
 Use `scripts/validate-skills.sh` and `scripts/validate-skills.sh --release` from the repository root.

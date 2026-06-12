@@ -34,6 +34,10 @@ def command_ready(command: str) -> bool:
     return shutil.which(command) is not None
 
 
+def list_matches(value: object, expected: list[str]) -> bool:
+    return isinstance(value, list) and value == expected
+
+
 def join_issues(issues: list[str]) -> str:
     return "; ".join(issues)
 
@@ -45,13 +49,22 @@ def claude_server_status(server: str, config: dict) -> str:
         return "missing: config entry not installed"
 
     if server == "serena":
+        if entry.get("command") != "serena" or not list_matches(entry.get("args"), ["start-mcp-server", "--context", "claude-code", "--project-from-cwd"]):
+            return "blocked: invalid serena launcher"
         return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
     if server == "context7":
+        if entry.get("type") != "http" or entry.get("url") != "https://mcp.context7.com/mcp":
+            return "blocked: invalid context7 config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "playwright":
+        if entry.get("command") != "pnpm" or not list_matches(entry.get("args"), ["dlx", "@playwright/mcp@latest", "--isolated"]):
+            return "blocked: invalid playwright launcher"
         return "ready: pnpm available" if command_ready("pnpm") else "blocked: install pnpm"
 
     issues: list[str] = []
+    expected_args = ["dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"] if server == "brave-search" else ["dlx", "firecrawl-mcp"]
+    if entry.get("command") != "pnpm" or not list_matches(entry.get("args"), expected_args):
+        issues.append(f"invalid {server} launcher")
     if not command_ready("pnpm"):
         issues.append("install pnpm")
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
@@ -70,15 +83,24 @@ def json_mcp_server_status(server: str, config: dict) -> str:
 
     if server == "serena":
         command = entry.get("command")
-        if isinstance(command, list) and command and command[0] == "serena" and command_ready("serena"):
+        if not list_matches(command, ["serena", "start-mcp-server", "--context", "ide", "--project-from-cwd"]):
+            return "blocked: invalid serena launcher"
+        if command_ready("serena"):
             return "ready: serena command found"
         return "blocked: install serena"
     if server == "context7":
+        if entry.get("type") != "remote" or entry.get("url") != "https://mcp.context7.com/mcp":
+            return "blocked: invalid context7 config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "playwright":
+        if not list_matches(entry.get("command"), ["pnpm", "dlx", "@playwright/mcp@latest", "--isolated"]):
+            return "blocked: invalid playwright launcher"
         return "ready: pnpm available" if command_ready("pnpm") else "blocked: install pnpm"
 
     issues: list[str] = []
+    expected_command = ["pnpm", "dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"] if server == "brave-search" else ["pnpm", "dlx", "firecrawl-mcp"]
+    if not list_matches(entry.get("command"), expected_command):
+        issues.append(f"invalid {server} launcher")
     if not command_ready("pnpm"):
         issues.append("install pnpm")
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
@@ -97,16 +119,25 @@ def codex_server_status(server: str, config: dict) -> str:
 
     if server == "serena":
         command = entry.get("command")
-        return "ready: serena command found" if command == "serena" and command_ready("serena") else "blocked: install serena"
+        if command != "serena" or not list_matches(entry.get("args"), ["start-mcp-server", "--context", "codex", "--project-from-cwd"]):
+            return "blocked: invalid serena launcher"
+        return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
     if server == "context7":
+        if entry.get("url") != "https://mcp.context7.com/mcp":
+            return "blocked: invalid context7 config"
         headers = entry.get("http_headers", {})
         if isinstance(headers, dict) and isinstance(headers.get("CONTEXT7_API_KEY"), str) and headers.get("CONTEXT7_API_KEY"):
             return "ready: CONTEXT7_API_KEY configured in Codex config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "playwright":
+        if entry.get("command") != "pnpm" or not list_matches(entry.get("args"), ["dlx", "@playwright/mcp@latest", "--isolated"]):
+            return "blocked: invalid playwright launcher"
         return "ready: pnpm available" if command_ready("pnpm") else "blocked: install pnpm"
 
     issues: list[str] = []
+    expected_args = ["dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"] if server == "brave-search" else ["dlx", "firecrawl-mcp"]
+    if entry.get("command") != "pnpm" or not list_matches(entry.get("args"), expected_args):
+        issues.append(f"invalid {server} launcher")
     if not command_ready("pnpm"):
         issues.append("install pnpm")
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"

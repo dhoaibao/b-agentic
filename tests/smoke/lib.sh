@@ -264,3 +264,14 @@ for runtime in registry.get('runtimes', []):
         print(name)
 PY
 }
+
+registry_skill_count() {
+  python3 - "$ROOT_DIR/skills/registry.yaml" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+registry = json.loads(Path(sys.argv[1]).read_text())
+print(len([skill for skill in registry.get('skills', []) if isinstance(skill, dict) and isinstance(skill.get('name'), str)]))
+PY
+}

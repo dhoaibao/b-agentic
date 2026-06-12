@@ -92,6 +92,13 @@ require_bin() {
   command -v "$1" >/dev/null 2>&1 || die "required binary not found: $1"
 }
 
+require_python_311() {
+  python3 - <<'PY' >/dev/null 2>&1 || die "Python 3.11+ is required."
+import sys
+sys.exit(0 if sys.version_info >= (3, 11) else 1)
+PY
+}
+
 check_dependencies() {
   local dependency_label="curl, git, python3"
 
@@ -111,6 +118,7 @@ check_dependencies() {
 
   # Runtime installers use Python for structured config and manifest updates.
   require_bin python3
+  require_python_311
   log "Using $dependency_label"
 }
 

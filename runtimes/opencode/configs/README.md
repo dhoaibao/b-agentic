@@ -17,6 +17,8 @@ The installer never overwrites `~/.config/opencode/AGENTS.md` without `--replace
 
 OpenCode uses the `mcp` key for Serena, Context7, Brave Search, Firecrawl, and Playwright. API-key-backed tools require user-scope keys. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
 
+OpenCode uses `permission` config for baseline gates. The managed template asks by default for bash and edits, allows low-risk inspection commands, denies destructive git and broad remove commands, and allows only managed `b-*` skills.
+
 ## Validation
 
 Use `scripts/validate-skills.sh` and `scripts/validate-skills.sh --release` from the repository root.
