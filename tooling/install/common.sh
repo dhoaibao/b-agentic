@@ -1005,6 +1005,74 @@ report_item() {
   log "  $label: $value"
 }
 
+runtime_mcp_key_configured() {
+  mcp_secret_configured "$@"
+}
+
+mcp_key_available() {
+  local server="$1" section="$2" key="$3"
+  local env_value="${!key:-}"
+  if [ -n "$env_value" ]; then
+    return 0
+  fi
+  runtime_mcp_key_configured "$server" "$section" "$key"
+}
+
+join_readiness_issues() {
+  local sep="" issue
+  for issue in "$@"; do
+    [ -n "$issue" ] || continue
+    printf '%s%s' "$sep" "$issue"
+    sep='; '
+  done
+}
+
+serena_readiness_status() {
+  if command -v serena >/dev/null 2>&1; then
+    printf 'ready: serena command found; onboarding remains user-run'
+  else
+    printf 'blocked: install serena; onboarding remains user-run'
+  fi
+}
+
+context7_readiness_status() {
+  if mcp_key_available context7 "$MCP_CONTEXT7_SECTION" CONTEXT7_API_KEY; then
+    printf 'ready: CONTEXT7_API_KEY available'
+  else
+    printf 'blocked: missing CONTEXT7_API_KEY'
+  fi
+}
+
+brave_search_readiness_status() {
+  local -a issues=()
+  command -v pnpm >/dev/null 2>&1 || issues+=("install pnpm")
+  mcp_key_available brave-search "$MCP_BRAVE_SECTION" BRAVE_API_KEY || issues+=("set BRAVE_API_KEY")
+  if [ "${#issues[@]}" -eq 0 ]; then
+    printf 'ready: pnpm and BRAVE_API_KEY available'
+    return 0
+  fi
+  printf 'blocked: %s' "$(join_readiness_issues "${issues[@]}")"
+}
+
+firecrawl_readiness_status() {
+  local -a issues=()
+  command -v pnpm >/dev/null 2>&1 || issues+=("install pnpm")
+  mcp_key_available firecrawl "$MCP_FIRECRAWL_SECTION" FIRECRAWL_API_KEY || issues+=("set FIRECRAWL_API_KEY")
+  if [ "${#issues[@]}" -eq 0 ]; then
+    printf 'ready: pnpm and FIRECRAWL_API_KEY available'
+    return 0
+  fi
+  printf 'blocked: %s' "$(join_readiness_issues "${issues[@]}")"
+}
+
+playwright_readiness_status() {
+  if command -v pnpm >/dev/null 2>&1; then
+    printf 'ready: pnpm available'
+  else
+    printf 'blocked: install pnpm'
+  fi
+}
+
 print_install_report_header() {
   local runtime_label="$1"
   local action_label="install"
@@ -1018,9 +1086,12 @@ print_install_report_header() {
 
 print_install_report_readiness() {
   report_section "Readiness"
-  report_item "serena" "install/init separately; installer never runs onboarding"
-  report_item "mcp-config" "templates installed only; external MCP servers are not started or authenticated by installer"
-  report_item "api-keys" "Context7, Brave Search, and Firecrawl need user-scope keys"
+  report_item "serena" "$(serena_readiness_status)"
+  report_item "context7" "$(context7_readiness_status)"
+  report_item "brave-search" "$(brave_search_readiness_status)"
+  report_item "firecrawl" "$(firecrawl_readiness_status)"
+  report_item "playwright" "$(playwright_readiness_status)"
+  report_item "mcp-startup" "runtime starts MCP servers on demand; installer does not preload or authenticate them"
   report_item "safety" "runtime permissions plus kernel approval gates; no separate hook/state setup"
 }
 

@@ -247,6 +247,141 @@ run_opencode_skill_command_collision_smoke_case() {
   assert_json_value "$manifest_path" "'b-plan' not in data['commands']"
 }
 
+run_readiness_report_case() {
+  local snapshot_repo="$1"
+  local sandbox_claude="$WORK_DIR/readiness-claude"
+  local sandbox_codex="$WORK_DIR/readiness-codex"
+  local rc=0
+
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home"
+
+  set +e
+  run_install_with_tty_log "$sandbox_claude" "$snapshot_repo" "$sandbox_claude/install.log" --runtime=claude-code
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Claude readiness install exit 0, got $rc"
+  assert_contains "$sandbox_claude/install.log" 'Readiness:'
+  assert_contains "$sandbox_claude/install.log" 'serena:'
+  assert_contains "$sandbox_claude/install.log" 'context7:'
+  assert_contains "$sandbox_claude/install.log" 'brave-search:'
+  assert_contains "$sandbox_claude/install.log" 'firecrawl:'
+  assert_contains "$sandbox_claude/install.log" 'playwright:'
+  assert_contains "$sandbox_claude/install.log" 'mcp-startup:'
+
+  set +e
+  run_install_with_tty_log "$sandbox_codex" "$snapshot_repo" "$sandbox_codex/install.log" --runtime=codex-cli
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Codex readiness install exit 0, got $rc"
+  assert_contains "$sandbox_codex/install.log" 'Readiness:'
+  assert_contains "$sandbox_codex/install.log" 'serena:'
+  assert_contains "$sandbox_codex/install.log" 'context7:'
+  assert_contains "$sandbox_codex/install.log" 'brave-search:'
+  assert_contains "$sandbox_codex/install.log" 'firecrawl:'
+  assert_contains "$sandbox_codex/install.log" 'playwright:'
+  assert_contains "$sandbox_codex/install.log" 'mcp-startup:'
+}
+
+run_mcp_doctor_case() {
+  local snapshot_repo="$1"
+  local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
+  local sandbox_codex="$WORK_DIR/mcp-doctor-codex"
+  local sandbox_opencode="$WORK_DIR/mcp-doctor-opencode"
+  local sandbox_kilo="$WORK_DIR/mcp-doctor-kilo"
+  local bin_dir="$WORK_DIR/mcp-doctor-bin"
+  local doctor_log="$WORK_DIR/mcp-doctor.log"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kilo/home" "$bin_dir"
+
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
+  chmod +x "$bin_dir/serena" "$bin_dir/pnpm"
+
+  expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'context7: ready:'
+  assert_contains "$doctor_log" 'brave-search: ready:'
+  assert_contains "$doctor_log" 'firecrawl: ready:'
+  assert_contains "$doctor_log" 'playwright: ready:'
+
+  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'context7: ready:'
+  assert_contains "$doctor_log" 'brave-search: ready:'
+  assert_contains "$doctor_log" 'firecrawl: ready:'
+  assert_contains "$doctor_log" 'playwright: ready:'
+
+  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'context7: ready:'
+  assert_contains "$doctor_log" 'brave-search: ready:'
+  assert_contains "$doctor_log" 'firecrawl: ready:'
+  assert_contains "$doctor_log" 'playwright: ready:'
+
+  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=kilo-code --home "$sandbox_kilo/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'context7: ready:'
+  assert_contains "$doctor_log" 'brave-search: ready:'
+  assert_contains "$doctor_log" 'firecrawl: ready:'
+  assert_contains "$doctor_log" 'playwright: ready:'
+}
+
+run_skill_doctor_case() {
+  local snapshot_repo="$1"
+  local sandbox_claude="$WORK_DIR/skill-doctor-claude"
+  local sandbox_codex="$WORK_DIR/skill-doctor-codex"
+  local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
+  local sandbox_kilo="$WORK_DIR/skill-doctor-kilo"
+  local doctor_log="$WORK_DIR/skill-doctor.log"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kilo/home"
+
+  expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'kernel: ready'
+  assert_contains "$doctor_log" 'skill: ready'
+  assert_contains "$doctor_log" 'discovery: ready:'
+
+  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'kernel: ready'
+  assert_contains "$doctor_log" 'skill: ready'
+  assert_contains "$doctor_log" 'config: ready'
+  assert_contains "$doctor_log" 'discovery: ready:'
+
+  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'kernel: ready'
+  assert_contains "$doctor_log" 'skill: ready'
+  assert_contains "$doctor_log" 'wrapper: ready'
+  assert_contains "$doctor_log" 'discovery: ready:'
+
+  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=kilo-code --home "$sandbox_kilo/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'kernel: ready'
+  assert_contains "$doctor_log" 'skill: ready'
+  assert_contains "$doctor_log" 'config: ready'
+  assert_contains "$doctor_log" 'discovery: ready:'
+}
+
 main() {
   local snapshot_repo="$WORK_DIR/repo-snapshot"
   local runtime_name runtime_script
@@ -260,6 +395,9 @@ main() {
   run_manifest_only_custom_paths_case
   run_skill_collision_smoke_case "$snapshot_repo"
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
+  run_readiness_report_case "$snapshot_repo"
+  run_mcp_doctor_case "$snapshot_repo"
+  run_skill_doctor_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue

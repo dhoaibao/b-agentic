@@ -21,6 +21,9 @@
       "mcp__firecrawl__firecrawl_agent",
       "mcp__firecrawl__firecrawl_crawl",
       "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git revert *)",
       "Bash(npm install *)",
       "Bash(pnpm install *)",
       "Bash(yarn install *)",
@@ -35,7 +38,9 @@
       "Read(./credentials/**)",
       "Bash(git reset --hard *)",
       "Bash(git clean -f *)",
-      "Bash(git push --force *)"
+      "Bash(git push --force *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git branch -D *)"
     ]
   }
 }

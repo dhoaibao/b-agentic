@@ -84,7 +84,7 @@ The installer writes recommended MCP entries for:
 - Firecrawl: bounded extraction and approved deeper research.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
-The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run Serena onboarding, or verify API keys.
+The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, or run Serena onboarding. It does report local MCP readiness blockers such as missing binaries or API keys.
 
 ## Repository Layout
 
@@ -107,6 +107,14 @@ Validation:
 scripts/validate-skills.sh
 scripts/validate-skills.sh --release
 scripts/smoke-install.sh
+scripts/mcp-doctor.sh --runtime=claude-code
+scripts/mcp-doctor.sh --runtime=codex-cli
+scripts/mcp-doctor.sh --runtime=opencode
+scripts/mcp-doctor.sh --runtime=kilo-code
+scripts/skill-doctor.sh --runtime=claude-code
+scripts/skill-doctor.sh --runtime=codex-cli
+scripts/skill-doctor.sh --runtime=opencode
+scripts/skill-doctor.sh --runtime=kilo-code
 ```
 
 ## Docs

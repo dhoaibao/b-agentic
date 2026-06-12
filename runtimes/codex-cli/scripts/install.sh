@@ -60,6 +60,10 @@ sys.exit(0 if isinstance(value, str) and value else 1)
 PY
 }
 
+runtime_mcp_key_configured() {
+  codex_secret_configured "$@"
+}
+
 runtime_warn_missing_cli() {
   command -v codex >/dev/null 2>&1 || warn "codex CLI not found; files will still be installed for Codex to discover later."
 }

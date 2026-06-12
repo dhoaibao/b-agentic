@@ -19,6 +19,11 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox/home/.claude.json"
   assert_file "$sandbox/home/.claude/b-agentic/install.json"
   assert_contains "$sandbox/home/.claude/settings.json" 'mcp__serena__*'
+  assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git push *)'
+  assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git pull *)'
+  assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git revert *)'
+  assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git push --force-with-lease *)'
+  assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git branch -D *)'
   assert_not_contains "$sandbox/home/.claude/settings.json" 'firecrawl_monitor'
   assert_not_contains "$sandbox/home/.claude/settings.json" 'check-runtime.py'
   assert_no_path "$sandbox/home/.claude/agents/b-explore.md"
