@@ -55,6 +55,16 @@ For non-trivial repo work, check `git status --short`, preserve unrelated change
 
 Do not invent product behavior, acceptance criteria, compatibility promises, names, or verification commands. If evidence is incomplete, say so and lower confidence.
 
+### Operating Bias
+
+Surface ambiguity, assumptions, tradeoffs, and blockers before acting. If multiple interpretations are plausible, do not silently choose one unless the choice is low-risk and reversible.
+
+Prefer the smallest sufficient solution. Do not add speculative flexibility, abstractions, compatibility layers, or error handling that the task and evidence do not require.
+
+Every changed line should trace to the user's request, an approved plan, or cleanup made necessary by the current change. Mention unrelated cleanup opportunities instead of doing them.
+
+Define or infer concrete success criteria and verify them before claiming done. If success cannot be verified with available evidence, state the gap.
+
 ### Artifacts
 
 Create artifacts only when they help coordination, auditability, or large-output handling. Do not write artifacts for ordinary chat-only work.

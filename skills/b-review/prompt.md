@@ -30,7 +30,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 1. Scope the review: working tree, range, baseline, or suite-audit surface.
 2. Choose baseline. Without baseline, do a risk review and do not claim requirements coverage.
 3. Inspect highest-risk changed symbols and boundaries first.
-4. Check tests, edge cases, security, operability, and evidence quality.
+4. Check tests, edge cases, security, operability, evidence quality, hidden assumptions, unnecessary diff, and over-abstraction.
 5. Emit findings ordered by severity. If none, say so and name residual risk.
 
 For `--audit-suite` or explicit b-agentic audits, check kernel slimness, source/generated sync, runtime parity, installer safety, MCP leverage, validation evidence, and cleanup candidates. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.
@@ -44,4 +44,5 @@ Findings, checked-and-clean areas, coverage/verification, and verdict: `READY FO
 - Findings come first.
 - Do not edit files during review.
 - Do not claim `READY FOR PR` without baseline and passing verification evidence.
+- Treat unrelated cleanup, speculative flexibility, and unverified success criteria as review risks.
 - Treat generated, lockfile, snapshot, vendored, and minified changes as derived unless source generation is clear.

@@ -27,7 +27,7 @@ Execute approved or clearly scoped work in the smallest coherent step.
 
 1. Resolve the source of truth: approved plan, approved chat instruction, or small direct request.
 2. Run `git status --short` and preserve unrelated changes.
-3. State expected files/symbols, invariant behavior, and verification.
+3. State expected files/symbols, invariant behavior, and success criteria; infer narrow criteria only when obvious.
 4. Edit the smallest coherent slice. Use Serena for symbol work and native edits for prose/config/string changes.
 5. Run the narrowest useful verification.
 6. Inspect the diff and report changes, verification, and remaining gaps.
@@ -39,6 +39,7 @@ Changes, verification, and any blockers or follow-up. Recommend **b-review** for
 ## Rules
 
 - Stay within approved scope.
+- Every changed line should trace to the approved scope or cleanup made necessary by this change.
 - Ask before dependencies, services, destructive commands, commits, pushes, PRs, or broad refactors.
 - Do not add opportunistic cleanup or compatibility code.
 - Do not claim done when required verification is missing or failed.

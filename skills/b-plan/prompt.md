@@ -26,9 +26,9 @@ Turn unclear or high-risk goals into the smallest executable plan. Do not implem
 ## Steps
 
 1. State the interpreted goal, constraints, and non-goals.
-2. Ask only blocking questions. Prefer repo evidence over questions.
+2. If multiple interpretations are plausible, present them briefly and choose only when the choice is low-risk; otherwise ask.
 3. Inspect only files/symbols needed to avoid guessing.
-4. Choose the smallest safe approach and list ordered steps.
+4. Choose the smallest safe approach, surface material tradeoffs, and push back if a simpler or safer path exists.
 5. Include `Done when` verification for each step.
 
 For plans spanning more than 3 files, public contracts, dependencies, CI/build, or durable coordination, save a plan under `.b-agentic/b-plan/` only if it will materially help execution.
