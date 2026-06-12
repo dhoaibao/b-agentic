@@ -29,6 +29,27 @@ Use these rules before any skill-specific instruction.
 - Changed-code review or b-agentic suite audit -> `b-review`.
 - Commit/push/PR -> `b-ship` only on explicit user request.
 
+## Shell commands
+
+When `rtk` is installed, route every shell command through it by prefixing the command with `rtk`.
+
+Rule: always prefix shell commands with `rtk` when `rtk` is available.
+
+Examples:
+
+- `rtk git status`
+- `rtk cargo test`
+- `rtk npm run build`
+- `rtk pytest -q`
+
+Meta commands:
+
+- `rtk gain` — token savings analytics
+- `rtk gain --history` — recent command savings history
+- `rtk proxy <cmd>` — run raw command without filtering
+
+Verification: `rtk --version`, `rtk gain`, `which rtk`
+
 Detailed refs live under `{{runtime_metadata_root}}/references/contract/`:
 - `runtime.md` - routing, source of truth, work discipline, artifacts, and output.
 - `safety-tools.md` - approvals, privacy, git safety, tool ownership.

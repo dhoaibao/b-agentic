@@ -8,6 +8,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --dry-run
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=all
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-rtk
 
 set -euo pipefail
 
@@ -21,6 +22,7 @@ REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
+INSTALL_RTK_VALUE="${B_AGENTIC_INSTALL_RTK:-auto}"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
@@ -142,6 +144,12 @@ parse_args() {
         ;;
       --no-prompt-api-keys)
         PROMPT_API_KEYS_VALUE=N
+        ;;
+      --install-rtk)
+        INSTALL_RTK_VALUE=Y
+        ;;
+      --no-install-rtk)
+        INSTALL_RTK_VALUE=N
         ;;
       --runtime=*)
         RUNTIME="${1#--runtime=}"
@@ -327,6 +335,43 @@ try_manifest_only_uninstall() {
   manifest_only_uninstall_one "$RUNTIME" "$manifest_path"
 }
 
+install_rtk() {
+  case "${INSTALL_RTK_VALUE:-auto}" in
+    n|N|no|NO|No|false|FALSE|0) return 0 ;;
+    y|Y|yes|YES|Yes|true|TRUE|1) ;;
+    auto|AUTO|Auto)
+      if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
+        return 0
+      fi
+      local answer=""
+      printf 'Install RTK (Rust Token Killer) to reduce shell command token usage? [y/N]: ' > /dev/tty
+      IFS= read -r answer < /dev/tty || answer=""
+      case "$answer" in
+        y|Y|yes|YES|Yes|true|TRUE|1) ;;
+        *) return 0 ;;
+      esac
+      ;;
+    *) die "invalid B_AGENTIC_INSTALL_RTK value: $INSTALL_RTK_VALUE" ;;
+  esac
+
+  if command -v rtk >/dev/null 2>&1; then
+    log "RTK already installed"
+    return 0
+  fi
+
+  if dry_run_enabled; then
+    printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh\n' >&2
+    return 0
+  fi
+
+  log "Installing RTK"
+  if curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh; then
+    log "RTK installed"
+  else
+    warn "RTK installation failed; continuing without RTK"
+  fi
+}
+
 source_installer_core() {
   local common_src="$SOURCE_DIR/tooling/install/common.sh"
   [ -f "$common_src" ] || die "missing installer core: $common_src"
@@ -415,6 +460,10 @@ main() {
 
   check_dependencies
   install_app
+
+  if ! uninstall_enabled; then
+    install_rtk
+  fi
 
   if [ "$RUNTIME" = "all" ]; then
     set +e

@@ -263,6 +263,7 @@ run_readiness_report_case() {
   assert_contains "$sandbox_claude/install.log" 'firecrawl:'
   assert_contains "$sandbox_claude/install.log" 'playwright:'
   assert_contains "$sandbox_claude/install.log" 'mcp-startup:'
+  assert_contains "$sandbox_claude/install.log" 'rtk:'
 
   set +e
   run_install_with_tty_log "$sandbox_codex" "$snapshot_repo" "$sandbox_codex/install.log" --runtime=codex-cli
@@ -276,6 +277,7 @@ run_readiness_report_case() {
   assert_contains "$sandbox_codex/install.log" 'firecrawl:'
   assert_contains "$sandbox_codex/install.log" 'playwright:'
   assert_contains "$sandbox_codex/install.log" 'mcp-startup:'
+  assert_contains "$sandbox_codex/install.log" 'rtk:'
 }
 
 run_mcp_doctor_case() {

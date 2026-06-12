@@ -25,8 +25,32 @@ Useful flags:
 - `--dry-run` previews changes
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
+- `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`.
+
+## RTK (Rust Token Killer)
+
+When `--install-rtk` is used, the installer downloads and runs the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
+
+Once installed, the kernel instructs the agent to route every shell command through RTK by prefixing it with `rtk`:
+
+```bash
+rtk git status
+rtk cargo test
+rtk npm run build
+rtk pytest -q
+```
+
+Meta commands:
+
+```bash
+rtk gain            # Token savings analytics
+rtk gain --history  # Recent command savings history
+rtk proxy <cmd>     # Run raw command without filtering
+```
+
+Verification: `rtk --version`, `rtk gain`, `which rtk`.
 
 ## Runtime Support
 

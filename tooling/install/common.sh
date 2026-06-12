@@ -1072,6 +1072,14 @@ playwright_readiness_status() {
   fi
 }
 
+rtk_readiness_status() {
+  if command -v rtk >/dev/null 2>&1; then
+    printf 'ready: rtk installed'
+  else
+    printf 'blocked: install rtk (https://github.com/rtk-ai/rtk)'
+  fi
+}
+
 print_install_report_header() {
   local runtime_label="$1"
   local action_label="install"
@@ -1090,6 +1098,7 @@ print_install_report_readiness() {
   report_item "brave-search" "$(brave_search_readiness_status)"
   report_item "firecrawl" "$(firecrawl_readiness_status)"
   report_item "playwright" "$(playwright_readiness_status)"
+  report_item "rtk" "$(rtk_readiness_status)"
   report_item "mcp-startup" "runtime starts MCP servers on demand; installer does not preload or authenticate them"
   report_item "safety" "runtime permissions plus kernel approval gates; no separate hook/state setup"
 }
@@ -1123,6 +1132,7 @@ print_install_report_next_steps() {
 
   report_item "manifest" "review $MANIFEST_DST for installed paths and backup metadata"
   report_item "keys" "add user-scope API keys only if you plan to use Context7, Brave Search, or Firecrawl"
+  report_item "rtk" "install with --install-rtk or manually to reduce shell command token usage"
 }
 
 install_mcp_config() {

@@ -90,6 +90,7 @@ run_install_status() {
   B_AGENTIC_REPO="$repo_snapshot" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
   bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
   rc=$?
   set -e
@@ -109,6 +110,7 @@ run_install_status_in_cwd() {
     B_AGENTIC_REPO="$repo_snapshot" \
     B_AGENTIC_DIR="$sandbox/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
+    B_AGENTIC_INSTALL_RTK=N \
     bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
   )
   rc=$?
@@ -133,6 +135,7 @@ env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_INSTALL_RTK"] = "N"
 
 pid, fd = pty.fork()
 if pid == 0:
@@ -184,6 +187,7 @@ env["HOME"] = os.path.join(sandbox, "home")
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RTK"] = "N"
 
 pid, fd = pty.fork()
 if pid == 0:
