@@ -126,7 +126,7 @@ if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 
 contract_dir = ROOT / "references" / "contract"
-expected_contracts = {"runtime.md", "safety-tools.md", "output.md", "kernel.template.md"}
+expected_contracts = {"runtime.md", "safety-tools.md", "kernel.template.md"}
 actual_contracts = {path.name for path in contract_dir.glob("*.md")}
 if actual_contracts != expected_contracts:
     errors.append(
@@ -135,7 +135,7 @@ if actual_contracts != expected_contracts:
 
 for path in [ROOT / "references" / "contract" / "kernel.template.md", *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names)]:
     text = read_text(path)
-    for required in ["Core Rules", "Routing", "safety-tools.md", "output.md"]:
+    for required in ["Core Rules", "Routing", "runtime.md", "safety-tools.md"]:
         if required not in text:
             errors.append(f"{rel(path)}: missing kernel marker {required!r}")
     for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict governance", "Advisory-only runtime"]:

@@ -14,7 +14,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox/home/.claude/skills/b-plan/SKILL.md"
   assert_file "$sandbox/home/.claude/b-agentic/references/contract/runtime.md"
   assert_file "$sandbox/home/.claude/b-agentic/references/contract/safety-tools.md"
-  assert_file "$sandbox/home/.claude/b-agentic/references/contract/output.md"
+  assert_no_path "$sandbox/home/.claude/b-agentic/references/contract/output.md"
   assert_file "$sandbox/home/.claude/settings.json"
   assert_file "$sandbox/home/.claude.json"
   assert_file "$sandbox/home/.claude/b-agentic/install.json"

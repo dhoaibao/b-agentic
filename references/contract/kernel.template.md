@@ -30,9 +30,8 @@ Use these rules before any skill-specific instruction.
 - Commit/push/PR -> `b-ship` only on explicit user request.
 
 Detailed refs live under `{{runtime_metadata_root}}/references/contract/`:
-- `runtime.md` - routing, source of truth, work discipline, artifacts.
+- `runtime.md` - routing, source of truth, work discipline, artifacts, and output.
 - `safety-tools.md` - approvals, privacy, git safety, tool ownership.
-- `output.md` - handoff, blocked, review, and ship output shapes.
 
 Skill argument injection: `$ARGUMENTS` is the shared argument token. Treat unresolved `$ARGUMENTS` as no arguments provided.
 

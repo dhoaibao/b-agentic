@@ -21,7 +21,7 @@ for path in [kernel, settings, mcp]:
 
 if kernel.exists():
     text = kernel.read_text()
-    for marker in ['Agent Workflow Kernel', 'Core Rules', 'safety-tools.md', 'output.md']:
+    for marker in ['Agent Workflow Kernel', 'Core Rules', 'runtime.md', 'safety-tools.md']:
         if marker not in text:
             errors.append(f'{kernel}: missing {marker!r}')
 

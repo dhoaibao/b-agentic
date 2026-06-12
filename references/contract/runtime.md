@@ -61,4 +61,16 @@ Create artifacts only when they help coordination, auditability, or large-output
 
 Repo-local b-agentic artifacts belong under `.b-agentic/` and must not contain secrets, browser auth state, private stack traces, or customer data.
 
+### Output Discipline
+
+Default output is concise prose. Use structured blocks only when they reduce ambiguity: handoffs, blockers, review verdicts, or shipping approvals.
+
+Use a handoff only when another skill must continue the work, and include source skill, goal, decisions, assumptions, relevant files, verification, blockers, and next skill.
+
+Use a blocked-work note only when the requested work cannot continue, and include the active skill, blocker, needed user/tool/evidence/approval, and completed work.
+
+Review verdicts are `READY FOR PR`, `READY WITH FOLLOW-UPS`, or `NEEDS FIXES`. Findings come first in reviews, ordered by severity with file references when available.
+
+Before commit, push, or PR creation, report branch, intended staged files, recent commit context, verification, and the exact command that needs approval.
+
 ---

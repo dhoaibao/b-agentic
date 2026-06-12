@@ -30,7 +30,7 @@ The iron rule is: slim, strong, usable. Remove layers that mainly create ceremon
 - Prefer fewer concepts and shorter prompts.
 - Keep skill prompts task-specific; do not restate global kernel rules unless the skill needs a concrete variant.
 - Use `{{skill_support_path}}` and `{{runtime_reference_root}}` if template paths are needed.
-- Keep `references/contract/` to `runtime.md`, `safety-tools.md`, `output.md`, and `kernel.template.md` unless a new file clearly removes more complexity than it adds.
+- Keep `references/contract/` to `runtime.md`, `safety-tools.md`, and `kernel.template.md` unless a new file clearly removes more complexity than it adds.
 - Do not add hooks, state-machine governance, mandatory status blocks, or subagent profiles without a specific approved plan.
 
 ## Key Paths
@@ -48,7 +48,7 @@ The iron rule is: slim, strong, usable. Remove layers that mainly create ceremon
 - Skill metadata: edit `skills/registry.yaml`, rerun `python3 tooling/generate/registry_sync.py`.
 - Skill prompt: edit `skills/*/prompt.md`, rerun generation.
 - Kernel behavior: edit `references/contract/kernel.template.md`, rerun generation.
-- Contract behavior: edit `runtime.md`, `safety-tools.md`, or `output.md`.
+- Contract behavior: edit `runtime.md` or `safety-tools.md`.
 - Runtime behavior: update `runtimes/registry.yaml`, affected adapter scripts/docs, and smoke tests together.
 
 ## Validation
