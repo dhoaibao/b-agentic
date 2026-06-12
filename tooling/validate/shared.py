@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -48,18 +47,6 @@ def frontmatter_parts(path: Path) -> tuple[str, str]:
         errors.append(f"{rel(path)}: missing YAML frontmatter close")
         return "", text
     return parts[1], parts[2]
-
-
-def changed_by_generator() -> list[str]:
-    result = subprocess.run(
-        ["git", "diff", "--name-only"],
-        cwd=ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
 skills_registry = load_json(ROOT / "skills" / "registry.yaml")
@@ -165,7 +152,7 @@ for forbidden in ["firecrawl_monitor", "hooks", "statusLine", "check-runtime.py"
     if forbidden in claude_settings:
         errors.append(f"runtimes/claude-code/configs/settings.template.json: forbidden default permission/config {forbidden!r}")
 
-for deleted_path in ["tooling/state", "tooling/hooks", "tooling/conformance", "tooling/scenarios"]:
+for deleted_path in ["tooling/policy", "tooling/state", "tooling/hooks", "tooling/conformance", "tooling/scenarios"]:
     leftovers = [
         path for path in (ROOT / deleted_path).glob("**/*")
         if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
