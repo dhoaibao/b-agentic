@@ -9,6 +9,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=all
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-rtk
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-serena
 
 set -euo pipefail
 
@@ -23,6 +24,7 @@ UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
 INSTALL_RTK_VALUE="${B_AGENTIC_INSTALL_RTK:-auto}"
+INSTALL_SERENA_VALUE="${B_AGENTIC_INSTALL_SERENA:-auto}"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
@@ -150,6 +152,12 @@ parse_args() {
         ;;
       --no-install-rtk)
         INSTALL_RTK_VALUE=N
+        ;;
+      --install-serena)
+        INSTALL_SERENA_VALUE=Y
+        ;;
+      --no-install-serena)
+        INSTALL_SERENA_VALUE=N
         ;;
       --runtime=*)
         RUNTIME="${1#--runtime=}"
@@ -372,6 +380,96 @@ install_rtk() {
   fi
 }
 
+prompt_yes_no() {
+  local prompt_text="$1" default_answer="${2:-N}"
+  if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
+    return 1
+  fi
+  local answer=""
+  printf '%s: ' "$prompt_text" > /dev/tty
+  IFS= read -r answer < /dev/tty || answer=""
+  [ -n "$answer" ] || answer="$default_answer"
+  case "$answer" in
+    y|Y|yes|YES|Yes|true|TRUE|1) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+install_uv() {
+  if command -v uv >/dev/null 2>&1; then
+    log "uv already installed"
+    return 0
+  fi
+
+  if dry_run_enabled; then
+    printf '[dry-run] curl -LsSf https://astral.sh/uv/install.sh | sh\n' >&2
+    return 0
+  fi
+
+  if ! prompt_yes_no 'uv is required but not installed. Install uv now? [y/N]' N; then
+    warn "uv not installed; skipping Serena installation"
+    return 1
+  fi
+
+  log "Installing uv"
+  if ! curl -LsSf https://astral.sh/uv/install.sh | sh; then
+    warn "uv installation failed; skipping Serena installation"
+    return 1
+  fi
+
+  if command -v uv >/dev/null 2>&1; then
+    log "uv installed"
+    return 0
+  fi
+
+  if [ -x "$HOME/.cargo/bin/uv" ]; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+    log "uv installed"
+    return 0
+  fi
+
+  if [ -x "$HOME/.local/bin/uv" ]; then
+    export PATH="$HOME/.local/bin:$PATH"
+    log "uv installed"
+    return 0
+  fi
+
+  warn "uv installed but not found on PATH; skipping Serena installation"
+  return 1
+}
+
+install_serena() {
+  case "${INSTALL_SERENA_VALUE:-auto}" in
+    n|N|no|NO|No|false|FALSE|0) return 0 ;;
+    y|Y|yes|YES|Yes|true|TRUE|1) ;;
+    auto|AUTO|Auto)
+      if ! prompt_yes_no 'Install Serena MCP agent (requires uv)? [y/N]' N; then
+        return 0
+      fi
+      ;;
+    *) die "invalid B_AGENTIC_INSTALL_SERENA value: $INSTALL_SERENA_VALUE" ;;
+  esac
+
+  if command -v serena >/dev/null 2>&1; then
+    log "Serena already installed"
+    return 0
+  fi
+
+  install_uv || return 0
+
+  if dry_run_enabled; then
+    printf '[dry-run] uv tool install -p 3.13 serena-agent\n' >&2
+    return 0
+  fi
+
+  log "Installing Serena"
+  if uv tool install -p 3.13 serena-agent; then
+    log "Serena installed"
+  else
+    warn "Serena installation failed; continuing without Serena"
+  fi
+}
+
 source_installer_core() {
   local common_src="$SOURCE_DIR/tooling/install/common.sh"
   [ -f "$common_src" ] || die "missing installer core: $common_src"
@@ -463,6 +561,7 @@ main() {
 
   if ! uninstall_enabled; then
     install_rtk
+    install_serena
   fi
 
   if [ "$RUNTIME" = "all" ]; then

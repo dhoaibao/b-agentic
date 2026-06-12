@@ -1030,7 +1030,7 @@ serena_readiness_status() {
   if command -v serena >/dev/null 2>&1; then
     printf 'ready: serena command found; onboarding remains user-run'
   else
-    printf 'blocked: install serena; onboarding remains user-run'
+    printf 'blocked: install serena (rerun with --install-serena or install manually); onboarding remains user-run'
   fi
 }
 

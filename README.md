@@ -26,6 +26,7 @@ Useful flags:
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
 - `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
+- `--install-serena` installs the [Serena](https://github.com/hellocode-io/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`.
 
@@ -51,6 +52,18 @@ rtk proxy <cmd>     # Run raw command without filtering
 ```
 
 Verification: `rtk --version`, `rtk gain`, `which rtk`.
+
+## Serena MCP agent
+
+`--install-serena` installs the Serena MCP agent, which provides symbol discovery, references, diagnostics, and symbol edits.
+
+If `uv` is already installed, the installer runs:
+
+```bash
+uv tool install -p 3.13 serena-agent
+```
+
+If `uv` is missing, the installer prompts to install it from `https://astral.sh/uv/install.sh` before proceeding with Serena. As with any remote install script, only proceed if you trust the source.
 
 ## Runtime Support
 
