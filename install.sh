@@ -273,13 +273,12 @@ manifest_path_for_runtime() {
     claude-code) printf '%s/.claude/b-agentic/install.json' "$HOME" ;;
     opencode) printf '%s/.config/opencode/b-agentic/install.json' "$HOME" ;;
     codex-cli) printf '%s/.codex/b-agentic/install.json' "$HOME" ;;
-    kilo-code) printf '%s/.config/kilo/b-agentic/install.json' "$HOME" ;;
     *) return 1 ;;
   esac
 }
 
 manifest_only_runtime_names() {
-  printf '%s\n' claude-code opencode codex-cli kilo-code
+  printf '%s\n' claude-code opencode codex-cli
 }
 
 manifest_only_uninstall_one() {

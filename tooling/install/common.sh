@@ -793,7 +793,6 @@ cleaned = cleanup(current, incoming, original)
 mcp_labels = {
     '.claude.json': 'mcpServers',
     'opencode.json': 'mcp',
-    'kilo.jsonc': 'mcp',
 }
 mcp_key = mcp_labels.get(label)
 if mcp_key is not None:
@@ -875,7 +874,7 @@ if not isinstance(value, str) or not value:
     sys.exit(1)
 if placeholder_style == 'claude':
     sys.exit(1 if value.startswith('${') else 0)
-if placeholder_style in ('opencode', 'kilo'):
+if placeholder_style == 'opencode':
     sys.exit(1 if value.startswith('{env:') else 0)
 sys.exit(1)
 PY

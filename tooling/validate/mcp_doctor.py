@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 
-SUPPORTED_RUNTIMES = {"claude-code", "codex-cli", "opencode", "kilo-code"}
+SUPPORTED_RUNTIMES = {"claude-code", "codex-cli", "opencode"}
 SUPPORTED_SERVERS = ("serena", "context7", "brave-search", "firecrawl", "playwright")
 
 
@@ -126,8 +126,6 @@ def resolve_config_path(runtime: str, home: Path) -> Path:
         return home / ".codex" / "config.toml"
     if runtime == "opencode":
         return home / ".config" / "opencode" / "opencode.json"
-    if runtime == "kilo-code":
-        return home / ".config" / "kilo" / "kilo.jsonc"
     raise ValueError(runtime)
 
 

@@ -1,6 +1,6 @@
 # b-agentic
 
-**Slim workflow kernel for coding agents across Claude Code, OpenCode, Codex CLI, and Kilo Code.**
+**Slim workflow kernel for coding agents across Claude Code, OpenCode, and Codex CLI.**
 
 b-agentic installs a compact runtime kernel, focused phase skills, runtime adapters, and recommended MCP config. Its job is simple: route work, preserve safety gates, use the right evidence, verify before claiming done, and keep multi-runtime setup consistent.
 
@@ -18,7 +18,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `opencode`, `codex-cli`, or `kilo-code`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
 
 Useful flags:
 
@@ -35,7 +35,6 @@ Requirements: `bash`, `git`, `python3`, and `pnpm` for MCP entries that use `pnp
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
-| Kilo Code | Native skill tool from `~/.config/kilo/skills/` | `~/.config/kilo/kilo.jsonc` |
 
 <!-- generated:runtime-capabilities:start -->
 | Runtime | Skills | Permissions | Rules | Wrappers |
@@ -43,7 +42,6 @@ Requirements: `bash`, `git`, `python3`, and `pnpm` for MCP entries that use `pnp
 | Claude Code | native | native | native | unsupported |
 | OpenCode | native | native | native | native; adapter-only |
 | Codex CLI | native | native | native | unsupported |
-| Kilo Code | native | native | native | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
@@ -110,11 +108,9 @@ scripts/smoke-install.sh
 scripts/mcp-doctor.sh --runtime=claude-code
 scripts/mcp-doctor.sh --runtime=codex-cli
 scripts/mcp-doctor.sh --runtime=opencode
-scripts/mcp-doctor.sh --runtime=kilo-code
 scripts/skill-doctor.sh --runtime=claude-code
 scripts/skill-doctor.sh --runtime=codex-cli
 scripts/skill-doctor.sh --runtime=opencode
-scripts/skill-doctor.sh --runtime=kilo-code
 ```
 
 ## Docs

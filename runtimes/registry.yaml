@@ -106,41 +106,6 @@
         "source_dir": null,
         "install_root": null
       }
-    },
-    {
-      "name": "kilo-code",
-      "display_name": "Kilo Code",
-      "reference_runtime": false,
-      "kernel_source": "runtimes/kilo-code/kernel.md",
-      "memory_file": "AGENTS.md",
-      "memory_install_path": "~/.config/kilo/AGENTS.md",
-      "metadata_root": "~/.config/kilo/b-agentic",
-      "skills_install_root": "~/.config/kilo/skills",
-      "config_template_dir": "runtimes/kilo-code/configs",
-      "config_schema_family": "kilo-jsonc",
-      "capabilities": {
-        "skills": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "permissions": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "rules": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "command_wrappers": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        }
-      },
-      "command_wrappers": {
-        "supported": false,
-        "source_dir": null,
-        "install_root": null
-      }
     }
   ]
 }

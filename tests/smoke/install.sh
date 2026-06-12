@@ -161,7 +161,6 @@ run_all_runtime_smoke_case() {
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for claude-code'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for opencode'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for codex-cli'
-  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for kilo-code'
   assert_no_path "$sandbox_all/source"
 
   while IFS=$'\t' read -r runtime_name metadata_root kernel_path; do
@@ -179,9 +178,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
   assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
-  assert_no_path "$sandbox_all/home/.config/kilo/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.config/kilo/AGENTS.md"
-  assert_no_path "$sandbox_all/home/.config/kilo/agents/b-explore.md"
 
   mkdir -p "$sandbox_pending/home"
   IFS=$'\t' read -r pending_runtime_name _ pending_kernel_path < <(registry_runtime_records)
@@ -287,10 +283,9 @@ run_mcp_doctor_case() {
   local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
   local sandbox_codex="$WORK_DIR/mcp-doctor-codex"
   local sandbox_opencode="$WORK_DIR/mcp-doctor-opencode"
-  local sandbox_kilo="$WORK_DIR/mcp-doctor-kilo"
   local bin_dir="$WORK_DIR/mcp-doctor-bin"
   local doctor_log="$WORK_DIR/mcp-doctor.log"
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kilo/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
@@ -332,17 +327,6 @@ run_mcp_doctor_case() {
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
 
-  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=kilo-code --home "$sandbox_kilo/home" >"$doctor_log"
-  assert_contains "$doctor_log" 'serena: ready:'
-  assert_contains "$doctor_log" 'context7: ready:'
-  assert_contains "$doctor_log" 'brave-search: ready:'
-  assert_contains "$doctor_log" 'firecrawl: ready:'
-  assert_contains "$doctor_log" 'playwright: ready:'
 }
 
 run_skill_doctor_case() {
@@ -350,9 +334,8 @@ run_skill_doctor_case() {
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
-  local sandbox_kilo="$WORK_DIR/skill-doctor-kilo"
   local doctor_log="$WORK_DIR/skill-doctor.log"
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kilo/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
@@ -374,12 +357,6 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" 'wrapper: ready'
   assert_contains "$doctor_log" 'discovery: ready:'
 
-  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=kilo-code --home "$sandbox_kilo/home" >"$doctor_log"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" 'skill: ready'
-  assert_contains "$doctor_log" 'config: ready'
-  assert_contains "$doctor_log" 'discovery: ready:'
 }
 
 main() {
