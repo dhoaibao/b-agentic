@@ -38,7 +38,16 @@ if template.exists():
 
 if rules.exists():
     text = rules.read_text()
-    for marker in ['git", "reset", "--hard', 'git", "clean", "-f', 'git", "push", "--force', 'decision = "prompt"']:
+    for marker in [
+        'git", "reset", "--hard',
+        'git", "clean", "-f',
+        'git", "push", "--force',
+        'git", "commit',
+        'git", "push',
+        'git", "pull',
+        'git", "revert',
+        'decision = "prompt"',
+    ]:
         if marker not in text:
             errors.append(f'{rules}: missing command governance marker {marker!r}')
 
