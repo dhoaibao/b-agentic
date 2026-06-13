@@ -154,13 +154,23 @@ path = Path(os.environ["CODEX_CONFIG_DST"])
 begin = os.environ["CODEX_MANAGED_BEGIN"]
 end = os.environ["CODEX_MANAGED_END"]
 skills_root = Path(os.environ["SKILLS_DST"])
-source_dir = os.environ["SOURCE_DIR"]
+source_dir = Path(os.environ["SOURCE_DIR"])
+template_path = source_dir / "runtimes" / "codex-cli" / "configs" / "mcp.user.template.toml"
 skills = [name for name in os.environ.get("SKILLS", "").split() if name]
 current_text = path.read_text() if path.exists() else ""
 base_text, _managed_text = split_managed_block(current_text, begin, end)
 
 current = load_toml(current_text, "current file")
 base = load_toml(base_text, "user-owned portion")
+template = load_toml(template_path.read_text(), "Codex MCP template")
+template_servers = template.get("mcp_servers")
+if not isinstance(template_servers, dict):
+    raise SystemExit("invalid Codex MCP template: missing mcp_servers table")
+package_overrides = {
+    "brave-search": os.environ.get("B_AGENTIC_BRAVE_MCP_PACKAGE", "@brave/brave-search-mcp-server"),
+    "firecrawl": os.environ.get("B_AGENTIC_FIRECRAWL_MCP_PACKAGE", "firecrawl-mcp"),
+    "playwright": os.environ.get("B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE", "@playwright/mcp@latest"),
+}
 
 current_servers = current.get("mcp_servers") if isinstance(current.get("mcp_servers"), dict) else {}
 base_servers = base.get("mcp_servers") if isinstance(base.get("mcp_servers"), dict) else {}
@@ -187,6 +197,53 @@ def current_literal(server_name: str, section: str, key: str) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def toml_value(value) -> str:
+    if isinstance(value, str):
+        return toml_string(value)
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return "[" + ", ".join(toml_string(item) for item in value) + "]"
+    if isinstance(value, dict) and all(isinstance(key, str) and isinstance(item, str) for key, item in value.items()):
+        return "{ " + ", ".join(f"{key} = {toml_string(item)}" for key, item in value.items()) + " }"
+    raise SystemExit(f"unsupported Codex MCP template value: {value!r}")
+
+
+def rendered_server(name: str, server: dict) -> dict:
+    rendered = dict(server)
+    package_override = package_overrides.get(name)
+    args = rendered.get("args")
+    if package_override and isinstance(args, list) and len(args) >= 2 and args[0] == "dlx":
+        rendered["args"] = [args[0], package_override, *args[2:]]
+    if name == "context7":
+        if context7_key:
+            rendered.pop("env_http_headers", None)
+            rendered["http_headers"] = {"CONTEXT7_API_KEY": context7_key}
+    elif name == "brave-search":
+        if brave_key:
+            rendered.pop("env_vars", None)
+            rendered["env"] = {"BRAVE_API_KEY": brave_key}
+    elif name == "firecrawl":
+        if firecrawl_key:
+            rendered.pop("env_vars", None)
+            env = {"FIRECRAWL_API_KEY": firecrawl_key}
+            if firecrawl_url:
+                env["FIRECRAWL_API_URL"] = firecrawl_url
+            rendered["env"] = env
+        elif firecrawl_url:
+            rendered["env"] = {"FIRECRAWL_API_URL": firecrawl_url}
+    return rendered
+
+
+def add_template_server(name: str, server: dict):
+    if name in base_servers:
+        return
+    if not isinstance(server, dict):
+        raise SystemExit(f"invalid Codex MCP template server {name!r}: expected table")
+    lines.append(f"[mcp_servers.{name}]")
+    for key, value in rendered_server(name, server).items():
+        lines.append(f"{key} = {toml_value(value)}")
+    lines.append("")
+
+
 context7_key = os.environ.get("CONTEXT7_API_KEY_INPUT") or current_literal("context7", "http_headers", "CONTEXT7_API_KEY")
 brave_key = os.environ.get("BRAVE_API_KEY_INPUT") or current_literal("brave-search", "env", "BRAVE_API_KEY")
 firecrawl_key = os.environ.get("FIRECRAWL_API_KEY_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_KEY")
@@ -198,76 +255,8 @@ lines = [
     "",
 ]
 
-def add_server(name: str, body_lines: list[str]):
-    if name in base_servers:
-        return
-    lines.extend(body_lines)
-    lines.append("")
-
-
-add_server(
-    "serena",
-    [
-        "[mcp_servers.serena]",
-        'command = "serena"',
-        'args = ["start-mcp-server", "--context", "codex", "--project-from-cwd"]',
-    ],
-)
-
-context7_lines = [
-    "[mcp_servers.context7]",
-    'url = "https://mcp.context7.com/mcp"',
-]
-if context7_key:
-    context7_lines.append(f"http_headers = {{ CONTEXT7_API_KEY = {toml_string(context7_key)} }}")
-else:
-    context7_lines.append('env_http_headers = { CONTEXT7_API_KEY = "CONTEXT7_API_KEY" }')
-add_server("context7", context7_lines)
-
-brave_lines = [
-    "[mcp_servers.brave-search]",
-    'command = "pnpm"',
-    'args = ["dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"]',
-]
-if brave_key:
-    brave_lines.extend([
-        "[mcp_servers.brave-search.env]",
-        f"BRAVE_API_KEY = {toml_string(brave_key)}",
-    ])
-else:
-    brave_lines.append('env_vars = ["BRAVE_API_KEY"]')
-add_server("brave-search", brave_lines)
-
-firecrawl_lines = [
-    "[mcp_servers.firecrawl]",
-    'command = "pnpm"',
-    'args = ["dlx", "firecrawl-mcp"]',
-]
-if firecrawl_key:
-    firecrawl_lines.extend([
-        "[mcp_servers.firecrawl.env]",
-        f"FIRECRAWL_API_KEY = {toml_string(firecrawl_key)}",
-    ])
-    if firecrawl_url:
-        firecrawl_lines.append(f"FIRECRAWL_API_URL = {toml_string(firecrawl_url)}")
-elif firecrawl_url:
-    firecrawl_lines.append('env_vars = ["FIRECRAWL_API_KEY"]')
-    firecrawl_lines.extend([
-        "[mcp_servers.firecrawl.env]",
-        f"FIRECRAWL_API_URL = {toml_string(firecrawl_url)}",
-    ])
-else:
-    firecrawl_lines.append('env_vars = ["FIRECRAWL_API_KEY"]')
-add_server("firecrawl", firecrawl_lines)
-
-add_server(
-    "playwright",
-    [
-        "[mcp_servers.playwright]",
-        'command = "pnpm"',
-        'args = ["dlx", "@playwright/mcp@latest", "--isolated"]',
-    ],
-)
+for server_name, server_body in template_servers.items():
+    add_template_server(server_name, server_body)
 
 for name in skills:
     skill_path = str(skills_root / name)

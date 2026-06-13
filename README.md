@@ -28,6 +28,12 @@ Useful flags:
 - `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
 - `--install-serena` installs the [Serena](https://github.com/hellocode-io/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
 
+Production pinning knobs:
+
+- `B_AGENTIC_BRAVE_MCP_PACKAGE` overrides `@brave/brave-search-mcp-server`
+- `B_AGENTIC_FIRECRAWL_MCP_PACKAGE` overrides `firecrawl-mcp`
+- `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@latest`
+
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`.
 
 ## RTK (Rust Token Killer)
@@ -149,6 +155,10 @@ scripts/skill-doctor.sh --runtime=claude-code
 scripts/skill-doctor.sh --runtime=codex-cli
 scripts/skill-doctor.sh --runtime=opencode
 ```
+
+The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove a live runtime session has loaded the kernel or that remote MCP calls succeed.
+
+Production acceptance for each runtime should include a fresh session check that the kernel loads, one `b-*` skill can be invoked, configured MCP servers start, and approval gates prompt or deny as expected.
 
 ## Docs
 

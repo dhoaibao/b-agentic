@@ -331,6 +331,127 @@ run_mcp_doctor_case() {
 
 }
 
+run_mcp_package_override_case() {
+  local snapshot_repo="$1"
+  local sandbox_claude="$WORK_DIR/mcp-package-claude"
+  local sandbox_claude_upgrade="$WORK_DIR/mcp-package-claude-upgrade"
+  local sandbox_codex="$WORK_DIR/mcp-package-codex"
+  local sandbox_opencode="$WORK_DIR/mcp-package-opencode"
+  local sandbox_opencode_upgrade="$WORK_DIR/mcp-package-opencode-upgrade"
+  local rc=0
+  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home"
+
+  set +e
+  HOME="$sandbox_claude/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_claude/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Claude package override install exit 0, got $rc"
+  assert_json_value "$sandbox_claude/home/.claude.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
+  assert_json_value "$sandbox_claude/home/.claude.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
+  assert_json_value "$sandbox_claude/home/.claude.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
+
+  expect_install_status 0 "$sandbox_claude_upgrade" "$snapshot_repo" --runtime=claude-code
+  set +e
+  HOME="$sandbox_claude_upgrade/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Claude package override upgrade exit 0, got $rc"
+  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.0.0', '--transport', 'stdio']"
+  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.0.0']"
+  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.0.0', '--isolated']"
+
+  set +e
+  HOME="$sandbox_claude_upgrade/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.1.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.1.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.1.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Claude package repin exit 0, got $rc"
+  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.1.0', '--transport', 'stdio']"
+  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.1.0']"
+  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.1.0', '--isolated']"
+
+  set +e
+  HOME="$sandbox_opencode/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_opencode/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected OpenCode package override install exit 0, got $rc"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'][2] == '@example/brave-mcp@1.0.0'"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'][2] == 'example-firecrawl-mcp@2.0.0'"
+  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][2] == '@example/playwright-mcp@3.0.0'"
+
+  expect_install_status 0 "$sandbox_opencode_upgrade" "$snapshot_repo" --runtime=opencode
+  set +e
+  HOME="$sandbox_opencode_upgrade/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_opencode_upgrade/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected OpenCode package override upgrade exit 0, got $rc"
+  assert_json_value "$sandbox_opencode_upgrade/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'] == ['pnpm', 'dlx', '@example/brave-mcp@1.0.0', '--transport', 'stdio']"
+  assert_json_value "$sandbox_opencode_upgrade/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'] == ['pnpm', 'dlx', 'example-firecrawl-mcp@2.0.0']"
+  assert_json_value "$sandbox_opencode_upgrade/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'] == ['pnpm', 'dlx', '@example/playwright-mcp@3.0.0', '--isolated']"
+
+  set +e
+  HOME="$sandbox_codex/home" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_codex/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=codex-cli >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Codex package override install exit 0, got $rc"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
+  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
+}
+
 run_skill_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
@@ -385,6 +506,7 @@ main() {
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
   run_readiness_report_case "$snapshot_repo"
   run_mcp_doctor_case "$snapshot_repo"
+  run_mcp_package_override_case "$snapshot_repo"
   run_skill_doctor_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
