@@ -26,7 +26,7 @@ Useful flags:
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
 - `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
-- `--install-serena` installs the [Serena](https://github.com/hellocode-io/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
+- `--install-serena` installs the [Serena](https://github.com/oraios/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
 - `--install-codegraph` installs [CodeGraph](https://github.com/colbymchenry/codegraph) via its installer script
 
 Production pinning knobs:
