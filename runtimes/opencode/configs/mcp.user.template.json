@@ -11,6 +11,13 @@
         "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
       }
     },
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
+      "environment": {
+        "CODEGRAPH_TELEMETRY": "0"
+      }
+    },
     "brave-search": {
       "type": "local",
       "command": ["pnpm", "dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"],

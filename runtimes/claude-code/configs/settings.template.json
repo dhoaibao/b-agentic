@@ -3,6 +3,7 @@
   "permissions": {
     "allow": [
       "mcp__serena__*",
+      "mcp__codegraph__*",
       "mcp__context7__*",
       "mcp__brave-search__*",
       "mcp__firecrawl__firecrawl_agent_status",

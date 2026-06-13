@@ -34,6 +34,7 @@ FIRECRAWL_API_URL_INPUT=""
 
 runtime_warn_missing_cli() {
   command -v opencode >/dev/null 2>&1 || warn "opencode CLI not found; files will still be installed for OpenCode to discover later."
+  command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
 }
 
 runtime_install_config_stage_count() {

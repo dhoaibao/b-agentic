@@ -10,6 +10,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-rtk
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-serena
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-codegraph
 
 set -euo pipefail
 
@@ -25,6 +26,7 @@ PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
 INSTALL_RTK_VALUE="${B_AGENTIC_INSTALL_RTK:-auto}"
 INSTALL_SERENA_VALUE="${B_AGENTIC_INSTALL_SERENA:-auto}"
+INSTALL_CODEGRAPH_VALUE="${B_AGENTIC_INSTALL_CODEGRAPH:-auto}"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
@@ -158,6 +160,12 @@ parse_args() {
         ;;
       --no-install-serena)
         INSTALL_SERENA_VALUE=N
+        ;;
+      --install-codegraph)
+        INSTALL_CODEGRAPH_VALUE=Y
+        ;;
+      --no-install-codegraph)
+        INSTALL_CODEGRAPH_VALUE=N
         ;;
       --runtime=*)
         RUNTIME="${1#--runtime=}"
@@ -500,6 +508,49 @@ install_serena() {
   fi
 }
 
+install_codegraph() {
+  case "${INSTALL_CODEGRAPH_VALUE:-auto}" in
+    n|N|no|NO|No|false|FALSE|0) return 0 ;;
+    y|Y|yes|YES|Yes|true|TRUE|1) ;;
+    auto|AUTO|Auto) ;;
+    *) die "invalid B_AGENTIC_INSTALL_CODEGRAPH value: $INSTALL_CODEGRAPH_VALUE" ;;
+  esac
+
+  if command -v codegraph >/dev/null 2>&1; then
+    if dry_run_enabled; then
+      printf '[dry-run] codegraph upgrade\n' >&2
+      return 0
+    fi
+    log "CodeGraph already installed; upgrading"
+    if codegraph upgrade; then
+      log "CodeGraph upgraded"
+    else
+      warn "CodeGraph upgrade failed; continuing with existing CodeGraph"
+    fi
+    return 0
+  fi
+
+  case "${INSTALL_CODEGRAPH_VALUE:-auto}" in
+    auto|AUTO|Auto)
+      if ! prompt_yes_no 'Install CodeGraph MCP agent? [y/N]' N; then
+        return 0
+      fi
+      ;;
+  esac
+
+  if dry_run_enabled; then
+    printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh\n' >&2
+    return 0
+  fi
+
+  log "Installing CodeGraph"
+  if curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh; then
+    log "CodeGraph installed"
+  else
+    warn "CodeGraph installation failed; continuing without CodeGraph"
+  fi
+}
+
 source_installer_core() {
   local common_src="$SOURCE_DIR/tooling/install/common.sh"
   [ -f "$common_src" ] || die "missing installer core: $common_src"
@@ -592,6 +643,7 @@ main() {
   if ! uninstall_enabled; then
     install_rtk
     install_serena
+    install_codegraph
   fi
 
   if [ "$RUNTIME" = "all" ]; then

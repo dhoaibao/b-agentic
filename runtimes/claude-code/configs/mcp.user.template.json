@@ -18,6 +18,14 @@
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY:-}"
       }
     },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"],
+      "env": {
+        "CODEGRAPH_TELEMETRY": "0"
+      }
+    },
     "brave-search": {
       "type": "stdio",
       "command": "pnpm",

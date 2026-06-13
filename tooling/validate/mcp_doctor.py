@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 SUPPORTED_RUNTIMES = {"claude-code", "codex-cli", "opencode"}
-SUPPORTED_SERVERS = ("serena", "context7", "brave-search", "firecrawl", "playwright")
+SUPPORTED_SERVERS = ("serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright")
 DEFAULT_PACKAGES = {
     "brave-search": "@brave/brave-search-mcp-server",
     "firecrawl": "firecrawl-mcp",
@@ -110,6 +110,10 @@ def claude_server_status(server: str, config: dict) -> str:
         if entry.get("type") != "http" or entry.get("url") != "https://mcp.context7.com/mcp":
             return "blocked: invalid context7 config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
+    if server == "codegraph":
+        if entry.get("command") != "codegraph" or not list_matches(entry.get("args"), ["serve", "--mcp"]):
+            return "blocked: invalid codegraph launcher"
+        return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
     if server == "playwright":
         args = entry.get("args")
         pinned_status = pinned_package_status("playwright", args[1] if isinstance(args, list) and len(args) > 1 else None)
@@ -150,6 +154,11 @@ def json_mcp_server_status(server: str, config: dict) -> str:
         if entry.get("type") != "remote" or entry.get("url") != "https://mcp.context7.com/mcp":
             return "blocked: invalid context7 config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
+    if server == "codegraph":
+        command = entry.get("command")
+        if not list_matches(command, ["codegraph", "serve", "--mcp"]):
+            return "blocked: invalid codegraph launcher"
+        return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
     if server == "playwright":
         command = entry.get("command")
         pinned_status = pinned_package_status("playwright", command[2] if isinstance(command, list) and len(command) > 2 else None)
@@ -191,6 +200,10 @@ def codex_server_status(server: str, config: dict) -> str:
         if isinstance(headers, dict) and isinstance(headers.get("CONTEXT7_API_KEY"), str) and headers.get("CONTEXT7_API_KEY"):
             return "ready: CONTEXT7_API_KEY configured in Codex config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
+    if server == "codegraph":
+        if entry.get("command") != "codegraph" or not list_matches(entry.get("args"), ["serve", "--mcp"]):
+            return "blocked: invalid codegraph launcher"
+        return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
     if server == "playwright":
         args = entry.get("args")
         pinned_status = pinned_package_status("playwright", args[1] if isinstance(args, list) and len(args) > 1 else None)

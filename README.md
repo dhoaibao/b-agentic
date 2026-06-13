@@ -27,6 +27,7 @@ Useful flags:
 - `--uninstall` removes managed files
 - `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
 - `--install-serena` installs the [Serena](https://github.com/hellocode-io/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
+- `--install-codegraph` installs [CodeGraph](https://github.com/colbymchenry/codegraph) via its installer script
 
 Production pinning knobs:
 
@@ -70,6 +71,12 @@ uv tool install -p 3.13 serena-agent
 ```
 
 If `uv` is missing, the installer prompts to install it from `https://astral.sh/uv/install.sh` before proceeding with Serena. As with any remote install script, only proceed if you trust the source.
+
+## CodeGraph MCP agent
+
+b-agentic writes a default [CodeGraph](https://github.com/colbymchenry/codegraph) MCP entry that runs `codegraph serve --mcp` with `CODEGRAPH_TELEMETRY=0`. `--install-codegraph` installs CodeGraph with `curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`; if CodeGraph is already installed, the installer runs `codegraph upgrade`. Otherwise the installer prompts in interactive sessions. Run `codegraph init` in each repository where you want a local pre-indexed code graph.
+
+Use CodeGraph for architectural flows, call graphs, impact radius, route-to-handler discovery, and affected-test discovery. Use Serena for symbol declarations, references, diagnostics, and symbol-aware edits. Use local reads/search to verify exact edited content.
 
 ## Runtime Support
 
@@ -120,12 +127,13 @@ b-refactor [behavior-preserving transform]
 The installer writes recommended MCP entries for:
 
 - Serena: symbol discovery, references, diagnostics, and symbol edits.
+- CodeGraph: local pre-indexed code structure, flows, impact radius, and affected tests.
 - Context7: versioned library/framework docs.
 - Brave Search: public/current discovery.
 - Firecrawl: bounded extraction and approved deeper research.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
-The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, or run Serena onboarding. It does report local MCP readiness blockers such as missing binaries or API keys.
+The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It does report local MCP readiness blockers such as missing binaries or API keys.
 
 ## Repository Layout
 

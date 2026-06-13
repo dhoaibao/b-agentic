@@ -24,7 +24,7 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 ## Steps
 
 1. Lock the exact target and state the behavior that must remain unchanged.
-2. Map references with Serena plus exact text search for exports, routes, config keys, docs, and generated consumers.
+2. Map structure and impact with CodeGraph when indexed; map declarations/references with Serena; use exact text search for exports, routes, config keys, docs, and generated consumers.
 3. Apply the smallest matching transform.
 4. Re-check references and run diagnostics or the narrowest risk-appropriate test/build.
 5. Inspect the diff for unintended behavior changes.

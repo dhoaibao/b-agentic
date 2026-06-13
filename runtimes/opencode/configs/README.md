@@ -15,7 +15,7 @@ Adapter-owned layout for OpenCode.
 
 The installer never overwrites `~/.config/opencode/AGENTS.md` without `--replace-memory`. Plain install syncs skills, wrappers, shared references, and MCP config. User-owned or modified wrapper files are preserved.
 
-OpenCode uses the `mcp` key for Serena, Context7, Brave Search, Firecrawl, and Playwright. API-key-backed tools require user-scope keys. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
+OpenCode uses the `mcp` key for Serena, CodeGraph, Context7, Brave Search, Firecrawl, and Playwright. CodeGraph requires the `codegraph` CLI and a per-project `codegraph init`. API-key-backed tools require user-scope keys. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
 
 OpenCode uses `permission` config for baseline gates. The managed template asks by default for bash and edits, allows low-risk inspection commands, denies destructive git and broad remove commands, and allows only managed `b-*` skills.
 

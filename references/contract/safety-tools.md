@@ -27,6 +27,7 @@ Prefer source files over generated files. Rerender generated assets only after s
 | Tool | Use |
 |---|---|
 | Local shell/search/read tools | Exact repo evidence, manifests, git state, diagnostics, and verification commands. |
+| CodeGraph | Pre-indexed code structure, architectural flows, call graphs, impact radius, and affected-test discovery. |
 | Serena | Symbol discovery, declarations, references, diagnostics, and symbol-aware edits. |
 | Context7 | Versioned official library/framework docs when API details affect the answer or implementation. |
 | Brave Search | Public/current discovery, recent facts, unknown URLs, news, and source finding. |
@@ -36,6 +37,7 @@ Prefer source files over generated files. Rerender generated assets only after s
 Firecrawl autonomous/deep research, crawling, and any external mutation require explicit approval or a run-scoped user cap. Firecrawl monitor creation/update/delete is not part of the default b-agentic workflow.
 
 Fallbacks:
+- CodeGraph unavailable or uninitialized -> use Serena plus local search/reads for structure and impact mapping.
 - Serena unavailable -> use local search/reads and treat symbol-wide edits as higher risk.
 - Context7 unavailable -> use official docs found by search and cite the limitation.
 - Firecrawl unavailable -> use search snippets only when sufficient, otherwise report the evidence gap.

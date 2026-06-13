@@ -13,7 +13,7 @@ Use these rules before any skill-specific instruction.
 4. Ask before dependency writes, long-lived services, migrations, commits, pushes, PRs, destructive commands, external writes, broad refactors, or shared-environment mutation.
 5. Never read or expose likely secrets, customer data, private stack traces, internal URLs, or proprietary code to public tools without explicit approval.
 6. Use the lightest reliable evidence: local text and commands for repo facts, symbol tools for code behavior, primary fetched sources for external facts.
-7. Use tools by ownership: Serena for symbols, Context7 for versioned docs, Brave for discovery, Firecrawl for extraction, Playwright for browser evidence.
+7. Use tools by ownership: CodeGraph for pre-indexed code structure and impact, Serena for symbols and symbol-aware edits, Context7 for versioned docs, Brave for discovery, Firecrawl for extraction, Playwright for browser evidence.
 8. Make the smallest coherent change and verify with the narrowest useful check. Do not claim completion with missing or failed required evidence.
 9. Keep output concise. Use structured blocks only for handoffs, blockers, review verdicts, or shipping approvals.
 

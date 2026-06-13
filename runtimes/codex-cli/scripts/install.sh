@@ -65,6 +65,7 @@ runtime_mcp_key_configured() {
 
 runtime_warn_missing_cli() {
   command -v codex >/dev/null 2>&1 || warn "codex CLI not found; files will still be installed for Codex to discover later."
+  command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
 }
 
 runtime_install_config_stage_count() {

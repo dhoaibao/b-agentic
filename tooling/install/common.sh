@@ -1082,6 +1082,14 @@ serena_readiness_status() {
   fi
 }
 
+codegraph_readiness_status() {
+  if command -v codegraph >/dev/null 2>&1; then
+    printf 'ready: codegraph command found; run codegraph init per project to enable its index'
+  else
+    printf 'blocked: install codegraph (rerun with --install-codegraph or install manually); run codegraph init per project after install'
+  fi
+}
+
 context7_readiness_status() {
   if mcp_key_available context7 "$MCP_CONTEXT7_SECTION" CONTEXT7_API_KEY; then
     printf 'ready: CONTEXT7_API_KEY available'
@@ -1142,6 +1150,7 @@ print_install_report_header() {
 print_install_report_readiness() {
   report_section "Readiness"
   report_item "serena" "$(serena_readiness_status)"
+  report_item "codegraph" "$(codegraph_readiness_status)"
   report_item "context7" "$(context7_readiness_status)"
   report_item "brave-search" "$(brave_search_readiness_status)"
   report_item "firecrawl" "$(firecrawl_readiness_status)"
@@ -1180,6 +1189,7 @@ print_install_report_next_steps() {
 
   report_item "manifest" "review $MANIFEST_DST for installed paths and backup metadata"
   report_item "keys" "add user-scope API keys only if you plan to use Context7, Brave Search, or Firecrawl"
+  report_item "codegraph" "install with --install-codegraph and run codegraph init in repos where you want pre-indexed code context"
   report_item "rtk" "install with --install-rtk or manually to reduce shell command token usage"
 }
 

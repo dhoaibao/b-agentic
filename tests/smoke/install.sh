@@ -258,6 +258,7 @@ run_readiness_report_case() {
   [ "$rc" -eq 0 ] || fail "expected Claude readiness install exit 0, got $rc"
   assert_contains "$sandbox_claude/install.log" 'Readiness:'
   assert_contains "$sandbox_claude/install.log" 'serena:'
+  assert_contains "$sandbox_claude/install.log" 'codegraph:'
   assert_contains "$sandbox_claude/install.log" 'context7:'
   assert_contains "$sandbox_claude/install.log" 'brave-search:'
   assert_contains "$sandbox_claude/install.log" 'firecrawl:'
@@ -272,6 +273,7 @@ run_readiness_report_case() {
   [ "$rc" -eq 0 ] || fail "expected Codex readiness install exit 0, got $rc"
   assert_contains "$sandbox_codex/install.log" 'Readiness:'
   assert_contains "$sandbox_codex/install.log" 'serena:'
+  assert_contains "$sandbox_codex/install.log" 'codegraph:'
   assert_contains "$sandbox_codex/install.log" 'context7:'
   assert_contains "$sandbox_codex/install.log" 'brave-search:'
   assert_contains "$sandbox_codex/install.log" 'firecrawl:'
@@ -290,8 +292,9 @@ run_mcp_doctor_case() {
   mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
-  chmod +x "$bin_dir/serena" "$bin_dir/pnpm"
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   PATH="$bin_dir:$PATH" \
@@ -300,6 +303,7 @@ run_mcp_doctor_case() {
   FIRECRAWL_API_KEY=test-firecrawl \
   python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
   assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'codegraph: ready:'
   assert_contains "$doctor_log" 'context7: ready:'
   assert_contains "$doctor_log" 'brave-search: ready:'
   assert_contains "$doctor_log" 'firecrawl: ready:'
@@ -312,6 +316,7 @@ run_mcp_doctor_case() {
   FIRECRAWL_API_KEY=test-firecrawl \
   python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
   assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'codegraph: ready:'
   assert_contains "$doctor_log" 'context7: ready:'
   assert_contains "$doctor_log" 'brave-search: ready:'
   assert_contains "$doctor_log" 'firecrawl: ready:'
@@ -324,6 +329,7 @@ run_mcp_doctor_case() {
   FIRECRAWL_API_KEY=test-firecrawl \
   python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
   assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'codegraph: ready:'
   assert_contains "$doctor_log" 'context7: ready:'
   assert_contains "$doctor_log" 'brave-search: ready:'
   assert_contains "$doctor_log" 'firecrawl: ready:'
@@ -348,6 +354,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
@@ -367,6 +374,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
@@ -385,6 +393,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.1.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.1.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.1.0' \
@@ -403,6 +412,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
@@ -422,6 +432,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
@@ -440,6 +451,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
@@ -470,6 +482,11 @@ EOF
 #!/usr/bin/env bash
 exit 0
 EOF
+  cat > "$bin_dir/codegraph" <<EOF
+#!/usr/bin/env bash
+printf 'codegraph:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
   cat > "$bin_dir/uv" <<EOF
 #!/usr/bin/env bash
 printf 'uv:%s\n' "\$*" >> "$upgrade_log"
@@ -478,7 +495,7 @@ EOF
 #!/usr/bin/env bash
 printf '%s\n' 'printf "rtk-upgrade\n" >> "$upgrade_log"'
 EOF
-  chmod +x "$bin_dir/rtk" "$bin_dir/serena" "$bin_dir/uv" "$bin_dir/curl"
+  chmod +x "$bin_dir/rtk" "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/uv" "$bin_dir/curl"
 
   set +e
   python3 - "$sandbox" "$snapshot_repo" "$bin_dir" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
@@ -491,6 +508,7 @@ env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_CODEGRAPH"] = "auto"
 
 pid, fd = pty.fork()
 if pid == 0:
@@ -532,10 +550,13 @@ PY
   [ "$rc" -eq 0 ] || fail "expected existing tool upgrade install exit 0, got $rc"
   assert_contains "$upgrade_log" 'rtk-upgrade'
   assert_contains "$upgrade_log" 'uv:tool upgrade serena-agent'
+  assert_contains "$upgrade_log" 'codegraph:upgrade'
   assert_contains "$install_log" 'RTK already installed; upgrading'
   assert_contains "$install_log" 'Serena already installed; upgrading'
+  assert_contains "$install_log" 'CodeGraph already installed; upgrading'
   assert_not_contains "$install_log" 'Install RTK (Rust Token Killer)'
   assert_not_contains "$install_log" 'Install Serena MCP agent'
+  assert_not_contains "$install_log" 'Install CodeGraph MCP agent'
 }
 
 run_skill_doctor_case() {
