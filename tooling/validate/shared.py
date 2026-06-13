@@ -149,6 +149,48 @@ for skill_name in sorted(prompt_dirs):
         if forbidden in text:
             errors.append(f"{rel(prompt)}: removed ceremony remains: {forbidden!r}")
 
+required_prompt_markers = {
+    "b-plan": [
+        "CONTEXT.md",
+        "intended observable outcome",
+        "AFK",
+        "HITL",
+    ],
+    "b-implement": [
+        "CONTEXT.md",
+        "requested observable outcome",
+        "verify subagent claims independently",
+    ],
+    "b-debug": [
+        "Build a feedback loop",
+        "If no trustworthy feedback loop can be built",
+    ],
+    "b-test": [
+        "public interface",
+        "vertical tracer bullets",
+        "implementation-coupled tests",
+    ],
+    "b-browser": [
+        "requested UI state",
+        "generic page load",
+    ],
+    "b-refactor": [
+        "deletion test",
+        "Stop if the work becomes redesign",
+    ],
+    "b-review": [
+        "real problem statement",
+        "ceremony creep",
+        "prompt-change evidence",
+    ],
+}
+for skill_name, markers in required_prompt_markers.items():
+    prompt = ROOT / "skills" / skill_name / "prompt.md"
+    text = read_text(prompt)
+    for marker in markers:
+        if marker not in text:
+            errors.append(f"{rel(prompt)}: missing behavior marker {marker!r}")
+
 if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 

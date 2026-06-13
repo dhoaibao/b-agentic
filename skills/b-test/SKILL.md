@@ -40,10 +40,11 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 ## Steps
 
 1. Find the test framework and narrowest runnable command from manifests, CI, or existing tests.
-2. Confirm intended behavior from user intent, product contract, source change, existing passing tests, or framework docs.
+2. Confirm intended behavior from user intent, product contract, source change, existing passing tests, framework docs, and relevant repo context (`CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes).
 3. For failing tests, run the narrow target, read the test and exercised source, and classify the failure.
-4. For new tests, cover requested or changed behavior first; add edge cases only when risk requires them.
-5. Run diagnostics when useful, then the narrowest relevant test.
+4. For new tests, cover requested or changed behavior through the highest practical public interface first; add edge cases only when risk requires them.
+5. For TDD-style work, use vertical tracer bullets: one behavior, one failing test, minimal implementation, then repeat.
+6. Run diagnostics when useful, then the narrowest relevant test, and verify the test proves the intended behavior.
 
 ## Output format
 
@@ -53,5 +54,6 @@ Test scope, changes, verification, and remaining gaps.
 
 - Never change production code only because a test is red.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
+- Avoid implementation-coupled tests and mocks derived from buggy implementation instead of the real interface.
 - Do not introduce frameworks without approval.
 - Keep fixture and mock changes local when practical.

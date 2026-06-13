@@ -23,12 +23,13 @@ Confirm root cause, fix minimally, verify, and remove probes.
 
 ## Steps
 
-1. Capture exact symptom, expected vs actual behavior, repro, determinism, and environment.
-2. Rank suspects from stack traces, diagnostics, recent changes, config, data shape, and call paths.
-3. Use CodeGraph for cross-file call paths or impact radius when indexed; otherwise use Serena plus local search.
-4. Confirm root cause before fixing. Use probes only when cheaper evidence is insufficient and remove them.
-5. Apply the smallest fix that addresses the confirmed cause.
-6. Run the narrowest check proving the symptom changed. For perf, measure before and after.
+1. Build a feedback loop that can show the bug: failing test, CLI repro, HTTP script, browser script, trace replay, throwaway harness, fuzz/property loop, or bisect harness.
+2. Capture exact symptom, expected vs actual behavior, repro rate, determinism, and environment. Read relevant `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes when present.
+3. Rank suspects from stack traces, diagnostics, recent changes, config, data shape, call paths, and the feedback loop.
+4. Use CodeGraph for cross-file call paths or impact radius when indexed; otherwise use Serena plus local search.
+5. Confirm root cause before fixing. Use probes only when cheaper evidence is insufficient and remove them.
+6. Apply the smallest fix that addresses the confirmed cause.
+7. Run the original feedback loop or narrowest check proving the intended symptom changed. For perf, measure before and after.
 
 ## Output format
 
@@ -38,5 +39,5 @@ Symptom, root cause, fix, verification, and cleanup state.
 
 - Do not patch speculatively.
 - Do not bundle redesign or cleanup.
-- Surface cannot-reproduce gaps instead of guessing.
+- If no trustworthy feedback loop can be built, report what you tried and what artifact/access is needed instead of guessing.
 - Verify probe removal before reporting success.

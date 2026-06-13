@@ -49,11 +49,20 @@ Use this order: latest user instruction, approved saved plan, approved chat plan
 
 Saved plans under `.b-agentic/b-plan/` are optional coordination artifacts, not required ceremony. Execute them only when approved and still compatible with the worktree.
 
+When present and relevant, treat repo-local context documents as repo evidence:
+- `CONTEXT.md` or `CONTEXT-MAP.md` for project vocabulary and domain boundaries.
+- `docs/adr/` for architectural decisions that should not be re-litigated casually.
+- `docs/agents/` or `.b-agentic/` for local coordination notes, test commands, or workflow facts.
+
+Do not require these files, create them as ceremony, or let them override user instructions or current code evidence.
+
 ### Work Discipline
 
 For non-trivial repo work, check `git status --short`, preserve unrelated changes, make the smallest coherent change, and verify with the narrowest useful check.
 
 Do not invent product behavior, acceptance criteria, compatibility promises, names, or verification commands. If evidence is incomplete, say so and lower confidence.
+
+Verification must prove the intended observable outcome, not merely that a command succeeded. For configuration, provider, flag, UI, browser, or integration changes, identify what should be visibly different and verify that specific difference.
 
 ### Operating Bias
 

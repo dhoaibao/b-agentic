@@ -32,6 +32,7 @@ PY
 }
 
 python3 "$ROOT_DIR/tooling/validate/shared.py"
+python3 "$ROOT_DIR/tooling/validate/behavior.py"
 
 exit_code=0
 while IFS= read -r runtime_name; do

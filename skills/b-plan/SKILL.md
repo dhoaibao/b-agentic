@@ -39,9 +39,10 @@ Turn unclear or high-risk goals into the smallest executable plan. Do not implem
 
 1. State the interpreted goal, constraints, and non-goals.
 2. If multiple interpretations are plausible, present them briefly and choose only when the choice is low-risk; otherwise ask.
-3. Inspect only files/symbols needed to avoid guessing.
+3. Inspect only files/symbols needed to avoid guessing. Read `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes when they are present and relevant.
 4. Choose the smallest safe approach, surface material tradeoffs, and push back if a simpler or safer path exists.
-5. Include `Done when` verification for each step.
+5. Include `Done when` verification for each step that proves the intended observable outcome, not just command success.
+6. For larger plans, tag steps only when useful: `AFK` for agent-ready work, `HITL` for user decision, approval, external access, or judgment.
 
 For plans spanning more than 3 files, public contracts, dependencies, CI/build, or durable coordination, save a plan under `.b-agentic/b-plan/` only if it will materially help execution.
 
@@ -54,4 +55,5 @@ Concise scope, risk, ordered steps, and verification. Ask for approval before im
 - Do not implement.
 - Keep plans short unless risk requires detail.
 - Do not invent behavior, names, acceptance criteria, or commands.
+- Do not require project context docs or HITL/AFK markers for ordinary small plans.
 - Surface assumptions and blockers explicitly.

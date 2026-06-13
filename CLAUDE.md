@@ -8,6 +8,8 @@ b-agentic is a slim workflow kernel for coding agents. Keep only what improves r
 
 The iron rule is: slim, strong, usable. Remove layers that mainly create ceremony.
 
+Every workflow or prompt change needs a concrete failure mode or capability gap. Do not add ceremony for hypothetical quality gains. Prefer a smaller rule, sharper validation, or better use of existing evidence over a new phase, artifact, hook, or state machine.
+
 ## Scope
 
 - `README.md` is the user-facing overview.
@@ -32,6 +34,9 @@ The iron rule is: slim, strong, usable. Remove layers that mainly create ceremon
 - Use `{{skill_support_path}}` and `{{runtime_reference_root}}` if template paths are needed.
 - Keep `references/contract/` to `runtime.md`, `safety-tools.md`, and `kernel.template.md` unless a new file clearly removes more complexity than it adds.
 - Do not add hooks, state-machine governance, mandatory status blocks, or subagent profiles without a specific approved plan.
+- Keep domain-specific workflows, issue tracker conventions, team preferences, and product-specific skills out of core unless they are optional inputs consumed by existing phases.
+- For behavior-shaping prompt changes, include evidence: the observed failure, the intended behavior change, and the narrow validation or transcript check that would catch a regression.
+- When borrowing from another workflow system, copy the mechanism only if it strengthens routing, context use, verification, or review without making ordinary work heavier.
 
 ## Key Paths
 
@@ -67,4 +72,7 @@ Before merging runtime-facing changes:
 - Shared content still runtime-neutral?
 - Runtime-specific details under `runtimes/<name>/`?
 - Generated assets synced?
+- Real problem or capability gap named?
+- Behavior-shaping prompt changes backed by evidence or a planned eval?
+- Domain-specific or team-specific behavior kept out of core?
 - No new ceremony without clear payoff?

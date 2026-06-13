@@ -30,12 +30,16 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 
 1. Scope the review: working tree, range, baseline, or suite-audit surface.
 2. Choose baseline. Without baseline, do a risk review and do not claim requirements coverage.
-3. Use CodeGraph for changed flows and affected-test discovery when indexed; use Serena/local search for exact references.
-4. Inspect highest-risk changed symbols and boundaries first.
-5. Check tests, edge cases, security, operability, evidence quality, hidden assumptions, unnecessary diff, and over-abstraction.
-6. Emit findings ordered by severity. If none, say so and name residual risk.
+3. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
+4. Use CodeGraph for changed flows and affected-test discovery when indexed; use Serena/local search for exact references.
+5. Inspect highest-risk changed symbols and boundaries first.
+6. Check tests, edge cases, security, operability, evidence quality, hidden assumptions, unnecessary diff, and over-abstraction.
+7. Verify evidence proves the intended observable outcome, not only command success.
+8. Emit findings ordered by severity. If none, say so and name residual risk.
 
-For `--audit-suite` or explicit b-agentic audits, check kernel slimness, source/generated sync, runtime parity, installer safety, MCP leverage, validation evidence, and cleanup candidates. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.
+For `--audit-suite` or explicit b-agentic audits, check kernel slimness, real problem statement, source/generated sync, runtime neutrality, runtime parity, installer safety, MCP leverage, validation evidence, prompt-change evidence, domain-specific behavior in core, ceremony creep, and cleanup candidates. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.
+
+Use architecture vocabulary only when design friction is material: interface, seam, adapter, locality, leverage, shallow abstraction, and deletion test. Do not turn every review into an architecture report.
 
 ## Output format
 
@@ -47,4 +51,5 @@ Findings, checked-and-clean areas, coverage/verification, and verdict: `READY FO
 - Do not edit files during review.
 - Do not claim `READY FOR PR` without baseline and passing verification evidence.
 - Treat unrelated cleanup, speculative flexibility, and unverified success criteria as review risks.
+- Treat prompt or kernel changes without a concrete failure mode or validation story as review risks.
 - Treat generated, lockfile, snapshot, vendored, and minified changes as derived unless source generation is clear.
