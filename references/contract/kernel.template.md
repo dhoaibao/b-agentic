@@ -50,7 +50,7 @@ Meta commands:
 
 Verification: `rtk --version`, `rtk gain`, `which rtk`
 
-Detailed refs live under `{{runtime_metadata_root}}/references/contract/`:
+Detailed contract refs live under `{{runtime_metadata_root}}/references/contract/`:
 - `runtime.md` - routing, source of truth, work discipline, artifacts, and output.
 - `safety-tools.md` - approvals, privacy, git safety, tool ownership.
 
