@@ -357,6 +357,11 @@ run_mcp_doctor_case() {
 
   expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
   PATH="$bin_dir:$PATH" \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'context7: blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config'
+  PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \

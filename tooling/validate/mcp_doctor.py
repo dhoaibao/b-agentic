@@ -208,6 +208,9 @@ def codex_server_status(server: str, config: dict) -> str:
         headers = entry.get("http_headers", {})
         if isinstance(headers, dict) and isinstance(headers.get("CONTEXT7_API_KEY"), str) and headers.get("CONTEXT7_API_KEY"):
             return "ready: CONTEXT7_API_KEY configured in Codex config"
+        env_headers = entry.get("env_http_headers", {})
+        if isinstance(env_headers, dict) and env_headers.get("CONTEXT7_API_KEY") == "CONTEXT7_API_KEY":
+            return "ready: CONTEXT7_API_KEY env binding configured in Codex config" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "codegraph":
         if entry.get("command") != "codegraph" or not list_matches(entry.get("args"), ["serve", "--mcp"]):

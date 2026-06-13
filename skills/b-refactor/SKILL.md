@@ -32,6 +32,7 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 ## Tools required
 
 - `bash` - inspect git state and run checks.
+- `codegraph` - impact radius and cross-file structure when indexed.
 - `serena-symbol-toolkit` - lock targets, references, renames, diagnostics, and symbol edits.
 
 ## Steps

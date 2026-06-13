@@ -166,6 +166,8 @@ scripts/skill-doctor.sh --runtime=opencode
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove a live runtime session has loaded the kernel or that remote MCP calls succeed.
 
+Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence.
+
 Production acceptance for each runtime should include a fresh-session check:
 
 - Kernel/memory file is loaded by the runtime.
