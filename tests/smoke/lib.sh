@@ -94,7 +94,19 @@ EOF
     chmod +x "$bin_dir/$name"
   done
 
-  printf '%s:/usr/bin:/bin' "$bin_dir"
+  printf '%s:%s' "$bin_dir" "$(smoke_system_path)"
+}
+
+smoke_system_path() {
+  local python_bin python_dir
+
+  python_bin="$(command -v python3 2>/dev/null || true)"
+  if [ -n "$python_bin" ]; then
+    python_dir="$(dirname "$python_bin")"
+    printf '%s:/usr/bin:/bin' "$python_dir"
+  else
+    printf '/usr/bin:/bin'
+  fi
 }
 
 smoke_path_with_runtime_clis() {

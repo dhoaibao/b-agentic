@@ -708,7 +708,7 @@ run_missing_runtime_cli_install_case() {
 
     set +e
     HOME="$sandbox/$runtime/home" \
-    PATH="/usr/bin:/bin" \
+    PATH="$(smoke_system_path)" \
     B_AGENTIC_REPO="$snapshot_repo" \
     B_AGENTIC_DIR="$sandbox/$runtime/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
