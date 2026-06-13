@@ -52,6 +52,7 @@ RUNTIME_CAPABILITY_KEYS = [
 ]
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
+RUNTIME_CONFIG_SCHEMA_FAMILIES = {"claude-user-config", "codex-toml", "opencode-json"}
 
 
 def load_json_subset_yaml(path: Path) -> dict:
@@ -75,6 +76,27 @@ def ensure_optional_string(value: object, label: str, errors: list[str]) -> None
         return
     if not isinstance(value, str) or not value:
         errors.append(f"{label}: expected non-empty string when present")
+
+
+def validate_runtime_reference_layout(runtime: dict, label: str, errors: list[str]) -> None:
+    skills_root = runtime.get("skills_install_root")
+    metadata_root = runtime.get("metadata_root")
+    if not isinstance(skills_root, str) or not isinstance(metadata_root, str):
+        return
+
+    if not skills_root.startswith("~/") or not metadata_root.startswith("~/"):
+        errors.append(f"{label}: skills_install_root and metadata_root must use ~/ paths")
+        return
+
+    skills_path = Path(skills_root[2:])
+    metadata_path = Path(metadata_root[2:])
+    if metadata_path.name != "b-agentic":
+        errors.append(f"{label}.metadata_root: must end with b-agentic")
+    if skills_path.parent != metadata_path.parent:
+        errors.append(
+            f"{label}: skills_install_root and metadata_root must share a parent "
+            "because generated skills reference ../../b-agentic/references"
+        )
 
 
 def load_registries() -> tuple[list[dict], list[dict]]:
@@ -266,7 +288,13 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         ensure_string(runtime.get("metadata_root"), f"runtimes[{index}].metadata_root", errors)
         ensure_string(runtime.get("skills_install_root"), f"runtimes[{index}].skills_install_root", errors)
         ensure_string(runtime.get("config_template_dir"), f"runtimes[{index}].config_template_dir", errors)
-        ensure_string(runtime.get("config_schema_family"), f"runtimes[{index}].config_schema_family", errors)
+        config_schema_family = ensure_string(runtime.get("config_schema_family"), f"runtimes[{index}].config_schema_family", errors)
+        if config_schema_family and config_schema_family not in RUNTIME_CONFIG_SCHEMA_FAMILIES:
+            errors.append(
+                f"runtimes[{index}].config_schema_family: expected one of "
+                f"{sorted(RUNTIME_CONFIG_SCHEMA_FAMILIES)}, found {config_schema_family!r}"
+            )
+        validate_runtime_reference_layout(runtime, f"runtimes[{index}]", errors)
 
         reference_runtime = runtime.get("reference_runtime")
         if not isinstance(reference_runtime, bool):

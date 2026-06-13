@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 
-SUPPORTED_RUNTIMES = {"claude-code", "codex-cli", "opencode"}
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -20,28 +19,35 @@ def load_toml(path: Path) -> dict:
     return tomllib.loads(path.read_text())
 
 
-def resolve_runtime_paths(runtime: str, home: Path) -> dict[str, Path]:
-    if runtime == "claude-code":
-        return {
-            "kernel": home / ".claude" / "CLAUDE.md",
-            "skill": home / ".claude" / "skills" / "b-plan" / "SKILL.md",
-            "manifest": home / ".claude" / "b-agentic" / "install.json",
-        }
-    if runtime == "codex-cli":
-        return {
-            "kernel": home / ".codex" / "AGENTS.md",
-            "skill": home / ".codex" / "skills" / "b-plan" / "SKILL.md",
-            "config": home / ".codex" / "config.toml",
-            "manifest": home / ".codex" / "b-agentic" / "install.json",
-        }
-    if runtime == "opencode":
-        return {
-            "kernel": home / ".config" / "opencode" / "AGENTS.md",
-            "skill": home / ".config" / "opencode" / "skills" / "b-plan" / "SKILL.md",
-            "command": home / ".config" / "opencode" / "commands" / "b-plan.md",
-            "manifest": home / ".config" / "opencode" / "b-agentic" / "install.json",
-        }
-    raise ValueError(runtime)
+def runtime_records() -> dict[str, dict]:
+    data = json.loads((ROOT / "runtimes" / "registry.yaml").read_text())
+    return {
+        runtime["name"]: runtime
+        for runtime in data.get("runtimes", [])
+        if isinstance(runtime, dict) and isinstance(runtime.get("name"), str)
+    }
+
+
+def expand_home(path: str, home: Path) -> Path:
+    if path.startswith("~/"):
+        return home / path[2:]
+    return Path(path).expanduser()
+
+
+def resolve_runtime_paths(runtime: dict, home: Path) -> dict[str, Path]:
+    skills_root = expand_home(runtime["skills_install_root"], home)
+    metadata_root = expand_home(runtime["metadata_root"], home)
+    paths = {
+        "kernel": expand_home(runtime["memory_install_path"], home),
+        "skill": skills_root / "b-plan" / "SKILL.md",
+        "manifest": metadata_root / "install.json",
+    }
+    wrappers = runtime.get("command_wrappers", {})
+    if isinstance(wrappers, dict) and wrappers.get("supported") and isinstance(wrappers.get("install_root"), str):
+        paths["command"] = expand_home(wrappers["install_root"], home) / "b-plan.md"
+    if runtime.get("config_schema_family") == "codex-toml":
+        paths["config"] = home / ".codex" / "config.toml"
+    return paths
 
 
 def registry_skill_names() -> list[str]:
@@ -145,22 +151,26 @@ def status_for_codex(paths: dict[str, Path], expected: list[str]) -> dict[str, s
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check installed b-agentic skill discovery readiness for a runtime.")
-    parser.add_argument("--runtime", required=True, choices=sorted(SUPPORTED_RUNTIMES))
+    parser.add_argument("--runtime", required=True)
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
     args = parser.parse_args()
 
+    runtimes = runtime_records()
+    runtime = runtimes.get(args.runtime)
+    if runtime is None:
+        print(f"unsupported runtime: {args.runtime}", file=sys.stderr)
+        return 2
+
     home = Path(args.home).expanduser()
-    paths = resolve_runtime_paths(args.runtime, home)
+    paths = resolve_runtime_paths(runtime, home)
     expected = expected_skill_names(paths)
 
-    if args.runtime == "claude-code":
-        status = status_for_claude(paths, expected)
-    elif args.runtime == "codex-cli":
+    if runtime.get("config_schema_family") == "codex-toml":
         status = status_for_codex(paths, expected)
-    elif args.runtime == "opencode":
+    elif "command" in paths:
         status = status_for_opencode(paths, expected)
     else:
-        raise ValueError(args.runtime)
+        status = status_for_claude(paths, expected)
 
     print(f"runtime: {args.runtime}")
     print(f"expected-skills: {len(expected)}")

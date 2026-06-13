@@ -20,6 +20,7 @@ Execute approved or clearly scoped work in the smallest coherent step.
 ## Tools required
 
 - `bash` - inspect git state, diffs, and verification output.
+- `codegraph` - architecture, call graph, and affected-test evidence when indexed.
 - `serena-symbol-toolkit` - symbol-aware code edits and diagnostics.
 - `context7-docs` - narrow third-party API checks when needed.
 
@@ -28,9 +29,10 @@ Execute approved or clearly scoped work in the smallest coherent step.
 1. Resolve the source of truth: approved plan, approved chat instruction, or small direct request.
 2. Run `git status --short` and preserve unrelated changes.
 3. State expected files/symbols, invariant behavior, and success criteria; infer narrow criteria only when obvious.
-4. Edit the smallest coherent slice. Use Serena for symbol work and native edits for prose/config/string changes.
-5. Run the narrowest useful verification.
-6. Inspect the diff and report changes, verification, and remaining gaps.
+4. Use CodeGraph for cross-file impact or affected-test mapping when indexed; otherwise use Serena plus local search.
+5. Edit the smallest coherent slice. Use Serena for symbol work and native edits for prose/config/string changes.
+6. Run the narrowest useful verification.
+7. Inspect the diff and report changes, verification, and remaining gaps.
 
 ## Output format
 

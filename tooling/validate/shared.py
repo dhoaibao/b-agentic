@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 errors: list[str] = []
+RUNTIME_CONFIG_SCHEMA_FAMILIES = {"claude-user-config", "codex-toml", "opencode-json"}
 
 
 def rel(path: Path) -> str:
@@ -29,6 +30,25 @@ def load_json(path: Path) -> dict:
     except Exception as exc:
         errors.append(f"{rel(path)}: invalid JSON-compatible YAML: {exc}")
         return {}
+
+
+def validate_runtime_reference_layout(runtime: dict, label: str) -> None:
+    skills_root = runtime.get("skills_install_root")
+    metadata_root = runtime.get("metadata_root")
+    if not isinstance(skills_root, str) or not isinstance(metadata_root, str):
+        return
+    if not skills_root.startswith("~/") or not metadata_root.startswith("~/"):
+        errors.append(f"{label}: skills_install_root and metadata_root must use ~/ paths")
+        return
+    skills_path = Path(skills_root[2:])
+    metadata_path = Path(metadata_root[2:])
+    if metadata_path.name != "b-agentic":
+        errors.append(f"{label}.metadata_root: must end with b-agentic")
+    if skills_path.parent != metadata_path.parent:
+        errors.append(
+            f"{label}: skills_install_root and metadata_root must share a parent "
+            "because generated skills reference ../../b-agentic/references"
+        )
 
 
 def require_contains(path: Path, text: str, needles: list[str], label: str) -> None:
@@ -92,6 +112,13 @@ for runtime in runtimes:
     if not isinstance(capabilities, dict):
         errors.append(f"runtimes/registry.yaml: {name} missing capabilities object")
         continue
+    config_schema_family = runtime.get("config_schema_family")
+    if config_schema_family not in RUNTIME_CONFIG_SCHEMA_FAMILIES:
+        errors.append(
+            f"runtimes/registry.yaml: {name} config_schema_family must be one of "
+            f"{sorted(RUNTIME_CONFIG_SCHEMA_FAMILIES)}"
+        )
+    validate_runtime_reference_layout(runtime, f"runtimes/registry.yaml: {name}")
     actual = set(capabilities)
     if actual != expected_capabilities:
         errors.append(

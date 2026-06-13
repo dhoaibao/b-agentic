@@ -10,8 +10,3 @@
 # Python artifacts
 __pycache__/
 *.pyc
-
-# tooling/mcp/b-agentic-state-server/__pycache__/: server sources live here; ignore only bytecode
-# tooling/runtime/: Python sources were removed; ignore any residual artifacts
-tooling/mcp/b-agentic-state-server/__pycache__/
-tooling/runtime/

@@ -38,8 +38,8 @@ Firecrawl autonomous/deep research, crawling, and any external mutation require 
 
 ### Local Tool Bootstrap
 
-For repo work, automatically initialize local code-intelligence tools when available:
-- Run `codegraph init` when `codegraph` is installed and the project has no CodeGraph index.
+For repo work, initialize local code-intelligence tools when available and appropriate for the repository:
+- Run `codegraph init` when `codegraph` is installed, the project has no CodeGraph index, and local index files are acceptable in this worktree.
 - Run Serena onboarding when Serena is installed and onboarding has not been run.
 
 These are local project setup steps. Do not install missing tools here; use installer and readiness guidance instead.

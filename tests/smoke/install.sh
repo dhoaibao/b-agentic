@@ -104,6 +104,52 @@ EOF
   assert_no_path "$sandbox_corrupt/source"
 }
 
+run_invalid_runtime_layout_validation_case() {
+  local snapshot_repo="$1"
+  local sandbox_invalid="$WORK_DIR/invalid-runtime-layout"
+  local sandbox_schema="$WORK_DIR/invalid-runtime-schema"
+
+  cp -R "$snapshot_repo" "$sandbox_invalid"
+  python3 - "$sandbox_invalid/runtimes/registry.yaml" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["runtimes"][0]["metadata_root"] = "~/.broken/meta"
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+
+  local rc=0
+  set +e
+  ( cd "$sandbox_invalid" && python3 tooling/generate/registry_sync.py --check ) >"$sandbox_invalid/layout-check.log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "invalid runtime layout should fail registry sync validation"
+  assert_contains "$sandbox_invalid/layout-check.log" 'metadata_root: must end with b-agentic'
+
+  cp -R "$snapshot_repo" "$sandbox_schema"
+  python3 - "$sandbox_schema/runtimes/registry.yaml" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["runtimes"][0]["config_schema_family"] = "unknown-schema"
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+
+  rc=0
+  set +e
+  ( cd "$sandbox_schema" && python3 tooling/generate/registry_sync.py --check ) >"$sandbox_schema/schema-check.log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "invalid runtime config schema should fail registry sync validation"
+  assert_contains "$sandbox_schema/schema-check.log" 'config_schema_family: expected one of'
+}
+
 run_manifest_only_custom_paths_case() {
   local sandbox_custom="$WORK_DIR/manifest-only-custom-paths"
   local manifest_path skill_dir kernel_path snapshot_path
@@ -606,6 +652,7 @@ main() {
   require_bin git
   require_bin python3
   make_repo_snapshot "$snapshot_repo"
+  run_invalid_runtime_layout_validation_case "$snapshot_repo"
   run_all_runtime_smoke_case "$snapshot_repo"
   run_manifest_only_corrupted_manifest_case
   run_manifest_only_custom_paths_case

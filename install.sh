@@ -300,17 +300,39 @@ install_app() {
   log "Installer source ready"
 }
 
-manifest_path_for_runtime() {
-  case "$1" in
-    claude-code) printf '%s/.claude/b-agentic/install.json' "$HOME" ;;
-    opencode) printf '%s/.config/opencode/b-agentic/install.json' "$HOME" ;;
-    codex-cli) printf '%s/.codex/b-agentic/install.json' "$HOME" ;;
-    *) return 1 ;;
-  esac
-}
+manifest_only_records() {
+  python3 - <<'PY'
+import json
+from pathlib import Path
 
-manifest_only_runtime_names() {
-  printf '%s\n' claude-code opencode codex-cli
+home = Path.home()
+candidates = []
+candidates.extend(home.glob(".*/b-agentic/install.json"))
+candidates.extend((home / ".config").glob("*/b-agentic/install.json"))
+candidates.extend((home / ".local" / "share").glob("*/b-agentic/install.json"))
+candidates.extend((home / "Library" / "Application Support").glob("*/b-agentic/install.json"))
+
+seen = set()
+for path in candidates:
+    try:
+        resolved = path.resolve()
+        resolved.relative_to(home.resolve())
+    except Exception:
+        continue
+    if resolved in seen or not path.is_file():
+        continue
+    seen.add(resolved)
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        continue
+    suite = data.get("suite")
+    if suite is not None and suite != "b-agentic":
+        continue
+    runtime = data.get("runtime")
+    if isinstance(runtime, str) and runtime:
+        print(f"{runtime}\t{path}")
+PY
 }
 
 manifest_only_uninstall_one() {
@@ -334,21 +356,24 @@ try_manifest_only_uninstall() {
 
   local runtime_name manifest_path installed_count=0
   if [ "$RUNTIME" = "all" ]; then
-    while IFS= read -r runtime_name; do
+    while IFS=$'\t' read -r runtime_name manifest_path; do
       [ -n "$runtime_name" ] || continue
-      manifest_path="$(manifest_path_for_runtime "$runtime_name")" || continue
       if [ -f "$manifest_path" ]; then
         manifest_only_uninstall_one "$runtime_name" "$manifest_path"
         installed_count=$((installed_count + 1))
       fi
-    done < <(manifest_only_runtime_names)
+    done < <(manifest_only_records)
     [ "$installed_count" -gt 0 ] || return 1
     return 0
   fi
 
-  manifest_path="$(manifest_path_for_runtime "$RUNTIME")" || return 1
-  [ -f "$manifest_path" ] || return 1
-  manifest_only_uninstall_one "$RUNTIME" "$manifest_path"
+  while IFS=$'\t' read -r runtime_name manifest_path; do
+    [ "$runtime_name" = "$RUNTIME" ] || continue
+    [ -f "$manifest_path" ] || continue
+    manifest_only_uninstall_one "$RUNTIME" "$manifest_path"
+    return $?
+  done < <(manifest_only_records)
+  return 1
 }
 
 install_rtk() {

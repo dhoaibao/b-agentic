@@ -35,6 +35,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 ## Tools required
 
 - `bash` - inspect status, diff, logs, and narrow verification.
+- `codegraph` - changed-flow, call graph, and affected-test evidence when indexed.
 - `serena-symbol-toolkit` - inspect changed symbols, references, diagnostics, and boundaries.
 - `brave-search` - one narrow public lookup only when API semantics matter.
 
@@ -42,9 +43,10 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 
 1. Scope the review: working tree, range, baseline, or suite-audit surface.
 2. Choose baseline. Without baseline, do a risk review and do not claim requirements coverage.
-3. Inspect highest-risk changed symbols and boundaries first.
-4. Check tests, edge cases, security, operability, evidence quality, hidden assumptions, unnecessary diff, and over-abstraction.
-5. Emit findings ordered by severity. If none, say so and name residual risk.
+3. Use CodeGraph for changed flows and affected-test discovery when indexed; use Serena/local search for exact references.
+4. Inspect highest-risk changed symbols and boundaries first.
+5. Check tests, edge cases, security, operability, evidence quality, hidden assumptions, unnecessary diff, and over-abstraction.
+6. Emit findings ordered by severity. If none, say so and name residual risk.
 
 For `--audit-suite` or explicit b-agentic audits, check kernel slimness, source/generated sync, runtime parity, installer safety, MCP leverage, validation evidence, and cleanup candidates. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.
 

@@ -166,7 +166,13 @@ scripts/skill-doctor.sh --runtime=opencode
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove a live runtime session has loaded the kernel or that remote MCP calls succeed.
 
-Production acceptance for each runtime should include a fresh session check that the kernel loads, one `b-*` skill can be invoked, configured MCP servers start, and approval gates prompt or deny as expected.
+Production acceptance for each runtime should include a fresh-session check:
+
+- Kernel/memory file is loaded by the runtime.
+- One installed `b-*` skill can be invoked.
+- Configured MCP servers start or report actionable local blockers.
+- Approval gates prompt or deny for commits, pushes, dependency writes, and destructive commands.
+- Browser/MCP/API checks state any missing keys, packages, auth, or remote-service gaps.
 
 ## Docs
 

@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 
-SUPPORTED_RUNTIMES = {"claude-code", "codex-cli", "opencode"}
+ROOT = Path(__file__).resolve().parents[2]
 SUPPORTED_SERVERS = ("serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright")
 DEFAULT_PACKAGES = {
     "brave-search": "@brave/brave-search-mcp-server",
@@ -29,6 +29,15 @@ def load_toml(path: Path) -> dict:
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on runtime python
         raise SystemExit("Codex CLI MCP doctor requires Python 3.11+ (stdlib tomllib).") from exc
     return tomllib.loads(path.read_text())
+
+
+def runtime_records() -> dict[str, dict]:
+    registry = load_json(ROOT / "runtimes" / "registry.yaml")
+    records = {}
+    for runtime in registry.get("runtimes", []):
+        if isinstance(runtime, dict) and isinstance(runtime.get("name"), str):
+            records[runtime["name"]] = runtime
+    return records
 
 
 def env_var_present(name: str) -> bool:
@@ -229,34 +238,42 @@ def codex_server_status(server: str, config: dict) -> str:
     return ready_status(f"pnpm and {env_key} available", pinned_status)
 
 
-def resolve_config_path(runtime: str, home: Path) -> Path:
-    if runtime == "claude-code":
+def resolve_config_path(runtime: dict, home: Path) -> Path:
+    schema_family = runtime.get("config_schema_family")
+    if schema_family == "claude-user-config":
         return home / ".claude.json"
-    if runtime == "codex-cli":
+    if schema_family == "codex-toml":
         return home / ".codex" / "config.toml"
-    if runtime == "opencode":
+    if schema_family == "opencode-json":
         return home / ".config" / "opencode" / "opencode.json"
-    raise ValueError(runtime)
+    raise ValueError(f"unsupported config schema family: {schema_family!r}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check installed b-agentic MCP readiness for a runtime.")
-    parser.add_argument("--runtime", required=True, choices=sorted(SUPPORTED_RUNTIMES))
+    parser.add_argument("--runtime", required=True)
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
     args = parser.parse_args()
 
+    runtimes = runtime_records()
+    runtime = runtimes.get(args.runtime)
+    if runtime is None:
+        print(f"unsupported runtime: {args.runtime}", file=sys.stderr)
+        return 2
+
     home = Path(args.home).expanduser()
-    config_path = resolve_config_path(args.runtime, home)
+    config_path = resolve_config_path(runtime, home)
     if not config_path.exists():
         print(f"runtime: {args.runtime}")
         print(f"config: {config_path}")
         print("status: missing runtime config")
         return 1
 
-    if args.runtime == "claude-code":
+    schema_family = runtime.get("config_schema_family")
+    if schema_family == "claude-user-config":
         config = load_json(config_path)
         status_fn = claude_server_status
-    elif args.runtime == "codex-cli":
+    elif schema_family == "codex-toml":
         config = load_toml(config_path)
         status_fn = codex_server_status
     else:
@@ -265,6 +282,7 @@ def main() -> int:
 
     print(f"runtime: {args.runtime}")
     print(f"config: {config_path}")
+    print("startup-check: not attempted; validates local launchers, keys, and config shape only")
     for server in SUPPORTED_SERVERS:
         print(f"{server}: {status_fn(server, config)}")
     return 0
