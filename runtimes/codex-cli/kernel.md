@@ -14,7 +14,7 @@ Use these rules before any skill-specific instruction.
 5. Never read or expose likely secrets, customer data, private stack traces, internal URLs, or proprietary code to public tools without explicit approval.
 6. Use the lightest reliable evidence: local text and commands for repo facts, symbol tools for code behavior, primary fetched sources for external facts.
 7. Use tools by ownership: CodeGraph for pre-indexed code structure and impact, Serena for symbols and symbol-aware edits, Context7 for versioned docs, Brave for discovery, Firecrawl for extraction, Playwright for browser evidence.
-8. For repo work, automatically run local setup when available: `codegraph init` if the project has no CodeGraph index, and Serena onboarding if it has not been run yet.
+8. For repo work, initialize available local code-intelligence tools as described in `safety-tools.md`.
 9. Make the smallest coherent change and verify with the narrowest useful check. Do not claim completion with missing or failed required evidence.
 10. Keep output concise. Use structured blocks only for handoffs, blockers, review verdicts, or shipping approvals.
 

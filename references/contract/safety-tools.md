@@ -36,6 +36,14 @@ Prefer source files over generated files. Rerender generated assets only after s
 
 Firecrawl autonomous/deep research, crawling, and any external mutation require explicit approval or a run-scoped user cap. Firecrawl monitor creation/update/delete is not part of the default b-agentic workflow.
 
+### Local Tool Bootstrap
+
+For repo work, automatically initialize local code-intelligence tools when available:
+- Run `codegraph init` when `codegraph` is installed and the project has no CodeGraph index.
+- Run Serena onboarding when Serena is installed and onboarding has not been run.
+
+These are local project setup steps. Do not install missing tools here; use installer and readiness guidance instead.
+
 Fallbacks:
 - CodeGraph unavailable or uninitialized -> use Serena plus local search/reads for structure and impact mapping.
 - Serena unavailable -> use local search/reads and treat symbol-wide edits as higher risk.
