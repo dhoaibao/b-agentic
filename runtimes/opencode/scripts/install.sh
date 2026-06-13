@@ -33,8 +33,28 @@ FIRECRAWL_API_KEY_INPUT=""
 FIRECRAWL_API_URL_INPUT=""
 
 runtime_warn_missing_cli() {
-  command -v opencode >/dev/null 2>&1 || warn "opencode CLI not found; files will still be installed for OpenCode to discover later."
   command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
+}
+
+runtime_upgrade_cli() {
+  if command -v opencode >/dev/null 2>&1; then
+    log "OpenCode CLI already installed; upgrading"
+    if run_cmd opencode upgrade; then
+      log "OpenCode CLI upgraded"
+    else
+      warn "OpenCode CLI upgrade failed; continuing with existing CLI"
+    fi
+    return 0
+  fi
+
+  log "OpenCode CLI not found; installing"
+  if dry_run_enabled; then
+    printf '[dry-run] curl -fsSL https://opencode.ai/install | bash\n' >&2
+  elif curl -fsSL https://opencode.ai/install | bash; then
+    log "OpenCode CLI installed"
+  else
+    warn "OpenCode CLI install failed; files will still be installed for OpenCode to discover later"
+  fi
 }
 
 runtime_install_config_stage_count() {

@@ -64,8 +64,28 @@ runtime_mcp_key_configured() {
 }
 
 runtime_warn_missing_cli() {
-  command -v codex >/dev/null 2>&1 || warn "codex CLI not found; files will still be installed for Codex to discover later."
   command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
+}
+
+runtime_upgrade_cli() {
+  if command -v codex >/dev/null 2>&1; then
+    log "Codex CLI already installed; updating"
+    if run_cmd codex update; then
+      log "Codex CLI updated"
+    else
+      warn "Codex CLI update failed; continuing with existing CLI"
+    fi
+    return 0
+  fi
+
+  log "Codex CLI not found; installing"
+  if dry_run_enabled; then
+    printf '[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh\n' >&2
+  elif curl -fsSL https://chatgpt.com/codex/install.sh | sh; then
+    log "Codex CLI installed"
+  else
+    warn "Codex CLI install failed; files will still be installed for Codex to discover later"
+  fi
 }
 
 runtime_install_config_stage_count() {
@@ -481,9 +501,10 @@ runtime_uninstall_extra_assets() {
 runtime_main() {
   runtime_warn_missing_cli
   runtime_require_tomllib
-  set_install_stage_total 6
+  set_install_stage_total 7
 
   collect_installed_skills INSTALL_SKILL_NAMES
+  run_stage "Preparing runtime CLI" runtime_upgrade_cli
   run_stage "Syncing skills" install_skills
   run_stage "Installing runtime extras" runtime_install_extra_assets
   run_stage "Syncing references and templates" install_references_and_templates

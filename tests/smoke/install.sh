@@ -395,6 +395,7 @@ run_mcp_package_override_case() {
 
   set +e
   HOME="$sandbox_claude/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_claude")" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_claude/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -415,6 +416,7 @@ run_mcp_package_override_case() {
   expect_install_status 0 "$sandbox_claude_upgrade" "$snapshot_repo" --runtime=claude-code
   set +e
   HOME="$sandbox_claude_upgrade/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_claude_upgrade")" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -434,6 +436,7 @@ run_mcp_package_override_case() {
 
   set +e
   HOME="$sandbox_claude_upgrade/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_claude_upgrade")" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -453,6 +456,7 @@ run_mcp_package_override_case() {
 
   set +e
   HOME="$sandbox_opencode/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_opencode")" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_opencode/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -473,6 +477,7 @@ run_mcp_package_override_case() {
   expect_install_status 0 "$sandbox_opencode_upgrade" "$snapshot_repo" --runtime=opencode
   set +e
   HOME="$sandbox_opencode_upgrade/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_opencode_upgrade")" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_opencode_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -492,6 +497,7 @@ run_mcp_package_override_case() {
 
   set +e
   HOME="$sandbox_codex/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_codex")" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_codex/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -516,6 +522,7 @@ run_existing_tool_upgrade_case() {
   local bin_dir="$sandbox/bin"
   local upgrade_log="$sandbox/upgrade.log"
   local install_log="$sandbox/install.log"
+  local smoke_path
   local rc=0
 
   mkdir -p "$sandbox/home" "$bin_dir"
@@ -542,15 +549,16 @@ EOF
 printf '%s\n' 'printf "rtk-upgrade\n" >> "$upgrade_log"'
 EOF
   chmod +x "$bin_dir/rtk" "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/uv" "$bin_dir/curl"
+  smoke_path="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")"
 
   set +e
-  python3 - "$sandbox" "$snapshot_repo" "$bin_dir" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+  python3 - "$sandbox" "$snapshot_repo" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
 import os, pty, select, sys
 
-sandbox, repo_snapshot, bin_dir, log_path, install_script = sys.argv[1:6]
+sandbox, repo_snapshot, smoke_path, log_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
-env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
@@ -603,6 +611,117 @@ PY
   assert_not_contains "$install_log" 'Install RTK (Rust Token Killer)'
   assert_not_contains "$install_log" 'Install Serena MCP agent'
   assert_not_contains "$install_log" 'Install CodeGraph MCP agent'
+}
+
+run_runtime_cli_upgrade_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/runtime-cli-upgrade"
+  local bin_dir="$sandbox/bin"
+  local upgrade_log="$sandbox/upgrade.log"
+  local runtime runtime_bin runtime_arg expected_entry install_log rc
+
+  mkdir -p "$bin_dir"
+
+  cat > "$bin_dir/claude" <<EOF
+#!/usr/bin/env bash
+printf 'claude:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  cat > "$bin_dir/opencode" <<EOF
+#!/usr/bin/env bash
+printf 'opencode:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  cat > "$bin_dir/codex" <<EOF
+#!/usr/bin/env bash
+printf 'codex:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex"
+
+  for runtime in claude-code opencode codex-cli; do
+    case "$runtime" in
+      claude-code)
+        runtime_bin="claude"
+        runtime_arg="upgrade"
+        ;;
+      opencode)
+        runtime_bin="opencode"
+        runtime_arg="upgrade"
+        ;;
+      codex-cli)
+        runtime_bin="codex"
+        runtime_arg="update"
+        ;;
+      *)
+        fail "unexpected runtime in upgrade smoke: $runtime"
+        ;;
+    esac
+
+    mkdir -p "$sandbox/$runtime/home"
+    install_log="$sandbox/$runtime/install.log"
+    rc=0
+
+    set +e
+    HOME="$sandbox/$runtime/home" \
+    PATH="$bin_dir:$PATH" \
+    B_AGENTIC_REPO="$snapshot_repo" \
+    B_AGENTIC_DIR="$sandbox/$runtime/source" \
+    B_AGENTIC_PROMPT_API_KEYS=N \
+    B_AGENTIC_INSTALL_RTK=N \
+    B_AGENTIC_INSTALL_SERENA=N \
+    B_AGENTIC_INSTALL_CODEGRAPH=N \
+    bash "$ROOT_DIR/install.sh" --runtime="$runtime" >"$install_log" 2>&1
+    rc=$?
+    set -e
+
+    [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
+    expected_entry="$runtime_bin:$runtime_arg"
+    assert_contains "$upgrade_log" "$expected_entry"
+  done
+}
+
+run_missing_runtime_cli_install_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/missing-runtime-cli-install"
+  local install_log runtime expected_entry rc
+
+  for runtime in claude-code opencode codex-cli; do
+    case "$runtime" in
+      claude-code)
+        expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
+        ;;
+      opencode)
+        expected_entry='[dry-run] curl -fsSL https://opencode.ai/install | bash'
+        ;;
+      codex-cli)
+        expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
+        ;;
+      *)
+        fail "unexpected runtime in missing CLI smoke: $runtime"
+        ;;
+    esac
+
+    mkdir -p "$sandbox/$runtime/home"
+    install_log="$sandbox/$runtime/install.log"
+    rc=0
+
+    set +e
+    HOME="$sandbox/$runtime/home" \
+    PATH="/usr/bin:/bin" \
+    B_AGENTIC_REPO="$snapshot_repo" \
+    B_AGENTIC_DIR="$sandbox/$runtime/source" \
+    B_AGENTIC_PROMPT_API_KEYS=N \
+    B_AGENTIC_INSTALL_RTK=N \
+    B_AGENTIC_INSTALL_SERENA=N \
+    B_AGENTIC_INSTALL_CODEGRAPH=N \
+    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run >"$install_log" 2>&1
+    rc=$?
+    set -e
+
+    [ "$rc" -eq 0 ] || fail "expected $runtime missing CLI install dry-run exit 0, got $rc"
+    assert_contains "$install_log" "$expected_entry"
+  done
 }
 
 run_skill_doctor_case() {
@@ -661,6 +780,8 @@ main() {
   run_readiness_report_case "$snapshot_repo"
   run_mcp_doctor_case "$snapshot_repo"
   run_mcp_package_override_case "$snapshot_repo"
+  run_runtime_cli_upgrade_case "$snapshot_repo"
+  run_missing_runtime_cli_install_case "$snapshot_repo"
   run_existing_tool_upgrade_case "$snapshot_repo"
   run_skill_doctor_case "$snapshot_repo"
 

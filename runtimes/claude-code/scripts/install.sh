@@ -31,9 +31,29 @@ FIRECRAWL_API_KEY_INPUT=""
 FIRECRAWL_API_URL_INPUT=""
 
 runtime_warn_missing_cli() {
-  command -v claude >/dev/null 2>&1 || warn "claude CLI not found; files will still be installed for Claude Code to discover later."
   command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
   command -v pnpm >/dev/null 2>&1 || warn "pnpm not found; MCP servers that use 'pnpm dlx' (Brave, Firecrawl, Playwright) will not start until pnpm is installed."
+}
+
+runtime_upgrade_cli() {
+  if command -v claude >/dev/null 2>&1; then
+    log "Claude Code CLI already installed; upgrading"
+    if run_cmd claude upgrade; then
+      log "Claude Code CLI upgraded"
+    else
+      warn "Claude Code CLI upgrade failed; continuing with existing CLI"
+    fi
+    return 0
+  fi
+
+  log "Claude Code CLI not found; installing"
+  if dry_run_enabled; then
+    printf '[dry-run] curl -fsSL https://claude.ai/install.sh | bash\n' >&2
+  elif curl -fsSL https://claude.ai/install.sh | bash; then
+    log "Claude Code CLI installed"
+  else
+    warn "Claude Code CLI install failed; files will still be installed for Claude Code to discover later"
+  fi
 }
 
 runtime_install_config_stage_count() {

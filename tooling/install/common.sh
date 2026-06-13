@@ -1362,6 +1362,7 @@ uninstall_installed_skills() {
 }
 
 runtime_warn_missing_cli() { :; }
+runtime_upgrade_cli() { :; }
 runtime_install_extra_assets() { :; }
 runtime_uninstall_extra_assets() { :; }
 runtime_install_config_stage_count() { printf '0'; }
@@ -1371,9 +1372,10 @@ runtime_install_common() {
 
   runtime_warn_missing_cli
   config_stage_count="$(runtime_install_config_stage_count)"
-  set_install_stage_total $((6 + config_stage_count))
+  set_install_stage_total $((7 + config_stage_count))
 
   collect_installed_skills INSTALL_SKILL_NAMES
+  run_stage "Preparing runtime CLI" runtime_upgrade_cli
   run_stage "Syncing skills" install_skills
   run_stage "Installing runtime extras" runtime_install_extra_assets
   run_stage "Syncing references and templates" install_references_and_templates

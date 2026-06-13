@@ -80,13 +80,45 @@ make_repo_snapshot() {
   git -C "$snapshot_dir" -c user.name='b-agentic smoke' -c user.email='smoke@example.com' commit -qm 'snapshot'
 }
 
+smoke_runtime_cli_path() {
+  local sandbox="$1"
+  local bin_dir="$sandbox/smoke-bin"
+  local name
+
+  mkdir -p "$bin_dir"
+  for name in claude opencode codex; do
+    cat > "$bin_dir/$name" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$bin_dir/$name"
+  done
+
+  printf '%s:/usr/bin:/bin' "$bin_dir"
+}
+
+smoke_path_with_runtime_clis() {
+  local sandbox="$1" extra_path="${2:-}"
+  local smoke_path
+  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+  if [ -n "$extra_path" ]; then
+    printf '%s:%s' "$extra_path" "$smoke_path"
+  else
+    printf '%s' "$smoke_path"
+  fi
+}
+
 run_install_status() {
   local sandbox="$1" repo_snapshot="$2"
   shift 2
 
+  local smoke_path
+  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+
   local rc=0
   set +e
   HOME="$sandbox/home" \
+  PATH="$smoke_path" \
   B_AGENTIC_REPO="$repo_snapshot" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -104,11 +136,15 @@ run_install_status_in_cwd() {
   local install_cwd="$1" sandbox="$2" repo_snapshot="$3"
   shift 3
 
+  local smoke_path
+  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+
   local rc=0
   set +e
   (
     cd "$install_cwd"
     HOME="$sandbox/home" \
+    PATH="$smoke_path" \
     B_AGENTIC_REPO="$repo_snapshot" \
     B_AGENTIC_DIR="$sandbox/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
@@ -127,16 +163,20 @@ run_install_with_tty_status() {
   local sandbox="$1" repo_snapshot="$2" input="$3"
   shift 3
 
+  local smoke_path
+  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+
   local rc=0
   set +e
-  python3 - "$sandbox" "$repo_snapshot" "$input" "$ROOT_DIR/install.sh" "$@" <<'PY' >/dev/null 2>&1
+  python3 - "$sandbox" "$repo_snapshot" "$input" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY' >/dev/null 2>&1
 import os, pty, select, sys
 
-sandbox, repo_snapshot, input_data, install_script = sys.argv[1:5]
-args = sys.argv[5:]
+sandbox, repo_snapshot, input_data, smoke_path, install_script = sys.argv[1:6]
+args = sys.argv[6:]
 
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_INSTALL_RTK"] = "N"
@@ -180,16 +220,20 @@ run_install_with_tty_log() {
   local sandbox="$1" repo_snapshot="$2" log_path="$3"
   shift 3
 
+  local smoke_path
+  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+
   local rc=0
   set +e
-  python3 - "$sandbox" "$repo_snapshot" "$log_path" "$ROOT_DIR/install.sh" "$@" <<'PY'
+  python3 - "$sandbox" "$repo_snapshot" "$log_path" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY'
 import os, pty, select, sys
 
-sandbox, repo_snapshot, log_path, install_script = sys.argv[1:5]
-args = sys.argv[5:]
+sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+args = sys.argv[6:]
 
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
