@@ -347,6 +347,25 @@ install_rtk() {
   case "${INSTALL_RTK_VALUE:-auto}" in
     n|N|no|NO|No|false|FALSE|0) return 0 ;;
     y|Y|yes|YES|Yes|true|TRUE|1) ;;
+    auto|AUTO|Auto) ;;
+    *) die "invalid B_AGENTIC_INSTALL_RTK value: $INSTALL_RTK_VALUE" ;;
+  esac
+
+  if command -v rtk >/dev/null 2>&1; then
+    if dry_run_enabled; then
+      printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh\n' >&2
+      return 0
+    fi
+    log "RTK already installed; upgrading"
+    if curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh; then
+      log "RTK upgraded"
+    else
+      warn "RTK upgrade failed; continuing with existing RTK"
+    fi
+    return 0
+  fi
+
+  case "${INSTALL_RTK_VALUE:-auto}" in
     auto|AUTO|Auto)
       if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
         return 0
@@ -359,13 +378,7 @@ install_rtk() {
         *) return 0 ;;
       esac
       ;;
-    *) die "invalid B_AGENTIC_INSTALL_RTK value: $INSTALL_RTK_VALUE" ;;
   esac
-
-  if command -v rtk >/dev/null 2>&1; then
-    log "RTK already installed"
-    return 0
-  fi
 
   if dry_run_enabled; then
     printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh\n' >&2
@@ -442,18 +455,35 @@ install_serena() {
   case "${INSTALL_SERENA_VALUE:-auto}" in
     n|N|no|NO|No|false|FALSE|0) return 0 ;;
     y|Y|yes|YES|Yes|true|TRUE|1) ;;
+    auto|AUTO|Auto) ;;
+    *) die "invalid B_AGENTIC_INSTALL_SERENA value: $INSTALL_SERENA_VALUE" ;;
+  esac
+
+  if command -v serena >/dev/null 2>&1; then
+    if dry_run_enabled; then
+      printf '[dry-run] uv tool upgrade serena-agent\n' >&2
+      return 0
+    fi
+    if ! command -v uv >/dev/null 2>&1; then
+      warn "uv not installed; skipping Serena upgrade"
+      return 0
+    fi
+    log "Serena already installed; upgrading"
+    if uv tool upgrade serena-agent; then
+      log "Serena upgraded"
+    else
+      warn "Serena upgrade failed; continuing with existing Serena"
+    fi
+    return 0
+  fi
+
+  case "${INSTALL_SERENA_VALUE:-auto}" in
     auto|AUTO|Auto)
       if ! prompt_yes_no 'Install Serena MCP agent (requires uv)? [y/N]' N; then
         return 0
       fi
       ;;
-    *) die "invalid B_AGENTIC_INSTALL_SERENA value: $INSTALL_SERENA_VALUE" ;;
   esac
-
-  if command -v serena >/dev/null 2>&1; then
-    log "Serena already installed"
-    return 0
-  fi
 
   install_uv || return 0
 

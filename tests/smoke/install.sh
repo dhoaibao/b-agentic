@@ -452,6 +452,92 @@ run_mcp_package_override_case() {
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
 }
 
+run_existing_tool_upgrade_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/existing-tool-upgrade"
+  local bin_dir="$sandbox/bin"
+  local upgrade_log="$sandbox/upgrade.log"
+  local install_log="$sandbox/install.log"
+  local rc=0
+
+  mkdir -p "$sandbox/home" "$bin_dir"
+
+  cat > "$bin_dir/rtk" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  cat > "$bin_dir/serena" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  cat > "$bin_dir/uv" <<EOF
+#!/usr/bin/env bash
+printf 'uv:%s\n' "\$*" >> "$upgrade_log"
+EOF
+  cat > "$bin_dir/curl" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' 'printf "rtk-upgrade\n" >> "$upgrade_log"'
+EOF
+  chmod +x "$bin_dir/rtk" "$bin_dir/serena" "$bin_dir/uv" "$bin_dir/curl"
+
+  set +e
+  python3 - "$sandbox" "$snapshot_repo" "$bin_dir" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+import os, pty, select, sys
+
+sandbox, repo_snapshot, bin_dir, log_path, install_script = sys.argv[1:6]
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.update(env)
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+
+os.write(fd, b"n\nn\n")
+status = None
+with open(log_path, "wb") as log:
+    while True:
+        try:
+            result, status = os.waitpid(pid, os.WNOHANG)
+            if result:
+                break
+            ready, _, _ = select.select([fd], [], [], 0.1)
+            if ready:
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    _, status = os.waitpid(pid, 0)
+                    break
+                log.write(chunk)
+                log.flush()
+        except (OSError, select.error):
+            break
+
+os.close(fd)
+if status is None:
+    _, status = os.waitpid(pid, 0)
+
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+PY
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected existing tool upgrade install exit 0, got $rc"
+  assert_contains "$upgrade_log" 'rtk-upgrade'
+  assert_contains "$upgrade_log" 'uv:tool upgrade serena-agent'
+  assert_contains "$install_log" 'RTK already installed; upgrading'
+  assert_contains "$install_log" 'Serena already installed; upgrading'
+  assert_not_contains "$install_log" 'Install RTK (Rust Token Killer)'
+  assert_not_contains "$install_log" 'Install Serena MCP agent'
+}
+
 run_skill_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
@@ -507,6 +593,7 @@ main() {
   run_readiness_report_case "$snapshot_repo"
   run_mcp_doctor_case "$snapshot_repo"
   run_mcp_package_override_case "$snapshot_repo"
+  run_existing_tool_upgrade_case "$snapshot_repo"
   run_skill_doctor_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do

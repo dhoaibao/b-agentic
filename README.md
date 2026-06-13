@@ -38,7 +38,7 @@ Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `
 
 ## RTK (Rust Token Killer)
 
-When `--install-rtk` is used, the installer downloads and runs the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
+When `--install-rtk` is used, the installer downloads and runs the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. If `rtk` is already installed, the installer skips the prompt and runs the same command as an upgrade. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
 
 Once installed, the kernel instructs the agent to route every shell command through RTK by prefixing it with `rtk`:
 
@@ -61,7 +61,7 @@ Verification: `rtk --version`, `rtk gain`, `which rtk`.
 
 ## Serena MCP agent
 
-`--install-serena` installs the Serena MCP agent, which provides symbol discovery, references, diagnostics, and symbol edits.
+`--install-serena` installs the Serena MCP agent, which provides symbol discovery, references, diagnostics, and symbol edits. If `serena` is already installed, the installer skips the prompt and runs `uv tool upgrade serena-agent`.
 
 If `uv` is already installed, the installer runs:
 
