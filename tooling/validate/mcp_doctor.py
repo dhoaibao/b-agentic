@@ -248,60 +248,12 @@ def codex_server_status(server: str, config: dict) -> str:
     return ready_status(f"pnpm and {env_key} available", pinned_status)
 
 
-def factory_server_status(server: str, config: dict) -> str:
-    servers = config.get("mcpServers", {})
-    entry = servers.get(server)
-    if not isinstance(entry, dict):
-        return "missing: config entry not installed"
-
-    if server == "serena":
-        if entry.get("command") != "serena" or not serena_args_match(entry.get("args"), "ide"):
-            return "blocked: invalid serena launcher"
-        return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
-    if server == "context7":
-        if entry.get("type") != "http" or entry.get("url") != "https://mcp.context7.com/mcp":
-            return "blocked: invalid context7 config"
-        headers = entry.get("headers", {})
-        if isinstance(headers, dict) and isinstance(headers.get("CONTEXT7_API_KEY"), str) and headers.get("CONTEXT7_API_KEY") and not headers.get("CONTEXT7_API_KEY", "").startswith("${"):
-            return "ready: CONTEXT7_API_KEY configured in Droid config"
-        return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
-    if server == "codegraph":
-        if entry.get("command") != "codegraph" or not list_matches(entry.get("args"), ["serve", "--mcp"]):
-            return "blocked: invalid codegraph launcher"
-        return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
-    if server == "playwright":
-        args = entry.get("args")
-        pinned_status = pinned_package_status("playwright", args[1] if isinstance(args, list) and len(args) > 1 else None)
-        if entry.get("command") != "pnpm" or (pinned_status and not args_shape_matches("playwright", args)) or (not pinned_status and not list_matches(args, ["dlx", package_name("playwright"), "--isolated"])):
-            return "blocked: invalid playwright launcher"
-        return ready_status("pnpm available", pinned_status) if command_ready("pnpm") else "blocked: install pnpm"
-
-    issues: list[str] = []
-    args = entry.get("args")
-    pinned_status = pinned_package_status(server, args[1] if isinstance(args, list) and len(args) > 1 else None)
-    expected_args = ["dlx", package_name("brave-search"), "--transport", "stdio"] if server == "brave-search" else ["dlx", package_name("firecrawl")]
-    if entry.get("command") != "pnpm" or (pinned_status and not args_shape_matches(server, args)) or (not pinned_status and not list_matches(args, expected_args)):
-        issues.append(f"invalid {server} launcher")
-    if not command_ready("pnpm"):
-        issues.append("install pnpm")
-    env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
-    env_section = entry.get("env", {})
-    if not (isinstance(env_section, dict) and isinstance(env_section.get(env_key), str) and env_section.get(env_key) and not env_section.get(env_key, "").startswith("${")):
-        if not env_var_present(env_key):
-            issues.append(f"set {env_key}")
-    if issues:
-        return f"blocked: {join_issues(issues)}"
-    return ready_status(f"pnpm and {env_key} available", pinned_status)
-
-
 def resolve_config_path(runtime: dict, home: Path) -> Path:
     schema_family = runtime.get("config_schema_family")
     if schema_family == "claude-user-config":
         return home / ".claude.json"
     if schema_family == "codex-toml":
         return home / ".codex" / "config.toml"
-    if schema_family == "factory-json":
-        return home / ".factory" / "mcp.json"
     if schema_family == "opencode-json":
         return home / ".config" / "opencode" / "opencode.json"
     raise ValueError(f"unsupported config schema family: {schema_family!r}")
@@ -334,9 +286,6 @@ def main() -> int:
     elif schema_family == "codex-toml":
         config = load_toml(config_path)
         status_fn = codex_server_status
-    elif schema_family == "factory-json":
-        config = load_json(config_path)
-        status_fn = factory_server_status
     else:
         config = load_json(config_path)
         status_fn = json_mcp_server_status
