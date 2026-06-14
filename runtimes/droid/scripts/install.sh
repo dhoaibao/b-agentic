@@ -37,9 +37,22 @@ runtime_warn_missing_cli() {
 
 runtime_upgrade_cli() {
   if command -v droid >/dev/null 2>&1; then
-    log "Droid CLI already installed"
+    log "Droid CLI already installed; updating"
+    if run_cmd droid update; then
+      log "Droid CLI updated"
+    else
+      warn "Droid CLI update failed; continuing with existing CLI"
+    fi
+    return 0
+  fi
+
+  log "Droid CLI not found; installing"
+  if dry_run_enabled; then
+    printf '[dry-run] curl -fsSL https://app.factory.ai/cli | sh\n' >&2
+  elif curl -fsSL https://app.factory.ai/cli | sh; then
+    log "Droid CLI installed"
   else
-    warn "Droid CLI not found; install Droid from Factory if you want to launch it now"
+    warn "Droid CLI install failed; files will still be installed for Droid to discover later"
   fi
 }
 

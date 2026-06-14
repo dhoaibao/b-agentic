@@ -726,7 +726,7 @@ EOF
         ;;
       droid)
         runtime_bin="droid"
-        runtime_arg=""
+        runtime_arg="update"
         ;;
       *)
         fail "unexpected runtime in upgrade smoke: $runtime"
@@ -751,12 +751,8 @@ EOF
     set -e
 
     [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
-    if [ -n "$runtime_arg" ]; then
-      expected_entry="$runtime_bin:$runtime_arg"
-      assert_contains "$upgrade_log" "$expected_entry"
-    else
-      assert_contains "$install_log" 'Droid CLI already installed'
-    fi
+    expected_entry="$runtime_bin:$runtime_arg"
+    assert_contains "$upgrade_log" "$expected_entry"
   done
 }
 
@@ -777,7 +773,7 @@ run_missing_runtime_cli_install_case() {
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
         ;;
       droid)
-        expected_entry='Droid CLI not found; install Droid from Factory if you want to launch it now'
+        expected_entry='[dry-run] curl -fsSL https://app.factory.ai/cli | sh'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"
