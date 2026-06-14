@@ -1,6 +1,6 @@
 [mcp_servers.serena]
 command = "serena"
-args = ["start-mcp-server", "--context", "codex", "--project-from-cwd"]
+args = ["start-mcp-server", "--context", "codex", "--project-from-cwd", "--open-web-dashboard", "false"]
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
