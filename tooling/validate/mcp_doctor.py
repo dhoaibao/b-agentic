@@ -52,6 +52,13 @@ def list_matches(value: object, expected: list[str]) -> bool:
     return isinstance(value, list) and value == expected
 
 
+def serena_args_match(value: object, context: str) -> bool:
+    if not isinstance(value, list):
+        return False
+    expected = ["start-mcp-server", "--context", context, "--project-from-cwd"]
+    return value == expected or value == expected + ["--open-web-dashboard", "false"]
+
+
 def package_name(server: str) -> str:
     env_name = {
         "brave-search": "B_AGENTIC_BRAVE_MCP_PACKAGE",
@@ -112,7 +119,7 @@ def claude_server_status(server: str, config: dict) -> str:
         return "missing: config entry not installed"
 
     if server == "serena":
-        if entry.get("command") != "serena" or not list_matches(entry.get("args"), ["start-mcp-server", "--context", "claude-code", "--project-from-cwd"]):
+        if entry.get("command") != "serena" or not serena_args_match(entry.get("args"), "claude-code"):
             return "blocked: invalid serena launcher"
         return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
     if server == "context7":
@@ -154,7 +161,7 @@ def json_mcp_server_status(server: str, config: dict) -> str:
 
     if server == "serena":
         command = entry.get("command")
-        if not list_matches(command, ["serena", "start-mcp-server", "--context", "ide", "--project-from-cwd"]):
+        if not isinstance(command, list) or not serena_args_match(command[1:], "ide") or command[0] != "serena":
             return "blocked: invalid serena launcher"
         if command_ready("serena"):
             return "ready: serena command found"
@@ -199,7 +206,7 @@ def codex_server_status(server: str, config: dict) -> str:
 
     if server == "serena":
         command = entry.get("command")
-        if command != "serena" or not list_matches(entry.get("args"), ["start-mcp-server", "--context", "codex", "--project-from-cwd"]):
+        if command != "serena" or not serena_args_match(entry.get("args"), "codex"):
             return "blocked: invalid serena launcher"
         return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
     if server == "context7":
@@ -248,7 +255,7 @@ def factory_server_status(server: str, config: dict) -> str:
         return "missing: config entry not installed"
 
     if server == "serena":
-        if entry.get("command") != "serena" or not list_matches(entry.get("args"), ["start-mcp-server", "--context", "ide", "--project-from-cwd"]):
+        if entry.get("command") != "serena" or not serena_args_match(entry.get("args"), "ide"):
             return "blocked: invalid serena launcher"
         return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
     if server == "context7":

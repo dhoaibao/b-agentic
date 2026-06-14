@@ -109,7 +109,7 @@ run_invalid_runtime_layout_validation_case() {
   local sandbox_invalid="$WORK_DIR/invalid-runtime-layout"
   local sandbox_schema="$WORK_DIR/invalid-runtime-schema"
 
-  cp -R "$snapshot_repo" "$sandbox_invalid"
+  git clone --quiet "$snapshot_repo" "$sandbox_invalid"
   python3 - "$sandbox_invalid/runtimes/registry.yaml" <<'PY'
 import json
 import sys
@@ -129,7 +129,7 @@ PY
   [ "$rc" -ne 0 ] || fail "invalid runtime layout should fail registry sync validation"
   assert_contains "$sandbox_invalid/layout-check.log" 'metadata_root: must end with b-agentic'
 
-  cp -R "$snapshot_repo" "$sandbox_schema"
+  git clone --quiet "$snapshot_repo" "$sandbox_schema"
   python3 - "$sandbox_schema/runtimes/registry.yaml" <<'PY'
 import json
 import sys
