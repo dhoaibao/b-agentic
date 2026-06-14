@@ -207,6 +207,7 @@ run_all_runtime_smoke_case() {
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for claude-code'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for opencode'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for codex-cli'
+  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for droid'
   assert_no_path "$sandbox_all/source"
 
   while IFS=$'\t' read -r runtime_name metadata_root kernel_path; do
@@ -224,6 +225,9 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
   assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
+  assert_no_path "$sandbox_all/home/.factory/skills/b-plan"
+  assert_no_path "$sandbox_all/home/.factory/AGENTS.md"
+  assert_no_path "$sandbox_all/home/.factory/agents/b-explore.md"
 
   mkdir -p "$sandbox_pending/home"
   IFS=$'\t' read -r pending_runtime_name _ pending_kernel_path < <(registry_runtime_records)
@@ -332,10 +336,11 @@ run_mcp_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
   local sandbox_codex="$WORK_DIR/mcp-doctor-codex"
+  local sandbox_droid="$WORK_DIR/mcp-doctor-droid"
   local sandbox_opencode="$WORK_DIR/mcp-doctor-opencode"
   local bin_dir="$WORK_DIR/mcp-doctor-bin"
   local doctor_log="$WORK_DIR/mcp-doctor.log"
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_droid/home" "$sandbox_opencode/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -386,6 +391,19 @@ run_mcp_doctor_case() {
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
 
+  expect_install_status 0 "$sandbox_droid" "$snapshot_repo" --runtime=droid
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=droid --home "$sandbox_droid/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'codegraph: ready:'
+  assert_contains "$doctor_log" 'context7: ready:'
+  assert_contains "$doctor_log" 'brave-search: ready:'
+  assert_contains "$doctor_log" 'firecrawl: ready:'
+  assert_contains "$doctor_log" 'playwright: ready:'
+
 }
 
 run_mcp_package_override_case() {
@@ -393,10 +411,12 @@ run_mcp_package_override_case() {
   local sandbox_claude="$WORK_DIR/mcp-package-claude"
   local sandbox_claude_upgrade="$WORK_DIR/mcp-package-claude-upgrade"
   local sandbox_codex="$WORK_DIR/mcp-package-codex"
+  local sandbox_droid="$WORK_DIR/mcp-package-droid"
+  local sandbox_droid_upgrade="$WORK_DIR/mcp-package-droid-upgrade"
   local sandbox_opencode="$WORK_DIR/mcp-package-opencode"
   local sandbox_opencode_upgrade="$WORK_DIR/mcp-package-opencode-upgrade"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_droid/home" "$sandbox_droid_upgrade/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home"
 
   set +e
   HOME="$sandbox_claude/home" \
@@ -519,6 +539,47 @@ run_mcp_package_override_case() {
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
+
+  set +e
+  HOME="$sandbox_droid/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_droid")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_droid/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=droid >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Droid package override install exit 0, got $rc"
+  assert_json_value "$sandbox_droid/home/.factory/mcp.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
+  assert_json_value "$sandbox_droid/home/.factory/mcp.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
+  assert_json_value "$sandbox_droid/home/.factory/mcp.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
+
+  expect_install_status 0 "$sandbox_droid_upgrade" "$snapshot_repo" --runtime=droid
+  set +e
+  HOME="$sandbox_droid_upgrade/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_droid_upgrade")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_droid_upgrade/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=droid >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Droid package override upgrade exit 0, got $rc"
+  assert_json_value "$sandbox_droid_upgrade/home/.factory/mcp.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.0.0', '--transport', 'stdio']"
+  assert_json_value "$sandbox_droid_upgrade/home/.factory/mcp.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.0.0']"
+  assert_json_value "$sandbox_droid_upgrade/home/.factory/mcp.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.0.0', '--isolated']"
 }
 
 run_existing_tool_upgrade_case() {
@@ -642,9 +703,14 @@ EOF
 printf 'codex:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex"
+  cat > "$bin_dir/droid" <<EOF
+#!/usr/bin/env bash
+printf 'droid:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/droid"
 
-  for runtime in claude-code opencode codex-cli; do
+  for runtime in claude-code opencode codex-cli droid; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -657,6 +723,10 @@ EOF
       codex-cli)
         runtime_bin="codex"
         runtime_arg="update"
+        ;;
+      droid)
+        runtime_bin="droid"
+        runtime_arg=""
         ;;
       *)
         fail "unexpected runtime in upgrade smoke: $runtime"
@@ -681,8 +751,12 @@ EOF
     set -e
 
     [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
-    expected_entry="$runtime_bin:$runtime_arg"
-    assert_contains "$upgrade_log" "$expected_entry"
+    if [ -n "$runtime_arg" ]; then
+      expected_entry="$runtime_bin:$runtime_arg"
+      assert_contains "$upgrade_log" "$expected_entry"
+    else
+      assert_contains "$install_log" 'Droid CLI already installed'
+    fi
   done
 }
 
@@ -691,7 +765,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex-cli; do
+  for runtime in claude-code opencode codex-cli droid; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -701,6 +775,9 @@ run_missing_runtime_cli_install_case() {
         ;;
       codex-cli)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
+        ;;
+      droid)
+        expected_entry='Droid CLI not found; install Droid from Factory if you want to launch it now'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"
@@ -733,10 +810,11 @@ run_skill_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
+  local sandbox_droid="$WORK_DIR/skill-doctor-droid"
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_droid/home" "$sandbox_opencode/home"
   expected_skill_count="$(registry_skill_count)"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -756,6 +834,13 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" 'kernel: ready'
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'config: ready'
+  assert_contains "$doctor_log" 'discovery: ready:'
+
+  expect_install_status 0 "$sandbox_droid" "$snapshot_repo" --runtime=droid
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=droid --home "$sandbox_droid/home" >"$doctor_log"
+  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
+  assert_contains "$doctor_log" 'kernel: ready'
+  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'discovery: ready:'
 
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode

@@ -151,6 +151,13 @@ def main() -> None:
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
         },
+        "droid": {
+            "metadata": home / ".factory" / "b-agentic",
+            "skills": home / ".factory" / "skills",
+            "kernel": home / ".factory" / "AGENTS.md",
+            "settings": home / ".factory" / "settings.json",
+            "mcpJson": home / ".factory" / "mcp.json",
+        },
     }
 
     defaults = runtime_defaults.get(runtime)
@@ -204,6 +211,9 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
+    elif runtime == "droid":
+        remove_config_if_template(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json")
+        remove_config_if_template(str(manifest_managed_path(paths, "mcpJson", defaults["mcpJson"])), metadata / "templates" / "mcp.user.template.json", "mcp.json")
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 

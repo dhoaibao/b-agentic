@@ -10,7 +10,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 errors: list[str] = []
-RUNTIME_CONFIG_SCHEMA_FAMILIES = {"claude-user-config", "codex-toml", "opencode-json"}
+RUNTIME_CONFIG_SCHEMA_FAMILIES = {
+    "claude-user-config",
+    "codex-toml",
+    "factory-json",
+    "opencode-json",
+}
 
 
 def rel(path: Path) -> str:

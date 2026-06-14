@@ -52,7 +52,12 @@ RUNTIME_CAPABILITY_KEYS = [
 ]
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
-RUNTIME_CONFIG_SCHEMA_FAMILIES = {"claude-user-config", "codex-toml", "opencode-json"}
+RUNTIME_CONFIG_SCHEMA_FAMILIES = {
+    "claude-user-config",
+    "codex-toml",
+    "factory-json",
+    "opencode-json",
+}
 
 
 def load_json_subset_yaml(path: Path) -> dict:

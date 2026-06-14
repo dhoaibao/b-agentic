@@ -1372,7 +1372,7 @@ runtime_install_common() {
 
   runtime_warn_missing_cli
   config_stage_count="$(runtime_install_config_stage_count)"
-  set_install_stage_total $((7 + config_stage_count))
+  set_install_stage_total $((8 + config_stage_count))
 
   collect_installed_skills INSTALL_SKILL_NAMES
   run_stage "Preparing runtime CLI" runtime_upgrade_cli

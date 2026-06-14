@@ -106,6 +106,41 @@
         "source_dir": null,
         "install_root": null
       }
+    },
+    {
+      "name": "droid",
+      "display_name": "Droid",
+      "reference_runtime": false,
+      "kernel_source": "runtimes/droid/kernel.md",
+      "memory_file": "AGENTS.md",
+      "memory_install_path": "~/.factory/AGENTS.md",
+      "metadata_root": "~/.factory/b-agentic",
+      "skills_install_root": "~/.factory/skills",
+      "config_template_dir": "runtimes/droid/configs",
+      "config_schema_family": "factory-json",
+      "capabilities": {
+        "skills": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "permissions": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "rules": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "command_wrappers": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        }
+      },
+      "command_wrappers": {
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
+      }
     }
   ]
 }
