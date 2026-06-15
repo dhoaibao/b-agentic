@@ -486,6 +486,8 @@ def migrate_managed_values(data):
             headers = context7.get('headers') if isinstance(context7, dict) else None
             if isinstance(headers, dict) and headers.get('CONTEXT7_API_KEY') == '${CONTEXT7_API_KEY}':
                 headers['CONTEXT7_API_KEY'] = '${CONTEXT7_API_KEY:-}'
+            if isinstance(context7, dict) and context7.get('bearerTokenEnvVar') == 'CONTEXT7_API_KEY' and 'type' not in context7:
+                context7.pop('bearerTokenEnvVar', None)
 
             migrate_managed_launcher(
                 servers.get('brave-search'),

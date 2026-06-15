@@ -556,6 +556,68 @@ run_mcp_package_override_case() {
   assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
   assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
   assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
+  assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "'bearerTokenEnvVar' not in data['mcpServers']['context7']"
+}
+
+run_kimi_context7_env_binding_upgrade_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/kimi-context7-env-binding-upgrade"
+  local claude_sandbox="$WORK_DIR/claude-context7-env-binding-preserve"
+  local rc=0
+  mkdir -p "$sandbox/home/.kimi-code" "$claude_sandbox/home"
+
+  cat > "$sandbox/home/.kimi-code/mcp.json" <<'JSON'
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
+    }
+  }
+}
+JSON
+
+  rc="$(run_install_status "$sandbox" "$snapshot_repo" --runtime=kimi-code-cli)"
+  [ "$rc" -eq 0 ] || fail "expected Kimi Context7 env binding upgrade exit 0, got $rc"
+  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "'bearerTokenEnvVar' not in data['mcpServers']['context7']"
+
+  cat > "$sandbox/home/.kimi-code/mcp.json" <<'JSON'
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "custom"
+      },
+      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
+    }
+  }
+}
+JSON
+
+  rc="$(run_install_status "$sandbox" "$snapshot_repo" --runtime=kimi-code-cli)"
+  [ "$rc" -eq 0 ] || fail "expected Kimi Context7 env binding plus headers upgrade exit 0, got $rc"
+  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "'bearerTokenEnvVar' not in data['mcpServers']['context7']"
+  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == 'custom'"
+
+  cat > "$claude_sandbox/home/.claude.json" <<'JSON'
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "custom"
+      },
+      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
+    }
+  }
+}
+JSON
+
+  rc="$(run_install_status "$claude_sandbox" "$snapshot_repo" --runtime=claude-code)"
+  [ "$rc" -eq 0 ] || fail "expected Claude Context7 env binding preserve exit 0, got $rc"
+  assert_json_value "$claude_sandbox/home/.claude.json" "data['mcpServers']['context7']['bearerTokenEnvVar'] == 'CONTEXT7_API_KEY'"
 }
 
 run_existing_tool_upgrade_case() {
@@ -915,6 +977,7 @@ main() {
   run_readiness_report_case "$snapshot_repo"
   run_mcp_doctor_case "$snapshot_repo"
   run_mcp_package_override_case "$snapshot_repo"
+  run_kimi_context7_env_binding_upgrade_case "$snapshot_repo"
   run_runtime_cli_upgrade_case "$snapshot_repo"
   run_missing_runtime_cli_install_case "$snapshot_repo"
   run_existing_tool_upgrade_case "$snapshot_repo"

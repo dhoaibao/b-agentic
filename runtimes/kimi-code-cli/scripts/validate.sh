@@ -34,6 +34,9 @@ if mcp.exists():
     serena = servers.get('serena', {})
     if serena.get('command') != 'serena' or serena.get('args')[:4] != ['start-mcp-server', '--context', 'ide', '--project-from-cwd']:
         errors.append(f'{mcp}: Serena MCP must launch with --context ide')
+    context7 = servers.get('context7', {})
+    if context7.get('bearerTokenEnvVar') == 'CONTEXT7_API_KEY':
+        errors.append(f'{mcp}: Context7 must not rely on bearerTokenEnvVar; prompted installs write headers.CONTEXT7_API_KEY')
     if 'mcp' in data:
         errors.append(f'{mcp}: Kimi MCP config must use mcpServers, not mcp')
 

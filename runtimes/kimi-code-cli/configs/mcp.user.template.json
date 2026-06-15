@@ -12,8 +12,7 @@
       ]
     },
     "context7": {
-      "url": "https://mcp.context7.com/mcp",
-      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
+      "url": "https://mcp.context7.com/mcp"
     },
     "codegraph": {
       "command": "codegraph",
