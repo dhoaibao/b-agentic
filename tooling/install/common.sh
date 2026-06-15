@@ -773,6 +773,13 @@ def managed_mcp_server(current_server, incoming_server, server_name):
         return False
     normalized = json.loads(json.dumps(current_server))
 
+    def remove_managed_key(section_name, key_name):
+        section = normalized.get(section_name)
+        if isinstance(section, dict) and key_name in section:
+            section.pop(key_name, None)
+            if not section:
+                normalized.pop(section_name, None)
+
     def normalize_managed_launcher(old_command, old_args=None):
         def merged_sequence(existing_items, incoming_items):
             merged = list(existing_items)
@@ -801,12 +808,16 @@ def managed_mcp_server(current_server, incoming_server, server_name):
         incoming_headers = incoming_server.get('headers', {})
         if isinstance(headers, dict) and isinstance(incoming_headers, dict) and 'CONTEXT7_API_KEY' in headers:
             headers['CONTEXT7_API_KEY'] = incoming_headers.get('CONTEXT7_API_KEY')
+        if label == 'kimi mcp.json' and 'headers' not in incoming_server:
+            remove_managed_key('headers', 'CONTEXT7_API_KEY')
     elif server_name == 'brave-search':
         env_key = 'environment' if 'environment' in incoming_server else 'env'
         env = normalized.get(env_key)
         incoming_env = incoming_server.get(env_key, {})
         if isinstance(env, dict) and isinstance(incoming_env, dict) and 'BRAVE_API_KEY' in env:
             env['BRAVE_API_KEY'] = incoming_env.get('BRAVE_API_KEY')
+        if label == 'kimi mcp.json' and env_key not in incoming_server:
+            remove_managed_key(env_key, 'BRAVE_API_KEY')
         if env_key == 'env':
             normalize_managed_launcher('npx', ['-y', '@brave/brave-search-mcp-server', '--transport', 'stdio'])
             normalize_managed_launcher('bunx', ['@brave/brave-search-mcp-server', '--transport', 'stdio'])
@@ -819,6 +830,9 @@ def managed_mcp_server(current_server, incoming_server, server_name):
         incoming_env = incoming_server.get(env_key, {})
         if isinstance(env, dict) and isinstance(incoming_env, dict) and 'FIRECRAWL_API_KEY' in env:
             env['FIRECRAWL_API_KEY'] = incoming_env.get('FIRECRAWL_API_KEY')
+        if label == 'kimi mcp.json' and env_key not in incoming_server:
+            remove_managed_key(env_key, 'FIRECRAWL_API_KEY')
+            remove_managed_key(env_key, 'FIRECRAWL_API_URL')
         if env_key == 'env':
             normalize_managed_launcher('npx', ['-y', 'firecrawl-mcp'])
             normalize_managed_launcher('bunx', ['firecrawl-mcp'])
@@ -832,6 +846,8 @@ def managed_mcp_server(current_server, incoming_server, server_name):
         else:
             normalize_managed_launcher(['npx', '-y', '@playwright/mcp@latest', '--isolated'])
             normalize_managed_launcher(['bunx', '@playwright/mcp@latest', '--isolated'])
+    if label == 'kimi mcp.json' and normalized == {}:
+        return True
     return normalized == incoming_server
 
 if not isinstance(current, dict) or not isinstance(incoming, dict) or not isinstance(original, dict):
@@ -840,6 +856,7 @@ if not isinstance(current, dict) or not isinstance(incoming, dict) or not isinst
 cleaned = cleanup(current, incoming, original)
 mcp_labels = {
     '.claude.json': 'mcpServers',
+    'kimi mcp.json': 'mcpServers',
     'opencode.json': 'mcp',
 }
 mcp_key = mcp_labels.get(label)
@@ -924,6 +941,8 @@ if placeholder_style == 'claude':
     sys.exit(1 if value.startswith('${') else 0)
 if placeholder_style == 'opencode':
     sys.exit(1 if value.startswith('{env:') else 0)
+if placeholder_style == 'kimi':
+    sys.exit(0)
 sys.exit(1)
 PY
 }

@@ -303,6 +303,7 @@ install_app() {
 manifest_only_records() {
   python3 - <<'PY'
 import json
+import os
 from pathlib import Path
 
 home = Path.home()
@@ -312,11 +313,24 @@ candidates.extend((home / ".config").glob("*/b-agentic/install.json"))
 candidates.extend((home / ".local" / "share").glob("*/b-agentic/install.json"))
 candidates.extend((home / "Library" / "Application Support").glob("*/b-agentic/install.json"))
 
+allowed_roots = [home.resolve()]
+for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME"]:
+    value = os.environ.get(env_name)
+    if not value:
+        continue
+    root = Path(value).expanduser()
+    candidates.append(root / "b-agentic" / "install.json")
+    try:
+        allowed_roots.append(root.resolve())
+    except Exception:
+        pass
+
 seen = set()
 for path in candidates:
     try:
         resolved = path.resolve()
-        resolved.relative_to(home.resolve())
+        if not any(resolved.is_relative_to(root) for root in allowed_roots):
+            continue
     except Exception:
         continue
     if resolved in seen or not path.is_file():

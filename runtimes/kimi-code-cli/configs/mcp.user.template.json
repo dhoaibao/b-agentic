@@ -1,0 +1,38 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "serena",
+      "args": [
+        "start-mcp-server",
+        "--context",
+        "ide",
+        "--project-from-cwd",
+        "--open-web-dashboard",
+        "false"
+      ]
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
+    },
+    "codegraph": {
+      "command": "codegraph",
+      "args": ["serve", "--mcp"],
+      "env": {
+        "CODEGRAPH_TELEMETRY": "0"
+      }
+    },
+    "brave-search": {
+      "command": "pnpm",
+      "args": ["dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"]
+    },
+    "firecrawl": {
+      "command": "pnpm",
+      "args": ["dlx", "firecrawl-mcp"]
+    },
+    "playwright": {
+      "command": "pnpm",
+      "args": ["dlx", "@playwright/mcp@latest", "--isolated"]
+    }
+  }
+}

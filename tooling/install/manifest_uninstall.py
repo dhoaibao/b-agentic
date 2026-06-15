@@ -9,6 +9,7 @@ Usage:
 """
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -20,9 +21,17 @@ def warn(message: str) -> None:
 
 def under_home(path: Path) -> bool:
     try:
-        path.resolve().relative_to(home)
-        return True
+        resolved = path.resolve()
     except Exception:
+        return False
+    return any(_is_relative_to(resolved, root) for root in allowed_roots)
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
         return False
 
 
@@ -60,6 +69,15 @@ def files_equal(left: Path, right: Path) -> bool:
         return False
 
 
+def files_equal_or_json_equal(left: Path, right: Path) -> bool:
+    if files_equal(left, right):
+        return True
+    try:
+        return json.loads(left.read_text()) == json.loads(right.read_text())
+    except Exception:
+        return False
+
+
 def remove_snapshot_profiles(names: list, dst_root: Path, snapshot_root: Path, extension: str, label: str) -> None:
     for name in names:
         if not safe_name(name):
@@ -79,7 +97,7 @@ def remove_config_if_template(path_value: str | None, template: Path, label: str
     if not isinstance(path_value, str):
         return
     path = Path(path_value).expanduser()
-    if path.exists() and template.exists() and files_equal(path, template):
+    if path.exists() and template.exists() and files_equal_or_json_equal(path, template):
         remove_file(path)
     elif path.exists():
         warn(f"preserving modified {label}: {path}")
@@ -120,6 +138,15 @@ def main() -> None:
 
     global home
     home = Path.home().resolve()
+    global allowed_roots
+    allowed_roots = [home]
+    for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME"]:
+        value = os.environ.get(env_name)
+        if value:
+            try:
+                allowed_roots.append(Path(value).expanduser().resolve())
+            except Exception:
+                pass
 
     data = json.loads(manifest_path.read_text())
     runtime = data.get("runtime")
@@ -150,6 +177,14 @@ def main() -> None:
             "agents": home / ".codex" / "agents",
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
+        },
+        "kimi-code-cli": {
+            "metadata": home / ".kimi-code" / "b-agentic",
+            "skills": home / ".kimi-code" / "skills",
+            "kernel": home / ".kimi-code" / "AGENTS.md",
+            "agents": home / ".kimi-code" / "agents",
+            "kimiConfig": home / ".kimi-code" / "config.toml",
+            "kimiMcpJson": home / ".kimi-code" / "mcp.json",
         },
     }
 
@@ -204,6 +239,10 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
+    elif runtime == "kimi-code-cli":
+        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Kimi Code CLI agent")
+        remove_toml_managed_block(str(manifest_managed_path(paths, "kimiConfig", defaults["kimiConfig"])), "Kimi config")
+        remove_config_if_template(str(manifest_managed_path(paths, "kimiMcpJson", defaults["kimiMcpJson"])), metadata / "templates" / "mcp.user.template.json", "kimi mcp.json")
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 
