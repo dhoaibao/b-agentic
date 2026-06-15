@@ -1307,6 +1307,8 @@ for server_name, section_name, key_name, value in updates:
     server = servers.setdefault(server_name, {})
     section = server.setdefault(section_name, {})
     section[key_name] = value
+    if server_name == 'context7' and section_name == 'headers' and key_name == 'CONTEXT7_API_KEY':
+        server.pop('bearerTokenEnvVar', None)
 
 if json.loads(path.read_text()) == data:
     raise SystemExit(2)
