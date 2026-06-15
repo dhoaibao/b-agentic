@@ -13,7 +13,7 @@ Every workflow or prompt change needs a concrete failure mode or capability gap.
 ## Scope
 
 - `README.md` is the user-facing overview.
-- `CLAUDE.md` is maintainer guidance.
+- `AGENTS.md` is maintainer guidance.
 - Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral.
 - Runtime-specific paths, config templates, wrappers, caveats, and smoke tests belong under `runtimes/<name>/`.
 - Do not add root-level documentation surfaces.

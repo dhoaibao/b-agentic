@@ -183,5 +183,5 @@ Production acceptance for each runtime should include a fresh-session check:
 ## Docs
 
 - `README.md` is the repository overview.
-- `CLAUDE.md` is maintainer guidance.
+- `AGENTS.md` is maintainer guidance.
 - `references/contract/` contains the runtime contract shipped to adapters.
