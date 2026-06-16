@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -36,15 +35,9 @@ def expand_home(path: str, home: Path) -> Path:
 
 
 def resolve_runtime_paths(runtime: dict, home: Path) -> dict[str, Path]:
-    if runtime.get("config_schema_family") == "kimi-mcp-json" and os.environ.get("KIMI_CODE_HOME"):
-        kimi_home = Path(os.environ["KIMI_CODE_HOME"]).expanduser()
-        skills_root = kimi_home / "skills"
-        metadata_root = kimi_home / "b-agentic"
-        kernel = kimi_home / "AGENTS.md"
-    else:
-        skills_root = expand_home(runtime["skills_install_root"], home)
-        metadata_root = expand_home(runtime["metadata_root"], home)
-        kernel = expand_home(runtime["memory_install_path"], home)
+    skills_root = expand_home(runtime["skills_install_root"], home)
+    metadata_root = expand_home(runtime["metadata_root"], home)
+    kernel = expand_home(runtime["memory_install_path"], home)
     paths = {
         "kernel": kernel,
         "skill": skills_root / "b-plan" / "SKILL.md",

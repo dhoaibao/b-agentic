@@ -86,7 +86,7 @@ smoke_runtime_cli_path() {
   local name
 
   mkdir -p "$bin_dir"
-  for name in claude opencode codex kimi; do
+  for name in claude opencode codex; do
     cat > "$bin_dir/$name" <<'EOF'
 #!/usr/bin/env bash
 exit 0

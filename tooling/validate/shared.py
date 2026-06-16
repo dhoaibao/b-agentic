@@ -13,7 +13,6 @@ errors: list[str] = []
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "claude-user-config",
     "codex-toml",
-    "kimi-mcp-json",
     "opencode-json",
 }
 

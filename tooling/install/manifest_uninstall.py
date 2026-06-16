@@ -147,11 +147,11 @@ def main() -> None:
                 allowed_roots.append(Path(value).expanduser().resolve())
             except Exception:
                 pass
-
     data = json.loads(manifest_path.read_text())
     runtime = data.get("runtime")
     paths = data.get("paths", {})
     metadata = manifest_path.parent
+    kimi_root = Path(os.environ.get("B_AGENTIC_KIMI_CODE_DIR") or os.environ.get("KIMI_CODE_HOME") or (home / ".kimi-code")).expanduser()
 
     runtime_defaults = {
         "claude-code": {
@@ -179,12 +179,12 @@ def main() -> None:
             "codexConfig": home / ".codex" / "config.toml",
         },
         "kimi-code-cli": {
-            "metadata": home / ".kimi-code" / "b-agentic",
-            "skills": home / ".kimi-code" / "skills",
-            "kernel": home / ".kimi-code" / "AGENTS.md",
-            "agents": home / ".kimi-code" / "agents",
-            "kimiConfig": home / ".kimi-code" / "config.toml",
-            "kimiMcpJson": home / ".kimi-code" / "mcp.json",
+            "metadata": kimi_root / "b-agentic",
+            "skills": kimi_root / "skills",
+            "kernel": kimi_root / "AGENTS.md",
+            "agents": kimi_root / "agents",
+            "kimiConfig": kimi_root / "config.toml",
+            "kimiMcpJson": kimi_root / "mcp.json",
         },
     }
 

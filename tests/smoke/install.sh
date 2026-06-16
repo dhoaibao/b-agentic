@@ -175,6 +175,95 @@ EOF
   assert_no_path "$sandbox_custom/home/custom-meta"
 }
 
+run_manifest_only_legacy_kimi_case() {
+  local sandbox_default="$WORK_DIR/manifest-only-legacy-kimi-default"
+  local sandbox_relocated="$WORK_DIR/manifest-only-legacy-kimi-relocated"
+  local metadata_root skill_dir kernel_path config_path mcp_path rc
+
+  metadata_root="$sandbox_default/home/.kimi-code/b-agentic"
+  skill_dir="$sandbox_default/home/.kimi-code/skills/b-plan"
+  kernel_path="$sandbox_default/home/.kimi-code/AGENTS.md"
+  config_path="$sandbox_default/home/.kimi-code/config.toml"
+  mcp_path="$sandbox_default/home/.kimi-code/mcp.json"
+  mkdir -p "$metadata_root/tooling/install" "$metadata_root/templates" "$skill_dir"
+  cp "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$metadata_root/tooling/install/manifest_uninstall.py"
+  printf 'Generated from skills/registry.yaml\n' > "$skill_dir/SKILL.md"
+  printf '<!-- b-agentic-managed -->\nlegacy kimi kernel\n' > "$kernel_path"
+  cp "$kernel_path" "$metadata_root/AGENTS.md"
+  cat > "$config_path" <<'EOF'
+# BEGIN b-agentic managed config
+managed
+# END b-agentic managed config
+EOF
+  cat > "$mcp_path" <<'JSON'
+{
+  "mcpServers": {}
+}
+JSON
+  cp "$mcp_path" "$metadata_root/templates/mcp.user.template.json"
+  cat > "$metadata_root/install.json" <<'EOF'
+{"runtime":"kimi-code-cli","skills":["b-plan"],"agents":[]}
+EOF
+
+  set +e
+  HOME="$sandbox_default/home" \
+  B_AGENTIC_REPO="$sandbox_default/missing-source" \
+  B_AGENTIC_DIR="$sandbox_default/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  bash "$ROOT_DIR/install.sh" --runtime=all --uninstall >"$sandbox_default/uninstall.log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected legacy Kimi manifest-only uninstall via runtime=all to succeed, got $rc"
+  assert_contains "$sandbox_default/uninstall.log" 'Manifest-only uninstall complete for kimi-code-cli'
+  assert_no_path "$skill_dir"
+  assert_no_path "$kernel_path"
+  assert_no_path "$config_path"
+  assert_no_path "$mcp_path"
+  assert_no_path "$metadata_root"
+
+  metadata_root="$sandbox_relocated/kimi-home/b-agentic"
+  skill_dir="$sandbox_relocated/kimi-home/skills/b-plan"
+  kernel_path="$sandbox_relocated/kimi-home/AGENTS.md"
+  config_path="$sandbox_relocated/kimi-home/config.toml"
+  mcp_path="$sandbox_relocated/kimi-home/mcp.json"
+  mkdir -p "$sandbox_relocated/home" "$metadata_root/tooling/install" "$metadata_root/templates" "$skill_dir"
+  cp "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$metadata_root/tooling/install/manifest_uninstall.py"
+  printf 'Generated from skills/registry.yaml\n' > "$skill_dir/SKILL.md"
+  printf '<!-- b-agentic-managed -->\nlegacy relocated kimi kernel\n' > "$kernel_path"
+  cp "$kernel_path" "$metadata_root/AGENTS.md"
+  cat > "$config_path" <<'EOF'
+# BEGIN b-agentic managed config
+managed
+# END b-agentic managed config
+EOF
+  cat > "$mcp_path" <<'JSON'
+{
+  "mcpServers": {}
+}
+JSON
+  cp "$mcp_path" "$metadata_root/templates/mcp.user.template.json"
+  cat > "$metadata_root/install.json" <<'EOF'
+{"runtime":"kimi-code-cli","skills":["b-plan"],"agents":[]}
+EOF
+
+  set +e
+  HOME="$sandbox_relocated/home" \
+  KIMI_CODE_HOME="$sandbox_relocated/kimi-home" \
+  B_AGENTIC_REPO="$sandbox_relocated/missing-source" \
+  B_AGENTIC_DIR="$sandbox_relocated/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  bash "$ROOT_DIR/install.sh" --runtime=kimi-code-cli --uninstall >"$sandbox_relocated/uninstall.log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected relocated legacy Kimi manifest-only uninstall to succeed, got $rc"
+  assert_contains "$sandbox_relocated/uninstall.log" 'Manifest-only uninstall complete for kimi-code-cli'
+  assert_no_path "$skill_dir"
+  assert_no_path "$kernel_path"
+  assert_no_path "$config_path"
+  assert_no_path "$mcp_path"
+  assert_no_path "$metadata_root"
+}
+
 run_all_runtime_smoke_case() {
   local snapshot_repo="$1"
   local sandbox_all="$WORK_DIR/all-runtimes"
@@ -207,7 +296,6 @@ run_all_runtime_smoke_case() {
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for claude-code'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for opencode'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for codex-cli'
-  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for kimi-code-cli'
   assert_no_path "$sandbox_all/source"
 
   while IFS=$'\t' read -r runtime_name metadata_root kernel_path; do
@@ -225,11 +313,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
   assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
-  assert_no_path "$sandbox_all/home/.kimi-code/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.kimi-code/AGENTS.md"
-  assert_no_path "$sandbox_all/home/.kimi-code/config.toml"
-  assert_no_path "$sandbox_all/home/.kimi-code/agents/b-explore.md"
-
   mkdir -p "$sandbox_pending/home"
   IFS=$'\t' read -r pending_runtime_name _ pending_kernel_path < <(registry_runtime_records)
   [ -n "$pending_runtime_name" ] || fail "expected at least one registered runtime"
@@ -462,10 +545,9 @@ run_mcp_doctor_case() {
   local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
   local sandbox_codex="$WORK_DIR/mcp-doctor-codex"
   local sandbox_opencode="$WORK_DIR/mcp-doctor-opencode"
-  local sandbox_kimi="$WORK_DIR/mcp-doctor-kimi"
   local bin_dir="$WORK_DIR/mcp-doctor-bin"
   local doctor_log="$WORK_DIR/mcp-doctor.log"
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kimi/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -516,16 +598,6 @@ run_mcp_doctor_case() {
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
 
-  expect_install_status 0 "$sandbox_kimi" "$snapshot_repo" --runtime=kimi-code-cli
-  PATH="$bin_dir:$PATH" \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=kimi-code-cli --home "$sandbox_kimi/home" >"$doctor_log"
-  assert_contains "$doctor_log" 'serena: ready:'
-  assert_contains "$doctor_log" 'codegraph: ready:'
-  assert_contains "$doctor_log" 'context7: blocked: missing CONTEXT7_API_KEY'
-  assert_contains "$doctor_log" 'brave-search: blocked: set BRAVE_API_KEY in Kimi MCP config'
-  assert_contains "$doctor_log" 'firecrawl: blocked: set FIRECRAWL_API_KEY in Kimi MCP config'
-  assert_contains "$doctor_log" 'playwright: ready:'
-
 }
 
 run_mcp_package_override_case() {
@@ -533,11 +605,10 @@ run_mcp_package_override_case() {
   local sandbox_claude="$WORK_DIR/mcp-package-claude"
   local sandbox_claude_upgrade="$WORK_DIR/mcp-package-claude-upgrade"
   local sandbox_codex="$WORK_DIR/mcp-package-codex"
-  local sandbox_kimi="$WORK_DIR/mcp-package-kimi"
   local sandbox_opencode="$WORK_DIR/mcp-package-opencode"
   local sandbox_opencode_upgrade="$WORK_DIR/mcp-package-opencode-upgrade"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_kimi/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home"
 
   set +e
   HOME="$sandbox_claude/home" \
@@ -661,68 +732,13 @@ run_mcp_package_override_case() {
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
 
-  set +e
-  HOME="$sandbox_kimi/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_kimi")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_kimi/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=kimi-code-cli >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Kimi package override install exit 0, got $rc"
-  assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
-  assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
-  assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
-  assert_json_value "$sandbox_kimi/home/.kimi-code/mcp.json" "'bearerTokenEnvVar' not in data['mcpServers']['context7']"
 }
 
-run_kimi_context7_env_binding_upgrade_case() {
+run_claude_context7_env_binding_preserve_case() {
   local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/kimi-context7-env-binding-upgrade"
   local claude_sandbox="$WORK_DIR/claude-context7-env-binding-preserve"
   local rc=0
-  mkdir -p "$sandbox/home/.kimi-code" "$claude_sandbox/home"
-
-  cat > "$sandbox/home/.kimi-code/mcp.json" <<'JSON'
-{
-  "mcpServers": {
-    "context7": {
-      "url": "https://mcp.context7.com/mcp",
-      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
-    }
-  }
-}
-JSON
-
-  rc="$(run_install_status "$sandbox" "$snapshot_repo" --runtime=kimi-code-cli)"
-  [ "$rc" -eq 0 ] || fail "expected Kimi Context7 env binding upgrade exit 0, got $rc"
-  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "'bearerTokenEnvVar' not in data['mcpServers']['context7']"
-
-  cat > "$sandbox/home/.kimi-code/mcp.json" <<'JSON'
-{
-  "mcpServers": {
-    "context7": {
-      "url": "https://mcp.context7.com/mcp",
-      "headers": {
-        "CONTEXT7_API_KEY": "custom"
-      },
-      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
-    }
-  }
-}
-JSON
-
-  rc="$(run_install_status "$sandbox" "$snapshot_repo" --runtime=kimi-code-cli)"
-  [ "$rc" -eq 0 ] || fail "expected Kimi Context7 env binding plus headers upgrade exit 0, got $rc"
-  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "'bearerTokenEnvVar' not in data['mcpServers']['context7']"
-  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == 'custom'"
+  mkdir -p "$claude_sandbox/home"
 
   cat > "$claude_sandbox/home/.claude.json" <<'JSON'
 {
@@ -865,14 +881,9 @@ EOF
 printf 'codex:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  cat > "$bin_dir/kimi" <<EOF
-#!/usr/bin/env bash
-printf 'kimi:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/kimi"
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex"
 
-  for runtime in claude-code opencode codex-cli kimi-code-cli; do
+  for runtime in claude-code opencode codex-cli; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -885,10 +896,6 @@ EOF
       codex-cli)
         runtime_bin="codex"
         runtime_arg="update"
-        ;;
-      kimi-code-cli)
-        runtime_bin="kimi"
-        runtime_arg="upgrade"
         ;;
       *)
         fail "unexpected runtime in upgrade smoke: $runtime"
@@ -923,7 +930,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex-cli kimi-code-cli; do
+  for runtime in claude-code opencode codex-cli; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -933,9 +940,6 @@ run_missing_runtime_cli_install_case() {
         ;;
       codex-cli)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
-        ;;
-      kimi-code-cli)
-        expected_entry='[dry-run] curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"
@@ -969,10 +973,9 @@ run_skill_doctor_case() {
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
-  local sandbox_kimi="$WORK_DIR/skill-doctor-kimi"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kimi/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
   expected_skill_count="$(registry_skill_count)"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -1002,86 +1005,6 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" "wrappers: ready: $expected_skill_count wrappers installed"
   assert_contains "$doctor_log" 'discovery: ready:'
 
-  expect_install_status 0 "$sandbox_kimi" "$snapshot_repo" --runtime=kimi-code-cli
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=kimi-code-cli --home "$sandbox_kimi/home" >"$doctor_log"
-  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
-  assert_contains "$doctor_log" 'discovery: ready:'
-
-}
-
-run_kimi_code_home_case() {
-  local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/kimi-code-home"
-  local doctor_log="$WORK_DIR/kimi-code-home-doctor.log"
-  local rc=0
-
-  mkdir -p "$sandbox/home" "$sandbox/kimi-home"
-
-  set +e
-  HOME="$sandbox/home" \
-  KIMI_CODE_HOME="$sandbox/kimi-home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  bash "$ROOT_DIR/install.sh" --runtime=kimi-code-cli >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Kimi KIMI_CODE_HOME install exit 0, got $rc"
-
-  assert_file "$sandbox/kimi-home/AGENTS.md"
-  assert_file "$sandbox/kimi-home/skills/b-plan/SKILL.md"
-  assert_file "$sandbox/kimi-home/config.toml"
-  assert_file "$sandbox/kimi-home/mcp.json"
-  assert_no_path "$sandbox/home/.kimi-code/AGENTS.md"
-
-  KIMI_CODE_HOME="$sandbox/kimi-home" \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=kimi-code-cli --home "$sandbox/home" >"$doctor_log"
-  assert_contains "$doctor_log" "config: $sandbox/kimi-home/mcp.json"
-
-  KIMI_CODE_HOME="$sandbox/kimi-home" \
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=kimi-code-cli --home "$sandbox/home" >"$doctor_log"
-  assert_contains "$doctor_log" "kernel-path: $sandbox/kimi-home/AGENTS.md"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" 'skills: ready:'
-
-  rm -rf "$sandbox/source"
-  HOME="$sandbox/home" \
-  KIMI_CODE_HOME="$sandbox/kimi-home" \
-  B_AGENTIC_REPO="$sandbox/missing-source" \
-  B_AGENTIC_DIR="$sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=kimi-code-cli --uninstall >"$sandbox/manifest-only-uninstall.log" 2>&1
-  assert_contains "$sandbox/manifest-only-uninstall.log" 'Manifest-only uninstall complete for kimi-code-cli'
-  assert_no_path "$sandbox/kimi-home/AGENTS.md"
-  assert_no_path "$sandbox/kimi-home/config.toml"
-  assert_no_path "$sandbox/kimi-home/mcp.json"
-  assert_no_path "$sandbox/source"
-}
-
-run_kimi_prompted_mcp_key_uninstall_case() {
-  local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/kimi-prompted-mcp-keys"
-  local rc
-
-  mkdir -p "$sandbox/home"
-
-  rc="$(run_install_with_tty_status "$sandbox" "$snapshot_repo" $'context7-test\nbrave-test\nfirecrawl-test\nhttps://firecrawl.example\n' --runtime=kimi-code-cli --prompt-api-keys)"
-  [ "$rc" -eq 0 ] || fail "expected Kimi prompted-key install exit 0, got $rc"
-
-  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "data['mcpServers']['context7']['headers']['CONTEXT7_API_KEY'] == 'context7-test'"
-  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "data['mcpServers']['brave-search']['env']['BRAVE_API_KEY'] == 'brave-test'"
-  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "data['mcpServers']['firecrawl']['env']['FIRECRAWL_API_KEY'] == 'firecrawl-test'"
-  assert_json_value "$sandbox/home/.kimi-code/mcp.json" "data['mcpServers']['firecrawl']['env']['FIRECRAWL_API_URL'] == 'https://firecrawl.example'"
-
-  rc="$(run_install_status "$sandbox" "$snapshot_repo" --runtime=kimi-code-cli --uninstall)"
-  [ "$rc" -eq 0 ] || fail "expected Kimi prompted-key uninstall exit 0, got $rc"
-  assert_no_path "$sandbox/home/.kimi-code/mcp.json"
 }
 
 main() {
@@ -1096,19 +1019,18 @@ main() {
   run_all_runtime_smoke_case "$snapshot_repo"
   run_manifest_only_corrupted_manifest_case
   run_manifest_only_custom_paths_case
+  run_manifest_only_legacy_kimi_case
   run_skill_collision_smoke_case "$snapshot_repo"
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
   run_readiness_report_case "$snapshot_repo"
   run_shell_tool_prompt_case "$snapshot_repo"
   run_mcp_doctor_case "$snapshot_repo"
   run_mcp_package_override_case "$snapshot_repo"
-  run_kimi_context7_env_binding_upgrade_case "$snapshot_repo"
+  run_claude_context7_env_binding_preserve_case "$snapshot_repo"
   run_runtime_cli_upgrade_case "$snapshot_repo"
   run_missing_runtime_cli_install_case "$snapshot_repo"
   run_existing_tool_upgrade_case "$snapshot_repo"
   run_skill_doctor_case "$snapshot_repo"
-  run_kimi_code_home_case "$snapshot_repo"
-  run_kimi_prompted_mcp_key_uninstall_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue
