@@ -19,10 +19,9 @@ Answer external-knowledge questions at the lightest reliable depth, with sourced
 
 ## Tools required
 
-- `context7-docs` - versioned official library/framework docs.
+- `context7` - versioned official library/framework docs.
 - `brave-search` - public/current discovery and unknown URLs.
-- `firecrawl-extraction` - known public URLs and structured extraction.
-- `firecrawl-extended` - maps or structured fields when needed.
+- `firecrawl` - known public URLs, structured extraction, maps, and structured fields when needed.
 
 ## Steps
 

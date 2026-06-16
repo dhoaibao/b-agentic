@@ -196,6 +196,45 @@ for skill_name, markers in required_prompt_markers.items():
         if marker not in text:
             errors.append(f"{rel(prompt)}: missing behavior marker {marker!r}")
 
+MCP_SERVERS = {"serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright"}
+LOCAL_TOOLS = {"bash", "gh"}
+KNOWN_TOOLS = MCP_SERVERS | LOCAL_TOOLS
+
+
+def tools_required_tokens(prompt_text: str) -> list[str]:
+    tokens: list[str] = []
+    in_section = False
+    for line in prompt_text.splitlines():
+        if line.startswith("## "):
+            in_section = line.strip() == "## Tools required"
+            continue
+        if in_section and line.lstrip().startswith("- "):
+            match = re.match(r"\s*-\s+`([^`]+)`", line)
+            if match:
+                tokens.append(match.group(1))
+    return tokens
+
+
+referenced_servers: set[str] = set()
+for skill_name in sorted(prompt_dirs):
+    prompt = ROOT / "skills" / skill_name / "prompt.md"
+    tokens = tools_required_tokens(read_text(prompt))
+    for token in tokens:
+        if token not in KNOWN_TOOLS:
+            errors.append(
+                f"{rel(prompt)}: unknown tool {token!r} in Tools required; "
+                f"expected one of {sorted(KNOWN_TOOLS)}"
+            )
+        elif token in MCP_SERVERS:
+            referenced_servers.add(token)
+
+unreferenced_servers = sorted(MCP_SERVERS - referenced_servers)
+if unreferenced_servers:
+    errors.append(
+        "skills/: configured MCP servers not referenced by any skill Tools required: "
+        f"{unreferenced_servers}"
+    )
+
 if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 

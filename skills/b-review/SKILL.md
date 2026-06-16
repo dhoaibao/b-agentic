@@ -36,7 +36,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 
 - `bash` - inspect status, diff, logs, and narrow verification.
 - `codegraph` - changed-flow, call graph, and affected-test evidence when indexed.
-- `serena-symbol-toolkit` - inspect changed symbols, references, diagnostics, and boundaries.
+- `serena` - inspect changed symbols, references, diagnostics, and boundaries.
 - `brave-search` - one narrow public lookup only when API semantics matter.
 
 ## Steps

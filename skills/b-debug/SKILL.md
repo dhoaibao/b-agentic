@@ -32,7 +32,7 @@ Confirm root cause, fix minimally, verify, and remove probes.
 
 - `bash` - reproduce errors, run diagnostics, profilers, and checks.
 - `codegraph` - call paths, dependency flows, and impact radius when indexed.
-- `serena-symbol-toolkit` - trace symbols, call sites, implementations, and focused fixes.
+- `serena` - trace symbols, call sites, implementations, and focused fixes.
 
 ## Steps
 

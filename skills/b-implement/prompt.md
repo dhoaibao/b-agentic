@@ -21,8 +21,8 @@ Execute approved or clearly scoped work in the smallest coherent step.
 
 - `bash` - inspect git state, diffs, and verification output.
 - `codegraph` - architecture, call graph, and affected-test evidence when indexed.
-- `serena-symbol-toolkit` - symbol-aware code edits and diagnostics.
-- `context7-docs` - narrow third-party API checks when needed.
+- `serena` - symbol-aware code edits and diagnostics.
+- `context7` - narrow third-party API checks when needed.
 
 ## Steps
 

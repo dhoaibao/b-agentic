@@ -19,9 +19,9 @@ Turn unclear or high-risk goals into the smallest executable plan. Do not implem
 
 ## Tools required
 
-- `serena-symbol-toolkit` - inspect existing code when the plan depends on current structure.
-- `context7-docs` - one narrow versioned API check when it changes the plan.
-- `firecrawl-extraction` - user-provided public docs or issue URLs when exact text changes scope.
+- `serena` - inspect existing code when the plan depends on current structure.
+- `context7` - one narrow versioned API check when it changes the plan.
+- `firecrawl` - user-provided public docs or issue URLs when exact text changes scope.
 
 ## Steps
 

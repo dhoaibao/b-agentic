@@ -20,7 +20,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 ## Tools required
 
 - `bash` - run tests and inspect failure output.
-- `serena-symbol-toolkit` - map tests to source behavior and edit test symbols.
+- `serena` - map tests to source behavior and edit test symbols.
 
 ## Steps
 
