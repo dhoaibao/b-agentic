@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+"""Routing-metadata consistency check.
+
+This is a static heuristic over skill registry metadata (names, triggers,
+intents, descriptions). It scores each fixture prompt against every skill's
+metadata and asserts the intended skill wins, guarding against trigger/intent
+collisions that would make two skills indistinguishable. It does NOT exercise
+the runtime's actual LLM routing; real routing behavior is covered by the
+fresh-session acceptance pass described in README.md.
+"""
+
 from __future__ import annotations
 
 import json
@@ -209,7 +219,7 @@ def main() -> int:
             print(error, file=sys.stderr)
         return 1
 
-    print(f"Behavior routing validation passed ({len(FIXTURES)} fixtures).")
+    print(f"Routing-metadata consistency check passed ({len(FIXTURES)} fixtures).")
     return 0
 
 

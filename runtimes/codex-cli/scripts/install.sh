@@ -498,6 +498,12 @@ runtime_uninstall_extra_assets() {
   uninstall_managed_profiles rules "$rules_path" "$RULES_SNAPSHOT_DST" "rules" "Codex rule"
 }
 
+# Codex does not reuse runtime_install_common: it injects MCP API keys as TOML
+# literals inside the managed config block during install_codex_config, so it
+# omits the generic JSON prompted-keys stage (collect_api_keys /
+# apply_prompted_mcp_keys) that common.sh runs for JSON runtimes. Keep this flow
+# in sync with runtime_install_common for the shared stages (skills, references,
+# kernel, manifest, activation exit code 2).
 runtime_main() {
   runtime_warn_missing_cli
   runtime_require_tomllib

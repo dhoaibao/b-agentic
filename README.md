@@ -99,6 +99,8 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
+Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex CLI applies managed rules to commands that request to run outside the sandbox; and OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools. The managed safety gates (commits, pushes, dependency writes, destructive commands) prompt or deny on every runtime regardless of this baseline.
+
 ## Skills
 
 <!-- generated:skills-table:start -->
