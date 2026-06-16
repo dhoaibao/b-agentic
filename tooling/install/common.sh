@@ -971,6 +971,25 @@ recommended_shell_commands() {
   printf 'rg, fd/fdfind, jq'
 }
 
+shell_tool_fd_available() {
+  command -v fd >/dev/null 2>&1 || command -v fdfind >/dev/null 2>&1
+}
+
+shell_tool_missing_labels() {
+  command -v rg >/dev/null 2>&1 || printf '%s\n' 'rg'
+  shell_tool_fd_available || printf '%s\n' 'fd/fdfind'
+  command -v jq >/dev/null 2>&1 || printf '%s\n' 'jq'
+}
+
+join_shell_tool_labels() {
+  local sep="" label
+  for label in "$@"; do
+    [ -n "$label" ] || continue
+    printf '%s%s' "$sep" "$label"
+    sep=', '
+  done
+}
+
 linux_distribution_family() {
   [ -r /etc/os-release ] || {
     printf 'unknown'
@@ -999,7 +1018,7 @@ detect_shell_tool_package_manager() {
   local linux_family=""
   if [ -n "$override" ]; then
     case "$override" in
-      brew|apt|dnf|manual)
+      brew|apt|apt-get|dnf|manual)
         printf '%s' "$override"
         return 0
         ;;
@@ -1022,8 +1041,10 @@ detect_shell_tool_package_manager() {
       linux_family="$(linux_distribution_family)"
       case "$linux_family" in
         debian)
-          if command -v apt-get >/dev/null 2>&1 || command -v apt >/dev/null 2>&1; then
+          if command -v apt >/dev/null 2>&1; then
             printf 'apt'
+          elif command -v apt-get >/dev/null 2>&1; then
+            printf 'apt-get'
           else
             printf 'manual'
           fi
@@ -1036,8 +1057,12 @@ detect_shell_tool_package_manager() {
           fi
           ;;
         *)
-          if command -v apt-get >/dev/null 2>&1 || command -v apt >/dev/null 2>&1; then
+          if command -v apt >/dev/null 2>&1; then
             printf 'apt'
+            return 0
+          fi
+          if command -v apt-get >/dev/null 2>&1; then
+            printf 'apt-get'
             return 0
           fi
           if command -v dnf >/dev/null 2>&1; then
@@ -1058,9 +1083,118 @@ shell_tool_install_hint() {
   case "$1" in
     brew) printf 'brew install ripgrep fd jq' ;;
     apt) printf 'sudo apt install -y ripgrep fd-find jq' ;;
+    apt-get) printf 'sudo apt-get install -y ripgrep fd-find jq' ;;
     dnf) printf 'sudo dnf install -y ripgrep fd-find jq' ;;
     *) printf 'install manually: ripgrep, fd or fd-find, jq' ;;
   esac
+}
+
+shell_tool_readiness_status() {
+  local -a missing=()
+  local label
+
+  while IFS= read -r label; do
+    [ -n "$label" ] || continue
+    missing+=("$label")
+  done < <(shell_tool_missing_labels)
+
+  if [ "${#missing[@]}" -eq 0 ]; then
+    printf 'ready: rg, fd/fdfind, and jq available'
+    return 0
+  fi
+
+  printf 'blocked: missing %s' "$(join_shell_tool_labels "${missing[@]}")"
+}
+
+run_shell_tool_install_command() {
+  local package_manager="$1"
+
+  case "$package_manager" in
+    brew)
+      run_cmd brew install ripgrep fd jq
+      ;;
+    apt)
+      if [ "$(id -u)" -eq 0 ]; then
+        run_cmd apt install -y ripgrep fd-find jq
+      elif command -v sudo >/dev/null 2>&1; then
+        run_cmd sudo apt install -y ripgrep fd-find jq
+      else
+        warn "sudo not found; install manually: ripgrep, fd-find, jq"
+        return 1
+      fi
+      ;;
+    apt-get)
+      if [ "$(id -u)" -eq 0 ]; then
+        run_cmd apt-get install -y ripgrep fd-find jq
+      elif command -v sudo >/dev/null 2>&1; then
+        run_cmd sudo apt-get install -y ripgrep fd-find jq
+      else
+        warn "sudo not found; install manually: ripgrep, fd-find, jq"
+        return 1
+      fi
+      ;;
+    dnf)
+      if [ "$(id -u)" -eq 0 ]; then
+        run_cmd dnf install -y ripgrep fd-find jq
+      elif command -v sudo >/dev/null 2>&1; then
+        run_cmd sudo dnf install -y ripgrep fd-find jq
+      else
+        warn "sudo not found; install manually: ripgrep, fd-find, jq"
+        return 1
+      fi
+      ;;
+    *)
+      warn "$(shell_tool_install_hint manual)"
+      return 1
+      ;;
+  esac
+}
+
+install_shell_tools() {
+  local package_manager=""
+  local install_command=""
+  local -a missing=()
+  local label=""
+
+  case "${INSTALL_SHELL_TOOLS_VALUE:-auto}" in
+    n|N|no|NO|No|false|FALSE|0) return 0 ;;
+    y|Y|yes|YES|Yes|true|TRUE|1) ;;
+    auto|AUTO|Auto) ;;
+    *) die "invalid B_AGENTIC_INSTALL_SHELL_TOOLS value: $INSTALL_SHELL_TOOLS_VALUE" ;;
+  esac
+
+  while IFS= read -r label; do
+    [ -n "$label" ] || continue
+    missing+=("$label")
+  done < <(shell_tool_missing_labels)
+
+  [ "${#missing[@]}" -gt 0 ] || {
+    log "Shell tooling already installed: $(recommended_shell_commands)"
+    return 0
+  }
+
+  package_manager="$(detect_shell_tool_package_manager)"
+  install_command="$(shell_tool_install_hint "$package_manager")"
+
+  case "${INSTALL_SHELL_TOOLS_VALUE:-auto}" in
+    auto|AUTO|Auto)
+      if ! prompt_yes_no "Shell tooling missing ($(join_shell_tool_labels "${missing[@]}")). Install now with '$install_command'? [y/N]" N; then
+        return 0
+      fi
+      ;;
+  esac
+
+  if [ "$package_manager" = "manual" ]; then
+    warn "$install_command"
+    return 0
+  fi
+
+  log "Installing shell tooling: $(recommended_shell_commands)"
+  if run_shell_tool_install_command "$package_manager"; then
+    log "Shell tooling install command completed"
+  else
+    warn "Shell tooling installation failed; continuing"
+  fi
 }
 
 report_section() {
@@ -1186,9 +1320,9 @@ print_shell_tool_recommendations() {
   package_manager="$(detect_shell_tool_package_manager)"
 
   report_section "Shell tooling"
-  report_item "core" "$(recommended_shell_commands)"
+  report_item "core" "$(shell_tool_readiness_status)"
   report_item "core-install" "$(shell_tool_install_hint "$package_manager")"
-  report_item "installer" "suggestions only; no packages were installed automatically"
+  report_item "installer" "prompts for missing tools in interactive installs; use --install-shell-tools or --no-install-shell-tools to override"
 }
 
 print_install_report_next_steps() {

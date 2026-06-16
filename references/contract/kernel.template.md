@@ -51,6 +51,13 @@ Meta commands:
 
 Verification: `rtk --version`, `rtk gain`, `which rtk`
 
+When `rg`, `fd`/`fdfind`, and `jq` are installed, use them as the required shell tools:
+- `rg` replaces `grep` for text search.
+- `fd` replaces `find` for file discovery; use `fdfind` when that is the installed binary name.
+- `jq` replaces `python -m json.tool`, `awk`, and `grep` for JSON inspection, formatting, and filtering.
+
+If one of these shell tools is missing and the task depends on it, prompt the user to install the shell tooling before falling back.
+
 Detailed contract refs live under `{{runtime_metadata_root}}/references/contract/`:
 - `runtime.md` - routing, source of truth, work discipline, artifacts, and output.
 - `safety-tools.md` - approvals, privacy, git safety, tool ownership.

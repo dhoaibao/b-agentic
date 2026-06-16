@@ -333,6 +333,130 @@ run_readiness_report_case() {
   assert_contains "$sandbox_codex/install.log" 'rtk:'
 }
 
+run_shell_tool_prompt_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/shell-tool-prompt"
+  local bin_dir="$sandbox/bin"
+  local apt_sandbox="$WORK_DIR/shell-tool-apt-get"
+  local apt_bin_dir="$apt_sandbox/bin"
+  local apt_log="$apt_sandbox/apt-get.log"
+  local apt_install_log="$apt_sandbox/install.log"
+  local install_log="$sandbox/install.log"
+  local rc=0
+  local tool src
+
+  mkdir -p "$bin_dir" "$sandbox/home"
+
+  for tool in basename chmod cmp cp date dirname env git grep id mkdir mktemp python3 rm uname; do
+    src="$(command -v "$tool" 2>/dev/null || true)"
+    [ -n "$src" ] || fail "required smoke helper not found: $tool"
+    ln -s "$src" "$bin_dir/$tool"
+  done
+
+  set +e
+  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$bin_dir" "$ROOT_DIR/install.sh" <<'PY'
+import os, pty, select, sys
+
+sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = smoke_path
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RTK"] = "N"
+env["B_AGENTIC_INSTALL_SERENA"] = "N"
+env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
+env["B_AGENTIC_SHELL_RECOMMEND_MANAGER"] = "manual"
+
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.update(env)
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+
+os.write(fd, b"n\n")
+status = None
+with open(log_path, "wb") as log:
+    while True:
+        try:
+            result, status = os.waitpid(pid, os.WNOHANG)
+            if result:
+                break
+            ready, _, _ = select.select([fd], [], [], 0.1)
+            if ready:
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    _, status = os.waitpid(pid, 0)
+                    break
+                log.write(chunk)
+                log.flush()
+        except (OSError, select.error):
+            break
+
+os.close(fd)
+if status is None:
+    _, status = os.waitpid(pid, 0)
+
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+PY
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected shell tool prompt install exit 0, got $rc"
+  assert_contains "$install_log" "Shell tooling missing (rg, fd/fdfind, jq). Install now with 'install manually: ripgrep, fd or fd-find, jq'? [y/N]:"
+  assert_contains "$install_log" 'core: blocked: missing rg, fd/fdfind, jq'
+  assert_not_contains "$install_log" 'suggestions only; no packages were installed automatically'
+
+  mkdir -p "$apt_bin_dir" "$apt_sandbox/home"
+  for tool in basename bash chmod cmp cp date dirname env git grep ln mkdir mktemp python3 rm uname; do
+    src="$(command -v "$tool" 2>/dev/null || true)"
+    [ -n "$src" ] || fail "required smoke helper not found: $tool"
+    ln -s "$src" "$apt_bin_dir/$tool"
+  done
+  cat > "$apt_bin_dir/id" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-u" ]; then
+  printf '1000\n'
+  exit 0
+fi
+exit 1
+EOF
+  cat > "$apt_bin_dir/sudo" <<EOF
+#!/usr/bin/env bash
+printf 'sudo:%s\n' "\$*" >> "$apt_log"
+"\$@"
+EOF
+  cat > "$apt_bin_dir/apt-get" <<EOF
+#!/usr/bin/env bash
+printf 'apt-get:%s\n' "\$*" >> "$apt_log"
+exit 0
+EOF
+  chmod +x "$apt_bin_dir/id" "$apt_bin_dir/sudo" "$apt_bin_dir/apt-get"
+
+  set +e
+  HOME="$apt_sandbox/home" \
+  PATH="$apt_bin_dir" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$apt_sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_SHELL_RECOMMEND_MANAGER=apt-get \
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code --install-shell-tools >"$apt_install_log" 2>&1
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected apt-get shell tool install exit 0, got $rc"
+  assert_contains "$apt_log" 'sudo:apt-get install -y ripgrep fd-find jq'
+  assert_contains "$apt_log" 'apt-get:install -y ripgrep fd-find jq'
+  assert_contains "$apt_install_log" 'Shell tooling install command completed'
+}
+
 run_mcp_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
@@ -975,6 +1099,7 @@ main() {
   run_skill_collision_smoke_case "$snapshot_repo"
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
   run_readiness_report_case "$snapshot_repo"
+  run_shell_tool_prompt_case "$snapshot_repo"
   run_mcp_doctor_case "$snapshot_repo"
   run_mcp_package_override_case "$snapshot_repo"
   run_kimi_context7_env_binding_upgrade_case "$snapshot_repo"

@@ -26,6 +26,7 @@ Useful flags:
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
 - `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
+- `--install-shell-tools` installs `rg`, `fd`/`fdfind`, and `jq` with the detected package manager
 - `--install-serena` installs the [Serena](https://github.com/oraios/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
 - `--install-codegraph` installs [CodeGraph](https://github.com/colbymchenry/codegraph) via its installer script
 
@@ -36,6 +37,8 @@ Production pinning knobs:
 - `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@latest`
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`.
+
+Interactive installs prompt for missing shell tooling. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, and `jq` instead of `python -m json.tool`, `awk`, or `grep` for JSON.
 
 ## RTK (Rust Token Killer)
 

@@ -9,6 +9,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=all
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-rtk
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-shell-tools
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-serena
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-codegraph
 
@@ -25,6 +26,7 @@ UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
 INSTALL_RTK_VALUE="${B_AGENTIC_INSTALL_RTK:-auto}"
+INSTALL_SHELL_TOOLS_VALUE="${B_AGENTIC_INSTALL_SHELL_TOOLS:-auto}"
 INSTALL_SERENA_VALUE="${B_AGENTIC_INSTALL_SERENA:-auto}"
 INSTALL_CODEGRAPH_VALUE="${B_AGENTIC_INSTALL_CODEGRAPH:-auto}"
 
@@ -154,6 +156,12 @@ parse_args() {
         ;;
       --no-install-rtk)
         INSTALL_RTK_VALUE=N
+        ;;
+      --install-shell-tools)
+        INSTALL_SHELL_TOOLS_VALUE=Y
+        ;;
+      --no-install-shell-tools)
+        INSTALL_SHELL_TOOLS_VALUE=N
         ;;
       --install-serena)
         INSTALL_SERENA_VALUE=Y
@@ -679,8 +687,11 @@ main() {
   check_dependencies
   install_app
 
+  source_installer_core
+
   if ! uninstall_enabled; then
     install_rtk
+    install_shell_tools
     install_serena
     install_codegraph
   fi
@@ -696,7 +707,6 @@ main() {
   runtime_registered "$RUNTIME" || die "unknown runtime: $RUNTIME"
   validate_runtime_source_layout
 
-  source_installer_core
   load_runtime_driver
 
   if uninstall_enabled; then
