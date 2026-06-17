@@ -55,7 +55,6 @@ RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupporte
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "claude-user-config",
     "codex-toml",
-    "kilo-json",
     "opencode-json",
 }
 

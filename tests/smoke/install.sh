@@ -295,7 +295,6 @@ run_all_runtime_smoke_case() {
   bash "$ROOT_DIR/install.sh" --runtime=all --uninstall >"$sandbox_all/manifest-only-uninstall.log" 2>&1
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for claude-code'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for opencode'
-  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for kilo-code'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for codex-cli'
   assert_no_path "$sandbox_all/source"
 
@@ -310,9 +309,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.config/opencode/AGENTS.md"
   assert_no_path "$sandbox_all/home/.config/opencode/commands/b-plan.md"
   assert_no_path "$sandbox_all/home/.config/opencode/agents/b-explore.md"
-  assert_no_path "$sandbox_all/home/.kilo/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.config/kilo/AGENTS.md"
-  assert_no_path "$sandbox_all/home/.config/kilo/kilo.jsonc"
   assert_no_path "$sandbox_all/home/.codex/skills/b-plan"
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
@@ -548,11 +544,10 @@ run_mcp_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
   local sandbox_codex="$WORK_DIR/mcp-doctor-codex"
-  local sandbox_kilo="$WORK_DIR/mcp-doctor-kilo"
   local sandbox_opencode="$WORK_DIR/mcp-doctor-opencode"
   local bin_dir="$WORK_DIR/mcp-doctor-bin"
   local doctor_log="$WORK_DIR/mcp-doctor.log"
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_kilo/home" "$sandbox_opencode/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -583,19 +578,6 @@ run_mcp_doctor_case() {
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
   python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
-  assert_contains "$doctor_log" 'serena: ready:'
-  assert_contains "$doctor_log" 'codegraph: ready:'
-  assert_contains "$doctor_log" 'context7: ready:'
-  assert_contains "$doctor_log" 'brave-search: ready:'
-  assert_contains "$doctor_log" 'firecrawl: ready:'
-  assert_contains "$doctor_log" 'playwright: ready:'
-
-  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=kilo-code --home "$sandbox_kilo/home" >"$doctor_log"
   assert_contains "$doctor_log" 'serena: ready:'
   assert_contains "$doctor_log" 'codegraph: ready:'
   assert_contains "$doctor_log" 'context7: ready:'
@@ -899,14 +881,9 @@ EOF
 printf 'codex:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  cat > "$bin_dir/kilo" <<EOF
-#!/usr/bin/env bash
-printf 'kilo:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/kilo"
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex"
 
-  for runtime in claude-code opencode kilo-code codex-cli; do
+  for runtime in claude-code opencode codex-cli; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -914,10 +891,6 @@ EOF
         ;;
       opencode)
         runtime_bin="opencode"
-        runtime_arg="upgrade"
-        ;;
-      kilo-code)
-        runtime_bin="kilo"
         runtime_arg="upgrade"
         ;;
       codex-cli)
@@ -957,16 +930,13 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode kilo-code codex-cli; do
+  for runtime in claude-code opencode codex-cli; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
         ;;
       opencode)
         expected_entry='[dry-run] curl -fsSL https://opencode.ai/install | bash'
-        ;;
-      kilo-code)
-        expected_entry='[dry-run] curl -fsSL https://kilo.ai/cli/install | bash'
         ;;
       codex-cli)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
@@ -1002,11 +972,10 @@ run_skill_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
-  local sandbox_kilo="$WORK_DIR/skill-doctor-kilo"
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_kilo/home" "$sandbox_opencode/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
   expected_skill_count="$(registry_skill_count)"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -1026,13 +995,6 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" 'kernel: ready'
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'config: ready'
-  assert_contains "$doctor_log" 'discovery: ready:'
-
-  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=kilo-code --home "$sandbox_kilo/home" >"$doctor_log"
-  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'discovery: ready:'
 
   expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode

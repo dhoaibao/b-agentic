@@ -322,7 +322,7 @@ candidates.extend((home / ".local" / "share").glob("*/b-agentic/install.json"))
 candidates.extend((home / "Library" / "Application Support").glob("*/b-agentic/install.json"))
 
 allowed_roots = [home.resolve()]
-for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME", "B_AGENTIC_KILO_HOME"]:
+for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME"]:
     value = os.environ.get(env_name)
     if not value:
         continue

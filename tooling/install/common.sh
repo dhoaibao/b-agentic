@@ -849,7 +849,6 @@ if not isinstance(current, dict) or not isinstance(incoming, dict) or not isinst
 cleaned = cleanup(current, incoming, original)
 mcp_labels = {
     '.claude.json': 'mcpServers',
-    'kilo.jsonc': 'mcp',
     'opencode.json': 'mcp',
 }
 mcp_key = mcp_labels.get(label)
