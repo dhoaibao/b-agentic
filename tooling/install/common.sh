@@ -1461,6 +1461,20 @@ PY
   printf '%s' "${backup:-none}"
 }
 
+apply_prompted_mcp_keys_stage() {
+  local action_var="$1" backup_var="$2"
+  local action backup prompted_backup
+
+  action="${!action_var}"
+  backup="${!backup_var}"
+
+  collect_api_keys
+  capture_output_stage "Writing prompted MCP keys" prompted_backup apply_prompted_mcp_keys "$action" "$backup"
+  if [ "$prompted_backup" != "none" ]; then
+    printf -v "$backup_var" '%s' "$prompted_backup"
+  fi
+}
+
 read_install_triplet() {
   local result="$1" default_action="$2" default_state="$3" default_backup="$4"
   local action_var="$5" state_var="$6" backup_var="$7"
@@ -1516,7 +1530,7 @@ runtime_install_common() {
 
   runtime_warn_missing_cli
   config_stage_count="$(runtime_install_config_stage_count)"
-  set_install_stage_total $((8 + config_stage_count))
+  set_install_stage_total $((7 + config_stage_count))
 
   collect_installed_skills INSTALL_SKILL_NAMES
   run_stage "Preparing runtime CLI" runtime_upgrade_cli
@@ -1528,12 +1542,6 @@ runtime_install_common() {
     INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
 
   runtime_install_configs
-  local prompted_mcp_backup
-  collect_api_keys
-  capture_output_stage "Writing prompted MCP keys" prompted_mcp_backup apply_prompted_mcp_keys "$INSTALL_MCP_ACTION" "$INSTALL_MCP_BACKUP"
-  if [ "$prompted_mcp_backup" != "none" ]; then
-    INSTALL_MCP_BACKUP="$prompted_mcp_backup"
-  fi
 
   run_stage "Installing uninstall helper" install_uninstall_helper
   run_stage "Writing install manifest" runtime_write_manifest

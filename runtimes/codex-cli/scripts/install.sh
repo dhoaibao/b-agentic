@@ -331,6 +331,7 @@ PY
 }
 
 runtime_install_configs() {
+  runtime_require_tomllib
   collect_codex_api_keys
 
   run_install_triplet_stage "Updating Codex config" install_codex_config "skip" "none" "none" \
@@ -489,7 +490,6 @@ runtime_uninstall_configs() {
 
 runtime_install_extra_assets() {
   install_managed_profiles "$RULES_SRC" "$RULES_DST" "$RULES_SNAPSHOT_DST" "rules" "Codex rule" INSTALL_RULE_NAMES
-  install_uninstall_helper
 }
 
 runtime_uninstall_extra_assets() {
@@ -498,43 +498,10 @@ runtime_uninstall_extra_assets() {
   uninstall_managed_profiles rules "$rules_path" "$RULES_SNAPSHOT_DST" "rules" "Codex rule"
 }
 
-# Codex does not reuse runtime_install_common: it injects MCP API keys as TOML
-# literals inside the managed config block during install_codex_config, so it
-# omits the generic JSON prompted-keys stage (collect_api_keys /
-# apply_prompted_mcp_keys) that common.sh runs for JSON runtimes. Keep this flow
-# in sync with runtime_install_common for the shared stages (skills, references,
-# kernel, manifest, activation exit code 2).
 runtime_main() {
-  runtime_warn_missing_cli
-  runtime_require_tomllib
-  set_install_stage_total 7
-
-  collect_installed_skills INSTALL_SKILL_NAMES
-  run_stage "Preparing runtime CLI" runtime_upgrade_cli
-  run_stage "Syncing skills" install_skills
-  run_stage "Installing runtime extras" runtime_install_extra_assets
-  run_stage "Syncing references and templates" install_references_and_templates
-
-  run_install_triplet_stage "Installing kernel" install_kernel "preserve" "pending" "none" \
-    INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
-
-  runtime_install_configs
-  run_stage "Writing install manifest" runtime_write_manifest
-  runtime_print_install_report
-
-  if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
-    return 2
-  fi
+  runtime_install_common
 }
 
 runtime_uninstall() {
-  require_bin python3
-  set_install_stage_total 4
-  log "Uninstalling b-agentic from $RUNTIME_UNINSTALL_LABEL"
-  run_stage "Removing managed skills" uninstall_installed_skills
-  run_stage "Removing runtime extras" runtime_uninstall_extra_assets
-  run_stage "Removing managed kernel" remove_managed_kernel
-  run_stage "Cleaning runtime config" runtime_uninstall_configs
-  run_cmd rm -rf "$METADATA_DIR"
-  log "Uninstall complete. User-owned $RUNTIME_PRESERVE_LABEL files were preserved."
+  runtime_uninstall_common
 }

@@ -57,7 +57,7 @@ runtime_upgrade_cli() {
 }
 
 runtime_install_config_stage_count() {
-  printf '2'
+  printf '3'
 }
 
 install_settings_config() {
@@ -97,6 +97,7 @@ runtime_install_configs() {
     INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_STATE INSTALL_SETTINGS_BACKUP
   run_install_triplet_stage "Merging MCP config" install_mcp_config "skip" "none" "none" \
     INSTALL_MCP_ACTION INSTALL_MCP_STATE INSTALL_MCP_BACKUP
+  apply_prompted_mcp_keys_stage INSTALL_MCP_ACTION INSTALL_MCP_BACKUP
 }
 
 runtime_write_manifest() {
