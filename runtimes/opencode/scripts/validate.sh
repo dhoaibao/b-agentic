@@ -27,13 +27,6 @@ if config.exists():
     for server in ['serena', 'context7', 'brave-search', 'firecrawl', 'playwright']:
         if server not in data.get('mcp', {}):
             errors.append(f'{config}: missing MCP server {server!r}')
-    expected_instructions = [
-        '~/.config/opencode/b-agentic/references/contract/runtime.md',
-        '~/.config/opencode/b-agentic/references/contract/safety-tools.md',
-    ]
-    instructions = data.get('instructions', [])
-    if not isinstance(instructions, list) or any(path not in instructions for path in expected_instructions):
-        errors.append(f'{config}: missing expected custom instructions')
     if 'hooks' in data:
         errors.append(f'{config}: hooks are not part of the slim default')
 

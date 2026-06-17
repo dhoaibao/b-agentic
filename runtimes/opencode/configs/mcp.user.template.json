@@ -1,8 +1,4 @@
 {
-  "instructions": [
-    "~/.config/opencode/b-agentic/references/contract/runtime.md",
-    "~/.config/opencode/b-agentic/references/contract/safety-tools.md"
-  ],
   "mcp": {
     "serena": {
       "type": "local",
