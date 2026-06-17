@@ -213,11 +213,12 @@ def codex_server_status(server: str, config: dict) -> str:
         if entry.get("url") != "https://mcp.context7.com/mcp":
             return "blocked: invalid context7 config"
         headers = entry.get("http_headers", {})
-        if isinstance(headers, dict) and isinstance(headers.get("CONTEXT7_API_KEY"), str) and headers.get("CONTEXT7_API_KEY"):
-            return "ready: CONTEXT7_API_KEY configured in Codex config"
-        env_headers = entry.get("env_http_headers", {})
-        if isinstance(env_headers, dict) and env_headers.get("CONTEXT7_API_KEY") == "CONTEXT7_API_KEY":
-            return "ready: CONTEXT7_API_KEY env binding configured in Codex config" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config"
+        if isinstance(headers, dict):
+            context7_value = headers.get("CONTEXT7_API_KEY")
+            if isinstance(context7_value, str) and context7_value:
+                if context7_value == "CONTEXT7_API_KEY":
+                    return "ready: CONTEXT7_API_KEY env binding configured in Codex config" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config"
+                return "ready: CONTEXT7_API_KEY configured in Codex config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "codegraph":
         if entry.get("command") != "codegraph" or not list_matches(entry.get("args"), ["serve", "--mcp"]):
@@ -240,9 +241,15 @@ def codex_server_status(server: str, config: dict) -> str:
         issues.append("install pnpm")
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
     env_section = entry.get("env", {})
-    if not (isinstance(env_section, dict) and isinstance(env_section.get(env_key), str) and env_section.get(env_key)):
-        if not env_var_present(env_key):
+    if isinstance(env_section, dict):
+        env_value = env_section.get(env_key)
+        if isinstance(env_value, str) and env_value:
+            if env_value == env_key and not env_var_present(env_key):
+                issues.append(f"set {env_key}")
+        elif not env_var_present(env_key):
             issues.append(f"set {env_key}")
+    elif not env_var_present(env_key):
+        issues.append(f"set {env_key}")
     if issues:
         return f"blocked: {join_issues(issues)}"
     return ready_status(f"pnpm and {env_key} available", pinned_status)

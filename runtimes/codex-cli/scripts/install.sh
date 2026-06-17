@@ -236,15 +236,12 @@ def rendered_server(name: str, server: dict) -> dict:
         rendered["args"] = [args[0], package_override, *args[2:]]
     if name == "context7":
         if context7_key:
-            rendered.pop("env_http_headers", None)
             rendered["http_headers"] = {"CONTEXT7_API_KEY": context7_key}
     elif name == "brave-search":
         if brave_key:
-            rendered.pop("env_vars", None)
             rendered["env"] = {"BRAVE_API_KEY": brave_key}
     elif name == "firecrawl":
         if firecrawl_key:
-            rendered.pop("env_vars", None)
             env = {"FIRECRAWL_API_KEY": firecrawl_key}
             if firecrawl_url:
                 env["FIRECRAWL_API_URL"] = firecrawl_url

@@ -4,7 +4,7 @@ args = ["start-mcp-server", "--context", "codex", "--project-from-cwd", "--open-
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
-env_http_headers = { CONTEXT7_API_KEY = "CONTEXT7_API_KEY" }
+http_headers = { CONTEXT7_API_KEY = "CONTEXT7_API_KEY" }
 
 [mcp_servers.codegraph]
 command = "codegraph"
@@ -14,12 +14,12 @@ env = { CODEGRAPH_TELEMETRY = "0" }
 [mcp_servers.brave-search]
 command = "pnpm"
 args = ["dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"]
-env_vars = ["BRAVE_API_KEY"]
+env = { BRAVE_API_KEY = "BRAVE_API_KEY" }
 
 [mcp_servers.firecrawl]
 command = "pnpm"
 args = ["dlx", "firecrawl-mcp"]
-env_vars = ["FIRECRAWL_API_KEY"]
+env = { FIRECRAWL_API_KEY = "FIRECRAWL_API_KEY" }
 
 [mcp_servers.playwright]
 command = "pnpm"

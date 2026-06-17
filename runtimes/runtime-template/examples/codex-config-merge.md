@@ -103,4 +103,5 @@ PY
 - Rules use `.rules` extension
 - Requires Python 3.11+ for stdlib `tomllib`
 - Commands in config: `command = ["pnpm", "dlx", "package", ...]`
-- Env vars: `env = { BRAVE_API_KEY = "${BRAVE_API_KEY}" }`
+- Env vars: `env = { BRAVE_API_KEY = "BRAVE_API_KEY" }` (value equals the env var name for env binding)
+- HTTP headers: `http_headers = { CONTEXT7_API_KEY = "CONTEXT7_API_KEY" }` (value equals the env var name for env binding)
