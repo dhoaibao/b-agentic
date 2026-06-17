@@ -19,6 +19,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox/home/.claude.json"
   assert_file "$sandbox/home/.claude/b-agentic/install.json"
   assert_contains "$sandbox/home/.claude/settings.json" 'mcp__serena__*'
+  assert_contains "$sandbox/home/.claude.json" '"codegraph"'
   assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git push *)'
   assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git pull *)'
   assert_contains "$sandbox/home/.claude/settings.json" 'Bash(git revert *)'

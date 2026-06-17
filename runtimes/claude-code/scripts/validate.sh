@@ -45,7 +45,7 @@ if settings.exists():
 if mcp.exists():
     data = json.loads(mcp.read_text())
     servers = data.get('mcpServers', {})
-    for server in ['serena', 'context7', 'brave-search', 'firecrawl', 'playwright']:
+    for server in ['serena', 'context7', 'codegraph', 'brave-search', 'firecrawl', 'playwright']:
         if server not in servers:
             errors.append(f'{mcp}: missing MCP server {server!r}')
 

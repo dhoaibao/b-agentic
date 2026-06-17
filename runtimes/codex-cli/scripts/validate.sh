@@ -30,7 +30,7 @@ if kernel.exists() and 'Core Rules' not in kernel.read_text():
 
 if template.exists():
     data = tomllib.loads(template.read_text())
-    for server in ['serena', 'context7', 'brave-search', 'firecrawl', 'playwright']:
+    for server in ['serena', 'context7', 'codegraph', 'brave-search', 'firecrawl', 'playwright']:
         if server not in data.get('mcp_servers', {}):
             errors.append(f'{template}: missing MCP server {server!r}')
     if 'hooks' in data or 'features' in data:

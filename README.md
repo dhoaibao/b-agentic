@@ -20,6 +20,8 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 
 Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
 
+Default install also prepares the selected runtime CLI. If the CLI is already installed, b-agentic runs that runtime's native upgrade command. If it is missing, b-agentic attempts the vendor install script and still installs the b-agentic files if the CLI step fails.
+
 Useful flags:
 
 - `--dry-run` previews changes
@@ -36,7 +38,7 @@ Production pinning knobs:
 - `B_AGENTIC_FIRECRAWL_MCP_PACKAGE` overrides `firecrawl-mcp`
 - `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@latest`
 
-Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`.
+Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Default runtime install may also invoke the selected runtime's native CLI installer or upgrade command.
 
 Interactive installs prompt for missing shell tooling. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, and `jq` instead of `python -m json.tool`, `awk`, or `grep` for JSON.
 

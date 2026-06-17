@@ -17,6 +17,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox/home/.codex/b-agentic/references/contract/runtime.md"
   assert_file "$sandbox/home/.codex/b-agentic/install.json"
   assert_contains "$sandbox/home/.codex/config.toml" '[mcp_servers.serena]'
+  assert_contains "$sandbox/home/.codex/config.toml" '[mcp_servers.codegraph]'
   assert_contains "$sandbox/home/.codex/rules/b-agentic.rules" 'pattern = ["git", "commit"]'
   assert_contains "$sandbox/home/.codex/rules/b-agentic.rules" 'pattern = ["git", "push"]'
   assert_contains "$sandbox/home/.codex/rules/b-agentic.rules" 'pattern = ["git", "pull"]'

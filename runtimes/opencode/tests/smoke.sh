@@ -17,5 +17,8 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox/home/.config/opencode/b-agentic/references/contract/runtime.md"
   assert_file "$sandbox/home/.config/opencode/b-agentic/install.json"
   assert_contains "$sandbox/home/.config/opencode/opencode.json" '"serena"'
+  assert_contains "$sandbox/home/.config/opencode/opencode.json" '"codegraph"'
+  assert_contains "$sandbox/home/.config/opencode/opencode.json" '"git push --force-with-lease *": "deny"'
+  assert_contains "$sandbox/home/.config/opencode/opencode.json" '"git branch -D *": "deny"'
   assert_no_path "$sandbox/home/.config/opencode/agents/b-explore.md"
 }

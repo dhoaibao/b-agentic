@@ -24,11 +24,18 @@ if kernel.exists() and 'Core Rules' not in kernel.read_text():
 
 if config.exists():
     data = json.loads(config.read_text())
-    for server in ['serena', 'context7', 'brave-search', 'firecrawl', 'playwright']:
+    for server in ['serena', 'context7', 'codegraph', 'brave-search', 'firecrawl', 'playwright']:
         if server not in data.get('mcp', {}):
             errors.append(f'{config}: missing MCP server {server!r}')
     if 'hooks' in data:
         errors.append(f'{config}: hooks are not part of the slim default')
+    permission = data.get('permission', {})
+    bash_rules = permission.get('bash', {}) if isinstance(permission, dict) else {}
+    if bash_rules.get('*') != 'ask':
+        errors.append(f'{config}: bash default must remain ask')
+    for command in ['git reset --hard *', 'git clean -f *', 'git push --force *', 'git push --force-with-lease *', 'git branch -D *', 'rm *']:
+        if bash_rules.get(command) != 'deny':
+            errors.append(f'{config}: missing denied bash rule {command!r}')
 
 if commands.exists():
     wrappers = {path.stem for path in commands.glob('b-*.md')}
