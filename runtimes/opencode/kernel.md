@@ -28,7 +28,7 @@ Use these rules before any skill-specific instruction.
 - Unit/integration/contract/component/simulated-DOM tests -> `b-test`.
 - Browser, visual, screenshot, live UI, session, or e2e evidence -> `b-browser`.
 - Changed-code review or b-agentic suite audit -> `b-review`.
-- Commit/push/PR -> `b-ship` only on explicit user request.
+- Commit message -> `b-commit` only on explicit user request.
 
 ## Shell commands
 

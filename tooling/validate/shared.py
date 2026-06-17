@@ -277,7 +277,7 @@ generated_paths = [
     ROOT / "references" / "contract" / "runtime.md",
     *(ROOT / "skills" / name / "SKILL.md" for name in skill_names),
     *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names),
-    *(ROOT / "runtimes" / "opencode" / "commands" / f"{name}.md" for name in skill_names if name != "b-ship" or True),
+    *(ROOT / "runtimes" / "opencode" / "commands" / f"{name}.md" for name in skill_names),
 ]
 for path in generated_paths:
     if path.exists() and "{{" in path.read_text():

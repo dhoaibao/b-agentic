@@ -28,7 +28,7 @@ Precedence:
 - Test mechanics, fixtures, assertions, coverage -> `b-test`.
 - Real browser, visual, screenshot, live UI, or e2e evidence -> `b-browser`.
 - Review changed code or this suite -> `b-review`.
-- Commit, push, or PR -> `b-ship` only on explicit user request.
+- Commit message -> `b-commit` only on explicit user request.
 
 <!-- generated:routing-triggers:start -->
 | Skill | Triggers |

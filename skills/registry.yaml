@@ -211,18 +211,18 @@
     },
 
     {
-      "name": "b-ship",
+      "name": "b-commit",
       "phase": "Ship",
-      "use": "Commit, push, and open a PR on explicit request after review readiness",
+      "use": "Write a Conventional Commits message from staged changes",
       "command": {
-        "alias": "b-ship",
-        "description": "Commit, push, and open a PR on explicit request",
+        "alias": "b-commit",
+        "description": "Write a Conventional Commits message from staged changes",
         "exposed": true
       },
       "routing": null,
       "prompt": {
-        "description": "Commit, push, and open a pull request only on explicit ship intent after a reviewed diff is ready. A prior skill may close with Next: b-ship, but that is a recommendation, not an implicit shipping handoff. Safety-gates each git action (commit, push, PR creation); never force-pushes. Stops after the PR URL is printed; post-PR automation is out of scope.",
-        "argument_hint": "[--draft] [--title=<title>] [--base=<branch>]"
+        "description": "Analyze the staged diff and write one Git commit message following Conventional Commits. Output ONLY the commit message — a single line. No explanation, no markdown, no alternatives.",
+        "argument_hint": "[staged-diff-context]"
       }
     }
   ]
