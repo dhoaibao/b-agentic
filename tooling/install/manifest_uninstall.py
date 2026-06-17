@@ -140,7 +140,7 @@ def main() -> None:
     home = Path.home().resolve()
     global allowed_roots
     allowed_roots = [home]
-    for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME"]:
+    for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME", "B_AGENTIC_KILO_HOME", "B_AGENTIC_KILO_CONFIG_DIR"]:
         value = os.environ.get(env_name)
         if value:
             try:
@@ -152,6 +152,8 @@ def main() -> None:
     paths = data.get("paths", {})
     metadata = manifest_path.parent
     kimi_root = Path(os.environ.get("B_AGENTIC_KIMI_CODE_DIR") or os.environ.get("KIMI_CODE_HOME") or (home / ".kimi-code")).expanduser()
+    kilo_home = Path(os.environ.get("B_AGENTIC_KILO_HOME") or (home / ".kilo")).expanduser()
+    kilo_config_dir = Path(os.environ.get("B_AGENTIC_KILO_CONFIG_DIR") or (home / ".config" / "kilo")).expanduser()
 
     runtime_defaults = {
         "claude-code": {
@@ -169,6 +171,12 @@ def main() -> None:
             "agents": home / ".config" / "opencode" / "agents",
             "commands": home / ".config" / "opencode" / "commands",
             "opencodeJson": home / ".config" / "opencode" / "opencode.json",
+        },
+        "kilo-code": {
+            "metadata": kilo_home / "b-agentic",
+            "skills": kilo_home / "skills",
+            "kernel": kilo_config_dir / "AGENTS.md",
+            "kiloConfig": kilo_config_dir / "kilo.jsonc",
         },
         "codex-cli": {
             "metadata": home / ".codex" / "b-agentic",
@@ -235,6 +243,8 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "OpenCode agent")
         remove_snapshot_profiles(data.get("commands", []), manifest_managed_path(paths, "commands", defaults["commands"]), metadata / "commands", "md", "OpenCode command")
         remove_config_if_template(str(manifest_managed_path(paths, "opencodeJson", defaults["opencodeJson"])), metadata / "templates" / "mcp.user.template.json", "opencode.json")
+    elif runtime == "kilo-code":
+        remove_config_if_template(str(manifest_managed_path(paths, "kiloConfig", defaults["kiloConfig"])), metadata / "templates" / "mcp.user.template.json", "kilo.jsonc")
     elif runtime == "codex-cli":
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")

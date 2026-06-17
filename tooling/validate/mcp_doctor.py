@@ -254,6 +254,8 @@ def resolve_config_path(runtime: dict, home: Path) -> Path:
         return home / ".claude.json"
     if schema_family == "codex-toml":
         return home / ".codex" / "config.toml"
+    if schema_family == "kilo-json":
+        return home / ".config" / "kilo" / "kilo.jsonc"
     if schema_family == "opencode-json":
         return home / ".config" / "opencode" / "opencode.json"
     raise ValueError(f"unsupported config schema family: {schema_family!r}")
