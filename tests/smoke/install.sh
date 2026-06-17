@@ -591,6 +591,7 @@ run_mcp_doctor_case() {
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
   python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  assert_contains "$doctor_log" 'instructions: ready:'
   assert_contains "$doctor_log" 'serena: ready:'
   assert_contains "$doctor_log" 'codegraph: ready:'
   assert_contains "$doctor_log" 'context7: ready:'

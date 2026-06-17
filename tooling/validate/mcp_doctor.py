@@ -153,6 +153,20 @@ def claude_server_status(server: str, config: dict) -> str:
     return ready_status(f"pnpm and {env_key} available", pinned_status)
 
 
+def json_instructions_status(config: dict) -> str:
+    instructions = config.get("instructions", [])
+    if not isinstance(instructions, list):
+        return "blocked: instructions must be a list"
+    expected = [
+        "~/.config/opencode/b-agentic/references/contract/runtime.md",
+        "~/.config/opencode/b-agentic/references/contract/safety-tools.md",
+    ]
+    missing = [path for path in expected if path not in instructions]
+    if missing:
+        return f"blocked: missing instruction files: {', '.join(missing)}"
+    return "ready: runtime contract instructions loaded"
+
+
 def json_mcp_server_status(server: str, config: dict) -> str:
     servers = config.get("mcp", {})
     entry = servers.get(server)
@@ -293,6 +307,8 @@ def main() -> int:
     print(f"runtime: {args.runtime}")
     print(f"config: {config_path}")
     print("startup-check: not attempted; validates local launchers, keys, and config shape only")
+    if schema_family == "opencode-json":
+        print(f"instructions: {json_instructions_status(config)}")
     for server in SUPPORTED_SERVERS:
         print(f"{server}: {status_fn(server, config)}")
     return 0

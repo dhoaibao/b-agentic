@@ -11,6 +11,15 @@ Adapter-owned layout for OpenCode.
 - MCP template: `~/.config/opencode/b-agentic/templates/mcp.user.template.json`
 - User config: `~/.config/opencode/opencode.json`
 
+## Custom Instructions
+
+The OpenCode template adds the b-agentic contract files to the `instructions` array in `~/.config/opencode/opencode.json`:
+
+- `~/.config/opencode/b-agentic/references/contract/runtime.md`
+- `~/.config/opencode/b-agentic/references/contract/safety-tools.md`
+
+OpenCode loads these alongside `AGENTS.md`, so the runtime contract and safety-tool rules are always present without inflating the kernel file. They are merged with any user-defined instructions.
+
 ## Safety And MCP
 
 The installer never overwrites `~/.config/opencode/AGENTS.md` without `--replace-memory`. Plain install syncs skills, wrappers, shared references, and MCP config. User-owned or modified wrapper files are preserved.
