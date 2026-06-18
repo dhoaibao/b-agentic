@@ -33,6 +33,9 @@ if config.exists():
     bash_rules = permission.get('bash', {}) if isinstance(permission, dict) else {}
     if bash_rules.get('*') != 'ask':
         errors.append(f'{config}: bash default must remain ask')
+    for command in ['git diff *', 'git status *', 'git log *', 'rg *', 'fd *', 'fdfind *', 'jq *', 'rtk git diff *', 'rtk git status *', 'rtk git log *', 'rtk rg *', 'rtk fd *', 'rtk fdfind *', 'rtk jq *']:
+        if bash_rules.get(command) != 'allow':
+            errors.append(f'{config}: missing allowed bash rule {command!r}')
     for command in ['git reset --hard *', 'git clean -f *', 'git push --force *', 'git push --force-with-lease *', 'git branch -D *', 'rm *']:
         if bash_rules.get(command) != 'deny':
             errors.append(f'{config}: missing denied bash rule {command!r}')
