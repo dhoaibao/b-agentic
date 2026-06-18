@@ -13,12 +13,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-runtime-cli
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-serena
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-codegraph
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --ref=<tag-or-sha>
 
 set -euo pipefail
 
 readonly REPO_URL="${B_AGENTIC_REPO:-https://github.com/dhoaibao/b-agentic.git}"
 readonly LOCAL_REPO="${B_AGENTIC_DIR:-$HOME/.b-agentic}"
-readonly REF="${B_AGENTIC_REF:-}"
+REF="${B_AGENTIC_REF:-}"
 readonly TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 
 DRY_RUN_VALUE="${B_AGENTIC_DRY_RUN:-N}"
@@ -198,12 +199,23 @@ parse_args() {
           *[^a-z0-9_-]*) die "invalid runtime name: $RUNTIME (use lowercase alphanumeric, dashes, underscores)" ;;
         esac
         ;;
+      --ref=*)
+        REF="${1#--ref=}"
+        [ -n "$REF" ] || die "invalid ref: empty"
+        ;;
       *)
         die "unknown argument: $1"
         ;;
     esac
     shift
   done
+}
+
+validate_ref() {
+  [ -n "$REF" ] || return 0
+  case "$REF" in
+    -*) die "invalid ref: $REF (must not start with -)" ;;
+  esac
 }
 
 set_source_dir() {
@@ -685,6 +697,7 @@ main() {
   local rc=0
 
   parse_args "$@"
+  validate_ref
 
   if try_manifest_only_uninstall; then
     return 0

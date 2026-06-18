@@ -17,6 +17,11 @@ DEFAULT_PACKAGES = {
     "firecrawl": "firecrawl-mcp",
     "playwright": "@playwright/mcp@latest",
 }
+PACKAGE_OVERRIDE_ENVS = {
+    "brave-search": "B_AGENTIC_BRAVE_MCP_PACKAGE",
+    "firecrawl": "B_AGENTIC_FIRECRAWL_MCP_PACKAGE",
+    "playwright": "B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE",
+}
 
 
 def load_json(path: Path) -> dict:
@@ -60,27 +65,34 @@ def serena_args_match(value: object, context: str) -> bool:
 
 
 def package_name(server: str) -> str:
-    env_name = {
-        "brave-search": "B_AGENTIC_BRAVE_MCP_PACKAGE",
-        "firecrawl": "B_AGENTIC_FIRECRAWL_MCP_PACKAGE",
-        "playwright": "B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE",
-    }.get(server)
+    env_name = PACKAGE_OVERRIDE_ENVS.get(server)
     if env_name:
         return os.environ.get(env_name, DEFAULT_PACKAGES[server])
     return DEFAULT_PACKAGES[server]
+
+
+def package_is_exactly_pinned(package: str) -> bool:
+    if package.startswith("@"):
+        _, _, unscoped = package.partition("/")
+        if "@" not in unscoped:
+            return False
+        version = unscoped.rsplit("@", 1)[1]
+    elif "@" in package:
+        version = package.rsplit("@", 1)[1]
+    else:
+        return False
+    return bool(version) and version != "latest" and not any(marker in version for marker in "*^~xX")
 
 
 def pinned_package_status(server: str, package: object) -> str | None:
     if not isinstance(package, str) or not package:
         return None
     expected = package_name(server)
+    env_name = PACKAGE_OVERRIDE_ENVS[server]
+    if not package_is_exactly_pinned(package):
+        return f"package {package!r} is mutable; set {env_name}=<pinned package> for production"
     if package == expected:
         return None
-    env_name = {
-        "brave-search": "B_AGENTIC_BRAVE_MCP_PACKAGE",
-        "firecrawl": "B_AGENTIC_FIRECRAWL_MCP_PACKAGE",
-        "playwright": "B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE",
-    }[server]
     if os.environ.get(env_name):
         return None
     return f"configured package {package!r}; set {env_name}={package} for strict launcher validation"

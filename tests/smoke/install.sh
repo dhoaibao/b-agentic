@@ -245,6 +245,25 @@ run_all_runtime_smoke_case() {
   done < <(registry_runtime_records install)
 }
 
+run_ref_install_case() {
+  local snapshot_repo="$1"
+  local sandbox_ref="$WORK_DIR/ref-install"
+  local sandbox_invalid="$WORK_DIR/ref-install-invalid"
+  local install_ref manifest_path rc
+
+  mkdir -p "$sandbox_ref/home" "$sandbox_invalid/home"
+  install_ref="$(git -C "$snapshot_repo" rev-parse HEAD)"
+
+  expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --runtime=claude-code --ref="$install_ref"
+
+  manifest_path="$sandbox_ref/home/.claude/b-agentic/install.json"
+  assert_file "$manifest_path"
+  assert_json_value "$manifest_path" "data['runtime'] == 'claude-code'"
+
+  rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --runtime=claude-code --ref=--bad)"
+  [ "$rc" -ne 0 ] || fail "expected option-looking --ref value to fail safely"
+}
+
 run_skill_collision_smoke_case() {
   local snapshot_repo="$1"
   local sandbox_collision="$WORK_DIR/skill-collision"
@@ -508,6 +527,15 @@ run_mcp_doctor_case() {
   assert_contains "$doctor_log" 'brave-search: ready:'
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
+  assert_contains "$doctor_log" "package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
+
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  assert_contains "$doctor_log" "package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
 
 }
 
@@ -993,6 +1021,7 @@ main() {
   make_repo_snapshot "$snapshot_repo"
   run_invalid_runtime_layout_validation_case "$snapshot_repo"
   run_all_runtime_smoke_case "$snapshot_repo"
+  run_ref_install_case "$snapshot_repo"
   run_manifest_only_corrupted_manifest_case
   run_manifest_only_custom_paths_case
   run_skill_collision_smoke_case "$snapshot_repo"

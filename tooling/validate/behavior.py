@@ -62,6 +62,12 @@ FIXTURES = [
         expected="b-debug",
     ),
     Fixture(
+        name="product bug exposed by failing test",
+        prompt="A failing test exposes a real product regression in checkout.",
+        expected="b-debug",
+        not_expected=("b-test",),
+    ),
+    Fixture(
         name="test mechanics",
         prompt="Fix the failing component test mock assertion and update coverage.",
         expected="b-test",
@@ -77,6 +83,17 @@ FIXTURES = [
         name="changed-code review",
         prompt="Review my working tree diff before PR.",
         expected="b-review",
+    ),
+    Fixture(
+        name="review changes",
+        prompt="Please review these changes.",
+        expected="b-review",
+    ),
+    Fixture(
+        name="plan review remains planning",
+        prompt="Review this implementation plan before coding.",
+        expected="b-plan",
+        not_expected=("b-review",),
     ),
     Fixture(
         name="commit message request",

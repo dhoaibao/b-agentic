@@ -19,6 +19,7 @@
           "decompose",
           "approach",
           "\"how should I\"",
+          "implementation plan",
           "clarify",
           "requirements",
           "scope"
@@ -119,7 +120,9 @@
           "error",
           "stack trace",
           "\"not working\"",
-          "regression"
+          "regression",
+          "product regression",
+          "product bug"
         ]
       },
       "prompt": {
@@ -196,7 +199,12 @@
       "routing": {
         "intent": "Pre-PR changed-code review and b-agentic suite audit",
         "triggers": [
-          "review",
+          "code review",
+          "review diff",
+          "review my diff",
+          "review changes",
+          "review these changes",
+          "working tree diff",
           "pre-PR",
           "\"what would a reviewer\"",
           "b-agentic audit",

@@ -22,6 +22,15 @@ Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registe
 
 Default install writes b-agentic files and config only. It does not install or upgrade the selected runtime CLI unless `--install-runtime-cli` is provided.
 
+For professional or shared environments, pin both the bootstrap script and installed source to a reviewed tag or commit instead of consuming whatever is currently on `main`:
+
+```bash
+export B_AGENTIC_REF=<tag-or-commit>
+curl -fsSL "https://raw.githubusercontent.com/dhoaibao/b-agentic/${B_AGENTIC_REF}/install.sh" | bash -s -- --ref="${B_AGENTIC_REF}"
+```
+
+The same pin is available as `B_AGENTIC_REF=<tag-or-commit>` for scripted installs.
+
 Useful flags:
 
 - `--dry-run` previews changes
@@ -32,12 +41,15 @@ Useful flags:
 - `--install-shell-tools` installs `rg`, `fd`/`fdfind`, and `jq` with the detected package manager
 - `--install-serena` installs the [Serena](https://github.com/oraios/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
 - `--install-codegraph` installs [CodeGraph](https://github.com/colbymchenry/codegraph) via its installer script
+- `--ref=<tag-or-commit>` checks out that b-agentic git ref before installing managed files
 
 Production pinning knobs:
 
 - `B_AGENTIC_BRAVE_MCP_PACKAGE` overrides `@brave/brave-search-mcp-server`
 - `B_AGENTIC_FIRECRAWL_MCP_PACKAGE` overrides `firecrawl-mcp`
 - `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@latest`
+
+Set these package overrides to exact package versions in professional environments. The defaults are convenience launchers and may resolve newer MCP package code over time.
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via `--install-runtime-cli`.
 
