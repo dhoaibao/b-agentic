@@ -20,13 +20,14 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 
 Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
 
-Default install also prepares the selected runtime CLI. If the CLI is already installed, b-agentic runs that runtime's native upgrade command. If it is missing, b-agentic attempts the vendor install script and still installs the b-agentic files if the CLI step fails.
+Default install writes b-agentic files and config only. It does not install or upgrade the selected runtime CLI unless `--install-runtime-cli` is provided.
 
 Useful flags:
 
 - `--dry-run` previews changes
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
+- `--install-runtime-cli` installs or upgrades the selected runtime CLI with that runtime's native command
 - `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
 - `--install-shell-tools` installs `rg`, `fd`/`fdfind`, and `jq` with the detected package manager
 - `--install-serena` installs the [Serena](https://github.com/oraios/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
@@ -38,7 +39,7 @@ Production pinning knobs:
 - `B_AGENTIC_FIRECRAWL_MCP_PACKAGE` overrides `firecrawl-mcp`
 - `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@latest`
 
-Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Default runtime install may also invoke the selected runtime's native CLI installer or upgrade command.
+Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via `--install-runtime-cli`.
 
 Interactive installs prompt for missing shell tooling. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, and `jq` instead of `python -m json.tool`, `awk`, or `grep` for JSON.
 
@@ -173,7 +174,7 @@ scripts/skill-doctor.sh --runtime=opencode
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove a live runtime session has loaded the kernel or that remote MCP calls succeed.
 
-Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence.
+Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name>` after installing a runtime to collect local doctor output and print the required fresh-session gates.
 
 Production acceptance for each runtime should include a fresh-session check:
 

@@ -10,6 +10,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-rtk
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-shell-tools
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-runtime-cli
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-serena
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-codegraph
 
@@ -27,6 +28,7 @@ PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
 INSTALL_RTK_VALUE="${B_AGENTIC_INSTALL_RTK:-auto}"
 INSTALL_SHELL_TOOLS_VALUE="${B_AGENTIC_INSTALL_SHELL_TOOLS:-auto}"
+INSTALL_RUNTIME_CLI_VALUE="${B_AGENTIC_INSTALL_RUNTIME_CLI:-N}"
 INSTALL_SERENA_VALUE="${B_AGENTIC_INSTALL_SERENA:-auto}"
 INSTALL_CODEGRAPH_VALUE="${B_AGENTIC_INSTALL_CODEGRAPH:-auto}"
 
@@ -76,6 +78,14 @@ replace_memory_enabled() {
 
 uninstall_enabled() {
   yes_value "$UNINSTALL_VALUE"
+}
+
+install_runtime_cli_enabled() {
+  case "${INSTALL_RUNTIME_CLI_VALUE:-N}" in
+    n|N|no|NO|No|false|FALSE|0) return 1 ;;
+    y|Y|yes|YES|Yes|true|TRUE|1) return 0 ;;
+    *) die "invalid B_AGENTIC_INSTALL_RUNTIME_CLI value: $INSTALL_RUNTIME_CLI_VALUE" ;;
+  esac
 }
 
 can_prompt_api_keys() {
@@ -162,6 +172,12 @@ parse_args() {
         ;;
       --no-install-shell-tools)
         INSTALL_SHELL_TOOLS_VALUE=N
+        ;;
+      --install-runtime-cli)
+        INSTALL_RUNTIME_CLI_VALUE=Y
+        ;;
+      --no-install-runtime-cli)
+        INSTALL_RUNTIME_CLI_VALUE=N
         ;;
       --install-serena)
         INSTALL_SERENA_VALUE=Y
@@ -322,16 +338,6 @@ candidates.extend((home / ".local" / "share").glob("*/b-agentic/install.json"))
 candidates.extend((home / "Library" / "Application Support").glob("*/b-agentic/install.json"))
 
 allowed_roots = [home.resolve()]
-for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME"]:
-    value = os.environ.get(env_name)
-    if not value:
-        continue
-    root = Path(value).expanduser()
-    candidates.append(root / "b-agentic" / "install.json")
-    try:
-        allowed_roots.append(root.resolve())
-    except Exception:
-        pass
 
 seen = set()
 for path in candidates:

@@ -1526,13 +1526,21 @@ runtime_install_config_stage_count() { printf '0'; }
 
 runtime_install_common() {
   local config_stage_count=0
+  local install_stage_count=6
 
   runtime_warn_missing_cli
   config_stage_count="$(runtime_install_config_stage_count)"
-  set_install_stage_total $((7 + config_stage_count))
+  if install_runtime_cli_enabled; then
+    install_stage_count=$((install_stage_count + 1))
+  fi
+  set_install_stage_total $((install_stage_count + config_stage_count))
 
   collect_installed_skills INSTALL_SKILL_NAMES
-  run_stage "Preparing runtime CLI" runtime_upgrade_cli
+  if install_runtime_cli_enabled; then
+    run_stage "Preparing runtime CLI" runtime_upgrade_cli
+  else
+    log "Skipping runtime CLI preparation; use --install-runtime-cli to install or upgrade it."
+  fi
   run_stage "Syncing skills" install_skills
   run_stage "Installing runtime extras" runtime_install_extra_assets
   run_stage "Syncing references and templates" install_references_and_templates

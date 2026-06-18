@@ -175,95 +175,6 @@ EOF
   assert_no_path "$sandbox_custom/home/custom-meta"
 }
 
-run_manifest_only_legacy_kimi_case() {
-  local sandbox_default="$WORK_DIR/manifest-only-legacy-kimi-default"
-  local sandbox_relocated="$WORK_DIR/manifest-only-legacy-kimi-relocated"
-  local metadata_root skill_dir kernel_path config_path mcp_path rc
-
-  metadata_root="$sandbox_default/home/.kimi-code/b-agentic"
-  skill_dir="$sandbox_default/home/.kimi-code/skills/b-plan"
-  kernel_path="$sandbox_default/home/.kimi-code/AGENTS.md"
-  config_path="$sandbox_default/home/.kimi-code/config.toml"
-  mcp_path="$sandbox_default/home/.kimi-code/mcp.json"
-  mkdir -p "$metadata_root/tooling/install" "$metadata_root/templates" "$skill_dir"
-  cp "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$metadata_root/tooling/install/manifest_uninstall.py"
-  printf 'Generated from skills/registry.yaml\n' > "$skill_dir/SKILL.md"
-  printf '<!-- b-agentic-managed -->\nlegacy kimi kernel\n' > "$kernel_path"
-  cp "$kernel_path" "$metadata_root/AGENTS.md"
-  cat > "$config_path" <<'EOF'
-# BEGIN b-agentic managed config
-managed
-# END b-agentic managed config
-EOF
-  cat > "$mcp_path" <<'JSON'
-{
-  "mcpServers": {}
-}
-JSON
-  cp "$mcp_path" "$metadata_root/templates/mcp.user.template.json"
-  cat > "$metadata_root/install.json" <<'EOF'
-{"runtime":"kimi-code-cli","skills":["b-plan"],"agents":[]}
-EOF
-
-  set +e
-  HOME="$sandbox_default/home" \
-  B_AGENTIC_REPO="$sandbox_default/missing-source" \
-  B_AGENTIC_DIR="$sandbox_default/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=all --uninstall >"$sandbox_default/uninstall.log" 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected legacy Kimi manifest-only uninstall via runtime=all to succeed, got $rc"
-  assert_contains "$sandbox_default/uninstall.log" 'Manifest-only uninstall complete for kimi-code-cli'
-  assert_no_path "$skill_dir"
-  assert_no_path "$kernel_path"
-  assert_no_path "$config_path"
-  assert_no_path "$mcp_path"
-  assert_no_path "$metadata_root"
-
-  metadata_root="$sandbox_relocated/kimi-home/b-agentic"
-  skill_dir="$sandbox_relocated/kimi-home/skills/b-plan"
-  kernel_path="$sandbox_relocated/kimi-home/AGENTS.md"
-  config_path="$sandbox_relocated/kimi-home/config.toml"
-  mcp_path="$sandbox_relocated/kimi-home/mcp.json"
-  mkdir -p "$sandbox_relocated/home" "$metadata_root/tooling/install" "$metadata_root/templates" "$skill_dir"
-  cp "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$metadata_root/tooling/install/manifest_uninstall.py"
-  printf 'Generated from skills/registry.yaml\n' > "$skill_dir/SKILL.md"
-  printf '<!-- b-agentic-managed -->\nlegacy relocated kimi kernel\n' > "$kernel_path"
-  cp "$kernel_path" "$metadata_root/AGENTS.md"
-  cat > "$config_path" <<'EOF'
-# BEGIN b-agentic managed config
-managed
-# END b-agentic managed config
-EOF
-  cat > "$mcp_path" <<'JSON'
-{
-  "mcpServers": {}
-}
-JSON
-  cp "$mcp_path" "$metadata_root/templates/mcp.user.template.json"
-  cat > "$metadata_root/install.json" <<'EOF'
-{"runtime":"kimi-code-cli","skills":["b-plan"],"agents":[]}
-EOF
-
-  set +e
-  HOME="$sandbox_relocated/home" \
-  KIMI_CODE_HOME="$sandbox_relocated/kimi-home" \
-  B_AGENTIC_REPO="$sandbox_relocated/missing-source" \
-  B_AGENTIC_DIR="$sandbox_relocated/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=kimi-code-cli --uninstall >"$sandbox_relocated/uninstall.log" 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected relocated legacy Kimi manifest-only uninstall to succeed, got $rc"
-  assert_contains "$sandbox_relocated/uninstall.log" 'Manifest-only uninstall complete for kimi-code-cli'
-  assert_no_path "$skill_dir"
-  assert_no_path "$kernel_path"
-  assert_no_path "$config_path"
-  assert_no_path "$mcp_path"
-  assert_no_path "$metadata_root"
-}
-
 run_all_runtime_smoke_case() {
   local snapshot_repo="$1"
   local sandbox_all="$WORK_DIR/all-runtimes"
@@ -915,7 +826,7 @@ EOF
     B_AGENTIC_INSTALL_RTK=N \
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
-    bash "$ROOT_DIR/install.sh" --runtime="$runtime" >"$install_log" 2>&1
+    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --install-runtime-cli >"$install_log" 2>&1
     rc=$?
     set -e
 
@@ -959,13 +870,48 @@ run_missing_runtime_cli_install_case() {
     B_AGENTIC_INSTALL_RTK=N \
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
-    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run >"$install_log" 2>&1
+    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run --install-runtime-cli >"$install_log" 2>&1
     rc=$?
     set -e
 
     [ "$rc" -eq 0 ] || fail "expected $runtime missing CLI install dry-run exit 0, got $rc"
     assert_contains "$install_log" "$expected_entry"
   done
+}
+
+run_runtime_cli_default_skip_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/runtime-cli-default-skip"
+  local bin_dir="$sandbox/bin"
+  local upgrade_log="$sandbox/upgrade.log"
+  local install_log="$sandbox/install.log"
+  local rc=0
+
+  mkdir -p "$sandbox/home" "$bin_dir"
+
+  cat > "$bin_dir/claude" <<EOF
+#!/usr/bin/env bash
+printf 'claude:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  chmod +x "$bin_dir/claude"
+
+  set +e
+  HOME="$sandbox/home" \
+  PATH="$bin_dir:$PATH" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$install_log" 2>&1
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected runtime CLI default skip install exit 0, got $rc"
+  assert_contains "$install_log" 'Skipping runtime CLI preparation; use --install-runtime-cli to install or upgrade it.'
+  assert_no_path "$upgrade_log"
 }
 
 run_skill_doctor_case() {
@@ -1007,6 +953,36 @@ run_skill_doctor_case() {
 
 }
 
+run_runtime_acceptance_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/runtime-acceptance"
+  local bin_dir="$sandbox/bin"
+  local acceptance_log="$sandbox/acceptance.log"
+
+  mkdir -p "$sandbox/home" "$bin_dir"
+
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
+
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=opencode
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox/home" >"$acceptance_log"
+
+  assert_contains "$acceptance_log" 'Runtime acceptance: opencode'
+  assert_contains "$acceptance_log" 'Skill discovery doctor:'
+  assert_contains "$acceptance_log" 'MCP readiness doctor:'
+  assert_contains "$acceptance_log" 'skills: ready:'
+  assert_contains "$acceptance_log" 'wrappers: ready:'
+  assert_contains "$acceptance_log" 'serena: ready:'
+  assert_contains "$acceptance_log" 'Fresh-session gates to verify manually in the selected runtime:'
+  assert_contains "$acceptance_log" 'Verdict rule: automated doctor output is install/config evidence only.'
+}
+
 main() {
   local snapshot_repo="$WORK_DIR/repo-snapshot"
   local runtime_name runtime_script
@@ -1019,7 +995,6 @@ main() {
   run_all_runtime_smoke_case "$snapshot_repo"
   run_manifest_only_corrupted_manifest_case
   run_manifest_only_custom_paths_case
-  run_manifest_only_legacy_kimi_case
   run_skill_collision_smoke_case "$snapshot_repo"
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
   run_readiness_report_case "$snapshot_repo"
@@ -1027,10 +1002,12 @@ main() {
   run_mcp_doctor_case "$snapshot_repo"
   run_mcp_package_override_case "$snapshot_repo"
   run_claude_context7_env_binding_preserve_case "$snapshot_repo"
+  run_runtime_cli_default_skip_case "$snapshot_repo"
   run_runtime_cli_upgrade_case "$snapshot_repo"
   run_missing_runtime_cli_install_case "$snapshot_repo"
   run_existing_tool_upgrade_case "$snapshot_repo"
   run_skill_doctor_case "$snapshot_repo"
+  run_runtime_acceptance_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue

@@ -140,18 +140,10 @@ def main() -> None:
     home = Path.home().resolve()
     global allowed_roots
     allowed_roots = [home]
-    for env_name in ["B_AGENTIC_KIMI_CODE_DIR", "KIMI_CODE_HOME"]:
-        value = os.environ.get(env_name)
-        if value:
-            try:
-                allowed_roots.append(Path(value).expanduser().resolve())
-            except Exception:
-                pass
     data = json.loads(manifest_path.read_text())
     runtime = data.get("runtime")
     paths = data.get("paths", {})
     metadata = manifest_path.parent
-    kimi_root = Path(os.environ.get("B_AGENTIC_KIMI_CODE_DIR") or os.environ.get("KIMI_CODE_HOME") or (home / ".kimi-code")).expanduser()
 
     runtime_defaults = {
         "claude-code": {
@@ -177,14 +169,6 @@ def main() -> None:
             "agents": home / ".codex" / "agents",
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
-        },
-        "kimi-code-cli": {
-            "metadata": kimi_root / "b-agentic",
-            "skills": kimi_root / "skills",
-            "kernel": kimi_root / "AGENTS.md",
-            "agents": kimi_root / "agents",
-            "kimiConfig": kimi_root / "config.toml",
-            "kimiMcpJson": kimi_root / "mcp.json",
         },
     }
 
@@ -239,10 +223,6 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
-    elif runtime == "kimi-code-cli":
-        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Kimi Code CLI agent")
-        remove_toml_managed_block(str(manifest_managed_path(paths, "kimiConfig", defaults["kimiConfig"])), "Kimi config")
-        remove_config_if_template(str(manifest_managed_path(paths, "kimiMcpJson", defaults["kimiMcpJson"])), metadata / "templates" / "mcp.user.template.json", "kimi mcp.json")
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 
