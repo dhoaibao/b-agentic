@@ -31,14 +31,45 @@ if config.exists():
         errors.append(f'{config}: hooks are not part of the slim default')
     permission = data.get('permission', {})
     bash_rules = permission.get('bash', {}) if isinstance(permission, dict) else {}
+    allowed_bash_commands = ['git diff *', 'git status *', 'git log *', 'rg *', 'fd *', 'fdfind *', 'jq *']
+    prompted_bash_commands = ['git commit *', 'git push *', 'git pull *', 'git revert *', 'npm install *', 'pnpm install *', 'yarn install *', 'bun install *', 'cargo install *', 'go install *']
+    denied_bash_commands = ['git reset --hard *', 'git clean -f *', 'git push --force *', 'git push --force-with-lease *', 'git branch -D *', 'rm *']
+
+    def with_rtk(commands):
+        expanded = []
+        for command in commands:
+            expanded.append(command)
+            expanded.append(f'rtk {command}')
+        return expanded
+
+    def key_positions(keys):
+        positions = {}
+        for index, key in enumerate(bash_rules):
+            if key in keys and key not in positions:
+                positions[key] = index
+        return positions
+
     if bash_rules.get('*') != 'ask':
         errors.append(f'{config}: bash default must remain ask')
-    for command in ['git diff *', 'git status *', 'git log *', 'rg *', 'fd *', 'fdfind *', 'jq *', 'rtk git diff *', 'rtk git status *', 'rtk git log *', 'rtk rg *', 'rtk fd *', 'rtk fdfind *', 'rtk jq *']:
+    for command in with_rtk(allowed_bash_commands):
         if bash_rules.get(command) != 'allow':
             errors.append(f'{config}: missing allowed bash rule {command!r}')
-    for command in ['git reset --hard *', 'git clean -f *', 'git push --force *', 'git push --force-with-lease *', 'git branch -D *', 'rm *']:
+    for command in with_rtk(prompted_bash_commands):
+        if bash_rules.get(command) != 'ask':
+            errors.append(f'{config}: missing prompted bash rule {command!r}')
+    for command in with_rtk(denied_bash_commands):
         if bash_rules.get(command) != 'deny':
             errors.append(f'{config}: missing denied bash rule {command!r}')
+    positions = key_positions(with_rtk(['git push --force *', 'git push --force-with-lease *', 'git push *']))
+    precedence_pairs = [
+        ('git push --force *', 'git push *'),
+        ('git push --force-with-lease *', 'git push *'),
+        ('rtk git push --force *', 'rtk git push *'),
+        ('rtk git push --force-with-lease *', 'rtk git push *'),
+    ]
+    for specific, general in precedence_pairs:
+        if specific in positions and general in positions and positions[specific] > positions[general]:
+            errors.append(f'{config}: specific bash rule {specific!r} must appear before general rule {general!r}')
 
 if commands.exists():
     wrappers = {path.stem for path in commands.glob('b-*.md')}

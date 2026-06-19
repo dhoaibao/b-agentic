@@ -59,7 +59,7 @@ Interactive installs prompt for missing shell tooling. When present, the runtime
 
 When `--install-rtk` is used, the installer downloads and runs the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. If `rtk` is already installed, the installer skips the prompt and runs the same command as an upgrade. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
 
-Once installed, the kernel instructs the agent to route every shell command through RTK by prefixing it with `rtk`:
+Once installed, the kernel instructs the agent to route every shell command through RTK by prefixing it with `rtk`. The managed safety gates are configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
 
 ```bash
 rtk git status
@@ -114,7 +114,7 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
-Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex CLI applies managed rules to commands that request to run outside the sandbox; and OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools. The managed safety gates (commits, pushes, dependency writes, destructive commands) prompt or deny on every runtime regardless of this baseline.
+Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex CLI applies managed rules to commands that request to run outside the sandbox; and OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools. On top of that baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled.
 
 ## Skills
 
@@ -184,7 +184,7 @@ scripts/skill-doctor.sh --runtime=codex-cli
 scripts/skill-doctor.sh --runtime=opencode
 ```
 
-The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove a live runtime session has loaded the kernel or that remote MCP calls succeed.
+The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
 
 Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name>` after installing a runtime to collect local doctor output and print the required fresh-session gates.
 

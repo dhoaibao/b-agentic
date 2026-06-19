@@ -22,15 +22,25 @@
       "mcp__firecrawl__firecrawl_agent",
       "mcp__firecrawl__firecrawl_crawl",
       "Bash(git commit *)",
+      "Bash(rtk git commit *)",
       "Bash(git push *)",
+      "Bash(rtk git push *)",
       "Bash(git pull *)",
+      "Bash(rtk git pull *)",
       "Bash(git revert *)",
+      "Bash(rtk git revert *)",
       "Bash(npm install *)",
+      "Bash(rtk npm install *)",
       "Bash(pnpm install *)",
+      "Bash(rtk pnpm install *)",
       "Bash(yarn install *)",
+      "Bash(rtk yarn install *)",
       "Bash(bun install *)",
+      "Bash(rtk bun install *)",
       "Bash(cargo install *)",
-      "Bash(go install *)"
+      "Bash(rtk cargo install *)",
+      "Bash(go install *)",
+      "Bash(rtk go install *)"
     ],
     "deny": [
       "Read(./.env)",
@@ -38,10 +48,15 @@
       "Read(./secrets/**)",
       "Read(./credentials/**)",
       "Bash(git reset --hard *)",
+      "Bash(rtk git reset --hard *)",
       "Bash(git clean -f *)",
+      "Bash(rtk git clean -f *)",
       "Bash(git push --force *)",
+      "Bash(rtk git push --force *)",
       "Bash(git push --force-with-lease *)",
-      "Bash(git branch -D *)"
+      "Bash(rtk git push --force-with-lease *)",
+      "Bash(git branch -D *)",
+      "Bash(rtk git branch -D *)"
     ]
   }
 }

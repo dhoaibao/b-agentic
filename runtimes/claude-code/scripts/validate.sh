@@ -33,12 +33,39 @@ if settings.exists():
     allow = data.get('permissions', {}).get('allow', [])
     ask = permissions.get('ask', [])
     deny = permissions.get('deny', [])
+    prompted_bash_commands = [
+        'git commit *',
+        'git push *',
+        'git pull *',
+        'git revert *',
+        'npm install *',
+        'pnpm install *',
+        'yarn install *',
+        'bun install *',
+        'cargo install *',
+        'go install *',
+    ]
+    denied_bash_commands = [
+        'git reset --hard *',
+        'git clean -f *',
+        'git push --force *',
+        'git push --force-with-lease *',
+        'git branch -D *',
+    ]
+
+    def bash_patterns(commands):
+        patterns = []
+        for command in commands:
+            patterns.append(f'Bash({command})')
+            patterns.append(f'Bash(rtk {command})')
+        return patterns
+
     if any('firecrawl_monitor' in item for item in allow):
         errors.append(f'{settings}: Firecrawl monitor mutation tools must not be allowlisted')
-    for required in ['Bash(git commit *)', 'Bash(git push *)', 'Bash(git pull *)', 'Bash(git revert *)']:
+    for required in bash_patterns(prompted_bash_commands):
         if required not in ask:
             errors.append(f'{settings}: missing prompted command {required!r}')
-    for required in ['Bash(git reset --hard *)', 'Bash(git clean -f *)', 'Bash(git push --force *)', 'Bash(git push --force-with-lease *)', 'Bash(git branch -D *)']:
+    for required in bash_patterns(denied_bash_commands):
         if required not in deny:
             errors.append(f'{settings}: missing denied command {required!r}')
 
