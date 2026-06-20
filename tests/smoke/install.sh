@@ -983,13 +983,13 @@ run_runtime_cli_prompt_case() {
   mkdir -p "$sandbox/home"
 
   set +e
-  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
 import os, pty, select, sys
 
-sandbox, repo_snapshot, log_path, install_script = sys.argv[1:5]
+sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
-env["PATH"] = "/usr/bin:/bin"
+env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
