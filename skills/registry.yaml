@@ -221,15 +221,15 @@
     {
       "name": "b-commit",
       "phase": "Ship",
-      "use": "Write a Conventional Commits message from staged changes",
+      "use": "Write a Conventional Commits message for cohesive staged changes",
       "command": {
         "alias": "b-commit",
-        "description": "Write a Conventional Commits message from staged changes",
+        "description": "Write a Conventional Commits message for staged changes",
         "exposed": true
       },
       "routing": null,
       "prompt": {
-        "description": "Analyze the staged diff and write one Git commit message following Conventional Commits. Output ONLY the commit message — a single line. No explanation, no markdown, no alternatives.",
+        "description": "Analyze the staged diff and write one Conventional Commits message for cohesive staged changes, or block when the staged set is absent or mixes unrelated concerns.",
         "argument_hint": "[staged-diff-context]"
       }
     }

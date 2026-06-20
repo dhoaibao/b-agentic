@@ -17,6 +17,7 @@ DEFAULT_PACKAGES = {
     "firecrawl": "firecrawl-mcp",
     "playwright": "@playwright/mcp@latest",
 }
+PRODUCTION_MODE = False
 PACKAGE_OVERRIDE_ENVS = {
     "brave-search": "B_AGENTIC_BRAVE_MCP_PACKAGE",
     "firecrawl": "B_AGENTIC_FIRECRAWL_MCP_PACKAGE",
@@ -95,10 +96,12 @@ def pinned_package_status(server: str, package: object) -> str | None:
         return None
     if os.environ.get(env_name):
         return None
-    return f"configured package {package!r}; set {env_name}={package} for strict launcher validation"
+    return f"configured package {package!r}; set {env_name}={package} for launcher validation"
 
 
 def ready_status(base: str, note: str | None) -> str:
+    if note and PRODUCTION_MODE:
+        return f"blocked: {note}"
     return f"ready: {base}; {note}" if note else f"ready: {base}"
 
 
@@ -279,10 +282,18 @@ def resolve_config_path(runtime: dict, home: Path) -> Path:
 
 
 def main() -> int:
+    global PRODUCTION_MODE
+
     parser = argparse.ArgumentParser(description="Check installed b-agentic MCP readiness for a runtime.")
     parser.add_argument("--runtime", required=True)
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
+    parser.add_argument(
+        "--production",
+        action="store_true",
+        help="Exit nonzero for missing/blocked MCP readiness and mutable or unmatched package launchers.",
+    )
     args = parser.parse_args()
+    PRODUCTION_MODE = args.production
 
     runtimes = runtime_records()
     runtime = runtimes.get(args.runtime)
@@ -312,8 +323,13 @@ def main() -> int:
     print(f"runtime: {args.runtime}")
     print(f"config: {config_path}")
     print("startup-check: not attempted; validates local launchers, keys, and config shape only")
+    blocked = False
     for server in SUPPORTED_SERVERS:
-        print(f"{server}: {status_fn(server, config)}")
+        status = status_fn(server, config)
+        print(f"{server}: {status}")
+        blocked = blocked or status.startswith(("blocked:", "missing:"))
+    if args.production and blocked:
+        return 1
     return 0
 
 

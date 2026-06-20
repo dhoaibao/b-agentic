@@ -1,5 +1,5 @@
 ---
-description: Write a Conventional Commits message from staged changes
+description: Write a Conventional Commits message for staged changes
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

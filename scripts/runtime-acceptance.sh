@@ -4,9 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
 HOME_DIR="$HOME"
+PRODUCTION=0
 
 usage() {
-  printf 'usage: %s [--runtime=<name>] [--home=<path>]\n' "${BASH_SOURCE[0]}" >&2
+  printf 'usage: %s [--runtime=<name>] [--home=<path>] [--production]\n' "${BASH_SOURCE[0]}" >&2
 }
 
 while [ "$#" -gt 0 ]; do
@@ -16,6 +17,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --home=*)
       HOME_DIR="${1#--home=}"
+      ;;
+    --production)
+      PRODUCTION=1
       ;;
     *)
       usage
@@ -27,10 +31,18 @@ done
 
 printf 'Runtime acceptance: %s\n' "$RUNTIME"
 printf 'Home: %s\n' "$HOME_DIR"
+if [ "$PRODUCTION" -eq 1 ]; then
+  printf 'Mode: production readiness\n'
+fi
 printf '\nSkill discovery doctor:\n'
 python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR"
 printf '\nMCP readiness doctor:\n'
-python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR"
+mcp_rc=0
+if [ "$PRODUCTION" -eq 1 ]; then
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" --production || mcp_rc=$?
+else
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" || mcp_rc=$?
+fi
 
 cat <<'EOF'
 
@@ -43,3 +55,8 @@ Fresh-session gates to verify manually in the selected runtime:
 
 Verdict rule: automated doctor output is install/config evidence only. Mark release acceptance complete only after the fresh-session gates above are observed.
 EOF
+
+if [ "$PRODUCTION" -eq 1 ] && [ "$mcp_rc" -ne 0 ]; then
+  printf '\nProduction readiness blocked by MCP doctor output above.\n' >&2
+fi
+exit "$mcp_rc"

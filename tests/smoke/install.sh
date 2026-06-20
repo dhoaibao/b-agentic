@@ -479,6 +479,7 @@ run_mcp_doctor_case() {
   local sandbox_opencode="$WORK_DIR/mcp-doctor-opencode"
   local bin_dir="$WORK_DIR/mcp-doctor-bin"
   local doctor_log="$WORK_DIR/mcp-doctor.log"
+  local rc=0
   mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
@@ -531,6 +532,17 @@ run_mcp_doctor_case() {
   assert_contains "$doctor_log" 'playwright: ready:'
   assert_contains "$doctor_log" "package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
 
+  set +e
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --production >"$doctor_log"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "expected production MCP doctor to block mutable package, got $rc"
+  assert_contains "$doctor_log" "playwright: blocked: package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
+
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
@@ -548,8 +560,15 @@ run_mcp_package_override_case() {
   local sandbox_codex="$WORK_DIR/mcp-package-codex"
   local sandbox_opencode="$WORK_DIR/mcp-package-opencode"
   local sandbox_opencode_upgrade="$WORK_DIR/mcp-package-opencode-upgrade"
+  local bin_dir="$WORK_DIR/mcp-package-bin"
+  local doctor_log="$WORK_DIR/mcp-package-doctor.log"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home" "$bin_dir"
+
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
 
   set +e
   HOME="$sandbox_claude/home" \
@@ -631,6 +650,22 @@ run_mcp_package_override_case() {
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'][2] == '@example/brave-mcp@1.0.0'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'][2] == 'example-firecrawl-mcp@2.0.0'"
   assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][2] == '@example/playwright-mcp@3.0.0'"
+
+  set +e
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --production >"$doctor_log"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected production MCP doctor to pass pinned package config, got $rc"
+  assert_contains "$doctor_log" 'brave-search: ready:'
+  assert_contains "$doctor_log" 'firecrawl: ready:'
+  assert_contains "$doctor_log" 'playwright: ready:'
 
   expect_install_status 0 "$sandbox_opencode_upgrade" "$snapshot_repo" --runtime=opencode
   set +e
@@ -1126,6 +1161,7 @@ run_runtime_acceptance_case() {
   local sandbox="$WORK_DIR/runtime-acceptance"
   local bin_dir="$sandbox/bin"
   local acceptance_log="$sandbox/acceptance.log"
+  local rc=0
 
   mkdir -p "$sandbox/home" "$bin_dir"
 
@@ -1135,13 +1171,18 @@ run_runtime_acceptance_case() {
   chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
 
   expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=opencode
+  set +e
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox/home" >"$acceptance_log"
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox/home" --production >"$acceptance_log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "expected runtime acceptance production mode to block mutable package, got $rc"
 
   assert_contains "$acceptance_log" 'Runtime acceptance: opencode'
+  assert_contains "$acceptance_log" 'Mode: production readiness'
   assert_contains "$acceptance_log" 'Skill discovery doctor:'
   assert_contains "$acceptance_log" 'MCP readiness doctor:'
   assert_contains "$acceptance_log" 'skills: ready:'
@@ -1149,6 +1190,7 @@ run_runtime_acceptance_case() {
   assert_contains "$acceptance_log" 'serena: ready:'
   assert_contains "$acceptance_log" 'Fresh-session gates to verify manually in the selected runtime:'
   assert_contains "$acceptance_log" 'Verdict rule: automated doctor output is install/config evidence only.'
+  assert_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
 }
 
 main() {

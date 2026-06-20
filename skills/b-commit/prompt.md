@@ -2,7 +2,7 @@
 
 $ARGUMENTS
 
-Analyze the staged diff and write one Git commit message following Conventional Commits.
+Analyze the staged diff and write one Git commit message following Conventional Commits only when the staged set is cohesive.
 
 ## When to use
 
@@ -13,6 +13,7 @@ Analyze the staged diff and write one Git commit message following Conventional 
 
 - There are no staged changes.
 - The user wants an explanation of the diff.
+- Staged changes mix unrelated concerns that should be committed separately.
 
 ## Tools required
 
@@ -22,16 +23,24 @@ Analyze the staged diff and write one Git commit message following Conventional 
 
 1. Run `git status --short` to confirm there are staged changes.
 2. Run `git diff --staged` to read the staged diff.
-3. Choose the Conventional Commits type that best matches the staged change.
-4. Write a specific, imperative subject that describes what changed.
-5. Output only the commit message.
+3. Check that the staged set is cohesive enough for one commit.
+4. Choose the Conventional Commits type that best matches the staged change.
+5. Write a specific, imperative subject that describes what changed.
+6. Output only one line.
 
 ## Output format
 
-A single line:
+For a cohesive staged set, output a single line:
 
 ```text
 <type>: <subject>
+```
+
+When blocked, output one of these exact forms:
+
+```text
+BLOCKED: no staged changes
+BLOCKED: split unrelated staged changes
 ```
 
 Types:
@@ -59,7 +68,9 @@ Examples:
 
 ## Rules
 
-- Output ONLY the commit message — a single line.
+- Output only one line.
+- Use a Conventional Commits line only for cohesive staged changes.
+- If the staged set mixes unrelated concerns, output `BLOCKED: split unrelated staged changes`.
+- If there are no staged changes, output `BLOCKED: no staged changes`.
 - No explanation, no markdown, no alternatives.
 - Do not run `git commit`.
-- If the staged set mixes unrelated concerns, pick the dominant change.

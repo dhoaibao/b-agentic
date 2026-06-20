@@ -46,6 +46,8 @@ Production pinning knobs:
 
 Set these package overrides to exact package versions in professional environments. The defaults are convenience launchers and may resolve newer MCP package code over time.
 
+Run `scripts/mcp-doctor.sh --runtime=<name> --production` after setting package overrides and API keys to make mutable or unmatched MCP launchers, missing keys, and missing local commands fail readiness instead of only reporting advisory blockers.
+
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_RUNTIME_CLI=Y`.
 
 Interactive installs prompt for runtime CLI preparation, missing shell tooling, and optional RTK, Serena, and CodeGraph installs. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, and `jq` instead of `python -m json.tool`, `awk`, or `grep` for JSON.
@@ -124,7 +126,7 @@ Permission defaults follow each runtime's native model, so the baseline differs:
 | `b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `b-review` | Validate | Review changed code or run a b-agentic suite self-audit |
-| `b-commit` | Ship | Write a Conventional Commits message from staged changes |
+| `b-commit` | Ship | Write a Conventional Commits message for cohesive staged changes |
 <!-- generated:skills-table:end -->
 
 Typical flow:
@@ -174,6 +176,7 @@ scripts/smoke-install.sh
 scripts/mcp-doctor.sh --runtime=claude-code
 scripts/mcp-doctor.sh --runtime=codex-cli
 scripts/mcp-doctor.sh --runtime=opencode
+scripts/mcp-doctor.sh --runtime=opencode --production
 scripts/skill-doctor.sh --runtime=claude-code
 scripts/skill-doctor.sh --runtime=codex-cli
 scripts/skill-doctor.sh --runtime=opencode
@@ -181,7 +184,7 @@ scripts/skill-doctor.sh --runtime=opencode
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
 
-Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name>` after installing a runtime to collect local doctor output and print the required fresh-session gates.
+Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates.
 
 Production acceptance for each runtime should include a fresh-session check:
 
