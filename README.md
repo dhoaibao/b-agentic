@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 
 Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
 
-Default install writes b-agentic files and config only. It does not install or upgrade the selected runtime CLI unless `--install-runtime-cli` is provided.
+Default install writes b-agentic files and config only. In interactive installs, the installer prompts before installing a missing selected runtime CLI and upgrades an installed one automatically. For scripted installs, set `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` to opt in.
 
 For professional or shared environments, pin both the bootstrap script and installed source to a reviewed tag or commit instead of consuming whatever is currently on `main`:
 
@@ -36,11 +36,6 @@ Useful flags:
 - `--dry-run` previews changes
 - `--replace-memory` replaces an existing managed kernel file
 - `--uninstall` removes managed files
-- `--install-runtime-cli` installs or upgrades the selected runtime CLI with that runtime's native command
-- `--install-rtk` installs [RTK](https://github.com/rtk-ai/rtk) and adds the `rtk` shell-command rule to the kernel
-- `--install-shell-tools` installs `rg`, `fd`/`fdfind`, and `jq` with the detected package manager
-- `--install-serena` installs the [Serena](https://github.com/oraios/serena) MCP agent via `uv tool install -p 3.13 serena-agent` (will prompt to install `uv` if missing)
-- `--install-codegraph` installs [CodeGraph](https://github.com/colbymchenry/codegraph) via its installer script
 - `--ref=<tag-or-commit>` checks out that b-agentic git ref before installing managed files
 
 Production pinning knobs:
@@ -51,13 +46,13 @@ Production pinning knobs:
 
 Set these package overrides to exact package versions in professional environments. The defaults are convenience launchers and may resolve newer MCP package code over time.
 
-Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via `--install-runtime-cli`.
+Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_RUNTIME_CLI=Y`.
 
-Interactive installs prompt for missing shell tooling. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, and `jq` instead of `python -m json.tool`, `awk`, or `grep` for JSON.
+Interactive installs prompt for runtime CLI preparation, missing shell tooling, and optional RTK, Serena, and CodeGraph installs. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, and `jq` instead of `python -m json.tool`, `awk`, or `grep` for JSON.
 
 ## RTK (Rust Token Killer)
 
-When `--install-rtk` is used, the installer downloads and runs the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. If `rtk` is already installed, the installer skips the prompt and runs the same command as an upgrade. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
+During interactive installs, the installer can prompt to download and run the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. If `rtk` is already installed, the installer skips the prompt and runs the same command as an upgrade. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
 
 Once installed, the kernel instructs the agent to route every shell command through RTK by prefixing it with `rtk`. The managed safety gates are configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
 
@@ -80,7 +75,7 @@ Verification: `rtk --version`, `rtk gain`, `which rtk`.
 
 ## Serena MCP agent
 
-`--install-serena` installs the Serena MCP agent, which provides symbol discovery, references, diagnostics, and symbol edits. If `serena` is already installed, the installer skips the prompt and runs `uv tool upgrade serena-agent`.
+Interactive installs can prompt to install the Serena MCP agent, which provides symbol discovery, references, diagnostics, and symbol edits. If `serena` is already installed, the installer skips the prompt and runs `uv tool upgrade serena-agent`.
 
 If `uv` is already installed, the installer runs:
 
@@ -92,7 +87,7 @@ If `uv` is missing, the installer prompts to install it from `https://astral.sh/
 
 ## CodeGraph MCP agent
 
-b-agentic writes a default [CodeGraph](https://github.com/colbymchenry/codegraph) MCP entry that runs `codegraph serve --mcp` with `CODEGRAPH_TELEMETRY=0`. `--install-codegraph` installs CodeGraph with `curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`; if CodeGraph is already installed, the installer runs `codegraph upgrade`. Otherwise the installer prompts in interactive sessions. Run `codegraph init` in each repository where you want a local pre-indexed code graph.
+b-agentic writes a default [CodeGraph](https://github.com/colbymchenry/codegraph) MCP entry that runs `codegraph serve --mcp` with `CODEGRAPH_TELEMETRY=0`. In interactive sessions, the installer can prompt to install CodeGraph with `curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`; if CodeGraph is already installed, the installer runs `codegraph upgrade`. Run `codegraph init` in each repository where you want a local pre-indexed code graph.
 
 Use CodeGraph for architectural flows, call graphs, impact radius, route-to-handler discovery, and affected-test discovery. Use Serena for symbol declarations, references, diagnostics, and symbol-aware edits. Use local reads/search to verify exact edited content.
 

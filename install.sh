@@ -8,11 +8,6 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --dry-run
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=all
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-rtk
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-shell-tools
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-runtime-cli
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-serena
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --install-codegraph
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --ref=<tag-or-sha>
 
 set -euo pipefail
@@ -29,7 +24,7 @@ PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
 INSTALL_RTK_VALUE="${B_AGENTIC_INSTALL_RTK:-auto}"
 INSTALL_SHELL_TOOLS_VALUE="${B_AGENTIC_INSTALL_SHELL_TOOLS:-auto}"
-INSTALL_RUNTIME_CLI_VALUE="${B_AGENTIC_INSTALL_RUNTIME_CLI:-N}"
+INSTALL_RUNTIME_CLI_VALUE="${B_AGENTIC_INSTALL_RUNTIME_CLI:-auto}"
 INSTALL_SERENA_VALUE="${B_AGENTIC_INSTALL_SERENA:-auto}"
 INSTALL_CODEGRAPH_VALUE="${B_AGENTIC_INSTALL_CODEGRAPH:-auto}"
 
@@ -40,6 +35,7 @@ TEMPLATES_SRC="$SOURCE_DIR/runtimes/$RUNTIME/configs"
 KERNEL_SRC="$SOURCE_DIR/runtimes/$RUNTIME/kernel.md"
 DRY_RUN_SOURCE_DIR=""
 UI_ENABLED=1
+INSTALL_RUNTIME_CLI_DECISION=""
 
 log() {
   printf '%s\n' "$*"
@@ -82,11 +78,31 @@ uninstall_enabled() {
 }
 
 install_runtime_cli_enabled() {
-  case "${INSTALL_RUNTIME_CLI_VALUE:-N}" in
-    n|N|no|NO|No|false|FALSE|0) return 1 ;;
-    y|Y|yes|YES|Yes|true|TRUE|1) return 0 ;;
+  case "${INSTALL_RUNTIME_CLI_DECISION:-}" in
+    Y) return 0 ;;
+    N) return 1 ;;
+  esac
+
+  case "${INSTALL_RUNTIME_CLI_VALUE:-auto}" in
+    n|N|no|NO|No|false|FALSE|0)
+      INSTALL_RUNTIME_CLI_DECISION="N"
+      ;;
+    y|Y|yes|YES|Yes|true|TRUE|1)
+      INSTALL_RUNTIME_CLI_DECISION="Y"
+      ;;
+    auto|AUTO|Auto)
+      if runtime_cli_installed; then
+        INSTALL_RUNTIME_CLI_DECISION="Y"
+      elif prompt_yes_no "Install or upgrade the selected runtime CLI now? [y/N]" N; then
+        INSTALL_RUNTIME_CLI_DECISION="Y"
+      else
+        INSTALL_RUNTIME_CLI_DECISION="N"
+      fi
+      ;;
     *) die "invalid B_AGENTIC_INSTALL_RUNTIME_CLI value: $INSTALL_RUNTIME_CLI_VALUE" ;;
   esac
+
+  [ "$INSTALL_RUNTIME_CLI_DECISION" = "Y" ]
 }
 
 can_prompt_api_keys() {
@@ -162,32 +178,17 @@ parse_args() {
       --no-prompt-api-keys)
         PROMPT_API_KEYS_VALUE=N
         ;;
-      --install-rtk)
-        INSTALL_RTK_VALUE=Y
-        ;;
       --no-install-rtk)
         INSTALL_RTK_VALUE=N
-        ;;
-      --install-shell-tools)
-        INSTALL_SHELL_TOOLS_VALUE=Y
         ;;
       --no-install-shell-tools)
         INSTALL_SHELL_TOOLS_VALUE=N
         ;;
-      --install-runtime-cli)
-        INSTALL_RUNTIME_CLI_VALUE=Y
-        ;;
       --no-install-runtime-cli)
         INSTALL_RUNTIME_CLI_VALUE=N
         ;;
-      --install-serena)
-        INSTALL_SERENA_VALUE=Y
-        ;;
       --no-install-serena)
         INSTALL_SERENA_VALUE=N
-        ;;
-      --install-codegraph)
-        INSTALL_CODEGRAPH_VALUE=Y
         ;;
       --no-install-codegraph)
         INSTALL_CODEGRAPH_VALUE=N

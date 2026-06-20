@@ -377,6 +377,7 @@ env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RUNTIME_CLI"] = "N"
 env["B_AGENTIC_INSTALL_RTK"] = "N"
 env["B_AGENTIC_INSTALL_SERENA"] = "N"
 env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
@@ -457,10 +458,11 @@ EOF
   B_AGENTIC_DIR="$apt_sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SHELL_TOOLS=Y \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=apt-get \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code --install-shell-tools >"$apt_install_log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$apt_install_log" 2>&1
   rc=$?
   set -e
 
@@ -745,6 +747,7 @@ env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RUNTIME_CLI"] = "N"
 env["B_AGENTIC_INSTALL_CODEGRAPH"] = "auto"
 
 pid, fd = pty.fork()
@@ -851,10 +854,11 @@ EOF
     B_AGENTIC_REPO="$snapshot_repo" \
     B_AGENTIC_DIR="$sandbox/$runtime/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
+    B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
     B_AGENTIC_INSTALL_RTK=N \
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
-    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --install-runtime-cli >"$install_log" 2>&1
+    bash "$ROOT_DIR/install.sh" --runtime="$runtime" >"$install_log" 2>&1
     rc=$?
     set -e
 
@@ -895,10 +899,11 @@ run_missing_runtime_cli_install_case() {
     B_AGENTIC_REPO="$snapshot_repo" \
     B_AGENTIC_DIR="$sandbox/$runtime/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
+    B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
     B_AGENTIC_INSTALL_RTK=N \
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
-    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run --install-runtime-cli >"$install_log" 2>&1
+    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run >"$install_log" 2>&1
     rc=$?
     set -e
 
@@ -910,23 +915,15 @@ run_missing_runtime_cli_install_case() {
 run_runtime_cli_default_skip_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/runtime-cli-default-skip"
-  local bin_dir="$sandbox/bin"
   local upgrade_log="$sandbox/upgrade.log"
   local install_log="$sandbox/install.log"
   local rc=0
 
-  mkdir -p "$sandbox/home" "$bin_dir"
-
-  cat > "$bin_dir/claude" <<EOF
-#!/usr/bin/env bash
-printf 'claude:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  chmod +x "$bin_dir/claude"
+  mkdir -p "$sandbox/home"
 
   set +e
   HOME="$sandbox/home" \
-  PATH="$bin_dir:$PATH" \
+  PATH="$(smoke_system_path)" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -938,8 +935,151 @@ EOF
   set -e
 
   [ "$rc" -eq 0 ] || fail "expected runtime CLI default skip install exit 0, got $rc"
-  assert_contains "$install_log" 'Skipping runtime CLI preparation; use --install-runtime-cli to install or upgrade it.'
+  assert_contains "$install_log" 'Skipping runtime CLI preparation; rerun interactively to accept the prompt, or set B_AGENTIC_INSTALL_RUNTIME_CLI=Y to install or upgrade it.'
   assert_no_path "$upgrade_log"
+}
+
+run_runtime_cli_prompt_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/runtime-cli-prompt"
+  local install_log="$sandbox/install.log"
+  local rc=0
+
+  mkdir -p "$sandbox/home"
+
+  set +e
+  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+import os, pty, select, sys
+
+sandbox, repo_snapshot, log_path, install_script = sys.argv[1:5]
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = "/usr/bin:/bin"
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RTK"] = "N"
+env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
+env["B_AGENTIC_INSTALL_SERENA"] = "N"
+env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
+
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.update(env)
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code", "--dry-run"])
+
+os.write(fd, b"y\n")
+status = None
+with open(log_path, "wb") as log:
+    while True:
+        try:
+            result, status = os.waitpid(pid, os.WNOHANG)
+            if result:
+                break
+            ready, _, _ = select.select([fd], [], [], 0.1)
+            if ready:
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    _, status = os.waitpid(pid, 0)
+                    break
+                log.write(chunk)
+                log.flush()
+        except (OSError, select.error):
+            break
+
+os.close(fd)
+if status is None:
+    _, status = os.waitpid(pid, 0)
+
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+PY
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected runtime CLI prompt install exit 0, got $rc"
+  assert_contains "$install_log" 'Install or upgrade the selected runtime CLI now? [y/N]:'
+  assert_contains "$install_log" '[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
+}
+
+run_runtime_cli_auto_upgrade_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/runtime-cli-auto-upgrade"
+  local bin_dir="$sandbox/bin"
+  local install_log="$sandbox/install.log"
+  local upgrade_log="$sandbox/upgrade.log"
+  local smoke_path
+  local rc=0
+
+  mkdir -p "$sandbox/home" "$bin_dir"
+
+  cat > "$bin_dir/claude" <<EOF
+#!/usr/bin/env bash
+printf 'claude:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  chmod +x "$bin_dir/claude"
+  smoke_path="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")"
+
+  set +e
+  python3 - "$sandbox" "$snapshot_repo" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+import os, pty, select, sys
+
+sandbox, repo_snapshot, smoke_path, log_path, install_script = sys.argv[1:6]
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = smoke_path
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RTK"] = "N"
+env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
+env["B_AGENTIC_INSTALL_SERENA"] = "N"
+env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
+
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.update(env)
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+
+status = None
+with open(log_path, "wb") as log:
+    while True:
+        try:
+            result, status = os.waitpid(pid, os.WNOHANG)
+            if result:
+                break
+            ready, _, _ = select.select([fd], [], [], 0.1)
+            if ready:
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    _, status = os.waitpid(pid, 0)
+                    break
+                log.write(chunk)
+                log.flush()
+        except (OSError, select.error):
+            break
+
+os.close(fd)
+if status is None:
+    _, status = os.waitpid(pid, 0)
+
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+PY
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected runtime CLI auto-upgrade install exit 0, got $rc"
+  assert_not_contains "$install_log" 'Install or upgrade the selected runtime CLI now? [y/N]:'
+  assert_contains "$install_log" 'Claude Code CLI already installed; upgrading'
+  assert_contains "$upgrade_log" 'claude:upgrade'
 }
 
 run_skill_doctor_case() {
@@ -1032,6 +1172,8 @@ main() {
   run_mcp_package_override_case "$snapshot_repo"
   run_claude_context7_env_binding_preserve_case "$snapshot_repo"
   run_runtime_cli_default_skip_case "$snapshot_repo"
+  run_runtime_cli_prompt_case "$snapshot_repo"
+  run_runtime_cli_auto_upgrade_case "$snapshot_repo"
   run_runtime_cli_upgrade_case "$snapshot_repo"
   run_missing_runtime_cli_install_case "$snapshot_repo"
   run_existing_tool_upgrade_case "$snapshot_repo"

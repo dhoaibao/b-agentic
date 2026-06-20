@@ -1221,7 +1221,7 @@ serena_readiness_status() {
   if command -v serena >/dev/null 2>&1; then
     printf 'ready: serena command found; onboarding remains user-run'
   else
-    printf 'blocked: install serena (rerun with --install-serena or install manually); onboarding remains user-run'
+    printf 'blocked: install serena manually or rerun interactively and accept the prompt; onboarding remains user-run'
   fi
 }
 
@@ -1229,7 +1229,7 @@ codegraph_readiness_status() {
   if command -v codegraph >/dev/null 2>&1; then
     printf 'ready: codegraph command found; run codegraph init per project to enable its index'
   else
-    printf 'blocked: install codegraph (rerun with --install-codegraph or install manually); run codegraph init per project after install'
+    printf 'blocked: install codegraph manually or rerun interactively and accept the prompt; run codegraph init per project after install'
   fi
 }
 
@@ -1310,7 +1310,7 @@ print_shell_tool_recommendations() {
   report_section "Shell tooling"
   report_item "core" "$(shell_tool_readiness_status)"
   report_item "core-install" "$(shell_tool_install_hint "$package_manager")"
-  report_item "installer" "prompts for missing tools in interactive installs; use --install-shell-tools or --no-install-shell-tools to override"
+  report_item "installer" "prompts for missing tools in interactive installs; use --no-install-shell-tools to skip the prompt"
 }
 
 print_install_report_next_steps() {
@@ -1332,8 +1332,8 @@ print_install_report_next_steps() {
 
   report_item "manifest" "review $MANIFEST_DST for installed paths and backup metadata"
   report_item "keys" "add user-scope API keys only if you plan to use Context7, Brave Search, or Firecrawl"
-  report_item "codegraph" "install with --install-codegraph and run codegraph init in repos where you want pre-indexed code context"
-  report_item "rtk" "install with --install-rtk or manually to reduce shell command token usage"
+  report_item "codegraph" "rerun interactively to accept the CodeGraph prompt, or install manually; then run codegraph init in repos where you want pre-indexed code context"
+  report_item "rtk" "rerun interactively to accept the RTK prompt, or install manually to reduce shell command token usage"
 }
 
 install_mcp_config() {
@@ -1519,6 +1519,7 @@ uninstall_installed_skills() {
 }
 
 runtime_warn_missing_cli() { :; }
+runtime_cli_installed() { return 1; }
 runtime_upgrade_cli() { :; }
 runtime_install_extra_assets() { :; }
 runtime_uninstall_extra_assets() { :; }
@@ -1539,7 +1540,7 @@ runtime_install_common() {
   if install_runtime_cli_enabled; then
     run_stage "Preparing runtime CLI" runtime_upgrade_cli
   else
-    log "Skipping runtime CLI preparation; use --install-runtime-cli to install or upgrade it."
+    log "Skipping runtime CLI preparation; rerun interactively to accept the prompt, or set B_AGENTIC_INSTALL_RUNTIME_CLI=Y to install or upgrade it."
   fi
   run_stage "Syncing skills" install_skills
   run_stage "Installing runtime extras" runtime_install_extra_assets

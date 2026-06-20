@@ -36,6 +36,10 @@ runtime_warn_missing_cli() {
   command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
 }
 
+runtime_cli_installed() {
+  command -v opencode >/dev/null 2>&1
+}
+
 runtime_upgrade_cli() {
   if command -v opencode >/dev/null 2>&1; then
     log "OpenCode CLI already installed; upgrading"

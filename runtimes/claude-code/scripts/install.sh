@@ -35,6 +35,10 @@ runtime_warn_missing_cli() {
   command -v pnpm >/dev/null 2>&1 || warn "pnpm not found; MCP servers that use 'pnpm dlx' (Brave, Firecrawl, Playwright) will not start until pnpm is installed."
 }
 
+runtime_cli_installed() {
+  command -v claude >/dev/null 2>&1
+}
+
 runtime_upgrade_cli() {
   if command -v claude >/dev/null 2>&1; then
     log "Claude Code CLI already installed; upgrading"
