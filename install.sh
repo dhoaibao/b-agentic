@@ -91,9 +91,9 @@ install_runtime_cli_enabled() {
       INSTALL_RUNTIME_CLI_DECISION="Y"
       ;;
     auto|AUTO|Auto)
-      if runtime_cli_installed; then
+      if runtime_cli_installed && prompt_yes_no "Upgrade the installed $RUNTIME CLI now? [y/N]" N; then
         INSTALL_RUNTIME_CLI_DECISION="Y"
-      elif prompt_yes_no "Install or upgrade the selected runtime CLI now? [y/N]" N; then
+      elif ! runtime_cli_installed && prompt_yes_no "Install the $RUNTIME CLI now? [y/N]" N; then
         INSTALL_RUNTIME_CLI_DECISION="Y"
       else
         INSTALL_RUNTIME_CLI_DECISION="N"
@@ -426,6 +426,14 @@ install_rtk() {
   esac
 
   if command -v rtk >/dev/null 2>&1; then
+    case "${INSTALL_RTK_VALUE:-auto}" in
+      auto|AUTO|Auto)
+        if ! prompt_yes_no 'RTK is already installed. Upgrade it now? [y/N]' N; then
+          log "RTK already installed; skipping upgrade without explicit approval"
+          return 0
+        fi
+        ;;
+    esac
     if dry_run_enabled; then
       printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh\n' >&2
       return 0
@@ -534,6 +542,14 @@ install_serena() {
   esac
 
   if command -v serena >/dev/null 2>&1; then
+    case "${INSTALL_SERENA_VALUE:-auto}" in
+      auto|AUTO|Auto)
+        if ! prompt_yes_no 'Serena is already installed. Upgrade it now? [y/N]' N; then
+          log "Serena already installed; skipping upgrade without explicit approval"
+          return 0
+        fi
+        ;;
+    esac
     if dry_run_enabled; then
       printf '[dry-run] uv tool upgrade serena-agent\n' >&2
       return 0
@@ -583,6 +599,14 @@ install_codegraph() {
   esac
 
   if command -v codegraph >/dev/null 2>&1; then
+    case "${INSTALL_CODEGRAPH_VALUE:-auto}" in
+      auto|AUTO|Auto)
+        if ! prompt_yes_no 'CodeGraph is already installed. Upgrade it now? [y/N]' N; then
+          log "CodeGraph already installed; skipping upgrade without explicit approval"
+          return 0
+        fi
+        ;;
+    esac
     if dry_run_enabled; then
       printf '[dry-run] codegraph upgrade\n' >&2
       return 0

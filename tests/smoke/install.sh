@@ -783,14 +783,15 @@ env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 env["B_AGENTIC_INSTALL_RUNTIME_CLI"] = "N"
-env["B_AGENTIC_INSTALL_CODEGRAPH"] = "auto"
+env["B_AGENTIC_INSTALL_RTK"] = "Y"
+env["B_AGENTIC_INSTALL_SERENA"] = "Y"
+env["B_AGENTIC_INSTALL_CODEGRAPH"] = "Y"
 
 pid, fd = pty.fork()
 if pid == 0:
     os.environ.update(env)
     os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
 
-os.write(fd, b"n\nn\n")
 status = None
 with open(log_path, "wb") as log:
     while True:
@@ -832,6 +833,44 @@ PY
   assert_not_contains "$install_log" 'Install RTK (Rust Token Killer)'
   assert_not_contains "$install_log" 'Install Serena MCP agent'
   assert_not_contains "$install_log" 'Install CodeGraph MCP agent'
+}
+
+run_existing_tool_default_skip_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/existing-tool-default-skip"
+  local bin_dir="$sandbox/bin"
+  local upgrade_log="$sandbox/upgrade.log"
+  local install_log="$sandbox/install.log"
+  local rc=0
+
+  mkdir -p "$sandbox/home" "$bin_dir"
+
+  for tool in rtk serena codegraph uv; do
+    cat > "$bin_dir/$tool" <<EOF
+#!/usr/bin/env bash
+printf '%s:%s\n' '$tool' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+    chmod +x "$bin_dir/$tool"
+  done
+
+  set +e
+  HOME="$sandbox/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_SHELL_TOOLS=N \
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$install_log" 2>&1
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected existing tools default-skip install exit 0, got $rc"
+  assert_no_path "$upgrade_log"
+  assert_contains "$install_log" 'RTK already installed; skipping upgrade without explicit approval'
+  assert_contains "$install_log" 'Serena already installed; skipping upgrade without explicit approval'
+  assert_contains "$install_log" 'CodeGraph already installed; skipping upgrade without explicit approval'
 }
 
 run_runtime_cli_upgrade_case() {
@@ -950,15 +989,22 @@ run_missing_runtime_cli_install_case() {
 run_runtime_cli_default_skip_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/runtime-cli-default-skip"
+  local bin_dir="$sandbox/bin"
   local upgrade_log="$sandbox/upgrade.log"
   local install_log="$sandbox/install.log"
   local rc=0
 
-  mkdir -p "$sandbox/home"
+  mkdir -p "$sandbox/home" "$bin_dir"
+  cat > "$bin_dir/claude" <<EOF
+#!/usr/bin/env bash
+printf 'claude:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  chmod +x "$bin_dir/claude"
 
   set +e
   HOME="$sandbox/home" \
-  PATH="$(smoke_system_path)" \
+  PATH="$bin_dir:$(smoke_system_path)" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -1036,7 +1082,7 @@ PY
   set -e
 
   [ "$rc" -eq 0 ] || fail "expected runtime CLI prompt install exit 0, got $rc"
-  assert_contains "$install_log" 'Install or upgrade the selected runtime CLI now? [y/N]:'
+  assert_contains "$install_log" 'Install the claude-code CLI now? [y/N]:'
   assert_contains "$install_log" '[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
 }
 
@@ -1080,6 +1126,7 @@ if pid == 0:
     os.environ.update(env)
     os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
 
+os.write(fd, b"y\n")
 status = None
 with open(log_path, "wb") as log:
     while True:
@@ -1112,7 +1159,7 @@ PY
   set -e
 
   [ "$rc" -eq 0 ] || fail "expected runtime CLI auto-upgrade install exit 0, got $rc"
-  assert_not_contains "$install_log" 'Install or upgrade the selected runtime CLI now? [y/N]:'
+  assert_contains "$install_log" 'Upgrade the installed claude-code CLI now? [y/N]:'
   assert_contains "$install_log" 'Claude Code CLI already installed; upgrading'
   assert_contains "$upgrade_log" 'claude:upgrade'
 }
@@ -1219,6 +1266,7 @@ main() {
   run_runtime_cli_upgrade_case "$snapshot_repo"
   run_missing_runtime_cli_install_case "$snapshot_repo"
   run_existing_tool_upgrade_case "$snapshot_repo"
+  run_existing_tool_default_skip_case "$snapshot_repo"
   run_skill_doctor_case "$snapshot_repo"
   run_runtime_acceptance_case "$snapshot_repo"
 

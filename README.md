@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 
 Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
 
-Default install writes b-agentic files and config only. In interactive installs, the installer prompts before installing a missing selected runtime CLI and upgrades an installed one automatically. For scripted installs, set `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` to opt in.
+Default install writes b-agentic files and config only. Interactive installs prompt before installing or upgrading the selected runtime CLI. Non-interactive installs skip runtime CLI changes unless `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` explicitly opts in.
 
 For professional or shared environments, pin both the bootstrap script and installed source to a reviewed tag or commit instead of consuming whatever is currently on `main`:
 
@@ -54,7 +54,7 @@ Interactive installs prompt for runtime CLI preparation, missing shell tooling, 
 
 ## RTK (Rust Token Killer)
 
-During interactive installs, the installer can prompt to download and run the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. If `rtk` is already installed, the installer skips the prompt and runs the same command as an upgrade. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
+During interactive installs, the installer can prompt to download and run the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. If `rtk` is already installed, the installer asks separately before upgrading it. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
 
 Once installed, the kernel instructs the agent to route every shell command through RTK by prefixing it with `rtk`. The managed safety gates are configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
 
@@ -77,7 +77,7 @@ Verification: `rtk --version`, `rtk gain`, `which rtk`.
 
 ## Serena MCP agent
 
-Interactive installs can prompt to install the Serena MCP agent, which provides symbol discovery, references, diagnostics, and symbol edits. If `serena` is already installed, the installer skips the prompt and runs `uv tool upgrade serena-agent`.
+Interactive installs can prompt to install the Serena MCP agent, which provides symbol discovery, references, diagnostics, and symbol edits. If `serena` is already installed, the installer asks before running `uv tool upgrade serena-agent`. Scripted upgrades require `B_AGENTIC_INSTALL_SERENA=Y`.
 
 If `uv` is already installed, the installer runs:
 
@@ -89,7 +89,7 @@ If `uv` is missing, the installer prompts to install it from `https://astral.sh/
 
 ## CodeGraph MCP agent
 
-b-agentic writes a default [CodeGraph](https://github.com/colbymchenry/codegraph) MCP entry that runs `codegraph serve --mcp` with `CODEGRAPH_TELEMETRY=0`. In interactive sessions, the installer can prompt to install CodeGraph with `curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`; if CodeGraph is already installed, the installer runs `codegraph upgrade`. Run `codegraph init` in each repository where you want a local pre-indexed code graph.
+b-agentic writes a default [CodeGraph](https://github.com/colbymchenry/codegraph) MCP entry that runs `codegraph serve --mcp` with `CODEGRAPH_TELEMETRY=0`. In interactive sessions, the installer can prompt to install CodeGraph with `curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`; if CodeGraph is already installed, the installer asks before running `codegraph upgrade`. Scripted upgrades require `B_AGENTIC_INSTALL_CODEGRAPH=Y`. Run `codegraph init` in each repository where you want a local pre-indexed code graph.
 
 Use CodeGraph for architectural flows, call graphs, impact radius, route-to-handler discovery, and affected-test discovery. Use Serena for symbol declarations, references, diagnostics, and symbol-aware edits. Use local reads/search to verify exact edited content.
 
