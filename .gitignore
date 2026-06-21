@@ -6,6 +6,8 @@
 .kilo/
 .openclaude/
 .opencode/
+.serena/
+.codegraph/
 
 # Python artifacts
 __pycache__/
