@@ -45,7 +45,7 @@ Keep the file short. Include only sections supported by repo evidence.
 - `Verification commands`: only list commands that exist in the repo.
 - `Codebase map`: top-level directories or packages that matter for navigation.
 - `Safety or do-not-assume notes`: constraints such as generated files, migrations, shared environments, secrets, or runtime-specific boundaries.
-- `Maintainer guide`: include only when contributors need repo-specific editing guidance. In `b-agentic`, cover source registries, generated outputs, runtime-neutral shared content, and validation expectations.
+- `Maintainer guide`: include only when contributors need repo-specific editing guidance.
 - `Source-of-truth files`: explicitly name registries, templates, or docs that own generated outputs.
 
 ## `CLAUDE.md` Pattern

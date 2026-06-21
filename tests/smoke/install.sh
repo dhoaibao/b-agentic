@@ -487,6 +487,57 @@ run_mcp_doctor_case() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
   chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
 
+  python3 - "$ROOT_DIR" <<'PY'
+import sys
+import os
+
+sys.path.insert(0, sys.argv[1])
+from tooling.validate.mcp_doctor import package_is_exactly_pinned, pinned_package_status
+
+accepted = [
+    "firecrawl-mcp@1.2.3",
+    "@playwright/mcp@1.2.3",
+    "firecrawl-mcp@1.2.3-beta.1",
+    "firecrawl-mcp@1.2.3+build.01",
+]
+rejected = [
+    "firecrawl-mcp",
+    "firecrawl-mcp@latest",
+    "firecrawl-mcp@beta",
+    "firecrawl-mcp@1",
+    "firecrawl-mcp@1.2",
+    "firecrawl-mcp@^1.2.3",
+    "firecrawl-mcp@~1.2.3",
+    "firecrawl-mcp@1.2.x",
+    "firecrawl-mcp@*",
+    "firecrawl-mcp@1.2.3-01",
+    "..@1.2.3",
+    ".hidden@1.2.3",
+    "_private@1.2.3",
+    "Uppercase@1.2.3",
+    "@scope//package@1.2.3",
+    "-@1.2.3",
+    "~@1.2.3",
+    "package~name@1.2.3",
+]
+for package in accepted:
+    if not package_is_exactly_pinned(package):
+        raise SystemExit(f"expected exact package pin to pass: {package}")
+for package in rejected:
+    if package_is_exactly_pinned(package):
+        raise SystemExit(f"expected mutable package pin to fail: {package}")
+
+env_name = "B_AGENTIC_FIRECRAWL_MCP_PACKAGE"
+os.environ[env_name] = "firecrawl-mcp@2.0.0"
+status = pinned_package_status("firecrawl", "firecrawl-mcp@1.0.0")
+expected_status = (
+    "configured package 'firecrawl-mcp@1.0.0' does not match "
+    "B_AGENTIC_FIRECRAWL_MCP_PACKAGE='firecrawl-mcp@2.0.0'; rerun the installer"
+)
+if status != expected_status:
+    raise SystemExit(f"expected mismatched package override to block, got: {status!r}")
+PY
+
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
@@ -666,6 +717,20 @@ run_mcp_package_override_case() {
   assert_contains "$doctor_log" 'brave-search: ready:'
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
+
+  set +e
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@9.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --production >"$doctor_log"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "expected production MCP doctor to block package override mismatch, got $rc"
+  assert_contains "$doctor_log" "firecrawl: blocked: configured package 'example-firecrawl-mcp@2.0.0' does not match B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@9.0.0'; rerun the installer"
 
   expect_install_status 0 "$sandbox_opencode_upgrade" "$snapshot_repo" --runtime=opencode
   set +e
@@ -1171,6 +1236,7 @@ run_skill_doctor_case() {
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
+  local rc=0
   mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
   expected_skill_count="$(registry_skill_count)"
 
@@ -1181,7 +1247,11 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'discovery: ready:'
   rm -rf "$sandbox_claude/home/.claude/skills/b-review"
+  set +e
   python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "expected skill doctor to fail for missing skill, got $rc"
   assert_contains "$doctor_log" 'skills: missing or mismatched: missing b-review'
   assert_contains "$doctor_log" 'discovery: blocked: install complete skill payload'
 
@@ -1206,11 +1276,12 @@ run_skill_doctor_case() {
 run_runtime_acceptance_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/runtime-acceptance"
+  local missing_skill_sandbox="$WORK_DIR/runtime-acceptance-missing-skill"
   local bin_dir="$sandbox/bin"
   local acceptance_log="$sandbox/acceptance.log"
   local rc=0
 
-  mkdir -p "$sandbox/home" "$bin_dir"
+  mkdir -p "$sandbox/home" "$missing_skill_sandbox/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -1238,6 +1309,36 @@ run_runtime_acceptance_case() {
   assert_contains "$acceptance_log" 'Fresh-session gates to verify manually in the selected runtime:'
   assert_contains "$acceptance_log" 'Verdict rule: automated doctor output is install/config evidence only.'
   assert_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
+
+  HOME="$missing_skill_sandbox/home" \
+  PATH="$(smoke_path_with_runtime_clis "$missing_skill_sandbox")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$missing_skill_sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
+  rm -rf "$missing_skill_sandbox/home/.config/opencode/skills/b-review"
+
+  set +e
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
+  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$missing_skill_sandbox/home" --production >"$acceptance_log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "expected runtime acceptance to fail for missing skill, got $rc"
+  assert_contains "$acceptance_log" 'skills: missing or mismatched: missing b-review'
+  assert_contains "$acceptance_log" 'Runtime readiness blocked by skill discovery doctor output above.'
+  assert_not_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
 }
 
 main() {

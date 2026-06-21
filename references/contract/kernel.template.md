@@ -32,9 +32,7 @@ Use these rules before any skill-specific instruction.
 
 ## Shell commands
 
-When `rtk` is installed, route every shell command through it by prefixing the command with `rtk`.
-
-Rule: always prefix shell commands with `rtk` when `rtk` is available.
+When `rtk` is installed, use it for command families it supports when its filtered output preserves the evidence needed for the task. Do not mechanically prefix unsupported commands.
 
 Examples:
 
@@ -43,11 +41,14 @@ Examples:
 - `rtk npm run build`
 - `rtk pytest -q`
 
-Meta commands:
+Run unsupported commands directly. Use `rtk proxy <cmd>` only when raw execution with RTK tracking is useful.
+
+RTK commands:
 
 - `rtk gain` — token savings analytics
 - `rtk gain --history` — recent command savings history
-- `rtk proxy <cmd>` — run raw command without filtering
+- `rtk --help` — supported command families
+- `rtk proxy <cmd>` — raw execution with tracking
 
 Verification: `rtk --version`, `rtk gain`, `which rtk`
 

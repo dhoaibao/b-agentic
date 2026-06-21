@@ -43,7 +43,7 @@ Read `./references/templates.md` before drafting or refreshing the file body.
 4. When creating a new `AGENTS.md` or `CLAUDE.md`, wrap the generated body in `b-init` managed markers so later refreshes can update only the managed section.
 5. If the target file contains `b-init` managed markers, update only the managed block. If it already has substantial unmarked content, preserve it and ask before replacing it wholesale.
 6. Write concise sections grounded in repo evidence: what the repo is, how to work here, how to verify changes, codebase map, safety or do-not-assume rules, source-of-truth files, and maintainer guidance when the repo has generated assets, adapters, or contributor invariants.
-7. For maintainer guidance, explain how to edit the repo without drifting generated outputs, adapters, or public docs. In `b-agentic`, cover canonical source layers, generated assets, validation commands, runtime neutrality, and the slimness rule against ceremony.
+7. For maintainer guidance, explain how to edit the repo without drifting generated outputs, adapters, or public docs.
 8. Avoid runtime-home paths, agent-vendor policy dumps, speculative architecture summaries, and extra root docs unless the user asked for them.
 9. Verify that referenced paths and commands exist, then inspect the diff for noise or invented detail.
 

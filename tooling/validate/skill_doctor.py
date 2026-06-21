@@ -179,7 +179,7 @@ def main() -> int:
         print(f"{name}-path: {path}")
     for key, value in status.items():
         print(f"{key}: {value}")
-    return 0
+    return 0 if all(value.startswith("ready") for value in status.values()) else 1
 
 
 if __name__ == "__main__":

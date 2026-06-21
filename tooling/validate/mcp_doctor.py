@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -72,17 +73,53 @@ def package_name(server: str) -> str:
     return DEFAULT_PACKAGES[server]
 
 
-def package_is_exactly_pinned(package: str) -> bool:
-    if package.startswith("@"):
-        _, _, unscoped = package.partition("/")
-        if "@" not in unscoped:
-            return False
-        version = unscoped.rsplit("@", 1)[1]
-    elif "@" in package:
-        version = package.rsplit("@", 1)[1]
-    else:
+def npm_package_name_is_valid(name: str) -> bool:
+    if not name or len(name) > 214 or name.lower() != name:
         return False
-    return bool(version) and version != "latest" and not any(marker in version for marker in "*^~xX")
+
+    if name.startswith("@"):
+        parts = name[1:].split("/")
+        if len(parts) != 2:
+            return False
+    elif "/" in name:
+        return False
+    else:
+        parts = [name]
+
+    for part in parts:
+        if not part or part in {".", ".."} or part.startswith((".", "_")):
+            return False
+        if re.fullmatch(r"[a-z0-9-][a-z0-9._-]*", part) is None:
+            return False
+        if not any(character.isalnum() for character in part):
+            return False
+    return True
+
+
+def exact_semver_is_valid(version: str) -> bool:
+    match = re.fullmatch(
+        r"(?:0|[1-9][0-9]*)\."
+        r"(?:0|[1-9][0-9]*)\."
+        r"(?:0|[1-9][0-9]*)"
+        r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?",
+        version,
+    )
+    if match is None:
+        return False
+
+    prerelease = match.group(1)
+    if prerelease is None:
+        return True
+    return all(
+        not (identifier.isdigit() and len(identifier) > 1 and identifier.startswith("0"))
+        for identifier in prerelease.split(".")
+    )
+
+
+def package_is_exactly_pinned(package: str) -> bool:
+    name, separator, version = package.rpartition("@")
+    return bool(separator) and npm_package_name_is_valid(name) and exact_semver_is_valid(version)
 
 
 def pinned_package_status(server: str, package: object) -> str | None:
@@ -95,7 +132,7 @@ def pinned_package_status(server: str, package: object) -> str | None:
     if package == expected:
         return None
     if os.environ.get(env_name):
-        return None
+        return f"configured package {package!r} does not match {env_name}={expected!r}; rerun the installer"
     return f"configured package {package!r}; set {env_name}={package} for launcher validation"
 
 

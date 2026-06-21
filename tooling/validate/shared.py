@@ -254,6 +254,14 @@ for path in [ROOT / "references" / "contract" / "kernel.template.md", *(ROOT / "
         if forbidden in text:
             errors.append(f"{rel(path)}: removed kernel concept remains: {forbidden!r}")
 
+kernel_template = read_text(ROOT / "references" / "contract" / "kernel.template.md")
+for forbidden in ["route every shell command through", "always prefix shell commands"]:
+    if forbidden in kernel_template:
+        errors.append(
+            "references/contract/kernel.template.md: unsupported RTK routing remains: "
+            f"{forbidden!r}"
+        )
+
 readme = read_text(ROOT / "README.md")
 for forbidden in ["hooks", "subagent", "strict", "state-machine", "conformance"]:
     if re.search(rf"\b{re.escape(forbidden)}\b", readme, re.IGNORECASE):

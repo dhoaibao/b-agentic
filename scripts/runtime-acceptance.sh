@@ -35,7 +35,8 @@ if [ "$PRODUCTION" -eq 1 ]; then
   printf 'Mode: production readiness\n'
 fi
 printf '\nSkill discovery doctor:\n'
-python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR"
+skill_rc=0
+python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" || skill_rc=$?
 printf '\nMCP readiness doctor:\n'
 mcp_rc=0
 if [ "$PRODUCTION" -eq 1 ]; then
@@ -56,7 +57,15 @@ Fresh-session gates to verify manually in the selected runtime:
 Verdict rule: automated doctor output is install/config evidence only. Mark release acceptance complete only after the fresh-session gates above are observed.
 EOF
 
+overall_rc=0
+if [ "$skill_rc" -ne 0 ]; then
+  printf '\nRuntime readiness blocked by skill discovery doctor output above.\n' >&2
+  overall_rc="$skill_rc"
+fi
 if [ "$PRODUCTION" -eq 1 ] && [ "$mcp_rc" -ne 0 ]; then
   printf '\nProduction readiness blocked by MCP doctor output above.\n' >&2
 fi
-exit "$mcp_rc"
+if [ "$overall_rc" -eq 0 ] && [ "$mcp_rc" -ne 0 ]; then
+  overall_rc="$mcp_rc"
+fi
+exit "$overall_rc"

@@ -56,7 +56,7 @@ Interactive installs prompt for runtime CLI preparation, missing shell tooling, 
 
 During interactive installs, the installer can prompt to download and run the RTK install script from `https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh`. If `rtk` is already installed, the installer asks separately before upgrading it. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
 
-Once installed, the kernel instructs the agent to route every shell command through RTK by prefixing it with `rtk`. The managed safety gates are configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
+Once installed, the kernel instructs the agent to use RTK for command families it supports when filtering preserves the evidence needed for the task. Unsupported commands run directly instead of receiving an invalid `rtk` prefix. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
 
 ```bash
 rtk git status
@@ -70,7 +70,8 @@ Meta commands:
 ```bash
 rtk gain            # Token savings analytics
 rtk gain --history  # Recent command savings history
-rtk proxy <cmd>     # Run raw command without filtering
+rtk --help           # Supported command families
+rtk proxy <cmd>     # Raw execution with tracking
 ```
 
 Verification: `rtk --version`, `rtk gain`, `which rtk`.
