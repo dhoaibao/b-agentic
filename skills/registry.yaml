@@ -79,6 +79,32 @@
       }
     },
     {
+      "name": "b-init",
+      "phase": "Build",
+      "use": "Initialize or refresh repo-local agent instruction docs",
+      "command": {
+        "alias": "b-init",
+        "description": "Create or refresh AGENTS.md and a CLAUDE.md redirect shim",
+        "exposed": true
+      },
+      "routing": {
+        "intent": "Initialize repo-local agent instruction files",
+        "triggers": [
+          "/init",
+          "init agent docs",
+          "initialize agent docs",
+          "create AGENTS.md",
+          "create CLAUDE.md",
+          "refresh AGENTS.md",
+          "refresh agent docs"
+        ]
+      },
+      "prompt": {
+        "description": "Initialize or refresh repo-local agent instruction docs: canonical AGENTS.md plus a minimal CLAUDE.md shim that routes readers to AGENTS.md. Grounds the docs in repo evidence, preserves user-owned content, and keeps the output slim.",
+        "argument_hint": "[repo-root-or-subtree]"
+      }
+    },
+    {
       "name": "b-refactor",
       "phase": "Build",
       "use": "Rename, extract, move, inline, simplify, or delete behavior-preserving code",

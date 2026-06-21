@@ -121,6 +121,7 @@ Permission defaults follow each runtime's native model, so the baseline differs:
 | `b-plan` | Decide | Clarify unclear goals or turn a clear goal into an execution plan |
 | `b-research` | Decide | Fetch external docs, API facts, comparisons, or recent evidence |
 | `b-implement` | Build | Execute approved plans or small direct requests |
+| `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
 | `b-debug` | Validate | Confirm runtime root cause and fix minimally |
 | `b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
