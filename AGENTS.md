@@ -1,78 +1,75 @@
-# b-agentic - Maintainer Guide
+<!-- b-init-managed:start -->
+# b-agentic Maintainer Guide
 
-This file is maintainer guidance for editing this source repository. The public overview is `README.md`.
+## Repository Purpose
 
-## Product Direction
+b-agentic is a slim workflow kernel for coding agents across Claude Code, OpenCode, and Codex CLI. Keep changes focused on routing, safety, evidence, verification, tool use, install reliability, and multi-runtime delivery.
 
-b-agentic is a slim workflow kernel for coding agents. Keep only what improves routing, safety, evidence, verification, tool use, install reliability, or multi-runtime delivery.
+The governing principle is: slim, strong, usable. Every workflow or prompt change needs a concrete failure mode or capability gap; do not add ceremony for hypothetical gains.
 
-The iron rule is: slim, strong, usable. Remove layers that mainly create ceremony.
+## Working Rules
 
-Every workflow or prompt change needs a concrete failure mode or capability gap. Do not add ceremony for hypothetical quality gains. Prefer a smaller rule, sharper validation, or better use of existing evidence over a new phase, artifact, hook, or state machine.
+- Treat `README.md` as the public overview and this file as maintainer guidance.
+- Edit canonical sources, not generated outputs.
+- Keep shared content under `skills/` and `references/contract/` runtime-neutral.
+- Put runtime-specific paths, templates, wrappers, caveats, and smoke tests under `runtimes/<name>/`.
+- Preserve user-owned configuration in installers and adapters.
+- Keep registry YAML JSON-compatible so the Python standard library can parse it.
+- Keep skill prompts task-specific; do not duplicate global kernel rules unless a skill needs a concrete variant.
+- Keep domain-specific workflows, issue-tracker conventions, team preferences, and product-specific skills out of core unless existing phases consume them as optional inputs.
+- Do not add root documentation surfaces unless the task explicitly requires one.
+- For behavior-shaping prompt changes, record the observed failure, intended behavior change, and a narrow regression check.
 
-## Scope
-
-- `README.md` is the user-facing overview.
-- `AGENTS.md` is maintainer guidance.
-- Shared runtime-facing content under `skills/` and `references/contract/` must stay runtime-neutral.
-- Runtime-specific paths, config templates, wrappers, caveats, and smoke tests belong under `runtimes/<name>/`.
-- Do not add root-level documentation surfaces.
-
-## Source Of Truth
+## Source of Truth
 
 - `skills/registry.yaml` owns skill metadata and generated frontmatter.
 - `skills/*/prompt.md` owns canonical skill bodies.
 - `runtimes/registry.yaml` owns runtime metadata and capability labels.
 - `references/contract/kernel.template.md` owns generated runtime kernels.
+- `references/contract/runtime.md` and `references/contract/safety-tools.md` own shared contract behavior.
 - `skills/*/SKILL.md`, `runtimes/*/kernel.md`, and OpenCode command wrappers are generated assets.
-- Registry files must remain JSON-compatible YAML so tooling can use the Python standard library.
 
-## Authoring Rules
+## Change Workflow
 
-- Prefer fewer concepts and shorter prompts.
-- Keep skill prompts task-specific; do not restate global kernel rules unless the skill needs a concrete variant.
-- Use `{{skill_support_path}}` and `{{runtime_reference_root}}` if template paths are needed.
-- Keep `references/contract/` to `runtime.md`, `safety-tools.md`, and `kernel.template.md` unless a new file clearly removes more complexity than it adds.
-- Do not add hooks, state-machine governance, mandatory status blocks, or subagent profiles without a specific approved plan.
-- Keep domain-specific workflows, issue tracker conventions, team preferences, and product-specific skills out of core unless they are optional inputs consumed by existing phases.
-- For behavior-shaping prompt changes, include evidence: the observed failure, the intended behavior change, and the narrow validation or transcript check that would catch a regression.
-- When borrowing from another workflow system, copy the mechanism only if it strengthens routing, context use, verification, or review without making ordinary work heavier.
+- Skill metadata: edit `skills/registry.yaml`.
+- Skill behavior: edit the relevant `skills/*/prompt.md`.
+- Kernel behavior: edit `references/contract/kernel.template.md`.
+- Shared contract behavior: edit `references/contract/runtime.md` or `references/contract/safety-tools.md`.
+- Runtime behavior: update `runtimes/registry.yaml`, the affected adapter files, and smoke tests together.
+- Use `{{skill_support_path}}` and `{{runtime_reference_root}}` for template paths where applicable.
+- Keep `references/contract/` limited to `runtime.md`, `safety-tools.md`, and `kernel.template.md` unless a new file clearly removes more complexity than it adds.
+- After changing generated surfaces, run `python3 tooling/generate/registry_sync.py`.
 
-## Key Paths
+Prefer fewer concepts and shorter prompts. Do not introduce hooks, state-machine governance, mandatory status blocks, or subagent profiles without an approved, evidence-backed need.
 
-- `skills/` - skill sources and generated delivery assets
-- `runtimes/` - runtime adapters and smoke lanes
-- `references/contract/` - slim shared contract
-- `tooling/generate/` - registry sync and renderers
-- `tooling/install/` - shared installer core
-- `tooling/validate/` - validation harness
-- `tests/smoke/` - installer smoke tests
+## Verification
 
-## Sync Rules
+Run the narrowest applicable checks:
 
-- Skill metadata: edit `skills/registry.yaml`, rerun `python3 tooling/generate/registry_sync.py`.
-- Skill prompt: edit `skills/*/prompt.md`, rerun generation.
-- Kernel behavior: edit `references/contract/kernel.template.md`, rerun generation.
-- Contract behavior: edit `runtime.md` or `safety-tools.md`.
-- Runtime behavior: update `runtimes/registry.yaml`, affected adapter scripts/docs, and smoke tests together.
+```bash
+python3 tooling/generate/registry_sync.py
+scripts/validate-skills.sh
+scripts/validate-skills.sh --release
+```
 
-## Validation
+Use `--release` when install, runtime, wrapper, kernel delivery, or release-readiness behavior changes. Confirm generated assets are synchronized, shared content remains runtime-neutral, and public or maintainer docs reflect changed behavior.
 
-Before merging runtime-facing changes:
+## Codebase Map
 
-1. Run `python3 tooling/generate/registry_sync.py` when generated surfaces are affected.
-2. Run `scripts/validate-skills.sh`.
-3. Run `scripts/validate-skills.sh --release` when install, runtime, wrapper, kernel delivery, or release-readiness behavior changed.
-4. Confirm docs changed with public or maintainer surface changes.
-5. Confirm shared content stayed runtime-neutral.
+- `skills/` — canonical prompts, registry metadata, and generated skill assets
+- `runtimes/` — runtime adapters, configs, kernels, and smoke lanes
+- `references/contract/` — shared runtime contract and kernel template
+- `tooling/generate/` — registry synchronization and renderers
+- `tooling/install/` — shared installer implementation
+- `tooling/validate/` — validation harness
+- `tests/smoke/` — installer and runtime smoke coverage
+- `scripts/` — validation, doctor, smoke, and acceptance entrypoints
 
-## Review Checklist
+## Review Before Handoff
 
-- Correct source layer, not generated asset?
-- Shared content still runtime-neutral?
-- Runtime-specific details under `runtimes/<name>/`?
-- Generated assets synced?
-- Real problem or capability gap named?
-- Behavior-shaping prompt changes backed by evidence or a planned eval?
-- Domain-specific or team-specific behavior kept out of core?
-- No new ceremony without clear payoff?
+- The change was made in the correct source layer.
+- Generated outputs were refreshed when required.
+- Shared content is runtime-neutral; runtime details stay under `runtimes/<name>/`.
+- The change addresses a real problem without adding unnecessary process.
+- Validation evidence matches the scope of the change.
+<!-- b-init-managed:end -->
