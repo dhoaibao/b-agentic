@@ -96,9 +96,19 @@ FIXTURES = [
         not_expected=("b-review",),
     ),
     Fixture(
+        name="combined change summary request",
+        prompt="Write a commit message, PR title, and PR description for the staged changes.",
+        expected="b-change-summary",
+    ),
+    Fixture(
         name="commit message request",
         prompt="Write a commit message for the staged changes.",
-        expected="b-commit",
+        expected="b-change-summary",
+    ),
+    Fixture(
+        name="PR summary request",
+        prompt="Write a PR title and description for these changes.",
+        expected="b-change-summary",
     ),
 ]
 
@@ -195,8 +205,11 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
         if not isinstance(name, str):
             continue
         if skill.get("routing") is None:
-            if name == "b-commit" and "Commit message -> `b-commit`" not in text:
-                errors.append("references/contract/runtime.md: missing b-commit precedence rule")
+            if (
+                name == "b-change-summary"
+                and "Commit or PR summary -> `b-change-summary`" not in text
+            ):
+                errors.append("references/contract/runtime.md: missing b-change-summary precedence rule")
             continue
         if f"`{name}`" not in text:
             errors.append(f"references/contract/runtime.md: missing routing table entry for {name}")

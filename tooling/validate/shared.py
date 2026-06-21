@@ -187,6 +187,19 @@ required_prompt_markers = {
         "ceremony creep",
         "prompt-change evidence",
     ],
+    "b-change-summary": [
+        "Otherwise use the prospective PR diff as a squash-commit summary.",
+        "Block instead of guessing when neither identifies it.",
+        "Commit message:",
+        "PR title:",
+        "PR description:",
+        "## Issue/Feature",
+        "## Root Cause/Decision",
+        "## Fix/Change",
+        "## Impact Analysis",
+        "Not established from available evidence.",
+        "Always return the commit message, PR title, and complete PR description",
+    ],
 }
 for skill_name, markers in required_prompt_markers.items():
     prompt = ROOT / "skills" / skill_name / "prompt.md"

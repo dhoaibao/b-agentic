@@ -245,18 +245,18 @@
     },
 
     {
-      "name": "b-commit",
+      "name": "b-change-summary",
       "phase": "Ship",
-      "use": "Write a Conventional Commits message for cohesive staged changes",
+      "use": "Write concise commit and PR copy for one cohesive change",
       "command": {
-        "alias": "b-commit",
-        "description": "Write a Conventional Commits message for staged changes",
+        "alias": "b-change-summary",
+        "description": "Write a commit message, PR title, and PR description",
         "exposed": true
       },
       "routing": null,
       "prompt": {
-        "description": "Analyze the staged diff and write one Conventional Commits message for cohesive staged changes, or block when the staged set is absent or mixes unrelated concerns.",
-        "argument_hint": "[staged-diff-context]"
+        "description": "Analyze staged and branch changes and write a concise Conventional Commits message, PR title, and structured PR description for one cohesive change.",
+        "argument_hint": "[change-context] [base-branch]"
       }
     }
   ]

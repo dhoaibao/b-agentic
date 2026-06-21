@@ -128,13 +128,13 @@ Permission defaults follow each runtime's native model, so the baseline differs:
 | `b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `b-review` | Validate | Review changed code or run a b-agentic suite self-audit |
-| `b-commit` | Ship | Write a Conventional Commits message for cohesive staged changes |
+| `b-change-summary` | Ship | Write concise commit and PR copy for one cohesive change |
 <!-- generated:skills-table:end -->
 
 Typical flow:
 
 ```text
-b-plan [goal] -> approve -> b-implement -> b-test -> b-review -> b-commit
+b-plan [goal] -> approve -> b-implement -> b-test -> b-review -> b-change-summary
 b-research [external facts]
 b-debug [runtime bug]
 b-browser [UI/e2e evidence]
