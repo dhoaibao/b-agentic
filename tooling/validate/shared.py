@@ -285,6 +285,107 @@ for forbidden in ["firecrawl_monitor", "hooks", "statusLine", "check-runtime.py"
     if forbidden in claude_settings:
         errors.append(f"runtimes/claude-code/configs/settings.template.json: forbidden default permission/config {forbidden!r}")
 
+# Safety-gate parity: every runtime must gate the command families the runtime
+# contract (references/contract/safety-tools.md) requires, at no weaker than the
+# canonical severity. "ask" = must prompt for approval; "deny" = must be refused.
+# Each family is checked through the runtime's own permission model.
+SAFETY_GATES = [
+    # (command tokens, minimum severity)
+    (["git", "commit"], "ask"),
+    (["git", "push"], "ask"),
+    (["git", "pull"], "ask"),
+    (["git", "revert"], "ask"),
+    (["npm", "install"], "ask"),
+    (["pnpm", "install"], "ask"),
+    (["yarn", "install"], "ask"),
+    (["bun", "install"], "ask"),
+    (["cargo", "install"], "ask"),
+    (["go", "install"], "ask"),
+    (["pip", "install"], "ask"),
+    (["poetry", "add"], "ask"),
+    (["cargo", "add"], "ask"),
+    (["go", "get"], "ask"),
+    (["rm", "-rf"], "ask"),
+    (["git", "reset", "--hard"], "deny"),
+    (["git", "clean", "-f"], "deny"),
+    (["git", "push", "--force"], "deny"),
+    (["git", "push", "--force-with-lease"], "deny"),
+    (["git", "branch", "-D"], "deny"),
+    (["docker", "system", "prune"], "deny"),
+    (["docker", "volume", "rm"], "deny"),
+]
+SEVERITY_RANK = {"ask": 1, "deny": 2}
+
+
+def claude_gate_severity(tokens: list[str], settings: dict) -> int:
+    # Claude is not default-deny: only explicitly listed prefixes are gated.
+    # An entry gates a family when its longer-or-equal token prefix is covered.
+    permissions = settings.get("permissions", {})
+    best = 0
+    for level, rank in (("ask", 1), ("deny", 2)):
+        for raw in permissions.get(level, []):
+            match = re.fullmatch(r"Bash\((.*?)\s*\*?\)", raw)
+            if not match:
+                continue
+            entry_tokens = match.group(1).split()
+            if entry_tokens and entry_tokens[0] == "rtk":
+                entry_tokens = entry_tokens[1:]
+            if entry_tokens[: len(tokens)] == tokens:
+                best = max(best, rank)
+    return best
+
+
+def opencode_gate_severity(tokens: list[str], config: dict) -> int:
+    bash = config.get("permission", {}).get("bash", {})
+    # OpenCode defaults unlisted commands to the "*" decision.
+    default_rank = SEVERITY_RANK.get(bash.get("*"), 0)
+    best = default_rank
+    for pattern, decision in bash.items():
+        if pattern == "*":
+            continue
+        entry_tokens = pattern.replace("*", "").split()
+        if entry_tokens and entry_tokens[0] == "rtk":
+            entry_tokens = entry_tokens[1:]
+        if entry_tokens[: len(tokens)] == tokens:
+            best = max(best, SEVERITY_RANK.get(decision, 0))
+    return best
+
+
+def codex_gate_severity(tokens: list[str], rules_text: str) -> int:
+    # Codex prefix_rule decisions: "prompt" ~= ask, "forbidden" ~= deny.
+    decision_rank = {"prompt": 1, "forbidden": 2}
+    best = 0
+    for block in re.findall(r"prefix_rule\((.*?)\)", rules_text, re.DOTALL):
+        pattern_match = re.search(r"pattern\s*=\s*\[(.*?)\]", block, re.DOTALL)
+        decision_match = re.search(r'decision\s*=\s*"(\w+)"', block)
+        if not pattern_match or not decision_match:
+            continue
+        entry_tokens = re.findall(r'"([^"]+)"', pattern_match.group(1))
+        if entry_tokens and entry_tokens[0] == "rtk":
+            entry_tokens = entry_tokens[1:]
+        if entry_tokens[: len(tokens)] == tokens:
+            best = max(best, decision_rank.get(decision_match.group(1), 0))
+    return best
+
+
+claude_config = load_json(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
+opencode_config = load_json(ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json")
+codex_rules = read_text(ROOT / "runtimes" / "codex-cli" / "rules" / "b-agentic.rules")
+gate_runtimes = [
+    ("runtimes/claude-code/configs/settings.template.json", lambda tokens: claude_gate_severity(tokens, claude_config)),
+    ("runtimes/opencode/configs/mcp.user.template.json", lambda tokens: opencode_gate_severity(tokens, opencode_config)),
+    ("runtimes/codex-cli/rules/b-agentic.rules", lambda tokens: codex_gate_severity(tokens, codex_rules)),
+]
+for tokens, min_severity in SAFETY_GATES:
+    required_rank = SEVERITY_RANK[min_severity]
+    family = " ".join(tokens)
+    for label, severity_fn in gate_runtimes:
+        if severity_fn(tokens) < required_rank:
+            errors.append(
+                f"{label}: safety gate {family!r} weaker than required {min_severity!r}; "
+                "align with references/contract/safety-tools.md"
+            )
+
 for deleted_path in ["tooling/policy", "tooling/state", "tooling/hooks", "tooling/conformance", "tooling/scenarios"]:
     leftovers = [
         path for path in (ROOT / deleted_path).glob("**/*")

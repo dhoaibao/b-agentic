@@ -40,7 +40,17 @@
       "Bash(cargo install *)",
       "Bash(rtk cargo install *)",
       "Bash(go install *)",
-      "Bash(rtk go install *)"
+      "Bash(rtk go install *)",
+      "Bash(pip install *)",
+      "Bash(rtk pip install *)",
+      "Bash(poetry add *)",
+      "Bash(rtk poetry add *)",
+      "Bash(cargo add *)",
+      "Bash(rtk cargo add *)",
+      "Bash(go get *)",
+      "Bash(rtk go get *)",
+      "Bash(rm -rf *)",
+      "Bash(rtk rm -rf *)"
     ],
     "deny": [
       "Read(./.env)",
@@ -56,7 +66,11 @@
       "Bash(git push --force-with-lease *)",
       "Bash(rtk git push --force-with-lease *)",
       "Bash(git branch -D *)",
-      "Bash(rtk git branch -D *)"
+      "Bash(rtk git branch -D *)",
+      "Bash(docker system prune *)",
+      "Bash(rtk docker system prune *)",
+      "Bash(docker volume rm *)",
+      "Bash(rtk docker volume rm *)"
     ]
   }
 }
