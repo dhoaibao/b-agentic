@@ -188,8 +188,7 @@ required_prompt_markers = {
         "prompt-change evidence",
     ],
     "b-change-summary": [
-        "Otherwise use the prospective PR diff as a squash-commit summary.",
-        "Block instead of guessing when neither identifies it.",
+        "Use the staged diff for the commit message, PR title, and PR description.",
         "Commit message:",
         "PR title:",
         "PR description:",
@@ -197,8 +196,9 @@ required_prompt_markers = {
         "## Root Cause/Decision",
         "## Fix/Change",
         "## Impact Analysis",
+        "BLOCKED: split unrelated staged changes",
         "Not established from available evidence.",
-        "Always return the commit message, PR title, and complete PR description",
+        "Always return the commit message, PR title, and complete PR description when a cohesive staged change set exists.",
     ],
 }
 for skill_name, markers in required_prompt_markers.items():

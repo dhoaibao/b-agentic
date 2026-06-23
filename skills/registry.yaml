@@ -247,7 +247,7 @@
     {
       "name": "b-change-summary",
       "phase": "Ship",
-      "use": "Write concise commit and PR copy for one cohesive change",
+      "use": "Write commit and PR copy for one cohesive staged change",
       "command": {
         "alias": "b-change-summary",
         "description": "Write a commit message, PR title, and PR description",
@@ -255,8 +255,8 @@
       },
       "routing": null,
       "prompt": {
-        "description": "Analyze staged and branch changes and write a concise Conventional Commits message, PR title, and structured PR description for one cohesive change.",
-        "argument_hint": "[change-context] [base-branch]"
+        "description": "Analyze the staged changes of the current branch and write a concise Conventional Commits message, PR title, and structured PR description for one cohesive change without checking remotes or merge state.",
+        "argument_hint": "[change-context]"
       }
     }
   ]
