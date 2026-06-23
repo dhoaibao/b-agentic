@@ -187,7 +187,7 @@ required_prompt_markers = {
         "ceremony creep",
         "prompt-change evidence",
     ],
-    "b-change-summary": [
+    "b-summary": [
         "Use the staged diff for the commit message, PR title, and PR description.",
         "Commit message:",
         "PR title:",

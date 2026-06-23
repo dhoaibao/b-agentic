@@ -1,4 +1,15 @@
-# b-change-summary
+---
+name: b-summary
+description: >
+  Analyze the staged changes of the current branch and write a concise
+  Conventional Commits message, PR title, and structured PR description
+  for one cohesive change without checking remotes or merge state.
+argument-hint: "[change-context]"
+---
+
+<!-- Generated from skills/registry.yaml and skills/b-summary/prompt.md. Edit those sources, not this file. -->
+
+# b-summary
 
 $ARGUMENTS
 
