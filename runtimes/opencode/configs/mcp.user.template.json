@@ -90,7 +90,15 @@
       "cargo install *": "ask",
       "rtk cargo install *": "ask",
       "go install *": "ask",
-      "rtk go install *": "ask"
+      "rtk go install *": "ask",
+      "pip install *": "ask",
+      "rtk pip install *": "ask",
+      "poetry add *": "ask",
+      "rtk poetry add *": "ask",
+      "cargo add *": "ask",
+      "rtk cargo add *": "ask",
+      "go get *": "ask",
+      "rtk go get *": "ask"
     },
     "skill": {
       "b-*": "allow"

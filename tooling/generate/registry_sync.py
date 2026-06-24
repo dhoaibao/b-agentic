@@ -29,7 +29,6 @@ RUNTIME_REFERENCE_ROOT_TOKEN = "{{runtime_reference_root}}"
 RUNTIME_DISPLAY_NAME_TOKEN = "{{runtime_display_name}}"
 RUNTIME_METADATA_ROOT_TOKEN = "{{runtime_metadata_root}}"
 RUNTIME_MEMORY_FILE_TOKEN = "{{runtime_memory_file}}"
-RUNTIME_ENFORCEMENT_NOTICE_TOKEN = "{{runtime_enforcement_notice}}"
 RENDERED_SKILL_SUPPORT_PATH = "."
 RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/references"
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
@@ -253,11 +252,11 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
 
         if name and alias and alias != name:
             errors.append(
-                f"skills[{index}]: command.alias {alias!r} must match skill name {name!r} in phase 1"
+                f"skills[{index}]: command.alias {alias!r} must match skill name {name!r}"
             )
 
         if phase == "Ship" and routing is not None:
-            errors.append(f"skills[{index}]: ship-only skills must omit routing metadata in phase 1")
+            errors.append(f"skills[{index}]: ship-only skills must omit routing metadata")
         if phase != "Ship" and routing is None:
             errors.append(f"skills[{index}]: non-ship skills must include routing metadata")
         if not use:
@@ -540,10 +539,6 @@ def render_skill_file(skill: dict) -> str:
     return "\n".join(lines)
 
 
-def _enforcement_notice(runtime: dict) -> str:
-    return ""
-
-
 def render_kernel(runtime: dict) -> str:
     template_text = KERNEL_TEMPLATE_PATH.read_text()
     return apply_template_tokens(
@@ -552,7 +547,6 @@ def render_kernel(runtime: dict) -> str:
             RUNTIME_DISPLAY_NAME_TOKEN: runtime["display_name"],
             RUNTIME_METADATA_ROOT_TOKEN: runtime["metadata_root"],
             RUNTIME_MEMORY_FILE_TOKEN: runtime["memory_file"],
-            RUNTIME_ENFORCEMENT_NOTICE_TOKEN: _enforcement_notice(runtime),
         },
         KERNEL_TEMPLATE_PATH,
     )
