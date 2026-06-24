@@ -39,6 +39,7 @@ Write one commit message, PR title, and concise PR description for one cohesive 
 5. Write a specific imperative commit subject of at most 50 characters with no trailing punctuation.
 6. Write a concise PR title of at most 72 characters.
 7. Describe only facts supported by the staged diff, user context, or verification evidence.
+8. Choose each PR section heading from the staged diff and your analysis. Use a single heading, not a slash-pair option.
 
 ## Output format
 
@@ -52,13 +53,13 @@ PR title:
 <title>
 
 PR description:
-## Issue/Feature
+## <problem-or-capability heading>
 <concise problem or capability>
 
-## Root Cause/Decision
+## <cause-or-decision heading>
 <confirmed root cause or key decision and rationale>
 
-## Fix/Change
+## <implementation heading>
 <concise implementation summary>
 
 ## Impact Analysis
@@ -74,6 +75,7 @@ BLOCKED: split unrelated staged changes
 
 ## Rules
 
+- Choose `Issue`, `Root Cause`, and `Fix` for defect repairs or regressions; choose `Feature`, `Decision`, and `Change` for new capabilities, docs, tooling, configuration, or intentional behavior changes. Mix these only when the staged diff clearly supports a mixed framing.
 - Keep each PR section to one short paragraph or at most three bullets.
 - Use `Not established from available evidence.` instead of inventing a root cause, decision, impact, or verification result.
 - Do not include issue IDs unless supplied by the user or present in repository evidence.
