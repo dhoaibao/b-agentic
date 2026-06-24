@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -24,6 +25,23 @@ PACKAGE_OVERRIDE_ENVS = {
     "firecrawl": "B_AGENTIC_FIRECRAWL_MCP_PACKAGE",
     "playwright": "B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE",
 }
+CONTEXT7_URL = "https://mcp.context7.com/mcp"
+
+
+@dataclass
+class NormalizedServer:
+    """Launcher shape normalized across the three runtime config schemas."""
+
+    command: str | None
+    args: list[str] | None
+    env: dict | None
+    headers: dict | None
+
+
+class RuntimeStyle:
+    CLAUDE = "claude"
+    OPENCODE = "opencode"
+    CODEX = "codex"
 
 
 def load_json(path: Path) -> dict:
@@ -154,14 +172,90 @@ def args_shape_matches(server: str, args: object) -> bool:
     return False
 
 
-def command_shape_matches(server: str, command: object) -> bool:
-    if not isinstance(command, list) or len(command) < 3 or command[0] != "pnpm":
-        return False
-    return args_shape_matches(server, command[1:])
+def normalize_server(entry: dict, style: str) -> NormalizedServer:
+    """Return a common launcher view for Claude/Codex (string command) and OpenCode (list command)."""
+    command = entry.get("command")
+    args = entry.get("args")
+    env = entry.get("env")
+    headers = entry.get("headers")
+
+    if style == RuntimeStyle.OPENCODE:
+        if isinstance(command, list) and command:
+            args = command[1:]
+            command = command[0]
+        env = entry.get("environment")
+    elif style == RuntimeStyle.CODEX:
+        headers = entry.get("http_headers")
+
+    return NormalizedServer(
+        command if isinstance(command, str) else None,
+        args if isinstance(args, list) else None,
+        env if isinstance(env, dict) else None,
+        headers if isinstance(headers, dict) else None,
+    )
 
 
 def join_issues(issues: list[str]) -> str:
     return "; ".join(issues)
+
+
+def _check_serena(server: NormalizedServer, context: str) -> str:
+    if server.command != "serena" or not serena_args_match(server.args, context):
+        return "blocked: invalid serena launcher"
+    return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
+
+
+def _check_codegraph(server: NormalizedServer) -> str:
+    if server.command != "codegraph" or not list_matches(server.args, ["serve", "--mcp"]):
+        return "blocked: invalid codegraph launcher"
+    return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
+
+
+def _check_playwright(server: NormalizedServer) -> str:
+    package_ref = server.args[1] if isinstance(server.args, list) and len(server.args) > 1 else None
+    pinned_status = pinned_package_status("playwright", package_ref)
+    expected_args = ["dlx", package_name("playwright"), "--isolated"]
+    if (
+        server.command != "pnpm"
+        or (pinned_status and not args_shape_matches("playwright", server.args))
+        or (not pinned_status and not list_matches(server.args, expected_args))
+    ):
+        return "blocked: invalid playwright launcher"
+    return ready_status("pnpm available", pinned_status) if command_ready("pnpm") else "blocked: install pnpm"
+
+
+def _check_brave_or_firecrawl(
+    server: NormalizedServer,
+    server_name: str,
+    env_key: str,
+    env_value: str | None,
+) -> str:
+    """Check a brave-search or firecrawl launcher.
+
+    `env_value` must be the effective resolved value: a literal configured key,
+    a resolved environment-variable value, or None if no key is available.
+    """
+    issues: list[str] = []
+    package_ref = server.args[1] if isinstance(server.args, list) and len(server.args) > 1 else None
+    pinned_status = pinned_package_status(server_name, package_ref)
+    expected_args = (
+        ["dlx", package_name("brave-search"), "--transport", "stdio"]
+        if server_name == "brave-search"
+        else ["dlx", package_name("firecrawl")]
+    )
+    if (
+        server.command != "pnpm"
+        or (pinned_status and not args_shape_matches(server_name, server.args))
+        or (not pinned_status and not list_matches(server.args, expected_args))
+    ):
+        issues.append(f"invalid {server_name} launcher")
+    if not command_ready("pnpm"):
+        issues.append("install pnpm")
+    if not env_value:
+        issues.append(f"set {env_key}")
+    if issues:
+        return f"blocked: {join_issues(issues)}"
+    return ready_status(f"pnpm and {env_key} available", pinned_status)
 
 
 def claude_server_status(server: str, config: dict) -> str:
@@ -170,39 +264,22 @@ def claude_server_status(server: str, config: dict) -> str:
     if not isinstance(entry, dict):
         return "missing: config entry not installed"
 
+    normalized = normalize_server(entry, RuntimeStyle.CLAUDE)
+
     if server == "serena":
-        if entry.get("command") != "serena" or not serena_args_match(entry.get("args"), "claude-code"):
-            return "blocked: invalid serena launcher"
-        return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
+        return _check_serena(normalized, "claude-code")
     if server == "context7":
-        if entry.get("type") != "http" or entry.get("url") != "https://mcp.context7.com/mcp":
+        if entry.get("type") != "http" or entry.get("url") != CONTEXT7_URL:
             return "blocked: invalid context7 config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "codegraph":
-        if entry.get("command") != "codegraph" or not list_matches(entry.get("args"), ["serve", "--mcp"]):
-            return "blocked: invalid codegraph launcher"
-        return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
+        return _check_codegraph(normalized)
     if server == "playwright":
-        args = entry.get("args")
-        pinned_status = pinned_package_status("playwright", args[1] if isinstance(args, list) and len(args) > 1 else None)
-        if entry.get("command") != "pnpm" or (pinned_status and not args_shape_matches("playwright", args)) or (not pinned_status and not list_matches(args, ["dlx", package_name("playwright"), "--isolated"])):
-            return "blocked: invalid playwright launcher"
-        return ready_status("pnpm available", pinned_status) if command_ready("pnpm") else "blocked: install pnpm"
+        return _check_playwright(normalized)
 
-    issues: list[str] = []
-    args = entry.get("args")
-    pinned_status = pinned_package_status(server, args[1] if isinstance(args, list) and len(args) > 1 else None)
-    expected_args = ["dlx", package_name("brave-search"), "--transport", "stdio"] if server == "brave-search" else ["dlx", package_name("firecrawl")]
-    if entry.get("command") != "pnpm" or (pinned_status and not args_shape_matches(server, args)) or (not pinned_status and not list_matches(args, expected_args)):
-        issues.append(f"invalid {server} launcher")
-    if not command_ready("pnpm"):
-        issues.append("install pnpm")
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
-    if not env_var_present(env_key):
-        issues.append(f"set {env_key}")
-    if issues:
-        return f"blocked: {join_issues(issues)}"
-    return ready_status(f"pnpm and {env_key} available", pinned_status)
+    env_value = os.environ.get(env_key) if env_var_present(env_key) else None
+    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
 
 
 def json_mcp_server_status(server: str, config: dict) -> str:
@@ -211,43 +288,39 @@ def json_mcp_server_status(server: str, config: dict) -> str:
     if not isinstance(entry, dict):
         return "missing: config entry not installed"
 
+    normalized = normalize_server(entry, RuntimeStyle.OPENCODE)
+
     if server == "serena":
-        command = entry.get("command")
-        if not isinstance(command, list) or not serena_args_match(command[1:], "ide") or command[0] != "serena":
-            return "blocked: invalid serena launcher"
-        if command_ready("serena"):
-            return "ready: serena command found"
-        return "blocked: install serena"
+        return _check_serena(normalized, "ide")
     if server == "context7":
-        if entry.get("type") != "remote" or entry.get("url") != "https://mcp.context7.com/mcp":
+        if entry.get("type") != "remote" or entry.get("url") != CONTEXT7_URL:
             return "blocked: invalid context7 config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "codegraph":
-        command = entry.get("command")
-        if not list_matches(command, ["codegraph", "serve", "--mcp"]):
-            return "blocked: invalid codegraph launcher"
-        return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
+        return _check_codegraph(normalized)
     if server == "playwright":
-        command = entry.get("command")
-        pinned_status = pinned_package_status("playwright", command[2] if isinstance(command, list) and len(command) > 2 else None)
-        if (pinned_status and not command_shape_matches("playwright", command)) or (not pinned_status and not list_matches(command, ["pnpm", "dlx", package_name("playwright"), "--isolated"])):
-            return "blocked: invalid playwright launcher"
-        return ready_status("pnpm available", pinned_status) if command_ready("pnpm") else "blocked: install pnpm"
+        return _check_playwright(normalized)
 
-    issues: list[str] = []
-    command = entry.get("command")
-    pinned_status = pinned_package_status(server, command[2] if isinstance(command, list) and len(command) > 2 else None)
-    expected_command = ["pnpm", "dlx", package_name("brave-search"), "--transport", "stdio"] if server == "brave-search" else ["pnpm", "dlx", package_name("firecrawl")]
-    if (pinned_status and not command_shape_matches(server, command)) or (not pinned_status and not list_matches(command, expected_command)):
-        issues.append(f"invalid {server} launcher")
-    if not command_ready("pnpm"):
-        issues.append("install pnpm")
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
-    if not env_var_present(env_key):
-        issues.append(f"set {env_key}")
-    if issues:
-        return f"blocked: {join_issues(issues)}"
-    return ready_status(f"pnpm and {env_key} available", pinned_status)
+    env_value = os.environ.get(env_key) if env_var_present(env_key) else None
+    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
+
+
+def _codex_env_value(entry: dict, env_key: str) -> str | None:
+    """Return the effective API key value for a Codex brave/firecrawl server.
+
+    A literal key name (e.g. "BRAVE_API_KEY") in the env table is treated as an
+    env-variable binding. Empty, missing, or non-dict env sections fall back to
+    the environment variable of the same name when present.
+    """
+    env_section = entry.get("env", {})
+    if isinstance(env_section, dict):
+        env_value = env_section.get(env_key)
+        if isinstance(env_value, str) and env_value:
+            if env_value == env_key:
+                return os.environ.get(env_key) if env_var_present(env_key) else None
+            return env_value
+    return os.environ.get(env_key) if env_var_present(env_key) else None
 
 
 def codex_server_status(server: str, config: dict) -> str:
@@ -256,55 +329,34 @@ def codex_server_status(server: str, config: dict) -> str:
     if not isinstance(entry, dict):
         return "missing: config entry not installed"
 
+    normalized = normalize_server(entry, RuntimeStyle.CODEX)
+
     if server == "serena":
-        command = entry.get("command")
-        if command != "serena" or not serena_args_match(entry.get("args"), "codex"):
-            return "blocked: invalid serena launcher"
-        return "ready: serena command found" if command_ready("serena") else "blocked: install serena"
+        return _check_serena(normalized, "codex")
     if server == "context7":
-        if entry.get("url") != "https://mcp.context7.com/mcp":
+        if entry.get("url") != CONTEXT7_URL:
             return "blocked: invalid context7 config"
+        # Codex uses literal key names (e.g. "CONTEXT7_API_KEY") in http_headers as env bindings.
         headers = entry.get("http_headers", {})
         if isinstance(headers, dict):
             context7_value = headers.get("CONTEXT7_API_KEY")
             if isinstance(context7_value, str) and context7_value:
                 if context7_value == "CONTEXT7_API_KEY":
-                    return "ready: CONTEXT7_API_KEY env binding configured in Codex config" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config"
+                    return (
+                        "ready: CONTEXT7_API_KEY env binding configured in Codex config"
+                        if env_var_present("CONTEXT7_API_KEY")
+                        else "blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config"
+                    )
                 return "ready: CONTEXT7_API_KEY configured in Codex config"
         return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
     if server == "codegraph":
-        if entry.get("command") != "codegraph" or not list_matches(entry.get("args"), ["serve", "--mcp"]):
-            return "blocked: invalid codegraph launcher"
-        return "ready: codegraph command found" if command_ready("codegraph") else "blocked: install codegraph"
+        return _check_codegraph(normalized)
     if server == "playwright":
-        args = entry.get("args")
-        pinned_status = pinned_package_status("playwright", args[1] if isinstance(args, list) and len(args) > 1 else None)
-        if entry.get("command") != "pnpm" or (pinned_status and not args_shape_matches("playwright", args)) or (not pinned_status and not list_matches(args, ["dlx", package_name("playwright"), "--isolated"])):
-            return "blocked: invalid playwright launcher"
-        return ready_status("pnpm available", pinned_status) if command_ready("pnpm") else "blocked: install pnpm"
+        return _check_playwright(normalized)
 
-    issues: list[str] = []
-    args = entry.get("args")
-    pinned_status = pinned_package_status(server, args[1] if isinstance(args, list) and len(args) > 1 else None)
-    expected_args = ["dlx", package_name("brave-search"), "--transport", "stdio"] if server == "brave-search" else ["dlx", package_name("firecrawl")]
-    if entry.get("command") != "pnpm" or (pinned_status and not args_shape_matches(server, args)) or (not pinned_status and not list_matches(args, expected_args)):
-        issues.append(f"invalid {server} launcher")
-    if not command_ready("pnpm"):
-        issues.append("install pnpm")
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
-    env_section = entry.get("env", {})
-    if isinstance(env_section, dict):
-        env_value = env_section.get(env_key)
-        if isinstance(env_value, str) and env_value:
-            if env_value == env_key and not env_var_present(env_key):
-                issues.append(f"set {env_key}")
-        elif not env_var_present(env_key):
-            issues.append(f"set {env_key}")
-    elif not env_var_present(env_key):
-        issues.append(f"set {env_key}")
-    if issues:
-        return f"blocked: {join_issues(issues)}"
-    return ready_status(f"pnpm and {env_key} available", pinned_status)
+    env_value = _codex_env_value(entry, env_key)
+    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
 
 
 def resolve_config_path(runtime: dict, home: Path) -> Path:
