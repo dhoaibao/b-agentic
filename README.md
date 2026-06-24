@@ -121,6 +121,7 @@ Permission defaults follow each runtime's native model, so the baseline differs:
 |---|---|---|
 | `b-plan` | Decide | Clarify unclear goals or turn a clear goal into an execution plan |
 | `b-research` | Decide | Fetch external docs, API facts, comparisons, or recent evidence |
+| `b-design` | Decide | Create or refresh docs/DESIGN.md as a frontend design standard |
 | `b-implement` | Build | Execute approved plans or small direct requests |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
@@ -136,6 +137,7 @@ Typical flow:
 ```text
 b-plan [goal] -> approve -> b-implement -> b-test -> b-review -> b-summary
 b-research [external facts]
+b-design [frontend design standard]
 b-debug [runtime bug]
 b-browser [UI/e2e evidence]
 b-refactor [behavior-preserving transform]

@@ -47,6 +47,18 @@ FIXTURES = [
         expected="b-research",
     ),
     Fixture(
+        name="frontend design standard doc",
+        prompt="Create docs/DESIGN.md as the frontend design standard for this app.",
+        expected="b-design",
+        not_expected=("b-plan",),
+    ),
+    Fixture(
+        name="screenshot-derived design guidance",
+        prompt="Analyze this screenshot and write the visual design rules for docs/DESIGN.md.",
+        expected="b-design",
+        not_expected=("b-browser", "b-plan"),
+    ),
+    Fixture(
         name="approved implementation",
         prompt="Implement the approved plan and finish the next build step.",
         expected="b-implement",

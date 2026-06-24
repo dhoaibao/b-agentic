@@ -20,7 +20,8 @@ Use these rules before any skill-specific instruction.
 
 ## Routing
 
-- Planning, design, unclear scope -> `b-plan`.
+- Planning, unclear scope, or implementation approach -> `b-plan`.
+- Frontend design standard or `docs/DESIGN.md` authoring -> `b-design`.
 - External docs/API/current facts -> `b-research`.
 - Approved plan or small direct build -> `b-implement`.
 - Named behavior-preserving rename/extract/move/inline/simplify/delete -> `b-refactor`.

@@ -11,6 +11,7 @@ Use exactly one active skill for the user's current intent. If a request spans p
 |---|---|
 | Decide how to build, decompose work | `b-plan` |
 | External docs, API facts, comparisons | `b-research` |
+| Frontend design standard and docs/DESIGN.md authoring | `b-design` |
 | Execute approved or clearly scoped work | `b-implement` |
 | Initialize repo-local agent instruction files | `b-init` |
 | Mechanical rename, extract, move, inline, simplify, delete | `b-refactor` |
@@ -22,6 +23,7 @@ Use exactly one active skill for the user's current intent. If a request spans p
 
 Precedence:
 - Unclear goal or approach -> `b-plan`.
+- Frontend design standard or `docs/DESIGN.md` authoring -> `b-design`.
 - External facts that local repo evidence cannot answer -> `b-research`.
 - Approved plan or small direct edit -> `b-implement`.
 - Named behavior-preserving transform -> `b-refactor`.
@@ -34,8 +36,9 @@ Precedence:
 <!-- generated:routing-triggers:start -->
 | Skill | Triggers |
 |---|---|
-| `b-plan` | plan, design, decompose, approach, "how should I", implementation plan, clarify, requirements, scope |
+| `b-plan` | plan, decompose, approach, "how should I", implementation plan, clarify, requirements, scope |
 | `b-research` | docs, library, API, compare, look up |
+| `b-design` | DESIGN.md, frontend design standard, design guidelines, style guide, visual style, visual design rules, design rules, from screenshot, from mockup, analyze mockup, analyze screenshot, design system docs |
 | `b-implement` | implement, add, build, execute, finish |
 | `b-init` | /init, init agent docs, initialize agent docs, create AGENTS.md, create CLAUDE.md, refresh AGENTS.md, refresh agent docs |
 | `b-refactor` | rename, extract, move, inline, simplify, delete |

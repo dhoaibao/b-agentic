@@ -15,7 +15,6 @@
         "intent": "Decide how to build, decompose work",
         "triggers": [
           "plan",
-          "design",
           "decompose",
           "approach",
           "\"how should I\"",
@@ -52,6 +51,37 @@
       "prompt": {
         "description": "External knowledge, from quick lookup to multi-source synthesis, for library/framework docs, API facts, config keys, method signatures, comparisons, deep dives, or recency-sensitive topics. Auto-detects depth; never asks the user to pick a mode. Unlike b-debug or b-plan, it fetches docs and web information rather than tracing code or choosing implementation.",
         "argument_hint": "[question-or-source]"
+      }
+    },
+    {
+      "name": "b-design",
+      "phase": "Decide",
+      "use": "Create or refresh docs/DESIGN.md as a frontend design standard",
+      "command": {
+        "alias": "b-design",
+        "description": "Create or refresh frontend design guidance",
+        "exposed": true
+      },
+      "routing": {
+        "intent": "Frontend design standard and docs/DESIGN.md authoring",
+        "triggers": [
+          "DESIGN.md",
+          "frontend design standard",
+          "design guidelines",
+          "style guide",
+          "visual style",
+          "visual design rules",
+          "design rules",
+          "from screenshot",
+          "from mockup",
+          "analyze mockup",
+          "analyze screenshot",
+          "design system docs"
+        ]
+      },
+      "prompt": {
+        "description": "Frontend design-standard authoring for creating or refreshing `docs/DESIGN.md` from user descriptions, attached images or mockups, existing frontend files, or current design docs. Use when Codex needs to extract, normalize, or rewrite shared UI style guidance for future frontend implementation. Unlike b-implement, it writes design guidance rather than UI code; unlike b-browser, it does not collect final browser evidence.",
+        "argument_hint": "[design-source-or-goal]"
       }
     },
     {

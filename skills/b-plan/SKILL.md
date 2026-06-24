@@ -18,7 +18,7 @@ Turn unclear or high-risk goals into the smallest executable plan. Do not implem
 
 ## When to use
 
-- The user asks for a plan, approach, design, decomposition, or requirements clarification.
+- The user asks for a plan, implementation approach, decomposition, or requirements clarification.
 - Scope, acceptance criteria, risk, sequencing, or ownership is unclear.
 - The change is broad enough that direct implementation would require guessing.
 
