@@ -40,20 +40,35 @@ Create or refresh `docs/DESIGN.md`, the repo-local frontend design standard. Do 
 
 ## Steps
 
-1. Confirm the source mode: user description, attached image/mockup, existing `docs/DESIGN.md`, current frontend code, or a mix.
+1. Confirm the source mode: user description, attached image/mockup, existing `docs/DESIGN.md`, design-token source, current frontend code, or a mix.
 2. Run `git status --short` for repo work and preserve unrelated changes.
 3. Inspect the lightest useful evidence: existing design docs, frontend components, tokens, CSS, layout files, screenshots, and repo conventions. Do not invent a design system when code evidence is thin.
 4. If analyzing images, separate observed facts from inferred rules. Treat exact dimensions, counts, colors, and spatial alignment as approximate unless supported by source files or browser evidence.
 5. Create or update only `docs/DESIGN.md` unless the user explicitly approved a broader documentation change. Preserve useful existing content, remove generic filler, and mark unresolved product choices as open questions.
 6. Keep the document implementation-facing and concise. Prefer rules an agent can apply while coding over design theory.
-7. Include a verification checklist that later **b-implement** and **b-browser** work can use.
-8. Verify referenced paths exist where possible, then inspect the diff for stale generated text, unsupported claims, and ceremony.
+7. When exact design tokens are supported by repo evidence, include them as optional YAML front matter or a compact token section. Treat tokens as normative values and prose as the context for when and why to use them.
+8. Include a verification checklist that later **b-implement** and **b-browser** work can use.
+9. Verify referenced paths exist where possible, then inspect the diff for stale generated text, unsupported claims, token/prose mismatches, and ceremony.
 
 ## DESIGN.md Structure
 
 Use this structure unless the repo already has a clearer standard:
 
+Omit YAML front matter when exact token values are not evidenced or when the repo already has a better token source. If included, replace the token placeholders with values from repo evidence; do not copy them as defaults.
+
 ```markdown
+---
+name: Product or design system name
+colors:
+  primary: "<repo-evidenced color>"
+typography:
+  body-md: "<repo-evidenced typography token or object>"
+spacing:
+  md: "<repo-evidenced spacing>"
+rounded:
+  md: "<repo-evidenced radius>"
+---
+
 # Frontend Design Standard
 
 ## Product Character
@@ -68,6 +83,7 @@ Use this structure unless the repo already has a clearer standard:
 ## Responsive Behavior
 ## Accessibility
 ## Implementation Rules
+## Do's And Don'ts
 ## Verification Checklist
 ## Source Evidence
 ## Open Questions
@@ -76,12 +92,17 @@ Use this structure unless the repo already has a clearer standard:
 ## Content Rules
 
 - State durable standards for the product, not page-specific implementation notes.
+- Use a specific product/design reference, audience, and workflow constraints when available. Avoid generic adjective clusters like "modern, clean, premium" unless they are tied to concrete UI decisions.
 - Make rules concrete: density, radius, spacing scale, component usage, icon usage, color roles, typography scale, empty/loading/error states, and responsive behavior.
+- Keep prose primary. Tokens capture exact values; prose explains visual intent, tradeoffs, scarcity rules, and negative constraints.
+- If using tokens, keep them small and agent-usable: colors, typography, spacing, radius, and component state tokens. Prefer repo tokens, CSS variables, Tailwind theme values, or documented design-system values over invented values.
+- Keep token references consistent with prose. Do not describe a color, radius, type role, or interaction state that contradicts the token values.
 - Keep image-derived guidance honest: use language like "appears", "inferred", or "approximate" when the evidence is visual-only.
 - Prefer current repo tokens, components, and CSS variables over newly invented values.
 - Do not require every frontend task to run this skill. `docs/DESIGN.md` is a reusable artifact, not a mandatory phase.
 - Do not add marketing-page guidance unless the product actually needs marketing pages.
 - Do not replace visual QA. Route screenshot or browser proof to **b-browser**.
+- If the repo already uses a DESIGN.md linter or token exporter, run the narrowest relevant validation. Otherwise manually check section order, duplicate headings, broken token references, and contrast claims where practical.
 
 ## Output format
 
