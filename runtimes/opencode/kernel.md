@@ -53,9 +53,9 @@ RTK commands:
 
 Verification: `rtk --version`, `rtk gain`, `which rtk`
 
-When `rg`, `fdfind`, and `jq` are installed, use them as the required shell tools:
+When `rg`, `fd` or `fdfind`, and `jq` are installed, use them as the required shell tools:
 - `rg` replaces `grep` for text search.
-- `fdfind` replaces `find` for file discovery.
+- `fd` or `fdfind` replaces `find` for file discovery.
 - `jq` replaces `python -m json.tool`, `awk`, and `grep` for JSON inspection, formatting, and filtering.
 
 If one of these shell tools is missing and the task depends on it, prompt the user to install the shell tooling before falling back.
