@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUNTIME="${B_AGENTIC_RUNTIME:-claude-code}"
+RUNTIME="${B_AGENTIC_RUNTIME:-codex-cli}"
 HOME_DIR="$HOME"
 PRODUCTION=0
 

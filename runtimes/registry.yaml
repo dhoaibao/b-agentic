@@ -3,9 +3,44 @@
   "format": "json-subset-of-yaml",
   "runtimes": [
     {
+      "name": "codex-cli",
+      "display_name": "Codex CLI",
+      "reference_runtime": true,
+      "kernel_source": "runtimes/codex-cli/kernel.md",
+      "memory_file": "AGENTS.md",
+      "memory_install_path": "~/.codex/AGENTS.md",
+      "metadata_root": "~/.codex/b-agentic",
+      "skills_install_root": "~/.codex/skills",
+      "config_template_dir": "runtimes/codex-cli/configs",
+      "config_schema_family": "codex-toml",
+      "capabilities": {
+        "skills": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "permissions": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "rules": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "command_wrappers": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        }
+      },
+      "command_wrappers": {
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
+      }
+    },
+    {
       "name": "claude-code",
       "display_name": "Claude Code",
-      "reference_runtime": true,
+      "reference_runtime": false,
       "kernel_source": "runtimes/claude-code/kernel.md",
       "memory_file": "CLAUDE.md",
       "memory_install_path": "~/.claude/CLAUDE.md",
@@ -70,41 +105,6 @@
         "supported": true,
         "source_dir": "runtimes/opencode/commands",
         "install_root": "~/.config/opencode/commands"
-      }
-    },
-    {
-      "name": "codex-cli",
-      "display_name": "Codex CLI",
-      "reference_runtime": false,
-      "kernel_source": "runtimes/codex-cli/kernel.md",
-      "memory_file": "AGENTS.md",
-      "memory_install_path": "~/.codex/AGENTS.md",
-      "metadata_root": "~/.codex/b-agentic",
-      "skills_install_root": "~/.codex/skills",
-      "config_template_dir": "runtimes/codex-cli/configs",
-      "config_schema_family": "codex-toml",
-      "capabilities": {
-        "skills": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "permissions": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "rules": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "command_wrappers": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        }
-      },
-      "command_wrappers": {
-        "supported": false,
-        "source_dir": null,
-        "install_root": null
       }
     }
   ]

@@ -6,7 +6,7 @@ b-agentic installs a compact runtime kernel, focused phase skills, runtime adapt
 
 ## Install
 
-Default install for Claude Code:
+Default install for Codex CLI:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
@@ -18,7 +18,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `opencode` or `codex-cli`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `claude-code` or `opencode`. Use `--runtime=all` for every registered runtime.
 
 Default install writes b-agentic files and config only. Interactive installs prompt before installing or upgrading the selected runtime CLI. Non-interactive installs skip runtime CLI changes unless `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` explicitly opts in.
 
@@ -98,16 +98,16 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 
 | Runtime | Skill invocation | MCP config |
 |---|---|---|
+| Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
-| Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
 
 <!-- generated:runtime-capabilities:start -->
 | Runtime | Skills | Permissions | Rules | Wrappers |
 |---|---|---|---|---|
+| Codex CLI | native | native | native | unsupported |
 | Claude Code | native | native | native | unsupported |
 | OpenCode | native | native | native | native; adapter-only |
-| Codex CLI | native | native | native | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.

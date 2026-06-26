@@ -94,7 +94,7 @@ EOF
   B_AGENTIC_REPO="$sandbox_corrupt/missing-source" \
   B_AGENTIC_DIR="$sandbox_corrupt/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox_corrupt/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code --uninstall >"$sandbox_corrupt/uninstall.log" 2>&1
   rc=$?
   set -e
 
@@ -254,13 +254,13 @@ run_ref_install_case() {
   mkdir -p "$sandbox_ref/home" "$sandbox_invalid/home"
   install_ref="$(git -C "$snapshot_repo" rev-parse HEAD)"
 
-  expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --runtime=claude-code --ref="$install_ref"
+  expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --runtime=codex-cli --ref="$install_ref"
 
-  manifest_path="$sandbox_ref/home/.claude/b-agentic/install.json"
+  manifest_path="$sandbox_ref/home/.codex/b-agentic/install.json"
   assert_file "$manifest_path"
-  assert_json_value "$manifest_path" "data['runtime'] == 'claude-code'"
+  assert_json_value "$manifest_path" "data['runtime'] == 'codex-cli'"
 
-  rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --runtime=claude-code --ref=--bad)"
+  rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --runtime=codex-cli --ref=--bad)"
   [ "$rc" -ne 0 ] || fail "expected option-looking --ref value to fail safely"
 }
 
