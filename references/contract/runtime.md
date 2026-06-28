@@ -9,10 +9,10 @@ Use exactly one active skill for the user's current intent. If a request spans p
 <!-- generated:routing-intents:start -->
 | Intent | Skill |
 |---|---|
-| Decide how to build, decompose work | `b-plan` |
-| External docs, API facts, comparisons | `b-research` |
+| Clarify fuzzy work, compare approaches, decompose execution | `b-plan` |
+| External docs, API facts, versions, comparisons | `b-research` |
 | Frontend design standard and docs/DESIGN.md authoring | `b-design` |
-| Execute approved or clearly scoped work | `b-implement` |
+| Implement approved or clearly scoped work | `b-implement` |
 | Initialize repo-local agent instruction files | `b-init` |
 | Mechanical rename, extract, move, inline, simplify, delete | `b-refactor` |
 | Runtime bug, error, "not working" | `b-debug` |
@@ -36,7 +36,7 @@ Precedence:
 <!-- generated:routing-triggers:start -->
 | Skill | Triggers |
 |---|---|
-| `b-plan` | plan, decompose, approach, "how should I", implementation plan, clarify, requirements, scope |
+| `b-plan` | plan, decompose, approach, explore, not sure, figure out, "how should I", implementation plan, clarify, requirements, scope |
 | `b-research` | docs, library, API, compare, look up |
 | `b-design` | DESIGN.md, frontend design standard, design guidelines, style guide, visual style, visual design rules, design rules, from screenshot, from mockup, analyze mockup, analyze screenshot, design system docs |
 | `b-implement` | implement, add, build, execute, finish |

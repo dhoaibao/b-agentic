@@ -2,7 +2,7 @@
 
 $ARGUMENTS
 
-Answer external-knowledge questions at the lightest reliable depth, with sourced evidence.
+Fetch outside truth at the lightest reliable depth, with sourced evidence and a clear next step when action naturally follows.
 
 ## When to use
 
@@ -31,10 +31,11 @@ Answer external-knowledge questions at the lightest reliable depth, with sourced
 4. Use Brave to find authoritative/public/current sources when URLs are unknown.
 5. Use Firecrawl for bounded extraction from known public URLs. Ask before deep autonomous research, broad crawls, or private/internal material.
 6. Synthesize only from gathered evidence and cite sources.
+7. When the research points directly to a local code or config change, state that the next step belongs in **b-implement**; when uncertainty remains, say what is still unknown.
 
 ## Output format
 
-Direct answer, key evidence, limitations, sources, and confidence when not high.
+Direct answer, key evidence, limitations, sources, and confidence when not high. Include the next handoff only when it is naturally implied.
 
 ## Rules
 

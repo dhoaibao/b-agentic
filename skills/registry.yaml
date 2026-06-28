@@ -5,18 +5,21 @@
     {
       "name": "b-plan",
       "phase": "Decide",
-      "use": "Clarify unclear goals or turn a clear goal into an execution plan",
+      "use": "Figure out what to do when scope or approach is fuzzy, then produce an execution-ready plan",
       "command": {
         "alias": "b-plan",
-        "description": "Turn a goal into an execution-ready plan",
+        "description": "Explore unclear work and turn it into an execution-ready plan",
         "exposed": true
       },
       "routing": {
-        "intent": "Decide how to build, decompose work",
+        "intent": "Clarify fuzzy work, compare approaches, decompose execution",
         "triggers": [
           "plan",
           "decompose",
           "approach",
+          "explore",
+          "not sure",
+          "figure out",
           "\"how should I\"",
           "implementation plan",
           "clarify",
@@ -25,21 +28,21 @@
         ]
       },
       "prompt": {
-        "description": "Turn goals into execution-ready plans. Handles both underspecified requests (clarify first) and clear goals (plan directly). Decomposes work, chooses an approach, and writes ordered steps. Unlike b-implement, b-plan does not change code.",
+        "description": "Turn goals into execution-ready plans. Handles both underspecified requests and fuzzy problem statements by investigating enough to compare options, choose a path, and write ordered steps. Unlike b-implement, b-plan does not change code.",
         "argument_hint": "[task]"
       }
     },
     {
       "name": "b-research",
       "phase": "Decide",
-      "use": "Fetch external docs, API facts, comparisons, or recent evidence",
+      "use": "Fetch outside truth: docs, API facts, comparisons, or recent evidence",
       "command": {
         "alias": "b-research",
-        "description": "Fetch external docs, API facts, and recent evidence",
+        "description": "Fetch outside truth from docs, APIs, and current sources",
         "exposed": true
       },
       "routing": {
-        "intent": "External docs, API facts, comparisons",
+        "intent": "External docs, API facts, versions, comparisons",
         "triggers": [
           "docs",
           "library",
@@ -49,7 +52,7 @@
         ]
       },
       "prompt": {
-        "description": "External knowledge, from quick lookup to multi-source synthesis, for library/framework docs, API facts, config keys, method signatures, comparisons, deep dives, or recency-sensitive topics. Auto-detects depth; never asks the user to pick a mode. Unlike b-debug or b-plan, it fetches docs and web information rather than tracing code or choosing implementation.",
+        "description": "External knowledge, from quick lookup to multi-source synthesis, for library/framework docs, API facts, config keys, method signatures, comparisons, deep dives, or recency-sensitive topics. Auto-detects depth, answers with sources, and hands off to implementation when the next action is obvious. Unlike b-debug or b-plan, it fetches docs and web information rather than tracing code or choosing implementation.",
         "argument_hint": "[question-or-source]"
       }
     },
@@ -87,14 +90,14 @@
     {
       "name": "b-implement",
       "phase": "Build",
-      "use": "Execute approved plans or small direct requests",
+      "use": "Make the scoped change from an approved plan or a small direct request",
       "command": {
         "alias": "b-implement",
-        "description": "Execute an approved plan or small direct request",
+        "description": "Make the scoped change from an approved plan or direct request",
         "exposed": true
       },
       "routing": {
-        "intent": "Execute approved or clearly scoped work",
+        "intent": "Implement approved or clearly scoped work",
         "triggers": [
           "implement",
           "add",
@@ -104,7 +107,7 @@
         ]
       },
       "prompt": {
-        "description": "Execute approved or scoped work safely after b-plan approval, when the user asks to execute or implement scoped work, or when a direct request is small and clearly scoped. Reads the approved plan, applies the next small step, verifies it, and stops for new decisions. Unlike b-plan, b-implement changes code.",
+        "description": "Execute approved or scoped work safely after b-plan approval, when the user asks to implement scoped work, or when a direct request is small and clear. Applies the next small step, verifies it, and hands back to planning or research instead of guessing when new ambiguity appears. Unlike b-plan, b-implement changes code.",
         "argument_hint": "[plan-path-or-task]"
       }
     },
@@ -162,10 +165,10 @@
     {
       "name": "b-debug",
       "phase": "Validate",
-      "use": "Confirm runtime root cause and fix minimally",
+      "use": "Find the real runtime root cause and fix it minimally",
       "command": {
         "alias": "b-debug",
-        "description": "Diagnose and fix a runtime bug or broken behavior",
+        "description": "Find the root cause of broken runtime behavior and fix it minimally",
         "exposed": true
       },
       "routing": {
@@ -182,7 +185,7 @@
         ]
       },
       "prompt": {
-        "description": "Systematic hypothesis-driven debugging for runtime bugs, errors, broken behavior, slow paths, memory issues, and stack traces. Traces execution, confirms root cause, then fixes minimally and verifies. Unlike b-test, b-debug owns runtime behavior failures, not test-mechanic issues such as wrong assertions, mocks, or fixtures.",
+        "description": "Systematic hypothesis-driven debugging for runtime bugs, errors, broken behavior, slow paths, memory issues, and stack traces. Traces execution, confirms root cause, then fixes minimally and verifies. When the issue is not yet a confirmed product bug, it should hand off cleanly instead of guessing. Unlike b-test, b-debug owns runtime behavior failures, not test-mechanic issues such as wrong assertions, mocks, or fixtures.",
         "argument_hint": "[symptom-or-error]"
       }
     },

@@ -119,13 +119,13 @@ Permission defaults follow each runtime's native model, so the baseline differs:
 <!-- generated:skills-table:start -->
 | Skill | Phase | Use |
 |---|---|---|
-| `b-plan` | Decide | Clarify unclear goals or turn a clear goal into an execution plan |
-| `b-research` | Decide | Fetch external docs, API facts, comparisons, or recent evidence |
+| `b-plan` | Decide | Figure out what to do when scope or approach is fuzzy, then produce an execution-ready plan |
+| `b-research` | Decide | Fetch outside truth: docs, API facts, comparisons, or recent evidence |
 | `b-design` | Decide | Create or refresh docs/DESIGN.md as a frontend design standard |
-| `b-implement` | Build | Execute approved plans or small direct requests |
+| `b-implement` | Build | Make the scoped change from an approved plan or a small direct request |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
-| `b-debug` | Validate | Confirm runtime root cause and fix minimally |
+| `b-debug` | Validate | Find the real runtime root cause and fix it minimally |
 | `b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `b-review` | Validate | Review changed code or run a b-agentic suite self-audit |

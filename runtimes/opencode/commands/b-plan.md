@@ -1,5 +1,5 @@
 ---
-description: Turn a goal into an execution-ready plan
+description: Explore unclear work and turn it into an execution-ready plan
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

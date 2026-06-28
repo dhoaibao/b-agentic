@@ -1,5 +1,5 @@
 ---
-description: Diagnose and fix a runtime bug or broken behavior
+description: Find the root cause of broken runtime behavior and fix it minimally
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

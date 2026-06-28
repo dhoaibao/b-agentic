@@ -2,10 +2,10 @@
 name: b-implement
 description: >
   Execute approved or scoped work safely after b-plan approval, when the
-  user asks to execute or implement scoped work, or when a direct request
-  is small and clearly scoped. Reads the approved plan, applies the next
-  small step, verifies it, and stops for new decisions. Unlike b-plan,
-  b-implement changes code.
+  user asks to implement scoped work, or when a direct request is small
+  and clear. Applies the next small step, verifies it, and hands back to
+  planning or research instead of guessing when new ambiguity appears.
+  Unlike b-plan, b-implement changes code.
 argument-hint: "[plan-path-or-task]"
 ---
 
@@ -15,7 +15,7 @@ argument-hint: "[plan-path-or-task]"
 
 $ARGUMENTS
 
-Execute approved or clearly scoped work in the smallest coherent step.
+Make the scoped change in the smallest coherent step, and hand back to planning or research instead of guessing when new ambiguity appears.
 
 ## When to use
 
@@ -47,6 +47,7 @@ Execute approved or clearly scoped work in the smallest coherent step.
 6. Edit the smallest coherent slice. Use Serena for symbol work and native edits for prose/config/string changes.
 7. Run the narrowest useful verification that proves the requested observable outcome.
 8. Inspect the diff and report changes, verification, and remaining gaps.
+9. If new uncertainty, missing external facts, or scope drift appears, stop and hand back to **b-plan** or **b-research** instead of silently expanding the task.
 
 For substantial approved plans where subagents are available, use them only when they reduce risk or context pressure. Provide full task text and curated context, implement one task at a time, verify subagent claims independently, and review requirements compliance before code quality.
 
@@ -61,4 +62,5 @@ Changes, verification, and any blockers or follow-up. Recommend **b-review** for
 - Ask before dependencies, services, destructive commands, commits, pushes, PRs, or broad refactors.
 - Do not add opportunistic cleanup or compatibility code.
 - Do not make subagent orchestration mandatory for small direct edits.
+- Do not push through newly discovered ambiguity; route it explicitly.
 - Do not claim done when required verification is missing or failed.

@@ -1,5 +1,5 @@
 ---
-description: Execute an approved plan or small direct request
+description: Make the scoped change from an approved plan or direct request
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

@@ -2,7 +2,7 @@
 
 $ARGUMENTS
 
-Confirm root cause, fix minimally, verify, and remove probes.
+Find the real cause of broken behavior, fix it minimally, verify it, and hand off cleanly if the problem turns out to be planning or external knowledge instead.
 
 ## When to use
 
@@ -30,10 +30,11 @@ Confirm root cause, fix minimally, verify, and remove probes.
 5. Confirm root cause before fixing. Use probes only when cheaper evidence is insufficient and remove them.
 6. Apply the smallest fix that addresses the confirmed cause.
 7. Run the original feedback loop or narrowest check proving the intended symptom changed. For perf, measure before and after.
+8. If the issue is not yet a confirmed bug, say whether the next step belongs in **b-plan**, **b-research**, or **b-test**.
 
 ## Output format
 
-Symptom, root cause, fix, verification, and cleanup state.
+Symptom, root cause, fix, verification, and cleanup state. Include a handoff only when the work should continue in another skill.
 
 ## Rules
 

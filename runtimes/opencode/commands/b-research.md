@@ -1,5 +1,5 @@
 ---
-description: Fetch external docs, API facts, and recent evidence
+description: Fetch outside truth from docs, APIs, and current sources
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->
