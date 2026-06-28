@@ -30,19 +30,19 @@ Prefer source files over generated files. Rerender generated assets only after s
 | CodeGraph | Pre-indexed code structure, architectural flows, call graphs, impact radius, and affected-test discovery. |
 | Serena | Symbol discovery, declarations, references, diagnostics, and symbol-aware edits. |
 | Context7 | Versioned official library/framework docs when API details affect the answer or implementation. |
-| Brave Search | Public/current discovery, recent facts, unknown URLs, news, and source finding. |
-| Firecrawl | Extraction from known public URLs, site maps, structured fields, and approved deep research. |
+| Brave Search | Secondary public/current discovery, recent facts, unknown URLs, news, and source finding when Firecrawl search is unavailable or a second search lens is useful. |
+| Firecrawl | Primary public web search plus extraction from known public URLs, site maps, structured fields, and approved deep research. |
 | Playwright | Live browser, DOM, screenshot, console/network, visual, and e2e evidence. |
 
 Firecrawl autonomous/deep research, crawling, and any external mutation require explicit approval or a run-scoped user cap. Firecrawl monitor creation/update/delete is not part of the default b-agentic workflow.
 
 ### Local Tool Bootstrap
 
-For repo work, initialize local code-intelligence tools when available and appropriate for the repository:
-- Run `codegraph init` when `codegraph` is installed, the project has no CodeGraph index, and local index files are acceptable in this worktree.
+For repo work, use local code-intelligence tools when they are already available and configured for the repository:
+- If `codegraph` is installed but the project has no index, tell the user that `codegraph init` is the optional local setup step when an index would help.
 - Run Serena onboarding when Serena is installed and onboarding has not been run.
 
-These are local project setup steps. Do not install missing tools here; use installer and readiness guidance instead.
+Do not install missing tools or create new local indexes here without explicit user approval; use installer and readiness guidance instead.
 
 Fallbacks:
 - CodeGraph unavailable or uninitialized -> use Serena plus local search/reads for structure and impact mapping.

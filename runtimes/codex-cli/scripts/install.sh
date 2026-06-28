@@ -65,6 +65,7 @@ runtime_mcp_key_configured() {
 
 runtime_warn_missing_cli() {
   command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
+  command -v pnpm >/dev/null 2>&1 || warn "pnpm not found; MCP servers that use 'pnpm dlx' (Brave, Firecrawl, Playwright) will not start until pnpm is installed."
 }
 
 runtime_cli_installed() {

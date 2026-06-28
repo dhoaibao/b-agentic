@@ -5,9 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME="${B_AGENTIC_RUNTIME:-codex-cli}"
 HOME_DIR="$HOME"
 PRODUCTION=0
+ACTIVE=0
 
 usage() {
-  printf 'usage: %s [--runtime=<name>] [--home=<path>] [--production]\n' "${BASH_SOURCE[0]}" >&2
+  printf 'usage: %s [--runtime=<name>] [--home=<path>] [--production] [--active]\n' "${BASH_SOURCE[0]}" >&2
 }
 
 while [ "$#" -gt 0 ]; do
@@ -20,6 +21,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --production)
       PRODUCTION=1
+      ;;
+    --active)
+      ACTIVE=1
       ;;
     *)
       usage
@@ -45,6 +49,12 @@ else
   python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" || mcp_rc=$?
 fi
 
+active_rc=0
+if [ "$ACTIVE" -eq 1 ]; then
+  printf '\nActive runtime probes:\n'
+  python3 "$ROOT_DIR/tooling/validate/runtime_acceptance.py" --runtime="$RUNTIME" --home "$HOME_DIR" || active_rc=$?
+fi
+
 cat <<'EOF'
 
 Fresh-session gates to verify manually in the selected runtime:
@@ -67,5 +77,11 @@ if [ "$PRODUCTION" -eq 1 ] && [ "$mcp_rc" -ne 0 ]; then
 fi
 if [ "$overall_rc" -eq 0 ] && [ "$mcp_rc" -ne 0 ]; then
   overall_rc="$mcp_rc"
+fi
+if [ "$ACTIVE" -eq 1 ] && [ "$active_rc" -ne 0 ]; then
+  printf '\nActive runtime probes failed or were blocked; inspect the output above.\n' >&2
+  if [ "$overall_rc" -eq 0 ]; then
+    overall_rc="$active_rc"
+  fi
 fi
 exit "$overall_rc"

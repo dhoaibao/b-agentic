@@ -1341,6 +1341,163 @@ run_runtime_acceptance_case() {
   assert_not_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
 }
 
+run_active_runtime_acceptance_case() {
+  local snapshot_repo="$1"
+  local sandbox_claude="$WORK_DIR/runtime-acceptance-active-claude"
+  local sandbox_codex="$WORK_DIR/runtime-acceptance-active-codex"
+  local sandbox_opencode="$WORK_DIR/runtime-acceptance-active-opencode"
+  local bin_dir="$WORK_DIR/runtime-acceptance-active-bin"
+  local acceptance_log="$WORK_DIR/runtime-acceptance-active.log"
+
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
+
+  cat > "$bin_dir/serena" <<'EOF'
+#!/usr/bin/env bash
+python3 - <<'PY'
+import json
+import os
+import sys
+
+log_path = os.environ.get("B_AGENTIC_ACCEPTANCE_MCP_LOG")
+
+def read_message():
+    headers = {}
+    while True:
+        line = sys.stdin.buffer.readline()
+        if not line:
+            return None
+        if line in (b"\r\n", b"\n"):
+            break
+        key, value = line.decode("utf-8").split(":", 1)
+        headers[key.lower()] = value.strip()
+    length = int(headers.get("content-length", "0"))
+    if length <= 0:
+        return None
+    return json.loads(sys.stdin.buffer.read(length).decode("utf-8"))
+
+def send(message):
+    payload = json.dumps(message).encode("utf-8")
+    sys.stdout.buffer.write(f"Content-Length: {len(payload)}\r\n\r\n".encode("utf-8"))
+    sys.stdout.buffer.write(payload)
+    sys.stdout.buffer.flush()
+
+while True:
+    message = read_message()
+    if message is None:
+        break
+    method = message.get("method")
+    if method == "initialize":
+        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {"protocolVersion": "2024-11-05", "serverInfo": {"name": "smoke-serena", "version": "0.1.0"}, "capabilities": {"tools": {}}}})
+    elif method == "tools/list":
+        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {"tools": [{"name": "acceptance_probe", "description": "smoke sentinel", "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}}]}})
+    elif method == "tools/call":
+        if log_path:
+            with open(log_path, "a", encoding="utf-8") as handle:
+                handle.write("ACCEPTANCE_MCP_TOOL_CALLED\n")
+        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {"content": [{"type": "text", "text": "ACCEPTANCE_MCP_OK"}]}})
+    elif method == "ping":
+        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {}})
+    elif "id" in message:
+        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {}})
+PY
+EOF
+  printf '#!/usr/bin/env bash
+exit 0
+' > "$bin_dir/codegraph"
+  printf '#!/usr/bin/env bash
+exit 0
+' > "$bin_dir/pnpm"
+
+  cat > "$bin_dir/claude" <<'EOF'
+#!/usr/bin/env bash
+prompt="${@: -1}"
+case "$prompt" in
+  *"Detailed contract refs live under"*) printf '%s\n' '~/.claude/b-agentic/references/contract/' ;;
+  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
+  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
+  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
+  *"git reset --hard"*) printf '%s\n' 'denied' ;;
+  *) printf '%s\n' 'unexpected claude prompt' ;;
+esac
+EOF
+
+  cat > "$bin_dir/codex" <<'EOF'
+#!/usr/bin/env bash
+output=""
+last=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o)
+      output="$2"
+      shift 2
+      continue
+      ;;
+  esac
+  last="$1"
+  shift
+done
+case "$last" in
+  *"Detailed contract refs live under"*) result='~/.codex/b-agentic/references/contract/' ;;
+  *"Write a commit message, PR title, and PR description for the staged changes."*) result='BLOCKED: no changes to summarize' ;;
+  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; result='ACCEPTANCE_MCP_OK' ;;
+  *"git commit -m test"*) result='approval required' ;;
+  *"git reset --hard"*) result='denied' ;;
+  *) result='unexpected codex prompt' ;;
+esac
+if [ -n "$output" ]; then
+  printf '%s\n' "$result" > "$output"
+else
+  printf '%s\n' "$result"
+fi
+EOF
+
+  cat > "$bin_dir/opencode" <<'EOF'
+#!/usr/bin/env bash
+last="${@: -1}"
+case "$last" in
+  *"Detailed contract refs live under"*) printf '%s\n' '~/.config/opencode/b-agentic/references/contract/' ;;
+  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
+  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
+  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
+  *"git reset --hard"*) printf '%s\n' 'denied' ;;
+  *) printf '%s\n' 'unexpected opencode prompt' ;;
+esac
+EOF
+
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode"
+
+  expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
+  PATH="$bin_dir:$(smoke_system_path)" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=claude-code --home="$sandbox_claude/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'Active runtime probes:'
+  assert_contains "$acceptance_log" 'kernel: ready: ~/.claude/b-agentic/references/contract/'
+  assert_contains "$acceptance_log" 'skill: ready: BLOCKED: no changes to summarize'
+  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
+  assert_contains "$acceptance_log" 'approval-gate: ready:'
+  assert_contains "$acceptance_log" 'deny-gate: ready:'
+
+  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
+  PATH="$bin_dir:$(smoke_system_path)" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=codex-cli --home="$sandbox_codex/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'kernel: ready: ~/.codex/b-agentic/references/contract/'
+  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
+
+  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
+  PATH="$bin_dir:$(smoke_system_path)" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox_opencode/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'kernel: ready: ~/.config/opencode/b-agentic/references/contract/'
+  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
+}
+
 main() {
   local snapshot_repo="$WORK_DIR/repo-snapshot"
   local runtime_name runtime_script
@@ -1370,6 +1527,7 @@ main() {
   run_existing_tool_default_skip_case "$snapshot_repo"
   run_skill_doctor_case "$snapshot_repo"
   run_runtime_acceptance_case "$snapshot_repo"
+  run_active_runtime_acceptance_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue

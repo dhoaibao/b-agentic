@@ -150,8 +150,8 @@ The installer writes recommended MCP entries for:
 - Serena: symbol discovery, references, diagnostics, and symbol edits.
 - CodeGraph: local pre-indexed code structure, flows, impact radius, and affected tests.
 - Context7: versioned library/framework docs.
-- Brave Search: public/current discovery.
-- Firecrawl: bounded extraction and approved deeper research.
+- Firecrawl: primary public web search, bounded extraction, and approved deeper research.
+- Brave Search: secondary public/current discovery and alternate source finding.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
 The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It does report local MCP readiness blockers such as missing binaries or API keys.
@@ -188,7 +188,7 @@ scripts/skill-doctor.sh --runtime=opencode
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
 
-Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates.
+Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates. Add `--active` to run local noninteractive runtime probes for kernel loading, skill routing, MCP tool-call evidence, and approval/deny signals without Git side effects.
 
 Production acceptance for each runtime should include a fresh-session check:
 
