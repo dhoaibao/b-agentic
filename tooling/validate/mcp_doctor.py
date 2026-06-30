@@ -294,7 +294,7 @@ def antigravity_server_status(server: str, config: dict) -> str:
     normalized = normalize_server(entry, RuntimeStyle.ANTIGRAVITY)
 
     if server == "serena":
-        return _check_serena(normalized, "antigravity-cli")
+        return _check_serena(normalized, "ide")
     if server == "context7":
         if entry.get("type") != "remote" or entry.get("serverUrl") != CONTEXT7_URL:
             return "blocked: invalid context7 config"
