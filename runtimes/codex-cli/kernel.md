@@ -24,6 +24,7 @@ Use these rules before any skill-specific instruction.
 - Frontend design standard or `docs/DESIGN.md` authoring -> `b-design`.
 - External docs/API/current facts -> `b-research`.
 - Approved plan or small direct build -> `b-implement`.
+- Initialize or refresh repo-local agent instruction docs -> `b-init`.
 - Named behavior-preserving rename/extract/move/inline/simplify/delete -> `b-refactor`.
 - Runtime bug, broken behavior, stack trace, slowdown -> `b-debug`.
 - Unit/integration/contract/component/simulated-DOM tests -> `b-test`.
