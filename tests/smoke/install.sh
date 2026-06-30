@@ -569,7 +569,33 @@ PY
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
 
-  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
+  set +e
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" --production >"$doctor_log"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Codex production MCP doctor to pass with pinned defaults, got $rc"
+
+  rc=0
+  set +e
+  HOME="$sandbox_opencode/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_opencode")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox_opencode/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
+  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected opencode mutable-playwright install exit 0, got $rc"
+
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
@@ -1288,7 +1314,23 @@ run_runtime_acceptance_case() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
   chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=opencode
+  rc=0
+  set +e
+  HOME="$sandbox/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
+  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected runtime acceptance mutable-playwright install exit 0, got $rc"
+
   set +e
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \

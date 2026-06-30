@@ -17,9 +17,9 @@ sys.path.insert(0, str(ROOT / "tooling" / "install"))
 from jsonc import loads as load_jsonc
 SUPPORTED_SERVERS = ("serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright")
 DEFAULT_PACKAGES = {
-    "brave-search": "@brave/brave-search-mcp-server",
-    "firecrawl": "firecrawl-mcp",
-    "playwright": "@playwright/mcp@latest",
+    "brave-search": "@brave/brave-search-mcp-server@2.0.85",
+    "firecrawl": "firecrawl-mcp@3.22.1",
+    "playwright": "@playwright/mcp@0.0.77",
 }
 PRODUCTION_MODE = False
 PACKAGE_OVERRIDE_ENVS = {

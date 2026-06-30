@@ -193,9 +193,9 @@ template_servers = template.get("mcp_servers")
 if not isinstance(template_servers, dict):
     raise SystemExit("invalid Codex MCP template: missing mcp_servers table")
 package_overrides = {
-    "brave-search": os.environ.get("B_AGENTIC_BRAVE_MCP_PACKAGE", "@brave/brave-search-mcp-server"),
-    "firecrawl": os.environ.get("B_AGENTIC_FIRECRAWL_MCP_PACKAGE", "firecrawl-mcp"),
-    "playwright": os.environ.get("B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE", "@playwright/mcp@latest"),
+    "brave-search": os.environ.get("B_AGENTIC_BRAVE_MCP_PACKAGE", "@brave/brave-search-mcp-server@2.0.85"),
+    "firecrawl": os.environ.get("B_AGENTIC_FIRECRAWL_MCP_PACKAGE", "firecrawl-mcp@3.22.1"),
+    "playwright": os.environ.get("B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE", "@playwright/mcp@0.0.77"),
 }
 
 current_servers = current.get("mcp_servers") if isinstance(current.get("mcp_servers"), dict) else {}

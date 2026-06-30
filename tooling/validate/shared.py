@@ -214,7 +214,7 @@ for skill_name, markers in required_prompt_markers.items():
             errors.append(f"{rel(prompt)}: missing behavior marker {marker!r}")
 
 MCP_SERVERS = {"serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright"}
-LOCAL_TOOLS = {"bash", "gh"}
+LOCAL_TOOLS = {"bash"}
 KNOWN_TOOLS = MCP_SERVERS | LOCAL_TOOLS
 
 

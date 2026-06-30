@@ -20,21 +20,21 @@
     },
     "brave-search": {
       "type": "local",
-      "command": ["pnpm", "dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"],
+      "command": ["pnpm", "dlx", "@brave/brave-search-mcp-server@2.0.85", "--transport", "stdio"],
       "environment": {
         "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
       }
     },
     "firecrawl": {
       "type": "local",
-      "command": ["pnpm", "dlx", "firecrawl-mcp"],
+      "command": ["pnpm", "dlx", "firecrawl-mcp@3.22.1"],
       "environment": {
         "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
       }
     },
     "playwright": {
       "type": "local",
-      "command": ["pnpm", "dlx", "@playwright/mcp@latest", "--isolated"]
+      "command": ["pnpm", "dlx", "@playwright/mcp@0.0.77", "--isolated"]
     }
   },
   "permission": {

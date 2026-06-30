@@ -402,9 +402,9 @@ def migrate_managed_values(data):
         return
 
     managed_packages = {
-        'brave-search': {'@brave/brave-search-mcp-server'},
-        'firecrawl': {'firecrawl-mcp'},
-        'playwright': {'@playwright/mcp@latest'},
+        'brave-search': {'@brave/brave-search-mcp-server', '@brave/brave-search-mcp-server@2.0.85'},
+        'firecrawl': {'firecrawl-mcp', 'firecrawl-mcp@3.22.1'},
+        'playwright': {'@playwright/mcp@latest', '@playwright/mcp@0.0.77'},
     }
     package_override_env = {
         'brave-search': 'B_AGENTIC_BRAVE_MCP_PACKAGE',
@@ -1325,6 +1325,7 @@ print_install_report_next_steps() {
 
   report_item "manifest" "review $MANIFEST_DST for installed paths and backup metadata"
   report_item "keys" "add user-scope API keys only if you plan to use Context7, Brave Search, or Firecrawl"
+  report_item "serena" "run 'serena onboarding' if this is a fresh Serena install; the installer does not run it automatically"
   report_item "codegraph" "rerun interactively to accept the CodeGraph prompt, or install manually; then run codegraph init in repos where you want pre-indexed code context"
   report_item "rtk" "rerun interactively to accept the RTK prompt, or install manually to reduce shell command token usage"
 }
@@ -1337,9 +1338,9 @@ install_mcp_config() {
   env \
     TEMPLATE_SRC="$template_src" \
     TEMPLATE_DST="$rendered_template" \
-    B_AGENTIC_BRAVE_MCP_PACKAGE="${B_AGENTIC_BRAVE_MCP_PACKAGE:-@brave/brave-search-mcp-server}" \
-    B_AGENTIC_FIRECRAWL_MCP_PACKAGE="${B_AGENTIC_FIRECRAWL_MCP_PACKAGE:-firecrawl-mcp}" \
-    B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE="${B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE:-@playwright/mcp@latest}" \
+    B_AGENTIC_BRAVE_MCP_PACKAGE="${B_AGENTIC_BRAVE_MCP_PACKAGE:-@brave/brave-search-mcp-server@2.0.85}" \
+    B_AGENTIC_FIRECRAWL_MCP_PACKAGE="${B_AGENTIC_FIRECRAWL_MCP_PACKAGE:-firecrawl-mcp@3.22.1}" \
+    B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE="${B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE:-@playwright/mcp@0.0.77}" \
     python3 - <<'PY'
 import json
 import os

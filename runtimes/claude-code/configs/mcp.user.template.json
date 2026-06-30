@@ -31,7 +31,7 @@
     "brave-search": {
       "type": "stdio",
       "command": "pnpm",
-      "args": ["dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"],
+      "args": ["dlx", "@brave/brave-search-mcp-server@2.0.85", "--transport", "stdio"],
       "env": {
         "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       }
@@ -39,7 +39,7 @@
     "firecrawl": {
       "type": "stdio",
       "command": "pnpm",
-      "args": ["dlx", "firecrawl-mcp"],
+      "args": ["dlx", "firecrawl-mcp@3.22.1"],
       "env": {
         "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
       }
@@ -47,7 +47,7 @@
     "playwright": {
       "type": "stdio",
       "command": "pnpm",
-      "args": ["dlx", "@playwright/mcp@latest", "--isolated"],
+      "args": ["dlx", "@playwright/mcp@0.0.77", "--isolated"],
       "env": {}
     }
   }

@@ -40,11 +40,11 @@ Useful flags:
 
 Production pinning knobs:
 
-- `B_AGENTIC_BRAVE_MCP_PACKAGE` overrides `@brave/brave-search-mcp-server`
-- `B_AGENTIC_FIRECRAWL_MCP_PACKAGE` overrides `firecrawl-mcp`
-- `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@latest`
+- `B_AGENTIC_BRAVE_MCP_PACKAGE` overrides `@brave/brave-search-mcp-server@2.0.85`
+- `B_AGENTIC_FIRECRAWL_MCP_PACKAGE` overrides `firecrawl-mcp@3.22.1`
+- `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@0.0.77`
 
-Set these package overrides to exact package versions in professional environments. The defaults are convenience launchers and may resolve newer MCP package code over time.
+Set these package overrides to exact package versions in professional environments. The defaults are pinned, but you can override them when you need a different version or your own package.
 
 Run `scripts/mcp-doctor.sh --runtime=<name> --production` after setting package overrides and API keys to make mutable or unmatched MCP launchers, missing keys, and missing local commands fail readiness instead of only reporting advisory blockers.
 
