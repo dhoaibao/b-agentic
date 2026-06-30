@@ -1,6 +1,6 @@
 # b-agentic
 
-**Slim workflow kernel for coding agents across Claude Code, OpenCode, and Codex CLI.**
+**Slim workflow kernel for coding agents across Claude Code, OpenCode, Codex CLI, and Kilo Code.**
 
 b-agentic installs a compact runtime kernel, focused phase skills, runtime adapters, and recommended MCP config. Its job is simple: route work, preserve safety gates, use the right evidence, verify before claiming done, and keep multi-runtime setup consistent.
 
@@ -18,7 +18,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `claude-code` or `opencode`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `codex-cli`, `claude-code`, `opencode`, or `kilo-code`. Use `--runtime=all` for every registered runtime.
 
 Default install writes b-agentic files and config only. Interactive installs prompt before installing or upgrading the selected runtime CLI. Non-interactive installs skip runtime CLI changes unless `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` explicitly opts in.
 
@@ -101,6 +101,7 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 | Codex CLI | `/skills`, `$skill-name`, or implicit matching | `~/.codex/config.toml` |
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
+| Kilo Code | Native skill tool from `~/.kilo/skills/` | `~/.config/kilo/kilo.jsonc` |
 
 <!-- generated:runtime-capabilities:start -->
 | Runtime | Skills | Permissions | Rules | Wrappers |
@@ -108,11 +109,12 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 | Codex CLI | native | native | native | unsupported |
 | Claude Code | native | native | native | unsupported |
 | OpenCode | native | native | native | native; adapter-only |
+| Kilo Code | native | native | native | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
-Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex CLI applies managed rules to commands that request to run outside the sandbox; and OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools. On top of that baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled.
+Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex CLI applies managed rules to commands that request to run outside the sandbox; and OpenCode and Kilo Code default unlisted shell commands to `ask` while allow-listing read-only and required tools. On top of that baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled.
 
 ## Skills
 
@@ -181,9 +183,12 @@ scripts/mcp-doctor.sh --runtime=claude-code
 scripts/mcp-doctor.sh --runtime=codex-cli
 scripts/mcp-doctor.sh --runtime=opencode
 scripts/mcp-doctor.sh --runtime=opencode --production
+scripts/mcp-doctor.sh --runtime=kilo-code
+scripts/mcp-doctor.sh --runtime=kilo-code --production
 scripts/skill-doctor.sh --runtime=claude-code
 scripts/skill-doctor.sh --runtime=codex-cli
 scripts/skill-doctor.sh --runtime=opencode
+scripts/skill-doctor.sh --runtime=kilo-code
 ```
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.

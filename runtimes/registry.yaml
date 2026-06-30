@@ -12,6 +12,7 @@
       "metadata_root": "~/.codex/b-agentic",
       "skills_install_root": "~/.codex/skills",
       "config_template_dir": "runtimes/codex-cli/configs",
+      "config_install_path": "~/.codex/config.toml",
       "config_schema_family": "codex-toml",
       "capabilities": {
         "skills": {
@@ -47,6 +48,7 @@
       "metadata_root": "~/.claude/b-agentic",
       "skills_install_root": "~/.claude/skills",
       "config_template_dir": "runtimes/claude-code/configs",
+      "config_install_path": "~/.claude.json",
       "config_schema_family": "claude-user-config",
       "capabilities": {
         "skills": {
@@ -82,6 +84,7 @@
       "metadata_root": "~/.config/opencode/b-agentic",
       "skills_install_root": "~/.config/opencode/skills",
       "config_template_dir": "runtimes/opencode/configs",
+      "config_install_path": "~/.config/opencode/opencode.json",
       "config_schema_family": "opencode-json",
       "capabilities": {
         "skills": {
@@ -105,6 +108,42 @@
         "supported": true,
         "source_dir": "runtimes/opencode/commands",
         "install_root": "~/.config/opencode/commands"
+      }
+    },
+    {
+      "name": "kilo-code",
+      "display_name": "Kilo Code",
+      "reference_runtime": false,
+      "kernel_source": "runtimes/kilo-code/kernel.md",
+      "memory_file": "AGENTS.md",
+      "memory_install_path": "~/.config/kilo/AGENTS.md",
+      "metadata_root": "~/.kilo/b-agentic",
+      "skills_install_root": "~/.kilo/skills",
+      "config_template_dir": "runtimes/kilo-code/configs",
+      "config_install_path": "~/.config/kilo/kilo.jsonc",
+      "config_schema_family": "opencode-json",
+      "capabilities": {
+        "skills": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "permissions": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "rules": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "command_wrappers": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        }
+      },
+      "command_wrappers": {
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
       }
     }
   ]

@@ -47,7 +47,7 @@ def resolve_runtime_paths(runtime: dict, home: Path) -> dict[str, Path]:
     if isinstance(wrappers, dict) and wrappers.get("supported") and isinstance(wrappers.get("install_root"), str):
         paths["command"] = expand_home(wrappers["install_root"], home) / "b-plan.md"
     if runtime.get("config_schema_family") == "codex-toml":
-        paths["config"] = home / ".codex" / "config.toml"
+        paths["config"] = expand_home(runtime["config_install_path"], home)
     return paths
 
 

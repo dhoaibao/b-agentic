@@ -291,6 +291,9 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         ensure_string(runtime.get("metadata_root"), f"runtimes[{index}].metadata_root", errors)
         ensure_string(runtime.get("skills_install_root"), f"runtimes[{index}].skills_install_root", errors)
         ensure_string(runtime.get("config_template_dir"), f"runtimes[{index}].config_template_dir", errors)
+        config_install_path = ensure_string(runtime.get("config_install_path"), f"runtimes[{index}].config_install_path", errors)
+        if config_install_path and not config_install_path.startswith("~/"):
+            errors.append(f"runtimes[{index}].config_install_path: must use a ~/ path")
         config_schema_family = ensure_string(runtime.get("config_schema_family"), f"runtimes[{index}].config_schema_family", errors)
         if config_schema_family and config_schema_family not in RUNTIME_CONFIG_SCHEMA_FAMILIES:
             errors.append(

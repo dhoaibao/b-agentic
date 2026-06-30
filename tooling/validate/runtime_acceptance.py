@@ -123,6 +123,21 @@ class OpenCodeProbe(RuntimeProbe):
         return completed.returncode, completed.stdout, completed.stderr
 
 
+class KiloProbe(RuntimeProbe):
+    def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
+        if cwd is None:
+            raise ValueError("KiloProbe.run requires a working directory")
+        command = [self.cli_path, "run", prompt]
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            env=self.env(extra_path),
+            capture_output=True,
+            text=True,
+        )
+        return completed.returncode, completed.stdout, completed.stderr
+
+
 def load_runtime(runtime_name: str) -> dict:
     data = json.loads((ROOT / "runtimes" / "registry.yaml").read_text())
     for runtime in data.get("runtimes", []):
@@ -145,6 +160,8 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         cli_path = shutil.which("opencode")
     elif runtime_name == "codex-cli":
         cli_path = shutil.which("codex")
+    elif runtime_name == "kilo-code":
+        cli_path = shutil.which("kilo")
 
     if cli_path is None:
         raise SystemExit(f"runtime CLI not found on PATH for {runtime_name}")
@@ -161,6 +178,8 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         return CodexProbe(**common)
     if runtime_name == "opencode":
         return OpenCodeProbe(**common)
+    if runtime_name == "kilo-code":
+        return KiloProbe(**common)
     raise SystemExit(f"unsupported runtime: {runtime_name}")
 
 
@@ -332,9 +351,12 @@ def probe_mcp_launch(probe: RuntimeProbe) -> ProbeResult:
             with tempfile.NamedTemporaryFile(prefix="b-agentic-codex-last-message-", delete=False) as handle:
                 output_path = Path(handle.name)
             command = [probe.cli_path, "exec", "--skip-git-repo-check", "--ephemeral", "-C", str(repo), "-o", str(output_path), prompt]
-        else:
+        elif isinstance(probe, OpenCodeProbe):
             output_path = None
             command = [probe.cli_path, "run", "--dir", str(repo), prompt]
+        else:
+            output_path = None
+            command = [probe.cli_path, "run", prompt]
         completed = subprocess.run(command, cwd=repo, env=extra_env, capture_output=True, text=True)
         stdout = completed.stdout
         if isinstance(probe, CodexProbe):

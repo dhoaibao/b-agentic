@@ -1,0 +1,108 @@
+{
+  "mcp": {
+    "serena": {
+      "type": "local",
+      "command": ["serena", "start-mcp-server", "--context", "ide", "--project-from-cwd", "--open-web-dashboard", "false"]
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+      }
+    },
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
+      "environment": {
+        "CODEGRAPH_TELEMETRY": "0"
+      }
+    },
+    "brave-search": {
+      "type": "local",
+      "command": ["pnpm", "dlx", "@brave/brave-search-mcp-server", "--transport", "stdio"],
+      "environment": {
+        "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
+      }
+    },
+    "firecrawl": {
+      "type": "local",
+      "command": ["pnpm", "dlx", "firecrawl-mcp"],
+      "environment": {
+        "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
+      }
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["pnpm", "dlx", "@playwright/mcp@latest", "--isolated"]
+    }
+  },
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "*": "ask",
+      "git diff *": "allow",
+      "git status *": "allow",
+      "git log *": "allow",
+      "rg *": "allow",
+      "fd *": "allow",
+      "fdfind *": "allow",
+      "jq *": "allow",
+      "rtk git diff *": "allow",
+      "rtk git status *": "allow",
+      "rtk git log *": "allow",
+      "rtk rg *": "allow",
+      "rtk fd *": "allow",
+      "rtk fdfind *": "allow",
+      "rtk jq *": "allow",
+      "git commit *": "ask",
+      "rtk git commit *": "ask",
+      "git reset --hard *": "deny",
+      "rtk git reset --hard *": "deny",
+      "git clean -f *": "deny",
+      "rtk git clean -f *": "deny",
+      "git push --force *": "deny",
+      "rtk git push --force *": "deny",
+      "git push --force-with-lease *": "deny",
+      "rtk git push --force-with-lease *": "deny",
+      "git branch -D *": "deny",
+      "rtk git branch -D *": "deny",
+      "rm *": "deny",
+      "rtk rm *": "deny",
+      "docker system prune *": "deny",
+      "rtk docker system prune *": "deny",
+      "docker volume rm *": "deny",
+      "rtk docker volume rm *": "deny",
+      "git push *": "ask",
+      "rtk git push *": "ask",
+      "git pull *": "ask",
+      "rtk git pull *": "ask",
+      "git revert *": "ask",
+      "rtk git revert *": "ask",
+      "npm install *": "ask",
+      "rtk npm install *": "ask",
+      "pnpm install *": "ask",
+      "rtk pnpm install *": "ask",
+      "yarn install *": "ask",
+      "rtk yarn install *": "ask",
+      "bun install *": "ask",
+      "rtk bun install *": "ask",
+      "cargo install *": "ask",
+      "rtk cargo install *": "ask",
+      "go install *": "ask",
+      "rtk go install *": "ask",
+      "pip install *": "ask",
+      "rtk pip install *": "ask",
+      "poetry add *": "ask",
+      "rtk poetry add *": "ask",
+      "cargo add *": "ask",
+      "rtk cargo add *": "ask",
+      "go get *": "ask",
+      "rtk go get *": "ask"
+    },
+    "skill": {
+      "b-*": "allow"
+    }
+  }
+}
+

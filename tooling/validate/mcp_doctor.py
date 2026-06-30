@@ -13,6 +13,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tooling" / "install"))
+from jsonc import loads as load_jsonc
 SUPPORTED_SERVERS = ("serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright")
 DEFAULT_PACKAGES = {
     "brave-search": "@brave/brave-search-mcp-server",
@@ -45,7 +47,7 @@ class RuntimeStyle:
 
 
 def load_json(path: Path) -> dict:
-    return json.loads(path.read_text())
+    return load_jsonc(path.read_text())
 
 
 def load_toml(path: Path) -> dict:
@@ -360,14 +362,12 @@ def codex_server_status(server: str, config: dict) -> str:
 
 
 def resolve_config_path(runtime: dict, home: Path) -> Path:
-    schema_family = runtime.get("config_schema_family")
-    if schema_family == "claude-user-config":
-        return home / ".claude.json"
-    if schema_family == "codex-toml":
-        return home / ".codex" / "config.toml"
-    if schema_family == "opencode-json":
-        return home / ".config" / "opencode" / "opencode.json"
-    raise ValueError(f"unsupported config schema family: {schema_family!r}")
+    config_path = runtime.get("config_install_path")
+    if not isinstance(config_path, str):
+        raise ValueError("runtime has no config_install_path")
+    if config_path.startswith("~/"):
+        return home / config_path[2:]
+    return Path(config_path).expanduser()
 
 
 def main() -> int:

@@ -363,26 +363,22 @@ merge_json_file() {
 
   local tmp rc
   tmp="$(mktemp "${TMPDIR:-/tmp}/b-agentic-${label}.XXXXXX")"
-  if env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_LABEL="$label" python3 - <<'PY'
+  if env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_LABEL="$label" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
 import json
 import os
-import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
+from jsonc import loads as load_jsonc
 
 src = Path(os.environ['JSON_SRC'])
 dst = Path(os.environ['JSON_DST'])
 tmp = Path(os.environ['JSON_TMP'])
 label = os.environ['JSON_LABEL']
 
-def _load_jsonc(text):
-    text = re.sub(r'"(?:[^"\\]|\\.)*"|//[^\n]*',
-                  lambda m: m.group(0) if m.group(0).startswith('"') else '',
-                  text.strip())
-    text = re.sub(r',(\s*[}\]])', r'\1', text)
-    return json.loads(text) if text.strip() else {}
-
 recommended = json.loads(src.read_text())
-current = _load_jsonc(dst.read_text())
+current = load_jsonc(dst.read_text())
 
 def merge(existing, incoming):
     if isinstance(existing, dict) and isinstance(incoming, dict):
@@ -712,11 +708,14 @@ remove_merged_config() {
 
   local tmp rc
   tmp="$(mktemp "${TMPDIR:-/tmp}/b-agentic-uninstall-${label}.XXXXXX")"
-  if env JSON_CURRENT="$path" JSON_TEMPLATE="$template" JSON_ORIGINAL="$original" JSON_TMP="$tmp" JSON_LABEL="$label" python3 - <<'PY'
+  if env JSON_CURRENT="$path" JSON_TEMPLATE="$template" JSON_ORIGINAL="$original" JSON_TMP="$tmp" JSON_LABEL="$label" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
 import json
 import os
-import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
+from jsonc import loads as load_jsonc
 
 current_path = Path(os.environ['JSON_CURRENT'])
 template_path = Path(os.environ['JSON_TEMPLATE'])
@@ -724,16 +723,9 @@ original_path = Path(os.environ['JSON_ORIGINAL'])
 tmp_path = Path(os.environ['JSON_TMP'])
 label = os.environ['JSON_LABEL']
 
-def _load_jsonc(text):
-    text = re.sub(r'"(?:[^"\\]|\\.)*"|//[^\n]*',
-                  lambda m: m.group(0) if m.group(0).startswith('"') else '',
-                  text.strip())
-    text = re.sub(r',(\s*[}\]])', r'\1', text)
-    return json.loads(text) if text.strip() else {}
-
-current = _load_jsonc(current_path.read_text())
+current = load_jsonc(current_path.read_text())
 incoming = json.loads(template_path.read_text())
-original = {} if str(original_path) == 'empty' else json.loads(original_path.read_text())
+original = {} if str(original_path) == 'empty' else load_jsonc(original_path.read_text())
 
 MISSING = object()
 
@@ -850,6 +842,7 @@ cleaned = cleanup(current, incoming, original)
 mcp_labels = {
     '.claude.json': 'mcpServers',
     'opencode.json': 'mcp',
+    'kilo.jsonc': 'mcp',
 }
 mcp_key = mcp_labels.get(label)
 if mcp_key is not None:
@@ -914,15 +907,16 @@ prompt_value() {
 mcp_secret_configured() {
   local server="$1" section="$2" key="$3"
   [ -f "$MCP_CONFIG_DST" ] || return 1
-  python3 - "$MCP_CONFIG_DST" "$MCP_ROOT_KEY" "$server" "$section" "$key" "$MCP_PLACEHOLDER_STYLE" <<'PY'
-import json
+  python3 - "$MCP_CONFIG_DST" "$MCP_ROOT_KEY" "$server" "$section" "$key" "$MCP_PLACEHOLDER_STYLE" "$SOURCE_DIR" <<'PY'
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 root_key, server, section, key, placeholder_style = sys.argv[2:7]
+sys.path.insert(0, str(Path(sys.argv[7]) / 'tooling' / 'install'))
+from jsonc import loads as load_jsonc
 try:
-    data = json.loads(path.read_text())
+    data = load_jsonc(path.read_text())
 except Exception:
     sys.exit(1)
 
@@ -1407,15 +1401,20 @@ apply_prompted_mcp_keys() {
     BRAVE_API_KEY_INPUT="$BRAVE_API_KEY_INPUT" \
     FIRECRAWL_API_KEY_INPUT="$FIRECRAWL_API_KEY_INPUT" \
     FIRECRAWL_API_URL_INPUT="$FIRECRAWL_API_URL_INPUT" \
+    SOURCE_DIR="$SOURCE_DIR" \
     python3 - <<'PY'
 import json
 import os
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
+from jsonc import loads as load_jsonc
 
 path = Path(os.environ['MCP_CONFIG_DST'])
 root_key = os.environ['MCP_ROOT_KEY']
 tmp = Path(os.environ['JSON_TMP'])
-data = json.loads(path.read_text())
+data = load_jsonc(path.read_text())
 servers = data.setdefault(root_key, {})
 
 updates = [
@@ -1432,7 +1431,7 @@ for server_name, section_name, key_name, value in updates:
     section = server.setdefault(section_name, {})
     section[key_name] = value
 
-if json.loads(path.read_text()) == data:
+if load_jsonc(path.read_text()) == data:
     raise SystemExit(2)
 tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
 PY
@@ -1561,11 +1560,14 @@ runtime_install_common() {
 }
 
 install_uninstall_helper() {
-  local script_src="$SOURCE_DIR/tooling/install/manifest_uninstall.py"
-  local script_dst="$METADATA_DIR/tooling/install/manifest_uninstall.py"
-  [ -f "$script_src" ] || return 0
-  ensure_dir "$(dirname "$script_dst")"
-  copy_file "$script_src" "$script_dst"
+  local helper_name helper_src helper_dst
+  for helper_name in manifest_uninstall.py jsonc.py; do
+    helper_src="$SOURCE_DIR/tooling/install/$helper_name"
+    helper_dst="$METADATA_DIR/tooling/install/$helper_name"
+    [ -f "$helper_src" ] || return 0
+    ensure_dir "$(dirname "$helper_dst")"
+    copy_file "$helper_src" "$helper_dst"
+  done
 }
 
 runtime_uninstall_common() {
