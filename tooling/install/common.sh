@@ -471,6 +471,19 @@ def migrate_managed_values(data):
             if isinstance(current_command, list) and len(current_command) >= 3 and current_command[0] == incoming_command[0] and current_command[1] == 'dlx' and (override_requested or current_command[2] in packages):
                 server['command'] = list(incoming_command)
 
+    def replace_managed_serena(server, incoming_server):
+        if not isinstance(server, dict) or not isinstance(incoming_server, dict):
+            return
+        if server.get('command') != 'serena' or incoming_server.get('command') != 'serena':
+            return
+        current_args = server.get('args')
+        incoming_args = incoming_server.get('args')
+        if (
+            isinstance(current_args, list) and len(current_args) >= 1 and current_args[0] == 'start-mcp-server'
+            and isinstance(incoming_args, list) and len(incoming_args) >= 1 and incoming_args[0] == 'start-mcp-server'
+        ):
+            server['args'] = list(incoming_args)
+
     for server_key in ('mcpServers', 'mcp'):
         servers = data.get(server_key)
         recommended_servers = recommended.get(server_key, {})
@@ -523,6 +536,7 @@ def migrate_managed_values(data):
             )
             for server_name in ('brave-search', 'firecrawl', 'playwright'):
                 replace_managed_package(server_name, servers.get(server_name), recommended_servers.get(server_name))
+            replace_managed_serena(servers.get('serena'), recommended_servers.get('serena'))
             continue
 
         migrate_managed_launcher(
@@ -557,6 +571,7 @@ def migrate_managed_values(data):
         )
         for server_name in ('brave-search', 'firecrawl', 'playwright'):
             replace_managed_package(server_name, servers.get(server_name), recommended_servers.get(server_name))
+        replace_managed_serena(servers.get('serena'), recommended_servers.get('serena'))
 
 if not isinstance(current, dict):
     raise SystemExit(f'{label} merge requires existing target to be a JSON object')
