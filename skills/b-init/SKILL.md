@@ -33,19 +33,33 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
 - `bash` - inspect repo files, commands, and diffs.
 - `serena` - inspect structure when file ownership or code layout affects the guide.
 
-Read `./references/templates.md` before drafting or refreshing the file body.
-
 ## Steps
 
 1. Confirm scope: repository root or a specific subtree, and whether the task is create, refresh, or reconcile.
 2. Inspect only the repo evidence needed to avoid boilerplate: existing docs, manifests, validation scripts, top-level directories, and source-of-truth files.
-3. Prefer `AGENTS.md` as the only authoritative instruction file. Keep `CLAUDE.md` short and route the reader to `AGENTS.md`.
-4. When creating a new `AGENTS.md` or `CLAUDE.md`, wrap the generated body in `b-init` managed markers so later refreshes can update only the managed section.
-5. If the target file contains `b-init` managed markers, update only the managed block. If it already has substantial unmarked content, preserve it and ask before replacing it wholesale.
-6. Write concise sections grounded in repo evidence: what the repo is, how to work here, how to verify changes, codebase map, safety or do-not-assume rules, source-of-truth files, and maintainer guidance when the repo has generated assets, adapters, or contributor invariants.
-7. For maintainer guidance, explain how to edit the repo without drifting generated outputs, adapters, or public docs.
-8. Avoid runtime-home paths, agent-vendor policy dumps, speculative architecture summaries, and extra root docs unless the user asked for them.
-9. Verify that referenced paths and commands exist, then inspect the diff for noise or invented detail.
+3. Prefer `AGENTS.md` as the only authoritative instruction file. Keep `CLAUDE.md` short and route the reader to `AGENTS.md` using the exact shim pattern:
+   ```markdown
+   # Claude Code Instructions
+
+   Read `./AGENTS.md` first. It is the source of truth for this repository's agent instructions and maintainer guidance.
+   ```
+4. Wrap the generated content in managed markers so later refreshes can update only the managed section:
+   ```markdown
+   <!-- b-init-managed:start -->
+   ...
+   <!-- b-init-managed:end -->
+   ```
+5. If the target file contains these markers, update only the managed block. Preserve user-owned notes above or below it. If it contains substantial unmarked content, ask before replacing it wholesale.
+6. Write concise `AGENTS.md` sections grounded in repo evidence:
+   - Repository purpose: one short paragraph on what the repo ships or maintains.
+   - Working rules: local conventions, edit boundaries, and approval expectations.
+   - Verification commands: only list commands that exist in the repo.
+   - Codebase map: top-level directories or packages that matter for navigation.
+   - Safety rules: constraints on migrations, secrets, or generated-vs-source invariants.
+   - Maintainer guide: edit guidelines (e.g. sync scripts) when the repo has generated files.
+   - Source-of-truth files: registries, templates, or docs that own generated outputs.
+7. Avoid runtime-home paths, agent-vendor policy dumps, speculative architecture summaries, and extra root docs.
+8. Verify that referenced paths and commands exist, then inspect the diff for noise or invented detail.
 
 ## Output format
 

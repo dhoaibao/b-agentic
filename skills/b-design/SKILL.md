@@ -3,11 +3,11 @@ name: b-design
 description: >
   Frontend design-standard authoring for creating or refreshing
   `docs/DESIGN.md` from user descriptions, attached images or mockups,
-  existing frontend files, or current design docs. Use when Codex needs to
-  extract, normalize, or rewrite shared UI style guidance for future
-  frontend implementation. Unlike b-implement, it writes design guidance
-  rather than UI code; unlike b-browser, it does not collect final browser
-  evidence.
+  existing frontend files, or current design docs. Use when the agent
+  needs to extract, normalize, or rewrite shared UI style guidance for
+  future frontend implementation. Unlike b-implement, it writes design
+  guidance rather than UI code; unlike b-browser, it does not collect
+  final browser evidence.
 argument-hint: "[design-source-or-goal]"
 ---
 
