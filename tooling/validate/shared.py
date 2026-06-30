@@ -375,12 +375,10 @@ def codex_gate_severity(tokens: list[str], rules_text: str) -> int:
 
 claude_config = load_json(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
 opencode_config = load_json(ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json")
-kilo_config = load_json(ROOT / "runtimes" / "kilo-code" / "configs" / "mcp.user.template.json")
 codex_rules = read_text(ROOT / "runtimes" / "codex-cli" / "rules" / "b-agentic.rules")
 gate_runtimes = [
     ("runtimes/claude-code/configs/settings.template.json", lambda tokens: claude_gate_severity(tokens, claude_config)),
     ("runtimes/opencode/configs/mcp.user.template.json", lambda tokens: opencode_gate_severity(tokens, opencode_config)),
-    ("runtimes/kilo-code/configs/mcp.user.template.json", lambda tokens: opencode_gate_severity(tokens, kilo_config)),
     ("runtimes/codex-cli/rules/b-agentic.rules", lambda tokens: codex_gate_severity(tokens, codex_rules)),
 ]
 for tokens, min_severity in SAFETY_GATES:

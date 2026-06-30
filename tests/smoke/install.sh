@@ -207,7 +207,6 @@ run_all_runtime_smoke_case() {
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for claude-code'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for opencode'
   assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for codex-cli'
-  assert_contains "$sandbox_all/manifest-only-uninstall.log" 'Manifest-only uninstall complete for kilo-code'
   assert_no_path "$sandbox_all/source"
 
   while IFS=$'\t' read -r runtime_name metadata_root kernel_path; do
@@ -225,8 +224,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
   assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
-  assert_no_path "$sandbox_all/home/.kilo/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.config/kilo/AGENTS.md"
   mkdir -p "$sandbox_pending/home"
   IFS=$'\t' read -r pending_runtime_name _ pending_kernel_path < <(registry_runtime_records)
   [ -n "$pending_runtime_name" ] || fail "expected at least one registered runtime"
@@ -965,14 +962,9 @@ EOF
 printf 'codex:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  cat > "$bin_dir/kilo" <<EOF
-#!/usr/bin/env bash
-printf 'kilo:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/kilo"
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex"
 
-  for runtime in claude-code opencode codex-cli kilo-code; do
+  for runtime in claude-code opencode codex-cli; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -985,10 +977,6 @@ EOF
       codex-cli)
         runtime_bin="codex"
         runtime_arg="update"
-        ;;
-      kilo-code)
-        runtime_bin="kilo"
-        runtime_arg="upgrade"
         ;;
       *)
         fail "unexpected runtime in upgrade smoke: $runtime"
@@ -1024,7 +1012,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex-cli kilo-code; do
+  for runtime in claude-code opencode codex-cli; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -1034,9 +1022,6 @@ run_missing_runtime_cli_install_case() {
         ;;
       codex-cli)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
-        ;;
-      kilo-code)
-        expected_entry='[dry-run] npm install -g @kilocode/cli'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"
@@ -1249,11 +1234,10 @@ run_skill_doctor_case() {
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
-  local sandbox_kilo="$WORK_DIR/skill-doctor-kilo"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kilo/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
   expected_skill_count="$(registry_skill_count)"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -1285,13 +1269,6 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" 'kernel: ready'
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" "wrappers: ready: $expected_skill_count wrappers installed"
-  assert_contains "$doctor_log" 'discovery: ready:'
-
-  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=kilo-code --home "$sandbox_kilo/home" >"$doctor_log"
-  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'discovery: ready:'
 
 }
@@ -1369,11 +1346,10 @@ run_active_runtime_acceptance_case() {
   local sandbox_claude="$WORK_DIR/runtime-acceptance-active-claude"
   local sandbox_codex="$WORK_DIR/runtime-acceptance-active-codex"
   local sandbox_opencode="$WORK_DIR/runtime-acceptance-active-opencode"
-  local sandbox_kilo="$WORK_DIR/runtime-acceptance-active-kilo"
   local bin_dir="$WORK_DIR/runtime-acceptance-active-bin"
   local acceptance_log="$WORK_DIR/runtime-acceptance-active.log"
 
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_kilo/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
 
   cat > "$bin_dir/serena" <<'EOF'
 #!/usr/bin/env bash
@@ -1488,20 +1464,7 @@ case "$last" in
 esac
 EOF
 
-  cat > "$bin_dir/kilo" <<'EOF'
-#!/usr/bin/env bash
-last="${@: -1}"
-case "$last" in
-  *"Detailed contract refs live under"*) printf '%s\n' '~/.kilo/b-agentic/references/contract/' ;;
-  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
-  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
-  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
-  *"git reset --hard"*) printf '%s\n' 'denied' ;;
-  *) printf '%s\n' 'unexpected kilo prompt' ;;
-esac
-EOF
-
-  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode" "$bin_dir/kilo"
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   PATH="$bin_dir:$(smoke_system_path)" \
@@ -1533,70 +1496,6 @@ EOF
   bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox_opencode/home" --active >"$acceptance_log" 2>&1
   assert_contains "$acceptance_log" 'kernel: ready: ~/.config/opencode/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-
-  expect_install_status 0 "$sandbox_kilo" "$snapshot_repo" --runtime=kilo-code
-  PATH="$bin_dir:$(smoke_system_path)" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=kilo-code --home="$sandbox_kilo/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'kernel: ready: ~/.kilo/b-agentic/references/contract/'
-  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-}
-
-run_kilo_jsonc_preservation_case() {
-  local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/kilo-jsonc"
-  local config="$sandbox/home/.config/kilo/kilo.jsonc"
-
-  mkdir -p "$(dirname "$config")"
-  cat > "$config" <<'EOF'
-{
-  // user-owned Kilo configuration
-  "custom": true,
-  "comma-object-string": ",}",
-  "comma-array-string": ",]",
-  "comment-marker-string": "https://example.invalid/a//b/*c*/",
-  "mcp": {
-    "user-owned": {
-      "type": "remote",
-      "url": "https://example.invalid/mcp",
-    },
-  },
-  /* block comments are valid JSONC */
-  "permission": {
-    "custom-tool": "deny",
-  },
-}
-EOF
-
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=kilo-code
-  assert_json_value "$config" "data['custom'] is True"
-  assert_json_value "$config" "data['comma-object-string'] == ',}'"
-  assert_json_value "$config" "data['comma-array-string'] == ',]'"
-  assert_json_value "$config" "data['comment-marker-string'] == 'https://example.invalid/a//b/*c*/'"
-  assert_json_value "$config" "data['mcp']['user-owned']['url'] == 'https://example.invalid/mcp'"
-  assert_json_value "$config" "'serena' in data['mcp']"
-  assert_json_value "$config" "data['permission']['custom-tool'] == 'deny'"
-
-  python3 - "$config" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-data['mcp']['context7']['headers']['CONTEXT7_API_KEY'] = 'literal-test-key'
-data['mcp']['brave-search']['command'][2] = '@example/brave-mcp@1.0.0'
-path.write_text(json.dumps(data, indent=2) + '\n')
-PY
-
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=kilo-code --uninstall
-  assert_json_value "$config" "data == {'custom': True, 'comma-object-string': ',}', 'comma-array-string': ',]', 'comment-marker-string': 'https://example.invalid/a//b/*c*/', 'mcp': {'user-owned': {'type': 'remote', 'url': 'https://example.invalid/mcp'}}, 'permission': {'custom-tool': 'deny'}}"
-
-  printf '{ // malformed but must not be replaced\n  "marker": true,\n' > "$config"
-  expect_install_status 1 "$sandbox" "$snapshot_repo" --runtime=kilo-code
-  assert_contains "$config" '// malformed but must not be replaced'
 }
 
 main() {
@@ -1629,7 +1528,6 @@ main() {
   run_skill_doctor_case "$snapshot_repo"
   run_runtime_acceptance_case "$snapshot_repo"
   run_active_runtime_acceptance_case "$snapshot_repo"
-  run_kilo_jsonc_preservation_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue
