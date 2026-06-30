@@ -95,14 +95,58 @@ def remove_snapshot_profiles(names: list, dst_root: Path, snapshot_root: Path, e
             warn(f"preserving modified {label}: {dst}")
 
 
-def remove_config_if_template(path_value: str | None, template: Path, label: str) -> None:
+def remove_merged_json_config(
+    path_value: str | None,
+    template: Path,
+    label: str,
+    backup_key: str | None,
+    action_key: str | None,
+    data: dict,
+) -> None:
+    """Remove b-agentic managed entries from a merged JSON config file.
+
+    Uses the original backup recorded in the manifest to avoid deleting
+    user-owned entries that existed before installation.
+    """
     if not isinstance(path_value, str):
         return
     path = Path(path_value).expanduser()
-    if path.exists() and template.exists() and files_equal_or_json_equal(path, template):
-        remove_file(path)
-    elif path.exists():
+    if not path.exists() or not template.exists():
+        return
+
+    backups = data.get("backups", {})
+    backup = backups.get(backup_key) if backup_key else None
+    action = data.get(action_key) if action_key else None
+    if backup == "none":
+        backup = None
+
+    original_path = None
+    if backup:
+        original_path = Path(backup).expanduser()
+        if not original_path.exists():
+            warn(f"preserving modified {label}: {path}")
+            return
+    elif action != "write":
         warn(f"preserving modified {label}: {path}")
+        return
+
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from json_cleanup import remove_managed_json_config
+
+        cleaned = remove_managed_json_config(path, template, original_path, path.name)
+    except Exception as exc:
+        warn(f"preserving modified {label}: {path} ({exc})")
+        return
+
+    current = load_jsonc(path.read_text())
+    if cleaned == current:
+        warn(f"preserving modified {label}: {path}")
+        return
+    if cleaned == {}:
+        remove_file(path)
+    else:
+        path.write_text(json.dumps(cleaned, indent=2, sort_keys=True) + "\n")
 
 
 def remove_toml_managed_block(path_value: str | None, label: str) -> None:
@@ -172,6 +216,14 @@ def main() -> None:
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
         },
+        "antigravity-cli": {
+            "metadata": home / ".gemini" / "antigravity-cli" / "b-agentic",
+            "skills": home / ".gemini" / "antigravity-cli" / "skills",
+            "kernel": home / ".gemini" / "GEMINI.md",
+            "agents": home / ".gemini" / "antigravity-cli" / "agents",
+            "settings": home / ".gemini" / "antigravity-cli" / "settings.json",
+            "mcpConfig": home / ".gemini" / "antigravity-cli" / "mcp_config.json",
+        },
     }
 
     defaults = runtime_defaults.get(runtime)
@@ -215,16 +267,20 @@ def main() -> None:
 
     if runtime == "claude-code":
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Claude Code agent")
-        remove_config_if_template(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json")
-        remove_config_if_template(str(manifest_managed_path(paths, "claudeJson", defaults["claudeJson"])), metadata / "templates" / "mcp.user.template.json", ".claude.json")
+        remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json", "settings", "settingsAction", data)
+        remove_merged_json_config(str(manifest_managed_path(paths, "claudeJson", defaults["claudeJson"])), metadata / "templates" / "mcp.user.template.json", ".claude.json", "claudeJson", "mcpAction", data)
     elif runtime == "opencode":
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "OpenCode agent")
         remove_snapshot_profiles(data.get("commands", []), manifest_managed_path(paths, "commands", defaults["commands"]), metadata / "commands", "md", "OpenCode command")
-        remove_config_if_template(str(manifest_managed_path(paths, "opencodeJson", defaults["opencodeJson"])), metadata / "templates" / "mcp.user.template.json", "opencode.json")
+        remove_merged_json_config(str(manifest_managed_path(paths, "opencodeJson", defaults["opencodeJson"])), metadata / "templates" / "mcp.user.template.json", "opencode.json", "opencodeJson", "mcpAction", data)
     elif runtime == "codex-cli":
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
+    elif runtime == "antigravity-cli":
+        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Antigravity CLI agent")
+        remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json", "settings", "settingsAction", data)
+        remove_merged_json_config(str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])), metadata / "templates" / "mcp.user.template.json", "mcp_config.json", "mcpConfig", "mcpAction", data)
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 

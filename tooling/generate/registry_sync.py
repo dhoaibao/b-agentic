@@ -52,6 +52,7 @@ RUNTIME_CAPABILITY_KEYS = [
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
+    "antigravity-json",
     "claude-user-config",
     "codex-toml",
     "opencode-json",

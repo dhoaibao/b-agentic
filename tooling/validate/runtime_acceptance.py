@@ -147,6 +147,12 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         cli_path = shutil.which("codex")
 
     if cli_path is None:
+        if runtime_name == "antigravity-cli":
+            raise SystemExit(
+                "active runtime acceptance is unsupported for antigravity-cli: "
+                "no documented non-interactive prompt mode is available. "
+                "Verify the fresh-session checklist manually instead of scripting terminal keystrokes."
+            )
         raise SystemExit(f"runtime CLI not found on PATH for {runtime_name}")
 
     common = {

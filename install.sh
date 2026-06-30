@@ -349,6 +349,7 @@ candidates.extend(home.glob(".*/b-agentic/install.json"))
 candidates.extend((home / ".config").glob("*/b-agentic/install.json"))
 candidates.extend((home / ".local" / "share").glob("*/b-agentic/install.json"))
 candidates.extend((home / "Library" / "Application Support").glob("*/b-agentic/install.json"))
+candidates.extend((home / ".gemini").glob("*/b-agentic/install.json"))
 
 allowed_roots = [home.resolve()]
 
