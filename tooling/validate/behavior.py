@@ -122,6 +122,34 @@ FIXTURES = [
         prompt="Write a PR title and description for the staged changes.",
         expected="b-summary",
     ),
+    Fixture(
+        name="PR copy for staged diff",
+        prompt="Write PR copy for the staged diff.",
+        expected="b-summary",
+    ),
+    Fixture(
+        name="change summary before committing",
+        prompt="Write a change summary before committing.",
+        expected="b-summary",
+    ),
+    Fixture(
+        name="planning a commit strategy stays in b-plan",
+        prompt="How should I plan the commit strategy for this feature?",
+        expected="b-plan",
+        not_expected=("b-summary",),
+    ),
+    Fixture(
+        name="reviewing a PR description stays in b-review",
+        prompt="Review my PR description before I submit it.",
+        expected="b-review",
+        not_expected=("b-summary",),
+    ),
+    Fixture(
+        name="generic summary of docs stays in research",
+        prompt="Summarize the React Router API docs and compare the config options.",
+        expected="b-research",
+        not_expected=("b-summary",),
+    ),
 ]
 
 
@@ -134,7 +162,15 @@ def normalize(text: str) -> str:
 
 
 def words(text: str) -> set[str]:
-    return set(re.findall(r"[a-z0-9][a-z0-9-]*", text.lower()))
+    stopwords = {
+        "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
+        "from", "as", "is", "was", "are", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "shall",
+        "i", "me", "my", "myself", "we", "our", "ours", "us", "you", "your", "yours", "he", "him",
+        "his", "she", "her", "hers", "it", "its", "they", "them", "their", "this", "that", "these",
+        "those", "not", "no", "yes", "if", "then", "than", "so", "very", "just", "now", "only",
+    }
+    return set(re.findall(r"[a-z0-9][a-z0-9-]*", text.lower())) - stopwords
 
 
 def metadata_terms(skill: dict) -> tuple[list[str], set[str]]:
@@ -169,11 +205,31 @@ def metadata_terms(skill: dict) -> tuple[list[str], set[str]]:
 
 
 def score(prompt: str, skill: dict) -> int:
+    name = skill.get("name", "")
     normalized_prompt = normalize(prompt)
     prompt_words = words(prompt)
     phrases, word_set = metadata_terms(skill)
-    name = skill.get("name", "")
     score_value = 0
+
+    if name == "b-summary":
+        # The ship skill is intentionally triggerless in the registry; require
+        # commit/PR/staged-change language before it can win, while still
+        # excluding generic docs summaries and PR-description reviews.
+        summary_markers = [
+            "commit message",
+            "pr title",
+            "pr copy",
+            "staged changes",
+            "staged diff",
+            "change summary",
+            "before committing",
+            "before opening a pr",
+        ]
+        matched_markers = [m for m in summary_markers if m in normalized_prompt]
+        if not matched_markers:
+            return 0
+        # Boost so the triggerless skill wins over coincidental word overlap.
+        score_value += len(matched_markers) * 4
 
     if name and re.search(rf"(^|\W){re.escape(name)}($|\W)", normalized_prompt):
         score_value += 100
@@ -202,7 +258,7 @@ def classify(prompt: str, skills: list[dict]) -> tuple[str, dict[str, int]]:
     best_score = max(scores.values())
     winners = sorted(name for name, value in scores.items() if value == best_score)
     if len(winners) != 1:
-        return ",".join(winners), scores
+        return f"ambiguous({','.join(winners)})", scores
     return winners[0], scores
 
 
@@ -253,7 +309,7 @@ def main() -> int:
                 f"{fixture.name}: expected {fixture.expected}, classified as {actual}; scores: {ordered}"
             )
         for forbidden in fixture.not_expected:
-            if actual == forbidden:
+            if forbidden in actual:
                 errors.append(f"{fixture.name}: incorrectly routed to {forbidden}")
 
     if errors:

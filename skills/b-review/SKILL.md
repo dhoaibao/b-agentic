@@ -50,7 +50,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 7. Verify evidence proves the intended observable outcome, not only command success.
 8. Emit findings ordered by severity. If none, say so and name residual risk.
 
-For `--audit-suite` or explicit b-agentic audits, check kernel slimness, real problem statement, source/generated sync, runtime neutrality, runtime parity, installer safety, MCP leverage, validation evidence, prompt-change evidence, domain-specific behavior in core, ceremony creep, and cleanup candidates. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.
+For `--audit-suite` or explicit b-agentic audits, check kernel slimness, real problem statement, source/generated sync, runtime neutrality, runtime parity, installer safety, MCP leverage, validation evidence, prompt-change evidence, domain-specific behavior in core, ceremony creep, and cleanup candidates. Run `scripts/b-agentic-audit.sh` from the b-agentic checkout to execute the automated checklist. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.
 
 Use architecture vocabulary only when design friction is material: interface, seam, adapter, locality, leverage, shallow abstraction, and deletion test. Do not turn every review into an architecture report.
 
