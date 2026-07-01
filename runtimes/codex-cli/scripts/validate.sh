@@ -61,6 +61,8 @@ if rules.exists():
         ('poetry', 'add'): 'prompt',
         ('cargo', 'add'): 'prompt',
         ('go', 'get'): 'prompt',
+        ('cargo', 'install'): 'prompt',
+        ('go', 'install'): 'prompt',
     }
     block_pattern = re.compile(
         r'prefix_rule\(\s*pattern = (\[[^\]]*\])\s*,\s*decision = "(prompt|forbidden)"\s*,',

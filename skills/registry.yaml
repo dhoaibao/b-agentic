@@ -147,14 +147,15 @@
         "exposed": true
       },
       "routing": {
-        "intent": "Mechanical rename, extract, move, inline, simplify, delete",
+        "intent": "Mechanical rename, extract, move, inline, simplify, delete dead code",
         "triggers": [
           "rename",
           "extract",
           "move",
           "inline",
           "simplify",
-          "delete"
+          "delete dead code",
+          "remove dead code"
         ]
       },
       "prompt": {

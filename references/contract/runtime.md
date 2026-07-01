@@ -14,7 +14,7 @@ Use exactly one active skill for the user's current intent. If a request spans p
 | Frontend design standard and docs/DESIGN.md authoring | `b-design` |
 | Implement approved or clearly scoped work | `b-implement` |
 | Initialize repo-local agent instruction files | `b-init` |
-| Mechanical rename, extract, move, inline, simplify, delete | `b-refactor` |
+| Mechanical rename, extract, move, inline, simplify, delete dead code | `b-refactor` |
 | Runtime bug, error, "not working" | `b-debug` |
 | Unit/integration/component tests, coverage, failing tests | `b-test` |
 | Real-browser, visual, and e2e verification | `b-browser` |
@@ -41,7 +41,7 @@ Precedence:
 | `b-design` | DESIGN.md, frontend design standard, design guidelines, style guide, visual style, visual design rules, design rules, from screenshot, from mockup, analyze mockup, analyze screenshot, design system docs |
 | `b-implement` | implement, add, build, execute, finish |
 | `b-init` | /init, init agent docs, initialize agent docs, create AGENTS.md, create CLAUDE.md, refresh AGENTS.md, refresh agent docs |
-| `b-refactor` | rename, extract, move, inline, simplify, delete |
+| `b-refactor` | rename, extract, move, inline, simplify, delete dead code, remove dead code |
 | `b-debug` | bug, broken, error, stack trace, "not working", regression, product regression, product bug |
 | `b-test` | tests, coverage, failing test, snapshot, mock, component test, jsdom, happy-dom, React Testing Library |
 | `b-browser` | browser, e2e, visual, screenshot, browser session, live UI, Playwright, Cypress e2e, Puppeteer, WebDriver |
