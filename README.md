@@ -196,7 +196,7 @@ scripts/skill-doctor.sh --runtime=antigravity-cli
 scripts/skill-doctor.sh --runtime=copilot-cli
 ```
 
-The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. They do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
+The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. The default routing check is a static heuristic over skill registry metadata, not a live-model routing test. Automated checks do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
 
 Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates. Add `--active` to run local noninteractive runtime probes for kernel loading, skill routing, MCP tool-call evidence, and approval/deny signals without Git side effects. `--active` is available for Claude Code, Codex CLI, OpenCode, and GitHub Copilot CLI; Antigravity CLI active acceptance is unsupported until a documented non-interactive prompt mode is available.
 

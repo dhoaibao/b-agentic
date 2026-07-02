@@ -131,7 +131,7 @@ def main() -> int:
     if not all_ok:
         return 1
 
-    print("b-agentic suite audit passed")
+    print("b-agentic suite audit (automated checks) passed")
     return 0
 
 

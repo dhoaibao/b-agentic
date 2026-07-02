@@ -277,7 +277,6 @@
         "argument_hint": "[--range=<ref>..<ref>] [--baseline=<path|url>] [--skip-tests] [--audit-suite]"
       }
     },
-
     {
       "name": "b-summary",
       "phase": "Ship",

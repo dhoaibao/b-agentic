@@ -31,10 +31,10 @@ Prefer source files over generated files. Rerender generated assets only after s
 | Serena | Symbol discovery, declarations, references, diagnostics, and symbol-aware edits. |
 | Context7 | Versioned official library/framework docs when API details affect the answer or implementation. |
 | Brave Search | Secondary public/current discovery, recent facts, unknown URLs, news, and source finding when Firecrawl search is unavailable or a second search lens is useful. |
-| Firecrawl | Primary public web search plus extraction from known public URLs, site maps, structured fields, and approved deep research. |
+| Firecrawl | Primary public web search plus extraction from known public URLs, site maps, structured fields, arXiv/paper and GitHub issue/discussion lookup, and approved deep research. |
 | Playwright | Live browser, DOM, screenshot, console/network, visual, and e2e evidence. |
 
-Firecrawl autonomous/deep research, crawling, and any external mutation require explicit approval or a run-scoped user cap. Firecrawl monitor creation/update/delete is not part of the default b-agentic workflow.
+Firecrawl autonomous/deep research, crawling, and any external mutation require explicit approval or a run-scoped user cap. Firecrawl's bounded paper/GitHub search and read tools (arXiv paper search, paper inspection/reading, related-paper expansion, GitHub issue/discussion search) need no extra approval beyond ordinary search and extraction. Firecrawl monitor creation/update/delete is not part of the default b-agentic workflow.
 
 ### Local Tool Bootstrap
 
