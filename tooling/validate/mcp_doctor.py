@@ -294,7 +294,7 @@ def antigravity_server_status(server: str, config: dict) -> str:
     normalized = normalize_server(entry, RuntimeStyle.ANTIGRAVITY)
 
     if server == "serena":
-        return _check_serena(normalized, "ide")
+        return _check_serena(normalized, "antigravity")
     if server == "context7":
         if entry.get("type") != "remote" or entry.get("serverUrl") != CONTEXT7_URL:
             return "blocked: invalid context7 config"
@@ -342,7 +342,7 @@ def copilot_server_status(server: str, config: dict) -> str:
     normalized = normalize_server(entry, RuntimeStyle.CLAUDE)
 
     if server == "serena":
-        return _check_serena(normalized, "copilot")
+        return _check_serena(normalized, "copilot-cli")
     if server == "context7":
         if entry.get("type") != "http" or entry.get("url") != CONTEXT7_URL:
             return "blocked: invalid context7 config"

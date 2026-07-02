@@ -6,7 +6,7 @@
       "args": [
         "start-mcp-server",
         "--context",
-        "ide",
+        "antigravity",
         "--project-from-cwd",
         "--open-web-dashboard",
         "false"

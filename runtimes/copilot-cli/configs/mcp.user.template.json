@@ -6,7 +6,7 @@
       "args": [
         "start-mcp-server",
         "--context",
-        "copilot",
+        "copilot-cli",
         "--project-from-cwd",
         "--open-web-dashboard",
         "false"
