@@ -145,6 +145,43 @@
         "source_dir": null,
         "install_root": null
       }
+    },
+    {
+      "name": "copilot-cli",
+      "display_name": "GitHub Copilot CLI",
+      "reference_runtime": false,
+      "kernel_source": "runtimes/copilot-cli/kernel.md",
+      "memory_file": "copilot-instructions.md",
+      "memory_install_path": "~/.copilot/copilot-instructions.md",
+      "metadata_root": "~/.copilot/b-agentic",
+      "skills_install_root": "~/.copilot/skills",
+      "config_template_dir": "runtimes/copilot-cli/configs",
+      "config_install_path": "~/.copilot/mcp-config.json",
+      "config_schema_family": "copilot-json",
+      "capabilities": {
+        "skills": {
+          "support": "native",
+          "adoption": "shared"
+        },
+        "permissions": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        },
+        "rules": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        },
+        "command_wrappers": {
+          "support": "unsupported",
+          "adoption": "unsupported"
+        }
+      },
+      "command_wrappers": {
+        "supported": false,
+        "source_dir": null,
+        "install_root": null
+      }
     }
   ]
 }
+

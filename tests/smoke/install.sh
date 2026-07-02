@@ -552,6 +552,7 @@ EOF
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$apt_sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SHELL_TOOLS=Y \
   B_AGENTIC_INSTALL_SERENA=N \
@@ -749,6 +750,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_claude/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -770,6 +772,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -790,6 +793,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -810,6 +814,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_opencode/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -861,6 +866,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_opencode_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -881,6 +887,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_codex/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -901,6 +908,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_antigravity/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -1077,14 +1085,28 @@ EOF
   done
 
   set +e
-  HOME="$sandbox/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_SHELL_TOOLS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$install_log" 2>&1
+  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" "$ROOT_DIR/install.sh" <<'PY'
+import os, subprocess, sys
+sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = smoke_path
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RUNTIME_CLI"] = "N"
+env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
+
+pid = os.fork()
+if pid == 0:
+    os.setsid()
+    with open(log_path, "wb") as log:
+        res = subprocess.run(["bash", install_script, "--runtime=claude-code"], env=env, stdout=log, stderr=log)
+        sys.exit(res.returncode)
+else:
+    _, status = os.waitpid(pid, 0)
+    sys.exit(os.WEXITSTATUS(status))
+PY
   rc=$?
   set -e
 
@@ -1129,9 +1151,19 @@ EOF
 printf 'antigravity-install-script\n' >> "$upgrade_log"
 exit 0
 EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/agy" "$bin_dir/antigravity-install.sh"
+  cat > "$bin_dir/copilot" <<EOF
+#!/usr/bin/env bash
+printf 'copilot:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  cat > "$bin_dir/copilot-install.sh" <<EOF
+#!/usr/bin/env bash
+printf 'copilot-install-script\n' >> "$upgrade_log"
+exit 0
+EOF
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/agy" "$bin_dir/copilot" "$bin_dir/antigravity-install.sh" "$bin_dir/copilot-install.sh"
 
-  for runtime in claude-code opencode codex-cli antigravity-cli; do
+  for runtime in claude-code opencode codex-cli antigravity-cli copilot-cli; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -1149,6 +1181,10 @@ EOF
         runtime_bin="agy"
         runtime_arg="upgrade"
         ;;
+      copilot-cli)
+        runtime_bin="copilot"
+        runtime_arg="upgrade"
+        ;;
       *)
         fail "unexpected runtime in upgrade smoke: $runtime"
         ;;
@@ -1159,8 +1195,11 @@ EOF
     rc=0
 
     antigravity_url=""
+    copilot_url=""
     if [ "$runtime" = "antigravity-cli" ]; then
       antigravity_url="file://$bin_dir/antigravity-install.sh"
+    elif [ "$runtime" = "copilot-cli" ]; then
+      copilot_url="file://$bin_dir/copilot-install.sh"
     fi
 
     set +e
@@ -1174,6 +1213,7 @@ EOF
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
     B_AGENTIC_ANTIGRAVITY_INSTALL_URL="${antigravity_url:-}" \
+    B_AGENTIC_COPILOT_INSTALL_URL="${copilot_url:-}" \
     bash "$ROOT_DIR/install.sh" --runtime="$runtime" >"$install_log" 2>&1
     rc=$?
     set -e
@@ -1181,6 +1221,8 @@ EOF
     [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
     if [ "$runtime" = "antigravity-cli" ]; then
       expected_entry='antigravity-install-script'
+    elif [ "$runtime" = "copilot-cli" ]; then
+      expected_entry='copilot-install-script'
     else
       expected_entry="$runtime_bin:$runtime_arg"
     fi
@@ -1193,7 +1235,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex-cli antigravity-cli; do
+  for runtime in claude-code opencode codex-cli antigravity-cli copilot-cli; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -1206,6 +1248,9 @@ run_missing_runtime_cli_install_case() {
         ;;
       antigravity-cli)
         expected_entry='[dry-run] curl -fsSL https://antigravity.google/cli/install.sh | bash'
+        ;;
+      copilot-cli)
+        expected_entry='[dry-run] curl -fsSL https://gh.io/copilot-install | bash'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"
@@ -1252,15 +1297,29 @@ EOF
   chmod +x "$bin_dir/claude"
 
   set +e
-  HOME="$sandbox/home" \
-  PATH="$bin_dir:$(smoke_system_path)" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$install_log" 2>&1
+  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$bin_dir:$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
+import os, subprocess, sys
+sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = smoke_path
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RTK"] = "N"
+env["B_AGENTIC_INSTALL_SERENA"] = "N"
+env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
+
+pid = os.fork()
+if pid == 0:
+    os.setsid()
+    with open(log_path, "wb") as log:
+        res = subprocess.run(["bash", install_script, "--runtime=claude-code"], env=env, stdout=log, stderr=log)
+        sys.exit(res.returncode)
+else:
+    _, status = os.waitpid(pid, 0)
+    sys.exit(os.WEXITSTATUS(status))
+PY
   rc=$?
   set -e
 
@@ -1523,6 +1582,7 @@ run_runtime_acceptance_case() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$missing_skill_sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -1594,10 +1654,11 @@ run_active_runtime_acceptance_case() {
   local sandbox_claude="$WORK_DIR/runtime-acceptance-active-claude"
   local sandbox_codex="$WORK_DIR/runtime-acceptance-active-codex"
   local sandbox_opencode="$WORK_DIR/runtime-acceptance-active-opencode"
+  local sandbox_copilot="$WORK_DIR/runtime-acceptance-active-copilot"
   local bin_dir="$WORK_DIR/runtime-acceptance-active-bin"
   local acceptance_log="$WORK_DIR/runtime-acceptance-active.log"
 
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_copilot/home" "$bin_dir"
 
   cat > "$bin_dir/serena" <<'EOF'
 #!/usr/bin/env bash
@@ -1712,7 +1773,20 @@ case "$last" in
 esac
 EOF
 
-  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode"
+  cat > "$bin_dir/copilot" <<'EOF'
+#!/usr/bin/env bash
+last="${@: -1}"
+case "$last" in
+  *"Detailed contract refs live under"*) printf '%s\n' '~/.copilot/b-agentic/references/contract/' ;;
+  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
+  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
+  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
+  *"git reset --hard"*) printf '%s\n' 'denied' ;;
+  *) printf '%s\n' 'unexpected copilot prompt' ;;
+esac
+EOF
+
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode" "$bin_dir/copilot"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   PATH="$bin_dir:$(smoke_system_path)" \
@@ -1744,6 +1818,15 @@ EOF
   bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox_opencode/home" --active >"$acceptance_log" 2>&1
   assert_contains "$acceptance_log" 'kernel: ready: ~/.config/opencode/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
+
+  expect_install_status 0 "$sandbox_copilot" "$snapshot_repo" --runtime=copilot-cli
+  PATH="$bin_dir:$(smoke_system_path)" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=copilot-cli --home="$sandbox_copilot/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'kernel: ready: ~/.copilot/b-agentic/references/contract/'
+  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
 }
 
 main() {
@@ -1754,29 +1837,53 @@ main() {
   require_bin git
   require_bin python3
   make_repo_snapshot "$snapshot_repo"
+  echo "Running run_invalid_runtime_layout_validation_case..."
   run_invalid_runtime_layout_validation_case "$snapshot_repo"
+  echo "Running run_all_runtime_smoke_case..."
   run_all_runtime_smoke_case "$snapshot_repo"
+  echo "Running run_ref_install_case..."
   run_ref_install_case "$snapshot_repo"
+  echo "Running run_manifest_only_corrupted_manifest_case..."
   run_manifest_only_corrupted_manifest_case
+  echo "Running run_manifest_only_custom_paths_case..."
   run_manifest_only_custom_paths_case
+  echo "Running run_manifest_only_merged_config_case..."
   run_manifest_only_merged_config_case "$snapshot_repo"
+  echo "Running run_post_install_mcp_modification_case..."
   run_post_install_mcp_modification_case "$snapshot_repo"
+  echo "Running run_skill_collision_smoke_case..."
   run_skill_collision_smoke_case "$snapshot_repo"
+  echo "Running run_opencode_skill_command_collision_smoke_case..."
   run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
+  echo "Running run_readiness_report_case..."
   run_readiness_report_case "$snapshot_repo"
+  echo "Running run_shell_tool_prompt_case..."
   run_shell_tool_prompt_case "$snapshot_repo"
+  echo "Running run_mcp_doctor_case..."
   run_mcp_doctor_case "$snapshot_repo"
+  echo "Running run_mcp_package_override_case..."
   run_mcp_package_override_case "$snapshot_repo"
+  echo "Running run_claude_context7_env_binding_preserve_case..."
   run_claude_context7_env_binding_preserve_case "$snapshot_repo"
+  echo "Running run_runtime_cli_default_skip_case..."
   run_runtime_cli_default_skip_case "$snapshot_repo"
+  echo "Running run_runtime_cli_prompt_case..."
   run_runtime_cli_prompt_case "$snapshot_repo"
+  echo "Running run_runtime_cli_auto_upgrade_case..."
   run_runtime_cli_auto_upgrade_case "$snapshot_repo"
+  echo "Running run_runtime_cli_upgrade_case..."
   run_runtime_cli_upgrade_case "$snapshot_repo"
+  echo "Running run_missing_runtime_cli_install_case..."
   run_missing_runtime_cli_install_case "$snapshot_repo"
+  echo "Running run_existing_tool_upgrade_case..."
   run_existing_tool_upgrade_case "$snapshot_repo"
+  echo "Running run_existing_tool_default_skip_case..."
   run_existing_tool_default_skip_case "$snapshot_repo"
+  echo "Running run_skill_doctor_case..."
   run_skill_doctor_case "$snapshot_repo"
+  echo "Running run_runtime_acceptance_case..."
   run_runtime_acceptance_case "$snapshot_repo"
+  echo "Running run_active_runtime_acceptance_case..."
   run_active_runtime_acceptance_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
@@ -1792,6 +1899,7 @@ main() {
     # shellcheck disable=SC1090
     source "$runtime_script"
     declare -F run_runtime_smoke_cases >/dev/null || fail "runtime smoke suite did not define run_runtime_smoke_cases: $runtime_script"
+    echo "Running smoke cases for $runtime_name..."
     run_runtime_smoke_cases "$snapshot_repo"
   done
 
