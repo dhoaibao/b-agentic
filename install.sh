@@ -483,7 +483,7 @@ prompt_yes_no() {
   fi
   local answer=""
   printf '%s: ' "$prompt_text" > /dev/tty
-  IFS= read -r answer < /dev/tty || answer=""
+  IFS= read -r -t 30 answer < /dev/tty || answer=""
   [ -n "$answer" ] || answer="$default_answer"
   case "$answer" in
     y|Y|yes|YES|Yes|true|TRUE|1) return 0 ;;
