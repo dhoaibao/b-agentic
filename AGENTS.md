@@ -3,7 +3,7 @@
 
 ## Repository Purpose
 
-b-agentic is a slim workflow kernel for coding agents across Claude Code, OpenCode, Codex CLI, and Antigravity CLI. Keep changes focused on routing, safety, evidence, verification, tool use, install reliability, and multi-runtime delivery.
+b-agentic is a slim workflow kernel for coding agents across Claude Code, OpenCode, Codex CLI, Antigravity CLI, and GitHub Copilot CLI. Keep changes focused on routing, safety, evidence, verification, tool use, install reliability, and multi-runtime delivery.
 
 The governing principle is: slim, strong, usable. Every workflow or prompt change needs a concrete failure mode or capability gap; do not add ceremony for hypothetical gains.
 
@@ -50,9 +50,10 @@ Run the narrowest applicable checks:
 python3 tooling/generate/registry_sync.py
 scripts/validate-skills.sh
 scripts/validate-skills.sh --release
+scripts/b-agentic-audit.sh
 ```
 
-Use `--release` when install, runtime, wrapper, kernel delivery, or release-readiness behavior changes. Confirm generated assets are synchronized, shared content remains runtime-neutral, and public or maintainer docs reflect changed behavior.
+Use `--release` when install, runtime, wrapper, kernel delivery, or release-readiness behavior changes. Run `scripts/b-agentic-audit.sh` (also invoked by `b-review --audit-suite`) for self-audit checks: source/generated sync, kernel slimness, no developer-marker comments, runtime-template exclusion, and unresolved template tokens. Confirm generated assets are synchronized, shared content remains runtime-neutral, and public or maintainer docs reflect changed behavior.
 
 ## Codebase Map
 

@@ -154,7 +154,7 @@ The installer writes recommended MCP entries for:
 - Serena: symbol discovery, references, diagnostics, and symbol edits.
 - CodeGraph: local pre-indexed code structure, flows, impact radius, and affected tests.
 - Context7: versioned library/framework docs.
-- Firecrawl: primary public web search, bounded extraction, and approved deeper research.
+- Firecrawl: primary public web search, bounded extraction, arXiv/paper and GitHub issue/discussion lookup, and approved deeper research.
 - Brave Search: secondary public/current discovery and alternate source finding.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
@@ -180,6 +180,7 @@ Validation:
 ```bash
 scripts/validate-skills.sh
 scripts/validate-skills.sh --release
+scripts/b-agentic-audit.sh
 scripts/smoke-install.sh
 scripts/mcp-doctor.sh --runtime=claude-code
 scripts/mcp-doctor.sh --runtime=codex-cli
