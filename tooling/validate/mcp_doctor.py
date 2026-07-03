@@ -429,10 +429,15 @@ def main() -> int:
     parser.add_argument(
         "--production",
         action="store_true",
-        help="Exit nonzero for missing/blocked MCP readiness and mutable or unmatched package launchers.",
+        help="Deprecated (strict check is now the default).",
+    )
+    parser.add_argument(
+        "--allow-degraded",
+        action="store_true",
+        help="Exit zero even for missing/blocked MCP readiness and mutable packages.",
     )
     args = parser.parse_args()
-    PRODUCTION_MODE = args.production
+    PRODUCTION_MODE = not args.allow_degraded
 
     runtimes = runtime_records()
     runtime = runtimes.get(args.runtime)
@@ -473,7 +478,7 @@ def main() -> int:
         status = status_fn(server, config)
         print(f"{server}: {status}")
         blocked = blocked or status.startswith(("blocked:", "missing:"))
-    if args.production and blocked:
+    if PRODUCTION_MODE and blocked:
         return 1
     return 0
 

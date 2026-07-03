@@ -651,7 +651,7 @@ PY
   PATH="$bin_dir:$PATH" \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" --allow-degraded >"$doctor_log"
   assert_contains "$doctor_log" 'context7: blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config'
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
@@ -696,7 +696,7 @@ PY
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --allow-degraded >"$doctor_log"
   assert_contains "$doctor_log" 'serena: ready:'
   assert_contains "$doctor_log" 'codegraph: ready:'
   assert_contains "$doctor_log" 'context7: ready:'
@@ -716,12 +716,23 @@ PY
   [ "$rc" -eq 1 ] || fail "expected production MCP doctor to block mutable package, got $rc"
   assert_contains "$doctor_log" "playwright: blocked: package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
 
+  set +e
+  PATH="$bin_dir:$PATH" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "expected strict-by-default MCP doctor to block mutable package, got $rc"
+  assert_contains "$doctor_log" "playwright: blocked: package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
+
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --allow-degraded >"$doctor_log"
   assert_contains "$doctor_log" "package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
 
 }

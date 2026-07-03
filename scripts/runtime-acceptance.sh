@@ -44,9 +44,9 @@ python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime="$RUNTIME" --home
 printf '\nMCP readiness doctor:\n'
 mcp_rc=0
 if [ "$PRODUCTION" -eq 1 ]; then
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" --production || mcp_rc=$?
-else
   python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" || mcp_rc=$?
+else
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" --allow-degraded || mcp_rc=$?
 fi
 
 active_rc=0

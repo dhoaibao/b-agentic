@@ -46,7 +46,7 @@ Production pinning knobs:
 
 Set these package overrides to exact package versions in professional environments. The defaults are pinned, but you can override them when you need a different version or your own package.
 
-Run `scripts/mcp-doctor.sh --runtime=<name> --production` after setting package overrides and API keys to make mutable or unmatched MCP launchers, missing keys, and missing local commands fail readiness instead of only reporting advisory blockers.
+Run `scripts/mcp-doctor.sh --runtime=<name>` after setting package overrides and API keys to verify readiness. Missing credentials, unpinned packages, or missing dependencies will fail checks by default. Run with `--allow-degraded` to inspect status without failing on missing/blocked components.
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_RUNTIME_CLI=Y`.
 
@@ -187,9 +187,9 @@ scripts/mcp-doctor.sh --runtime=codex-cli
 scripts/mcp-doctor.sh --runtime=opencode
 scripts/mcp-doctor.sh --runtime=antigravity-cli
 scripts/mcp-doctor.sh --runtime=copilot-cli
-scripts/mcp-doctor.sh --runtime=opencode --production
-scripts/mcp-doctor.sh --runtime=antigravity-cli --production
-scripts/mcp-doctor.sh --runtime=copilot-cli --production
+scripts/mcp-doctor.sh --runtime=opencode --allow-degraded
+scripts/mcp-doctor.sh --runtime=antigravity-cli --allow-degraded
+scripts/mcp-doctor.sh --runtime=copilot-cli --allow-degraded
 scripts/skill-doctor.sh --runtime=claude-code
 scripts/skill-doctor.sh --runtime=codex-cli
 scripts/skill-doctor.sh --runtime=opencode
