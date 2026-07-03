@@ -35,31 +35,14 @@ Use these rules before any skill-specific instruction.
 ## Shell commands
 
 When `rtk` is installed, use it for command families it supports when its filtered output preserves the evidence needed for the task. Do not mechanically prefix unsupported commands.
-
-Examples:
-
-- `rtk git status`
-- `rtk cargo test`
-- `rtk npm run build`
-- `rtk pytest -q`
-
 Run unsupported commands directly. Use `rtk proxy <cmd>` only when raw execution with RTK tracking is useful.
-
-RTK commands:
-
-- `rtk gain` — token savings analytics
-- `rtk gain --history` — recent command savings history
-- `rtk --help` — supported command families
-- `rtk proxy <cmd>` — raw execution with tracking
-
-Verification: `rtk --version`, `rtk gain`, `which rtk`
 
 When `rg`, `fd` or `fdfind`, and `jq` are installed, use them as the required shell tools:
 - `rg` replaces `grep` for text search.
 - `fd` or `fdfind` replaces `find` for file discovery.
 - `jq` replaces `python -m json.tool`, `awk`, and `grep` for JSON inspection, formatting, and filtering.
 
-If one of these shell tools is missing and the task depends on it, prompt the user to install the shell tooling before falling back.
+If a preferred shell tool is missing, use the closest available local fallback and mention the limitation only when it affects reliability.
 
 Detailed contract refs live under `~/.gemini/antigravity-cli/b-agentic/references/contract/`:
 - `runtime.md` - routing, source of truth, work discipline, artifacts, and output.

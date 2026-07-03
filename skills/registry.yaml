@@ -166,10 +166,10 @@
     {
       "name": "b-debug",
       "phase": "Validate",
-      "use": "Find the real runtime root cause and fix it minimally",
+      "use": "Find the real runtime root cause and fix it only when authorized",
       "command": {
         "alias": "b-debug",
-        "description": "Find the root cause of broken runtime behavior and fix it minimally",
+        "description": "Find the root cause of broken runtime behavior and fix it when authorized",
         "exposed": true
       },
       "routing": {
@@ -186,7 +186,7 @@
         ]
       },
       "prompt": {
-        "description": "Systematic hypothesis-driven debugging for runtime bugs, errors, broken behavior, slow paths, memory issues, and stack traces. Traces execution, confirms root cause, then fixes minimally and verifies. When the issue is not yet a confirmed product bug, it should hand off cleanly instead of guessing. Unlike b-test, b-debug owns runtime behavior failures, not test-mechanic issues such as wrong assertions, mocks, or fixtures.",
+        "description": "Systematic hypothesis-driven debugging for runtime bugs, errors, broken behavior, slow paths, memory issues, and stack traces. Traces execution and confirms root cause, then fixes minimally only when the user authorized a fix. Diagnosis-only requests stop after reporting the cause and evidence. When the issue is not yet a confirmed product bug, it should hand off cleanly instead of guessing. Unlike b-test, b-debug owns runtime behavior failures, not test-mechanic issues such as wrong assertions, mocks, or fixtures.",
         "argument_hint": "[symptom-or-error]"
       }
     },

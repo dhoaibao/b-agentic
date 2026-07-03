@@ -1,5 +1,5 @@
 ---
-description: Find the root cause of broken runtime behavior and fix it minimally
+description: Find the root cause of broken runtime behavior and fix it when authorized
 ---
 
 <!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->

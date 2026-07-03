@@ -2,7 +2,7 @@
 
 $ARGUMENTS
 
-Find the real cause of broken behavior, fix it minimally, verify it, and hand off cleanly if the problem turns out to be planning or external knowledge instead.
+Find the real cause of broken behavior, then fix it minimally only when the user authorized a fix. Hand off cleanly if the problem turns out to be planning or external knowledge instead.
 
 ## When to use
 
@@ -28,13 +28,14 @@ Find the real cause of broken behavior, fix it minimally, verify it, and hand of
 3. Rank suspects from stack traces, diagnostics, recent changes, config, data shape, call paths, and the feedback loop.
 4. Use CodeGraph for cross-file call paths or impact radius when indexed; otherwise use Serena plus local search.
 5. Confirm root cause before fixing. Use probes only when cheaper evidence is insufficient and remove them.
-6. Apply the smallest fix that addresses the confirmed cause.
-7. Run the original feedback loop or narrowest check proving the intended symptom changed. For perf, measure before and after.
-8. If the issue is not yet a confirmed bug, say whether the next step belongs in **b-plan**, **b-research**, or **b-test**.
+6. If the user asked only to diagnose, explain, or investigate, report the confirmed cause and stop without editing production code.
+7. If the request authorizes a fix, apply the smallest change that addresses the confirmed cause.
+8. After a fix, run the original feedback loop or narrowest check proving the intended symptom changed. For perf, measure before and after.
+9. If the issue is not yet a confirmed bug, say whether the next step belongs in **b-plan**, **b-research**, or **b-test**.
 
 ## Output format
 
-Symptom, root cause, fix, verification, and cleanup state. Include a handoff only when the work should continue in another skill.
+Symptom, root cause, and evidence. When a fix was authorized, also include the fix, verification, and cleanup state. Include a handoff only when the work should continue in another skill.
 
 ## Rules
 

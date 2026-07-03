@@ -32,7 +32,6 @@ Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence
 
 - `bash` - run existing approved browser/e2e commands.
 - `playwright` - live navigation, snapshots, screenshots, console/network, and browser state.
-- `firecrawl` - static known remote page content only.
 - `serena` - map browser failures to source ownership.
 
 ## Steps

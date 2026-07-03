@@ -28,11 +28,24 @@ Write one commit message, PR title, and concise PR description for one cohesive 
 5. Write a specific imperative commit subject of at most 50 characters with no trailing punctuation.
 6. Write a concise PR title of at most 72 characters.
 7. Describe only facts supported by the staged diff, user context, or verification evidence.
-8. Choose each PR section heading from the staged diff and your analysis. Use a single heading, not a slash-pair option.
+8. Use a compact PR description for a small cohesive change. Use the full structured description when the change has a material problem or decision, implementation detail, and impact that benefit from separate treatment.
 
 ## Output format
 
-For a cohesive change, output exactly:
+For a small cohesive change, output:
+
+```markdown
+Commit message:
+<type>: <subject>
+
+PR title:
+<title>
+
+PR description:
+<one concise paragraph or up to three bullets covering the change and verified impact>
+```
+
+For a substantial cohesive change, output:
 
 ```markdown
 Commit message:
@@ -64,11 +77,11 @@ BLOCKED: split unrelated staged changes
 
 ## Rules
 
-- Choose `Issue`, `Root Cause`, and `Fix` for defect repairs or regressions; choose `Feature`, `Decision`, and `Change` for new capabilities, docs, tooling, configuration, or intentional behavior changes. Mix these only when the staged diff clearly supports a mixed framing.
+- For the full structure, choose `Issue`, `Root Cause`, and `Fix` for defect repairs or regressions; choose `Feature`, `Decision`, and `Change` for new capabilities, docs, tooling, configuration, or intentional behavior changes. Mix these only when the staged diff clearly supports a mixed framing.
 - Keep each PR section to one short paragraph or at most three bullets.
 - Use `Not established from available evidence.` instead of inventing a root cause, decision, impact, or verification result.
 - Do not include issue IDs unless supplied by the user or present in repository evidence.
-- Always return the commit message, PR title, and complete PR description when a cohesive staged change set exists.
+- Always return the commit message, PR title, and a complete proportional PR description when a cohesive staged change set exists.
 - Use the exact blocked output when required evidence is absent or unrelated.
 - Do not inspect remotes, merge bases, or open PR state.
 - Do not run `git commit`, push, or create a PR.

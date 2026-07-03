@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Suite audit for b-agentic self-review.
+"""Structural suite audit for b-agentic self-review.
 
 Runs the standard validation suite and adds audit-only checks for:
 - source/generated asset synchronization
@@ -8,6 +8,9 @@ Runs the standard validation suite and adds audit-only checks for:
 - no developer-marker comments in source
 - runtime-template excluded from the registry
 - no unresolved template tokens in generated assets
+
+This does not prove live runtime behavior, real MCP operation, runtime parity,
+installer safety beyond the validation suite, or prompt effectiveness.
 """
 
 from __future__ import annotations
@@ -131,7 +134,7 @@ def main() -> int:
     if not all_ok:
         return 1
 
-    print("b-agentic suite audit (automated checks) passed")
+    print("b-agentic structural suite audit (automated checks) passed")
     return 0
 
 

@@ -154,10 +154,24 @@ for skill_name in sorted(prompt_dirs):
         if section not in body:
             errors.append(f"{rel(skill_file)}: missing section {section!r}")
     text = prompt.read_text()
-    for forbidden in ["Optional runtime subagent", "Subagents are optional", "[status]", "state-machine", "strict mode", "B_AGENTIC_STRICT"]:
+    for forbidden in [
+        "Optional runtime subagent",
+        "Subagents are optional",
+        "verify subagent claims independently",
+        "[status]",
+        "state-machine",
+        "strict mode",
+        "B_AGENTIC_STRICT",
+    ]:
         if forbidden in text:
             errors.append(f"{rel(prompt)}: removed ceremony remains: {forbidden!r}")
 
+# Prompt behavior regression contracts. These markers encode observed failure
+# modes and their intended correction:
+# - b-debug previously treated diagnosis-only requests as fix authorization.
+# - b-test previously let TDD cross into production edits without b-implement.
+# - b-review previously allowed structural audit output to imply full readiness.
+# - b-summary previously forced substantial PR ceremony onto small changes.
 required_prompt_markers = {
     "b-plan": [
         "CONTEXT.md",
@@ -168,16 +182,17 @@ required_prompt_markers = {
     "b-implement": [
         "CONTEXT.md",
         "requested observable outcome",
-        "verify subagent claims independently",
     ],
     "b-debug": [
         "Build a feedback loop",
         "If no trustworthy feedback loop can be built",
+        "asked only to diagnose, explain, or investigate",
     ],
     "b-test": [
         "public interface",
         "vertical tracer bullets",
         "implementation-coupled tests",
+        "Keep production-code changes in **b-implement**",
     ],
     "b-browser": [
         "requested UI state",
@@ -191,21 +206,22 @@ required_prompt_markers = {
         "real problem statement",
         "ceremony creep",
         "prompt-change evidence",
+        "structural checks only",
     ],
     "b-summary": [
         "Use the staged diff for the commit message, PR title, and PR description.",
         "Commit message:",
         "PR title:",
         "PR description:",
-        "Choose each PR section heading from the staged diff and your analysis.",
+        "Use a compact PR description for a small cohesive change.",
         "## <problem-or-capability heading>",
         "## <cause-or-decision heading>",
         "## <implementation heading>",
-        "Choose `Issue`, `Root Cause`, and `Fix` for defect repairs or regressions",
+        "For the full structure, choose `Issue`, `Root Cause`, and `Fix` for defect repairs or regressions",
         "## Impact Analysis",
         "BLOCKED: split unrelated staged changes",
         "Not established from available evidence.",
-        "Always return the commit message, PR title, and complete PR description when a cohesive staged change set exists.",
+        "Always return the commit message, PR title, and a complete proportional PR description when a cohesive staged change set exists.",
     ],
 }
 for skill_name, markers in required_prompt_markers.items():
@@ -214,6 +230,27 @@ for skill_name, markers in required_prompt_markers.items():
     for marker in markers:
         if marker not in text:
             errors.append(f"{rel(prompt)}: missing behavior marker {marker!r}")
+
+# Registry metadata is user-facing routing evidence. It must preserve the
+# diagnosis/fix authorization boundary enforced by the b-debug prompt.
+b_debug = next(
+    (skill for skill in skills if isinstance(skill, dict) and skill.get("name") == "b-debug"),
+    {},
+)
+b_debug_metadata = " ".join(
+    str(value)
+    for value in (
+        b_debug.get("use", ""),
+        (b_debug.get("command") or {}).get("description", ""),
+        (b_debug.get("prompt") or {}).get("description", ""),
+    )
+)
+for required in ["authorized", "Diagnosis-only requests stop"]:
+    if required not in b_debug_metadata:
+        errors.append(
+            "skills/registry.yaml: b-debug metadata must preserve diagnosis/fix "
+            f"authorization marker {required!r}"
+        )
 
 MCP_SERVERS = {"serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright"}
 LOCAL_TOOLS = {"bash"}
@@ -281,6 +318,23 @@ for forbidden in ["route every shell command through", "always prefix shell comm
             "references/contract/kernel.template.md: unsupported RTK routing remains: "
             f"{forbidden!r}"
         )
+
+# Missing preferred shell tools previously forced an installation prompt even
+# when a reliable local fallback existed. Preserve automatic degraded operation.
+if "use the closest available local fallback" not in kernel_template:
+    errors.append(
+        "references/contract/kernel.template.md: missing automatic shell-tool fallback"
+    )
+if "prompt the user to install the shell tooling before falling back" in kernel_template:
+    errors.append(
+        "references/contract/kernel.template.md: blocking shell-tool install prompt remains"
+    )
+
+# Firecrawl is external research infrastructure, not browser evidence. Keeping
+# it out of b-browser prevents overlapping tool ownership with b-research.
+browser_prompt = read_text(ROOT / "skills" / "b-browser" / "prompt.md")
+if "`firecrawl`" in browser_prompt:
+    errors.append("skills/b-browser/prompt.md: firecrawl ownership must remain in b-research")
 
 readme = read_text(ROOT / "README.md")
 for forbidden in ["hooks", "subagent", "strict", "state-machine", "conformance"]:
