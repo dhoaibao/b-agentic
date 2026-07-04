@@ -171,6 +171,10 @@ for skill_name in sorted(prompt_dirs):
 # - b-test previously let TDD cross into production edits without b-implement.
 # - b-review previously allowed structural audit output to imply full readiness.
 # - b-summary previously forced substantial PR ceremony onto small changes.
+# - b-research previously failed to pinpoint exact dependency versions by checking
+#   loose ranges in manifests or using go.sum instead of go.mod.
+# - b-browser previously ran E2E automation in headless/CI environments without
+#   verifying display server (xvfb) presence or configuration.
 required_prompt_markers = {
     "b-plan": [
         "CONTEXT.md",
@@ -196,6 +200,12 @@ required_prompt_markers = {
     "b-browser": [
         "requested UI state",
         "generic page load",
+        "headless or CI environments",
+    ],
+    "b-research": [
+        "resolved lockfiles",
+        "fallback",
+        "go.mod",
     ],
     "b-refactor": [
         "deletion test",

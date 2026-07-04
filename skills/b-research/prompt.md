@@ -26,7 +26,7 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 ## Steps
 
 1. Classify the question and required source quality.
-2. Pin version from manifests/lockfiles when API details matter.
+2. Pin version from resolved lockfiles (e.g., package-lock.json, poetry.lock, Cargo.lock, pnpm-lock.yaml) or go.mod when API details matter. Use manifests (e.g., package.json, pyproject.toml) only as a fallback, and state the uncertainty when versions are not pinned.
 3. Use Context7 first for versioned library/framework APIs when suitable.
 4. Use Firecrawl search first for public web discovery and current sources when library docs alone do not answer the question.
 5. Use Firecrawl for bounded extraction from known public URLs. Ask before deep autonomous research, broad crawls, or private/internal material.
