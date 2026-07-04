@@ -52,7 +52,7 @@ runtime_upgrade_cli() {
     return 0
   fi
 
-  log "OpenCode CLI not found; installing"
+  log "OpenCode CLI not found; installing from https://opencode.ai/install"
   if dry_run_enabled; then
     printf '[dry-run] curl -fsSL https://opencode.ai/install | bash\n' >&2
   elif curl -fsSL https://opencode.ai/install | bash; then

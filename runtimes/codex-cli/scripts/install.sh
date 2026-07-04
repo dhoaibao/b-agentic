@@ -83,7 +83,7 @@ runtime_upgrade_cli() {
     return 0
   fi
 
-  log "Codex CLI not found; installing"
+  log "Codex CLI not found; installing from https://chatgpt.com/codex/install.sh"
   if dry_run_enabled; then
     printf '[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh\n' >&2
   elif curl -fsSL https://chatgpt.com/codex/install.sh | sh; then

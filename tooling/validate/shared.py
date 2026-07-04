@@ -339,6 +339,27 @@ if "prompt the user to install the shell tooling before falling back" in kernel_
         "references/contract/kernel.template.md: blocking shell-tool install prompt remains"
     )
 
+# The kernel's terse "Routing" list and runtime.md's detailed "Precedence" list
+# are independent hand-written copies with no generator tying them together.
+# Catch a skill silently missing from either one.
+runtime_contract = read_text(ROOT / "references" / "contract" / "runtime.md")
+kernel_routing_section = kernel_template.split("## Routing", 1)[-1].split("## Shell commands", 1)[0]
+runtime_precedence_section = runtime_contract.split("Precedence:", 1)[-1].split(
+    "<!-- generated:routing-triggers:start -->", 1
+)[0]
+for skill in skills:
+    if not isinstance(skill.get("routing"), dict):
+        continue
+    name_token = f"`{skill['name']}`"
+    if name_token not in kernel_routing_section:
+        errors.append(
+            f"references/contract/kernel.template.md: Routing list is missing {name_token}"
+        )
+    if name_token not in runtime_precedence_section:
+        errors.append(
+            f"references/contract/runtime.md: Precedence list is missing {name_token}"
+        )
+
 # Firecrawl is external research infrastructure, not browser evidence. Keeping
 # it out of b-browser prevents overlapping tool ownership with b-research.
 browser_prompt = read_text(ROOT / "skills" / "b-browser" / "prompt.md")

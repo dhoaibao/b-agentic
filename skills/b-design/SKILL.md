@@ -36,7 +36,6 @@ Create or refresh `docs/DESIGN.md`, the repo-local frontend design standard. Do 
 
 - `bash` - inspect repo files, git state, docs, and diffs.
 - `serena` - inspect frontend structure when code ownership or component patterns affect the standard.
-- `playwright` - inspect supplied or local visual evidence only when browser evidence is already in scope or approved.
 
 ## Steps
 

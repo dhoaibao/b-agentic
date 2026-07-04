@@ -42,10 +42,13 @@ runtime_cli_installed() {
 readonly ANTIGRAVITY_INSTALL_URL="${B_AGENTIC_ANTIGRAVITY_INSTALL_URL:-https://antigravity.google/cli/install.sh}"
 
 runtime_upgrade_cli() {
+  if [ "$ANTIGRAVITY_INSTALL_URL" != "https://antigravity.google/cli/install.sh" ]; then
+    warn "Antigravity CLI install URL overridden via B_AGENTIC_ANTIGRAVITY_INSTALL_URL: $ANTIGRAVITY_INSTALL_URL"
+  fi
   if command -v agy >/dev/null 2>&1; then
-    log "Antigravity CLI already installed; reinstalling/upgrade via official installer"
+    log "Antigravity CLI already installed; reinstalling/upgrade via official installer from $ANTIGRAVITY_INSTALL_URL"
   else
-    log "Antigravity CLI not found; installing"
+    log "Antigravity CLI not found; installing from $ANTIGRAVITY_INSTALL_URL"
   fi
   if dry_run_enabled; then
     printf '[dry-run] curl -fsSL %s | bash\n' "$ANTIGRAVITY_INSTALL_URL" >&2

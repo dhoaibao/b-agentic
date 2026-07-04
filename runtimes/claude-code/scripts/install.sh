@@ -50,7 +50,7 @@ runtime_upgrade_cli() {
     return 0
   fi
 
-  log "Claude Code CLI not found; installing"
+  log "Claude Code CLI not found; installing from https://claude.ai/install.sh"
   if dry_run_enabled; then
     printf '[dry-run] curl -fsSL https://claude.ai/install.sh | bash\n' >&2
   elif curl -fsSL https://claude.ai/install.sh | bash; then

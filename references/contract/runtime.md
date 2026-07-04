@@ -26,6 +26,7 @@ Precedence:
 - Frontend design standard or `docs/DESIGN.md` authoring -> `b-design`.
 - External facts that local repo evidence cannot answer -> `b-research`.
 - Approved plan or small direct edit -> `b-implement`.
+- Initialize or refresh repo-local agent instruction files -> `b-init`.
 - Named behavior-preserving transform -> `b-refactor`.
 - Runtime failure or bug report -> `b-debug`.
 - Test mechanics, fixtures, assertions, coverage -> `b-test`.
