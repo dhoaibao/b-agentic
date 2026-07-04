@@ -123,25 +123,6 @@ class OpenCodeProbe(RuntimeProbe):
         return completed.returncode, completed.stdout, completed.stderr
 
 
-class CopilotProbe(RuntimeProbe):
-    def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
-        if cwd is None:
-            raise ValueError("CopilotProbe.run requires a working directory")
-        command = [
-            self.cli_path,
-            "--prompt",
-            prompt,
-        ]
-        completed = subprocess.run(
-            command,
-            cwd=cwd,
-            env=self.env(extra_path),
-            capture_output=True,
-            text=True,
-        )
-        return completed.returncode, completed.stdout, completed.stderr
-
-
 
 def load_runtime(runtime_name: str) -> dict:
     data = json.loads((ROOT / "runtimes" / "registry.yaml").read_text())
@@ -165,8 +146,6 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         cli_path = shutil.which("opencode")
     elif runtime_name == "codex-cli":
         cli_path = shutil.which("codex")
-    elif runtime_name == "copilot-cli":
-        cli_path = shutil.which("copilot")
 
     if cli_path is None:
         if runtime_name == "antigravity-cli":
@@ -189,8 +168,6 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         return CodexProbe(**common)
     if runtime_name == "opencode":
         return OpenCodeProbe(**common)
-    if runtime_name == "copilot-cli":
-        return CopilotProbe(**common)
     raise SystemExit(f"unsupported runtime: {runtime_name}")
 
 
@@ -362,9 +339,6 @@ def probe_mcp_launch(probe: RuntimeProbe) -> ProbeResult:
             with tempfile.NamedTemporaryFile(prefix="b-agentic-codex-last-message-", delete=False) as handle:
                 output_path = Path(handle.name)
             command = [probe.cli_path, "exec", "--skip-git-repo-check", "--ephemeral", "-C", str(repo), "-o", str(output_path), prompt]
-        elif isinstance(probe, CopilotProbe):
-            output_path = None
-            command = [probe.cli_path, "--prompt", prompt]
         else:
             output_path = None
             command = [probe.cli_path, "run", "--dir", str(repo), prompt]

@@ -18,7 +18,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `codex-cli`, `claude-code`, `opencode`, `antigravity-cli`, or `copilot-cli`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `codex-cli`, `claude-code`, `opencode`, or `antigravity-cli`. Use `--runtime=all` for every registered runtime.
 
 Default install writes b-agentic files and config only. Interactive installs prompt before installing or upgrading the selected runtime CLI. Non-interactive installs skip runtime CLI changes unless `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` explicitly opts in.
 
@@ -102,7 +102,6 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 | Claude Code | Native `/b-*` skills from `~/.claude/skills/` | `~/.claude.json` |
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Antigravity CLI | Native skills from `~/.gemini/antigravity-cli/skills/` | `~/.gemini/antigravity-cli/mcp_config.json` |
-| GitHub Copilot CLI | Native skills from `~/.copilot/skills/` | `~/.copilot/mcp-config.json` |
 
 <!-- generated:runtime-capabilities:start -->
 | Runtime | Skills | Permissions | Rules | Wrappers |
@@ -111,12 +110,11 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 | Claude Code | native | native | native | unsupported |
 | OpenCode | native | native | native | native; adapter-only |
 | Antigravity CLI | native | native | native | unsupported |
-| GitHub Copilot CLI | native | unsupported | unsupported | unsupported |
 <!-- generated:runtime-capabilities:end -->
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
-Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex CLI applies managed rules to commands that request to run outside the sandbox; OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools; and Antigravity CLI uses deny/ask/allow precedence with managed settings in `~/.gemini/antigravity-cli/settings.json`. On top of that baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled (excluding GitHub Copilot CLI, which lacks a persistent safety policy config surface).
+Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex CLI applies managed rules to commands that request to run outside the sandbox; OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools; and Antigravity CLI uses deny/ask/allow precedence with managed settings in `~/.gemini/antigravity-cli/settings.json`. On top of that baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled.
 
 ## Skills
 
@@ -186,20 +184,17 @@ scripts/mcp-doctor.sh --runtime=claude-code
 scripts/mcp-doctor.sh --runtime=codex-cli
 scripts/mcp-doctor.sh --runtime=opencode
 scripts/mcp-doctor.sh --runtime=antigravity-cli
-scripts/mcp-doctor.sh --runtime=copilot-cli
 scripts/mcp-doctor.sh --runtime=opencode --allow-degraded
 scripts/mcp-doctor.sh --runtime=antigravity-cli --allow-degraded
-scripts/mcp-doctor.sh --runtime=copilot-cli --allow-degraded
 scripts/skill-doctor.sh --runtime=claude-code
 scripts/skill-doctor.sh --runtime=codex-cli
 scripts/skill-doctor.sh --runtime=opencode
 scripts/skill-doctor.sh --runtime=antigravity-cli
-scripts/skill-doctor.sh --runtime=copilot-cli
 ```
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. The default routing check is a static heuristic over skill registry metadata, not a live-model routing test. Automated checks do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
 
-Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates. Add `--active` to run local noninteractive runtime probes for kernel loading, skill routing, MCP tool-call evidence, and approval/deny signals without Git side effects. `--active` is available for Claude Code, Codex CLI, OpenCode, and GitHub Copilot CLI; Antigravity CLI active acceptance is unsupported until a documented non-interactive prompt mode is available.
+Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates. Add `--active` to run local noninteractive runtime probes for kernel loading, skill routing, MCP tool-call evidence, and approval/deny signals without Git side effects. `--active` is available for Claude Code, Codex CLI, and OpenCode; Antigravity CLI active acceptance is unsupported until a documented non-interactive prompt mode is available.
 
 Production acceptance for each runtime should include a fresh-session check:
 

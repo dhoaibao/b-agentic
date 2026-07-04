@@ -224,12 +224,6 @@ def main() -> None:
             "settings": home / ".gemini" / "antigravity-cli" / "settings.json",
             "mcpConfig": home / ".gemini" / "antigravity-cli" / "mcp_config.json",
         },
-        "copilot-cli": {
-            "metadata": home / ".copilot" / "b-agentic",
-            "skills": home / ".copilot" / "skills",
-            "kernel": home / ".copilot" / "copilot-instructions.md",
-            "mcpConfig": home / ".copilot" / "mcp-config.json",
-        },
     }
 
     defaults = runtime_defaults.get(runtime)
@@ -287,8 +281,6 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Antigravity CLI agent")
         remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json", "settings", "settingsAction", data)
         remove_merged_json_config(str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])), metadata / "templates" / "mcp.user.template.json", "mcp_config.json", "mcpConfig", "mcpAction", data)
-    elif runtime == "copilot-cli":
-        remove_merged_json_config(str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])), metadata / "templates" / "mcp.user.template.json", "mcp-config.json", "mcpConfig", "mcpAction", data)
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 

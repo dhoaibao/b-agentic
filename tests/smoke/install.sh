@@ -1162,19 +1162,9 @@ EOF
 printf 'antigravity-install-script\n' >> "$upgrade_log"
 exit 0
 EOF
-  cat > "$bin_dir/copilot" <<EOF
-#!/usr/bin/env bash
-printf 'copilot:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  cat > "$bin_dir/copilot-install.sh" <<EOF
-#!/usr/bin/env bash
-printf 'copilot-install-script\n' >> "$upgrade_log"
-exit 0
-EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/agy" "$bin_dir/copilot" "$bin_dir/antigravity-install.sh" "$bin_dir/copilot-install.sh"
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/agy" "$bin_dir/antigravity-install.sh"
 
-  for runtime in claude-code opencode codex-cli antigravity-cli copilot-cli; do
+  for runtime in claude-code opencode codex-cli antigravity-cli; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -1192,10 +1182,6 @@ EOF
         runtime_bin="agy"
         runtime_arg="upgrade"
         ;;
-      copilot-cli)
-        runtime_bin="copilot"
-        runtime_arg="upgrade"
-        ;;
       *)
         fail "unexpected runtime in upgrade smoke: $runtime"
         ;;
@@ -1206,11 +1192,8 @@ EOF
     rc=0
 
     antigravity_url=""
-    copilot_url=""
     if [ "$runtime" = "antigravity-cli" ]; then
       antigravity_url="file://$bin_dir/antigravity-install.sh"
-    elif [ "$runtime" = "copilot-cli" ]; then
-      copilot_url="file://$bin_dir/copilot-install.sh"
     fi
 
     set +e
@@ -1224,7 +1207,6 @@ EOF
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
     B_AGENTIC_ANTIGRAVITY_INSTALL_URL="${antigravity_url:-}" \
-    B_AGENTIC_COPILOT_INSTALL_URL="${copilot_url:-}" \
     bash "$ROOT_DIR/install.sh" --runtime="$runtime" >"$install_log" 2>&1
     rc=$?
     set -e
@@ -1232,8 +1214,6 @@ EOF
     [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
     if [ "$runtime" = "antigravity-cli" ]; then
       expected_entry='antigravity-install-script'
-    elif [ "$runtime" = "copilot-cli" ]; then
-      expected_entry='copilot-install-script'
     else
       expected_entry="$runtime_bin:$runtime_arg"
     fi
@@ -1246,7 +1226,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex-cli antigravity-cli copilot-cli; do
+  for runtime in claude-code opencode codex-cli antigravity-cli; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -1259,9 +1239,6 @@ run_missing_runtime_cli_install_case() {
         ;;
       antigravity-cli)
         expected_entry='[dry-run] curl -fsSL https://antigravity.google/cli/install.sh | bash'
-        ;;
-      copilot-cli)
-        expected_entry='[dry-run] curl -fsSL https://gh.io/copilot-install | bash'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"
@@ -1665,11 +1642,10 @@ run_active_runtime_acceptance_case() {
   local sandbox_claude="$WORK_DIR/runtime-acceptance-active-claude"
   local sandbox_codex="$WORK_DIR/runtime-acceptance-active-codex"
   local sandbox_opencode="$WORK_DIR/runtime-acceptance-active-opencode"
-  local sandbox_copilot="$WORK_DIR/runtime-acceptance-active-copilot"
   local bin_dir="$WORK_DIR/runtime-acceptance-active-bin"
   local acceptance_log="$WORK_DIR/runtime-acceptance-active.log"
 
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_copilot/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
 
   cat > "$bin_dir/serena" <<'EOF'
 #!/usr/bin/env bash
@@ -1784,20 +1760,7 @@ case "$last" in
 esac
 EOF
 
-  cat > "$bin_dir/copilot" <<'EOF'
-#!/usr/bin/env bash
-last="${@: -1}"
-case "$last" in
-  *"Detailed contract refs live under"*) printf '%s\n' '~/.copilot/b-agentic/references/contract/' ;;
-  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
-  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
-  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
-  *"git reset --hard"*) printf '%s\n' 'denied' ;;
-  *) printf '%s\n' 'unexpected copilot prompt' ;;
-esac
-EOF
-
-  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode" "$bin_dir/copilot"
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   PATH="$bin_dir:$(smoke_system_path)" \
@@ -1828,15 +1791,6 @@ EOF
   FIRECRAWL_API_KEY=test-firecrawl \
   bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox_opencode/home" --active >"$acceptance_log" 2>&1
   assert_contains "$acceptance_log" 'kernel: ready: ~/.config/opencode/b-agentic/references/contract/'
-  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-
-  expect_install_status 0 "$sandbox_copilot" "$snapshot_repo" --runtime=copilot-cli
-  PATH="$bin_dir:$(smoke_system_path)" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=copilot-cli --home="$sandbox_copilot/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'kernel: ready: ~/.copilot/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
 }
 
