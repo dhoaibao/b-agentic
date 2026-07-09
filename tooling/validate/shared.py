@@ -14,6 +14,7 @@ RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "antigravity-json",
     "claude-user-config",
     "codex-toml",
+    "cursor-json",
     "opencode-json",
 }
 
@@ -490,15 +491,44 @@ def antigravity_gate_severity(tokens: list[str], settings: dict) -> int:
     return best
 
 
+def cursor_gate_severity(tokens: list[str], settings: dict) -> int:
+    # Cursor is allowlist-based: deny rules take precedence, unlisted commands are asked/approved, allowed are allowed.
+    permissions = settings.get("permissions", {})
+    # Check deny rules first
+    for raw in permissions.get("deny", []):
+        match = re.fullmatch(r"Shell\((.*?)\s*\*?\)", raw)
+        if not match:
+            continue
+        entry_tokens = match.group(1).split()
+        if entry_tokens and entry_tokens[0] == "rtk":
+            entry_tokens = entry_tokens[1:]
+        if entry_tokens[: len(tokens)] == tokens:
+            return 2  # Deny
+    # Check allow rules
+    for raw in permissions.get("allow", []):
+        match = re.fullmatch(r"Shell\((.*?)\s*\*?\)", raw)
+        if not match:
+            continue
+        entry_tokens = match.group(1).split()
+        if entry_tokens and entry_tokens[0] == "rtk":
+            entry_tokens = entry_tokens[1:]
+        if entry_tokens[: len(tokens)] == tokens:
+            return 0  # Allow (not gated)
+    # Default to ask (severity 1) because of allowlist approvalMode
+    return 1
+
+
 claude_config = load_json(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
 opencode_config = load_json(ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json")
 codex_rules = read_text(ROOT / "runtimes" / "codex-cli" / "rules" / "b-agentic.rules")
 antigravity_config = load_json(ROOT / "runtimes" / "antigravity-cli" / "configs" / "settings.template.json")
+cursor_config = load_json(ROOT / "runtimes" / "cursor" / "configs" / "settings.template.json")
 gate_runtimes = [
     ("runtimes/claude-code/configs/settings.template.json", lambda tokens: claude_gate_severity(tokens, claude_config)),
     ("runtimes/opencode/configs/mcp.user.template.json", lambda tokens: opencode_gate_severity(tokens, opencode_config)),
     ("runtimes/codex-cli/rules/b-agentic.rules", lambda tokens: codex_gate_severity(tokens, codex_rules)),
     ("runtimes/antigravity-cli/configs/settings.template.json", lambda tokens: antigravity_gate_severity(tokens, antigravity_config)),
+    ("runtimes/cursor/configs/settings.template.json", lambda tokens: cursor_gate_severity(tokens, cursor_config)),
 ]
 for tokens, min_severity in SAFETY_GATES:
     required_rank = SEVERITY_RANK[min_severity]

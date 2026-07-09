@@ -112,6 +112,16 @@ def status_for_claude(paths: dict[str, Path], expected: list[str]) -> dict[str, 
     }
 
 
+def status_for_cursor(paths: dict[str, Path], expected: list[str]) -> dict[str, str]:
+    skills = installed_skill_names(paths["skill"].parents[1])
+    skills_ready = skills == expected and bool(expected)
+    return {
+        "kernel": "ready: reference copy installed" if paths["kernel"].exists() else "missing",
+        "skills": payload_status(skills, expected, "skills"),
+        "discovery": "ready: native skills path populated" if skills_ready else "blocked: install complete skill payload",
+    }
+
+
 def status_for_opencode(paths: dict[str, Path], expected: list[str]) -> dict[str, str]:
     skill_root = paths["skill"].parents[1]
     command_root = paths["command"].parent
@@ -168,6 +178,8 @@ def main() -> int:
 
     if runtime.get("config_schema_family") == "codex-toml":
         status = status_for_codex(paths, expected)
+    elif args.runtime == "cursor":
+        status = status_for_cursor(paths, expected)
     elif "command" in paths:
         status = status_for_opencode(paths, expected)
     else:

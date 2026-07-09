@@ -176,6 +176,7 @@ def remove_managed_json_config(current_path: Path, template_path: Path, original
         ".claude.json": "mcpServers",
         "opencode.json": "mcp",
         "mcp_config.json": "mcpServers",
+        "mcp.json": "mcpServers",
     }
     mcp_key = mcp_labels.get(label)
     if mcp_key is not None:

@@ -319,6 +319,9 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.gemini/antigravity-cli/skills/b-plan"
   assert_no_path "$sandbox_all/home/.gemini/GEMINI.md"
   assert_no_path "$sandbox_all/home/.gemini/antigravity-cli/agents/b-explore.md"
+  assert_no_path "$sandbox_all/home/.cursor/skills/b-plan"
+  assert_no_path "$sandbox_all/home/.cursor/AGENTS.md"
+  assert_no_path "$sandbox_all/home/.cursor/cli-config.json"
   mkdir -p "$sandbox_pending/home"
   IFS=$'\t' read -r pending_runtime_name _ pending_kernel_path < <(registry_runtime_records)
   [ -n "$pending_runtime_name" ] || fail "expected at least one registered runtime"

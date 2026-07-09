@@ -55,6 +55,7 @@ RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "antigravity-json",
     "claude-user-config",
     "codex-toml",
+    "cursor-json",
     "opencode-json",
 }
 

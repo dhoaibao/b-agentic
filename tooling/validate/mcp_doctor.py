@@ -45,6 +45,7 @@ class RuntimeStyle:
     OPENCODE = "opencode"
     CODEX = "codex"
     ANTIGRAVITY = "antigravity"
+    CURSOR = "cursor"
 
 
 def load_json(path: Path) -> dict:
@@ -309,6 +310,30 @@ def antigravity_server_status(server: str, config: dict) -> str:
     return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
 
 
+def cursor_server_status(server: str, config: dict) -> str:
+    servers = config.get("mcpServers", {})
+    entry = servers.get(server)
+    if not isinstance(entry, dict):
+        return "missing: config entry not installed"
+
+    normalized = normalize_server(entry, RuntimeStyle.CURSOR)
+
+    if server == "serena":
+        return _check_serena(normalized, "cursor")
+    if server == "context7":
+        if entry.get("type") != "http" or entry.get("url") != CONTEXT7_URL:
+            return "blocked: invalid context7 config"
+        return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
+    if server == "codegraph":
+        return _check_codegraph(normalized)
+    if server == "playwright":
+        return _check_playwright(normalized)
+
+    env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
+    env_value = os.environ.get(env_key) if env_var_present(env_key) else None
+    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
+
+
 def json_mcp_server_status(server: str, config: dict) -> str:
     servers = config.get("mcp", {})
     entry = servers.get(server)
@@ -440,6 +465,9 @@ def main() -> int:
     elif schema_family == "antigravity-json":
         config = load_json(config_path)
         status_fn = antigravity_server_status
+    elif schema_family == "cursor-json":
+        config = load_json(config_path)
+        status_fn = cursor_server_status
     else:
         config = load_json(config_path)
         status_fn = json_mcp_server_status
