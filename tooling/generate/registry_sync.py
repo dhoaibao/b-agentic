@@ -37,10 +37,6 @@ PROMPT_FRONTMATTER_FIELDS = [
     ("argument_hint", "argument-hint"),
     ("when_to_use", "when_to_use"),
     ("user_invocable", "user-invocable"),
-    ("context", "context"),
-    ("agent", "agent"),
-    ("paths", "paths"),
-    ("shell", "shell"),
 ]
 ALLOWED_PROMPT_KEYS = {"description", *[field for field, _ in PROMPT_FRONTMATTER_FIELDS]}
 RUNTIME_CAPABILITY_KEYS = [

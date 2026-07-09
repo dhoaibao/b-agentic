@@ -32,7 +32,7 @@ Write one commit message, PR title, and concise PR description for one cohesive 
 
 ## Steps
 
-1. Run `git status --short` and inspect `git diff --staged`.
+1. Run `git status --short` and inspect `git diff --staged` using Bash.
 2. Block if the staged diff is empty or mixes unrelated concerns.
 3. Use the staged diff for the commit message, PR title, and PR description.
 4. Choose the narrowest accurate commit type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`.

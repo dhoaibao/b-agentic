@@ -33,7 +33,7 @@
       "command": "pnpm",
       "args": ["dlx", "@brave/brave-search-mcp-server@2.0.85", "--transport", "stdio"],
       "env": {
-        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+        "BRAVE_API_KEY": "${BRAVE_API_KEY:-}"
       }
     },
     "firecrawl": {
@@ -41,7 +41,7 @@
       "command": "pnpm",
       "args": ["dlx", "firecrawl-mcp@3.22.1"],
       "env": {
-        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY:-}"
       }
     },
     "playwright": {

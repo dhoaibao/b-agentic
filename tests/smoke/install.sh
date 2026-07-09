@@ -1797,6 +1797,52 @@ EOF
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
 }
 
+run_rtk_ref_dry_run_case() {
+  local snapshot_repo="$1"
+  local sandbox="$WORK_DIR/rtk-ref-dry-run"
+  local install_log="$sandbox/install.log"
+  local rc
+
+  mkdir -p "$sandbox/home"
+
+  # Case A: Default B_AGENTIC_RTK_REF
+  rc=0
+  set +e
+  HOME="$sandbox/home" \
+  PATH="$(smoke_system_path)" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source-a" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_RTK=Y \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  bash "$ROOT_DIR/install.sh" --runtime=codex --dry-run >"$install_log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected dry-run with default RTK ref exit 0, got $rc"
+  assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/v0.43.0/install.sh | RTK_VERSION=v0.43.0 sh'
+
+  # Case B: Overridden B_AGENTIC_RTK_REF
+  rc=0
+  set +e
+  HOME="$sandbox/home" \
+  PATH="$(smoke_system_path)" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source-b" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_RTK=Y \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_RTK_REF=test-ref-foo \
+  bash "$ROOT_DIR/install.sh" --runtime=codex --dry-run >"$install_log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected dry-run with custom RTK ref exit 0, got $rc"
+  assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/test-ref-foo/install.sh | RTK_VERSION=test-ref-foo sh'
+}
+
 main() {
   local snapshot_repo="$WORK_DIR/repo-snapshot"
   local runtime_name runtime_script
@@ -1805,6 +1851,8 @@ main() {
   require_bin git
   require_bin python3
   make_repo_snapshot "$snapshot_repo"
+  echo "Running run_rtk_ref_dry_run_case..."
+  run_rtk_ref_dry_run_case "$snapshot_repo"
   echo "Running run_invalid_runtime_layout_validation_case..."
   run_invalid_runtime_layout_validation_case "$snapshot_repo"
   echo "Running run_all_runtime_smoke_case..."

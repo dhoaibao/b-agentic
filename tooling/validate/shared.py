@@ -281,18 +281,51 @@ def tools_required_tokens(prompt_text: str) -> list[str]:
     return tokens
 
 
+TOKEN_TO_DISPLAY_NAME = {
+    "serena": "Serena",
+    "codegraph": "CodeGraph",
+    "context7": "Context7",
+    "brave-search": "Brave",
+    "firecrawl": "Firecrawl",
+    "playwright": "Playwright",
+    "bash": "Bash",
+}
+
 referenced_servers: set[str] = set()
 for skill_name in sorted(prompt_dirs):
     prompt = ROOT / "skills" / skill_name / "prompt.md"
-    tokens = tools_required_tokens(read_text(prompt))
+    prompt_content = read_text(prompt)
+    tokens = tools_required_tokens(prompt_content)
+    
+    # Check for tool references outside of Tools required
+    lines = prompt_content.splitlines()
+    outside_lines = []
+    in_tools_required = False
+    for line in lines:
+        if line.startswith("## "):
+            in_tools_required = (line.strip() == "## Tools required")
+            if not in_tools_required:
+                outside_lines.append(line)
+            continue
+        if not in_tools_required:
+            outside_lines.append(line)
+    outside_text = "\n".join(outside_lines)
+
     for token in tokens:
         if token not in KNOWN_TOOLS:
             errors.append(
                 f"{rel(prompt)}: unknown tool {token!r} in Tools required; "
                 f"expected one of {sorted(KNOWN_TOOLS)}"
             )
-        elif token in MCP_SERVERS:
-            referenced_servers.add(token)
+        else:
+            if token in MCP_SERVERS:
+                referenced_servers.add(token)
+            
+            display_name = TOKEN_TO_DISPLAY_NAME.get(token, token)
+            if (token not in outside_text) and (display_name not in outside_text):
+                errors.append(
+                    f"{rel(prompt)}: tool {token!r} is declared in Tools required but never referenced outside that section"
+                )
 
 unreferenced_servers = sorted(MCP_SERVERS - referenced_servers)
 if unreferenced_servers:

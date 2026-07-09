@@ -28,13 +28,13 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 
 ## Steps
 
-1. Scope the review: working tree, range, baseline, or suite-audit surface.
+1. Scope the review: working tree, range, baseline, or suite-audit surface (using Bash to run git status or diff).
 2. Choose baseline. Without baseline, do a risk review and do not claim requirements coverage.
 3. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
 4. Use CodeGraph for changed flows and affected-test discovery when indexed; use Serena/local search for exact references.
 5. Inspect highest-risk changed symbols and boundaries first.
 6. Check tests, edge cases, security, operability, evidence quality, hidden assumptions, unnecessary diff, and over-abstraction.
-7. Verify evidence proves the intended observable outcome, not only command success.
+7. Verify evidence proves the intended observable outcome, not only command success (using Brave to look up API semantics if needed).
 8. Emit findings ordered by severity. If none, say so and name residual risk.
 
 For `--audit-suite` or explicit b-agentic audits, check kernel slimness, real problem statement, source/generated sync, runtime neutrality, runtime parity, installer safety, MCP leverage, validation evidence, prompt-change evidence, domain-specific behavior in core, ceremony creep, and cleanup candidates. Run `scripts/b-agentic-audit.sh` from the b-agentic checkout for structural checks only. Supplement it with repo inspection for the criteria the script does not automate, and do not treat a passing script as production-readiness proof. Prefer source files over generated assets and lower confidence when runtime behavior is only install-validated.

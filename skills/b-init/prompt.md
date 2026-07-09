@@ -24,7 +24,7 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
 ## Steps
 
 1. Confirm scope: repository root or a specific subtree, and whether the task is create, refresh, or reconcile.
-2. Inspect only the repo evidence needed to avoid boilerplate: existing docs, manifests, validation scripts, top-level directories, and source-of-truth files.
+2. Inspect only the repo evidence needed to avoid boilerplate: existing docs, manifests, validation scripts, top-level directories, and source-of-truth files. Use Serena to inspect file/module ownership when it affects the codebase-map section.
 3. Prefer `AGENTS.md` as the only authoritative instruction file. Keep `CLAUDE.md` short and route the reader to `AGENTS.md` using the exact shim pattern:
    ```markdown
    # Claude Code Instructions
@@ -47,7 +47,7 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
    - Maintainer guide: edit guidelines (e.g. sync scripts) when the repo has generated files.
    - Source-of-truth files: registries, templates, or docs that own generated outputs.
 7. Avoid runtime-home paths, agent-vendor policy dumps, speculative architecture summaries, and extra root docs.
-8. Verify that referenced paths and commands exist, then inspect the diff for noise or invented detail.
+8. Verify that referenced paths and commands exist (using Bash to run checks), then inspect the diff for noise or invented detail.
 
 ## Output format
 

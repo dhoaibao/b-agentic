@@ -21,3 +21,7 @@ jobs:
         run: python3 tooling/generate/registry_sync.py --check
       - name: Run validation suite
         run: bash scripts/validate-skills.sh --release
+      - name: Run suite audit
+        run: bash scripts/b-agentic-audit.sh
+      - name: Run installer smoke tests
+        run: bash scripts/smoke-install.sh

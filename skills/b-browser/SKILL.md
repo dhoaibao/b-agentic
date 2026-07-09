@@ -37,10 +37,10 @@ Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence
 ## Steps
 
 1. Classify the request: direct command, supplied evidence, live exploration, or readiness gap.
-2. Prefer supplied/CI evidence or existing repo scripts before live browser operation.
+2. Prefer supplied/CI evidence or existing repo scripts (run via Bash) before live browser operation.
 3. Ask before starting dev servers, installing tools, persisting sessions, or unsafe arbitrary browser code.
 4. Collect evidence with the narrowest sufficient command or Playwright interaction, tied to the requested UI state, route, console/network behavior, or screenshot. In headless or CI environments, ensure display servers (e.g., xvfb-run) or headless configurations are used.
-5. Classify failures as product, harness/setup, environment, auth/session, external-service, flaky/timing, or tool-unavailable.
+5. Classify failures as product, harness/setup, environment, auth/session, external-service, flaky/timing, or tool-unavailable. Use Serena to map browser failures to source ownership.
 6. Clean up browser state, artifacts, and lingering processes where applicable.
 
 ## Output format

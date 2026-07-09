@@ -41,7 +41,7 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 2. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
 3. Map structure and impact with CodeGraph when indexed; map declarations/references with Serena; use exact text search for exports, routes, config keys, docs, and generated consumers.
 4. Apply the smallest matching transform.
-5. Re-check references and run diagnostics or the narrowest risk-appropriate test/build.
+5. Re-check references (using Bash if needed) and run diagnostics or the narrowest risk-appropriate test/build.
 6. Inspect the diff for unintended behavior changes.
 
 When the refactor target is architectural, use concise design vocabulary: interface, seam, adapter, locality, leverage, shallow abstraction, and deletion test. Stop if the work becomes redesign.

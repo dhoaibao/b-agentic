@@ -40,8 +40,8 @@ Create or refresh `docs/DESIGN.md`, the repo-local frontend design standard. Do 
 ## Steps
 
 1. Confirm the source mode: user description, attached image/mockup, existing `docs/DESIGN.md`, design-token source, current frontend code, or a mix.
-2. Run `git status --short` for repo work and preserve unrelated changes.
-3. Inspect the lightest useful evidence: existing design docs, frontend components, tokens, CSS, layout files, screenshots, and repo conventions. Do not invent a design system when code evidence is thin.
+2. Run `git status --short` via Bash for repo work and preserve unrelated changes.
+3. Inspect the lightest useful evidence: existing design docs, frontend components, tokens, CSS, layout files, screenshots, and repo conventions. Use Serena to map component/symbol ownership when the standard depends on code structure. Do not invent a design system when code evidence is thin.
 4. If analyzing images, separate observed facts from inferred rules. Treat exact dimensions, counts, colors, and spatial alignment as approximate unless supported by source files or browser evidence.
 5. Create or update only `docs/DESIGN.md` unless the user explicitly approved a broader documentation change. Preserve useful existing content, remove generic filler, and mark unresolved product choices as open questions.
 6. Keep the document implementation-facing and concise. Prefer rules an agent can apply while coding over design theory.

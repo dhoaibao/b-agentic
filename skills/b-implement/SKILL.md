@@ -40,12 +40,12 @@ Make the scoped change in the smallest coherent step, and hand back to planning 
 ## Steps
 
 1. Resolve the source of truth: approved plan, approved chat instruction, or small direct request.
-2. Run `git status --short` and preserve unrelated changes.
+2. Run `git status --short` via Bash and preserve unrelated changes.
 3. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
 4. State expected files/symbols, invariant behavior, and success criteria; infer narrow criteria only when obvious.
 5. Use CodeGraph for cross-file impact or affected-test mapping when indexed; otherwise use Serena plus local search.
 6. Edit the smallest coherent slice. Use Serena for symbol work and native edits for prose/config/string changes.
-7. Run the narrowest useful verification that proves the requested observable outcome.
+7. Run the narrowest useful verification (using Context7 for third-party API checks if the implementation relies on them) that proves the requested observable outcome.
 8. Inspect the diff and report changes, verification, and remaining gaps.
 9. If new uncertainty, missing external facts, or scope drift appears, stop and hand back to **b-plan** or **b-research** instead of silently expanding the task.
 
