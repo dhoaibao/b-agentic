@@ -319,7 +319,7 @@ def cursor_server_status(server: str, config: dict) -> str:
     normalized = normalize_server(entry, RuntimeStyle.CURSOR)
 
     if server == "serena":
-        return _check_serena(normalized, "cursor")
+        return _check_serena(normalized, "ide")
     if server == "context7":
         if entry.get("type") != "http" or entry.get("url") != CONTEXT7_URL:
             return "blocked: invalid context7 config"
