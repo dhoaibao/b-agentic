@@ -15,7 +15,7 @@ def load_toml(path: Path) -> dict:
     try:
         import tomllib
     except ModuleNotFoundError as exc:  # pragma: no cover
-        raise SystemExit("Codex CLI skill doctor requires Python 3.11+ (stdlib tomllib).") from exc
+        raise SystemExit("Codex skill doctor requires Python 3.11+ (stdlib tomllib).") from exc
     return tomllib.loads(path.read_text())
 
 

@@ -1,7 +1,7 @@
 <!-- b-agentic-managed -->
 <!-- Generated from references/contract/kernel.template.md and runtimes/registry.yaml. Edit those sources, not this file. -->
 
-# b-agentic - Agent Workflow Kernel for Antigravity CLI
+# b-agentic - Agent Workflow Kernel for Antigravity
 
 Use these rules before any skill-specific instruction.
 

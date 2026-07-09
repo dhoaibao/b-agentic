@@ -158,18 +158,18 @@ def expected_kernel_path(runtime: dict) -> str:
 
 def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
     runtime = load_runtime(runtime_name)
-    cli_path = shutil.which(runtime_name.split("-")[0] if runtime_name != "codex-cli" else "codex")
+    cli_path = shutil.which(runtime_name.split("-")[0] if runtime_name != "codex" else "codex")
     if runtime_name == "claude-code":
         cli_path = shutil.which("claude")
     elif runtime_name == "opencode":
         cli_path = shutil.which("opencode")
-    elif runtime_name == "codex-cli":
+    elif runtime_name == "codex":
         cli_path = shutil.which("codex")
     elif runtime_name == "cursor":
         cli_path = shutil.which("agent")
 
-    if cli_path is None or runtime_name == "antigravity-cli":
-        if runtime_name == "antigravity-cli":
+    if cli_path is None or runtime_name == "antigravity":
+        if runtime_name == "antigravity":
             raise SystemExit(
                 f"active runtime acceptance is unsupported for {runtime_name}: "
                 "no documented non-interactive prompt mode is available. "
@@ -185,7 +185,7 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
     }
     if runtime_name == "claude-code":
         return ClaudeProbe(**common)
-    if runtime_name == "codex-cli":
+    if runtime_name == "codex":
         return CodexProbe(**common)
     if runtime_name == "opencode":
         return OpenCodeProbe(**common)

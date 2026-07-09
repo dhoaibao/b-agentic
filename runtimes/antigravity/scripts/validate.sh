@@ -11,9 +11,9 @@ import sys
 
 root = Path('.')
 errors = []
-kernel = root / 'runtimes/antigravity-cli/kernel.md'
-settings = root / 'runtimes/antigravity-cli/configs/settings.template.json'
-mcp = root / 'runtimes/antigravity-cli/configs/mcp.user.template.json'
+kernel = root / 'runtimes/antigravity/kernel.md'
+settings = root / 'runtimes/antigravity/configs/settings.template.json'
+mcp = root / 'runtimes/antigravity/configs/mcp.user.template.json'
 
 for path in [kernel, settings, mcp]:
     if not path.exists():
@@ -87,5 +87,5 @@ if mcp.exists():
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
-print('Antigravity CLI runtime validation passed.')
+print('Antigravity runtime validation passed.')
 PY

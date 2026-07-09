@@ -9,7 +9,7 @@ run_runtime_smoke_cases() {
   local sandbox="$WORK_DIR/codex"
   mkdir -p "$sandbox/home"
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=codex-cli
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=codex
   assert_file "$sandbox/home/.codex/AGENTS.md"
   assert_file "$sandbox/home/.codex/skills/b-plan/SKILL.md"
   assert_file "$sandbox/home/.codex/rules/b-agentic.rules"

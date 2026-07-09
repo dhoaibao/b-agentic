@@ -3,15 +3,15 @@
   "format": "json-subset-of-yaml",
   "runtimes": [
     {
-      "name": "codex-cli",
-      "display_name": "Codex CLI",
+      "name": "codex",
+      "display_name": "Codex",
       "reference_runtime": true,
-      "kernel_source": "runtimes/codex-cli/kernel.md",
+      "kernel_source": "runtimes/codex/kernel.md",
       "memory_file": "AGENTS.md",
       "memory_install_path": "~/.codex/AGENTS.md",
       "metadata_root": "~/.codex/b-agentic",
       "skills_install_root": "~/.codex/skills",
-      "config_template_dir": "runtimes/codex-cli/configs",
+      "config_template_dir": "runtimes/codex/configs",
       "config_install_path": "~/.codex/config.toml",
       "config_schema_family": "codex-toml",
       "capabilities": {
@@ -111,15 +111,15 @@
       }
     },
     {
-      "name": "antigravity-cli",
-      "display_name": "Antigravity CLI",
+      "name": "antigravity",
+      "display_name": "Antigravity",
       "reference_runtime": false,
-      "kernel_source": "runtimes/antigravity-cli/kernel.md",
+      "kernel_source": "runtimes/antigravity/kernel.md",
       "memory_file": "GEMINI.md",
       "memory_install_path": "~/.gemini/GEMINI.md",
       "metadata_root": "~/.gemini/antigravity-cli/b-agentic",
       "skills_install_root": "~/.gemini/antigravity-cli/skills",
-      "config_template_dir": "runtimes/antigravity-cli/configs",
+      "config_template_dir": "runtimes/antigravity/configs",
       "config_install_path": "~/.gemini/antigravity-cli/mcp_config.json",
       "config_schema_family": "antigravity-json",
       "capabilities": {

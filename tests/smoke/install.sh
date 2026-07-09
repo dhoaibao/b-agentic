@@ -191,7 +191,7 @@ EOF
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity-cli
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity
 
   assert_contains "$settings_path" 'command(user-cmd)'
   assert_contains "$settings_path" 'command(git push.*)'
@@ -206,9 +206,9 @@ EOF
   B_AGENTIC_REPO="$sandbox/missing-source" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity-cli --uninstall >"$sandbox/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=antigravity --uninstall >"$sandbox/uninstall.log" 2>&1
 
-  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for antigravity-cli'
+  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for antigravity'
   assert_contains "$settings_path" 'command(user-cmd)'
   assert_contains "$settings_path" 'command(user-ask)'
   assert_contains "$settings_path" 'command(user-deny)'
@@ -231,7 +231,7 @@ run_post_install_mcp_modification_case() {
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity-cli
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity
 
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
@@ -255,9 +255,9 @@ PY
   B_AGENTIC_REPO="$sandbox/missing-source" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity-cli --uninstall >"$sandbox/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=antigravity --uninstall >"$sandbox/uninstall.log" 2>&1
 
-  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for antigravity-cli'
+  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for antigravity'
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
   assert_not_contains "$mcp_path" '"serena"'
@@ -352,13 +352,13 @@ run_ref_install_case() {
   mkdir -p "$sandbox_ref/home" "$sandbox_invalid/home"
   install_ref="$(git -C "$snapshot_repo" rev-parse HEAD)"
 
-  expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --runtime=codex-cli --ref="$install_ref"
+  expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --runtime=codex --ref="$install_ref"
 
   manifest_path="$sandbox_ref/home/.codex/b-agentic/install.json"
   assert_file "$manifest_path"
-  assert_json_value "$manifest_path" "data['runtime'] == 'codex-cli'"
+  assert_json_value "$manifest_path" "data['runtime'] == 'codex'"
 
-  rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --runtime=codex-cli --ref=--bad)"
+  rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --runtime=codex --ref=--bad)"
   [ "$rc" -ne 0 ] || fail "expected option-looking --ref value to fail safely"
 }
 
@@ -429,7 +429,7 @@ run_readiness_report_case() {
   assert_contains "$sandbox_claude/install.log" 'rtk:'
 
   set +e
-  run_install_with_tty_log "$sandbox_codex" "$snapshot_repo" "$sandbox_codex/install.log" --runtime=codex-cli
+  run_install_with_tty_log "$sandbox_codex" "$snapshot_repo" "$sandbox_codex/install.log" --runtime=codex
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected Codex readiness install exit 0, got $rc"
@@ -650,17 +650,17 @@ PY
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
 
-  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
+  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex
   PATH="$bin_dir:$PATH" \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" --allow-degraded >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex --home "$sandbox_codex/home" --allow-degraded >"$doctor_log"
   assert_contains "$doctor_log" 'context7: blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config'
   PATH="$bin_dir:$PATH" \
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex --home "$sandbox_codex/home" >"$doctor_log"
   assert_contains "$doctor_log" 'serena: ready:'
   assert_contains "$doctor_log" 'codegraph: ready:'
   assert_contains "$doctor_log" 'context7: ready:'
@@ -673,7 +673,7 @@ PY
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" --production >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex --home "$sandbox_codex/home" --production >"$doctor_log"
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected Codex production MCP doctor to pass with pinned defaults, got $rc"
@@ -908,7 +908,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=codex-cli >/dev/null 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=codex >/dev/null 2>&1
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected Codex package override install exit 0, got $rc"
@@ -929,7 +929,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity-cli >/dev/null 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=antigravity >/dev/null 2>&1
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected Antigravity package override install exit 0, got $rc"
@@ -944,7 +944,7 @@ run_mcp_package_override_case() {
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=antigravity-cli --home "$sandbox_antigravity/home" --production >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=antigravity --home "$sandbox_antigravity/home" --production >"$doctor_log"
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected Antigravity production MCP doctor to pass pinned package config, got $rc"
@@ -1167,7 +1167,7 @@ exit 0
 EOF
   chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/agy" "$bin_dir/antigravity-install.sh"
 
-  for runtime in claude-code opencode codex-cli antigravity-cli; do
+  for runtime in claude-code opencode codex antigravity; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -1177,11 +1177,11 @@ EOF
         runtime_bin="opencode"
         runtime_arg="upgrade"
         ;;
-      codex-cli)
+      codex)
         runtime_bin="codex"
         runtime_arg="update"
         ;;
-      antigravity-cli)
+      antigravity)
         runtime_bin="agy"
         runtime_arg="upgrade"
         ;;
@@ -1195,7 +1195,7 @@ EOF
     rc=0
 
     antigravity_url=""
-    if [ "$runtime" = "antigravity-cli" ]; then
+    if [ "$runtime" = "antigravity" ]; then
       antigravity_url="file://$bin_dir/antigravity-install.sh"
     fi
 
@@ -1215,7 +1215,7 @@ EOF
     set -e
 
     [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
-    if [ "$runtime" = "antigravity-cli" ]; then
+    if [ "$runtime" = "antigravity" ]; then
       expected_entry='antigravity-install-script'
     else
       expected_entry="$runtime_bin:$runtime_arg"
@@ -1229,7 +1229,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex-cli antigravity-cli; do
+  for runtime in claude-code opencode codex antigravity; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -1237,10 +1237,10 @@ run_missing_runtime_cli_install_case() {
       opencode)
         expected_entry='[dry-run] curl -fsSL https://opencode.ai/install | bash'
         ;;
-      codex-cli)
+      codex)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
         ;;
-      antigravity-cli)
+      antigravity)
         expected_entry='[dry-run] curl -fsSL https://antigravity.google/cli/install.sh | bash'
         ;;
       *)
@@ -1490,8 +1490,8 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" 'skills: missing or mismatched: missing b-review'
   assert_contains "$doctor_log" 'discovery: blocked: install complete skill payload'
 
-  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=codex-cli --home "$sandbox_codex/home" >"$doctor_log"
+  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=codex --home "$sandbox_codex/home" >"$doctor_log"
   assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
   assert_contains "$doctor_log" 'kernel: ready'
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
@@ -1506,8 +1506,8 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" "wrappers: ready: $expected_skill_count wrappers installed"
   assert_contains "$doctor_log" 'discovery: ready:'
 
-  expect_install_status 0 "$sandbox_antigravity" "$snapshot_repo" --runtime=antigravity-cli
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=antigravity-cli --home "$sandbox_antigravity/home" >"$doctor_log"
+  expect_install_status 0 "$sandbox_antigravity" "$snapshot_repo" --runtime=antigravity
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=antigravity --home "$sandbox_antigravity/home" >"$doctor_log"
   assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
   assert_contains "$doctor_log" 'kernel: ready'
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
@@ -1614,7 +1614,7 @@ run_runtime_acceptance_case() {
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity-cli >/dev/null 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=antigravity >/dev/null 2>&1
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected Antigravity runtime acceptance mutable-playwright install exit 0, got $rc"
@@ -1624,12 +1624,12 @@ run_runtime_acceptance_case() {
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=antigravity-cli --home="$sandbox_antigravity/home" --production >"$acceptance_log" 2>&1
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=antigravity --home="$sandbox_antigravity/home" --production >"$acceptance_log" 2>&1
   rc=$?
   set -e
   [ "$rc" -eq 1 ] || fail "expected Antigravity runtime acceptance production mode to block mutable package, got $rc"
 
-  assert_contains "$acceptance_log" 'Runtime acceptance: antigravity-cli'
+  assert_contains "$acceptance_log" 'Runtime acceptance: antigravity'
   assert_contains "$acceptance_log" 'Mode: production readiness'
   assert_contains "$acceptance_log" 'Skill discovery doctor:'
   assert_contains "$acceptance_log" 'MCP readiness doctor:'
@@ -1778,12 +1778,12 @@ EOF
   assert_contains "$acceptance_log" 'approval-gate: ready:'
   assert_contains "$acceptance_log" 'deny-gate: ready:'
 
-  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex-cli
+  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex
   PATH="$bin_dir:$(smoke_system_path)" \
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=codex-cli --home="$sandbox_codex/home" --active >"$acceptance_log" 2>&1
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=codex --home="$sandbox_codex/home" --active >"$acceptance_log" 2>&1
   assert_contains "$acceptance_log" 'kernel: ready: ~/.codex/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
 

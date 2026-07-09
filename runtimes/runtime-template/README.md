@@ -18,7 +18,7 @@ It is intentionally not listed in `runtimes/registry.yaml`, so validation, smoke
 Annotated examples from existing adapters live in `examples/`:
 
 - [`examples/opencode-config-merge.md`](examples/opencode-config-merge.md) — JSON config merge for OpenCode's `opencode.json`
-- [`examples/codex-config-merge.md`](examples/codex-config-merge.md) — TOML config merge with managed blocks for Codex CLI's `config.toml`
+- [`examples/codex-config-merge.md`](examples/codex-config-merge.md) — TOML config merge with managed blocks for Codex's `config.toml`
 
 These show the two most complex patterns: preserving user-owned config while injecting managed MCP servers.
 

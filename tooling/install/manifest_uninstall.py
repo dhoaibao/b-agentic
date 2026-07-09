@@ -208,7 +208,7 @@ def main() -> None:
             "commands": home / ".config" / "opencode" / "commands",
             "opencodeJson": home / ".config" / "opencode" / "opencode.json",
         },
-        "codex-cli": {
+        "codex": {
             "metadata": home / ".codex" / "b-agentic",
             "skills": home / ".codex" / "skills",
             "kernel": home / ".codex" / "AGENTS.md",
@@ -216,7 +216,7 @@ def main() -> None:
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
         },
-        "antigravity-cli": {
+        "antigravity": {
             "metadata": home / ".gemini" / "antigravity-cli" / "b-agentic",
             "skills": home / ".gemini" / "antigravity-cli" / "skills",
             "kernel": home / ".gemini" / "GEMINI.md",
@@ -280,12 +280,12 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "OpenCode agent")
         remove_snapshot_profiles(data.get("commands", []), manifest_managed_path(paths, "commands", defaults["commands"]), metadata / "commands", "md", "OpenCode command")
         remove_merged_json_config(str(manifest_managed_path(paths, "opencodeJson", defaults["opencodeJson"])), metadata / "templates" / "mcp.user.template.json", "opencode.json", "opencodeJson", "mcpAction", data)
-    elif runtime == "codex-cli":
+    elif runtime == "codex":
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
-    elif runtime == "antigravity-cli":
-        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Antigravity CLI agent")
+    elif runtime == "antigravity":
+        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Antigravity agent")
         remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json", "settings", "settingsAction", data)
         remove_merged_json_config(str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])), metadata / "templates" / "mcp.user.template.json", "mcp_config.json", "mcpConfig", "mcpAction", data)
     elif runtime == "cursor":

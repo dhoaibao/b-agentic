@@ -9,7 +9,7 @@ run_runtime_smoke_cases() {
   local sandbox="$WORK_DIR/antigravity"
   mkdir -p "$sandbox/home"
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity-cli
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity
   assert_file "$sandbox/home/.gemini/GEMINI.md"
   assert_file "$sandbox/home/.gemini/antigravity-cli/skills/b-plan/SKILL.md"
   assert_file "$sandbox/home/.gemini/antigravity-cli/b-agentic/references/contract/runtime.md"

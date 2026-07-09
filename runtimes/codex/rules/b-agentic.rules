@@ -1,4 +1,4 @@
-# Managed b-agentic command governance for Codex CLI.
+# Managed b-agentic command governance for Codex.
 # These rules only cover commands that request to run outside the sandbox.
 
 # Mirror governance for RTK-wrapped shell commands because the kernel routes

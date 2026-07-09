@@ -1,6 +1,6 @@
-# Antigravity CLI Runtime Layout
+# Antigravity Runtime Layout
 
-Adapter-owned layout for Antigravity CLI.
+Adapter-owned layout for Antigravity.
 
 ## Install Layout
 
@@ -18,7 +18,7 @@ The installer never overwrites `~/.gemini/GEMINI.md` without `--replace-memory`.
 
 MCP entries cover Serena, CodeGraph, Context7, Brave Search, Firecrawl, and Playwright. Antigravity remote servers use `serverUrl` instead of `url` or `httpUrl`. CodeGraph requires the `codegraph` CLI and a per-project `codegraph init`. API-key-backed tools require user-scope keys. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
 
-Antigravity CLI uses `settings.json` permission rules for baseline gates. The managed template asks before commits, pushes, pulls, reverts, and dependency installs; denies destructive git history/worktree commands; and does not allow Firecrawl monitor mutation tools. Permission precedence is deny, then ask, then allow.
+Antigravity uses `settings.json` permission rules for baseline gates. The managed template asks before commits, pushes, pulls, reverts, and dependency installs; denies destructive git history/worktree commands; and does not allow Firecrawl monitor mutation tools. Permission precedence is deny, then ask, then allow.
 
 ## Validation
 

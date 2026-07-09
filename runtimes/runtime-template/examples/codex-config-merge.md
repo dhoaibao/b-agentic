@@ -1,6 +1,6 @@
-# Codex CLI TOML Config Merge Example
+# Codex TOML Config Merge Example
 
-This example shows how Codex CLI merges b-agentic's MCP config into the user's existing `config.toml`.
+This example shows how Codex merges b-agentic's MCP config into the user's existing `config.toml`.
 
 ## Key Concepts
 
@@ -95,7 +95,7 @@ PY
 4. **Safe uninstall**: If markers are missing, warn and preserve file
 5. **Handle empty file**: If removing the block leaves nothing, delete the file
 
-## Codex CLI-Specific Notes
+## Codex-Specific Notes
 
 - Config file: `~/.codex/config.toml`
 - Uses TOML format (not JSON)

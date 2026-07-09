@@ -1,6 +1,6 @@
-# Codex CLI Runtime Layout
+# Codex Runtime Layout
 
-Adapter-owned layout for Codex CLI.
+Adapter-owned layout for Codex.
 
 ## Install Layout
 
@@ -19,7 +19,7 @@ The installer never overwrites `~/.codex/AGENTS.md` without `--replace-memory`. 
 
 MCP entries cover Serena, CodeGraph, Context7, Brave Search, Firecrawl, and Playwright. CodeGraph requires the `codegraph` CLI and a per-project `codegraph init`. API-key-backed tools require user-scope keys or matching shell environment variables. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
 
-Codex CLI uses managed command governance rules for baseline gates. The managed rules prompt before commits, pushes, pulls, reverts, dependency writes, and recursive removes; they forbid destructive git history/worktree commands and broad Docker resource deletion.
+Codex uses managed command governance rules for baseline gates. The managed rules prompt before commits, pushes, pulls, reverts, dependency writes, and recursive removes; they forbid destructive git history/worktree commands and broad Docker resource deletion.
 
 ## Validation
 

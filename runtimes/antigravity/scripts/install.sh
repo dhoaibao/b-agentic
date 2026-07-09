@@ -4,8 +4,8 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exit 1
 fi
 
-readonly RUNTIME_UNINSTALL_LABEL="Antigravity CLI personal config"
-readonly RUNTIME_PRESERVE_LABEL="Antigravity CLI"
+readonly RUNTIME_UNINSTALL_LABEL="Antigravity personal config"
+readonly RUNTIME_PRESERVE_LABEL="Antigravity"
 readonly ANTIGRAVITY_DIR="${B_AGENTIC_ANTIGRAVITY_DIR:-$HOME/.gemini/antigravity-cli}"
 readonly METADATA_DIR="$ANTIGRAVITY_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
@@ -43,21 +43,21 @@ readonly ANTIGRAVITY_INSTALL_URL="${B_AGENTIC_ANTIGRAVITY_INSTALL_URL:-https://a
 
 runtime_upgrade_cli() {
   if [ "$ANTIGRAVITY_INSTALL_URL" != "https://antigravity.google/cli/install.sh" ]; then
-    warn "Antigravity CLI install URL overridden via B_AGENTIC_ANTIGRAVITY_INSTALL_URL: $ANTIGRAVITY_INSTALL_URL"
+    warn "Antigravity install URL overridden via B_AGENTIC_ANTIGRAVITY_INSTALL_URL: $ANTIGRAVITY_INSTALL_URL"
   fi
   if command -v agy >/dev/null 2>&1; then
-    log "Antigravity CLI already installed; reinstalling/upgrade via official installer from $ANTIGRAVITY_INSTALL_URL"
+    log "Antigravity already installed; reinstalling/upgrade via official installer from $ANTIGRAVITY_INSTALL_URL"
   else
-    log "Antigravity CLI not found; installing from $ANTIGRAVITY_INSTALL_URL"
+    log "Antigravity not found; installing from $ANTIGRAVITY_INSTALL_URL"
   fi
   if dry_run_enabled; then
     printf '[dry-run] curl -fsSL %s | bash\n' "$ANTIGRAVITY_INSTALL_URL" >&2
     return 0
   fi
   if curl -fsSL "$ANTIGRAVITY_INSTALL_URL" | bash; then
-    log "Antigravity CLI install/upgrade completed"
+    log "Antigravity install/upgrade completed"
   else
-    warn "Antigravity CLI install/upgrade failed; files will still be installed for Antigravity CLI to discover later"
+    warn "Antigravity install/upgrade failed; files will still be installed for Antigravity to discover later"
   fi
 }
 
@@ -172,7 +172,7 @@ PY
 }
 
 runtime_print_install_report() {
-  print_install_report_header "Antigravity CLI"
+  print_install_report_header "Antigravity"
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
@@ -188,7 +188,7 @@ runtime_print_install_report() {
   report_item "mcp" "$INSTALL_MCP_BACKUP"
   print_install_report_readiness
   print_shell_tool_recommendations
-  print_install_report_next_steps "Antigravity CLI"
+  print_install_report_next_steps "Antigravity"
 }
 
 runtime_uninstall_configs() {

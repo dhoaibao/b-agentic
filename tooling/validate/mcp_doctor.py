@@ -56,7 +56,7 @@ def load_toml(path: Path) -> dict:
     try:
         import tomllib
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on runtime python
-        raise SystemExit("Codex CLI MCP doctor requires Python 3.11+ (stdlib tomllib).") from exc
+        raise SystemExit("Codex MCP doctor requires Python 3.11+ (stdlib tomllib).") from exc
     return tomllib.loads(path.read_text())
 
 

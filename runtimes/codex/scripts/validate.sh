@@ -14,14 +14,14 @@ import sys
 try:
     import tomllib
 except ModuleNotFoundError:
-    print('Codex CLI runtime validation requires Python 3.11+.', file=sys.stderr)
+    print('Codex runtime validation requires Python 3.11+.', file=sys.stderr)
     sys.exit(1)
 
 root = Path('.')
 errors = []
-kernel = root / 'runtimes/codex-cli/kernel.md'
-template = root / 'runtimes/codex-cli/configs/mcp.user.template.toml'
-rules = root / 'runtimes/codex-cli/rules/b-agentic.rules'
+kernel = root / 'runtimes/codex/kernel.md'
+template = root / 'runtimes/codex/configs/mcp.user.template.toml'
+rules = root / 'runtimes/codex/rules/b-agentic.rules'
 
 for path in [kernel, template, rules]:
     if not path.exists():
@@ -99,5 +99,5 @@ if rules.exists():
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
-print('Codex CLI runtime validation passed.')
+print('Codex runtime validation passed.')
 PY

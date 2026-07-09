@@ -4,8 +4,8 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exit 1
 fi
 
-readonly RUNTIME_UNINSTALL_LABEL="Codex CLI personal config"
-readonly RUNTIME_PRESERVE_LABEL="Codex CLI"
+readonly RUNTIME_UNINSTALL_LABEL="Codex personal config"
+readonly RUNTIME_PRESERVE_LABEL="Codex"
 readonly CODEX_DIR="${B_AGENTIC_CODEX_DIR:-$HOME/.codex}"
 readonly METADATA_DIR="$CODEX_DIR/b-agentic"
 readonly BACKUPS_DIR="$METADATA_DIR/backups"
@@ -20,6 +20,9 @@ readonly TEMPLATES_DST="$METADATA_DIR/templates"
 readonly MANIFEST_DST="$METADATA_DIR/install.json"
 readonly CODEX_CONFIG_DST="${B_AGENTIC_CODEX_CONFIG:-$HOME/.codex/config.toml}"
 readonly CODEX_CONFIG_BACKUP_KEY="codexConfig"
+readonly MCP_CONTEXT7_SECTION="http_headers"
+readonly MCP_BRAVE_SECTION="env"
+readonly MCP_FIRECRAWL_SECTION="env"
 
 readonly CODEX_MANAGED_BEGIN="# BEGIN b-agentic managed config"
 readonly CODEX_MANAGED_END="# END b-agentic managed config"
@@ -30,7 +33,7 @@ FIRECRAWL_API_KEY_INPUT=""
 FIRECRAWL_API_URL_INPUT=""
 
 runtime_require_tomllib() {
-  python3 - <<'PY' >/dev/null 2>&1 || die "Codex CLI install requires Python 3.11+ (stdlib tomllib)."
+  python3 - <<'PY' >/dev/null 2>&1 || die "Codex install requires Python 3.11+ (stdlib tomllib)."
 import tomllib
 PY
 }
@@ -74,22 +77,22 @@ runtime_cli_installed() {
 
 runtime_upgrade_cli() {
   if command -v codex >/dev/null 2>&1; then
-    log "Codex CLI already installed; updating"
+    log "Codex already installed; updating"
     if run_cmd codex update; then
-      log "Codex CLI updated"
+      log "Codex updated"
     else
-      warn "Codex CLI update failed; continuing with existing CLI"
+      warn "Codex update failed; continuing with existing CLI"
     fi
     return 0
   fi
 
-  log "Codex CLI not found; installing from https://chatgpt.com/codex/install.sh"
+  log "Codex not found; installing from https://chatgpt.com/codex/install.sh"
   if dry_run_enabled; then
     printf '[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh\n' >&2
   elif curl -fsSL https://chatgpt.com/codex/install.sh | sh; then
-    log "Codex CLI installed"
+    log "Codex installed"
   else
-    warn "Codex CLI install failed; files will still be installed for Codex to discover later"
+    warn "Codex install failed; files will still be installed for Codex to discover later"
   fi
 }
 
@@ -181,7 +184,7 @@ begin = os.environ["CODEX_MANAGED_BEGIN"]
 end = os.environ["CODEX_MANAGED_END"]
 skills_root = Path(os.environ["SKILLS_DST"])
 source_dir = Path(os.environ["SOURCE_DIR"])
-template_path = source_dir / "runtimes" / "codex-cli" / "configs" / "mcp.user.template.toml"
+template_path = source_dir / "runtimes" / "codex" / "configs" / "mcp.user.template.toml"
 skills = [name for name in os.environ.get("SKILLS", "").split() if name]
 current_text = path.read_text() if path.exists() else ""
 base_text, _managed_text = split_managed_block(current_text, begin, end)
@@ -273,8 +276,8 @@ firecrawl_key = os.environ.get("FIRECRAWL_API_KEY_INPUT") or current_literal("fi
 firecrawl_url = os.environ.get("FIRECRAWL_API_URL_INPUT") or current_literal("firecrawl", "env", "FIRECRAWL_API_URL")
 lines = [
     begin,
-    "# Managed by b-agentic for Codex CLI.",
-    "# Remove by rerunning install.sh --runtime=codex-cli --uninstall.",
+    "# Managed by b-agentic for Codex.",
+    "# Remove by rerunning install.sh --runtime=codex --uninstall.",
     "",
 ]
 
@@ -404,7 +407,7 @@ PY
 }
 
 runtime_print_install_report() {
-  print_install_report_header "Codex CLI"
+  print_install_report_header "Codex"
   report_section "Summary"
   report_item "activation" "$INSTALL_ACTIVATION_STATE"
   report_item "skills" "${#INSTALL_SKILL_NAMES[@]} synced -> $SKILLS_DST"
@@ -419,7 +422,7 @@ runtime_print_install_report() {
   report_item "config" "$INSTALL_CONFIG_BACKUP"
   print_install_report_readiness
   print_shell_tool_recommendations
-  print_install_report_next_steps "Codex CLI"
+  print_install_report_next_steps "Codex"
 }
 
 remove_codex_config_block() {
