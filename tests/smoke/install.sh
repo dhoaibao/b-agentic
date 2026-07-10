@@ -520,8 +520,8 @@ PY
   set -e
 
   [ "$rc" -eq 0 ] || fail "expected shell tool prompt install exit 0, got $rc"
-  assert_contains "$install_log" "Shell tooling missing (rg, fd/fdfind, jq). Install now with 'install manually: ripgrep, fd or fd-find, jq'? [y/N]:"
-  assert_contains "$install_log" 'core: blocked: missing rg, fd/fdfind, jq'
+  assert_contains "$install_log" "Shell tooling missing (rg, fd/fdfind, bat/batcat, eza/exa, sd, jq). Install now with 'install manually: ripgrep, fd or fd-find, bat (or batcat), eza or exa, sd, jq'? [y/N]:"
+  assert_contains "$install_log" 'core: blocked: missing rg, fd/fdfind, bat/batcat, eza/exa, sd, jq'
   assert_not_contains "$install_log" 'suggestions only; no packages were installed automatically'
 
   mkdir -p "$apt_bin_dir" "$apt_sandbox/home"
@@ -546,6 +546,10 @@ EOF
   cat > "$apt_bin_dir/apt-get" <<EOF
 #!/usr/bin/env bash
 printf 'apt-get:%s\n' "\$*" >> "$apt_log"
+for tool in rg fd batcat eza sd jq; do
+  : > "$apt_bin_dir/\$tool"
+  chmod +x "$apt_bin_dir/\$tool"
+done
 exit 0
 EOF
   chmod +x "$apt_bin_dir/id" "$apt_bin_dir/sudo" "$apt_bin_dir/apt-get"
@@ -567,9 +571,10 @@ EOF
   set -e
 
   [ "$rc" -eq 0 ] || fail "expected apt-get shell tool install exit 0, got $rc"
-  assert_contains "$apt_log" 'sudo:apt-get install -y ripgrep fd-find jq'
-  assert_contains "$apt_log" 'apt-get:install -y ripgrep fd-find jq'
+  assert_contains "$apt_log" 'sudo:apt-get install -y ripgrep fd-find bat eza sd jq'
+  assert_contains "$apt_log" 'apt-get:install -y ripgrep fd-find bat eza sd jq'
   assert_contains "$apt_install_log" 'Shell tooling install command completed'
+  assert_contains "$apt_install_log" 'core: ready: rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available'
 }
 
 run_mcp_doctor_case() {

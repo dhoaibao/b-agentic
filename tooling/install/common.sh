@@ -836,16 +836,27 @@ collect_api_keys() {
 }
 
 recommended_shell_commands() {
-  printf 'rg, fd/fdfind, jq'
+  printf 'rg, fd/fdfind, bat, eza/exa, sd, jq'
 }
 
 shell_tool_fd_available() {
   command -v fd >/dev/null 2>&1 || command -v fdfind >/dev/null 2>&1
 }
 
+shell_tool_bat_available() {
+  command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1
+}
+
+shell_tool_eza_available() {
+  command -v eza >/dev/null 2>&1 || command -v exa >/dev/null 2>&1
+}
+
 shell_tool_missing_labels() {
   command -v rg >/dev/null 2>&1 || printf '%s\n' 'rg'
   shell_tool_fd_available || printf '%s\n' 'fd/fdfind'
+  shell_tool_bat_available || printf '%s\n' 'bat/batcat'
+  shell_tool_eza_available || printf '%s\n' 'eza/exa'
+  command -v sd >/dev/null 2>&1 || printf '%s\n' 'sd'
   command -v jq >/dev/null 2>&1 || printf '%s\n' 'jq'
 }
 
@@ -947,13 +958,29 @@ detect_shell_tool_package_manager() {
   esac
 }
 
+shell_tool_debian_packages() {
+  local eza_package='eza'
+  if command -v apt-cache >/dev/null 2>&1; then
+    if apt-cache show eza >/dev/null 2>&1; then
+      eza_package='eza'
+    elif apt-cache show exa >/dev/null 2>&1; then
+      eza_package='exa'
+    else
+      eza_package=''
+    fi
+  fi
+  printf '%s' 'ripgrep fd-find bat'
+  [ -n "$eza_package" ] && printf ' %s' "$eza_package"
+  printf '%s' ' sd jq'
+}
+
 shell_tool_install_hint() {
   case "$1" in
-    brew) printf 'brew install ripgrep fd jq' ;;
-    apt) printf 'sudo apt install -y ripgrep fd-find jq' ;;
-    apt-get) printf 'sudo apt-get install -y ripgrep fd-find jq' ;;
-    dnf) printf 'sudo dnf install -y ripgrep fd-find jq' ;;
-    *) printf 'install manually: ripgrep, fd or fd-find, jq' ;;
+    brew) printf 'brew install ripgrep fd bat eza sd jq' ;;
+    apt) printf 'sudo apt install -y %s' "$(shell_tool_debian_packages)" ;;
+    apt-get) printf 'sudo apt-get install -y %s' "$(shell_tool_debian_packages)" ;;
+    dnf) printf 'sudo dnf install -y ripgrep fd-find bat eza sd jq' ;;
+    *) printf 'install manually: ripgrep, fd or fd-find, bat (or batcat), eza or exa, sd, jq' ;;
   esac
 }
 
@@ -967,7 +994,7 @@ shell_tool_readiness_status() {
   done < <(shell_tool_missing_labels)
 
   if [ "${#missing[@]}" -eq 0 ]; then
-    printf 'ready: rg, fd/fdfind, and jq available'
+    printf 'ready: rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available'
     return 0
   fi
 
@@ -979,35 +1006,35 @@ run_shell_tool_install_command() {
 
   case "$package_manager" in
     brew)
-      run_cmd brew install ripgrep fd jq
+      run_cmd brew install ripgrep fd bat eza sd jq
       ;;
     apt)
       if [ "$(id -u)" -eq 0 ]; then
-        run_cmd apt install -y ripgrep fd-find jq
+        run_cmd apt install -y $(shell_tool_debian_packages)
       elif command -v sudo >/dev/null 2>&1; then
-        run_cmd sudo apt install -y ripgrep fd-find jq
+        run_cmd sudo apt install -y $(shell_tool_debian_packages)
       else
-        warn "sudo not found; install manually: ripgrep, fd-find, jq"
+        warn "sudo not found; install manually: ripgrep, fd-find, bat, eza or exa, sd, jq"
         return 1
       fi
       ;;
     apt-get)
       if [ "$(id -u)" -eq 0 ]; then
-        run_cmd apt-get install -y ripgrep fd-find jq
+        run_cmd apt-get install -y $(shell_tool_debian_packages)
       elif command -v sudo >/dev/null 2>&1; then
-        run_cmd sudo apt-get install -y ripgrep fd-find jq
+        run_cmd sudo apt-get install -y $(shell_tool_debian_packages)
       else
-        warn "sudo not found; install manually: ripgrep, fd-find, jq"
+        warn "sudo not found; install manually: ripgrep, fd-find, bat, eza or exa, sd, jq"
         return 1
       fi
       ;;
     dnf)
       if [ "$(id -u)" -eq 0 ]; then
-        run_cmd dnf install -y ripgrep fd-find jq
+        run_cmd dnf install -y ripgrep fd-find bat eza sd jq
       elif command -v sudo >/dev/null 2>&1; then
-        run_cmd sudo dnf install -y ripgrep fd-find jq
+        run_cmd sudo dnf install -y ripgrep fd-find bat eza sd jq
       else
-        warn "sudo not found; install manually: ripgrep, fd-find, jq"
+        warn "sudo not found; install manually: ripgrep, fd-find, bat, eza or exa, sd, jq"
         return 1
       fi
       ;;

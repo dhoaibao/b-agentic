@@ -51,7 +51,7 @@ Run `scripts/mcp-doctor.sh --runtime=<name>` after setting package overrides and
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_RUNTIME_CLI=Y`.
 
-Interactive installs prompt for runtime CLI preparation, missing shell tooling, and optional RTK, Serena, and CodeGraph installs. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, and `jq` instead of `python -m json.tool`, `awk`, or `grep` for JSON.
+Interactive installs prompt for runtime CLI preparation, missing shell tooling, and optional RTK, Serena, and CodeGraph installs. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, `bat` (or Debian/Ubuntu's `batcat`) instead of `cat`, `eza` or `exa` instead of `ls`, `sd` instead of `sed` or `awk`, and `jq` instead of `python -m json.tool` for JSON.
 
 ## RTK (Rust Token Killer)
 

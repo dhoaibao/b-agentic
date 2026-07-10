@@ -31,7 +31,7 @@ if config.exists():
         errors.append(f'{config}: hooks are not part of the slim default')
     permission = data.get('permission', {})
     bash_rules = permission.get('bash', {}) if isinstance(permission, dict) else {}
-    allowed_bash_commands = ['git diff *', 'git status *', 'git log *', 'rg *', 'fd *', 'fdfind *', 'jq *']
+    allowed_bash_commands = ['git diff *', 'git status *', 'git log *', 'rg *', 'fd *', 'fdfind *', 'bat *', 'batcat *', 'eza *', 'exa *', 'sd *', 'jq *']
     prompted_bash_commands = ['git commit *', 'git push *', 'git pull *', 'git revert *', 'npm install *', 'pnpm install *', 'yarn install *', 'bun install *', 'cargo install *', 'go install *']
     denied_bash_commands = ['git reset --hard *', 'git clean -f *', 'git push --force *', 'git push --force-with-lease *', 'git branch -D *', 'rm *']
 

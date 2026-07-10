@@ -37,10 +37,13 @@ Use these rules before any skill-specific instruction.
 When `rtk` is installed, use it for command families it supports when its filtered output preserves the evidence needed for the task. Do not mechanically prefix unsupported commands.
 Run unsupported commands directly. Use `rtk proxy <cmd>` only when raw execution with RTK tracking is useful.
 
-When `rg`, `fd` or `fdfind`, and `jq` are installed, use them as the required shell tools:
+When `rg`, `fd` or `fdfind`, `bat` (or Debian/Ubuntu's `batcat`), `eza` or `exa`, `sd`, and `jq` are installed, use them as the required shell tools:
 - `rg` replaces `grep` for text search.
-- `fd` or `fdfind` replaces `find` for file discovery.
-- `jq` replaces `python -m json.tool`, `awk`, and `grep` for JSON inspection, formatting, and filtering.
+- `fd` or `fdfind` replaces `find` for file and directory discovery.
+- `bat` (or `batcat` on Debian/Ubuntu) replaces `cat` for viewing file contents.
+- `eza` or `exa` replaces `ls` for listing directories.
+- `sd` replaces `sed` and `awk` for find-and-replace text transformations.
+- `jq` replaces `python -m json.tool` for JSON inspection, formatting, and filtering.
 
 If a preferred shell tool is missing, use the closest available local fallback and mention the limitation only when it affects reliability.
 
