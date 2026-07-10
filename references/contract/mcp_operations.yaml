@@ -98,7 +98,6 @@
   ],
   "runtime_enforcement": {
     "claude-code": "per-tool settings allow/ask lists",
-    "cursor": "per-tool allowlist; unlisted MCP tools require approval",
     "pi": "adapter tool_call extension with operation-level trust",
     "codex": "shell families only; per-MCP-tool enforcement is a capability gap",
     "opencode": "shell families only; per-MCP-tool enforcement is a capability gap"

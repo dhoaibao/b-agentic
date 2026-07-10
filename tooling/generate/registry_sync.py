@@ -56,7 +56,6 @@ RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupporte
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "claude-user-config",
     "codex-toml",
-    "cursor-json",
     "opencode-json",
     "pi-json",
 }
@@ -460,7 +459,7 @@ def render_readme_runtime_capabilities_table(runtimes: list[dict]) -> str:
 def permission_granularity(runtime: dict) -> str:
     name = runtime["name"]
     permissions = runtime["capabilities"]["permissions"]["support"]
-    if name in {"claude-code", "cursor"}:
+    if name == "claude-code":
         return "per-tool MCP + shell families"
     if name == "pi":
         return "adapter tool_call extension"
@@ -486,8 +485,6 @@ def known_limitation(runtime: dict) -> str:
     name = runtime["name"]
     if name in {"codex", "opencode"}:
         return "no per-MCP-tool enforcement"
-    if name == "cursor":
-        return "rules unsupported; allowlist default"
     if name == "pi":
         return "print-mode cannot prove UI approval"
     if name == "claude-code":

@@ -316,9 +316,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
   assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
-  assert_no_path "$sandbox_all/home/.cursor/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.cursor/AGENTS.md"
-  assert_no_path "$sandbox_all/home/.cursor/cli-config.json"
   assert_no_path "$sandbox_all/home/.pi/agent/skills/b-plan"
   assert_no_path "$sandbox_all/home/.pi/agent/AGENTS.md"
   assert_no_path "$sandbox_all/home/.pi/agent/extensions/b-agentic-permissions.ts"
@@ -1702,7 +1699,6 @@ run_simulated_runtime_acceptance_case() {
   local sandbox_claude="$WORK_DIR/runtime-acceptance-simulated-claude"
   local sandbox_codex="$WORK_DIR/runtime-acceptance-simulated-codex"
   local sandbox_opencode="$WORK_DIR/runtime-acceptance-simulated-opencode"
-  local sandbox_cursor="$WORK_DIR/runtime-acceptance-simulated-cursor"
   local sandbox_pi="$WORK_DIR/runtime-acceptance-simulated-pi"
   local bin_dir="$WORK_DIR/runtime-acceptance-simulated-bin"
   local acceptance_log="$WORK_DIR/runtime-acceptance-simulated.log"
@@ -1711,7 +1707,6 @@ run_simulated_runtime_acceptance_case() {
     "$sandbox_claude/home" \
     "$sandbox_codex/home" \
     "$sandbox_opencode/home" \
-    "$sandbox_cursor/home" \
     "$sandbox_pi/home" \
     "$bin_dir"
 
@@ -1828,19 +1823,6 @@ case "$last" in
 esac
 EOF
 
-  cat > "$bin_dir/agent" <<'EOF'
-#!/usr/bin/env bash
-prompt="${@: -1}"
-case "$prompt" in
-  *"Detailed contract refs live under"*) printf '%s\n' '~/.cursor/b-agentic/references/contract/' ;;
-  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
-  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
-  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
-  *"git reset --hard"*) printf '%s\n' 'denied' ;;
-  *) printf '%s\n' 'unexpected cursor agent prompt' ;;
-esac
-EOF
-
   cat > "$bin_dir/pi" <<'EOF'
 #!/usr/bin/env bash
 prompt="${@: -1}"
@@ -1861,7 +1843,6 @@ EOF
     "$bin_dir/claude" \
     "$bin_dir/codex" \
     "$bin_dir/opencode" \
-    "$bin_dir/agent" \
     "$bin_dir/pi"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -1899,19 +1880,6 @@ EOF
   assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
   assert_contains "$acceptance_log" 'kernel: ready: ~/.config/opencode/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-
-  expect_install_status 0 "$sandbox_cursor" "$snapshot_repo" --runtime=cursor
-  PATH="$bin_dir:$(smoke_system_path)" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=cursor --home="$sandbox_cursor/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
-  assert_contains "$acceptance_log" 'evidence-class: simulated'
-  assert_contains "$acceptance_log" 'kernel: ready: cursor rules capability is unsupported'
-  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-  assert_contains "$acceptance_log" 'approval-gate: ready:'
-  assert_contains "$acceptance_log" 'deny-gate: ready:'
 
   expect_install_status 0 "$sandbox_pi" "$snapshot_repo" --runtime=pi
   PATH="$bin_dir:$(smoke_system_path)" \

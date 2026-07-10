@@ -24,7 +24,7 @@ POLICY_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
 
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "auth"}
 READ_ONLY = "read-only"
-PER_TOOL_RUNTIMES = ("claude-code", "cursor", "pi")
+PER_TOOL_RUNTIMES = ("claude-code", "pi")
 SHELL_ONLY_RUNTIMES = ("codex", "opencode")
 MANAGED_SCOPED_SERVERS = ("firecrawl", "playwright")
 
@@ -79,24 +79,6 @@ def claude_entries(settings: dict) -> dict[str, set[str]]:
             elif raw.startswith("mcp__playwright__"):
                 result[level].add(raw.removeprefix("mcp__playwright__"))
             elif raw in {"mcp__firecrawl__*", "mcp__playwright__*"}:
-                result[level].add(raw)
-    return result
-
-
-def cursor_entries(settings: dict) -> dict[str, set[str]]:
-    permissions = settings.get("permissions", {})
-    result: dict[str, set[str]] = {"allow": set(), "deny": set()}
-    for level in result:
-        for raw in permissions.get(level, []):
-            if not isinstance(raw, str):
-                continue
-            firecrawl = re.fullmatch(r"Mcp\(firecrawl:([^)]+)\)", raw)
-            playwright = re.fullmatch(r"Mcp\(playwright:([^)]+)\)", raw)
-            if firecrawl:
-                result[level].add(firecrawl.group(1))
-            elif playwright:
-                result[level].add(playwright.group(1))
-            elif raw in {"Mcp(firecrawl:*)", "Mcp(playwright:*)"}:
                 result[level].add(raw)
     return result
 
@@ -228,36 +210,6 @@ def validate_claude(servers: dict[str, dict[str, str]], errors: list[str]) -> No
                 errors.append(f"{label}: gated Playwright tool {tool!r} must be ask-listed")
 
 
-def validate_cursor(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
-    path = ROOT / "runtimes" / "cursor" / "configs" / "settings.template.json"
-    settings = load_json(path)
-    entries = cursor_entries(settings)
-    label = rel(path)
-    allow_raw = settings.get("permissions", {}).get("allow", [])
-    firecrawl = servers["firecrawl"]
-    playwright = servers["playwright"]
-    known = set(firecrawl) | set(playwright)
-
-    if any(item in {"Mcp(firecrawl:*)", "Mcp(playwright:*)"} for item in allow_raw):
-        errors.append(f"{label}: Firecrawl/Playwright server wildcards must not be allowlisted")
-
-    reject_unknown(label, "allow list", entries["allow"], known, errors)
-
-    for tool, classification in firecrawl.items():
-        if classification == READ_ONLY:
-            if tool not in entries["allow"]:
-                errors.append(f"{label}: read-only Firecrawl tool {tool!r} must be allowlisted")
-        elif classification in GATED_CLASSES and tool in entries["allow"]:
-            errors.append(f"{label}: gated Firecrawl tool {tool!r} must not be allowlisted")
-
-    for tool, classification in playwright.items():
-        if classification == READ_ONLY:
-            if tool not in entries["allow"]:
-                errors.append(f"{label}: read-only Playwright tool {tool!r} must be allowlisted")
-        elif classification in GATED_CLASSES and tool in entries["allow"]:
-            errors.append(f"{label}: gated Playwright tool {tool!r} must not be allowlisted")
-
-
 def validate_pi(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
     path = ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts"
     text = path.read_text()
@@ -311,7 +263,6 @@ def main() -> int:
     if "firecrawl" in servers and "playwright" in servers:
         validate_contract_generated(policy, servers, errors)
         validate_claude(servers, errors)
-        validate_cursor(servers, errors)
         validate_pi(servers, errors)
     validate_shell_only_gaps(errors)
 

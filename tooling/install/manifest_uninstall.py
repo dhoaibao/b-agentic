@@ -216,13 +216,6 @@ def main() -> None:
             "rules": home / ".codex" / "rules",
             "codexConfig": home / ".codex" / "config.toml",
         },
-        "cursor": {
-            "metadata": home / ".cursor" / "b-agentic",
-            "skills": home / ".cursor" / "skills",
-            "kernel": home / ".cursor" / "AGENTS.md",
-            "settings": home / ".cursor" / "cli-config.json",
-            "mcpConfig": home / ".cursor" / "mcp.json",
-        },
         "pi": {
             "metadata": home / ".pi" / "agent" / "b-agentic",
             "skills": home / ".pi" / "agent" / "skills",
@@ -283,9 +276,6 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
         remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
-    elif runtime == "cursor":
-        remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "cli-config.json", "settings", "settingsAction", data)
-        remove_merged_json_config(str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])), metadata / "templates" / "mcp.user.template.json", "mcp.json", "mcpConfig", "mcpAction", data)
     elif runtime == "pi":
         remove_merged_json_config(
             str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])),

@@ -123,25 +123,6 @@ class OpenCodeProbe(RuntimeProbe):
         return completed.returncode, completed.stdout, completed.stderr
 
 
-class CursorProbe(RuntimeProbe):
-    def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
-        if cwd is None:
-            raise ValueError("CursorProbe.run requires a working directory")
-        command = [
-            self.cli_path,
-            "-p",
-            prompt,
-        ]
-        completed = subprocess.run(
-            command,
-            cwd=cwd,
-            env=self.env(extra_path),
-            capture_output=True,
-            text=True,
-        )
-        return completed.returncode, completed.stdout, completed.stderr
-
-
 class PiProbe(RuntimeProbe):
     def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
         if cwd is None:
@@ -185,8 +166,6 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         cli_path = shutil.which("opencode")
     elif runtime_name == "codex":
         cli_path = shutil.which("codex")
-    elif runtime_name == "cursor":
-        cli_path = shutil.which("agent")
     elif runtime_name == "pi":
         cli_path = shutil.which("pi")
 
@@ -205,8 +184,6 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         return CodexProbe(**common)
     if runtime_name == "opencode":
         return OpenCodeProbe(**common)
-    if runtime_name == "cursor":
-        return CursorProbe(**common)
     if runtime_name == "pi":
         return PiProbe(**common)
     raise SystemExit(f"unsupported runtime: {runtime_name}")
@@ -272,16 +249,6 @@ def git_status(repo: Path) -> str:
 
 
 def probe_kernel_loaded(probe: RuntimeProbe) -> ProbeResult:
-    runtime = load_runtime(probe.runtime)
-    # Cursor reference-copy only: no non-interactive kernel path probe is
-    # reliable. Other runtimes (including Pi) must still prove the kernel
-    # is present by quoting a contract path from the active agent memory.
-    if (
-        probe.runtime == "cursor"
-        and runtime.get("capabilities", {}).get("rules", {}).get("support") == "unsupported"
-    ):
-        return ProbeResult("kernel", "ready", "cursor rules capability is unsupported; skip interactive kernel path probe")
-
     repo = make_temp_repo("runtime-kernel")
     try:
         prompt = "Reply with only the exact directory path mentioned after 'Detailed contract refs live under' in your active runtime kernel."
@@ -386,8 +353,6 @@ def probe_mcp_launch(probe: RuntimeProbe) -> ProbeResult:
         extra_env["B_AGENTIC_ACCEPTANCE_MCP_LOG"] = str(log_path)
         if isinstance(probe, ClaudeProbe):
             command = [probe.cli_path, "-p", "--no-session-persistence", "--output-format", "text", prompt]
-        elif isinstance(probe, CursorProbe):
-            command = [probe.cli_path, "-p", prompt]
         elif isinstance(probe, PiProbe):
             command = [probe.cli_path, "-p", "--no-session", prompt]
         elif isinstance(probe, CodexProbe):

@@ -138,7 +138,6 @@ cli_lookup = {
     "claude-code": "claude",
     "codex": "codex",
     "opencode": "opencode",
-    "cursor": "agent",
     "pi": "pi",
 }
 cli_name = cli_lookup.get(runtime, runtime)

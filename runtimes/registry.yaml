@@ -123,46 +123,6 @@
       }
     },
     {
-      "name": "cursor",
-      "display_name": "Cursor",
-      "reference_runtime": false,
-      "kernel_source": "runtimes/cursor/kernel.md",
-      "memory_file": "AGENTS.md",
-      "memory_install_path": "~/.cursor/AGENTS.md",
-      "metadata_root": "~/.cursor/b-agentic",
-      "skills_install_root": "~/.cursor/skills",
-      "config_template_dir": "runtimes/cursor/configs",
-      "config_install_path": "~/.cursor/mcp.json",
-      "config_schema_family": "cursor-json",
-      "capabilities": {
-        "skills": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "permissions": {
-          "support": "native",
-          "adoption": "shared"
-        },
-        "rules": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
-        "command_wrappers": {
-          "support": "unsupported",
-          "adoption": "unsupported"
-        },
-        "mcp": {
-          "support": "native",
-          "adoption": "shared"
-        }
-      },
-      "command_wrappers": {
-        "supported": false,
-        "source_dir": null,
-        "install_root": null
-      }
-    },
-    {
       "name": "pi",
       "display_name": "Pi",
       "reference_runtime": false,

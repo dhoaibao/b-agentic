@@ -51,7 +51,7 @@ Canonical source: `references/contract/mcp_operations.yaml`. Adapters that suppo
 Bounded search/extraction and observational browser evidence may stay autonomous only where the runtime supports operation-level allowlists. Wildcards that grant entire Firecrawl or Playwright servers are forbidden in managed templates.
 
 Runtime enforcement notes:
-- Claude Code and Cursor: managed settings templates encode the allow/ask lists above.
+- Claude Code: managed settings templates encode the allow/ask lists above.
 - Pi: first-party `tool_call` extension enforces operation-level trust and fails closed without UI.
 - Codex and OpenCode: managed templates gate shell families; they do not currently enforce per-MCP-tool permissions. Treat MCP operation gating there as a documented capability gap, not as equivalent enforcement.
 

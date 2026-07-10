@@ -13,7 +13,6 @@ errors: list[str] = []
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "claude-user-config",
     "codex-toml",
-    "cursor-json",
     "opencode-json",
     "pi-json",
 }
@@ -508,33 +507,6 @@ def codex_gate_severity(tokens: list[str], rules_text: str) -> int:
     return best
 
 
-def cursor_gate_severity(tokens: list[str], settings: dict) -> int:
-    # Cursor is allowlist-based: deny rules take precedence, unlisted commands are asked/approved, allowed are allowed.
-    permissions = settings.get("permissions", {})
-    # Check deny rules first
-    for raw in permissions.get("deny", []):
-        match = re.fullmatch(r"Shell\((.*?)\s*\*?\)", raw)
-        if not match:
-            continue
-        entry_tokens = match.group(1).split()
-        if entry_tokens and entry_tokens[0] == "rtk":
-            entry_tokens = entry_tokens[1:]
-        if entry_tokens[: len(tokens)] == tokens:
-            return 2  # Deny
-    # Check allow rules
-    for raw in permissions.get("allow", []):
-        match = re.fullmatch(r"Shell\((.*?)\s*\*?\)", raw)
-        if not match:
-            continue
-        entry_tokens = match.group(1).split()
-        if entry_tokens and entry_tokens[0] == "rtk":
-            entry_tokens = entry_tokens[1:]
-        if entry_tokens[: len(tokens)] == tokens:
-            return 0  # Allow (not gated)
-    # Default to ask (severity 1) because of allowlist approvalMode
-    return 1
-
-
 def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
     # Pi gates live in the first-party TypeScript extension as token patterns.
     # DENY patterns are checked first; ASK/SERVICE patterns require confirmation.
@@ -562,13 +534,11 @@ def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
 claude_config = load_json(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
 opencode_config = load_json(ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json")
 codex_rules = read_text(ROOT / "runtimes" / "codex" / "rules" / "b-agentic.rules")
-cursor_config = load_json(ROOT / "runtimes" / "cursor" / "configs" / "settings.template.json")
 pi_extension = read_text(ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts")
 gate_runtimes = [
     ("runtimes/claude-code/configs/settings.template.json", lambda tokens: claude_gate_severity(tokens, claude_config)),
     ("runtimes/opencode/configs/mcp.user.template.json", lambda tokens: opencode_gate_severity(tokens, opencode_config)),
     ("runtimes/codex/rules/b-agentic.rules", lambda tokens: codex_gate_severity(tokens, codex_rules)),
-    ("runtimes/cursor/configs/settings.template.json", lambda tokens: cursor_gate_severity(tokens, cursor_config)),
     ("runtimes/pi/extensions/b-agentic-permissions.ts", lambda tokens: pi_gate_severity(tokens, pi_extension)),
 ]
 for tokens, min_severity in SAFETY_GATES:
