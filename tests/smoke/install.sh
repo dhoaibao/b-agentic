@@ -1119,9 +1119,14 @@ EOF
 printf 'codex:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex"
+  cat > "$bin_dir/pi" <<EOF
+#!/usr/bin/env bash
+printf 'pi:%s\n' "\$*" >> "$upgrade_log"
+exit 0
+EOF
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/pi"
 
-  for runtime in claude-code opencode codex; do
+  for runtime in claude-code opencode codex pi; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -1133,6 +1138,10 @@ EOF
         ;;
       codex)
         runtime_bin="codex"
+        runtime_arg="update"
+        ;;
+      pi)
+        runtime_bin="pi"
         runtime_arg="update"
         ;;
       *)
@@ -1169,7 +1178,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex; do
+  for runtime in claude-code opencode codex pi; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -1179,6 +1188,9 @@ run_missing_runtime_cli_install_case() {
         ;;
       codex)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
+        ;;
+      pi)
+        expected_entry='[dry-run] curl -fsSL https://pi.dev/install.sh | sh'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"

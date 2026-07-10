@@ -54,16 +54,25 @@ runtime_cli_installed() {
 }
 
 runtime_upgrade_cli() {
+  local command
   if command -v pi >/dev/null 2>&1; then
-    log "Pi CLI already installed; upgrading with npm"
+    command="pi update"
+    log "Pi CLI already installed; upgrading with pi update"
   else
-    log "Pi CLI not found; installing @earendil-works/pi-coding-agent"
+    command="curl -fsSL https://pi.dev/install.sh | sh"
+    log "Pi CLI not found; installing with the Pi installer"
   fi
   if dry_run_enabled; then
-    printf '[dry-run] npm install -g --ignore-scripts @earendil-works/pi-coding-agent\n' >&2
+    printf '[dry-run] %s\n' "$command" >&2
     return 0
   fi
-  if npm install -g --ignore-scripts @earendil-works/pi-coding-agent; then
+  if [ "$command" = "pi update" ]; then
+    if pi update; then
+      log "Pi CLI install/upgrade completed"
+    else
+      warn "Pi CLI install/upgrade failed; continuing"
+    fi
+  elif curl -fsSL https://pi.dev/install.sh | sh; then
     log "Pi CLI install/upgrade completed"
   else
     warn "Pi CLI install/upgrade failed; continuing"
