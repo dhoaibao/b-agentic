@@ -190,13 +190,7 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
     elif runtime_name == "pi":
         cli_path = shutil.which("pi")
 
-    if cli_path is None or runtime_name == "antigravity":
-        if runtime_name == "antigravity":
-            raise SystemExit(
-                f"active runtime acceptance is unsupported for {runtime_name}: "
-                "no documented non-interactive prompt mode is available. "
-                "Verify the fresh-session checklist manually instead of scripting terminal keystrokes."
-            )
+    if cli_path is None:
         raise SystemExit(f"runtime CLI not found on PATH for {runtime_name}")
 
     common = {

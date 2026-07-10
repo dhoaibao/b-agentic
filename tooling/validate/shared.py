@@ -11,7 +11,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 errors: list[str] = []
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
-    "antigravity-json",
     "claude-user-config",
     "codex-toml",
     "cursor-json",
@@ -494,37 +493,6 @@ def codex_gate_severity(tokens: list[str], rules_text: str) -> int:
     return best
 
 
-def antigravity_gate_severity(tokens: list[str], settings: dict) -> int:
-    permissions = settings.get("permissions", {})
-    best = 0
-    for level, rank in (("ask", 1), ("deny", 2)):
-        for raw in permissions.get(level, []):
-            match = re.fullmatch(r"(\w+)\((.*)\)", raw.strip())
-            if not match:
-                continue
-            action, target = match.groups()
-            if action != "command":
-                continue
-            entry_tokens = target.split()
-            if entry_tokens and entry_tokens[0] == "rtk":
-                entry_tokens = entry_tokens[1:]
-            if len(entry_tokens) < len(tokens):
-                continue
-            matched = True
-            for gate_token, entry_token in zip(tokens, entry_tokens):
-                try:
-                    if not re.search(f"^(?:{entry_token})$", gate_token):
-                        matched = False
-                        break
-                except re.error:
-                    if entry_token != gate_token and not entry_token.startswith(gate_token):
-                        matched = False
-                        break
-            if matched:
-                best = max(best, rank)
-    return best
-
-
 def cursor_gate_severity(tokens: list[str], settings: dict) -> int:
     # Cursor is allowlist-based: deny rules take precedence, unlisted commands are asked/approved, allowed are allowed.
     permissions = settings.get("permissions", {})
@@ -579,14 +547,12 @@ def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
 claude_config = load_json(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
 opencode_config = load_json(ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json")
 codex_rules = read_text(ROOT / "runtimes" / "codex" / "rules" / "b-agentic.rules")
-antigravity_config = load_json(ROOT / "runtimes" / "antigravity" / "configs" / "settings.template.json")
 cursor_config = load_json(ROOT / "runtimes" / "cursor" / "configs" / "settings.template.json")
 pi_extension = read_text(ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts")
 gate_runtimes = [
     ("runtimes/claude-code/configs/settings.template.json", lambda tokens: claude_gate_severity(tokens, claude_config)),
     ("runtimes/opencode/configs/mcp.user.template.json", lambda tokens: opencode_gate_severity(tokens, opencode_config)),
     ("runtimes/codex/rules/b-agentic.rules", lambda tokens: codex_gate_severity(tokens, codex_rules)),
-    ("runtimes/antigravity/configs/settings.template.json", lambda tokens: antigravity_gate_severity(tokens, antigravity_config)),
     ("runtimes/cursor/configs/settings.template.json", lambda tokens: cursor_gate_severity(tokens, cursor_config)),
     ("runtimes/pi/extensions/b-agentic-permissions.ts", lambda tokens: pi_gate_severity(tokens, pi_extension)),
 ]

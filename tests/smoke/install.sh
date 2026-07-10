@@ -180,25 +180,25 @@ run_manifest_only_merged_config_case() {
   local sandbox="$WORK_DIR/manifest-only-merged-config"
   local settings_path mcp_path manifest_path
 
-  mkdir -p "$sandbox/home/.gemini/antigravity-cli"
-  settings_path="$sandbox/home/.gemini/antigravity-cli/settings.json"
-  mcp_path="$sandbox/home/.gemini/antigravity-cli/mcp_config.json"
+  mkdir -p "$sandbox/home/.claude"
+  settings_path="$sandbox/home/.claude/settings.json"
+  mcp_path="$sandbox/home/.claude.json"
 
   cat > "$settings_path" <<EOF
-{"permissions":{"allow":["command(user-cmd)"],"ask":["command(user-ask)"],"deny":["command(user-deny)"]}}
+{"permissions":{"allow":["Bash(user-cmd)"],"ask":["Bash(user-ask)"],"deny":["Bash(user-deny)"]}}
 EOF
   cat > "$mcp_path" <<EOF
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=claude-code
 
-  assert_contains "$settings_path" 'command(user-cmd)'
-  assert_contains "$settings_path" 'command(git push.*)'
+  assert_contains "$settings_path" 'Bash(user-cmd)'
+  assert_contains "$settings_path" 'Bash(git push *)'
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
 
-  manifest_path="$sandbox/home/.gemini/antigravity-cli/b-agentic/install.json"
+  manifest_path="$sandbox/home/.claude/b-agentic/install.json"
   assert_file "$manifest_path"
 
   rm -rf "$sandbox/source"
@@ -206,14 +206,14 @@ EOF
   B_AGENTIC_REPO="$sandbox/missing-source" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity --uninstall >"$sandbox/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code --uninstall >"$sandbox/uninstall.log" 2>&1
 
-  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for antigravity'
-  assert_contains "$settings_path" 'command(user-cmd)'
-  assert_contains "$settings_path" 'command(user-ask)'
-  assert_contains "$settings_path" 'command(user-deny)'
-  assert_not_contains "$settings_path" 'command(git push.*)'
-  assert_not_contains "$settings_path" 'mcp(serena/*)'
+  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for claude-code'
+  assert_contains "$settings_path" 'Bash(user-cmd)'
+  assert_contains "$settings_path" 'Bash(user-ask)'
+  assert_contains "$settings_path" 'Bash(user-deny)'
+  assert_not_contains "$settings_path" 'Bash(git push *)'
+  assert_not_contains "$settings_path" 'mcp__serena__'
   assert_contains "$mcp_path" '"user-server"'
   assert_not_contains "$mcp_path" '"codegraph"'
   assert_not_contains "$mcp_path" '"serena"'
@@ -224,14 +224,14 @@ run_post_install_mcp_modification_case() {
   local sandbox="$WORK_DIR/post-install-mcp-modification"
   local mcp_path manifest_path
 
-  mkdir -p "$sandbox/home/.gemini/antigravity-cli"
-  mcp_path="$sandbox/home/.gemini/antigravity-cli/mcp_config.json"
+  mkdir -p "$sandbox/home/.claude"
+  mcp_path="$sandbox/home/.claude.json"
 
   cat > "$mcp_path" <<EOF
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=antigravity
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=claude-code
 
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
@@ -247,7 +247,7 @@ data.setdefault('mcpServers', {})['codegraph']['USER_SETTING'] = 'keep-me'
 path.write_text(json.dumps(data, indent=2) + '\n')
 PY
 
-  manifest_path="$sandbox/home/.gemini/antigravity-cli/b-agentic/install.json"
+  manifest_path="$sandbox/home/.claude/b-agentic/install.json"
   assert_file "$manifest_path"
 
   rm -rf "$sandbox/source"
@@ -255,9 +255,9 @@ PY
   B_AGENTIC_REPO="$sandbox/missing-source" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity --uninstall >"$sandbox/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code --uninstall >"$sandbox/uninstall.log" 2>&1
 
-  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for antigravity'
+  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for claude-code'
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
   assert_not_contains "$mcp_path" '"serena"'
@@ -316,9 +316,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
   assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
-  assert_no_path "$sandbox_all/home/.gemini/antigravity-cli/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.gemini/GEMINI.md"
-  assert_no_path "$sandbox_all/home/.gemini/antigravity-cli/agents/b-explore.md"
   assert_no_path "$sandbox_all/home/.cursor/skills/b-plan"
   assert_no_path "$sandbox_all/home/.cursor/AGENTS.md"
   assert_no_path "$sandbox_all/home/.cursor/cli-config.json"
@@ -751,11 +748,10 @@ run_mcp_package_override_case() {
   local sandbox_codex="$WORK_DIR/mcp-package-codex"
   local sandbox_opencode="$WORK_DIR/mcp-package-opencode"
   local sandbox_opencode_upgrade="$WORK_DIR/mcp-package-opencode-upgrade"
-  local sandbox_antigravity="$WORK_DIR/mcp-package-antigravity"
   local bin_dir="$WORK_DIR/mcp-package-bin"
   local doctor_log="$WORK_DIR/mcp-package-doctor.log"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home" "$sandbox_antigravity/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -919,42 +915,6 @@ run_mcp_package_override_case() {
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
   assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
-
-  set +e
-  HOME="$sandbox_antigravity/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_antigravity")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_antigravity/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Antigravity package override install exit 0, got $rc"
-  assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
-  assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
-  assert_json_value "$sandbox_antigravity/home/.gemini/antigravity-cli/mcp_config.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
-
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=antigravity --home "$sandbox_antigravity/home" --production >"$doctor_log"
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Antigravity production MCP doctor to pass pinned package config, got $rc"
-  assert_contains "$doctor_log" 'brave-search: ready:'
-  assert_contains "$doctor_log" 'firecrawl: ready:'
-  assert_contains "$doctor_log" 'playwright: ready:'
 
 }
 
@@ -1159,19 +1119,9 @@ EOF
 printf 'codex:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  cat > "$bin_dir/agy" <<EOF
-#!/usr/bin/env bash
-printf 'agy:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  cat > "$bin_dir/antigravity-install.sh" <<EOF
-#!/usr/bin/env bash
-printf 'antigravity-install-script\n' >> "$upgrade_log"
-exit 0
-EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/agy" "$bin_dir/antigravity-install.sh"
+  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex"
 
-  for runtime in claude-code opencode codex antigravity; do
+  for runtime in claude-code opencode codex; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
@@ -1185,10 +1135,6 @@ EOF
         runtime_bin="codex"
         runtime_arg="update"
         ;;
-      antigravity)
-        runtime_bin="agy"
-        runtime_arg="upgrade"
-        ;;
       *)
         fail "unexpected runtime in upgrade smoke: $runtime"
         ;;
@@ -1197,11 +1143,6 @@ EOF
     mkdir -p "$sandbox/$runtime/home"
     install_log="$sandbox/$runtime/install.log"
     rc=0
-
-    antigravity_url=""
-    if [ "$runtime" = "antigravity" ]; then
-      antigravity_url="file://$bin_dir/antigravity-install.sh"
-    fi
 
     set +e
     HOME="$sandbox/$runtime/home" \
@@ -1213,17 +1154,12 @@ EOF
     B_AGENTIC_INSTALL_RTK=N \
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
-    B_AGENTIC_ANTIGRAVITY_INSTALL_URL="${antigravity_url:-}" \
     bash "$ROOT_DIR/install.sh" --runtime="$runtime" >"$install_log" 2>&1
     rc=$?
     set -e
 
     [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
-    if [ "$runtime" = "antigravity" ]; then
-      expected_entry='antigravity-install-script'
-    else
-      expected_entry="$runtime_bin:$runtime_arg"
-    fi
+    expected_entry="$runtime_bin:$runtime_arg"
     assert_contains "$upgrade_log" "$expected_entry"
   done
 }
@@ -1233,7 +1169,7 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex antigravity; do
+  for runtime in claude-code opencode codex; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
@@ -1243,9 +1179,6 @@ run_missing_runtime_cli_install_case() {
         ;;
       codex)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
-        ;;
-      antigravity)
-        expected_entry='[dry-run] curl -fsSL https://antigravity.google/cli/install.sh | bash'
         ;;
       *)
         fail "unexpected runtime in missing CLI smoke: $runtime"
@@ -1472,11 +1405,10 @@ run_skill_doctor_case() {
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
   local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
-  local sandbox_antigravity="$WORK_DIR/skill-doctor-antigravity"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_antigravity/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
   expected_skill_count="$(registry_skill_count)"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -1508,13 +1440,6 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" 'kernel: ready'
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" "wrappers: ready: $expected_skill_count wrappers installed"
-  assert_contains "$doctor_log" 'discovery: ready:'
-
-  expect_install_status 0 "$sandbox_antigravity" "$snapshot_repo" --runtime=antigravity
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=antigravity --home "$sandbox_antigravity/home" >"$doctor_log"
-  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'discovery: ready:'
 
 }
@@ -1602,46 +1527,6 @@ run_runtime_acceptance_case() {
   assert_contains "$acceptance_log" 'skills: missing or mismatched: missing b-review'
   assert_contains "$acceptance_log" 'Runtime readiness blocked by skill discovery doctor output above.'
   assert_not_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
-
-  local sandbox_antigravity="$WORK_DIR/runtime-acceptance-antigravity"
-  mkdir -p "$sandbox_antigravity/home"
-
-  rc=0
-  set +e
-  HOME="$sandbox_antigravity/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_antigravity")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_antigravity/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
-  bash "$ROOT_DIR/install.sh" --runtime=antigravity >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Antigravity runtime acceptance mutable-playwright install exit 0, got $rc"
-
-  set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=antigravity --home="$sandbox_antigravity/home" --production >"$acceptance_log" 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] || fail "expected Antigravity runtime acceptance production mode to block mutable package, got $rc"
-
-  assert_contains "$acceptance_log" 'Runtime acceptance: antigravity'
-  assert_contains "$acceptance_log" 'Mode: production readiness'
-  assert_contains "$acceptance_log" 'Skill discovery doctor:'
-  assert_contains "$acceptance_log" 'MCP readiness doctor:'
-  assert_contains "$acceptance_log" 'skills: ready:'
-  assert_contains "$acceptance_log" 'serena: ready:'
-  assert_contains "$acceptance_log" 'Fresh-session gates to verify manually in the selected runtime:'
-  assert_contains "$acceptance_log" 'Verdict rule: automated doctor output is install/config evidence only.'
-  assert_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
 }
 
 run_active_runtime_acceptance_case() {
