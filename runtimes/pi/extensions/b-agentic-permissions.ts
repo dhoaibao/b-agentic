@@ -5,7 +5,9 @@
  * - ask: commits, pushes, pulls, reverts, dependency writes, long-lived services, rm -rf
  * - deny: destructive git history/worktree rewrites and selected docker prune/rm families
  * - block write/edit to secret and repository-control paths
- * - allow MCP metadata discovery; ask before MCP execution and other custom tools
+ * - allow MCP metadata discovery and operation-level trusted managed MCP tools
+ * - ask before Firecrawl/Playwright external-mutation tools, user/unknown MCP servers,
+ *   auth actions, and other custom tools
  *
  * Normalizes bare and rtk-wrapped shell commands, compound shell segments,
  * env/sudo wrappers, and git option prefixes. Fails closed without UI.
@@ -76,8 +78,8 @@ const PROTECTED_PATH_MARKERS = [
 /**
  * Built-in Pi tools with specialized policy.
  * Read-only discovery tools (grep/find/ls) are allow-listed so ordinary
- * local evidence gathering does not prompt. MCP metadata discovery is also
- * allow-listed; MCP execution and other custom tools ask.
+ * local evidence gathering does not prompt. Managed MCP tools are
+ * auto-approved only via operation-level allowlists below.
  */
 const SPECIALIZED_TOOLS = new Set([
   "bash",
@@ -87,6 +89,66 @@ const SPECIALIZED_TOOLS = new Set([
   "grep",
   "find",
   "ls",
+]);
+
+/** Managed MCP servers installed by b-agentic. */
+const MANAGED_MCP_SERVERS = new Set([
+  "serena",
+  "codegraph",
+  "context7",
+  "brave-search",
+  "firecrawl",
+  "playwright",
+]);
+
+/**
+ * Local/search MCP servers whose tools do not perform external mutations.
+ * Full tool trust is OK for these (symbol tools, docs, web search).
+ */
+const FULLY_TRUSTED_MCP_SERVERS = new Set([
+  "serena",
+  "codegraph",
+  "context7",
+  "brave-search",
+]);
+
+/**
+ * Firecrawl tools auto-approved without a prompt (bounded read/extract/status only).
+ * External-mutation and local-upload tools stay gated: agent, crawl, interact,
+ * monitor, feedback submission, and parse (local file upload).
+ */
+const FIRECRAWL_TRUSTED_TOOLS = new Set([
+  "firecrawl_agent_status",
+  "firecrawl_check_crawl_status",
+  "firecrawl_extract",
+  "firecrawl_map",
+  "firecrawl_research_inspect_paper",
+  "firecrawl_research_read_paper",
+  "firecrawl_research_related_papers",
+  "firecrawl_research_search_github",
+  "firecrawl_research_search_papers",
+  "firecrawl_scrape",
+  "firecrawl_search",
+  "firecrawl_interact_stop",
+]);
+
+/**
+ * Playwright tools auto-approved for observational browser evidence.
+ * Click/type/upload/evaluate and other page-mutating actions stay gated.
+ */
+const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
+  "browser_snapshot",
+  "browser_take_screenshot",
+  "browser_console_messages",
+  "browser_network_requests",
+  "browser_network_request",
+  "browser_wait_for",
+  "browser_navigate",
+  "browser_navigate_back",
+  "browser_resize",
+  "browser_hover",
+  "browser_close",
+  "browser_tabs",
 ]);
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
@@ -540,7 +602,22 @@ function isTrustedMcpProxyCall(input: unknown): boolean {
     return false;
   }
 
-  const value = input as { action?: unknown; search?: unknown; describe?: unknown };
+  const value = input as {
+    action?: unknown;
+    search?: unknown;
+    describe?: unknown;
+    tool?: unknown;
+    connect?: unknown;
+    server?: unknown;
+  };
+  // Metadata-only calls must not be mixed with execution selectors.
+  if (
+    typeof value.tool === "string" ||
+    typeof value.connect === "string" ||
+    typeof value.server === "string"
+  ) {
+    return false;
+  }
   // Search and describe use cached metadata only; they do not call a server.
   return (
     value.action === "ui-messages" ||
@@ -549,14 +626,210 @@ function isTrustedMcpProxyCall(input: unknown): boolean {
   );
 }
 
+function normalizeServerId(value: string): string {
+  return value.trim().toLowerCase().replace(/_/g, "-");
+}
+
+function isManagedServer(server: string): boolean {
+  return MANAGED_MCP_SERVERS.has(normalizeServerId(server));
+}
+
+/**
+ * Strip adapter/namespace prefixes to get the server-local tool base name.
+ * Examples:
+ *   mcp__firecrawl__firecrawl_search -> firecrawl_search
+ *   firecrawl_firecrawl_search -> firecrawl_search
+ *   playwright_browser_click -> browser_click
+ *   browser_click -> browser_click
+ */
+function managedToolBaseName(toolName: string, server: string): string {
+  let name = toolName;
+  if (name.startsWith("mcp__")) {
+    const parts = name.split("__");
+    name = parts.length >= 3 ? parts.slice(2).join("__") : name;
+  }
+
+  const serverUnderscore = server.replace(/-/g, "_");
+  const repeated = `${serverUnderscore}_${serverUnderscore}_`;
+  if (name.startsWith(repeated)) {
+    return name.slice(serverUnderscore.length + 1);
+  }
+  const prefixed = `${serverUnderscore}_`;
+  if (name.startsWith(prefixed)) {
+    // firecrawl_search stays firecrawl_search; playwright_browser_click -> browser_click
+    if (server === "playwright") {
+      return name.slice(prefixed.length);
+    }
+    // firecrawl tools keep their firecrawl_ prefix as the public tool id
+    if (server === "firecrawl" && name.startsWith("firecrawl_firecrawl_")) {
+      return name.slice("firecrawl_".length);
+    }
+  }
+  return name;
+}
+
+/**
+ * Resolve managed server id from a direct or namespaced tool name.
+ * Supports adapter forms (serena_find_symbol, brave_search_*), mcp__server__tool,
+ * and bare server ids.
+ */
+function managedServerFromToolName(toolName: string): string | null {
+  if (toolName.startsWith("mcp__")) {
+    const parts = toolName.split("__");
+    if (parts.length >= 2 && isManagedServer(parts[1])) {
+      return normalizeServerId(parts[1]);
+    }
+  }
+
+  const prefixes: Array<[string, string]> = [
+    ["serena_", "serena"],
+    ["codegraph_", "codegraph"],
+    ["context7_", "context7"],
+    ["firecrawl_", "firecrawl"],
+    ["playwright_", "playwright"],
+    ["brave_search_", "brave-search"],
+    ["brave-search_", "brave-search"],
+  ];
+  for (const [prefix, server] of prefixes) {
+    if (toolName === server || toolName.startsWith(prefix)) {
+      return server;
+    }
+  }
+  // Playwright tools often appear as bare browser_* names when directTools is on.
+  if (toolName.startsWith("browser_")) {
+    return "playwright";
+  }
+  // Underscore alias for brave-search when used as a bare server token.
+  if (toolName === "brave_search") {
+    return "brave-search";
+  }
+  return null;
+}
+
+/**
+ * Operation-level trust for a managed server tool. Firecrawl and Playwright
+ * use explicit allowlists so external-mutation tools still require approval.
+ */
+function isTrustedManagedTool(server: string, toolName: string): boolean {
+  if (!isManagedServer(server)) {
+    return false;
+  }
+  if (FULLY_TRUSTED_MCP_SERVERS.has(server)) {
+    return true;
+  }
+  const base = managedToolBaseName(toolName, server);
+  if (server === "firecrawl") {
+    return FIRECRAWL_TRUSTED_TOOLS.has(base);
+  }
+  if (server === "playwright") {
+    return PLAYWRIGHT_TRUSTED_TOOLS.has(base);
+  }
+  return false;
+}
+
+/**
+ * True when this call is a trusted managed b-agentic MCP action that should
+ * run without a Pi approval prompt. Fail closed on mixed MCP selectors,
+ * server/tool origin mismatch, Firecrawl/Playwright external-mutation tools,
+ * auth bootstrap, and non-managed servers.
+ */
+function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
+  if (toolName !== "mcp") {
+    const server = managedServerFromToolName(toolName);
+    if (!server) {
+      return false;
+    }
+    return isTrustedManagedTool(server, toolName);
+  }
+
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return false;
+  }
+
+  const value = input as {
+    action?: unknown;
+    server?: unknown;
+    connect?: unknown;
+    tool?: unknown;
+    search?: unknown;
+    describe?: unknown;
+  };
+
+  // OAuth / auth bootstrap remains approval-gated.
+  if (value.action === "auth-start" || value.action === "auth-complete") {
+    return false;
+  }
+
+  const hasConnect = typeof value.connect === "string";
+  const hasTool = typeof value.tool === "string";
+  // Mixed selectors can launder a sensitive tool behind a trusted connect/list.
+  // connect must be the sole selector when present.
+  if (
+    hasConnect &&
+    (hasTool ||
+      typeof value.action === "string" ||
+      typeof value.server === "string" ||
+      typeof value.search === "string" ||
+      typeof value.describe === "string")
+  ) {
+    return false;
+  }
+
+  if (hasConnect) {
+    return isManagedServer(value.connect as string);
+  }
+
+  if (hasTool) {
+    const tool = value.tool as string;
+    const fromName = managedServerFromToolName(tool);
+    const explicitServer =
+      typeof value.server === "string" ? normalizeServerId(value.server) : null;
+
+    // Explicit server and tool-name origin must agree when both are present.
+    if (explicitServer && fromName && explicitServer !== fromName) {
+      return false;
+    }
+    // If tool name has no managed origin, do not let an explicit server rewrite it.
+    if (explicitServer && !fromName) {
+      return false;
+    }
+
+    const server = fromName || explicitServer;
+    if (!server || !isManagedServer(server)) {
+      return false;
+    }
+    return isTrustedManagedTool(server, tool);
+  }
+
+  // Listing tools / scoping to a managed server without a tool call.
+  if (typeof value.server === "string") {
+    return isManagedServer(value.server);
+  }
+
+  return false;
+}
+
+/**
+ * Returns true when the tool call should go through the custom/MCP approval prompt.
+ * Built-ins, MCP metadata discovery, and ordinary managed MCP tools return false.
+ */
 function isMcpOrCustomTool(toolName: string, input?: unknown): boolean {
   if (SPECIALIZED_TOOLS.has(toolName)) {
     return false;
   }
   if (toolName === "mcp") {
-    return !isTrustedMcpProxyCall(input);
+    if (isTrustedMcpProxyCall(input)) {
+      return false;
+    }
+    if (isTrustedManagedMcpCall(toolName, input)) {
+      return false;
+    }
+    return true;
   }
-  // Direct MCP tools or any other non-built-in extension tool require approval.
+  if (isTrustedManagedMcpCall(toolName, input)) {
+    return false;
+  }
+  // Direct non-managed MCP tools or any other non-built-in extension tool require approval.
   return true;
 }
 
@@ -611,7 +884,8 @@ export default function (pi: ExtensionAPI) {
       return undefined;
     }
 
-    // MCP execution, direct MCP tools, and other custom tools require approval.
+    // User/unknown MCP, Firecrawl/Playwright external mutations, auth, and custom tools ask.
+    // Trusted managed MCP tools (operation-level) and metadata discovery are auto-allowed.
     if (isMcpOrCustomTool(event.toolName, event.input)) {
       const inputPreview = JSON.stringify(event.input ?? {}).slice(0, 400);
       return confirmOrBlock(
@@ -636,9 +910,18 @@ export const __test__ = {
   isProtectedPath,
   isMcpOrCustomTool,
   isTrustedMcpProxyCall,
+  isTrustedManagedMcpCall,
+  isTrustedManagedTool,
+  isManagedServer,
+  managedServerFromToolName,
+  managedToolBaseName,
   hasAmbiguousShellSyntax,
   isInterpreterOpaque,
   SPECIALIZED_TOOLS,
+  MANAGED_MCP_SERVERS,
+  FULLY_TRUSTED_MCP_SERVERS,
+  FIRECRAWL_TRUSTED_TOOLS,
+  PLAYWRIGHT_TRUSTED_TOOLS,
   ASK_COMMANDS,
   DENY_COMMANDS,
 };

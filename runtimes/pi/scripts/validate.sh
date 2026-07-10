@@ -62,6 +62,14 @@ if extension.exists():
         'splitShellSegments',
         'stripWrappers',
         'isMcpOrCustomTool',
+        'isTrustedManagedMcpCall',
+        'isTrustedManagedTool',
+        'MANAGED_MCP_SERVERS',
+        'FULLY_TRUSTED_MCP_SERVERS',
+        'FIRECRAWL_TRUSTED_TOOLS',
+        'PLAYWRIGHT_TRUSTED_TOOLS',
+        'firecrawl_search',
+        'browser_snapshot',
         'isInterpreterOpaque',
         'commandDecision',
         '__test__',
@@ -75,6 +83,31 @@ if extension.exists():
         errors.append(f'{extension}: must be able to block tool calls')
     if 'custom/MCP tool' not in text and 'MCP' not in text:
         errors.append(f'{extension}: must gate MCP/custom tools')
+    for server in ['serena', 'codegraph', 'context7', 'brave-search', 'firecrawl', 'playwright']:
+        if f'"{server}"' not in text:
+            errors.append(f'{extension}: missing managed MCP server {server!r}')
+    firecrawl_trusted = re.search(r'FIRECRAWL_TRUSTED_TOOLS = new Set\(\[(.*?)\]\)', text, re.DOTALL)
+    if firecrawl_trusted:
+        # Exact quoted ids only so firecrawl_agent_status / firecrawl_interact_stop remain allowed.
+        for forbidden in [
+            '"firecrawl_interact"',
+            '"firecrawl_parse"',
+            '"firecrawl_search_feedback"',
+            '"firecrawl_feedback"',
+            '"firecrawl_agent"',
+            '"firecrawl_crawl"',
+        ]:
+            if forbidden in firecrawl_trusted.group(1):
+                errors.append(f'{extension}: {forbidden} must not be in FIRECRAWL_TRUSTED_TOOLS')
+    playwright_trusted = re.search(r'PLAYWRIGHT_TRUSTED_TOOLS = new Set\(\[(.*?)\]\)', text, re.DOTALL)
+    if playwright_trusted and re.search(r'"browser_click"', playwright_trusted.group(1)):
+        errors.append(f'{extension}: browser_click must not be in PLAYWRIGHT_TRUSTED_TOOLS')
+    if 'explicitServer' not in text or 'fromName' not in text:
+        errors.append(f'{extension}: must fail closed on explicit server / tool-name mismatch')
+    if 'hasConnect' not in text or 'hasTool' not in text:
+        errors.append(f'{extension}: must fail closed on mixed connect/tool MCP selectors')
+    if "typeof value.server === \"string\"" not in text or "typeof value.search === \"string\"" not in text:
+        errors.append(f'{extension}: connect mixed-selector gate must cover server/search')
     if 'Blocked' not in text or 'protected path' not in text:
         errors.append(f'{extension}: must block protected paths')
     # read must share protected-path handling with write/edit
