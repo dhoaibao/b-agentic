@@ -46,6 +46,7 @@ class RuntimeStyle:
     CODEX = "codex"
     ANTIGRAVITY = "antigravity"
     CURSOR = "cursor"
+    PI = "pi"
 
 
 def load_json(path: Path) -> dict:
@@ -334,6 +335,55 @@ def cursor_server_status(server: str, config: dict) -> str:
     return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
 
 
+def pi_mcp_adapter_ready(home: Path) -> tuple[bool, str]:
+    """Return whether the pinned pi-mcp-adapter package appears installed for home."""
+    if shutil.which("pi") is None:
+        return False, "missing: pi CLI not installed"
+    import os
+    import subprocess
+
+    # Bind Pi to the target home so sandbox / --home checks do not pick up a
+    # global adapter install under a different HOME.
+    env = dict(os.environ)
+    env["HOME"] = str(home)
+    env["PI_CODING_AGENT_DIR"] = str(home / ".pi" / "agent")
+
+    completed = subprocess.run(
+        ["pi", "list"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    listing = f"{completed.stdout}\n{completed.stderr}"
+    if "pi-mcp-adapter@2.11.0" in listing or re.search(r"pi-mcp-adapter.*2\.11\.0", listing):
+        return True, "ready: pi-mcp-adapter@2.11.0 installed"
+    return False, "missing: pi-mcp-adapter@2.11.0 not installed; run pi install npm:pi-mcp-adapter@2.11.0"
+
+
+def pi_server_status(server: str, config: dict) -> str:
+    servers = config.get("mcpServers", {})
+    entry = servers.get(server)
+    if not isinstance(entry, dict):
+        return "missing: config entry not installed"
+
+    normalized = normalize_server(entry, RuntimeStyle.PI)
+
+    if server == "serena":
+        return _check_serena(normalized, "ide")
+    if server == "context7":
+        if entry.get("url") != CONTEXT7_URL:
+            return "blocked: invalid context7 config"
+        return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
+    if server == "codegraph":
+        return _check_codegraph(normalized)
+    if server == "playwright":
+        return _check_playwright(normalized)
+
+    env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
+    env_value = os.environ.get(env_key) if env_var_present(env_key) else None
+    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
+
+
 def json_mcp_server_status(server: str, config: dict) -> str:
     servers = config.get("mcp", {})
     entry = servers.get(server)
@@ -468,6 +518,9 @@ def main() -> int:
     elif schema_family == "cursor-json":
         config = load_json(config_path)
         status_fn = cursor_server_status
+    elif schema_family == "pi-json":
+        config = load_json(config_path)
+        status_fn = pi_server_status
     else:
         config = load_json(config_path)
         status_fn = json_mcp_server_status
@@ -476,6 +529,10 @@ def main() -> int:
     print(f"config: {config_path}")
     print("startup-check: not attempted; validates local launchers, keys, and config shape only")
     blocked = False
+    if schema_family == "pi-json":
+        adapter_ready, adapter_status = pi_mcp_adapter_ready(home)
+        print(f"mcp-adapter: {adapter_status}")
+        blocked = blocked or not adapter_ready
     for server in SUPPORTED_SERVERS:
         status = status_fn(server, config)
         print(f"{server}: {status}")

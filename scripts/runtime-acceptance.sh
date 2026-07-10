@@ -67,6 +67,18 @@ Fresh-session gates to verify manually in the selected runtime:
 Verdict rule: automated doctor output is install/config evidence only. Mark release acceptance complete only after the fresh-session gates above are observed.
 EOF
 
+if [ "$RUNTIME" = "pi" ]; then
+  cat <<'EOF'
+
+Pi-specific interactive checks (print-mode --active probes cannot exercise UI confirm):
+- Confirm pi-mcp-adapter@2.11.0 is installed (or doctor reports missing adapter, not ready MCP).
+- Invoke a configured MCP tool through the adapter proxy (or directTools if enabled).
+- Allow one approval-gated command (e.g. dependency install) and observe a confirmation prompt.
+- Deny one approval-gated command and confirm no side effect.
+- Attempt a denied family (e.g. git reset --hard) and confirm an explicit block reason.
+EOF
+fi
+
 overall_rc=0
 if [ "$skill_rc" -ne 0 ]; then
   printf '\nRuntime readiness blocked by skill discovery doctor output above.\n' >&2

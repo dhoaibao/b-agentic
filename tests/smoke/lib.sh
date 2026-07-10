@@ -86,13 +86,37 @@ smoke_runtime_cli_path() {
   local name
 
   mkdir -p "$bin_dir"
-  for name in claude opencode codex agy; do
+  for name in claude opencode codex agy agent; do
     cat > "$bin_dir/$name" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
     chmod +x "$bin_dir/$name"
   done
+
+  # Pi mock supports list/install so adapter lifecycle smoke can observe installs.
+  cat > "$bin_dir/pi" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+log_dir="$(cd "$(dirname "$0")" && pwd)"
+if [ "${1:-}" = "list" ]; then
+  if [ -f "$log_dir/pi-adapter-installed" ]; then
+    printf 'npm:pi-mcp-adapter@2.11.0\n'
+  else
+    printf '(no packages)\n'
+  fi
+  exit 0
+fi
+if [ "${1:-}" = "install" ]; then
+  printf '%s\n' "${2:-}" >> "$log_dir/pi-install.log"
+  if [ "${2:-}" = "npm:pi-mcp-adapter@2.11.0" ]; then
+    : > "$log_dir/pi-adapter-installed"
+  fi
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "$bin_dir/pi"
 
   printf '%s:%s' "$bin_dir" "$(smoke_system_path)"
 }

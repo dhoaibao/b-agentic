@@ -44,6 +44,7 @@ RUNTIME_CAPABILITY_KEYS = [
     "permissions",
     "rules",
     "command_wrappers",
+    "mcp",
 ]
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
@@ -53,6 +54,7 @@ RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "codex-toml",
     "cursor-json",
     "opencode-json",
+    "pi-json",
 }
 
 
@@ -439,6 +441,7 @@ def render_readme_runtime_capabilities_table(runtimes: list[dict]) -> str:
         "permissions": "Permissions",
         "rules": "Rules",
         "command_wrappers": "Wrappers",
+        "mcp": "MCP",
     }
     headers = ["Runtime", *[capability_labels[key] for key in RUNTIME_CAPABILITY_KEYS]]
     lines = ["| " + " | ".join(headers) + " |", "|" + "|".join(["---"] * len(headers)) + "|"]

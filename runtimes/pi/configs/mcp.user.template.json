@@ -1,0 +1,59 @@
+{
+  "settings": {
+    "toolPrefix": "server",
+    "idleTimeout": 10,
+    "directTools": false
+  },
+  "mcpServers": {
+    "serena": {
+      "command": "serena",
+      "args": [
+        "start-mcp-server",
+        "--context",
+        "ide",
+        "--project-from-cwd",
+        "--open-web-dashboard",
+        "false"
+      ],
+      "env": {},
+      "lifecycle": "lazy"
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      },
+      "lifecycle": "lazy"
+    },
+    "codegraph": {
+      "command": "codegraph",
+      "args": ["serve", "--mcp"],
+      "env": {
+        "CODEGRAPH_TELEMETRY": "0"
+      },
+      "lifecycle": "lazy"
+    },
+    "brave-search": {
+      "command": "pnpm",
+      "args": ["dlx", "@brave/brave-search-mcp-server@2.0.85", "--transport", "stdio"],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "lifecycle": "lazy"
+    },
+    "firecrawl": {
+      "command": "pnpm",
+      "args": ["dlx", "firecrawl-mcp@3.22.1"],
+      "env": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+      },
+      "lifecycle": "lazy"
+    },
+    "playwright": {
+      "command": "pnpm",
+      "args": ["dlx", "@playwright/mcp@0.0.77", "--isolated"],
+      "env": {},
+      "lifecycle": "lazy"
+    }
+  }
+}

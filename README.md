@@ -1,6 +1,6 @@
 # b-agentic
 
-**Slim workflow kernel for coding agents across Claude Code, OpenCode, Codex,  Antigravity and Cursor.**
+**Slim workflow kernel for coding agents across Claude Code, OpenCode, Codex, Antigravity, Cursor, and Pi.**
 
 b-agentic installs a compact runtime kernel, focused phase skills, runtime adapters, and recommended MCP config. Its job is simple: route work, preserve safety gates, use the right evidence, verify before claiming done, and keep multi-runtime setup consistent.
 
@@ -18,7 +18,7 @@ Install another runtime:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
 ```
 
-Use `<name>` as `codex`, `claude-code`, `opencode`, `antigravity`, or `cursor`. Use `--runtime=all` for every registered runtime.
+Use `<name>` as `codex`, `claude-code`, `opencode`, `antigravity`, `cursor`, or `pi`. Use `--runtime=all` for every registered runtime.
 
 Default install writes b-agentic files and config only. Interactive installs prompt before installing or upgrading the selected runtime CLI. Non-interactive installs skip runtime CLI changes unless `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` explicitly opts in.
 
@@ -104,20 +104,22 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 | OpenCode | Native skill tool plus `/b-*` wrappers in `~/.config/opencode/commands/` | `~/.config/opencode/opencode.json` |
 | Antigravity | Native skills from `~/.gemini/antigravity-cli/skills/` | `~/.gemini/antigravity-cli/mcp_config.json` |
 | Cursor | Native `/b-*` skills from `~/.cursor/skills/` | `~/.cursor/mcp.json` |
+| Pi | Native skills from `~/.pi/agent/skills/` | `~/.pi/agent/mcp.json` via `pi-mcp-adapter@2.11.0` |
 
 <!-- generated:runtime-capabilities:start -->
-| Runtime | Skills | Permissions | Rules | Wrappers |
-|---|---|---|---|---|
-| Codex | native | native | native | unsupported |
-| Claude Code | native | native | native | unsupported |
-| OpenCode | native | native | native | native; adapter-only |
-| Antigravity | native | native | native | unsupported |
-| Cursor | native | native | unsupported | unsupported |
+| Runtime | Skills | Permissions | Rules | Wrappers | MCP |
+|---|---|---|---|---|---|
+| Codex | native | native | native | unsupported | native |
+| Claude Code | native | native | native | unsupported | native |
+| OpenCode | native | native | native | native; adapter-only | native |
+| Antigravity | native | native | native | unsupported | native |
+| Cursor | native | native | unsupported | unsupported | native |
+| Pi | native | adapter; adapter-only | unsupported | unsupported | adapter; adapter-only |
 <!-- generated:runtime-capabilities:end -->
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
-Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex applies managed rules to commands that request to run outside the sandbox; OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools; and Antigravity uses deny/ask/allow precedence with managed settings in `~/.gemini/antigravity-cli/settings.json`. On top of that baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled.
+Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex applies managed rules to commands that request to run outside the sandbox; OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools; Antigravity uses deny/ask/allow precedence with managed settings in `~/.gemini/antigravity-cli/settings.json`; and Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts` that prompts in interactive sessions and fails closed without UI. Pi MCP requires the pinned community adapter `pi-mcp-adapter@2.11.0` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively); uninstall removes managed config/extension files but not the adapter package. On top of each baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled.
 
 ## Skills
 
@@ -188,19 +190,22 @@ scripts/mcp-doctor.sh --runtime=codex
 scripts/mcp-doctor.sh --runtime=opencode
 scripts/mcp-doctor.sh --runtime=antigravity
 scripts/mcp-doctor.sh --runtime=cursor
+scripts/mcp-doctor.sh --runtime=pi
 scripts/mcp-doctor.sh --runtime=opencode --allow-degraded
 scripts/mcp-doctor.sh --runtime=antigravity --allow-degraded
 scripts/mcp-doctor.sh --runtime=cursor --allow-degraded
+scripts/mcp-doctor.sh --runtime=pi --allow-degraded
 scripts/skill-doctor.sh --runtime=claude-code
 scripts/skill-doctor.sh --runtime=codex
 scripts/skill-doctor.sh --runtime=opencode
 scripts/skill-doctor.sh --runtime=antigravity
 scripts/skill-doctor.sh --runtime=cursor
+scripts/skill-doctor.sh --runtime=pi
 ```
 
 The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. The default routing check is a static heuristic over skill registry metadata, not a live-model routing test. Automated checks do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
 
-Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates. Add `--active` to run local noninteractive runtime probes for kernel loading, skill routing, MCP tool-call evidence, and approval/deny signals without Git side effects. `--active` is available for Claude Code, Codex, OpenCode, and Cursor; Antigravity active acceptance is unsupported until a documented non-interactive prompt mode is available.
+Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates. Add `--active` to run local noninteractive runtime probes for kernel loading, skill routing, MCP tool-call evidence, and approval/deny signals without Git side effects. `--active` is available for Claude Code, Codex, OpenCode, Cursor, and Pi; Antigravity active acceptance is unsupported until a documented non-interactive prompt mode is available. Pi active probes use print mode, so permission checks must observe fail-closed deny signals; interactive approval prompts still require a manual fresh-session pass.
 
 Production acceptance for each runtime should include a fresh-session check:
 

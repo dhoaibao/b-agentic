@@ -3,7 +3,7 @@
 
 ## Repository Purpose
 
-b-agentic is a slim workflow kernel for coding agents across Claude Code, OpenCode, Codex CLI, and Antigravity CLI. Keep changes focused on routing, safety, evidence, verification, tool use, install reliability, and multi-runtime delivery.
+b-agentic is a slim workflow kernel for coding agents across Claude Code, OpenCode, Codex, Antigravity, Cursor, and Pi. Keep changes focused on routing, safety, evidence, verification, tool use, install reliability, and multi-runtime delivery.
 
 The governing principle is: slim, strong, usable. Every workflow or prompt change needs a concrete failure mode or capability gap; do not add ceremony for hypothetical gains.
 

@@ -347,10 +347,13 @@ from pathlib import Path
 home = Path.home()
 candidates = []
 candidates.extend(home.glob(".*/b-agentic/install.json"))
+# Nested agent homes (e.g. ~/.pi/agent/b-agentic/install.json)
+candidates.extend(home.glob(".*/*/b-agentic/install.json"))
 candidates.extend((home / ".config").glob("*/b-agentic/install.json"))
 candidates.extend((home / ".local" / "share").glob("*/b-agentic/install.json"))
 candidates.extend((home / "Library" / "Application Support").glob("*/b-agentic/install.json"))
 candidates.extend((home / ".gemini").glob("*/b-agentic/install.json"))
+candidates.append(home / ".pi" / "agent" / "b-agentic" / "install.json")
 
 allowed_roots = [home.resolve()]
 

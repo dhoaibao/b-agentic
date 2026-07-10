@@ -231,6 +231,13 @@ def main() -> None:
             "settings": home / ".cursor" / "cli-config.json",
             "mcpConfig": home / ".cursor" / "mcp.json",
         },
+        "pi": {
+            "metadata": home / ".pi" / "agent" / "b-agentic",
+            "skills": home / ".pi" / "agent" / "skills",
+            "kernel": home / ".pi" / "agent" / "AGENTS.md",
+            "permissionsExtension": home / ".pi" / "agent" / "extensions" / "b-agentic-permissions.ts",
+            "mcpConfig": home / ".pi" / "agent" / "mcp.json",
+        },
     }
 
     defaults = runtime_defaults.get(runtime)
@@ -291,6 +298,22 @@ def main() -> None:
     elif runtime == "cursor":
         remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "cli-config.json", "settings", "settingsAction", data)
         remove_merged_json_config(str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])), metadata / "templates" / "mcp.user.template.json", "mcp.json", "mcpConfig", "mcpAction", data)
+    elif runtime == "pi":
+        remove_merged_json_config(
+            str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])),
+            metadata / "templates" / "mcp.user.template.json",
+            "mcp.json",
+            "mcpConfig",
+            "mcpAction",
+            data,
+        )
+        extension_path = manifest_managed_path(paths, "permissionsExtension", defaults["permissionsExtension"])
+        extension_snapshot = metadata / "extensions" / "b-agentic-permissions.ts"
+        if extension_path.exists():
+            if extension_snapshot.exists() and files_equal(extension_path, extension_snapshot):
+                remove_file(extension_path)
+            else:
+                warn(f"preserving modified Pi permission extension: {extension_path}")
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 
