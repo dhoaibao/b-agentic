@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "format": "json-subset-of-yaml",
+  "description": "Canonical managed MCP operation classification. Render the contract table and validate/generate adapter policies from this file only.",
+  "classes": {
+    "read-only": {
+      "policy": "Autonomous when the runtime can scope tools",
+      "notes": "Bounded search/extraction and observational browser evidence only."
+    },
+    "local-upload": {
+      "policy": "Approval required",
+      "notes": "Reads local files for remote processing."
+    },
+    "external-mutation": {
+      "policy": "Approval required",
+      "notes": "Creates remote work, mutates pages, or submits external feedback."
+    },
+    "monitor-lifecycle": {
+      "policy": "Approval required; not part of the default workflow",
+      "notes": "Firecrawl monitor create/update/delete/run/list/get/check families."
+    },
+    "auth": {
+      "policy": "Approval required",
+      "notes": "MCP OAuth/auth bootstrap actions."
+    }
+  },
+  "fully_trusted_servers": ["serena", "codegraph", "context7", "brave-search"],
+  "servers": {
+    "firecrawl": {
+      "tools": {
+        "firecrawl_search": "read-only",
+        "firecrawl_scrape": "read-only",
+        "firecrawl_map": "read-only",
+        "firecrawl_extract": "read-only",
+        "firecrawl_agent_status": "read-only",
+        "firecrawl_check_crawl_status": "read-only",
+        "firecrawl_interact_stop": "read-only",
+        "firecrawl_research_search_papers": "read-only",
+        "firecrawl_research_inspect_paper": "read-only",
+        "firecrawl_research_read_paper": "read-only",
+        "firecrawl_research_related_papers": "read-only",
+        "firecrawl_research_search_github": "read-only",
+        "firecrawl_parse": "local-upload",
+        "firecrawl_agent": "external-mutation",
+        "firecrawl_crawl": "external-mutation",
+        "firecrawl_interact": "external-mutation",
+        "firecrawl_search_feedback": "external-mutation",
+        "firecrawl_feedback": "external-mutation",
+        "firecrawl_monitor_create": "monitor-lifecycle",
+        "firecrawl_monitor_update": "monitor-lifecycle",
+        "firecrawl_monitor_delete": "monitor-lifecycle",
+        "firecrawl_monitor_get": "monitor-lifecycle",
+        "firecrawl_monitor_list": "monitor-lifecycle",
+        "firecrawl_monitor_run": "monitor-lifecycle",
+        "firecrawl_monitor_check": "monitor-lifecycle",
+        "firecrawl_monitor_checks": "monitor-lifecycle"
+      }
+    },
+    "playwright": {
+      "tools": {
+        "browser_snapshot": "read-only",
+        "browser_take_screenshot": "read-only",
+        "browser_console_messages": "read-only",
+        "browser_network_requests": "read-only",
+        "browser_network_request": "read-only",
+        "browser_wait_for": "read-only",
+        "browser_navigate": "read-only",
+        "browser_navigate_back": "read-only",
+        "browser_resize": "read-only",
+        "browser_hover": "read-only",
+        "browser_close": "read-only",
+        "browser_tabs": "read-only",
+        "browser_click": "external-mutation",
+        "browser_type": "external-mutation",
+        "browser_fill_form": "external-mutation",
+        "browser_press_key": "external-mutation",
+        "browser_select_option": "external-mutation",
+        "browser_file_upload": "external-mutation",
+        "browser_drop": "external-mutation",
+        "browser_drag": "external-mutation",
+        "browser_evaluate": "external-mutation",
+        "browser_run_code_unsafe": "external-mutation",
+        "browser_handle_dialog": "external-mutation"
+      }
+    }
+  },
+  "auth_operations": [
+    {
+      "id": "auth-start",
+      "class": "auth",
+      "notes": "Pi MCP OAuth bootstrap start"
+    },
+    {
+      "id": "auth-complete",
+      "class": "auth",
+      "notes": "Pi MCP OAuth bootstrap complete"
+    }
+  ],
+  "runtime_enforcement": {
+    "claude-code": "per-tool settings allow/ask lists",
+    "cursor": "per-tool allowlist; unlisted MCP tools require approval",
+    "pi": "adapter tool_call extension with operation-level trust",
+    "codex": "shell families only; per-MCP-tool enforcement is a capability gap",
+    "opencode": "shell families only; per-MCP-tool enforcement is a capability gap"
+  }
+}

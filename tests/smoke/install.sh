@@ -1505,8 +1505,9 @@ run_runtime_acceptance_case() {
   assert_contains "$acceptance_log" 'skills: ready:'
   assert_contains "$acceptance_log" 'wrappers: ready:'
   assert_contains "$acceptance_log" 'serena: ready:'
-  assert_contains "$acceptance_log" 'Fresh-session gates to verify manually in the selected runtime:'
-  assert_contains "$acceptance_log" 'Verdict rule: automated doctor output is install/config evidence only.'
+  assert_contains "$acceptance_log" 'Evidence classes:'
+  assert_contains "$acceptance_log" 'Live fresh-session gates (required for production-ready release claims):'
+  assert_contains "$acceptance_log" 'Verdict rule: automated doctor output and simulated --active probes are not live runtime proof.'
   assert_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
 
   HOME="$missing_skill_sandbox/home" \
@@ -1541,15 +1542,23 @@ run_runtime_acceptance_case() {
   assert_not_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
 }
 
-run_active_runtime_acceptance_case() {
+run_simulated_runtime_acceptance_case() {
   local snapshot_repo="$1"
-  local sandbox_claude="$WORK_DIR/runtime-acceptance-active-claude"
-  local sandbox_codex="$WORK_DIR/runtime-acceptance-active-codex"
-  local sandbox_opencode="$WORK_DIR/runtime-acceptance-active-opencode"
-  local bin_dir="$WORK_DIR/runtime-acceptance-active-bin"
-  local acceptance_log="$WORK_DIR/runtime-acceptance-active.log"
+  local sandbox_claude="$WORK_DIR/runtime-acceptance-simulated-claude"
+  local sandbox_codex="$WORK_DIR/runtime-acceptance-simulated-codex"
+  local sandbox_opencode="$WORK_DIR/runtime-acceptance-simulated-opencode"
+  local sandbox_cursor="$WORK_DIR/runtime-acceptance-simulated-cursor"
+  local sandbox_pi="$WORK_DIR/runtime-acceptance-simulated-pi"
+  local bin_dir="$WORK_DIR/runtime-acceptance-simulated-bin"
+  local acceptance_log="$WORK_DIR/runtime-acceptance-simulated.log"
 
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
+  mkdir -p \
+    "$sandbox_claude/home" \
+    "$sandbox_codex/home" \
+    "$sandbox_opencode/home" \
+    "$sandbox_cursor/home" \
+    "$sandbox_pi/home" \
+    "$bin_dir"
 
   cat > "$bin_dir/serena" <<'EOF'
 #!/usr/bin/env bash
@@ -1664,7 +1673,41 @@ case "$last" in
 esac
 EOF
 
-  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/opencode"
+  cat > "$bin_dir/agent" <<'EOF'
+#!/usr/bin/env bash
+prompt="${@: -1}"
+case "$prompt" in
+  *"Detailed contract refs live under"*) printf '%s\n' '~/.cursor/b-agentic/references/contract/' ;;
+  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
+  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
+  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
+  *"git reset --hard"*) printf '%s\n' 'denied' ;;
+  *) printf '%s\n' 'unexpected cursor agent prompt' ;;
+esac
+EOF
+
+  cat > "$bin_dir/pi" <<'EOF'
+#!/usr/bin/env bash
+prompt="${@: -1}"
+case "$prompt" in
+  *"Detailed contract refs live under"*) printf '%s\n' '~/.pi/agent/b-agentic/references/contract/' ;;
+  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
+  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
+  *"git commit -m test"*) printf '%s\n' 'approval required (no UI; fail-closed)' ;;
+  *"git reset --hard"*) printf '%s\n' 'denied by b-agentic policy' ;;
+  *) printf '%s\n' 'unexpected pi prompt' ;;
+esac
+EOF
+
+  chmod +x \
+    "$bin_dir/serena" \
+    "$bin_dir/codegraph" \
+    "$bin_dir/pnpm" \
+    "$bin_dir/claude" \
+    "$bin_dir/codex" \
+    "$bin_dir/opencode" \
+    "$bin_dir/agent" \
+    "$bin_dir/pi"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   PATH="$bin_dir:$(smoke_system_path)" \
@@ -1672,12 +1715,15 @@ EOF
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
   bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=claude-code --home="$sandbox_claude/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'Active runtime probes:'
+  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
+  assert_contains "$acceptance_log" 'evidence-class: simulated'
   assert_contains "$acceptance_log" 'kernel: ready: ~/.claude/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'skill: ready: BLOCKED: no changes to summarize'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
   assert_contains "$acceptance_log" 'approval-gate: ready:'
   assert_contains "$acceptance_log" 'deny-gate: ready:'
+  assert_contains "$acceptance_log" 'Evidence classes:'
+  assert_contains "$acceptance_log" 'simulated: --active protocol/adapter probes'
 
   expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex
   PATH="$bin_dir:$(smoke_system_path)" \
@@ -1685,6 +1731,7 @@ EOF
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
   bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=codex --home="$sandbox_codex/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
   assert_contains "$acceptance_log" 'kernel: ready: ~/.codex/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
 
@@ -1694,8 +1741,35 @@ EOF
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
   bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox_opencode/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
   assert_contains "$acceptance_log" 'kernel: ready: ~/.config/opencode/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
+
+  expect_install_status 0 "$sandbox_cursor" "$snapshot_repo" --runtime=cursor
+  PATH="$bin_dir:$(smoke_system_path)" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=cursor --home="$sandbox_cursor/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
+  assert_contains "$acceptance_log" 'evidence-class: simulated'
+  assert_contains "$acceptance_log" 'kernel: ready: cursor rules capability is unsupported'
+  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
+  assert_contains "$acceptance_log" 'approval-gate: ready:'
+  assert_contains "$acceptance_log" 'deny-gate: ready:'
+
+  expect_install_status 0 "$sandbox_pi" "$snapshot_repo" --runtime=pi
+  PATH="$bin_dir:$(smoke_system_path)" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=pi --home="$sandbox_pi/home" --active >"$acceptance_log" 2>&1
+  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
+  assert_contains "$acceptance_log" 'evidence-class: simulated'
+  assert_contains "$acceptance_log" 'kernel: ready: ~/.pi/agent/b-agentic/references/contract/'
+  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
+  assert_contains "$acceptance_log" 'approval-gate: ready:'
+  assert_contains "$acceptance_log" 'deny-gate: ready:'
 }
 
 run_rtk_ref_dry_run_case() {
@@ -1800,8 +1874,8 @@ main() {
   run_skill_doctor_case "$snapshot_repo"
   echo "Running run_runtime_acceptance_case..."
   run_runtime_acceptance_case "$snapshot_repo"
-  echo "Running run_active_runtime_acceptance_case..."
-  run_active_runtime_acceptance_case "$snapshot_repo"
+  echo "Running run_simulated_runtime_acceptance_case..."
+  run_simulated_runtime_acceptance_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue

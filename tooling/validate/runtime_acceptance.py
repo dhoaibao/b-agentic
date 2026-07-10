@@ -457,13 +457,26 @@ def probe_reset_gate(probe: RuntimeProbe) -> ProbeResult:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run active noninteractive runtime acceptance probes.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run simulated noninteractive runtime protocol probes. "
+            "These verify CLI command construction and harness signals; "
+            "they are not live interactive acceptance evidence."
+        )
+    )
     parser.add_argument("--runtime", required=True)
     parser.add_argument("--home", default=str(Path.home()))
     args = parser.parse_args()
 
     home = Path(args.home).expanduser()
     probe = build_probe(args.runtime, home)
+
+    print("evidence-class: simulated")
+    print(
+        "note: not live interactive acceptance; "
+        "use scripts/record-release-evidence.sh for operator attestations "
+        "and scripts/verify-release-evidence.sh for release checks"
+    )
 
     results = [
         probe_kernel_loaded(probe),

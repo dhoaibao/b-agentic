@@ -51,26 +51,35 @@ fi
 
 active_rc=0
 if [ "$ACTIVE" -eq 1 ]; then
-  printf '\nActive runtime probes:\n'
+  printf '\nSimulated protocol probes (not live runtime proof):\n'
+  printf 'These exercise CLI command construction and harness signals with the real or PATH-provided CLIs.\n'
+  printf 'They do not prove a fresh interactive session loaded the kernel or presented UI approval prompts.\n'
   python3 "$ROOT_DIR/tooling/validate/runtime_acceptance.py" --runtime="$RUNTIME" --home "$HOME_DIR" || active_rc=$?
 fi
 
 cat <<'EOF'
 
-Fresh-session gates to verify manually in the selected runtime:
+Evidence classes:
+- static: generated/config validation and doctor install/config checks
+- simulated: --active protocol/adapter probes (command construction + harness signals)
+- live: fresh interactive session observed by an operator
+
+Live fresh-session gates (required for production-ready release claims):
 - Kernel/memory file is loaded by a newly started runtime session.
 - One installed b-* skill can be invoked and follows its skill prompt.
 - Configured MCP servers start or report actionable local blockers.
 - Approval gates prompt or deny commits, pushes, dependency writes, and destructive commands.
 - Browser/MCP/API checks state missing keys, packages, auth, or remote-service gaps instead of claiming success.
 
-Verdict rule: automated doctor output is install/config evidence only. Mark release acceptance complete only after the fresh-session gates above are observed.
+Verdict rule: automated doctor output and simulated --active probes are not live runtime proof.
+Record a live operator attestation with scripts/record-release-evidence.sh after an authorized fresh-session pass.
+Verify attestations and static gates with scripts/verify-release-evidence.sh before production-ready claims.
 EOF
 
 if [ "$RUNTIME" = "pi" ]; then
   cat <<'EOF'
 
-Pi-specific interactive checks (print-mode --active probes cannot exercise UI confirm):
+Pi-specific live checks (print-mode simulated probes cannot exercise UI confirm):
 - Confirm pi-mcp-adapter@2.11.0 is installed (or doctor reports missing adapter, not ready MCP).
 - Invoke a configured MCP tool through the adapter proxy (or directTools if enabled).
 - Allow one approval-gated command (e.g. dependency install) and observe a confirmation prompt.
@@ -91,7 +100,7 @@ if [ "$overall_rc" -eq 0 ] && [ "$mcp_rc" -ne 0 ]; then
   overall_rc="$mcp_rc"
 fi
 if [ "$ACTIVE" -eq 1 ] && [ "$active_rc" -ne 0 ]; then
-  printf '\nActive runtime probes failed or were blocked; inspect the output above.\n' >&2
+  printf '\nSimulated protocol probes failed or were blocked; inspect the output above.\n' >&2
   if [ "$overall_rc" -eq 0 ]; then
     overall_rc="$active_rc"
   fi

@@ -338,12 +338,20 @@ if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 
 contract_dir = ROOT / "references" / "contract"
-expected_contracts = {"runtime.md", "safety-tools.md", "kernel.template.md"}
-actual_contracts = {path.name for path in contract_dir.glob("*.md")}
-if actual_contracts != expected_contracts:
+expected_contract_mds = {"runtime.md", "safety-tools.md", "kernel.template.md"}
+actual_contract_mds = {path.name for path in contract_dir.glob("*.md")}
+if actual_contract_mds != expected_contract_mds:
     errors.append(
-        f"references/contract/: expected {sorted(expected_contracts)}, found {sorted(actual_contracts)}"
+        f"references/contract/: expected markdown {sorted(expected_contract_mds)}, "
+        f"found {sorted(actual_contract_mds)}"
     )
+if not (contract_dir / "mcp_operations.yaml").exists():
+    errors.append("references/contract/mcp_operations.yaml: missing canonical MCP operation policy")
+safety_tools = read_text(contract_dir / "safety-tools.md")
+if "mcp_operations.yaml" not in safety_tools:
+    errors.append("references/contract/safety-tools.md: must point at mcp_operations.yaml as canonical source")
+if "<!-- generated:mcp-operations:start -->" not in safety_tools:
+    errors.append("references/contract/safety-tools.md: missing generated MCP operations block markers")
 
 for path in [ROOT / "references" / "contract" / "kernel.template.md", *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names)]:
     text = read_text(path)
@@ -405,10 +413,17 @@ for forbidden in ["hooks", "subagent", "strict", "state-machine", "conformance"]
     if re.search(rf"\b{re.escape(forbidden)}\b", readme, re.IGNORECASE):
         errors.append(f"README.md: removed product concept remains: {forbidden!r}")
 
-claude_settings = read_text(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
-for forbidden in ["firecrawl_monitor", "hooks", "statusLine", "check-runtime.py"]:
+claude_settings_path = ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json"
+claude_settings = read_text(claude_settings_path)
+claude_settings_json = load_json(claude_settings_path)
+claude_allow = claude_settings_json.get("permissions", {}).get("allow", []) if isinstance(claude_settings_json, dict) else []
+for forbidden in ["hooks", "statusLine", "check-runtime.py"]:
     if forbidden in claude_settings:
         errors.append(f"runtimes/claude-code/configs/settings.template.json: forbidden default permission/config {forbidden!r}")
+if any("firecrawl_monitor" in str(item) for item in claude_allow):
+    errors.append(
+        "runtimes/claude-code/configs/settings.template.json: Firecrawl monitor tools must not be allowlisted"
+    )
 
 # Safety-gate parity: every runtime must gate the command families the runtime
 # contract (references/contract/safety-tools.md) requires, at no weaker than the

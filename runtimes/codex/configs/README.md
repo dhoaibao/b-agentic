@@ -21,6 +21,8 @@ MCP entries cover Serena, CodeGraph, Context7, Brave Search, Firecrawl, and Play
 
 Codex uses managed command governance rules for baseline gates. The managed rules prompt before commits, pushes, pulls, reverts, dependency writes, and recursive removes; they forbid destructive git history/worktree commands and broad Docker resource deletion.
 
+Capability gap: Codex does not currently expose per-MCP-tool permissions in the managed adapter. Firecrawl external-mutation/local-upload/monitor operations and Playwright page-mutating tools therefore rely on kernel guidance and fresh-session discipline rather than adapter-enforced operation allowlists.
+
 ## Validation
 
 Use `scripts/validate-skills.sh` and `scripts/validate-skills.sh --release` from the repository root.

@@ -115,9 +115,21 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 | Pi | native | adapter; adapter-only | unsupported | unsupported | adapter; adapter-only |
 <!-- generated:runtime-capabilities:end -->
 
+Capability matrix (support labels plus enforceable limits):
+
+<!-- generated:runtime-capability-matrix:start -->
+| Runtime | Permission granularity | Kernel loading | Skill mode | MCP adapter | Static | Simulated | Live | Known limitation |
+|---|---|---|---|---|---|---|---|---|
+| Codex | shell families only | managed memory file | native | none (native) | yes | yes | operator evidence required | no per-MCP-tool enforcement |
+| Claude Code | per-tool MCP + shell families | managed memory file | native | none (native) | yes | yes | operator evidence required | default-mode bash allowances remain runtime-native |
+| OpenCode | shell families only | managed memory file | native | none (native) | yes | yes | operator evidence required | no per-MCP-tool enforcement |
+| Cursor | per-tool MCP + shell families | managed memory file | native | none (native) | yes | yes | operator evidence required | rules unsupported; allowlist default |
+| Pi | adapter tool_call extension | managed memory file | native | pi-mcp-adapter@2.11.0 | yes | yes | operator evidence required | print-mode cannot prove UI approval |
+<!-- generated:runtime-capability-matrix:end -->
+
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
-Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex applies managed rules to commands that request to run outside the sandbox; OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools; and Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery, fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`), and operation-level Firecrawl/Playwright read tools, while prompting for approval-required shell commands, Firecrawl/Playwright external-mutation tools, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the pinned community adapter `pi-mcp-adapter@2.11.0` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively); uninstall removes managed config/extension files but not the adapter package. On top of each baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled.
+Permission defaults follow each runtime's native model, so the baseline differs: Claude Code has its own default-mode behavior, including built-in read-only Bash allowances; Codex applies managed rules to commands that request to run outside the sandbox; OpenCode defaults unlisted shell commands to `ask` while allow-listing read-only and required tools; and Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery, fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`), and operation-level Firecrawl/Playwright read tools, while prompting for approval-required shell commands, Firecrawl/Playwright external-mutation tools, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the pinned community adapter `pi-mcp-adapter@2.11.0` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively); uninstall removes managed config/extension files but not the adapter package. On top of each baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Claude Code and Cursor managed templates also encode Firecrawl/Playwright operation-level allowlists from `references/contract/safety-tools.md`. Codex and OpenCode currently gate shell families only; per-MCP-tool enforcement remains a documented capability gap there.
 
 ## Skills
 
@@ -198,11 +210,32 @@ scripts/skill-doctor.sh --runtime=cursor
 scripts/skill-doctor.sh --runtime=pi
 ```
 
-The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, and local MCP readiness blockers. The default routing check is a static heuristic over skill registry metadata, not a live-model routing test. Automated checks do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
+The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The default routing check is a static heuristic over skill registry metadata, not a live-model routing test. Automated checks do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
 
-Professional release readiness requires both automated validation and one fresh-session acceptance pass for each changed runtime. Treat automated checks as install/config evidence; treat fresh-session checks as runtime behavior evidence. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required fresh-session gates. Add `--active` to run local noninteractive runtime probes for kernel loading, skill routing, MCP tool-call evidence, and approval/deny signals without Git side effects. `--active` is available for Claude Code, Codex, OpenCode, Cursor, and Pi. Pi active probes use print mode, so permission checks must observe fail-closed deny signals; interactive approval prompts still require a manual fresh-session pass.
+Evidence classes:
 
-Production acceptance for each runtime should include a fresh-session check:
+- `static`: validation, audit, doctors, and policy regression.
+- `simulated`: `scripts/runtime-acceptance.sh --active` protocol/adapter harness probes. These verify command construction and harness signals; they are not live interactive proof.
+- `live`: operator-observed fresh session, recorded as an attestation with `scripts/record-release-evidence.sh`.
+
+Professional release readiness requires static validation plus current live attestations for every changed runtime. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required live gates. Add `--active` only for simulated protocol probes. `--active` is available for Claude Code, Codex, OpenCode, Cursor, and Pi. Pi print-mode probes can observe fail-closed deny signals, but interactive approval prompts still require a live fresh-session pass.
+
+Record a live operator attestation after an authorized session:
+
+```bash
+scripts/record-release-evidence.sh --runtime=<name> --operator="$USER" \
+  --kernel=pass --skill=pass --mcp=pass --approval-gate=pass --deny-gate=pass
+```
+
+Verify attestations and static gates before a production-ready claim:
+
+```bash
+scripts/verify-release-evidence.sh --runtime=<name> [--require-tag=vYYYY.MM.DD]
+```
+
+Release provenance uses `pyproject.toml` versioning, `CHANGELOG.md`, and optional immutable Git tags (`vYYYY.MM.DD`). Checked-in `release-evidence/` files are operator attestations, not self-proving release gates. Do not label a release production-ready without current live attestations for every changed runtime plus passing static verification.
+
+Live production acceptance for each runtime should include:
 
 - Kernel/memory file is loaded by the runtime.
 - One installed `b-*` skill can be invoked.
@@ -214,4 +247,6 @@ Production acceptance for each runtime should include a fresh-session check:
 
 - `README.md` is the repository overview.
 - `AGENTS.md` is maintainer guidance.
-- `references/contract/` contains the runtime contract shipped to adapters.
+- `CHANGELOG.md` records shipped revisions.
+- `release-evidence/` holds live operator attestations and the evidence schema.
+- `references/contract/` contains the runtime contract shipped to adapters, including canonical `mcp_operations.yaml`.

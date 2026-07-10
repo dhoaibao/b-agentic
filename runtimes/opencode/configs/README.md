@@ -19,6 +19,8 @@ OpenCode uses the `mcp` key for Serena, CodeGraph, Context7, Brave Search, Firec
 
 OpenCode uses `permission` config for baseline gates. The managed template asks by default for bash and edits, allows low-risk inspection commands, denies destructive git and broad remove commands, and allows only managed `b-*` skills.
 
+Capability gap: OpenCode's managed template does not currently enforce per-MCP-tool permissions. Firecrawl external-mutation/local-upload/monitor operations and Playwright page-mutating tools therefore rely on kernel guidance and fresh-session discipline rather than adapter-enforced operation allowlists.
+
 ## Validation
 
 Use `scripts/validate-skills.sh` and `scripts/validate-skills.sh --release` from the repository root.

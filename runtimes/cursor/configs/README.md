@@ -18,7 +18,7 @@ The installer never overwrites `~/.cursor/AGENTS.md` without `--replace-memory`.
 
 MCP entries cover Serena, CodeGraph, Context7, Brave Search, Firecrawl, and Playwright. CodeGraph requires the `codegraph` CLI and a per-project `codegraph init`. API-key-backed tools require user-scope keys. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
 
-Cursor CLI uses `cli-config.json` permission rules for baseline gates. The managed template asks before commits, pushes, pulls, reverts, and dependency installs; denies destructive git history/worktree commands; and does not allow Firecrawl monitor mutation tools.
+Cursor CLI uses `cli-config.json` permission rules for baseline gates. The managed template denies destructive git history/worktree commands and auto-allows only Firecrawl/Playwright read-only operations from `references/contract/safety-tools.md`. Under `approvalMode: allowlist`, unlisted MCP tools (including Firecrawl external-mutation/local-upload/monitor tools and Playwright page-mutating tools) require approval rather than being allowlisted.
 
 ## Validation
 

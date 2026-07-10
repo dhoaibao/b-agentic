@@ -21,5 +21,21 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox/home/.cursor/mcp.json" '"codegraph"'
   assert_contains "$sandbox/home/.cursor/cli-config.json" 'Mcp(serena:*)'
   assert_contains "$sandbox/home/.cursor/cli-config.json" 'Shell(git reset --hard *)'
+  assert_contains "$sandbox/home/.cursor/cli-config.json" 'Mcp(firecrawl:firecrawl_search)'
+  assert_contains "$sandbox/home/.cursor/cli-config.json" 'Mcp(playwright:browser_snapshot)'
+  assert_not_contains "$sandbox/home/.cursor/cli-config.json" 'Mcp(playwright:*)'
+  assert_not_contains "$sandbox/home/.cursor/cli-config.json" 'Mcp(firecrawl:firecrawl_agent)'
+  assert_not_contains "$sandbox/home/.cursor/cli-config.json" 'Mcp(playwright:browser_click)'
+  if python3 - "$sandbox/home/.cursor/cli-config.json" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1]))
+allow = data.get("permissions", {}).get("allow", [])
+sys.exit(1 if any("firecrawl_monitor" in str(item) for item in allow) else 0)
+PY
+  then
+    :
+  else
+    fail "expected no Firecrawl monitor tools in Cursor allowlist"
+  fi
   assert_no_path "$sandbox/home/.cursor/agents/b-explore.md"
 }

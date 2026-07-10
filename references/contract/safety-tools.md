@@ -34,7 +34,26 @@ Prefer source files over generated files. Rerender generated assets only after s
 | Firecrawl | Primary public web search plus extraction from known public URLs, site maps, structured fields, arXiv/paper and GitHub issue/discussion lookup, and approved deep research. |
 | Playwright | Live browser, DOM, screenshot, console/network, visual, and e2e evidence. |
 
-Firecrawl autonomous/deep research, crawling, and any external mutation require explicit approval or a run-scoped user cap. Firecrawl's bounded paper/GitHub search and read tools (arXiv paper search, paper inspection/reading, related-paper expansion, GitHub issue/discussion search) need no extra approval beyond ordinary search and extraction. Firecrawl monitor creation/update/delete is not part of the default b-agentic workflow.
+### Managed MCP Operation Classification
+
+Canonical source: `references/contract/mcp_operations.yaml`. Adapters that support per-tool permissions must enforce this classification. Do not weaken the contract because a runtime lacks operation-level permissions; document that as a capability gap instead.
+
+<!-- generated:mcp-operations:start -->
+| Class | Policy | Managed operations |
+|---|---|---|
+| `read-only` | Autonomous when the runtime can scope tools | firecrawl:`firecrawl_search`; firecrawl:`firecrawl_scrape`; firecrawl:`firecrawl_map`; firecrawl:`firecrawl_extract`; firecrawl:`firecrawl_agent_status`; firecrawl:`firecrawl_check_crawl_status`; firecrawl:`firecrawl_interact_stop`; firecrawl:`firecrawl_research_search_papers`; firecrawl:`firecrawl_research_inspect_paper`; firecrawl:`firecrawl_research_read_paper`; firecrawl:`firecrawl_research_related_papers`; firecrawl:`firecrawl_research_search_github`; playwright:`browser_snapshot`; playwright:`browser_take_screenshot`; playwright:`browser_console_messages`; playwright:`browser_network_requests`; playwright:`browser_network_request`; playwright:`browser_wait_for`; playwright:`browser_navigate`; playwright:`browser_navigate_back`; playwright:`browser_resize`; playwright:`browser_hover`; playwright:`browser_close`; playwright:`browser_tabs`; Full trust for `serena`, `codegraph`, `context7`, `brave-search` tools |
+| `local-upload` | Approval required | firecrawl:`firecrawl_parse` |
+| `external-mutation` | Approval required | firecrawl:`firecrawl_agent`; firecrawl:`firecrawl_crawl`; firecrawl:`firecrawl_interact`; firecrawl:`firecrawl_search_feedback`; firecrawl:`firecrawl_feedback`; playwright:`browser_click`; playwright:`browser_type`; playwright:`browser_fill_form`; playwright:`browser_press_key`; playwright:`browser_select_option`; playwright:`browser_file_upload`; playwright:`browser_drop`; playwright:`browser_drag`; playwright:`browser_evaluate`; playwright:`browser_run_code_unsafe`; playwright:`browser_handle_dialog` |
+| `monitor-lifecycle` | Approval required; not part of the default workflow | firecrawl:`firecrawl_monitor_create`; firecrawl:`firecrawl_monitor_update`; firecrawl:`firecrawl_monitor_delete`; firecrawl:`firecrawl_monitor_get`; firecrawl:`firecrawl_monitor_list`; firecrawl:`firecrawl_monitor_run`; firecrawl:`firecrawl_monitor_check`; firecrawl:`firecrawl_monitor_checks` |
+| `auth` | Approval required | auth:`auth-start`; auth:`auth-complete` |
+<!-- generated:mcp-operations:end -->
+
+Bounded search/extraction and observational browser evidence may stay autonomous only where the runtime supports operation-level allowlists. Wildcards that grant entire Firecrawl or Playwright servers are forbidden in managed templates.
+
+Runtime enforcement notes:
+- Claude Code and Cursor: managed settings templates encode the allow/ask lists above.
+- Pi: first-party `tool_call` extension enforces operation-level trust and fails closed without UI.
+- Codex and OpenCode: managed templates gate shell families; they do not currently enforce per-MCP-tool permissions. Treat MCP operation gating there as a documented capability gap, not as equivalent enforcement.
 
 ### Local Tool Bootstrap
 

@@ -17,7 +17,7 @@ The installer never overwrites `~/.claude/CLAUDE.md` without `--replace-memory`.
 
 MCP entries cover Serena, CodeGraph, Context7, Brave Search, Firecrawl, and Playwright. CodeGraph requires the `codegraph` CLI and a per-project `codegraph init`. API-key-backed tools require user-scope keys. Playwright and other `pnpm dlx` entries require `pnpm` on `PATH`.
 
-Claude Code uses `settings.json` permission rules for baseline gates. The managed template asks before commits, pushes, pulls, reverts, and dependency installs; denies destructive git history/worktree commands; and does not allow Firecrawl monitor mutation tools.
+Claude Code uses `settings.json` permission rules for baseline gates. The managed template asks before commits, pushes, pulls, reverts, and dependency installs; denies destructive git history/worktree commands; auto-allows only Firecrawl/Playwright read-only operations from `references/contract/safety-tools.md`; and asks before Firecrawl external-mutation, local-upload, monitor-lifecycle, and Playwright page-mutating tools.
 
 ## Validation
 

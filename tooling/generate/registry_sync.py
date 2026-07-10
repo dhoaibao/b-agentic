@@ -19,10 +19,15 @@ README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
 README_RUNTIME_CAPABILITIES_START = "<!-- generated:runtime-capabilities:start -->"
 README_RUNTIME_CAPABILITIES_END = "<!-- generated:runtime-capabilities:end -->"
+README_RUNTIME_CAPABILITY_MATRIX_START = "<!-- generated:runtime-capability-matrix:start -->"
+README_RUNTIME_CAPABILITY_MATRIX_END = "<!-- generated:runtime-capability-matrix:end -->"
 ROUTING_INTENTS_START = "<!-- generated:routing-intents:start -->"
 ROUTING_INTENTS_END = "<!-- generated:routing-intents:end -->"
 ROUTING_TRIGGERS_START = "<!-- generated:routing-triggers:start -->"
 ROUTING_TRIGGERS_END = "<!-- generated:routing-triggers:end -->"
+MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
+MCP_OPERATIONS_END = "<!-- generated:mcp-operations:end -->"
+MCP_OPERATIONS_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
 
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
 RUNTIME_REFERENCE_ROOT_TOKEN = "{{runtime_reference_root}}"
@@ -452,6 +457,124 @@ def render_readme_runtime_capabilities_table(runtimes: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def permission_granularity(runtime: dict) -> str:
+    name = runtime["name"]
+    permissions = runtime["capabilities"]["permissions"]["support"]
+    if name in {"claude-code", "cursor"}:
+        return "per-tool MCP + shell families"
+    if name == "pi":
+        return "adapter tool_call extension"
+    if name in {"codex", "opencode"}:
+        return "shell families only"
+    if permissions == "unsupported":
+        return "unsupported"
+    return permissions
+
+
+def mcp_adapter_dependency(runtime: dict) -> str:
+    if runtime["name"] == "pi":
+        return "pi-mcp-adapter@2.11.0"
+    mcp = runtime["capabilities"]["mcp"]
+    if mcp["support"] == "native":
+        return "none (native)"
+    if mcp["support"] == "adapter":
+        return "adapter required"
+    return "unsupported"
+
+
+def known_limitation(runtime: dict) -> str:
+    name = runtime["name"]
+    if name in {"codex", "opencode"}:
+        return "no per-MCP-tool enforcement"
+    if name == "cursor":
+        return "rules unsupported; allowlist default"
+    if name == "pi":
+        return "print-mode cannot prove UI approval"
+    if name == "claude-code":
+        return "default-mode bash allowances remain runtime-native"
+    return "—"
+
+
+def load_mcp_operations() -> dict:
+    return load_json_subset_yaml(MCP_OPERATIONS_PATH)
+
+
+def render_mcp_operations_table(policy: dict) -> str:
+    classes = policy.get("classes", {})
+    servers = policy.get("servers", {})
+    fully_trusted = policy.get("fully_trusted_servers", [])
+    auth_ops = policy.get("auth_operations", [])
+    by_class: dict[str, list[str]] = {name: [] for name in classes}
+
+    for server_name, server in servers.items():
+        tools = server.get("tools", {}) if isinstance(server, dict) else {}
+        for tool_name, class_name in tools.items():
+            if class_name not in by_class:
+                by_class[class_name] = []
+            by_class[class_name].append(f"{server_name}:`{tool_name}`")
+
+    if fully_trusted:
+        trusted = ", ".join(f"`{name}`" for name in fully_trusted)
+        by_class.setdefault("read-only", []).append(
+            f"Full trust for {trusted} tools"
+        )
+
+    for auth in auth_ops:
+        if not isinstance(auth, dict):
+            continue
+        class_name = auth.get("class", "auth")
+        auth_id = auth.get("id")
+        if isinstance(auth_id, str):
+            by_class.setdefault(class_name, []).append(f"auth:`{auth_id}`")
+
+    lines = ["| Class | Policy | Managed operations |", "|---|---|---|"]
+    for class_name, meta in classes.items():
+        policy_text = meta.get("policy", "") if isinstance(meta, dict) else ""
+        operations = by_class.get(class_name, [])
+        op_text = "; ".join(operations) if operations else "—"
+        lines.append(f"| `{class_name}` | {policy_text} | {op_text} |")
+    return "\n".join(lines)
+
+
+def render_readme_runtime_capability_matrix(runtimes: list[dict]) -> str:
+    headers = [
+        "Runtime",
+        "Permission granularity",
+        "Kernel loading",
+        "Skill mode",
+        "MCP adapter",
+        "Static",
+        "Simulated",
+        "Live",
+        "Known limitation",
+    ]
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "|" + "|".join(["---"] * len(headers)) + "|",
+    ]
+    for runtime in runtimes:
+        skills = runtime["capabilities"]["skills"]
+        skill_mode = render_capability_cell(skills)
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    runtime["display_name"],
+                    permission_granularity(runtime),
+                    "managed memory file",
+                    skill_mode,
+                    mcp_adapter_dependency(runtime),
+                    "yes",
+                    "yes",
+                    "operator evidence required",
+                    known_limitation(runtime),
+                ]
+            )
+            + " |"
+        )
+    return "\n".join(lines)
+
+
 def render_routing_intents_table(skills: list[dict]) -> str:
     lines = ["| Intent | Skill |", "|---|---|"]
     for skill in skills:
@@ -576,11 +699,17 @@ def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
         README_SKILLS_END,
         render_readme_skills_table(skills),
     )
-    outputs[readme_path] = replace_block(
+    readme_text = replace_block(
         readme_text,
         README_RUNTIME_CAPABILITIES_START,
         README_RUNTIME_CAPABILITIES_END,
         render_readme_runtime_capabilities_table(runtimes),
+    )
+    outputs[readme_path] = replace_block(
+        readme_text,
+        README_RUNTIME_CAPABILITY_MATRIX_START,
+        README_RUNTIME_CAPABILITY_MATRIX_END,
+        render_readme_runtime_capability_matrix(runtimes),
     )
 
     routing_path = ROOT / "references" / "contract" / "runtime.md"
@@ -596,6 +725,15 @@ def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
         ROUTING_TRIGGERS_START,
         ROUTING_TRIGGERS_END,
         render_routing_triggers_table(skills),
+    )
+
+    safety_path = ROOT / "references" / "contract" / "safety-tools.md"
+    safety_text = safety_path.read_text()
+    outputs[safety_path] = replace_block(
+        safety_text,
+        MCP_OPERATIONS_START,
+        MCP_OPERATIONS_END,
+        render_mcp_operations_table(load_mcp_operations()),
     )
 
     for skill in skills:

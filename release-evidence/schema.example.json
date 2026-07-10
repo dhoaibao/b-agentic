@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "record_type": "operator-attestation",
+  "evidence_class": "live",
+  "recorded_at": "2026-07-10T12:00:00Z",
+  "operator": "release-operator",
+  "package": {
+    "name": "b-agentic",
+    "version": "2026.07.10",
+    "git_rev": "0000000000000000000000000000000000000000"
+  },
+  "runtime": {
+    "name": "claude-code",
+    "cli": "claude",
+    "cli_path": "/usr/local/bin/claude",
+    "cli_version": "example",
+    "home": "/home/example"
+  },
+  "mcp_package_pins": {
+    "brave": "@brave/brave-search-mcp-server@2.0.85",
+    "firecrawl": "firecrawl-mcp@3.22.1",
+    "playwright": "@playwright/mcp@0.0.77",
+    "pi_mcp_adapter": "pi-mcp-adapter@2.11.0",
+    "rtk_ref": "v0.43.0"
+  },
+  "gates": [
+    {"name": "kernel", "status": "pass", "note": "fresh session loaded managed kernel"},
+    {"name": "skill", "status": "pass", "note": "invoked one b-* skill successfully"},
+    {"name": "mcp", "status": "pass", "note": "one managed MCP tool call succeeded"},
+    {"name": "approval-gate", "status": "pass", "note": "approval prompt observed; no side effect on deny"},
+    {"name": "deny-gate", "status": "pass", "note": "destructive command blocked"}
+  ],
+  "operator_attested_all_gates_pass": true,
+  "release_eligible": true,
+  "notes": [
+    "Operator attestation only. This file does not prove the gates occurred.",
+    "Static validation, tags, and production readiness require scripts/verify-release-evidence.sh.",
+    "Simulated --active probes are a separate evidence class and are not live proof.",
+    "package.git_rev must equal the release candidate HEAD; unknown revisions are not release-eligible."
+  ]
+}

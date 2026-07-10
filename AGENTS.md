@@ -27,6 +27,7 @@ The governing principle is: slim, strong, usable. Every workflow or prompt chang
 - `runtimes/registry.yaml` owns runtime metadata and capability labels.
 - `references/contract/kernel.template.md` owns generated runtime kernels.
 - `references/contract/runtime.md` and `references/contract/safety-tools.md` own shared contract behavior.
+- `references/contract/mcp_operations.yaml` owns managed MCP operation classifications; the safety-tools table is generated from it.
 - `skills/*/SKILL.md`, `runtimes/*/kernel.md`, and OpenCode command wrappers are generated assets.
 
 ## Change Workflow
@@ -35,9 +36,10 @@ The governing principle is: slim, strong, usable. Every workflow or prompt chang
 - Skill behavior: edit the relevant `skills/*/prompt.md`.
 - Kernel behavior: edit `references/contract/kernel.template.md`.
 - Shared contract behavior: edit `references/contract/runtime.md` or `references/contract/safety-tools.md`.
+- Managed MCP tool classes: edit `references/contract/mcp_operations.yaml`, then run registry sync so `safety-tools.md` regenerates.
 - Runtime behavior: update `runtimes/registry.yaml`, the affected adapter files, and smoke tests together.
 - Use `{{skill_support_path}}` and `{{runtime_reference_root}}` for template paths where applicable.
-- Keep `references/contract/` limited to `runtime.md`, `safety-tools.md`, and `kernel.template.md` unless a new file clearly removes more complexity than it adds.
+- Keep `references/contract/` limited to `runtime.md`, `safety-tools.md`, `kernel.template.md`, and `mcp_operations.yaml` unless a new file clearly removes more complexity than it adds.
 - After changing generated surfaces, run `python3 tooling/generate/registry_sync.py`.
 
 Prefer fewer concepts and shorter prompts. Do not introduce hooks, state-machine governance, mandatory status blocks, or subagent profiles without an approved, evidence-backed need.

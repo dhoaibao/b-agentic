@@ -150,6 +150,54 @@ FIXTURES = [
         expected="b-research",
         not_expected=("b-summary",),
     ),
+    # High-risk phase-boundary / authorization / tool-choice fixtures.
+    Fixture(
+        name="ambiguous goal stays in planning",
+        prompt="Help me figure out what to do about billing and decompose the work.",
+        expected="b-plan",
+        not_expected=("b-implement",),
+    ),
+    Fixture(
+        name="approved plan handoff to implement",
+        prompt="The plan is approved; implement the next small build step only.",
+        expected="b-implement",
+        not_expected=("b-plan",),
+    ),
+    Fixture(
+        name="implement does not claim browser evidence",
+        prompt="Implement the approved build step from the plan and verify with unit tests only.",
+        expected="b-implement",
+        not_expected=("b-browser", "b-plan"),
+    ),
+    Fixture(
+        name="runtime stack trace stays in debug",
+        prompt="Diagnose this production stack trace and confirm the runtime root cause.",
+        expected="b-debug",
+        not_expected=("b-test", "b-implement"),
+    ),
+    Fixture(
+        name="test assertion failure stays in test",
+        prompt="The unit test assertion is wrong and the mock fixture needs fixing.",
+        expected="b-test",
+        not_expected=("b-debug",),
+    ),
+    Fixture(
+        name="live UI session stays in browser",
+        prompt="Open a real browser session, capture a screenshot, and collect e2e evidence.",
+        expected="b-browser",
+        not_expected=("b-test", "b-debug"),
+    ),
+    Fixture(
+        name="pre-pr changed code review stays in review",
+        prompt="Review the changed code in my working tree before I open a PR.",
+        expected="b-review",
+        not_expected=("b-summary", "b-plan"),
+    ),
+    Fixture(
+        name="suite self-audit routes to review",
+        prompt="Run a b-agentic suite self-audit with --audit-suite.",
+        expected="b-review",
+    ),
 ]
 
 

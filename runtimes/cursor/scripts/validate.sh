@@ -65,6 +65,28 @@ if settings.exists():
 
     if any('firecrawl_monitor' in item for item in allow):
         errors.append(f'{settings}: Firecrawl monitor mutation tools must not be allowlisted')
+    if any(item in allow for item in ['Mcp(firecrawl:*)', 'Mcp(playwright:*)']):
+        errors.append(f'{settings}: Firecrawl/Playwright server wildcards must not be allowlisted')
+    for forbidden in [
+        'Mcp(firecrawl:firecrawl_agent)',
+        'Mcp(firecrawl:firecrawl_crawl)',
+        'Mcp(firecrawl:firecrawl_interact)',
+        'Mcp(firecrawl:firecrawl_parse)',
+        'Mcp(firecrawl:firecrawl_search_feedback)',
+        'Mcp(firecrawl:firecrawl_feedback)',
+        'Mcp(playwright:browser_click)',
+        'Mcp(playwright:browser_type)',
+    ]:
+        if forbidden in allow:
+            errors.append(f'{settings}: gated MCP tool {forbidden!r} must not be allowlisted')
+    for required in [
+        'Mcp(firecrawl:firecrawl_search)',
+        'Mcp(firecrawl:firecrawl_scrape)',
+        'Mcp(playwright:browser_snapshot)',
+        'Mcp(playwright:browser_navigate)',
+    ]:
+        if required not in allow:
+            errors.append(f'{settings}: missing allowlisted read-only tool {required!r}')
     for prohibited in shell_patterns(prompted_bash_commands):
         if prohibited in allow:
             errors.append(f'{settings}: prompted command {prohibited!r} must not be in allowlist')
