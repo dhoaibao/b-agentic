@@ -979,7 +979,7 @@ shell_tool_install_hint() {
     brew) printf 'brew install ripgrep fd bat eza sd jq' ;;
     apt) printf 'sudo apt install -y %s' "$(shell_tool_debian_packages)" ;;
     apt-get) printf 'sudo apt-get install -y %s' "$(shell_tool_debian_packages)" ;;
-    dnf) printf 'sudo dnf install -y ripgrep fd-find bat eza sd jq' ;;
+    dnf) printf 'sudo dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq' ;;
     *) printf 'install manually: ripgrep, fd or fd-find, bat (or batcat), eza or exa, sd, jq' ;;
   esac
 }
@@ -1030,9 +1030,9 @@ run_shell_tool_install_command() {
       ;;
     dnf)
       if [ "$(id -u)" -eq 0 ]; then
-        run_cmd dnf install -y ripgrep fd-find bat eza sd jq
+        run_cmd dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq
       elif command -v sudo >/dev/null 2>&1; then
-        run_cmd sudo dnf install -y ripgrep fd-find bat eza sd jq
+        run_cmd sudo dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq
       else
         warn "sudo not found; install manually: ripgrep, fd-find, bat, eza or exa, sd, jq"
         return 1

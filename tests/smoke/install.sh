@@ -575,6 +575,156 @@ EOF
   assert_contains "$apt_log" 'apt-get:install -y ripgrep fd-find bat eza sd jq'
   assert_contains "$apt_install_log" 'Shell tooling install command completed'
   assert_contains "$apt_install_log" 'core: ready: rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available'
+
+  local dnf_sandbox="$WORK_DIR/shell-tool-dnf"
+  local dnf_bin_dir="$dnf_sandbox/bin"
+  local dnf_log="$dnf_sandbox/dnf.log"
+  local dnf_install_log="$dnf_sandbox/install.log"
+
+  mkdir -p "$dnf_bin_dir" "$dnf_sandbox/home"
+  for tool in basename bash chmod cmp cp date dirname env git grep ln mkdir mktemp python3 rm uname; do
+    src="$(command -v "$tool" 2>/dev/null || true)"
+    [ -n "$src" ] || fail "required smoke helper not found: $tool"
+    ln -s "$src" "$dnf_bin_dir/$tool"
+  done
+  cat > "$dnf_bin_dir/id" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-u" ]; then
+  printf '1000\\n'
+  exit 0
+fi
+exit 1
+EOF
+  cat > "$dnf_bin_dir/sudo" <<EOF
+#!/usr/bin/env bash
+printf 'sudo:%s\\n' "\$*" >> "$dnf_log"
+"\$@"
+EOF
+  cat > "$dnf_bin_dir/dnf" <<EOF
+#!/usr/bin/env bash
+printf 'dnf:%s\\n' "\$*" >> "$dnf_log"
+for tool in rg fd bat eza sd jq; do
+  : > "$dnf_bin_dir/\$tool"
+  chmod +x "$dnf_bin_dir/\$tool"
+done
+exit 0
+EOF
+  chmod +x "$dnf_bin_dir/id" "$dnf_bin_dir/sudo" "$dnf_bin_dir/dnf"
+
+  set +e
+  python3 - "$dnf_sandbox" "$snapshot_repo" "$dnf_install_log" "$dnf_bin_dir" "$ROOT_DIR/install.sh" <<'PY'
+import os, pty, select, sys
+
+sandbox, repo_snapshot, log_path, bin_dir, install_script = sys.argv[1:]
+env = dict(os.environ)
+env["HOME"] = os.path.join(sandbox, "home")
+env["PATH"] = bin_dir
+env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
+env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
+env["B_AGENTIC_INSTALL_RUNTIME_CLI"] = "N"
+env["B_AGENTIC_INSTALL_RTK"] = "N"
+env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "auto"
+env["B_AGENTIC_INSTALL_SERENA"] = "N"
+env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
+env["B_AGENTIC_SHELL_RECOMMEND_MANAGER"] = "dnf"
+
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.update(env)
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+
+status = None
+with open(log_path, "wb") as log:
+    sent_yes = False
+    while True:
+        result, status = os.waitpid(pid, os.WNOHANG)
+        if result:
+            break
+        ready, _, _ = select.select([fd], [], [], 0.1)
+        if ready:
+            try:
+                chunk = os.read(fd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                _, status = os.waitpid(pid, 0)
+                break
+            log.write(chunk)
+            log.flush()
+            if not sent_yes and b"Install now with" in chunk:
+                os.write(fd, b"y\n")
+                sent_yes = True
+
+os.close(fd)
+if status is None:
+    _, status = os.waitpid(pid, 0)
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+PY
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected auto-mode dnf shell tool install exit 0, got $rc"
+  assert_contains "$dnf_install_log" "Shell tooling missing (rg, fd/fdfind, bat/batcat, eza/exa, sd, jq). Install now with 'sudo dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq'? [y/N]:"
+  assert_contains "$dnf_log" 'sudo:dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq'
+  assert_contains "$dnf_log" 'dnf:install -y --skip-unavailable ripgrep fd-find bat eza sd jq'
+  assert_contains "$dnf_install_log" 'Shell tooling install command completed'
+  assert_contains "$dnf_install_log" 'core: ready: rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available'
+
+  local dnf_root_sandbox="$WORK_DIR/shell-tool-dnf-root"
+  local dnf_root_bin_dir="$dnf_root_sandbox/bin"
+  local dnf_root_log="$dnf_root_sandbox/dnf.log"
+  local dnf_root_install_log="$dnf_root_sandbox/install.log"
+
+  mkdir -p "$dnf_root_bin_dir" "$dnf_root_sandbox/home"
+  for tool in basename bash chmod cmp cp date dirname env git grep ln mkdir mktemp python3 rm uname; do
+    src="$(command -v "$tool" 2>/dev/null || true)"
+    [ -n "$src" ] || fail "required smoke helper not found: $tool"
+    ln -s "$src" "$dnf_root_bin_dir/$tool"
+  done
+  cat > "$dnf_root_bin_dir/id" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-u" ]; then
+  printf '0\n'
+  exit 0
+fi
+exit 1
+EOF
+  cat > "$dnf_root_bin_dir/dnf" <<EOF
+#!/usr/bin/env bash
+printf 'dnf:%s\\n' "\$*" >> "$dnf_root_log"
+for tool in rg fd bat eza sd jq; do
+  : > "$dnf_root_bin_dir/\$tool"
+  chmod +x "$dnf_root_bin_dir/\$tool"
+done
+exit 0
+EOF
+  chmod +x "$dnf_root_bin_dir/id" "$dnf_root_bin_dir/dnf"
+
+  set +e
+  HOME="$dnf_root_sandbox/home" \
+  PATH="$dnf_root_bin_dir" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$dnf_root_sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SHELL_TOOLS=Y \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_SHELL_RECOMMEND_MANAGER=dnf \
+  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$dnf_root_install_log" 2>&1
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 0 ] || fail "expected root dnf shell tool install exit 0, got $rc"
+  assert_contains "$dnf_root_log" 'dnf:install -y --skip-unavailable ripgrep fd-find bat eza sd jq'
+  assert_not_contains "$dnf_root_log" 'sudo:'
+  assert_contains "$dnf_root_install_log" 'core: ready: rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available'
 }
 
 run_mcp_doctor_case() {
