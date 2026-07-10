@@ -41,9 +41,9 @@ that listens for `tool_call` events and:
   `rtk` wrappers and `git -C` style option prefixes before matching
 - requires approval for interpreter/eval-style wrappers (`bash -c`, `sh -c`,
   `node -e`, `python -c`, …) whose bodies are opaque to static matching
-- allows built-in discovery tools (`grep`, `find`, `ls`) without prompts
-- asks by default for MCP adapter proxy tools and any other non-built-in tool
-- fails closed when UI confirmation is unavailable
+- allows built-in discovery tools (`grep`, `find`, `ls`) and MCP metadata discovery without prompts
+- asks by default for MCP proxy execution, direct MCP tools, and any other non-built-in custom tool
+- fails closed when an approval-required action has no UI confirmation
 
 ## Validation
 

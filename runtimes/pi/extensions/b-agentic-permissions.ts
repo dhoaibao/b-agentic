@@ -5,7 +5,7 @@
  * - ask: commits, pushes, pulls, reverts, dependency writes, long-lived services, rm -rf
  * - deny: destructive git history/worktree rewrites and selected docker prune/rm families
  * - block write/edit to secret and repository-control paths
- * - ask for MCP/custom tools by default (external side effects)
+ * - allow MCP metadata discovery; ask before MCP execution and other custom tools
  *
  * Normalizes bare and rtk-wrapped shell commands, compound shell segments,
  * env/sudo wrappers, and git option prefixes. Fails closed without UI.
@@ -76,7 +76,8 @@ const PROTECTED_PATH_MARKERS = [
 /**
  * Built-in Pi tools with specialized policy.
  * Read-only discovery tools (grep/find/ls) are allow-listed so ordinary
- * local evidence gathering does not prompt. Everything else is ask.
+ * local evidence gathering does not prompt. MCP metadata discovery is also
+ * allow-listed; MCP execution and other custom tools ask.
  */
 const SPECIALIZED_TOOLS = new Set([
   "bash",
@@ -534,11 +535,28 @@ function isProtectedPath(pathValue: string): boolean {
   return false;
 }
 
-function isMcpOrCustomTool(toolName: string): boolean {
+function isTrustedMcpProxyCall(input: unknown): boolean {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return false;
+  }
+
+  const value = input as { action?: unknown; search?: unknown; describe?: unknown };
+  // Search and describe use cached metadata only; they do not call a server.
+  return (
+    value.action === "ui-messages" ||
+    typeof value.search === "string" ||
+    typeof value.describe === "string"
+  );
+}
+
+function isMcpOrCustomTool(toolName: string, input?: unknown): boolean {
   if (SPECIALIZED_TOOLS.has(toolName)) {
     return false;
   }
-  // Adapter proxy, direct MCP tools, or any non-built-in extension tool.
+  if (toolName === "mcp") {
+    return !isTrustedMcpProxyCall(input);
+  }
+  // Direct MCP tools or any other non-built-in extension tool require approval.
   return true;
 }
 
@@ -593,8 +611,8 @@ export default function (pi: ExtensionAPI) {
       return undefined;
     }
 
-    // MCP adapter proxy, direct MCP tools, and any other custom tool: ask by default.
-    if (isMcpOrCustomTool(event.toolName)) {
+    // MCP execution, direct MCP tools, and other custom tools require approval.
+    if (isMcpOrCustomTool(event.toolName, event.input)) {
       const inputPreview = JSON.stringify(event.input ?? {}).slice(0, 400);
       return confirmOrBlock(
         ctx,
@@ -617,6 +635,7 @@ export const __test__ = {
   commandDecision,
   isProtectedPath,
   isMcpOrCustomTool,
+  isTrustedMcpProxyCall,
   hasAmbiguousShellSyntax,
   isInterpreterOpaque,
   SPECIALIZED_TOOLS,

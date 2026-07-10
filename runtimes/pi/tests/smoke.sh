@@ -134,14 +134,22 @@ expect(t.isProtectedPath('secrets.json') === true, 'secrets. marker');
 expect(t.isProtectedPath('.git/config') === true, '.git path protected');
 expect(t.isProtectedPath('src/main.ts') === false, 'normal path not protected');
 
-// MCP / custom tools default to ask family (specialized tools excluded)
+// MCP metadata discovery is autonomous; MCP execution and custom tools require approval.
 expect(t.isMcpOrCustomTool('bash') === false, 'bash is specialized');
 expect(t.isMcpOrCustomTool('write') === false, 'write is specialized');
 expect(t.isMcpOrCustomTool('read') === false, 'read is specialized');
 expect(t.isMcpOrCustomTool('grep') === false, 'grep is specialized discovery');
 expect(t.isMcpOrCustomTool('find') === false, 'find is specialized discovery');
 expect(t.isMcpOrCustomTool('ls') === false, 'ls is specialized discovery');
-expect(t.isMcpOrCustomTool('mcp') === true, 'mcp proxy is custom');
+expect(t.isMcpOrCustomTool('mcp', { search: 'symbol' }) === false, 'MCP metadata search is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { describe: 'serena_find_symbol' }) === false, 'MCP metadata describe is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { action: 'ui-messages' }) === false, 'MCP UI messages are autonomous');
+expect(t.isMcpOrCustomTool('mcp', { server: 'serena' }) === true, 'managed MCP server execution requires approval');
+expect(t.isMcpOrCustomTool('mcp', { connect: 'codegraph' }) === true, 'MCP connect requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_find_symbol' }) === true, 'MCP tool execution requires approval');
+expect(t.isMcpOrCustomTool('mcp', { action: 'auth-start', server: 'context7' }) === true, 'MCP auth action requires approval');
+expect(t.isMcpOrCustomTool('mcp', { server: 'user-server' }) === true, 'user MCP server requires approval');
+expect(t.isMcpOrCustomTool('mcp') === true, 'unscoped MCP proxy call requires approval');
 expect(t.isMcpOrCustomTool('serena_find_symbol') === true, 'direct MCP tool is custom');
 expect(t.isMcpOrCustomTool('some-extension-tool') === true, 'unknown tool is custom');
 expect(t.SPECIALIZED_TOOLS.has('grep') && t.SPECIALIZED_TOOLS.has('find') && t.SPECIALIZED_TOOLS.has('ls'), 'discovery tools specialized');
