@@ -6,7 +6,7 @@ b-agentic installs a compact runtime kernel, focused phase skills, runtime adapt
 
 ## Install
 
-Default install for Codex:
+Default install for Pi:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
