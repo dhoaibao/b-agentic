@@ -101,28 +101,6 @@ class CodexProbe(RuntimeProbe):
         return completed.returncode, stdout, completed.stderr
 
 
-class OpenCodeProbe(RuntimeProbe):
-    def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
-        if cwd is None:
-            raise ValueError("OpenCodeProbe.run requires a working directory")
-        run_cwd = cwd
-        command = [
-            self.cli_path,
-            "run",
-            "--dir",
-            str(run_cwd),
-            prompt,
-        ]
-        completed = subprocess.run(
-            command,
-            cwd=run_cwd,
-            env=self.env(extra_path),
-            capture_output=True,
-            text=True,
-        )
-        return completed.returncode, completed.stdout, completed.stderr
-
-
 class PiProbe(RuntimeProbe):
     def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
         if cwd is None:
@@ -162,8 +140,6 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
     cli_path = shutil.which(runtime_name.split("-")[0] if runtime_name != "codex" else "codex")
     if runtime_name == "claude-code":
         cli_path = shutil.which("claude")
-    elif runtime_name == "opencode":
-        cli_path = shutil.which("opencode")
     elif runtime_name == "codex":
         cli_path = shutil.which("codex")
     elif runtime_name == "pi":
@@ -182,8 +158,6 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         return ClaudeProbe(**common)
     if runtime_name == "codex":
         return CodexProbe(**common)
-    if runtime_name == "opencode":
-        return OpenCodeProbe(**common)
     if runtime_name == "pi":
         return PiProbe(**common)
     raise SystemExit(f"unsupported runtime: {runtime_name}")

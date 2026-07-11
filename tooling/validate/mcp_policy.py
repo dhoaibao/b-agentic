@@ -8,9 +8,6 @@ The contract table in safety-tools.md is generated from that file.
 Two coverage classes are checked:
 - Enforced per-tool runtimes (Claude Code, Pi): adapter policy is treated as the
   runtime-enforced operation boundary.
-- Template-policy runtimes (Codex, OpenCode): managed templates encode the same
-  closed-world tool classes, but public support tiers remain guidance/shell-only
-  until live runtime enforcement is proven.
 
 In both cases adapters must:
 - auto-allow only classified read-only tools for Firecrawl/Playwright;
@@ -33,8 +30,6 @@ GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "auth
 READ_ONLY = "read-only"
 # Runtime-enforced operation boundary (support_tier=operation-enforced).
 ENFORCED_PER_TOOL_RUNTIMES = ("claude-code", "pi")
-# Template encoding only (support_tier=guidance-shell-only until live proof).
-TEMPLATE_POLICY_RUNTIMES = ("codex", "opencode")
 MANAGED_SCOPED_SERVERS = ("firecrawl", "playwright")
 
 
@@ -318,50 +313,6 @@ def validate_codex(servers: dict[str, dict[str, str]], errors: list[str]) -> Non
                     )
 
 
-def validate_opencode(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
-    path = ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json"
-    label = rel(path)
-    data = load_json(path)
-    permission = data.get("permission")
-    if not isinstance(permission, dict):
-        errors.append(f"{label}: missing permission object")
-        return
-
-    # OpenCode tool keys are sanitize(server) + "_" + sanitize(tool).
-    for server_name, classified in servers.items():
-        for tool, classification in classified.items():
-            key = f"{server_name}_{tool}"
-            action = permission.get(key)
-            if classification == READ_ONLY:
-                if action != "allow":
-                    errors.append(f"{label}: read-only MCP tool {key!r} must be allow")
-            elif classification in GATED_CLASSES:
-                if action != "ask":
-                    errors.append(f"{label}: gated MCP tool {key!r} must be ask")
-                if action == "allow":
-                    errors.append(f"{label}: gated MCP tool {key!r} must not be allow")
-
-    # Fully trusted managed servers may use server wildcards.
-    for server in ("serena", "codegraph", "context7", "brave-search"):
-        if permission.get(f"{server}_*") != "allow":
-            errors.append(f"{label}: fully trusted server wildcard {server}_* must be allow")
-
-    # Closed-world for firecrawl/playwright permission keys: only classified tools.
-    observed = {
-        key
-        for key, value in permission.items()
-        if isinstance(key, str)
-        and (key.startswith("firecrawl_") or key.startswith("playwright_"))
-        and not key.endswith("_*")
-    }
-    known = {
-        f"{server}_{tool}"
-        for server, tools in servers.items()
-        for tool in tools
-    }
-    reject_unknown(label, "permission MCP tool keys", observed, known, errors)
-
-
 def main() -> int:
     errors: list[str] = []
     if not POLICY_PATH.exists():
@@ -375,7 +326,6 @@ def main() -> int:
         validate_claude(servers, errors)
         validate_pi(servers, errors)
         validate_codex(servers, errors)
-        validate_opencode(servers, errors)
 
     if errors:
         for error in errors:
@@ -388,7 +338,7 @@ def main() -> int:
         "MCP operation policy regression passed "
         f"({firecrawl_count} Firecrawl tools, {playwright_count} Playwright tools; "
         f"enforced per-tool: {', '.join(ENFORCED_PER_TOOL_RUNTIMES)}; "
-        f"template policy: {', '.join(TEMPLATE_POLICY_RUNTIMES)}; "
+        "Codex template policy checks enabled; "
         "closed-world adapter checks enabled)."
     )
     return 0

@@ -1,9 +1,0 @@
----
-description: Run a named behavior-preserving refactor
----
-
-<!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->
-
-Load the `b-refactor` skill and follow it for this request.
-
-$ARGUMENTS

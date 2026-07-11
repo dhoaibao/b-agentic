@@ -58,7 +58,6 @@ RUNTIME_PRODUCTION_CLAIMS = {"full-with-live-evidence", "shell-gated-only", "exc
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "claude-user-config",
     "codex-toml",
-    "opencode-json",
     "pi-json",
 }
 
@@ -149,7 +148,7 @@ def validate_kernel_template(errors: list[str]) -> None:
         errors.append(
             f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must use {RUNTIME_MEMORY_FILE_TOKEN}, not a runtime-specific memory file"
         )
-    if "~/.claude/b-agentic" in template_text or "~/.config/opencode/b-agentic" in template_text:
+    if "~/.claude/b-agentic" in template_text:
         errors.append(
             f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must use {RUNTIME_METADATA_ROOT_TOKEN}, not a runtime-specific metadata root"
         )
@@ -488,7 +487,7 @@ def permission_granularity(runtime: dict) -> str:
         return "per-tool MCP + shell families"
     if name == "pi":
         return "adapter tool_call extension"
-    if name in {"codex", "opencode"}:
+    if name == "codex":
         return "per-tool MCP + shell families"
     if permissions == "unsupported":
         return "unsupported"
@@ -513,7 +512,7 @@ def support_tier_label(runtime: dict) -> str:
 def known_limitation(runtime: dict) -> str:
     name = runtime["name"]
     if runtime.get("support_tier") == "guidance-shell-only":
-        if name in {"codex", "opencode"}:
+        if name == "codex":
             return "MCP tool policy encoded in templates; runtime enforcement unproven"
         return "no per-MCP-tool enforcement"
     if name == "pi":

@@ -12,7 +12,7 @@ All notable shipped revisions of b-agentic are recorded here. Version numbers ma
 
 - Gate Firecrawl external-mutation, local-upload, monitor-lifecycle, and Playwright page-mutating MCP tools in Claude Code managed permission templates.
 - Add canonical `references/contract/mcp_operations.yaml` as the single source for managed MCP tool classes, with generated contract table and closed-world adapter policy regression.
-- Encode classified Firecrawl/Playwright operations in Codex (`enabled_tools` + approval modes) and OpenCode (`permission` tool keys) templates with static closed-world regression; keep public support tiers at `guidance-shell-only` until live runtime enforcement is proven.
+- Encode classified Firecrawl/Playwright operations in Codex (`enabled_tools` + approval modes) templates with static closed-world regression; keep public support tiers at `guidance-shell-only` until live runtime enforcement is proven.
 - Document version-bound server-level trust rationale for fully trusted managed MCP servers.
 
 ### Changed

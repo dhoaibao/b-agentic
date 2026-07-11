@@ -735,7 +735,7 @@ def main() -> int:
         default="",
         help=(
             "Allow verifying runtimes whose production_claim matches this scoped claim. "
-            "Required for shell-gated-only runtimes such as Codex/OpenCode; "
+            "Required for shell-gated-only runtimes such as Codex; "
             "full production-ready claims still reject them."
         ),
     )

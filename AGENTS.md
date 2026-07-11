@@ -3,7 +3,7 @@
 
 ## Repository Purpose
 
-b-agentic is a slim workflow kernel for coding agents across Claude Code, OpenCode, Codex, and Pi. Keep changes focused on routing, safety, evidence, verification, tool use, install reliability, and multi-runtime delivery.
+b-agentic is a slim workflow kernel for coding agents across Claude Code, Codex, and Pi. Keep changes focused on routing, safety, evidence, verification, tool use, install reliability, and multi-runtime delivery.
 
 The governing principle is: slim, strong, usable. Every workflow or prompt change needs a concrete failure mode or capability gap; do not add ceremony for hypothetical gains.
 
@@ -29,7 +29,7 @@ The governing principle is: slim, strong, usable. Every workflow or prompt chang
 - `references/contract/runtime.md` and `references/contract/safety-tools.md` own shared contract behavior.
 - `references/contract/shell-tools.md` owns optional shell-tool and RTK preferences loaded only when relevant.
 - `references/contract/mcp_operations.yaml` owns managed MCP operation classifications; the safety-tools table is generated from it.
-- `skills/*/SKILL.md`, `runtimes/*/kernel.md`, and OpenCode command wrappers are generated assets.
+- `skills/*/SKILL.md`, `runtimes/*/kernel.md` are generated assets.
 
 ## Change Workflow
 

@@ -112,21 +112,6 @@ def status_for_claude(paths: dict[str, Path], expected: list[str]) -> dict[str, 
     }
 
 
-def status_for_opencode(paths: dict[str, Path], expected: list[str]) -> dict[str, str]:
-    skill_root = paths["skill"].parents[1]
-    command_root = paths["command"].parent
-    skills = installed_skill_names(skill_root)
-    commands = sorted(path.stem for path in command_root.glob("b-*.md")) if command_root.exists() else []
-    skills_ready = skills == expected and bool(expected)
-    wrapper_ready = commands == expected and bool(expected)
-    return {
-        "kernel": "ready" if paths["kernel"].exists() else "missing",
-        "skills": payload_status(skills, expected, "skills"),
-        "wrappers": payload_status(commands, expected, "wrappers"),
-        "discovery": "ready: native skills and /b-* wrappers installed" if skills_ready and wrapper_ready else "blocked: install complete skill and wrapper payloads",
-    }
-
-
 def status_for_codex(paths: dict[str, Path], expected: list[str]) -> dict[str, str]:
     skill_root = paths["skill"].parents[1]
     skills = installed_skill_names(skill_root)
@@ -168,8 +153,6 @@ def main() -> int:
 
     if runtime.get("config_schema_family") == "codex-toml":
         status = status_for_codex(paths, expected)
-    elif "command" in paths:
-        status = status_for_opencode(paths, expected)
     else:
         status = status_for_claude(paths, expected)
 

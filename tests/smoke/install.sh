@@ -55,29 +55,6 @@ for runtime in registry.get('runtimes', []):
 PY
 }
 
-opencode_skill_collision_record() {
-  python3 - "$ROOT_DIR/runtimes/registry.yaml" <<'PY'
-from pathlib import Path
-import json
-import sys
-
-registry = json.loads(Path(sys.argv[1]).read_text())
-for runtime in registry.get('runtimes', []):
-    if runtime.get('name') != 'opencode':
-        continue
-    metadata_root = runtime.get('metadata_root')
-    skills_install_root = runtime.get('skills_install_root')
-    wrappers = runtime.get('command_wrappers', {})
-    commands_root = wrappers.get('install_root') if isinstance(wrappers, dict) else None
-    if (
-        isinstance(metadata_root, str) and metadata_root.startswith('~/')
-        and isinstance(skills_install_root, str) and skills_install_root.startswith('~/')
-        and isinstance(commands_root, str) and commands_root.startswith('~/')
-    ):
-        print(f"{metadata_root[2:]}\t{skills_install_root[2:]}\t{commands_root[2:]}")
-    break
-PY
-}
 
 run_manifest_only_corrupted_manifest_case() {
   local sandbox_corrupt="$WORK_DIR/manifest-only-corrupt"
@@ -308,10 +285,6 @@ run_all_runtime_smoke_case() {
   assert_no_path "$sandbox_all/home/.claude/skills/b-plan"
   assert_no_path "$sandbox_all/home/.claude/CLAUDE.md"
   assert_no_path "$sandbox_all/home/.claude/agents/b-explore.md"
-  assert_no_path "$sandbox_all/home/.config/opencode/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.config/opencode/AGENTS.md"
-  assert_no_path "$sandbox_all/home/.config/opencode/commands/b-plan.md"
-  assert_no_path "$sandbox_all/home/.config/opencode/agents/b-explore.md"
   assert_no_path "$sandbox_all/home/.codex/skills/b-plan"
   assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
   assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
@@ -380,28 +353,6 @@ run_skill_collision_smoke_case() {
   assert_json_value "$manifest_path" "'b-plan' not in data['skills']"
 }
 
-run_opencode_skill_command_collision_smoke_case() {
-  local snapshot_repo="$1"
-  local sandbox_collision="$WORK_DIR/opencode-skill-command-collision"
-  local metadata_root skills_root commands_root manifest_path skill_path command_path
-
-  IFS=$'\t' read -r metadata_root skills_root commands_root < <(opencode_skill_collision_record)
-  [ -n "$metadata_root" ] || fail "expected opencode runtime collision record"
-
-  mkdir -p "$sandbox_collision/home/$skills_root/b-plan"
-  skill_path="$sandbox_collision/home/$skills_root/b-plan/SKILL.md"
-  command_path="$sandbox_collision/home/$commands_root/b-plan.md"
-  printf 'user-owned b-plan\n' > "$skill_path"
-
-  expect_install_status 0 "$sandbox_collision" "$snapshot_repo" --runtime=opencode
-
-  manifest_path="$sandbox_collision/home/$metadata_root/install.json"
-  assert_file "$manifest_path"
-  assert_contains "$skill_path" 'user-owned b-plan'
-  assert_no_path "$command_path"
-  assert_json_value "$manifest_path" "'b-plan' not in data['skills']"
-  assert_json_value "$manifest_path" "'b-plan' not in data['commands']"
-}
 
 run_readiness_report_case() {
   local snapshot_repo="$1"
@@ -728,11 +679,10 @@ run_mcp_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
   local sandbox_codex="$WORK_DIR/mcp-doctor-codex"
-  local sandbox_opencode="$WORK_DIR/mcp-doctor-opencode"
   local bin_dir="$WORK_DIR/mcp-doctor-bin"
   local doctor_log="$WORK_DIR/mcp-doctor.log"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -831,65 +781,6 @@ PY
   set -e
   [ "$rc" -eq 0 ] || fail "expected Codex production MCP doctor to pass with pinned defaults, got $rc"
 
-  rc=0
-  set +e
-  HOME="$sandbox_opencode/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_opencode")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_opencode/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
-  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected opencode mutable-playwright install exit 0, got $rc"
-
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --allow-degraded >"$doctor_log"
-  assert_contains "$doctor_log" 'serena: ready:'
-  assert_contains "$doctor_log" 'codegraph: ready:'
-  assert_contains "$doctor_log" 'context7: ready:'
-  assert_contains "$doctor_log" 'brave-search: ready:'
-  assert_contains "$doctor_log" 'firecrawl: ready:'
-  assert_contains "$doctor_log" 'playwright: ready:'
-  assert_contains "$doctor_log" "package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
-
-  set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --production >"$doctor_log"
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] || fail "expected production MCP doctor to block mutable package, got $rc"
-  assert_contains "$doctor_log" "playwright: blocked: package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
-
-  set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] || fail "expected strict-by-default MCP doctor to block mutable package, got $rc"
-  assert_contains "$doctor_log" "playwright: blocked: package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
-
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --allow-degraded >"$doctor_log"
-  assert_contains "$doctor_log" "package '@playwright/mcp@latest' is mutable; set B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE=<pinned package> for production"
 
 }
 
@@ -898,12 +789,10 @@ run_mcp_package_override_case() {
   local sandbox_claude="$WORK_DIR/mcp-package-claude"
   local sandbox_claude_upgrade="$WORK_DIR/mcp-package-claude-upgrade"
   local sandbox_codex="$WORK_DIR/mcp-package-codex"
-  local sandbox_opencode="$WORK_DIR/mcp-package-opencode"
-  local sandbox_opencode_upgrade="$WORK_DIR/mcp-package-opencode-upgrade"
   local bin_dir="$WORK_DIR/mcp-package-bin"
   local doctor_log="$WORK_DIR/mcp-package-doctor.log"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$sandbox_opencode/home" "$sandbox_opencode_upgrade/home" "$bin_dir"
+  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -973,79 +862,6 @@ run_mcp_package_override_case() {
   assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.1.0', '--transport', 'stdio']"
   assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.1.0']"
   assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.1.0', '--isolated']"
-
-  set +e
-  HOME="$sandbox_opencode/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_opencode")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_opencode/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected OpenCode package override install exit 0, got $rc"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'][2] == '@example/brave-mcp@1.0.0'"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'][2] == 'example-firecrawl-mcp@2.0.0'"
-  assert_json_value "$sandbox_opencode/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'][2] == '@example/playwright-mcp@3.0.0'"
-
-  set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --production >"$doctor_log"
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected production MCP doctor to pass pinned package config, got $rc"
-  assert_contains "$doctor_log" 'brave-search: ready:'
-  assert_contains "$doctor_log" 'firecrawl: ready:'
-  assert_contains "$doctor_log" 'playwright: ready:'
-
-  set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@9.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" --production >"$doctor_log"
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] || fail "expected production MCP doctor to block package override mismatch, got $rc"
-  assert_contains "$doctor_log" "firecrawl: blocked: configured package 'example-firecrawl-mcp@2.0.0' does not match B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@9.0.0'; rerun the installer"
-
-  expect_install_status 0 "$sandbox_opencode_upgrade" "$snapshot_repo" --runtime=opencode
-  set +e
-  HOME="$sandbox_opencode_upgrade/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_opencode_upgrade")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_opencode_upgrade/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected OpenCode package override upgrade exit 0, got $rc"
-  assert_json_value "$sandbox_opencode_upgrade/home/.config/opencode/opencode.json" "data['mcp']['brave-search']['command'] == ['pnpm', 'dlx', '@example/brave-mcp@1.0.0', '--transport', 'stdio']"
-  assert_json_value "$sandbox_opencode_upgrade/home/.config/opencode/opencode.json" "data['mcp']['firecrawl']['command'] == ['pnpm', 'dlx', 'example-firecrawl-mcp@2.0.0']"
-  assert_json_value "$sandbox_opencode_upgrade/home/.config/opencode/opencode.json" "data['mcp']['playwright']['command'] == ['pnpm', 'dlx', '@example/playwright-mcp@3.0.0', '--isolated']"
 
   set +e
   HOME="$sandbox_codex/home" \
@@ -1261,11 +1077,6 @@ run_runtime_cli_upgrade_case() {
 printf 'claude:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  cat > "$bin_dir/opencode" <<EOF
-#!/usr/bin/env bash
-printf 'opencode:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
   cat > "$bin_dir/codex" <<EOF
 #!/usr/bin/env bash
 printf 'codex:%s\n' "\$*" >> "$upgrade_log"
@@ -1276,16 +1087,12 @@ EOF
 printf 'pi:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/opencode" "$bin_dir/codex" "$bin_dir/pi"
+  chmod +x "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/pi"
 
-  for runtime in claude-code opencode codex pi; do
+  for runtime in claude-code codex pi; do
     case "$runtime" in
       claude-code)
         runtime_bin="claude"
-        runtime_arg="upgrade"
-        ;;
-      opencode)
-        runtime_bin="opencode"
         runtime_arg="upgrade"
         ;;
       codex)
@@ -1330,13 +1137,10 @@ run_missing_runtime_cli_install_case() {
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local install_log runtime expected_entry rc
 
-  for runtime in claude-code opencode codex pi; do
+  for runtime in claude-code codex pi; do
     case "$runtime" in
       claude-code)
         expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
-        ;;
-      opencode)
-        expected_entry='[dry-run] curl -fsSL https://opencode.ai/install | bash'
         ;;
       codex)
         expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
@@ -1568,11 +1372,10 @@ run_skill_doctor_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/skill-doctor-claude"
   local sandbox_codex="$WORK_DIR/skill-doctor-codex"
-  local sandbox_opencode="$WORK_DIR/skill-doctor-opencode"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$sandbox_opencode/home"
+  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home"
   expected_skill_count="$(registry_skill_count)"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -1598,107 +1401,14 @@ run_skill_doctor_case() {
   assert_contains "$doctor_log" 'config: ready'
   assert_contains "$doctor_log" 'discovery: ready:'
 
-  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=opencode --home "$sandbox_opencode/home" >"$doctor_log"
-  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
-  assert_contains "$doctor_log" "wrappers: ready: $expected_skill_count wrappers installed"
-  assert_contains "$doctor_log" 'discovery: ready:'
 
 }
 
-run_runtime_acceptance_case() {
-  local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/runtime-acceptance"
-  local missing_skill_sandbox="$WORK_DIR/runtime-acceptance-missing-skill"
-  local bin_dir="$sandbox/bin"
-  local acceptance_log="$sandbox/acceptance.log"
-  local rc=0
-
-  mkdir -p "$sandbox/home" "$missing_skill_sandbox/home" "$bin_dir"
-
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
-  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
-
-  rc=0
-  set +e
-  HOME="$sandbox/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@playwright/mcp@latest' \
-  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected runtime acceptance mutable-playwright install exit 0, got $rc"
-
-  set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox/home" --production >"$acceptance_log" 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] || fail "expected runtime acceptance production mode to block mutable package, got $rc"
-
-  assert_contains "$acceptance_log" 'Runtime acceptance: opencode'
-  assert_contains "$acceptance_log" 'Mode: production readiness'
-  assert_contains "$acceptance_log" 'Skill discovery doctor:'
-  assert_contains "$acceptance_log" 'MCP readiness doctor:'
-  assert_contains "$acceptance_log" 'skills: ready:'
-  assert_contains "$acceptance_log" 'wrappers: ready:'
-  assert_contains "$acceptance_log" 'serena: ready:'
-  assert_contains "$acceptance_log" 'Evidence classes:'
-  assert_contains "$acceptance_log" 'Live fresh-session gates (required for production-ready release claims):'
-  assert_contains "$acceptance_log" 'Verdict rule: automated doctor output and simulated --active probes are not live runtime proof.'
-  assert_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
-
-  HOME="$missing_skill_sandbox/home" \
-  PATH="$(smoke_path_with_runtime_clis "$missing_skill_sandbox")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$missing_skill_sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=opencode >/dev/null 2>&1
-  rm -rf "$missing_skill_sandbox/home/.config/opencode/skills/b-review"
-
-  set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$missing_skill_sandbox/home" --production >"$acceptance_log" 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] || fail "expected runtime acceptance to fail for missing skill, got $rc"
-  assert_contains "$acceptance_log" 'skills: missing or mismatched: missing b-review'
-  assert_contains "$acceptance_log" 'Runtime readiness blocked by skill discovery doctor output above.'
-  assert_not_contains "$acceptance_log" 'Production readiness blocked by MCP doctor output above.'
-}
 
 run_simulated_runtime_acceptance_case() {
   local snapshot_repo="$1"
   local sandbox_claude="$WORK_DIR/runtime-acceptance-simulated-claude"
   local sandbox_codex="$WORK_DIR/runtime-acceptance-simulated-codex"
-  local sandbox_opencode="$WORK_DIR/runtime-acceptance-simulated-opencode"
   local sandbox_pi="$WORK_DIR/runtime-acceptance-simulated-pi"
   local bin_dir="$WORK_DIR/runtime-acceptance-simulated-bin"
   local acceptance_log="$WORK_DIR/runtime-acceptance-simulated.log"
@@ -1706,7 +1416,6 @@ run_simulated_runtime_acceptance_case() {
   mkdir -p \
     "$sandbox_claude/home" \
     "$sandbox_codex/home" \
-    "$sandbox_opencode/home" \
     "$sandbox_pi/home" \
     "$bin_dir"
 
@@ -1810,19 +1519,6 @@ else
 fi
 EOF
 
-  cat > "$bin_dir/opencode" <<'EOF'
-#!/usr/bin/env bash
-last="${@: -1}"
-case "$last" in
-  *"Detailed contract refs live under"*) printf '%s\n' '~/.config/opencode/b-agentic/references/contract/' ;;
-  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
-  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
-  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
-  *"git reset --hard"*) printf '%s\n' 'denied' ;;
-  *) printf '%s\n' 'unexpected opencode prompt' ;;
-esac
-EOF
-
   cat > "$bin_dir/pi" <<'EOF'
 #!/usr/bin/env bash
 prompt="${@: -1}"
@@ -1842,7 +1538,6 @@ EOF
     "$bin_dir/pnpm" \
     "$bin_dir/claude" \
     "$bin_dir/codex" \
-    "$bin_dir/opencode" \
     "$bin_dir/pi"
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
@@ -1869,16 +1564,6 @@ EOF
   bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=codex --home="$sandbox_codex/home" --active >"$acceptance_log" 2>&1
   assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
   assert_contains "$acceptance_log" 'kernel: ready: ~/.codex/b-agentic/references/contract/'
-  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-
-  expect_install_status 0 "$sandbox_opencode" "$snapshot_repo" --runtime=opencode
-  PATH="$bin_dir:$(smoke_system_path)" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=opencode --home="$sandbox_opencode/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
-  assert_contains "$acceptance_log" 'kernel: ready: ~/.config/opencode/b-agentic/references/contract/'
   assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
 
   expect_install_status 0 "$sandbox_pi" "$snapshot_repo" --runtime=pi
@@ -1967,8 +1652,6 @@ main() {
   run_post_install_mcp_modification_case "$snapshot_repo"
   echo "Running run_skill_collision_smoke_case..."
   run_skill_collision_smoke_case "$snapshot_repo"
-  echo "Running run_opencode_skill_command_collision_smoke_case..."
-  run_opencode_skill_command_collision_smoke_case "$snapshot_repo"
   echo "Running run_readiness_report_case..."
   run_readiness_report_case "$snapshot_repo"
   echo "Running run_shell_tool_prompt_case..."
@@ -1995,8 +1678,6 @@ main() {
   run_existing_tool_default_skip_case "$snapshot_repo"
   echo "Running run_skill_doctor_case..."
   run_skill_doctor_case "$snapshot_repo"
-  echo "Running run_runtime_acceptance_case..."
-  run_runtime_acceptance_case "$snapshot_repo"
   echo "Running run_simulated_runtime_acceptance_case..."
   run_simulated_runtime_acceptance_case "$snapshot_repo"
 

@@ -137,7 +137,6 @@ if not git_rev:
 cli_lookup = {
     "claude-code": "claude",
     "codex": "codex",
-    "opencode": "opencode",
     "pi": "pi",
 }
 cli_name = cli_lookup.get(runtime, runtime)

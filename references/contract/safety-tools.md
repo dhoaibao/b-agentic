@@ -54,7 +54,6 @@ Runtime enforcement notes:
 - Claude Code: managed settings templates encode the allow/ask lists above.
 - Pi: first-party `tool_call` extension enforces operation-level trust and fails closed without UI.
 - Codex: managed `enabled_tools` allowlists plus `default_tools_approval_mode=prompt` and per-tool `approval_mode=approve` for classified read-only tools.
-- OpenCode: managed `permission` keys for `sanitize(server)_sanitize(tool)`; read-only tools are `allow`, gated tools are `ask`.
 
 Fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`) use documented server-level trust because their managed surfaces are read-only or local-only. Rationale and version-binding live in `references/contract/mcp_operations.yaml` under `fully_trusted_server_rationale`. Re-review that list when package pins, remote endpoints, or advertised tool surfaces change. Do not expand full trust merely to avoid prompts.
 

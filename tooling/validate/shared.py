@@ -13,7 +13,6 @@ errors: list[str] = []
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "claude-user-config",
     "codex-toml",
-    "opencode-json",
     "pi-json",
 }
 
@@ -484,22 +483,6 @@ def claude_gate_severity(tokens: list[str], settings: dict) -> int:
     return best
 
 
-def opencode_gate_severity(tokens: list[str], config: dict) -> int:
-    bash = config.get("permission", {}).get("bash", {})
-    # OpenCode defaults unlisted commands to the "*" decision.
-    default_rank = SEVERITY_RANK.get(bash.get("*"), 0)
-    best = default_rank
-    for pattern, decision in bash.items():
-        if pattern == "*":
-            continue
-        entry_tokens = pattern.replace("*", "").split()
-        if entry_tokens and entry_tokens[0] == "rtk":
-            entry_tokens = entry_tokens[1:]
-        if entry_tokens[: len(tokens)] == tokens:
-            best = max(best, SEVERITY_RANK.get(decision, 0))
-    return best
-
-
 def codex_gate_severity(tokens: list[str], rules_text: str) -> int:
     # Codex prefix_rule decisions: "prompt" ~= ask, "forbidden" ~= deny.
     decision_rank = {"prompt": 1, "forbidden": 2}
@@ -542,12 +525,10 @@ def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
 
 
 claude_config = load_json(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
-opencode_config = load_json(ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json")
 codex_rules = read_text(ROOT / "runtimes" / "codex" / "rules" / "b-agentic.rules")
 pi_extension = read_text(ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts")
 gate_runtimes = [
     ("runtimes/claude-code/configs/settings.template.json", lambda tokens: claude_gate_severity(tokens, claude_config)),
-    ("runtimes/opencode/configs/mcp.user.template.json", lambda tokens: opencode_gate_severity(tokens, opencode_config)),
     ("runtimes/codex/rules/b-agentic.rules", lambda tokens: codex_gate_severity(tokens, codex_rules)),
     ("runtimes/pi/extensions/b-agentic-permissions.ts", lambda tokens: pi_gate_severity(tokens, pi_extension)),
 ]
@@ -574,7 +555,6 @@ generated_paths = [
     ROOT / "references" / "contract" / "runtime.md",
     *(ROOT / "skills" / name / "SKILL.md" for name in skill_names),
     *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names),
-    *(ROOT / "runtimes" / "opencode" / "commands" / f"{name}.md" for name in skill_names),
 ]
 for path in generated_paths:
     if path.exists() and "{{" in path.read_text():

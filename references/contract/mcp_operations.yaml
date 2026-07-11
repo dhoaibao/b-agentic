@@ -105,7 +105,6 @@
   "runtime_enforcement": {
     "claude-code": "per-tool settings allow/ask lists",
     "pi": "adapter tool_call extension with operation-level trust",
-    "codex": "enabled_tools allowlist plus default_tools_approval_mode=prompt and per-tool approval_mode=approve for read-only tools",
-    "opencode": "permission keys for sanitize(server)_sanitize(tool); read-only allow, gated ask"
+    "codex": "enabled_tools allowlist plus default_tools_approval_mode=prompt and per-tool approval_mode=approve for read-only tools"
   }
 }

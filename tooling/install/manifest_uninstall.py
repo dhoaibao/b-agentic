@@ -200,14 +200,6 @@ def main() -> None:
             "settings": home / ".claude" / "settings.json",
             "claudeJson": home / ".claude.json",
         },
-        "opencode": {
-            "metadata": home / ".config" / "opencode" / "b-agentic",
-            "skills": home / ".config" / "opencode" / "skills",
-            "kernel": home / ".config" / "opencode" / "AGENTS.md",
-            "agents": home / ".config" / "opencode" / "agents",
-            "commands": home / ".config" / "opencode" / "commands",
-            "opencodeJson": home / ".config" / "opencode" / "opencode.json",
-        },
         "codex": {
             "metadata": home / ".codex" / "b-agentic",
             "skills": home / ".codex" / "skills",
@@ -268,10 +260,6 @@ def main() -> None:
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Claude Code agent")
         remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json", "settings", "settingsAction", data)
         remove_merged_json_config(str(manifest_managed_path(paths, "claudeJson", defaults["claudeJson"])), metadata / "templates" / "mcp.user.template.json", ".claude.json", "claudeJson", "mcpAction", data)
-    elif runtime == "opencode":
-        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "OpenCode agent")
-        remove_snapshot_profiles(data.get("commands", []), manifest_managed_path(paths, "commands", defaults["commands"]), metadata / "commands", "md", "OpenCode command")
-        remove_merged_json_config(str(manifest_managed_path(paths, "opencodeJson", defaults["opencodeJson"])), metadata / "templates" / "mcp.user.template.json", "opencode.json", "opencodeJson", "mcpAction", data)
     elif runtime == "codex":
         remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
         remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")

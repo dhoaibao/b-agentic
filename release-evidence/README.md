@@ -50,8 +50,6 @@ scripts/verify-release-evidence.sh --runtime=claude-code --runtime=pi
 scripts/verify-release-evidence.sh --evidence=release-evidence/claude-code-20260710T120000Z.json
 scripts/verify-release-evidence.sh --runtime=claude-code --evidence=/tmp/attestation.json
 
-# Scoped shell-gated-only claim (Codex/OpenCode). This is not a full production-ready claim.
-scripts/verify-release-evidence.sh --runtime=codex --runtime=opencode --scoped-claim=shell-gated-only
 
 # Also require an immutable tag matching pyproject version
 scripts/verify-release-evidence.sh --runtime=claude-code --require-tag=v2026.07.10
@@ -72,7 +70,6 @@ A revision may be labeled production-ready only when:
 9. package version, changelog entry, and immutable Git tag (`vYYYY.MM.DD`) are prepared for shipping;
 10. unsupported or unattested runtimes are explicitly excluded from the production-ready claim.
 
-Template-encoded MCP tool policy is static evidence only. Codex/OpenCode remain `shell-gated-only` until promoted. Promoting a runtime to `operation-enforced` / `full-with-live-evidence` requires versioned official-runtime evidence plus live fresh-session proof that read tools run without prompts, gated tools prompt, and unclassified tools cannot bypass the policy.
 
 Live operator attestations for Claude Code and Pi are still required before any full production-ready label. Static validation alone never completes Priority 0.2.
 

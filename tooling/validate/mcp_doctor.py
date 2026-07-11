@@ -32,7 +32,7 @@ CONTEXT7_URL = "https://mcp.context7.com/mcp"
 
 @dataclass
 class NormalizedServer:
-    """Launcher shape normalized across the three runtime config schemas."""
+    """Launcher shape normalized across the runtime config schemas."""
 
     command: str | None
     args: list[str] | None
@@ -42,7 +42,6 @@ class NormalizedServer:
 
 class RuntimeStyle:
     CLAUDE = "claude"
-    OPENCODE = "opencode"
     CODEX = "codex"
     PI = "pi"
 
@@ -176,18 +175,13 @@ def args_shape_matches(server: str, args: object) -> bool:
 
 
 def normalize_server(entry: dict, style: str) -> NormalizedServer:
-    """Return a common launcher view for Claude/Codex (string command) and OpenCode (list command)."""
+    """Return a common launcher view across runtime config schemas."""
     command = entry.get("command")
     args = entry.get("args")
     env = entry.get("env")
     headers = entry.get("headers")
 
-    if style == RuntimeStyle.OPENCODE:
-        if isinstance(command, list) and command:
-            args = command[1:]
-            command = command[0]
-        env = entry.get("environment")
-    elif style == RuntimeStyle.CODEX:
+    if style == RuntimeStyle.CODEX:
         headers = entry.get("http_headers")
 
     return NormalizedServer(
@@ -334,32 +328,6 @@ def pi_server_status(server: str, config: dict) -> str:
     return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
 
 
-def json_mcp_server_status(server: str, config: dict) -> str:
-    servers = config.get("mcp", {})
-    entry = servers.get(server)
-    if not isinstance(entry, dict):
-        return "missing: config entry not installed"
-
-    normalized = normalize_server(entry, RuntimeStyle.OPENCODE)
-
-    if server == "serena":
-        return _check_serena(normalized, "ide")
-    if server == "context7":
-        if entry.get("type") != "remote" or entry.get("url") != CONTEXT7_URL:
-            return "blocked: invalid context7 config"
-        return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
-    if server == "codegraph":
-        return _check_codegraph(normalized)
-    if server == "playwright":
-        return _check_playwright(normalized)
-
-    env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
-    env_value = os.environ.get(env_key) if env_var_present(env_key) else None
-    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
-
-
-
-
 def _codex_env_value(entry: dict, env_key: str) -> str | None:
     """Return the effective API key value for a Codex brave/firecrawl server.
 
@@ -466,8 +434,8 @@ def main() -> int:
         config = load_json(config_path)
         status_fn = pi_server_status
     else:
-        config = load_json(config_path)
-        status_fn = json_mcp_server_status
+        print(f"unsupported runtime config schema: {schema_family}", file=sys.stderr)
+        return 2
 
     print(f"runtime: {args.runtime}")
     print(f"config: {config_path}")

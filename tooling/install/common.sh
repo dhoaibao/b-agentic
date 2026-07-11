@@ -811,8 +811,6 @@ if not isinstance(value, str) or not value:
     sys.exit(1)
 if placeholder_style == 'claude':
     sys.exit(1 if value.startswith('${') else 0)
-if placeholder_style == 'opencode':
-    sys.exit(1 if value.startswith('{env:') else 0)
 sys.exit(1)
 PY
 }
