@@ -440,8 +440,8 @@ if pid == 0:
     os.environ.update(env)
     os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
 
-os.write(fd, b"n\n")
 status = None
+input_sent = False
 with open(log_path, "wb") as log:
     while True:
         try:
@@ -456,6 +456,11 @@ with open(log_path, "wb") as log:
                     break
                 log.write(chunk)
                 log.flush()
+                # Wait for the prompt before replying; immediate writes race
+                # with /dev/tty setup on macOS runners.
+                if not input_sent and b"Shell tooling missing" in chunk:
+                    os.write(fd, b"n\n")
+                    input_sent = True
         except (OSError, select.error):
             break
 
