@@ -409,7 +409,10 @@ run_shell_tool_prompt_case() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/rtk"
   chmod +x "$bin_dir/rtk"
 
-  for tool in basename chmod cmp cp date dirname env git grep id mkdir mktemp python3 rm uname; do
+  # The isolated PATH must also resolve the bash interpreter used by the
+  # generated RTK shim on macOS, where /usr/bin/env does not search the host
+  # PATH after it has been replaced below.
+  for tool in basename bash chmod cmp cp date dirname env git grep id mkdir mktemp python3 rm uname; do
     src="$(command -v "$tool" 2>/dev/null || true)"
     [ -n "$src" ] || fail "required smoke helper not found: $tool"
     ln -s "$src" "$bin_dir/$tool"
