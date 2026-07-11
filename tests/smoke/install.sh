@@ -1601,16 +1601,22 @@ EOF
 run_rtk_ref_dry_run_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/rtk-ref-dry-run"
+  local bin_dir="$sandbox/bin"
   local install_log="$sandbox/install.log"
-  local rc
+  local rc required_tool
 
-  mkdir -p "$sandbox/home"
+  mkdir -p "$sandbox/home" "$bin_dir"
+  # Keep this ref-format check independent of the host's shell-tool inventory.
+  for required_tool in rg fd bat eza sd jq; do
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
+    chmod +x "$bin_dir/$required_tool"
+  done
 
   # Case A: Default B_AGENTIC_RTK_REF
   rc=0
   set +e
   HOME="$sandbox/home" \
-  PATH="$(smoke_system_path)" \
+  PATH="$bin_dir:$(smoke_system_path)" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox/source-a" \
   B_AGENTIC_PROMPT_API_KEYS=N \
@@ -1628,7 +1634,7 @@ run_rtk_ref_dry_run_case() {
   rc=0
   set +e
   HOME="$sandbox/home" \
-  PATH="$(smoke_system_path)" \
+  PATH="$bin_dir:$(smoke_system_path)" \
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox/source-b" \
   B_AGENTIC_PROMPT_API_KEYS=N \
