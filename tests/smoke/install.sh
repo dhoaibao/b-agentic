@@ -1168,7 +1168,14 @@ EOF
 run_missing_runtime_cli_install_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
-  local install_log runtime expected_entry rc
+  local bin_dir="$sandbox/bin"
+  local install_log runtime expected_entry rc required_tool
+
+  mkdir -p "$bin_dir"
+  for required_tool in rtk rg fd bat eza sd jq; do
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
+    chmod +x "$bin_dir/$required_tool"
+  done
 
   for runtime in claude-code codex pi; do
     case "$runtime" in
@@ -1192,12 +1199,13 @@ run_missing_runtime_cli_install_case() {
 
     set +e
     HOME="$sandbox/$runtime/home" \
-    PATH="$(smoke_system_path)" \
+    PATH="$bin_dir:$(smoke_system_path)" \
     B_AGENTIC_REPO="$snapshot_repo" \
     B_AGENTIC_DIR="$sandbox/$runtime/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
     B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
     B_AGENTIC_INSTALL_RTK=Y \
+    B_AGENTIC_INSTALL_SHELL_TOOLS=N \
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
     bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run >"$install_log" 2>&1
