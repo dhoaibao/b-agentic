@@ -114,10 +114,19 @@ expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git pu
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
 expect(t.commandDecision('ls -la').decision === 'allow', 'ls must allow');
 expect(t.commandDecision('cd . && ls').decision === 'allow', 'cd . && ls must allow (not ambiguous)');
+expect(t.commandDecision('cat .env').decision === 'ask', 'bare protected shell path must ask');
+expect(t.commandDecision('cat .env.local').decision === 'ask', 'root-relative protected shell path variant must ask');
+expect(t.commandDecision('cat /tmp/.env.production').decision === 'ask', 'absolute protected shell path variant must ask');
+expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'ask', 'rtk-wrapped protected shell path variant must ask');
+expect(t.commandDecision('ls src && cat credentials.json').decision === 'ask', 'compound protected shell path must ask');
+expect(t.commandDecision('cat src/main.ts').decision === 'allow', 'ordinary shell read must allow');
+expect(t.commandDecision('cat "$SECRET_FILE"').decision === 'ask', 'variable shell paths must fail closed');
+expect(t.commandDecision("cat '.env").decision === 'ask', 'unbalanced shell quotes must fail closed');
 
 // Ambiguous shell
 expect(t.commandDecision('eval "$(echo git reset --hard)"').decision === 'ask', 'eval must ask');
 expect(t.hasAmbiguousShellSyntax('$(git reset --hard)') === true, 'subshell must be ambiguous');
+expect(t.hasUnbalancedQuotes("cat '.env") === true, 'unbalanced quotes must be ambiguous');
 
 // Interpreter/eval-style wrappers (opaque body) must ask
 expect(t.commandDecision("bash -c 'git reset --hard'").decision === 'ask', 'bash -c must ask');
@@ -129,6 +138,8 @@ expect(t.commandDecision('bash --version').decision === 'allow', 'bash without -
 
 // Protected paths
 expect(t.isProtectedPath('.env') === true, '.env protected');
+expect(t.isProtectedPath('.env.local') === true, 'root-relative .env variant protected');
+expect(t.isProtectedPath('/tmp/.env.production') === true, 'absolute .env variant protected');
 expect(t.isProtectedPath('src/app.env') === true, 'app.env protected');
 expect(t.isProtectedPath('secrets.json') === true, 'secrets. marker');
 expect(t.isProtectedPath('.git/config') === true, '.git path protected');

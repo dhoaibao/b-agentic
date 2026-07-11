@@ -75,7 +75,7 @@ Live operator attestations for Claude Code and Pi are still required before any 
 
 Attestations are checked into `release-evidence/` as operator claims bound to an exact package revision. They are not self-proving: do not record credentials, sessions, private prompts, or customer data, and do not treat simulated `--active` probes as live proof.
 
-See `schema.example.json` for the attestation JSON shape.
+See `schema.example.json` for the attestation JSON shape and `skill-evaluation.md` for the versioned live skill-routing protocol.
 
 ## Live tool-ownership matrix (release evidence only)
 

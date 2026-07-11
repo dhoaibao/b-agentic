@@ -269,9 +269,21 @@ function splitShellSegments(command: string): string[] {
 }
 
 function hasAmbiguousShellSyntax(command: string): boolean {
-  // Subshells, expansions, and eval make static matching unreliable — fail closed with ask.
+  // Expansions, substitutions, and eval make static path matching unreliable — fail closed with ask.
   // Source-dot only at segment start (not path tokens like "cd .").
-  return /\$\(|`|\beval\b|\bsource\b|(?:^|[;&|]\s*)\.\s+\S/.test(command);
+  return /\$|`|\beval\b|\bsource\b|(?:^|[;&|]\s*)\.\s+\S/.test(command);
+}
+
+function hasUnbalancedQuotes(command: string): boolean {
+  let quote: "'" | '"' | null = null;
+  for (const ch of command) {
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    }
+  }
+  return quote !== null;
 }
 
 function baseName(token: string): string {
@@ -481,6 +493,16 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     return { decision: "allow", reason: "" };
   }
 
+  // Shell access to a literal protected path is always approval-gated, even
+  // through rtk/wrapper commands or in a compound segment. This deliberately
+  // covers both reads and writes: the shell parser cannot reliably infer intent.
+  if (tokens.some(isProtectedPath)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: shell command references a protected path",
+    };
+  }
+
   // Interpreter wrappers hide the real command body from static matching.
   if (isInterpreterOpaque(tokens)) {
     return {
@@ -560,10 +582,10 @@ function commandDecision(command: string): { decision: Decision; reason: string 
     return { decision: "allow", reason: "" };
   }
 
-  if (hasAmbiguousShellSyntax(trimmed)) {
+  if (hasUnbalancedQuotes(trimmed) || hasAmbiguousShellSyntax(trimmed)) {
     return {
       decision: "ask",
-      reason: "Requires approval: ambiguous shell syntax (subshell/eval/source)",
+      reason: "Requires approval: ambiguous shell syntax (quotes/expansion/eval/source)",
     };
   }
 
@@ -585,7 +607,12 @@ function isProtectedPath(pathValue: string): boolean {
   const base = normalized.split("/").pop() || normalized;
   for (const marker of PROTECTED_PATH_MARKERS) {
     if (marker.startsWith(".") && !marker.includes("/")) {
-      if (base === marker || base.endsWith(marker) || normalized.includes(`/${marker}`)) {
+      if (
+        base === marker ||
+        base.startsWith(`${marker}.`) ||
+        base.endsWith(marker) ||
+        normalized.includes(`/${marker}`)
+      ) {
         return true;
       }
       continue;
@@ -916,6 +943,7 @@ export const __test__ = {
   managedServerFromToolName,
   managedToolBaseName,
   hasAmbiguousShellSyntax,
+  hasUnbalancedQuotes,
   isInterpreterOpaque,
   SPECIALIZED_TOOLS,
   MANAGED_MCP_SERVERS,

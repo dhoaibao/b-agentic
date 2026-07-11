@@ -718,7 +718,17 @@ import sys
 import os
 
 sys.path.insert(0, sys.argv[1])
-from tooling.validate.mcp_doctor import package_is_exactly_pinned, pinned_package_status
+from tooling.validate.mcp_doctor import package_is_exactly_pinned, pinned_package_status, readiness_ladder
+from tooling.validate.session_readiness import check_session_tools, REQUIRED_TOOLS
+
+all_commands = {command for _, commands in REQUIRED_TOOLS for command in commands}
+if not check_session_tools(lambda command: command if command in all_commands else None)[0]:
+    raise SystemExit("complete session-tools fixture unexpectedly failed")
+ready, detail = check_session_tools(lambda command: command if command in all_commands - {"fd", "fdfind"} else None)
+if ready or "fd/fdfind" not in detail:
+    raise SystemExit(f"missing session-tools fixture unexpectedly passed: {detail}")
+if "configured: no" not in readiness_ladder("serena", "missing: config entry not installed"):
+    raise SystemExit("missing MCP server was incorrectly reported as configured")
 
 accepted = [
     "firecrawl-mcp@1.2.3",
@@ -1589,6 +1599,12 @@ EOF
     "$bin_dir/claude" \
     "$bin_dir/codex" \
     "$bin_dir/pi"
+  # Acceptance must see the complete active-session shell-tool contract.
+  local required_tool
+  for required_tool in rtk rg fd bat eza sd jq; do
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
+    chmod +x "$bin_dir/$required_tool"
+  done
 
   expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
   PATH="$bin_dir:$(smoke_system_path)" \

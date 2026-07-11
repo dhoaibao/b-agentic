@@ -38,6 +38,9 @@ printf 'Home: %s\n' "$HOME_DIR"
 if [ "$PRODUCTION" -eq 1 ]; then
   printf 'Mode: production readiness\n'
 fi
+printf '\nSession tool readiness:\n'
+session_tools_rc=0
+python3 "$ROOT_DIR/tooling/validate/session_readiness.py" || session_tools_rc=$?
 printf '\nSkill discovery doctor:\n'
 skill_rc=0
 python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime="$RUNTIME" --home "$HOME_DIR" || skill_rc=$?
@@ -67,7 +70,8 @@ Evidence classes:
 Live fresh-session gates (required for production-ready release claims):
 - Kernel/memory file is loaded by a newly started runtime session.
 - One installed b-* skill can be invoked and follows its skill prompt.
-- Configured MCP servers start or report actionable local blockers.
+- For configured MCPs, record the doctor state plus representative live calls: local code intelligence (Serena/CodeGraph, including required onboarding/indexing), external research (Context7/Brave/Firecrawl with authorized credentials), and browser ownership (Playwright where configured).
+- Mark unavailable credentials, network access, server startup, Serena onboarding, and CodeGraph indexing as live blockers; configured or launcher-ready is not live-call proof.
 - Approval gates prompt or deny commits, pushes, dependency writes, and destructive commands.
 - Browser/MCP/API checks state missing keys, packages, auth, or remote-service gaps instead of claiming success.
 
@@ -89,6 +93,10 @@ EOF
 fi
 
 overall_rc=0
+if [ "$session_tools_rc" -ne 0 ]; then
+  printf '\nRuntime readiness blocked: install the required session shell tools before retrying.\n' >&2
+  overall_rc="$session_tools_rc"
+fi
 if [ "$skill_rc" -ne 0 ]; then
   printf '\nRuntime readiness blocked by skill discovery doctor output above.\n' >&2
   overall_rc="$skill_rc"

@@ -15,6 +15,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tooling" / "install"))
 from jsonc import loads as load_jsonc
+try:
+    from tooling.validate.session_readiness import check_session_tools
+except ModuleNotFoundError:  # Direct execution: tooling/validate is on sys.path.
+    from session_readiness import check_session_tools
+
 SUPPORTED_SERVERS = ("serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright")
 DEFAULT_PACKAGES = {
     "brave-search": "@brave/brave-search-mcp-server@2.0.85",
@@ -381,6 +386,24 @@ def codex_server_status(server: str, config: dict) -> str:
     return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
 
 
+def readiness_ladder(server: str, status: str) -> str:
+    """Describe evidence levels without promoting local checks to live proof."""
+    configured = not status.startswith("missing:")
+    launcher = "ready" if status.startswith("ready:") else "blocked"
+    if not configured:
+        auth = "not assessed (server is not configured)"
+    elif server in {"context7", "brave-search", "firecrawl"}:
+        auth = "local key/config check passed" if launcher == "ready" else "not established"
+    else:
+        auth = "not required by configured launcher"
+    initialized = "not observed (run runtime-specific onboarding/indexing where applicable)"
+    live = "not proven (requires an operator-observed representative tool call)"
+    return (
+        f"configured: {'yes' if configured else 'no'}; launcher-ready: {launcher}; authenticated: {auth}; "
+        f"initialized/indexed: {initialized}; live-call-proven: {live}"
+    )
+
+
 def resolve_config_path(runtime: dict, home: Path) -> Path:
     config_path = runtime.get("config_install_path")
     if not isinstance(config_path, str):
@@ -394,8 +417,13 @@ def main() -> int:
     global PRODUCTION_MODE
 
     parser = argparse.ArgumentParser(description="Check installed b-agentic MCP readiness for a runtime.")
-    parser.add_argument("--runtime", required=True)
+    parser.add_argument("--runtime", help="Runtime whose installed MCP configuration to inspect.")
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
+    parser.add_argument(
+        "--session-tools",
+        action="store_true",
+        help="Check active-session RTK and required shell tools only; does not inspect runtime config.",
+    )
     parser.add_argument(
         "--production",
         action="store_true",
@@ -408,6 +436,13 @@ def main() -> int:
     )
     args = parser.parse_args()
     PRODUCTION_MODE = not args.allow_degraded
+
+    if args.session_tools:
+        ready, detail = check_session_tools()
+        print(f"session-tools: {detail}")
+        return 0 if ready else 1
+    if not args.runtime:
+        parser.error("--runtime is required unless --session-tools is used")
 
     runtimes = runtime_records()
     runtime = runtimes.get(args.runtime)
@@ -448,6 +483,7 @@ def main() -> int:
     for server in SUPPORTED_SERVERS:
         status = status_fn(server, config)
         print(f"{server}: {status}")
+        print(f"{server} readiness: {readiness_ladder(server, status)}")
         blocked = blocked or status.startswith(("blocked:", "missing:"))
     if PRODUCTION_MODE and blocked:
         return 1
