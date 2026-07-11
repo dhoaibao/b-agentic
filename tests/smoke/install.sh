@@ -1152,7 +1152,13 @@ EOF
     rc=$?
     set -e
 
-    [ "$rc" -eq 0 ] || fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
+    if [ "$rc" -ne 0 ]; then
+      printf '%s\n' "--- $runtime runtime CLI upgrade installer log ---" >&2
+      while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "$line" >&2
+      done < "$install_log"
+      fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
+    fi
     expected_entry="$runtime_bin:$runtime_arg"
     assert_contains "$upgrade_log" "$expected_entry"
   done
