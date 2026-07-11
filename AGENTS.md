@@ -27,7 +27,7 @@ The governing principle is: slim, strong, usable. Every workflow or prompt chang
 - `runtimes/registry.yaml` owns runtime metadata and capability labels.
 - `references/contract/kernel.template.md` owns generated runtime kernels.
 - `references/contract/runtime.md` and `references/contract/safety-tools.md` own shared contract behavior.
-- `references/contract/shell-tools.md` owns optional shell-tool and RTK preferences loaded only when relevant.
+- `references/contract/shell-tools.md` owns required shell-tool and RTK conventions.
 - `references/contract/mcp_operations.yaml` owns managed MCP operation classifications; the safety-tools table is generated from it.
 - `skills/*/SKILL.md`, `runtimes/*/kernel.md` are generated assets.
 

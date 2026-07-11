@@ -424,7 +424,12 @@ try_manifest_only_uninstall() {
 
 install_rtk() {
   case "${INSTALL_RTK_VALUE:-auto}" in
-    n|N|no|NO|No|false|FALSE|0) return 0 ;;
+    n|N|no|NO|No|false|FALSE|0)
+      if ! command -v rtk >/dev/null 2>&1; then
+        die "RTK is required; install it or rerun without --no-install-rtk"
+      fi
+      return 0
+      ;;
     y|Y|yes|YES|Yes|true|TRUE|1) ;;
     auto|AUTO|Auto) ;;
     *) die "invalid B_AGENTIC_INSTALL_RTK value: $INSTALL_RTK_VALUE" ;;
@@ -455,14 +460,14 @@ install_rtk() {
   case "${INSTALL_RTK_VALUE:-auto}" in
     auto|AUTO|Auto)
       if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
-        return 0
+        die "RTK is required; set B_AGENTIC_INSTALL_RTK=Y to install it non-interactively, or install it manually"
       fi
       local answer=""
       printf 'Install RTK (Rust Token Killer) to reduce shell command token usage? [y/N]: ' > /dev/tty
       IFS= read -r answer < /dev/tty || answer=""
       case "$answer" in
         y|Y|yes|YES|Yes|true|TRUE|1) ;;
-        *) return 0 ;;
+        *) die "RTK is required; answer yes to install it or install it manually" ;;
       esac
       ;;
   esac
@@ -476,7 +481,7 @@ install_rtk() {
   if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/${B_AGENTIC_RTK_REF}/install.sh" | RTK_VERSION="${B_AGENTIC_RTK_REF}" sh; then
     log "RTK installed"
   else
-    warn "RTK installation failed; continuing without RTK"
+    die "RTK installation failed; b-agentic requires RTK"
   fi
 }
 

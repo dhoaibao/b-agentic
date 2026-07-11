@@ -406,6 +406,8 @@ run_shell_tool_prompt_case() {
   local tool src
 
   mkdir -p "$bin_dir" "$sandbox/home"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/rtk"
+  chmod +x "$bin_dir/rtk"
 
   for tool in basename chmod cmp cp date dirname env git grep id mkdir mktemp python3 rm uname; do
     src="$(command -v "$tool" 2>/dev/null || true)"
@@ -467,12 +469,13 @@ PY
   rc=$?
   set -e
 
-  [ "$rc" -eq 0 ] || fail "expected shell tool prompt install exit 0, got $rc"
+  [ "$rc" -eq 0 ] || fail "expected shell tool prompt smoke install exit 0, got $rc"
   assert_contains "$install_log" "Shell tooling missing (rg, fd/fdfind, bat/batcat, eza/exa, sd, jq). Install now with 'install manually: ripgrep, fd or fd-find, bat (or batcat), eza or exa, sd, jq'? [y/N]:"
-  assert_contains "$install_log" 'core: blocked: missing rg, fd/fdfind, bat/batcat, eza/exa, sd, jq'
   assert_not_contains "$install_log" 'suggestions only; no packages were installed automatically'
 
   mkdir -p "$apt_bin_dir" "$apt_sandbox/home"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$apt_bin_dir/rtk"
+  chmod +x "$apt_bin_dir/rtk"
   for tool in basename bash chmod cmp cp date dirname env git grep ln mkdir mktemp python3 rm uname; do
     src="$(command -v "$tool" 2>/dev/null || true)"
     [ -n "$src" ] || fail "required smoke helper not found: $tool"
@@ -530,6 +533,8 @@ EOF
   local dnf_install_log="$dnf_sandbox/install.log"
 
   mkdir -p "$dnf_bin_dir" "$dnf_sandbox/home"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dnf_bin_dir/rtk"
+  chmod +x "$dnf_bin_dir/rtk"
   for tool in basename bash chmod cmp cp date dirname env git grep ln mkdir mktemp python3 rm uname; do
     src="$(command -v "$tool" 2>/dev/null || true)"
     [ -n "$src" ] || fail "required smoke helper not found: $tool"
@@ -629,6 +634,8 @@ PY
   local dnf_root_install_log="$dnf_root_sandbox/install.log"
 
   mkdir -p "$dnf_root_bin_dir" "$dnf_root_sandbox/home"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dnf_root_bin_dir/rtk"
+  chmod +x "$dnf_root_bin_dir/rtk"
   for tool in basename bash chmod cmp cp date dirname env git grep ln mkdir mktemp python3 rm uname; do
     src="$(command -v "$tool" 2>/dev/null || true)"
     [ -n "$src" ] || fail "required smoke helper not found: $tool"
@@ -1071,6 +1078,8 @@ run_runtime_cli_upgrade_case() {
   local runtime runtime_bin runtime_arg expected_entry install_log rc
 
   mkdir -p "$bin_dir"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/rtk"
+  chmod +x "$bin_dir/rtk"
 
   cat > "$bin_dir/claude" <<EOF
 #!/usr/bin/env bash
@@ -1164,7 +1173,7 @@ run_missing_runtime_cli_install_case() {
     B_AGENTIC_DIR="$sandbox/$runtime/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
     B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
-    B_AGENTIC_INSTALL_RTK=N \
+    B_AGENTIC_INSTALL_RTK=Y \
     B_AGENTIC_INSTALL_SERENA=N \
     B_AGENTIC_INSTALL_CODEGRAPH=N \
     bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run >"$install_log" 2>&1
@@ -1185,6 +1194,10 @@ run_runtime_cli_default_skip_case() {
   local rc=0
 
   mkdir -p "$sandbox/home" "$bin_dir"
+  for required_tool in rtk rg fd bat eza sd jq; do
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
+    chmod +x "$bin_dir/$required_tool"
+  done
   cat > "$bin_dir/claude" <<EOF
 #!/usr/bin/env bash
 printf 'claude:%s\n' "\$*" >> "$upgrade_log"
@@ -1227,13 +1240,18 @@ PY
 run_runtime_cli_prompt_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/runtime-cli-prompt"
+  local bin_dir="$sandbox/bin"
   local install_log="$sandbox/install.log"
   local rc=0
 
-  mkdir -p "$sandbox/home"
+  mkdir -p "$sandbox/home" "$bin_dir"
+  for required_tool in rtk rg fd bat eza sd jq; do
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
+    chmod +x "$bin_dir/$required_tool"
+  done
 
   set +e
-  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
+  python3 - "$sandbox" "$snapshot_repo" "$install_log" "$bin_dir:$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
 import os, pty, select, sys
 
 sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]

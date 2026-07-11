@@ -1,16 +1,14 @@
 # Shell Tools And RTK Preferences
 
-Optional operational detail for local command selection. The always-loaded kernel only requires the lightest reliable local evidence; load this reference when shell-tool choice matters.
+Required operational tooling for local command selection. Install the listed shell tools and RTK before starting an agent session; this reference defines the required command conventions.
 
 ## RTK
 
-When `rtk` is installed, use it for command families it supports when its filtered output preserves the evidence needed for the task. Do not mechanically prefix unsupported commands.
-
-Run unsupported commands directly. Use `rtk proxy <cmd>` only when raw execution with RTK tracking is useful.
+Use `rtk` for every command family it supports when its filtered output preserves the evidence needed for the task. Run unsupported commands directly; use `rtk proxy <cmd>` when raw execution with RTK tracking is required.
 
 ## Preferred local utilities
 
-When these tools are installed, prefer them over the classic equivalents:
+Use these required tools instead of the classic equivalents:
 
 - `rg` replaces `grep` for text search.
 - `fd` or `fdfind` replaces `find` for file and directory discovery.
@@ -19,4 +17,4 @@ When these tools are installed, prefer them over the classic equivalents:
 - `sd` replaces `sed` and `awk` for find-and-replace text transformations.
 - `jq` replaces `python -m json.tool` for JSON inspection, formatting, and filtering.
 
-If a preferred shell tool is missing, use the closest available local fallback and mention the limitation only when it affects reliability. Do not block work to install shell utilities unless the user asks.
+These tools are required prerequisites, not optional enhancements. If one is missing, stop and report the missing prerequisite rather than silently falling back or continuing without it.

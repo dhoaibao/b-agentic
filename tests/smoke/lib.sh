@@ -118,6 +118,15 @@ exit 0
 EOF
   chmod +x "$bin_dir/pi"
 
+  # Required installer prerequisites are present in the isolated smoke PATH.
+  for name in rtk rg fd bat eza sd jq; do
+    cat > "$bin_dir/$name" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$bin_dir/$name"
+  done
+
   printf '%s:%s' "$bin_dir" "$(smoke_system_path)"
 }
 

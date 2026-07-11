@@ -1050,7 +1050,12 @@ install_shell_tools() {
   local label=""
 
   case "${INSTALL_SHELL_TOOLS_VALUE:-auto}" in
-    n|N|no|NO|No|false|FALSE|0) return 0 ;;
+    n|N|no|NO|No|false|FALSE|0)
+      local missing_required=""
+      missing_required="$(shell_tool_missing_labels)"
+      [ -z "$missing_required" ] || die "required shell tooling is missing; install it or rerun without --no-install-shell-tools"
+      return 0
+      ;;
     y|Y|yes|YES|Yes|true|TRUE|1) ;;
     auto|AUTO|Auto) ;;
     *) die "invalid B_AGENTIC_INSTALL_SHELL_TOOLS value: $INSTALL_SHELL_TOOLS_VALUE" ;;
@@ -1071,23 +1076,27 @@ install_shell_tools() {
 
   case "${INSTALL_SHELL_TOOLS_VALUE:-auto}" in
     auto|AUTO|Auto)
-      if ! prompt_yes_no "Shell tooling missing ($(join_shell_tool_labels "${missing[@]}")). Install now with '$install_command'? [y/N]" N; then
-        return 0
+      if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
+        die "required shell tooling is missing; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install it non-interactively, or install it manually"
+      fi
+      if ! prompt_yes_no "Shell tooling missing ($(join_shell_tool_labels "${missing[@]}" )). Install now with '$install_command'? [y/N]" N; then
+        die "required shell tooling is missing; answer yes to install it or install it manually"
       fi
       ;;
   esac
 
   if [ "$package_manager" = "manual" ]; then
-    warn "$install_command"
-    return 0
+    die "required shell tooling is missing; $install_command"
   fi
 
   log "Installing shell tooling: $(recommended_shell_commands)"
   if run_shell_tool_install_command "$package_manager"; then
     log "Shell tooling install command completed"
   else
-    warn "Shell tooling installation failed; continuing"
+    die "required shell tooling installation failed"
   fi
+
+  [ "$(shell_tool_missing_labels)" = "" ] || die "required shell tooling remains missing after installation"
 }
 
 report_section() {
@@ -1215,7 +1224,7 @@ print_shell_tool_recommendations() {
   report_section "Shell tooling"
   report_item "core" "$(shell_tool_readiness_status)"
   report_item "core-install" "$(shell_tool_install_hint "$package_manager")"
-  report_item "installer" "prompts for missing tools in interactive installs; use --no-install-shell-tools to skip the prompt"
+  report_item "installer" "installs missing required tools; --no-install-shell-tools is allowed only when all required tools are already present"
 }
 
 print_install_report_next_steps() {
@@ -1239,7 +1248,7 @@ print_install_report_next_steps() {
   report_item "keys" "add user-scope API keys only if you plan to use Context7, Brave Search, or Firecrawl"
   report_item "serena" "run 'serena onboarding' if this is a fresh Serena install; the installer does not run it automatically"
   report_item "codegraph" "rerun interactively to accept the CodeGraph prompt, or install manually; then run codegraph init in repos where you want pre-indexed code context"
-  report_item "rtk" "rerun interactively to accept the RTK prompt, or install manually to reduce shell command token usage"
+  report_item "rtk" "required; install manually or rerun the installer to install it"
 }
 
 install_mcp_config() {

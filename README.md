@@ -51,13 +51,13 @@ Run `scripts/mcp-doctor.sh --runtime=<name>` after setting package overrides and
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_RUNTIME_CLI=Y`.
 
-Interactive installs prompt for runtime CLI preparation, missing shell tooling, and optional RTK, Serena, and CodeGraph installs. When present, the runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, `bat` (or Debian/Ubuntu's `batcat`) instead of `cat`, `eza` or `exa` instead of `ls`, `sd` instead of `sed` or `awk`, and `jq` instead of `python -m json.tool` for JSON.
+Interactive installs prepare the runtime and install required shell tooling and RTK; Serena and CodeGraph remain optional installs. The runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, `bat` (or Debian/Ubuntu's `batcat`) instead of `cat`, `eza` or `exa` instead of `ls`, `sd` instead of `sed` or `awk`, and `jq` instead of `python -m json.tool` for JSON.
 
 ## RTK (Rust Token Killer)
 
-During interactive installs, the installer can prompt to download and run the RTK install script. By default, this fetches from the pinned release tag `v0.43.0` (latest tagged RTK release as of 2026-07, with no known regressions), resolving to `https://raw.githubusercontent.com/rtk-ai/rtk/v0.43.0/install.sh`. You can override this ref by setting `B_AGENTIC_RTK_REF` to a different release tag. If `rtk` is already installed, the installer asks separately before upgrading it. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is otherwise optional and the installer skips it by default.
+During interactive installs, the installer can prompt to download and run the RTK install script. By default, this fetches from the pinned release tag `v0.43.0` (latest tagged RTK release as of 2026-07, with no known regressions), resolving to `https://raw.githubusercontent.com/rtk-ai/rtk/v0.43.0/install.sh`. You can override this ref by setting `B_AGENTIC_RTK_REF` to a different release tag. If `rtk` is already installed, the installer asks separately before upgrading it; the existing installation satisfies the prerequisite. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is required for b-agentic sessions; installation fails if it cannot be installed.
 
-Once installed, the kernel instructs the agent to use RTK for command families it supports when filtering preserves the evidence needed for the task. Unsupported commands run directly instead of receiving an invalid `rtk` prefix. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
+Once installed, the kernel requires the agent to use RTK for command families it supports when filtering preserves the evidence needed for the task. Unsupported commands run directly instead of receiving an invalid `rtk` prefix. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
 
 ```bash
 rtk git status

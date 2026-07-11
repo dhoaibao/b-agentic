@@ -34,12 +34,12 @@ Use these rules before any skill-specific instruction.
 
 ## Shell commands
 
-Prefer the lightest reliable local command for the evidence needed. Use installed modern shell utilities and `rtk` when they improve signal without losing required detail; otherwise use ordinary commands. See `shell-tools.md` for optional substitutions.
+Use the required modern shell utilities for local evidence and route supported command families through `rtk`; do not silently fall back when required tooling is missing. See `shell-tools.md` for the required command conventions.
 
 Detailed contract refs live under `~/.pi/agent/b-agentic/references/contract/`:
 - `runtime.md` - routing, source of truth, work discipline, artifacts, and output.
 - `safety-tools.md` - approvals, privacy, git safety, tool ownership.
-- `shell-tools.md` - optional shell-tool and RTK preferences.
+- `shell-tools.md` - required shell-tool and RTK conventions.
 
 Skill argument injection: `$ARGUMENTS` is the shared argument token. Treat unresolved `$ARGUMENTS` as no arguments provided.
 

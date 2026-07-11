@@ -350,8 +350,8 @@ if "mcp_operations.yaml" not in safety_tools:
 if "<!-- generated:mcp-operations:start -->" not in safety_tools:
     errors.append("references/contract/safety-tools.md: missing generated MCP operations block markers")
 shell_tools = read_text(contract_dir / "shell-tools.md")
-if "use the closest available local fallback" not in shell_tools:
-    errors.append("references/contract/shell-tools.md: missing automatic shell-tool fallback")
+if "required prerequisites" not in shell_tools:
+    errors.append("references/contract/shell-tools.md: missing required-tool prerequisite guidance")
 if "rtk" not in shell_tools:
     errors.append("references/contract/shell-tools.md: missing RTK guidance")
 
@@ -376,9 +376,9 @@ for forbidden in ["route every shell command through", "always prefix shell comm
 # kernel stays slim. Keep only the workflow-level instruction in the kernel.
 if "shell-tools.md" not in kernel_template:
     errors.append("references/contract/kernel.template.md: missing shell-tools.md reference")
-if "lightest reliable local command" not in kernel_template:
+if "required modern shell utilities" not in kernel_template:
     errors.append(
-        "references/contract/kernel.template.md: missing lightweight shell-command guidance"
+        "references/contract/kernel.template.md: missing required shell-command guidance"
     )
 if "rg` replaces `grep" in kernel_template or "When `rtk` is installed" in kernel_template:
     errors.append(
