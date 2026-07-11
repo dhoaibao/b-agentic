@@ -264,9 +264,21 @@ def add_template_server(name: str, server: dict):
         return
     if not isinstance(server, dict):
         raise SystemExit(f"invalid Codex MCP template server {name!r}: expected table")
+    rendered = rendered_server(name, server)
+    tool_policy = rendered.pop("tools", None)
     lines.append(f"[mcp_servers.{name}]")
-    for key, value in rendered_server(name, server).items():
+    for key, value in rendered.items():
         lines.append(f"{key} = {toml_value(value)}")
+    if isinstance(tool_policy, dict):
+        for tool_name, tool_body in tool_policy.items():
+            if not isinstance(tool_body, dict):
+                raise SystemExit(
+                    f"invalid Codex MCP template tool policy {name}.{tool_name!r}: expected table"
+                )
+            lines.append("")
+            lines.append(f"[mcp_servers.{name}.tools.{tool_name}]")
+            for key, value in tool_body.items():
+                lines.append(f"{key} = {toml_value(value)}")
     lines.append("")
 
 

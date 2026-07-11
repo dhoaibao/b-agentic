@@ -25,6 +25,12 @@
     }
   },
   "fully_trusted_servers": ["serena", "codegraph", "context7", "brave-search"],
+  "fully_trusted_server_rationale": {
+    "serena": "Local symbol intelligence only; no managed remote side effects. Server-level trust is version-bound to the installed serena CLI and reviewed when the package or tool surface changes.",
+    "codegraph": "Local index query only; no managed remote side effects. Server-level trust is version-bound to the installed codegraph CLI and reviewed when the package or tool surface changes.",
+    "context7": "Read-only versioned docs lookup over HTTPS. Server-level trust is version-bound to the pinned remote endpoint and reviewed when the endpoint or advertised tools change.",
+    "brave-search": "Read-only public search. Server-level trust is version-bound to the pinned @brave/brave-search-mcp-server package and reviewed on pin bumps."
+  },
   "servers": {
     "firecrawl": {
       "tools": {
@@ -99,7 +105,7 @@
   "runtime_enforcement": {
     "claude-code": "per-tool settings allow/ask lists",
     "pi": "adapter tool_call extension with operation-level trust",
-    "codex": "shell families only; per-MCP-tool enforcement is a capability gap",
-    "opencode": "shell families only; per-MCP-tool enforcement is a capability gap"
+    "codex": "enabled_tools allowlist plus default_tools_approval_mode=prompt and per-tool approval_mode=approve for read-only tools",
+    "opencode": "permission keys for sanitize(server)_sanitize(tool); read-only allow, gated ask"
   }
 }

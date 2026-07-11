@@ -147,6 +147,13 @@ if cli_path:
     completed = subprocess.run([cli_path, "--version"], capture_output=True, text=True, check=False)
     cli_version = (completed.stdout or completed.stderr or "unknown").strip().splitlines()[0][:200]
 
+registry_runtime = next(
+    (item for item in registry.get("runtimes", []) if isinstance(item, dict) and item.get("name") == runtime),
+    {},
+)
+support_tier = registry_runtime.get("support_tier") if isinstance(registry_runtime, dict) else None
+mcp_enforcement = registry_runtime.get("mcp_enforcement") if isinstance(registry_runtime, dict) else None
+
 pins = {
     "brave": os.environ.get("B_AGENTIC_BRAVE_MCP_PACKAGE", "@brave/brave-search-mcp-server@2.0.85"),
     "firecrawl": os.environ.get("B_AGENTIC_FIRECRAWL_MCP_PACKAGE", "firecrawl-mcp@3.22.1"),
@@ -174,6 +181,11 @@ if not release_eligible:
         "package.git_rev could not be resolved; release_eligible=false and "
         "scripts/verify-release-evidence.sh will reject this attestation."
     )
+if cli_version in {"missing", "unknown"}:
+    notes.append(
+        "runtime.cli_version is unresolved; scripts/verify-release-evidence.sh will reject this attestation."
+    )
+    release_eligible = False
 payload = {
     "schema_version": 1,
     "record_type": "operator-attestation",
@@ -191,6 +203,8 @@ payload = {
         "cli_path": cli_path,
         "cli_version": cli_version,
         "home": str(home_path),
+        "support_tier": support_tier,
+        "mcp_enforcement": mcp_enforcement,
     },
     "mcp_package_pins": pins,
     "gates": gates,

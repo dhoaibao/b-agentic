@@ -34,22 +34,12 @@ Use these rules before any skill-specific instruction.
 
 ## Shell commands
 
-When `rtk` is installed, use it for command families it supports when its filtered output preserves the evidence needed for the task. Do not mechanically prefix unsupported commands.
-Run unsupported commands directly. Use `rtk proxy <cmd>` only when raw execution with RTK tracking is useful.
-
-When `rg`, `fd` or `fdfind`, `bat` (or Debian/Ubuntu's `batcat`), `eza` or `exa`, `sd`, and `jq` are installed, use them as the required shell tools:
-- `rg` replaces `grep` for text search.
-- `fd` or `fdfind` replaces `find` for file and directory discovery.
-- `bat` (or `batcat` on Debian/Ubuntu) replaces `cat` for viewing file contents.
-- `eza` or `exa` replaces `ls` for listing directories.
-- `sd` replaces `sed` and `awk` for find-and-replace text transformations.
-- `jq` replaces `python -m json.tool` for JSON inspection, formatting, and filtering.
-
-If a preferred shell tool is missing, use the closest available local fallback and mention the limitation only when it affects reliability.
+Prefer the lightest reliable local command for the evidence needed. Use installed modern shell utilities and `rtk` when they improve signal without losing required detail; otherwise use ordinary commands. See `shell-tools.md` for optional substitutions.
 
 Detailed contract refs live under `~/.claude/b-agentic/references/contract/`:
 - `runtime.md` - routing, source of truth, work discipline, artifacts, and output.
 - `safety-tools.md` - approvals, privacy, git safety, tool ownership.
+- `shell-tools.md` - optional shell-tool and RTK preferences.
 
 Skill argument injection: `$ARGUMENTS` is the shared argument token. Treat unresolved `$ARGUMENTS` as no arguments provided.
 

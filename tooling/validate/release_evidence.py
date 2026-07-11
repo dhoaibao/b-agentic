@@ -46,13 +46,17 @@ def git_rev(root: Path = ROOT) -> str:
     return completed.stdout.strip()
 
 
-def registered_runtimes(root: Path = ROOT) -> set[str]:
+def load_runtime_registry(root: Path = ROOT) -> dict[str, dict]:
     data = json.loads((root / "runtimes" / "registry.yaml").read_text())
-    names: set[str] = set()
+    by_name: dict[str, dict] = {}
     for item in data.get("runtimes", []):
         if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"]:
-            names.add(item["name"])
-    return names
+            by_name[item["name"]] = item
+    return by_name
+
+
+def registered_runtimes(root: Path = ROOT) -> set[str]:
+    return set(load_runtime_registry(root))
 
 
 def git_tag_points_to_head(tag: str, root: Path = ROOT) -> tuple[bool, str]:
@@ -91,6 +95,8 @@ def validate_attestation(
     expected_rev: str,
     expected_runtime: str | None = None,
     known_runtimes: set[str] | None = None,
+    runtime_registry: dict[str, dict] | None = None,
+    allow_shell_gated: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     try:
@@ -125,6 +131,7 @@ def validate_attestation(
 
     runtime = data.get("runtime") or {}
     actual_runtime = runtime.get("name")
+    registry_entry: dict | None = None
     if not isinstance(actual_runtime, str) or not actual_runtime:
         errors.append(f"{path}: runtime.name missing")
     else:
@@ -140,6 +147,57 @@ def validate_attestation(
         elif actual_runtime != expected_runtime:
             errors.append(
                 f"{path}: runtime.name {actual_runtime!r} != expected runtime {expected_runtime!r}"
+            )
+        if runtime_registry is not None:
+            registry_entry = runtime_registry.get(actual_runtime)
+
+    # Release-bound scope: declare the runtime/CLI versions the attestation covers.
+    cli = runtime.get("cli")
+    cli_version = runtime.get("cli_version")
+    if not isinstance(cli, str) or not cli:
+        errors.append(f"{path}: runtime.cli missing")
+    if not isinstance(cli_version, str) or not cli_version or cli_version in {"missing", "unknown"}:
+        errors.append(
+            f"{path}: runtime.cli_version must identify the live CLI under test "
+            f"(got {cli_version!r})"
+        )
+
+    # support_tier / mcp_enforcement must match the candidate revision's registry.
+    support_tier = runtime.get("support_tier")
+    mcp_enforcement = runtime.get("mcp_enforcement")
+    if not isinstance(support_tier, str) or not support_tier:
+        errors.append(f"{path}: runtime.support_tier missing")
+    elif support_tier not in {"operation-enforced", "guidance-shell-only"}:
+        errors.append(f"{path}: runtime.support_tier has unknown value {support_tier!r}")
+    if not isinstance(mcp_enforcement, str) or not mcp_enforcement:
+        errors.append(f"{path}: runtime.mcp_enforcement missing")
+
+    if registry_entry is not None:
+        expected_tier = registry_entry.get("support_tier")
+        expected_enforcement = registry_entry.get("mcp_enforcement")
+        production_claim = registry_entry.get("production_claim")
+        if production_claim == "excluded":
+            errors.append(
+                f"{path}: runtime {actual_runtime!r} has production_claim=excluded "
+                "and cannot be release-attested"
+            )
+        elif production_claim == "shell-gated-only" and not allow_shell_gated:
+            errors.append(
+                f"{path}: runtime {actual_runtime!r} has production_claim=shell-gated-only; "
+                "full release verification rejects it unless "
+                "--scoped-claim=shell-gated-only is provided"
+            )
+        if isinstance(support_tier, str) and support_tier and support_tier != expected_tier:
+            errors.append(
+                f"{path}: runtime.support_tier {support_tier!r} != registry {expected_tier!r}"
+            )
+        if (
+            isinstance(mcp_enforcement, str)
+            and mcp_enforcement
+            and mcp_enforcement != expected_enforcement
+        ):
+            errors.append(
+                f"{path}: runtime.mcp_enforcement {mcp_enforcement!r} != registry {expected_enforcement!r}"
             )
 
     gates = data.get("gates")
@@ -255,12 +313,14 @@ def verify(
     evidence_files: list[str],
     require_tag: str = "",
     skip_static: bool = False,
+    allow_shell_gated: bool = False,
     root: Path = ROOT,
     evidence_dir: Path = EVIDENCE_DIR,
 ) -> list[str]:
     version = package_version(root)
     rev = git_rev(root)
-    known = registered_runtimes(root)
+    runtime_registry = load_runtime_registry(root)
+    known = set(runtime_registry)
     errors: list[str] = []
 
     if not skip_static:
@@ -304,6 +364,8 @@ def verify(
                 rev,
                 expected_runtime=expected_runtime,
                 known_runtimes=known,
+                runtime_registry=runtime_registry,
+                allow_shell_gated=allow_shell_gated,
             )
         )
 
@@ -316,14 +378,63 @@ def self_test() -> int:
     version = "2026.07.10"
     head = "abc123def456"
     known = {"codex", "pi", "claude-code"}
+    registry = {
+        "codex": {
+            "name": "codex",
+            "support_tier": "guidance-shell-only",
+            "mcp_enforcement": "shell families; MCP tool policy encoded, runtime enforcement unproven",
+            "production_claim": "shell-gated-only",
+        },
+        "pi": {
+            "name": "pi",
+            "support_tier": "operation-enforced",
+            "mcp_enforcement": "tool_call extension",
+            "production_claim": "full-with-live-evidence",
+        },
+        "claude-code": {
+            "name": "claude-code",
+            "support_tier": "operation-enforced",
+            "mcp_enforcement": "settings allow/ask lists",
+            "production_claim": "full-with-live-evidence",
+        },
+        "excluded-runtime": {
+            "name": "excluded-runtime",
+            "support_tier": "guidance-shell-only",
+            "mcp_enforcement": "none",
+            "production_claim": "excluded",
+        },
+    }
 
-    def write(path: Path, runtime: str, rev: str) -> None:
+    def write(
+        path: Path,
+        runtime: str,
+        rev: str,
+        cli_version: str = "1.0.0-test",
+        support_tier: str | None = None,
+        mcp_enforcement: str | None = None,
+        include_support_fields: bool = True,
+    ) -> None:
+        entry = registry.get(runtime, {})
+        runtime_payload: dict = {
+            "name": runtime,
+            "cli": runtime if runtime != "claude-code" else "claude",
+            "cli_version": cli_version,
+        }
+        if include_support_fields:
+            runtime_payload["support_tier"] = (
+                support_tier if support_tier is not None else entry.get("support_tier", "operation-enforced")
+            )
+            runtime_payload["mcp_enforcement"] = (
+                mcp_enforcement
+                if mcp_enforcement is not None
+                else entry.get("mcp_enforcement", "settings allow/ask lists")
+            )
         payload = {
             "schema_version": 1,
             "record_type": "operator-attestation",
             "evidence_class": "live",
             "package": {"name": "b-agentic", "version": version, "git_rev": rev},
-            "runtime": {"name": runtime},
+            "runtime": runtime_payload,
             "gates": [{"name": gate, "status": "pass", "note": ""} for gate in REQUIRED_GATES],
             "operator_attested_all_gates_pass": True,
             "release_eligible": rev != "unknown",
@@ -341,16 +452,55 @@ def self_test() -> int:
         write(unknown_rev, "codex", "unknown")
         write(arbitrary, "not-a-registered-runtime", head)
 
-        # Exact match should pass.
+        # shell-gated-only codex must fail full verification without scoped claim.
         errs = validate_attestation(
-            good, version, head, expected_runtime="codex", known_runtimes=known
+            good,
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
+            allow_shell_gated=False,
+        )
+        if not any("production_claim=shell-gated-only" in item for item in errs):
+            failures.append(f"shell-gated-only codex accepted as full release claim: {errs}")
+
+        # Same attestation passes only under explicit scoped-claim mode.
+        errs = validate_attestation(
+            good,
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
+            allow_shell_gated=True,
         )
         if errs:
-            failures.append(f"good attestation unexpectedly failed: {errs}")
+            failures.append(f"scoped shell-gated-only attestation unexpectedly failed: {errs}")
+
+        # Full production claim runtime (pi) still passes without scoped claim.
+        pi_good = tmp_path / "pi-good.json"
+        write(pi_good, "pi", head)
+        errs = validate_attestation(
+            pi_good,
+            version,
+            head,
+            expected_runtime="pi",
+            known_runtimes=known,
+            runtime_registry=registry,
+            allow_shell_gated=False,
+        )
+        if errs:
+            failures.append(f"full-claim pi attestation unexpectedly failed: {errs}")
 
         # Filename/runtime mismatch must fail.
         errs = validate_attestation(
-            mismatched, version, head, expected_runtime="codex", known_runtimes=known
+            mismatched,
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
         )
         if not any("runtime.name 'pi' != expected runtime 'codex'" in item for item in errs):
             failures.append(f"mismatched runtime not rejected: {errs}")
@@ -360,17 +510,101 @@ def self_test() -> int:
         if inferred != "codex":
             failures.append(f"filename inference failed: {inferred!r}")
         errs = validate_attestation(
-            mismatched, version, head, expected_runtime=inferred, known_runtimes=known
+            mismatched,
+            version,
+            head,
+            expected_runtime=inferred,
+            known_runtimes=known,
+            runtime_registry=registry,
         )
         if not errs:
             failures.append("explicit evidence path accepted runtime mismatch")
 
         # unknown git rev must fail even when expected_rev is available.
         errs = validate_attestation(
-            unknown_rev, version, head, expected_runtime="codex", known_runtimes=known
+            unknown_rev,
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
         )
         if not any("package.git_rev 'unknown'" in item for item in errs):
             failures.append(f"unknown git_rev not rejected: {errs}")
+
+        # missing/unresolved CLI version must fail.
+        write(tmp_path / "codex-missing-cli.json", "codex", head, cli_version="missing")
+        errs = validate_attestation(
+            tmp_path / "codex-missing-cli.json",
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
+        )
+        if not any("runtime.cli_version must identify" in item for item in errs):
+            failures.append(f"missing cli_version not rejected: {errs}")
+
+        # missing support_tier / mcp_enforcement must fail.
+        write(
+            tmp_path / "codex-missing-tier.json",
+            "codex",
+            head,
+            include_support_fields=False,
+        )
+        errs = validate_attestation(
+            tmp_path / "codex-missing-tier.json",
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
+        )
+        if not any("runtime.support_tier missing" in item for item in errs):
+            failures.append(f"missing support_tier not rejected: {errs}")
+        if not any("runtime.mcp_enforcement missing" in item for item in errs):
+            failures.append(f"missing mcp_enforcement not rejected: {errs}")
+
+        # mismatched support_tier / mcp_enforcement vs registry must fail.
+        write(
+            tmp_path / "codex-tier-mismatch.json",
+            "codex",
+            head,
+            support_tier="operation-enforced",
+            mcp_enforcement="wrong",
+        )
+        errs = validate_attestation(
+            tmp_path / "codex-tier-mismatch.json",
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
+        )
+        if not any("runtime.support_tier 'operation-enforced' != registry" in item for item in errs):
+            failures.append(f"mismatched support_tier not rejected: {errs}")
+        if not any("runtime.mcp_enforcement 'wrong' != registry" in item for item in errs):
+            failures.append(f"mismatched mcp_enforcement not rejected: {errs}")
+
+        # production_claim=excluded must fail even with matching tier fields.
+        known_with_excluded = set(known) | {"excluded-runtime"}
+        write(
+            tmp_path / "excluded-runtime-good.json",
+            "excluded-runtime",
+            head,
+            support_tier="guidance-shell-only",
+            mcp_enforcement="none",
+        )
+        errs = validate_attestation(
+            tmp_path / "excluded-runtime-good.json",
+            version,
+            head,
+            expected_runtime="excluded-runtime",
+            known_runtimes=known_with_excluded,
+            runtime_registry=registry,
+        )
+        if not any("production_claim=excluded" in item for item in errs):
+            failures.append(f"excluded production_claim not rejected: {errs}")
 
         # release_eligible=false must fail.
         payload = json.loads(good.read_text())
@@ -378,14 +612,24 @@ def self_test() -> int:
         bad_eligible = tmp_path / "codex-ineligible.json"
         bad_eligible.write_text(json.dumps(payload) + "\n")
         errs = validate_attestation(
-            bad_eligible, version, head, expected_runtime="codex", known_runtimes=known
+            bad_eligible,
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
         )
         if not any("release_eligible=false" in item for item in errs):
             failures.append(f"release_eligible=false not rejected: {errs}")
 
         # Empty expected_rev must fail closed.
         errs = validate_attestation(
-            good, version, "", expected_runtime="codex", known_runtimes=known
+            good,
+            version,
+            "",
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
         )
         if not any("HEAD could not be resolved" in item for item in errs):
             failures.append(f"empty HEAD not rejected: {errs}")
@@ -408,7 +652,12 @@ def self_test() -> int:
             failures.append(f"arbitrary evidence path not rejected at collection: {collect_errors}")
         # Even if a caller forced expected_runtime=None, validation must still reject.
         errs = validate_attestation(
-            arbitrary, version, head, expected_runtime=None, known_runtimes=known
+            arbitrary,
+            version,
+            head,
+            expected_runtime=None,
+            known_runtimes=known,
+            runtime_registry=registry,
         )
         if not any("is not a registered runtime" in item for item in errs):
             failures.append(f"unregistered runtime.name not rejected: {errs}")
@@ -429,7 +678,12 @@ def self_test() -> int:
             failures.append(f"paired --runtime/--evidence missing codex target: {targets}")
         # Body still must match the bound runtime and be registered.
         errs = validate_attestation(
-            arbitrary, version, head, expected_runtime="codex", known_runtimes=known
+            arbitrary,
+            version,
+            head,
+            expected_runtime="codex",
+            known_runtimes=known,
+            runtime_registry=registry,
         )
         if not any("is not a registered runtime" in item for item in errs):
             failures.append(f"paired path accepted unregistered runtime body: {errs}")
@@ -476,6 +730,16 @@ def main() -> int:
         help="Skip static validation/audit commands.",
     )
     parser.add_argument(
+        "--scoped-claim",
+        choices=("shell-gated-only",),
+        default="",
+        help=(
+            "Allow verifying runtimes whose production_claim matches this scoped claim. "
+            "Required for shell-gated-only runtimes such as Codex/OpenCode; "
+            "full production-ready claims still reject them."
+        ),
+    )
+    parser.add_argument(
         "--self-test",
         action="store_true",
         help="Run built-in regression fixtures and exit.",
@@ -490,6 +754,7 @@ def main() -> int:
         evidence_files=args.evidence_files,
         require_tag=args.require_tag,
         skip_static=args.skip_static,
+        allow_shell_gated=args.scoped_claim == "shell-gated-only",
     )
 
     if errors:
@@ -503,14 +768,21 @@ def main() -> int:
         return 1
 
     version = package_version()
+    claim_mode = args.scoped_claim or "full"
     print(
         "Release evidence verification passed "
-        f"(version={version}, static={'skipped' if args.skip_static else 'ok'})."
+        f"(version={version}, claim_mode={claim_mode}, "
+        f"static={'skipped' if args.skip_static else 'ok'})."
     )
     print(
         "Note: this verifies attestation shape/runtime/revision consistency and static gates; "
         "it does not independently re-run live interactive sessions."
     )
+    if args.scoped_claim == "shell-gated-only":
+        print(
+            "Scoped claim only: shell-gated-only runtimes were accepted. "
+            "Do not label this candidate full production-ready for those runtimes."
+        )
     return 0
 
 

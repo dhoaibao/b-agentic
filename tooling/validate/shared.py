@@ -218,19 +218,18 @@ required_prompt_markers = {
         "structural checks only",
     ],
     "b-summary": [
-        "Use the staged diff for the commit message, PR title, and PR description.",
         "Commit message:",
         "PR title:",
         "PR description:",
-        "Use a compact PR description for a small cohesive change.",
-        "## <problem-or-capability heading>",
-        "## <cause-or-decision heading>",
-        "## <implementation heading>",
-        "For the full structure, choose `Issue`, `Root Cause`, and `Fix` for defect repairs or regressions",
-        "## Impact Analysis",
+        "BLOCKED: no changes to summarize",
         "BLOCKED: split unrelated staged changes",
         "Not established from available evidence.",
-        "Always return the commit message, PR title, and a complete proportional PR description when a cohesive staged change set exists.",
+        "Do not inspect remotes, merge bases, or open PR state.",
+    ],
+    "b-design": [
+        "adaptable checklist",
+        "Do not scaffold unused section headings when repo evidence is sparse.",
+        "Do not invent a design system when evidence is thin.",
     ],
 }
 for skill_name, markers in required_prompt_markers.items():
@@ -337,7 +336,7 @@ if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 
 contract_dir = ROOT / "references" / "contract"
-expected_contract_mds = {"runtime.md", "safety-tools.md", "kernel.template.md"}
+expected_contract_mds = {"runtime.md", "safety-tools.md", "kernel.template.md", "shell-tools.md"}
 actual_contract_mds = {path.name for path in contract_dir.glob("*.md")}
 if actual_contract_mds != expected_contract_mds:
     errors.append(
@@ -351,10 +350,15 @@ if "mcp_operations.yaml" not in safety_tools:
     errors.append("references/contract/safety-tools.md: must point at mcp_operations.yaml as canonical source")
 if "<!-- generated:mcp-operations:start -->" not in safety_tools:
     errors.append("references/contract/safety-tools.md: missing generated MCP operations block markers")
+shell_tools = read_text(contract_dir / "shell-tools.md")
+if "use the closest available local fallback" not in shell_tools:
+    errors.append("references/contract/shell-tools.md: missing automatic shell-tool fallback")
+if "rtk" not in shell_tools:
+    errors.append("references/contract/shell-tools.md: missing RTK guidance")
 
 for path in [ROOT / "references" / "contract" / "kernel.template.md", *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names)]:
     text = read_text(path)
-    for required in ["Core Rules", "Routing", "runtime.md", "safety-tools.md"]:
+    for required in ["Core Rules", "Routing", "runtime.md", "safety-tools.md", "shell-tools.md"]:
         if required not in text:
             errors.append(f"{rel(path)}: missing kernel marker {required!r}")
     for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict governance", "Advisory-only runtime"]:
@@ -369,11 +373,17 @@ for forbidden in ["route every shell command through", "always prefix shell comm
             f"{forbidden!r}"
         )
 
-# Missing preferred shell tools previously forced an installation prompt even
-# when a reliable local fallback existed. Preserve automatic degraded operation.
-if "use the closest available local fallback" not in kernel_template:
+# Preferred shell-tool/RTK detail lives in shell-tools.md so the always-loaded
+# kernel stays slim. Keep only the workflow-level instruction in the kernel.
+if "shell-tools.md" not in kernel_template:
+    errors.append("references/contract/kernel.template.md: missing shell-tools.md reference")
+if "lightest reliable local command" not in kernel_template:
     errors.append(
-        "references/contract/kernel.template.md: missing automatic shell-tool fallback"
+        "references/contract/kernel.template.md: missing lightweight shell-command guidance"
+    )
+if "rg` replaces `grep" in kernel_template or "When `rtk` is installed" in kernel_template:
+    errors.append(
+        "references/contract/kernel.template.md: detailed shell-tool/RTK preferences must stay in shell-tools.md"
     )
 if "prompt the user to install the shell tooling before falling back" in kernel_template:
     errors.append(

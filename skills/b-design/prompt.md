@@ -26,67 +26,39 @@ Create or refresh `docs/DESIGN.md`, the repo-local frontend design standard. Do 
 
 1. Confirm the source mode: user description, attached image/mockup, existing `docs/DESIGN.md`, design-token source, current frontend code, or a mix.
 2. Run `git status --short` via Bash for repo work and preserve unrelated changes.
-3. Inspect the lightest useful evidence: existing design docs, frontend components, tokens, CSS, layout files, screenshots, and repo conventions. Use Serena to map component/symbol ownership when the standard depends on code structure. Do not invent a design system when code evidence is thin.
+3. Inspect the lightest useful evidence: existing design docs, frontend components, tokens, CSS, layout files, screenshots, and repo conventions. Use Serena when the standard depends on code structure. Do not invent a design system when evidence is thin.
 4. If analyzing images, separate observed facts from inferred rules. Treat exact dimensions, counts, colors, and spatial alignment as approximate unless supported by source files or browser evidence.
 5. Create or update only `docs/DESIGN.md` unless the user explicitly approved a broader documentation change. Preserve useful existing content, remove generic filler, and mark unresolved product choices as open questions.
 6. Keep the document implementation-facing and concise. Prefer rules an agent can apply while coding over design theory.
-7. When exact design tokens are supported by repo evidence, include them as optional YAML front matter or a compact token section. Treat tokens as normative values and prose as the context for when and why to use them.
-8. Include a verification checklist that later **b-implement** and **b-browser** work can use.
-9. Verify referenced paths exist where possible, then inspect the diff for stale generated text, unsupported claims, token/prose mismatches, and ceremony.
+7. Include exact tokens only when supported by repo evidence. Include a short verification checklist that later **b-implement** and **b-browser** work can use.
+8. Verify referenced paths exist where possible, then inspect the diff for unsupported claims and ceremony.
 
-## DESIGN.md Structure
+## Structure guidance
 
-Use this structure unless the repo already has a clearer standard:
+Do not force a long default skeleton when evidence is sparse. Cover only the durable standards the evidence supports.
 
-Omit YAML front matter when exact token values are not evidenced or when the repo already has a better token source. If included, replace the token placeholders with values from repo evidence; do not copy them as defaults.
+Use the following as an adaptable checklist, not a required document outline:
 
-```markdown
----
-name: Product or design system name
-colors:
-  primary: "<repo-evidenced color>"
-typography:
-  body-md: "<repo-evidenced typography token or object>"
-spacing:
-  md: "<repo-evidenced spacing>"
-rounded:
-  md: "<repo-evidenced radius>"
----
+- Product character, audience, and workflows
+- Visual principles and layout system
+- Color, typography, spacing, density, and radius
+- Components and interaction states
+- Responsive behavior and accessibility
+- Implementation rules, do's/don'ts, and verification checklist
+- Source evidence and open questions
 
-# Frontend Design Standard
-
-## Product Character
-## Audience And Workflows
-## Visual Principles
-## Layout System
-## Color System
-## Typography
-## Spacing And Density
-## Components
-## Interaction States
-## Responsive Behavior
-## Accessibility
-## Implementation Rules
-## Do's And Don'ts
-## Verification Checklist
-## Source Evidence
-## Open Questions
-```
+Omit YAML front matter when exact token values are not evidenced or when the repo already has a better token source.
 
 ## Content Rules
 
 - State durable standards for the product, not page-specific implementation notes.
-- Use a specific product/design reference, audience, and workflow constraints when available. Avoid generic adjective clusters like "modern, clean, premium" unless they are tied to concrete UI decisions.
 - Make rules concrete: density, radius, spacing scale, component usage, icon usage, color roles, typography scale, empty/loading/error states, and responsive behavior.
 - Keep prose primary. Tokens capture exact values; prose explains visual intent, tradeoffs, scarcity rules, and negative constraints.
-- If using tokens, keep them small and agent-usable: colors, typography, spacing, radius, and component state tokens. Prefer repo tokens, CSS variables, Tailwind theme values, or documented design-system values over invented values.
-- Keep token references consistent with prose. Do not describe a color, radius, type role, or interaction state that contradicts the token values.
-- Keep image-derived guidance honest: use language like "appears", "inferred", or "approximate" when the evidence is visual-only.
 - Prefer current repo tokens, components, and CSS variables over newly invented values.
+- Keep image-derived guidance honest: use language like "appears", "inferred", or "approximate" when the evidence is visual-only.
 - Do not require every frontend task to run this skill. `docs/DESIGN.md` is a reusable artifact, not a mandatory phase.
 - Do not add marketing-page guidance unless the product actually needs marketing pages.
 - Do not replace visual QA. Route screenshot or browser proof to **b-browser**.
-- If the repo already uses a DESIGN.md linter or token exporter, run the narrowest relevant validation. Otherwise manually check section order, duplicate headings, broken token references, and contrast claims where practical.
 
 ## Output format
 
@@ -98,3 +70,4 @@ Files changed, evidence used, verification, confidence level, and open questions
 - Do not claim pixel-perfect extraction from images.
 - Do not add generic design advice that would fit any app.
 - Do not create extra root docs or design artifacts without explicit scope.
+- Do not scaffold unused section headings when repo evidence is sparse.

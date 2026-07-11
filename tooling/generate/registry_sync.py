@@ -53,6 +53,8 @@ RUNTIME_CAPABILITY_KEYS = [
 ]
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
+RUNTIME_SUPPORT_TIERS = {"operation-enforced", "guidance-shell-only"}
+RUNTIME_PRODUCTION_CLAIMS = {"full-with-live-evidence", "shell-gated-only", "excluded"}
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "claude-user-config",
     "codex-toml",
@@ -294,6 +296,25 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         ensure_string(runtime.get("metadata_root"), f"runtimes[{index}].metadata_root", errors)
         ensure_string(runtime.get("skills_install_root"), f"runtimes[{index}].skills_install_root", errors)
         ensure_string(runtime.get("config_template_dir"), f"runtimes[{index}].config_template_dir", errors)
+        support_tier = ensure_string(runtime.get("support_tier"), f"runtimes[{index}].support_tier", errors)
+        if support_tier and support_tier not in RUNTIME_SUPPORT_TIERS:
+            errors.append(
+                f"runtimes[{index}].support_tier: expected one of "
+                f"{sorted(RUNTIME_SUPPORT_TIERS)}, found {support_tier!r}"
+            )
+        ensure_string(runtime.get("mcp_enforcement"), f"runtimes[{index}].mcp_enforcement", errors)
+        production_claim = ensure_string(
+            runtime.get("production_claim"), f"runtimes[{index}].production_claim", errors
+        )
+        if production_claim and production_claim not in RUNTIME_PRODUCTION_CLAIMS:
+            errors.append(
+                f"runtimes[{index}].production_claim: expected one of "
+                f"{sorted(RUNTIME_PRODUCTION_CLAIMS)}, found {production_claim!r}"
+            )
+        if support_tier == "guidance-shell-only" and production_claim == "full-with-live-evidence":
+            errors.append(
+                f"runtimes[{index}]: guidance-shell-only runtimes cannot claim full-with-live-evidence"
+            )
         config_install_path = ensure_string(runtime.get("config_install_path"), f"runtimes[{index}].config_install_path", errors)
         if config_install_path and not config_install_path.startswith("~/"):
             errors.append(f"runtimes[{index}].config_install_path: must use a ~/ path")
@@ -459,12 +480,16 @@ def render_readme_runtime_capabilities_table(runtimes: list[dict]) -> str:
 def permission_granularity(runtime: dict) -> str:
     name = runtime["name"]
     permissions = runtime["capabilities"]["permissions"]["support"]
+    # Public granularity claims must track support_tier: template encoding alone
+    # is not enough to claim per-tool MCP enforcement.
+    if runtime.get("support_tier") == "guidance-shell-only":
+        return "shell families only"
     if name == "claude-code":
         return "per-tool MCP + shell families"
     if name == "pi":
         return "adapter tool_call extension"
     if name in {"codex", "opencode"}:
-        return "shell families only"
+        return "per-tool MCP + shell families"
     if permissions == "unsupported":
         return "unsupported"
     return permissions
@@ -481,9 +506,15 @@ def mcp_adapter_dependency(runtime: dict) -> str:
     return "unsupported"
 
 
+def support_tier_label(runtime: dict) -> str:
+    return str(runtime.get("support_tier") or "—")
+
+
 def known_limitation(runtime: dict) -> str:
     name = runtime["name"]
-    if name in {"codex", "opencode"}:
+    if runtime.get("support_tier") == "guidance-shell-only":
+        if name in {"codex", "opencode"}:
+            return "MCP tool policy encoded in templates; runtime enforcement unproven"
         return "no per-MCP-tool enforcement"
     if name == "pi":
         return "print-mode cannot prove UI approval"
@@ -536,6 +567,7 @@ def render_mcp_operations_table(policy: dict) -> str:
 def render_readme_runtime_capability_matrix(runtimes: list[dict]) -> str:
     headers = [
         "Runtime",
+        "Support tier",
         "Permission granularity",
         "Kernel loading",
         "Skill mode",
@@ -557,6 +589,7 @@ def render_readme_runtime_capability_matrix(runtimes: list[dict]) -> str:
             + " | ".join(
                 [
                     runtime["display_name"],
+                    support_tier_label(runtime),
                     permission_granularity(runtime),
                     "managed memory file",
                     skill_mode,

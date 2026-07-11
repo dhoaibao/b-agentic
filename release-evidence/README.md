@@ -43,12 +43,15 @@ release-evidence/<runtime>-<UTC-timestamp>.json
 ## Verify release readiness inputs
 
 ```bash
-# Verify attestations for changed runtimes and run static checks
+# Full production-ready claim: only operation-enforced / full-with-live-evidence runtimes
 scripts/verify-release-evidence.sh --runtime=claude-code --runtime=pi
 
 # Explicit evidence files must use <runtime>-*.json names, or pair one file with one --runtime
 scripts/verify-release-evidence.sh --evidence=release-evidence/claude-code-20260710T120000Z.json
 scripts/verify-release-evidence.sh --runtime=claude-code --evidence=/tmp/attestation.json
+
+# Scoped shell-gated-only claim (Codex/OpenCode). This is not a full production-ready claim.
+scripts/verify-release-evidence.sh --runtime=codex --runtime=opencode --scoped-claim=shell-gated-only
 
 # Also require an immutable tag matching pyproject version
 scripts/verify-release-evidence.sh --runtime=claude-code --require-tag=v2026.07.10
@@ -59,9 +62,32 @@ scripts/verify-release-evidence.sh --runtime=claude-code --require-tag=v2026.07.
 A revision may be labeled production-ready only when:
 
 1. static validation and audit pass for that revision;
-2. an operator attestation exists for every changed runtime with all five gates `pass`;
+2. an operator attestation exists for every runtime claimed in the release with all five gates `pass` (`kernel`, `skill`, `mcp`, `approval-gate`, `deny-gate`);
 3. attestation `runtime.name` matches the requested runtime (filename and body must agree);
 4. attestation `package.version` and exact `package.git_rev` match the candidate revision (`unknown` is rejected);
-5. package version, changelog entry, and immutable Git tag (`vYYYY.MM.DD`) are prepared for shipping.
+5. attestation `runtime.cli` and resolvable `runtime.cli_version` identify the live CLI under test (captured operator claim for the session; not a supported-version policy matrix);
+6. attestation `runtime.support_tier` and `runtime.mcp_enforcement` are required and must exactly match `runtimes/registry.yaml` for that runtime on the candidate revision;
+7. runtimes with `production_claim: excluded` cannot be release-attested;
+8. full verification rejects `production_claim: shell-gated-only` runtimes unless `--scoped-claim=shell-gated-only` is set; scoped mode is never a full production-ready claim;
+9. package version, changelog entry, and immutable Git tag (`vYYYY.MM.DD`) are prepared for shipping;
+10. unsupported or unattested runtimes are explicitly excluded from the production-ready claim.
+
+Template-encoded MCP tool policy is static evidence only. Codex/OpenCode remain `shell-gated-only` until promoted. Promoting a runtime to `operation-enforced` / `full-with-live-evidence` requires versioned official-runtime evidence plus live fresh-session proof that read tools run without prompts, gated tools prompt, and unclassified tools cannot bypass the policy.
+
+Live operator attestations for Claude Code and Pi are still required before any full production-ready label. Static validation alone never completes Priority 0.2.
+
+Attestations are checked into `release-evidence/` as operator claims bound to an exact package revision. They are not self-proving: do not record credentials, sessions, private prompts, or customer data, and do not treat simulated `--active` probes as live proof.
 
 See `schema.example.json` for the attestation JSON shape.
+
+## Live tool-ownership matrix (release evidence only)
+
+When recording production evidence, cover representative tool ownership and fallbacks without expanding the core kernel:
+
+| Domain | Expected tool | Fallback / blocker |
+|---|---|---|
+| Local structure / impact | CodeGraph or Serena | Local search/reads; state missing index/auth honestly |
+| External docs / web facts | Context7, Firecrawl, or Brave | Official docs/search snippets or evidence gap |
+| Browser evidence | Playwright | Supplied/CI evidence or missing-browser blocker |
+
+Record the tool used and the fallback only when the primary tool is missing, indexless, or auth-blocked.

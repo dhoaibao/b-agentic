@@ -14,7 +14,9 @@
     "cli": "claude",
     "cli_path": "/usr/local/bin/claude",
     "cli_version": "example",
-    "home": "/home/example"
+    "home": "/home/example",
+    "support_tier": "operation-enforced",
+    "mcp_enforcement": "settings allow/ask lists"
   },
   "mcp_package_pins": {
     "brave": "@brave/brave-search-mcp-server@2.0.85",
@@ -36,6 +38,7 @@
     "Operator attestation only. This file does not prove the gates occurred.",
     "Static validation, tags, and production readiness require scripts/verify-release-evidence.sh.",
     "Simulated --active probes are a separate evidence class and are not live proof.",
-    "package.git_rev must equal the release candidate HEAD; unknown revisions are not release-eligible."
+    "package.git_rev must equal the release candidate HEAD; unknown revisions are not release-eligible.",
+    "runtime.support_tier and runtime.mcp_enforcement are required and must match runtimes/registry.yaml for the attested runtime."
   ]
 }

@@ -4,11 +4,18 @@
 
 Canonical source: references/contract/mcp_operations.yaml.
 The contract table in safety-tools.md is generated from that file.
-Adapters that support per-tool permissions must:
+
+Two coverage classes are checked:
+- Enforced per-tool runtimes (Claude Code, Pi): adapter policy is treated as the
+  runtime-enforced operation boundary.
+- Template-policy runtimes (Codex, OpenCode): managed templates encode the same
+  closed-world tool classes, but public support tiers remain guidance/shell-only
+  until live runtime enforcement is proven.
+
+In both cases adapters must:
 - auto-allow only classified read-only tools for Firecrawl/Playwright;
 - never auto-allow gated classes;
 - never include an unclassified Firecrawl/Playwright tool in allow/trust sets.
-Runtimes without per-MCP-tool enforcement are reported as capability gaps.
 """
 
 from __future__ import annotations
@@ -24,8 +31,10 @@ POLICY_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
 
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "auth"}
 READ_ONLY = "read-only"
-PER_TOOL_RUNTIMES = ("claude-code", "pi")
-SHELL_ONLY_RUNTIMES = ("codex", "opencode")
+# Runtime-enforced operation boundary (support_tier=operation-enforced).
+ENFORCED_PER_TOOL_RUNTIMES = ("claude-code", "pi")
+# Template encoding only (support_tier=guidance-shell-only until live proof).
+TEMPLATE_POLICY_RUNTIMES = ("codex", "opencode")
 MANAGED_SCOPED_SERVERS = ("firecrawl", "playwright")
 
 
@@ -121,6 +130,14 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> dict[str, dict[str
         if server not in fully_trusted:
             errors.append(f"{label}: fully_trusted_servers missing {server!r}")
 
+    trust = policy.get("fully_trusted_server_rationale")
+    if not isinstance(trust, dict) or not trust:
+        errors.append(f"{label}: fully_trusted_server_rationale must document server-level trust")
+    else:
+        for server in fully_trusted if isinstance(fully_trusted, list) else []:
+            if server not in trust:
+                errors.append(f"{label}: fully_trusted_server_rationale missing {server!r}")
+
     return servers
 
 
@@ -134,7 +151,8 @@ def validate_contract_generated(policy: dict, servers: dict[str, dict[str, str]]
         "references/contract/mcp_operations.yaml",
         "<!-- generated:mcp-operations:start -->",
         "<!-- generated:mcp-operations:end -->",
-        "capability gap",
+        "Runtime enforcement notes",
+        "server-level trust",
     ]:
         if marker not in safety:
             errors.append(f"{label}: missing marker {marker!r}")
@@ -242,14 +260,106 @@ def validate_pi(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
             errors.append(f"{label}: gated Playwright tool {tool!r} must not be trusted")
 
 
-def validate_shell_only_gaps(errors: list[str]) -> None:
-    for runtime in SHELL_ONLY_RUNTIMES:
-        readme = ROOT / "runtimes" / runtime / "configs" / "README.md"
-        text = readme.read_text() if readme.exists() else ""
-        if "per-MCP-tool" not in text and "per-MCP tool" not in text:
+def validate_codex(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        errors.append("Codex MCP policy validation requires Python 3.11+ tomllib")
+        return
+
+    path = ROOT / "runtimes" / "codex" / "configs" / "mcp.user.template.toml"
+    label = rel(path)
+    data = tomllib.loads(path.read_text())
+    mcp_servers = data.get("mcp_servers", {})
+    if not isinstance(mcp_servers, dict):
+        errors.append(f"{label}: missing mcp_servers table")
+        return
+
+    for server_name, classified in servers.items():
+        server = mcp_servers.get(server_name)
+        if not isinstance(server, dict):
+            errors.append(f"{label}: missing MCP server {server_name!r}")
+            continue
+        enabled = server.get("enabled_tools")
+        if not isinstance(enabled, list) or not all(isinstance(item, str) for item in enabled):
+            errors.append(f"{label}: {server_name}.enabled_tools must list classified tools")
+            continue
+        enabled_set = set(enabled)
+        known = set(classified)
+        if enabled_set != known:
+            missing = sorted(known - enabled_set)
+            extra = sorted(enabled_set - known)
+            if missing:
+                errors.append(f"{label}: {server_name}.enabled_tools missing {missing}")
+            if extra:
+                errors.append(
+                    f"{label}: {server_name}.enabled_tools includes unclassified tools {extra}"
+                )
+        if server.get("default_tools_approval_mode") != "prompt":
             errors.append(
-                f"{rel(readme)}: must document missing per-MCP-tool permission enforcement"
+                f"{label}: {server_name}.default_tools_approval_mode must be 'prompt' "
+                "so gated tools require approval"
             )
+        tool_policy = server.get("tools")
+        if not isinstance(tool_policy, dict):
+            errors.append(f"{label}: {server_name}.tools must define read-only auto-approve entries")
+            continue
+        for tool, classification in classified.items():
+            entry = tool_policy.get(tool)
+            if classification == READ_ONLY:
+                if not isinstance(entry, dict) or entry.get("approval_mode") != "approve":
+                    errors.append(
+                        f"{label}: read-only {server_name}.{tool} must set approval_mode=approve"
+                    )
+            elif classification in GATED_CLASSES and isinstance(entry, dict):
+                if entry.get("approval_mode") in {"approve", "auto"}:
+                    errors.append(
+                        f"{label}: gated {server_name}.{tool} must not auto-approve"
+                    )
+
+
+def validate_opencode(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
+    path = ROOT / "runtimes" / "opencode" / "configs" / "mcp.user.template.json"
+    label = rel(path)
+    data = load_json(path)
+    permission = data.get("permission")
+    if not isinstance(permission, dict):
+        errors.append(f"{label}: missing permission object")
+        return
+
+    # OpenCode tool keys are sanitize(server) + "_" + sanitize(tool).
+    for server_name, classified in servers.items():
+        for tool, classification in classified.items():
+            key = f"{server_name}_{tool}"
+            action = permission.get(key)
+            if classification == READ_ONLY:
+                if action != "allow":
+                    errors.append(f"{label}: read-only MCP tool {key!r} must be allow")
+            elif classification in GATED_CLASSES:
+                if action != "ask":
+                    errors.append(f"{label}: gated MCP tool {key!r} must be ask")
+                if action == "allow":
+                    errors.append(f"{label}: gated MCP tool {key!r} must not be allow")
+
+    # Fully trusted managed servers may use server wildcards.
+    for server in ("serena", "codegraph", "context7", "brave-search"):
+        if permission.get(f"{server}_*") != "allow":
+            errors.append(f"{label}: fully trusted server wildcard {server}_* must be allow")
+
+    # Closed-world for firecrawl/playwright permission keys: only classified tools.
+    observed = {
+        key
+        for key, value in permission.items()
+        if isinstance(key, str)
+        and (key.startswith("firecrawl_") or key.startswith("playwright_"))
+        and not key.endswith("_*")
+    }
+    known = {
+        f"{server}_{tool}"
+        for server, tools in servers.items()
+        for tool in tools
+    }
+    reject_unknown(label, "permission MCP tool keys", observed, known, errors)
 
 
 def main() -> int:
@@ -264,7 +374,8 @@ def main() -> int:
         validate_contract_generated(policy, servers, errors)
         validate_claude(servers, errors)
         validate_pi(servers, errors)
-    validate_shell_only_gaps(errors)
+        validate_codex(servers, errors)
+        validate_opencode(servers, errors)
 
     if errors:
         for error in errors:
@@ -276,7 +387,8 @@ def main() -> int:
     print(
         "MCP operation policy regression passed "
         f"({firecrawl_count} Firecrawl tools, {playwright_count} Playwright tools; "
-        f"per-tool: {', '.join(PER_TOOL_RUNTIMES)}; shell-only gap: {', '.join(SHELL_ONLY_RUNTIMES)}; "
+        f"enforced per-tool: {', '.join(ENFORCED_PER_TOOL_RUNTIMES)}; "
+        f"template policy: {', '.join(TEMPLATE_POLICY_RUNTIMES)}; "
         "closed-world adapter checks enabled)."
     )
     return 0

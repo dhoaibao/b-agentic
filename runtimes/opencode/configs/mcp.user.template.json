@@ -2,7 +2,15 @@
   "mcp": {
     "serena": {
       "type": "local",
-      "command": ["serena", "start-mcp-server", "--context", "ide", "--project-from-cwd", "--open-web-dashboard", "false"]
+      "command": [
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide",
+        "--project-from-cwd",
+        "--open-web-dashboard",
+        "false"
+      ]
     },
     "context7": {
       "type": "remote",
@@ -13,28 +21,47 @@
     },
     "codegraph": {
       "type": "local",
-      "command": ["codegraph", "serve", "--mcp"],
+      "command": [
+        "codegraph",
+        "serve",
+        "--mcp"
+      ],
       "environment": {
         "CODEGRAPH_TELEMETRY": "0"
       }
     },
     "brave-search": {
       "type": "local",
-      "command": ["pnpm", "dlx", "@brave/brave-search-mcp-server@2.0.85", "--transport", "stdio"],
+      "command": [
+        "pnpm",
+        "dlx",
+        "@brave/brave-search-mcp-server@2.0.85",
+        "--transport",
+        "stdio"
+      ],
       "environment": {
         "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
       }
     },
     "firecrawl": {
       "type": "local",
-      "command": ["pnpm", "dlx", "firecrawl-mcp@3.22.1"],
+      "command": [
+        "pnpm",
+        "dlx",
+        "firecrawl-mcp@3.22.1"
+      ],
       "environment": {
         "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
       }
     },
     "playwright": {
       "type": "local",
-      "command": ["pnpm", "dlx", "@playwright/mcp@0.0.77", "--isolated"]
+      "command": [
+        "pnpm",
+        "dlx",
+        "@playwright/mcp@0.0.77",
+        "--isolated"
+      ]
     }
   },
   "permission": {
@@ -112,6 +139,59 @@
     },
     "skill": {
       "b-*": "allow"
-    }
+    },
+    "serena_*": "allow",
+    "codegraph_*": "allow",
+    "context7_*": "allow",
+    "brave-search_*": "allow",
+    "firecrawl_firecrawl_search": "allow",
+    "firecrawl_firecrawl_scrape": "allow",
+    "firecrawl_firecrawl_map": "allow",
+    "firecrawl_firecrawl_extract": "allow",
+    "firecrawl_firecrawl_agent_status": "allow",
+    "firecrawl_firecrawl_check_crawl_status": "allow",
+    "firecrawl_firecrawl_interact_stop": "allow",
+    "firecrawl_firecrawl_research_search_papers": "allow",
+    "firecrawl_firecrawl_research_inspect_paper": "allow",
+    "firecrawl_firecrawl_research_read_paper": "allow",
+    "firecrawl_firecrawl_research_related_papers": "allow",
+    "firecrawl_firecrawl_research_search_github": "allow",
+    "firecrawl_firecrawl_parse": "ask",
+    "firecrawl_firecrawl_agent": "ask",
+    "firecrawl_firecrawl_crawl": "ask",
+    "firecrawl_firecrawl_interact": "ask",
+    "firecrawl_firecrawl_search_feedback": "ask",
+    "firecrawl_firecrawl_feedback": "ask",
+    "firecrawl_firecrawl_monitor_create": "ask",
+    "firecrawl_firecrawl_monitor_update": "ask",
+    "firecrawl_firecrawl_monitor_delete": "ask",
+    "firecrawl_firecrawl_monitor_get": "ask",
+    "firecrawl_firecrawl_monitor_list": "ask",
+    "firecrawl_firecrawl_monitor_run": "ask",
+    "firecrawl_firecrawl_monitor_check": "ask",
+    "firecrawl_firecrawl_monitor_checks": "ask",
+    "playwright_browser_snapshot": "allow",
+    "playwright_browser_take_screenshot": "allow",
+    "playwright_browser_console_messages": "allow",
+    "playwright_browser_network_requests": "allow",
+    "playwright_browser_network_request": "allow",
+    "playwright_browser_wait_for": "allow",
+    "playwright_browser_navigate": "allow",
+    "playwright_browser_navigate_back": "allow",
+    "playwright_browser_resize": "allow",
+    "playwright_browser_hover": "allow",
+    "playwright_browser_close": "allow",
+    "playwright_browser_tabs": "allow",
+    "playwright_browser_click": "ask",
+    "playwright_browser_type": "ask",
+    "playwright_browser_fill_form": "ask",
+    "playwright_browser_press_key": "ask",
+    "playwright_browser_select_option": "ask",
+    "playwright_browser_file_upload": "ask",
+    "playwright_browser_drop": "ask",
+    "playwright_browser_drag": "ask",
+    "playwright_browser_evaluate": "ask",
+    "playwright_browser_run_code_unsafe": "ask",
+    "playwright_browser_handle_dialog": "ask"
   }
 }
