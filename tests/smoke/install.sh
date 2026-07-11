@@ -1140,7 +1140,7 @@ EOF
 
     set +e
     HOME="$sandbox/$runtime/home" \
-    PATH="$bin_dir:$PATH" \
+    PATH="$(smoke_path_with_runtime_clis "$sandbox/$runtime" "$bin_dir")" \
     B_AGENTIC_REPO="$snapshot_repo" \
     B_AGENTIC_DIR="$sandbox/$runtime/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
