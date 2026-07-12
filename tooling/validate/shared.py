@@ -335,7 +335,7 @@ if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 
 contract_dir = ROOT / "references" / "contract"
-expected_contract_mds = {"runtime.md", "safety-tools.md", "kernel.template.md", "shell-tools.md"}
+expected_contract_mds = {"runtime.md", "safety-tools.md", "kernel.template.md"}
 actual_contract_mds = {path.name for path in contract_dir.glob("*.md")}
 if actual_contract_mds != expected_contract_mds:
     errors.append(
@@ -349,15 +349,10 @@ if "mcp_operations.yaml" not in safety_tools:
     errors.append("references/contract/safety-tools.md: must point at mcp_operations.yaml as canonical source")
 if "<!-- generated:mcp-operations:start -->" not in safety_tools:
     errors.append("references/contract/safety-tools.md: missing generated MCP operations block markers")
-shell_tools = read_text(contract_dir / "shell-tools.md")
-if "required prerequisites" not in shell_tools:
-    errors.append("references/contract/shell-tools.md: missing required-tool prerequisite guidance")
-if "rtk" not in shell_tools:
-    errors.append("references/contract/shell-tools.md: missing RTK guidance")
 
 for path in [ROOT / "references" / "contract" / "kernel.template.md", *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names)]:
     text = read_text(path)
-    for required in ["Core Rules", "Routing", "runtime.md", "safety-tools.md", "shell-tools.md"]:
+    for required in ["Core Rules", "Routing", "runtime.md", "safety-tools.md"]:
         if required not in text:
             errors.append(f"{rel(path)}: missing kernel marker {required!r}")
     for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict governance", "Advisory-only runtime"]:
@@ -372,18 +367,14 @@ for forbidden in ["route every shell command through", "always prefix shell comm
             f"{forbidden!r}"
         )
 
-# Preferred shell-tool/RTK detail lives in shell-tools.md so the always-loaded
-# kernel stays slim. Keep only the workflow-level instruction in the kernel.
-if "shell-tools.md" not in kernel_template:
-    errors.append("references/contract/kernel.template.md: missing shell-tools.md reference")
-if "required modern shell utilities" not in kernel_template:
-    errors.append(
-        "references/contract/kernel.template.md: missing required shell-command guidance"
-    )
-if "rg` replaces `grep" in kernel_template or "When `rtk` is installed" in kernel_template:
-    errors.append(
-        "references/contract/kernel.template.md: detailed shell-tool/RTK preferences must stay in shell-tools.md"
-    )
+# The kernel template owns the required shell-tool and RTK preferences. Each
+# preferred tool must appear in the always-loaded kernel so the guidance stays
+# in scope, and the blocking install prompt must never creep back in.
+for required_tool in ["`rtk`", "`rg`", "`fd`", "`bat`", "`eza`", "`sd`", "`jq`"]:
+    if required_tool not in kernel_template:
+        errors.append(
+            f"references/contract/kernel.template.md: missing required shell tool {required_tool!r}"
+        )
 if "prompt the user to install the shell tooling before falling back" in kernel_template:
     errors.append(
         "references/contract/kernel.template.md: blocking shell-tool install prompt remains"

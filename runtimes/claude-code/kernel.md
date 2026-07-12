@@ -34,12 +34,22 @@ Use these rules before any skill-specific instruction.
 
 ## Shell commands
 
-Use the required modern shell utilities for local evidence and route supported command families through `rtk`; do not silently fall back when required tooling is missing. See `shell-tools.md` for the required command conventions.
+Use `rtk` for every command family it supports when its filtered output preserves the evidence needed for the task. Run unsupported commands directly; use `rtk proxy <cmd>` when raw execution with RTK tracking is required. Do not silently fall back when required tooling is missing.
+
+Use these required tools instead of the classic equivalents:
+
+- `rg` replaces `grep` for text search.
+- `fd` or `fdfind` replaces `find` for file and directory discovery.
+- `bat` (or `batcat` on Debian/Ubuntu) replaces `cat` for viewing file contents.
+- `eza` or `exa` replaces `ls` for listing directories.
+- `sd` replaces `sed` and `awk` for find-and-replace text transformations.
+- `jq` replaces `python -m json.tool` for JSON inspection, formatting, and filtering.
+
+These tools are required prerequisites, not optional enhancements. If one is missing, stop and report the missing prerequisite rather than silently falling back or continuing without it.
 
 Detailed contract refs live under `~/.claude/b-agentic/references/contract/`:
 - `runtime.md` - routing, source of truth, work discipline, artifacts, and output.
 - `safety-tools.md` - approvals, privacy, git safety, tool ownership.
-- `shell-tools.md` - required shell-tool and RTK conventions.
 
 Skill argument injection: `$ARGUMENTS` is the shared argument token. Treat unresolved `$ARGUMENTS` as no arguments provided.
 

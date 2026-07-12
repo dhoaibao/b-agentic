@@ -17,7 +17,7 @@ REQUIRED_TOOLS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("sd", ("sd",)),
     ("jq", ("jq",)),
 )
-REMEDIATION = "Install the missing prerequisites, then restart the runtime session; see references/contract/shell-tools.md."
+REMEDIATION = "Install the missing prerequisites, then restart the runtime session; see the kernel's Shell commands section."
 
 
 def missing_tools(which: Callable[[str], str | None] = shutil.which) -> list[str]:

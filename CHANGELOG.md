@@ -7,6 +7,7 @@ All notable shipped revisions of b-agentic are recorded here. Version numbers ma
 ### Removed
 
 - Remove the Cursor runtime adapter and all Cursor-specific install, doctor, acceptance, policy, and docs surfaces.
+- Remove `references/contract/shell-tools.md`; the required shell-tool and RTK preferences now live in the always-loaded kernel template.
 
 ### Security
 
