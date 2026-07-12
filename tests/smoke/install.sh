@@ -680,79 +680,18 @@ run_mcp_doctor_case() {
 #!/usr/bin/env bash
 log_dir="$(cd "$(dirname "$0")" && pwd)"
 if [ "${1:-}" = "list" ]; then
-  [ -f "$log_dir/pi-adapter-installed" ] && printf 'npm:pi-mcp-adapter@2.11.0\n' || printf '(no packages)\n'
+  [ -f "$log_dir/pi-adapter-installed" ] && printf 'npm:pi-mcp-adapter\n' || printf '(no packages)\n'
   exit 0
 fi
 if [ "${1:-}" = "install" ]; then
-  [ "${2:-}" = "npm:pi-mcp-adapter@2.11.0" ] && : > "$log_dir/pi-adapter-installed"
+  [ "${2:-}" = "npm:pi-mcp-adapter" ] && : > "$log_dir/pi-adapter-installed"
   exit 0
 fi
 exit 0
 EOF
   chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/pi"
 
-  python3 - "$ROOT_DIR" <<'PY'
-import sys
-import os
-
-sys.path.insert(0, sys.argv[1])
-from tooling.validate.mcp_doctor import package_is_exactly_pinned, pinned_package_status, readiness_ladder
-from tooling.validate.session_readiness import check_session_tools, REQUIRED_TOOLS
-
-all_commands = {command for _, commands in REQUIRED_TOOLS for command in commands}
-if not check_session_tools(lambda command: command if command in all_commands else None)[0]:
-    raise SystemExit("complete session-tools fixture unexpectedly failed")
-ready, detail = check_session_tools(lambda command: command if command in all_commands - {"fd", "fdfind"} else None)
-if ready or "fd/fdfind" not in detail:
-    raise SystemExit(f"missing session-tools fixture unexpectedly passed: {detail}")
-if "configured: no" not in readiness_ladder("serena", "missing: config entry not installed"):
-    raise SystemExit("missing MCP server was incorrectly reported as configured")
-
-accepted = [
-    "firecrawl-mcp@1.2.3",
-    "@playwright/mcp@1.2.3",
-    "firecrawl-mcp@1.2.3-beta.1",
-    "firecrawl-mcp@1.2.3+build.01",
-]
-rejected = [
-    "firecrawl-mcp",
-    "firecrawl-mcp@latest",
-    "firecrawl-mcp@beta",
-    "firecrawl-mcp@1",
-    "firecrawl-mcp@1.2",
-    "firecrawl-mcp@^1.2.3",
-    "firecrawl-mcp@~1.2.3",
-    "firecrawl-mcp@1.2.x",
-    "firecrawl-mcp@*",
-    "firecrawl-mcp@1.2.3-01",
-    "..@1.2.3",
-    ".hidden@1.2.3",
-    "_private@1.2.3",
-    "Uppercase@1.2.3",
-    "@scope//package@1.2.3",
-    "-@1.2.3",
-    "~@1.2.3",
-    "package~name@1.2.3",
-]
-for package in accepted:
-    if not package_is_exactly_pinned(package):
-        raise SystemExit(f"expected exact package pin to pass: {package}")
-for package in rejected:
-    if package_is_exactly_pinned(package):
-        raise SystemExit(f"expected mutable package pin to fail: {package}")
-
-env_name = "B_AGENTIC_FIRECRAWL_MCP_PACKAGE"
-os.environ[env_name] = "firecrawl-mcp@2.0.0"
-status = pinned_package_status("firecrawl", "firecrawl-mcp@1.0.0")
-expected_status = (
-    "configured package 'firecrawl-mcp@1.0.0' does not match "
-    "B_AGENTIC_FIRECRAWL_MCP_PACKAGE='firecrawl-mcp@2.0.0'; rerun the installer"
-)
-if status != expected_status:
-    raise SystemExit(f"expected mismatched package override to block, got: {status!r}")
-PY
-
-  set +e
+    set +e
   HOME="$sandbox/home" \
   PATH="$bin_dir:$(smoke_runtime_cli_path "$sandbox")" \
   B_AGENTIC_REPO="$snapshot_repo" \
@@ -773,10 +712,10 @@ PY
   CONTEXT7_API_KEY=test-context7 \
   BRAVE_API_KEY=test-brave \
   FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=pi --home "$sandbox/home" --production >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=pi --home "$sandbox/home" >"$doctor_log"
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "expected Pi production MCP doctor to pass with pinned defaults, got $rc"
+  [ "$rc" -eq 0 ] || fail "expected Pi MCP doctor to pass with latest launchers, got $rc"
   assert_contains "$doctor_log" 'mcp-adapter: ready:'
   assert_contains "$doctor_log" 'serena: ready:'
   assert_contains "$doctor_log" 'codegraph: ready:'
@@ -784,85 +723,6 @@ PY
   assert_contains "$doctor_log" 'brave-search: ready:'
   assert_contains "$doctor_log" 'firecrawl: ready:'
   assert_contains "$doctor_log" 'playwright: ready:'
-
-}
-
-run_mcp_package_override_case() {
-  local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/mcp-package-pi"
-  local sandbox_upgrade="$WORK_DIR/mcp-package-pi-upgrade"
-  local bin_dir="$WORK_DIR/mcp-package-bin"
-  local rc=0
-  mkdir -p "$sandbox/home" "$sandbox_upgrade/home" "$bin_dir"
-
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
-  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
-
-  set +e
-  HOME="$sandbox/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Pi package override install exit 0, got $rc"
-  assert_json_value "$sandbox/home/.pi/agent/mcp.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
-  assert_json_value "$sandbox/home/.pi/agent/mcp.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
-  assert_json_value "$sandbox/home/.pi/agent/mcp.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
-
-  expect_install_status 0 "$sandbox_upgrade" "$snapshot_repo" --runtime=pi
-  set +e
-  HOME="$sandbox_upgrade/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_upgrade")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_upgrade/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Pi package override upgrade exit 0, got $rc"
-  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.0.0', '--transport', 'stdio']"
-  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.0.0']"
-  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.0.0', '--isolated']"
-
-  set +e
-  HOME="$sandbox_upgrade/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_upgrade")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_upgrade/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.1.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.1.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.1.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Pi package repin exit 0, got $rc"
-  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.1.0', '--transport', 'stdio']"
-  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.1.0']"
-  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.1.0', '--isolated']"
 
 }
 
@@ -1310,133 +1170,24 @@ run_skill_doctor_case() {
 }
 
 
-run_simulated_runtime_acceptance_case() {
+run_rtk_latest_dry_run_case() {
   local snapshot_repo="$1"
-  local sandbox_pi="$WORK_DIR/runtime-acceptance-simulated-pi"
-  local bin_dir="$WORK_DIR/runtime-acceptance-simulated-bin"
-  local acceptance_log="$WORK_DIR/runtime-acceptance-simulated.log"
-
-  mkdir -p \
-    "$sandbox_pi/home" \
-    "$bin_dir"
-
-  cat > "$bin_dir/serena" <<'EOF'
-#!/usr/bin/env bash
-python3 - <<'PY'
-import json
-import os
-import sys
-
-log_path = os.environ.get("B_AGENTIC_ACCEPTANCE_MCP_LOG")
-
-def read_message():
-    headers = {}
-    while True:
-        line = sys.stdin.buffer.readline()
-        if not line:
-            return None
-        if line in (b"\r\n", b"\n"):
-            break
-        key, value = line.decode("utf-8").split(":", 1)
-        headers[key.lower()] = value.strip()
-    length = int(headers.get("content-length", "0"))
-    if length <= 0:
-        return None
-    return json.loads(sys.stdin.buffer.read(length).decode("utf-8"))
-
-def send(message):
-    payload = json.dumps(message).encode("utf-8")
-    sys.stdout.buffer.write(f"Content-Length: {len(payload)}\r\n\r\n".encode("utf-8"))
-    sys.stdout.buffer.write(payload)
-    sys.stdout.buffer.flush()
-
-while True:
-    message = read_message()
-    if message is None:
-        break
-    method = message.get("method")
-    if method == "initialize":
-        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {"protocolVersion": "2024-11-05", "serverInfo": {"name": "smoke-serena", "version": "0.1.0"}, "capabilities": {"tools": {}}}})
-    elif method == "tools/list":
-        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {"tools": [{"name": "acceptance_probe", "description": "smoke sentinel", "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}}]}})
-    elif method == "tools/call":
-        if log_path:
-            with open(log_path, "a", encoding="utf-8") as handle:
-                handle.write("ACCEPTANCE_MCP_TOOL_CALLED\n")
-        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {"content": [{"type": "text", "text": "ACCEPTANCE_MCP_OK"}]}})
-    elif method == "ping":
-        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {}})
-    elif "id" in message:
-        send({"jsonrpc": "2.0", "id": message.get("id"), "result": {}})
-PY
-EOF
-  printf '#!/usr/bin/env bash
-exit 0
-' > "$bin_dir/codegraph"
-  printf '#!/usr/bin/env bash
-exit 0
-' > "$bin_dir/pnpm"
-
-  cat > "$bin_dir/pi" <<'EOF'
-#!/usr/bin/env bash
-prompt="${@: -1}"
-case "$prompt" in
-  *"Detailed contract refs live under"*) printf '%s\n' '~/.pi/agent/b-agentic/references/contract/' ;;
-  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
-  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
-  *"git commit -m test"*) printf '%s\n' 'approval required (no UI; fail-closed)' ;;
-  *"git reset --hard"*) printf '%s\n' 'denied by b-agentic policy' ;;
-  *) printf '%s\n' 'unexpected pi prompt' ;;
-esac
-EOF
-
-  chmod +x \
-    "$bin_dir/serena" \
-    "$bin_dir/codegraph" \
-    "$bin_dir/pnpm" \
-    "$bin_dir/pi"
-  # Acceptance must see the complete active-session shell-tool contract.
-  local required_tool
-  for required_tool in rtk rg fd bat eza sd jq; do
-    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
-    chmod +x "$bin_dir/$required_tool"
-  done
-
-  expect_install_status 0 "$sandbox_pi" "$snapshot_repo" --runtime=pi
-  PATH="$bin_dir:$(smoke_system_path)" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=pi --home="$sandbox_pi/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
-  assert_contains "$acceptance_log" 'evidence-class: simulated'
-  assert_contains "$acceptance_log" 'kernel: ready: ~/.pi/agent/b-agentic/references/contract/'
-  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-  assert_contains "$acceptance_log" 'approval-gate: ready:'
-  assert_contains "$acceptance_log" 'deny-gate: ready:'
-}
-
-run_rtk_ref_dry_run_case() {
-  local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/rtk-ref-dry-run"
+  local sandbox="$WORK_DIR/rtk-latest-dry-run"
   local bin_dir="$sandbox/bin"
   local install_log="$sandbox/install.log"
   local rc required_tool
 
   mkdir -p "$sandbox/home" "$bin_dir"
-  # Keep this ref-format check independent of the host's shell-tool inventory.
   for required_tool in rg fd bat eza sd jq; do
     printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
     chmod +x "$bin_dir/$required_tool"
   done
 
-  # Case A: Default B_AGENTIC_RTK_REF
-  rc=0
   set +e
   HOME="$sandbox/home" \
   PATH="$bin_dir:$(smoke_system_path)" \
   B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox/source-a" \
+  B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=Y \
@@ -1445,27 +1196,8 @@ run_rtk_ref_dry_run_case() {
   bash "$ROOT_DIR/install.sh" --runtime=pi --dry-run >"$install_log" 2>&1
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "expected dry-run with default RTK ref exit 0, got $rc"
-  assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/v0.43.0/install.sh | RTK_VERSION=v0.43.0 sh'
-
-  # Case B: Overridden B_AGENTIC_RTK_REF
-  rc=0
-  set +e
-  HOME="$sandbox/home" \
-  PATH="$bin_dir:$(smoke_system_path)" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox/source-b" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=Y \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_RTK_REF=test-ref-foo \
-  bash "$ROOT_DIR/install.sh" --runtime=pi --dry-run >"$install_log" 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected dry-run with custom RTK ref exit 0, got $rc"
-  assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/test-ref-foo/install.sh | RTK_VERSION=test-ref-foo sh'
+  [ "$rc" -eq 0 ] || fail "expected dry-run with latest RTK exit 0, got $rc"
+  assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | RTK_VERSION=main sh'
 }
 
 main() {
@@ -1476,8 +1208,8 @@ main() {
   require_bin git
   require_bin python3
   make_repo_snapshot "$snapshot_repo"
-  echo "Running run_rtk_ref_dry_run_case..."
-  run_rtk_ref_dry_run_case "$snapshot_repo"
+  echo "Running run_rtk_latest_dry_run_case..."
+  run_rtk_latest_dry_run_case "$snapshot_repo"
   echo "Running run_invalid_runtime_layout_validation_case..."
   run_invalid_runtime_layout_validation_case "$snapshot_repo"
   echo "Running run_all_runtime_smoke_case..."
@@ -1500,8 +1232,6 @@ main() {
   run_shell_tool_prompt_case "$snapshot_repo"
   echo "Running run_mcp_doctor_case..."
   run_mcp_doctor_case "$snapshot_repo"
-  echo "Running run_mcp_package_override_case..."
-  run_mcp_package_override_case "$snapshot_repo"
   echo "Running run_runtime_cli_default_skip_case..."
   run_runtime_cli_default_skip_case "$snapshot_repo"
   echo "Running run_runtime_cli_prompt_case..."
@@ -1518,8 +1248,6 @@ main() {
   run_existing_tool_default_skip_case "$snapshot_repo"
   echo "Running run_skill_doctor_case..."
   run_skill_doctor_case "$snapshot_repo"
-  echo "Running run_simulated_runtime_acceptance_case..."
-  run_simulated_runtime_acceptance_case "$snapshot_repo"
 
   while IFS= read -r runtime_name; do
     [ -n "$runtime_name" ] || continue

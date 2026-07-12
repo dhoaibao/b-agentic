@@ -101,7 +101,7 @@ set -euo pipefail
 log_dir="$(cd "$(dirname "$0")" && pwd)"
 if [ "${1:-}" = "list" ]; then
   if [ -f "$log_dir/pi-adapter-installed" ]; then
-    printf 'npm:pi-mcp-adapter@2.11.0\n'
+    printf 'npm:pi-mcp-adapter\n'
   else
     printf '(no packages)\n'
   fi
@@ -109,7 +109,7 @@ if [ "${1:-}" = "list" ]; then
 fi
 if [ "${1:-}" = "install" ]; then
   printf '%s\n' "${2:-}" >> "$log_dir/pi-install.log"
-  if [ "${2:-}" = "npm:pi-mcp-adapter@2.11.0" ]; then
+  if [ "${2:-}" = "npm:pi-mcp-adapter" ]; then
     : > "$log_dir/pi-adapter-installed"
   fi
   exit 0

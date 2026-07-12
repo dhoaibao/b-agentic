@@ -38,16 +38,7 @@ Useful flags:
 - `--uninstall` removes managed files
 - `--ref=<tag-or-commit>` checks out that b-agentic git ref before installing managed files
 
-Production pinning knobs:
-
-- `B_AGENTIC_BRAVE_MCP_PACKAGE` overrides `@brave/brave-search-mcp-server@2.0.85`
-- `B_AGENTIC_FIRECRAWL_MCP_PACKAGE` overrides `firecrawl-mcp@3.22.1`
-- `B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE` overrides `@playwright/mcp@0.0.77`
-- `B_AGENTIC_RTK_REF` overrides `v0.43.0` (RTK installer release tag)
-
-Set these package overrides to exact package versions in professional environments. The defaults are pinned, but you can override them when you need a different version or your own package.
-
-Run `scripts/mcp-doctor.sh --runtime=<name>` after setting package overrides and API keys to verify readiness. Missing credentials, unpinned packages, or missing dependencies will fail checks by default. Run with `--allow-degraded` to inspect status without failing on missing/blocked components.
+MCP servers and RTK are installed from their latest available releases. Run `scripts/mcp-doctor.sh --runtime=<name>` after setting API keys to verify local readiness. Missing credentials or dependencies fail checks by default; use `--allow-degraded` to inspect status without failing.
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_RUNTIME_CLI=Y`.
 
@@ -55,9 +46,9 @@ Interactive installs prepare the runtime and install required shell tooling and 
 
 ## RTK (Rust Token Killer)
 
-During interactive installs, the installer can prompt to download and run the RTK install script. By default, this fetches from the pinned release tag `v0.43.0` (latest tagged RTK release as of 2026-07, with no known regressions), resolving to `https://raw.githubusercontent.com/rtk-ai/rtk/v0.43.0/install.sh`. You can override this ref by setting `B_AGENTIC_RTK_REF` to a different release tag. If `rtk` is already installed, the installer asks separately before upgrading it; the existing installation satisfies the prerequisite. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is required for b-agentic sessions; installation fails if it cannot be installed.
+During interactive installs, the installer can prompt to download and run the latest RTK install script from its `main` branch. If `rtk` is already installed, the installer asks separately before upgrading it; the existing installation satisfies the prerequisite. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is required for b-agentic sessions; installation fails if it cannot be installed.
 
-Once installed, the kernel requires the agent to use RTK for command families it supports when filtering preserves the evidence needed for the task. Unsupported commands run directly instead of receiving an invalid `rtk` prefix. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms, but fresh-session acceptance is still required to prove runtime behavior:
+Once installed, the kernel requires the agent to use RTK for command families it supports when filtering preserves the evidence needed for the task. Unsupported commands run directly instead of receiving an invalid `rtk` prefix. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms:
 
 ```bash
 rtk git status
@@ -99,7 +90,7 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 
 | Runtime | Skill invocation | MCP config |
 |---|---|---|
-| Pi | Native skills from `~/.pi/agent/skills/` | `~/.pi/agent/mcp.json` via `pi-mcp-adapter@2.11.0` |
+| Pi | Native skills from `~/.pi/agent/skills/` | `~/.pi/agent/mcp.json` via `pi-mcp-adapter` |
 
 <!-- generated:runtime-capabilities:start -->
 | Runtime | Skills | Permissions | Rules | Wrappers | MCP |
@@ -110,14 +101,14 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 Capability matrix (support labels plus enforceable limits):
 
 <!-- generated:runtime-capability-matrix:start -->
-| Runtime | Support tier | Permission granularity | Kernel loading | Skill mode | MCP adapter | Static | Simulated | Live | Known limitation |
-|---|---|---|---|---|---|---|---|---|---|
-| Pi | operation-enforced | adapter tool_call extension | managed memory file | native | pi-mcp-adapter@2.11.0 | yes | yes | operator evidence required | print-mode cannot prove UI approval |
+| Runtime | Support tier | Permission granularity | Kernel loading | Skill mode | MCP adapter | Static | Known limitation |
+|---|---|---|---|---|---|---|---|
+| Pi | operation-enforced | adapter tool_call extension | managed memory file | native | pi-mcp-adapter | yes | print-mode cannot prove UI approval |
 <!-- generated:runtime-capability-matrix:end -->
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
-Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery, fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`), and operation-level Firecrawl/Playwright read tools, while prompting for approval-required shell commands, Firecrawl/Playwright external-mutation tools, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the pinned community adapter `pi-mcp-adapter@2.11.0` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively); uninstall removes managed config/extension files but not the adapter package. On top of this baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Pi is support tier `operation-enforced` for Firecrawl/Playwright policy derived from `references/contract/mcp_operations.yaml` and `references/contract/safety-tools.md`.
+Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery, fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`), and operation-level Firecrawl/Playwright read tools, while prompting for approval-required shell commands, Firecrawl/Playwright external-mutation tools, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the community adapter `pi-mcp-adapter` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively); uninstall removes managed config/extension files but not the adapter package. On top of this baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Pi is support tier `operation-enforced` for Firecrawl/Playwright policy derived from `references/contract/mcp_operations.yaml` and `references/contract/safety-tools.md`.
 
 ## Skills
 
@@ -159,7 +150,7 @@ The installer writes recommended MCP entries for:
 - Brave Search: secondary public/current discovery and alternate source finding.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
-The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It does report local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK and every required shell tool; runtime acceptance runs the same check before its doctors.
+The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It reports local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK and every required shell tool.
 
 ## Repository Layout
 
@@ -188,43 +179,11 @@ scripts/mcp-doctor.sh --runtime=pi --allow-degraded
 scripts/skill-doctor.sh --runtime=pi
 ```
 
-The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The default routing check is a static heuristic over skill registry metadata, not a live-model routing test. Automated checks do not prove that a live runtime session has loaded the kernel, that approval gates fire in a real session, or that remote MCP calls succeed.
-
-Evidence classes:
-
-- `static`: validation, audit, doctors, and policy regression.
-- `simulated`: `scripts/runtime-acceptance.sh --active` protocol/adapter harness probes. These verify command construction and harness signals; they are not live interactive proof.
-- `live`: operator-observed fresh session, recorded as an attestation with `scripts/record-release-evidence.sh`.
-
-Professional release readiness requires static validation plus current live attestations for every changed runtime. Use `scripts/runtime-acceptance.sh --runtime=<name> --production` after installing a runtime to collect local doctor output, enforce production MCP readiness, and print the required live gates. Add `--active` only for simulated protocol probes. `--active` is available for Pi. Pi print-mode probes can observe fail-closed deny signals, but interactive approval prompts still require a live fresh-session pass.
-
-Record a live operator attestation after an authorized session:
-
-```bash
-scripts/record-release-evidence.sh --runtime=<name> --operator="$USER" \
-  --kernel=pass --skill=pass --mcp=pass --approval-gate=pass --deny-gate=pass
-```
-
-Verify attestations and static gates before a production-ready claim:
-
-```bash
-scripts/verify-release-evidence.sh --runtime=<name> [--require-tag=vYYYY.MM.DD]
-```
-
-Release provenance uses `pyproject.toml` versioning, `CHANGELOG.md`, and optional immutable Git tags (`vYYYY.MM.DD`). Checked-in `release-evidence/` files are operator attestations, not self-proving release gates. Do not label a release production-ready without current live attestations for every changed runtime plus passing static verification.
-
-Live production acceptance for each runtime should include:
-
-- Kernel/memory file is loaded by the runtime.
-- One installed `b-*` skill can be invoked.
-- Configured MCP servers start or report actionable local blockers.
-- Approval gates prompt or deny for commits, pushes, dependency writes, and destructive commands.
-- Browser/MCP/API checks state any missing keys, packages, auth, or remote-service gaps.
+The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The routing check is a static heuristic over skill registry metadata.
 
 ## Docs
 
 - `README.md` is the repository overview.
 - `AGENTS.md` is maintainer guidance.
 - `CHANGELOG.md` records shipped revisions.
-- `release-evidence/` holds live operator attestations and the evidence schema.
 - `references/contract/` contains the runtime contract shipped to adapters, including canonical `mcp_operations.yaml`.

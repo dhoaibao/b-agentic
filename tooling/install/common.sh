@@ -401,28 +401,6 @@ def migrate_managed_values(data):
     if label != 'mcp':
         return
 
-    managed_packages = {
-        'brave-search': {'@brave/brave-search-mcp-server', '@brave/brave-search-mcp-server@2.0.85'},
-        'firecrawl': {'firecrawl-mcp', 'firecrawl-mcp@3.22.1'},
-        'playwright': {'@playwright/mcp@latest', '@playwright/mcp@0.0.77'},
-    }
-    package_override_env = {
-        'brave-search': 'B_AGENTIC_BRAVE_MCP_PACKAGE',
-        'firecrawl': 'B_AGENTIC_FIRECRAWL_MCP_PACKAGE',
-        'playwright': 'B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE',
-    }
-
-    for server_name, incoming_server in (recommended.get('mcpServers') or recommended.get('mcp') or {}).items():
-        package_name = None
-        if isinstance(incoming_server, dict):
-            incoming_args = incoming_server.get('args')
-            incoming_command = incoming_server.get('command')
-            if isinstance(incoming_args, list) and len(incoming_args) >= 2 and incoming_args[0] == 'dlx':
-                package_name = incoming_args[1]
-            elif isinstance(incoming_command, list) and len(incoming_command) >= 3 and incoming_command[1] == 'dlx':
-                package_name = incoming_command[2]
-        if isinstance(package_name, str) and package_name:
-            managed_packages.setdefault(server_name, set()).add(package_name)
 
     def migrate_managed_launcher(server, incoming_server, old_command, old_args=None):
         if not isinstance(server, dict) or not isinstance(incoming_server, dict):
@@ -453,22 +431,17 @@ def migrate_managed_values(data):
     def replace_managed_package(server_name, server, incoming_server):
         if not isinstance(server, dict) or not isinstance(incoming_server, dict):
             return
-        packages = managed_packages.get(server_name)
-        if not packages:
-            return
-        override_requested = package_override_env.get(server_name) in os.environ
-
         incoming_args = incoming_server.get('args')
         if isinstance(incoming_args, list) and len(incoming_args) >= 2 and incoming_args[0] == 'dlx':
             current_args = server.get('args')
-            if isinstance(current_args, list) and len(current_args) >= 2 and current_args[0] == 'dlx' and (override_requested or current_args[1] in packages):
+            if isinstance(current_args, list) and len(current_args) >= 2 and current_args[0] == 'dlx':
                 server['args'] = list(incoming_args)
             return
 
         incoming_command = incoming_server.get('command')
         if isinstance(incoming_command, list) and len(incoming_command) >= 3 and incoming_command[1] == 'dlx':
             current_command = server.get('command')
-            if isinstance(current_command, list) and len(current_command) >= 3 and current_command[0] == incoming_command[0] and current_command[1] == 'dlx' and (override_requested or current_command[2] in packages):
+            if isinstance(current_command, list) and len(current_command) >= 3 and current_command[0] == incoming_command[0] and current_command[1] == 'dlx':
                 server['command'] = list(incoming_command)
 
     def replace_managed_serena(server, incoming_server):
@@ -1256,43 +1229,7 @@ install_mcp_config() {
   local rendered_template=""
 
   rendered_template="$(mktemp "${TMPDIR:-/tmp}/b-agentic-mcp-template.XXXXXX")"
-  env \
-    TEMPLATE_SRC="$template_src" \
-    TEMPLATE_DST="$rendered_template" \
-    B_AGENTIC_BRAVE_MCP_PACKAGE="${B_AGENTIC_BRAVE_MCP_PACKAGE:-@brave/brave-search-mcp-server@2.0.85}" \
-    B_AGENTIC_FIRECRAWL_MCP_PACKAGE="${B_AGENTIC_FIRECRAWL_MCP_PACKAGE:-firecrawl-mcp@3.22.1}" \
-    B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE="${B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE:-@playwright/mcp@0.0.77}" \
-    python3 - <<'PY'
-import json
-import os
-from pathlib import Path
-
-src = Path(os.environ['TEMPLATE_SRC'])
-dst = Path(os.environ['TEMPLATE_DST'])
-data = json.loads(src.read_text())
-packages = {
-    'brave-search': os.environ['B_AGENTIC_BRAVE_MCP_PACKAGE'],
-    'firecrawl': os.environ['B_AGENTIC_FIRECRAWL_MCP_PACKAGE'],
-    'playwright': os.environ['B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE'],
-}
-
-servers = data.get('mcpServers') or data.get('mcp') or {}
-if not isinstance(servers, dict):
-    raise SystemExit('MCP template must contain a server object')
-
-for server_name, package_name in packages.items():
-    server = servers.get(server_name)
-    if not isinstance(server, dict):
-        continue
-    args = server.get('args')
-    if isinstance(args, list) and len(args) >= 2 and args[0] == 'dlx':
-        args[1] = package_name
-    command = server.get('command')
-    if isinstance(command, list) and len(command) >= 3 and command[1] == 'dlx':
-        command[2] = package_name
-
-dst.write_text(json.dumps(data, indent=2, sort_keys=False) + '\n')
-PY
+  cp "$template_src" "$rendered_template"
   merge_json_file "$rendered_template" "$MCP_CONFIG_DST" "mcp" "$MCP_BACKUP_KEY"
   rm -f "$rendered_template"
 }

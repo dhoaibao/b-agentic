@@ -16,10 +16,10 @@ Adapter-owned layout for Pi.
 
 Pi does not provide native MCP. b-agentic installs MCP server entries into
 `~/.pi/agent/mcp.json` and expects the community package
-`pi-mcp-adapter@2.11.0` to load them.
+`pi-mcp-adapter` to load them.
 
 Interactive installs prompt before running
-`pi install npm:pi-mcp-adapter@2.11.0`. Noninteractive installs run that only
+`pi install npm:pi-mcp-adapter`. Noninteractive installs run that only
 when `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` is set. Uninstall removes
 b-agentic-managed MCP config and the permission extension; it does not remove
 the adapter package.

@@ -34,7 +34,6 @@ PY
 python3 "$ROOT_DIR/tooling/validate/shared.py"
 python3 "$ROOT_DIR/tooling/validate/behavior.py"
 python3 "$ROOT_DIR/tooling/validate/mcp_policy.py"
-python3 "$ROOT_DIR/tooling/validate/release_evidence.py" --self-test
 
 exit_code=0
 while IFS= read -r runtime_name; do

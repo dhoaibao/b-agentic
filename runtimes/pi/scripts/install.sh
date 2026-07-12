@@ -20,8 +20,8 @@ readonly EXTENSIONS_DST="$PI_AGENT_DIR/extensions"
 readonly EXTENSION_DST="$EXTENSIONS_DST/b-agentic-permissions.ts"
 readonly EXTENSION_SNAPSHOT_DST="$METADATA_DIR/extensions/b-agentic-permissions.ts"
 readonly EXTENSION_SRC="$SOURCE_DIR/runtimes/pi/extensions/b-agentic-permissions.ts"
-readonly PI_MCP_ADAPTER_SPEC="npm:pi-mcp-adapter@2.11.0"
-readonly PI_MCP_ADAPTER_PACKAGE="pi-mcp-adapter@2.11.0"
+readonly PI_MCP_ADAPTER_SPEC="npm:pi-mcp-adapter"
+readonly PI_MCP_ADAPTER_PACKAGE="pi-mcp-adapter"
 readonly MCP_ROOT_KEY="mcpServers"
 readonly MCP_PLACEHOLDER_STYLE="claude"
 readonly MCP_CONTEXT7_SECTION="headers"
@@ -45,7 +45,7 @@ runtime_warn_missing_cli() {
   command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
   command -v pnpm >/dev/null 2>&1 || warn "pnpm not found; MCP servers that use 'pnpm dlx' (Brave, Firecrawl, Playwright) will not start until pnpm is installed."
   if command -v pi >/dev/null 2>&1 && ! pi_mcp_adapter_installed; then
-    warn "pi-mcp-adapter@2.11.0 not installed; MCP servers will not load until the adapter is installed."
+    warn "pi-mcp-adapter not installed; MCP servers will not load until the adapter is installed."
   fi
 }
 
@@ -92,9 +92,7 @@ pi_mcp_adapter_installed() {
     PI_CODING_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}" \
     pi list 2>/dev/null || true
   )"
-  printf '%s\n' "$listing" | grep -Eq 'pi-mcp-adapter(@| ).*2\.11\.0|npm:pi-mcp-adapter@2\.11\.0' && return 0
-  # Accept exact package path listings that pin 2.11.0.
-  printf '%s\n' "$listing" | grep -Fq 'pi-mcp-adapter@2.11.0'
+  printf '%s\n' "$listing" | grep -Eq 'pi-mcp-adapter(@| )|npm:pi-mcp-adapter'
 }
 
 install_pi_mcp_adapter_enabled() {

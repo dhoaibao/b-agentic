@@ -54,7 +54,6 @@ RUNTIME_CAPABILITY_KEYS = [
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
 RUNTIME_SUPPORT_TIERS = {"operation-enforced", "guidance-shell-only"}
-RUNTIME_PRODUCTION_CLAIMS = {"full-with-live-evidence", "shell-gated-only", "excluded"}
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
     "pi-json",
 }
@@ -300,18 +299,6 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
                 f"{sorted(RUNTIME_SUPPORT_TIERS)}, found {support_tier!r}"
             )
         ensure_string(runtime.get("mcp_enforcement"), f"runtimes[{index}].mcp_enforcement", errors)
-        production_claim = ensure_string(
-            runtime.get("production_claim"), f"runtimes[{index}].production_claim", errors
-        )
-        if production_claim and production_claim not in RUNTIME_PRODUCTION_CLAIMS:
-            errors.append(
-                f"runtimes[{index}].production_claim: expected one of "
-                f"{sorted(RUNTIME_PRODUCTION_CLAIMS)}, found {production_claim!r}"
-            )
-        if support_tier == "guidance-shell-only" and production_claim == "full-with-live-evidence":
-            errors.append(
-                f"runtimes[{index}]: guidance-shell-only runtimes cannot claim full-with-live-evidence"
-            )
         config_install_path = ensure_string(runtime.get("config_install_path"), f"runtimes[{index}].config_install_path", errors)
         if config_install_path and not config_install_path.startswith("~/"):
             errors.append(f"runtimes[{index}].config_install_path: must use a ~/ path")
@@ -490,7 +477,7 @@ def permission_granularity(runtime: dict) -> str:
 
 def mcp_adapter_dependency(runtime: dict) -> str:
     if runtime["name"] == "pi":
-        return "pi-mcp-adapter@2.11.0"
+        return "pi-mcp-adapter"
     mcp = runtime["capabilities"]["mcp"]
     if mcp["support"] == "native":
         return "none (native)"
@@ -562,8 +549,6 @@ def render_readme_runtime_capability_matrix(runtimes: list[dict]) -> str:
         "Skill mode",
         "MCP adapter",
         "Static",
-        "Simulated",
-        "Live",
         "Known limitation",
     ]
     lines = [
@@ -584,8 +569,6 @@ def render_readme_runtime_capability_matrix(runtimes: list[dict]) -> str:
                     skill_mode,
                     mcp_adapter_dependency(runtime),
                     "yes",
-                    "yes",
-                    "operator evidence required",
                     known_limitation(runtime),
                 ]
             )

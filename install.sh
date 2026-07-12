@@ -23,7 +23,6 @@ UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 RUNTIME="${B_AGENTIC_RUNTIME:-pi}"
 INSTALL_RTK_VALUE="${B_AGENTIC_INSTALL_RTK:-auto}"
-B_AGENTIC_RTK_REF="${B_AGENTIC_RTK_REF:-v0.43.0}"
 INSTALL_SHELL_TOOLS_VALUE="${B_AGENTIC_INSTALL_SHELL_TOOLS:-auto}"
 INSTALL_RUNTIME_CLI_VALUE="${B_AGENTIC_INSTALL_RUNTIME_CLI:-auto}"
 INSTALL_SERENA_VALUE="${B_AGENTIC_INSTALL_SERENA:-auto}"
@@ -445,11 +444,11 @@ install_rtk() {
         ;;
     esac
     if dry_run_enabled; then
-      printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/%s/install.sh | RTK_VERSION=%s sh\n' "$B_AGENTIC_RTK_REF" "$B_AGENTIC_RTK_REF" >&2
+      printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | RTK_VERSION=main sh\n' >&2
       return 0
     fi
     log "RTK already installed; upgrading"
-    if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/${B_AGENTIC_RTK_REF}/install.sh" | RTK_VERSION="${B_AGENTIC_RTK_REF}" sh; then
+    if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh" | RTK_VERSION=main sh; then
       log "RTK upgraded"
     else
       warn "RTK upgrade failed; continuing with existing RTK"
@@ -473,12 +472,12 @@ install_rtk() {
   esac
 
   if dry_run_enabled; then
-    printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/%s/install.sh | RTK_VERSION=%s sh\n' "$B_AGENTIC_RTK_REF" "$B_AGENTIC_RTK_REF" >&2
+    printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | RTK_VERSION=main sh\n' >&2
     return 0
   fi
 
   log "Installing RTK"
-  if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/${B_AGENTIC_RTK_REF}/install.sh" | RTK_VERSION="${B_AGENTIC_RTK_REF}" sh; then
+  if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh" | RTK_VERSION=main sh; then
     log "RTK installed"
   else
     die "RTK installation failed; b-agentic requires RTK"

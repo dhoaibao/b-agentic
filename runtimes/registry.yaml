@@ -8,7 +8,6 @@
       "reference_runtime": true,
       "support_tier": "operation-enforced",
       "mcp_enforcement": "tool_call extension",
-      "production_claim": "full-with-live-evidence",
       "kernel_source": "runtimes/pi/kernel.md",
       "memory_file": "AGENTS.md",
       "memory_install_path": "~/.pi/agent/AGENTS.md",

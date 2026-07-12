@@ -48,7 +48,7 @@ run_runtime_smoke_cases() {
   assert_file "$sandbox_adapter/home/.pi/agent/b-agentic/install.json"
   assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "ready"'
   assert_file "$sandbox_adapter/smoke-bin/pi-install.log"
-  assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-mcp-adapter@2.11.0'
+  assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-mcp-adapter'
 
   # Preserve user-owned kernel.
   mkdir -p "$sandbox_preserve/home/.pi/agent"
