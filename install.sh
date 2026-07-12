@@ -444,11 +444,11 @@ install_rtk() {
         ;;
     esac
     if dry_run_enabled; then
-      printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | RTK_VERSION=main sh\n' >&2
+      printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh\n' >&2
       return 0
     fi
     log "RTK already installed; upgrading"
-    if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh" | RTK_VERSION=main sh; then
+    if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh" | sh; then
       log "RTK upgraded"
     else
       warn "RTK upgrade failed; continuing with existing RTK"
@@ -472,12 +472,12 @@ install_rtk() {
   esac
 
   if dry_run_enabled; then
-    printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | RTK_VERSION=main sh\n' >&2
+    printf '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh\n' >&2
     return 0
   fi
 
   log "Installing RTK"
-  if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh" | RTK_VERSION=main sh; then
+  if curl -fsSL "https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh" | sh; then
     log "RTK installed"
   else
     die "RTK installation failed; b-agentic requires RTK"

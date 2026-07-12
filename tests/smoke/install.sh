@@ -1197,7 +1197,7 @@ run_rtk_latest_dry_run_case() {
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected dry-run with latest RTK exit 0, got $rc"
-  assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/main/install.sh | RTK_VERSION=main sh'
+  assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh'
 }
 
 main() {
