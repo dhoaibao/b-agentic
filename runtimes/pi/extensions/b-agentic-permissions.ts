@@ -209,7 +209,7 @@ function tokenize(command: string): string[] {
   return tokens;
 }
 
-/** Split on shell operators outside quotes. Unbalanced quotes => single segment (caller may fail closed). */
+/** Split on shell command separators outside quotes. Unbalanced quotes => single segment (caller may fail closed). */
 function splitShellSegments(command: string): string[] {
   const segments: string[] = [];
   let current = "";
@@ -227,6 +227,16 @@ function splitShellSegments(command: string): string[] {
     if (ch === "'" || ch === '"') {
       quote = ch;
       current += ch;
+      continue;
+    }
+    if (ch === "\n" || ch === "\r") {
+      if (current.trim()) {
+        segments.push(current.trim());
+      }
+      current = "";
+      if (ch === "\r" && next === "\n") {
+        i += 1;
+      }
       continue;
     }
     if (ch === ";" || ch === "|") {

@@ -27,6 +27,8 @@ ROUTING_TRIGGERS_START = "<!-- generated:routing-triggers:start -->"
 ROUTING_TRIGGERS_END = "<!-- generated:routing-triggers:end -->"
 MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
 MCP_OPERATIONS_END = "<!-- generated:mcp-operations:end -->"
+KERNEL_ROUTING_START = "<!-- generated:kernel-routing:start -->"
+KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
 MCP_OPERATIONS_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
 
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
@@ -54,9 +56,6 @@ RUNTIME_CAPABILITY_KEYS = [
 RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
 RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
 RUNTIME_SUPPORT_TIERS = {"operation-enforced", "guidance-shell-only"}
-RUNTIME_CONFIG_SCHEMA_FAMILIES = {
-    "pi-json",
-}
 
 
 def load_json_subset_yaml(path: Path) -> dict:
@@ -302,12 +301,7 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         config_install_path = ensure_string(runtime.get("config_install_path"), f"runtimes[{index}].config_install_path", errors)
         if config_install_path and not config_install_path.startswith("~/"):
             errors.append(f"runtimes[{index}].config_install_path: must use a ~/ path")
-        config_schema_family = ensure_string(runtime.get("config_schema_family"), f"runtimes[{index}].config_schema_family", errors)
-        if config_schema_family and config_schema_family not in RUNTIME_CONFIG_SCHEMA_FAMILIES:
-            errors.append(
-                f"runtimes[{index}].config_schema_family: expected one of "
-                f"{sorted(RUNTIME_CONFIG_SCHEMA_FAMILIES)}, found {config_schema_family!r}"
-            )
+        ensure_string(runtime.get("config_schema_family"), f"runtimes[{index}].config_schema_family", errors)
         validate_runtime_reference_layout(runtime, f"runtimes[{index}]", errors)
 
         reference_runtime = runtime.get("reference_runtime")
@@ -667,16 +661,32 @@ def render_skill_file(skill: dict) -> str:
     return "\n".join(lines)
 
 
-def render_kernel(runtime: dict) -> str:
-    template_text = KERNEL_TEMPLATE_PATH.read_text()
-    return apply_template_tokens(
-        template_text,
+def render_kernel_routing(skills: list[dict]) -> str:
+    lines: list[str] = []
+    for skill in skills:
+        routing = skill.get("routing")
+        if isinstance(routing, dict):
+            lines.append(f"- {routing['intent']} -> `{skill['name']}`.")
+        elif skill["name"] == "b-summary":
+            lines.append("- Commit or PR summary for staged changes -> `b-summary` only on explicit user request.")
+    return "\n".join(lines)
+
+
+def render_kernel(runtime: dict, skills: list[dict]) -> str:
+    template_text = apply_template_tokens(
+        KERNEL_TEMPLATE_PATH.read_text(),
         {
             RUNTIME_DISPLAY_NAME_TOKEN: runtime["display_name"],
             RUNTIME_METADATA_ROOT_TOKEN: runtime["metadata_root"],
             RUNTIME_MEMORY_FILE_TOKEN: runtime["memory_file"],
         },
         KERNEL_TEMPLATE_PATH,
+    )
+    return replace_block(
+        template_text,
+        KERNEL_ROUTING_START,
+        KERNEL_ROUTING_END,
+        render_kernel_routing(skills),
     )
 
 
@@ -743,7 +753,7 @@ def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
 
     exposed_skills = [skill for skill in skills if skill["command"]["exposed"]]
     for runtime in runtimes:
-        outputs[ROOT / runtime["kernel_source"]] = render_kernel(runtime)
+        outputs[ROOT / runtime["kernel_source"]] = render_kernel(runtime, skills)
         command_wrappers = runtime.get("command_wrappers")
         if not isinstance(command_wrappers, dict) or not command_wrappers.get("supported"):
             continue

@@ -114,6 +114,10 @@ expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git pu
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
 expect(t.commandDecision('ls -la').decision === 'allow', 'ls must allow');
 expect(t.commandDecision('cd . && ls').decision === 'allow', 'cd . && ls must allow (not ambiguous)');
+expect(t.commandDecision('printf x\ngit reset --hard').decision === 'deny', 'newline-separated reset --hard must deny');
+expect(t.commandDecision('printf x\r\ngit reset --hard').decision === 'deny', 'CRLF-separated reset --hard must deny');
+expect(t.commandDecision('printf x\ncat .env').decision === 'ask', 'newline-separated protected path must ask');
+expect(t.commandDecision('printf x\nprintf y').decision === 'allow', 'benign multiline commands must allow');
 expect(t.commandDecision('cat .env').decision === 'ask', 'bare protected shell path must ask');
 expect(t.commandDecision('cat .env.local').decision === 'ask', 'root-relative protected shell path variant must ask');
 expect(t.commandDecision('cat /tmp/.env.production').decision === 'ask', 'absolute protected shell path variant must ask');

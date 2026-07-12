@@ -20,17 +20,19 @@ Use these rules before any skill-specific instruction.
 
 ## Routing
 
-- Planning, unclear scope, or implementation approach -> `b-plan`.
-- Frontend design standard or `docs/DESIGN.md` authoring -> `b-design`.
-- External docs/API/current facts -> `b-research`.
-- Approved plan or small direct build -> `b-implement`.
-- Initialize or refresh repo-local agent instruction docs -> `b-init`.
-- Named behavior-preserving rename/extract/move/inline/simplify/delete -> `b-refactor`.
-- Runtime bug, broken behavior, stack trace, slowdown -> `b-debug`.
-- Unit/integration/contract/component/simulated-DOM tests -> `b-test`.
-- Browser, visual, screenshot, live UI, session, or e2e evidence -> `b-browser`.
-- Changed-code review or b-agentic suite audit -> `b-review`.
+<!-- generated:kernel-routing:start -->
+- Clarify fuzzy work, compare approaches, decompose execution -> `b-plan`.
+- External docs, API facts, versions, comparisons -> `b-research`.
+- Frontend design standard and docs/DESIGN.md authoring -> `b-design`.
+- Implement approved or clearly scoped work -> `b-implement`.
+- Initialize repo-local agent instruction files -> `b-init`.
+- Mechanical rename, extract, move, inline, simplify, delete dead code -> `b-refactor`.
+- Runtime bug, error, "not working" -> `b-debug`.
+- Unit/integration/component tests, coverage, failing tests -> `b-test`.
+- Real-browser, visual, and e2e verification -> `b-browser`.
+- Pre-PR changed-code review and b-agentic suite audit -> `b-review`.
 - Commit or PR summary for staged changes -> `b-summary` only on explicit user request.
+<!-- generated:kernel-routing:end -->
 
 ## Shell commands
 

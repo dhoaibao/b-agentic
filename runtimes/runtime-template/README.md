@@ -36,3 +36,11 @@ When registering a new runtime in `runtimes/registry.yaml`, `skills_install_root
 ```
 
 The renderer hardcodes `RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/references"` into every generated `SKILL.md`. A `SKILL.md` installed at `skills_install_root/<skill>/SKILL.md` resolves that path to `<parent>/b-agentic/references`. If `skills_install_root` and `metadata_root` do not share a parent — or if `metadata_root` is not named `b-agentic` — every read-gate in every installed skill will point to a non-existent path at runtime. The shared validator enforces this invariant.
+
+## Adapter-owned config schema
+
+`config_schema_family` is an adapter-defined non-empty identifier, not a shared
+allowlist. The adapter's validator and readiness tooling own the semantics of
+that schema. An adapter declaring `support_tier: operation-enforced` must also
+add its MCP operation-policy validator to `tooling/validate/mcp_policy.py`; the
+shared regression fails closed until it does.

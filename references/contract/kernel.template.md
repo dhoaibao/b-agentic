@@ -20,17 +20,8 @@ Use these rules before any skill-specific instruction.
 
 ## Routing
 
-- Planning, unclear scope, or implementation approach -> `b-plan`.
-- Frontend design standard or `docs/DESIGN.md` authoring -> `b-design`.
-- External docs/API/current facts -> `b-research`.
-- Approved plan or small direct build -> `b-implement`.
-- Initialize or refresh repo-local agent instruction docs -> `b-init`.
-- Named behavior-preserving rename/extract/move/inline/simplify/delete -> `b-refactor`.
-- Runtime bug, broken behavior, stack trace, slowdown -> `b-debug`.
-- Unit/integration/contract/component/simulated-DOM tests -> `b-test`.
-- Browser, visual, screenshot, live UI, session, or e2e evidence -> `b-browser`.
-- Changed-code review or b-agentic suite audit -> `b-review`.
-- Commit or PR summary for staged changes -> `b-summary` only on explicit user request.
+<!-- generated:kernel-routing:start -->
+<!-- generated:kernel-routing:end -->
 
 ## Shell commands
 

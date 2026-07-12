@@ -106,6 +106,27 @@ def resolve_config_path(runtime: dict, home: Path) -> Path:
     return home / config_path[2:] if config_path.startswith("~/") else Path(config_path).expanduser()
 
 
+def pi_runtime_doctor(runtime: dict, home: Path, allow_degraded: bool) -> int:
+    config_path = resolve_config_path(runtime, home)
+    if not config_path.exists():
+        print(f"runtime: pi\nconfig: {config_path}\nstatus: missing runtime config")
+        return 0 if allow_degraded else 1
+
+    config = load_json(config_path)
+    adapter_ready, adapter_status = pi_mcp_adapter_ready(home)
+    print(f"runtime: pi\nconfig: {config_path}\nstartup-check: not attempted; validates local launchers, keys, and config shape only")
+    print(f"mcp-adapter: {adapter_status}")
+    blocked = not adapter_ready
+    for server in SUPPORTED_SERVERS:
+        status = pi_server_status(server, config)
+        print(f"{server}: {status}")
+        blocked = blocked or status.startswith(("blocked:", "missing:"))
+    return 0 if allow_degraded or not blocked else 1
+
+
+RUNTIME_DOCTORS = {"pi": pi_runtime_doctor}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check installed b-agentic MCP configuration and local prerequisites.")
     parser.add_argument("--runtime", help="Runtime whose installed MCP configuration to inspect.")
@@ -125,26 +146,12 @@ def main() -> int:
     if runtime is None:
         print(f"unsupported runtime: {args.runtime}", file=sys.stderr)
         return 2
-    if runtime.get("config_schema_family") != "pi-json":
-        print(f"unsupported runtime config schema: {runtime.get('config_schema_family')}", file=sys.stderr)
+    doctor = RUNTIME_DOCTORS.get(args.runtime)
+    if doctor is None:
+        print(f"runtime does not provide an MCP readiness validator: {args.runtime}", file=sys.stderr)
         return 2
 
-    home = Path(args.home).expanduser()
-    config_path = resolve_config_path(runtime, home)
-    if not config_path.exists():
-        print(f"runtime: {args.runtime}\nconfig: {config_path}\nstatus: missing runtime config")
-        return 0 if args.allow_degraded else 1
-
-    config = load_json(config_path)
-    adapter_ready, adapter_status = pi_mcp_adapter_ready(home)
-    print(f"runtime: {args.runtime}\nconfig: {config_path}\nstartup-check: not attempted; validates local launchers, keys, and config shape only")
-    print(f"mcp-adapter: {adapter_status}")
-    blocked = not adapter_ready
-    for server in SUPPORTED_SERVERS:
-        status = pi_server_status(server, config)
-        print(f"{server}: {status}")
-        blocked = blocked or status.startswith(("blocked:", "missing:"))
-    return 0 if args.allow_degraded or not blocked else 1
+    return doctor(runtime, Path(args.home).expanduser(), args.allow_degraded)
 
 
 if __name__ == "__main__":

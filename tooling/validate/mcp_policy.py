@@ -5,7 +5,7 @@
 Canonical source: references/contract/mcp_operations.yaml.
 The contract table in safety-tools.md is generated from that file.
 
-Enforced per-tool runtimes (Pi) treat adapter policy as the runtime-enforced
+Operation-enforced runtimes treat adapter policy as the runtime-enforced
 operation boundary. Adapters must:
 - auto-allow only classified read-only tools for Firecrawl/Playwright;
 - never auto-allow gated classes;
@@ -25,8 +25,7 @@ POLICY_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
 
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "auth"}
 READ_ONLY = "read-only"
-# Runtime-enforced operation boundary (support_tier=operation-enforced).
-ENFORCED_PER_TOOL_RUNTIMES = ("pi",)
+RUNTIME_REGISTRY_PATH = ROOT / "runtimes" / "registry.yaml"
 MANAGED_SCOPED_SERVERS = ("firecrawl", "playwright")
 
 
@@ -164,6 +163,17 @@ def reject_unknown(label: str, surface: str, observed: set[str], known: set[str]
         )
 
 
+def operation_enforced_runtimes() -> tuple[str, ...]:
+    registry = load_json(RUNTIME_REGISTRY_PATH)
+    return tuple(
+        runtime["name"]
+        for runtime in registry.get("runtimes", [])
+        if isinstance(runtime, dict)
+        and isinstance(runtime.get("name"), str)
+        and runtime.get("support_tier") == "operation-enforced"
+    )
+
+
 def validate_pi(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
     path = ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts"
     text = path.read_text()
@@ -206,7 +216,18 @@ def main() -> int:
     servers = validate_policy_shape(policy, errors)
     if "firecrawl" in servers and "playwright" in servers:
         validate_contract_generated(policy, servers, errors)
-        validate_pi(servers, errors)
+        validators = {"pi": validate_pi}
+        enforced_runtimes = operation_enforced_runtimes()
+        for runtime_name in enforced_runtimes:
+            validator = validators.get(runtime_name)
+            if validator is None:
+                errors.append(
+                    f"runtimes/{runtime_name}: operation-enforced runtime requires an MCP policy validator"
+                )
+                continue
+            validator(servers, errors)
+    else:
+        enforced_runtimes = ()
 
     if errors:
         for error in errors:
@@ -218,7 +239,7 @@ def main() -> int:
     print(
         "MCP operation policy regression passed "
         f"({firecrawl_count} Firecrawl tools, {playwright_count} Playwright tools; "
-        f"enforced per-tool: {', '.join(ENFORCED_PER_TOOL_RUNTIMES)}; "
+        f"enforced per-tool: {', '.join(enforced_runtimes) or 'none'}; "
         "closed-world adapter checks enabled)."
     )
     return 0

@@ -10,10 +10,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 errors: list[str] = []
-RUNTIME_CONFIG_SCHEMA_FAMILIES = {
-    "pi-json",
-}
-
 
 def rel(path: Path) -> str:
     try:
@@ -115,11 +111,8 @@ for runtime in runtimes:
         errors.append(f"runtimes/registry.yaml: {name} missing capabilities object")
         continue
     config_schema_family = runtime.get("config_schema_family")
-    if config_schema_family not in RUNTIME_CONFIG_SCHEMA_FAMILIES:
-        errors.append(
-            f"runtimes/registry.yaml: {name} config_schema_family must be one of "
-            f"{sorted(RUNTIME_CONFIG_SCHEMA_FAMILIES)}"
-        )
+    if not isinstance(config_schema_family, str) or not config_schema_family:
+        errors.append(f"runtimes/registry.yaml: {name} config_schema_family must be a non-empty adapter-defined string")
     config_install_path = runtime.get("config_install_path")
     if not isinstance(config_install_path, str) or not config_install_path.startswith("~/"):
         errors.append(f"runtimes/registry.yaml: {name} config_install_path must use a ~/ path")
@@ -378,11 +371,13 @@ if "prompt the user to install the shell tooling before falling back" in kernel_
         "references/contract/kernel.template.md: blocking shell-tool install prompt remains"
     )
 
-# The kernel's terse "Routing" list and runtime.md's detailed "Precedence" list
-# are independent hand-written copies with no generator tying them together.
-# Catch a skill silently missing from either one.
+# Kernel routing is rendered from the registry. Keep the template markers and
+# each generated runtime kernel synchronized; runtime.md retains detailed
+# precedence guidance beyond registry metadata.
+for marker in ["<!-- generated:kernel-routing:start -->", "<!-- generated:kernel-routing:end -->"]:
+    if marker not in kernel_template:
+        errors.append(f"references/contract/kernel.template.md: missing kernel routing marker {marker!r}")
 runtime_contract = read_text(ROOT / "references" / "contract" / "runtime.md")
-kernel_routing_section = kernel_template.split("## Routing", 1)[-1].split("## Shell commands", 1)[0]
 runtime_precedence_section = runtime_contract.split("Precedence:", 1)[-1].split(
     "<!-- generated:routing-triggers:start -->", 1
 )[0]
@@ -390,10 +385,13 @@ for skill in skills:
     if not isinstance(skill.get("routing"), dict):
         continue
     name_token = f"`{skill['name']}`"
-    if name_token not in kernel_routing_section:
-        errors.append(
-            f"references/contract/kernel.template.md: Routing list is missing {name_token}"
-        )
+    for runtime_name in runtime_names:
+        kernel = read_text(ROOT / "runtimes" / runtime_name / "kernel.md")
+        kernel_routing_section = kernel.split("## Routing", 1)[-1].split("## Shell commands", 1)[0]
+        if name_token not in kernel_routing_section:
+            errors.append(
+                f"runtimes/{runtime_name}/kernel.md: generated routing is missing {name_token}"
+            )
     if name_token not in runtime_precedence_section:
         errors.append(
             f"references/contract/runtime.md: Precedence list is missing {name_token}"

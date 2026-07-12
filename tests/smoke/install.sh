@@ -85,6 +85,7 @@ run_invalid_runtime_layout_validation_case() {
   local snapshot_repo="$1"
   local sandbox_invalid="$WORK_DIR/invalid-runtime-layout"
   local sandbox_schema="$WORK_DIR/invalid-runtime-schema"
+  local sandbox_policy_runtime="$WORK_DIR/operation-enforced-runtime"
 
   git clone --quiet "$snapshot_repo" "$sandbox_invalid"
   python3 - "$sandbox_invalid/runtimes/registry.yaml" <<'PY'
@@ -123,8 +124,27 @@ PY
   ( cd "$sandbox_schema" && python3 tooling/generate/registry_sync.py --check ) >"$sandbox_schema/schema-check.log" 2>&1
   rc=$?
   set -e
-  [ "$rc" -ne 0 ] || fail "invalid runtime config schema should fail registry sync validation"
-  assert_contains "$sandbox_schema/schema-check.log" 'config_schema_family: expected one of'
+  [ "$rc" -eq 0 ] || fail "adapter-defined runtime config schema should pass registry sync validation"
+
+  git clone --quiet "$snapshot_repo" "$sandbox_policy_runtime"
+  python3 - "$sandbox_policy_runtime/runtimes/registry.yaml" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["runtimes"].append({"name": "future", "support_tier": "operation-enforced"})
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+
+  rc=0
+  set +e
+  ( cd "$sandbox_policy_runtime" && python3 tooling/validate/mcp_policy.py ) >"$sandbox_policy_runtime/policy-check.log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "operation-enforced runtime without adapter policy validator should fail"
+  assert_contains "$sandbox_policy_runtime/policy-check.log" 'runtimes/future: operation-enforced runtime requires an MCP policy validator'
 }
 
 run_manifest_only_custom_paths_case() {
