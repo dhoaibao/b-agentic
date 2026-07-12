@@ -49,58 +49,6 @@ class RuntimeProbe:
         raise NotImplementedError
 
 
-class ClaudeProbe(RuntimeProbe):
-    def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
-        if cwd is None:
-            raise ValueError("ClaudeProbe.run requires a working directory")
-        command = [
-            self.cli_path,
-            "-p",
-            "--no-session-persistence",
-            "--output-format",
-            "text",
-            prompt,
-        ]
-        completed = subprocess.run(
-            command,
-            cwd=cwd,
-            env=self.env(extra_path),
-            capture_output=True,
-            text=True,
-        )
-        return completed.returncode, completed.stdout, completed.stderr
-
-
-class CodexProbe(RuntimeProbe):
-    def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
-        if cwd is None:
-            raise ValueError("CodexProbe.run requires a working directory")
-        with tempfile.NamedTemporaryFile(prefix="b-agentic-codex-last-message-", delete=False) as handle:
-            output_path = Path(handle.name)
-        run_cwd = cwd
-        command = [
-            self.cli_path,
-            "exec",
-            "--skip-git-repo-check",
-            "--ephemeral",
-            "-C",
-            str(run_cwd),
-            "-o",
-            str(output_path),
-            prompt,
-        ]
-        completed = subprocess.run(
-            command,
-            cwd=run_cwd,
-            env=self.env(extra_path),
-            capture_output=True,
-            text=True,
-        )
-        stdout = output_path.read_text() if output_path.exists() else completed.stdout
-        output_path.unlink(missing_ok=True)
-        return completed.returncode, stdout, completed.stderr
-
-
 class PiProbe(RuntimeProbe):
     def run(self, prompt: str, extra_path: str | None = None, cwd: Path | None = None) -> tuple[int, str, str]:
         if cwd is None:
@@ -137,12 +85,8 @@ def expected_kernel_path(runtime: dict) -> str:
 
 def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
     runtime = load_runtime(runtime_name)
-    cli_path = shutil.which(runtime_name.split("-")[0] if runtime_name != "codex" else "codex")
-    if runtime_name == "claude-code":
-        cli_path = shutil.which("claude")
-    elif runtime_name == "codex":
-        cli_path = shutil.which("codex")
-    elif runtime_name == "pi":
+    cli_path = None
+    if runtime_name == "pi":
         cli_path = shutil.which("pi")
 
     if cli_path is None:
@@ -154,10 +98,6 @@ def build_probe(runtime_name: str, home: Path) -> RuntimeProbe:
         "home": home,
         "cli_path": cli_path,
     }
-    if runtime_name == "claude-code":
-        return ClaudeProbe(**common)
-    if runtime_name == "codex":
-        return CodexProbe(**common)
     if runtime_name == "pi":
         return PiProbe(**common)
     raise SystemExit(f"unsupported runtime: {runtime_name}")
@@ -325,23 +265,12 @@ def probe_mcp_launch(probe: RuntimeProbe) -> ProbeResult:
         )
         extra_env = probe.env(env_path)
         extra_env["B_AGENTIC_ACCEPTANCE_MCP_LOG"] = str(log_path)
-        if isinstance(probe, ClaudeProbe):
-            command = [probe.cli_path, "-p", "--no-session-persistence", "--output-format", "text", prompt]
-        elif isinstance(probe, PiProbe):
+        if isinstance(probe, PiProbe):
             command = [probe.cli_path, "-p", "--no-session", prompt]
-        elif isinstance(probe, CodexProbe):
-            with tempfile.NamedTemporaryFile(prefix="b-agentic-codex-last-message-", delete=False) as handle:
-                output_path = Path(handle.name)
-            command = [probe.cli_path, "exec", "--skip-git-repo-check", "--ephemeral", "-C", str(repo), "-o", str(output_path), prompt]
         else:
-            output_path = None
             command = [probe.cli_path, "run", "--dir", str(repo), prompt]
         completed = subprocess.run(command, cwd=repo, env=extra_env, capture_output=True, text=True)
         stdout = completed.stdout
-        if isinstance(probe, CodexProbe):
-            stdout = output_path.read_text() if output_path and output_path.exists() else completed.stdout
-            if output_path is not None:
-                output_path.unlink(missing_ok=True)
         if completed.returncode != 0:
             return ProbeResult("mcp", "blocked", summarize_output(stdout, completed.stderr))
         if MCP_SENTINEL in stdout and log_contains_marker(log_path, MCP_TOOL_CALL_MARKER):

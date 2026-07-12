@@ -10,13 +10,13 @@
     "git_rev": "0000000000000000000000000000000000000000"
   },
   "runtime": {
-    "name": "claude-code",
-    "cli": "claude",
-    "cli_path": "/usr/local/bin/claude",
+    "name": "pi",
+    "cli": "pi",
+    "cli_path": "/usr/local/bin/pi",
     "cli_version": "example",
     "home": "/home/example",
     "support_tier": "operation-enforced",
-    "mcp_enforcement": "settings allow/ask lists"
+    "mcp_enforcement": "tool_call extension"
   },
   "mcp_package_pins": {
     "brave": "@brave/brave-search-mcp-server@2.0.85",

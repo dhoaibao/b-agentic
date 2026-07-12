@@ -11,8 +11,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 errors: list[str] = []
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
-    "claude-user-config",
-    "codex-toml",
     "pi-json",
 }
 
@@ -412,22 +410,12 @@ for forbidden in ["hooks", "subagent", "strict", "state-machine", "conformance"]
     if re.search(rf"\b{re.escape(forbidden)}\b", readme, re.IGNORECASE):
         errors.append(f"README.md: removed product concept remains: {forbidden!r}")
 
-claude_settings_path = ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json"
-claude_settings = read_text(claude_settings_path)
-claude_settings_json = load_json(claude_settings_path)
-claude_allow = claude_settings_json.get("permissions", {}).get("allow", []) if isinstance(claude_settings_json, dict) else []
-for forbidden in ["hooks", "statusLine", "check-runtime.py"]:
-    if forbidden in claude_settings:
-        errors.append(f"runtimes/claude-code/configs/settings.template.json: forbidden default permission/config {forbidden!r}")
-if any("firecrawl_monitor" in str(item) for item in claude_allow):
-    errors.append(
-        "runtimes/claude-code/configs/settings.template.json: Firecrawl monitor tools must not be allowlisted"
-    )
-
-# Safety-gate parity: every runtime must gate the command families the runtime
-# contract (references/contract/safety-tools.md) requires, at no weaker than the
-# canonical severity. "ask" = must prompt for approval; "deny" = must be refused.
-# Each family is checked through the runtime's own permission model.
+# Safety-gate parity: every runtime that ships a permission model must gate the
+# command families the runtime contract (references/contract/safety-tools.md)
+# requires, at no weaker than the canonical severity. "ask" = must prompt for
+# approval; "deny" = must be refused. Each family is checked through the
+# runtime's own permission model. Runtimes without a managed permission gate
+# (e.g. Pi's adapter-only model) are checked against their shipped extension.
 SAFETY_GATES = [
     # (command tokens, minimum severity)
     (["git", "commit"], "ask"),
@@ -456,41 +444,6 @@ SAFETY_GATES = [
 SEVERITY_RANK = {"ask": 1, "deny": 2}
 
 
-def claude_gate_severity(tokens: list[str], settings: dict) -> int:
-    # Claude is not default-deny: only explicitly listed prefixes are gated.
-    # An entry gates a family when its longer-or-equal token prefix is covered.
-    permissions = settings.get("permissions", {})
-    best = 0
-    for level, rank in (("ask", 1), ("deny", 2)):
-        for raw in permissions.get(level, []):
-            match = re.fullmatch(r"Bash\((.*?)\s*\*?\)", raw)
-            if not match:
-                continue
-            entry_tokens = match.group(1).split()
-            if entry_tokens and entry_tokens[0] == "rtk":
-                entry_tokens = entry_tokens[1:]
-            if entry_tokens[: len(tokens)] == tokens:
-                best = max(best, rank)
-    return best
-
-
-def codex_gate_severity(tokens: list[str], rules_text: str) -> int:
-    # Codex prefix_rule decisions: "prompt" ~= ask, "forbidden" ~= deny.
-    decision_rank = {"prompt": 1, "forbidden": 2}
-    best = 0
-    for block in re.findall(r"prefix_rule\((.*?)\)", rules_text, re.DOTALL):
-        pattern_match = re.search(r"pattern\s*=\s*\[(.*?)\]", block, re.DOTALL)
-        decision_match = re.search(r'decision\s*=\s*"(\w+)"', block)
-        if not pattern_match or not decision_match:
-            continue
-        entry_tokens = re.findall(r'"([^"]+)"', pattern_match.group(1))
-        if entry_tokens and entry_tokens[0] == "rtk":
-            entry_tokens = entry_tokens[1:]
-        if entry_tokens[: len(tokens)] == tokens:
-            best = max(best, decision_rank.get(decision_match.group(1), 0))
-    return best
-
-
 def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
     # Pi gates live in the first-party TypeScript extension as token patterns.
     # DENY patterns are checked first; ASK/SERVICE patterns require confirmation.
@@ -515,12 +468,8 @@ def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
     return 0
 
 
-claude_config = load_json(ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json")
-codex_rules = read_text(ROOT / "runtimes" / "codex" / "rules" / "b-agentic.rules")
 pi_extension = read_text(ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts")
 gate_runtimes = [
-    ("runtimes/claude-code/configs/settings.template.json", lambda tokens: claude_gate_severity(tokens, claude_config)),
-    ("runtimes/codex/rules/b-agentic.rules", lambda tokens: codex_gate_severity(tokens, codex_rules)),
     ("runtimes/pi/extensions/b-agentic-permissions.ts", lambda tokens: pi_gate_severity(tokens, pi_extension)),
 ]
 for tokens, min_severity in SAFETY_GATES:

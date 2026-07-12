@@ -46,21 +46,11 @@ class NormalizedServer:
 
 
 class RuntimeStyle:
-    CLAUDE = "claude"
-    CODEX = "codex"
     PI = "pi"
 
 
 def load_json(path: Path) -> dict:
     return load_jsonc(path.read_text())
-
-
-def load_toml(path: Path) -> dict:
-    try:
-        import tomllib
-    except ModuleNotFoundError as exc:  # pragma: no cover - depends on runtime python
-        raise SystemExit("Codex MCP doctor requires Python 3.11+ (stdlib tomllib).") from exc
-    return tomllib.loads(path.read_text())
 
 
 def runtime_records() -> dict[str, dict]:
@@ -186,9 +176,6 @@ def normalize_server(entry: dict, style: str) -> NormalizedServer:
     env = entry.get("env")
     headers = entry.get("headers")
 
-    if style == RuntimeStyle.CODEX:
-        headers = entry.get("http_headers")
-
     return NormalizedServer(
         command if isinstance(command, str) else None,
         args if isinstance(args, list) else None,
@@ -260,30 +247,6 @@ def _check_brave_or_firecrawl(
     return ready_status(f"pnpm and {env_key} available", pinned_status)
 
 
-def claude_server_status(server: str, config: dict) -> str:
-    servers = config.get("mcpServers", {})
-    entry = servers.get(server)
-    if not isinstance(entry, dict):
-        return "missing: config entry not installed"
-
-    normalized = normalize_server(entry, RuntimeStyle.CLAUDE)
-
-    if server == "serena":
-        return _check_serena(normalized, "claude-code")
-    if server == "context7":
-        if entry.get("type") != "http" or entry.get("url") != CONTEXT7_URL:
-            return "blocked: invalid context7 config"
-        return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
-    if server == "codegraph":
-        return _check_codegraph(normalized)
-    if server == "playwright":
-        return _check_playwright(normalized)
-
-    env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
-    env_value = os.environ.get(env_key) if env_var_present(env_key) else None
-    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
-
-
 def pi_mcp_adapter_ready(home: Path) -> tuple[bool, str]:
     """Return whether the pinned pi-mcp-adapter package appears installed for home."""
     if shutil.which("pi") is None:
@@ -330,59 +293,6 @@ def pi_server_status(server: str, config: dict) -> str:
 
     env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
     env_value = os.environ.get(env_key) if env_var_present(env_key) else None
-    return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
-
-
-def _codex_env_value(entry: dict, env_key: str) -> str | None:
-    """Return the effective API key value for a Codex brave/firecrawl server.
-
-    A literal key name (e.g. "BRAVE_API_KEY") in the env table is treated as an
-    env-variable binding. Empty, missing, or non-dict env sections fall back to
-    the environment variable of the same name when present.
-    """
-    env_section = entry.get("env", {})
-    if isinstance(env_section, dict):
-        env_value = env_section.get(env_key)
-        if isinstance(env_value, str) and env_value:
-            if env_value == env_key:
-                return os.environ.get(env_key) if env_var_present(env_key) else None
-            return env_value
-    return os.environ.get(env_key) if env_var_present(env_key) else None
-
-
-def codex_server_status(server: str, config: dict) -> str:
-    servers = config.get("mcp_servers", {})
-    entry = servers.get(server)
-    if not isinstance(entry, dict):
-        return "missing: config entry not installed"
-
-    normalized = normalize_server(entry, RuntimeStyle.CODEX)
-
-    if server == "serena":
-        return _check_serena(normalized, "codex")
-    if server == "context7":
-        if entry.get("url") != CONTEXT7_URL:
-            return "blocked: invalid context7 config"
-        # Codex uses literal key names (e.g. "CONTEXT7_API_KEY") in http_headers as env bindings.
-        headers = entry.get("http_headers", {})
-        if isinstance(headers, dict):
-            context7_value = headers.get("CONTEXT7_API_KEY")
-            if isinstance(context7_value, str) and context7_value:
-                if context7_value == "CONTEXT7_API_KEY":
-                    return (
-                        "ready: CONTEXT7_API_KEY env binding configured in Codex config"
-                        if env_var_present("CONTEXT7_API_KEY")
-                        else "blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config"
-                    )
-                return "ready: CONTEXT7_API_KEY configured in Codex config"
-        return "ready: CONTEXT7_API_KEY available" if env_var_present("CONTEXT7_API_KEY") else "blocked: missing CONTEXT7_API_KEY"
-    if server == "codegraph":
-        return _check_codegraph(normalized)
-    if server == "playwright":
-        return _check_playwright(normalized)
-
-    env_key = "BRAVE_API_KEY" if server == "brave-search" else "FIRECRAWL_API_KEY"
-    env_value = _codex_env_value(entry, env_key)
     return _check_brave_or_firecrawl(normalized, server, env_key, env_value)
 
 
@@ -459,13 +369,7 @@ def main() -> int:
         return 1
 
     schema_family = runtime.get("config_schema_family")
-    if schema_family == "claude-user-config":
-        config = load_json(config_path)
-        status_fn = claude_server_status
-    elif schema_family == "codex-toml":
-        config = load_toml(config_path)
-        status_fn = codex_server_status
-    elif schema_family == "pi-json":
+    if schema_family == "pi-json":
         config = load_json(config_path)
         status_fn = pi_server_status
     else:

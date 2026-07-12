@@ -15,11 +15,7 @@ It is intentionally not listed in `runtimes/registry.yaml`, so validation, smoke
 
 ## Examples
 
-Annotated examples from existing adapters live in `examples/`:
-
-- [`examples/codex-config-merge.md`](examples/codex-config-merge.md) — TOML config merge with managed blocks for Codex's `config.toml`
-
-These show the two most complex patterns: preserving user-owned config while injecting managed MCP servers.
+Annotated examples from existing adapters live in `examples/`. Add a new example there when a runtime introduces a non-trivial config-merge pattern (for example, preserving user-owned config while injecting managed MCP servers), and document it in this list.
 
 ## Required adapter-owned surfaces
 

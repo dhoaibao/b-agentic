@@ -5,11 +5,8 @@
 Canonical source: references/contract/mcp_operations.yaml.
 The contract table in safety-tools.md is generated from that file.
 
-Two coverage classes are checked:
-- Enforced per-tool runtimes (Claude Code, Pi): adapter policy is treated as the
-  runtime-enforced operation boundary.
-
-In both cases adapters must:
+Enforced per-tool runtimes (Pi) treat adapter policy as the runtime-enforced
+operation boundary. Adapters must:
 - auto-allow only classified read-only tools for Firecrawl/Playwright;
 - never auto-allow gated classes;
 - never include an unclassified Firecrawl/Playwright tool in allow/trust sets.
@@ -29,7 +26,7 @@ POLICY_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "auth"}
 READ_ONLY = "read-only"
 # Runtime-enforced operation boundary (support_tier=operation-enforced).
-ENFORCED_PER_TOOL_RUNTIMES = ("claude-code", "pi")
+ENFORCED_PER_TOOL_RUNTIMES = ("pi",)
 MANAGED_SCOPED_SERVERS = ("firecrawl", "playwright")
 
 
@@ -69,22 +66,6 @@ def parse_set_literal(source: str, const_name: str) -> set[str]:
     if not match:
         return set()
     return set(re.findall(r'"([^"]+)"', match.group(1)))
-
-
-def claude_entries(settings: dict) -> dict[str, set[str]]:
-    permissions = settings.get("permissions", {})
-    result: dict[str, set[str]] = {"allow": set(), "ask": set(), "deny": set()}
-    for level in result:
-        for raw in permissions.get(level, []):
-            if not isinstance(raw, str):
-                continue
-            if raw.startswith("mcp__firecrawl__"):
-                result[level].add(raw.removeprefix("mcp__firecrawl__"))
-            elif raw.startswith("mcp__playwright__"):
-                result[level].add(raw.removeprefix("mcp__playwright__"))
-            elif raw in {"mcp__firecrawl__*", "mcp__playwright__*"}:
-                result[level].add(raw)
-    return result
 
 
 def validate_policy_shape(policy: dict, errors: list[str]) -> dict[str, dict[str, str]]:
@@ -183,46 +164,6 @@ def reject_unknown(label: str, surface: str, observed: set[str], known: set[str]
         )
 
 
-def validate_claude(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
-    path = ROOT / "runtimes" / "claude-code" / "configs" / "settings.template.json"
-    settings = load_json(path)
-    entries = claude_entries(settings)
-    label = rel(path)
-    firecrawl = servers["firecrawl"]
-    playwright = servers["playwright"]
-    known = set(firecrawl) | set(playwright)
-
-    if "mcp__firecrawl__*" in settings.get("permissions", {}).get("allow", []):
-        errors.append(f"{label}: Firecrawl server wildcard must not be allowlisted")
-    if "mcp__playwright__*" in settings.get("permissions", {}).get("allow", []):
-        errors.append(f"{label}: Playwright server wildcard must not be allowlisted")
-
-    reject_unknown(label, "allow list", entries["allow"], known, errors)
-    reject_unknown(label, "ask list", entries["ask"], known, errors)
-
-    for tool, classification in firecrawl.items():
-        if classification == READ_ONLY:
-            if tool not in entries["allow"]:
-                errors.append(f"{label}: read-only Firecrawl tool {tool!r} must be allowlisted")
-            if tool in entries["ask"]:
-                errors.append(f"{label}: read-only Firecrawl tool {tool!r} must not be ask-gated")
-        elif classification in GATED_CLASSES:
-            if tool in entries["allow"]:
-                errors.append(f"{label}: gated Firecrawl tool {tool!r} must not be allowlisted")
-            if tool not in entries["ask"]:
-                errors.append(f"{label}: gated Firecrawl tool {tool!r} must be ask-listed")
-
-    for tool, classification in playwright.items():
-        if classification == READ_ONLY:
-            if tool not in entries["allow"]:
-                errors.append(f"{label}: read-only Playwright tool {tool!r} must be allowlisted")
-        elif classification in GATED_CLASSES:
-            if tool in entries["allow"]:
-                errors.append(f"{label}: gated Playwright tool {tool!r} must not be allowlisted")
-            if tool not in entries["ask"]:
-                errors.append(f"{label}: gated Playwright tool {tool!r} must be ask-listed")
-
-
 def validate_pi(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
     path = ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts"
     text = path.read_text()
@@ -255,64 +196,6 @@ def validate_pi(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
             errors.append(f"{label}: gated Playwright tool {tool!r} must not be trusted")
 
 
-def validate_codex(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        errors.append("Codex MCP policy validation requires Python 3.11+ tomllib")
-        return
-
-    path = ROOT / "runtimes" / "codex" / "configs" / "mcp.user.template.toml"
-    label = rel(path)
-    data = tomllib.loads(path.read_text())
-    mcp_servers = data.get("mcp_servers", {})
-    if not isinstance(mcp_servers, dict):
-        errors.append(f"{label}: missing mcp_servers table")
-        return
-
-    for server_name, classified in servers.items():
-        server = mcp_servers.get(server_name)
-        if not isinstance(server, dict):
-            errors.append(f"{label}: missing MCP server {server_name!r}")
-            continue
-        enabled = server.get("enabled_tools")
-        if not isinstance(enabled, list) or not all(isinstance(item, str) for item in enabled):
-            errors.append(f"{label}: {server_name}.enabled_tools must list classified tools")
-            continue
-        enabled_set = set(enabled)
-        known = set(classified)
-        if enabled_set != known:
-            missing = sorted(known - enabled_set)
-            extra = sorted(enabled_set - known)
-            if missing:
-                errors.append(f"{label}: {server_name}.enabled_tools missing {missing}")
-            if extra:
-                errors.append(
-                    f"{label}: {server_name}.enabled_tools includes unclassified tools {extra}"
-                )
-        if server.get("default_tools_approval_mode") != "prompt":
-            errors.append(
-                f"{label}: {server_name}.default_tools_approval_mode must be 'prompt' "
-                "so gated tools require approval"
-            )
-        tool_policy = server.get("tools")
-        if not isinstance(tool_policy, dict):
-            errors.append(f"{label}: {server_name}.tools must define read-only auto-approve entries")
-            continue
-        for tool, classification in classified.items():
-            entry = tool_policy.get(tool)
-            if classification == READ_ONLY:
-                if not isinstance(entry, dict) or entry.get("approval_mode") != "approve":
-                    errors.append(
-                        f"{label}: read-only {server_name}.{tool} must set approval_mode=approve"
-                    )
-            elif classification in GATED_CLASSES and isinstance(entry, dict):
-                if entry.get("approval_mode") in {"approve", "auto"}:
-                    errors.append(
-                        f"{label}: gated {server_name}.{tool} must not auto-approve"
-                    )
-
-
 def main() -> int:
     errors: list[str] = []
     if not POLICY_PATH.exists():
@@ -323,9 +206,7 @@ def main() -> int:
     servers = validate_policy_shape(policy, errors)
     if "firecrawl" in servers and "playwright" in servers:
         validate_contract_generated(policy, servers, errors)
-        validate_claude(servers, errors)
         validate_pi(servers, errors)
-        validate_codex(servers, errors)
 
     if errors:
         for error in errors:
@@ -338,7 +219,6 @@ def main() -> int:
         "MCP operation policy regression passed "
         f"({firecrawl_count} Firecrawl tools, {playwright_count} Playwright tools; "
         f"enforced per-tool: {', '.join(ENFORCED_PER_TOOL_RUNTIMES)}; "
-        "Codex template policy checks enabled; "
         "closed-world adapter checks enabled)."
     )
     return 0

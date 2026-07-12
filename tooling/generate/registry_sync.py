@@ -56,8 +56,6 @@ RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupporte
 RUNTIME_SUPPORT_TIERS = {"operation-enforced", "guidance-shell-only"}
 RUNTIME_PRODUCTION_CLAIMS = {"full-with-live-evidence", "shell-gated-only", "excluded"}
 RUNTIME_CONFIG_SCHEMA_FAMILIES = {
-    "claude-user-config",
-    "codex-toml",
     "pi-json",
 }
 
@@ -483,12 +481,8 @@ def permission_granularity(runtime: dict) -> str:
     # is not enough to claim per-tool MCP enforcement.
     if runtime.get("support_tier") == "guidance-shell-only":
         return "shell families only"
-    if name == "claude-code":
-        return "per-tool MCP + shell families"
     if name == "pi":
         return "adapter tool_call extension"
-    if name == "codex":
-        return "per-tool MCP + shell families"
     if permissions == "unsupported":
         return "unsupported"
     return permissions
@@ -512,13 +506,9 @@ def support_tier_label(runtime: dict) -> str:
 def known_limitation(runtime: dict) -> str:
     name = runtime["name"]
     if runtime.get("support_tier") == "guidance-shell-only":
-        if name == "codex":
-            return "MCP tool policy encoded in templates; runtime enforcement unproven"
         return "no per-MCP-tool enforcement"
     if name == "pi":
         return "print-mode cannot prove UI approval"
-    if name == "claude-code":
-        return "default-mode bash allowances remain runtime-native"
     return "—"
 
 

@@ -11,14 +11,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def load_toml(path: Path) -> dict:
-    try:
-        import tomllib
-    except ModuleNotFoundError as exc:  # pragma: no cover
-        raise SystemExit("Codex skill doctor requires Python 3.11+ (stdlib tomllib).") from exc
-    return tomllib.loads(path.read_text())
-
-
 def runtime_records() -> dict[str, dict]:
     data = json.loads((ROOT / "runtimes" / "registry.yaml").read_text())
     return {
@@ -46,8 +38,6 @@ def resolve_runtime_paths(runtime: dict, home: Path) -> dict[str, Path]:
     wrappers = runtime.get("command_wrappers", {})
     if isinstance(wrappers, dict) and wrappers.get("supported") and isinstance(wrappers.get("install_root"), str):
         paths["command"] = expand_home(wrappers["install_root"], home) / "b-plan.md"
-    if runtime.get("config_schema_family") == "codex-toml":
-        paths["config"] = expand_home(runtime["config_install_path"], home)
     return paths
 
 
@@ -102,36 +92,13 @@ def installed_skill_names(skill_root: Path) -> list[str]:
     )
 
 
-def status_for_claude(paths: dict[str, Path], expected: list[str]) -> dict[str, str]:
+def status_for_native_skills(paths: dict[str, Path], expected: list[str]) -> dict[str, str]:
     skills = installed_skill_names(paths["skill"].parents[1])
     skills_ready = skills == expected and bool(expected)
     return {
         "kernel": "ready" if paths["kernel"].exists() else "missing",
         "skills": payload_status(skills, expected, "skills"),
         "discovery": "ready: native skills path populated" if skills_ready else "blocked: install complete skill payload",
-    }
-
-
-def status_for_codex(paths: dict[str, Path], expected: list[str]) -> dict[str, str]:
-    skill_root = paths["skill"].parents[1]
-    skills = installed_skill_names(skill_root)
-    expected_paths = {str(skill_root / name) for name in expected}
-    enabled_paths: set[str] = set()
-    config_ready = False
-    if paths["config"].exists():
-        data = load_toml(paths["config"])
-        entries = data.get("skills", {}).get("config", [])
-        if isinstance(entries, list):
-            for entry in entries:
-                if isinstance(entry, dict) and entry.get("enabled") is True and isinstance(entry.get("path"), str):
-                    enabled_paths.add(entry["path"])
-    skills_ready = skills == expected and bool(expected)
-    config_ready = bool(expected_paths) and expected_paths.issubset(enabled_paths)
-    return {
-        "kernel": "ready" if paths["kernel"].exists() else "missing",
-        "skills": payload_status(skills, expected, "skills"),
-        "config": "ready" if config_ready else "missing",
-        "discovery": "ready: skills.config points at installed skill paths" if skills_ready and config_ready else "blocked: install complete skill payload and Codex skill config",
     }
 
 
@@ -151,10 +118,7 @@ def main() -> int:
     paths = resolve_runtime_paths(runtime, home)
     expected = expected_skill_names(paths)
 
-    if runtime.get("config_schema_family") == "codex-toml":
-        status = status_for_codex(paths, expected)
-    else:
-        status = status_for_claude(paths, expected)
+    status = status_for_native_skills(paths, expected)
 
     print(f"runtime: {args.runtime}")
     print(f"expected-skills: {len(expected)}")

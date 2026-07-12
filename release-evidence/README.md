@@ -18,7 +18,7 @@ After an authorized fresh-session pass:
 
 ```bash
 scripts/record-release-evidence.sh \
-  --runtime=claude-code \
+  --runtime=pi \
   --operator="$USER" \
   --kernel=pass \
   --skill=pass \
@@ -44,15 +44,15 @@ release-evidence/<runtime>-<UTC-timestamp>.json
 
 ```bash
 # Full production-ready claim: only operation-enforced / full-with-live-evidence runtimes
-scripts/verify-release-evidence.sh --runtime=claude-code --runtime=pi
+scripts/verify-release-evidence.sh --runtime=pi
 
 # Explicit evidence files must use <runtime>-*.json names, or pair one file with one --runtime
-scripts/verify-release-evidence.sh --evidence=release-evidence/claude-code-20260710T120000Z.json
-scripts/verify-release-evidence.sh --runtime=claude-code --evidence=/tmp/attestation.json
+scripts/verify-release-evidence.sh --evidence=release-evidence/pi-20260710T120000Z.json
+scripts/verify-release-evidence.sh --runtime=pi --evidence=/tmp/attestation.json
 
 
 # Also require an immutable tag matching pyproject version
-scripts/verify-release-evidence.sh --runtime=claude-code --require-tag=v2026.07.10
+scripts/verify-release-evidence.sh --runtime=pi --require-tag=v2026.07.10
 ```
 
 ## Production-ready rule
@@ -71,7 +71,7 @@ A revision may be labeled production-ready only when:
 10. unsupported or unattested runtimes are explicitly excluded from the production-ready claim.
 
 
-Live operator attestations for Claude Code and Pi are still required before any full production-ready label. Static validation alone never completes Priority 0.2.
+Live operator attestations for Pi are still required before any full production-ready label. Static validation alone never completes Priority 0.2.
 
 Attestations are checked into `release-evidence/` as operator claims bound to an exact package revision. They are not self-proving: do not record credentials, sessions, private prompts, or customer data, and do not treat simulated `--active` probes as live proof.
 

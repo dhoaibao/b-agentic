@@ -192,22 +192,6 @@ def main() -> None:
     metadata = manifest_path.parent
 
     runtime_defaults = {
-        "claude-code": {
-            "metadata": home / ".claude" / "b-agentic",
-            "skills": home / ".claude" / "skills",
-            "kernel": home / ".claude" / "CLAUDE.md",
-            "agents": home / ".claude" / "agents",
-            "settings": home / ".claude" / "settings.json",
-            "claudeJson": home / ".claude.json",
-        },
-        "codex": {
-            "metadata": home / ".codex" / "b-agentic",
-            "skills": home / ".codex" / "skills",
-            "kernel": home / ".codex" / "AGENTS.md",
-            "agents": home / ".codex" / "agents",
-            "rules": home / ".codex" / "rules",
-            "codexConfig": home / ".codex" / "config.toml",
-        },
         "pi": {
             "metadata": home / ".pi" / "agent" / "b-agentic",
             "skills": home / ".pi" / "agent" / "skills",
@@ -256,15 +240,7 @@ def main() -> None:
         else:
             warn(f"preserving modified managed kernel: {kernel_path}")
 
-    if runtime == "claude-code":
-        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "md", "Claude Code agent")
-        remove_merged_json_config(str(manifest_managed_path(paths, "settings", defaults["settings"])), metadata / "templates" / "settings.template.json", "settings.json", "settings", "settingsAction", data)
-        remove_merged_json_config(str(manifest_managed_path(paths, "claudeJson", defaults["claudeJson"])), metadata / "templates" / "mcp.user.template.json", ".claude.json", "claudeJson", "mcpAction", data)
-    elif runtime == "codex":
-        remove_snapshot_profiles(data.get("agents", []), manifest_managed_path(paths, "agents", defaults["agents"]), metadata / "agents", "toml", "Codex agent")
-        remove_snapshot_profiles(data.get("rules", []), manifest_managed_path(paths, "rules", defaults["rules"]), metadata / "rules", "rules", "Codex rule")
-        remove_toml_managed_block(str(manifest_managed_path(paths, "codexConfig", defaults["codexConfig"])), "Codex config")
-    elif runtime == "pi":
+    if runtime == "pi":
         remove_merged_json_config(
             str(manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"])),
             metadata / "templates" / "mcp.user.template.json",

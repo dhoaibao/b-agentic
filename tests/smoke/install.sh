@@ -59,10 +59,10 @@ PY
 run_manifest_only_corrupted_manifest_case() {
   local sandbox_corrupt="$WORK_DIR/manifest-only-corrupt"
 
-  mkdir -p "$sandbox_corrupt/home/Documents/b-owned" "$sandbox_corrupt/home/.claude/b-agentic"
+  mkdir -p "$sandbox_corrupt/home/Documents/b-owned" "$sandbox_corrupt/home/.pi/agent/b-agentic"
   printf 'sentinel\n' > "$sandbox_corrupt/home/Documents/b-owned/file.txt"
-  cat > "$sandbox_corrupt/home/.claude/b-agentic/install.json" <<EOF
-{"runtime":"claude-code","paths":{"skills":"$sandbox_corrupt/home/Documents","kernel":"$sandbox_corrupt/home/.claude/CLAUDE.md"},"skills":["b-owned"],"agents":[]}
+  cat > "$sandbox_corrupt/home/.pi/agent/b-agentic/install.json" <<EOF
+{"runtime":"pi","paths":{"skills":"$sandbox_corrupt/home/Documents","kernel":"$sandbox_corrupt/home/.pi/agent/AGENTS.md"},"skills":["b-owned"],"agents":[]}
 EOF
 
   local rc=0
@@ -71,12 +71,12 @@ EOF
   B_AGENTIC_REPO="$sandbox_corrupt/missing-source" \
   B_AGENTIC_DIR="$sandbox_corrupt/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code --uninstall >"$sandbox_corrupt/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi --uninstall >"$sandbox_corrupt/uninstall.log" 2>&1
   rc=$?
   set -e
 
   [ "$rc" -ne 0 ] || fail "corrupt manifest-only uninstall without helper should fail safely"
-  assert_contains "$sandbox_corrupt/uninstall.log" "requires $sandbox_corrupt/home/.claude/b-agentic/tooling/install/manifest_uninstall.py"
+  assert_contains "$sandbox_corrupt/uninstall.log" "requires $sandbox_corrupt/home/.pi/agent/b-agentic/tooling/install/manifest_uninstall.py"
   assert_file "$sandbox_corrupt/home/Documents/b-owned/file.txt"
   assert_no_path "$sandbox_corrupt/source"
 }
@@ -134,19 +134,19 @@ run_manifest_only_custom_paths_case() {
   mkdir -p "$sandbox_custom/home/custom-meta" "$sandbox_custom/home/custom-skills/b-plan" "$sandbox_custom/home/custom-kernel"
   manifest_path="$sandbox_custom/home/custom-meta/install.json"
   skill_dir="$sandbox_custom/home/custom-skills/b-plan"
-  kernel_path="$sandbox_custom/home/custom-kernel/CLAUDE.md"
-  snapshot_path="$sandbox_custom/home/custom-meta/CLAUDE.md"
+  kernel_path="$sandbox_custom/home/custom-kernel/AGENTS.md"
+  snapshot_path="$sandbox_custom/home/custom-meta/AGENTS.md"
 
   printf 'Generated from skills/registry.yaml\n' > "$skill_dir/SKILL.md"
   printf '<!-- b-agentic-managed -->\ncustom kernel\n' > "$kernel_path"
   printf '<!-- b-agentic-managed -->\ncustom kernel\n' > "$snapshot_path"
   cat > "$manifest_path" <<EOF
-{"runtime":"claude-code","paths":{"skills":"$sandbox_custom/home/custom-skills","kernel":"$kernel_path"},"skills":["b-plan"],"agents":[]}
+{"runtime":"pi","paths":{"skills":"$sandbox_custom/home/custom-skills","kernel":"$kernel_path"},"skills":["b-plan"],"agents":[]}
 EOF
 
   HOME="$sandbox_custom/home" python3 "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$manifest_path" >"$sandbox_custom/uninstall.log" 2>&1
 
-  assert_contains "$sandbox_custom/uninstall.log" 'Manifest-only uninstall complete for claude-code'
+  assert_contains "$sandbox_custom/uninstall.log" 'Manifest-only uninstall complete for pi'
   assert_no_path "$skill_dir"
   assert_no_path "$kernel_path"
   assert_no_path "$sandbox_custom/home/custom-meta"
@@ -155,27 +155,21 @@ EOF
 run_manifest_only_merged_config_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/manifest-only-merged-config"
-  local settings_path mcp_path manifest_path
+  local mcp_path manifest_path
 
-  mkdir -p "$sandbox/home/.claude"
-  settings_path="$sandbox/home/.claude/settings.json"
-  mcp_path="$sandbox/home/.claude.json"
+  mkdir -p "$sandbox/home/.pi/agent"
+  mcp_path="$sandbox/home/.pi/agent/mcp.json"
 
-  cat > "$settings_path" <<EOF
-{"permissions":{"allow":["Bash(user-cmd)"],"ask":["Bash(user-ask)"],"deny":["Bash(user-deny)"]}}
-EOF
   cat > "$mcp_path" <<EOF
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=claude-code
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=pi
 
-  assert_contains "$settings_path" 'Bash(user-cmd)'
-  assert_contains "$settings_path" 'Bash(git push *)'
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
 
-  manifest_path="$sandbox/home/.claude/b-agentic/install.json"
+  manifest_path="$sandbox/home/.pi/agent/b-agentic/install.json"
   assert_file "$manifest_path"
 
   rm -rf "$sandbox/source"
@@ -183,14 +177,9 @@ EOF
   B_AGENTIC_REPO="$sandbox/missing-source" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code --uninstall >"$sandbox/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi --uninstall >"$sandbox/uninstall.log" 2>&1
 
-  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for claude-code'
-  assert_contains "$settings_path" 'Bash(user-cmd)'
-  assert_contains "$settings_path" 'Bash(user-ask)'
-  assert_contains "$settings_path" 'Bash(user-deny)'
-  assert_not_contains "$settings_path" 'Bash(git push *)'
-  assert_not_contains "$settings_path" 'mcp__serena__'
+  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for pi'
   assert_contains "$mcp_path" '"user-server"'
   assert_not_contains "$mcp_path" '"codegraph"'
   assert_not_contains "$mcp_path" '"serena"'
@@ -201,14 +190,14 @@ run_post_install_mcp_modification_case() {
   local sandbox="$WORK_DIR/post-install-mcp-modification"
   local mcp_path manifest_path
 
-  mkdir -p "$sandbox/home/.claude"
-  mcp_path="$sandbox/home/.claude.json"
+  mkdir -p "$sandbox/home/.pi/agent"
+  mcp_path="$sandbox/home/.pi/agent/mcp.json"
 
   cat > "$mcp_path" <<EOF
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=claude-code
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=pi
 
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
@@ -224,7 +213,7 @@ data.setdefault('mcpServers', {})['codegraph']['USER_SETTING'] = 'keep-me'
 path.write_text(json.dumps(data, indent=2) + '\n')
 PY
 
-  manifest_path="$sandbox/home/.claude/b-agentic/install.json"
+  manifest_path="$sandbox/home/.pi/agent/b-agentic/install.json"
   assert_file "$manifest_path"
 
   rm -rf "$sandbox/source"
@@ -232,9 +221,9 @@ PY
   B_AGENTIC_REPO="$sandbox/missing-source" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code --uninstall >"$sandbox/uninstall.log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi --uninstall >"$sandbox/uninstall.log" 2>&1
 
-  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for claude-code'
+  assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for pi'
   assert_contains "$mcp_path" '"user-server"'
   assert_contains "$mcp_path" '"codegraph"'
   assert_not_contains "$mcp_path" '"serena"'
@@ -282,13 +271,6 @@ run_all_runtime_smoke_case() {
     [ -n "$runtime_name" ] || continue
     assert_no_path "$sandbox_all/home/$metadata_root/install.json"
   done < <(registry_runtime_records)
-  assert_no_path "$sandbox_all/home/.claude/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.claude/CLAUDE.md"
-  assert_no_path "$sandbox_all/home/.claude/agents/b-explore.md"
-  assert_no_path "$sandbox_all/home/.codex/skills/b-plan"
-  assert_no_path "$sandbox_all/home/.codex/AGENTS.md"
-  assert_no_path "$sandbox_all/home/.codex/agents/b-explore.toml"
-  assert_no_path "$sandbox_all/home/.codex/rules/b-agentic.rules"
   assert_no_path "$sandbox_all/home/.pi/agent/skills/b-plan"
   assert_no_path "$sandbox_all/home/.pi/agent/AGENTS.md"
   assert_no_path "$sandbox_all/home/.pi/agent/extensions/b-agentic-permissions.ts"
@@ -323,13 +305,13 @@ run_ref_install_case() {
   mkdir -p "$sandbox_ref/home" "$sandbox_invalid/home"
   install_ref="$(git -C "$snapshot_repo" rev-parse HEAD)"
 
-  expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --runtime=codex --ref="$install_ref"
+  expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --runtime=pi --ref="$install_ref"
 
-  manifest_path="$sandbox_ref/home/.codex/b-agentic/install.json"
+  manifest_path="$sandbox_ref/home/.pi/agent/b-agentic/install.json"
   assert_file "$manifest_path"
-  assert_json_value "$manifest_path" "data['runtime'] == 'codex'"
+  assert_json_value "$manifest_path" "data['runtime'] == 'pi'"
 
-  rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --runtime=codex --ref=--bad)"
+  rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --runtime=pi --ref=--bad)"
   [ "$rc" -ne 0 ] || fail "expected option-looking --ref value to fail safely"
 }
 
@@ -356,41 +338,25 @@ run_skill_collision_smoke_case() {
 
 run_readiness_report_case() {
   local snapshot_repo="$1"
-  local sandbox_claude="$WORK_DIR/readiness-claude"
-  local sandbox_codex="$WORK_DIR/readiness-codex"
+  local sandbox="$WORK_DIR/readiness-pi"
   local rc=0
 
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home"
+  mkdir -p "$sandbox/home"
 
   set +e
-  run_install_with_tty_log "$sandbox_claude" "$snapshot_repo" "$sandbox_claude/install.log" --runtime=claude-code
+  run_install_with_tty_log "$sandbox" "$snapshot_repo" "$sandbox/install.log" --runtime=pi
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "expected Claude readiness install exit 0, got $rc"
-  assert_contains "$sandbox_claude/install.log" 'Readiness:'
-  assert_contains "$sandbox_claude/install.log" 'serena:'
-  assert_contains "$sandbox_claude/install.log" 'codegraph:'
-  assert_contains "$sandbox_claude/install.log" 'context7:'
-  assert_contains "$sandbox_claude/install.log" 'brave-search:'
-  assert_contains "$sandbox_claude/install.log" 'firecrawl:'
-  assert_contains "$sandbox_claude/install.log" 'playwright:'
-  assert_contains "$sandbox_claude/install.log" 'mcp-startup:'
-  assert_contains "$sandbox_claude/install.log" 'rtk:'
-
-  set +e
-  run_install_with_tty_log "$sandbox_codex" "$snapshot_repo" "$sandbox_codex/install.log" --runtime=codex
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Codex readiness install exit 0, got $rc"
-  assert_contains "$sandbox_codex/install.log" 'Readiness:'
-  assert_contains "$sandbox_codex/install.log" 'serena:'
-  assert_contains "$sandbox_codex/install.log" 'codegraph:'
-  assert_contains "$sandbox_codex/install.log" 'context7:'
-  assert_contains "$sandbox_codex/install.log" 'brave-search:'
-  assert_contains "$sandbox_codex/install.log" 'firecrawl:'
-  assert_contains "$sandbox_codex/install.log" 'playwright:'
-  assert_contains "$sandbox_codex/install.log" 'mcp-startup:'
-  assert_contains "$sandbox_codex/install.log" 'rtk:'
+  [ "$rc" -eq 0 ] || fail "expected Pi readiness install exit 0, got $rc"
+  assert_contains "$sandbox/install.log" 'Readiness:'
+  assert_contains "$sandbox/install.log" 'serena:'
+  assert_contains "$sandbox/install.log" 'codegraph:'
+  assert_contains "$sandbox/install.log" 'context7:'
+  assert_contains "$sandbox/install.log" 'brave-search:'
+  assert_contains "$sandbox/install.log" 'firecrawl:'
+  assert_contains "$sandbox/install.log" 'playwright:'
+  assert_contains "$sandbox/install.log" 'mcp-startup:'
+  assert_contains "$sandbox/install.log" 'rtk:'
 }
 
 run_shell_tool_prompt_case() {
@@ -438,7 +404,7 @@ env["B_AGENTIC_SHELL_RECOMMEND_MANAGER"] = "manual"
 pid, fd = pty.fork()
 if pid == 0:
     os.environ.update(env)
-    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=pi"])
 
 status = None
 input_sent = False
@@ -534,7 +500,7 @@ EOF
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=apt-get \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$apt_install_log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi >"$apt_install_log" 2>&1
   rc=$?
   set -e
 
@@ -602,7 +568,7 @@ env["B_AGENTIC_SHELL_RECOMMEND_MANAGER"] = "dnf"
 pid, fd = pty.fork()
 if pid == 0:
     os.environ.update(env)
-    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=pi"])
 
 status = None
 with open(log_path, "wb") as log:
@@ -689,7 +655,7 @@ EOF
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_SHELL_RECOMMEND_MANAGER=dnf \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code >"$dnf_root_install_log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi >"$dnf_root_install_log" 2>&1
   rc=$?
   set -e
 
@@ -701,17 +667,29 @@ EOF
 
 run_mcp_doctor_case() {
   local snapshot_repo="$1"
-  local sandbox_claude="$WORK_DIR/mcp-doctor-claude"
-  local sandbox_codex="$WORK_DIR/mcp-doctor-codex"
+  local sandbox="$WORK_DIR/mcp-doctor-pi"
   local bin_dir="$WORK_DIR/mcp-doctor-bin"
   local doctor_log="$WORK_DIR/mcp-doctor.log"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home" "$bin_dir"
+  mkdir -p "$sandbox/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/pnpm"
-  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
+  cat > "$bin_dir/pi" <<'EOF'
+#!/usr/bin/env bash
+log_dir="$(cd "$(dirname "$0")" && pwd)"
+if [ "${1:-}" = "list" ]; then
+  [ -f "$log_dir/pi-adapter-installed" ] && printf 'npm:pi-mcp-adapter@2.11.0\n' || printf '(no packages)\n'
+  exit 0
+fi
+if [ "${1:-}" = "install" ]; then
+  [ "${2:-}" = "npm:pi-mcp-adapter@2.11.0" ] && : > "$log_dir/pi-adapter-installed"
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm" "$bin_dir/pi"
 
   python3 - "$ROOT_DIR" <<'PY'
 import sys
@@ -774,59 +752,48 @@ if status != expected_status:
     raise SystemExit(f"expected mismatched package override to block, got: {status!r}")
 PY
 
-  expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
-  assert_contains "$doctor_log" 'serena: ready:'
-  assert_contains "$doctor_log" 'codegraph: ready:'
-  assert_contains "$doctor_log" 'context7: ready:'
-  assert_contains "$doctor_log" 'brave-search: ready:'
-  assert_contains "$doctor_log" 'firecrawl: ready:'
-  assert_contains "$doctor_log" 'playwright: ready:'
-
-  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex
-  PATH="$bin_dir:$PATH" \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex --home "$sandbox_codex/home" --allow-degraded >"$doctor_log"
-  assert_contains "$doctor_log" 'context7: blocked: missing CONTEXT7_API_KEY; env binding configured in Codex config'
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex --home "$sandbox_codex/home" >"$doctor_log"
-  assert_contains "$doctor_log" 'serena: ready:'
-  assert_contains "$doctor_log" 'codegraph: ready:'
-  assert_contains "$doctor_log" 'context7: ready:'
-  assert_contains "$doctor_log" 'brave-search: ready:'
-  assert_contains "$doctor_log" 'firecrawl: ready:'
-  assert_contains "$doctor_log" 'playwright: ready:'
-
   set +e
-  PATH="$bin_dir:$PATH" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=codex --home "$sandbox_codex/home" --production >"$doctor_log"
+  HOME="$sandbox/home" \
+  PATH="$bin_dir:$(smoke_runtime_cli_path "$sandbox")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y \
+  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "expected Codex production MCP doctor to pass with pinned defaults, got $rc"
+  [ "$rc" -eq 0 ] || fail "expected Pi MCP adapter install exit 0, got $rc"
 
+  set +e
+  PATH="$bin_dir:$(smoke_system_path)" \
+  CONTEXT7_API_KEY=test-context7 \
+  BRAVE_API_KEY=test-brave \
+  FIRECRAWL_API_KEY=test-firecrawl \
+  python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --runtime=pi --home "$sandbox/home" --production >"$doctor_log"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || fail "expected Pi production MCP doctor to pass with pinned defaults, got $rc"
+  assert_contains "$doctor_log" 'mcp-adapter: ready:'
+  assert_contains "$doctor_log" 'serena: ready:'
+  assert_contains "$doctor_log" 'codegraph: ready:'
+  assert_contains "$doctor_log" 'context7: ready:'
+  assert_contains "$doctor_log" 'brave-search: ready:'
+  assert_contains "$doctor_log" 'firecrawl: ready:'
+  assert_contains "$doctor_log" 'playwright: ready:'
 
 }
 
 run_mcp_package_override_case() {
   local snapshot_repo="$1"
-  local sandbox_claude="$WORK_DIR/mcp-package-claude"
-  local sandbox_claude_upgrade="$WORK_DIR/mcp-package-claude-upgrade"
-  local sandbox_codex="$WORK_DIR/mcp-package-codex"
+  local sandbox="$WORK_DIR/mcp-package-pi"
+  local sandbox_upgrade="$WORK_DIR/mcp-package-pi-upgrade"
   local bin_dir="$WORK_DIR/mcp-package-bin"
-  local doctor_log="$WORK_DIR/mcp-package-doctor.log"
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_claude_upgrade/home" "$sandbox_codex/home" "$bin_dir"
+  mkdir -p "$sandbox/home" "$sandbox_upgrade/home" "$bin_dir"
 
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/serena"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/codegraph"
@@ -834,10 +801,10 @@ run_mcp_package_override_case() {
   chmod +x "$bin_dir/serena" "$bin_dir/codegraph" "$bin_dir/pnpm"
 
   set +e
-  HOME="$sandbox_claude/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_claude")" \
+  HOME="$sandbox/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox")" \
   B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_claude/source" \
+  B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
@@ -846,20 +813,20 @@ run_mcp_package_override_case() {
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code >/dev/null 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "expected Claude package override install exit 0, got $rc"
-  assert_json_value "$sandbox_claude/home/.claude.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
-  assert_json_value "$sandbox_claude/home/.claude.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
-  assert_json_value "$sandbox_claude/home/.claude.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
+  [ "$rc" -eq 0 ] || fail "expected Pi package override install exit 0, got $rc"
+  assert_json_value "$sandbox/home/.pi/agent/mcp.json" "data['mcpServers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
+  assert_json_value "$sandbox/home/.pi/agent/mcp.json" "data['mcpServers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
+  assert_json_value "$sandbox/home/.pi/agent/mcp.json" "data['mcpServers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
 
-  expect_install_status 0 "$sandbox_claude_upgrade" "$snapshot_repo" --runtime=claude-code
+  expect_install_status 0 "$sandbox_upgrade" "$snapshot_repo" --runtime=pi
   set +e
-  HOME="$sandbox_claude_upgrade/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_claude_upgrade")" \
+  HOME="$sandbox_upgrade/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_upgrade")" \
   B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
+  B_AGENTIC_DIR="$sandbox_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
@@ -868,19 +835,19 @@ run_mcp_package_override_case() {
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code >/dev/null 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "expected Claude package override upgrade exit 0, got $rc"
-  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.0.0', '--transport', 'stdio']"
-  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.0.0']"
-  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.0.0', '--isolated']"
+  [ "$rc" -eq 0 ] || fail "expected Pi package override upgrade exit 0, got $rc"
+  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.0.0', '--transport', 'stdio']"
+  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.0.0']"
+  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.0.0', '--isolated']"
 
   set +e
-  HOME="$sandbox_claude_upgrade/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_claude_upgrade")" \
+  HOME="$sandbox_upgrade/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox_upgrade")" \
   B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_claude_upgrade/source" \
+  B_AGENTIC_DIR="$sandbox_upgrade/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
   B_AGENTIC_INSTALL_RUNTIME_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
@@ -889,65 +856,17 @@ run_mcp_package_override_case() {
   B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.1.0' \
   B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.1.0' \
   B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.1.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=claude-code >/dev/null 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "expected Claude package repin exit 0, got $rc"
-  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.1.0', '--transport', 'stdio']"
-  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.1.0']"
-  assert_json_value "$sandbox_claude_upgrade/home/.claude.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.1.0', '--isolated']"
-
-  set +e
-  HOME="$sandbox_codex/home" \
-  PATH="$(smoke_path_with_runtime_clis "$sandbox_codex")" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_codex/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_BRAVE_MCP_PACKAGE='@example/brave-mcp@1.0.0' \
-  B_AGENTIC_FIRECRAWL_MCP_PACKAGE='example-firecrawl-mcp@2.0.0' \
-  B_AGENTIC_PLAYWRIGHT_MCP_PACKAGE='@example/playwright-mcp@3.0.0' \
-  bash "$ROOT_DIR/install.sh" --runtime=codex >/dev/null 2>&1
-  rc=$?
-  set -e
-  [ "$rc" -eq 0 ] || fail "expected Codex package override install exit 0, got $rc"
-  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['brave-search']['args'][1] == '@example/brave-mcp@1.0.0'"
-  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['firecrawl']['args'][1] == 'example-firecrawl-mcp@2.0.0'"
-  assert_toml_value "$sandbox_codex/home/.codex/config.toml" "data['mcp_servers']['playwright']['args'][1] == '@example/playwright-mcp@3.0.0'"
+  [ "$rc" -eq 0 ] || fail "expected Pi package repin exit 0, got $rc"
+  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['brave-search']['args'] == ['dlx', '@example/brave-mcp@1.1.0', '--transport', 'stdio']"
+  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['firecrawl']['args'] == ['dlx', 'example-firecrawl-mcp@2.1.0']"
+  assert_json_value "$sandbox_upgrade/home/.pi/agent/mcp.json" "data['mcpServers']['playwright']['args'] == ['dlx', '@example/playwright-mcp@3.1.0', '--isolated']"
 
 }
 
-run_claude_context7_env_binding_preserve_case() {
-  local snapshot_repo="$1"
-  local claude_sandbox="$WORK_DIR/claude-context7-env-binding-preserve"
-  local rc=0
-  mkdir -p "$claude_sandbox/home"
-
-  cat > "$claude_sandbox/home/.claude.json" <<'JSON'
-{
-  "mcpServers": {
-    "context7": {
-      "type": "http",
-      "url": "https://mcp.context7.com/mcp",
-      "headers": {
-        "CONTEXT7_API_KEY": "custom"
-      },
-      "bearerTokenEnvVar": "CONTEXT7_API_KEY"
-    }
-  }
-}
-JSON
-
-  rc="$(run_install_status "$claude_sandbox" "$snapshot_repo" --runtime=claude-code)"
-  [ "$rc" -eq 0 ] || fail "expected Claude Context7 env binding preserve exit 0, got $rc"
-  assert_json_value "$claude_sandbox/home/.claude.json" "data['mcpServers']['context7']['bearerTokenEnvVar'] == 'CONTEXT7_API_KEY'"
-}
-
-run_existing_tool_upgrade_case() {
-  local snapshot_repo="$1"
+run_existing_tool_upgrade_case() {  local snapshot_repo="$1"
   local sandbox="$WORK_DIR/existing-tool-upgrade"
   local bin_dir="$sandbox/bin"
   local upgrade_log="$sandbox/upgrade.log"
@@ -1000,7 +919,7 @@ env["B_AGENTIC_INSTALL_CODEGRAPH"] = "Y"
 pid, fd = pty.fork()
 if pid == 0:
     os.environ.update(env)
-    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=pi"])
 
 status = None
 with open(log_path, "wb") as log:
@@ -1081,7 +1000,7 @@ pid = os.fork()
 if pid == 0:
     os.setsid()
     with open(log_path, "wb") as log:
-        res = subprocess.run(["bash", install_script, "--runtime=claude-code"], env=env, stdout=log, stderr=log)
+        res = subprocess.run(["bash", install_script, "--runtime=pi"], env=env, stdout=log, stderr=log)
         sys.exit(res.returncode)
 else:
     _, status = os.waitpid(pid, 0)
@@ -1102,129 +1021,71 @@ run_runtime_cli_upgrade_case() {
   local sandbox="$WORK_DIR/runtime-cli-upgrade"
   local bin_dir="$sandbox/bin"
   local upgrade_log="$sandbox/upgrade.log"
-  local runtime runtime_bin runtime_arg expected_entry install_log rc
+  local install_log rc
 
-  mkdir -p "$bin_dir"
+  mkdir -p "$sandbox/home" "$bin_dir"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/rtk"
   chmod +x "$bin_dir/rtk"
 
-  cat > "$bin_dir/claude" <<EOF
-#!/usr/bin/env bash
-printf 'claude:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  cat > "$bin_dir/codex" <<EOF
-#!/usr/bin/env bash
-printf 'codex:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
   cat > "$bin_dir/pi" <<EOF
 #!/usr/bin/env bash
 printf 'pi:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  chmod +x "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/pi"
+  chmod +x "$bin_dir/pi"
 
-  for runtime in claude-code codex pi; do
-    case "$runtime" in
-      claude-code)
-        runtime_bin="claude"
-        runtime_arg="upgrade"
-        ;;
-      codex)
-        runtime_bin="codex"
-        runtime_arg="update"
-        ;;
-      pi)
-        runtime_bin="pi"
-        runtime_arg="update"
-        ;;
-      *)
-        fail "unexpected runtime in upgrade smoke: $runtime"
-        ;;
-    esac
+  install_log="$sandbox/install.log"
+  rc=0
+  set +e
+  HOME="$sandbox/home" \
+  PATH="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
+  B_AGENTIC_INSTALL_RTK=N \
+  B_AGENTIC_INSTALL_SHELL_TOOLS=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  bash "$ROOT_DIR/install.sh" --runtime=pi >"$install_log" 2>&1
+  rc=$?
+  set -e
 
-    mkdir -p "$sandbox/$runtime/home"
-    install_log="$sandbox/$runtime/install.log"
-    rc=0
-
-    set +e
-    HOME="$sandbox/$runtime/home" \
-    PATH="$(smoke_path_with_runtime_clis "$sandbox/$runtime" "$bin_dir")" \
-    B_AGENTIC_REPO="$snapshot_repo" \
-    B_AGENTIC_DIR="$sandbox/$runtime/source" \
-    B_AGENTIC_PROMPT_API_KEYS=N \
-    B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
-    B_AGENTIC_INSTALL_RTK=N \
-    B_AGENTIC_INSTALL_SHELL_TOOLS=N \
-    B_AGENTIC_INSTALL_SERENA=N \
-    B_AGENTIC_INSTALL_CODEGRAPH=N \
-    bash "$ROOT_DIR/install.sh" --runtime="$runtime" >"$install_log" 2>&1
-    rc=$?
-    set -e
-
-    if [ "$rc" -ne 0 ]; then
-      printf '%s\n' "--- $runtime runtime CLI upgrade installer log ---" >&2
-      while IFS= read -r line || [ -n "$line" ]; do
-        printf '%s\n' "$line" >&2
-      done < "$install_log"
-      fail "expected $runtime runtime CLI upgrade install exit 0, got $rc"
-    fi
-    expected_entry="$runtime_bin:$runtime_arg"
-    assert_contains "$upgrade_log" "$expected_entry"
-  done
+  [ "$rc" -eq 0 ] || fail "expected pi runtime CLI upgrade install exit 0, got $rc"
+  assert_contains "$upgrade_log" 'pi:update'
 }
 
 run_missing_runtime_cli_install_case() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/missing-runtime-cli-install"
   local bin_dir="$sandbox/bin"
-  local install_log runtime expected_entry rc required_tool
+  local install_log rc required_tool
 
-  mkdir -p "$bin_dir"
+  mkdir -p "$sandbox/home" "$bin_dir"
   for required_tool in rtk rg fd bat eza sd jq; do
     printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
     chmod +x "$bin_dir/$required_tool"
   done
 
-  for runtime in claude-code codex pi; do
-    case "$runtime" in
-      claude-code)
-        expected_entry='[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
-        ;;
-      codex)
-        expected_entry='[dry-run] curl -fsSL https://chatgpt.com/codex/install.sh | sh'
-        ;;
-      pi)
-        expected_entry='[dry-run] curl -fsSL https://pi.dev/install.sh | sh'
-        ;;
-      *)
-        fail "unexpected runtime in missing CLI smoke: $runtime"
-        ;;
-    esac
+  install_log="$sandbox/install.log"
+  rc=0
+  set +e
+  HOME="$sandbox/home" \
+  PATH="$bin_dir:$(smoke_system_path)" \
+  B_AGENTIC_REPO="$snapshot_repo" \
+  B_AGENTIC_DIR="$sandbox/source" \
+  B_AGENTIC_PROMPT_API_KEYS=N \
+  B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
+  B_AGENTIC_INSTALL_RTK=Y \
+  B_AGENTIC_INSTALL_SHELL_TOOLS=N \
+  B_AGENTIC_INSTALL_SERENA=N \
+  B_AGENTIC_INSTALL_CODEGRAPH=N \
+  bash "$ROOT_DIR/install.sh" --runtime=pi --dry-run >"$install_log" 2>&1
+  rc=$?
+  set -e
 
-    mkdir -p "$sandbox/$runtime/home"
-    install_log="$sandbox/$runtime/install.log"
-    rc=0
-
-    set +e
-    HOME="$sandbox/$runtime/home" \
-    PATH="$bin_dir:$(smoke_system_path)" \
-    B_AGENTIC_REPO="$snapshot_repo" \
-    B_AGENTIC_DIR="$sandbox/$runtime/source" \
-    B_AGENTIC_PROMPT_API_KEYS=N \
-    B_AGENTIC_INSTALL_RUNTIME_CLI=Y \
-    B_AGENTIC_INSTALL_RTK=Y \
-    B_AGENTIC_INSTALL_SHELL_TOOLS=N \
-    B_AGENTIC_INSTALL_SERENA=N \
-    B_AGENTIC_INSTALL_CODEGRAPH=N \
-    bash "$ROOT_DIR/install.sh" --runtime="$runtime" --dry-run >"$install_log" 2>&1
-    rc=$?
-    set -e
-
-    [ "$rc" -eq 0 ] || fail "expected $runtime missing CLI install dry-run exit 0, got $rc"
-    assert_contains "$install_log" "$expected_entry"
-  done
+  [ "$rc" -eq 0 ] || fail "expected pi missing CLI install dry-run exit 0, got $rc"
+  assert_contains "$install_log" '[dry-run] curl -fsSL https://pi.dev/install.sh | sh'
 }
 
 run_runtime_cli_default_skip_case() {
@@ -1240,12 +1101,6 @@ run_runtime_cli_default_skip_case() {
     printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
     chmod +x "$bin_dir/$required_tool"
   done
-  cat > "$bin_dir/claude" <<EOF
-#!/usr/bin/env bash
-printf 'claude:%s\n' "\$*" >> "$upgrade_log"
-exit 0
-EOF
-  chmod +x "$bin_dir/claude"
 
   set +e
   python3 - "$sandbox" "$snapshot_repo" "$install_log" "$bin_dir:$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
@@ -1265,7 +1120,7 @@ pid = os.fork()
 if pid == 0:
     os.setsid()
     with open(log_path, "wb") as log:
-        res = subprocess.run(["bash", install_script, "--runtime=claude-code"], env=env, stdout=log, stderr=log)
+        res = subprocess.run(["bash", install_script, "--runtime=pi"], env=env, stdout=log, stderr=log)
         sys.exit(res.returncode)
 else:
     _, status = os.waitpid(pid, 0)
@@ -1311,7 +1166,7 @@ env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
 pid, fd = pty.fork()
 if pid == 0:
     os.environ.update(env)
-    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code", "--dry-run"])
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=pi", "--dry-run"])
 
 os.write(fd, b"y\n")
 status = None
@@ -1346,8 +1201,8 @@ PY
   set -e
 
   [ "$rc" -eq 0 ] || fail "expected runtime CLI prompt install exit 0, got $rc"
-  assert_contains "$install_log" 'Install the claude-code CLI now? [y/N]:'
-  assert_contains "$install_log" '[dry-run] curl -fsSL https://claude.ai/install.sh | bash'
+  assert_contains "$install_log" 'Install the pi CLI now? [y/N]:'
+  assert_contains "$install_log" '[dry-run] curl -fsSL https://pi.dev/install.sh | sh'
 }
 
 run_runtime_cli_auto_upgrade_case() {
@@ -1361,12 +1216,12 @@ run_runtime_cli_auto_upgrade_case() {
 
   mkdir -p "$sandbox/home" "$bin_dir"
 
-  cat > "$bin_dir/claude" <<EOF
+  cat > "$bin_dir/pi" <<EOF
 #!/usr/bin/env bash
-printf 'claude:%s\n' "\$*" >> "$upgrade_log"
+printf 'pi:%s\n' "\$*" >> "$upgrade_log"
 exit 0
 EOF
-  chmod +x "$bin_dir/claude"
+  chmod +x "$bin_dir/pi"
   smoke_path="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")"
 
   set +e
@@ -1388,7 +1243,7 @@ env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
 pid, fd = pty.fork()
 if pid == 0:
     os.environ.update(env)
-    os.execv("/bin/bash", ["bash", install_script, "--runtime=claude-code"])
+    os.execv("/bin/bash", ["bash", install_script, "--runtime=pi"])
 
 os.write(fd, b"y\n")
 status = None
@@ -1423,59 +1278,45 @@ PY
   set -e
 
   [ "$rc" -eq 0 ] || fail "expected runtime CLI auto-upgrade install exit 0, got $rc"
-  assert_contains "$install_log" 'Upgrade the installed claude-code CLI now? [y/N]:'
-  assert_contains "$install_log" 'Claude Code CLI already installed; upgrading'
-  assert_contains "$upgrade_log" 'claude:upgrade'
+  assert_contains "$install_log" 'Upgrade the installed pi CLI now? [y/N]:'
+  assert_contains "$install_log" 'Pi CLI already installed; upgrading with pi update'
+  assert_contains "$upgrade_log" 'pi:update'
 }
 
 run_skill_doctor_case() {
   local snapshot_repo="$1"
-  local sandbox_claude="$WORK_DIR/skill-doctor-claude"
-  local sandbox_codex="$WORK_DIR/skill-doctor-codex"
+  local sandbox="$WORK_DIR/skill-doctor-pi"
   local doctor_log="$WORK_DIR/skill-doctor.log"
   local expected_skill_count
   local rc=0
-  mkdir -p "$sandbox_claude/home" "$sandbox_codex/home"
+  mkdir -p "$sandbox/home"
   expected_skill_count="$(registry_skill_count)"
 
-  expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
+  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=pi
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=pi --home "$sandbox/home" >"$doctor_log"
   assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
   assert_contains "$doctor_log" 'kernel: ready'
   assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
   assert_contains "$doctor_log" 'discovery: ready:'
-  rm -rf "$sandbox_claude/home/.claude/skills/b-review"
+  rm -rf "$sandbox/home/.pi/agent/skills/b-review"
   set +e
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=claude-code --home "$sandbox_claude/home" >"$doctor_log"
+  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=pi --home "$sandbox/home" >"$doctor_log"
   rc=$?
   set -e
   [ "$rc" -eq 1 ] || fail "expected skill doctor to fail for missing skill, got $rc"
   assert_contains "$doctor_log" 'skills: missing or mismatched: missing b-review'
   assert_contains "$doctor_log" 'discovery: blocked: install complete skill payload'
 
-  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex
-  python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --runtime=codex --home "$sandbox_codex/home" >"$doctor_log"
-  assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
-  assert_contains "$doctor_log" 'kernel: ready'
-  assert_contains "$doctor_log" "skills: ready: $expected_skill_count skills installed"
-  assert_contains "$doctor_log" 'config: ready'
-  assert_contains "$doctor_log" 'discovery: ready:'
-
-
 }
 
 
 run_simulated_runtime_acceptance_case() {
   local snapshot_repo="$1"
-  local sandbox_claude="$WORK_DIR/runtime-acceptance-simulated-claude"
-  local sandbox_codex="$WORK_DIR/runtime-acceptance-simulated-codex"
   local sandbox_pi="$WORK_DIR/runtime-acceptance-simulated-pi"
   local bin_dir="$WORK_DIR/runtime-acceptance-simulated-bin"
   local acceptance_log="$WORK_DIR/runtime-acceptance-simulated.log"
 
   mkdir -p \
-    "$sandbox_claude/home" \
-    "$sandbox_codex/home" \
     "$sandbox_pi/home" \
     "$bin_dir"
 
@@ -1536,49 +1377,6 @@ exit 0
 exit 0
 ' > "$bin_dir/pnpm"
 
-  cat > "$bin_dir/claude" <<'EOF'
-#!/usr/bin/env bash
-prompt="${@: -1}"
-case "$prompt" in
-  *"Detailed contract refs live under"*) printf '%s\n' '~/.claude/b-agentic/references/contract/' ;;
-  *"Write a commit message, PR title, and PR description for the staged changes."*) printf '%s\n' 'BLOCKED: no changes to summarize' ;;
-  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; printf '%s\n' 'ACCEPTANCE_MCP_OK' ;;
-  *"git commit -m test"*) printf '%s\n' 'approval required' ;;
-  *"git reset --hard"*) printf '%s\n' 'denied' ;;
-  *) printf '%s\n' 'unexpected claude prompt' ;;
-esac
-EOF
-
-  cat > "$bin_dir/codex" <<'EOF'
-#!/usr/bin/env bash
-output=""
-last=""
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -o)
-      output="$2"
-      shift 2
-      continue
-      ;;
-  esac
-  last="$1"
-  shift
-done
-case "$last" in
-  *"Detailed contract refs live under"*) result='~/.codex/b-agentic/references/contract/' ;;
-  *"Write a commit message, PR title, and PR description for the staged changes."*) result='BLOCKED: no changes to summarize' ;;
-  *"acceptance_probe"*) [ -n "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ] && printf 'ACCEPTANCE_MCP_TOOL_CALLED\n' >> "$B_AGENTIC_ACCEPTANCE_MCP_LOG" ; result='ACCEPTANCE_MCP_OK' ;;
-  *"git commit -m test"*) result='approval required' ;;
-  *"git reset --hard"*) result='denied' ;;
-  *) result='unexpected codex prompt' ;;
-esac
-if [ -n "$output" ]; then
-  printf '%s\n' "$result" > "$output"
-else
-  printf '%s\n' "$result"
-fi
-EOF
-
   cat > "$bin_dir/pi" <<'EOF'
 #!/usr/bin/env bash
 prompt="${@: -1}"
@@ -1596,8 +1394,6 @@ EOF
     "$bin_dir/serena" \
     "$bin_dir/codegraph" \
     "$bin_dir/pnpm" \
-    "$bin_dir/claude" \
-    "$bin_dir/codex" \
     "$bin_dir/pi"
   # Acceptance must see the complete active-session shell-tool contract.
   local required_tool
@@ -1605,32 +1401,6 @@ EOF
     printf '#!/usr/bin/env bash\nexit 0\n' > "$bin_dir/$required_tool"
     chmod +x "$bin_dir/$required_tool"
   done
-
-  expect_install_status 0 "$sandbox_claude" "$snapshot_repo" --runtime=claude-code
-  PATH="$bin_dir:$(smoke_system_path)" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=claude-code --home="$sandbox_claude/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
-  assert_contains "$acceptance_log" 'evidence-class: simulated'
-  assert_contains "$acceptance_log" 'kernel: ready: ~/.claude/b-agentic/references/contract/'
-  assert_contains "$acceptance_log" 'skill: ready: BLOCKED: no changes to summarize'
-  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
-  assert_contains "$acceptance_log" 'approval-gate: ready:'
-  assert_contains "$acceptance_log" 'deny-gate: ready:'
-  assert_contains "$acceptance_log" 'Evidence classes:'
-  assert_contains "$acceptance_log" 'simulated: --active protocol/adapter probes'
-
-  expect_install_status 0 "$sandbox_codex" "$snapshot_repo" --runtime=codex
-  PATH="$bin_dir:$(smoke_system_path)" \
-  CONTEXT7_API_KEY=test-context7 \
-  BRAVE_API_KEY=test-brave \
-  FIRECRAWL_API_KEY=test-firecrawl \
-  bash "$ROOT_DIR/scripts/runtime-acceptance.sh" --runtime=codex --home="$sandbox_codex/home" --active >"$acceptance_log" 2>&1
-  assert_contains "$acceptance_log" 'Simulated protocol probes (not live runtime proof):'
-  assert_contains "$acceptance_log" 'kernel: ready: ~/.codex/b-agentic/references/contract/'
-  assert_contains "$acceptance_log" 'mcp: ready: ACCEPTANCE_MCP_OK'
 
   expect_install_status 0 "$sandbox_pi" "$snapshot_repo" --runtime=pi
   PATH="$bin_dir:$(smoke_system_path)" \
@@ -1672,7 +1442,7 @@ run_rtk_ref_dry_run_case() {
   B_AGENTIC_INSTALL_RTK=Y \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
-  bash "$ROOT_DIR/install.sh" --runtime=codex --dry-run >"$install_log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi --dry-run >"$install_log" 2>&1
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected dry-run with default RTK ref exit 0, got $rc"
@@ -1691,7 +1461,7 @@ run_rtk_ref_dry_run_case() {
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_RTK_REF=test-ref-foo \
-  bash "$ROOT_DIR/install.sh" --runtime=codex --dry-run >"$install_log" 2>&1
+  bash "$ROOT_DIR/install.sh" --runtime=pi --dry-run >"$install_log" 2>&1
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "expected dry-run with custom RTK ref exit 0, got $rc"
@@ -1732,8 +1502,6 @@ main() {
   run_mcp_doctor_case "$snapshot_repo"
   echo "Running run_mcp_package_override_case..."
   run_mcp_package_override_case "$snapshot_repo"
-  echo "Running run_claude_context7_env_binding_preserve_case..."
-  run_claude_context7_env_binding_preserve_case "$snapshot_repo"
   echo "Running run_runtime_cli_default_skip_case..."
   run_runtime_cli_default_skip_case "$snapshot_repo"
   echo "Running run_runtime_cli_prompt_case..."
