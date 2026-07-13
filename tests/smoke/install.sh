@@ -285,12 +285,9 @@ run_all_runtime_smoke_case() {
     manifest_path="$sandbox_all/home/$metadata_root/install.json"
     assert_file "$manifest_path"
     assert_json_value "$manifest_path" "data['runtime'] == '$runtime_name'"
-    assert_file "$sandbox_all/home/$metadata_root/references/contract/runtime.md"
-    assert_file "$sandbox_all/home/$metadata_root/references/contract/safety-tools.md"
-    assert_no_path "$sandbox_all/home/$metadata_root/references/contract/output.md"
-    assert_no_path "$sandbox_all/home/$metadata_root/references/contract/decisions.md"
-    assert_no_path "$sandbox_all/home/$metadata_root/references/contract/state-machine.md"
-    assert_no_path "$sandbox_all/home/$metadata_root/references/contract/index.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/kernel.template.md"
+    assert_file "$sandbox_all/home/$metadata_root/references/mcp_operations.yaml"
+    assert_no_path "$sandbox_all/home/$metadata_root/references/contract"
   done < <(registry_runtime_records install)
 
   rm -rf "$sandbox_all/source"

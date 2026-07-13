@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Canonical managed MCP operation classification. Render the contract table and validate/generate adapter policies from this file only.",
+  "description": "Canonical managed MCP operation classification. Render the kernel table and validate/generate adapter policies from this file only.",
   "classes": {
     "read-only": {
       "policy": "Autonomous when the runtime can scope tools",

@@ -50,7 +50,7 @@ def audit_slimness(errors: list[str]) -> None:
                 "consider moving runtime-specific guidance elsewhere"
             )
 
-    template = ROOT / "references" / "contract" / "kernel.template.md"
+    template = ROOT / "references" / "kernel.template.md"
     template_lines = len(template.read_text().splitlines())
     if template_lines > 120:
         errors.append(
@@ -88,7 +88,6 @@ def audit_runtime_template_excluded(errors: list[str]) -> None:
 def audit_unresolved_tokens(errors: list[str]) -> None:
     generated_paths = [
         ROOT / "README.md",
-        ROOT / "references" / "contract" / "runtime.md",
         *(ROOT / "skills" / name / "SKILL.md" for name in _skill_names()),
         *(ROOT / "runtimes" / name / "kernel.md" for name in _runtime_names()),
     ]

@@ -1,7 +1,7 @@
 <!-- b-agentic-managed -->
 <!-- Generated from references/kernel.template.md and runtimes/registry.yaml. Edit those sources, not this file. -->
 
-# b-agentic - Agent Workflow Kernel for Pi
+# b-agentic - Agent Workflow Kernel for {{runtime_display_name}}
 
 Use these rules before any skill-specific instruction.
 
@@ -44,7 +44,7 @@ For unclear goals or approaches, use `b-plan`. Use `b-summary` only for an expli
 
 ### Managed MCP operations
 
-Canonical policy: `~/.pi/agent/b-agentic/references/mcp_operations.yaml`. Enforce it where per-tool permissions exist; do not weaken it for runtimes without them. Firecrawl/Playwright read-only operations may be autonomous only through operation-level allowlists; server wildcards are forbidden. Fully trusted managed servers are `serena`, `codegraph`, `context7`, and `brave-search`; re-review their policy rationale when packages, endpoints, or advertised tools change.
+Canonical policy: `{{runtime_metadata_root}}/references/mcp_operations.yaml`. Enforce it where per-tool permissions exist; do not weaken it for runtimes without them. Firecrawl/Playwright read-only operations may be autonomous only through operation-level allowlists; server wildcards are forbidden. Fully trusted managed servers are `serena`, `codegraph`, `context7`, and `brave-search`; re-review their policy rationale when packages, endpoints, or advertised tools change.
 
 <!-- generated:mcp-operations:start -->
 | Class | Policy | Managed operations |

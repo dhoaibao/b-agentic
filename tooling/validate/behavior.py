@@ -29,6 +29,24 @@ class Fixture:
     not_expected: tuple[str, ...] = ()
 
 
+# Regression: splitting runtime guidance across runtime.md and safety-tools.md
+# made the always-loaded kernel omit routing, safety, bootstrap, and verification
+# guarantees. Consolidation must retain those guarantees in the single kernel.
+KERNEL_CONSOLIDATION_REGRESSION = {
+    "observed_failure": "The runtime kernel lacked contract guidance unless agents opened extra files.",
+    "intended_behavior": "The single always-loaded kernel retains routing, approval, verification, and local-tool fallback guidance.",
+    "required_clauses": (
+        "latest user instruction, approved plan, repo evidence, then stated assumptions",
+        "define success, make the smallest coherent change, and verify its observable outcome",
+        "Ask before dependency writes, long-lived services, migrations, commits, pushes, PRs, destructive commands",
+        "likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`)",
+        "Use available local code intelligence; do not install missing tools or create indexes without approval.",
+        "Fall back to local evidence and state the resulting gap.",
+        "Use `rtk` for every command family it supports",
+    ),
+}
+
+
 FIXTURES = [
     Fixture(
         name="explicit debug skill request",
@@ -310,7 +328,7 @@ def classify(prompt: str, skills: list[dict]) -> tuple[str, dict[str, int]]:
 
 
 def routing_table_text() -> str:
-    return (ROOT / "references" / "contract" / "runtime.md").read_text()
+    return (ROOT / "references" / "kernel.template.md").read_text()
 
 
 def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
@@ -324,15 +342,26 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
                 name == "b-summary"
                 and "Commit or PR summary for staged changes -> `b-summary`" not in text
             ):
-                errors.append("references/contract/runtime.md: missing b-summary precedence rule")
+                errors.append("references/kernel.template.md: missing b-summary routing rule")
             continue
         if f"`{name}`" not in text:
-            errors.append(f"references/contract/runtime.md: missing routing table entry for {name}")
+            errors.append(f"references/kernel.template.md: missing routing entry for {name}")
         for trigger in skill.get("routing", {}).get("triggers", []):
             if isinstance(trigger, str) and trigger.strip('"') not in text:
                 errors.append(
-                    f"references/contract/runtime.md: missing trigger {trigger!r} for {name}"
+                    f"references/kernel.template.md: missing trigger {trigger!r} for {name}"
                 )
+
+
+def validate_kernel_consolidation_regression(errors: list[str]) -> None:
+    kernel = routing_table_text()
+    for clause in KERNEL_CONSOLIDATION_REGRESSION["required_clauses"]:
+        if clause not in kernel:
+            errors.append(
+                "kernel consolidation regression: missing required clause "
+                f"{clause!r}; observed failure: "
+                f"{KERNEL_CONSOLIDATION_REGRESSION['observed_failure']}"
+            )
 
 
 def main() -> int:
@@ -341,6 +370,7 @@ def main() -> int:
     errors: list[str] = []
 
     validate_runtime_contract(skills, errors)
+    validate_kernel_consolidation_regression(errors)
 
     for fixture in FIXTURES:
         if fixture.expected not in skill_names:

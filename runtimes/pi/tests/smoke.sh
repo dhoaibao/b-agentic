@@ -17,9 +17,9 @@ run_runtime_smoke_cases() {
   expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=pi
   assert_file "$sandbox/home/.pi/agent/AGENTS.md"
   assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
-  assert_file "$sandbox/home/.pi/agent/b-agentic/references/contract/runtime.md"
-  assert_file "$sandbox/home/.pi/agent/b-agentic/references/contract/safety-tools.md"
-  assert_no_path "$sandbox/home/.pi/agent/b-agentic/references/contract/output.md"
+  assert_file "$sandbox/home/.pi/agent/b-agentic/references/kernel.template.md"
+  assert_file "$sandbox/home/.pi/agent/b-agentic/references/mcp_operations.yaml"
+  assert_no_path "$sandbox/home/.pi/agent/b-agentic/references/contract"
   assert_file "$sandbox/home/.pi/agent/mcp.json"
   assert_file "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
   assert_file "$sandbox/home/.pi/agent/b-agentic/extensions/b-agentic-permissions.ts"

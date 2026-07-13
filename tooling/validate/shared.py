@@ -329,76 +329,67 @@ if unreferenced_servers:
 if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 
-contract_dir = ROOT / "references" / "contract"
-expected_contract_mds = {"runtime.md", "safety-tools.md", "kernel.template.md"}
-actual_contract_mds = {path.name for path in contract_dir.glob("*.md")}
-if actual_contract_mds != expected_contract_mds:
+references_dir = ROOT / "references"
+expected_reference_mds = {"kernel.template.md"}
+actual_reference_mds = {path.name for path in references_dir.glob("*.md")}
+if actual_reference_mds != expected_reference_mds:
     errors.append(
-        f"references/contract/: expected markdown {sorted(expected_contract_mds)}, "
-        f"found {sorted(actual_contract_mds)}"
+        f"references/: expected markdown {sorted(expected_reference_mds)}, "
+        f"found {sorted(actual_reference_mds)}"
     )
-if not (contract_dir / "mcp_operations.yaml").exists():
-    errors.append("references/contract/mcp_operations.yaml: missing canonical MCP operation policy")
-safety_tools = read_text(contract_dir / "safety-tools.md")
-if "mcp_operations.yaml" not in safety_tools:
-    errors.append("references/contract/safety-tools.md: must point at mcp_operations.yaml as canonical source")
-if "<!-- generated:mcp-operations:start -->" not in safety_tools:
-    errors.append("references/contract/safety-tools.md: missing generated MCP operations block markers")
+if (references_dir / "contract").exists():
+    errors.append("references/contract/: removed contract directory remains")
+if not (references_dir / "mcp_operations.yaml").exists():
+    errors.append("references/mcp_operations.yaml: missing canonical MCP operation policy")
 
-for path in [ROOT / "references" / "contract" / "kernel.template.md", *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names)]:
-    text = read_text(path)
-    for required in ["Core Rules", "Routing", "runtime.md", "safety-tools.md"]:
-        if required not in text:
-            errors.append(f"{rel(path)}: missing kernel marker {required!r}")
-    for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict governance", "Advisory-only runtime"]:
-        if forbidden in text:
-            errors.append(f"{rel(path)}: removed kernel concept remains: {forbidden!r}")
+kernel_template = read_text(references_dir / "kernel.template.md")
+for required in ["Core Rules", "Routing", "Safety and tools", "Managed MCP operations"]:
+    if required not in kernel_template:
+        errors.append(f"references/kernel.template.md: missing kernel marker {required!r}")
+for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict governance", "Advisory-only runtime"]:
+    if forbidden in kernel_template:
+        errors.append(f"references/kernel.template.md: removed kernel concept remains: {forbidden!r}")
 
-kernel_template = read_text(ROOT / "references" / "contract" / "kernel.template.md")
 for forbidden in ["route every shell command through", "always prefix shell commands"]:
     if forbidden in kernel_template:
         errors.append(
-            "references/contract/kernel.template.md: unsupported RTK routing remains: "
+            "references/kernel.template.md: unsupported RTK routing remains: "
             f"{forbidden!r}"
         )
 
-# The kernel template owns the required shell-tool and RTK preferences. Each
-# preferred tool must appear in the always-loaded kernel so the guidance stays
-# in scope, and the blocking install prompt must never creep back in.
+# The kernel owns required shell-tool and RTK preferences.
 for required_tool in ["`rtk`", "`rg`", "`fd`", "`bat`", "`eza`", "`sd`", "`jq`"]:
     if required_tool not in kernel_template:
         errors.append(
-            f"references/contract/kernel.template.md: missing required shell tool {required_tool!r}"
+            f"references/kernel.template.md: missing required shell tool {required_tool!r}"
         )
 if "prompt the user to install the shell tooling before falling back" in kernel_template:
     errors.append(
-        "references/contract/kernel.template.md: blocking shell-tool install prompt remains"
+        "references/kernel.template.md: blocking shell-tool install prompt remains"
     )
 
-# Kernel routing is rendered from the registry. Keep the template markers and
-# each generated runtime kernel synchronized; runtime.md retains detailed
-# precedence guidance beyond registry metadata.
-for marker in ["<!-- generated:kernel-routing:start -->", "<!-- generated:kernel-routing:end -->"]:
+for marker in [
+    "<!-- generated:kernel-routing:start -->",
+    "<!-- generated:kernel-routing:end -->",
+    "<!-- generated:mcp-operations:start -->",
+    "<!-- generated:mcp-operations:end -->",
+]:
     if marker not in kernel_template:
-        errors.append(f"references/contract/kernel.template.md: missing kernel routing marker {marker!r}")
-runtime_contract = read_text(ROOT / "references" / "contract" / "runtime.md")
-runtime_precedence_section = runtime_contract.split("Precedence:", 1)[-1].split(
-    "<!-- generated:routing-triggers:start -->", 1
-)[0]
+        errors.append(f"references/kernel.template.md: missing generated marker {marker!r}")
 for skill in skills:
     if not isinstance(skill.get("routing"), dict):
         continue
     name_token = f"`{skill['name']}`"
     for runtime_name in runtime_names:
         kernel = read_text(ROOT / "runtimes" / runtime_name / "kernel.md")
-        kernel_routing_section = kernel.split("## Routing", 1)[-1].split("## Shell commands", 1)[0]
+        kernel_routing_section = kernel.split("## Routing", 1)[-1].split("## Safety and tools", 1)[0]
         if name_token not in kernel_routing_section:
             errors.append(
                 f"runtimes/{runtime_name}/kernel.md: generated routing is missing {name_token}"
             )
-    if name_token not in runtime_precedence_section:
+    if name_token not in kernel_template:
         errors.append(
-            f"references/contract/runtime.md: Precedence list is missing {name_token}"
+            f"references/kernel.template.md: routing is missing {name_token}"
         )
 
 # Firecrawl is external research infrastructure, not browser evidence. Keeping
@@ -413,7 +404,7 @@ for forbidden in ["hooks", "subagent", "strict", "state-machine", "conformance"]
         errors.append(f"README.md: removed product concept remains: {forbidden!r}")
 
 # Safety-gate parity: every runtime that ships a permission model must gate the
-# command families the runtime contract (references/contract/safety-tools.md)
+# command families the kernel (references/kernel.template.md)
 # requires, at no weaker than the canonical severity. "ask" = must prompt for
 # approval; "deny" = must be refused. Each family is checked through the
 # runtime's own permission model. Runtimes without a managed permission gate
@@ -481,7 +472,7 @@ for tokens, min_severity in SAFETY_GATES:
         if severity_fn(tokens) < required_rank:
             errors.append(
                 f"{label}: safety gate {family!r} weaker than required {min_severity!r}; "
-                "align with references/contract/safety-tools.md"
+                "align with references/kernel.template.md"
             )
 
 for deleted_path in ["tooling/policy", "tooling/state", "tooling/hooks", "tooling/conformance", "tooling/scenarios"]:
@@ -494,7 +485,6 @@ for deleted_path in ["tooling/policy", "tooling/state", "tooling/hooks", "toolin
 
 generated_paths = [
     ROOT / "README.md",
-    ROOT / "references" / "contract" / "runtime.md",
     *(ROOT / "skills" / name / "SKILL.md" for name in skill_names),
     *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names),
 ]

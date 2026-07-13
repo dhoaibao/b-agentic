@@ -6,7 +6,7 @@ Adapter-owned layout for Pi.
 
 - Kernel memory: `~/.pi/agent/AGENTS.md`
 - Skills: `~/.pi/agent/skills/<skill-name>/SKILL.md`
-- Shared references: `~/.pi/agent/b-agentic/references/contract/*.md`
+- Shared references: `~/.pi/agent/b-agentic/references/kernel.template.md` and `mcp_operations.yaml`
 - MCP template: `~/.pi/agent/b-agentic/templates/mcp.user.template.json`
 - User MCP config: `~/.pi/agent/mcp.json` (Pi-owned override read by `pi-mcp-adapter`)
 - Permission extension: `~/.pi/agent/extensions/b-agentic-permissions.ts`

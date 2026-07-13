@@ -108,7 +108,7 @@ Capability matrix (support labels plus enforceable limits):
 
 Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
 
-Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery, fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`), and operation-level Firecrawl/Playwright read tools, while prompting for approval-required shell commands, Firecrawl/Playwright external-mutation tools, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the community adapter `pi-mcp-adapter` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively); uninstall removes managed config/extension files but not the adapter package. On top of this baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Pi is support tier `operation-enforced` for Firecrawl/Playwright policy derived from `references/contract/mcp_operations.yaml` and `references/contract/safety-tools.md`.
+Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery, fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`), and operation-level Firecrawl/Playwright read tools, while prompting for approval-required shell commands, Firecrawl/Playwright external-mutation tools, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the community adapter `pi-mcp-adapter` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively); uninstall removes managed config/extension files but not the adapter package. On top of this baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Pi is support tier `operation-enforced` for Firecrawl/Playwright policy derived from `references/mcp_operations.yaml` and `references/kernel.template.md`.
 
 ## Skills
 
@@ -158,7 +158,7 @@ The installer does not start MCP servers, install `pnpm dlx` packages ahead of t
 b-agentic/
 ├── skills/                # Skill sources and generated delivery assets
 ├── runtimes/              # Runtime adapters, configs, scripts, and smoke lanes
-├── references/contract/   # Slim runtime contract
+├── references/            # Runtime kernel and MCP policy
 ├── tooling/generate/      # Registry and generated asset sync
 ├── tooling/install/       # Shared installer core
 ├── tooling/validate/      # Validation harness
@@ -186,4 +186,4 @@ The validation suite and doctors prove generated sync, install safety, runtime c
 - `README.md` is the repository overview.
 - `AGENTS.md` is maintainer guidance.
 - `CHANGELOG.md` records shipped revisions.
-- `references/contract/` contains the runtime contract shipped to adapters, including canonical `mcp_operations.yaml`.
+- `references/` contains the runtime kernel and canonical `mcp_operations.yaml` shipped to adapters.

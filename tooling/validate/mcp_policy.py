@@ -2,8 +2,8 @@
 
 """Table-driven MCP operation policy regression.
 
-Canonical source: references/contract/mcp_operations.yaml.
-The contract table in safety-tools.md is generated from that file.
+Canonical source: references/mcp_operations.yaml.
+The kernel's managed-operation table is generated from that file.
 
 Operation-enforced runtimes treat adapter policy as the runtime-enforced
 operation boundary. Adapters must:
@@ -21,7 +21,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
+POLICY_PATH = ROOT / "references" / "mcp_operations.yaml"
 
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "auth"}
 READ_ONLY = "read-only"
@@ -116,27 +116,25 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> dict[str, dict[str
     return servers
 
 
-def validate_contract_generated(policy: dict, servers: dict[str, dict[str, str]], errors: list[str]) -> None:
-    safety_path = ROOT / "references" / "contract" / "safety-tools.md"
-    safety = safety_path.read_text()
-    label = rel(safety_path)
+def validate_kernel_generated(policy: dict, servers: dict[str, dict[str, str]], errors: list[str]) -> None:
+    kernel_path = ROOT / "references" / "kernel.template.md"
+    kernel = kernel_path.read_text()
+    label = rel(kernel_path)
 
     for marker in [
-        "Managed MCP Operation Classification",
-        "references/contract/mcp_operations.yaml",
+        "Managed MCP operations",
+        "references/mcp_operations.yaml",
         "<!-- generated:mcp-operations:start -->",
         "<!-- generated:mcp-operations:end -->",
-        "Runtime enforcement notes",
-        "server-level trust",
+        "server wildcards are forbidden",
     ]:
-        if marker not in safety:
+        if marker not in kernel:
             errors.append(f"{label}: missing marker {marker!r}")
 
-    # Closed-world: every classified tool must appear in the rendered contract table.
     start = "<!-- generated:mcp-operations:start -->"
     end = "<!-- generated:mcp-operations:end -->"
     try:
-        block = safety.split(start, 1)[1].split(end, 1)[0]
+        block = kernel.split(start, 1)[1].split(end, 1)[0]
     except IndexError:
         errors.append(f"{label}: generated MCP operations block missing")
         return
@@ -159,7 +157,7 @@ def reject_unknown(label: str, surface: str, observed: set[str], known: set[str]
             continue
         errors.append(
             f"{label}: {surface} includes unclassified managed tool {tool!r}; "
-            "add it to references/contract/mcp_operations.yaml"
+            "add it to references/mcp_operations.yaml"
         )
 
 
@@ -215,7 +213,7 @@ def main() -> int:
     policy = load_policy()
     servers = validate_policy_shape(policy, errors)
     if "firecrawl" in servers and "playwright" in servers:
-        validate_contract_generated(policy, servers, errors)
+        validate_kernel_generated(policy, servers, errors)
         validators = {"pi": validate_pi}
         enforced_runtimes = operation_enforced_runtimes()
         for runtime_name in enforced_runtimes:

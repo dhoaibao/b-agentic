@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SKILL_REGISTRY_PATH = ROOT / "skills" / "registry.yaml"
 RUNTIME_REGISTRY_PATH = ROOT / "runtimes" / "registry.yaml"
-KERNEL_TEMPLATE_PATH = ROOT / "references" / "contract" / "kernel.template.md"
+KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
 
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
@@ -29,7 +29,7 @@ MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
 MCP_OPERATIONS_END = "<!-- generated:mcp-operations:end -->"
 KERNEL_ROUTING_START = "<!-- generated:kernel-routing:start -->"
 KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
-MCP_OPERATIONS_PATH = ROOT / "references" / "contract" / "mcp_operations.yaml"
+MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
 RUNTIME_REFERENCE_ROOT_TOKEN = "{{runtime_reference_root}}"
@@ -140,10 +140,6 @@ def validate_kernel_template(errors: list[str]) -> None:
         if token not in template_text:
             errors.append(f"{KERNEL_TEMPLATE_PATH}: missing kernel template token {token!r}")
 
-    if "CLAUDE.md" in template_text or "AGENTS.md" in template_text:
-        errors.append(
-            f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must use {RUNTIME_MEMORY_FILE_TOKEN}, not a runtime-specific memory file"
-        )
     if "~/.claude/b-agentic" in template_text:
         errors.append(
             f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must use {RUNTIME_METADATA_ROOT_TOKEN}, not a runtime-specific metadata root"
@@ -670,15 +666,23 @@ def render_kernel_routing(skills: list[dict]) -> str:
     for skill in skills:
         routing = skill.get("routing")
         if isinstance(routing, dict):
-            lines.append(f"- {routing['intent']} -> `{skill['name']}`.")
+            lines.append(
+                f"- {routing['intent']} -> `{skill['name']}` (triggers: {', '.join(routing['triggers'])})."
+            )
         elif skill["name"] == "b-summary":
             lines.append("- Commit or PR summary for staged changes -> `b-summary` only on explicit user request.")
     return "\n".join(lines)
 
 
 def render_kernel(runtime: dict, skills: list[dict]) -> str:
-    template_text = apply_template_tokens(
+    template_text = replace_block(
         KERNEL_TEMPLATE_PATH.read_text(),
+        MCP_OPERATIONS_START,
+        MCP_OPERATIONS_END,
+        render_mcp_operations_table(load_mcp_operations()),
+    )
+    template_text = apply_template_tokens(
+        template_text,
         {
             RUNTIME_DISPLAY_NAME_TOKEN: runtime["display_name"],
             RUNTIME_METADATA_ROOT_TOKEN: runtime["metadata_root"],
@@ -728,25 +732,14 @@ def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
         render_readme_runtime_capability_matrix(runtimes),
     )
 
-    routing_path = ROOT / "references" / "contract" / "runtime.md"
-    routing_text = routing_path.read_text()
-    routing_text = replace_block(
-        routing_text,
-        ROUTING_INTENTS_START,
-        ROUTING_INTENTS_END,
-        render_routing_intents_table(skills),
+    kernel_text = replace_block(
+        KERNEL_TEMPLATE_PATH.read_text(),
+        KERNEL_ROUTING_START,
+        KERNEL_ROUTING_END,
+        render_kernel_routing(skills),
     )
-    outputs[routing_path] = replace_block(
-        routing_text,
-        ROUTING_TRIGGERS_START,
-        ROUTING_TRIGGERS_END,
-        render_routing_triggers_table(skills),
-    )
-
-    safety_path = ROOT / "references" / "contract" / "safety-tools.md"
-    safety_text = safety_path.read_text()
-    outputs[safety_path] = replace_block(
-        safety_text,
+    outputs[KERNEL_TEMPLATE_PATH] = replace_block(
+        kernel_text,
         MCP_OPERATIONS_START,
         MCP_OPERATIONS_END,
         render_mcp_operations_table(load_mcp_operations()),

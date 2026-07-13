@@ -1,7 +1,7 @@
 /**
  * b-agentic first-party permission extension for Pi.
  *
- * Enforces safety-tools.md gates via Pi's tool_call event:
+ * Enforces kernel safety gates via Pi's tool_call event:
  * - ask: commits, pushes, pulls, reverts, dependency writes, long-lived services, rm -rf
  * - deny: destructive git history/worktree rewrites and selected docker prune/rm families
  * - block write/edit to secret and repository-control paths

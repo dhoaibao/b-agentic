@@ -11,7 +11,7 @@ The governing principle is: slim, strong, usable. Every workflow or prompt chang
 
 - Treat `README.md` as the public overview and this file as maintainer guidance.
 - Edit canonical sources, not generated outputs.
-- Keep shared content under `skills/` and `references/contract/` runtime-neutral.
+- Keep shared content under `skills/` and `references/` runtime-neutral.
 - Put runtime-specific paths, templates, wrappers, caveats, and smoke tests under `runtimes/<name>/`.
 - Preserve user-owned configuration in installers and adapters.
 - Keep registry YAML JSON-compatible so the Python standard library can parse it.
@@ -25,21 +25,19 @@ The governing principle is: slim, strong, usable. Every workflow or prompt chang
 - `skills/registry.yaml` owns skill metadata and generated frontmatter.
 - `skills/*/prompt.md` owns canonical skill bodies.
 - `runtimes/registry.yaml` owns runtime metadata and capability labels.
-- `references/contract/kernel.template.md` owns generated runtime kernels, including the always-loaded required shell-tool and RTK conventions.
-- `references/contract/runtime.md` and `references/contract/safety-tools.md` own shared contract behavior.
-- `references/contract/mcp_operations.yaml` owns managed MCP operation classifications; the safety-tools table is generated from it.
+- `references/kernel.template.md` owns the complete generated runtime kernel, including workflow, safety, tool-use, and shell conventions.
+- `references/mcp_operations.yaml` owns managed MCP operation classifications; the kernel table is generated from it.
 - `skills/*/SKILL.md`, `runtimes/*/kernel.md` are generated assets.
 
 ## Change Workflow
 
 - Skill metadata: edit `skills/registry.yaml`.
 - Skill behavior: edit the relevant `skills/*/prompt.md`.
-- Kernel behavior: edit `references/contract/kernel.template.md`.
-- Shared contract behavior: edit `references/contract/runtime.md` or `references/contract/safety-tools.md`.
-- Managed MCP tool classes: edit `references/contract/mcp_operations.yaml`, then run registry sync so `safety-tools.md` regenerates.
+- Kernel behavior: edit `references/kernel.template.md`.
+- Managed MCP tool classes: edit `references/mcp_operations.yaml`, then run registry sync so the kernel table regenerates.
 - Runtime behavior: update `runtimes/registry.yaml`, the affected adapter files, and smoke tests together.
 - Use `{{skill_support_path}}` and `{{runtime_reference_root}}` for template paths where applicable.
-- Keep `references/contract/` limited to `runtime.md`, `safety-tools.md`, `kernel.template.md`, and `mcp_operations.yaml` unless a new file clearly removes more complexity than it adds.
+- Keep `references/` limited to `kernel.template.md` and `mcp_operations.yaml` unless a new file clearly removes more complexity than it adds.
 - After changing generated surfaces, run `python3 tooling/generate/registry_sync.py`.
 
 Prefer fewer concepts and shorter prompts. Do not introduce hooks, state-machine governance, mandatory status blocks, or subagent profiles without an approved, evidence-backed need.
@@ -63,7 +61,7 @@ Use `--release` when install, runtime, wrapper, kernel delivery, or release-read
 
 - `skills/` — canonical prompts, registry metadata, and generated skill assets
 - `runtimes/` — runtime adapters, configs, kernels, and smoke lanes
-- `references/contract/` — shared runtime contract and kernel template
+- `references/` — shared runtime kernel and MCP operation policy
 - `tooling/generate/` — registry synchronization and renderers
 - `tooling/install/` — shared installer implementation
 - `tooling/validate/` — validation harness
