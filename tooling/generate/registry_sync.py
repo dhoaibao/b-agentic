@@ -192,7 +192,11 @@ def validate_skill_prompt_source(skill: dict, errors: list[str]) -> None:
 def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
     errors: list[str] = []
     skill_dirs = {path.parent.name for path in (ROOT / "skills").glob("*/prompt.md")}
-    runtime_dirs = {path.name for path in (ROOT / "runtimes").glob("*/")}
+    runtime_dirs = {
+        path.name
+        for path in (ROOT / "runtimes").glob("*/")
+        if any(path.iterdir())
+    }
 
     validate_kernel_template(errors)
 

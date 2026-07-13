@@ -94,7 +94,11 @@ if prompt_dirs != set(skill_names):
         f"(registry={sorted(skill_names)}, dirs={sorted(prompt_dirs)})"
     )
 
-runtime_dirs = {path.name for path in (ROOT / "runtimes").iterdir() if path.is_dir() and path.name != "runtime-template"}
+runtime_dirs = {
+    path.name
+    for path in (ROOT / "runtimes").iterdir()
+    if path.is_dir() and path.name != "runtime-template" and any(path.iterdir())
+}
 if runtime_dirs != set(runtime_names):
     errors.append(
         "runtimes/registry.yaml: registry must match runtime directories "

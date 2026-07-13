@@ -86,6 +86,8 @@ run_invalid_runtime_layout_validation_case() {
   local sandbox_invalid="$WORK_DIR/invalid-runtime-layout"
   local sandbox_schema="$WORK_DIR/invalid-runtime-schema"
   local sandbox_policy_runtime="$WORK_DIR/operation-enforced-runtime"
+  local sandbox_empty_runtime="$WORK_DIR/empty-runtime-directory"
+  local sandbox_unregistered_runtime="$WORK_DIR/unregistered-runtime-directory"
 
   git clone --quiet "$snapshot_repo" "$sandbox_invalid"
   python3 - "$sandbox_invalid/runtimes/registry.yaml" <<'PY'
@@ -125,6 +127,22 @@ PY
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "adapter-defined runtime config schema should pass registry sync validation"
+
+  git clone --quiet "$snapshot_repo" "$sandbox_empty_runtime"
+  mkdir "$sandbox_empty_runtime/runtimes/local-only"
+  ( cd "$sandbox_empty_runtime" && python3 tooling/generate/registry_sync.py --check ) >"$sandbox_empty_runtime/registry-check.log" 2>&1 || fail "empty local runtime directory should not fail registry sync"
+  ( cd "$sandbox_empty_runtime" && python3 tooling/validate/shared.py ) >"$sandbox_empty_runtime/shared-check.log" 2>&1 || fail "empty local runtime directory should not fail shared validation"
+
+  git clone --quiet "$snapshot_repo" "$sandbox_unregistered_runtime"
+  mkdir -p "$sandbox_unregistered_runtime/runtimes/future/configs"
+  printf 'adapter\n' > "$sandbox_unregistered_runtime/runtimes/future/configs/README.md"
+  rc=0
+  set +e
+  ( cd "$sandbox_unregistered_runtime" && python3 tooling/generate/registry_sync.py --check ) >"$sandbox_unregistered_runtime/registry-check.log" 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "populated unregistered runtime directory should fail registry sync"
+  assert_contains "$sandbox_unregistered_runtime/registry-check.log" "missing: ['future']"
 
   git clone --quiet "$snapshot_repo" "$sandbox_policy_runtime"
   python3 - "$sandbox_policy_runtime/runtimes/registry.yaml" <<'PY'
