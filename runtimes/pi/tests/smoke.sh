@@ -162,7 +162,8 @@ expect(t.isMcpOrCustomTool('mcp', { describe: 'serena_find_symbol' }) === false,
 expect(t.isMcpOrCustomTool('mcp', { action: 'ui-messages' }) === false, 'MCP UI messages are autonomous');
 expect(t.isMcpOrCustomTool('mcp', { server: 'serena' }) === false, 'managed MCP server listing is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { connect: 'codegraph' }) === false, 'managed MCP connect is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_find_symbol' }) === false, 'managed MCP tool execution is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_find_symbol' }) === false, 'classified Serena read is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_content' }) === true, 'Serena local mutation requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_search' }) === false, 'firecrawl search is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape' }) === false, 'firecrawl scrape is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'brave_search_brave_web_search' }) === false, 'brave search tools are autonomous');
@@ -208,7 +209,8 @@ expect(t.isTrustedManagedTool('firecrawl', 'firecrawl_search') === true, 'firecr
 expect(t.isTrustedManagedTool('firecrawl', 'firecrawl_interact') === false, 'firecrawl interact not trusted helper');
 expect(t.isTrustedManagedTool('playwright', 'browser_click') === false, 'playwright click not trusted helper');
 expect(t.SPECIALIZED_TOOLS.has('grep') && t.SPECIALIZED_TOOLS.has('find') && t.SPECIALIZED_TOOLS.has('ls'), 'discovery tools specialized');
-expect(t.MANAGED_MCP_SERVERS.has('serena') && t.MANAGED_MCP_SERVERS.has('playwright'), 'managed MCP set present');
+expect(t.SERENA_TRUSTED_TOOLS.has('serena_find_symbol') && t.MANAGED_MCP_SERVERS.has('playwright'), 'managed MCP sets present');
+expect(t.isTrustedManagedTool('serena', 'serena_replace_content') === false, 'Serena local mutation not trusted helper');
 expect(t.FIRECRAWL_TRUSTED_TOOLS.has('firecrawl_search'), 'firecrawl allowlist present');
 expect(t.PLAYWRIGHT_TRUSTED_TOOLS.has('browser_snapshot'), 'playwright allowlist present');
 

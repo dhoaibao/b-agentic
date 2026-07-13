@@ -19,19 +19,65 @@
       "policy": "Approval required; not part of the default workflow",
       "notes": "Firecrawl monitor create/update/delete/run/list/get/check families."
     },
+    "local-mutation": {
+      "policy": "Approval required",
+      "notes": "Mutates local repository or agent state."
+    },
     "auth": {
       "policy": "Approval required",
       "notes": "MCP OAuth/auth bootstrap actions."
     }
   },
-  "fully_trusted_servers": ["serena", "codegraph", "context7", "brave-search"],
-  "fully_trusted_server_rationale": {
-    "serena": "Local symbol intelligence only; no managed remote side effects. Server-level trust is version-bound to the installed serena CLI and reviewed when the package or tool surface changes.",
-    "codegraph": "Local index query only; no managed remote side effects. Server-level trust is version-bound to the installed codegraph CLI and reviewed when the package or tool surface changes.",
-    "context7": "Read-only versioned docs lookup over HTTPS. Re-review server-level trust when the endpoint or advertised tools change.",
-    "brave-search": "Read-only public search. Re-review server-level trust when the package or advertised tools change."
-  },
   "servers": {
+    "serena": {
+      "tools": {
+        "serena_search_for_pattern": "read-only",
+        "serena_get_symbols_overview": "read-only",
+        "serena_find_symbol": "read-only",
+        "serena_find_referencing_symbols": "read-only",
+        "serena_find_implementations": "read-only",
+        "serena_find_declaration": "read-only",
+        "serena_get_diagnostics_for_file": "read-only",
+        "serena_read_memory": "read-only",
+        "serena_list_memories": "read-only",
+        "serena_initial_instructions": "read-only",
+        "serena_replace_content": "local-mutation",
+        "serena_replace_symbol_body": "local-mutation",
+        "serena_insert_after_symbol": "local-mutation",
+        "serena_insert_before_symbol": "local-mutation",
+        "serena_rename_symbol": "local-mutation",
+        "serena_safe_delete_symbol": "local-mutation",
+        "serena_write_memory": "local-mutation",
+        "serena_delete_memory": "local-mutation",
+        "serena_rename_memory": "local-mutation",
+        "serena_edit_memory": "local-mutation",
+        "serena_open_dashboard": "external-mutation",
+        "serena_onboarding": "local-mutation"
+      }
+    },
+    "codegraph": {
+      "tools": {
+        "codegraph_codegraph_explore": "read-only"
+      }
+    },
+    "context7": {
+      "tools": {
+        "context7_resolve-library-id": "read-only",
+        "context7_query-docs": "read-only"
+      }
+    },
+    "brave-search": {
+      "tools": {
+        "brave_search_brave_web_search": "read-only",
+        "brave_search_brave_local_search": "read-only",
+        "brave_search_brave_video_search": "read-only",
+        "brave_search_brave_image_search": "read-only",
+        "brave_search_brave_news_search": "read-only",
+        "brave_search_brave_summarizer": "read-only",
+        "brave_search_brave_llm_context": "read-only",
+        "brave_search_brave_place_search": "read-only"
+      }
+    },
     "firecrawl": {
       "tools": {
         "firecrawl_search": "read-only",

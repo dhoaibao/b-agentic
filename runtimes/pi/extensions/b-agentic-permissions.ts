@@ -102,14 +102,41 @@ const MANAGED_MCP_SERVERS = new Set([
 ]);
 
 /**
- * Local/search MCP servers whose tools do not perform external mutations.
- * Full tool trust is OK for these (symbol tools, docs, web search).
+ * Managed MCP operations auto-approved without a prompt. These sets must remain
+ * closed-world mirrors of references/mcp_operations.yaml: any unclassified or
+ * mutating operation requires approval.
  */
-const FULLY_TRUSTED_MCP_SERVERS = new Set([
-  "serena",
-  "codegraph",
-  "context7",
-  "brave-search",
+const SERENA_TRUSTED_TOOLS = new Set([
+  "serena_search_for_pattern",
+  "serena_get_symbols_overview",
+  "serena_find_symbol",
+  "serena_find_referencing_symbols",
+  "serena_find_implementations",
+  "serena_find_declaration",
+  "serena_get_diagnostics_for_file",
+  "serena_read_memory",
+  "serena_list_memories",
+  "serena_initial_instructions",
+]);
+
+const CODEGRAPH_TRUSTED_TOOLS = new Set([
+  "codegraph_codegraph_explore",
+]);
+
+const CONTEXT7_TRUSTED_TOOLS = new Set([
+  "context7_resolve-library-id",
+  "context7_query-docs",
+]);
+
+const BRAVE_SEARCH_TRUSTED_TOOLS = new Set([
+  "brave_search_brave_web_search",
+  "brave_search_brave_local_search",
+  "brave_search_brave_video_search",
+  "brave_search_brave_image_search",
+  "brave_search_brave_news_search",
+  "brave_search_brave_summarizer",
+  "brave_search_brave_llm_context",
+  "brave_search_brave_place_search",
 ]);
 
 /**
@@ -688,7 +715,9 @@ function managedToolBaseName(toolName: string, server: string): string {
 
   const serverUnderscore = server.replace(/-/g, "_");
   const repeated = `${serverUnderscore}_${serverUnderscore}_`;
-  if (name.startsWith(repeated)) {
+  // Firecrawl's adapter prefix duplicates its public `firecrawl_` tool id.
+  // Other managed tools retain their policy identifier unchanged.
+  if (server === "firecrawl" && name.startsWith(repeated)) {
     return name.slice(serverUnderscore.length + 1);
   }
   const prefixed = `${serverUnderscore}_`;
@@ -744,24 +773,23 @@ function managedServerFromToolName(toolName: string): string | null {
 }
 
 /**
- * Operation-level trust for a managed server tool. Firecrawl and Playwright
- * use explicit allowlists so external-mutation tools still require approval.
+ * Operation-level trust for a managed server tool. Every managed server uses
+ * an explicit allowlist so new or mutating operations require approval.
  */
 function isTrustedManagedTool(server: string, toolName: string): boolean {
   if (!isManagedServer(server)) {
     return false;
   }
-  if (FULLY_TRUSTED_MCP_SERVERS.has(server)) {
-    return true;
-  }
   const base = managedToolBaseName(toolName, server);
-  if (server === "firecrawl") {
-    return FIRECRAWL_TRUSTED_TOOLS.has(base);
-  }
-  if (server === "playwright") {
-    return PLAYWRIGHT_TRUSTED_TOOLS.has(base);
-  }
-  return false;
+  const trustedTools = {
+    serena: SERENA_TRUSTED_TOOLS,
+    codegraph: CODEGRAPH_TRUSTED_TOOLS,
+    context7: CONTEXT7_TRUSTED_TOOLS,
+    "brave-search": BRAVE_SEARCH_TRUSTED_TOOLS,
+    firecrawl: FIRECRAWL_TRUSTED_TOOLS,
+    playwright: PLAYWRIGHT_TRUSTED_TOOLS,
+  }[server];
+  return trustedTools?.has(base) ?? false;
 }
 
 /**
@@ -957,7 +985,10 @@ export const __test__ = {
   isInterpreterOpaque,
   SPECIALIZED_TOOLS,
   MANAGED_MCP_SERVERS,
-  FULLY_TRUSTED_MCP_SERVERS,
+  SERENA_TRUSTED_TOOLS,
+  CODEGRAPH_TRUSTED_TOOLS,
+  CONTEXT7_TRUSTED_TOOLS,
+  BRAVE_SEARCH_TRUSTED_TOOLS,
   FIRECRAWL_TRUSTED_TOOLS,
   PLAYWRIGHT_TRUSTED_TOOLS,
   ASK_COMMANDS,

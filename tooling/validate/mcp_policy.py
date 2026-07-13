@@ -23,10 +23,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "references" / "mcp_operations.yaml"
 
-GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "auth"}
+GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "local-mutation", "auth"}
 READ_ONLY = "read-only"
 RUNTIME_REGISTRY_PATH = ROOT / "runtimes" / "registry.yaml"
-MANAGED_SCOPED_SERVERS = ("firecrawl", "playwright")
+MANAGED_SERVERS = ("serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright")
 
 
 def rel(path: Path) -> str:
@@ -78,9 +78,9 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> dict[str, dict[str
             errors.append(f"{label}: missing class {required!r}")
 
     servers = tools_by_server(policy)
-    if set(servers) != set(MANAGED_SCOPED_SERVERS):
+    if set(servers) != set(MANAGED_SERVERS):
         errors.append(
-            f"{label}: expected servers {sorted(MANAGED_SCOPED_SERVERS)}, found {sorted(servers)}"
+            f"{label}: expected servers {sorted(MANAGED_SERVERS)}, found {sorted(servers)}"
         )
 
     for server_name, tools in servers.items():
@@ -100,19 +100,6 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> dict[str, dict[str
             if not isinstance(auth, dict) or auth.get("class") != "auth":
                 errors.append(f"{label}: auth operation must use class 'auth': {auth!r}")
 
-    fully_trusted = policy.get("fully_trusted_servers", [])
-    for server in ("serena", "codegraph", "context7", "brave-search"):
-        if server not in fully_trusted:
-            errors.append(f"{label}: fully_trusted_servers missing {server!r}")
-
-    trust = policy.get("fully_trusted_server_rationale")
-    if not isinstance(trust, dict) or not trust:
-        errors.append(f"{label}: fully_trusted_server_rationale must document server-level trust")
-    else:
-        for server in fully_trusted if isinstance(fully_trusted, list) else []:
-            if server not in trust:
-                errors.append(f"{label}: fully_trusted_server_rationale missing {server!r}")
-
     return servers
 
 
@@ -126,7 +113,7 @@ def validate_kernel_generated(policy: dict, servers: dict[str, dict[str, str]], 
         "references/mcp_operations.yaml",
         "<!-- generated:mcp-operations:start -->",
         "<!-- generated:mcp-operations:end -->",
-        "server wildcards are forbidden",
+        "server wildcards and unclassified managed tools are approval-required",
     ]:
         if marker not in kernel:
             errors.append(f"{label}: missing marker {marker!r}")
@@ -176,32 +163,30 @@ def validate_pi(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
     path = ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts"
     text = path.read_text()
     label = rel(path)
-    trusted_firecrawl = parse_set_literal(text, "FIRECRAWL_TRUSTED_TOOLS")
-    trusted_playwright = parse_set_literal(text, "PLAYWRIGHT_TRUSTED_TOOLS")
-    firecrawl = servers["firecrawl"]
-    playwright = servers["playwright"]
+    trusted_set_names = {
+        "serena": "SERENA_TRUSTED_TOOLS",
+        "codegraph": "CODEGRAPH_TRUSTED_TOOLS",
+        "context7": "CONTEXT7_TRUSTED_TOOLS",
+        "brave-search": "BRAVE_SEARCH_TRUSTED_TOOLS",
+        "firecrawl": "FIRECRAWL_TRUSTED_TOOLS",
+        "playwright": "PLAYWRIGHT_TRUSTED_TOOLS",
+    }
 
-    if not trusted_firecrawl:
-        errors.append(f"{label}: FIRECRAWL_TRUSTED_TOOLS missing or unparsable")
-    if not trusted_playwright:
-        errors.append(f"{label}: PLAYWRIGHT_TRUSTED_TOOLS missing or unparsable")
-
-    reject_unknown(label, "FIRECRAWL_TRUSTED_TOOLS", trusted_firecrawl, set(firecrawl), errors)
-    reject_unknown(label, "PLAYWRIGHT_TRUSTED_TOOLS", trusted_playwright, set(playwright), errors)
-
-    for tool, classification in firecrawl.items():
-        if classification == READ_ONLY:
-            if tool not in trusted_firecrawl:
-                errors.append(f"{label}: read-only Firecrawl tool {tool!r} must be trusted")
-        elif classification in GATED_CLASSES and tool in trusted_firecrawl:
-            errors.append(f"{label}: gated Firecrawl tool {tool!r} must not be trusted")
-
-    for tool, classification in playwright.items():
-        if classification == READ_ONLY:
-            if tool not in trusted_playwright:
-                errors.append(f"{label}: read-only Playwright tool {tool!r} must be trusted")
-        elif classification in GATED_CLASSES and tool in trusted_playwright:
-            errors.append(f"{label}: gated Playwright tool {tool!r} must not be trusted")
+    for server, tools in servers.items():
+        set_name = trusted_set_names.get(server)
+        if set_name is None:
+            errors.append(f"{label}: no trusted-set mapping for managed server {server!r}")
+            continue
+        trusted_tools = parse_set_literal(text, set_name)
+        if not trusted_tools:
+            errors.append(f"{label}: {set_name} missing or unparsable")
+            continue
+        reject_unknown(label, set_name, trusted_tools, set(tools), errors)
+        for tool, classification in tools.items():
+            if classification == READ_ONLY and tool not in trusted_tools:
+                errors.append(f"{label}: read-only {server} tool {tool!r} must be trusted")
+            elif classification in GATED_CLASSES and tool in trusted_tools:
+                errors.append(f"{label}: gated {server} tool {tool!r} must not be trusted")
 
 
 def main() -> int:

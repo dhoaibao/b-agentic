@@ -43,8 +43,8 @@ that listens for `tool_call` events and:
 - requires approval for unbalanced quotes, shell expansions, and
   interpreter/eval-style wrappers (`bash -c`, `sh -c`, `node -e`, `python -c`,
   …) whose bodies are opaque to static matching
-- allows built-in discovery tools (`grep`, `find`, `ls`), MCP metadata discovery, fully trusted managed servers (`serena`, `codegraph`, `context7`, `brave-search`), and operation-level Firecrawl/Playwright read tools without prompts
-- asks for Firecrawl external-mutation or local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright page-mutating tools (click/type/upload/evaluate/…), MCP auth bootstrap, user/unknown MCP servers, and any other non-built-in custom tool
+- allows built-in discovery tools (`grep`, `find`, `ls`), MCP metadata discovery, and only the explicitly classified read-only operations of managed MCP servers without prompts
+- asks for managed MCP local mutations, Firecrawl external-mutation or local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright page-mutating tools (click/type/upload/evaluate/…), MCP auth bootstrap, unclassified managed operations, user/unknown MCP servers, and any other non-built-in custom tool
 - fails closed when MCP selectors are mixed (e.g. `connect` + `tool`), when an explicit MCP `server` disagrees with the tool-name origin, or when an approval-required action has no UI confirmation
 
 ## Validation

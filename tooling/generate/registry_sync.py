@@ -500,7 +500,6 @@ def load_mcp_operations() -> dict:
 def render_mcp_operations_table(policy: dict) -> str:
     classes = policy.get("classes", {})
     servers = policy.get("servers", {})
-    fully_trusted = policy.get("fully_trusted_servers", [])
     auth_ops = policy.get("auth_operations", [])
     by_class: dict[str, list[str]] = {name: [] for name in classes}
 
@@ -510,12 +509,6 @@ def render_mcp_operations_table(policy: dict) -> str:
             if class_name not in by_class:
                 by_class[class_name] = []
             by_class[class_name].append(f"{server_name}:`{tool_name}`")
-
-    if fully_trusted:
-        trusted = ", ".join(f"`{name}`" for name in fully_trusted)
-        by_class.setdefault("read-only", []).append(
-            f"Full trust for {trusted} tools"
-        )
 
     for auth in auth_ops:
         if not isinstance(auth, dict):
