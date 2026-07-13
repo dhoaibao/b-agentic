@@ -41,6 +41,8 @@ The renderer hardcodes `RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/refer
 
 `config_schema_family` is an adapter-defined non-empty identifier, not a shared
 allowlist. The adapter's validator and readiness tooling own the semantics of
-that schema. An adapter declaring `support_tier: operation-enforced` must also
-add its MCP operation-policy validator to `tooling/validate/mcp_policy.py`; the
-shared regression fails closed until it does.
+that schema. An adapter declaring `support_tier: operation-enforced` must ship
+`runtimes/<name>/scripts/validate_mcp_policy.py`, accepting `--policy <path>`
+and exiting nonzero when its runtime enforcement disagrees with the canonical
+policy. Shared validation discovers and runs that adapter-owned validator; it
+fails closed when the script is absent.

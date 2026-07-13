@@ -77,8 +77,8 @@ const PROTECTED_PATH_MARKERS = [
 
 /**
  * Built-in Pi tools with specialized policy.
- * Read-only discovery tools (grep/find/ls) are allow-listed so ordinary
- * local evidence gathering does not prompt. Managed MCP tools are
+ * Legacy discovery tools (grep/find/ls) are handled below so they cannot
+ * bypass the kernel's RTK and shell-tool policy. Managed MCP tools are
  * auto-approved only via operation-level allowlists below.
  */
 const SPECIALIZED_TOOLS = new Set([
@@ -179,6 +179,7 @@ const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
 ]);
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
+const LEGACY_SHELL_COMMANDS = new Set(["grep", "find", "ls", "cat", "sed", "awk"]);
 
 /** Interpreters that accept opaque -c/-e script bodies; always approval-required. */
 const INTERPRETER_BASES = new Set([
@@ -362,13 +363,16 @@ function isInterpreterOpaque(tokens: string[]): boolean {
   return false;
 }
 
-function stripWrappers(tokens: string[]): string[] {
+function unwrapTokens(tokens: string[]): { tokens: string[]; wrappers: Set<string>; opaque: boolean } {
   let i = 0;
+  let opaque = false;
+  const wrappers = new Set<string>();
   while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) {
     i += 1;
   }
   while (i < tokens.length && WRAPPER_COMMANDS.has(tokens[i])) {
     const wrapper = tokens[i];
+    wrappers.add(wrapper);
     i += 1;
     if (wrapper === "env") {
       while (i < tokens.length) {
@@ -376,7 +380,14 @@ function stripWrappers(tokens: string[]): string[] {
           i += 1;
           continue;
         }
-        if (tokens[i] === "-u" || tokens[i] === "-C" || tokens[i] === "-S") {
+        if (tokens[i] === "-S") {
+          // env -S parses and executes its following string as a command.
+          // The string is opaque to this tokenizer, so approval is required.
+          opaque = true;
+          i += tokens[i + 1] ? 2 : 1;
+          continue;
+        }
+        if (tokens[i] === "-u" || tokens[i] === "-C") {
           i += tokens[i + 1] ? 2 : 1;
           continue;
         }
@@ -406,7 +417,11 @@ function stripWrappers(tokens: string[]): string[] {
     }
     // rtk / nohup / time: consume only the wrapper token
   }
-  return tokens.slice(i);
+  return { tokens: tokens.slice(i), wrappers, opaque };
+}
+
+function stripWrappers(tokens: string[]): string[] {
+  return unwrapTokens(tokens).tokens;
 }
 
 function gitEffectiveTokens(tokens: string[]): string[] {
@@ -524,8 +539,39 @@ function isGitBranchForceDelete(tokens: string[]): boolean {
   return tokens.includes("-D") || (tokens.includes("--delete") && tokens.includes("--force"));
 }
 
+function isRtkWrapped(rawTokens: string[]): boolean {
+  return unwrapTokens(rawTokens).wrappers.has("rtk");
+}
+
+function hasOpaqueWrapper(rawTokens: string[]): boolean {
+  return unwrapTokens(rawTokens).opaque;
+}
+
+function isDirectLegacyShellCommand(rawTokens: string[], tokens: string[]): boolean {
+  // RTK is the required command proxy when it supports a family. Raw legacy
+  // binaries must use the kernel replacements.
+  if (isRtkWrapped(rawTokens)) {
+    return false;
+  }
+  if (LEGACY_SHELL_COMMANDS.has(tokens[0])) {
+    return true;
+  }
+  return (
+    (tokens[0] === "python" || tokens[0] === "python3") &&
+    tokens[1] === "-m" &&
+    tokens[2] === "json.tool"
+  );
+}
+
 function segmentDecision(segment: string): { decision: Decision; reason: string } {
-  const tokens = normalizeTokens(tokenize(segment));
+  const rawTokens = tokenize(segment);
+  const tokens = normalizeTokens(rawTokens);
+  if (hasOpaqueWrapper(rawTokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: env -S command string is opaque",
+    };
+  }
   if (tokens.length === 0) {
     return { decision: "allow", reason: "" };
   }
@@ -537,6 +583,13 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     return {
       decision: "ask",
       reason: "Requires approval: shell command references a protected path",
+    };
+  }
+
+  if (isDirectLegacyShellCommand(rawTokens, tokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: use RTK or the required shell-tool replacement",
     };
   }
 
@@ -944,9 +997,13 @@ export default function (pi: ExtensionAPI) {
       return undefined;
     }
 
-    // Read-only discovery built-ins: allow without prompt.
+    // The kernel requires RTK or the named modern replacement for these
+    // legacy discovery tools; do not let direct built-ins bypass that policy.
     if (event.toolName === "grep" || event.toolName === "find" || event.toolName === "ls") {
-      return undefined;
+      return {
+        block: true,
+        reason: "Blocked legacy discovery tool: use RTK or the required shell-tool replacement",
+      };
     }
 
     // User/unknown MCP, Firecrawl/Playwright external mutations, auth, and custom tools ask.
@@ -983,6 +1040,9 @@ export const __test__ = {
   hasAmbiguousShellSyntax,
   hasUnbalancedQuotes,
   isInterpreterOpaque,
+  isRtkWrapped,
+  hasOpaqueWrapper,
+  isDirectLegacyShellCommand,
   SPECIALIZED_TOOLS,
   MANAGED_MCP_SERVERS,
   SERENA_TRUSTED_TOOLS,

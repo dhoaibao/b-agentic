@@ -162,7 +162,18 @@ PY
   rc=$?
   set -e
   [ "$rc" -ne 0 ] || fail "operation-enforced runtime without adapter policy validator should fail"
-  assert_contains "$sandbox_policy_runtime/policy-check.log" 'runtimes/future: operation-enforced runtime requires an MCP policy validator'
+  assert_contains "$sandbox_policy_runtime/policy-check.log" 'runtimes/future: operation-enforced runtime requires scripts/validate_mcp_policy.py'
+
+  mkdir -p "$sandbox_policy_runtime/runtimes/future/scripts"
+  cat > "$sandbox_policy_runtime/runtimes/future/scripts/validate_mcp_policy.py" <<'PY'
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--policy', required=True)
+parser.parse_args()
+PY
+  ( cd "$sandbox_policy_runtime" && python3 tooling/validate/mcp_policy.py ) >"$sandbox_policy_runtime/policy-check.log" 2>&1 || \
+    fail "operation-enforced runtime with adapter policy validator should pass"
 }
 
 run_manifest_only_custom_paths_case() {

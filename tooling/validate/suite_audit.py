@@ -23,6 +23,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+MAX_KERNEL_LINES = 120
+MAX_KERNEL_BYTES = 7_000
 
 
 def run_cmd(cmd: list[str], label: str) -> bool:
@@ -43,18 +45,24 @@ def audit_slimness(errors: list[str]) -> None:
     for kernel in kernels:
         if kernel.parent.name == "runtime-template":
             continue
-        lines = len(kernel.read_text().splitlines())
-        if lines > 120:
+        text = kernel.read_text()
+        lines = len(text.splitlines())
+        size = len(text.encode())
+        if lines > MAX_KERNEL_LINES or size > MAX_KERNEL_BYTES:
             errors.append(
-                f"{kernel.relative_to(ROOT)}: kernel exceeds 120 lines ({lines}); "
-                "consider moving runtime-specific guidance elsewhere"
+                f"{kernel.relative_to(ROOT)}: kernel exceeds slimness limit "
+                f"({lines} lines/{size} bytes; max {MAX_KERNEL_LINES} lines/{MAX_KERNEL_BYTES} bytes)"
             )
 
     template = ROOT / "references" / "kernel.template.md"
-    template_lines = len(template.read_text().splitlines())
-    if template_lines > 120:
+    template_text = template.read_text()
+    template_lines = len(template_text.splitlines())
+    template_size = len(template_text.encode())
+    if template_lines > MAX_KERNEL_LINES or template_size > MAX_KERNEL_BYTES:
         errors.append(
-            f"{template.relative_to(ROOT)}: kernel template exceeds 120 lines ({template_lines})"
+            f"{template.relative_to(ROOT)}: kernel template exceeds slimness limit "
+            f"({template_lines} lines/{template_size} bytes; "
+            f"max {MAX_KERNEL_LINES} lines/{MAX_KERNEL_BYTES} bytes)"
         )
 
 

@@ -15,7 +15,7 @@ operation boundary. Adapters must:
 from __future__ import annotations
 
 import json
-import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -60,13 +60,6 @@ def tools_by_server(policy: dict) -> dict[str, dict[str, str]]:
     return result
 
 
-def parse_set_literal(source: str, const_name: str) -> set[str]:
-    match = re.search(rf"const {const_name} = new Set\(\[(.*?)\]\);", source, re.DOTALL)
-    if not match:
-        return set()
-    return set(re.findall(r'"([^"]+)"', match.group(1)))
-
-
 def validate_policy_shape(policy: dict, errors: list[str]) -> dict[str, dict[str, str]]:
     label = rel(POLICY_PATH)
     classes = policy.get("classes")
@@ -103,7 +96,7 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> dict[str, dict[str
     return servers
 
 
-def validate_kernel_generated(policy: dict, servers: dict[str, dict[str, str]], errors: list[str]) -> None:
+def validate_kernel_generated(policy: dict, errors: list[str]) -> None:
     kernel_path = ROOT / "references" / "kernel.template.md"
     kernel = kernel_path.read_text()
     label = rel(kernel_path)
@@ -126,26 +119,9 @@ def validate_kernel_generated(policy: dict, servers: dict[str, dict[str, str]], 
         errors.append(f"{label}: generated MCP operations block missing")
         return
 
-    for server_name, tools in servers.items():
-        for tool in tools:
-            token = f"`{tool}`"
-            if token not in block:
-                errors.append(f"{label}: generated table missing classified tool {tool!r}")
-
     for class_name in policy.get("classes", {}):
         if f"`{class_name}`" not in block:
             errors.append(f"{label}: generated table missing class {class_name!r}")
-
-
-def reject_unknown(label: str, surface: str, observed: set[str], known: set[str], errors: list[str]) -> None:
-    for tool in sorted(observed - known):
-        # Ignore explicit wildcards; those are checked separately.
-        if tool.endswith("*"):
-            continue
-        errors.append(
-            f"{label}: {surface} includes unclassified managed tool {tool!r}; "
-            "add it to references/mcp_operations.yaml"
-        )
 
 
 def operation_enforced_runtimes() -> tuple[str, ...]:
@@ -159,34 +135,23 @@ def operation_enforced_runtimes() -> tuple[str, ...]:
     )
 
 
-def validate_pi(servers: dict[str, dict[str, str]], errors: list[str]) -> None:
-    path = ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts"
-    text = path.read_text()
-    label = rel(path)
-    trusted_set_names = {
-        "serena": "SERENA_TRUSTED_TOOLS",
-        "codegraph": "CODEGRAPH_TRUSTED_TOOLS",
-        "context7": "CONTEXT7_TRUSTED_TOOLS",
-        "brave-search": "BRAVE_SEARCH_TRUSTED_TOOLS",
-        "firecrawl": "FIRECRAWL_TRUSTED_TOOLS",
-        "playwright": "PLAYWRIGHT_TRUSTED_TOOLS",
-    }
-
-    for server, tools in servers.items():
-        set_name = trusted_set_names.get(server)
-        if set_name is None:
-            errors.append(f"{label}: no trusted-set mapping for managed server {server!r}")
-            continue
-        trusted_tools = parse_set_literal(text, set_name)
-        if not trusted_tools:
-            errors.append(f"{label}: {set_name} missing or unparsable")
-            continue
-        reject_unknown(label, set_name, trusted_tools, set(tools), errors)
-        for tool, classification in tools.items():
-            if classification == READ_ONLY and tool not in trusted_tools:
-                errors.append(f"{label}: read-only {server} tool {tool!r} must be trusted")
-            elif classification in GATED_CLASSES and tool in trusted_tools:
-                errors.append(f"{label}: gated {server} tool {tool!r} must not be trusted")
+def validate_runtime_adapter(runtime_name: str, errors: list[str]) -> None:
+    validator = ROOT / "runtimes" / runtime_name / "scripts" / "validate_mcp_policy.py"
+    if not validator.is_file():
+        errors.append(
+            f"runtimes/{runtime_name}: operation-enforced runtime requires "
+            "scripts/validate_mcp_policy.py"
+        )
+        return
+    result = subprocess.run(
+        [sys.executable, str(validator), "--policy", str(POLICY_PATH)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        errors.append(f"runtimes/{runtime_name}: MCP operation-policy adapter validation failed: {detail}")
 
 
 def main() -> int:
@@ -198,17 +163,10 @@ def main() -> int:
     policy = load_policy()
     servers = validate_policy_shape(policy, errors)
     if "firecrawl" in servers and "playwright" in servers:
-        validate_kernel_generated(policy, servers, errors)
-        validators = {"pi": validate_pi}
+        validate_kernel_generated(policy, errors)
         enforced_runtimes = operation_enforced_runtimes()
         for runtime_name in enforced_runtimes:
-            validator = validators.get(runtime_name)
-            if validator is None:
-                errors.append(
-                    f"runtimes/{runtime_name}: operation-enforced runtime requires an MCP policy validator"
-                )
-                continue
-            validator(servers, errors)
+            validate_runtime_adapter(runtime_name, errors)
     else:
         enforced_runtimes = ()
 

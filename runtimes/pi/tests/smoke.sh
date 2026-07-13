@@ -112,8 +112,17 @@ expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git com
 expect(t.commandDecision('sudo git push --force origin main').decision === 'deny', 'sudo force push must deny');
 expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git push -f must deny');
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
-expect(t.commandDecision('ls -la').decision === 'allow', 'ls must allow');
-expect(t.commandDecision('cd . && ls').decision === 'allow', 'cd . && ls must allow (not ambiguous)');
+expect(t.commandDecision('ls -la').decision === 'ask', 'direct ls must require approval to use RTK or eza/exa');
+expect(t.commandDecision('rtk ls -la').decision === 'allow', 'rtk ls must allow');
+expect(t.commandDecision('env X=1 rtk ls -la').decision === 'allow', 'env-wrapped rtk ls must allow');
+expect(t.commandDecision('command rtk ls -la').decision === 'allow', 'command-wrapped rtk ls must allow');
+expect(t.commandDecision('sudo rtk ls -la').decision === 'allow', 'sudo-wrapped rtk ls must allow');
+expect(t.commandDecision('env -u FOO rtk ls -la').decision === 'allow', 'env -u wrapped rtk ls must allow');
+expect(t.commandDecision('env -S ls').decision === 'ask', 'env -S legacy command must be approval-gated');
+expect(t.commandDecision('env -S "grep needle src/main.ts"').decision === 'ask', 'env -S command string must be approval-gated');
+expect(t.commandDecision('grep needle src/main.ts').decision === 'ask', 'direct grep must require approval to use RTK or rg');
+expect(t.commandDecision('python3 -m json.tool package.json').decision === 'ask', 'python json.tool must require approval to use jq');
+expect(t.commandDecision('printf x').decision === 'allow', 'unrelated shell command must allow');
 expect(t.commandDecision('printf x\ngit reset --hard').decision === 'deny', 'newline-separated reset --hard must deny');
 expect(t.commandDecision('printf x\r\ngit reset --hard').decision === 'deny', 'CRLF-separated reset --hard must deny');
 expect(t.commandDecision('printf x\ncat .env').decision === 'ask', 'newline-separated protected path must ask');
@@ -123,7 +132,7 @@ expect(t.commandDecision('cat .env.local').decision === 'ask', 'root-relative pr
 expect(t.commandDecision('cat /tmp/.env.production').decision === 'ask', 'absolute protected shell path variant must ask');
 expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'ask', 'rtk-wrapped protected shell path variant must ask');
 expect(t.commandDecision('ls src && cat credentials.json').decision === 'ask', 'compound protected shell path must ask');
-expect(t.commandDecision('cat src/main.ts').decision === 'allow', 'ordinary shell read must allow');
+expect(t.commandDecision('cat src/main.ts').decision === 'ask', 'direct cat must require approval to use bat/batcat');
 expect(t.commandDecision('cat "$SECRET_FILE"').decision === 'ask', 'variable shell paths must fail closed');
 expect(t.commandDecision("cat '.env").decision === 'ask', 'unbalanced shell quotes must fail closed');
 

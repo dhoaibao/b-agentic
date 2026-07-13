@@ -499,31 +499,11 @@ def load_mcp_operations() -> dict:
 
 def render_mcp_operations_table(policy: dict) -> str:
     classes = policy.get("classes", {})
-    servers = policy.get("servers", {})
-    auth_ops = policy.get("auth_operations", [])
-    by_class: dict[str, list[str]] = {name: [] for name in classes}
-
-    for server_name, server in servers.items():
-        tools = server.get("tools", {}) if isinstance(server, dict) else {}
-        for tool_name, class_name in tools.items():
-            if class_name not in by_class:
-                by_class[class_name] = []
-            by_class[class_name].append(f"{server_name}:`{tool_name}`")
-
-    for auth in auth_ops:
-        if not isinstance(auth, dict):
-            continue
-        class_name = auth.get("class", "auth")
-        auth_id = auth.get("id")
-        if isinstance(auth_id, str):
-            by_class.setdefault(class_name, []).append(f"auth:`{auth_id}`")
-
-    lines = ["| Class | Policy | Managed operations |", "|---|---|---|"]
+    lines = ["| Class | Policy | Scope |", "|---|---|---|"]
     for class_name, meta in classes.items():
         policy_text = meta.get("policy", "") if isinstance(meta, dict) else ""
-        operations = by_class.get(class_name, [])
-        op_text = "; ".join(operations) if operations else "—"
-        lines.append(f"| `{class_name}` | {policy_text} | {op_text} |")
+        scope = meta.get("notes", "") if isinstance(meta, dict) else ""
+        lines.append(f"| `{class_name}` | {policy_text} | {scope} |")
     return "\n".join(lines)
 
 
