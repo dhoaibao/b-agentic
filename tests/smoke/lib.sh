@@ -1,37 +1,37 @@
 #!/usr/bin/env bash
 
 fail() {
-  printf 'smoke-install.sh: %s\n' "$*" >&2
-  exit 1
+	printf 'smoke-install.sh: %s\n' "$*" >&2
+	exit 1
 }
 
 require_bin() {
-  command -v "$1" >/dev/null 2>&1 || fail "required binary not found: $1"
+	command -v "$1" >/dev/null 2>&1 || fail "required binary not found: $1"
 }
 
 assert_file() {
-  local path="$1"
-  [ -f "$path" ] || fail "expected file: $path"
+	local path="$1"
+	[ -f "$path" ] || fail "expected file: $path"
 }
 
 assert_no_path() {
-  local path="$1"
-  [ ! -e "$path" ] || fail "unexpected path: $path"
+	local path="$1"
+	[ ! -e "$path" ] || fail "unexpected path: $path"
 }
 
 assert_glob() {
-  local pattern="$1"
-  compgen -G "$pattern" >/dev/null || fail "expected match: $pattern"
+	local pattern="$1"
+	compgen -G "$pattern" >/dev/null || fail "expected match: $pattern"
 }
 
 assert_contains() {
-  local path="$1" needle="$2"
-  grep -Fq "$needle" "$path" || fail "expected '$needle' in $path"
+	local path="$1" needle="$2"
+	grep -Fq "$needle" "$path" || fail "expected '$needle' in $path"
 }
 
 assert_json_value() {
-  local path="$1" expression="$2"
-  python3 - "$path" "$expression" <<'PY' || fail "JSON assertion failed for $path: $expression"
+	local path="$1" expression="$2"
+	python3 - "$path" "$expression" <<'PY' || fail "JSON assertion failed for $path: $expression"
 import json
 import sys
 from pathlib import Path
@@ -43,8 +43,8 @@ PY
 }
 
 assert_toml_value() {
-  local path="$1" expression="$2"
-  python3 - "$path" "$expression" <<'PY' || fail "TOML assertion failed for $path: $expression"
+	local path="$1" expression="$2"
+	python3 - "$path" "$expression" <<'PY' || fail "TOML assertion failed for $path: $expression"
 import sys
 from pathlib import Path
 
@@ -61,41 +61,41 @@ PY
 }
 
 assert_not_contains() {
-  local path="$1" needle="$2"
-  ! grep -Fq "$needle" "$path" || fail "did not expect '$needle' in $path"
+	local path="$1" needle="$2"
+	! grep -Fq "$needle" "$path" || fail "did not expect '$needle' in $path"
 }
 
 assert_equal_files() {
-  local left="$1" right="$2"
-  cmp -s "$left" "$right" || fail "expected files to match: $left vs $right"
+	local left="$1" right="$2"
+	cmp -s "$left" "$right" || fail "expected files to match: $left vs $right"
 }
 
 make_repo_snapshot() {
-  local snapshot_dir="$1"
-  mkdir -p "$snapshot_dir"
-  cp -R "$ROOT_DIR"/. "$snapshot_dir"/
-  rm -rf "$snapshot_dir/.git" "$snapshot_dir/.b-agentic" "$snapshot_dir/.serena"
-  git -C "$snapshot_dir" init -q
-  git -C "$snapshot_dir" add .
-  git -C "$snapshot_dir" -c user.name='b-agentic smoke' -c user.email='smoke@example.com' commit -qm 'snapshot'
+	local snapshot_dir="$1"
+	mkdir -p "$snapshot_dir"
+	cp -R "$ROOT_DIR"/. "$snapshot_dir"/
+	rm -rf "$snapshot_dir/.git" "$snapshot_dir/.b-agentic" "$snapshot_dir/.serena"
+	git -C "$snapshot_dir" init -q
+	git -C "$snapshot_dir" add .
+	git -C "$snapshot_dir" -c user.name='b-agentic smoke' -c user.email='smoke@example.com' commit -qm 'snapshot'
 }
 
 smoke_runtime_cli_path() {
-  local sandbox="$1"
-  local bin_dir="$sandbox/smoke-bin"
-  local name
+	local sandbox="$1"
+	local bin_dir="$sandbox/smoke-bin"
+	local name
 
-  mkdir -p "$bin_dir"
-  for name in agent; do
-    cat > "$bin_dir/$name" <<'EOF'
+	mkdir -p "$bin_dir"
+	for name in agent; do
+		cat >"$bin_dir/$name" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-    chmod +x "$bin_dir/$name"
-  done
+		chmod +x "$bin_dir/$name"
+	done
 
-  # Pi mock supports list/install so package lifecycle smoke can observe installs.
-  cat > "$bin_dir/pi" <<'EOF'
+	# Pi mock supports list/install so package lifecycle smoke can observe installs.
+	cat >"$bin_dir/pi" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 log_dir="$(cd "$(dirname "$0")" && pwd)"
@@ -131,107 +131,113 @@ if [ "${1:-}" = "install" ]; then
 fi
 exit 0
 EOF
-  chmod +x "$bin_dir/pi"
+	chmod +x "$bin_dir/pi"
 
-  # Required installer prerequisites are present in the isolated smoke PATH.
-  for name in rtk rg fd bat eza sd jq; do
-    cat > "$bin_dir/$name" <<'EOF'
+	# Required installer prerequisites are present in the isolated smoke PATH.
+	for name in rtk rg fd bat eza sd jq; do
+		cat >"$bin_dir/$name" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
-    chmod +x "$bin_dir/$name"
-  done
+		chmod +x "$bin_dir/$name"
+	done
 
-  printf '%s:%s' "$bin_dir" "$(smoke_system_path)"
+	printf '%s:%s' "$bin_dir" "$(smoke_system_path)"
 }
 
 smoke_system_path() {
-  local python_bin python_dir
+	local python_bin python_dir
 
-  python_bin="$(command -v python3 2>/dev/null || true)"
-  if [ -n "$python_bin" ]; then
-    python_dir="$(dirname "$python_bin")"
-    printf '%s:/usr/bin:/bin' "$python_dir"
-  else
-    printf '/usr/bin:/bin'
-  fi
+	python_bin="$(command -v python3 2>/dev/null || true)"
+	if [ -n "$python_bin" ]; then
+		python_dir="$(dirname "$python_bin")"
+		printf '%s:/usr/bin:/bin' "$python_dir"
+	else
+		printf '/usr/bin:/bin'
+	fi
 }
 
 smoke_path_with_runtime_clis() {
-  local sandbox="$1" extra_path="${2:-}"
-  local smoke_path
-  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
-  if [ -n "$extra_path" ]; then
-    printf '%s:%s' "$extra_path" "$smoke_path"
-  else
-    printf '%s' "$smoke_path"
-  fi
+	local sandbox="$1" extra_path="${2:-}"
+	local smoke_path
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	if [ -n "$extra_path" ]; then
+		printf '%s:%s' "$extra_path" "$smoke_path"
+	else
+		printf '%s' "$smoke_path"
+	fi
 }
 
 run_install_status() {
-  local sandbox="$1" repo_snapshot="$2"
-  shift 2
+	local sandbox="$1" repo_snapshot="$2"
+	shift 2
 
-  local smoke_path
-  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	local smoke_path
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
 
-  local rc=0
-  set +e
-  HOME="$sandbox/home" \
-  PATH="$smoke_path" \
-  B_AGENTIC_REPO="$repo_snapshot" \
-  B_AGENTIC_DIR="$sandbox/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_PI_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
-  rc=$?
-  set -e
+	local rc=0
+	set +e
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		B_AGENTIC_REPO="$repo_snapshot" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		B_AGENTIC_INSTALL_PI_CLI=N \
+		B_AGENTIC_INSTALL_RTK=N \
+		B_AGENTIC_INSTALL_SERENA=N \
+		B_AGENTIC_INSTALL_CODEGRAPH=N \
+		B_AGENTIC_INSTALL_PI_MCP_ADAPTER=N \
+		B_AGENTIC_INSTALL_PI_LENS=N \
+		B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=N \
+		bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
+	rc=$?
+	set -e
 
-  printf '%s' "$rc"
+	printf '%s' "$rc"
 }
 
 run_install_status_in_cwd() {
-  local install_cwd="$1" sandbox="$2" repo_snapshot="$3"
-  shift 3
+	local install_cwd="$1" sandbox="$2" repo_snapshot="$3"
+	shift 3
 
-  local smoke_path
-  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	local smoke_path
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
 
-  local rc=0
-  set +e
-  (
-    cd "$install_cwd"
-    HOME="$sandbox/home" \
-    PATH="$smoke_path" \
-    B_AGENTIC_REPO="$repo_snapshot" \
-    B_AGENTIC_DIR="$sandbox/source" \
-    B_AGENTIC_PROMPT_API_KEYS=N \
-    B_AGENTIC_INSTALL_PI_CLI=N \
-    B_AGENTIC_INSTALL_RTK=N \
-    B_AGENTIC_INSTALL_SHELL_TOOLS=N \
-    B_AGENTIC_INSTALL_SERENA=N \
-    B_AGENTIC_INSTALL_CODEGRAPH=N \
-    bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
-  )
-  rc=$?
-  set -e
+	local rc=0
+	set +e
+	(
+		cd "$install_cwd"
+		HOME="$sandbox/home" \
+			PATH="$smoke_path" \
+			B_AGENTIC_REPO="$repo_snapshot" \
+			B_AGENTIC_DIR="$sandbox/source" \
+			B_AGENTIC_PROMPT_API_KEYS=N \
+			B_AGENTIC_INSTALL_PI_CLI=N \
+			B_AGENTIC_INSTALL_RTK=N \
+			B_AGENTIC_INSTALL_SHELL_TOOLS=N \
+			B_AGENTIC_INSTALL_SERENA=N \
+			B_AGENTIC_INSTALL_CODEGRAPH=N \
+			B_AGENTIC_INSTALL_PI_MCP_ADAPTER=N \
+			B_AGENTIC_INSTALL_PI_LENS=N \
+			B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=N \
+			bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
+	)
+	rc=$?
+	set -e
 
-  printf '%s' "$rc"
+	printf '%s' "$rc"
 }
 
 run_install_with_tty_status() {
-  local sandbox="$1" repo_snapshot="$2" input="$3"
-  shift 3
+	local sandbox="$1" repo_snapshot="$2" input="$3"
+	shift 3
 
-  local smoke_path
-  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	local smoke_path
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
 
-  local rc=0
-  set +e
-  python3 - "$sandbox" "$repo_snapshot" "$input" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY' >/dev/null 2>&1
+	local rc=0
+	set +e
+	python3 - "$sandbox" "$repo_snapshot" "$input" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY' >/dev/null 2>&1
 import os, pty, select, sys
 
 sandbox, repo_snapshot, input_data, smoke_path, install_script = sys.argv[1:6]
@@ -247,6 +253,9 @@ env["B_AGENTIC_INSTALL_RTK"] = "N"
 env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
 env["B_AGENTIC_INSTALL_SERENA"] = "N"
 env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
+env["B_AGENTIC_INSTALL_PI_MCP_ADAPTER"] = "N"
+env["B_AGENTIC_INSTALL_PI_LENS"] = "N"
+env["B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY"] = "N"
 
 pid, fd = pty.fork()
 if pid == 0:
@@ -275,22 +284,22 @@ if status is None:
 
 sys.exit(os.WEXITSTATUS(status))
 PY
-  rc=$?
-  set -e
+	rc=$?
+	set -e
 
-  printf '%s' "$rc"
+	printf '%s' "$rc"
 }
 
 run_install_with_tty_log() {
-  local sandbox="$1" repo_snapshot="$2" log_path="$3"
-  shift 3
+	local sandbox="$1" repo_snapshot="$2" log_path="$3"
+	shift 3
 
-  local smoke_path
-  smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	local smoke_path
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
 
-  local rc=0
-  set +e
-  python3 - "$sandbox" "$repo_snapshot" "$log_path" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY'
+	local rc=0
+	set +e
+	python3 - "$sandbox" "$repo_snapshot" "$log_path" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY'
 import os, pty, select, sys
 
 sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
@@ -307,6 +316,9 @@ env["B_AGENTIC_INSTALL_RTK"] = "N"
 env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
 env["B_AGENTIC_INSTALL_SERENA"] = "N"
 env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
+env["B_AGENTIC_INSTALL_PI_MCP_ADAPTER"] = "N"
+env["B_AGENTIC_INSTALL_PI_LENS"] = "N"
+env["B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY"] = "N"
 
 pid, fd = pty.fork()
 if pid == 0:
@@ -341,42 +353,41 @@ if os.WIFSIGNALED(status):
     sys.exit(128 + os.WTERMSIG(status))
 sys.exit(1)
 PY
-  rc=$?
-  set -e
+	rc=$?
+	set -e
 
-  return "$rc"
+	return "$rc"
 }
 
 expect_install_with_tty_status() {
-  local expected="$1" sandbox="$2" repo_snapshot="$3" input="$4"
-  shift 4
+	local expected="$1" sandbox="$2" repo_snapshot="$3" input="$4"
+	shift 4
 
-  local rc
-  rc="$(run_install_with_tty_status "$sandbox" "$repo_snapshot" "$input" "$@")"
-  [ "$rc" -eq "$expected" ] || fail "expected TTY install exit $expected, got $rc"
+	local rc
+	rc="$(run_install_with_tty_status "$sandbox" "$repo_snapshot" "$input" "$@")"
+	[ "$rc" -eq "$expected" ] || fail "expected TTY install exit $expected, got $rc"
 }
 
 expect_install_status() {
-  local expected="$1" sandbox="$2" repo_snapshot="$3"
-  shift 3
+	local expected="$1" sandbox="$2" repo_snapshot="$3"
+	shift 3
 
-  local rc
-  rc="$(run_install_status "$sandbox" "$repo_snapshot" "$@")"
-  [ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
+	local rc
+	rc="$(run_install_status "$sandbox" "$repo_snapshot" "$@")"
+	[ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
 }
 
 expect_install_status_in_cwd() {
-  local expected="$1" install_cwd="$2" sandbox="$3" repo_snapshot="$4"
-  shift 4
+	local expected="$1" install_cwd="$2" sandbox="$3" repo_snapshot="$4"
+	shift 4
 
-  local rc
-  rc="$(run_install_status_in_cwd "$install_cwd" "$sandbox" "$repo_snapshot" "$@")"
-  [ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
+	local rc
+	rc="$(run_install_status_in_cwd "$install_cwd" "$sandbox" "$repo_snapshot" "$@")"
+	[ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
 }
 
-
 registry_skill_count() {
-  python3 - "$ROOT_DIR/skills/registry.yaml" <<'PY'
+	python3 - "$ROOT_DIR/skills/registry.yaml" <<'PY'
 from pathlib import Path
 import json
 import sys
