@@ -17,6 +17,7 @@ All notable shipped revisions of b-agentic are recorded here. Version numbers ma
 - Add outcome-focused skill routing fixtures for high-risk phase boundaries.
 - Publish a richer runtime capability matrix in the README.
 - Simplify `b-summary` and make `b-design` structure an adaptable checklist rather than a forced skeleton.
+- Add opt-in, human-scored prompt-effectiveness scenarios for ambiguity, simplicity, surgical changes, and verified execution.
 
 ## 2026.06.24
 

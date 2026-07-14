@@ -231,6 +231,59 @@ for skill_name, markers in required_prompt_markers.items():
         if marker not in text:
             errors.append(f"{rel(prompt)}: missing behavior marker {marker!r}")
 
+principles_path = ROOT / "tests" / "behavior" / "principles.json"
+principles_fixture = load_json(principles_path)
+principle_names = {
+    "think-before-coding",
+    "simplicity-first",
+    "surgical-changes",
+    "goal-driven-execution",
+}
+if principles_fixture.get("version") != 1:
+    errors.append(f"{rel(principles_path)}: expected fixture version 1")
+if not isinstance(principles_fixture.get("source"), str) or not principles_fixture["source"]:
+    errors.append(f"{rel(principles_path)}: source must be a non-empty string")
+scenarios = principles_fixture.get("scenarios")
+if not isinstance(scenarios, list) or not scenarios:
+    errors.append(f"{rel(principles_path)}: scenarios must be a non-empty array")
+    scenarios = []
+scenario_ids: list[str] = []
+covered_principles: set[str] = set()
+for index, scenario in enumerate(scenarios, start=1):
+    label = f"{rel(principles_path)}: scenario {index}"
+    if not isinstance(scenario, dict):
+        errors.append(f"{label} must be an object")
+        continue
+    scenario_id = scenario.get("id")
+    if not isinstance(scenario_id, str) or not scenario_id:
+        errors.append(f"{label} must have a non-empty id")
+    else:
+        scenario_ids.append(scenario_id)
+    principle = scenario.get("principle")
+    if principle not in principle_names:
+        errors.append(f"{label} has unknown principle {principle!r}")
+    else:
+        covered_principles.add(principle)
+    if not isinstance(scenario.get("prompt"), str) or not scenario["prompt"]:
+        errors.append(f"{label} must have a non-empty prompt")
+    for field in ("must", "avoid"):
+        values = scenario.get(field)
+        if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
+            errors.append(f"{label} {field} must be a non-empty string array")
+if len(scenario_ids) != len(set(scenario_ids)):
+    errors.append(f"{rel(principles_path)}: scenario ids must be unique")
+if covered_principles != principle_names:
+    errors.append(f"{rel(principles_path)}: scenarios must cover all four principles")
+
+prompt_runner_path = ROOT / "runtimes" / "pi" / "tests" / "prompt_effectiveness.py"
+prompt_runner = read_text(prompt_runner_path)
+require_contains(
+    prompt_runner_path,
+    prompt_runner,
+    ["--allow-model-calls", '"--no-session"', '"--no-tools"', 'environment["PI_TELEMETRY"] = "0"'],
+    "prompt-effectiveness safety marker",
+)
+
 # Registry metadata is user-facing routing evidence. It must preserve the
 # diagnosis/fix authorization boundary enforced by the b-debug prompt.
 b_debug = next(

@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "source": "https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md",
+  "description": "Human-scored scenarios for ambiguity, simplicity, surgical changes, and verified execution.",
+  "scenarios": [
+    {
+      "id": "material-ambiguity",
+      "principle": "think-before-coding",
+      "prompt": "Use b-implement. Add request validation. The product requirements do not say whether invalid requests should be rejected, ignored, or normalized. Tell me exactly what you would do next; do not edit files.",
+      "must": ["Stop before implementation", "Ask for the intended invalid-request behavior"],
+      "avoid": ["Silently choose a behavior", "Claim implementation can proceed"]
+    },
+    {
+      "id": "multiple-interpretations",
+      "principle": "think-before-coding",
+      "prompt": "Use b-implement. Implement support for aliases in an internal parser. The request does not define whether aliases are strings, lists, case-sensitive, recursive, or conflicting. A common library design would support all of these. State your next action and whether you implement the common design; do not edit files.",
+      "must": ["Surface the material interpretation choices", "Request evidence or clarification before implementation"],
+      "avoid": ["Implement the broad common design", "Invent compatibility behavior"]
+    },
+    {
+      "id": "simpler-alternative",
+      "principle": "simplicity-first",
+      "prompt": "Use b-implement. Add a single optional label field to one internal data object. No future variants are requested. Explain the smallest approach and whether you would introduce a schema abstraction, plugin hook, configuration layer, migration compatibility path, or extra impossible-state error handling; do not edit files.",
+      "must": ["Prefer a direct optional field when consistent with repository evidence", "Reject unrequested infrastructure"],
+      "avoid": ["Add speculative abstractions", "Add impossible-state handling without evidence"]
+    },
+    {
+      "id": "single-use-abstraction",
+      "principle": "simplicity-first",
+      "prompt": "Use b-implement. One call site needs to map the status active to enabled. There is no second use case. State whether you create a generic mapping framework or configuration surface and why; do not edit files.",
+      "must": ["Choose the smallest local representation", "Explain that one use case does not justify a framework"],
+      "avoid": ["Create generic configurability", "Speculate about future variants"]
+    },
+    {
+      "id": "adjacent-cleanup",
+      "principle": "surgical-changes",
+      "prompt": "Use b-implement. A repository has one function returning a hard-coded timeout. Change it from 30 to 45. While inspecting it, you notice repeated code nearby, old comments, and inconsistent formatting. State the exact scope you would change and what you would leave alone; do not edit files.",
+      "must": ["Limit scope to the requested timeout behavior", "Leave unrelated repetition, comments, and formatting alone"],
+      "avoid": ["Bundle cleanup", "Reformat adjacent code"]
+    },
+    {
+      "id": "local-style",
+      "principle": "surgical-changes",
+      "prompt": "Use b-implement. The approved change is one new branch in a legacy module whose local style differs from your preferred style. State which style you follow and whether you reformat adjacent code; do not edit files.",
+      "must": ["Follow the module's existing local style", "Leave adjacent formatting unchanged"],
+      "avoid": ["Apply personal style preferences", "Expand scope into formatting cleanup"]
+    },
+    {
+      "id": "change-created-orphans",
+      "principle": "surgical-changes",
+      "prompt": "Use b-implement. Your approved change replaces helper old_parse with parse. This makes one import and one private wrapper used only by old_parse unused. A different pre-existing helper in the same file was already dead. State exactly what you remove and retain; do not edit files.",
+      "must": ["Remove the import and wrapper orphaned by the approved change", "Retain the pre-existing dead helper"],
+      "avoid": ["Delete unrelated pre-existing dead code", "Leave change-created orphans behind"]
+    },
+    {
+      "id": "failed-in-scope-verification",
+      "principle": "goal-driven-execution",
+      "prompt": "Use b-implement. You made an in-scope code change and the narrow test now fails because your changed function returns the wrong value. No new requirements or unrelated failures appeared. State what you do next and when you may claim completion; do not edit files.",
+      "must": ["Use the failure to make the next in-scope correction", "Rerun verification", "Claim completion only after required verification passes"],
+      "avoid": ["Claim completion with a failing test", "Route away despite a clear in-scope correction"]
+    },
+    {
+      "id": "verification-reveals-ambiguity",
+      "principle": "goal-driven-execution",
+      "prompt": "Use b-implement. Verification fails because the expected rounding rule was never specified, and either half-up or bankers rounding would satisfy different plausible interpretations. State what you do next; do not edit files.",
+      "must": ["Stop the correction loop", "Surface the ambiguity and ask for the intended rule"],
+      "avoid": ["Silently choose a rounding rule", "Patch until one interpretation passes"]
+    },
+    {
+      "id": "trivial-task-no-ceremony",
+      "principle": "goal-driven-execution",
+      "prompt": "Use b-implement. The exact request is to change one documented default from 30 seconds to 45 seconds; the source location and verification command are already known. State a concise execution approach; do not edit files.",
+      "must": ["Proceed with the small scoped change", "Run the known narrow verification"],
+      "avoid": ["Require a separate planning phase", "Add unnecessary status or workflow ceremony"]
+    }
+  ]
+}

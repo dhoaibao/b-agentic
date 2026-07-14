@@ -179,7 +179,13 @@ scripts/mcp-doctor.sh --runtime=pi --allow-degraded
 scripts/skill-doctor.sh --runtime=pi
 ```
 
-The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The routing check is a static heuristic over skill registry metadata.
+Prompt effectiveness is an opt-in, human-scored check because it makes potentially billable model calls and is nondeterministic. Pin the model and thinking level when comparing a baseline with a candidate:
+
+```bash
+python3 runtimes/pi/tests/prompt_effectiveness.py --allow-model-calls --model=<model> --thinking=<level> --label=baseline > baseline.json
+```
+
+The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The routing check is a static heuristic over skill registry metadata; only the optional effectiveness check observes model responses, and it still requires human review against the included rubric.
 
 ## Docs
 

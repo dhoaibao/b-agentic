@@ -53,7 +53,7 @@ scripts/validate-skills.sh --release
 scripts/b-agentic-audit.sh
 ```
 
-For install or runtime-home validation after adapter changes, also use `scripts/smoke-install.sh`, `scripts/skill-doctor.sh --runtime=<name>`, and `scripts/mcp-doctor.sh --runtime=<name>`.
+For install or runtime-home validation after adapter changes, also use `scripts/smoke-install.sh`, `scripts/skill-doctor.sh --runtime=<name>`, and `scripts/mcp-doctor.sh --runtime=<name>`. For behavior-shaping prompt changes, compare like-for-like model settings with the opt-in `runtimes/pi/tests/prompt_effectiveness.py` runner; it makes external model calls and requires human scoring.
 
 Use `--release` when install, runtime, wrapper, kernel delivery, or release-readiness behavior changes. Run `scripts/b-agentic-audit.sh` (also invoked by `b-review --audit-suite`) for self-audit checks: source/generated sync, kernel slimness, no developer-marker comments, runtime-template exclusion, and unresolved template tokens. Confirm generated assets are synchronized, shared content remains runtime-neutral, and public or maintainer docs reflect changed behavior.
 
