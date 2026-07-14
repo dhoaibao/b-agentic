@@ -1,8 +1,8 @@
 # b-agentic
 
-**Slim workflow kernel for coding agents. Ships the Pi runtime; the registry-driven installer and runtime scaffold keep it multi-runtime-ready.**
+**A slim workflow kernel for the Pi coding agent. b-agentic and Pi are one integrated product.**
 
-b-agentic installs a compact runtime kernel, focused phase skills, runtime adapters, and recommended MCP config. Its job is simple: route work, preserve safety gates, use the right evidence, verify before claiming done, and keep multi-runtime setup consistent.
+b-agentic installs a compact Pi kernel, focused phase skills, a permission extension, and recommended MCP configuration. Its job is simple: route work, preserve safety gates, use the right evidence, and verify before claiming done.
 
 ## Install
 
@@ -12,15 +12,7 @@ Default install for Pi:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-Install another runtime:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --runtime=<name>
-```
-
-Use `<name>` as the registered runtime (currently `pi`). Use `--runtime=all` for every registered runtime.
-
-Default install writes b-agentic files and config only. Interactive installs prompt before installing or upgrading the selected runtime CLI. Non-interactive installs skip runtime CLI changes unless `B_AGENTIC_INSTALL_RUNTIME_CLI=Y` explicitly opts in.
+Default install writes b-agentic files and Pi configuration only. Interactive installs prompt before installing or upgrading the Pi CLI. Non-interactive installs skip Pi CLI changes unless `B_AGENTIC_INSTALL_PI_CLI=Y` explicitly opts in.
 
 For professional or shared environments, pin both the bootstrap script and installed source to a reviewed tag or commit instead of consuming whatever is currently on `main`:
 
@@ -38,11 +30,11 @@ Useful flags:
 - `--uninstall` removes managed files
 - `--ref=<tag-or-commit>` checks out that b-agentic git ref before installing managed files
 
-MCP servers and RTK are installed from their latest available releases. Run `scripts/mcp-doctor.sh --runtime=<name>` after setting API keys to verify local readiness. Missing credentials or dependencies fail checks by default; use `--allow-degraded` to inspect status without failing.
+MCP servers and RTK are installed from their latest available releases. Run `scripts/mcp-doctor.sh` after setting API keys to verify local readiness. Missing credentials or dependencies fail checks by default; use `--allow-degraded` to inspect status without failing.
 
-Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Runtime CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_RUNTIME_CLI=Y`.
+Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Pi CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_PI_CLI=Y`.
 
-Interactive installs prepare the runtime and install required shell tooling and RTK; Serena and CodeGraph remain optional installs. The runtime requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, `bat` (or Debian/Ubuntu's `batcat`) instead of `cat`, `eza` or `exa` instead of `ls`, `sd` instead of `sed` or `awk`, and `jq` instead of `python -m json.tool` for JSON.
+Interactive installs prepare Pi and install required shell tooling and RTK; Serena and CodeGraph remain optional installs. Pi requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, `bat` (or Debian/Ubuntu's `batcat`) instead of `cat`, `eza` or `exa` instead of `ls`, `sd` instead of `sed` or `awk`, and `jq` instead of `python -m json.tool` for JSON.
 
 ## RTK (Rust Token Killer)
 
@@ -86,29 +78,11 @@ b-agentic writes a default [CodeGraph](https://github.com/colbymchenry/codegraph
 
 Use CodeGraph for architectural flows, call graphs, impact radius, route-to-handler discovery, and affected-test discovery. Use Serena for symbol declarations, references, diagnostics, and symbol-aware edits. Use local reads/search to verify exact edited content.
 
-## Runtime Support
+## Pi integration
 
-| Runtime | Skill invocation | MCP config |
-|---|---|---|
-| Pi | Native skills from `~/.pi/agent/skills/` | `~/.pi/agent/mcp.json` via `pi-mcp-adapter` |
+Pi discovers native skills from `~/.pi/agent/skills/` and MCP configuration from `~/.pi/agent/mcp.json` through `pi-mcp-adapter`. b-agentic preserves user-owned configuration and reports every managed change.
 
-<!-- generated:runtime-capabilities:start -->
-| Runtime | Skills | Permissions | Rules | Wrappers | MCP |
-|---|---|---|---|---|---|
-| Pi | native | adapter; adapter-only | unsupported | unsupported | adapter; adapter-only |
-<!-- generated:runtime-capabilities:end -->
-
-Capability matrix (support labels plus enforceable limits):
-
-<!-- generated:runtime-capability-matrix:start -->
-| Runtime | Support tier | Permission granularity | Kernel loading | Skill mode | MCP adapter | Static | Known limitation |
-|---|---|---|---|---|---|---|---|
-| Pi | operation-enforced | adapter tool_call extension | managed memory file | native | pi-mcp-adapter | yes | print-mode cannot prove UI approval |
-<!-- generated:runtime-capability-matrix:end -->
-
-Adapters preserve user-owned config and report what they changed. They do not promise automatic phase continuation or deterministic enforcement beyond the runtime's normal permission model.
-
-Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery and only the explicitly classified read-only managed MCP operations, while prompting for approval-required shell commands, managed MCP local or external mutations, unclassified managed operations, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the community adapter `pi-mcp-adapter` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively). The optional `pi-lens` package adds live diagnostics and structural analysis; it is prompted interactively or installed noninteractively with `B_AGENTIC_INSTALL_PI_LENS=Y`, and its custom tools remain approval-gated. The optional `pi-observational-memory` package provides long-session compaction continuity; it is prompted interactively or installed noninteractively with `B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y`, and should be the sole automatic memory/compaction layer. Uninstall removes managed config/extension files but not any package. On top of this baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Pi is support tier `operation-enforced` for Firecrawl/Playwright policy derived from `references/mcp_operations.yaml` and `references/kernel.template.md`.
+Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery and only the explicitly classified read-only managed MCP operations, while prompting for approval-required shell commands, managed MCP local or external mutations, unclassified managed operations, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the community adapter `pi-mcp-adapter` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively). The optional `pi-lens` package adds live diagnostics and structural analysis; it is prompted interactively or installed noninteractively with `B_AGENTIC_INSTALL_PI_LENS=Y`, and its custom tools remain approval-gated. The optional `pi-observational-memory` package provides long-session compaction continuity; it is prompted interactively or installed noninteractively with `B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y`, and should be the sole automatic memory/compaction layer. Uninstall removes managed config/extension files but not any package. On top of this baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Pi enforces Firecrawl/Playwright policy from `references/mcp_operations.yaml` and `references/kernel.template.md` at the operation level.
 
 ## Skills
 
@@ -157,8 +131,8 @@ The installer does not start MCP servers, install `pnpm dlx` packages ahead of t
 ```text
 b-agentic/
 ├── skills/                # Skill sources and generated delivery assets
-├── runtimes/              # Runtime adapters, configs, scripts, and smoke lanes
-├── references/            # Runtime kernel and MCP policy
+├── pi/                    # Pi integration, config, extension, and smoke lanes
+├── references/            # Pi kernel and MCP policy
 ├── tooling/generate/      # Registry and generated asset sync
 ├── tooling/install/       # Shared installer core
 ├── tooling/validate/      # Validation harness
@@ -174,22 +148,22 @@ scripts/validate-skills.sh
 scripts/validate-skills.sh --release
 scripts/b-agentic-audit.sh
 scripts/smoke-install.sh
-scripts/mcp-doctor.sh --runtime=pi
-scripts/mcp-doctor.sh --runtime=pi --allow-degraded
-scripts/skill-doctor.sh --runtime=pi
+scripts/mcp-doctor.sh
+scripts/mcp-doctor.sh --allow-degraded
+scripts/skill-doctor.sh
 ```
 
 Prompt effectiveness is an opt-in, human-scored check because it makes potentially billable model calls and is nondeterministic. Pin the model and thinking level when comparing a baseline with a candidate:
 
 ```bash
-python3 runtimes/pi/tests/prompt_effectiveness.py --allow-model-calls --model=<model> --thinking=<level> --label=baseline > baseline.json
+python3 pi/tests/prompt_effectiveness.py --allow-model-calls --model=<model> --thinking=<level> --label=baseline > baseline.json
 ```
 
-The validation suite and doctors prove generated sync, install safety, runtime config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The routing check is a static heuristic over skill registry metadata; only the optional effectiveness check observes model responses, and it still requires human review against the included rubric.
+The validation suite and doctors prove generated sync, install safety, Pi config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The routing check is a static heuristic over skill registry metadata; only the optional effectiveness check observes model responses, and it still requires human review against the included rubric.
 
 ## Docs
 
 - `README.md` is the repository overview.
 - `AGENTS.md` is maintainer guidance.
 - `CHANGELOG.md` records shipped revisions.
-- `references/` contains the runtime kernel and canonical `mcp_operations.yaml` shipped to adapters.
+- `references/` contains the Pi kernel and canonical `mcp_operations.yaml` shipped to the Pi integration.

@@ -182,7 +182,7 @@ run_install_status() {
   B_AGENTIC_REPO="$repo_snapshot" \
   B_AGENTIC_DIR="$sandbox/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_PI_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
@@ -209,7 +209,7 @@ run_install_status_in_cwd() {
     B_AGENTIC_REPO="$repo_snapshot" \
     B_AGENTIC_DIR="$sandbox/source" \
     B_AGENTIC_PROMPT_API_KEYS=N \
-    B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+    B_AGENTIC_INSTALL_PI_CLI=N \
     B_AGENTIC_INSTALL_RTK=N \
     B_AGENTIC_INSTALL_SHELL_TOOLS=N \
     B_AGENTIC_INSTALL_SERENA=N \
@@ -242,7 +242,7 @@ env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
-env["B_AGENTIC_INSTALL_RUNTIME_CLI"] = "N"
+env["B_AGENTIC_INSTALL_PI_CLI"] = "N"
 env["B_AGENTIC_INSTALL_RTK"] = "N"
 env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
 env["B_AGENTIC_INSTALL_SERENA"] = "N"
@@ -302,7 +302,7 @@ env["PATH"] = smoke_path
 env["B_AGENTIC_REPO"] = repo_snapshot
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
-env["B_AGENTIC_INSTALL_RUNTIME_CLI"] = "N"
+env["B_AGENTIC_INSTALL_PI_CLI"] = "N"
 env["B_AGENTIC_INSTALL_RTK"] = "N"
 env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
 env["B_AGENTIC_INSTALL_SERENA"] = "N"
@@ -374,19 +374,6 @@ expect_install_status_in_cwd() {
   [ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
 }
 
-registered_runtime_names() {
-  python3 - "$ROOT_DIR/runtimes/registry.yaml" <<'PY'
-from pathlib import Path
-import json
-import sys
-
-registry = json.loads(Path(sys.argv[1]).read_text())
-for runtime in registry.get('runtimes', []):
-    name = runtime.get('name')
-    if isinstance(name, str) and name:
-        print(name)
-PY
-}
 
 registry_skill_count() {
   python3 - "$ROOT_DIR/skills/registry.yaml" <<'PY'

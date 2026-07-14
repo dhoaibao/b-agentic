@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import posixpath
 import re
 import sys
 import textwrap
@@ -13,32 +12,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL_REGISTRY_PATH = ROOT / "skills" / "registry.yaml"
-RUNTIME_REGISTRY_PATH = ROOT / "runtimes" / "registry.yaml"
 KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
+MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
-README_RUNTIME_CAPABILITIES_START = "<!-- generated:runtime-capabilities:start -->"
-README_RUNTIME_CAPABILITIES_END = "<!-- generated:runtime-capabilities:end -->"
-README_RUNTIME_CAPABILITY_MATRIX_START = "<!-- generated:runtime-capability-matrix:start -->"
-README_RUNTIME_CAPABILITY_MATRIX_END = "<!-- generated:runtime-capability-matrix:end -->"
-ROUTING_INTENTS_START = "<!-- generated:routing-intents:start -->"
-ROUTING_INTENTS_END = "<!-- generated:routing-intents:end -->"
-ROUTING_TRIGGERS_START = "<!-- generated:routing-triggers:start -->"
-ROUTING_TRIGGERS_END = "<!-- generated:routing-triggers:end -->"
 MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
 MCP_OPERATIONS_END = "<!-- generated:mcp-operations:end -->"
 KERNEL_ROUTING_START = "<!-- generated:kernel-routing:start -->"
 KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
-MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
-RUNTIME_REFERENCE_ROOT_TOKEN = "{{runtime_reference_root}}"
-RUNTIME_DISPLAY_NAME_TOKEN = "{{runtime_display_name}}"
-RUNTIME_METADATA_ROOT_TOKEN = "{{runtime_metadata_root}}"
-RUNTIME_MEMORY_FILE_TOKEN = "{{runtime_memory_file}}"
-RUNTIME_ENFORCEMENT_STATEMENT_TOKEN = "{{runtime_enforcement_statement}}"
-RENDERED_SKILL_SUPPORT_PATH = "."
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
 
 PROMPT_FRONTMATTER_FIELDS = [
@@ -47,16 +31,6 @@ PROMPT_FRONTMATTER_FIELDS = [
     ("user_invocable", "user-invocable"),
 ]
 ALLOWED_PROMPT_KEYS = {"description", *[field for field, _ in PROMPT_FRONTMATTER_FIELDS]}
-RUNTIME_CAPABILITY_KEYS = [
-    "skills",
-    "permissions",
-    "rules",
-    "command_wrappers",
-    "mcp",
-]
-RUNTIME_CAPABILITY_SUPPORT = {"native", "adapter", "unsupported"}
-RUNTIME_CAPABILITY_ADOPTION = {"shared", "adapter-only", "deferred", "unsupported"}
-RUNTIME_SUPPORT_TIERS = {"operation-enforced", "guidance-shell-only"}
 
 
 def load_json_subset_yaml(path: Path) -> dict:
@@ -76,46 +50,8 @@ def ensure_string(value: object, label: str, errors: list[str]) -> str:
 
 
 def ensure_optional_string(value: object, label: str, errors: list[str]) -> None:
-    if value is None:
-        return
-    if not isinstance(value, str) or not value:
+    if value is not None and (not isinstance(value, str) or not value):
         errors.append(f"{label}: expected non-empty string when present")
-
-
-def runtime_reference_root(runtime: dict) -> str:
-    """Resolve references relative to an installed <skill>/SKILL.md payload."""
-    skills_root = str(runtime["skills_install_root"])[2:]
-    metadata_root = str(runtime["metadata_root"])[2:]
-    return posixpath.relpath(
-        posixpath.join(metadata_root, "references"),
-        posixpath.join(skills_root, "<skill>"),
-    )
-
-
-def validate_runtime_reference_layout(runtime: dict, label: str, errors: list[str]) -> None:
-    skills_root = runtime.get("skills_install_root")
-    metadata_root = runtime.get("metadata_root")
-    if not isinstance(skills_root, str) or not isinstance(metadata_root, str):
-        return
-    if not skills_root.startswith("~/") or not metadata_root.startswith("~/"):
-        errors.append(f"{label}: skills_install_root and metadata_root must use ~/ paths")
-        return
-    reference_root = runtime_reference_root(runtime)
-    if reference_root.startswith("/") or reference_root == ".":
-        errors.append(f"{label}: derived skill reference path must be relative")
-
-
-def load_registries() -> tuple[list[dict], list[dict]]:
-    skill_registry = load_json_subset_yaml(SKILL_REGISTRY_PATH)
-    runtime_registry = load_json_subset_yaml(RUNTIME_REGISTRY_PATH)
-
-    skills = skill_registry.get("skills")
-    runtimes = runtime_registry.get("runtimes")
-    if not isinstance(skills, list):
-        raise SystemExit(f"{SKILL_REGISTRY_PATH}: missing skills array")
-    if not isinstance(runtimes, list):
-        raise SystemExit(f"{RUNTIME_REGISTRY_PATH}: missing runtimes array")
-    return skills, runtimes
 
 
 def apply_template_tokens(text: str, replacements: dict[str, str], source: Path) -> str:
@@ -125,31 +61,24 @@ def apply_template_tokens(text: str, replacements: dict[str, str], source: Path)
 
     unresolved = sorted(set(TEMPLATE_TOKEN_RE.findall(rendered)))
     if unresolved:
-        token_list = ", ".join(unresolved)
-        raise SystemExit(f"{source}: unresolved template tokens: {token_list}")
+        raise SystemExit(f"{source}: unresolved template tokens: {', '.join(unresolved)}")
     return rendered
+
+
+def load_skills() -> list[dict]:
+    registry = load_json_subset_yaml(SKILL_REGISTRY_PATH)
+    skills = registry.get("skills")
+    if not isinstance(skills, list):
+        raise SystemExit(f"{SKILL_REGISTRY_PATH}: missing skills array")
+    return skills
 
 
 def validate_kernel_template(errors: list[str]) -> None:
     if not KERNEL_TEMPLATE_PATH.exists():
-        errors.append(f"{KERNEL_TEMPLATE_PATH}: missing shared kernel template")
+        errors.append(f"{KERNEL_TEMPLATE_PATH}: missing Pi kernel template")
         return
-
-    template_text = KERNEL_TEMPLATE_PATH.read_text()
-    for token in [
-        RUNTIME_DISPLAY_NAME_TOKEN,
-        RUNTIME_METADATA_ROOT_TOKEN,
-        RUNTIME_ENFORCEMENT_STATEMENT_TOKEN,
-    ]:
-        if token not in template_text:
-            errors.append(f"{KERNEL_TEMPLATE_PATH}: missing kernel template token {token!r}")
-
-    if "~/.claude/b-agentic" in template_text:
-        errors.append(
-            f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must use {RUNTIME_METADATA_ROOT_TOKEN}, not a runtime-specific metadata root"
-        )
-    if "${CLAUDE_SKILL_DIR}" in template_text:
-        errors.append(f"{KERNEL_TEMPLATE_PATH}: canonical kernel template must not use ${{CLAUDE_SKILL_DIR}}")
+    if TEMPLATE_TOKEN_RE.search(KERNEL_TEMPLATE_PATH.read_text()):
+        errors.append(f"{KERNEL_TEMPLATE_PATH}: Pi kernel must not contain unresolved template placeholders")
 
 
 def validate_skill_prompt_source(skill: dict, errors: list[str]) -> None:
@@ -158,63 +87,40 @@ def validate_skill_prompt_source(skill: dict, errors: list[str]) -> None:
         return
 
     prompt_meta = skill.get("prompt")
-    prompt_label = f"skills[{name}].prompt"
+    label = f"skills[{name}].prompt"
     if not isinstance(prompt_meta, dict):
-        errors.append(f"{prompt_label}: expected object")
+        errors.append(f"{label}: expected object")
     else:
         unexpected = sorted(set(prompt_meta) - ALLOWED_PROMPT_KEYS)
         if unexpected:
-            errors.append(f"{prompt_label}: unexpected keys {unexpected}")
-        ensure_string(prompt_meta.get("description"), f"{prompt_label}.description", errors)
+            errors.append(f"{label}: unexpected keys {unexpected}")
+        ensure_string(prompt_meta.get("description"), f"{label}.description", errors)
         for field, _ in PROMPT_FRONTMATTER_FIELDS:
-            ensure_optional_string(prompt_meta.get(field), f"{prompt_label}.{field}", errors)
+            ensure_optional_string(prompt_meta.get(field), f"{label}.{field}", errors)
 
     prompt_path = ROOT / "skills" / name / "prompt.md"
     if not prompt_path.exists():
         errors.append(f"{prompt_path}: missing canonical prompt source")
         return
-
     prompt_text = prompt_path.read_text()
-    if "${CLAUDE_SKILL_DIR}" in prompt_text:
-        errors.append(
-            f"{prompt_path}: canonical prompt must use {SKILL_SUPPORT_PATH_TOKEN} instead of ${{CLAUDE_SKILL_DIR}}"
-        )
-
     unresolved = sorted(
-        token
-        for token in set(TEMPLATE_TOKEN_RE.findall(prompt_text))
-        if token not in {SKILL_SUPPORT_PATH_TOKEN, RUNTIME_REFERENCE_ROOT_TOKEN}
+        token for token in set(TEMPLATE_TOKEN_RE.findall(prompt_text)) if token != SKILL_SUPPORT_PATH_TOKEN
     )
     if unresolved:
         errors.append(f"{prompt_path}: unexpected canonical prompt tokens {unresolved}")
 
 
-def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
+def validate_skills(skills: list[dict]) -> list[str]:
     errors: list[str] = []
-    skill_dirs = {path.parent.name for path in (ROOT / "skills").glob("*/prompt.md")}
-    runtime_dirs = {
-        path.name
-        for path in (ROOT / "runtimes").glob("*/")
-        if any(path.iterdir())
-    }
-
     validate_kernel_template(errors)
-    # Regression fixture: layouts need not use a sibling directory named
-    # b-agentic. The renderer must derive the installed skill's relative path.
-    alternate_layout = {
-        "skills_install_root": "~/.alternate/runtime/skills",
-        "metadata_root": "~/.alternate/metadata/store",
-    }
-    if runtime_reference_root(alternate_layout) != "../../../metadata/store/references":
-        errors.append("registry renderer: alternate runtime layout reference-path fixture failed")
+    skill_dirs = {path.parent.name for path in (ROOT / "skills").glob("*/prompt.md")}
+    names: list[str] = []
+    aliases: list[str] = []
 
-    registry_skill_names: list[str] = []
-    command_aliases: list[str] = []
     for index, skill in enumerate(skills, start=1):
         if not isinstance(skill, dict):
             errors.append(f"skills[{index}]: expected object")
             continue
-
         name = ensure_string(skill.get("name"), f"skills[{index}].name", errors)
         phase = ensure_string(skill.get("phase"), f"skills[{index}].phase", errors)
         use = ensure_string(skill.get("use"), f"skills[{index}].use", errors)
@@ -222,19 +128,13 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         if not isinstance(command, dict):
             errors.append(f"skills[{index}].command: expected object")
             continue
-
         alias = ensure_string(command.get("alias"), f"skills[{index}].command.alias", errors)
-        description = ensure_string(
-            command.get("description"), f"skills[{index}].command.description", errors
-        )
-        exposed = command.get("exposed")
-        if not isinstance(exposed, bool):
+        ensure_string(command.get("description"), f"skills[{index}].command.description", errors)
+        if not isinstance(command.get("exposed"), bool):
             errors.append(f"skills[{index}].command.exposed: expected boolean")
         target = command.get("target", "request")
         if target not in {"request", "workflow"}:
-            errors.append(
-                f"skills[{index}].command.target: expected 'request' or 'workflow', found {target!r}"
-            )
+            errors.append(f"skills[{index}].command.target: expected 'request' or 'workflow', found {target!r}")
 
         routing = skill.get("routing")
         if routing is not None:
@@ -247,26 +147,15 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
                     errors.append(f"skills[{index}].routing.triggers: expected non-empty array")
                 else:
                     for trigger_index, trigger in enumerate(triggers, start=1):
-                        ensure_string(
-                            trigger,
-                            f"skills[{index}].routing.triggers[{trigger_index}]",
-                            errors,
-                        )
+                        ensure_string(trigger, f"skills[{index}].routing.triggers[{trigger_index}]", errors)
 
         validate_skill_prompt_source(skill, errors)
-
         if name:
-            registry_skill_names.append(name)
-        if alias and exposed is True:
-            command_aliases.append(alias)
-        if not description:
-            errors.append(f"skills[{index}]: missing command description")
-
-        if name and alias and alias != name:
-            errors.append(
-                f"skills[{index}]: command.alias {alias!r} must match skill name {name!r}"
-            )
-
+            names.append(name)
+        if alias and command.get("exposed"):
+            aliases.append(alias)
+        if name and alias and name != alias:
+            errors.append(f"skills[{index}]: command.alias {alias!r} must match skill name {name!r}")
         if phase == "Ship" and routing is not None:
             errors.append(f"skills[{index}]: ship-only skills must omit routing metadata")
         if phase != "Ship" and routing is None:
@@ -274,520 +163,112 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
         if not use:
             errors.append(f"skills[{index}]: missing README/use summary")
 
-    if len(registry_skill_names) != len(set(registry_skill_names)):
+    if len(names) != len(set(names)):
         errors.append("skills/registry.yaml: duplicate skill names")
-    if len(command_aliases) != len(set(command_aliases)):
+    if len(aliases) != len(set(aliases)):
         errors.append("skills/registry.yaml: duplicate exposed command aliases")
-
-    missing_skill_entries = sorted(skill_dirs - set(registry_skill_names))
-    extra_skill_entries = sorted(set(registry_skill_names) - skill_dirs)
-    if missing_skill_entries or extra_skill_entries:
+    missing = sorted(skill_dirs - set(names))
+    extra = sorted(set(names) - skill_dirs)
+    if missing or extra:
         errors.append(
             "skills/registry.yaml: registry must match canonical skill prompt directories "
-            f"(missing: {missing_skill_entries}, extra: {extra_skill_entries})"
+            f"(missing: {missing}, extra: {extra})"
         )
-
-    registry_runtime_names: list[str] = []
-    reference_runtime_count = 0
-    reference_capabilities: dict[str, dict] | None = None
-    for index, runtime in enumerate(runtimes, start=1):
-        if not isinstance(runtime, dict):
-            errors.append(f"runtimes[{index}]: expected object")
-            continue
-
-        name = ensure_string(runtime.get("name"), f"runtimes[{index}].name", errors)
-        ensure_string(runtime.get("display_name"), f"runtimes[{index}].display_name", errors)
-        ensure_string(runtime.get("kernel_source"), f"runtimes[{index}].kernel_source", errors)
-        ensure_string(runtime.get("memory_file"), f"runtimes[{index}].memory_file", errors)
-        ensure_string(runtime.get("memory_install_path"), f"runtimes[{index}].memory_install_path", errors)
-        ensure_string(runtime.get("metadata_root"), f"runtimes[{index}].metadata_root", errors)
-        ensure_string(runtime.get("skills_install_root"), f"runtimes[{index}].skills_install_root", errors)
-        ensure_string(runtime.get("config_template_dir"), f"runtimes[{index}].config_template_dir", errors)
-        support_tier = ensure_string(runtime.get("support_tier"), f"runtimes[{index}].support_tier", errors)
-        if support_tier and support_tier not in RUNTIME_SUPPORT_TIERS:
-            errors.append(
-                f"runtimes[{index}].support_tier: expected one of "
-                f"{sorted(RUNTIME_SUPPORT_TIERS)}, found {support_tier!r}"
-            )
-        ensure_string(runtime.get("mcp_enforcement"), f"runtimes[{index}].mcp_enforcement", errors)
-        ensure_string(runtime.get("enforcement_statement"), f"runtimes[{index}].enforcement_statement", errors)
-        config_install_path = ensure_string(runtime.get("config_install_path"), f"runtimes[{index}].config_install_path", errors)
-        if config_install_path and not config_install_path.startswith("~/"):
-            errors.append(f"runtimes[{index}].config_install_path: must use a ~/ path")
-        ensure_string(runtime.get("config_schema_family"), f"runtimes[{index}].config_schema_family", errors)
-        validate_runtime_reference_layout(runtime, f"runtimes[{index}]", errors)
-
-        reference_runtime = runtime.get("reference_runtime")
-        if not isinstance(reference_runtime, bool):
-            errors.append(f"runtimes[{index}].reference_runtime: expected boolean")
-        elif reference_runtime:
-            reference_runtime_count += 1
-
-        capabilities = runtime.get("capabilities")
-        if not isinstance(capabilities, dict):
-            errors.append(f"runtimes[{index}].capabilities: expected object")
-        else:
-            missing_capabilities = sorted(set(RUNTIME_CAPABILITY_KEYS) - set(capabilities))
-            extra_capabilities = sorted(set(capabilities) - set(RUNTIME_CAPABILITY_KEYS))
-            if missing_capabilities or extra_capabilities:
-                errors.append(
-                    f"runtimes[{index}].capabilities: keys must match {RUNTIME_CAPABILITY_KEYS} "
-                    f"(missing: {missing_capabilities}, extra: {extra_capabilities})"
-                )
-            for capability in RUNTIME_CAPABILITY_KEYS:
-                capability_record = capabilities.get(capability)
-                if not isinstance(capability_record, dict):
-                    errors.append(f"runtimes[{index}].capabilities.{capability}: expected object")
-                    continue
-                support = capability_record.get("support")
-                adoption = capability_record.get("adoption")
-                if support not in RUNTIME_CAPABILITY_SUPPORT:
-                    errors.append(
-                        f"runtimes[{index}].capabilities.{capability}.support: "
-                        f"expected one of {sorted(RUNTIME_CAPABILITY_SUPPORT)}, found {support!r}"
-                    )
-                if adoption not in RUNTIME_CAPABILITY_ADOPTION:
-                    errors.append(
-                        f"runtimes[{index}].capabilities.{capability}.adoption: "
-                        f"expected one of {sorted(RUNTIME_CAPABILITY_ADOPTION)}, found {adoption!r}"
-                    )
-                if support == "unsupported" and adoption != "unsupported":
-                    errors.append(
-                        f"runtimes[{index}].capabilities.{capability}: unsupported capabilities "
-                        "must use adoption 'unsupported'"
-                    )
-                if support != "unsupported" and adoption == "unsupported":
-                    errors.append(
-                        f"runtimes[{index}].capabilities.{capability}: supported capabilities "
-                        "must not use adoption 'unsupported'"
-                    )
-            if reference_runtime is True:
-                reference_capabilities = capabilities
-
-        command_wrappers = runtime.get("command_wrappers")
-        if not isinstance(command_wrappers, dict):
-            errors.append(f"runtimes[{index}].command_wrappers: expected object")
-        else:
-            supported = command_wrappers.get("supported")
-            source_dir = command_wrappers.get("source_dir")
-            install_root = command_wrappers.get("install_root")
-            if not isinstance(supported, bool):
-                errors.append(f"runtimes[{index}].command_wrappers.supported: expected boolean")
-            elif supported:
-                ensure_string(source_dir, f"runtimes[{index}].command_wrappers.source_dir", errors)
-                ensure_string(install_root, f"runtimes[{index}].command_wrappers.install_root", errors)
-            else:
-                if source_dir is not None or install_root is not None:
-                    errors.append(
-                        f"runtimes[{index}].command_wrappers: unsupported runtimes must use null wrapper paths"
-                    )
-            if isinstance(capabilities, dict):
-                wrapper_capability = capabilities.get("command_wrappers")
-                if isinstance(wrapper_capability, dict):
-                    wrapper_support = wrapper_capability.get("support")
-                    if supported is True and wrapper_support == "unsupported":
-                        errors.append(
-                            f"runtimes[{index}].capabilities.command_wrappers: "
-                            "supported command wrappers cannot be marked unsupported"
-                        )
-                    if supported is False and wrapper_support != "unsupported":
-                        errors.append(
-                            f"runtimes[{index}].capabilities.command_wrappers: "
-                            "unsupported command wrappers must be marked unsupported"
-                        )
-
-        if name:
-            registry_runtime_names.append(name)
-
-    if len(registry_runtime_names) != len(set(registry_runtime_names)):
-        errors.append("runtimes/registry.yaml: duplicate runtime names")
-    if reference_runtime_count != 1:
-        errors.append("runtimes/registry.yaml: expected exactly one reference runtime")
-    elif isinstance(reference_capabilities, dict):
-        for runtime_index, runtime in enumerate(runtimes, start=1):
-            if not isinstance(runtime, dict):
-                continue
-            capabilities = runtime.get("capabilities")
-            if not isinstance(capabilities, dict):
-                continue
-            for capability in RUNTIME_CAPABILITY_KEYS:
-                record = capabilities.get(capability)
-                reference_record = reference_capabilities.get(capability)
-                if not isinstance(record, dict) or not isinstance(reference_record, dict):
-                    continue
-                if record.get("adoption") == "shared" and reference_record.get("adoption") != "shared":
-                    errors.append(
-                        f"runtimes[{runtime_index}].capabilities.{capability}: shared adoption "
-                        "requires shared adoption in the reference runtime"
-                    )
-
-    scaffold_runtime_dirs = {"runtime-template"}
-    missing_runtimes = sorted((runtime_dirs - scaffold_runtime_dirs) - set(registry_runtime_names))
-    extra_runtimes = sorted(set(registry_runtime_names) - runtime_dirs)
-    if missing_runtimes or extra_runtimes:
-        errors.append(
-            "runtimes/registry.yaml: registry must match runtimes/ directories "
-            f"(missing: {missing_runtimes}, extra: {extra_runtimes})"
-        )
-
     return errors
 
 
 def render_readme_skills_table(skills: list[dict]) -> str:
     lines = ["| Skill | Phase | Use |", "|---|---|---|"]
-    for skill in skills:
-        lines.append(f"| `{skill['name']}` | {skill['phase']} | {skill['use']} |")
+    lines.extend(f"| `{skill['name']}` | {skill['phase']} | {skill['use']} |" for skill in skills)
     return "\n".join(lines)
-
-
-def render_capability_cell(record: dict) -> str:
-    support = record["support"]
-    adoption = record["adoption"]
-    if support == adoption:
-        return support
-    if adoption == "shared":
-        return support
-    return f"{support}; {adoption}"
-
-
-def render_readme_runtime_capabilities_table(runtimes: list[dict]) -> str:
-    capability_labels = {
-        "skills": "Skills",
-        "permissions": "Permissions",
-        "rules": "Rules",
-        "command_wrappers": "Wrappers",
-        "mcp": "MCP",
-    }
-    headers = ["Runtime", *[capability_labels[key] for key in RUNTIME_CAPABILITY_KEYS]]
-    lines = ["| " + " | ".join(headers) + " |", "|" + "|".join(["---"] * len(headers)) + "|"]
-    for runtime in runtimes:
-        capabilities = runtime["capabilities"]
-        cells = [runtime["display_name"]]
-        cells.extend(render_capability_cell(capabilities[key]) for key in RUNTIME_CAPABILITY_KEYS)
-        lines.append("| " + " | ".join(cells) + " |")
-    return "\n".join(lines)
-
-
-def permission_granularity(runtime: dict) -> str:
-    name = runtime["name"]
-    permissions = runtime["capabilities"]["permissions"]["support"]
-    # Public granularity claims must track support_tier: template encoding alone
-    # is not enough to claim per-tool MCP enforcement.
-    if runtime.get("support_tier") == "guidance-shell-only":
-        return "shell families only"
-    if name == "pi":
-        return "adapter tool_call extension"
-    if permissions == "unsupported":
-        return "unsupported"
-    return permissions
-
-
-def mcp_adapter_dependency(runtime: dict) -> str:
-    if runtime["name"] == "pi":
-        return "pi-mcp-adapter"
-    mcp = runtime["capabilities"]["mcp"]
-    if mcp["support"] == "native":
-        return "none (native)"
-    if mcp["support"] == "adapter":
-        return "adapter required"
-    return "unsupported"
-
-
-def support_tier_label(runtime: dict) -> str:
-    return str(runtime.get("support_tier") or "—")
-
-
-def known_limitation(runtime: dict) -> str:
-    name = runtime["name"]
-    if runtime.get("support_tier") == "guidance-shell-only":
-        return "no per-MCP-tool enforcement"
-    if name == "pi":
-        return "print-mode cannot prove UI approval"
-    return "—"
-
-
-def load_mcp_operations() -> dict:
-    return load_json_subset_yaml(MCP_OPERATIONS_PATH)
 
 
 def render_mcp_operations_table(policy: dict) -> str:
-    classes = policy.get("classes", {})
     lines = ["| Class | Policy | Scope |", "|---|---|---|"]
-    for class_name, meta in classes.items():
-        policy_text = meta.get("policy", "") if isinstance(meta, dict) else ""
-        scope = meta.get("notes", "") if isinstance(meta, dict) else ""
-        lines.append(f"| `{class_name}` | {policy_text} | {scope} |")
+    for class_name, meta in policy.get("classes", {}).items():
+        record = meta if isinstance(meta, dict) else {}
+        lines.append(f"| `{class_name}` | {record.get('policy', '')} | {record.get('notes', '')} |")
     return "\n".join(lines)
 
 
-def render_readme_runtime_capability_matrix(runtimes: list[dict]) -> str:
-    headers = [
-        "Runtime",
-        "Support tier",
-        "Permission granularity",
-        "Kernel loading",
-        "Skill mode",
-        "MCP adapter",
-        "Static",
-        "Known limitation",
-    ]
-    lines = [
-        "| " + " | ".join(headers) + " |",
-        "|" + "|".join(["---"] * len(headers)) + "|",
-    ]
-    for runtime in runtimes:
-        skills = runtime["capabilities"]["skills"]
-        skill_mode = render_capability_cell(skills)
-        lines.append(
-            "| "
-            + " | ".join(
-                [
-                    runtime["display_name"],
-                    support_tier_label(runtime),
-                    permission_granularity(runtime),
-                    "managed memory file",
-                    skill_mode,
-                    mcp_adapter_dependency(runtime),
-                    "yes",
-                    known_limitation(runtime),
-                ]
-            )
-            + " |"
-        )
-    return "\n".join(lines)
-
-
-def render_routing_intents_table(skills: list[dict]) -> str:
-    lines = ["| Intent | Skill |", "|---|---|"]
-    for skill in skills:
-        routing = skill.get("routing")
-        if not isinstance(routing, dict):
-            continue
-        lines.append(f"| {routing['intent']} | `{skill['name']}` |")
-    return "\n".join(lines)
-
-
-def render_routing_triggers_table(skills: list[dict]) -> str:
-    lines = ["| Skill | Triggers |", "|---|---|"]
-    for skill in skills:
-        routing = skill.get("routing")
-        if not isinstance(routing, dict):
-            continue
-        trigger_text = ", ".join(routing["triggers"])
-        lines.append(f"| `{skill['name']}` | {trigger_text} |")
-    return "\n".join(lines)
-
-
-def render_command_wrapper(skill: dict) -> str:
-    command = skill["command"]
-    target = command.get("target", "request")
-    return "\n".join(
-        [
-            "---",
-            f"description: {command['description']}",
-            "---",
-            "",
-            "<!-- Generated from skills/registry.yaml. Edit the registry, not this wrapper. -->",
-            "",
-            f"Load the `{skill['name']}` skill and follow it for this {target}.",
-            "",
-            "$ARGUMENTS",
-            "",
-        ]
-    )
-
-
-def render_folded_yaml_block(key: str, value: str) -> list[str]:
-    wrapper = textwrap.TextWrapper(
-        width=74,
-        initial_indent="  ",
-        subsequent_indent="  ",
-        break_long_words=False,
-        break_on_hyphens=False,
-    )
-    lines = [f"{key}: >"]
-    lines.extend(wrapper.fill(value).splitlines())
-    return lines
-
-
-def render_yaml_scalar(key: str, value: object) -> str:
-    rendered = json.dumps(value, ensure_ascii=False)
-    return f"{key}: {rendered}"
-
-
-def render_skill_file(skill: dict, runtime: dict) -> str:
-    prompt_meta = skill["prompt"]
-    prompt_path = ROOT / "skills" / skill["name"] / "prompt.md"
-    prompt_text = prompt_path.read_text().rstrip() + "\n"
-    body = apply_template_tokens(
-        prompt_text,
-        {
-            SKILL_SUPPORT_PATH_TOKEN: RENDERED_SKILL_SUPPORT_PATH,
-            RUNTIME_REFERENCE_ROOT_TOKEN: runtime_reference_root(runtime),
-        },
-        prompt_path,
-    ).rstrip()
-
-    lines = ["---", f"name: {skill['name']}"]
-    lines.extend(render_folded_yaml_block("description", prompt_meta["description"]))
-    for field, yaml_key in PROMPT_FRONTMATTER_FIELDS:
-        if field not in prompt_meta:
-            continue
-        lines.append(render_yaml_scalar(yaml_key, prompt_meta[field]))
-    lines.extend(
-        [
-            "---",
-            "",
-            f"<!-- Generated from skills/registry.yaml and skills/{skill['name']}/prompt.md. Edit those sources, not this file. -->",
-            "",
-            body,
-            "",
-        ]
-    )
-    return "\n".join(lines)
-
-
-def render_kernel_routing(skills: list[dict]) -> str:
+def render_routing(skills: list[dict]) -> str:
     lines: list[str] = []
     for skill in skills:
         routing = skill.get("routing")
         if isinstance(routing, dict):
-            lines.append(
-                f"- {routing['intent']} -> `{skill['name']}` (triggers: {', '.join(routing['triggers'])})."
-            )
+            lines.append(f"- {routing['intent']} -> `{skill['name']}` (triggers: {', '.join(routing['triggers'])}).")
         elif skill["name"] == "b-summary":
             lines.append("- Commit or PR summary for staged changes -> `b-summary` only on explicit user request.")
     return "\n".join(lines)
 
 
-def render_kernel(runtime: dict, skills: list[dict]) -> str:
-    template_text = replace_block(
-        KERNEL_TEMPLATE_PATH.read_text(),
-        MCP_OPERATIONS_START,
-        MCP_OPERATIONS_END,
-        render_mcp_operations_table(load_mcp_operations()),
-    )
-    template_text = apply_template_tokens(
-        template_text,
-        {
-            RUNTIME_DISPLAY_NAME_TOKEN: runtime["display_name"],
-            RUNTIME_METADATA_ROOT_TOKEN: runtime["metadata_root"],
-            RUNTIME_MEMORY_FILE_TOKEN: runtime["memory_file"],
-            RUNTIME_ENFORCEMENT_STATEMENT_TOKEN: runtime["enforcement_statement"],
-        },
-        KERNEL_TEMPLATE_PATH,
-    )
-    return replace_block(
-        template_text,
-        KERNEL_ROUTING_START,
-        KERNEL_ROUTING_END,
-        render_kernel_routing(skills),
-    )
+def render_folded_yaml_block(key: str, value: str) -> list[str]:
+    wrapper = textwrap.TextWrapper(width=74, initial_indent="  ", subsequent_indent="  ", break_long_words=False, break_on_hyphens=False)
+    return [f"{key}: >", *wrapper.fill(value).splitlines()]
+
+
+def render_skill_file(skill: dict) -> str:
+    prompt_path = ROOT / "skills" / skill["name"] / "prompt.md"
+    body = apply_template_tokens(prompt_path.read_text().rstrip() + "\n", {SKILL_SUPPORT_PATH_TOKEN: "."}, prompt_path).rstrip()
+    lines = ["---", f"name: {skill['name']}"]
+    lines.extend(render_folded_yaml_block("description", skill["prompt"]["description"]))
+    for field, yaml_key in PROMPT_FRONTMATTER_FIELDS:
+        if field in skill["prompt"]:
+            lines.append(f"{yaml_key}: {json.dumps(skill['prompt'][field], ensure_ascii=False)}")
+    lines.extend(["---", "", f"<!-- Generated from skills/registry.yaml and skills/{skill['name']}/prompt.md. Edit those sources, not this file. -->", "", body, ""])
+    return "\n".join(lines)
 
 
 def replace_block(text: str, start_marker: str, end_marker: str, body: str) -> str:
     try:
-        start_index = text.index(start_marker) + len(start_marker)
-        end_index = text.index(end_marker, start_index)
+        start = text.index(start_marker) + len(start_marker)
+        end = text.index(end_marker, start)
     except ValueError as exc:
         raise SystemExit(f"missing generated block markers: {start_marker} / {end_marker}") from exc
+    return text[:start] + "\n" + body.rstrip() + "\n" + text[end:]
 
-    return text[:start_index] + "\n" + body.rstrip() + "\n" + text[end_index:]
 
-
-def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
+def render_outputs(skills: list[dict]) -> dict[Path, str]:
     outputs: dict[Path, str] = {}
+    readme = ROOT / "README.md"
+    outputs[readme] = replace_block(readme.read_text(), README_SKILLS_START, README_SKILLS_END, render_readme_skills_table(skills))
 
-    readme_path = ROOT / "README.md"
-    readme_text = readme_path.read_text()
-    readme_text = replace_block(
-        readme_text,
-        README_SKILLS_START,
-        README_SKILLS_END,
-        render_readme_skills_table(skills),
-    )
-    readme_text = replace_block(
-        readme_text,
-        README_RUNTIME_CAPABILITIES_START,
-        README_RUNTIME_CAPABILITIES_END,
-        render_readme_runtime_capabilities_table(runtimes),
-    )
-    outputs[readme_path] = replace_block(
-        readme_text,
-        README_RUNTIME_CAPABILITY_MATRIX_START,
-        README_RUNTIME_CAPABILITY_MATRIX_END,
-        render_readme_runtime_capability_matrix(runtimes),
-    )
-
-    kernel_text = replace_block(
-        KERNEL_TEMPLATE_PATH.read_text(),
-        KERNEL_ROUTING_START,
-        KERNEL_ROUTING_END,
-        render_kernel_routing(skills),
-    )
+    kernel = KERNEL_TEMPLATE_PATH.read_text()
+    kernel = replace_block(kernel, KERNEL_ROUTING_START, KERNEL_ROUTING_END, render_routing(skills))
     outputs[KERNEL_TEMPLATE_PATH] = replace_block(
-        kernel_text,
-        MCP_OPERATIONS_START,
-        MCP_OPERATIONS_END,
-        render_mcp_operations_table(load_mcp_operations()),
+        kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(load_json_subset_yaml(MCP_OPERATIONS_PATH))
     )
-
-    reference_runtime = next(runtime for runtime in runtimes if runtime.get("reference_runtime") is True)
     for skill in skills:
-        # Repository-root artifacts support the reference runtime; installable
-        # payloads below are rendered per runtime for alternate layouts.
-        outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill, reference_runtime)
-
-    exposed_skills = [skill for skill in skills if skill["command"]["exposed"]]
-    for runtime in runtimes:
-        outputs[ROOT / runtime["kernel_source"]] = render_kernel(runtime, skills)
-        for skill in skills:
-            outputs[ROOT / "runtimes" / runtime["name"] / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill, runtime)
-        command_wrappers = runtime.get("command_wrappers")
-        if not isinstance(command_wrappers, dict) or not command_wrappers.get("supported"):
-            continue
-        command_dir = ROOT / command_wrappers["source_dir"]
-        for skill in exposed_skills:
-            alias = skill["command"]["alias"]
-            outputs[command_dir / f"{alias}.md"] = render_command_wrapper(skill)
-
+        outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
     return outputs
 
 
 def sync_outputs(check: bool) -> int:
-    skills, runtimes = load_registries()
-    errors = validate_registries(skills, runtimes)
+    skills = load_skills()
+    errors = validate_skills(skills)
     if errors:
-        for error in errors:
-            print(error, file=sys.stderr)
+        print("\n".join(errors), file=sys.stderr)
         return 1
-
-    outputs = render_outputs(skills, runtimes)
-    dirty_paths: list[str] = []
-    for path, content in outputs.items():
-        current = path.read_text() if path.exists() else None
-        if current == content:
+    dirty: list[str] = []
+    for path, content in render_outputs(skills).items():
+        if path.exists() and path.read_text() == content:
             continue
-        dirty_paths.append(str(path.relative_to(ROOT)))
+        dirty.append(str(path.relative_to(ROOT)))
         if not check:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content)
-
-    if check and dirty_paths:
-        for path in dirty_paths:
-            print(f"generated output out of date: {path}", file=sys.stderr)
+    if check and dirty:
+        print("\n".join(f"generated output out of date: {path}" for path in dirty), file=sys.stderr)
         return 1
-
     if not check:
-        print("Generated suite outputs refreshed.")
+        print("Generated Pi suite outputs refreshed.")
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Render generated suite outputs from canonical source.")
+    parser = argparse.ArgumentParser(description="Render generated Pi assets from canonical sources.")
     parser.add_argument("--check", action="store_true", help="fail if generated outputs are stale")
-    args = parser.parse_args()
-    return sync_outputs(check=args.check)
+    return sync_outputs(parser.parse_args().check)
 
 
 if __name__ == "__main__":

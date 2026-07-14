@@ -1186,8 +1186,8 @@ print_install_report_readiness() {
   report_item "firecrawl" "$(firecrawl_readiness_status)"
   report_item "playwright" "$(playwright_readiness_status)"
   report_item "rtk" "$(rtk_readiness_status)"
-  report_item "mcp-startup" "runtime starts MCP servers on demand; installer does not preload or authenticate them"
-  report_item "safety" "runtime permissions plus kernel approval gates; no separate hook/state setup"
+  report_item "mcp-startup" "Pi starts MCP servers on demand; installer does not preload or authenticate them"
+  report_item "safety" "Pi permissions plus kernel approval gates; no separate hook/state setup"
 }
 
 print_shell_tool_recommendations() {
@@ -1388,19 +1388,19 @@ runtime_install_common() {
 
   runtime_warn_missing_cli
   config_stage_count="$(runtime_install_config_stage_count)"
-  if install_runtime_cli_enabled; then
+  if install_pi_cli_enabled; then
     install_stage_count=$((install_stage_count + 1))
   fi
   set_install_stage_total $((install_stage_count + config_stage_count))
 
   collect_installed_skills INSTALL_SKILL_NAMES
-  if install_runtime_cli_enabled; then
-    run_stage "Preparing runtime CLI" runtime_upgrade_cli
+  if install_pi_cli_enabled; then
+    run_stage "Preparing Pi CLI" runtime_upgrade_cli
   else
-    log "Skipping runtime CLI preparation; rerun interactively to accept the prompt, or set B_AGENTIC_INSTALL_RUNTIME_CLI=Y to install or upgrade it."
+    log "Skipping Pi CLI preparation; rerun interactively to accept the prompt, or set B_AGENTIC_INSTALL_PI_CLI=Y to install or upgrade it."
   fi
   run_stage "Syncing skills" install_skills
-  run_stage "Installing runtime extras" runtime_install_extra_assets
+  run_stage "Installing Pi extras" runtime_install_extra_assets
   run_stage "Syncing references and templates" install_references_and_templates
 
   run_install_triplet_stage "Installing kernel" install_kernel "preserve" "pending" "none" \
@@ -1433,9 +1433,9 @@ runtime_uninstall_common() {
   set_install_stage_total 4
   log "Uninstalling b-agentic from $RUNTIME_UNINSTALL_LABEL"
   run_stage "Removing managed skills" uninstall_installed_skills
-  run_stage "Removing runtime extras" runtime_uninstall_extra_assets
+  run_stage "Removing Pi extras" runtime_uninstall_extra_assets
   run_stage "Removing managed kernel" remove_managed_kernel
-  run_stage "Cleaning runtime config" runtime_uninstall_configs
+  run_stage "Cleaning Pi config" runtime_uninstall_configs
   run_cmd rm -rf "$METADATA_DIR"
   log "Uninstall complete. User-owned $RUNTIME_PRESERVE_LABEL files were preserved."
 }

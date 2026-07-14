@@ -1,4 +1,4 @@
-# Pi Runtime Layout
+# Pi Configuration Layout
 
 Adapter-owned layout for Pi.
 

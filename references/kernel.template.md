@@ -1,7 +1,7 @@
 <!-- b-agentic-managed -->
-<!-- Generated from references/kernel.template.md and runtimes/registry.yaml. Edit those sources, not this file. -->
+<!-- Generated from skills/registry.yaml and references/mcp_operations.yaml. Edit those sources, not this file. -->
 
-# b-agentic - Agent Workflow Kernel for {{runtime_display_name}}
+# b-agentic - Pi Workflow Kernel
 
 Use these rules before any skill-specific instruction.
 
@@ -37,14 +37,14 @@ For unclear goals or approaches, use `b-plan`. Use `b-summary` only for an expli
 ## Safety and tools
 
 - Preserve unrelated worktree changes; never autonomously run `git push`, `git pull`, `git commit`, `git reset --hard`, `git revert`, `git clean -f`, or `git branch -D`.
-- Do not read, print, upload, summarize, or commit likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission. Runtime path protection must gate literal protected paths, including `rtk`-wrapped or compound commands; ambiguous shell syntax is approval-gated.
+- Do not read, print, upload, summarize, or commit likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission. Pi path protection must gate literal protected paths, including `rtk`-wrapped or compound commands; ambiguous shell syntax is approval-gated.
 - Prefer sources over generated files; regenerate only when changes require it. Do not invent behavior, criteria, compatibility, names, or verification commands.
 - CodeGraph owns pre-indexed flows/impact; Serena symbols/diagnostics/edits; Context7 versioned docs; Firecrawl public search/extraction; Brave secondary discovery; Playwright live-browser/e2e evidence.
 - Use available local code intelligence; do not install missing tools or create indexes without approval. Fall back to local evidence and state the resulting gap.
 
 ### Managed MCP operations
 
-Canonical policy: `{{runtime_metadata_root}}/references/mcp_operations.yaml`. Enforce it where per-tool permissions exist; do not weaken it for runtimes without them. Only classified `read-only` managed operations may be autonomous; server wildcards and unclassified managed tools are approval-required.
+Canonical policy: `~/.pi/agent/b-agentic/references/mcp_operations.yaml`. Enforce it through Pi's per-tool permissions. Only classified `read-only` managed operations may be autonomous; server wildcards and unclassified managed tools are approval-required.
 
 <!-- generated:mcp-operations:start -->
 | Class | Policy | Scope |
@@ -57,7 +57,7 @@ Canonical policy: `{{runtime_metadata_root}}/references/mcp_operations.yaml`. En
 | `auth` | Approval required | MCP OAuth/auth bootstrap actions. |
 <!-- generated:mcp-operations:end -->
 
-{{runtime_enforcement_statement}}
+Pi enforces this policy and protected shell-path gates in its first-party `tool_call` extension, failing closed without UI.
 
 ## Shell commands
 

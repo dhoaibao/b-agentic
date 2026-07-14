@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import posixpath
 import re
 import sys
 from pathlib import Path
@@ -31,22 +30,6 @@ def load_json(path: Path) -> dict:
         return {}
 
 
-def validate_runtime_reference_layout(runtime: dict, label: str) -> None:
-    skills_root = runtime.get("skills_install_root")
-    metadata_root = runtime.get("metadata_root")
-    if not isinstance(skills_root, str) or not isinstance(metadata_root, str):
-        return
-    if not skills_root.startswith("~/") or not metadata_root.startswith("~/"):
-        errors.append(f"{label}: skills_install_root and metadata_root must use ~/ paths")
-        return
-    reference_root = posixpath.relpath(
-        posixpath.join(metadata_root[2:], "references"),
-        posixpath.join(skills_root[2:], "<skill>"),
-    )
-    if reference_root.startswith("/") or reference_root == ".":
-        errors.append(f"{label}: derived skill reference path must be relative")
-
-
 def require_contains(path: Path, text: str, needles: list[str], label: str) -> None:
     for needle in needles:
         if needle not in text:
@@ -66,24 +49,14 @@ def frontmatter_parts(path: Path) -> tuple[str, str]:
 
 
 skills_registry = load_json(ROOT / "skills" / "registry.yaml")
-runtimes_registry = load_json(ROOT / "runtimes" / "registry.yaml")
 skills = skills_registry.get("skills", [])
-runtimes = runtimes_registry.get("runtimes", [])
-
 if not isinstance(skills, list) or not skills:
     errors.append("skills/registry.yaml: skills must be a non-empty array")
     skills = []
-if not isinstance(runtimes, list) or not runtimes:
-    errors.append("runtimes/registry.yaml: runtimes must be a non-empty array")
-    runtimes = []
 
-skill_names = [skill.get("name") for skill in skills if isinstance(skill, dict)]
-runtime_names = [runtime.get("name") for runtime in runtimes if isinstance(runtime, dict)]
-
+skill_names = [skill["name"] for skill in skills if isinstance(skill, dict) and isinstance(skill.get("name"), str)]
 if len(skill_names) != len(set(skill_names)):
     errors.append("skills/registry.yaml: duplicate skill names")
-if len(runtime_names) != len(set(runtime_names)):
-    errors.append("runtimes/registry.yaml: duplicate runtime names")
 
 prompt_dirs = {path.parent.name for path in (ROOT / "skills").glob("*/prompt.md")}
 if prompt_dirs != set(skill_names):
@@ -91,46 +64,6 @@ if prompt_dirs != set(skill_names):
         "skills/registry.yaml: registry must match prompt directories "
         f"(registry={sorted(skill_names)}, dirs={sorted(prompt_dirs)})"
     )
-
-runtime_dirs = {
-    path.name
-    for path in (ROOT / "runtimes").iterdir()
-    if path.is_dir() and path.name != "runtime-template" and any(path.iterdir())
-}
-if runtime_dirs != set(runtime_names):
-    errors.append(
-        "runtimes/registry.yaml: registry must match runtime directories "
-        f"(registry={sorted(runtime_names)}, dirs={sorted(runtime_dirs)})"
-    )
-
-expected_capabilities = {"skills", "permissions", "rules", "command_wrappers", "mcp"}
-for runtime in runtimes:
-    if not isinstance(runtime, dict):
-        continue
-    name = runtime.get("name", "<unknown>")
-    capabilities = runtime.get("capabilities")
-    if not isinstance(capabilities, dict):
-        errors.append(f"runtimes/registry.yaml: {name} missing capabilities object")
-        continue
-    config_schema_family = runtime.get("config_schema_family")
-    if not isinstance(config_schema_family, str) or not config_schema_family:
-        errors.append(f"runtimes/registry.yaml: {name} config_schema_family must be a non-empty adapter-defined string")
-    config_install_path = runtime.get("config_install_path")
-    if not isinstance(config_install_path, str) or not config_install_path.startswith("~/"):
-        errors.append(f"runtimes/registry.yaml: {name} config_install_path must use a ~/ path")
-    validate_runtime_reference_layout(runtime, f"runtimes/registry.yaml: {name}")
-    actual = set(capabilities)
-    if actual != expected_capabilities:
-        errors.append(
-            f"runtimes/registry.yaml: {name} capabilities must be {sorted(expected_capabilities)}, found {sorted(actual)}"
-        )
-    for removed in ["hooks", "subagents", "plugins", "custom_tools"]:
-        if removed in capabilities:
-            errors.append(f"runtimes/registry.yaml: {name} must not declare removed capability {removed!r}")
-
-reference_count = sum(1 for runtime in runtimes if isinstance(runtime, dict) and runtime.get("reference_runtime") is True)
-if reference_count != 1:
-    errors.append("runtimes/registry.yaml: expected exactly one reference runtime")
 
 for skill_name in sorted(prompt_dirs):
     prompt = ROOT / "skills" / skill_name / "prompt.md"
@@ -275,7 +208,7 @@ if len(scenario_ids) != len(set(scenario_ids)):
 if covered_principles != principle_names:
     errors.append(f"{rel(principles_path)}: scenarios must cover all four principles")
 
-prompt_runner_path = ROOT / "runtimes" / "pi" / "tests" / "prompt_effectiveness.py"
+prompt_runner_path = ROOT / "pi" / "tests" / "prompt_effectiveness.py"
 prompt_runner = read_text(prompt_runner_path)
 require_contains(
     prompt_runner_path,
@@ -429,13 +362,6 @@ for skill in skills:
     if not isinstance(skill.get("routing"), dict):
         continue
     name_token = f"`{skill['name']}`"
-    for runtime_name in runtime_names:
-        kernel = read_text(ROOT / "runtimes" / runtime_name / "kernel.md")
-        kernel_routing_section = kernel.split("## Routing", 1)[-1].split("## Safety and tools", 1)[0]
-        if name_token not in kernel_routing_section:
-            errors.append(
-                f"runtimes/{runtime_name}/kernel.md: generated routing is missing {name_token}"
-            )
     if name_token not in kernel_template:
         errors.append(
             f"references/kernel.template.md: routing is missing {name_token}"
@@ -510,19 +436,13 @@ def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
     return 0
 
 
-pi_extension = read_text(ROOT / "runtimes" / "pi" / "extensions" / "b-agentic-permissions.ts")
-gate_runtimes = [
-    ("runtimes/pi/extensions/b-agentic-permissions.ts", lambda tokens: pi_gate_severity(tokens, pi_extension)),
-]
+pi_extension = read_text(ROOT / "pi" / "extensions" / "b-agentic-permissions.ts")
 for tokens, min_severity in SAFETY_GATES:
-    required_rank = SEVERITY_RANK[min_severity]
-    family = " ".join(tokens)
-    for label, severity_fn in gate_runtimes:
-        if severity_fn(tokens) < required_rank:
-            errors.append(
-                f"{label}: safety gate {family!r} weaker than required {min_severity!r}; "
-                "align with references/kernel.template.md"
-            )
+    if pi_gate_severity(tokens, pi_extension) < SEVERITY_RANK[min_severity]:
+        errors.append(
+            f"pi/extensions/b-agentic-permissions.ts: safety gate {' '.join(tokens)!r} weaker than required {min_severity!r}; "
+            "align with references/kernel.template.md"
+        )
 
 for deleted_path in ["tooling/policy", "tooling/state", "tooling/hooks", "tooling/conformance", "tooling/scenarios"]:
     leftovers = [
@@ -534,8 +454,8 @@ for deleted_path in ["tooling/policy", "tooling/state", "tooling/hooks", "toolin
 
 generated_paths = [
     ROOT / "README.md",
+    ROOT / "references" / "kernel.template.md",
     *(ROOT / "skills" / name / "SKILL.md" for name in skill_names),
-    *(ROOT / "runtimes" / name / "kernel.md" for name in runtime_names),
 ]
 for path in generated_paths:
     if path.exists() and "{{" in path.read_text():

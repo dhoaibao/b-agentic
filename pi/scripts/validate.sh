@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 python3 - <<'PY'
@@ -12,10 +12,10 @@ import sys
 
 root = Path('.')
 errors = []
-kernel = root / 'runtimes/pi/kernel.md'
-mcp = root / 'runtimes/pi/configs/mcp.user.template.json'
-extension = root / 'runtimes/pi/extensions/b-agentic-permissions.ts'
-readme = root / 'runtimes/pi/configs/README.md'
+kernel = root / 'references/kernel.template.md'
+mcp = root / 'pi/configs/mcp.user.template.json'
+extension = root / 'pi/extensions/b-agentic-permissions.ts'
+readme = root / 'pi/configs/README.md'
 
 for path in [kernel, mcp, extension, readme]:
     if not path.exists():
@@ -23,7 +23,7 @@ for path in [kernel, mcp, extension, readme]:
 
 if kernel.exists():
     text = kernel.read_text()
-    for marker in ['Agent Workflow Kernel', 'Core Rules', 'Safety and tools', 'Managed MCP operations']:
+    for marker in ['Pi Workflow Kernel', 'Core Rules', 'Safety and tools', 'Managed MCP operations']:
         if marker not in text:
             errors.append(f'{kernel}: missing {marker!r}')
 
@@ -129,5 +129,5 @@ if readme.exists():
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
-print('Pi runtime validation passed.')
+print('Pi integration validation passed.')
 PY

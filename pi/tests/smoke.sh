@@ -4,7 +4,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exit 1
 fi
 
-run_runtime_smoke_cases() {
+run_pi_smoke_cases() {
   local snapshot_repo="$1"
   local sandbox="$WORK_DIR/pi"
   local sandbox_adapter="$WORK_DIR/pi-adapter"
@@ -14,7 +14,7 @@ run_runtime_smoke_cases() {
   mkdir -p "$sandbox/home" "$sandbox_adapter/home" "$sandbox_preserve/home" "$sandbox_replace/home" "$sandbox_mcp_merge/home"
 
   # Core install layout without adapter package.
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=pi
+  expect_install_status 0 "$sandbox" "$snapshot_repo"
   assert_file "$sandbox/home/.pi/agent/AGENTS.md"
   assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
   assert_file "$sandbox/home/.pi/agent/b-agentic/references/kernel.template.md"
@@ -39,14 +39,14 @@ run_runtime_smoke_cases() {
   B_AGENTIC_REPO="$snapshot_repo" \
   B_AGENTIC_DIR="$sandbox_adapter/source" \
   B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_RUNTIME_CLI=N \
+  B_AGENTIC_INSTALL_PI_CLI=N \
   B_AGENTIC_INSTALL_RTK=N \
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y \
   B_AGENTIC_INSTALL_PI_LENS=Y \
   B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y \
-  bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
+  bash "$ROOT_DIR/install.sh"  >/dev/null 2>&1
   assert_file "$sandbox_adapter/home/.pi/agent/b-agentic/install.json"
   assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "ready"'
   assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piLensState": "ready"'
@@ -59,7 +59,7 @@ run_runtime_smoke_cases() {
   # Preserve user-owned kernel.
   mkdir -p "$sandbox_preserve/home/.pi/agent"
   printf 'user-owned pi kernel\n' > "$sandbox_preserve/home/.pi/agent/AGENTS.md"
-  expect_install_status 2 "$sandbox_preserve" "$snapshot_repo" --runtime=pi
+  expect_install_status 2 "$sandbox_preserve" "$snapshot_repo"
   assert_file "$sandbox_preserve/home/.pi/agent/AGENTS.md"
   assert_contains "$sandbox_preserve/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
   assert_file "$sandbox_preserve/home/.pi/agent/b-agentic/install.json"
@@ -68,7 +68,7 @@ run_runtime_smoke_cases() {
   # --replace-memory overwrites user kernel.
   mkdir -p "$sandbox_replace/home/.pi/agent"
   printf 'user-owned pi kernel\n' > "$sandbox_replace/home/.pi/agent/AGENTS.md"
-  expect_install_status 0 "$sandbox_replace" "$snapshot_repo" --runtime=pi --replace-memory
+  expect_install_status 0 "$sandbox_replace" "$snapshot_repo"  --replace-memory
   assert_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
   assert_not_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
 
@@ -84,7 +84,7 @@ run_runtime_smoke_cases() {
   }
 }
 EOF
-  expect_install_status 0 "$sandbox_mcp_merge" "$snapshot_repo" --runtime=pi
+  expect_install_status 0 "$sandbox_mcp_merge" "$snapshot_repo"
   assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"user-server"'
   assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"serena"'
 
@@ -95,7 +95,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = process.env.ROOT_DIR || process.cwd();
-const modPath = path.join(root, 'runtimes/pi/extensions/b-agentic-permissions.ts');
+const modPath = path.join(root, 'pi/extensions/b-agentic-permissions.ts');
 const mod = await import(pathToFileURL(modPath).href);
 const t = mod.__test__;
 if (!t) {
@@ -299,7 +299,7 @@ NODE
   fi
 
   # Source-backed uninstall removes managed content only.
-  expect_install_status 0 "$sandbox" "$snapshot_repo" --runtime=pi --uninstall
+  expect_install_status 0 "$sandbox" "$snapshot_repo"  --uninstall
   assert_no_path "$sandbox/home/.pi/agent/skills/b-plan"
   assert_no_path "$sandbox/home/.pi/agent/b-agentic/install.json"
   assert_no_path "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"

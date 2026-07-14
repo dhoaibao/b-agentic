@@ -32,10 +32,14 @@ def main() -> int:
     parser.add_argument("--policy", required=True, type=Path)
     args = parser.parse_args()
 
-    root = Path(__file__).resolve().parents[3]
-    extension = root / "runtimes/pi/extensions/b-agentic-permissions.ts"
-    policy = json.loads(args.policy.read_text())
-    text = extension.read_text()
+    root = Path(__file__).resolve().parents[2]
+    extension = root / "pi/extensions/b-agentic-permissions.ts"
+    try:
+        policy = json.loads(args.policy.read_text())
+        text = extension.read_text()
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"failed to load Pi MCP policy inputs: {exc}", file=sys.stderr)
+        return 2
     errors: list[str] = []
 
     for server, record in policy.get("servers", {}).items():
