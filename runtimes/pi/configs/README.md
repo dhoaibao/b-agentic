@@ -43,10 +43,9 @@ that listens for `tool_call` events and:
 - requires approval for unbalanced quotes, shell expansions, and
   interpreter/eval-style wrappers (`bash -c`, `sh -c`, `node -e`, `python -c`,
   …) whose bodies are opaque to static matching
-- requires RTK for Git, Cargo, npm/pnpm/yarn/bun, pytest, and the tested classic
-  command families (`grep`, `find`, `ls`, `cat`, `sed`, `awk`, and `python -m json.tool`);
-  `rtk proxy` is unwrapped for
-  the same safety classification as its effective command; allows MCP metadata
+- requires RTK for every native command family listed by `rtk --help`; unsupported
+  raw utilities must use their required modern replacements, and `rtk proxy` is unwrapped
+  for the same safety classification as its effective command; allows MCP metadata
   discovery and only the explicitly classified read-only operations of managed MCP servers without prompts
 - asks for Serena local symbol mutations because the Pi adapter cannot prove a
   target is confined to the current repository; asks for Firecrawl external-mutation or local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright page-mutating tools (click/type/upload/evaluate/…), MCP auth bootstrap, unclassified managed operations, user/unknown MCP servers, and any other non-built-in custom tool

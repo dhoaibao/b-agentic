@@ -401,12 +401,10 @@ for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict govern
     if forbidden in kernel_template:
         errors.append(f"references/kernel.template.md: removed kernel concept remains: {forbidden!r}")
 
-for forbidden in ["route every shell command through", "always prefix shell commands"]:
-    if forbidden in kernel_template:
-        errors.append(
-            "references/kernel.template.md: unsupported RTK routing remains: "
-            f"{forbidden!r}"
-        )
+if "Use `rtk` for every command family listed by `rtk --help`" not in kernel_template:
+    errors.append(
+        "references/kernel.template.md: RTK must wrap every command family it supports"
+    )
 
 # The kernel owns required shell-tool and RTK preferences.
 for required_tool in ["`rtk`", "`rg`", "`fd`", "`bat`", "`eza`", "`sd`", "`jq`"]:

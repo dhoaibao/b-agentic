@@ -20,7 +20,7 @@ Write one commit message, PR title, and concise PR description for one cohesive 
 
 ## Steps
 
-1. Run `git status --short` and inspect `git diff --staged` using Bash.
+1. Run `rtk git status --short` and inspect `rtk git diff --staged` using Bash.
 2. Block if the staged diff is empty or mixes unrelated concerns.
 3. Choose the narrowest accurate type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`.
 4. Write an imperative commit subject of at most 50 characters with no trailing punctuation.

@@ -41,7 +41,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 
 ## Steps
 
-1. Scope the review: working tree, range, baseline, or suite-audit surface (using Bash to run git status or diff).
+1. Scope the review: working tree, range, baseline, or suite-audit surface (using Bash to run `rtk git status` or `rtk git diff`).
 2. Choose baseline. Without baseline, do a risk review and do not claim requirements coverage.
 3. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
 4. Use CodeGraph for changed flows and affected-test discovery when indexed; use Serena/local search for exact references.

@@ -113,6 +113,10 @@ expect(t.commandDecision('/bin/rm -rf /tmp/x').decision === 'ask', 'path-qualifi
 expect(t.commandDecision('/usr/bin/printf x').decision === 'allow', 'benign path-qualified command must allow');
 expect(t.commandDecision("git -c alias.wipe='reset --hard' wipe").decision === 'ask', 'inline Git alias invocation must ask');
 expect(t.commandDecision('env X=1 npm install lodash').decision === 'ask', 'env-wrapped npm install must ask');
+for (const command of ['env', 'env -i', 'env X=1']) {
+  expect(t.commandDecision(command).decision === 'ask', `${command} must require rtk env`);
+}
+expect(t.commandDecision('rtk env').decision === 'allow', 'rtk env must allow');
 expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git commit must ask');
 expect(t.commandDecision('rtk proxy git reset --hard').decision === 'deny', 'rtk proxy must preserve deny decisions');
 expect(t.commandDecision('rtk proxy grep needle src/main.ts').decision === 'allow', 'rtk proxy must satisfy RTK requirement');
@@ -151,14 +155,20 @@ for (const command of ['npm view lodash', 'pnpm list', 'yarn why lodash', 'bun -
 for (const command of ['rtk npm view lodash', 'rtk pnpm list', 'rtk yarn why lodash', 'rtk bun --version', 'rtk cargo search serde', 'rtk pytest -q']) {
   expect(t.commandDecision(command).decision === 'allow', `${command} must preserve supported RTK use`);
 }
-for (const command of ['git status', 'cargo test', 'npm run build', 'pytest -q']) {
-  expect(t.commandDecision(command).decision === 'ask', `${command} must require RTK`);
+const rtkSupportedCommands = [
+  'ls', 'tree', 'git', 'gh', 'glab', 'aws', 'psql', 'pnpm', 'find', 'diff',
+  'dotnet', 'docker', 'kubectl', 'oc', 'grep', 'rg', 'wget', 'wc',
+  'jest', 'vitest', 'prisma', 'tsc', 'next', 'lint', 'prettier', 'format',
+  'playwright', 'cargo', 'npm', 'npx', 'yarn', 'bun', 'curl', 'ruff', 'pytest', 'mypy',
+  'rake', 'rubocop', 'rspec', 'pip', 'go', 'gt', 'golangci-lint', 'gradlew', 'mvn',
+];
+for (const command of rtkSupportedCommands) {
+  expect(t.RTK_REQUIRED_COMMANDS.has(command), `${command} must be covered by the RTK policy`);
+  expect(t.commandDecision(`${command} --version`).decision === 'ask', `${command} must require RTK`);
 }
-for (const command of ['rtk git status', 'rtk cargo test', 'rtk npm run build']) {
-  expect(t.commandDecision(command).decision === 'allow', `${command} must allow RTK wrapping`);
-}
-for (const command of ['pip show requests', 'poetry show', 'uv --version']) {
-  expect(t.commandDecision(command).decision === 'allow', `${command} must remain allowed because RTK support is not required`);
+expect(t.commandDecision('pip show requests').decision === 'ask', 'pip must require RTK');
+for (const command of ['poetry show', 'uv --version']) {
+  expect(t.commandDecision(command).decision === 'allow', `${command} remains allowed because RTK does not support it`);
 }
 expect(t.commandDecision('printf x').decision === 'allow', 'unrelated shell command must allow');
 expect(t.commandDecision('printf x\ngit reset --hard').decision === 'deny', 'newline-separated reset --hard must deny');

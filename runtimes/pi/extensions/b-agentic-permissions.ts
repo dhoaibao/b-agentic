@@ -175,11 +175,20 @@ const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
 ]);
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
-/** Command families with a tested RTK requirement; unsupported commands stay direct. */
+/**
+ * Native command families exposed by `rtk --help`, plus supported package-manager
+ * aliases. Keep direct invocations approval-gated so agents use their RTK wrapper; unsupported commands use
+ * `rtk proxy` when raw execution is necessary.
+ */
 const RTK_REQUIRED_COMMANDS = new Set([
-  "grep", "find", "ls", "cat", "sed", "awk",
-  "git", "cargo", "npm", "pnpm", "yarn", "bun", "pytest",
+  "ls", "tree", "git", "gh", "glab", "aws", "psql", "pnpm", "find", "diff",
+  "dotnet", "docker", "kubectl", "oc", "grep", "rg", "wget", "wc",
+  "jest", "vitest", "prisma", "tsc", "next", "lint", "prettier", "format",
+  "playwright", "cargo", "npm", "npx", "yarn", "bun", "curl", "ruff", "pytest", "mypy",
+  "rake", "rubocop", "rspec", "pip", "go", "gt", "golangci-lint", "gradlew", "mvn",
 ]);
+/** Unsupported raw utilities with mandatory modern replacements. */
+const RAW_REPLACEMENT_COMMANDS = new Set(["cat", "sed", "awk"]);
 
 /** Interpreters that accept opaque -c/-e script bodies; always approval-required. */
 const INTERPRETER_BASES = new Set([
@@ -671,11 +680,20 @@ function hasOpaqueWrapper(rawTokens: string[]): boolean {
   return unwrapTokens(rawTokens).opaque;
 }
 
+function isStandaloneEnvCommand(rawTokens: string[]): boolean {
+  const unwrapped = unwrapTokens(rawTokens);
+  return (
+    unwrapped.wrappers.has("env") &&
+    !unwrapped.wrappers.has("rtk") &&
+    unwrapped.tokens.length === 0
+  );
+}
+
 function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): boolean {
   if (isRtkWrapped(rawTokens)) {
     return false;
   }
-  if (RTK_REQUIRED_COMMANDS.has(tokens[0])) {
+  if (RTK_REQUIRED_COMMANDS.has(tokens[0]) || RAW_REPLACEMENT_COMMANDS.has(tokens[0])) {
     return true;
   }
   return (
@@ -692,6 +710,12 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     return {
       decision: "ask",
       reason: "Requires approval: env -S command string is opaque",
+    };
+  }
+  if (isStandaloneEnvCommand(rawTokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: use RTK for the standalone env command",
     };
   }
   if (tokens.length === 0) {
@@ -802,7 +826,7 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
   if (isDirectRtkRequiredCommand(rawTokens, tokens)) {
     return {
       decision: "ask",
-      reason: "Requires approval: use RTK or the required shell-tool replacement",
+      reason: "Requires approval: use RTK for supported command families or the required raw replacement",
     };
   }
 
@@ -1156,12 +1180,12 @@ export default function (pi: ExtensionAPI) {
       return undefined;
     }
 
-    // The kernel requires RTK or the named modern replacement for these
-    // legacy discovery tools; do not let direct built-ins bypass that policy.
+    // The kernel requires RTK for supported discovery families; do not let
+    // direct built-ins bypass that policy.
     if (event.toolName === "grep" || event.toolName === "find" || event.toolName === "ls") {
       return {
         block: true,
-        reason: "Blocked legacy discovery tool: use RTK or the required shell-tool replacement",
+        reason: "Blocked direct discovery tool: use the corresponding RTK command",
       };
     }
 
@@ -1201,6 +1225,7 @@ export const __test__ = {
   isInterpreterOpaque,
   isRtkWrapped,
   hasOpaqueWrapper,
+  isStandaloneEnvCommand,
   isDirectRtkRequiredCommand,
   hasInlineGitAliasInvocation,
   hasOpaqueGitOptions,

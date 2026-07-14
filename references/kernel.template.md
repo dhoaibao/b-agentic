@@ -61,13 +61,10 @@ Canonical policy: `{{runtime_metadata_root}}/references/mcp_operations.yaml`. En
 
 ## Shell commands
 
-Use `rtk` for command families explicitly required by the active runtime when its filtered output preserves the needed evidence. Run other commands directly; use `rtk proxy <cmd>` when raw execution with RTK tracking is required. Do not silently fall back when a required tool is missing.
+Use `rtk` for every command family listed by `rtk --help`; do not run a supported family directly or substitute a non-RTK equivalent. For example: `rtk git status`, `rtk rg pattern`, `rtk ls`, `rtk find`, `rtk docker ps`, and `rtk pytest -q`. Use `rtk proxy <cmd>` for commands RTK does not support when raw execution is necessary, so they remain tracked.
 
-Use these required tools instead of the classic equivalents:
+Keep the required supporting utilities installed: `rg`, `fd`/`fdfind`, `bat`/`batcat`, `eza`/`exa`, `sd`, and `jq`. Use RTK rather than `rg`, `fd`/`fdfind`, or `eza`/`exa` directly when its `rg`, `find`, or `ls` command applies. For unsupported raw utilities, use `bat`/`batcat` instead of `cat`, `sd` instead of `sed` and `awk`, and `jq` instead of `python -m json.tool`.
 
-- `rg` replaces `grep`; `fd`/`fdfind` replaces `find`; `bat`/`batcat` replaces `cat`.
-- `eza`/`exa` replaces `ls`; `sd` replaces `sed` and `awk`; `jq` replaces `python -m json.tool`.
-
-If a required tool is missing, stop and report the missing prerequisite.
+If `rtk` or a required raw utility is missing, stop and report the missing prerequisite.
 
 Skill argument injection: `$ARGUMENTS` is the shared argument token. Treat unresolved `$ARGUMENTS` as no arguments provided.
