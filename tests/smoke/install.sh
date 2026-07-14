@@ -1001,6 +1001,9 @@ PY
 	set -e
 
 	[ "$rc" -eq 0 ] || fail "expected runtime CLI auto-upgrade install exit 0, got $rc"
+	assert_contains "$install_log" 'Upgrade the installed Pi CLI now? [y/N]:'
+	assert_not_contains "$install_log" 'pi_cli_installed: command not found'
+	assert_not_contains "$install_log" 'Install the Pi CLI now? [y/N]:'
 	assert_contains "$install_log" 'Pi CLI already installed; upgrading with pi update'
 	assert_contains "$upgrade_log" 'pi:update'
 }

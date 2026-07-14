@@ -90,9 +90,9 @@ install_pi_cli_enabled() {
 		INSTALL_PI_CLI_DECISION="Y"
 		;;
 	auto | AUTO | Auto)
-		if pi_cli_installed && prompt_yes_no "Upgrade the installed Pi CLI now? [y/N]" N; then
+		if runtime_cli_installed && prompt_yes_no "Upgrade the installed Pi CLI now? [y/N]" N; then
 			INSTALL_PI_CLI_DECISION="Y"
-		elif ! pi_cli_installed && prompt_yes_no "Install the Pi CLI now? [y/N]" N; then
+		elif ! runtime_cli_installed && prompt_yes_no "Install the Pi CLI now? [y/N]" N; then
 			INSTALL_PI_CLI_DECISION="Y"
 		else
 			INSTALL_PI_CLI_DECISION="N"
