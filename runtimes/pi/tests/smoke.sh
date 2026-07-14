@@ -110,7 +110,7 @@ expect(t.commandDecision('git -C repo reset --hard').decision === 'deny', 'git -
 expect(t.commandDecision('/usr/bin/git reset --hard').decision === 'deny', 'path-qualified git reset --hard must deny');
 expect(t.commandDecision('/usr/bin/npm install lodash').decision === 'ask', 'path-qualified npm install must ask');
 expect(t.commandDecision('/bin/rm -rf /tmp/x').decision === 'ask', 'path-qualified rm -rf must ask');
-expect(t.commandDecision('/usr/bin/printf x').decision === 'allow', 'benign path-qualified command must allow');
+expect(t.commandDecision('/usr/bin/printf x').decision === 'deny', 'path-qualified raw external command must require rtk proxy');
 expect(t.commandDecision("git -c alias.wipe='reset --hard' wipe").decision === 'ask', 'inline Git alias invocation must ask');
 expect(t.commandDecision('env X=1 npm install lodash').decision === 'ask', 'env-wrapped npm install must ask');
 for (const command of ['env', 'env -i', 'env X=1']) {
@@ -167,14 +167,16 @@ for (const command of rtkSupportedCommands) {
   expect(t.commandDecision(`${command} --version`).decision === 'ask', `${command} must require RTK`);
 }
 expect(t.commandDecision('pip show requests').decision === 'ask', 'pip must require RTK');
-for (const command of ['poetry show', 'uv --version']) {
-  expect(t.commandDecision(command).decision === 'allow', `${command} remains allowed because RTK does not support it`);
+for (const command of ['poetry show', 'uv --version', 'printf x']) {
+  expect(t.commandDecision(command).decision === 'deny', `${command} must use rtk proxy because RTK does not support it`);
 }
-expect(t.commandDecision('printf x').decision === 'allow', 'unrelated shell command must allow');
+for (const command of ['rtk proxy poetry show', 'rtk proxy uv --version', 'rtk proxy printf x']) {
+  expect(t.commandDecision(command).decision === 'allow', `${command} must allow tracked raw execution`);
+}
 expect(t.commandDecision('printf x\ngit reset --hard').decision === 'deny', 'newline-separated reset --hard must deny');
 expect(t.commandDecision('printf x\r\ngit reset --hard').decision === 'deny', 'CRLF-separated reset --hard must deny');
-expect(t.commandDecision('printf x\ncat .env').decision === 'ask', 'newline-separated protected path must ask');
-expect(t.commandDecision('printf x\nprintf y').decision === 'allow', 'benign multiline commands must allow');
+expect(t.commandDecision('rtk proxy printf x\ncat .env').decision === 'ask', 'newline-separated protected path must ask');
+expect(t.commandDecision('printf x\nprintf y').decision === 'deny', 'untracked multiline raw commands must deny');
 expect(t.commandDecision('cat .env').decision === 'ask', 'bare protected shell path must ask');
 expect(t.commandDecision('cat .env.local').decision === 'ask', 'root-relative protected shell path variant must ask');
 expect(t.commandDecision('cat /tmp/.env.production').decision === 'ask', 'absolute protected shell path variant must ask');
@@ -188,6 +190,12 @@ expect(t.commandDecision("cat '.env").decision === 'ask', 'unbalanced shell quot
 expect(t.commandDecision('eval "$(echo git reset --hard)"').decision === 'ask', 'eval must ask');
 expect(t.hasAmbiguousShellSyntax('$(git reset --hard)') === true, 'subshell must be ambiguous');
 expect(t.hasUnbalancedQuotes("cat '.env") === true, 'unbalanced quotes must be ambiguous');
+expect(t.commandDecision('bash <(printf "git reset --hard")').decision === 'ask', 'process substitution must ask');
+expect(t.commandDecision('rtk proxy find . -exec git reset --hard \\;').decision === 'ask', 'find execution proxy must ask');
+expect(t.commandDecision('rtk proxy printf "git reset --hard" | rtk proxy xargs sh').decision === 'ask', 'xargs execution proxy must ask');
+expect(t.commandDecision('if rtk ls .; then rtk proxy echo ok; fi').decision === 'ask', 'if control structure must ask');
+expect(t.commandDecision('while rtk ls .; do rtk proxy echo ok; break; done').decision === 'ask', 'while control structure must ask');
+expect(t.hasShellControlSyntax('for item in one; do rtk proxy echo "$item"; done') === true, 'for control structure must be recognized');
 
 // Interpreter/eval-style wrappers (opaque body) must ask
 expect(t.commandDecision("bash -c 'git reset --hard'").decision === 'ask', 'bash -c must ask');
@@ -195,7 +203,8 @@ expect(t.commandDecision("sh -c 'git push --force'").decision === 'ask', 'sh -c 
 expect(t.commandDecision("node -e \"require('fs').rmSync('.')\"").decision === 'ask', 'node -e must ask');
 expect(t.commandDecision('python3 -c "import os; os.system(\'git reset --hard\')"').decision === 'ask', 'python -c must ask');
 expect(t.isInterpreterOpaque(['bash', '-c', 'git reset --hard']) === true, 'isInterpreterOpaque bash -c');
-expect(t.commandDecision('bash --version').decision === 'allow', 'bash without -c may allow');
+expect(t.commandDecision('bash --version').decision === 'deny', 'raw shell executable must use rtk proxy');
+expect(t.commandDecision('rtk proxy bash --version').decision === 'allow', 'rtk proxy shell executable may allow');
 
 // Protected paths
 expect(t.isProtectedPath('.env') === true, '.env protected');

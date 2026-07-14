@@ -177,8 +177,7 @@ const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
 /**
  * Native command families exposed by `rtk --help`, plus supported package-manager
- * aliases. Keep direct invocations approval-gated so agents use their RTK wrapper; unsupported commands use
- * `rtk proxy` when raw execution is necessary.
+ * aliases. Agents must use RTK for supported families and `rtk proxy` for raw executables.
  */
 const RTK_REQUIRED_COMMANDS = new Set([
   "ls", "tree", "git", "gh", "glab", "aws", "psql", "pnpm", "find", "diff",
@@ -189,6 +188,7 @@ const RTK_REQUIRED_COMMANDS = new Set([
 ]);
 /** Unsupported raw utilities with mandatory modern replacements. */
 const RAW_REPLACEMENT_COMMANDS = new Set(["cat", "sed", "awk"]);
+const SHELL_BUILTINS = new Set(["cd", ":", "true", "false", "break", "continue", "return", "exit", "export", "readonly", "unset", "shift", "trap", "umask", "ulimit"]);
 
 /** Interpreters that accept opaque -c/-e script bodies; always approval-required. */
 const INTERPRETER_BASES = new Set([
@@ -316,9 +316,15 @@ function splitShellSegments(command: string): string[] {
 }
 
 function hasAmbiguousShellSyntax(command: string): boolean {
-  // Expansions, substitutions, and eval make static path matching unreliable — fail closed with ask.
+  // Expansions, substitutions, process substitutions, and eval make static path matching unreliable — fail closed with ask.
   // Source-dot only at segment start (not path tokens like "cd .").
-  return /\$|`|\beval\b|\bsource\b|(?:^|[;&|]\s*)\.\s+\S/.test(command);
+  return /\$|`|[<>]\(|\beval\b|\bsource\b|(?:^|[;&|]\s*)\.\s+\S/.test(command);
+}
+
+function hasShellControlSyntax(command: string): boolean {
+  // Control structures require shell parsing across segments; fail closed with approval instead of
+  // treating keywords such as `if` or `while` as raw executables.
+  return /(?:^|[;\n]\s*)(?:if|for|while|until|case|select|coproc|function|then|elif|else|fi|do|done|esac)\b|(?:^|[;\n]\s*)[{}]/.test(command);
 }
 
 function hasUnbalancedQuotes(command: string): boolean {
@@ -703,6 +709,16 @@ function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): bool
   );
 }
 
+function hasShellExecutionProxy(tokens: string[]): boolean {
+  return tokens[0] === "xargs" || (
+    tokens[0] === "find" && tokens.some((token) => ["-exec", "-execdir", "-ok", "-okdir"].includes(token))
+  );
+}
+
+function isDirectRawExternalCommand(rawTokens: string[], tokens: string[]): boolean {
+  return !isRtkWrapped(rawTokens) && Boolean(tokens[0]) && !SHELL_BUILTINS.has(tokens[0]);
+}
+
 function segmentDecision(segment: string): { decision: Decision; reason: string } {
   const rawTokens = tokenize(segment);
   const tokens = normalizeTokens(rawTokens);
@@ -754,6 +770,13 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     return {
       decision: "ask",
       reason: "Requires approval: interpreter/eval-style command (opaque -c/-e body)",
+    };
+  }
+
+  if (hasShellExecutionProxy(tokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: shell execution proxy is opaque",
     };
   }
 
@@ -830,6 +853,13 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     };
   }
 
+  if (isDirectRawExternalCommand(rawTokens, tokens)) {
+    return {
+      decision: "deny",
+      reason: "Denied by b-agentic policy: use rtk proxy for raw external commands",
+    };
+  }
+
   return { decision: "allow", reason: "" };
 }
 
@@ -839,10 +869,10 @@ function commandDecision(command: string): { decision: Decision; reason: string 
     return { decision: "allow", reason: "" };
   }
 
-  if (hasUnbalancedQuotes(trimmed) || hasAmbiguousShellSyntax(trimmed)) {
+  if (hasUnbalancedQuotes(trimmed) || hasAmbiguousShellSyntax(trimmed) || hasShellControlSyntax(trimmed)) {
     return {
       decision: "ask",
-      reason: "Requires approval: ambiguous shell syntax (quotes/expansion/eval/source)",
+      reason: "Requires approval: ambiguous shell syntax (quotes/expansion/control structure/eval/source)",
     };
   }
 
@@ -1221,6 +1251,7 @@ export const __test__ = {
   managedServerFromToolName,
   managedToolBaseName,
   hasAmbiguousShellSyntax,
+  hasShellControlSyntax,
   hasUnbalancedQuotes,
   isInterpreterOpaque,
   isRtkWrapped,
