@@ -12,17 +12,28 @@ Adapter-owned layout for Pi.
 - Permission extension: `~/.pi/agent/extensions/b-agentic-permissions.ts`
 - Extension snapshot: `~/.pi/agent/b-agentic/extensions/b-agentic-permissions.ts`
 
-## MCP Adapter Dependency
+## Optional Pi Packages
 
 Pi does not provide native MCP. b-agentic installs MCP server entries into
 `~/.pi/agent/mcp.json` and expects the community package
-`pi-mcp-adapter` to load them.
+`pi-mcp-adapter` to load them. Interactive installs prompt before running
+`pi install npm:pi-mcp-adapter`. Noninteractive installs run that only when
+`B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` is set.
 
-Interactive installs prompt before running
-`pi install npm:pi-mcp-adapter`. Noninteractive installs run that only
-when `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` is set. Uninstall removes
-b-agentic-managed MCP config and the permission extension; it does not remove
-the adapter package.
+b-agentic can also install the optional `pi-lens` package for live diagnostics,
+linters, type checks, and structural analysis. Interactive installs prompt
+before running `pi install npm:pi-lens`; noninteractive installs require
+`B_AGENTIC_INSTALL_PI_LENS=Y`. Its agent-facing custom tools remain subject to
+the permission extension's approval gate.
+
+For long-session compaction continuity, b-agentic can install the optional
+`pi-observational-memory` package. Interactive installs prompt before running
+`pi install npm:pi-observational-memory`; noninteractive installs require
+`B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y`. Use it as the sole automatic
+memory/compaction layer rather than combining it with another such extension.
+
+Uninstall removes b-agentic-managed MCP config and the permission extension; it
+does not remove any of these packages.
 
 Servers default to lazy lifecycle through the adapter's proxy tool so schemas
 are not eagerly injected into context. Optional adapter-specific `directTools`

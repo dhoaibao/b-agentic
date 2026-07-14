@@ -94,23 +94,38 @@ EOF
     chmod +x "$bin_dir/$name"
   done
 
-  # Pi mock supports list/install so adapter lifecycle smoke can observe installs.
+  # Pi mock supports list/install so package lifecycle smoke can observe installs.
   cat > "$bin_dir/pi" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 log_dir="$(cd "$(dirname "$0")" && pwd)"
 if [ "${1:-}" = "list" ]; then
+  found=0
   if [ -f "$log_dir/pi-adapter-installed" ]; then
     printf 'npm:pi-mcp-adapter\n'
-  else
-    printf '(no packages)\n'
+    found=1
   fi
+  if [ -f "$log_dir/pi-lens-installed" ]; then
+    printf 'npm:pi-lens\n'
+    found=1
+  fi
+  if [ -f "$log_dir/pi-observational-memory-installed" ]; then
+    printf 'npm:pi-observational-memory\n'
+    found=1
+  fi
+  [ "$found" -eq 1 ] || printf '(no packages)\n'
   exit 0
 fi
 if [ "${1:-}" = "install" ]; then
   printf '%s\n' "${2:-}" >> "$log_dir/pi-install.log"
   if [ "${2:-}" = "npm:pi-mcp-adapter" ]; then
     : > "$log_dir/pi-adapter-installed"
+  fi
+  if [ "${2:-}" = "npm:pi-lens" ]; then
+    : > "$log_dir/pi-lens-installed"
+  fi
+  if [ "${2:-}" = "npm:pi-observational-memory" ]; then
+    : > "$log_dir/pi-observational-memory-installed"
   fi
   exit 0
 fi

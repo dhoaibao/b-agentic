@@ -30,8 +30,8 @@ run_runtime_smoke_cases() {
   assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "missing"'
   assert_contains "$sandbox/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
 
-  # Adapter-installed path via env opt-in (mock pi records install).
-  # expect_install_status hardcodes env; invoke installer directly for adapter opt-in.
+  # Optional Pi packages via env opt-in (mock pi records installs).
+  # expect_install_status hardcodes env; invoke installer directly for package opt-ins.
   local smoke_path
   smoke_path="$(smoke_runtime_cli_path "$sandbox_adapter")"
   HOME="$sandbox_adapter/home" \
@@ -44,11 +44,17 @@ run_runtime_smoke_cases() {
   B_AGENTIC_INSTALL_SERENA=N \
   B_AGENTIC_INSTALL_CODEGRAPH=N \
   B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y \
+  B_AGENTIC_INSTALL_PI_LENS=Y \
+  B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y \
   bash "$ROOT_DIR/install.sh" --runtime=pi >/dev/null 2>&1
   assert_file "$sandbox_adapter/home/.pi/agent/b-agentic/install.json"
   assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "ready"'
+  assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piLensState": "ready"'
+  assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piObservationalMemoryState": "ready"'
   assert_file "$sandbox_adapter/smoke-bin/pi-install.log"
   assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-mcp-adapter'
+  assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-lens'
+  assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-observational-memory'
 
   # Preserve user-owned kernel.
   mkdir -p "$sandbox_preserve/home/.pi/agent"
