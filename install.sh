@@ -237,6 +237,27 @@ validate_shared_source_layout() {
 validate_runtime_source_layout() {
   [ -d "$TEMPLATES_SRC" ] || die "missing source directory: $TEMPLATES_SRC"
   [ -f "$KERNEL_SRC" ] || die "missing kernel source: $KERNEL_SRC"
+  [ -d "$SKILLS_SRC" ] || die "missing runtime skill payload directory: $SKILLS_SRC"
+  python3 - "$SOURCE_DIR/runtimes/registry.yaml" "$RUNTIME" "$SKILLS_SRC" <<'PY' || die "runtime skill payload does not match registry: $SKILLS_SRC"
+import json
+import sys
+from pathlib import Path
+
+registry_path, runtime_name, skills_path = map(Path, sys.argv[1:])
+runtime_name = str(runtime_name)
+expected = {
+    entry["name"] for entry in json.loads(registry_path.read_text()).get("runtimes", [])
+    if isinstance(entry, dict) and entry.get("name") == runtime_name
+}
+if not expected:
+    raise SystemExit(f"unknown runtime {runtime_name}")
+source_skills = {path.parent.name for path in skills_path.glob("*/SKILL.md")}
+canonical_skills = {
+    path.parent.name for path in registry_path.parent.parent.joinpath("skills").glob("*/prompt.md")
+}
+if source_skills != canonical_skills:
+    raise SystemExit(f"expected {sorted(canonical_skills)}, found {sorted(source_skills)}")
+PY
 }
 
 runtime_names() {
@@ -672,6 +693,7 @@ run_runtime_action() {
   (
     RUNTIME="$runtime_name"
     set_source_dir "$SOURCE_DIR"
+    SKILLS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/skills"
     validate_runtime_source_layout
     source_installer_core
     load_runtime_driver
@@ -758,6 +780,7 @@ main() {
   fi
 
   runtime_registered "$RUNTIME" || die "unknown runtime: $RUNTIME"
+  SKILLS_SRC="$SOURCE_DIR/runtimes/$RUNTIME/skills"
   validate_runtime_source_layout
 
   load_runtime_driver

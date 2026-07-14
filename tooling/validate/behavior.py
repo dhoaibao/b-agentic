@@ -42,7 +42,7 @@ KERNEL_CONSOLIDATION_REGRESSION = {
         "likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`)",
         "Use available local code intelligence; do not install missing tools or create indexes without approval.",
         "Fall back to local evidence and state the resulting gap.",
-        "Use `rtk` for every command family it supports",
+        "Use `rtk` for command families explicitly required by the active runtime",
     ),
 }
 

@@ -8,6 +8,7 @@
       "reference_runtime": true,
       "support_tier": "operation-enforced",
       "mcp_enforcement": "tool_call extension",
+      "enforcement_statement": "Pi enforces this policy and protected shell-path gates in its first-party `tool_call` extension, failing closed without UI.",
       "kernel_source": "runtimes/pi/kernel.md",
       "memory_file": "AGENTS.md",
       "memory_install_path": "~/.pi/agent/AGENTS.md",

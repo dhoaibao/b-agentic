@@ -48,7 +48,7 @@ Interactive installs prepare the runtime and install required shell tooling and 
 
 During interactive installs, the installer can prompt to download and run the RTK install script from its `master` branch. If `rtk` is already installed, the installer asks separately before upgrading it; the existing installation satisfies the prerequisite. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is required for b-agentic sessions; installation fails if it cannot be installed.
 
-Once installed, the kernel requires the agent to use RTK for command families it supports when filtering preserves the evidence needed for the task. Unsupported commands run directly instead of receiving an invalid `rtk` prefix. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms:
+Once installed, each runtime declares the command families it requires RTK to wrap; other commands run directly instead of receiving an invalid `rtk` prefix. The Pi runtime enforces Git, Cargo, npm/pnpm/yarn/bun, pytest, and the documented classic replacement families. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms:
 
 ```bash
 rtk git status

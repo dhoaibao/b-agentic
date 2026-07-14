@@ -22,19 +22,15 @@ const ASK_COMMANDS: string[][] = [
   ["git", "push"],
   ["git", "pull"],
   ["git", "revert"],
-  ["npm", "install"],
-  ["pnpm", "install"],
-  ["yarn", "install"],
-  ["bun", "install"],
-  ["cargo", "install"],
-  ["cargo", "add"],
-  ["go", "install"],
-  ["go", "get"],
-  ["pip", "install"],
-  ["pip3", "install"],
-  ["poetry", "add"],
-  ["uv", "add"],
-  ["uv", "pip", "install"],
+  ["npm", "install"], ["npm", "i"], ["npm", "ci"], ["npm", "add"], ["npm", "remove"], ["npm", "uninstall"], ["npm", "update"],
+  ["pnpm", "install"], ["pnpm", "i"], ["pnpm", "add"], ["pnpm", "remove"], ["pnpm", "uninstall"], ["pnpm", "update"], ["pnpm", "up"],
+  ["yarn", "install"], ["yarn", "add"], ["yarn", "remove"], ["yarn", "uninstall"], ["yarn", "upgrade"], ["yarn", "up"],
+  ["bun", "install"], ["bun", "add"], ["bun", "remove"], ["bun", "uninstall"], ["bun", "update"],
+  ["cargo", "install"], ["cargo", "add"], ["cargo", "remove"], ["cargo", "update"],
+  ["go", "install"], ["go", "get"],
+  ["pip", "install"], ["pip", "uninstall"], ["pip3", "install"], ["pip3", "uninstall"],
+  ["poetry", "add"], ["poetry", "install"], ["poetry", "remove"], ["poetry", "update"],
+  ["uv", "add"], ["uv", "remove"], ["uv", "sync"], ["uv", "lock"], ["uv", "pip", "install"], ["uv", "pip", "uninstall"],
   ["rm", "-rf"],
   ["rm", "-fr"],
 ];
@@ -179,7 +175,11 @@ const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
 ]);
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
-const LEGACY_SHELL_COMMANDS = new Set(["grep", "find", "ls", "cat", "sed", "awk"]);
+/** Command families with a tested RTK requirement; unsupported commands stay direct. */
+const RTK_REQUIRED_COMMANDS = new Set([
+  "grep", "find", "ls", "cat", "sed", "awk",
+  "git", "cargo", "npm", "pnpm", "yarn", "bun", "pytest",
+]);
 
 /** Interpreters that accept opaque -c/-e script bodies; always approval-required. */
 const INTERPRETER_BASES = new Set([
@@ -370,8 +370,8 @@ function unwrapTokens(tokens: string[]): { tokens: string[]; wrappers: Set<strin
   while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) {
     i += 1;
   }
-  while (i < tokens.length && WRAPPER_COMMANDS.has(tokens[i])) {
-    const wrapper = tokens[i];
+  while (i < tokens.length && WRAPPER_COMMANDS.has(baseName(tokens[i]))) {
+    const wrapper = baseName(tokens[i]);
     wrappers.add(wrapper);
     i += 1;
     if (wrapper === "env") {
@@ -415,13 +415,57 @@ function unwrapTokens(tokens: string[]): { tokens: string[]; wrappers: Set<strin
       }
       continue;
     }
-    // rtk / nohup / time: consume only the wrapper token
+    if (wrapper === "rtk" && tokens[i] === "proxy") {
+      // `rtk proxy <cmd>` deliberately preserves the raw command, but policy
+      // must still classify that command rather than the proxy subcommand.
+      i += 1;
+    }
+    // nohup / time: consume only the wrapper token
   }
   return { tokens: tokens.slice(i), wrappers, opaque };
 }
 
 function stripWrappers(tokens: string[]): string[] {
   return unwrapTokens(tokens).tokens;
+}
+
+function hasInlineGitAliasInvocation(tokens: string[]): boolean {
+  if (tokens[0] !== "git") {
+    return false;
+  }
+  const aliases = new Set<string>();
+  let i = 1;
+  while (i < tokens.length && tokens[i].startsWith("-")) {
+    const option = tokens[i];
+    let value = "";
+    if (option === "-c") {
+      value = tokens[i + 1] || "";
+      i += 2;
+    } else if (option.startsWith("-c") && option.length > 2) {
+      value = option.slice(2);
+      i += 1;
+    } else if (option === "--config-env") {
+      value = tokens[i + 1] || "";
+      i += 2;
+    } else if (option.startsWith("--config-env=")) {
+      value = option.slice("--config-env=".length);
+      i += 1;
+    } else if (option === "-C" || option === "--git-dir" || option === "--work-tree" || option === "--namespace") {
+      i += 2;
+      continue;
+    } else if (option.startsWith("--git-dir=") || option.startsWith("--work-tree=") || option.startsWith("--namespace=")) {
+      i += 1;
+      continue;
+    } else {
+      i += 1;
+      continue;
+    }
+    const match = /^alias\.([^=]+)=/.exec(value);
+    if (match) aliases.add(match[1]);
+    const configEnvMatch = /^alias\.([^=]+)=/.exec(value);
+    if (configEnvMatch) aliases.add(configEnvMatch[1]);
+  }
+  return aliases.has(tokens[i]);
 }
 
 function gitEffectiveTokens(tokens: string[]): string[] {
@@ -439,13 +483,17 @@ function gitEffectiveTokens(tokens: string[]): string[] {
     if (!t.startsWith("-")) {
       break;
     }
-    // Options that take a value: -C <path>, -c <name=value>
-    if (t === "-C" || t === "-c") {
+    // Options that take a value before the Git subcommand.
+    if (t === "-C" || t === "-c" || t === "--git-dir" || t === "--work-tree" || t === "--namespace" || t === "--config-env") {
       i += tokens[i + 1] ? 2 : 1;
       continue;
     }
-    // Combined forms like -cfoo.bar=baz
+    // Combined forms like -cfoo.bar=baz and long options with inline values.
     if (t.startsWith("-c") && t.length > 2) {
+      i += 1;
+      continue;
+    }
+    if (t.startsWith("--git-dir=") || t.startsWith("--work-tree=") || t.startsWith("--namespace=") || t.startsWith("--config-env=")) {
       i += 1;
       continue;
     }
@@ -457,10 +505,67 @@ function gitEffectiveTokens(tokens: string[]): string[] {
 
 function normalizeTokens(tokens: string[]): string[] {
   const stripped = stripWrappers(tokens);
+  if (stripped[0]) {
+    stripped[0] = baseName(stripped[0]);
+  }
   if (stripped[0] === "git") {
     return gitEffectiveTokens(stripped);
   }
   return stripped;
+}
+
+function packageOperation(tokens: string[]): { operation: string | null; opaque: boolean } {
+  const valueOptions = new Set(["--prefix", "--dir", "--manifest-path"]);
+  const valuelessOptions = new Set(["--silent", "--json", "--offline", "--version"]);
+  let i = 1;
+  while (i < tokens.length) {
+    const token = tokens[i];
+    if (!token.startsWith("-")) return { operation: token, opaque: false };
+    if (token === "--") return { operation: tokens[i + 1] || null, opaque: false };
+    if (token.includes("=")) {
+      i += 1;
+      continue;
+    }
+    if (valueOptions.has(token)) {
+      if (!tokens[i + 1]) return { operation: null, opaque: true };
+      i += 2;
+      continue;
+    }
+    if (valuelessOptions.has(token)) {
+      i += 1;
+      continue;
+    }
+    // Do not let an unparsed global option hide a dependency operation.
+    return { operation: null, opaque: true };
+  }
+  return { operation: null, opaque: false };
+}
+
+function hasOpaquePackageOptions(tokens: string[]): boolean {
+  return new Set(["npm", "pnpm", "yarn", "bun", "cargo", "go", "pip", "pip3", "poetry", "uv"]).has(tokens[0])
+    && packageOperation(tokens).opaque;
+}
+
+function hasDependencyWrite(tokens: string[]): boolean {
+  const manager = tokens[0];
+  const { operation } = packageOperation(tokens);
+  if (!manager || !operation) return false;
+  const writes: Record<string, Set<string>> = {
+    npm: new Set(["install", "i", "ci", "add", "remove", "uninstall", "update"]),
+    pnpm: new Set(["install", "i", "add", "remove", "uninstall", "update", "up"]),
+    yarn: new Set(["install", "add", "remove", "uninstall", "upgrade", "up"]),
+    bun: new Set(["install", "add", "remove", "uninstall", "update"]),
+    cargo: new Set(["install", "add", "remove", "update"]),
+    go: new Set(["install", "get"]),
+    pip: new Set(["install", "uninstall"]),
+    pip3: new Set(["install", "uninstall"]),
+    poetry: new Set(["add", "install", "remove", "update"]),
+    uv: new Set(["add", "remove", "sync", "lock"]),
+  };
+  if (manager === "uv" && operation === "pip") {
+    return tokens.slice(2).some((token) => token === "install" || token === "uninstall" || token === "sync");
+  }
+  return writes[manager]?.has(operation) ?? false;
 }
 
 function matchesPrefix(tokens: string[], pattern: string[]): boolean {
@@ -500,6 +605,25 @@ function isRmRecursiveForce(tokens: string[]): boolean {
   const recursive = /[rR]/.test(chars) || rest.includes("--recursive");
   const force = chars.includes("f") || rest.includes("--force");
   return recursive && force;
+}
+
+function hasOpaqueGitOptions(tokens: string[]): boolean {
+  if (tokens[0] !== "git") return false;
+  const valueOptions = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"]);
+  const valuelessOptions = new Set(["--no-pager", "--bare", "--literal-pathspecs", "--no-optional-locks"]);
+  for (let i = 1; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (!token.startsWith("-")) return false;
+    if (token === "--") return false;
+    if (token.startsWith("-c") || token.includes("=")) continue;
+    if (valueOptions.has(token)) {
+      i += 1;
+      continue;
+    }
+    if (valuelessOptions.has(token)) continue;
+    return true;
+  }
+  return false;
 }
 
 function isGitForcePush(tokens: string[]): boolean {
@@ -547,13 +671,11 @@ function hasOpaqueWrapper(rawTokens: string[]): boolean {
   return unwrapTokens(rawTokens).opaque;
 }
 
-function isDirectLegacyShellCommand(rawTokens: string[], tokens: string[]): boolean {
-  // RTK is the required command proxy when it supports a family. Raw legacy
-  // binaries must use the kernel replacements.
+function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): boolean {
   if (isRtkWrapped(rawTokens)) {
     return false;
   }
-  if (LEGACY_SHELL_COMMANDS.has(tokens[0])) {
+  if (RTK_REQUIRED_COMMANDS.has(tokens[0])) {
     return true;
   }
   return (
@@ -586,10 +708,20 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     };
   }
 
-  if (isDirectLegacyShellCommand(rawTokens, tokens)) {
+  // Inline aliases can execute arbitrary shell payloads. Parse neither their
+  // definitions nor bodies; fail closed when the configured alias is invoked.
+  const unwrappedTokens = stripWrappers(rawTokens);
+  if (unwrappedTokens[0]) unwrappedTokens[0] = baseName(unwrappedTokens[0]);
+  if (hasInlineGitAliasInvocation(unwrappedTokens)) {
     return {
       decision: "ask",
-      reason: "Requires approval: use RTK or the required shell-tool replacement",
+      reason: "Requires approval: inline Git alias invocation is opaque",
+    };
+  }
+  if (hasOpaqueGitOptions(unwrappedTokens) || hasOpaquePackageOptions(tokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: unrecognized pre-operation option is opaque",
     };
   }
 
@@ -645,6 +777,10 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     };
   }
 
+  if (hasDependencyWrite(tokens)) {
+    return { decision: "ask", reason: "Requires approval: dependency write" };
+  }
+
   for (const pattern of ASK_COMMANDS) {
     if (matchesPrefix(tokens, pattern)) {
       return {
@@ -661,6 +797,13 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
         reason: `Requires approval for long-lived service: ${pattern.join(" ")}`,
       };
     }
+  }
+
+  if (isDirectRtkRequiredCommand(rawTokens, tokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: use RTK or the required shell-tool replacement",
+    };
   }
 
   return { decision: "allow", reason: "" };
@@ -690,6 +833,16 @@ function commandDecision(command: string): { decision: Decision; reason: string 
     }
   }
   return worst;
+}
+
+function nativePathDecision(toolName: string, pathValue: string): { decision: Decision; reason: string } {
+  if (!pathValue || !isProtectedPath(pathValue)) {
+    return { decision: "allow", reason: "" };
+  }
+  if (toolName === "read") {
+    return { decision: "ask", reason: `Requires approval: read of protected path: ${pathValue}` };
+  }
+  return { decision: "deny", reason: `Blocked ${toolName} of protected path: ${pathValue}` };
 }
 
 function isProtectedPath(pathValue: string): boolean {
@@ -988,11 +1141,17 @@ export default function (pi: ExtensionAPI) {
 
     if (event.toolName === "write" || event.toolName === "edit" || event.toolName === "read") {
       const pathValue = String((event.input as { path?: string }).path || "");
-      if (pathValue && isProtectedPath(pathValue)) {
-        return {
-          block: true,
-          reason: `Blocked ${event.toolName} of protected path: ${pathValue}`,
-        };
+      const { decision, reason } = nativePathDecision(event.toolName, pathValue);
+      if (decision === "deny") {
+        return { block: true, reason };
+      }
+      if (decision === "ask") {
+        return confirmOrBlock(
+          ctx,
+          "b-agentic approval",
+          `${reason}\n\nAllow this tool call?`,
+          reason,
+        );
       }
       return undefined;
     }
@@ -1042,7 +1201,12 @@ export const __test__ = {
   isInterpreterOpaque,
   isRtkWrapped,
   hasOpaqueWrapper,
-  isDirectLegacyShellCommand,
+  isDirectRtkRequiredCommand,
+  hasInlineGitAliasInvocation,
+  hasOpaqueGitOptions,
+  hasOpaquePackageOptions,
+  nativePathDecision,
+  confirmOrBlock,
   SPECIALIZED_TOOLS,
   MANAGED_MCP_SERVERS,
   SERENA_TRUSTED_TOOLS,
@@ -1053,4 +1217,5 @@ export const __test__ = {
   PLAYWRIGHT_TRUSTED_TOOLS,
   ASK_COMMANDS,
   DENY_COMMANDS,
+  RTK_REQUIRED_COMMANDS,
 };

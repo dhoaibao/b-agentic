@@ -26,16 +26,13 @@ Annotated examples from existing adapters live in `examples/`. Add a new example
 
 The root wrappers stay stable. Adding a runtime should not require editing `scripts/validate-skills.sh`, `scripts/smoke-install.sh`, or the shared installer architecture.
 
-## Sibling-layout constraint
+## Runtime-specific skill payloads
 
-When registering a new runtime in `runtimes/registry.yaml`, `skills_install_root` and `metadata_root` must share a common parent directory, and `metadata_root` must be named `b-agentic`:
-
-```
-<parent>/skills/     ← skills_install_root
-<parent>/b-agentic/  ← metadata_root
-```
-
-The renderer hardcodes `RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/references"` into every generated `SKILL.md`. A `SKILL.md` installed at `skills_install_root/<skill>/SKILL.md` resolves that path to `<parent>/b-agentic/references`. If `skills_install_root` and `metadata_root` do not share a parent — or if `metadata_root` is not named `b-agentic` — every read-gate in every installed skill will point to a non-existent path at runtime. The shared validator enforces this invariant.
+The renderer derives each installed skill's reference path from the runtime's
+`skills_install_root` and `metadata_root`. It writes payloads to
+`runtimes/<name>/skills/`, which the installer copies for that runtime.
+Layouts do not need a sibling directory or a metadata directory named
+`b-agentic`; registry validation proves the derived reference path is relative.
 
 ## Adapter-owned config schema
 

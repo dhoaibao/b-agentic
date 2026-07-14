@@ -88,6 +88,8 @@ run_invalid_runtime_layout_validation_case() {
   local sandbox_policy_runtime="$WORK_DIR/operation-enforced-runtime"
   local sandbox_empty_runtime="$WORK_DIR/empty-runtime-directory"
   local sandbox_unregistered_runtime="$WORK_DIR/unregistered-runtime-directory"
+  local sandbox_missing_payload="$WORK_DIR/missing-runtime-payload"
+  local sandbox_missing_payload_install="$WORK_DIR/missing-runtime-payload-install"
 
   git clone --quiet "$snapshot_repo" "$sandbox_invalid"
   python3 - "$sandbox_invalid/runtimes/registry.yaml" <<'PY'
@@ -97,7 +99,7 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 data = json.loads(path.read_text())
-data["runtimes"][0]["metadata_root"] = "~/.broken/meta"
+data["runtimes"][0]["metadata_root"] = "/broken/meta"
 path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 
@@ -107,7 +109,7 @@ PY
   rc=$?
   set -e
   [ "$rc" -ne 0 ] || fail "invalid runtime layout should fail registry sync validation"
-  assert_contains "$sandbox_invalid/layout-check.log" 'metadata_root: must end with b-agentic'
+  assert_contains "$sandbox_invalid/layout-check.log" 'skills_install_root and metadata_root must use ~/ paths'
 
   git clone --quiet "$snapshot_repo" "$sandbox_schema"
   python3 - "$sandbox_schema/runtimes/registry.yaml" <<'PY'
@@ -127,6 +129,12 @@ PY
   rc=$?
   set -e
   [ "$rc" -eq 0 ] || fail "adapter-defined runtime config schema should pass registry sync validation"
+
+  git clone --quiet "$snapshot_repo" "$sandbox_missing_payload"
+  rm -rf "$sandbox_missing_payload/runtimes/pi/skills/b-plan"
+  git -C "$sandbox_missing_payload" add -A
+  git -C "$sandbox_missing_payload" -c user.name='b-agentic smoke' -c user.email='smoke@example.test' commit -qm 'remove runtime skill payload'
+  expect_install_status 1 "$sandbox_missing_payload_install" "$sandbox_missing_payload" --runtime=pi
 
   git clone --quiet "$snapshot_repo" "$sandbox_empty_runtime"
   mkdir "$sandbox_empty_runtime/runtimes/local-only"

@@ -61,7 +61,7 @@ Pi enforces this policy and protected shell-path gates in its first-party `tool_
 
 ## Shell commands
 
-Use `rtk` for every command family it supports when its filtered output preserves the needed evidence. Run unsupported commands directly; use `rtk proxy <cmd>` when raw execution with RTK tracking is required. Do not silently fall back when required tooling is missing.
+Use `rtk` for command families explicitly required by the active runtime when its filtered output preserves the needed evidence. Run other commands directly; use `rtk proxy <cmd>` when raw execution with RTK tracking is required. Do not silently fall back when a required tool is missing.
 
 Use these required tools instead of the classic equivalents:
 

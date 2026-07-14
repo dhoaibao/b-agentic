@@ -35,16 +35,21 @@ that listens for `tool_call` events and:
 
 - asks before commits, pushes, pulls, reverts, dependency writes, long-lived
   services, and destructive-but-approvable actions
-- blocks prohibited git/Docker families and read/write/edit of secret or
-  repository-control paths
+- blocks prohibited git/Docker families and protected native writes/edits;
+  protected native reads require explicit UI approval and fail closed without UI
 - inspects compound shell segments (`&&`, `;`, `|`), approval-gates literal
   protected-path tokens (including `rtk`-wrapped path variants), and strips
   `env`/`sudo`/`rtk` wrappers and `git -C` style option prefixes before matching
 - requires approval for unbalanced quotes, shell expansions, and
   interpreter/eval-style wrappers (`bash -c`, `sh -c`, `node -e`, `python -c`,
   …) whose bodies are opaque to static matching
-- blocks direct legacy discovery tools (`grep`, `find`, `ls`) so agents use RTK or the required shell-tool replacements; allows MCP metadata discovery and only the explicitly classified read-only operations of managed MCP servers without prompts
-- asks for managed MCP local mutations, Firecrawl external-mutation or local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright page-mutating tools (click/type/upload/evaluate/…), MCP auth bootstrap, unclassified managed operations, user/unknown MCP servers, and any other non-built-in custom tool
+- requires RTK for Git, Cargo, npm/pnpm/yarn/bun, pytest, and the tested classic
+  command families (`grep`, `find`, `ls`, `cat`, `sed`, `awk`, and `python -m json.tool`);
+  `rtk proxy` is unwrapped for
+  the same safety classification as its effective command; allows MCP metadata
+  discovery and only the explicitly classified read-only operations of managed MCP servers without prompts
+- asks for Serena local symbol mutations because the Pi adapter cannot prove a
+  target is confined to the current repository; asks for Firecrawl external-mutation or local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright page-mutating tools (click/type/upload/evaluate/…), MCP auth bootstrap, unclassified managed operations, user/unknown MCP servers, and any other non-built-in custom tool
 - fails closed when MCP selectors are mixed (e.g. `connect` + `tool`), when an explicit MCP `server` disagrees with the tool-name origin, or when an approval-required action has no UI confirmation
 
 ## Validation

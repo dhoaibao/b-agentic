@@ -107,9 +107,21 @@ function expect(cond, msg) {
 // Compound commands and wrappers
 expect(t.commandDecision('cd repo && git reset --hard').decision === 'deny', 'compound reset --hard must deny');
 expect(t.commandDecision('git -C repo reset --hard').decision === 'deny', 'git -C reset --hard must deny');
+expect(t.commandDecision('/usr/bin/git reset --hard').decision === 'deny', 'path-qualified git reset --hard must deny');
+expect(t.commandDecision('/usr/bin/npm install lodash').decision === 'ask', 'path-qualified npm install must ask');
+expect(t.commandDecision('/bin/rm -rf /tmp/x').decision === 'ask', 'path-qualified rm -rf must ask');
+expect(t.commandDecision('/usr/bin/printf x').decision === 'allow', 'benign path-qualified command must allow');
+expect(t.commandDecision("git -c alias.wipe='reset --hard' wipe").decision === 'ask', 'inline Git alias invocation must ask');
 expect(t.commandDecision('env X=1 npm install lodash').decision === 'ask', 'env-wrapped npm install must ask');
 expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git commit must ask');
+expect(t.commandDecision('rtk proxy git reset --hard').decision === 'deny', 'rtk proxy must preserve deny decisions');
+expect(t.commandDecision('rtk proxy grep needle src/main.ts').decision === 'allow', 'rtk proxy must satisfy RTK requirement');
 expect(t.commandDecision('sudo git push --force origin main').decision === 'deny', 'sudo force push must deny');
+expect(t.commandDecision('/usr/bin/env X=1 git reset --hard').decision === 'deny', 'path-qualified env must not bypass reset denial');
+expect(t.commandDecision('/usr/bin/sudo git push --force origin main').decision === 'deny', 'path-qualified sudo must not bypass force-push denial');
+expect(t.commandDecision('/opt/bin/rtk git reset --hard').decision === 'deny', 'path-qualified RTK must not bypass reset denial');
+expect(t.commandDecision('rtk git --git-dir repo/.git reset --hard').decision === 'deny', 'Git option value must not hide reset denial');
+expect(t.commandDecision('rtk git --git-dir repo/.git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'Git config-env alias after option value must ask');
 expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git push -f must deny');
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
 expect(t.commandDecision('ls -la').decision === 'ask', 'direct ls must require approval to use RTK or eza/exa');
@@ -122,6 +134,32 @@ expect(t.commandDecision('env -S ls').decision === 'ask', 'env -S legacy command
 expect(t.commandDecision('env -S "grep needle src/main.ts"').decision === 'ask', 'env -S command string must be approval-gated');
 expect(t.commandDecision('grep needle src/main.ts').decision === 'ask', 'direct grep must require approval to use RTK or rg');
 expect(t.commandDecision('python3 -m json.tool package.json').decision === 'ask', 'python json.tool must require approval to use jq');
+for (const [command, label] of [
+  ['npm add lodash', 'npm add'], ['npm remove lodash', 'npm remove'], ['npm --silent install lodash', 'npm option install'], ['npm ci', 'npm ci'],
+  ['/usr/bin/npm --silent install lodash', 'path-qualified npm option install'], ['rtk npm --prefix ./app install lodash', 'npm option-value install'],
+  ['pnpm update', 'pnpm update'], ['pnpm up lodash', 'pnpm up'], ['rtk pnpm --dir ./app add lodash', 'pnpm option-value add'],
+  ['yarn remove lodash', 'yarn remove'], ['yarn up lodash', 'yarn up'], ['bun uninstall lodash', 'bun uninstall'],
+  ['cargo remove serde', 'cargo remove'], ['rtk cargo --manifest-path app/Cargo.toml update', 'cargo option-value update'],
+  ['npm --unknown-option install lodash', 'unknown package option'], ['pip uninstall requests', 'pip uninstall'],
+  ['pip3 uninstall requests', 'pip3 uninstall'], ['poetry update', 'poetry update'],
+  ['uv pip uninstall requests', 'uv pip uninstall'], ['uv pip sync requirements.txt', 'uv pip sync'],
+]) expect(t.commandDecision(command).decision === 'ask', `${label} must gate dependency writes`);
+expect(t.commandDecision('git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'inline Git config-env alias invocation must ask');
+for (const command of ['npm view lodash', 'pnpm list', 'yarn why lodash', 'bun --version', 'cargo search serde']) {
+  expect(t.commandDecision(command).decision === 'ask', `${command} must require RTK`);
+}
+for (const command of ['rtk npm view lodash', 'rtk pnpm list', 'rtk yarn why lodash', 'rtk bun --version', 'rtk cargo search serde', 'rtk pytest -q']) {
+  expect(t.commandDecision(command).decision === 'allow', `${command} must preserve supported RTK use`);
+}
+for (const command of ['git status', 'cargo test', 'npm run build', 'pytest -q']) {
+  expect(t.commandDecision(command).decision === 'ask', `${command} must require RTK`);
+}
+for (const command of ['rtk git status', 'rtk cargo test', 'rtk npm run build']) {
+  expect(t.commandDecision(command).decision === 'allow', `${command} must allow RTK wrapping`);
+}
+for (const command of ['pip show requests', 'poetry show', 'uv --version']) {
+  expect(t.commandDecision(command).decision === 'allow', `${command} must remain allowed because RTK support is not required`);
+}
 expect(t.commandDecision('printf x').decision === 'allow', 'unrelated shell command must allow');
 expect(t.commandDecision('printf x\ngit reset --hard').decision === 'deny', 'newline-separated reset --hard must deny');
 expect(t.commandDecision('printf x\r\ngit reset --hard').decision === 'deny', 'CRLF-separated reset --hard must deny');
@@ -157,6 +195,14 @@ expect(t.isProtectedPath('src/app.env') === true, 'app.env protected');
 expect(t.isProtectedPath('secrets.json') === true, 'secrets. marker');
 expect(t.isProtectedPath('.git/config') === true, '.git path protected');
 expect(t.isProtectedPath('src/main.ts') === false, 'normal path not protected');
+expect(t.nativePathDecision('read', '.env').decision === 'ask', 'protected native read must ask for approval');
+expect(t.nativePathDecision('write', '.env').decision === 'deny', 'protected native write must remain blocked');
+expect(t.nativePathDecision('edit', '.env').decision === 'deny', 'protected native edit must remain blocked');
+expect(t.nativePathDecision('read', 'src/main.ts').decision === 'allow', 'normal native read must allow');
+const protectedReadReason = t.nativePathDecision('read', '.env').reason;
+expect(await t.confirmOrBlock({ hasUI: false, ui: { confirm: async () => true } }, 'test', 'test', protectedReadReason), 'protected native read must fail closed without UI');
+expect((await t.confirmOrBlock({ hasUI: true, ui: { confirm: async () => true } }, 'test', 'test', protectedReadReason)) === undefined, 'approved protected native read must allow');
+expect(await t.confirmOrBlock({ hasUI: true, ui: { confirm: async () => false } }, 'test', 'test', protectedReadReason), 'denied protected native read must block');
 
 // MCP metadata discovery and operation-level trusted managed MCP tools are autonomous;
 // Firecrawl/Playwright external mutations, auth, user MCP, and unknown tools still ask.

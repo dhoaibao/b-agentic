@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import re
 import sys
 import textwrap
@@ -36,8 +37,8 @@ RUNTIME_REFERENCE_ROOT_TOKEN = "{{runtime_reference_root}}"
 RUNTIME_DISPLAY_NAME_TOKEN = "{{runtime_display_name}}"
 RUNTIME_METADATA_ROOT_TOKEN = "{{runtime_metadata_root}}"
 RUNTIME_MEMORY_FILE_TOKEN = "{{runtime_memory_file}}"
+RUNTIME_ENFORCEMENT_STATEMENT_TOKEN = "{{runtime_enforcement_statement}}"
 RENDERED_SKILL_SUPPORT_PATH = "."
-RENDERED_RUNTIME_REFERENCE_ROOT = "../../b-agentic/references"
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
 
 PROMPT_FRONTMATTER_FIELDS = [
@@ -81,25 +82,27 @@ def ensure_optional_string(value: object, label: str, errors: list[str]) -> None
         errors.append(f"{label}: expected non-empty string when present")
 
 
+def runtime_reference_root(runtime: dict) -> str:
+    """Resolve references relative to an installed <skill>/SKILL.md payload."""
+    skills_root = str(runtime["skills_install_root"])[2:]
+    metadata_root = str(runtime["metadata_root"])[2:]
+    return posixpath.relpath(
+        posixpath.join(metadata_root, "references"),
+        posixpath.join(skills_root, "<skill>"),
+    )
+
+
 def validate_runtime_reference_layout(runtime: dict, label: str, errors: list[str]) -> None:
     skills_root = runtime.get("skills_install_root")
     metadata_root = runtime.get("metadata_root")
     if not isinstance(skills_root, str) or not isinstance(metadata_root, str):
         return
-
     if not skills_root.startswith("~/") or not metadata_root.startswith("~/"):
         errors.append(f"{label}: skills_install_root and metadata_root must use ~/ paths")
         return
-
-    skills_path = Path(skills_root[2:])
-    metadata_path = Path(metadata_root[2:])
-    if metadata_path.name != "b-agentic":
-        errors.append(f"{label}.metadata_root: must end with b-agentic")
-    if skills_path.parent != metadata_path.parent:
-        errors.append(
-            f"{label}: skills_install_root and metadata_root must share a parent "
-            "because generated skills reference ../../b-agentic/references"
-        )
+    reference_root = runtime_reference_root(runtime)
+    if reference_root.startswith("/") or reference_root == ".":
+        errors.append(f"{label}: derived skill reference path must be relative")
 
 
 def load_registries() -> tuple[list[dict], list[dict]]:
@@ -136,6 +139,7 @@ def validate_kernel_template(errors: list[str]) -> None:
     for token in [
         RUNTIME_DISPLAY_NAME_TOKEN,
         RUNTIME_METADATA_ROOT_TOKEN,
+        RUNTIME_ENFORCEMENT_STATEMENT_TOKEN,
     ]:
         if token not in template_text:
             errors.append(f"{KERNEL_TEMPLATE_PATH}: missing kernel template token {token!r}")
@@ -195,6 +199,14 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
     }
 
     validate_kernel_template(errors)
+    # Regression fixture: layouts need not use a sibling directory named
+    # b-agentic. The renderer must derive the installed skill's relative path.
+    alternate_layout = {
+        "skills_install_root": "~/.alternate/runtime/skills",
+        "metadata_root": "~/.alternate/metadata/store",
+    }
+    if runtime_reference_root(alternate_layout) != "../../../metadata/store/references":
+        errors.append("registry renderer: alternate runtime layout reference-path fixture failed")
 
     registry_skill_names: list[str] = []
     command_aliases: list[str] = []
@@ -298,6 +310,7 @@ def validate_registries(skills: list[dict], runtimes: list[dict]) -> list[str]:
                 f"{sorted(RUNTIME_SUPPORT_TIERS)}, found {support_tier!r}"
             )
         ensure_string(runtime.get("mcp_enforcement"), f"runtimes[{index}].mcp_enforcement", errors)
+        ensure_string(runtime.get("enforcement_statement"), f"runtimes[{index}].enforcement_statement", errors)
         config_install_path = ensure_string(runtime.get("config_install_path"), f"runtimes[{index}].config_install_path", errors)
         if config_install_path and not config_install_path.startswith("~/"):
             errors.append(f"runtimes[{index}].config_install_path: must use a ~/ path")
@@ -602,7 +615,7 @@ def render_yaml_scalar(key: str, value: object) -> str:
     return f"{key}: {rendered}"
 
 
-def render_skill_file(skill: dict) -> str:
+def render_skill_file(skill: dict, runtime: dict) -> str:
     prompt_meta = skill["prompt"]
     prompt_path = ROOT / "skills" / skill["name"] / "prompt.md"
     prompt_text = prompt_path.read_text().rstrip() + "\n"
@@ -610,7 +623,7 @@ def render_skill_file(skill: dict) -> str:
         prompt_text,
         {
             SKILL_SUPPORT_PATH_TOKEN: RENDERED_SKILL_SUPPORT_PATH,
-            RUNTIME_REFERENCE_ROOT_TOKEN: RENDERED_RUNTIME_REFERENCE_ROOT,
+            RUNTIME_REFERENCE_ROOT_TOKEN: runtime_reference_root(runtime),
         },
         prompt_path,
     ).rstrip()
@@ -660,6 +673,7 @@ def render_kernel(runtime: dict, skills: list[dict]) -> str:
             RUNTIME_DISPLAY_NAME_TOKEN: runtime["display_name"],
             RUNTIME_METADATA_ROOT_TOKEN: runtime["metadata_root"],
             RUNTIME_MEMORY_FILE_TOKEN: runtime["memory_file"],
+            RUNTIME_ENFORCEMENT_STATEMENT_TOKEN: runtime["enforcement_statement"],
         },
         KERNEL_TEMPLATE_PATH,
     )
@@ -718,12 +732,17 @@ def render_outputs(skills: list[dict], runtimes: list[dict]) -> dict[Path, str]:
         render_mcp_operations_table(load_mcp_operations()),
     )
 
+    reference_runtime = next(runtime for runtime in runtimes if runtime.get("reference_runtime") is True)
     for skill in skills:
-        outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
+        # Repository-root artifacts support the reference runtime; installable
+        # payloads below are rendered per runtime for alternate layouts.
+        outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill, reference_runtime)
 
     exposed_skills = [skill for skill in skills if skill["command"]["exposed"]]
     for runtime in runtimes:
         outputs[ROOT / runtime["kernel_source"]] = render_kernel(runtime, skills)
+        for skill in skills:
+            outputs[ROOT / "runtimes" / runtime["name"] / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill, runtime)
         command_wrappers = runtime.get("command_wrappers")
         if not isinstance(command_wrappers, dict) or not command_wrappers.get("supported"):
             continue
@@ -751,6 +770,7 @@ def sync_outputs(check: bool) -> int:
             continue
         dirty_paths.append(str(path.relative_to(ROOT)))
         if not check:
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content)
 
     if check and dirty_paths:

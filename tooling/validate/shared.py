@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 import sys
 from pathlib import Path
@@ -38,15 +39,12 @@ def validate_runtime_reference_layout(runtime: dict, label: str) -> None:
     if not skills_root.startswith("~/") or not metadata_root.startswith("~/"):
         errors.append(f"{label}: skills_install_root and metadata_root must use ~/ paths")
         return
-    skills_path = Path(skills_root[2:])
-    metadata_path = Path(metadata_root[2:])
-    if metadata_path.name != "b-agentic":
-        errors.append(f"{label}.metadata_root: must end with b-agentic")
-    if skills_path.parent != metadata_path.parent:
-        errors.append(
-            f"{label}: skills_install_root and metadata_root must share a parent "
-            "because generated skills reference ../../b-agentic/references"
-        )
+    reference_root = posixpath.relpath(
+        posixpath.join(metadata_root[2:], "references"),
+        posixpath.join(skills_root[2:], "<skill>"),
+    )
+    if reference_root.startswith("/") or reference_root == ".":
+        errors.append(f"{label}: derived skill reference path must be relative")
 
 
 def require_contains(path: Path, text: str, needles: list[str], label: str) -> None:
