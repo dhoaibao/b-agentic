@@ -122,7 +122,7 @@ if extension.exists():
 
 if readme.exists():
     text = readme.read_text()
-    for marker in ['pi-mcp-adapter', 'pi-lens', 'pi-observational-memory', 'extensions/b-agentic-permissions.ts', 'mcp.json']:
+    for marker in ['pi-mcp-adapter', 'pi-observational-memory', 'extensions/b-agentic-permissions.ts', 'mcp.json']:
         if marker not in text:
             errors.append(f'{readme}: missing {marker!r}')
 

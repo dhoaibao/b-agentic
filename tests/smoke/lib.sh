@@ -105,10 +105,6 @@ if [ "${1:-}" = "list" ]; then
     printf 'npm:pi-mcp-adapter\n'
     found=1
   fi
-  if [ -f "$log_dir/pi-lens-installed" ]; then
-    printf 'npm:pi-lens\n'
-    found=1
-  fi
   if [ -f "$log_dir/pi-observational-memory-installed" ]; then
     printf 'npm:pi-observational-memory\n'
     found=1
@@ -120,9 +116,6 @@ if [ "${1:-}" = "install" ]; then
   printf '%s\n' "${2:-}" >> "$log_dir/pi-install.log"
   if [ "${2:-}" = "npm:pi-mcp-adapter" ]; then
     : > "$log_dir/pi-adapter-installed"
-  fi
-  if [ "${2:-}" = "npm:pi-lens" ]; then
-    : > "$log_dir/pi-lens-installed"
   fi
   if [ "${2:-}" = "npm:pi-observational-memory" ]; then
     : > "$log_dir/pi-observational-memory-installed"
@@ -187,7 +180,6 @@ run_install_status() {
 		B_AGENTIC_INSTALL_SERENA=N \
 		B_AGENTIC_INSTALL_CODEGRAPH=N \
 		B_AGENTIC_INSTALL_PI_MCP_ADAPTER=N \
-		B_AGENTIC_INSTALL_PI_LENS=N \
 		B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=N \
 		bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
 	rc=$?
@@ -218,7 +210,6 @@ run_install_status_in_cwd() {
 			B_AGENTIC_INSTALL_SERENA=N \
 			B_AGENTIC_INSTALL_CODEGRAPH=N \
 			B_AGENTIC_INSTALL_PI_MCP_ADAPTER=N \
-			B_AGENTIC_INSTALL_PI_LENS=N \
 			B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=N \
 			bash "$ROOT_DIR/install.sh" "$@" >/dev/null 2>&1
 	)
@@ -254,7 +245,6 @@ env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
 env["B_AGENTIC_INSTALL_SERENA"] = "N"
 env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
 env["B_AGENTIC_INSTALL_PI_MCP_ADAPTER"] = "N"
-env["B_AGENTIC_INSTALL_PI_LENS"] = "N"
 env["B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY"] = "N"
 
 pid, fd = pty.fork()
@@ -317,7 +307,6 @@ env["B_AGENTIC_INSTALL_SHELL_TOOLS"] = "N"
 env["B_AGENTIC_INSTALL_SERENA"] = "N"
 env["B_AGENTIC_INSTALL_CODEGRAPH"] = "N"
 env["B_AGENTIC_INSTALL_PI_MCP_ADAPTER"] = "N"
-env["B_AGENTIC_INSTALL_PI_LENS"] = "N"
 env["B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY"] = "N"
 
 pid, fd = pty.fork()

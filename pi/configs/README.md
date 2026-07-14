@@ -20,12 +20,6 @@ Pi does not provide native MCP. b-agentic installs MCP server entries into
 `pi install npm:pi-mcp-adapter`. Noninteractive installs run that only when
 `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` is set.
 
-b-agentic can also install the optional `pi-lens` package for live diagnostics,
-linters, type checks, and structural analysis. Interactive installs prompt
-before running `pi install npm:pi-lens`; noninteractive installs require
-`B_AGENTIC_INSTALL_PI_LENS=Y`. Its agent-facing custom tools remain subject to
-the permission extension's approval gate.
-
 For long-session compaction continuity, b-agentic can install the optional
 `pi-observational-memory` package. Interactive installs prompt before running
 `pi install npm:pi-observational-memory`; noninteractive installs require

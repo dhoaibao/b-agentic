@@ -22,8 +22,6 @@ readonly EXTENSION_SNAPSHOT_DST="$METADATA_DIR/extensions/b-agentic-permissions.
 readonly EXTENSION_SRC="$SOURCE_DIR/pi/extensions/b-agentic-permissions.ts"
 readonly PI_MCP_ADAPTER_SPEC="npm:pi-mcp-adapter"
 readonly PI_MCP_ADAPTER_PACKAGE="pi-mcp-adapter"
-readonly PI_LENS_SPEC="npm:pi-lens"
-readonly PI_LENS_PACKAGE="pi-lens"
 readonly PI_OBSERVATIONAL_MEMORY_SPEC="npm:pi-observational-memory"
 readonly PI_OBSERVATIONAL_MEMORY_PACKAGE="pi-observational-memory"
 readonly MCP_ROOT_KEY="mcpServers"
@@ -43,8 +41,6 @@ INSTALL_EXTENSION_STATE="none"
 INSTALL_EXTENSION_BACKUP="none"
 INSTALL_PI_MCP_ADAPTER_ACTION="skip"
 INSTALL_PI_MCP_ADAPTER_STATE="missing"
-INSTALL_PI_LENS_ACTION="skip"
-INSTALL_PI_LENS_STATE="missing"
 INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION="skip"
 INSTALL_PI_OBSERVATIONAL_MEMORY_STATE="missing"
 
@@ -54,9 +50,6 @@ runtime_warn_missing_cli() {
 	command -v pnpm >/dev/null 2>&1 || warn "pnpm not found; MCP servers that use 'pnpm dlx' (Brave, Firecrawl, Playwright) will not start until pnpm is installed."
 	if command -v pi >/dev/null 2>&1 && ! pi_mcp_adapter_installed; then
 		warn "pi-mcp-adapter not installed; MCP servers will not load until the adapter is installed."
-	fi
-	if command -v pi >/dev/null 2>&1 && ! pi_lens_installed; then
-		warn "pi-lens not installed; live diagnostics and structural analysis are unavailable."
 	fi
 	if command -v pi >/dev/null 2>&1 && ! pi_observational_memory_installed; then
 		warn "pi-observational-memory not installed; long-session compaction continuity is unavailable."
@@ -112,10 +105,6 @@ pi_package_installed() {
 
 pi_mcp_adapter_installed() {
 	pi_package_installed "$PI_MCP_ADAPTER_PACKAGE"
-}
-
-pi_lens_installed() {
-	pi_package_installed "$PI_LENS_PACKAGE"
 }
 
 pi_observational_memory_installed() {
@@ -179,66 +168,6 @@ maybe_install_pi_mcp_adapter() {
 		INSTALL_PI_MCP_ADAPTER_ACTION="failed"
 		INSTALL_PI_MCP_ADAPTER_STATE="missing"
 		warn "Failed to install $PI_MCP_ADAPTER_PACKAGE; MCP will remain degraded"
-	fi
-}
-
-install_pi_lens_enabled() {
-	local value="${B_AGENTIC_INSTALL_PI_LENS:-auto}"
-	case "$value" in
-	n | N | no | NO | No | false | FALSE | 0) return 1 ;;
-	y | Y | yes | YES | Yes | true | TRUE | 1) return 0 ;;
-	auto | AUTO | Auto)
-		if pi_lens_installed; then
-			return 1
-		fi
-		if [ -r /dev/tty ] && [ -w /dev/tty ]; then
-			prompt_yes_no "Install Pi Lens ($PI_LENS_PACKAGE)? [y/N]" N
-			return $?
-		fi
-		return 1
-		;;
-	*) die "invalid B_AGENTIC_INSTALL_PI_LENS value: $value" ;;
-	esac
-}
-
-maybe_install_pi_lens() {
-	if pi_lens_installed; then
-		INSTALL_PI_LENS_ACTION="present"
-		INSTALL_PI_LENS_STATE="ready"
-		log "Pi Lens $PI_LENS_PACKAGE already installed"
-		return 0
-	fi
-
-	if ! command -v pi >/dev/null 2>&1; then
-		INSTALL_PI_LENS_ACTION="skip"
-		INSTALL_PI_LENS_STATE="missing-cli"
-		warn "Pi CLI missing; cannot install $PI_LENS_PACKAGE"
-		return 0
-	fi
-
-	if ! install_pi_lens_enabled; then
-		INSTALL_PI_LENS_ACTION="skip"
-		INSTALL_PI_LENS_STATE="missing"
-		warn "Skipping $PI_LENS_PACKAGE install; set B_AGENTIC_INSTALL_PI_LENS=Y or accept the interactive prompt"
-		return 0
-	fi
-
-	if dry_run_enabled; then
-		printf '[dry-run] pi install %s\n' "$PI_LENS_SPEC" >&2
-		INSTALL_PI_LENS_ACTION="install"
-		INSTALL_PI_LENS_STATE="dry-run"
-		return 0
-	fi
-
-	log "Installing $PI_LENS_PACKAGE"
-	if pi install "$PI_LENS_SPEC"; then
-		INSTALL_PI_LENS_ACTION="install"
-		INSTALL_PI_LENS_STATE="ready"
-		log "Installed $PI_LENS_PACKAGE"
-	else
-		INSTALL_PI_LENS_ACTION="failed"
-		INSTALL_PI_LENS_STATE="missing"
-		warn "Failed to install $PI_LENS_PACKAGE; live diagnostics and structural analysis remain unavailable"
 	fi
 }
 
@@ -343,7 +272,6 @@ runtime_install_extra_assets() {
 
 runtime_install_configs() {
 	maybe_install_pi_mcp_adapter
-	maybe_install_pi_lens
 	maybe_install_pi_observational_memory
 	run_install_triplet_stage "Installing Pi permission extension" install_permissions_extension "skip" "none" "none" \
 		INSTALL_EXTENSION_ACTION INSTALL_EXTENSION_STATE INSTALL_EXTENSION_BACKUP
@@ -376,8 +304,6 @@ runtime_write_manifest() {
 		MCP_BACKUP="$INSTALL_MCP_BACKUP" \
 		MCP_ADAPTER_ACTION="$INSTALL_PI_MCP_ADAPTER_ACTION" \
 		MCP_ADAPTER_STATE="$INSTALL_PI_MCP_ADAPTER_STATE" \
-		PI_LENS_ACTION="$INSTALL_PI_LENS_ACTION" \
-		PI_LENS_STATE="$INSTALL_PI_LENS_STATE" \
 		PI_OBSERVATIONAL_MEMORY_ACTION="$INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION" \
 		PI_OBSERVATIONAL_MEMORY_STATE="$INSTALL_PI_OBSERVATIONAL_MEMORY_STATE" \
 		PI_AGENT_DIR="$PI_AGENT_DIR" \
@@ -406,8 +332,6 @@ manifest = {
     'mcpState': os.environ['MCP_STATE'],
     'mcpAdapterAction': os.environ['MCP_ADAPTER_ACTION'],
     'mcpAdapterState': os.environ['MCP_ADAPTER_STATE'],
-    'piLensAction': os.environ['PI_LENS_ACTION'],
-    'piLensState': os.environ['PI_LENS_STATE'],
     'piObservationalMemoryAction': os.environ['PI_OBSERVATIONAL_MEMORY_ACTION'],
     'piObservationalMemoryState': os.environ['PI_OBSERVATIONAL_MEMORY_STATE'],
     'paths': {
@@ -439,7 +363,6 @@ runtime_print_install_report() {
 	report_item "permissions" "$INSTALL_EXTENSION_ACTION -> $EXTENSION_DST"
 	report_item "mcp" "$INSTALL_MCP_ACTION -> $MCP_CONFIG_DST"
 	report_item "mcp-adapter" "$INSTALL_PI_MCP_ADAPTER_ACTION ($INSTALL_PI_MCP_ADAPTER_STATE)"
-	report_item "pi-lens" "$INSTALL_PI_LENS_ACTION ($INSTALL_PI_LENS_STATE)"
 	report_item "pi-observational-memory" "$INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION ($INSTALL_PI_OBSERVATIONAL_MEMORY_STATE)"
 	report_item "references" "sync -> $REFERENCES_DST"
 	report_item "templates" "sync -> $TEMPLATES_DST"
@@ -453,10 +376,6 @@ runtime_print_install_report() {
 	if [ "$INSTALL_PI_MCP_ADAPTER_STATE" != "ready" ]; then
 		report_section "MCP adapter"
 		report_item "status" "degraded: install $PI_MCP_ADAPTER_PACKAGE with 'pi install $PI_MCP_ADAPTER_SPEC' or B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y"
-	fi
-	if [ "$INSTALL_PI_LENS_STATE" != "ready" ]; then
-		report_section "Pi Lens"
-		report_item "status" "optional: install $PI_LENS_PACKAGE with 'pi install $PI_LENS_SPEC' or B_AGENTIC_INSTALL_PI_LENS=Y"
 	fi
 	if [ "$INSTALL_PI_OBSERVATIONAL_MEMORY_STATE" != "ready" ]; then
 		report_section "Pi Observational Memory"
@@ -478,7 +397,7 @@ runtime_uninstall_configs() {
 			warn "preserving modified Pi permission extension: $extension_path"
 		fi
 	fi
-	# Intentionally leave pi-mcp-adapter, pi-lens, and pi-observational-memory packages installed.
+	# Intentionally leave pi-mcp-adapter and pi-observational-memory packages installed.
 }
 
 runtime_uninstall_extra_assets() { :; }

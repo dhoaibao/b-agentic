@@ -1,80 +1,77 @@
 # Sourced by tests/smoke/install.sh — do not run directly.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-  echo "error: this script is sourced by tests/smoke/install.sh" >&2
-  exit 1
+	echo "error: this script is sourced by tests/smoke/install.sh" >&2
+	exit 1
 fi
 
 run_pi_smoke_cases() {
-  local snapshot_repo="$1"
-  local sandbox="$WORK_DIR/pi"
-  local sandbox_adapter="$WORK_DIR/pi-adapter"
-  local sandbox_preserve="$WORK_DIR/pi-preserve"
-  local sandbox_replace="$WORK_DIR/pi-replace"
-  local sandbox_mcp_merge="$WORK_DIR/pi-mcp-merge"
-  mkdir -p "$sandbox/home" "$sandbox_adapter/home" "$sandbox_preserve/home" "$sandbox_replace/home" "$sandbox_mcp_merge/home"
+	local snapshot_repo="$1"
+	local sandbox="$WORK_DIR/pi"
+	local sandbox_adapter="$WORK_DIR/pi-adapter"
+	local sandbox_preserve="$WORK_DIR/pi-preserve"
+	local sandbox_replace="$WORK_DIR/pi-replace"
+	local sandbox_mcp_merge="$WORK_DIR/pi-mcp-merge"
+	mkdir -p "$sandbox/home" "$sandbox_adapter/home" "$sandbox_preserve/home" "$sandbox_replace/home" "$sandbox_mcp_merge/home"
 
-  # Core install layout without adapter package.
-  expect_install_status 0 "$sandbox" "$snapshot_repo"
-  assert_file "$sandbox/home/.pi/agent/AGENTS.md"
-  assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
-  assert_file "$sandbox/home/.pi/agent/b-agentic/references/kernel.template.md"
-  assert_file "$sandbox/home/.pi/agent/b-agentic/references/mcp_operations.yaml"
-  assert_no_path "$sandbox/home/.pi/agent/b-agentic/references/contract"
-  assert_file "$sandbox/home/.pi/agent/mcp.json"
-  assert_file "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
-  assert_file "$sandbox/home/.pi/agent/b-agentic/extensions/b-agentic-permissions.ts"
-  assert_file "$sandbox/home/.pi/agent/b-agentic/install.json"
-  assert_contains "$sandbox/home/.pi/agent/mcp.json" '"codegraph"'
-  assert_contains "$sandbox/home/.pi/agent/mcp.json" '"lifecycle": "lazy"'
-  assert_contains "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts" 'tool_call'
-  assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "missing"'
-  assert_contains "$sandbox/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
+	# Core install layout without adapter package.
+	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	assert_file "$sandbox/home/.pi/agent/AGENTS.md"
+	assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
+	assert_file "$sandbox/home/.pi/agent/b-agentic/references/kernel.template.md"
+	assert_file "$sandbox/home/.pi/agent/b-agentic/references/mcp_operations.yaml"
+	assert_no_path "$sandbox/home/.pi/agent/b-agentic/references/contract"
+	assert_file "$sandbox/home/.pi/agent/mcp.json"
+	assert_file "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	assert_file "$sandbox/home/.pi/agent/b-agentic/extensions/b-agentic-permissions.ts"
+	assert_file "$sandbox/home/.pi/agent/b-agentic/install.json"
+	assert_contains "$sandbox/home/.pi/agent/mcp.json" '"codegraph"'
+	assert_contains "$sandbox/home/.pi/agent/mcp.json" '"lifecycle": "lazy"'
+	assert_contains "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts" 'tool_call'
+	assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "missing"'
+	assert_contains "$sandbox/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
 
-  # Optional Pi packages via env opt-in (mock pi records installs).
-  # expect_install_status hardcodes env; invoke installer directly for package opt-ins.
-  local smoke_path
-  smoke_path="$(smoke_runtime_cli_path "$sandbox_adapter")"
-  HOME="$sandbox_adapter/home" \
-  PATH="$smoke_path" \
-  B_AGENTIC_REPO="$snapshot_repo" \
-  B_AGENTIC_DIR="$sandbox_adapter/source" \
-  B_AGENTIC_PROMPT_API_KEYS=N \
-  B_AGENTIC_INSTALL_PI_CLI=N \
-  B_AGENTIC_INSTALL_RTK=N \
-  B_AGENTIC_INSTALL_SERENA=N \
-  B_AGENTIC_INSTALL_CODEGRAPH=N \
-  B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y \
-  B_AGENTIC_INSTALL_PI_LENS=Y \
-  B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y \
-  bash "$ROOT_DIR/install.sh"  >/dev/null 2>&1
-  assert_file "$sandbox_adapter/home/.pi/agent/b-agentic/install.json"
-  assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "ready"'
-  assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piLensState": "ready"'
-  assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piObservationalMemoryState": "ready"'
-  assert_file "$sandbox_adapter/smoke-bin/pi-install.log"
-  assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-mcp-adapter'
-  assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-lens'
-  assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-observational-memory'
+	# Optional Pi packages via env opt-in (mock pi records installs).
+	# expect_install_status hardcodes env; invoke installer directly for package opt-ins.
+	local smoke_path
+	smoke_path="$(smoke_runtime_cli_path "$sandbox_adapter")"
+	HOME="$sandbox_adapter/home" \
+		PATH="$smoke_path" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox_adapter/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		B_AGENTIC_INSTALL_PI_CLI=N \
+		B_AGENTIC_INSTALL_RTK=N \
+		B_AGENTIC_INSTALL_SERENA=N \
+		B_AGENTIC_INSTALL_CODEGRAPH=N \
+		B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y \
+		B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y \
+		bash "$ROOT_DIR/install.sh" >/dev/null 2>&1
+	assert_file "$sandbox_adapter/home/.pi/agent/b-agentic/install.json"
+	assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "ready"'
+	assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piObservationalMemoryState": "ready"'
+	assert_file "$sandbox_adapter/smoke-bin/pi-install.log"
+	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-mcp-adapter'
+	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-observational-memory'
 
-  # Preserve user-owned kernel.
-  mkdir -p "$sandbox_preserve/home/.pi/agent"
-  printf 'user-owned pi kernel\n' > "$sandbox_preserve/home/.pi/agent/AGENTS.md"
-  expect_install_status 2 "$sandbox_preserve" "$snapshot_repo"
-  assert_file "$sandbox_preserve/home/.pi/agent/AGENTS.md"
-  assert_contains "$sandbox_preserve/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
-  assert_file "$sandbox_preserve/home/.pi/agent/b-agentic/install.json"
-  assert_contains "$sandbox_preserve/home/.pi/agent/b-agentic/install.json" '"activationState": "pending"'
+	# Preserve user-owned kernel.
+	mkdir -p "$sandbox_preserve/home/.pi/agent"
+	printf 'user-owned pi kernel\n' >"$sandbox_preserve/home/.pi/agent/AGENTS.md"
+	expect_install_status 2 "$sandbox_preserve" "$snapshot_repo"
+	assert_file "$sandbox_preserve/home/.pi/agent/AGENTS.md"
+	assert_contains "$sandbox_preserve/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
+	assert_file "$sandbox_preserve/home/.pi/agent/b-agentic/install.json"
+	assert_contains "$sandbox_preserve/home/.pi/agent/b-agentic/install.json" '"activationState": "pending"'
 
-  # --replace-memory overwrites user kernel.
-  mkdir -p "$sandbox_replace/home/.pi/agent"
-  printf 'user-owned pi kernel\n' > "$sandbox_replace/home/.pi/agent/AGENTS.md"
-  expect_install_status 0 "$sandbox_replace" "$snapshot_repo"  --replace-memory
-  assert_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
-  assert_not_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
+	# --replace-memory overwrites user kernel.
+	mkdir -p "$sandbox_replace/home/.pi/agent"
+	printf 'user-owned pi kernel\n' >"$sandbox_replace/home/.pi/agent/AGENTS.md"
+	expect_install_status 0 "$sandbox_replace" "$snapshot_repo" --replace-memory
+	assert_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
+	assert_not_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
 
-  # MCP merge preserves unrelated servers.
-  mkdir -p "$sandbox_mcp_merge/home/.pi/agent"
-  cat > "$sandbox_mcp_merge/home/.pi/agent/mcp.json" <<'EOF'
+	# MCP merge preserves unrelated servers.
+	mkdir -p "$sandbox_mcp_merge/home/.pi/agent"
+	cat >"$sandbox_mcp_merge/home/.pi/agent/mcp.json" <<'EOF'
 {
   "mcpServers": {
     "user-server": {
@@ -84,13 +81,13 @@ run_pi_smoke_cases() {
   }
 }
 EOF
-  expect_install_status 0 "$sandbox_mcp_merge" "$snapshot_repo"
-  assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"user-server"'
-  assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"serena"'
+	expect_install_status 0 "$sandbox_mcp_merge" "$snapshot_repo"
+	assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"user-server"'
+	assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"serena"'
 
-  # Behavioral permission coverage via node --experimental-strip-types (no Pi runtime).
-  if command -v node >/dev/null 2>&1; then
-    ROOT_DIR="$ROOT_DIR" node --experimental-strip-types --input-type=module - <<'NODE'
+	# Behavioral permission coverage via node --experimental-strip-types (no Pi runtime).
+	if command -v node >/dev/null 2>&1; then
+		ROOT_DIR="$ROOT_DIR" node --experimental-strip-types --input-type=module - <<'NODE'
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -296,12 +293,12 @@ expect(t.PLAYWRIGHT_TRUSTED_TOOLS.has('browser_snapshot'), 'playwright allowlist
 
 console.log('pi permission behavioral fixtures ok');
 NODE
-  fi
+	fi
 
-  # Source-backed uninstall removes managed content only.
-  expect_install_status 0 "$sandbox" "$snapshot_repo"  --uninstall
-  assert_no_path "$sandbox/home/.pi/agent/skills/b-plan"
-  assert_no_path "$sandbox/home/.pi/agent/b-agentic/install.json"
-  assert_no_path "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
-  # User MCP entries would be preserved by merge cleanup; managed-only install removes mcp.json entirely.
+	# Source-backed uninstall removes managed content only.
+	expect_install_status 0 "$sandbox" "$snapshot_repo" --uninstall
+	assert_no_path "$sandbox/home/.pi/agent/skills/b-plan"
+	assert_no_path "$sandbox/home/.pi/agent/b-agentic/install.json"
+	assert_no_path "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	# User MCP entries would be preserved by merge cleanup; managed-only install removes mcp.json entirely.
 }
