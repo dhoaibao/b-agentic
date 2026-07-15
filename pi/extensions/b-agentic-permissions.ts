@@ -152,7 +152,6 @@ const FIRECRAWL_TRUSTED_TOOLS = new Set([
   "firecrawl_research_search_papers",
   "firecrawl_scrape",
   "firecrawl_search",
-  "firecrawl_interact_stop",
 ]);
 
 /**
@@ -161,6 +160,7 @@ const FIRECRAWL_TRUSTED_TOOLS = new Set([
  */
 const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
   "browser_snapshot",
+  "browser_find",
   "browser_take_screenshot",
   "browser_console_messages",
   "browser_network_requests",
@@ -176,14 +176,14 @@ const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
 /**
- * Native command families exposed by `rtk --help`, plus supported package-manager
- * aliases. Agents must use RTK for supported families and `rtk proxy` for raw executables.
+ * Native command families exposed by `rtk --help`. Agents must use RTK for
+ * supported families and `rtk proxy` for raw executables.
  */
 const RTK_REQUIRED_COMMANDS = new Set([
   "ls", "tree", "git", "gh", "glab", "aws", "psql", "pnpm", "find", "diff",
   "dotnet", "docker", "kubectl", "oc", "grep", "rg", "wget", "wc",
   "jest", "vitest", "prisma", "tsc", "next", "lint", "prettier", "format",
-  "playwright", "cargo", "npm", "npx", "yarn", "bun", "curl", "ruff", "pytest", "mypy",
+  "playwright", "cargo", "npm", "npx", "curl", "ruff", "pytest", "mypy",
   "rake", "rubocop", "rspec", "pip", "go", "gt", "golangci-lint", "gradlew", "mvn",
 ]);
 /** Unsupported raw utilities with mandatory modern replacements. */
@@ -695,11 +695,8 @@ function isStandaloneEnvCommand(rawTokens: string[]): boolean {
   );
 }
 
-function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): boolean {
-  if (isRtkWrapped(rawTokens)) {
-    return false;
-  }
-  if (RTK_REQUIRED_COMMANDS.has(tokens[0]) || RAW_REPLACEMENT_COMMANDS.has(tokens[0])) {
+function isRequiredRawReplacement(tokens: string[]): boolean {
+  if (RAW_REPLACEMENT_COMMANDS.has(tokens[0])) {
     return true;
   }
   return (
@@ -707,6 +704,10 @@ function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): bool
     tokens[1] === "-m" &&
     tokens[2] === "json.tool"
   );
+}
+
+function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): boolean {
+  return !isRtkWrapped(rawTokens) && RTK_REQUIRED_COMMANDS.has(tokens[0]);
 }
 
 function hasShellExecutionProxy(tokens: string[]): boolean {
@@ -846,10 +847,17 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     }
   }
 
+  if (isRequiredRawReplacement(tokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: use the required modern shell-tool replacement",
+    };
+  }
+
   if (isDirectRtkRequiredCommand(rawTokens, tokens)) {
     return {
       decision: "ask",
-      reason: "Requires approval: use RTK for supported command families or the required raw replacement",
+      reason: "Requires approval: use RTK for supported command families",
     };
   }
 
@@ -934,7 +942,8 @@ function isTrustedMcpProxyCall(input: unknown): boolean {
     connect?: unknown;
     server?: unknown;
   };
-  // Metadata-only calls must not be mixed with execution selectors.
+  // Metadata-only calls must contain exactly one metadata selector and no
+  // execution selector. This prevents search/describe from laundering auth.
   if (
     typeof value.tool === "string" ||
     typeof value.connect === "string" ||
@@ -942,12 +951,17 @@ function isTrustedMcpProxyCall(input: unknown): boolean {
   ) {
     return false;
   }
+  const hasAction = typeof value.action === "string";
+  const hasSearch = typeof value.search === "string";
+  const hasDescribe = typeof value.describe === "string";
+  if ([hasAction, hasSearch, hasDescribe].filter(Boolean).length !== 1) {
+    return false;
+  }
+  if (hasAction) {
+    return value.action === "ui-messages";
+  }
   // Search and describe use cached metadata only; they do not call a server.
-  return (
-    value.action === "ui-messages" ||
-    typeof value.search === "string" ||
-    typeof value.describe === "string"
-  );
+  return hasSearch || hasDescribe;
 }
 
 function normalizeServerId(value: string): string {

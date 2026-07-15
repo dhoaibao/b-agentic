@@ -86,7 +86,7 @@
         "firecrawl_extract": "read-only",
         "firecrawl_agent_status": "read-only",
         "firecrawl_check_crawl_status": "read-only",
-        "firecrawl_interact_stop": "read-only",
+        "firecrawl_interact_stop": "external-mutation",
         "firecrawl_research_search_papers": "read-only",
         "firecrawl_research_inspect_paper": "read-only",
         "firecrawl_research_read_paper": "read-only",
@@ -111,6 +111,7 @@
     "playwright": {
       "tools": {
         "browser_snapshot": "read-only",
+        "browser_find": "read-only",
         "browser_take_screenshot": "read-only",
         "browser_console_messages": "read-only",
         "browser_network_requests": "read-only",

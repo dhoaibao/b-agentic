@@ -19,6 +19,8 @@ All notable shipped revisions of b-agentic are recorded here. Version numbers ma
 - Add outcome-focused skill routing fixtures for high-risk phase boundaries.
 - Simplify `b-summary` and make `b-design` structure an adaptable checklist rather than a forced skeleton.
 - Add opt-in, human-scored prompt-effectiveness scenarios for ambiguity, simplicity, surgical changes, and verified execution.
+- Harden Pi permission handling for mixed MCP selectors, external session cleanup, and RTK-proxied legacy shell tools.
+- Validate prompt-effectiveness inputs without model calls and detect RTK command-policy drift in session readiness checks.
 
 ## 2026.06.24
 

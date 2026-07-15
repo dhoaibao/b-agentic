@@ -153,9 +153,10 @@ scripts/mcp-doctor.sh --allow-degraded
 scripts/skill-doctor.sh
 ```
 
-Prompt effectiveness is an opt-in, human-scored check because it makes potentially billable model calls and is nondeterministic. Pin the model and thinking level when comparing a baseline with a candidate:
+Prompt effectiveness is an opt-in, human-scored check because it makes potentially billable model calls and is nondeterministic. Validate its default inputs without model calls, then pin the model and thinking level when comparing a baseline with a candidate:
 
 ```bash
+python3 pi/tests/prompt_effectiveness.py --validate-inputs
 python3 pi/tests/prompt_effectiveness.py --allow-model-calls --model=<model> --thinking=<level> --label=baseline > baseline.json
 ```
 

@@ -141,6 +141,12 @@ expect(t.commandDecision('env -S ls').decision === 'ask', 'env -S legacy command
 expect(t.commandDecision('env -S "grep needle src/main.ts"').decision === 'ask', 'env -S command string must be approval-gated');
 expect(t.commandDecision('grep needle src/main.ts').decision === 'ask', 'direct grep must require approval to use RTK or rg');
 expect(t.commandDecision('python3 -m json.tool package.json').decision === 'ask', 'python json.tool must require approval to use jq');
+for (const command of [
+  'rtk proxy cat src/main.ts',
+  'rtk proxy sed -n 1p src/main.ts',
+  'rtk proxy awk {print} src/main.ts',
+  'rtk proxy python3 -m json.tool package.json',
+]) expect(t.commandDecision(command).decision === 'ask', `${command} must not bypass the required modern replacement`);
 for (const [command, label] of [
   ['npm add lodash', 'npm add'], ['npm remove lodash', 'npm remove'], ['npm --silent install lodash', 'npm option install'], ['npm ci', 'npm ci'],
   ['/usr/bin/npm --silent install lodash', 'path-qualified npm option install'], ['rtk npm --prefix ./app install lodash', 'npm option-value install'],
@@ -152,17 +158,21 @@ for (const [command, label] of [
   ['uv pip uninstall requests', 'uv pip uninstall'], ['uv pip sync requirements.txt', 'uv pip sync'],
 ]) expect(t.commandDecision(command).decision === 'ask', `${label} must gate dependency writes`);
 expect(t.commandDecision('git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'inline Git config-env alias invocation must ask');
-for (const command of ['npm view lodash', 'pnpm list', 'yarn why lodash', 'bun --version', 'cargo search serde']) {
+for (const command of ['npm view lodash', 'pnpm list', 'cargo search serde']) {
   expect(t.commandDecision(command).decision === 'ask', `${command} must require RTK`);
 }
-for (const command of ['rtk npm view lodash', 'rtk pnpm list', 'rtk yarn why lodash', 'rtk bun --version', 'rtk cargo search serde', 'rtk pytest -q']) {
+for (const command of ['rtk npm view lodash', 'rtk pnpm list', 'rtk cargo search serde', 'rtk pytest -q']) {
   expect(t.commandDecision(command).decision === 'allow', `${command} must preserve supported RTK use`);
+}
+for (const command of ['yarn why lodash', 'bun --version']) {
+  expect(t.commandDecision(command).decision === 'deny', `${command} must use rtk proxy because RTK does not support it`);
+  expect(t.commandDecision(`rtk proxy ${command}`).decision === 'allow', `rtk proxy ${command} must allow tracked raw execution`);
 }
 const rtkSupportedCommands = [
   'ls', 'tree', 'git', 'gh', 'glab', 'aws', 'psql', 'pnpm', 'find', 'diff',
   'dotnet', 'docker', 'kubectl', 'oc', 'grep', 'rg', 'wget', 'wc',
   'jest', 'vitest', 'prisma', 'tsc', 'next', 'lint', 'prettier', 'format',
-  'playwright', 'cargo', 'npm', 'npx', 'yarn', 'bun', 'curl', 'ruff', 'pytest', 'mypy',
+  'playwright', 'cargo', 'npm', 'npx', 'curl', 'ruff', 'pytest', 'mypy',
   'rake', 'rubocop', 'rspec', 'pip', 'go', 'gt', 'golangci-lint', 'gradlew', 'mvn',
 ];
 for (const command of rtkSupportedCommands) {
@@ -246,6 +256,7 @@ expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape' }) === false, 'fire
 expect(t.isMcpOrCustomTool('mcp', { tool: 'brave_search_brave_web_search' }) === false, 'brave search tools are autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_navigate' }) === false, 'playwright navigate is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_snapshot' }) === false, 'playwright snapshot is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_find' }) === false, 'playwright find is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'context7_query-docs' }) === false, 'context7 tools are autonomous');
 expect(t.isMcpOrCustomTool('serena_find_symbol') === false, 'direct managed MCP tool is autonomous');
 expect(t.isMcpOrCustomTool('firecrawl_firecrawl_search') === false, 'adapter-prefixed firecrawl tool is autonomous');
@@ -254,6 +265,7 @@ expect(t.isMcpOrCustomTool('codegraph_codegraph_explore') === false, 'direct cod
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_agent' }) === true, 'firecrawl agent requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_crawl' }) === true, 'firecrawl crawl requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_interact' }) === true, 'firecrawl interact requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_interact_stop' }) === true, 'firecrawl interact stop requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_parse' }) === true, 'firecrawl parse (local upload) requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_search_feedback' }) === true, 'firecrawl search feedback requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_feedback' }) === true, 'firecrawl feedback requires approval');
@@ -275,6 +287,10 @@ expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl', search: 'x' }) === tru
 expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl', describe: 'firecrawl_agent' }) === true, 'connect+describe mixed selector fails closed');
 expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl' }) === false, 'pure managed connect remains autonomous');
 expect(t.isMcpOrCustomTool('mcp', { search: 'x', tool: 'firecrawl_agent' }) === true, 'metadata+tool mixed selector fails closed');
+expect(t.isMcpOrCustomTool('mcp', { search: 'x', action: 'auth-start' }) === true, 'search+auth mixed selector fails closed');
+expect(t.isMcpOrCustomTool('mcp', { describe: 'firecrawl_search', action: 'auth-complete' }) === true, 'describe+auth mixed selector fails closed');
+expect(t.isMcpOrCustomTool('mcp', { search: 'x', describe: 'firecrawl_search' }) === true, 'multiple metadata selectors fail closed');
+expect(t.isMcpOrCustomTool('mcp', { action: 'ui-messages', search: 'x' }) === true, 'UI action+search mixed selector fails closed');
 expect(t.isMcpOrCustomTool('mcp', { action: 'auth-start', server: 'context7' }) === true, 'MCP auth action requires approval');
 expect(t.isMcpOrCustomTool('mcp', { server: 'user-server' }) === true, 'user MCP server requires approval');
 expect(t.isMcpOrCustomTool('mcp', { connect: 'user-server' }) === true, 'user MCP connect requires approval');
@@ -284,6 +300,7 @@ expect(t.isMcpOrCustomTool('some-extension-tool') === true, 'unknown tool is cus
 expect(t.isTrustedManagedMcpCall('mcp', { tool: 'serena_find_symbol' }) === true, 'trusted managed helper');
 expect(t.isTrustedManagedTool('firecrawl', 'firecrawl_search') === true, 'firecrawl search trusted helper');
 expect(t.isTrustedManagedTool('firecrawl', 'firecrawl_interact') === false, 'firecrawl interact not trusted helper');
+expect(t.isTrustedManagedTool('firecrawl', 'firecrawl_interact_stop') === false, 'firecrawl interact stop not trusted helper');
 expect(t.isTrustedManagedTool('playwright', 'browser_click') === false, 'playwright click not trusted helper');
 expect(t.SPECIALIZED_TOOLS.has('grep') && t.SPECIALIZED_TOOLS.has('find') && t.SPECIALIZED_TOOLS.has('ls'), 'discovery tools specialized');
 expect(t.SERENA_TRUSTED_TOOLS.has('serena_find_symbol') && t.MANAGED_MCP_SERVERS.has('playwright'), 'managed MCP sets present');

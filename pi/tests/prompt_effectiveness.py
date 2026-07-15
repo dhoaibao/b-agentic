@@ -16,9 +16,9 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FIXTURES = ROOT / "tests" / "behavior" / "principles.json"
-DEFAULT_KERNEL = ROOT / "runtimes" / "pi" / "kernel.md"
+DEFAULT_KERNEL = ROOT / "references" / "kernel.template.md"
 DEFAULT_SKILL = ROOT / "skills" / "b-implement" / "SKILL.md"
 
 
@@ -30,6 +30,11 @@ def parse_args() -> argparse.Namespace:
         "--allow-model-calls",
         action="store_true",
         help="Acknowledge that this command makes potentially billable external model calls.",
+    )
+    parser.add_argument(
+        "--validate-inputs",
+        action="store_true",
+        help="Validate default inputs and selected scenarios without making model calls.",
     )
     parser.add_argument("--fixtures", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--kernel", type=Path, default=DEFAULT_KERNEL)
@@ -84,7 +89,7 @@ def pi_command(args: argparse.Namespace, prompt: str) -> list[str]:
 
 def main() -> int:
     args = parse_args()
-    if not args.allow_model_calls:
+    if not args.allow_model_calls and not args.validate_inputs:
         print(
             "Refusing external model calls without --allow-model-calls. "
             "Review costs and data exposure first.",
@@ -102,6 +107,10 @@ def main() -> int:
     except (KeyError, ValueError, json.JSONDecodeError) as exc:
         print(f"invalid fixtures: {exc}", file=sys.stderr)
         return 2
+
+    if args.validate_inputs:
+        print(f"Prompt-effectiveness inputs valid ({len(scenarios)} scenarios).")
+        return 0
 
     environment = os.environ.copy()
     environment["PI_SKIP_VERSION_CHECK"] = "1"
