@@ -13,7 +13,7 @@
     },
     "external-mutation": {
       "policy": "Approval required",
-      "notes": "Creates remote work, mutates pages, or submits external feedback."
+      "notes": "Creates or changes remote state, including sessions, pages, and submitted feedback."
     },
     "monitor-lifecycle": {
       "policy": "Approval required; not part of the default workflow",
