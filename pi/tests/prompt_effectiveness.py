@@ -71,7 +71,16 @@ def clean_output(value: str | bytes | None) -> str:
     return (value or "").strip()
 
 
-def pi_command(args: argparse.Namespace, prompt: str) -> list[str]:
+def scenario_skill_path(args: argparse.Namespace, scenario: dict) -> Path:
+    skill_name = scenario.get("skill")
+    if skill_name is None:
+        return args.skill
+    if not isinstance(skill_name, str) or not skill_name or "/" in skill_name or "\\" in skill_name:
+        raise ValueError(f"invalid scenario skill: {skill_name!r}")
+    return ROOT / "skills" / skill_name / "SKILL.md"
+
+
+def pi_command(args: argparse.Namespace, prompt: str, skill_path: Path) -> list[str]:
     command = [
         "pi",
         "--no-session",
@@ -92,7 +101,7 @@ def pi_command(args: argparse.Namespace, prompt: str) -> list[str]:
             + prompt
         )
     else:
-        command.extend(["--no-tools", "--skill", str(args.skill)])
+        command.extend(["--no-tools", "--skill", str(skill_path)])
     if args.model:
         command.extend(["--model", args.model])
     if args.thinking:
@@ -114,9 +123,7 @@ def main() -> int:
         return 2
 
     input_paths = [args.fixtures, args.kernel]
-    if not args.routing:
-        input_paths.append(args.skill)
-    else:
+    if args.routing:
         input_paths.extend(sorted((ROOT / "skills").glob("*/SKILL.md")))
     for path in input_paths:
         if not path.is_file():
@@ -125,6 +132,11 @@ def main() -> int:
 
     try:
         fixture, scenarios = load_scenarios(args.fixtures, set(args.scenario))
+        if not args.routing:
+            input_paths = [scenario_skill_path(args, scenario) for scenario in scenarios]
+            for path in input_paths:
+                if not path.is_file():
+                    raise ValueError(f"missing scenario skill: {path}")
     except (KeyError, ValueError, json.JSONDecodeError) as exc:
         print(f"invalid fixtures: {exc}", file=sys.stderr)
         return 2
@@ -142,7 +154,7 @@ def main() -> int:
     for scenario in scenarios:
         try:
             completed = subprocess.run(
-                pi_command(args, scenario["prompt"]),
+                pi_command(args, scenario["prompt"], scenario_skill_path(args, scenario)),
                 cwd=ROOT,
                 env=environment,
                 capture_output=True,

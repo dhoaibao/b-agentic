@@ -20,6 +20,8 @@
     {
       "id": "simpler-alternative",
       "principle": "simplicity-first",
+      "observed_failure": "The b-implement prompt rejected opportunistic cleanup and compatibility code but did not explicitly reject single-use abstractions or unsupported impossible-state handling.",
+      "intended_behavior": "Prefer the smallest direct representation and reject unrequested infrastructure or error handling without repository evidence.",
       "prompt": "Use b-implement. Add a single optional label field to one internal data object. No future variants are requested. Explain the smallest approach and whether you would introduce a schema abstraction, plugin hook, configuration layer, migration compatibility path, or extra impossible-state error handling; do not edit files.",
       "must": ["Prefer a direct optional field when consistent with repository evidence", "Reject unrequested infrastructure"],
       "avoid": ["Add speculative abstractions", "Add impossible-state handling without evidence"]
@@ -41,6 +43,8 @@
     {
       "id": "local-style",
       "principle": "surgical-changes",
+      "observed_failure": "The b-implement prompt required a small coherent edit but did not explicitly require matching the existing local style.",
+      "intended_behavior": "Follow the target module's local style and leave adjacent formatting unchanged.",
       "prompt": "Use b-implement. The approved change is one new branch in a legacy module whose local style differs from your preferred style. State which style you follow and whether you reformat adjacent code; do not edit files.",
       "must": ["Follow the module's existing local style", "Leave adjacent formatting unchanged"],
       "avoid": ["Apply personal style preferences", "Expand scope into formatting cleanup"]
@@ -48,6 +52,8 @@
     {
       "id": "change-created-orphans",
       "principle": "surgical-changes",
+      "observed_failure": "The b-implement prompt allowed cleanup made necessary by a change but did not explicitly distinguish change-created orphans from pre-existing dead code.",
+      "intended_behavior": "Remove only imports and helpers orphaned by the approved change while retaining unrelated pre-existing dead code.",
       "prompt": "Use b-implement. Your approved change replaces helper old_parse with parse. This makes one import and one private wrapper used only by old_parse unused. A different pre-existing helper in the same file was already dead. State exactly what you remove and retain; do not edit files.",
       "must": ["Remove the import and wrapper orphaned by the approved change", "Retain the pre-existing dead helper"],
       "avoid": ["Delete unrelated pre-existing dead code", "Leave change-created orphans behind"]
@@ -55,9 +61,21 @@
     {
       "id": "failed-in-scope-verification",
       "principle": "goal-driven-execution",
+      "observed_failure": "The b-implement prompt prohibited claiming completion after failed verification but did not explicitly direct the agent to correct and rerun an unambiguous in-scope failure.",
+      "intended_behavior": "Continue the in-scope correction loop until required verification passes, but stop when failure reveals ambiguity or scope drift.",
       "prompt": "Use b-implement. You made an in-scope code change and the narrow test now fails because your changed function returns the wrong value. No new requirements or unrelated failures appeared. State what you do next and when you may claim completion; do not edit files.",
       "must": ["Use the failure to make the next in-scope correction", "Rerun verification", "Claim completion only after required verification passes"],
       "avoid": ["Claim completion with a failing test", "Route away despite a clear in-scope correction"]
+    },
+    {
+      "id": "refactor-before-after-verification",
+      "principle": "goal-driven-execution",
+      "skill": "b-refactor",
+      "observed_failure": "The b-refactor prompt required post-transform verification but did not establish a pre-transform baseline for behavior-preserving comparison.",
+      "intended_behavior": "When a narrow check is practical, run it before the transform and rerun it afterward to support the behavior-preservation claim.",
+      "prompt": "Use b-refactor. Rename one internal helper without changing behavior. A narrow test currently passes and can be rerun cheaply. State the exact verification sequence; do not edit files.",
+      "must": ["Run the narrow check before the refactor", "Apply the transform only after establishing the passing baseline", "Rerun the same check or equivalent narrow verification afterward"],
+      "avoid": ["Rely only on post-change verification", "Claim behavior preservation without a before-and-after comparison"]
     },
     {
       "id": "verification-reveals-ambiguity",

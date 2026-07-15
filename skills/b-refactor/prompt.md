@@ -27,9 +27,10 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 1. Lock the exact target and state the behavior that must remain unchanged.
 2. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
 3. Map structure and impact with CodeGraph when indexed; map declarations/references with Serena; use exact text search for exports, routes, config keys, docs, and generated consumers.
-4. Apply the smallest matching transform.
-5. Re-check references (using Bash if needed) and run diagnostics or the narrowest risk-appropriate test/build.
-6. Inspect the diff for unintended behavior changes.
+4. When practical, run the narrowest risk-appropriate check to establish a passing behavioral baseline.
+5. Apply the smallest matching transform.
+6. Re-check references (using Bash if needed), run diagnostics, and rerun the baseline check or equivalent narrow verification.
+7. Inspect the diff for unintended behavior changes.
 
 When the refactor target is architectural, use concise design vocabulary: interface, seam, adapter, locality, leverage, shallow abstraction, and deletion test. Stop if the work becomes redesign.
 

@@ -197,12 +197,19 @@ for index, scenario in enumerate(scenarios, start=1):
         errors.append(f"{label} has unknown principle {principle!r}")
     else:
         covered_principles.add(principle)
+    if scenario.get("skill", "b-implement") not in skill_names:
+        errors.append(f"{label} has unknown skill {scenario.get('skill')!r}")
     if not isinstance(scenario.get("prompt"), str) or not scenario["prompt"]:
         errors.append(f"{label} must have a non-empty prompt")
     for field in ("must", "avoid"):
         values = scenario.get(field)
         if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
             errors.append(f"{label} {field} must be a non-empty string array")
+    regression_fields = ("observed_failure", "intended_behavior")
+    if any(field in scenario for field in regression_fields):
+        for field in regression_fields:
+            if not isinstance(scenario.get(field), str) or not scenario[field]:
+                errors.append(f"{label} {field} must be a non-empty string")
 if len(scenario_ids) != len(set(scenario_ids)):
     errors.append(f"{rel(principles_path)}: scenario ids must be unique")
 if covered_principles != principle_names:
