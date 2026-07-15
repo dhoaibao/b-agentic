@@ -52,7 +52,7 @@ that listens for `tool_call` events and:
   raw utilities must use their required modern replacements, and `rtk proxy` is unwrapped
   for the same safety classification as its effective command; allows MCP metadata
   discovery and only the explicitly classified read-only operations of managed MCP servers without prompts
-- asks for Serena local symbol mutations because the Pi adapter cannot prove a
+- asks for MCP connect/server-scoping lifecycle operations, Serena local symbol mutations because the Pi adapter cannot prove a
   target is confined to the current repository; asks for Firecrawl external-mutation or local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright page-mutating tools (click/type/upload/evaluate/…), MCP auth bootstrap, unclassified managed operations, user/unknown MCP servers, and any other non-built-in custom tool
 - fails closed when MCP selectors are mixed (e.g. `connect` + `tool`), when an explicit MCP `server` disagrees with the tool-name origin, or when an approval-required action has no UI confirmation
 
@@ -60,4 +60,6 @@ that listens for `tool_call` events and:
 
 Use `scripts/validate-skills.sh` and `scripts/validate-skills.sh --release`
 from the repository root. MCP readiness must distinguish missing adapter,
-missing config, missing local prerequisites, and ready servers.
+missing config, missing local prerequisites, and ready servers. The opt-in
+`scripts/mcp-doctor.sh --probe-schemas` lane performs approved live startup/network
+checks and reports current tool IDs that are new or absent relative to policy.

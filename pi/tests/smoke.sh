@@ -86,8 +86,7 @@ EOF
 	assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"serena"'
 
 	# Behavioral permission coverage via node --experimental-strip-types (no Pi runtime).
-	if command -v node >/dev/null 2>&1; then
-		ROOT_DIR="$ROOT_DIR" node --experimental-strip-types --input-type=module - <<'NODE'
+	ROOT_DIR="$ROOT_DIR" node --experimental-strip-types --input-type=module - <<'NODE'
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -99,6 +98,12 @@ if (!t) {
   console.error('permission extension missing __test__ exports');
   process.exit(1);
 }
+let toolCallHandler;
+mod.default({
+  on(eventName, handler) {
+    if (eventName === 'tool_call') toolCallHandler = handler;
+  },
+});
 
 function expect(cond, msg) {
   if (!cond) {
@@ -106,6 +111,13 @@ function expect(cond, msg) {
     process.exit(1);
   }
 }
+
+expect(typeof toolCallHandler === 'function', 'permission extension must register a tool_call handler');
+const noUiContext = { hasUI: false, ui: { confirm: async () => true } };
+expect(await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git status --short' } }, noUiContext) === undefined, 'registered handler must allow safe RTK command');
+expect((await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git commit -m x' } }, noUiContext))?.block === true, 'registered handler must fail closed for approval-required shell command');
+expect((await toolCallHandler({ toolName: 'mcp', input: { connect: 'serena' } }, noUiContext))?.block === true, 'registered handler must fail closed for MCP connect');
+expect((await toolCallHandler({ toolName: 'read', input: { path: '.env' } }, noUiContext))?.block === true, 'registered handler must fail closed for protected read');
 
 // Compound commands and wrappers
 expect(t.commandDecision('cd repo && git reset --hard').decision === 'deny', 'compound reset --hard must deny');
@@ -247,8 +259,8 @@ expect(t.isMcpOrCustomTool('ls') === false, 'ls is specialized discovery');
 expect(t.isMcpOrCustomTool('mcp', { search: 'symbol' }) === false, 'MCP metadata search is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { describe: 'serena_find_symbol' }) === false, 'MCP metadata describe is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { action: 'ui-messages' }) === false, 'MCP UI messages are autonomous');
-expect(t.isMcpOrCustomTool('mcp', { server: 'serena' }) === false, 'managed MCP server listing is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { connect: 'codegraph' }) === false, 'managed MCP connect is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { server: 'serena' }) === true, 'managed MCP server listing requires approval');
+expect(t.isMcpOrCustomTool('mcp', { connect: 'codegraph' }) === true, 'managed MCP connect requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_find_symbol' }) === false, 'classified Serena read is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_content' }) === true, 'Serena local mutation requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_search' }) === false, 'firecrawl search is autonomous');
@@ -285,7 +297,7 @@ expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl', action: 'auth-start' }
 expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl', server: 'user-server' }) === true, 'connect+server mixed selector fails closed');
 expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl', search: 'x' }) === true, 'connect+search mixed selector fails closed');
 expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl', describe: 'firecrawl_agent' }) === true, 'connect+describe mixed selector fails closed');
-expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl' }) === false, 'pure managed connect remains autonomous');
+expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl' }) === true, 'pure managed connect follows gateway lifecycle policy');
 expect(t.isMcpOrCustomTool('mcp', { search: 'x', tool: 'firecrawl_agent' }) === true, 'metadata+tool mixed selector fails closed');
 expect(t.isMcpOrCustomTool('mcp', { search: 'x', action: 'auth-start' }) === true, 'search+auth mixed selector fails closed');
 expect(t.isMcpOrCustomTool('mcp', { describe: 'firecrawl_search', action: 'auth-complete' }) === true, 'describe+auth mixed selector fails closed');
@@ -304,13 +316,13 @@ expect(t.isTrustedManagedTool('firecrawl', 'firecrawl_interact_stop') === false,
 expect(t.isTrustedManagedTool('playwright', 'browser_click') === false, 'playwright click not trusted helper');
 expect(t.SPECIALIZED_TOOLS.has('grep') && t.SPECIALIZED_TOOLS.has('find') && t.SPECIALIZED_TOOLS.has('ls'), 'discovery tools specialized');
 expect(t.SERENA_TRUSTED_TOOLS.has('serena_find_symbol') && t.MANAGED_MCP_SERVERS.has('playwright'), 'managed MCP sets present');
+expect(t.MCP_TRUSTED_GATEWAY_OPERATIONS.has('search') && !t.MCP_TRUSTED_GATEWAY_OPERATIONS.has('connect'), 'gateway policy allowlist present');
 expect(t.isTrustedManagedTool('serena', 'serena_replace_content') === false, 'Serena local mutation not trusted helper');
 expect(t.FIRECRAWL_TRUSTED_TOOLS.has('firecrawl_search'), 'firecrawl allowlist present');
 expect(t.PLAYWRIGHT_TRUSTED_TOOLS.has('browser_snapshot'), 'playwright allowlist present');
 
 console.log('pi permission behavioral fixtures ok');
 NODE
-	fi
 
 	# Source-backed uninstall removes managed content only.
 	expect_install_status 0 "$sandbox" "$snapshot_repo" --uninstall

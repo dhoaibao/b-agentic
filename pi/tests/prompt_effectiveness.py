@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FIXTURES = ROOT / "tests" / "behavior" / "principles.json"
+ROUTING_FIXTURES = ROOT / "tests" / "behavior" / "routing.json"
 DEFAULT_KERNEL = ROOT / "references" / "kernel.template.md"
 DEFAULT_SKILL = ROOT / "skills" / "b-implement" / "SKILL.md"
 
@@ -39,6 +40,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fixtures", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--kernel", type=Path, default=DEFAULT_KERNEL)
     parser.add_argument("--skill", type=Path, default=DEFAULT_SKILL)
+    parser.add_argument(
+        "--routing",
+        action="store_true",
+        help="Evaluate native selection across every b-agentic skill instead of one explicit skill.",
+    )
     parser.add_argument("--model", help="Pin a Pi model for reproducible comparisons.")
     parser.add_argument("--thinking", help="Pin the Pi thinking level.")
     parser.add_argument("--scenario", action="append", default=[], help="Run only this scenario ID; repeatable.")
@@ -69,16 +75,24 @@ def pi_command(args: argparse.Namespace, prompt: str) -> list[str]:
     command = [
         "pi",
         "--no-session",
-        "--no-tools",
         "--no-extensions",
         "--no-skills",
         "--no-prompt-templates",
         "--no-context-files",
         "--append-system-prompt",
         str(args.kernel),
-        "--skill",
-        str(args.skill),
     ]
+    if args.routing:
+        command.extend(["--tools", "read"])
+        for skill_path in sorted((ROOT / "skills").glob("*/SKILL.md")):
+            command.extend(["--skill", str(skill_path)])
+        prompt = (
+            "Select exactly one available b-agentic skill for the request, load its SKILL.md, "
+            "and follow it without editing files. Start the final response with 'SKILL: <name>'.\n\n"
+            + prompt
+        )
+    else:
+        command.extend(["--no-tools", "--skill", str(args.skill)])
     if args.model:
         command.extend(["--model", args.model])
     if args.thinking:
@@ -89,6 +103,8 @@ def pi_command(args: argparse.Namespace, prompt: str) -> list[str]:
 
 def main() -> int:
     args = parse_args()
+    if args.routing and args.fixtures == DEFAULT_FIXTURES:
+        args.fixtures = ROUTING_FIXTURES
     if not args.allow_model_calls and not args.validate_inputs:
         print(
             "Refusing external model calls without --allow-model-calls. "
@@ -97,7 +113,12 @@ def main() -> int:
         )
         return 2
 
-    for path in (args.fixtures, args.kernel, args.skill):
+    input_paths = [args.fixtures, args.kernel]
+    if not args.routing:
+        input_paths.append(args.skill)
+    else:
+        input_paths.extend(sorted((ROOT / "skills").glob("*/SKILL.md")))
+    for path in input_paths:
         if not path.is_file():
             print(f"missing input: {path}", file=sys.stderr)
             return 2
@@ -152,7 +173,11 @@ def main() -> int:
         "thinking": args.thinking or "runtime-default",
         "fixture_version": fixture["version"],
         "source": fixture["source"],
-        "scoring": "Human-review each response against its must and avoid lists; compare like-for-like model settings.",
+        "scoring": (
+            "Human-review the reported SKILL against expected_skill and forbidden_skills; compare like-for-like model settings."
+            if args.routing
+            else "Human-review each response against its must and avoid lists; compare like-for-like model settings."
+        ),
         "results": results,
     }
     print(json.dumps(report, indent=2))

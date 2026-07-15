@@ -12,6 +12,7 @@ from pathlib import Path
 
 READ_ONLY = "read-only"
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "local-mutation", "auth"}
+GATEWAY_TRUSTED_SET_NAME = "MCP_TRUSTED_GATEWAY_OPERATIONS"
 TRUSTED_SET_NAMES = {
     "serena": "SERENA_TRUSTED_TOOLS",
     "codegraph": "CODEGRAPH_TRUSTED_TOOLS",
@@ -41,6 +42,23 @@ def main() -> int:
         print(f"failed to load Pi MCP policy inputs: {exc}", file=sys.stderr)
         return 2
     errors: list[str] = []
+
+    gateway_operations = policy.get("gateway_operations", {})
+    if not isinstance(gateway_operations, dict) or not gateway_operations:
+        errors.append("references/mcp_operations.yaml: missing gateway_operations map")
+    else:
+        trusted_gateway = parse_set_literal(text, GATEWAY_TRUSTED_SET_NAME)
+        if not trusted_gateway:
+            errors.append(f"{extension.relative_to(root)}: {GATEWAY_TRUSTED_SET_NAME} missing or unparsable")
+        for operation in sorted(trusted_gateway - set(gateway_operations)):
+            errors.append(
+                f"{extension.relative_to(root)}: {GATEWAY_TRUSTED_SET_NAME} includes unclassified gateway operation {operation!r}"
+            )
+        for operation, classification in gateway_operations.items():
+            if classification == READ_ONLY and operation not in trusted_gateway:
+                errors.append(f"{extension.relative_to(root)}: read-only gateway operation {operation!r} must be trusted")
+            elif classification in GATED_CLASSES and operation in trusted_gateway:
+                errors.append(f"{extension.relative_to(root)}: gated gateway operation {operation!r} must not be trusted")
 
     for server, record in policy.get("servers", {}).items():
         tools = record.get("tools", {}) if isinstance(record, dict) else {}

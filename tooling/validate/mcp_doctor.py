@@ -14,8 +14,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 try:
+    from tooling.validate.mcp_probe import ProbeError, compare_inventory, probe_server
     from tooling.validate.session_readiness import check_session_tools
 except ModuleNotFoundError:
+    from mcp_probe import ProbeError, compare_inventory, probe_server
     from session_readiness import check_session_tools
 
 
@@ -31,6 +33,7 @@ def load_jsonc(text: str) -> object:
 
 SUPPORTED_SERVERS = ("serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright")
 CONTEXT7_URL = "https://mcp.context7.com/mcp"
+POLICY_PATH = ROOT / "references" / "mcp_operations.yaml"
 
 
 @dataclass
@@ -101,6 +104,12 @@ def main() -> int:
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
     parser.add_argument("--session-tools", action="store_true", help="Check active-session RTK and required shell tools only.")
     parser.add_argument("--allow-degraded", action="store_true", help="Exit zero even for missing or blocked MCP readiness.")
+    parser.add_argument(
+        "--probe-schemas",
+        action="store_true",
+        help="Explicitly start/connect to configured MCP servers and compare live tool IDs with canonical policy.",
+    )
+    parser.add_argument("--probe-timeout", type=float, default=20.0, help="Per-response live probe timeout in seconds.")
     args = parser.parse_args()
     if args.session_tools:
         ready, detail = check_session_tools()
@@ -126,6 +135,35 @@ def main() -> int:
         status = pi_server_status(server, config)
         print(f"{server}: {status}")
         blocked = blocked or status.startswith(("blocked:", "missing:"))
+
+    if args.probe_schemas:
+        try:
+            policy = json.loads(POLICY_PATH.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"schema-probe: blocked: invalid canonical policy: {exc}")
+            blocked = True
+        else:
+            print("schema-probe: explicitly requested; starting/connecting to configured servers")
+            for server in SUPPORTED_SERVERS:
+                entry = config.get("mcpServers", {}).get(server)
+                policy_tools = policy.get("servers", {}).get(server, {}).get("tools", {})
+                if not isinstance(entry, dict) or not isinstance(policy_tools, dict):
+                    print(f"schema-probe {server}: blocked: missing config or policy entry")
+                    blocked = True
+                    continue
+                try:
+                    discovered = probe_server(entry, args.probe_timeout)
+                    new_tools, absent_tools = compare_inventory(server, discovered, policy_tools)
+                except ProbeError as exc:
+                    print(f"schema-probe {server}: blocked: {exc}")
+                    blocked = True
+                    continue
+                state = "drift" if new_tools or absent_tools else "match"
+                print(
+                    f"schema-probe {server}: {state}: discovered={len(discovered)} "
+                    f"new-unclassified={new_tools or 'none'} absent-configured={absent_tools or 'none'}"
+                )
+                blocked = blocked or bool(new_tools or absent_tools)
     return 0 if args.allow_degraded or not blocked else 1
 
 

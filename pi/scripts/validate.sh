@@ -65,6 +65,7 @@ if extension.exists():
         'isTrustedManagedMcpCall',
         'isTrustedManagedTool',
         'MANAGED_MCP_SERVERS',
+        'MCP_TRUSTED_GATEWAY_OPERATIONS',
         'SERENA_TRUSTED_TOOLS',
         'CODEGRAPH_TRUSTED_TOOLS',
         'CONTEXT7_TRUSTED_TOOLS',

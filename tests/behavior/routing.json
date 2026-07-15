@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "source": "b-agentic skill-boundary audit scenarios",
+  "description": "Human-scored Pi native skill-selection scenarios.",
+  "scenarios": [
+    {
+      "id": "plan-vs-implement",
+      "prompt": "The desired billing behavior is ambiguous. Decide which b-agentic skill should handle clarifying scope before any code changes.",
+      "expected_skill": "b-plan",
+      "forbidden_skills": ["b-implement"]
+    },
+    {
+      "id": "approved-implementation",
+      "prompt": "The implementation plan is approved. Make the next small scoped code change and verify it.",
+      "expected_skill": "b-implement",
+      "forbidden_skills": ["b-plan"]
+    },
+    {
+      "id": "initialize-agent-docs",
+      "prompt": "Initialize this repository's agent instruction docs with a canonical AGENTS.md and a minimal CLAUDE.md shim.",
+      "expected_skill": "b-init",
+      "forbidden_skills": ["b-implement", "b-plan"]
+    },
+    {
+      "id": "product-bug-vs-test",
+      "prompt": "A failing test exposes a checkout regression in production behavior. Diagnose the runtime root cause.",
+      "expected_skill": "b-debug",
+      "forbidden_skills": ["b-test"]
+    },
+    {
+      "id": "test-mechanics",
+      "prompt": "Fix a component-test mock and assertion; no product behavior is broken.",
+      "expected_skill": "b-test",
+      "forbidden_skills": ["b-debug", "b-browser"]
+    },
+    {
+      "id": "browser-evidence",
+      "prompt": "Use a real browser to verify the requested UI state and capture a screenshot.",
+      "expected_skill": "b-browser",
+      "forbidden_skills": ["b-test", "b-design"]
+    },
+    {
+      "id": "design-standard",
+      "prompt": "Analyze the supplied mockup and create docs/DESIGN.md as reusable frontend design guidance.",
+      "expected_skill": "b-design",
+      "forbidden_skills": ["b-browser", "b-implement"]
+    },
+    {
+      "id": "external-api-fact",
+      "prompt": "Look up current versioned framework API documentation and compare two configuration options.",
+      "expected_skill": "b-research",
+      "forbidden_skills": ["b-plan", "b-debug"]
+    },
+    {
+      "id": "changed-code-review",
+      "prompt": "Review the working-tree diff before a PR and report reviewer findings.",
+      "expected_skill": "b-review",
+      "forbidden_skills": ["b-summary", "b-plan"]
+    },
+    {
+      "id": "staged-summary",
+      "prompt": "Write a commit message, PR title, and PR description for one cohesive staged change.",
+      "expected_skill": "b-summary",
+      "forbidden_skills": ["b-review"]
+    },
+    {
+      "id": "mechanical-refactor",
+      "prompt": "Rename one symbol and all references without changing behavior.",
+      "expected_skill": "b-refactor",
+      "forbidden_skills": ["b-implement", "b-plan"]
+    }
+  ]
+}

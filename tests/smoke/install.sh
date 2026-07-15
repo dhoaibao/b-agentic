@@ -1072,6 +1072,7 @@ main() {
 	local snapshot_repo="$WORK_DIR/repo-snapshot"
 
 	require_bin git
+	require_bin node
 	require_bin python3
 	make_repo_snapshot "$snapshot_repo"
 	echo "Running run_rtk_latest_dry_run_case..."

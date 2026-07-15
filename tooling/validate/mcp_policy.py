@@ -38,6 +38,16 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> None:
         if required not in classes:
             errors.append(f"references/mcp_operations.yaml: missing class {required!r}")
 
+    gateway_operations = policy.get("gateway_operations")
+    if not isinstance(gateway_operations, dict) or not gateway_operations:
+        errors.append("references/mcp_operations.yaml: missing gateway_operations map")
+    else:
+        for operation, classification in gateway_operations.items():
+            if classification not in classes:
+                errors.append(
+                    f"references/mcp_operations.yaml: gateway operation {operation!r} has unknown class {classification!r}"
+                )
+
     servers = policy.get("servers")
     if not isinstance(servers, dict) or set(servers) != MANAGED_SERVERS:
         found = sorted(servers) if isinstance(servers, dict) else []

@@ -124,7 +124,7 @@ The installer writes recommended MCP entries for:
 - Brave Search: secondary public/current discovery and alternate source finding.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
-The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It reports local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK and every required shell tool.
+The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It reports local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK and every required shell tool. When live network/process activity is approved, `scripts/mcp-doctor.sh --probe-schemas` explicitly starts or connects to each configured server and compares its current tool inventory with the canonical operation policy; newly discovered tools remain unclassified and gated.
 
 ## Repository Layout
 
@@ -150,6 +150,7 @@ scripts/b-agentic-audit.sh
 scripts/smoke-install.sh
 scripts/mcp-doctor.sh
 scripts/mcp-doctor.sh --allow-degraded
+scripts/mcp-doctor.sh --probe-schemas  # explicit live server/network probe
 scripts/skill-doctor.sh
 ```
 
@@ -158,9 +159,11 @@ Prompt effectiveness is an opt-in, human-scored check because it makes potential
 ```bash
 python3 pi/tests/prompt_effectiveness.py --validate-inputs
 python3 pi/tests/prompt_effectiveness.py --allow-model-calls --model=<model> --thinking=<level> --label=baseline > baseline.json
+python3 pi/tests/prompt_effectiveness.py --routing --validate-inputs
+python3 pi/tests/prompt_effectiveness.py --routing --allow-model-calls --model=<model> --thinking=<level> --label=baseline-routing > baseline-routing.json
 ```
 
-The validation suite and doctors prove generated sync, install safety, Pi config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The routing check is a static heuristic over skill registry metadata; only the optional effectiveness check observes model responses, and it still requires human review against the included rubric.
+The validation suite and doctors prove generated sync, install safety, Pi config shape, skill payloads, MCP operation policy regression, and local MCP readiness blockers. The default routing check is a static heuristic over skill registry metadata. The opt-in `--routing` effectiveness lane loads every native skill with read-only tools and records the model's reported selection; both effectiveness modes require human review against their included rubrics.
 
 ## Docs
 

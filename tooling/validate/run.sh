@@ -19,7 +19,9 @@ done
 python3 "$ROOT_DIR/tooling/validate/shared.py"
 python3 "$ROOT_DIR/tooling/validate/behavior.py"
 python3 "$ROOT_DIR/tooling/validate/mcp_policy.py"
+python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --validate-inputs
+python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --routing --validate-inputs
 bash "$ROOT_DIR/pi/scripts/validate.sh"
 
 if [ "$run_release" -eq 1 ]; then

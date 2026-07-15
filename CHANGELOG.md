@@ -21,6 +21,9 @@ All notable shipped revisions of b-agentic are recorded here. Version numbers ma
 - Add opt-in, human-scored prompt-effectiveness scenarios for ambiguity, simplicity, surgical changes, and verified execution.
 - Harden Pi permission handling for mixed MCP selectors, external session cleanup, and RTK-proxied legacy shell tools.
 - Validate prompt-effectiveness inputs without model calls and detect RTK command-policy drift in session readiness checks.
+- Classify MCP gateway operations canonically and require approval for managed connect/server-scoping lifecycle actions.
+- Require Node-backed Pi permission-handler smoke coverage and add opt-in native routing and live MCP schema-drift evidence lanes.
+- Detect newly added, unclassified RTK command families instead of checking compatibility in only one direction.
 
 ## 2026.06.24
 

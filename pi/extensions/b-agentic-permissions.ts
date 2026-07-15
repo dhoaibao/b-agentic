@@ -97,6 +97,13 @@ const MANAGED_MCP_SERVERS = new Set([
   "playwright",
 ]);
 
+/** Cached gateway operations classified as read-only in mcp_operations.yaml. */
+const MCP_TRUSTED_GATEWAY_OPERATIONS = new Set([
+  "search",
+  "describe",
+  "ui-messages",
+]);
+
 /**
  * Managed MCP operations auto-approved without a prompt. These sets must remain
  * closed-world mirrors of references/mcp_operations.yaml: any unclassified or
@@ -958,10 +965,10 @@ function isTrustedMcpProxyCall(input: unknown): boolean {
     return false;
   }
   if (hasAction) {
-    return value.action === "ui-messages";
+    return MCP_TRUSTED_GATEWAY_OPERATIONS.has(value.action as string);
   }
   // Search and describe use cached metadata only; they do not call a server.
-  return hasSearch || hasDescribe;
+  return MCP_TRUSTED_GATEWAY_OPERATIONS.has(hasSearch ? "search" : "describe");
 }
 
 function normalizeServerId(value: string): string {
@@ -1115,7 +1122,9 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
   }
 
   if (hasConnect) {
-    return isManagedServer(value.connect as string);
+    // Connection lifecycle is classified as approval-required. A recognized
+    // server name must not implicitly grant trust to an unclassified action.
+    return false;
   }
 
   if (hasTool) {
@@ -1140,9 +1149,10 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
     return isTrustedManagedTool(server, tool);
   }
 
-  // Listing tools / scoping to a managed server without a tool call.
+  // Server-scoped listing may start a lazy server and refresh remote metadata,
+  // so it follows the approval-required gateway lifecycle classification.
   if (typeof value.server === "string") {
-    return isManagedServer(value.server);
+    return false;
   }
 
   return false;
@@ -1279,6 +1289,7 @@ export const __test__ = {
   confirmOrBlock,
   SPECIALIZED_TOOLS,
   MANAGED_MCP_SERVERS,
+  MCP_TRUSTED_GATEWAY_OPERATIONS,
   SERENA_TRUSTED_TOOLS,
   CODEGRAPH_TRUSTED_TOOLS,
   CONTEXT7_TRUSTED_TOOLS,

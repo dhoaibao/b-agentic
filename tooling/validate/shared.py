@@ -208,12 +208,39 @@ if len(scenario_ids) != len(set(scenario_ids)):
 if covered_principles != principle_names:
     errors.append(f"{rel(principles_path)}: scenarios must cover all four principles")
 
+routing_path = ROOT / "tests" / "behavior" / "routing.json"
+routing_fixture = load_json(routing_path)
+routing_scenarios = routing_fixture.get("scenarios", [])
+if routing_fixture.get("version") != 1 or not isinstance(routing_scenarios, list) or not routing_scenarios:
+    errors.append(f"{rel(routing_path)}: expected version 1 with non-empty scenarios")
+else:
+    routing_ids: list[str] = []
+    for index, scenario in enumerate(routing_scenarios, start=1):
+        label = f"{rel(routing_path)}: scenario {index}"
+        if not isinstance(scenario, dict):
+            errors.append(f"{label} must be an object")
+            continue
+        scenario_id = scenario.get("id")
+        if not isinstance(scenario_id, str) or not scenario_id:
+            errors.append(f"{label} must have a non-empty id")
+        else:
+            routing_ids.append(scenario_id)
+        if scenario.get("expected_skill") not in skill_names:
+            errors.append(f"{label} has unknown expected_skill {scenario.get('expected_skill')!r}")
+        forbidden = scenario.get("forbidden_skills")
+        if not isinstance(forbidden, list) or not all(value in skill_names for value in forbidden):
+            errors.append(f"{label} forbidden_skills must contain only registered skills")
+        if not isinstance(scenario.get("prompt"), str) or not scenario["prompt"]:
+            errors.append(f"{label} must have a non-empty prompt")
+    if len(routing_ids) != len(set(routing_ids)):
+        errors.append(f"{rel(routing_path)}: scenario ids must be unique")
+
 prompt_runner_path = ROOT / "pi" / "tests" / "prompt_effectiveness.py"
 prompt_runner = read_text(prompt_runner_path)
 require_contains(
     prompt_runner_path,
     prompt_runner,
-    ["--allow-model-calls", '"--no-session"', '"--no-tools"', 'environment["PI_TELEMETRY"] = "0"'],
+    ["--allow-model-calls", '"--no-session"', '"--no-tools"', '"--routing"', 'environment["PI_TELEMETRY"] = "0"'],
     "prompt-effectiveness safety marker",
 )
 

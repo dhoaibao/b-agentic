@@ -23,6 +23,15 @@ REQUIRED_TOOLS: tuple[tuple[str, tuple[str, ...]], ...] = (
 REMEDIATION = "Install the missing prerequisites, then restart the runtime session; see the kernel's Shell commands section."
 ROOT = Path(__file__).resolve().parents[2]
 RTK_POLICY = ROOT / "pi" / "extensions" / "b-agentic-permissions.ts"
+# RTK commands that operate on RTK itself or generic command streams rather
+# than proxying a same-named native command family. New commands must be
+# reviewed and added here or to RTK_REQUIRED_COMMANDS.
+RTK_NON_NATIVE_COMMANDS = {
+    "read", "smart", "err", "test", "json", "deps", "env", "summary", "log",
+    "gain", "cc-economics", "config", "init", "discover", "session", "telemetry",
+    "learn", "run", "proxy", "pipe", "trust", "untrust", "verify", "hook-audit",
+    "rewrite", "hook", "help",
+}
 
 
 def configured_rtk_families(path: Path = RTK_POLICY) -> set[str]:
@@ -45,9 +54,13 @@ def check_rtk_policy() -> tuple[bool, str]:
         configured = configured_rtk_families()
     except (OSError, ValueError) as exc:
         return False, f"blocked: cannot verify RTK command policy: {exc}"
-    missing = sorted(configured - available_rtk_families(completed.stdout))
+    available = available_rtk_families(completed.stdout)
+    missing = sorted(configured - available)
+    uncovered = sorted(available - configured - RTK_NON_NATIVE_COMMANDS)
     if missing:
-        return False, f"blocked: RTK command-policy drift for {', '.join(missing)}"
+        return False, f"blocked: RTK command-policy drift; configured families unavailable: {', '.join(missing)}"
+    if uncovered:
+        return False, f"blocked: RTK command-policy drift; unclassified families: {', '.join(uncovered)}"
     return True, "RTK command policy compatible"
 
 
@@ -90,6 +103,13 @@ def self_test() -> int:
     parsed = available_rtk_families("Commands:\n  git            Git commands\n  pytest         Pytest commands\n")
     if parsed != {"git", "pytest"}:
         print("RTK help fixture unexpectedly failed", file=sys.stderr)
+        return 1
+    configured = configured_rtk_families()
+    if ({"git", "pytest"} - configured - RTK_NON_NATIVE_COMMANDS):
+        print("covered RTK family fixture unexpectedly failed", file=sys.stderr)
+        return 1
+    if not ({"new-native-family"} - configured - RTK_NON_NATIVE_COMMANDS):
+        print("unclassified RTK family fixture unexpectedly passed", file=sys.stderr)
         return 1
     print("Session tool readiness self-test passed.")
     return 0

@@ -137,18 +137,15 @@
       }
     }
   },
-  "auth_operations": [
-    {
-      "id": "auth-start",
-      "class": "auth",
-      "notes": "Pi MCP OAuth bootstrap start"
-    },
-    {
-      "id": "auth-complete",
-      "class": "auth",
-      "notes": "Pi MCP OAuth bootstrap complete"
-    }
-  ],
+  "gateway_operations": {
+    "search": "read-only",
+    "describe": "read-only",
+    "ui-messages": "read-only",
+    "connect": "external-mutation",
+    "server": "external-mutation",
+    "auth-start": "auth",
+    "auth-complete": "auth"
+  },
   "runtime_enforcement": {
     "pi": "adapter tool_call extension with operation-level trust"
   }
