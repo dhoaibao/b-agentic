@@ -286,6 +286,7 @@ install_one_skill() {
   fi
 
   copy_dir_replace "$src" "$dst"
+  run_cmd rm -f "$dst/prompt.md"
   return 0
 }
 

@@ -11,12 +11,24 @@ run_pi_smoke_cases() {
 	local sandbox_preserve="$WORK_DIR/pi-preserve"
 	local sandbox_replace="$WORK_DIR/pi-replace"
 	local sandbox_mcp_merge="$WORK_DIR/pi-mcp-merge"
-	mkdir -p "$sandbox/home" "$sandbox_adapter/home" "$sandbox_preserve/home" "$sandbox_replace/home" "$sandbox_mcp_merge/home"
+	local sandbox_extension_restore="$WORK_DIR/pi-extension-restore"
+	local sandbox_extension_modified="$WORK_DIR/pi-extension-modified"
+	local sandbox_extension_symlink="$WORK_DIR/pi-extension-symlink"
+	mkdir -p \
+		"$sandbox/home" \
+		"$sandbox_adapter/home" \
+		"$sandbox_preserve/home" \
+		"$sandbox_replace/home" \
+		"$sandbox_mcp_merge/home" \
+		"$sandbox_extension_restore/home/.pi/agent/extensions" \
+		"$sandbox_extension_modified/home" \
+		"$sandbox_extension_symlink/home/.pi/agent/extensions"
 
 	# Core install layout without adapter package.
 	expect_install_status 0 "$sandbox" "$snapshot_repo"
 	assert_file "$sandbox/home/.pi/agent/AGENTS.md"
 	assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
+	assert_no_path "$sandbox/home/.pi/agent/skills/b-plan/prompt.md"
 	assert_file "$sandbox/home/.pi/agent/b-agentic/references/kernel.template.md"
 	assert_file "$sandbox/home/.pi/agent/b-agentic/references/mcp_operations.yaml"
 	assert_no_path "$sandbox/home/.pi/agent/b-agentic/references/contract"
@@ -85,6 +97,33 @@ EOF
 	assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"user-server"'
 	assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"serena"'
 
+	# Uninstall restores a pre-existing extension after no-op reinstall and managed-file deletion.
+	printf 'user-owned permission extension\n' >"$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo"
+	assert_not_contains "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts" 'user-owned permission extension'
+	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo"
+	rm "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo" --uninstall
+	assert_contains "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts" 'user-owned permission extension'
+
+	# Uninstall preserves symlink destinations instead of restoring through them.
+	printf 'user-owned permission extension\n' >"$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	expect_install_status 0 "$sandbox_extension_symlink" "$snapshot_repo"
+	cp "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts" "$sandbox_extension_symlink/target.ts"
+	rm "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	ln -s "$sandbox_extension_symlink/target.ts" "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	expect_install_status 0 "$sandbox_extension_symlink" "$snapshot_repo" --uninstall
+	[ -L "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts" ] || fail "expected symlinked extension to be preserved"
+	assert_contains "$sandbox_extension_symlink/target.ts" 'tool_call'
+	assert_not_contains "$sandbox_extension_symlink/target.ts" 'user-owned permission extension'
+
+	# Uninstall preserves an extension modified after installation.
+	expect_install_status 0 "$sandbox_extension_modified" "$snapshot_repo"
+	printf 'post-install user modification\n' >"$sandbox_extension_modified/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	expect_install_status 0 "$sandbox_extension_modified" "$snapshot_repo" --uninstall
+	assert_contains "$sandbox_extension_modified/home/.pi/agent/extensions/b-agentic-permissions.ts" 'post-install user modification'
+
 	# Behavioral permission coverage via node --experimental-strip-types (no Pi runtime).
 	ROOT_DIR="$ROOT_DIR" node --experimental-strip-types --input-type=module - <<'NODE'
 import path from 'node:path';
@@ -152,13 +191,13 @@ expect(t.commandDecision('env -u FOO rtk ls -la').decision === 'allow', 'env -u 
 expect(t.commandDecision('env -S ls').decision === 'ask', 'env -S legacy command must be approval-gated');
 expect(t.commandDecision('env -S "grep needle src/main.ts"').decision === 'ask', 'env -S command string must be approval-gated');
 expect(t.commandDecision('grep needle src/main.ts').decision === 'ask', 'direct grep must require approval to use RTK or rg');
-expect(t.commandDecision('python3 -m json.tool package.json').decision === 'ask', 'python json.tool must require approval to use jq');
+expect(t.commandDecision('python3 -m json.tool package.json').decision === 'deny', 'python json.tool must be denied in favor of jq');
 for (const command of [
   'rtk proxy cat src/main.ts',
   'rtk proxy sed -n 1p src/main.ts',
   'rtk proxy awk {print} src/main.ts',
   'rtk proxy python3 -m json.tool package.json',
-]) expect(t.commandDecision(command).decision === 'ask', `${command} must not bypass the required modern replacement`);
+]) expect(t.commandDecision(command).decision === 'deny', `${command} must not bypass the required modern replacement`);
 for (const [command, label] of [
   ['npm add lodash', 'npm add'], ['npm remove lodash', 'npm remove'], ['npm --silent install lodash', 'npm option install'], ['npm ci', 'npm ci'],
   ['/usr/bin/npm --silent install lodash', 'path-qualified npm option install'], ['rtk npm --prefix ./app install lodash', 'npm option-value install'],
@@ -200,15 +239,15 @@ for (const command of ['rtk proxy poetry show', 'rtk proxy uv --version', 'rtk p
 }
 expect(t.commandDecision('printf x\ngit reset --hard').decision === 'deny', 'newline-separated reset --hard must deny');
 expect(t.commandDecision('printf x\r\ngit reset --hard').decision === 'deny', 'CRLF-separated reset --hard must deny');
-expect(t.commandDecision('rtk proxy printf x\ncat .env').decision === 'ask', 'newline-separated protected path must ask');
+expect(t.commandDecision('rtk proxy printf x\ncat .env').decision === 'deny', 'newline-separated raw replacement must deny');
 expect(t.commandDecision('printf x\nprintf y').decision === 'deny', 'untracked multiline raw commands must deny');
-expect(t.commandDecision('cat .env').decision === 'ask', 'bare protected shell path must ask');
-expect(t.commandDecision('cat .env.local').decision === 'ask', 'root-relative protected shell path variant must ask');
-expect(t.commandDecision('cat /tmp/.env.production').decision === 'ask', 'absolute protected shell path variant must ask');
-expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'ask', 'rtk-wrapped protected shell path variant must ask');
-expect(t.commandDecision('ls src && cat credentials.json').decision === 'ask', 'compound protected shell path must ask');
-expect(t.commandDecision('cat src/main.ts').decision === 'ask', 'direct cat must require approval to use bat/batcat');
-expect(t.commandDecision('cat "$SECRET_FILE"').decision === 'ask', 'variable shell paths must fail closed');
+expect(t.commandDecision('cat .env').decision === 'deny', 'bare cat must be denied before protected-path approval');
+expect(t.commandDecision('cat .env.local').decision === 'deny', 'root-relative cat must be denied');
+expect(t.commandDecision('cat /tmp/.env.production').decision === 'deny', 'absolute cat must be denied');
+expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'deny', 'rtk-wrapped cat must be denied');
+expect(t.commandDecision('ls src && cat credentials.json').decision === 'deny', 'compound raw replacement must deny');
+expect(t.commandDecision('cat src/main.ts').decision === 'deny', 'direct cat must be denied in favor of bat/batcat');
+expect(t.commandDecision('cat "$SECRET_FILE"').decision === 'ask', 'variable shell paths must fail closed as ambiguous');
 expect(t.commandDecision("cat '.env").decision === 'ask', 'unbalanced shell quotes must fail closed');
 
 // Ambiguous shell
@@ -263,6 +302,7 @@ expect(t.isMcpOrCustomTool('mcp', { server: 'serena' }) === true, 'managed MCP s
 expect(t.isMcpOrCustomTool('mcp', { connect: 'codegraph' }) === true, 'managed MCP connect requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_find_symbol' }) === false, 'classified Serena read is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_content' }) === true, 'Serena local mutation requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_in_files' }) === true, 'Serena bulk replacement requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_search' }) === false, 'firecrawl search is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape' }) === false, 'firecrawl scrape is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'brave_search_brave_web_search' }) === false, 'brave search tools are autonomous');

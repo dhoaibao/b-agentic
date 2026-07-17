@@ -95,6 +95,55 @@ EOF
 	assert_not_contains "$mcp_path" '"serena"'
 }
 
+run_manifest_only_extension_restore_case() {
+	local snapshot_repo="$1"
+	local sandbox="$WORK_DIR/manifest-only-extension-restore"
+	local extension_path="$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
+
+	mkdir -p "$(dirname "$extension_path")"
+	printf 'user-owned permission extension\n' >"$extension_path"
+	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	assert_not_contains "$extension_path" 'user-owned permission extension'
+	rm "$extension_path"
+	expect_install_status 0 "$sandbox" "$snapshot_repo"
+
+	rm -rf "$sandbox/source"
+	HOME="$sandbox/home" \
+		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
+
+	assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for pi'
+	assert_contains "$extension_path" 'user-owned permission extension'
+}
+
+run_manifest_only_extension_symlink_case() {
+	local snapshot_repo="$1"
+	local sandbox="$WORK_DIR/manifest-only-extension-symlink"
+	local extension_path="$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
+	local target_path="$sandbox/target.ts"
+
+	mkdir -p "$(dirname "$extension_path")"
+	printf 'user-owned permission extension\n' >"$extension_path"
+	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	cp "$extension_path" "$target_path"
+	rm "$extension_path"
+	ln -s "$target_path" "$extension_path"
+
+	rm -rf "$sandbox/source"
+	HOME="$sandbox/home" \
+		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
+
+	assert_contains "$sandbox/uninstall.log" 'preserving symlinked Pi permission extension'
+	[ -L "$extension_path" ] || fail "expected manifest-only uninstall to preserve symlinked extension"
+	assert_contains "$target_path" 'tool_call'
+	assert_not_contains "$target_path" 'user-owned permission extension'
+}
+
 run_post_install_mcp_modification_case() {
 	local snapshot_repo="$1"
 	local sandbox="$WORK_DIR/post-install-mcp-modification"
@@ -1085,6 +1134,10 @@ main() {
 	run_manifest_only_custom_paths_case
 	echo "Running run_manifest_only_merged_config_case..."
 	run_manifest_only_merged_config_case "$snapshot_repo"
+	echo "Running run_manifest_only_extension_restore_case..."
+	run_manifest_only_extension_restore_case "$snapshot_repo"
+	echo "Running run_manifest_only_extension_symlink_case..."
+	run_manifest_only_extension_symlink_case "$snapshot_repo"
 	echo "Running run_post_install_mcp_modification_case..."
 	run_post_install_mcp_modification_case "$snapshot_repo"
 	echo "Running run_invalid_skill_payload_case..."

@@ -746,6 +746,13 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     return { decision: "allow", reason: "" };
   }
 
+  if (isRequiredRawReplacement(tokens)) {
+    return {
+      decision: "deny",
+      reason: "Denied by b-agentic policy: use the required modern shell-tool replacement",
+    };
+  }
+
   // Shell access to a literal protected path is always approval-gated, even
   // through rtk/wrapper commands or in a compound segment. This deliberately
   // covers both reads and writes: the shell parser cannot reliably infer intent.
@@ -852,13 +859,6 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
         reason: `Requires approval for long-lived service: ${pattern.join(" ")}`,
       };
     }
-  }
-
-  if (isRequiredRawReplacement(tokens)) {
-    return {
-      decision: "ask",
-      reason: "Requires approval: use the required modern shell-tool replacement",
-    };
   }
 
   if (isDirectRtkRequiredCommand(rawTokens, tokens)) {

@@ -248,22 +248,32 @@ install_permissions_extension() {
 
 	ensure_dir "$EXTENSIONS_DST"
 	ensure_dir "$(dirname "$EXTENSION_SNAPSHOT_DST")"
-	copy_file "$EXTENSION_SRC" "$EXTENSION_SNAPSHOT_DST"
 
+	local previous_backup="none"
+	previous_backup="$(manifest_backup_value permissionsExtension none)"
 	if [ -f "$EXTENSION_DST" ]; then
 		if cmp -s "$EXTENSION_SRC" "$EXTENSION_DST"; then
-			printf 'skip\nactive\nnone'
+			copy_file "$EXTENSION_SRC" "$EXTENSION_SNAPSHOT_DST"
+			printf 'skip\nactive\n%s' "$previous_backup"
+			return 0
+		fi
+		if [ -f "$EXTENSION_SNAPSHOT_DST" ] && cmp -s "$EXTENSION_DST" "$EXTENSION_SNAPSHOT_DST"; then
+			copy_file "$EXTENSION_SRC" "$EXTENSION_DST"
+			copy_file "$EXTENSION_SRC" "$EXTENSION_SNAPSHOT_DST"
+			printf 'replace\nactive\n%s' "$previous_backup"
 			return 0
 		fi
 		local backup
 		backup="$(backup_file "$EXTENSION_DST")"
 		copy_file "$EXTENSION_SRC" "$EXTENSION_DST"
+		copy_file "$EXTENSION_SRC" "$EXTENSION_SNAPSHOT_DST"
 		printf 'replace\nactive\n%s' "${backup:-none}"
 		return 0
 	fi
 
 	copy_file "$EXTENSION_SRC" "$EXTENSION_DST"
-	printf 'write\nactive\nnone'
+	copy_file "$EXTENSION_SRC" "$EXTENSION_SNAPSHOT_DST"
+	printf 'write\nactive\n%s' "$previous_backup"
 }
 
 runtime_install_extra_assets() {
@@ -389,10 +399,20 @@ runtime_uninstall_configs() {
 	mcp_config_path="$(manifest_path_value mcpConfig "$MCP_CONFIG_DST")"
 	extension_path="$(manifest_path_value permissionsExtension "$EXTENSION_DST")"
 	remove_merged_config "$mcp_config_path" "$TEMPLATES_DST/mcp.user.template.json" "mcp.json" "mcpConfig" "mcpAction"
-	if [ -f "$extension_path" ]; then
+	if [ -L "$extension_path" ]; then
+		warn "preserving symlinked Pi permission extension: $extension_path"
+	elif [ -f "$extension_path" ]; then
 		local snapshot="$METADATA_DIR/extensions/b-agentic-permissions.ts"
 		if [ -f "$snapshot" ] && cmp -s "$extension_path" "$snapshot"; then
-			run_cmd rm -f "$extension_path"
+			local original
+			original="$(manifest_backup_value permissionsExtension none)"
+			if [ "$original" = "none" ]; then
+				run_cmd rm -f "$extension_path"
+			elif [ -f "$original" ] && [ ! -L "$original" ] && [[ "$original" == "$METADATA_DIR/backups/"* ]]; then
+				copy_file "$original" "$extension_path"
+			else
+				warn "preserving Pi permission extension because its original backup is unavailable: $extension_path"
+			fi
 		else
 			warn "preserving modified Pi permission extension: $extension_path"
 		fi

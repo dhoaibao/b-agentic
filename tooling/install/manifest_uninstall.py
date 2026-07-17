@@ -251,9 +251,23 @@ def main() -> None:
         )
         extension_path = manifest_managed_path(paths, "permissionsExtension", defaults["permissionsExtension"])
         extension_snapshot = metadata / "extensions" / "b-agentic-permissions.ts"
-        if extension_path.exists():
+        if extension_path.is_symlink():
+            warn(f"preserving symlinked Pi permission extension: {extension_path}")
+        elif extension_path.exists():
             if extension_snapshot.exists() and files_equal(extension_path, extension_snapshot):
-                remove_file(extension_path)
+                backup = data.get("backups", {}).get("permissionsExtension")
+                if backup in (None, "none"):
+                    remove_file(extension_path)
+                else:
+                    original = Path(backup).expanduser() if isinstance(backup, str) else None
+                    backups_root = metadata / "backups"
+                    if original and original.is_file() and _is_relative_to(original.resolve(), backups_root.resolve()):
+                        shutil.copy2(original, extension_path)
+                    else:
+                        warn(
+                            "preserving Pi permission extension because its original "
+                            f"backup is unavailable: {extension_path}"
+                        )
             else:
                 warn(f"preserving modified Pi permission extension: {extension_path}")
     remove_tree(metadata)

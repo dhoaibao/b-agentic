@@ -42,6 +42,7 @@
         "serena_list_memories": "read-only",
         "serena_initial_instructions": "read-only",
         "serena_replace_content": "local-mutation",
+        "serena_replace_in_files": "local-mutation",
         "serena_replace_symbol_body": "local-mutation",
         "serena_insert_after_symbol": "local-mutation",
         "serena_insert_before_symbol": "local-mutation",
