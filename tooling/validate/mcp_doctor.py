@@ -15,10 +15,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 try:
-    from tooling.validate.mcp_probe import ProbeError, compare_inventory, probe_server
+    from tooling.validate.mcp_probe import ProbeError, compare_conditional_schemas, compare_inventory, probe_server
     from tooling.validate.session_readiness import check_session_tools
 except ModuleNotFoundError:
-    from mcp_probe import ProbeError, compare_inventory, probe_server
+    from mcp_probe import ProbeError, compare_conditional_schemas, compare_inventory, probe_server
     from session_readiness import check_session_tools
 
 
@@ -155,16 +155,22 @@ def main() -> int:
                 try:
                     discovered = probe_server(entry, args.probe_timeout)
                     new_tools, absent_tools = compare_inventory(server, discovered, policy_tools)
+                    schema_drift = compare_conditional_schemas(
+                        server,
+                        discovered,
+                        policy.get("conditional_arguments", {}),
+                    )
                 except ProbeError as exc:
                     print(f"schema-probe {server}: blocked: {exc}")
                     blocked = True
                     continue
-                state = "drift" if new_tools or absent_tools else "match"
+                state = "drift" if new_tools or absent_tools or schema_drift else "match"
                 print(
                     f"schema-probe {server}: {state}: discovered={len(discovered)} "
-                    f"new-unclassified={new_tools or 'none'} absent-configured={absent_tools or 'none'}"
+                    f"new-unclassified={new_tools or 'none'} absent-configured={absent_tools or 'none'} "
+                    f"conditional-schema-drift={schema_drift or 'none'}"
                 )
-                blocked = blocked or bool(new_tools or absent_tools)
+                blocked = blocked or bool(new_tools or absent_tools or schema_drift)
     return 0 if args.allow_degraded or not blocked else 1
 
 

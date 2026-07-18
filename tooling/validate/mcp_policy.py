@@ -19,6 +19,7 @@ POLICY_PATH = ROOT / "references" / "mcp_operations.yaml"
 PI_VALIDATOR = ROOT / "pi" / "scripts" / "validate_mcp_policy.py"
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "local-mutation", "auth"}
 READ_ONLY = "read-only"
+CONDITIONAL_READ = "conditional-read"
 MANAGED_SERVERS = {"serena", "codegraph", "context7", "brave-search", "firecrawl", "playwright"}
 
 
@@ -34,7 +35,7 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> None:
     if not isinstance(classes, dict) or not classes:
         errors.append("references/mcp_operations.yaml: missing classes map")
         classes = {}
-    for required in [READ_ONLY, *sorted(GATED_CLASSES)]:
+    for required in [READ_ONLY, CONDITIONAL_READ, *sorted(GATED_CLASSES)]:
         if required not in classes:
             errors.append(f"references/mcp_operations.yaml: missing class {required!r}")
 
@@ -53,6 +54,7 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> None:
         found = sorted(servers) if isinstance(servers, dict) else []
         errors.append(f"references/mcp_operations.yaml: expected servers {sorted(MANAGED_SERVERS)}, found {found}")
         return
+    conditional_tools: set[str] = set()
     for server, record in servers.items():
         tools = record.get("tools") if isinstance(record, dict) else None
         if not isinstance(tools, dict) or not tools:
@@ -61,6 +63,24 @@ def validate_policy_shape(policy: dict, errors: list[str]) -> None:
         for tool, classification in tools.items():
             if classification not in classes:
                 errors.append(f"references/mcp_operations.yaml: tool {server}:{tool} has unknown class {classification!r}")
+            if classification == CONDITIONAL_READ:
+                conditional_tools.add(f"{server}:{tool}")
+
+    conditional_arguments = policy.get("conditional_arguments")
+    if not isinstance(conditional_arguments, dict) or set(conditional_arguments) != conditional_tools:
+        found = sorted(conditional_arguments) if isinstance(conditional_arguments, dict) else []
+        errors.append(
+            "references/mcp_operations.yaml: conditional_arguments must match conditional-read tools "
+            f"(expected {sorted(conditional_tools)}, found {found})"
+        )
+    elif any(
+        not isinstance(record, dict)
+        or not isinstance(record.get("known"), list)
+        or not record["known"]
+        or not all(isinstance(name, str) for name in record["known"])
+        for record in conditional_arguments.values()
+    ):
+        errors.append("references/mcp_operations.yaml: each conditional argument record needs a non-empty known string list")
 
 
 def main() -> int:

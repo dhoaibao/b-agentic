@@ -13,6 +13,7 @@
  * env/sudo wrappers, and git option prefixes. Fails closed without UI.
  */
 
+import { isIP } from "node:net";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 type Decision = "allow" | "ask" | "deny";
@@ -104,6 +105,12 @@ const MCP_TRUSTED_GATEWAY_OPERATIONS = new Set([
   "ui-messages",
 ]);
 
+/** Read operations that are autonomous only for a validated safe argument shape. */
+const MCP_CONDITIONAL_TOOLS = new Set([
+  "firecrawl:firecrawl_scrape",
+  "playwright:browser_tabs",
+]);
+
 /**
  * Managed MCP operations auto-approved without a prompt. These sets must remain
  * closed-world mirrors of references/mcp_operations.yaml: any unclassified or
@@ -168,12 +175,10 @@ const FIRECRAWL_TRUSTED_TOOLS = new Set([
 const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
   "browser_snapshot",
   "browser_find",
-  "browser_take_screenshot",
   "browser_console_messages",
   "browser_network_requests",
   "browser_network_request",
   "browser_wait_for",
-  "browser_navigate",
   "browser_navigate_back",
   "browser_resize",
   "browser_hover",
@@ -229,6 +234,13 @@ function tokenize(command: string): string[] {
     if (quote) {
       if (ch === quote) {
         quote = null;
+      } else if (ch === "\\" && quote === '"' && i + 1 < command.length) {
+        if (command[i + 1] === "\r" && command[i + 2] === "\n") i += 2;
+        else if (command[i + 1] === "\n") i += 1;
+        else {
+          current += command[i + 1];
+          i += 1;
+        }
       } else {
         current += ch;
       }
@@ -236,6 +248,15 @@ function tokenize(command: string): string[] {
     }
     if (ch === "'" || ch === '"') {
       quote = ch;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < command.length) {
+      if (command[i + 1] === "\r" && command[i + 2] === "\n") i += 2;
+      else if (command[i + 1] === "\n") i += 1;
+      else {
+        current += command[i + 1];
+        i += 1;
+      }
       continue;
     }
     if (/\s/.test(ch)) {
@@ -265,6 +286,26 @@ function splitShellSegments(command: string): string[] {
       current += ch;
       if (ch === quote) {
         quote = null;
+      } else if (ch === "\\" && quote === '"' && i + 1 < command.length) {
+        if (command[i + 1] === "\r" && command[i + 2] === "\n") {
+          current = current.slice(0, -1);
+          i += 2;
+        } else if (command[i + 1] === "\n") {
+          current = current.slice(0, -1);
+          i += 1;
+        } else {
+          current += command[i + 1];
+          i += 1;
+        }
+      }
+      continue;
+    }
+    if (ch === "\\" && i + 1 < command.length) {
+      if (command[i + 1] === "\r" && command[i + 2] === "\n") i += 2;
+      else if (command[i + 1] === "\n") i += 1;
+      else {
+        current += ch + command[i + 1];
+        i += 1;
       }
       continue;
     }
@@ -322,10 +363,33 @@ function splitShellSegments(command: string): string[] {
   return segments.length > 0 ? segments : [command.trim()].filter(Boolean);
 }
 
+function hasUnquotedGlob(command: string): boolean {
+  let quote: "'" | '"' | null = null;
+  for (let i = 0; i < command.length; i += 1) {
+    const ch = command[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else if (ch === "\\" && quote === '"') i += 1;
+      continue;
+    }
+    if (ch === "\\") {
+      i += 1;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === "*" || ch === "?" || ch === "[") return true;
+  }
+  return false;
+}
+
 function hasAmbiguousShellSyntax(command: string): boolean {
-  // Expansions, substitutions, process substitutions, and eval make static path matching unreliable — fail closed with ask.
+  // Expansions, substitutions, process substitutions, unquoted globs, and eval
+  // make static command/path matching unreliable — fail closed with ask.
   // Source-dot only at segment start (not path tokens like "cd .").
-  return /\$|`|[<>]\(|\beval\b|\bsource\b|(?:^|[;&|]\s*)\.\s+\S/.test(command);
+  return /\$|`|[<>]\(|\beval\b|\bsource\b|(?:^|[;&|]\s*)\.\s+\S/.test(command) || hasUnquotedGlob(command);
 }
 
 function hasShellControlSyntax(command: string): boolean {
@@ -336,9 +400,13 @@ function hasShellControlSyntax(command: string): boolean {
 
 function hasUnbalancedQuotes(command: string): boolean {
   let quote: "'" | '"' | null = null;
-  for (const ch of command) {
+  for (let i = 0; i < command.length; i += 1) {
+    const ch = command[i];
     if (quote) {
       if (ch === quote) quote = null;
+      else if (ch === "\\" && quote === '"') i += 1;
+    } else if (ch === "\\") {
+      i += 1;
     } else if (ch === "'" || ch === '"') {
       quote = ch;
     }
@@ -1053,11 +1121,124 @@ function managedServerFromToolName(toolName: string): string | null {
   return null;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, allowed: Set<string>): boolean {
+  return Object.keys(value).every((key) => allowed.has(key));
+}
+
+function isPublicIpv4(host: string): boolean {
+  const octets = host.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  const [a, b, c] = octets;
+  return !(
+    a === 0 || a === 10 || a === 127 || a >= 224 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0 && c === 0) ||
+    (a === 192 && b === 0 && c === 2) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113)
+  );
+}
+
+function ipv6Value(host: string): bigint | null {
+  const normalized = host.replace(/^\[|\]$/g, "").toLowerCase();
+  if (isIP(normalized) !== 6) return null;
+  const halves = normalized.split("::");
+  if (halves.length > 2) return null;
+  const parseHalf = (part: string): string[] => part ? part.split(":") : [];
+  const left = parseHalf(halves[0]);
+  const right = parseHalf(halves[1] || "");
+  const expandIpv4 = (parts: string[]): string[] => {
+    const last = parts.at(-1);
+    if (!last || isIP(last) !== 4) return parts;
+    const octets = last.split(".").map(Number);
+    return [...parts.slice(0, -1), ((octets[0] << 8) | octets[1]).toString(16), ((octets[2] << 8) | octets[3]).toString(16)];
+  };
+  const expandedLeft = expandIpv4(left);
+  const expandedRight = expandIpv4(right);
+  const missing = 8 - expandedLeft.length - expandedRight.length;
+  if ((halves.length === 1 && missing !== 0) || missing < 0) return null;
+  const groups = [...expandedLeft, ...Array(missing).fill("0"), ...expandedRight];
+  return groups.reduce((value, group) => (value << 16n) | BigInt(`0x${group || "0"}`), 0n);
+}
+
+function isPublicIpv6(host: string): boolean {
+  const value = ipv6Value(host);
+  if (value === null || value === 0n || value === 1n) return false;
+  if ((value >> 32n) === 0xffffn) return isPublicIpv4([
+    Number((value >> 24n) & 255n), Number((value >> 16n) & 255n),
+    Number((value >> 8n) & 255n), Number(value & 255n),
+  ].join("."));
+  return !(
+    (value >> 121n) === 0x7en || // fc00::/7 unique-local
+    (value >> 118n) === 0x3fan || // fe80::/10 link-local
+    (value >> 120n) === 0xffn || // ff00::/8 multicast
+    (value >> 96n) === 0x20010db8n || // documentation
+    (value >> 32n) === 0n // IPv4-compatible and other special low addresses
+  );
+}
+
+function isSafeWebUrl(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.replace(/^\[|\]$/g, "").toLowerCase().replace(/\.$/, "");
+    const ipVersion = isIP(host);
+    if (ipVersion === 4) return isPublicIpv4(host);
+    if (ipVersion === 6) return isPublicIpv6(host);
+    if (!host.includes(".")) return false;
+    return ![".localhost", ".local", ".internal", ".home", ".lan", ".test", ".invalid", ".example", ".onion"]
+      .some((suffix) => host === suffix.slice(1) || host.endsWith(suffix));
+  } catch {
+    return false;
+  }
+}
+
+function isConditionallyTrustedTool(server: string, base: string, input: unknown): boolean {
+  if (!isPlainObject(input)) return false;
+
+  if (server === "firecrawl" && base === "firecrawl_scrape") {
+    const allowed = new Set([
+      "url", "formats", "jsonOptions", "queryOptions", "screenshotOptions", "parsers", "pdfOptions",
+      "onlyMainContent", "redactPII", "includeTags", "excludeTags", "waitFor", "mobile",
+      "skipTlsVerification", "removeBase64Images", "location", "storeInCache", "zeroDataRetention",
+      "maxAge", "lockdown", "proxy",
+    ]);
+    return hasOnlyKeys(input, allowed) && isSafeWebUrl(input.url) && input.storeInCache !== true;
+  }
+
+  if (server === "playwright" && base === "browser_tabs") {
+    return hasOnlyKeys(input, new Set(["action"])) && input.action === "list";
+  }
+
+  return false;
+}
+
+function gatewayToolArguments(input: Record<string, unknown>): unknown {
+  const encoded = input.args;
+  if (typeof encoded === "string") {
+    try {
+      return JSON.parse(encoded);
+    } catch {
+      return null;
+    }
+  }
+  return isPlainObject(encoded) ? encoded : null;
+}
+
 /**
  * Operation-level trust for a managed server tool. Every managed server uses
  * an explicit allowlist so new or mutating operations require approval.
  */
-function isTrustedManagedTool(server: string, toolName: string): boolean {
+function isTrustedManagedTool(server: string, toolName: string, input?: unknown): boolean {
   if (!isManagedServer(server)) {
     return false;
   }
@@ -1070,7 +1251,11 @@ function isTrustedManagedTool(server: string, toolName: string): boolean {
     firecrawl: FIRECRAWL_TRUSTED_TOOLS,
     playwright: PLAYWRIGHT_TRUSTED_TOOLS,
   }[server];
-  return trustedTools?.has(base) ?? false;
+  if (!(trustedTools?.has(base) ?? false)) return false;
+  if (MCP_CONDITIONAL_TOOLS.has(`${server}:${base}`)) {
+    return isConditionallyTrustedTool(server, base, input);
+  }
+  return true;
 }
 
 /**
@@ -1085,7 +1270,7 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
     if (!server) {
       return false;
     }
-    return isTrustedManagedTool(server, toolName);
+    return isTrustedManagedTool(server, toolName, input);
   }
 
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -1146,7 +1331,7 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
     if (!server || !isManagedServer(server)) {
       return false;
     }
-    return isTrustedManagedTool(server, tool);
+    return isTrustedManagedTool(server, tool, gatewayToolArguments(value as Record<string, unknown>));
   }
 
   // Server-scoped listing may start a lazy server and refresh remote metadata,
@@ -1290,6 +1475,8 @@ export const __test__ = {
   SPECIALIZED_TOOLS,
   MANAGED_MCP_SERVERS,
   MCP_TRUSTED_GATEWAY_OPERATIONS,
+  MCP_CONDITIONAL_TOOLS,
+  isConditionallyTrustedTool,
   SERENA_TRUSTED_TOOLS,
   CODEGRAPH_TRUSTED_TOOLS,
   CONTEXT7_TRUSTED_TOOLS,

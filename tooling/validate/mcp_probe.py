@@ -61,8 +61,8 @@ def response_result(message: dict[str, Any], request_id: int) -> dict[str, Any]:
     return result
 
 
-def collect_tool_names(request: Any) -> set[str]:
-    names: set[str] = set()
+def collect_tool_inventory(request: Any) -> dict[str, dict[str, Any]]:
+    inventory: dict[str, dict[str, Any]] = {}
     cursor: str | None = None
     request_id = 2
     while True:
@@ -72,10 +72,10 @@ def collect_tool_names(request: Any) -> set[str]:
             raise ProbeError("tools/list response has no tools array")
         for tool in tools:
             if isinstance(tool, dict) and isinstance(tool.get("name"), str):
-                names.add(tool["name"])
+                inventory[tool["name"]] = tool
         next_cursor = result.get("nextCursor")
         if not isinstance(next_cursor, str) or not next_cursor:
-            return names
+            return inventory
         cursor = next_cursor
         request_id += 1
 
@@ -98,7 +98,7 @@ def resolve_env_mapping(values: object) -> dict[str, str]:
     return resolved
 
 
-def probe_stdio(entry: dict[str, Any], timeout: float) -> set[str]:
+def probe_stdio(entry: dict[str, Any], timeout: float) -> dict[str, dict[str, Any]]:
     command = entry.get("command")
     args = entry.get("args", [])
     if not isinstance(command, str) or not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
@@ -149,7 +149,7 @@ def probe_stdio(entry: dict[str, Any], timeout: float) -> set[str]:
     try:
         request(initialize_request(1), 1)
         send(initialized_notification())
-        return collect_tool_names(request)
+        return collect_tool_inventory(request)
     finally:
         if process.stdin:
             process.stdin.close()
@@ -189,7 +189,7 @@ def parse_http_message(response: Any, request_id: int) -> dict[str, Any]:
     raise ProbeError(f"HTTP event stream ended before response {request_id}")
 
 
-def probe_http(entry: dict[str, Any], timeout: float) -> set[str]:
+def probe_http(entry: dict[str, Any], timeout: float) -> dict[str, dict[str, Any]]:
     url = entry.get("url")
     if not isinstance(url, str):
         raise ProbeError("invalid HTTP endpoint")
@@ -252,7 +252,7 @@ def probe_http(entry: dict[str, Any], timeout: float) -> set[str]:
             raise ProbeError("initialize response has no negotiated protocolVersion")
         negotiated_version = version
         post(initialized_notification(), None)
-        return collect_tool_names(lambda message, request_id: post(message, request_id))
+        return collect_tool_inventory(lambda message, request_id: post(message, request_id))
     except BaseException as exc:
         primary_failure = exc
         raise
@@ -268,7 +268,7 @@ def probe_http(entry: dict[str, Any], timeout: float) -> set[str]:
                 ) from cleanup_error
 
 
-def probe_server(entry: dict[str, Any], timeout: float) -> set[str]:
+def probe_server(entry: dict[str, Any], timeout: float) -> dict[str, dict[str, Any]]:
     try:
         if isinstance(entry.get("url"), str):
             return probe_http(entry, timeout)
@@ -291,9 +291,36 @@ def policy_upstream_names(server: str, policy_tools: dict[str, str]) -> set[str]
     return names
 
 
-def compare_inventory(server: str, discovered: set[str], policy_tools: dict[str, str]) -> tuple[list[str], list[str]]:
+def compare_inventory(server: str, discovered: object, policy_tools: dict[str, str]) -> tuple[list[str], list[str]]:
+    discovered_names = set(discovered) if isinstance(discovered, (dict, set)) else set()
     expected = policy_upstream_names(server, policy_tools)
-    return sorted(discovered - expected), sorted(expected - discovered)
+    return sorted(discovered_names - expected), sorted(expected - discovered_names)
+
+
+def compare_conditional_schemas(
+    server: str,
+    discovered: dict[str, dict[str, Any]],
+    conditional_arguments: dict[str, dict[str, Any]],
+) -> list[str]:
+    drift: list[str] = []
+    for key, record in conditional_arguments.items():
+        policy_server, _, policy_tool = key.partition(":")
+        if policy_server != server or not isinstance(record, dict):
+            continue
+        upstream_name = next(iter(policy_upstream_names(server, {policy_tool: "conditional-read"})))
+        tool = discovered.get(upstream_name)
+        if not isinstance(tool, dict):
+            continue
+        schema = tool.get("inputSchema")
+        properties = schema.get("properties") if isinstance(schema, dict) else None
+        if not isinstance(properties, dict):
+            drift.append(f"{policy_tool}:missing-input-properties")
+            continue
+        known = set(record.get("known", []))
+        added = sorted(set(properties) - known)
+        if added:
+            drift.append(f"{policy_tool}:new-arguments={added}")
+    return drift
 
 
 def self_test() -> int:
@@ -304,6 +331,19 @@ def self_test() -> int:
     new_tools, absent_tools = compare_inventory("serena", {"find_symbol", "new_tool"}, policy)
     if new_tools != ["new_tool"] or absent_tools != ["replace_content"]:
         print("MCP inventory comparison fixture failed")
+        return 1
+    conditional_drift = compare_conditional_schemas(
+        "playwright",
+        {
+            "browser_tabs": {
+                "name": "browser_tabs",
+                "inputSchema": {"properties": {"action": {}, "index": {}, "url": {}, "newMode": {}}},
+            }
+        },
+        {"playwright:browser_tabs": {"known": ["action", "index", "url"]}},
+    )
+    if conditional_drift != ["browser_tabs:new-arguments=['newMode']"]:
+        print("MCP conditional-schema comparison fixture failed")
         return 1
     encoded = json.dumps(initialize_request(1))
     if '"method": "initialize"' not in encoded or tools_request(2)["method"] != "tools/list":
@@ -324,7 +364,7 @@ for line in sys.stdin:
     print(json.dumps({"jsonrpc": "2.0", "id": message["id"], "result": result}), flush=True)
 '''
     discovered = probe_stdio({"command": sys.executable, "args": ["-c", fake_server], "env": {}}, 5)
-    if discovered != {"first_tool", "second_tool"}:
+    if set(discovered) != {"first_tool", "second_tool"}:
         print("MCP stdio handshake/pagination fixture failed")
         return 1
 
@@ -370,7 +410,7 @@ for line in sys.stdin:
     with mock.patch.object(urllib.request, "urlopen", fake_urlopen):
         http_tools = probe_http({"url": "https://example.invalid/mcp"}, 5)
     request_headers = [{key.lower(): value for key, value in request.header_items()} for request in requests]
-    if http_tools != {"http_tool"} or requests[-1].get_method() != "DELETE":
+    if set(http_tools) != {"http_tool"} or requests[-1].get_method() != "DELETE":
         print("MCP HTTP inventory/session-termination fixture failed")
         return 1
     if any(headers.get("mcp-protocol-version") != "2025-06-18" for headers in request_headers[1:]):

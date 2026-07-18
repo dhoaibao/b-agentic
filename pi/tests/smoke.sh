@@ -173,6 +173,9 @@ for (const command of ['env', 'env -i', 'env X=1']) {
 expect(t.commandDecision('rtk env').decision === 'allow', 'rtk env must allow');
 expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git commit must ask');
 expect(t.commandDecision('rtk proxy git reset --hard').decision === 'deny', 'rtk proxy must preserve deny decisions');
+expect(t.commandDecision('rtk g\\it reset --hard').decision === 'deny', 'escaped command name must not bypass reset denial');
+expect(t.commandDecision(['rtk g', '\\', '\n', 'it reset --hard'].join('')).decision === 'deny', 'line-continuation command name must not bypass reset denial');
+expect(t.commandDecision('rtk proxy c\\at src/main.ts').decision === 'deny', 'escaped command name must not bypass replacement denial');
 expect(t.commandDecision('rtk proxy grep needle src/main.ts').decision === 'allow', 'rtk proxy must satisfy RTK requirement');
 expect(t.commandDecision('sudo git push --force origin main').decision === 'deny', 'sudo force push must deny');
 expect(t.commandDecision('/usr/bin/env X=1 git reset --hard').decision === 'deny', 'path-qualified env must not bypass reset denial');
@@ -248,6 +251,9 @@ expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'deny', 
 expect(t.commandDecision('ls src && cat credentials.json').decision === 'deny', 'compound raw replacement must deny');
 expect(t.commandDecision('cat src/main.ts').decision === 'deny', 'direct cat must be denied in favor of bat/batcat');
 expect(t.commandDecision('cat "$SECRET_FILE"').decision === 'ask', 'variable shell paths must fail closed as ambiguous');
+expect(t.commandDecision('rtk proxy bat .e?v').decision === 'ask', 'unquoted protected-path glob must fail closed');
+expect(t.commandDecision("rtk rg 'src/*.ts'").decision === 'allow', 'quoted glob argument must remain usable');
+expect(t.commandDecision("rtk rg '\\d+' src/main.ts").decision === 'allow', 'quoted regex escape must remain usable');
 expect(t.commandDecision("cat '.env").decision === 'ask', 'unbalanced shell quotes must fail closed');
 
 // Ambiguous shell
@@ -304,9 +310,21 @@ expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_find_symbol' }) === false, 'cl
 expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_content' }) === true, 'Serena local mutation requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_in_files' }) === true, 'Serena bulk replacement requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_search' }) === false, 'firecrawl search is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape' }) === false, 'firecrawl scrape is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape', args: '{"url":"https://example.com"}' }) === false, 'bounded firecrawl scrape is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape', args: '{"url":"https://example.com","actions":[{"type":"click"}]}' }) === true, 'firecrawl scrape actions require approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape', args: '{"url":"https://example.com","profile":{"name":"saved","saveChanges":true}}' }) === true, 'firecrawl saved profile requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_scrape', args: '{"url":"https://example.com","newUpstreamField":true}' }) === true, 'unknown firecrawl scrape arguments fail closed');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'brave_search_brave_web_search' }) === false, 'brave search tools are autonomous');
-expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_navigate' }) === false, 'playwright navigate is autonomous');
+for (const url of [
+  'https://example.com', 'https://[2606:4700:4700::1111]/',
+  'file:///tmp/.env', 'http://localhost', 'http://service.internal', 'http://devserver',
+  'http://127.0.0.1', 'http://10.0.0.1', 'http://169.254.1.1', 'http://192.168.1.1',
+  'http://[::1]', 'http://[fc00::1]', 'http://[fe80::1]', 'http://[::ffff:127.0.0.1]',
+]) expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_navigate', args: JSON.stringify({ url }) }) === true, `${url} playwright navigate requires approval`);
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_tabs', args: '{"action":"list"}' }) === false, 'playwright tab listing is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_tabs', args: '{"action":"new","url":"https://example.com"}' }) === true, 'playwright tab creation requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_take_screenshot', args: '{"type":"png","scale":"css"}' }) === true, 'default screenshot file requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_take_screenshot', args: '{"type":"png","scale":"css","filename":"repo.png"}' }) === true, 'explicit screenshot filename requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_snapshot' }) === false, 'playwright snapshot is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_find' }) === false, 'playwright find is autonomous');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'context7_query-docs' }) === false, 'context7 tools are autonomous');

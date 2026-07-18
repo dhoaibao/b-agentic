@@ -7,6 +7,10 @@
       "policy": "Autonomous when the runtime can scope tools",
       "notes": "Bounded search/extraction and observational browser evidence only."
     },
+    "conditional-read": {
+      "policy": "Autonomous for safe arguments",
+      "notes": "Gate mutation, local access, and arbitrary output."
+    },
     "local-upload": {
       "policy": "Approval required",
       "notes": "Reads local files for remote processing."
@@ -82,7 +86,7 @@
     "firecrawl": {
       "tools": {
         "firecrawl_search": "read-only",
-        "firecrawl_scrape": "read-only",
+        "firecrawl_scrape": "conditional-read",
         "firecrawl_map": "read-only",
         "firecrawl_extract": "read-only",
         "firecrawl_agent_status": "read-only",
@@ -113,17 +117,17 @@
       "tools": {
         "browser_snapshot": "read-only",
         "browser_find": "read-only",
-        "browser_take_screenshot": "read-only",
+        "browser_take_screenshot": "local-mutation",
         "browser_console_messages": "read-only",
         "browser_network_requests": "read-only",
         "browser_network_request": "read-only",
         "browser_wait_for": "read-only",
-        "browser_navigate": "read-only",
+        "browser_navigate": "external-mutation",
         "browser_navigate_back": "read-only",
         "browser_resize": "read-only",
         "browser_hover": "read-only",
         "browser_close": "read-only",
-        "browser_tabs": "read-only",
+        "browser_tabs": "conditional-read",
         "browser_click": "external-mutation",
         "browser_type": "external-mutation",
         "browser_fill_form": "external-mutation",
@@ -136,6 +140,14 @@
         "browser_run_code_unsafe": "external-mutation",
         "browser_handle_dialog": "external-mutation"
       }
+    }
+  },
+  "conditional_arguments": {
+    "firecrawl:firecrawl_scrape": {
+      "known": ["url", "formats", "jsonOptions", "queryOptions", "screenshotOptions", "parsers", "pdfOptions", "onlyMainContent", "redactPII", "includeTags", "excludeTags", "waitFor", "actions", "mobile", "skipTlsVerification", "removeBase64Images", "location", "storeInCache", "zeroDataRetention", "maxAge", "lockdown", "proxy", "profile"]
+    },
+    "playwright:browser_tabs": {
+      "known": ["action", "index", "url"]
     }
   },
   "gateway_operations": {

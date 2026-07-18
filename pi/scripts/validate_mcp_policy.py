@@ -11,8 +11,10 @@ from pathlib import Path
 
 
 READ_ONLY = "read-only"
+CONDITIONAL_READ = "conditional-read"
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "local-mutation", "auth"}
 GATEWAY_TRUSTED_SET_NAME = "MCP_TRUSTED_GATEWAY_OPERATIONS"
+CONDITIONAL_SET_NAME = "MCP_CONDITIONAL_TOOLS"
 TRUSTED_SET_NAMES = {
     "serena": "SERENA_TRUSTED_TOOLS",
     "codegraph": "CODEGRAPH_TRUSTED_TOOLS",
@@ -60,6 +62,7 @@ def main() -> int:
             elif classification in GATED_CLASSES and operation in trusted_gateway:
                 errors.append(f"{extension.relative_to(root)}: gated gateway operation {operation!r} must not be trusted")
 
+    expected_conditional: set[str] = set()
     for server, record in policy.get("servers", {}).items():
         tools = record.get("tools", {}) if isinstance(record, dict) else {}
         set_name = TRUSTED_SET_NAMES.get(server)
@@ -77,10 +80,19 @@ def main() -> int:
                     "add it to references/mcp_operations.yaml"
                 )
         for tool, classification in tools.items():
-            if classification == READ_ONLY and tool not in trusted_tools:
-                errors.append(f"{extension.relative_to(root)}: read-only {server} tool {tool!r} must be trusted")
+            if classification in {READ_ONLY, CONDITIONAL_READ} and tool not in trusted_tools:
+                errors.append(f"{extension.relative_to(root)}: autonomous {server} tool {tool!r} must be trusted")
             elif classification in GATED_CLASSES and tool in trusted_tools:
                 errors.append(f"{extension.relative_to(root)}: gated {server} tool {tool!r} must not be trusted")
+            if classification == CONDITIONAL_READ:
+                expected_conditional.add(f"{server}:{tool}")
+
+    actual_conditional = parse_set_literal(text, CONDITIONAL_SET_NAME)
+    if actual_conditional != expected_conditional:
+        errors.append(
+            f"{extension.relative_to(root)}: {CONDITIONAL_SET_NAME} must equal canonical conditional-read tools "
+            f"(expected {sorted(expected_conditional)}, found {sorted(actual_conditional)})"
+        )
 
     if errors:
         print("\n".join(errors), file=sys.stderr)

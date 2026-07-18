@@ -50,6 +50,7 @@ Canonical policy: `~/.pi/agent/b-agentic/references/mcp_operations.yaml`. Enforc
 | Class | Policy | Scope |
 |---|---|---|
 | `read-only` | Autonomous when the runtime can scope tools | Bounded search/extraction and observational browser evidence only. |
+| `conditional-read` | Autonomous for safe arguments | Gate mutation, local access, and arbitrary output. |
 | `local-upload` | Approval required | Reads local files for remote processing. |
 | `external-mutation` | Approval required | Creates or changes remote state, including sessions, pages, and submitted feedback. |
 | `monitor-lifecycle` | Approval required; not part of the default workflow | Firecrawl monitor create/update/delete/run/list/get/check families. |
