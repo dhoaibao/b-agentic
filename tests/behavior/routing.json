@@ -68,6 +68,24 @@
       "prompt": "Rename one symbol and all references without changing behavior.",
       "expected_skill": "b-refactor",
       "forbidden_skills": ["b-implement", "b-plan"]
+    },
+    {
+      "id": "repository-approach-comparison",
+      "prompt": "Compare the viable implementation approaches for adding a local cache in this repository, inspect the current code constraints, choose the smallest safe path, and give me an execution-ready plan. Do not change code or look up external APIs.",
+      "expected_skill": "b-plan",
+      "forbidden_skills": ["b-research", "b-implement"]
+    },
+    {
+      "id": "external-option-comparison",
+      "prompt": "Compare the current documented behavior and compatibility of two framework cache APIs. Use versioned external documentation; do not choose an implementation for this repository yet.",
+      "expected_skill": "b-research",
+      "forbidden_skills": ["b-plan", "b-implement"]
+    },
+    {
+      "id": "coverage-request-vs-implementation",
+      "prompt": "Add focused unit tests for the existing cache fallback behavior and evaluate the remaining coverage gap. Product behavior is already correct.",
+      "expected_skill": "b-test",
+      "forbidden_skills": ["b-implement", "b-debug"]
     }
   ]
 }
