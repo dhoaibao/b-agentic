@@ -13,7 +13,9 @@
  * env/sudo wrappers, and git option prefixes. Fails closed without UI.
  */
 
+import { realpathSync, statSync } from "node:fs";
 import { isIP } from "node:net";
+import { isAbsolute, relative } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 type Decision = "allow" | "ask" | "deny";
@@ -107,7 +109,19 @@ const MCP_TRUSTED_GATEWAY_OPERATIONS = new Set([
 
 /** Read operations that are autonomous only for a validated safe argument shape. */
 const MCP_CONDITIONAL_TOOLS = new Set([
+  "serena:serena_search_for_pattern",
+  "serena:serena_get_symbols_overview",
+  "serena:serena_find_symbol",
+  "serena:serena_find_referencing_symbols",
+  "serena:serena_find_implementations",
+  "serena:serena_find_declaration",
+  "serena:serena_get_diagnostics_for_file",
+  "firecrawl:firecrawl_search",
   "firecrawl:firecrawl_scrape",
+  "playwright:browser_snapshot",
+  "playwright:browser_console_messages",
+  "playwright:browser_network_requests",
+  "playwright:browser_network_request",
   "playwright:browser_tabs",
 ]);
 
@@ -1202,17 +1216,85 @@ function isSafeWebUrl(value: unknown): boolean {
   }
 }
 
+function hasProtectedPathArgument(input: Record<string, unknown>, keys: string[]): boolean {
+  return keys.some((key) => {
+    const value = input[key];
+    if (typeof value !== "string" || !value) return false;
+    const literalized = value.replace(/[!*?{}\[\]]/g, "");
+    return isProtectedPath(value) || isProtectedPath(literalized) || PROTECTED_PATH_MARKERS.some((marker) => value.includes(marker));
+  });
+}
+
+function isSafeSerenaPatternSearch(input: Record<string, unknown>): boolean {
+  if (input.restrict_search_to_code_files !== true) return false;
+  if (input.paths_include_glob || input.paths_exclude_glob) return false;
+  const pathValue = input.relative_path;
+  if (typeof pathValue !== "string" || !pathValue || isProtectedPath(pathValue)) return false;
+  try {
+    const projectRoot = realpathSync(process.cwd());
+    const target = realpathSync(pathValue);
+    const projectRelative = relative(projectRoot, target);
+    return !isAbsolute(projectRelative) && projectRelative !== ".." && !projectRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) &&
+      statSync(target).isFile() && !isProtectedPath(target);
+  } catch {
+    return false;
+  }
+}
+
+function isSafeFirecrawlScrapeOptions(input: Record<string, unknown>): boolean {
+  const allowed = new Set([
+    "formats", "jsonOptions", "queryOptions", "screenshotOptions", "parsers", "pdfOptions",
+    "onlyMainContent", "redactPII", "includeTags", "excludeTags", "waitFor", "mobile",
+    "skipTlsVerification", "removeBase64Images", "location", "storeInCache", "zeroDataRetention",
+    "maxAge", "lockdown", "proxy",
+  ]);
+  return hasOnlyKeys(input, allowed) && input.storeInCache !== true;
+}
+
 function isConditionallyTrustedTool(server: string, base: string, input: unknown): boolean {
   if (!isPlainObject(input)) return false;
 
+  if (server === "serena") {
+    const knownArguments: Record<string, string[]> = {
+      serena_search_for_pattern: ["substring_pattern", "context_lines_before", "context_lines_after", "paths_include_glob", "paths_exclude_glob", "relative_path", "restrict_search_to_code_files", "multiline", "max_answer_chars"],
+      serena_get_symbols_overview: ["relative_path", "depth", "max_answer_chars"],
+      serena_find_symbol: ["name_path_pattern", "depth", "relative_path", "include_body", "include_info", "include_kinds", "exclude_kinds", "substring_matching", "max_matches", "max_answer_chars"],
+      serena_find_referencing_symbols: ["name_path", "relative_path", "include_kinds", "exclude_kinds", "max_answer_chars"],
+      serena_find_implementations: ["name_path", "relative_path", "include_info", "include_kinds", "exclude_kinds", "max_answer_chars"],
+      serena_find_declaration: ["relative_path", "regex", "containing_symbol_name_path", "include_body", "include_info"],
+      serena_get_diagnostics_for_file: ["relative_path", "start_line", "end_line", "min_severity", "max_answer_chars"],
+    };
+    const known = knownArguments[base];
+    if (!known || !hasOnlyKeys(input, new Set(known)) ||
+      hasProtectedPathArgument(input, ["relative_path", "paths_include_glob", "paths_exclude_glob"])) return false;
+    return base !== "serena_search_for_pattern" || isSafeSerenaPatternSearch(input);
+  }
+
+  if (server === "firecrawl" && base === "firecrawl_search") {
+    const allowed = new Set(["query", "limit", "tbs", "filter", "location", "includeDomains", "excludeDomains", "sources", "categories", "scrapeOptions", "enterprise"]);
+    if (!hasOnlyKeys(input, allowed) || typeof input.query !== "string" || !input.query.trim()) return false;
+    return input.scrapeOptions === undefined || (isPlainObject(input.scrapeOptions) && isSafeFirecrawlScrapeOptions(input.scrapeOptions));
+  }
+
   if (server === "firecrawl" && base === "firecrawl_scrape") {
-    const allowed = new Set([
-      "url", "formats", "jsonOptions", "queryOptions", "screenshotOptions", "parsers", "pdfOptions",
-      "onlyMainContent", "redactPII", "includeTags", "excludeTags", "waitFor", "mobile",
-      "skipTlsVerification", "removeBase64Images", "location", "storeInCache", "zeroDataRetention",
-      "maxAge", "lockdown", "proxy",
-    ]);
-    return hasOnlyKeys(input, allowed) && isSafeWebUrl(input.url) && input.storeInCache !== true;
+    const { url, ...options } = input;
+    return isSafeWebUrl(url) && isSafeFirecrawlScrapeOptions(options);
+  }
+
+  if (server === "playwright" && base === "browser_snapshot") {
+    return hasOnlyKeys(input, new Set(["target", "depth", "boxes"]));
+  }
+
+  if (server === "playwright" && base === "browser_console_messages") {
+    return hasOnlyKeys(input, new Set(["level", "all"]));
+  }
+
+  if (server === "playwright" && base === "browser_network_requests") {
+    return hasOnlyKeys(input, new Set(["static", "filter"]));
+  }
+
+  if (server === "playwright" && base === "browser_network_request") {
+    return hasOnlyKeys(input, new Set(["index", "part"]));
   }
 
   if (server === "playwright" && base === "browser_tabs") {

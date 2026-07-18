@@ -35,13 +35,13 @@
   "servers": {
     "serena": {
       "tools": {
-        "serena_search_for_pattern": "read-only",
-        "serena_get_symbols_overview": "read-only",
-        "serena_find_symbol": "read-only",
-        "serena_find_referencing_symbols": "read-only",
-        "serena_find_implementations": "read-only",
-        "serena_find_declaration": "read-only",
-        "serena_get_diagnostics_for_file": "read-only",
+        "serena_search_for_pattern": "conditional-read",
+        "serena_get_symbols_overview": "conditional-read",
+        "serena_find_symbol": "conditional-read",
+        "serena_find_referencing_symbols": "conditional-read",
+        "serena_find_implementations": "conditional-read",
+        "serena_find_declaration": "conditional-read",
+        "serena_get_diagnostics_for_file": "conditional-read",
         "serena_read_memory": "read-only",
         "serena_list_memories": "read-only",
         "serena_initial_instructions": "read-only",
@@ -85,7 +85,7 @@
     },
     "firecrawl": {
       "tools": {
-        "firecrawl_search": "read-only",
+        "firecrawl_search": "conditional-read",
         "firecrawl_scrape": "conditional-read",
         "firecrawl_map": "read-only",
         "firecrawl_extract": "read-only",
@@ -115,12 +115,12 @@
     },
     "playwright": {
       "tools": {
-        "browser_snapshot": "read-only",
+        "browser_snapshot": "conditional-read",
         "browser_find": "read-only",
         "browser_take_screenshot": "local-mutation",
-        "browser_console_messages": "read-only",
-        "browser_network_requests": "read-only",
-        "browser_network_request": "read-only",
+        "browser_console_messages": "conditional-read",
+        "browser_network_requests": "conditional-read",
+        "browser_network_request": "conditional-read",
         "browser_wait_for": "read-only",
         "browser_navigate": "external-mutation",
         "browser_navigate_back": "read-only",
@@ -143,8 +143,44 @@
     }
   },
   "conditional_arguments": {
+    "serena:serena_search_for_pattern": {
+      "known": ["substring_pattern", "context_lines_before", "context_lines_after", "paths_include_glob", "paths_exclude_glob", "relative_path", "restrict_search_to_code_files", "multiline", "max_answer_chars"]
+    },
+    "serena:serena_get_symbols_overview": {
+      "known": ["relative_path", "depth", "max_answer_chars"]
+    },
+    "serena:serena_find_symbol": {
+      "known": ["name_path_pattern", "depth", "relative_path", "include_body", "include_info", "include_kinds", "exclude_kinds", "substring_matching", "max_matches", "max_answer_chars"]
+    },
+    "serena:serena_find_referencing_symbols": {
+      "known": ["name_path", "relative_path", "include_kinds", "exclude_kinds", "max_answer_chars"]
+    },
+    "serena:serena_find_implementations": {
+      "known": ["name_path", "relative_path", "include_info", "include_kinds", "exclude_kinds", "max_answer_chars"]
+    },
+    "serena:serena_find_declaration": {
+      "known": ["relative_path", "regex", "containing_symbol_name_path", "include_body", "include_info"]
+    },
+    "serena:serena_get_diagnostics_for_file": {
+      "known": ["relative_path", "start_line", "end_line", "min_severity", "max_answer_chars"]
+    },
+    "firecrawl:firecrawl_search": {
+      "known": ["query", "limit", "tbs", "filter", "location", "includeDomains", "excludeDomains", "sources", "categories", "scrapeOptions", "enterprise"]
+    },
     "firecrawl:firecrawl_scrape": {
       "known": ["url", "formats", "jsonOptions", "queryOptions", "screenshotOptions", "parsers", "pdfOptions", "onlyMainContent", "redactPII", "includeTags", "excludeTags", "waitFor", "actions", "mobile", "skipTlsVerification", "removeBase64Images", "location", "storeInCache", "zeroDataRetention", "maxAge", "lockdown", "proxy", "profile"]
+    },
+    "playwright:browser_snapshot": {
+      "known": ["target", "filename", "depth", "boxes"]
+    },
+    "playwright:browser_console_messages": {
+      "known": ["level", "all", "filename"]
+    },
+    "playwright:browser_network_requests": {
+      "known": ["static", "filter", "filename"]
+    },
+    "playwright:browser_network_request": {
+      "known": ["index", "part", "filename"]
     },
     "playwright:browser_tabs": {
       "known": ["action", "index", "url"]
