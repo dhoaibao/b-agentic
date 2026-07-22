@@ -5,9 +5,8 @@
  * - ask: commits, pushes, pulls, reverts, dependency writes, long-lived services, rm -rf
  * - deny: destructive git history/worktree rewrites and selected docker prune/rm families
  * - block write/edit to secret and repository-control paths
- * - allow MCP metadata discovery and operation-level trusted managed MCP tools
- * - ask before Firecrawl/Playwright external-mutation tools, user/unknown MCP servers,
- *   auth actions, and other custom tools
+ * - allow metadata discovery and every tool from b-agentic-managed MCP servers
+ * - ask before user/unknown MCP servers, auth actions, and other custom tools
  *
  * Normalizes bare and rtk-wrapped shell commands, compound shell segments,
  * env/sudo wrappers, and git option prefixes. Fails closed without UI.
@@ -77,8 +76,8 @@ const PROTECTED_PATH_MARKERS = [
 /**
  * Built-in Pi tools with specialized policy.
  * Legacy discovery tools (grep/find/ls) are handled below so they cannot
- * bypass the kernel's RTK and shell-tool policy. Managed MCP tools are
- * auto-approved only via operation-level allowlists below.
+ * bypass the kernel's RTK and shell-tool policy. Every tool from a managed
+ * MCP server is auto-approved.
  */
 const SPECIALIZED_TOOLS = new Set([
   "bash",
@@ -126,9 +125,8 @@ const MCP_CONDITIONAL_TOOLS = new Set([
 ]);
 
 /**
- * Managed MCP operations auto-approved without a prompt. These sets must remain
- * closed-world mirrors of references/mcp_operations.yaml: any unclassified or
- * mutating operation requires approval.
+ * Legacy operation classifications retained as descriptive policy metadata.
+ * Runtime approval is based on managed server identity, not these allowlists.
  */
 const SERENA_TRUSTED_TOOLS = new Set([
   "serena_search_for_pattern",
@@ -164,9 +162,7 @@ const BRAVE_SEARCH_TRUSTED_TOOLS = new Set([
 ]);
 
 /**
- * Firecrawl tools auto-approved without a prompt (bounded read/extract/status only).
- * External-mutation and local-upload tools stay gated: agent, crawl, interact,
- * monitor, feedback submission, and parse (local file upload).
+ * Legacy Firecrawl operation classification metadata.
  */
 const FIRECRAWL_TRUSTED_TOOLS = new Set([
   "firecrawl_agent_status",
@@ -183,8 +179,7 @@ const FIRECRAWL_TRUSTED_TOOLS = new Set([
 ]);
 
 /**
- * Playwright tools auto-approved for observational browser evidence.
- * Click/type/upload/evaluate and other page-mutating actions stay gated.
+ * Legacy Playwright operation classification metadata.
  */
 const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
   "browser_snapshot",
@@ -1282,34 +1277,17 @@ function gatewayToolArguments(input: Record<string, unknown>): unknown {
 }
 
 /**
- * Operation-level trust for a managed server tool. Every managed server uses
- * an explicit allowlist so new or mutating operations require approval.
+ * Every tool exposed by one of b-agentic's managed MCP servers is trusted.
+ * The server identity, not a tool allowlist or argument shape, is the boundary.
  */
-function isTrustedManagedTool(server: string, toolName: string, input?: unknown): boolean {
-  if (!isManagedServer(server)) {
-    return false;
-  }
-  const base = managedToolBaseName(toolName, server);
-  const trustedTools = {
-    serena: SERENA_TRUSTED_TOOLS,
-    codegraph: CODEGRAPH_TRUSTED_TOOLS,
-    context7: CONTEXT7_TRUSTED_TOOLS,
-    "brave-search": BRAVE_SEARCH_TRUSTED_TOOLS,
-    firecrawl: FIRECRAWL_TRUSTED_TOOLS,
-    playwright: PLAYWRIGHT_TRUSTED_TOOLS,
-  }[server];
-  if (!(trustedTools?.has(base) ?? false)) return false;
-  if (MCP_CONDITIONAL_TOOLS.has(`${server}:${base}`)) {
-    return isConditionallyTrustedTool(server, base, input);
-  }
-  return true;
+function isTrustedManagedTool(server: string, _toolName: string, _input?: unknown): boolean {
+  return isManagedServer(server);
 }
 
 /**
  * True when this call is a trusted managed b-agentic MCP action that should
  * run without a Pi approval prompt. Fail closed on mixed MCP selectors,
- * server/tool origin mismatch, Firecrawl/Playwright external-mutation tools,
- * auth bootstrap, and non-managed servers.
+ * server/tool origin mismatch, auth bootstrap, and non-managed servers.
  */
 function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
   if (toolName !== "mcp") {
@@ -1354,9 +1332,7 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
   }
 
   if (hasConnect) {
-    // Connection lifecycle is classified as approval-required. A recognized
-    // server name must not implicitly grant trust to an unclassified action.
-    return false;
+    return isManagedServer(value.connect as string);
   }
 
   if (hasTool) {
@@ -1369,11 +1345,6 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
     if (explicitServer && fromName && explicitServer !== fromName) {
       return false;
     }
-    // If tool name has no managed origin, do not let an explicit server rewrite it.
-    if (explicitServer && !fromName) {
-      return false;
-    }
-
     const server = fromName || explicitServer;
     if (!server || !isManagedServer(server)) {
       return false;
@@ -1381,10 +1352,8 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
     return isTrustedManagedTool(server, tool, gatewayToolArguments(value as Record<string, unknown>));
   }
 
-  // Server-scoped listing may start a lazy server and refresh remote metadata,
-  // so it follows the approval-required gateway lifecycle classification.
   if (typeof value.server === "string") {
-    return false;
+    return isManagedServer(value.server);
   }
 
   return false;
@@ -1475,8 +1444,7 @@ export default function (pi: ExtensionAPI) {
       };
     }
 
-    // User/unknown MCP, Firecrawl/Playwright external mutations, auth, and custom tools ask.
-    // Trusted managed MCP tools (operation-level) and metadata discovery are auto-allowed.
+    // User/unknown MCP, auth, and custom tools ask. All managed MCP-server tools are auto-allowed.
     if (isMcpOrCustomTool(event.toolName, event.input)) {
       const inputPreview = JSON.stringify(event.input ?? {}).slice(0, 400);
       return confirmOrBlock(
