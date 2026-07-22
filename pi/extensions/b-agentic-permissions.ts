@@ -5,7 +5,7 @@
  * - ask: commits, pushes, pulls, reverts, dependency writes, long-lived services, rm -rf
  * - deny: destructive git history/worktree rewrites and selected docker prune/rm families
  * - block write/edit to secret and repository-control paths
- * - allow metadata discovery and every tool from b-agentic-managed MCP servers
+ * - allow metadata discovery, every b-agentic-managed MCP server tool, and RTK-supported commands
  * - ask before user/unknown MCP servers, auth actions, and other custom tools
  *
  * Normalizes bare and rtk-wrapped shell commands, compound shell segments,
@@ -773,6 +773,10 @@ function isStandaloneEnvCommand(rawTokens: string[]): boolean {
   );
 }
 
+function isRtkSupportedCommand(rawTokens: string[], tokens: string[]): boolean {
+  return isRtkWrapped(rawTokens) && RTK_REQUIRED_COMMANDS.has(tokens[0]);
+}
+
 function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): boolean {
   return !isRtkWrapped(rawTokens) && RTK_REQUIRED_COMMANDS.has(tokens[0]);
 }
@@ -801,6 +805,8 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
   if (tokens.length === 0) {
     return { decision: "allow", reason: "" };
   }
+
+  const rtkSupported = isRtkSupportedCommand(rawTokens, tokens);
 
   // Shell access to a literal protected path is always approval-gated, even
   // through rtk/wrapper commands or in a compound segment. This deliberately
@@ -879,6 +885,12 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
         reason: `Denied by b-agentic policy: ${pattern.join(" ")}`,
       };
     }
+  }
+
+  // RTK is the trusted execution boundary for its supported command families.
+  // Explicit destructive denials and protected or opaque inputs above still win.
+  if (rtkSupported) {
+    return { decision: "allow", reason: "" };
   }
 
   if (isRmRecursiveForce(tokens)) {
@@ -1481,6 +1493,7 @@ export const __test__ = {
   isRtkWrapped,
   hasOpaqueWrapper,
   isStandaloneEnvCommand,
+  isRtkSupportedCommand,
   isDirectRtkRequiredCommand,
   hasInlineGitAliasInvocation,
   hasOpaqueGitOptions,

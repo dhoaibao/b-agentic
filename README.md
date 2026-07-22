@@ -40,7 +40,7 @@ Interactive installs prepare Pi and RTK; Serena and CodeGraph remain optional in
 
 During interactive installs, the installer can prompt to download and run the RTK install script from its `master` branch. If `rtk` is already installed, the installer asks separately before upgrading it; the existing installation satisfies the prerequisite. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is required for b-agentic sessions; installation fails if it cannot be installed.
 
-Once installed, b-agentic runs command families supported by `rtk --help` through RTK and runs unsupported commands directly. The Pi runtime enforces RTK only for supported native command families. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms:
+Once installed, b-agentic runs command families supported by `rtk --help` through RTK and runs unsupported commands directly. RTK-supported commands are auto-approved; explicit destructive commands are denied, and protected paths or opaque execution remain approval-gated. The Pi runtime enforces RTK only for supported native command families:
 
 ```bash
 rtk git status
@@ -82,7 +82,7 @@ Use CodeGraph for architectural flows, call graphs, impact radius, route-to-hand
 
 Pi discovers native skills from `~/.pi/agent/skills/` and MCP configuration from `~/.pi/agent/mcp.json` through `pi-mcp-adapter`. b-agentic preserves user-owned configuration and reports every managed change.
 
-Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The Pi extension auto-approves MCP metadata discovery and only the explicitly classified read-only managed MCP operations, while prompting for approval-required shell commands, managed MCP local or external mutations, unclassified managed operations, user/unknown MCP servers, and other custom tools; those approval-required actions fail closed without UI. Pi MCP requires the community adapter `pi-mcp-adapter` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively). The optional `pi-observational-memory` package provides long-session compaction continuity; it is prompted interactively or installed noninteractively with `B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y`, and should be the sole automatic memory/compaction layer. Uninstall removes managed config/extension files but not any package. On top of this baseline, b-agentic configures managed safety gates for commits, pushes, dependency writes, and destructive commands, including their `rtk`-wrapped forms when RTK is enabled. Pi enforces Firecrawl/Playwright policy from `references/mcp_operations.yaml` and `references/kernel.template.md` at the operation level.
+Pi has no native permission model, so b-agentic installs a first-party `tool_call` extension at `~/.pi/agent/extensions/b-agentic-permissions.ts`. The extension auto-approves MCP metadata discovery, every tool from the six managed MCP servers, and RTK-supported command families. Protected paths and opaque execution remain approval-gated; explicit destructive shell commands are denied. User/unknown MCP servers, generic auth actions, and other custom tools also require approval and fail closed without UI. Pi MCP requires the community adapter `pi-mcp-adapter` (prompted interactively, or `B_AGENTIC_INSTALL_PI_MCP_ADAPTER=Y` noninteractively). The optional `pi-observational-memory` package provides long-session compaction continuity; it is prompted interactively or installed noninteractively with `B_AGENTIC_INSTALL_PI_OBSERVATIONAL_MEMORY=Y`, and should be the sole automatic memory/compaction layer. Uninstall removes managed config/extension files but not any package. Pi enforces managed MCP and RTK policy from `references/mcp_operations.yaml` and `references/kernel.template.md`.
 
 ## Skills
 
@@ -124,7 +124,7 @@ The installer writes recommended MCP entries for:
 - Brave Search: secondary public/current discovery and alternate source finding.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
-The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It reports local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK. When live network/process activity is approved, `scripts/mcp-doctor.sh --probe-schemas` explicitly starts or connects to each configured server and compares its current tool inventory with the canonical operation policy; newly discovered tools remain unclassified and gated.
+The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It reports local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK. When live network/process activity is approved, `scripts/mcp-doctor.sh --probe-schemas` explicitly starts or connects to each configured server and compares its current tool inventory with the canonical operation policy.
 
 ## Repository Layout
 

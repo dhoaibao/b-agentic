@@ -154,7 +154,7 @@ function expect(cond, msg) {
 expect(typeof toolCallHandler === 'function', 'permission extension must register a tool_call handler');
 const noUiContext = { hasUI: false, ui: { confirm: async () => true } };
 expect(await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git status --short' } }, noUiContext) === undefined, 'registered handler must allow safe RTK command');
-expect((await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git commit -m x' } }, noUiContext))?.block === true, 'registered handler must fail closed for approval-required shell command');
+expect(await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git commit -m x' } }, noUiContext) === undefined, 'registered handler must allow RTK-supported command');
 expect(await toolCallHandler({ toolName: 'mcp', input: { connect: 'serena' } }, noUiContext) === undefined, 'registered handler must allow managed MCP connect');
 expect((await toolCallHandler({ toolName: 'read', input: { path: '.env' } }, noUiContext))?.block === true, 'registered handler must fail closed for protected read');
 
@@ -171,7 +171,7 @@ for (const command of ['env', 'env -i', 'env X=1']) {
   expect(t.commandDecision(command).decision === 'ask', `${command} must require rtk env`);
 }
 expect(t.commandDecision('rtk env').decision === 'allow', 'rtk env must allow');
-expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git commit must ask');
+expect(t.commandDecision('rtk git commit -m x').decision === 'allow', 'rtk git commit must allow');
 expect(t.commandDecision('rtk proxy git reset --hard').decision === 'deny', 'rtk proxy must preserve deny decisions');
 expect(t.commandDecision('rtk g\\it reset --hard').decision === 'deny', 'escaped command name must not bypass reset denial');
 expect(t.commandDecision(['rtk g', '\\', '\n', 'it reset --hard'].join('')).decision === 'deny', 'line-continuation command name must not bypass reset denial');
@@ -182,7 +182,7 @@ expect(t.commandDecision('/usr/bin/env X=1 git reset --hard').decision === 'deny
 expect(t.commandDecision('/usr/bin/sudo git push --force origin main').decision === 'deny', 'path-qualified sudo must not bypass force-push denial');
 expect(t.commandDecision('/opt/bin/rtk git reset --hard').decision === 'deny', 'path-qualified RTK must not bypass reset denial');
 expect(t.commandDecision('rtk git --git-dir repo/.git reset --hard').decision === 'deny', 'Git option value must not hide reset denial');
-expect(t.commandDecision('rtk git --git-dir repo/.git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'Git config-env alias after option value must ask');
+expect(t.commandDecision('rtk git --git-dir repo/.git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'RTK Git command with opaque options must ask');
 expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git push -f must deny');
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
 expect(t.commandDecision('ls -la').decision === 'ask', 'direct supported command must require RTK');
@@ -202,15 +202,18 @@ for (const command of [
 ]) expect(t.commandDecision(command).decision === 'allow', `${command} must allow; modern shell-tool alternatives are optional`);
 for (const [command, label] of [
   ['npm add lodash', 'npm add'], ['npm remove lodash', 'npm remove'], ['npm --silent install lodash', 'npm option install'], ['npm ci', 'npm ci'],
-  ['/usr/bin/npm --silent install lodash', 'path-qualified npm option install'], ['rtk npm --prefix ./app install lodash', 'npm option-value install'],
-  ['pnpm update', 'pnpm update'], ['pnpm up lodash', 'pnpm up'], ['rtk pnpm --dir ./app add lodash', 'pnpm option-value add'],
+  ['/usr/bin/npm --silent install lodash', 'path-qualified npm option install'],
+  ['pnpm update', 'pnpm update'], ['pnpm up lodash', 'pnpm up'],
   ['yarn remove lodash', 'yarn remove'], ['yarn up lodash', 'yarn up'], ['bun uninstall lodash', 'bun uninstall'],
-  ['cargo remove serde', 'cargo remove'], ['rtk cargo --manifest-path app/Cargo.toml update', 'cargo option-value update'],
+  ['cargo remove serde', 'cargo remove'],
   ['npm --unknown-option install lodash', 'unknown package option'], ['pip uninstall requests', 'pip uninstall'],
   ['pip3 uninstall requests', 'pip3 uninstall'], ['poetry update', 'poetry update'],
   ['uv pip uninstall requests', 'uv pip uninstall'], ['uv pip sync requirements.txt', 'uv pip sync'],
 ]) expect(t.commandDecision(command).decision === 'ask', `${label} must gate dependency writes`);
-expect(t.commandDecision('git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'inline Git config-env alias invocation must ask');
+for (const command of ['rtk npm --prefix ./app install lodash', 'rtk pnpm --dir ./app add lodash', 'rtk cargo --manifest-path app/Cargo.toml update']) {
+  expect(t.commandDecision(command).decision === 'allow', `${command} must allow via RTK`);
+}
+expect(t.commandDecision('git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'inline Git alias invocation must ask');
 for (const command of ['npm view lodash', 'pnpm list', 'cargo search serde']) {
   expect(t.commandDecision(command).decision === 'ask', `${command} must require RTK`);
 }
@@ -247,6 +250,7 @@ expect(t.commandDecision('cat .env').decision === 'ask', 'bare protected-path re
 expect(t.commandDecision('cat .env.local').decision === 'ask', 'root-relative protected-path read must ask');
 expect(t.commandDecision('cat /tmp/.env.production').decision === 'ask', 'absolute protected-path read must ask');
 expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'ask', 'rtk-wrapped protected-path read must ask');
+expect(t.commandDecision('rtk rg SECRET .env').decision === 'ask', 'RTK-supported command must gate protected paths');
 expect(t.commandDecision('ls src && cat credentials.json').decision === 'ask', 'compound protected-path read must ask');
 expect(t.commandDecision('cat src/main.ts').decision === 'allow', 'direct cat must allow when appropriate');
 expect(t.commandDecision('cat "$SECRET_FILE"').decision === 'ask', 'variable shell paths must fail closed as ambiguous');
@@ -260,7 +264,7 @@ expect(t.commandDecision('eval "$(echo git reset --hard)"').decision === 'ask', 
 expect(t.hasAmbiguousShellSyntax('$(git reset --hard)') === true, 'subshell must be ambiguous');
 expect(t.hasUnbalancedQuotes("cat '.env") === true, 'unbalanced quotes must be ambiguous');
 expect(t.commandDecision('bash <(printf "git reset --hard")').decision === 'ask', 'process substitution must ask');
-expect(t.commandDecision('rtk proxy find . -exec git reset --hard \\;').decision === 'ask', 'find execution proxy must ask');
+expect(t.commandDecision('rtk proxy find . -exec git reset --hard \\;').decision === 'ask', 'RTK find execution proxy must ask');
 expect(t.commandDecision('rtk proxy printf "git reset --hard" | rtk proxy xargs sh').decision === 'ask', 'xargs execution proxy must ask');
 expect(t.commandDecision('if rtk ls .; then rtk proxy echo ok; fi').decision === 'ask', 'if control structure must ask');
 expect(t.commandDecision('while rtk ls .; do rtk proxy echo ok; break; done').decision === 'ask', 'while control structure must ask');
