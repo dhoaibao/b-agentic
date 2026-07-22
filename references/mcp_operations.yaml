@@ -1,30 +1,30 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Canonical managed MCP operation classification. All tools exposed by the six managed servers are auto-approved; classifications remain descriptive.",
+  "description": "Canonical managed MCP operation classification. Only read-only and safe conditional-read operations are auto-approved.",
   "classes": {
     "read-only": {
       "policy": "Auto-approved for managed servers",
       "notes": "Bounded search/extraction and observational browser evidence only."
     },
     "conditional-read": {
-      "policy": "Auto-approved for managed servers",
+      "policy": "Auto-approved for safe arguments",
       "notes": "Gate mutation, local access, and arbitrary output."
     },
     "local-upload": {
-      "policy": "Auto-approved for managed servers",
+      "policy": "Approval required",
       "notes": "Reads local files for remote processing."
     },
     "external-mutation": {
-      "policy": "Auto-approved for managed servers",
+      "policy": "Approval required",
       "notes": "Creates or changes remote state, including sessions, pages, and submitted feedback."
     },
     "monitor-lifecycle": {
-      "policy": "Auto-approved for managed servers",
+      "policy": "Approval required",
       "notes": "Firecrawl monitor create/update/delete/run/list/get/check families."
     },
     "local-mutation": {
-      "policy": "Auto-approved for managed servers",
+      "policy": "Approval required",
       "notes": "Mutates local repository or agent state."
     },
     "auth": {
@@ -196,6 +196,6 @@
     "auth-complete": "auth"
   },
   "runtime_enforcement": {
-    "pi": "adapter tool_call extension trusts every tool from a managed server"
+    "pi": "adapter tool_call extension trusts only classified safe operations; validation requires runtime safe sets to match this policy"
   }
 }

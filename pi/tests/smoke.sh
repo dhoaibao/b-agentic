@@ -154,8 +154,8 @@ function expect(cond, msg) {
 expect(typeof toolCallHandler === 'function', 'permission extension must register a tool_call handler');
 const noUiContext = { hasUI: false, ui: { confirm: async () => true } };
 expect(await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git status --short' } }, noUiContext) === undefined, 'registered handler must allow safe RTK command');
-expect(await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git commit -m x' } }, noUiContext) === undefined, 'registered handler must allow RTK-supported command');
-expect(await toolCallHandler({ toolName: 'mcp', input: { connect: 'serena' } }, noUiContext) === undefined, 'registered handler must allow managed MCP connect');
+expect((await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git commit -m x' } }, noUiContext))?.block === true, 'registered handler must fail closed for approval-required RTK command');
+expect((await toolCallHandler({ toolName: 'mcp', input: { connect: 'serena' } }, noUiContext))?.block === true, 'registered handler must fail closed for managed MCP connect');
 expect((await toolCallHandler({ toolName: 'read', input: { path: '.env' } }, noUiContext))?.block === true, 'registered handler must fail closed for protected read');
 
 // Compound commands and wrappers
@@ -171,7 +171,7 @@ for (const command of ['env', 'env -i', 'env X=1']) {
   expect(t.commandDecision(command).decision === 'ask', `${command} must require rtk env`);
 }
 expect(t.commandDecision('rtk env').decision === 'allow', 'rtk env must allow');
-expect(t.commandDecision('rtk git commit -m x').decision === 'allow', 'rtk git commit must allow');
+expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git commit must ask');
 expect(t.commandDecision('rtk proxy git reset --hard').decision === 'deny', 'rtk proxy must preserve deny decisions');
 expect(t.commandDecision('rtk g\\it reset --hard').decision === 'deny', 'escaped command name must not bypass reset denial');
 expect(t.commandDecision(['rtk g', '\\', '\n', 'it reset --hard'].join('')).decision === 'deny', 'line-continuation command name must not bypass reset denial');
@@ -185,6 +185,10 @@ expect(t.commandDecision('rtk git --git-dir repo/.git reset --hard').decision ==
 expect(t.commandDecision('rtk git --git-dir repo/.git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'RTK Git command with opaque options must ask');
 expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git push -f must deny');
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
+expect(t.commandDecision('rm -r /tmp/x').decision === 'ask', 'recursive rm must ask');
+for (const command of ['dd if=/dev/zero of=/dev/sda', 'mkfs.ext4 /dev/sda', 'chmod -R 777 .', 'chown -R root .', 'kill -9 1']) {
+  expect(t.commandDecision(command).decision === 'ask', `${command} must ask`);
+}
 expect(t.commandDecision('ls -la').decision === 'ask', 'direct supported command must require RTK');
 expect(t.commandDecision('rtk ls -la').decision === 'allow', 'rtk ls must allow');
 expect(t.commandDecision('env X=1 rtk ls -la').decision === 'allow', 'env-wrapped rtk ls must allow');
@@ -211,7 +215,7 @@ for (const [command, label] of [
   ['uv pip uninstall requests', 'uv pip uninstall'], ['uv pip sync requirements.txt', 'uv pip sync'],
 ]) expect(t.commandDecision(command).decision === 'ask', `${label} must gate dependency writes`);
 for (const command of ['rtk npm --prefix ./app install lodash', 'rtk pnpm --dir ./app add lodash', 'rtk cargo --manifest-path app/Cargo.toml update']) {
-  expect(t.commandDecision(command).decision === 'allow', `${command} must allow via RTK`);
+  expect(t.commandDecision(command).decision === 'ask', `${command} must ask even via RTK`);
 }
 expect(t.commandDecision('git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'inline Git alias invocation must ask');
 for (const command of ['npm view lodash', 'pnpm list', 'cargo search serde']) {
@@ -291,28 +295,33 @@ expect(t.nativePathDecision('read', '.env').decision === 'ask', 'protected nativ
 expect(t.nativePathDecision('write', '.env').decision === 'deny', 'protected native write must remain blocked');
 expect(t.nativePathDecision('edit', '.env').decision === 'deny', 'protected native edit must remain blocked');
 expect(t.nativePathDecision('read', 'src/main.ts').decision === 'allow', 'normal native read must allow');
+for (const pathValue of ['.npmrc', '.netrc', '.pypirc', '.git-credentials', '.config/gh/hosts.yml', '.ssh/config']) {
+  expect(t.nativePathDecision('read', pathValue).decision === 'ask', `${pathValue} must require approval`);
+}
 const protectedReadReason = t.nativePathDecision('read', '.env').reason;
 expect(await t.confirmOrBlock({ hasUI: false, ui: { confirm: async () => true } }, 'test', 'test', protectedReadReason), 'protected native read must fail closed without UI');
 expect((await t.confirmOrBlock({ hasUI: true, ui: { confirm: async () => true } }, 'test', 'test', protectedReadReason)) === undefined, 'approved protected native read must allow');
 expect(await t.confirmOrBlock({ hasUI: true, ui: { confirm: async () => false } }, 'test', 'test', protectedReadReason), 'denied protected native read must block');
 
-// Every tool from a managed MCP server is autonomous; non-managed MCP and custom tools still ask.
+// Only classified safe managed MCP operations are autonomous.
 expect(t.isMcpOrCustomTool('bash') === false, 'bash is specialized');
 expect(t.isMcpOrCustomTool('mcp', { search: 'symbol' }) === false, 'MCP metadata search is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_content' }) === false, 'managed Serena mutation is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_parse' }) === false, 'managed Firecrawl upload is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_click' }) === false, 'managed Playwright action is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { connect: 'serena' }) === false, 'managed MCP connect is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { server: 'firecrawl' }) === false, 'managed MCP server listing is autonomous');
-expect(t.isMcpOrCustomTool('mcp', { server: 'serena', tool: 'new_serena_tool' }) === false, 'unlisted managed-server tool is autonomous');
-expect(t.isMcpOrCustomTool('serena_replace_content') === false, 'direct managed Serena mutation is autonomous');
-expect(t.isMcpOrCustomTool('firecrawl_firecrawl_agent') === false, 'direct managed Firecrawl action is autonomous');
-expect(t.isMcpOrCustomTool('browser_click') === false, 'direct managed Playwright action is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_read_memory' }) === false, 'managed read-only tool is autonomous');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_content' }) === true, 'managed Serena mutation requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_parse' }) === true, 'managed Firecrawl upload requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_click' }) === true, 'managed Playwright action requires approval');
+expect(t.isMcpOrCustomTool('mcp', { connect: 'serena' }) === true, 'managed MCP connect requires approval');
+expect(t.isMcpOrCustomTool('mcp', { server: 'firecrawl' }) === true, 'managed MCP server listing requires approval');
+expect(t.isMcpOrCustomTool('mcp', { server: 'serena', tool: 'new_serena_tool' }) === true, 'unlisted managed-server tool requires approval');
+expect(t.isMcpOrCustomTool('serena_replace_content') === true, 'direct managed Serena mutation requires approval');
+expect(t.isMcpOrCustomTool('firecrawl_firecrawl_agent') === true, 'direct managed Firecrawl action requires approval');
+expect(t.isMcpOrCustomTool('browser_click') === true, 'direct managed Playwright action requires approval');
 expect(t.isMcpOrCustomTool('mcp', { server: 'serena', tool: 'firecrawl_agent' }) === true, 'mismatched server/tool fails closed');
 expect(t.isMcpOrCustomTool('mcp', { connect: 'firecrawl', tool: 'firecrawl_agent' }) === true, 'mixed MCP selectors fail closed');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'user_tool', server: 'user-server' }) === true, 'user MCP tool requires approval');
 expect(t.isMcpOrCustomTool('some-extension-tool') === true, 'unknown tool is custom');
-expect(t.isTrustedManagedTool('firecrawl', 'new_tool') === true, 'managed server trusts new tools');
+expect(t.isTrustedManagedTool('firecrawl', 'new_tool') === false, 'unlisted managed tool is not trusted');
+expect(t.isTrustedManagedTool('serena', 'serena_read_memory') === true, 'managed read-only tool is trusted');
 expect(t.isTrustedManagedTool('user-server', 'user_tool') === false, 'unmanaged server is not trusted');
 expect(t.MANAGED_MCP_SERVERS.has('playwright'), 'managed MCP servers present');
 

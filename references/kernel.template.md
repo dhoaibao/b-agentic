@@ -44,17 +44,17 @@ For unclear goals or approaches, use `b-plan`. Use `b-summary` only for an expli
 
 ### Managed MCP operations
 
-Canonical policy: `~/.pi/agent/b-agentic/references/mcp_operations.yaml`. Pi auto-approves every tool exposed by its six managed MCP servers; all other MCP and custom tools remain approval-required.
+Canonical policy: `~/.pi/agent/b-agentic/references/mcp_operations.yaml`. Pi auto-approves classified read-only and safe conditional-read operations; managed mutations, uploads, lifecycle actions, auth, and all other MCP/custom tools remain approval-required.
 
 <!-- generated:mcp-operations:start -->
 | Class | Policy | Scope |
 |---|---|---|
 | `read-only` | Auto-approved for managed servers | Bounded search/extraction and observational browser evidence only. |
-| `conditional-read` | Auto-approved for managed servers | Gate mutation, local access, and arbitrary output. |
-| `local-upload` | Auto-approved for managed servers | Reads local files for remote processing. |
-| `external-mutation` | Auto-approved for managed servers | Creates or changes remote state, including sessions, pages, and submitted feedback. |
-| `monitor-lifecycle` | Auto-approved for managed servers | Firecrawl monitor create/update/delete/run/list/get/check families. |
-| `local-mutation` | Auto-approved for managed servers | Mutates local repository or agent state. |
+| `conditional-read` | Auto-approved for safe arguments | Gate mutation, local access, and arbitrary output. |
+| `local-upload` | Approval required | Reads local files for remote processing. |
+| `external-mutation` | Approval required | Creates or changes remote state, including sessions, pages, and submitted feedback. |
+| `monitor-lifecycle` | Approval required | Firecrawl monitor create/update/delete/run/list/get/check families. |
+| `local-mutation` | Approval required | Mutates local repository or agent state. |
 | `auth` | Approval required | MCP OAuth/auth bootstrap actions. |
 <!-- generated:mcp-operations:end -->
 
@@ -62,7 +62,7 @@ Pi enforces this policy and protected shell-path gates in its first-party `tool_
 
 ## Shell commands
 
-Use `rtk` for command families it supports; run unsupported commands directly. Its supported commands are auto-approved except for explicit destructive denials and protected or opaque inputs. For example: `rtk git status`, `rtk rg pattern`, `rtk ls`, `rtk find`, `rtk docker ps`, and `rtk pytest -q`.
+Use `rtk` for command families it supports; run unsupported commands directly. RTK does not bypass approval for dangerous commands; explicit destructive commands are denied, while protected or opaque inputs remain approval-gated. For example: `rtk git status`, `rtk rg pattern`, `rtk ls`, `rtk find`, `rtk docker ps`, and `rtk pytest -q`.
 
 Prefer modern shell tools where they improve the task: `rg` over `grep`, `fd`/`fdfind` over `find`, `bat`/`batcat` over `cat`, `eza`/`exa` over `ls`, `sd` over `sed` and `awk`, and `jq` over `python -m json.tool`. Do not require these replacements when a default shell tool is more appropriate or already available.
 

@@ -5,8 +5,8 @@
  * - ask: commits, pushes, pulls, reverts, dependency writes, long-lived services, rm -rf
  * - deny: destructive git history/worktree rewrites and selected docker prune/rm families
  * - block write/edit to secret and repository-control paths
- * - allow metadata discovery, every b-agentic-managed MCP server tool, and RTK-supported commands
- * - ask before user/unknown MCP servers, auth actions, and other custom tools
+ * - allow metadata discovery plus classified read-only and safe conditional-read MCP operations
+ * - ask before managed mutations/uploads, user/unknown MCP servers, auth actions, and other custom tools
  *
  * Normalizes bare and rtk-wrapped shell commands, compound shell segments,
  * env/sudo wrappers, and git option prefixes. Fails closed without UI.
@@ -57,6 +57,14 @@ const SERVICE_COMMANDS: string[][] = [
   ["cargo", "watch"],
 ];
 
+const DANGEROUS_ASK_COMMANDS: string[][] = [
+  ["dd"], ["mkfs"], ["chmod"], ["chown"], ["kill"], ["pkill"], ["killall"],
+  ["shutdown"], ["reboot"], ["poweroff"], ["halt"],
+  ["systemctl", "stop"], ["systemctl", "restart"], ["systemctl", "disable"],
+  ["docker", "rm"], ["docker", "container", "rm"], ["docker", "image", "rm"],
+  ["docker", "compose", "down"], ["kubectl", "delete"],
+];
+
 const PROTECTED_PATH_MARKERS = [
   ".env",
   "credentials.",
@@ -65,6 +73,14 @@ const PROTECTED_PATH_MARKERS = [
   ".key",
   ".p12",
   ".pfx",
+  ".npmrc",
+  ".netrc",
+  ".pypirc",
+  ".git-credentials",
+  ".ssh/",
+  ".config/gh/",
+  ".aws/",
+  ".kube/",
   "/.git/",
   ".git/",
   "id_rsa",
@@ -76,8 +92,8 @@ const PROTECTED_PATH_MARKERS = [
 /**
  * Built-in Pi tools with specialized policy.
  * Legacy discovery tools (grep/find/ls) are handled below so they cannot
- * bypass the kernel's RTK and shell-tool policy. Every tool from a managed
- * MCP server is auto-approved.
+ * bypass the kernel's RTK and shell-tool policy. Managed MCP operations are
+ * approved only when their canonical classification is safe.
  */
 const SPECIALIZED_TOOLS = new Set([
   "bash",
@@ -125,8 +141,7 @@ const MCP_CONDITIONAL_TOOLS = new Set([
 ]);
 
 /**
- * Legacy operation classifications retained as descriptive policy metadata.
- * Runtime approval is based on managed server identity, not these allowlists.
+ * Runtime safe-operation sets validated against mcp_operations.yaml.
  */
 const SERENA_TRUSTED_TOOLS = new Set([
   "serena_search_for_pattern",
@@ -686,18 +701,13 @@ function shortFlagChars(tokens: string[]): string {
   return chars;
 }
 
-function isRmRecursiveForce(tokens: string[]): boolean {
+function isRmRecursive(tokens: string[]): boolean {
   if (tokens[0] !== "rm") {
     return false;
   }
   const rest = tokens.slice(1);
-  if (rest.includes("-rf") || rest.includes("-fr") || rest.includes("-Rf") || rest.includes("-fR")) {
-    return true;
-  }
   const chars = shortFlagChars(rest);
-  const recursive = /[rR]/.test(chars) || rest.includes("--recursive");
-  const force = chars.includes("f") || rest.includes("--force");
-  return recursive && force;
+  return /[rR]/.test(chars) || rest.includes("--recursive");
 }
 
 function hasOpaqueGitOptions(tokens: string[]): boolean {
@@ -887,17 +897,20 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     }
   }
 
-  // RTK is the trusted execution boundary for its supported command families.
-  // Explicit destructive denials and protected or opaque inputs above still win.
-  if (rtkSupported) {
-    return { decision: "allow", reason: "" };
-  }
-
-  if (isRmRecursiveForce(tokens)) {
+  if (isRmRecursive(tokens)) {
     return {
       decision: "ask",
-      reason: "Requires approval: rm -rf",
+      reason: "Requires approval: recursive rm",
     };
+  }
+
+  for (const pattern of DANGEROUS_ASK_COMMANDS) {
+    if (matchesPrefix(tokens, pattern) || (pattern[0] === "mkfs" && tokens[0].startsWith("mkfs."))) {
+      return {
+        decision: "ask",
+        reason: `Requires approval: ${pattern.join(" ")}`,
+      };
+    }
   }
 
   if (hasDependencyWrite(tokens)) {
@@ -920,6 +933,12 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
         reason: `Requires approval for long-lived service: ${pattern.join(" ")}`,
       };
     }
+  }
+
+  // RTK only removes the wrapper requirement for commands already classified
+  // as safe; approvals and denials above remain independent of RTK.
+  if (rtkSupported) {
+    return { decision: "allow", reason: "" };
   }
 
   if (isDirectRtkRequiredCommand(rawTokens, tokens)) {
@@ -1289,11 +1308,22 @@ function gatewayToolArguments(input: Record<string, unknown>): unknown {
 }
 
 /**
- * Every tool exposed by one of b-agentic's managed MCP servers is trusted.
- * The server identity, not a tool allowlist or argument shape, is the boundary.
+ * Trust only managed MCP operations classified as read-only, or conditional-read
+ * operations whose arguments pass their corresponding safety checks.
  */
-function isTrustedManagedTool(server: string, _toolName: string, _input?: unknown): boolean {
-  return isManagedServer(server);
+function isTrustedManagedTool(server: string, toolName: string, input?: unknown): boolean {
+  if (!isManagedServer(server)) return false;
+  const base = managedToolBaseName(toolName, server);
+  if (MCP_CONDITIONAL_TOOLS.has(`${server}:${base}`)) {
+    return isConditionallyTrustedTool(server, base, input);
+  }
+  if (server === "serena") return SERENA_TRUSTED_TOOLS.has(base);
+  if (server === "codegraph") return CODEGRAPH_TRUSTED_TOOLS.has(base);
+  if (server === "context7") return CONTEXT7_TRUSTED_TOOLS.has(base);
+  if (server === "brave-search") return BRAVE_SEARCH_TRUSTED_TOOLS.has(base);
+  if (server === "firecrawl") return FIRECRAWL_TRUSTED_TOOLS.has(base);
+  if (server === "playwright") return PLAYWRIGHT_TRUSTED_TOOLS.has(base);
+  return false;
 }
 
 /**
@@ -1344,7 +1374,7 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
   }
 
   if (hasConnect) {
-    return isManagedServer(value.connect as string);
+    return false;
   }
 
   if (hasTool) {
@@ -1365,7 +1395,7 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
   }
 
   if (typeof value.server === "string") {
-    return isManagedServer(value.server);
+    return false;
   }
 
   return false;
@@ -1373,7 +1403,7 @@ function isTrustedManagedMcpCall(toolName: string, input?: unknown): boolean {
 
 /**
  * Returns true when the tool call should go through the custom/MCP approval prompt.
- * Built-ins, MCP metadata discovery, and ordinary managed MCP tools return false.
+ * Built-ins, MCP metadata discovery, and classified safe managed operations return false.
  */
 function isMcpOrCustomTool(toolName: string, input?: unknown): boolean {
   if (SPECIALIZED_TOOLS.has(toolName)) {
@@ -1456,7 +1486,7 @@ export default function (pi: ExtensionAPI) {
       };
     }
 
-    // User/unknown MCP, auth, and custom tools ask. All managed MCP-server tools are auto-allowed.
+    // Managed mutations, uploads, auth, user/unknown MCP, and custom tools ask.
     if (isMcpOrCustomTool(event.toolName, event.input)) {
       const inputPreview = JSON.stringify(event.input ?? {}).slice(0, 400);
       return confirmOrBlock(
@@ -1495,6 +1525,7 @@ export const __test__ = {
   isStandaloneEnvCommand,
   isRtkSupportedCommand,
   isDirectRtkRequiredCommand,
+  isRmRecursive,
   hasInlineGitAliasInvocation,
   hasOpaqueGitOptions,
   hasOpaquePackageOptions,
@@ -1512,6 +1543,7 @@ export const __test__ = {
   FIRECRAWL_TRUSTED_TOOLS,
   PLAYWRIGHT_TRUSTED_TOOLS,
   ASK_COMMANDS,
+  DANGEROUS_ASK_COMMANDS,
   DENY_COMMANDS,
   RTK_REQUIRED_COMMANDS,
 };

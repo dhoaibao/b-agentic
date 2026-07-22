@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Pi's managed-MCP auto-approval policy."""
+"""Validate Pi's managed-MCP approval policy against its runtime sets."""
 
 from __future__ import annotations
 
@@ -15,6 +15,17 @@ def parse_set_literal(source: str, const_name: str) -> set[str] | None:
     if not match:
         return None
     return set(re.findall(r'"([^"]+)"', match.group(1)))
+
+
+def check_set(errors: list[str], source: str, name: str, expected: set[str], extension: Path, root: Path) -> None:
+    actual = parse_set_literal(source, name)
+    if actual is None:
+        errors.append(f"{extension.relative_to(root)}: {name} is missing or unparsable")
+    elif actual != expected:
+        errors.append(
+            f"{extension.relative_to(root)}: {name} must match canonical policy "
+            f"(expected {sorted(expected)}, found {sorted(actual)})"
+        )
 
 
 def main() -> int:
@@ -37,35 +48,66 @@ def main() -> int:
         errors.append(f"{args.policy}: missing managed servers")
         servers = {}
 
-    managed_servers = set(servers)
-    runtime_servers = parse_set_literal(source, "MANAGED_MCP_SERVERS")
-    if runtime_servers is None:
-        errors.append(f"{extension.relative_to(root)}: MANAGED_MCP_SERVERS is missing or unparsable")
-    elif runtime_servers != managed_servers:
-        errors.append(
-            f"{extension.relative_to(root)}: MANAGED_MCP_SERVERS must equal canonical managed servers "
-            f"(expected {sorted(managed_servers)}, found {sorted(runtime_servers)})"
-        )
+    check_set(errors, source, "MANAGED_MCP_SERVERS", set(servers), extension, root)
 
-    for server, record in servers.items():
-        if not isinstance(record, dict) or not isinstance(record.get("tools"), dict) or not record["tools"]:
+    classes = policy.get("classes", {})
+    expected_policies = {
+        "read-only": "Auto-approved for managed servers",
+        "conditional-read": "Auto-approved for safe arguments",
+        "local-upload": "Approval required",
+        "external-mutation": "Approval required",
+        "monitor-lifecycle": "Approval required",
+        "local-mutation": "Approval required",
+        "auth": "Approval required",
+    }
+    for name, expected in expected_policies.items():
+        if classes.get(name, {}).get("policy") != expected:
+            errors.append(f"{args.policy}: {name} must be {expected!r}")
+
+    runtime_sets = {
+        "serena": "SERENA_TRUSTED_TOOLS",
+        "codegraph": "CODEGRAPH_TRUSTED_TOOLS",
+        "context7": "CONTEXT7_TRUSTED_TOOLS",
+        "brave-search": "BRAVE_SEARCH_TRUSTED_TOOLS",
+        "firecrawl": "FIRECRAWL_TRUSTED_TOOLS",
+        "playwright": "PLAYWRIGHT_TRUSTED_TOOLS",
+    }
+    conditional: set[str] = set()
+    for server, runtime_set in runtime_sets.items():
+        tools = servers.get(server, {}).get("tools", {})
+        if not isinstance(tools, dict):
             errors.append(f"{args.policy}: {server!r} must declare tools")
+            continue
+        safe_tools = {tool for tool, operation in tools.items() if operation in {"read-only", "conditional-read"}}
+        check_set(errors, source, runtime_set, safe_tools, extension, root)
+        conditional.update(f"{server}:{tool}" for tool, operation in tools.items() if operation == "conditional-read")
+
+    check_set(errors, source, "MCP_CONDITIONAL_TOOLS", conditional, extension, root)
+    gateway = policy.get("gateway_operations", {})
+    if isinstance(gateway, dict):
+        check_set(
+            errors,
+            source,
+            "MCP_TRUSTED_GATEWAY_OPERATIONS",
+            {name for name, operation in gateway.items() if operation == "read-only"},
+            extension,
+            root,
+        )
+    else:
+        errors.append(f"{args.policy}: missing gateway operations")
 
     for marker in [
-        "function isTrustedManagedTool(server: string, _toolName: string, _input?: unknown): boolean",
-        "return isManagedServer(server);",
+        "isConditionallyTrustedTool(server, base, input)",
+        "SERENA_TRUSTED_TOOLS.has(base)",
+        "return false;\n  }\n\n  if (hasTool)",
     ]:
         if marker not in source:
-            errors.append(f"{extension.relative_to(root)}: missing managed-server auto-approval marker {marker!r}")
-
-    auth = policy.get("classes", {}).get("auth", {})
-    if auth.get("policy") != "Approval required":
-        errors.append(f"{args.policy}: auth must remain approval-required because gateway auth is gated at runtime")
+            errors.append(f"{extension.relative_to(root)}: missing managed-operation gate {marker!r}")
 
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Pi managed-MCP auto-approval policy validation passed.")
+    print("Pi managed-MCP approval policy validation passed.")
     return 0
 
 
