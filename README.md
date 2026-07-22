@@ -34,7 +34,7 @@ MCP servers and RTK are installed from their latest available releases. Run `scr
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Pi CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_PI_CLI=Y`.
 
-Interactive installs prepare Pi and RTK; Serena and CodeGraph remain optional installs. Modern shell tools are optional: prefer `rg` over `grep`, `fd` or `fdfind` over `find`, `bat` (or Debian/Ubuntu's `batcat`) over `cat`, `eza` or `exa` over `ls`, `sd` over `sed` or `awk`, and `jq` over `python -m json.tool` for JSON when they improve the task. Set `B_AGENTIC_INSTALL_SHELL_TOOLS=Y` to install these optional tools.
+Interactive installs prepare Pi and RTK; Serena and CodeGraph remain optional installs. When modern shell tools are missing, interactive installs prompt to install them: `rg` over `grep`, `fd` or `fdfind` over `find`, `bat` (or Debian/Ubuntu's `batcat`) over `cat`, `eza` or `exa` over `ls`, `sd` over `sed` or `awk`, and `jq` over `python -m json.tool` for JSON when they improve the task. Set `B_AGENTIC_INSTALL_SHELL_TOOLS=Y` to install them non-interactively.
 
 ## RTK (Rust Token Killer)
 

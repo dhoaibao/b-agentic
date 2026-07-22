@@ -309,6 +309,8 @@ if pid == 0:
     os.execv("/bin/bash", ["bash", install_script])
 
 status = None
+prompt_answered = False
+prompt_buffer = b""
 with open(log_path, "wb") as log:
     while True:
         try:
@@ -323,6 +325,10 @@ with open(log_path, "wb") as log:
                     break
                 log.write(chunk)
                 log.flush()
+                prompt_buffer = (prompt_buffer + chunk)[-4096:]
+                if not prompt_answered and b"Install optional shell tooling" in prompt_buffer:
+                    os.write(fd, b"n\n")
+                    prompt_answered = True
         except (OSError, select.error):
             break
 
@@ -339,8 +345,9 @@ PY
 	rc=$?
 	set -e
 
-	[ "$rc" -eq 0 ] || fail "expected default optional shell tool skip exit 0, got $rc"
-	assert_contains "$install_log" 'Optional shell tooling is not installed automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install rg, fd/fdfind, bat, eza/exa, sd, jq'
+	[ "$rc" -eq 0 ] || fail "expected optional shell tool prompt skip exit 0, got $rc"
+	assert_contains "$install_log" 'Install optional shell tooling (rg, fd/fdfind, bat, eza/exa, sd, jq)? [y/N]:'
+	assert_contains "$install_log" 'Skipping optional shell tooling installation without explicit approval'
 	assert_not_contains "$install_log" 'Shell tooling missing'
 
 	mkdir -p "$apt_bin_dir" "$apt_sandbox/home"
@@ -458,6 +465,8 @@ if pid == 0:
     os.execv("/bin/bash", ["bash", install_script])
 
 status = None
+prompt_answered = False
+prompt_buffer = b""
 with open(log_path, "wb") as log:
     while True:
         result, status = os.waitpid(pid, os.WNOHANG)
@@ -474,6 +483,10 @@ with open(log_path, "wb") as log:
                 break
             log.write(chunk)
             log.flush()
+            prompt_buffer = (prompt_buffer + chunk)[-4096:]
+            if not prompt_answered and b"Install optional shell tooling" in prompt_buffer:
+                os.write(fd, b"y\n")
+                prompt_answered = True
 
 os.close(fd)
 if status is None:
@@ -487,10 +500,11 @@ PY
 	rc=$?
 	set -e
 
-	[ "$rc" -eq 0 ] || fail "expected auto-mode optional shell tool skip exit 0, got $rc"
-	assert_contains "$dnf_install_log" 'Optional shell tooling is not installed automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install rg, fd/fdfind, bat, eza/exa, sd, jq'
-	[ ! -e "$dnf_log" ] || fail "auto-mode optional shell tooling must not invoke dnf"
-	assert_contains "$dnf_install_log" 'core: optional tools unavailable: rg, fd/fdfind, bat/batcat, eza/exa, sd, jq'
+	[ "$rc" -eq 0 ] || fail "expected auto-mode optional shell tool installation exit 0, got $rc"
+	assert_contains "$dnf_install_log" 'Install optional shell tooling (rg, fd/fdfind, bat, eza/exa, sd, jq)? [y/N]:'
+	assert_contains "$dnf_log" 'sudo:dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq'
+	assert_contains "$dnf_log" 'dnf:install -y --skip-unavailable ripgrep fd-find bat eza sd jq'
+	assert_contains "$dnf_install_log" 'core: ready: rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available'
 
 	local dnf_root_sandbox="$WORK_DIR/shell-tool-dnf-root"
 	local dnf_root_bin_dir="$dnf_root_sandbox/bin"

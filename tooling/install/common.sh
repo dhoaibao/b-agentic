@@ -1028,11 +1028,7 @@ install_shell_tools() {
       log "Skipping optional shell tooling installation"
       return 0
       ;;
-    auto|AUTO|Auto)
-      log "Optional shell tooling is not installed automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install $(recommended_shell_commands)"
-      return 0
-      ;;
-    y|Y|yes|YES|Yes|true|TRUE|1) ;;
+    auto|AUTO|Auto|y|Y|yes|YES|Yes|true|TRUE|1) ;;
     *) die "invalid B_AGENTIC_INSTALL_SHELL_TOOLS value: $INSTALL_SHELL_TOOLS_VALUE" ;;
   esac
 
@@ -1045,6 +1041,15 @@ install_shell_tools() {
     log "Shell tooling already installed: $(recommended_shell_commands)"
     return 0
   }
+
+  case "${INSTALL_SHELL_TOOLS_VALUE:-auto}" in
+    auto|AUTO|Auto)
+      if ! prompt_yes_no "Install optional shell tooling ($(recommended_shell_commands))? [y/N]" N; then
+        log "Skipping optional shell tooling installation without explicit approval"
+        return 0
+      fi
+      ;;
+  esac
 
   package_manager="$(detect_shell_tool_package_manager)"
   install_command="$(shell_tool_install_hint "$package_manager")"
@@ -1188,7 +1193,7 @@ print_shell_tool_recommendations() {
   report_section "Shell tooling"
   report_item "core" "$(shell_tool_readiness_status)"
   report_item "core-install" "$(shell_tool_install_hint "$package_manager")"
-  report_item "installer" "does not install optional tools automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install them"
+  report_item "installer" "prompts to install missing optional tools; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y for non-interactive installation"
 }
 
 print_install_report_next_steps() {
