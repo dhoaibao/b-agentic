@@ -62,10 +62,10 @@ Pi enforces this policy and protected shell-path gates in its first-party `tool_
 
 ## Shell commands
 
-Use `rtk` for every command family listed by `rtk --help`; do not run a supported family directly or substitute a non-RTK equivalent. For example: `rtk git status`, `rtk rg pattern`, `rtk ls`, `rtk find`, `rtk docker ps`, and `rtk pytest -q`. Use `rtk proxy <cmd>` for commands RTK does not support when raw execution is necessary, so they remain tracked.
+Use `rtk` for command families it supports; run unsupported commands directly. For example: `rtk git status`, `rtk rg pattern`, `rtk ls`, `rtk find`, `rtk docker ps`, and `rtk pytest -q`.
 
-Keep the required supporting utilities installed: `rg`, `fd`/`fdfind`, `bat`/`batcat`, `eza`/`exa`, `sd`, and `jq`. Use RTK rather than `rg`, `fd`/`fdfind`, or `eza`/`exa` directly when its `rg`, `find`, or `ls` command applies. For unsupported raw utilities, use `bat`/`batcat` instead of `cat`, `sd` instead of `sed` and `awk`, and `jq` instead of `python -m json.tool`.
+Prefer modern shell tools where they improve the task: `rg` over `grep`, `fd`/`fdfind` over `find`, `bat`/`batcat` over `cat`, `eza`/`exa` over `ls`, `sd` over `sed` and `awk`, and `jq` over `python -m json.tool`. Do not require these replacements when a default shell tool is more appropriate or already available.
 
-If `rtk` or a required raw utility is missing, stop and report the missing prerequisite.
+If `rtk` is missing for a supported command family, stop and report the missing prerequisite.
 
 Skill argument injection: `$ARGUMENTS` is the shared argument token. Treat unresolved `$ARGUMENTS` as no arguments provided.

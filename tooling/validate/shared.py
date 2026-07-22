@@ -368,16 +368,16 @@ for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict govern
     if forbidden in kernel_template:
         errors.append(f"references/kernel.template.md: removed kernel concept remains: {forbidden!r}")
 
-if "Use `rtk` for every command family listed by `rtk --help`" not in kernel_template:
+if "Use `rtk` for command families it supports; run unsupported commands directly." not in kernel_template:
     errors.append(
-        "references/kernel.template.md: RTK must wrap every command family it supports"
+        "references/kernel.template.md: RTK must cover only command families it supports"
     )
 
-# The kernel owns required shell-tool and RTK preferences.
+# The kernel owns the RTK requirement and modern shell-tool preferences.
 for required_tool in ["`rtk`", "`rg`", "`fd`", "`bat`", "`eza`", "`sd`", "`jq`"]:
     if required_tool not in kernel_template:
         errors.append(
-            f"references/kernel.template.md: missing required shell tool {required_tool!r}"
+            f"references/kernel.template.md: missing shell-tool guidance for {required_tool!r}"
         )
 if "prompt the user to install the shell tooling before falling back" in kernel_template:
     errors.append(

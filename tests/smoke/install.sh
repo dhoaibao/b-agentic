@@ -261,7 +261,7 @@ run_readiness_report_case() {
 	assert_contains "$sandbox/install.log" 'rtk:'
 }
 
-run_shell_tool_prompt_case() {
+run_optional_shell_tool_case() {
 	local snapshot_repo="$1"
 	local sandbox="$WORK_DIR/shell-tool-prompt"
 	local bin_dir="$sandbox/bin"
@@ -309,8 +309,6 @@ if pid == 0:
     os.execv("/bin/bash", ["bash", install_script])
 
 status = None
-input_sent = False
-prompt_buffer = b""
 with open(log_path, "wb") as log:
     while True:
         try:
@@ -325,13 +323,6 @@ with open(log_path, "wb") as log:
                     break
                 log.write(chunk)
                 log.flush()
-                prompt_buffer = (prompt_buffer + chunk)[-4096:]
-                # Wait for the prompt before replying; immediate writes race
-                # with /dev/tty setup on macOS runners. Keep a rolling buffer
-                # because PTY reads can split the prompt across chunks.
-                if not input_sent and b"Shell tooling missing" in prompt_buffer:
-                    os.write(fd, b"n\n")
-                    input_sent = True
         except (OSError, select.error):
             break
 
@@ -348,15 +339,9 @@ PY
 	rc=$?
 	set -e
 
-	# The prompt is the behavior under test. Bash EXIT-trap status handling
-	# differs between the hosted macOS and Linux shells, so accept either the
-	# installer failure or the cleanup-normalized status.
-	case "$rc" in
-	0 | 1) ;;
-	*) fail "unexpected shell tool prompt smoke install exit $rc" ;;
-	esac
-	assert_contains "$install_log" "Shell tooling missing (rg, fd/fdfind, bat/batcat, eza/exa, sd, jq). Install now with 'install manually: ripgrep, fd or fd-find, bat (or batcat), eza or exa, sd, jq'? [y/N]:"
-	assert_not_contains "$install_log" 'suggestions only; no packages were installed automatically'
+	[ "$rc" -eq 0 ] || fail "expected default optional shell tool skip exit 0, got $rc"
+	assert_contains "$install_log" 'Optional shell tooling is not installed automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install rg, fd/fdfind, bat, eza/exa, sd, jq'
+	assert_not_contains "$install_log" 'Shell tooling missing'
 
 	mkdir -p "$apt_bin_dir" "$apt_sandbox/home"
 	printf '#!/usr/bin/env bash\nexit 0\n' >"$apt_bin_dir/rtk"
@@ -474,7 +459,6 @@ if pid == 0:
 
 status = None
 with open(log_path, "wb") as log:
-    sent_yes = False
     while True:
         result, status = os.waitpid(pid, os.WNOHANG)
         if result:
@@ -490,9 +474,6 @@ with open(log_path, "wb") as log:
                 break
             log.write(chunk)
             log.flush()
-            if not sent_yes and b"Install now with" in chunk:
-                os.write(fd, b"y\n")
-                sent_yes = True
 
 os.close(fd)
 if status is None:
@@ -506,12 +487,10 @@ PY
 	rc=$?
 	set -e
 
-	[ "$rc" -eq 0 ] || fail "expected auto-mode dnf shell tool install exit 0, got $rc"
-	assert_contains "$dnf_install_log" "Shell tooling missing (rg, fd/fdfind, bat/batcat, eza/exa, sd, jq). Install now with 'sudo dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq'? [y/N]:"
-	assert_contains "$dnf_log" 'sudo:dnf install -y --skip-unavailable ripgrep fd-find bat eza sd jq'
-	assert_contains "$dnf_log" 'dnf:install -y --skip-unavailable ripgrep fd-find bat eza sd jq'
-	assert_contains "$dnf_install_log" 'Shell tooling install command completed'
-	assert_contains "$dnf_install_log" 'core: ready: rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available'
+	[ "$rc" -eq 0 ] || fail "expected auto-mode optional shell tool skip exit 0, got $rc"
+	assert_contains "$dnf_install_log" 'Optional shell tooling is not installed automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install rg, fd/fdfind, bat, eza/exa, sd, jq'
+	[ ! -e "$dnf_log" ] || fail "auto-mode optional shell tooling must not invoke dnf"
+	assert_contains "$dnf_install_log" 'core: optional tools unavailable: rg, fd/fdfind, bat/batcat, eza/exa, sd, jq'
 
 	local dnf_root_sandbox="$WORK_DIR/shell-tool-dnf-root"
 	local dnf_root_bin_dir="$dnf_root_sandbox/bin"
@@ -1146,8 +1125,8 @@ main() {
 	run_skill_collision_smoke_case "$snapshot_repo"
 	echo "Running run_readiness_report_case..."
 	run_readiness_report_case "$snapshot_repo"
-	echo "Running run_shell_tool_prompt_case..."
-	run_shell_tool_prompt_case "$snapshot_repo"
+	echo "Running run_optional_shell_tool_case..."
+	run_optional_shell_tool_case "$snapshot_repo"
 	echo "Running run_mcp_doctor_case..."
 	run_mcp_doctor_case "$snapshot_repo"
 	echo "Running run_runtime_cli_default_skip_case..."

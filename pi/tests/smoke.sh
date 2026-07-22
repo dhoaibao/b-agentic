@@ -164,7 +164,7 @@ expect(t.commandDecision('git -C repo reset --hard').decision === 'deny', 'git -
 expect(t.commandDecision('/usr/bin/git reset --hard').decision === 'deny', 'path-qualified git reset --hard must deny');
 expect(t.commandDecision('/usr/bin/npm install lodash').decision === 'ask', 'path-qualified npm install must ask');
 expect(t.commandDecision('/bin/rm -rf /tmp/x').decision === 'ask', 'path-qualified rm -rf must ask');
-expect(t.commandDecision('/usr/bin/printf x').decision === 'deny', 'path-qualified raw external command must require rtk proxy');
+expect(t.commandDecision('/usr/bin/printf x').decision === 'allow', 'unsupported raw command must allow');
 expect(t.commandDecision("git -c alias.wipe='reset --hard' wipe").decision === 'ask', 'inline Git alias invocation must ask');
 expect(t.commandDecision('env X=1 npm install lodash').decision === 'ask', 'env-wrapped npm install must ask');
 for (const command of ['env', 'env -i', 'env X=1']) {
@@ -175,7 +175,7 @@ expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git com
 expect(t.commandDecision('rtk proxy git reset --hard').decision === 'deny', 'rtk proxy must preserve deny decisions');
 expect(t.commandDecision('rtk g\\it reset --hard').decision === 'deny', 'escaped command name must not bypass reset denial');
 expect(t.commandDecision(['rtk g', '\\', '\n', 'it reset --hard'].join('')).decision === 'deny', 'line-continuation command name must not bypass reset denial');
-expect(t.commandDecision('rtk proxy c\\at src/main.ts').decision === 'deny', 'escaped command name must not bypass replacement denial');
+expect(t.commandDecision('rtk proxy c\\at src/main.ts').decision === 'allow', 'modern shell-tool alternatives remain optional');
 expect(t.commandDecision('rtk proxy grep needle src/main.ts').decision === 'allow', 'rtk proxy must satisfy RTK requirement');
 expect(t.commandDecision('sudo git push --force origin main').decision === 'deny', 'sudo force push must deny');
 expect(t.commandDecision('/usr/bin/env X=1 git reset --hard').decision === 'deny', 'path-qualified env must not bypass reset denial');
@@ -185,7 +185,7 @@ expect(t.commandDecision('rtk git --git-dir repo/.git reset --hard').decision ==
 expect(t.commandDecision('rtk git --git-dir repo/.git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'Git config-env alias after option value must ask');
 expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git push -f must deny');
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
-expect(t.commandDecision('ls -la').decision === 'ask', 'direct ls must require approval to use RTK or eza/exa');
+expect(t.commandDecision('ls -la').decision === 'ask', 'direct supported command must require RTK');
 expect(t.commandDecision('rtk ls -la').decision === 'allow', 'rtk ls must allow');
 expect(t.commandDecision('env X=1 rtk ls -la').decision === 'allow', 'env-wrapped rtk ls must allow');
 expect(t.commandDecision('command rtk ls -la').decision === 'allow', 'command-wrapped rtk ls must allow');
@@ -193,14 +193,13 @@ expect(t.commandDecision('sudo rtk ls -la').decision === 'allow', 'sudo-wrapped 
 expect(t.commandDecision('env -u FOO rtk ls -la').decision === 'allow', 'env -u wrapped rtk ls must allow');
 expect(t.commandDecision('env -S ls').decision === 'ask', 'env -S legacy command must be approval-gated');
 expect(t.commandDecision('env -S "grep needle src/main.ts"').decision === 'ask', 'env -S command string must be approval-gated');
-expect(t.commandDecision('grep needle src/main.ts').decision === 'ask', 'direct grep must require approval to use RTK or rg');
-expect(t.commandDecision('python3 -m json.tool package.json').decision === 'deny', 'python json.tool must be denied in favor of jq');
+expect(t.commandDecision('grep needle src/main.ts').decision === 'ask', 'direct supported command must require RTK');
 for (const command of [
-  'rtk proxy cat src/main.ts',
-  'rtk proxy sed -n 1p src/main.ts',
-  'rtk proxy awk {print} src/main.ts',
-  'rtk proxy python3 -m json.tool package.json',
-]) expect(t.commandDecision(command).decision === 'deny', `${command} must not bypass the required modern replacement`);
+  'cat src/main.ts',
+  'sed -n 1p src/main.ts',
+  'awk {print} src/main.ts',
+  'python3 -m json.tool package.json',
+]) expect(t.commandDecision(command).decision === 'allow', `${command} must allow; modern shell-tool alternatives are optional`);
 for (const [command, label] of [
   ['npm add lodash', 'npm add'], ['npm remove lodash', 'npm remove'], ['npm --silent install lodash', 'npm option install'], ['npm ci', 'npm ci'],
   ['/usr/bin/npm --silent install lodash', 'path-qualified npm option install'], ['rtk npm --prefix ./app install lodash', 'npm option-value install'],
@@ -219,8 +218,8 @@ for (const command of ['rtk npm view lodash', 'rtk pnpm list', 'rtk cargo search
   expect(t.commandDecision(command).decision === 'allow', `${command} must preserve supported RTK use`);
 }
 for (const command of ['yarn why lodash', 'bun --version']) {
-  expect(t.commandDecision(command).decision === 'deny', `${command} must use rtk proxy because RTK does not support it`);
-  expect(t.commandDecision(`rtk proxy ${command}`).decision === 'allow', `rtk proxy ${command} must allow tracked raw execution`);
+  expect(t.commandDecision(command).decision === 'allow', `${command} must allow when RTK does not support it`);
+  expect(t.commandDecision(`rtk proxy ${command}`).decision === 'allow', `rtk proxy ${command} must preserve safety classification`);
 }
 const rtkSupportedCommands = [
   'ls', 'tree', 'git', 'gh', 'glab', 'aws', 'psql', 'pnpm', 'find', 'diff',
@@ -235,21 +234,21 @@ for (const command of rtkSupportedCommands) {
 }
 expect(t.commandDecision('pip show requests').decision === 'ask', 'pip must require RTK');
 for (const command of ['poetry show', 'uv --version', 'printf x']) {
-  expect(t.commandDecision(command).decision === 'deny', `${command} must use rtk proxy because RTK does not support it`);
+  expect(t.commandDecision(command).decision === 'allow', `${command} must allow when RTK does not support it`);
 }
 for (const command of ['rtk proxy poetry show', 'rtk proxy uv --version', 'rtk proxy printf x']) {
-  expect(t.commandDecision(command).decision === 'allow', `${command} must allow tracked raw execution`);
+  expect(t.commandDecision(command).decision === 'allow', `${command} must preserve safety classification`);
 }
 expect(t.commandDecision('printf x\ngit reset --hard').decision === 'deny', 'newline-separated reset --hard must deny');
 expect(t.commandDecision('printf x\r\ngit reset --hard').decision === 'deny', 'CRLF-separated reset --hard must deny');
-expect(t.commandDecision('rtk proxy printf x\ncat .env').decision === 'deny', 'newline-separated raw replacement must deny');
-expect(t.commandDecision('printf x\nprintf y').decision === 'deny', 'untracked multiline raw commands must deny');
-expect(t.commandDecision('cat .env').decision === 'deny', 'bare cat must be denied before protected-path approval');
-expect(t.commandDecision('cat .env.local').decision === 'deny', 'root-relative cat must be denied');
-expect(t.commandDecision('cat /tmp/.env.production').decision === 'deny', 'absolute cat must be denied');
-expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'deny', 'rtk-wrapped cat must be denied');
-expect(t.commandDecision('ls src && cat credentials.json').decision === 'deny', 'compound raw replacement must deny');
-expect(t.commandDecision('cat src/main.ts').decision === 'deny', 'direct cat must be denied in favor of bat/batcat');
+expect(t.commandDecision('rtk proxy printf x\ncat .env').decision === 'ask', 'newline-separated protected-path read must ask');
+expect(t.commandDecision('printf x\nprintf y').decision === 'allow', 'unsupported multiline raw commands must allow when safe');
+expect(t.commandDecision('cat .env').decision === 'ask', 'bare protected-path read must ask');
+expect(t.commandDecision('cat .env.local').decision === 'ask', 'root-relative protected-path read must ask');
+expect(t.commandDecision('cat /tmp/.env.production').decision === 'ask', 'absolute protected-path read must ask');
+expect(t.commandDecision('rtk cat ./config/../.env.local').decision === 'ask', 'rtk-wrapped protected-path read must ask');
+expect(t.commandDecision('ls src && cat credentials.json').decision === 'ask', 'compound protected-path read must ask');
+expect(t.commandDecision('cat src/main.ts').decision === 'allow', 'direct cat must allow when appropriate');
 expect(t.commandDecision('cat "$SECRET_FILE"').decision === 'ask', 'variable shell paths must fail closed as ambiguous');
 expect(t.commandDecision('rtk proxy bat .e?v').decision === 'ask', 'unquoted protected-path glob must fail closed');
 expect(t.commandDecision("rtk rg 'src/*.ts'").decision === 'allow', 'quoted glob argument must remain usable');
@@ -273,7 +272,7 @@ expect(t.commandDecision("sh -c 'git push --force'").decision === 'ask', 'sh -c 
 expect(t.commandDecision("node -e \"require('fs').rmSync('.')\"").decision === 'ask', 'node -e must ask');
 expect(t.commandDecision('python3 -c "import os; os.system(\'git reset --hard\')"').decision === 'ask', 'python -c must ask');
 expect(t.isInterpreterOpaque(['bash', '-c', 'git reset --hard']) === true, 'isInterpreterOpaque bash -c');
-expect(t.commandDecision('bash --version').decision === 'deny', 'raw shell executable must use rtk proxy');
+expect(t.commandDecision('bash --version').decision === 'allow', 'unsupported raw shell executable may allow');
 expect(t.commandDecision('rtk proxy bash --version').decision === 'allow', 'rtk proxy shell executable may allow');
 
 // Protected paths

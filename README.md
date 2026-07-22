@@ -34,13 +34,13 @@ MCP servers and RTK are installed from their latest available releases. Run `scr
 
 Requirements: `bash`, `git`, Python 3.11+, and `pnpm` for MCP entries that use `pnpm dlx`. Pi CLI installation or upgrade is opt-in via the interactive prompt or `B_AGENTIC_INSTALL_PI_CLI=Y`.
 
-Interactive installs prepare Pi and install required shell tooling and RTK; Serena and CodeGraph remain optional installs. Pi requires `rg` instead of `grep`, `fd` or `fdfind` instead of `find`, `bat` (or Debian/Ubuntu's `batcat`) instead of `cat`, `eza` or `exa` instead of `ls`, `sd` instead of `sed` or `awk`, and `jq` instead of `python -m json.tool` for JSON.
+Interactive installs prepare Pi and RTK; Serena and CodeGraph remain optional installs. Modern shell tools are optional: prefer `rg` over `grep`, `fd` or `fdfind` over `find`, `bat` (or Debian/Ubuntu's `batcat`) over `cat`, `eza` or `exa` over `ls`, `sd` over `sed` or `awk`, and `jq` over `python -m json.tool` for JSON when they improve the task. Set `B_AGENTIC_INSTALL_SHELL_TOOLS=Y` to install these optional tools.
 
 ## RTK (Rust Token Killer)
 
 During interactive installs, the installer can prompt to download and run the RTK install script from its `master` branch. If `rtk` is already installed, the installer asks separately before upgrading it; the existing installation satisfies the prerequisite. Scripted upgrades require `B_AGENTIC_INSTALL_RTK=Y`. This is a remote shell script; only use it if you trust the RTK repository. RTK is required for b-agentic sessions; installation fails if it cannot be installed.
 
-Once installed, b-agentic runs every command family supported by `rtk --help` through RTK and uses `rtk proxy <cmd>` when a raw unsupported command is necessary. The Pi runtime enforces this for every supported native command family. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms:
+Once installed, b-agentic runs command families supported by `rtk --help` through RTK and runs unsupported commands directly. The Pi runtime enforces RTK only for supported native command families. The managed safety gates remain configured for both bare commands and their `rtk`-wrapped forms:
 
 ```bash
 rtk git status
@@ -55,7 +55,7 @@ Meta commands:
 rtk gain            # Token savings analytics
 rtk gain --history  # Recent command savings history
 rtk --help           # Supported command families
-rtk proxy <cmd>     # Raw execution with tracking
+rtk proxy <cmd>     # Optional raw execution with RTK tracking
 ```
 
 Verification: `rtk --version`, `rtk gain`, `which rtk`.
@@ -124,7 +124,7 @@ The installer writes recommended MCP entries for:
 - Brave Search: secondary public/current discovery and alternate source finding.
 - Playwright: live browser, visual, console/network, and e2e evidence.
 
-The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It reports local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK and every required shell tool. When live network/process activity is approved, `scripts/mcp-doctor.sh --probe-schemas` explicitly starts or connects to each configured server and compares its current tool inventory with the canonical operation policy; newly discovered tools remain unclassified and gated.
+The installer does not start MCP servers, install `pnpm dlx` packages ahead of time, run `codegraph init`, or run Serena onboarding. It reports local MCP readiness blockers such as missing binaries or API keys. Use `scripts/mcp-doctor.sh --session-tools` to verify the active session has RTK. When live network/process activity is approved, `scripts/mcp-doctor.sh --probe-schemas` explicitly starts or connects to each configured server and compares its current tool inventory with the canonical operation policy; newly discovered tools remain unclassified and gated.
 
 ## Repository Layout
 

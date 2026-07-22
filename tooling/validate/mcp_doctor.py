@@ -103,7 +103,7 @@ def pi_server_status(server: str, config: dict) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check installed b-agentic Pi MCP configuration and local prerequisites.")
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
-    parser.add_argument("--session-tools", action="store_true", help="Check active-session RTK and required shell tools only.")
+    parser.add_argument("--session-tools", action="store_true", help="Check active-session RTK support only.")
     parser.add_argument("--allow-degraded", action="store_true", help="Exit zero even for missing or blocked MCP readiness.")
     parser.add_argument(
         "--probe-schemas",

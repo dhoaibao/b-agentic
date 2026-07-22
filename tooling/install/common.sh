@@ -970,7 +970,7 @@ shell_tool_readiness_status() {
     return 0
   fi
 
-  printf 'blocked: missing %s' "$(join_shell_tool_labels "${missing[@]}")"
+  printf 'optional tools unavailable: %s' "$(join_shell_tool_labels "${missing[@]}")"
 }
 
 run_shell_tool_install_command() {
@@ -1025,13 +1025,14 @@ install_shell_tools() {
 
   case "${INSTALL_SHELL_TOOLS_VALUE:-auto}" in
     n|N|no|NO|No|false|FALSE|0)
-      local missing_required=""
-      missing_required="$(shell_tool_missing_labels)"
-      [ -z "$missing_required" ] || die "required shell tooling is missing; install it or rerun without --no-install-shell-tools"
+      log "Skipping optional shell tooling installation"
+      return 0
+      ;;
+    auto|AUTO|Auto)
+      log "Optional shell tooling is not installed automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install $(recommended_shell_commands)"
       return 0
       ;;
     y|Y|yes|YES|Yes|true|TRUE|1) ;;
-    auto|AUTO|Auto) ;;
     *) die "invalid B_AGENTIC_INSTALL_SHELL_TOOLS value: $INSTALL_SHELL_TOOLS_VALUE" ;;
   esac
 
@@ -1048,29 +1049,18 @@ install_shell_tools() {
   package_manager="$(detect_shell_tool_package_manager)"
   install_command="$(shell_tool_install_hint "$package_manager")"
 
-  case "${INSTALL_SHELL_TOOLS_VALUE:-auto}" in
-    auto|AUTO|Auto)
-      if [ ! -r /dev/tty ] || [ ! -w /dev/tty ]; then
-        die "required shell tooling is missing; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install it non-interactively, or install it manually"
-      fi
-      if ! prompt_yes_no "Shell tooling missing ($(join_shell_tool_labels "${missing[@]}" )). Install now with '$install_command'? [y/N]" N; then
-        die "required shell tooling is missing; answer yes to install it or install it manually"
-      fi
-      ;;
-  esac
-
   if [ "$package_manager" = "manual" ]; then
-    die "required shell tooling is missing; $install_command"
+    die "requested shell tooling is missing; $install_command"
   fi
 
   log "Installing shell tooling: $(recommended_shell_commands)"
   if run_shell_tool_install_command "$package_manager"; then
     log "Shell tooling install command completed"
   else
-    die "required shell tooling installation failed"
+    die "requested shell tooling installation failed"
   fi
 
-  [ "$(shell_tool_missing_labels)" = "" ] || die "required shell tooling remains missing after installation"
+  [ "$(shell_tool_missing_labels)" = "" ] || die "requested shell tooling remains missing after installation"
 }
 
 report_section() {
@@ -1198,7 +1188,7 @@ print_shell_tool_recommendations() {
   report_section "Shell tooling"
   report_item "core" "$(shell_tool_readiness_status)"
   report_item "core-install" "$(shell_tool_install_hint "$package_manager")"
-  report_item "installer" "installs missing required tools; --no-install-shell-tools is allowed only when all required tools are already present"
+  report_item "installer" "does not install optional tools automatically; set B_AGENTIC_INSTALL_SHELL_TOOLS=Y to install them"
 }
 
 print_install_report_next_steps() {

@@ -201,10 +201,7 @@ const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
 ]);
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
-/**
- * Native command families exposed by `rtk --help`. Agents must use RTK for
- * supported families and `rtk proxy` for raw executables.
- */
+/** Native command families exposed by `rtk --help`. Agents must use RTK for supported families. */
 const RTK_REQUIRED_COMMANDS = new Set([
   "ls", "tree", "git", "gh", "glab", "aws", "psql", "pnpm", "find", "diff",
   "dotnet", "docker", "kubectl", "oc", "grep", "rg", "wget", "wc",
@@ -212,9 +209,6 @@ const RTK_REQUIRED_COMMANDS = new Set([
   "playwright", "cargo", "npm", "npx", "curl", "ruff", "pytest", "mypy",
   "rake", "rubocop", "rspec", "pip", "go", "gt", "golangci-lint", "gradlew", "mvn",
 ]);
-/** Unsupported raw utilities with mandatory modern replacements. */
-const RAW_REPLACEMENT_COMMANDS = new Set(["cat", "sed", "awk"]);
-const SHELL_BUILTINS = new Set(["cd", ":", "true", "false", "break", "continue", "return", "exit", "export", "readonly", "unset", "shift", "trap", "umask", "ulimit"]);
 
 /** Interpreters that accept opaque -c/-e script bodies; always approval-required. */
 const INTERPRETER_BASES = new Set([
@@ -784,17 +778,6 @@ function isStandaloneEnvCommand(rawTokens: string[]): boolean {
   );
 }
 
-function isRequiredRawReplacement(tokens: string[]): boolean {
-  if (RAW_REPLACEMENT_COMMANDS.has(tokens[0])) {
-    return true;
-  }
-  return (
-    (tokens[0] === "python" || tokens[0] === "python3") &&
-    tokens[1] === "-m" &&
-    tokens[2] === "json.tool"
-  );
-}
-
 function isDirectRtkRequiredCommand(rawTokens: string[], tokens: string[]): boolean {
   return !isRtkWrapped(rawTokens) && RTK_REQUIRED_COMMANDS.has(tokens[0]);
 }
@@ -803,10 +786,6 @@ function hasShellExecutionProxy(tokens: string[]): boolean {
   return tokens[0] === "xargs" || (
     tokens[0] === "find" && tokens.some((token) => ["-exec", "-execdir", "-ok", "-okdir"].includes(token))
   );
-}
-
-function isDirectRawExternalCommand(rawTokens: string[], tokens: string[]): boolean {
-  return !isRtkWrapped(rawTokens) && Boolean(tokens[0]) && !SHELL_BUILTINS.has(tokens[0]);
 }
 
 function segmentDecision(segment: string): { decision: Decision; reason: string } {
@@ -826,13 +805,6 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
   }
   if (tokens.length === 0) {
     return { decision: "allow", reason: "" };
-  }
-
-  if (isRequiredRawReplacement(tokens)) {
-    return {
-      decision: "deny",
-      reason: "Denied by b-agentic policy: use the required modern shell-tool replacement",
-    };
   }
 
   // Shell access to a literal protected path is always approval-gated, even
@@ -947,13 +919,6 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     return {
       decision: "ask",
       reason: "Requires approval: use RTK for supported command families",
-    };
-  }
-
-  if (isDirectRawExternalCommand(rawTokens, tokens)) {
-    return {
-      decision: "deny",
-      reason: "Denied by b-agentic policy: use rtk proxy for raw external commands",
     };
   }
 

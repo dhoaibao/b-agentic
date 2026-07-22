@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the active session has the shell tools required by b-agentic."""
+"""Check the active session has RTK support required by b-agentic."""
 
 from __future__ import annotations
 
@@ -13,12 +13,6 @@ from pathlib import Path
 
 REQUIRED_TOOLS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("rtk", ("rtk",)),
-    ("rg", ("rg",)),
-    ("fd/fdfind", ("fd", "fdfind")),
-    ("bat/batcat", ("bat", "batcat")),
-    ("eza/exa", ("eza", "exa")),
-    ("sd", ("sd",)),
-    ("jq", ("jq",)),
 )
 REMEDIATION = "Install the missing prerequisites, then restart the runtime session; see the kernel's Shell commands section."
 ROOT = Path(__file__).resolve().parents[2]
@@ -80,8 +74,8 @@ def check_session_tools(
         compatible, detail = check_rtk_policy()
         if not compatible:
             return False, detail
-        return True, f"ready: rtk, rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available; {detail}"
-    return True, "ready: rtk, rg, fd/fdfind, bat/batcat, eza/exa, sd, and jq available"
+        return True, f"ready: rtk available; {detail}"
+    return True, "ready: rtk available"
 
 
 def self_test() -> int:
@@ -94,10 +88,10 @@ def self_test() -> int:
         print("complete-tool fixture unexpectedly failed", file=sys.stderr)
         return 1
     ok, detail = check_session_tools(
-        lambda command: command if command in available - {"fd", "fdfind"} else None,
+        lambda command: command if command in available - {"rtk"} else None,
         verify_rtk_policy=False,
     )
-    if ok or "fd/fdfind" not in detail or REMEDIATION not in detail:
+    if ok or "rtk" not in detail or REMEDIATION not in detail:
         print("missing-tool fixture unexpectedly passed", file=sys.stderr)
         return 1
     parsed = available_rtk_families("Commands:\n  git            Git commands\n  pytest         Pytest commands\n")
