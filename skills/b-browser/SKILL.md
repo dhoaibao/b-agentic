@@ -28,7 +28,7 @@ Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence
 - Implementing UI behavior or fixing app code -> use **b-implement** or **b-debug**.
 - Changed-code review with sufficient browser evidence already supplied -> use **b-review**.
 
-## Tools required
+## Tool guidance
 
 - `bash` - run existing approved browser/e2e commands.
 - `playwright` - live navigation, snapshots, screenshots, console/network, and browser state.

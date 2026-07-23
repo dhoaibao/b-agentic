@@ -30,7 +30,7 @@ Make the scoped change in the smallest coherent step, and hand back to planning 
 - Root cause is unknown -> use **b-debug**.
 - External lookup blocks the edit -> use **b-research**.
 
-## Tools required
+## Tool guidance
 
 - `bash` - inspect git state, diffs, and verification output.
 - `codegraph` - architecture, call graph, and affected-test evidence when indexed.
@@ -41,7 +41,7 @@ Make the scoped change in the smallest coherent step, and hand back to planning 
 
 1. Resolve the source of truth: approved plan, approved chat instruction, or small direct request.
 2. Run `rtk git status --short` via Bash and preserve unrelated changes.
-3. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
+3. Read relevant repo context only when it materially affects the scoped change.
 4. State expected files/symbols, invariant behavior, and success criteria; infer narrow criteria only when obvious.
 5. Use CodeGraph for cross-file impact or affected-test mapping when indexed; otherwise use Serena plus local search.
 6. Edit the smallest coherent slice and match the existing local style. Use Serena for symbol work and native edits for prose/config/string changes.

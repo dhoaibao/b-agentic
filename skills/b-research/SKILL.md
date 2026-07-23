@@ -31,7 +31,7 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 - Planning/sequencing is needed -> use **b-plan**.
 - Changed-code review is needed -> use **b-review**.
 
-## Tools required
+## Tool guidance
 
 - `context7` - versioned official library/framework docs.
 - `firecrawl` - primary public web search, known public URLs, structured extraction, maps, structured fields, and paper/GitHub-issue lookup when the question is research-paper- or code-history-shaped.

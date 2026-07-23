@@ -32,7 +32,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 - The task is external lookup -> use **b-research**.
 - The user asks only to run lint, format, or build.
 
-## Tools required
+## Tool guidance
 
 - `bash` - inspect status, diff, logs, and narrow verification.
 - `codegraph` - changed-flow, call graph, and affected-test evidence when indexed.
@@ -43,7 +43,7 @@ Flags: `--skip-tests`, `--baseline=<path|url>`, `--range=<ref>..<ref>`, `--audit
 
 1. Scope the review: working tree, range, baseline, or suite-audit surface (using Bash to run `rtk git status` or `rtk git diff`).
 2. Choose baseline. Without baseline, do a risk review and do not claim requirements coverage.
-3. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
+3. Read repo context only when it materially affects the review.
 4. Use CodeGraph for changed flows and affected-test discovery when indexed; use Serena/local search for exact references.
 5. Inspect highest-risk changed symbols and boundaries first.
 6. Check tests, edge cases, security, operability, evidence quality, hidden assumptions, unnecessary diff, and over-abstraction.

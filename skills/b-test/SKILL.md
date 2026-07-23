@@ -32,7 +32,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 - Intended behavior is unclear -> use **b-plan** or **b-debug**.
 - A new test framework is needed -> use **b-plan** first.
 
-## Tools required
+## Tool guidance
 
 - `bash` - run tests and inspect failure output.
 - `serena` - map tests to source behavior and edit test symbols.
@@ -41,10 +41,10 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 ## Steps
 
 1. Find the test framework and narrowest runnable command from manifests, CI, or existing tests (using Bash). Use CodeGraph for source-to-test and affected-test discovery when indexed.
-2. Confirm intended behavior from user intent, product contract, source change, existing passing tests, framework docs, and relevant repo context (using Serena to map tests to source behavior). Read `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes when they are present and relevant.
+2. Confirm intended behavior from user intent, product contract, source change, existing passing tests, framework docs, and materially relevant repo context (using Serena to map tests to source behavior).
 3. For failing tests, run the narrow target, read the test and exercised source, and classify the failure.
 4. For new tests, cover requested or changed behavior through the highest practical public interface first; add edge cases only when risk requires them.
-5. For TDD-style work, use vertical tracer bullets: add one failing behavior test, hand the minimal production change to **b-implement**, then return to **b-test** for verification and the next behavior.
+5. For explicitly requested TDD, use vertical tracer bullets: add one failing behavior test, make the smallest production change needed to pass it, verify, then continue to the next behavior. Outside explicit TDD, route production changes to **b-implement**.
 6. Run diagnostics when useful, then the narrowest relevant test, and verify the test proves the intended behavior.
 
 ## Output format
@@ -54,7 +54,7 @@ Test scope, changes, verification, and remaining gaps.
 ## Rules
 
 - Never change production code only because a test is red.
-- Keep production-code changes in **b-implement**, including TDD implementation steps.
+- Keep production-code changes in **b-implement** unless the user explicitly requested a tightly scoped TDD red-green loop.
 - Never update assertions, snapshots, or goldens without confirming intended behavior.
 - Avoid implementation-coupled tests and mocks derived from buggy implementation instead of the real interface.
 - Do not introduce frameworks without approval.

@@ -16,7 +16,7 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 - The work fixes a bug -> use **b-debug**.
 - The work is test-only -> use **b-test**.
 
-## Tools required
+## Tool guidance
 
 - `bash` - inspect git state and run checks.
 - `codegraph` - impact radius and cross-file structure when indexed.
@@ -25,7 +25,7 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 ## Steps
 
 1. Lock the exact target and state the behavior that must remain unchanged.
-2. Read relevant repo context when present: `CONTEXT.md`, `CONTEXT-MAP.md`, nearby `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes.
+2. Read relevant repo context only when it materially affects the transform.
 3. Map structure and impact with CodeGraph when indexed; map declarations/references with Serena; use exact text search for exports, routes, config keys, docs, and generated consumers.
 4. When practical, run the narrowest risk-appropriate check to establish a passing behavioral baseline.
 5. Apply the smallest matching transform.

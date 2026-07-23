@@ -16,7 +16,7 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
 - The user wants a broader plan before writing docs -> use **b-plan**.
 - The user wants code or product behavior changes -> use **b-implement**.
 
-## Tools required
+## Tool guidance
 
 - `bash` - inspect repo files, commands, and diffs.
 - `serena` - inspect structure when file ownership or code layout affects the guide.

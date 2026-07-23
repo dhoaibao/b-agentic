@@ -25,7 +25,7 @@ Write one commit message, PR title, and concise PR description for one cohesive 
 - The user wants an explanation of the diff rather than commit/PR copy.
 - The staged set mixes unrelated concerns that should be split.
 
-## Tools required
+## Tool guidance
 
 - `bash` - inspect Git status and staged changes.
 

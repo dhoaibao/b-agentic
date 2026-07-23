@@ -31,7 +31,7 @@ Find the real cause of broken behavior, then fix it minimally only when the user
 - The task is external docs/API lookup only -> use **b-research**.
 - The task is new scoped work -> use **b-plan** or **b-implement**.
 
-## Tools required
+## Tool guidance
 
 - `bash` - reproduce errors, run diagnostics, profilers, and checks.
 - `codegraph` - call paths, dependency flows, and impact radius when indexed.
@@ -40,7 +40,7 @@ Find the real cause of broken behavior, then fix it minimally only when the user
 ## Steps
 
 1. Build a feedback loop (using Bash to run commands) that can show the bug: failing test, CLI repro, HTTP script, browser script, trace replay, throwaway harness, fuzz/property loop, or bisect harness.
-2. Capture exact symptom, expected vs actual behavior, repro rate, determinism, and environment. Read relevant `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`, `docs/agents/`, or `.b-agentic/` notes when present.
+2. Capture exact symptom, expected vs actual behavior, repro rate, determinism, and environment. Read repo context only when it materially affects the diagnosis.
 3. Rank suspects from stack traces, diagnostics, recent changes, config, data shape, call paths, and the feedback loop.
 4. Use CodeGraph for cross-file call paths or impact radius when indexed; otherwise use Serena plus local search.
 5. Confirm root cause before fixing. Use probes only when cheaper evidence is insufficient and remove them.

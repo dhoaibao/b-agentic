@@ -78,6 +78,16 @@
       "avoid": ["Rely only on post-change verification", "Claim behavior preservation without a before-and-after comparison"]
     },
     {
+      "id": "explicit-tdd-loop",
+      "principle": "goal-driven-execution",
+      "skill": "b-test",
+      "observed_failure": "The b-test prompt forced a handoff to b-implement and back for every red-green step, adding phase ceremony to explicitly requested TDD.",
+      "intended_behavior": "Allow b-test to complete a tightly scoped red-green loop when the user explicitly requests TDD, while routing ordinary production fixes to b-implement.",
+      "prompt": "Use b-test and work TDD-style. Add one failing public-interface test, make only the minimal production change needed to pass it, and verify the behavior. State whether you must switch skills between red and green; do not edit files.",
+      "must": ["Keep the explicitly requested red-green loop in b-test", "Limit production changes to the minimum needed by the failing behavior test", "Verify the test passes"],
+      "avoid": ["Require a ceremonial skill handoff between red and green", "Expand production scope beyond the tested behavior"]
+    },
+    {
       "id": "verification-reveals-ambiguity",
       "principle": "goal-driven-execution",
       "prompt": "Use b-implement. Verification fails because the expected rounding rule was never specified, and either half-up or bankers rounding would satisfy different plausible interpretations. State what you do next; do not edit files.",

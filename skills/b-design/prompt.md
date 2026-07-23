@@ -17,7 +17,7 @@ Create or refresh `docs/DESIGN.md`, the repo-local frontend design standard. Do 
 - The user wants a broader implementation plan -> use **b-plan**.
 - The repo already has sufficient design-system docs and the task is only to follow them -> use the relevant build or validation skill.
 
-## Tools required
+## Tool guidance
 
 - `bash` - inspect repo files, git state, docs, and diffs.
 - `serena` - inspect frontend structure when code ownership or component patterns affect the standard.

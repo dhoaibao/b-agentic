@@ -74,7 +74,7 @@ for skill_name in sorted(prompt_dirs):
     frontmatter, body = frontmatter_parts(skill_file)
     if f"name: {skill_name}" not in frontmatter:
         errors.append(f"{rel(skill_file)}: frontmatter name must match directory")
-    for section in ["## When to use", "## When NOT to use", "## Tools required", "## Steps", "## Output format", "## Rules"]:
+    for section in ["## When to use", "## When NOT to use", "## Tool guidance", "## Steps", "## Output format", "## Rules"]:
         if section not in body:
             errors.append(f"{rel(skill_file)}: missing section {section!r}")
     text = prompt.read_text()
@@ -93,7 +93,7 @@ for skill_name in sorted(prompt_dirs):
 # Prompt behavior regression contracts. These markers encode observed failure
 # modes and their intended correction:
 # - b-debug previously treated diagnosis-only requests as fix authorization.
-# - b-test previously let TDD cross into production edits without b-implement.
+# - b-test previously forced explicit TDD loops to bounce through b-implement.
 # - b-review previously allowed structural audit output to imply full readiness.
 # - b-summary previously forced substantial PR ceremony onto small changes.
 # - b-research previously failed to pinpoint exact dependency versions by checking
@@ -102,13 +102,11 @@ for skill_name in sorted(prompt_dirs):
 #   verifying display server (xvfb) presence or configuration.
 required_prompt_markers = {
     "b-plan": [
-        "CONTEXT.md",
         "intended observable outcome",
         "AFK",
         "HITL",
     ],
     "b-implement": [
-        "CONTEXT.md",
         "requested observable outcome",
     ],
     "b-debug": [
@@ -120,7 +118,7 @@ required_prompt_markers = {
         "public interface",
         "vertical tracer bullets",
         "implementation-coupled tests",
-        "Keep production-code changes in **b-implement**",
+        "explicitly requested a tightly scoped TDD red-green loop",
     ],
     "b-browser": [
         "requested UI state",
@@ -277,12 +275,12 @@ LOCAL_TOOLS = {"bash"}
 KNOWN_TOOLS = MCP_SERVERS | LOCAL_TOOLS
 
 
-def tools_required_tokens(prompt_text: str) -> list[str]:
+def tool_guidance_tokens(prompt_text: str) -> list[str]:
     tokens: list[str] = []
     in_section = False
     for line in prompt_text.splitlines():
         if line.startswith("## "):
-            in_section = line.strip() == "## Tools required"
+            in_section = line.strip() == "## Tool guidance"
             continue
         if in_section and line.lstrip().startswith("- "):
             match = re.match(r"\s*-\s+`([^`]+)`", line)
@@ -305,26 +303,26 @@ referenced_servers: set[str] = set()
 for skill_name in sorted(prompt_dirs):
     prompt = ROOT / "skills" / skill_name / "prompt.md"
     prompt_content = read_text(prompt)
-    tokens = tools_required_tokens(prompt_content)
-    
-    # Check for tool references outside of Tools required
+    tokens = tool_guidance_tokens(prompt_content)
+
+    # Check for tool references outside of Tool guidance.
     lines = prompt_content.splitlines()
     outside_lines = []
-    in_tools_required = False
+    in_tool_guidance = False
     for line in lines:
         if line.startswith("## "):
-            in_tools_required = (line.strip() == "## Tools required")
-            if not in_tools_required:
+            in_tool_guidance = (line.strip() == "## Tool guidance")
+            if not in_tool_guidance:
                 outside_lines.append(line)
             continue
-        if not in_tools_required:
+        if not in_tool_guidance:
             outside_lines.append(line)
     outside_text = "\n".join(outside_lines)
 
     for token in tokens:
         if token not in KNOWN_TOOLS:
             errors.append(
-                f"{rel(prompt)}: unknown tool {token!r} in Tools required; "
+                f"{rel(prompt)}: unknown tool {token!r} in Tool guidance; "
                 f"expected one of {sorted(KNOWN_TOOLS)}"
             )
         else:
@@ -334,13 +332,13 @@ for skill_name in sorted(prompt_dirs):
             display_name = TOKEN_TO_DISPLAY_NAME.get(token, token)
             if (token not in outside_text) and (display_name not in outside_text):
                 errors.append(
-                    f"{rel(prompt)}: tool {token!r} is declared in Tools required but never referenced outside that section"
+                    f"{rel(prompt)}: tool {token!r} is declared in Tool guidance but never referenced outside that section"
                 )
 
 unreferenced_servers = sorted(MCP_SERVERS - referenced_servers)
 if unreferenced_servers:
     errors.append(
-        "skills/: configured MCP servers not referenced by any skill Tools required: "
+        "skills/: configured MCP servers not referenced by any skill Tool guidance: "
         f"{unreferenced_servers}"
     )
 
