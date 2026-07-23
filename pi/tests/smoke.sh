@@ -126,6 +126,8 @@ EOF
 
 	# Behavioral permission coverage via node --experimental-strip-types (no Pi runtime).
 	ROOT_DIR="$ROOT_DIR" node --experimental-strip-types --input-type=module - <<'NODE'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -295,6 +297,23 @@ expect(t.nativePathDecision('read', '.env').decision === 'ask', 'protected nativ
 expect(t.nativePathDecision('write', '.env').decision === 'deny', 'protected native write must remain blocked');
 expect(t.nativePathDecision('edit', '.env').decision === 'deny', 'protected native edit must remain blocked');
 expect(t.nativePathDecision('read', 'src/main.ts').decision === 'allow', 'normal native read must allow');
+const protectedPathFixture = mkdtempSync(path.join(os.tmpdir(), 'b-agentic-protected-path-'));
+try {
+  const secretPath = path.join(protectedPathFixture, '.env');
+  const secretLink = path.join(protectedPathFixture, 'safe-link');
+  const secretDirectory = path.join(protectedPathFixture, '.ssh');
+  const secretDirectoryLink = path.join(protectedPathFixture, 'safe-directory');
+  writeFileSync(secretPath, 'secret');
+  mkdirSync(secretDirectory);
+  symlinkSync(secretPath, secretLink);
+  symlinkSync(secretDirectory, secretDirectoryLink);
+  expect(t.nativePathDecision('read', secretLink).decision === 'ask', 'symlinked protected read must ask for approval');
+  expect(t.nativePathDecision('write', secretLink).decision === 'deny', 'symlinked protected write must deny');
+  expect(t.nativePathDecision('edit', path.join(secretDirectoryLink, 'new-file')).decision === 'deny', 'protected write through symlinked directory must deny');
+  expect(t.isConditionallyTrustedTool('serena', 'serena_get_symbols_overview', { relative_path: secretLink }) === false, 'Serena must not autonomously read a symlinked protected path');
+} finally {
+  rmSync(protectedPathFixture, { recursive: true, force: true });
+}
 for (const pathValue of ['.npmrc', '.netrc', '.pypirc', '.git-credentials', '.config/gh/hosts.yml', '.ssh/config']) {
   expect(t.nativePathDecision('read', pathValue).decision === 'ask', `${pathValue} must require approval`);
 }

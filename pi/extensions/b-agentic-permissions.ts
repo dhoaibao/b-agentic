@@ -14,7 +14,7 @@
 
 import { realpathSync, statSync } from "node:fs";
 import { isIP } from "node:net";
-import { isAbsolute, relative } from "node:path";
+import { dirname, isAbsolute, relative } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 type Decision = "allow" | "ask" | "deny";
@@ -978,13 +978,33 @@ function commandDecision(command: string): { decision: Decision; reason: string 
 }
 
 function nativePathDecision(toolName: string, pathValue: string): { decision: Decision; reason: string } {
-  if (!pathValue || !isProtectedPath(pathValue)) {
+  if (!pathValue || !isProtectedLocalPath(pathValue)) {
     return { decision: "allow", reason: "" };
   }
   if (toolName === "read") {
     return { decision: "ask", reason: `Requires approval: read of protected path: ${pathValue}` };
   }
   return { decision: "deny", reason: `Blocked ${toolName} of protected path: ${pathValue}` };
+}
+
+/**
+ * Protect literal secret paths and paths that resolve through a symlink.
+ * For a not-yet-created write target, resolve its nearest existing ancestor so
+ * a symlinked directory cannot redirect the write into a protected location.
+ */
+function isProtectedLocalPath(pathValue: string): boolean {
+  if (isProtectedPath(pathValue)) return true;
+  let candidate = pathValue;
+  while (candidate) {
+    try {
+      return isProtectedPath(realpathSync(candidate));
+    } catch {
+      const parent = dirname(candidate);
+      if (parent === candidate) return false;
+      candidate = parent;
+    }
+  }
+  return false;
 }
 
 function isProtectedPath(pathValue: string): boolean {
@@ -1001,6 +1021,9 @@ function isProtectedPath(pathValue: string): boolean {
         return true;
       }
       continue;
+    }
+    if (marker.endsWith("/") && base === marker.slice(0, -1)) {
+      return true;
     }
     if (normalized.includes(marker) || base.includes(marker)) {
       return true;
@@ -1212,7 +1235,7 @@ function hasProtectedPathArgument(input: Record<string, unknown>, keys: string[]
     const value = input[key];
     if (typeof value !== "string" || !value) return false;
     const literalized = value.replace(/[!*?{}\[\]]/g, "");
-    return isProtectedPath(value) || isProtectedPath(literalized) || PROTECTED_PATH_MARKERS.some((marker) => value.includes(marker));
+    return isProtectedLocalPath(value) || isProtectedPath(literalized) || PROTECTED_PATH_MARKERS.some((marker) => value.includes(marker));
   });
 }
 
@@ -1530,6 +1553,7 @@ export const __test__ = {
   hasOpaqueGitOptions,
   hasOpaquePackageOptions,
   nativePathDecision,
+  isProtectedLocalPath,
   confirmOrBlock,
   SPECIALIZED_TOOLS,
   MANAGED_MCP_SERVERS,
