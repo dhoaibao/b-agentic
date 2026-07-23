@@ -175,6 +175,16 @@ for (const command of ['env', 'env -i', 'env X=1']) {
 expect(t.commandDecision('rtk env').decision === 'allow', 'rtk env must allow');
 expect(t.commandDecision('rtk git commit -m x').decision === 'ask', 'rtk git commit must ask');
 expect(t.commandDecision('rtk proxy git reset --hard').decision === 'deny', 'rtk proxy must preserve deny decisions');
+for (const wrapper of ['err', 'test', 'summary']) {
+  expect(t.RTK_EXECUTION_WRAPPERS.has(wrapper), `rtk ${wrapper} must be classified as an execution wrapper`);
+  expect(t.commandDecision(`rtk ${wrapper} git reset --hard`).decision === 'deny', `rtk ${wrapper} must preserve deny decisions`);
+  expect(t.commandDecision(`rtk ${wrapper} -- git reset --hard`).decision === 'deny', `rtk ${wrapper} -- must preserve deny decisions`);
+  expect(t.commandDecision(`rtk ${wrapper} --skip-env npm install lodash`).decision === 'ask', `rtk ${wrapper} options must preserve approval gates`);
+}
+expect(t.commandDecision('rtk run git reset --hard').decision === 'deny', 'positional rtk run must preserve deny decisions');
+expect(t.commandDecision('rtk --ultra-compact run git reset --hard').decision === 'deny', 'RTK global options must not hide deny decisions');
+expect(t.commandDecision('rtk --skip-env git reset --hard').decision === 'deny', 'RTK global options must preserve direct command classification');
+expect(t.commandDecision("rtk run -c 'git reset --hard'").decision === 'ask', 'rtk run -c must fail closed as opaque');
 expect(t.commandDecision('rtk g\\it reset --hard').decision === 'deny', 'escaped command name must not bypass reset denial');
 expect(t.commandDecision(['rtk g', '\\', '\n', 'it reset --hard'].join('')).decision === 'deny', 'line-continuation command name must not bypass reset denial');
 expect(t.commandDecision('rtk proxy c\\at src/main.ts').decision === 'allow', 'modern shell-tool alternatives remain optional');
@@ -310,6 +320,8 @@ try {
   expect(t.nativePathDecision('read', secretLink).decision === 'ask', 'symlinked protected read must ask for approval');
   expect(t.nativePathDecision('write', secretLink).decision === 'deny', 'symlinked protected write must deny');
   expect(t.nativePathDecision('edit', path.join(secretDirectoryLink, 'new-file')).decision === 'deny', 'protected write through symlinked directory must deny');
+  expect(t.commandDecision(`cat ${secretLink}`).decision === 'ask', 'shell reads through protected symlinks must ask');
+  expect(t.commandDecision(`printf x > ${secretLink}`).decision === 'ask', 'shell writes through protected symlinks must ask');
   expect(t.isConditionallyTrustedTool('serena', 'serena_get_symbols_overview', { relative_path: secretLink }) === false, 'Serena must not autonomously read a symlinked protected path');
 } finally {
   rmSync(protectedPathFixture, { recursive: true, force: true });
@@ -329,6 +341,11 @@ expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_read_memory' }) === false, 'ma
 expect(t.isMcpOrCustomTool('mcp', { tool: 'serena_replace_content' }) === true, 'managed Serena mutation requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'firecrawl_parse' }) === true, 'managed Firecrawl upload requires approval');
 expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_click' }) === true, 'managed Playwright action requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_navigate', args: JSON.stringify({ url: 'https://example.com' }) }) === true, 'public Playwright navigation requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_navigate', args: JSON.stringify({ url: 'https://example.com/redirect?target=http://127.0.0.1' }) }) === true, 'public redirect URLs require approval before they can reach private services');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_navigate', args: JSON.stringify({ url: 'http://localhost:3000' }) }) === true, 'local Playwright navigation requires approval');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_take_screenshot', args: '{}' }) === true, 'Playwright screenshot requires approval because the server persists a default file');
+expect(t.isMcpOrCustomTool('mcp', { tool: 'playwright_browser_take_screenshot', args: JSON.stringify({ filename: 'shot.png' }) }) === true, 'named Playwright screenshot requires approval');
 expect(t.isMcpOrCustomTool('mcp', { connect: 'serena' }) === true, 'managed MCP connect requires approval');
 expect(t.isMcpOrCustomTool('mcp', { server: 'firecrawl' }) === true, 'managed MCP server listing requires approval');
 expect(t.isMcpOrCustomTool('mcp', { server: 'serena', tool: 'new_serena_tool' }) === true, 'unlisted managed-server tool requires approval');
@@ -341,6 +358,9 @@ expect(t.isMcpOrCustomTool('mcp', { tool: 'user_tool', server: 'user-server' }) 
 expect(t.isMcpOrCustomTool('some-extension-tool') === true, 'unknown tool is custom');
 expect(t.isTrustedManagedTool('firecrawl', 'new_tool') === false, 'unlisted managed tool is not trusted');
 expect(t.isTrustedManagedTool('serena', 'serena_read_memory') === true, 'managed read-only tool is trusted');
+expect(t.isProjectConfinedPath(path.join(root, 'pi/extensions/b-agentic-permissions.ts')) === true, 'project file must be confined');
+expect(t.isProjectConfinedPath(os.tmpdir()) === false, 'outside path must not be project-confined');
+expect(t.isConditionallyTrustedTool('serena', 'serena_get_symbols_overview', { relative_path: os.tmpdir() }) === false, 'Serena reads outside the project require approval');
 expect(t.isTrustedManagedTool('user-server', 'user_tool') === false, 'unmanaged server is not trusted');
 expect(t.MANAGED_MCP_SERVERS.has('playwright'), 'managed MCP servers present');
 

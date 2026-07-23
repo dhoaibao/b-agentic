@@ -42,18 +42,25 @@ that listens for `tool_call` events and:
   services, and destructive-but-approvable actions
 - blocks prohibited git/Docker families and protected native writes/edits;
   protected native reads require explicit UI approval and fail closed without UI
-- inspects compound shell segments (`&&`, `;`, `|`), approval-gates literal
-  protected-path tokens (including `rtk`-wrapped path variants), and strips
+- inspects compound shell segments (`&&`, `;`, `|`), approval-gates literal or
+  symlink-resolved protected paths (including `rtk`-wrapped variants), and strips
   `env`/`sudo`/`rtk` wrappers and `git -C` style option prefixes before matching
-- requires approval for unbalanced quotes, shell expansions, and
+- recursively classifies commands executed by RTK proxy/filter wrappers and
+  requires approval for unbalanced quotes, shell expansions, `rtk run -c`, and
   interpreter/eval-style wrappers (`bash -c`, `sh -c`, `node -e`, `python -c`,
   …) whose bodies are opaque to static matching
 - requires RTK for every native command family listed by `rtk --help`; unsupported
   commands may run directly, and `rtk proxy` is unwrapped for the same safety
   classification as its effective command; allows MCP metadata
   discovery and only the explicitly classified read-only operations of managed MCP servers without prompts
-- asks for MCP connect/server-scoping lifecycle operations, Serena local symbol mutations because the Pi adapter cannot prove a
-  target is confined to the current repository; asks for Firecrawl external-mutation or local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright page-mutating tools (click/type/upload/evaluate/…), MCP auth bootstrap, unclassified managed operations, user/unknown MCP servers, and any other non-built-in custom tool
+- confines autonomous Serena symbol reads to the current repository and asks
+  for Serena local mutations; asks for Firecrawl external-mutation or
+  local-upload tools (agent/crawl/interact/monitor/feedback/parse), Playwright
+  page-mutating tools (click/type/upload/evaluate/…), screenshots (the server
+  persists a default file even without a filename), MCP auth bootstrap,
+  Playwright navigation (including public URLs that may redirect or DNS-rebind),
+  unclassified managed operations, user/unknown MCP servers, and any other
+  non-built-in custom tool
 - fails closed when MCP selectors are mixed (e.g. `connect` + `tool`), when an explicit MCP `server` disagrees with the tool-name origin, or when an approval-required action has no UI confirmation
 
 ## Validation

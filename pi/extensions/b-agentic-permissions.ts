@@ -211,6 +211,8 @@ const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
 ]);
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
+/** RTK subcommands that execute another command and must expose it to policy matching. */
+const RTK_EXECUTION_WRAPPERS = new Set(["proxy", "err", "test", "summary", "run"]);
 /** Native command families exposed by `rtk --help`. Agents must use RTK for supported families. */
 const RTK_REQUIRED_COMMANDS = new Set([
   "ls", "tree", "git", "gh", "glab", "aws", "psql", "pnpm", "find", "diff",
@@ -523,10 +525,32 @@ function unwrapTokens(tokens: string[]): { tokens: string[]; wrappers: Set<strin
       }
       continue;
     }
-    if (wrapper === "rtk" && tokens[i] === "proxy") {
-      // `rtk proxy <cmd>` deliberately preserves the raw command, but policy
-      // must still classify that command rather than the proxy subcommand.
-      i += 1;
+    if (wrapper === "rtk") {
+      while (i < tokens.length && (
+        tokens[i] === "--ultra-compact" || tokens[i] === "--skip-env" ||
+        tokens[i] === "-v" || tokens[i] === "-vv" || tokens[i] === "-vvv" ||
+        tokens[i] === "--verbose"
+      )) i += 1;
+
+      if (RTK_EXECUTION_WRAPPERS.has(tokens[i])) {
+        const rtkOperation = tokens[i];
+        i += 1;
+        while (tokens[i] === "--ultra-compact" || tokens[i] === "--skip-env") i += 1;
+        if (tokens[i] === "--") i += 1;
+        if (rtkOperation === "run" && (
+          tokens[i] === "-c" || tokens[i] === "--command" || tokens[i]?.startsWith("--command=")
+        )) {
+          // `rtk run -c` passes an opaque body to sh -c.
+          opaque = true;
+          i += tokens[i]?.startsWith("--command=") ? 1 : (tokens[i + 1] ? 2 : 1);
+        } else if (tokens[i]?.startsWith("-")) {
+          // Unknown execution-wrapper options could hide the effective command.
+          opaque = true;
+        }
+        // proxy/err/test/summary and positional run expose the effective command
+        // as their remaining arguments, so the normal safety policy classifies it.
+        continue;
+      }
     }
     // nohup / time: consume only the wrapper token
   }
@@ -821,7 +845,7 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
   // Shell access to a literal protected path is always approval-gated, even
   // through rtk/wrapper commands or in a compound segment. This deliberately
   // covers both reads and writes: the shell parser cannot reliably infer intent.
-  if (tokens.some(isProtectedPath)) {
+  if (tokens.some((token) => isProtectedPath(token) || isProtectedLocalPath(token))) {
     return {
       decision: "ask",
       reason: "Requires approval: shell command references a protected path",
@@ -1239,20 +1263,24 @@ function hasProtectedPathArgument(input: Record<string, unknown>, keys: string[]
   });
 }
 
-function isSafeSerenaPatternSearch(input: Record<string, unknown>): boolean {
-  if (input.restrict_search_to_code_files !== true) return false;
-  if (input.paths_include_glob || input.paths_exclude_glob) return false;
-  const pathValue = input.relative_path;
-  if (typeof pathValue !== "string" || !pathValue || isProtectedPath(pathValue)) return false;
+function isProjectConfinedPath(pathValue: unknown, requireFile = false): boolean {
+  if (typeof pathValue !== "string" || !pathValue || isProtectedLocalPath(pathValue)) return false;
   try {
     const projectRoot = realpathSync(process.cwd());
     const target = realpathSync(pathValue);
     const projectRelative = relative(projectRoot, target);
-    return !isAbsolute(projectRelative) && projectRelative !== ".." && !projectRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) &&
-      statSync(target).isFile() && !isProtectedPath(target);
+    const confined = !isAbsolute(projectRelative) && projectRelative !== ".." &&
+      !projectRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`);
+    return confined && (!requireFile || statSync(target).isFile());
   } catch {
     return false;
   }
+}
+
+function isSafeSerenaPatternSearch(input: Record<string, unknown>): boolean {
+  if (input.restrict_search_to_code_files !== true) return false;
+  if (input.paths_include_glob || input.paths_exclude_glob) return false;
+  return isProjectConfinedPath(input.relative_path, true);
 }
 
 function isSafeFirecrawlScrapeOptions(input: Record<string, unknown>): boolean {
@@ -1281,6 +1309,7 @@ function isConditionallyTrustedTool(server: string, base: string, input: unknown
     const known = knownArguments[base];
     if (!known || !hasOnlyKeys(input, new Set(known)) ||
       hasProtectedPathArgument(input, ["relative_path", "paths_include_glob", "paths_exclude_glob"])) return false;
+    if (input.relative_path !== undefined && !isProjectConfinedPath(input.relative_path)) return false;
     return base !== "serena_search_for_pattern" || isSafeSerenaPatternSearch(input);
   }
 
@@ -1570,4 +1599,6 @@ export const __test__ = {
   DANGEROUS_ASK_COMMANDS,
   DENY_COMMANDS,
   RTK_REQUIRED_COMMANDS,
+  RTK_EXECUTION_WRAPPERS,
+  isProjectConfinedPath,
 };
