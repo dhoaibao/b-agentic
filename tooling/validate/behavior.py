@@ -125,47 +125,65 @@ FIXTURES = [
         not_expected=("b-review",),
     ),
     Fixture(
-        name="combined staged change summary request",
-        prompt="Write a commit message, PR title, and PR description for the staged changes.",
-        expected="b-summary",
+        name="commit working-tree changes",
+        prompt="Split my tracked and untracked working-tree changes into cohesive commits.",
+        expected="b-commit",
     ),
     Fixture(
-        name="commit message request",
-        prompt="Write a commit message for the staged changes.",
-        expected="b-summary",
+        name="commit message for staged changes",
+        prompt="Write a commit message for my staged changes.",
+        expected="b-commit",
+        not_expected=("b-pr-summary",),
     ),
     Fixture(
-        name="PR summary request",
-        prompt="Write a PR title and description for the staged changes.",
-        expected="b-summary",
+        name="PR copy for staged changes is blocked by commit",
+        prompt="Write PR copy for my staged changes.",
+        expected="b-commit",
+        not_expected=("b-pr-summary",),
     ),
     Fixture(
-        name="PR copy for staged diff",
-        prompt="Write PR copy for the staged diff.",
-        expected="b-summary",
+        name="review staged changes stays in review",
+        prompt="Review my staged changes before committing.",
+        expected="b-review",
+        not_expected=("b-commit",),
     ),
     Fixture(
-        name="change summary before committing",
-        prompt="Write a change summary before committing.",
-        expected="b-summary",
+        name="PR summary for recent commits",
+        prompt="Use b-pr-summary 3 to write a PR title and description for my latest three commits.",
+        expected="b-pr-summary",
+    ),
+    Fixture(
+        name="PR summary for unpushed commits",
+        prompt="Use b-pr-summary to write PR copy for all commits on my current branch that are not pushed to origin.",
+        expected="b-pr-summary",
+    ),
+    Fixture(
+        name="natural PR summary for unpushed commits",
+        prompt="Write PR copy for all my unpushed commits.",
+        expected="b-pr-summary",
+    ),
+    Fixture(
+        name="natural PR summary for counted commits",
+        prompt="Write PR copy for my latest 3 commits.",
+        expected="b-pr-summary",
     ),
     Fixture(
         name="planning a commit strategy stays in b-plan",
         prompt="How should I plan the commit strategy for this feature?",
         expected="b-plan",
-        not_expected=("b-summary",),
+        not_expected=("b-commit", "b-pr-summary"),
     ),
     Fixture(
         name="reviewing a PR description stays in b-review",
         prompt="Review my PR description before I submit it.",
         expected="b-review",
-        not_expected=("b-summary",),
+        not_expected=("b-commit", "b-pr-summary"),
     ),
     Fixture(
         name="generic summary of docs stays in research",
         prompt="Summarize the React Router API docs and compare the config options.",
         expected="b-research",
-        not_expected=("b-summary",),
+        not_expected=("b-commit", "b-pr-summary"),
     ),
     # High-risk phase-boundary / authorization / tool-choice fixtures.
     Fixture(
@@ -208,7 +226,7 @@ FIXTURES = [
         name="pre-pr changed code review stays in review",
         prompt="Review the changed code in my working tree before I open a PR.",
         expected="b-review",
-        not_expected=("b-summary", "b-plan"),
+        not_expected=("b-commit", "b-pr-summary", "b-plan"),
     ),
     Fixture(
         name="suite self-audit routes to review",
@@ -276,24 +294,24 @@ def score(prompt: str, skill: dict) -> int:
     phrases, word_set = metadata_terms(skill)
     score_value = 0
 
-    if name == "b-summary":
-        # The ship skill is intentionally triggerless in the registry; require
-        # commit/PR/staged-change language before it can win, while still
-        # excluding generic docs summaries and PR-description reviews.
-        summary_markers = [
-            "commit message",
-            "pr title",
-            "pr copy",
-            "staged changes",
-            "staged diff",
-            "change summary",
-            "before committing",
-            "before opening a pr",
-        ]
-        matched_markers = [m for m in summary_markers if m in normalized_prompt]
+    if name == "b-commit":
+        commit_markers = ["commit changes", "commit message", "working-tree changes", "working tree changes", "create commits", "split my"]
+        matched_markers = [m for m in commit_markers if m in normalized_prompt]
+        staged_change = "staged changes" in normalized_prompt or "staged diff" in normalized_prompt
+        staged_commit_intent = "commit message" in normalized_prompt or "pr copy" in normalized_prompt
+        if staged_change and staged_commit_intent:
+            matched_markers.append("staged commit or PR-copy intent")
         if not matched_markers:
             return 0
-        # Boost so the triggerless skill wins over coincidental word overlap.
+        score_value += len(matched_markers) * 4
+
+    if name == "b-pr-summary":
+        if "staged changes" in normalized_prompt or "staged diff" in normalized_prompt:
+            return 0
+        pr_summary_markers = ["b-pr-summary", "pr summary", "pr copy", "unpushed commits", "latest commits", "recent commits"]
+        matched_markers = [m for m in pr_summary_markers if m in normalized_prompt]
+        if not matched_markers:
+            return 0
         score_value += len(matched_markers) * 4
 
     if name and re.search(rf"(^|\W){re.escape(name)}($|\W)", normalized_prompt):
@@ -338,11 +356,13 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
         if not isinstance(name, str):
             continue
         if skill.get("routing") is None:
-            if (
-                name == "b-summary"
-                and "Commit or PR summary for staged changes -> `b-summary`" not in text
-            ):
-                errors.append("references/kernel.template.md: missing b-summary routing rule")
+            expected_ship_rules = {
+                "b-commit": "Split and commit working-tree changes -> `b-commit`",
+                "b-pr-summary": "PR summary for a commit count or commits ahead of cached origin -> `b-pr-summary`",
+            }
+            expected_rule = expected_ship_rules.get(name)
+            if expected_rule and expected_rule not in text:
+                errors.append(f"references/kernel.template.md: missing {name} routing rule")
             continue
         if f"`{name}`" not in text:
             errors.append(f"references/kernel.template.md: missing routing entry for {name}")

@@ -55,13 +55,55 @@
       "id": "changed-code-review",
       "prompt": "Review the working-tree diff before a PR and report reviewer findings.",
       "expected_skill": "b-review",
-      "forbidden_skills": ["b-summary", "b-plan"]
+      "forbidden_skills": ["b-commit", "b-pr-summary", "b-plan"]
     },
     {
-      "id": "staged-summary",
-      "prompt": "Write a commit message, PR title, and PR description for one cohesive staged change.",
-      "expected_skill": "b-summary",
-      "forbidden_skills": ["b-review"]
+      "id": "commit-working-tree",
+      "prompt": "Split tracked and untracked working-tree changes into cohesive commits.",
+      "expected_skill": "b-commit",
+      "forbidden_skills": ["b-pr-summary", "b-review"]
+    },
+    {
+      "id": "staged-commit-message",
+      "prompt": "Write a commit message for my staged changes.",
+      "expected_skill": "b-commit",
+      "forbidden_skills": ["b-pr-summary", "b-review"]
+    },
+    {
+      "id": "staged-pr-copy",
+      "prompt": "Write PR copy for my staged changes.",
+      "expected_skill": "b-commit",
+      "forbidden_skills": ["b-pr-summary", "b-review"]
+    },
+    {
+      "id": "review-staged-changes",
+      "prompt": "Review my staged changes before committing.",
+      "expected_skill": "b-review",
+      "forbidden_skills": ["b-commit"]
+    },
+    {
+      "id": "pr-summary",
+      "prompt": "Use b-pr-summary 3 to draft PR copy for my latest three commits.",
+      "expected_skill": "b-pr-summary",
+      "forbidden_skills": ["b-commit", "b-review"]
+    },
+    {
+      "id": "unpushed-pr-summary",
+      "prompt": "Use b-pr-summary to draft PR copy for all current-branch commits not pushed to origin.",
+      "expected_skill": "b-pr-summary",
+      "forbidden_skills": ["b-commit", "b-review"]
+    },
+    {
+      "id": "natural-unpushed-pr-summary",
+      "prompt": "Write PR copy for all my unpushed commits.",
+      "expected_skill": "b-pr-summary",
+      "forbidden_skills": ["b-commit", "b-review"]
+    },
+    {
+      "id": "natural-counted-pr-summary",
+      "prompt": "Write PR copy for my latest 3 commits.",
+      "expected_skill": "b-pr-summary",
+      "forbidden_skills": ["b-commit", "b-review"]
     },
     {
       "id": "mechanical-refactor",

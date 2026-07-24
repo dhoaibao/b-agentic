@@ -241,8 +241,10 @@ def render_routing(skills: list[dict]) -> str:
         routing = skill.get("routing")
         if isinstance(routing, dict):
             lines.append(f"- {routing['intent']} -> `{skill['name']}` (triggers: {', '.join(routing['triggers'])}).")
-        elif skill["name"] == "b-summary":
-            lines.append("- Commit or PR summary for staged changes -> `b-summary` only on explicit user request.")
+        elif skill["name"] == "b-commit":
+            lines.append("- Split and commit working-tree changes -> `b-commit` only on explicit user request.")
+        elif skill["name"] == "b-pr-summary":
+            lines.append("- PR summary for a commit count or commits ahead of cached origin -> `b-pr-summary` only on explicit user request.")
     return "\n".join(lines)
 
 

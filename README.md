@@ -99,13 +99,14 @@ Pi has no native permission model, so b-agentic installs a first-party `tool_cal
 | `b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `b-review` | Validate | Review changed code or run a b-agentic suite self-audit |
-| `b-summary` | Ship | Write commit and PR copy for one cohesive staged change |
+| `b-commit` | Ship | Split working-tree changes into approved cohesive commits |
+| `b-pr-summary` | Ship | Write general PR copy for recent commits or commits ahead of cached origin |
 <!-- generated:skills-table:end -->
 
 Typical flow:
 
 ```text
-b-plan [goal] -> approve -> b-implement -> b-test -> b-review -> b-summary
+b-plan [goal] -> approve -> b-implement -> b-test -> b-review -> b-commit -> b-pr-summary [commit-count]
 b-research [external facts]
 b-design [frontend design standard]
 b-debug [runtime bug]

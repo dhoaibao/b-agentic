@@ -29,10 +29,11 @@ Use these rules before any skill-specific instruction.
 - Unit/integration/component tests, coverage, failing tests -> `b-test` (triggers: tests, coverage, failing test, snapshot, mock, component test, jsdom, happy-dom, React Testing Library).
 - Real-browser, visual, and e2e verification -> `b-browser` (triggers: browser, e2e, visual, screenshot, browser session, live UI, Playwright, Cypress e2e, Puppeteer, WebDriver).
 - Pre-PR changed-code review and b-agentic suite audit -> `b-review` (triggers: code review, review diff, review my diff, review changes, review these changes, working tree diff, pre-PR, "what would a reviewer", b-agentic audit, suite audit, maintainer audit).
-- Commit or PR summary for staged changes -> `b-summary` only on explicit user request.
+- Split and commit working-tree changes -> `b-commit` only on explicit user request.
+- PR summary for a commit count or commits ahead of cached origin -> `b-pr-summary` only on explicit user request.
 <!-- generated:kernel-routing:end -->
 
-For unclear goals or approaches, use `b-plan`. Use `b-summary` only for an explicit request to summarize staged changes. Repo-local context such as `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`, `docs/agents/`, and `.b-agentic/` is evidence when relevant, never mandatory ceremony or stronger than the user and current code.
+For unclear work use `b-plan`. `b-commit` and `b-pr-summary` require an explicit request. Repo context is optional evidence, never stronger than user instructions or repo facts.
 
 ## Safety and tools
 

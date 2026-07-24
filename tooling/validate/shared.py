@@ -95,7 +95,7 @@ for skill_name in sorted(prompt_dirs):
 # - b-debug previously treated diagnosis-only requests as fix authorization.
 # - b-test previously forced explicit TDD loops to bounce through b-implement.
 # - b-review previously allowed structural audit output to imply full readiness.
-# - b-summary previously forced substantial PR ceremony onto small changes.
+# - b-pr-summary must distinguish a combined PR summary from commit creation.
 # - b-research previously failed to pinpoint exact dependency versions by checking
 #   loose ranges in manifests or using go.sum instead of go.mod.
 # - b-browser previously ran E2E automation in headless/CI environments without
@@ -140,14 +140,23 @@ required_prompt_markers = {
         "prompt-change evidence",
         "structural checks only",
     ],
-    "b-summary": [
+    "b-commit": [
+        "BLOCKED: commit staged changes before generating PR copy",
+        "If the user asks only for a commit message, inspect only the existing staged diff.",
         "Commit message:",
+        "CONFIRM: stage and create these commits",
+        "Never use `git add -A`, `git add .`, `git commit --amend`, reset, or history-rewriting commands.",
+        "Ask before staging or committing; do not push or create a PR.",
+    ],
+    "b-pr-summary": [
         "PR title:",
         "PR description:",
-        "BLOCKED: no changes to summarize",
-        "BLOCKED: split unrelated staged changes",
+        "BLOCKED: invalid commit count",
+        "BLOCKED: not enough commits to summarize",
+        "BLOCKED: origin branch not found",
+        "BLOCKED: no commits ahead of cached origin to summarize",
         "Not established from available evidence.",
-        "Do not inspect remotes, merge bases, or open PR state.",
+        "Do not contact remotes, fetch, push, inspect merge bases, or open PR state.",
     ],
     "b-design": [
         "adaptable checklist",

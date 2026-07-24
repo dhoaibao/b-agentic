@@ -278,18 +278,33 @@
       }
     },
     {
-      "name": "b-summary",
+      "name": "b-commit",
       "phase": "Ship",
-      "use": "Write commit and PR copy for one cohesive staged change",
+      "use": "Split working-tree changes into approved cohesive commits",
       "command": {
-        "alias": "b-summary",
-        "description": "Write a commit message, PR title, and PR description",
+        "alias": "b-commit",
+        "description": "Stage approved change groups and create commits",
         "exposed": true
       },
       "routing": null,
       "prompt": {
-        "description": "Analyze the staged changes of the current branch and write a concise Conventional Commits message, PR title, and structured PR description for one cohesive change without checking remotes or merge state.",
+        "description": "Analyze tracked, staged, and untracked working-tree changes; propose cohesive commits; then stage and create approved commits on the current branch without pushing.",
         "argument_hint": "[change-context]"
+      }
+    },
+    {
+      "name": "b-pr-summary",
+      "phase": "Ship",
+      "use": "Write general PR copy for recent commits or commits ahead of cached origin",
+      "command": {
+        "alias": "b-pr-summary",
+        "description": "Write PR title and description from recent commits",
+        "exposed": true
+      },
+      "routing": null,
+      "prompt": {
+        "description": "Analyze a specified number of latest local commits, or commits ahead of the local cached origin branch ref when no count is given, and write evidence-backed PR title and description.",
+        "argument_hint": "[commit-count]"
       }
     }
   ]
