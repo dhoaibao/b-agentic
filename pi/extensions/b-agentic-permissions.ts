@@ -105,80 +105,218 @@ const SPECIALIZED_TOOLS = new Set([
   "ls",
 ]);
 
-/** Managed MCP servers installed by b-agentic. */
+// generated:mcp-runtime-policy:start
+/** Generated from references/mcp_operations.yaml. */
 const MANAGED_MCP_SERVERS = new Set([
-  "serena",
+  "brave-search",
   "codegraph",
   "context7",
-  "brave-search",
   "firecrawl",
   "playwright",
+  "serena"
 ]);
 
 /** Cached gateway operations classified as read-only in mcp_operations.yaml. */
 const MCP_TRUSTED_GATEWAY_OPERATIONS = new Set([
-  "search",
   "describe",
-  "ui-messages",
+  "search",
+  "ui-messages"
 ]);
 
 /** Read operations that are autonomous only for a validated safe argument shape. */
 const MCP_CONDITIONAL_TOOLS = new Set([
-  "serena:serena_search_for_pattern",
-  "serena:serena_get_symbols_overview",
-  "serena:serena_find_symbol",
-  "serena:serena_find_referencing_symbols",
-  "serena:serena_find_implementations",
-  "serena:serena_find_declaration",
-  "serena:serena_get_diagnostics_for_file",
-  "firecrawl:firecrawl_search",
+  "firecrawl:firecrawl_extract",
+  "firecrawl:firecrawl_map",
   "firecrawl:firecrawl_scrape",
-  "playwright:browser_snapshot",
+  "firecrawl:firecrawl_search",
   "playwright:browser_console_messages",
-  "playwright:browser_network_requests",
   "playwright:browser_network_request",
+  "playwright:browser_network_requests",
+  "playwright:browser_snapshot",
   "playwright:browser_tabs",
+  "serena:serena_find_declaration",
+  "serena:serena_find_implementations",
+  "serena:serena_find_referencing_symbols",
+  "serena:serena_find_symbol",
+  "serena:serena_get_diagnostics_for_file",
+  "serena:serena_get_symbols_overview",
+  "serena:serena_search_for_pattern"
 ]);
 
-/**
- * Runtime safe-operation sets validated against mcp_operations.yaml.
- */
+/** Known arguments for conditional operations, generated from the canonical policy. */
+const MCP_CONDITIONAL_ARGUMENTS: Record<string, readonly string[]> = {
+  "firecrawl:firecrawl_extract": [
+    "urls",
+    "prompt",
+    "schema",
+    "allowExternalLinks",
+    "enableWebSearch",
+    "includeSubdomains"
+  ],
+  "firecrawl:firecrawl_map": [
+    "url",
+    "search",
+    "sitemap",
+    "includeSubdomains",
+    "limit",
+    "ignoreQueryParameters"
+  ],
+  "firecrawl:firecrawl_scrape": [
+    "url",
+    "formats",
+    "jsonOptions",
+    "queryOptions",
+    "screenshotOptions",
+    "parsers",
+    "pdfOptions",
+    "onlyMainContent",
+    "redactPII",
+    "includeTags",
+    "excludeTags",
+    "waitFor",
+    "actions",
+    "mobile",
+    "skipTlsVerification",
+    "removeBase64Images",
+    "location",
+    "storeInCache",
+    "zeroDataRetention",
+    "maxAge",
+    "lockdown",
+    "proxy",
+    "profile"
+  ],
+  "firecrawl:firecrawl_search": [
+    "query",
+    "limit",
+    "tbs",
+    "filter",
+    "location",
+    "includeDomains",
+    "excludeDomains",
+    "sources",
+    "categories",
+    "scrapeOptions",
+    "enterprise"
+  ],
+  "playwright:browser_console_messages": [
+    "level",
+    "all",
+    "filename"
+  ],
+  "playwright:browser_network_request": [
+    "index",
+    "part",
+    "filename"
+  ],
+  "playwright:browser_network_requests": [
+    "static",
+    "filter",
+    "filename"
+  ],
+  "playwright:browser_snapshot": [
+    "target",
+    "filename",
+    "depth",
+    "boxes"
+  ],
+  "playwright:browser_tabs": [
+    "action",
+    "index",
+    "url"
+  ],
+  "serena:serena_find_declaration": [
+    "relative_path",
+    "regex",
+    "containing_symbol_name_path",
+    "include_body",
+    "include_info"
+  ],
+  "serena:serena_find_implementations": [
+    "name_path",
+    "relative_path",
+    "include_info",
+    "include_kinds",
+    "exclude_kinds",
+    "max_answer_chars"
+  ],
+  "serena:serena_find_referencing_symbols": [
+    "name_path",
+    "relative_path",
+    "include_kinds",
+    "exclude_kinds",
+    "max_answer_chars"
+  ],
+  "serena:serena_find_symbol": [
+    "name_path_pattern",
+    "depth",
+    "relative_path",
+    "include_body",
+    "include_info",
+    "include_kinds",
+    "exclude_kinds",
+    "substring_matching",
+    "max_matches",
+    "max_answer_chars"
+  ],
+  "serena:serena_get_diagnostics_for_file": [
+    "relative_path",
+    "start_line",
+    "end_line",
+    "min_severity",
+    "max_answer_chars"
+  ],
+  "serena:serena_get_symbols_overview": [
+    "relative_path",
+    "depth",
+    "max_answer_chars"
+  ],
+  "serena:serena_search_for_pattern": [
+    "substring_pattern",
+    "context_lines_before",
+    "context_lines_after",
+    "paths_include_glob",
+    "paths_exclude_glob",
+    "relative_path",
+    "restrict_search_to_code_files",
+    "multiline",
+    "max_answer_chars"
+  ]
+};
+
 const SERENA_TRUSTED_TOOLS = new Set([
-  "serena_search_for_pattern",
-  "serena_get_symbols_overview",
-  "serena_find_symbol",
-  "serena_find_referencing_symbols",
-  "serena_find_implementations",
   "serena_find_declaration",
+  "serena_find_implementations",
+  "serena_find_referencing_symbols",
+  "serena_find_symbol",
   "serena_get_diagnostics_for_file",
-  "serena_read_memory",
-  "serena_list_memories",
+  "serena_get_symbols_overview",
   "serena_initial_instructions",
+  "serena_list_memories",
+  "serena_read_memory",
+  "serena_search_for_pattern"
 ]);
 
 const CODEGRAPH_TRUSTED_TOOLS = new Set([
-  "codegraph_codegraph_explore",
+  "codegraph_codegraph_explore"
 ]);
 
 const CONTEXT7_TRUSTED_TOOLS = new Set([
-  "context7_resolve-library-id",
   "context7_query-docs",
+  "context7_resolve-library-id"
 ]);
 
 const BRAVE_SEARCH_TRUSTED_TOOLS = new Set([
-  "brave_search_brave_web_search",
-  "brave_search_brave_local_search",
-  "brave_search_brave_video_search",
   "brave_search_brave_image_search",
-  "brave_search_brave_news_search",
-  "brave_search_brave_summarizer",
   "brave_search_brave_llm_context",
+  "brave_search_brave_local_search",
+  "brave_search_brave_news_search",
   "brave_search_brave_place_search",
+  "brave_search_brave_summarizer",
+  "brave_search_brave_video_search",
+  "brave_search_brave_web_search"
 ]);
 
-/**
- * Legacy Firecrawl operation classification metadata.
- */
 const FIRECRAWL_TRUSTED_TOOLS = new Set([
   "firecrawl_agent_status",
   "firecrawl_check_crawl_status",
@@ -190,25 +328,23 @@ const FIRECRAWL_TRUSTED_TOOLS = new Set([
   "firecrawl_research_search_github",
   "firecrawl_research_search_papers",
   "firecrawl_scrape",
-  "firecrawl_search",
+  "firecrawl_search"
 ]);
 
-/**
- * Legacy Playwright operation classification metadata.
- */
 const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
-  "browser_snapshot",
-  "browser_find",
-  "browser_console_messages",
-  "browser_network_requests",
-  "browser_network_request",
-  "browser_wait_for",
-  "browser_navigate_back",
-  "browser_resize",
-  "browser_hover",
   "browser_close",
+  "browser_console_messages",
+  "browser_find",
+  "browser_hover",
+  "browser_navigate_back",
+  "browser_network_request",
+  "browser_network_requests",
+  "browser_resize",
+  "browser_snapshot",
   "browser_tabs",
+  "browser_wait_for"
 ]);
+// generated:mcp-runtime-policy:end
 
 const WRAPPER_COMMANDS = new Set(["rtk", "sudo", "command", "nohup", "nice", "time", "env"]);
 /** RTK subcommands that execute another command and must expose it to policy matching. */
@@ -1242,6 +1378,7 @@ function isSafeWebUrl(value: unknown): boolean {
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    if (parsed.username || parsed.password) return false;
     const host = parsed.hostname.replace(/^\[|\]$/g, "").toLowerCase().replace(/\.$/, "");
     const ipVersion = isIP(host);
     if (ipVersion === 4) return isPublicIpv4(host);
@@ -1293,20 +1430,27 @@ function isSafeFirecrawlScrapeOptions(input: Record<string, unknown>): boolean {
   return hasOnlyKeys(input, allowed) && input.storeInCache !== true;
 }
 
+function isSafeFirecrawlMap(input: Record<string, unknown>): boolean {
+  const known = MCP_CONDITIONAL_ARGUMENTS["firecrawl:firecrawl_map"];
+  return hasOnlyKeys(input, new Set(known)) &&
+    isSafeWebUrl(input.url) &&
+    Number.isInteger(input.limit) && input.limit > 0 && input.limit <= 100 &&
+    input.includeSubdomains !== true;
+}
+
+function isSafeFirecrawlExtract(input: Record<string, unknown>): boolean {
+  const known = MCP_CONDITIONAL_ARGUMENTS["firecrawl:firecrawl_extract"];
+  return hasOnlyKeys(input, new Set(known)) &&
+    Array.isArray(input.urls) && input.urls.length > 0 && input.urls.length <= 10 &&
+    input.urls.every(isSafeWebUrl) &&
+    input.allowExternalLinks !== true && input.enableWebSearch !== true && input.includeSubdomains !== true;
+}
+
 function isConditionallyTrustedTool(server: string, base: string, input: unknown): boolean {
   if (!isPlainObject(input)) return false;
 
   if (server === "serena") {
-    const knownArguments: Record<string, string[]> = {
-      serena_search_for_pattern: ["substring_pattern", "context_lines_before", "context_lines_after", "paths_include_glob", "paths_exclude_glob", "relative_path", "restrict_search_to_code_files", "multiline", "max_answer_chars"],
-      serena_get_symbols_overview: ["relative_path", "depth", "max_answer_chars"],
-      serena_find_symbol: ["name_path_pattern", "depth", "relative_path", "include_body", "include_info", "include_kinds", "exclude_kinds", "substring_matching", "max_matches", "max_answer_chars"],
-      serena_find_referencing_symbols: ["name_path", "relative_path", "include_kinds", "exclude_kinds", "max_answer_chars"],
-      serena_find_implementations: ["name_path", "relative_path", "include_info", "include_kinds", "exclude_kinds", "max_answer_chars"],
-      serena_find_declaration: ["relative_path", "regex", "containing_symbol_name_path", "include_body", "include_info"],
-      serena_get_diagnostics_for_file: ["relative_path", "start_line", "end_line", "min_severity", "max_answer_chars"],
-    };
-    const known = knownArguments[base];
+    const known = MCP_CONDITIONAL_ARGUMENTS[`${server}:${base}`];
     if (!known || !hasOnlyKeys(input, new Set(known)) ||
       hasProtectedPathArgument(input, ["relative_path", "paths_include_glob", "paths_exclude_glob"])) return false;
     if (input.relative_path !== undefined && !isProjectConfinedPath(input.relative_path)) return false;
@@ -1322,6 +1466,14 @@ function isConditionallyTrustedTool(server: string, base: string, input: unknown
   if (server === "firecrawl" && base === "firecrawl_scrape") {
     const { url, ...options } = input;
     return isSafeWebUrl(url) && isSafeFirecrawlScrapeOptions(options);
+  }
+
+  if (server === "firecrawl" && base === "firecrawl_map") {
+    return isSafeFirecrawlMap(input);
+  }
+
+  if (server === "firecrawl" && base === "firecrawl_extract") {
+    return isSafeFirecrawlExtract(input);
   }
 
   if (server === "playwright" && base === "browser_snapshot") {

@@ -87,8 +87,8 @@
       "tools": {
         "firecrawl_search": "conditional-read",
         "firecrawl_scrape": "conditional-read",
-        "firecrawl_map": "read-only",
-        "firecrawl_extract": "read-only",
+        "firecrawl_map": "conditional-read",
+        "firecrawl_extract": "conditional-read",
         "firecrawl_agent_status": "read-only",
         "firecrawl_check_crawl_status": "read-only",
         "firecrawl_interact_stop": "external-mutation",
@@ -169,6 +169,12 @@
     },
     "firecrawl:firecrawl_scrape": {
       "known": ["url", "formats", "jsonOptions", "queryOptions", "screenshotOptions", "parsers", "pdfOptions", "onlyMainContent", "redactPII", "includeTags", "excludeTags", "waitFor", "actions", "mobile", "skipTlsVerification", "removeBase64Images", "location", "storeInCache", "zeroDataRetention", "maxAge", "lockdown", "proxy", "profile"]
+    },
+    "firecrawl:firecrawl_map": {
+      "known": ["url", "search", "sitemap", "includeSubdomains", "limit", "ignoreQueryParameters"]
+    },
+    "firecrawl:firecrawl_extract": {
+      "known": ["urls", "prompt", "schema", "allowExternalLinks", "enableWebSearch", "includeSubdomains"]
     },
     "playwright:browser_snapshot": {
       "known": ["target", "filename", "depth", "boxes"]

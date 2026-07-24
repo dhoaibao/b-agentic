@@ -21,6 +21,8 @@ MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
 MCP_OPERATIONS_END = "<!-- generated:mcp-operations:end -->"
 KERNEL_ROUTING_START = "<!-- generated:kernel-routing:start -->"
 KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
+MCP_RUNTIME_POLICY_START = "// generated:mcp-runtime-policy:start"
+MCP_RUNTIME_POLICY_END = "// generated:mcp-runtime-policy:end"
 
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
@@ -191,6 +193,48 @@ def render_mcp_operations_table(policy: dict) -> str:
     return "\n".join(lines)
 
 
+def render_mcp_runtime_policy(policy: dict) -> str:
+    servers = policy.get("servers", {})
+    if not isinstance(servers, dict):
+        raise SystemExit(f"{MCP_OPERATIONS_PATH}: missing servers map")
+    conditional_arguments = policy.get("conditional_arguments", {})
+    if not isinstance(conditional_arguments, dict):
+        raise SystemExit(f"{MCP_OPERATIONS_PATH}: missing conditional_arguments map")
+
+    runtime_sets = {
+        "serena": "SERENA_TRUSTED_TOOLS",
+        "codegraph": "CODEGRAPH_TRUSTED_TOOLS",
+        "context7": "CONTEXT7_TRUSTED_TOOLS",
+        "brave-search": "BRAVE_SEARCH_TRUSTED_TOOLS",
+        "firecrawl": "FIRECRAWL_TRUSTED_TOOLS",
+        "playwright": "PLAYWRIGHT_TRUSTED_TOOLS",
+    }
+    safe = {"read-only", "conditional-read"}
+    lines = [
+        "/** Generated from references/mcp_operations.yaml. */",
+        f"const MANAGED_MCP_SERVERS = new Set({json.dumps(sorted(servers), indent=2)});",
+        "",
+        "/** Cached gateway operations classified as read-only in mcp_operations.yaml. */",
+        f"const MCP_TRUSTED_GATEWAY_OPERATIONS = new Set({json.dumps(sorted(name for name, operation in policy.get('gateway_operations', {}).items() if operation == 'read-only'), indent=2)});",
+        "",
+        "/** Read operations that are autonomous only for a validated safe argument shape. */",
+        f"const MCP_CONDITIONAL_TOOLS = new Set({json.dumps(sorted(f'{server}:{tool}' for server, record in servers.items() if isinstance(record, dict) for tool, operation in record.get('tools', {}).items() if operation == 'conditional-read'), indent=2)});",
+        "",
+        "/** Known arguments for conditional operations, generated from the canonical policy. */",
+        f"const MCP_CONDITIONAL_ARGUMENTS: Record<string, readonly string[]> = {json.dumps({key: value['known'] for key, value in sorted(conditional_arguments.items())}, indent=2)};",
+        "",
+    ]
+    for server, set_name in runtime_sets.items():
+        tools = servers.get(server, {}).get("tools", {})
+        if not isinstance(tools, dict):
+            raise SystemExit(f"{MCP_OPERATIONS_PATH}: {server} has no tools map")
+        lines.extend([
+            f"const {set_name} = new Set({json.dumps(sorted(tool for tool, operation in tools.items() if operation in safe), indent=2)});",
+            "",
+        ])
+    return "\n".join(lines).rstrip()
+
+
 def render_routing(skills: list[dict]) -> str:
     lines: list[str] = []
     for skill in skills:
@@ -235,8 +279,13 @@ def render_outputs(skills: list[dict]) -> dict[Path, str]:
 
     kernel = KERNEL_TEMPLATE_PATH.read_text()
     kernel = replace_block(kernel, KERNEL_ROUTING_START, KERNEL_ROUTING_END, render_routing(skills))
+    policy = load_json_subset_yaml(MCP_OPERATIONS_PATH)
     outputs[KERNEL_TEMPLATE_PATH] = replace_block(
-        kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(load_json_subset_yaml(MCP_OPERATIONS_PATH))
+        kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy)
+    )
+    extension = ROOT / "pi" / "extensions" / "b-agentic-permissions.ts"
+    outputs[extension] = replace_block(
+        extension.read_text(), MCP_RUNTIME_POLICY_START, MCP_RUNTIME_POLICY_END, render_mcp_runtime_policy(policy)
     )
     for skill in skills:
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
