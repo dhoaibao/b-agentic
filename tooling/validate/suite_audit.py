@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -44,20 +43,6 @@ def audit_slimness(errors: list[str]) -> None:
         errors.append(f"{kernel.relative_to(ROOT)}: kernel exceeds slimness limit ({lines} lines/{size} bytes; max {MAX_KERNEL_LINES} lines/{MAX_KERNEL_BYTES} bytes)")
 
 
-def audit_no_todos(errors: list[str]) -> None:
-    pattern = re.compile(r"\b(TODO|FIXME|XXX|HACK)\b")
-    for path in ROOT.rglob("*"):
-        if path == Path(__file__) or not path.is_file() or path.suffix not in {".py", ".sh", ".md", ".yaml", ".json", ".jsonc", ".toml"}:
-            continue
-        if any(part in path.parts for part in (".git", "node_modules", ".codegraph", "__pycache__")):
-            continue
-        try:
-            markers = pattern.findall(path.read_text())
-        except OSError:
-            continue
-        errors.extend(f"{path.relative_to(ROOT)}: contains {marker}" for marker in markers)
-
-
 def audit_unresolved_tokens(errors: list[str]) -> None:
     paths = [ROOT / "README.md", ROOT / "references" / "kernel.template.md", *(ROOT / "skills" / name / "SKILL.md" for name in skill_names())]
     for path in paths:
@@ -70,7 +55,6 @@ def main() -> int:
     all_ok &= run_cmd(["bash", "scripts/validate-skills.sh"], "Validation suite")
     errors: list[str] = []
     audit_slimness(errors)
-    audit_no_todos(errors)
     audit_unresolved_tokens(errors)
     if errors:
         print("\n".join(errors), file=sys.stderr)

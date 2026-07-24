@@ -54,7 +54,7 @@ scripts/b-agentic-audit.sh
 
 For install or Pi-home validation after integration changes, also use `scripts/smoke-install.sh`, `scripts/skill-doctor.sh`, and `scripts/mcp-doctor.sh`. For behavior-shaping prompt changes, compare like-for-like model settings with the opt-in `pi/tests/prompt_effectiveness.py` runner; it makes external model calls and requires human scoring.
 
-Use `--release` when install, Pi integration, kernel delivery, or release-readiness behavior changes. Run `scripts/b-agentic-audit.sh` (also invoked by `b-review --audit-suite`) for self-audit checks: source/generated sync, kernel slimness, no developer-marker comments, and unresolved template tokens. Confirm generated assets are synchronized, Pi-specific code remains under `pi/`, and public or maintainer docs reflect changed behavior.
+Use `--release` when install, Pi integration, kernel delivery, or release-readiness behavior changes. Run `scripts/b-agentic-audit.sh` (also invoked by `b-review --audit-suite`) for self-audit checks: source/generated sync, kernel slimness, and unresolved template tokens. Confirm generated assets are synchronized, Pi-specific code remains under `pi/`, and public or maintainer docs reflect changed behavior.
 
 ## Codebase Map
 

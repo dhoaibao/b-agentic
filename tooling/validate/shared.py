@@ -90,86 +90,23 @@ for skill_name in sorted(prompt_dirs):
         if forbidden in text:
             errors.append(f"{rel(prompt)}: removed ceremony remains: {forbidden!r}")
 
-# Prompt behavior regression contracts. These markers encode observed failure
-# modes and their intended correction:
-# - b-debug previously treated diagnosis-only requests as fix authorization.
-# - b-test previously forced explicit TDD loops to bounce through b-implement.
-# - b-review previously allowed structural audit output to imply full readiness.
-# - b-pr-summary must distinguish a combined PR summary from commit creation.
-# - b-research previously failed to pinpoint exact dependency versions by checking
-#   loose ranges in manifests or using go.sum instead of go.mod.
-# - b-browser previously ran E2E automation in headless/CI environments without
-#   verifying display server (xvfb) presence or configuration.
-required_prompt_markers = {
-    "b-plan": [
-        "intended observable outcome",
-        "AFK",
-        "HITL",
-    ],
-    "b-implement": [
-        "requested observable outcome",
-    ],
-    "b-debug": [
-        "Build a feedback loop",
-        "If no trustworthy feedback loop can be built",
-        "asked only to diagnose, explain, or investigate",
-    ],
-    "b-test": [
-        "public interface",
-        "vertical tracer bullets",
-        "implementation-coupled tests",
-        "explicitly requested a tightly scoped TDD red-green loop",
-    ],
-    "b-browser": [
-        "requested UI state",
-        "generic page load",
-        "headless or CI environments",
-    ],
-    "b-research": [
-        "resolved lockfiles",
-        "fallback",
-        "go.mod",
-    ],
-    "b-refactor": [
-        "deletion test",
-        "Stop if the work becomes redesign",
-    ],
-    "b-review": [
-        "real problem statement",
-        "ceremony creep",
-        "prompt-change evidence",
-        "structural checks only",
-    ],
-    "b-commit": [
-        "BLOCKED: commit staged changes before generating PR copy",
-        "If the user asks only for a commit message, inspect only the existing staged diff.",
-        "Commit message:",
-        "CONFIRM: stage and create these commits",
-        "Never use `git add -A`, `git add .`, `git commit --amend`, reset, or history-rewriting commands.",
-        "Ask before staging or committing; do not push or create a PR.",
-    ],
-    "b-pr-summary": [
-        "PR title:",
-        "PR description:",
-        "BLOCKED: invalid commit count",
-        "BLOCKED: not enough commits to summarize",
-        "BLOCKED: origin branch not found",
-        "BLOCKED: no commits ahead of cached origin to summarize",
-        "Not established from available evidence.",
-        "Do not contact remotes, fetch, push, inspect merge bases, or open PR state.",
-    ],
-    "b-design": [
-        "adaptable checklist",
-        "Do not scaffold unused section headings when repo evidence is sparse.",
-        "Do not invent a design system when evidence is thin.",
-    ],
+# Keep concise, high-risk prompt regressions covered without turning prompt prose
+# into a broad exact-wording contract. These anchors correspond to behavior that
+# cannot be inferred from routing or structural validation alone.
+prompt_regression_contracts = {
+    "b-debug": ["asked only to diagnose, explain, or investigate"],
+    "b-test": ["explicitly requested a tightly scoped TDD red-green loop"],
+    "b-browser": ["requested UI state"],
+    "b-research": ["resolved lockfiles", "go.mod"],
+    "b-review": ["structural checks only"],
+    "b-commit": ["Ask before staging or committing; do not push or create a PR."],
+    "b-pr-summary": ["Do not contact remotes, fetch, push, inspect merge bases, or open PR state."],
 }
-for skill_name, markers in required_prompt_markers.items():
-    prompt = ROOT / "skills" / skill_name / "prompt.md"
-    text = read_text(prompt)
+for skill_name, markers in prompt_regression_contracts.items():
+    text = read_text(ROOT / "skills" / skill_name / "prompt.md")
     for marker in markers:
         if marker not in text:
-            errors.append(f"{rel(prompt)}: missing behavior marker {marker!r}")
+            errors.append(f"skills/{skill_name}/prompt.md: missing behavior regression anchor {marker!r}")
 
 principles_path = ROOT / "tests" / "behavior" / "principles.json"
 principles_fixture = load_json(principles_path)
