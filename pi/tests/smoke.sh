@@ -196,6 +196,20 @@ expect(t.commandDecision('/opt/bin/rtk git reset --hard').decision === 'deny', '
 expect(t.commandDecision('rtk git --git-dir repo/.git reset --hard').decision === 'deny', 'Git option value must not hide reset denial');
 expect(t.commandDecision('rtk git --git-dir repo/.git --config-env=alias.wipe=ALIAS wipe').decision === 'ask', 'RTK Git command with opaque options must ask');
 expect(t.commandDecision('git push -f origin main').decision === 'deny', 'git push -f must deny');
+for (const command of [
+  'rtk git restore .',
+  'rtk git checkout -- src/main.ts',
+  'rtk git checkout -f main',
+  'rtk git switch --discard-changes main',
+  'rtk git stash clear',
+  'rtk git stash drop',
+  'rtk git stash pop',
+  'rtk git stash --quiet clear',
+  'rtk git stash --quiet drop',
+  'rtk git stash --quiet pop',
+]) {
+  expect(t.commandDecision(command).decision === 'ask', `${command} can discard work and must ask`);
+}
 expect(t.commandDecision('rm -rf /tmp/x').decision === 'ask', 'rm -rf must ask');
 expect(t.commandDecision('rm -r /tmp/x').decision === 'ask', 'recursive rm must ask');
 for (const command of ['dd if=/dev/zero of=/dev/sda', 'mkfs.ext4 /dev/sda', 'chmod -R 777 .', 'chown -R root .', 'kill -9 1']) {
@@ -291,7 +305,11 @@ expect(t.commandDecision("bash -c 'git reset --hard'").decision === 'ask', 'bash
 expect(t.commandDecision("sh -c 'git push --force'").decision === 'ask', 'sh -c must ask');
 expect(t.commandDecision("node -e \"require('fs').rmSync('.')\"").decision === 'ask', 'node -e must ask');
 expect(t.commandDecision('python3 -c "import os; os.system(\'git reset --hard\')"').decision === 'ask', 'python -c must ask');
+for (const command of ['bash ./untrusted.sh', 'python3 ./untrusted.py', 'node app.js', 'python3 -m untrusted_module', './untrusted.sh', '../untrusted.sh']) {
+  expect(t.commandDecision(command).decision === 'ask', `${command} must gate opaque code execution`);
+}
 expect(t.isInterpreterOpaque(['bash', '-c', 'git reset --hard']) === true, 'isInterpreterOpaque bash -c');
+expect(t.isInterpreterOpaque(['bash', './untrusted.sh']) === true, 'isInterpreterOpaque script file');
 expect(t.commandDecision('bash --version').decision === 'allow', 'unsupported raw shell executable may allow');
 expect(t.commandDecision('rtk proxy bash --version').decision === 'allow', 'rtk proxy shell executable may allow');
 

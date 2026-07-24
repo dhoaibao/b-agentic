@@ -358,7 +358,7 @@ const RTK_REQUIRED_COMMANDS = new Set([
   "rake", "rubocop", "rspec", "pip", "go", "gt", "golangci-lint", "gradlew", "mvn",
 ]);
 
-/** Interpreters that accept opaque -c/-e script bodies; always approval-required. */
+/** Interpreters that execute opaque code or script files; always approval-required. */
 const INTERPRETER_BASES = new Set([
   "bash",
   "sh",
@@ -576,8 +576,8 @@ function baseName(token: string): string {
 }
 
 /**
- * Detect interpreter/eval-style invocation whose payload is opaque to static matching
- * (bash -c, sh -c, node -e, python -c, ...). Always require approval.
+ * Detect interpreter invocations whose code is opaque to static matching:
+ * eval flags, modules/stdin, and script files. Always require approval.
  */
 function isInterpreterOpaque(tokens: string[]): boolean {
   if (tokens.length === 0) {
@@ -587,26 +587,34 @@ function isInterpreterOpaque(tokens: string[]): boolean {
   if (!INTERPRETER_BASES.has(base)) {
     return false;
   }
-  // Common opaque-script flags across shells and runtimes.
   for (let i = 1; i < tokens.length; i += 1) {
     const t = tokens[i];
     if (
-      t === "-c" ||
-      t === "-e" ||
-      t === "--eval" ||
-      t === "-Command" ||
-      t.startsWith("--eval=")
+      t === "-c" || t === "-e" || t === "--eval" || t === "-Command" ||
+      t.startsWith("--eval=") || t === "-"
     ) {
       return true;
+    }
+    if (t === "-m" || t === "--module") {
+      // json.tool parses data; unlike a general module it does not execute
+      // project code and remains an allowed fallback when jq is unavailable.
+      return tokens[i + 1] !== "json.tool";
     }
     // Combined short flags: bash -lc, bash -ic, etc.
     if (t.startsWith("-") && !t.startsWith("--") && t.length > 2) {
       if ((base === "bash" || base === "sh" || base === "dash" || base === "zsh" || base === "ksh") && t.includes("c")) {
         return true;
       }
+      continue;
     }
+    // The first positional argument is a script file or runtime input.
+    if (!t.startsWith("-")) return true;
   }
   return false;
+}
+
+function isRelativeExecutablePath(tokens: string[]): boolean {
+  return tokens[0]?.startsWith("./") || tokens[0]?.startsWith("../");
 }
 
 function unwrapTokens(tokens: string[]): { tokens: string[]; wrappers: Set<string>; opaque: boolean } {
@@ -926,6 +934,16 @@ function isGitBranchForceDelete(tokens: string[]): boolean {
   return tokens.includes("-D") || (tokens.includes("--delete") && tokens.includes("--force"));
 }
 
+function isGitDestructiveWorktreeOrStashOperation(tokens: string[]): boolean {
+  if (tokens[0] !== "git") return false;
+  if (tokens[1] === "restore") return true;
+  if (tokens[1] === "checkout") {
+    return tokens.includes("--") || tokens.includes("--force") || shortFlagChars(tokens.slice(2)).includes("f");
+  }
+  if (tokens[1] === "switch") return tokens.includes("--discard-changes");
+  return tokens[1] === "stash" && tokens.slice(2).some((token) => ["clear", "drop", "pop"].includes(token));
+}
+
 function isRtkWrapped(rawTokens: string[]): boolean {
   return unwrapTokens(rawTokens).wrappers.has("rtk");
 }
@@ -1005,11 +1023,11 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     };
   }
 
-  // Interpreter wrappers hide the real command body from static matching.
-  if (isInterpreterOpaque(tokens)) {
+  // Interpreter wrappers and relative executable paths hide code from static matching.
+  if (isInterpreterOpaque(tokens) || isRelativeExecutablePath(stripWrappers(rawTokens))) {
     return {
       decision: "ask",
-      reason: "Requires approval: interpreter/eval-style command (opaque -c/-e body)",
+      reason: "Requires approval: opaque script or executable invocation",
     };
   }
 
@@ -1045,6 +1063,13 @@ function segmentDecision(segment: string): { decision: Decision; reason: string 
     return {
       decision: "deny",
       reason: "Denied by b-agentic policy: git branch -D",
+    };
+  }
+
+  if (isGitDestructiveWorktreeOrStashOperation(tokens)) {
+    return {
+      decision: "ask",
+      reason: "Requires approval: Git operation can discard worktree or stash changes",
     };
   }
 
@@ -1724,6 +1749,7 @@ export const __test__ = {
   hasShellControlSyntax,
   hasUnbalancedQuotes,
   isInterpreterOpaque,
+  isRelativeExecutablePath,
   isRtkWrapped,
   hasOpaqueWrapper,
   isStandaloneEnvCommand,

@@ -39,16 +39,18 @@ Pi has no native permission model. b-agentic installs a first-party extension
 that listens for `tool_call` events and:
 
 - asks before commits, pushes, pulls, reverts, dependency writes, long-lived
-  services, and destructive-but-approvable actions
+  services, destructive Git worktree/stash operations, and other
+  destructive-but-approvable actions
 - blocks prohibited git/Docker families and protected native writes/edits;
   protected native reads require explicit UI approval and fail closed without UI
 - inspects compound shell segments (`&&`, `;`, `|`), approval-gates literal or
   symlink-resolved protected paths (including `rtk`-wrapped variants), and strips
   `env`/`sudo`/`rtk` wrappers and `git -C` style option prefixes before matching
 - recursively classifies commands executed by RTK proxy/filter wrappers and
-  requires approval for unbalanced quotes, shell expansions, `rtk run -c`, and
-  interpreter/eval-style wrappers (`bash -c`, `sh -c`, `node -e`, `python -c`,
-  …) whose bodies are opaque to static matching
+  requires approval for unbalanced quotes, shell expansions, `rtk run -c`,
+  interpreter modules/script files (`bash script.sh`, `node app.js`,
+  `python -m package`, …), and relative executable paths whose code is opaque
+  to static matching
 - requires RTK for every native command family listed by `rtk --help`; unsupported
   commands may run directly, and `rtk proxy` is unwrapped for the same safety
   classification as its effective command; allows MCP metadata
