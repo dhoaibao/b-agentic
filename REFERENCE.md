@@ -319,13 +319,19 @@ Executor does not claim writer status. The runtime
 does not provision, reset, or promise fresh architect sessions.
 
 The Architect directly asks material planning questions with `ask_user_question`.
-After the user approves `b-plan`, it uses `pi-intercom list-cwd` to identify the
-sole Executor session permitted by role arbitration, then sends a compact
-approved-plan handoff with scope, acceptance, affected paths, invariants,
-verification, risks, and open items. The Executor begins the named skill without
-reopening settled decisions, but stops for new ambiguity or scope drift. Missing
-coordination is reported. When an Executor requests `b-plan`, `b-research`, or
-`b-debug` through Intercom, the Architect begins that named skill automatically.
+Before initiating any new thread, it obtains a fresh `list-cwd` using the absolute
+project `cwd` and requires exactly one other peer; zero or multiple peers, missing
+Intercom, or an ambiguous roster is a coordination gap. After the user approves
+`b-plan` with no inbound Executor `ask`, it uses one proactive `send` with that
+`cwd` and omits `to` for a compact approved-plan handoff with scope, acceptance,
+affected paths, invariants, verification, risks, and open items; this is not
+blocking and never pairs `send` plus `ask`. If the plan originated from an
+Executor `ask`, the Architect returns it through the originating threaded
+`reply` instead. The Executor begins the named skill without reopening settled
+decisions, but stops for new ambiguity or scope drift. Missing coordination is reported. When an Executor requests `b-plan`,
+`b-research`, `b-debug`, or `b-review`, it uses exactly one blocking `ask` with the
+absolute project `cwd`, omits `to`, and then stops and waits; the Architect begins
+that named skill automatically.
 For `b-debug`, it may create and remove only disposable probes or harnesses in an
 OS-temporary scratch path outside the worktree; it never edits product code. A
 confirmed diagnosis hands the Executor the exact runnable repro command, observable
@@ -338,9 +344,12 @@ and relevant untracked/derived content, acceptance, required checks, gaps, and
 risk, then stops editing while review is pending. The Architect begins from that
 handoff without waiting for another prompt. It independently reads the handoff and
 diff; bounded read-only research may support its assigned work or substantiate a
-finding. For `NEEDS FIXES`, it automatically returns structured findings through
-`intercom` to the Executor session in the same CWD while remaining read-only; it
-does not implement the fix.
+finding. It answers the active request with `reply` for every disposition. If no
+longer in the triggered turn, it inspects `pending` and uses the exact originating
+`replyTo`; it never opens a reverse `ask` or sends an unthreaded response. An
+ambiguous pending request is a coordination gap. For `NEEDS FIXES`, it returns
+structured findings to the originating Executor in the same CWD while remaining
+read-only; it does not implement the fix.
 
 A candidate is eligible only when its exact snapshot remains unchanged, acceptance is
 met, required checks are fresh and passed, no blocker/material gap remains, and a

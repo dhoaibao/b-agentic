@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.10] - 2026-09-10
+
+### Changed
+
+- Clarify coordinated Architect and Executor handoffs so blocking requests stay threaded, proactive plan delivery remains nonblocking, and ambiguous peer or pending-request state fails closed.
+
 ## [v2026.09.09] - 2026-09-09
 
 ### Added

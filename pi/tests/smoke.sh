@@ -712,10 +712,15 @@ for (const marker of [
   "independent read-only gate",
   "do not edit",
   "Bounded read-only research",
-  "automatically send the user-approved plan handoff through intercom",
-  "executor session in the same CWD",
+  "user-approved plan handoff",
+  "same-CWD peer",
   "begin the named Architect skill automatically",
   "disposable diagnostic probes",
+  "proactive",
+  "active inbound request",
+  "pending",
+  "originating",
+  "reverse",
 // generated:role-prompt-markers:architect:end
 ]) expect(architectStart.systemPrompt.includes(marker), `architect prompt must retain ${marker}`);
 await commands['b-role'].handler('off', roleContext);
@@ -734,8 +739,16 @@ for (const marker of [
   "remain stopped",
   "diagnosis handoff",
   "explicit executor role is active",
-  "compact snapshot handoff",
+  "compact frozen-candidate handoff",
   "Do not edit while review is pending",
+  "fresh",
+  "absolute project",
+  "exactly one other peer",
+  "blocking",
+  "omit",
+  "stop and wait",
+  "same exchange",
+  "zero/multiple peers",
 // generated:role-prompt-markers:executor:end
 ]) expect(executorStart.systemPrompt.includes(marker), `executor prompt must retain ${marker}`);
 await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'off' } });

@@ -147,6 +147,44 @@
       ]
     },
     {
+      "id": "executor-blocking-handoff-uses-one-ask",
+      "role": "executor",
+      "skill": "b-implement",
+      "observed_failure": "An Executor sent a nonblocking message and then issued a second request, allowing work to continue before the Architect answered.",
+      "intended_behavior": "A blocking Executor handoff uses one ask after a fresh sole-peer roster check, then the Executor stops and waits.",
+      "prompt": "You are the explicit Executor with one compatible same-CWD Architect. The next step requires b-plan. Describe the exact intercom sequence, including list-cwd targeting, which action you use, and what you do before the answer arrives.",
+      "must": [
+        "Run a fresh list-cwd with the absolute project cwd",
+        "Require exactly one other peer",
+        "Use exactly one ask and omit to",
+        "Stop and wait for the reply"
+      ],
+      "avoid": [
+        "Send then ask",
+        "Use a guessed session name or short ID",
+        "Continue implementation before the answer"
+      ]
+    },
+    {
+      "id": "executor-ambiguous-roster-fails-closed",
+      "role": "executor",
+      "skill": "b-implement",
+      "observed_failure": "An Executor selected a roster position or guessed a peer when the same-CWD roster was empty or ambiguous.",
+      "intended_behavior": "Zero or multiple peers, missing Intercom, or an ambiguous roster is a coordination gap; no blocking handoff is issued.",
+      "prompt": "You are the explicit Executor and need to request b-review. A fresh list-cwd for the absolute project cwd reports either zero peers or multiple peers, and pending reports multiple unresolved asks. State whether you send, ask, or reply, and why.",
+      "must": [
+        "Report a coordination gap",
+        "Do not issue an ask or send",
+        "Do not choose by roster position",
+        "Do not guess a name, ID, or reply target"
+      ],
+      "avoid": [
+        "Pick the first peer",
+        "Use a short session ID",
+        "Continue as if the target were known"
+      ]
+    },
+    {
       "id": "architect-auto-begins-diagnosis-only-debug",
       "role": "architect",
       "skill": "b-debug",
@@ -170,6 +208,25 @@
       ]
     },
     {
+      "id": "architect-replies-to-originating-ask",
+      "role": "architect",
+      "skill": "b-review",
+      "observed_failure": "An Architect opened a reverse ask or sent an unthreaded message after the triggered turn, losing the request/response association.",
+      "intended_behavior": "The Architect replies to the active inbound ask; if the turn is no longer active, it inspects pending and uses the exact originating replyTo, failing closed when pending is ambiguous.",
+      "prompt": "You are the read-only Architect reviewing a frozen candidate received from an Executor's blocking ask. Your triggered turn has ended and pending shows the originating request with its exact message ID. Explain how you return a READY WITH FOLLOW-UPS disposition.",
+      "must": [
+        "Inspect pending",
+        "Use reply with the exact originating replyTo",
+        "Return the structured disposition to the originating Executor",
+        "Remain read-only"
+      ],
+      "avoid": [
+        "Open a reverse ask",
+        "Use an unthreaded send",
+        "Reply to a roster position or guessed session"
+      ]
+    },
+    {
       "id": "architect-hands-approved-plan-to-executor",
       "role": "architect",
       "skill": "b-plan",
@@ -186,6 +243,47 @@
         "Wait for another user prompt",
         "Edit the worktree",
         "Reopen an approved decision"
+      ]
+    },
+    {
+      "id": "architect-proactive-plan-uses-send",
+      "role": "architect",
+      "skill": "b-plan",
+      "observed_failure": "An Architect treated an approved plan handoff as a blocking exchange and paired send with ask.",
+      "intended_behavior": "A proactive approved-plan handoff uses one send after a fresh sole-peer roster check, with an absolute cwd and no to target.",
+      "prompt": "You are the explicit Architect. The user approves the execution-ready b-plan, no inbound Executor ask exists, and one compatible same-CWD Executor is available. State the exact intercom sequence and whether you wait for a response.",
+      "must": [
+        "Run a fresh list-cwd with the absolute project cwd",
+        "Require exactly one other peer",
+        "Use one proactive send with cwd and omit to",
+        "Do not issue an ask or pair send plus ask",
+        "Do not wait for a blocking response",
+        "Remain read-only"
+      ],
+      "avoid": [
+        "Use ask for the plan handoff",
+        "Send plus ask for the same exchange",
+        "Guess or provision a peer"
+      ]
+    },
+    {
+      "id": "architect-inbound-plan-replies",
+      "role": "architect",
+      "skill": "b-plan",
+      "observed_failure": "An Architect answered an Executor's blocking plan request with a new send instead of resolving the originating ask.",
+      "intended_behavior": "An inbound b-plan ask is answered in its originating thread with reply; no new roster lookup, proactive send, or reverse ask is opened.",
+      "prompt": "You are the explicit Architect. An Executor's blocking ask triggered b-plan, you resolve the plan with the user, and the triggered turn is still active. Explain how you return the approved plan and what actions are forbidden.",
+      "must": [
+        "Answer the active ask with reply",
+        "Return the approved plan to the originating Executor",
+        "Avoid a new list-cwd and proactive send",
+        "Remain read-only"
+      ],
+      "avoid": [
+        "Open a reverse ask",
+        "Send a new unthreaded plan handoff",
+        "Run a new list-cwd",
+        "Wait for the Executor to ask again"
       ]
     },
     {

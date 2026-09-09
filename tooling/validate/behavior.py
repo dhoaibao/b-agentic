@@ -90,30 +90,48 @@ INTERCOM_DELEGATION_REGRESSION = {
     "required_clauses": (
         "b-agentic defaults to Off", "Executor is the sole user-facing worktree writer",
         "legacy v1 planner/worker and v2 implementer/reviewer state stays inactive", "Candidate review freezes executor edits",
-        "After a user-approved `b-plan`, the Architect automatically sends the Executor a compact approved-plan handoff through `intercom`",
-        "After completing implementation and required checks in explicit executor role, immediately and before any final task response, automatically request a frozen-candidate `b-review` through `intercom` from the architect session in the same CWD",
-        "An active executor role confirms that b-role's internal compatible-peer arbitration has passed; `intercom list-cwd` supplies the sole peer's address, not its role.",
-        "before reporting review completion, automatically returns the structured disposition and findings (including `NEEDS FIXES`, `READY FOR PR`, or `READY WITH FOLLOW-UPS`) through `intercom` to the executor session in the same CWD",
+        "Before any new thread, a fresh `list-cwd` with the absolute project `cwd` must show exactly one other peer",
+        "When no inbound Executor `ask` exists, after a user-approved `b-plan` the Architect uses one proactive `send` with that `cwd` and omits `to`",
+        "After completing implementation and required checks in explicit executor role, the Executor uses exactly one blocking `ask` with the absolute project `cwd`, omits `to`",
+        "An Executor request for b-plan, b-research, b-debug, or b-review arrives as a blocking `ask`; the Architect automatically begins the named skill and answers the active request with `reply`",
+        "Zero/multiple peers, missing Intercom, or an ambiguous roster is a coordination gap",
+        "inspect `pending` and use the exact originating `replyTo`",
+        "Never open a reverse `ask`",
     ),
     "role_required_clauses": (
         # generated:role-prompt-markers:behavior:start
         "sole user-facing writer",
         "independent read-only gate",
-        "compact snapshot handoff",
+        "compact frozen-candidate handoff",
         "wrong architect",
         "skipped/failed checks",
         "Corrections require re-verification and re-review",
+        "fresh",
+        "absolute project",
+        "exactly one other peer",
+        "blocking",
+        "omit",
+        "stop and wait",
+        "zero/multiple peer roster",
+        "ambiguous pending",
 # generated:role-prompt-markers:behavior:end
         "explicit executor role is active",
-        "automatically send the user-approved plan handoff through intercom",
-        "executor session in the same CWD",
         "immediately and before any final task response",
-        "automatically request independent b-review through intercom",
-        "Before reporting review completion",
-        "automatically return the structured disposition and findings through intercom",
-        "begin b-review automatically",
-        "architect session in the same CWD",
-        "executor session in the same CWD",
+        "begin the named Architect skill automatically",
+        "independent b-review",
+        "fresh",
+        "absolute project",
+        "exactly one other peer",
+        "blocking",
+        "omit",
+        "stop and wait",
+        "same exchange",
+        "proactive",
+        "active inbound request",
+        "pending",
+        "originating",
+        "ambiguous pending",
+        "reverse",
     ),
 }
 
@@ -576,7 +594,10 @@ def validate_intercom_delegation_regression(errors: list[str]) -> None:
     )
     role_prompt = (ROOT / "pi/extensions/b-agentic-support/role.ts").read_text()
     for clause in INTERCOM_DELEGATION_REGRESSION["role_required_clauses"]:
-        if clause not in role_prompt:
+        # Template-literal prompts escape inline backticks in the TypeScript source,
+        # while the injected runtime prompt contains the unescaped marker.
+        source_clause = clause.replace("`", r"\`")
+        if clause not in role_prompt and source_clause not in role_prompt:
             errors.append(
                 f"Intercom delegation regression: role prompt missing required clause {clause!r}; "
                 f"observed failure: {INTERCOM_DELEGATION_REGRESSION['observed_failure']}"
@@ -616,7 +637,12 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "forbidden": ("The user wants a review of code or PR copy -> use **b-review**",),
         },
         "skills/b-review/prompt.md": {
-            "required": ("PR title/description prose review or rewriting without changed-code review -> **b-pr-summary**",),
+            "required": (
+                "PR title/description prose review or rewriting without changed-code review -> **b-pr-summary**",
+                "answer the active review request with `reply`",
+                "inspect `pending` and use the exact originating `replyTo`",
+                "Never open a reverse `ask`",
+            ),
         },
         "references/kernel.template.md": {
             "required": (

@@ -129,7 +129,7 @@ prompt_regression_contracts = {
     "b-plan": ["candidate-review gate", "tracked plus relevant untracked/derived snapshot"],
     "b-research": ["resolved lockfiles", "go.mod"],
     "b-implement": ["shared explicit executor-role profile", "standalone **Off** mode does not initiate intercom review", "active executor role initiates a handoff", "let the executor-role profile send a fresh snapshot and review request"],
-    "b-review": ["frozen changed-code candidate", "begin **b-review** automatically", "automatically return the structured disposition and findings", "every disposition", "executor session in the same CWD", "intercom", "coordination gap"],
+    "b-review": ["frozen changed-code candidate", "begin **b-review** automatically", "answer the active review request with `reply`", "inspect `pending` and use the exact originating `replyTo`", "every disposition", "same CWD", "intercom", "coordination gap"],
     "b-agentic-audit": [
         "Existing source/design conformance",
         "Whole-project and first-party-extension health",
@@ -1250,9 +1250,10 @@ if _forbidden_codegraph_gates(
 
 for intercom_marker in [
     "b-agentic defaults to Off", "select roles with `/b-role` or `pi --b-role`", "Executor is the sole user-facing worktree writer", "independent prompt-governed read-only gate", "compatible same-CWD peers",
-    "After a user-approved `b-plan`, the Architect automatically sends the Executor a compact approved-plan handoff through `intercom`",
-    "After completing implementation and required checks in explicit executor role, immediately and before any final task response, automatically request a frozen-candidate `b-review` through `intercom` from the architect session in the same CWD",
-    "before reporting review completion, automatically returns the structured disposition and findings (including `NEEDS FIXES`, `READY FOR PR`, or `READY WITH FOLLOW-UPS`) through `intercom` to the executor session in the same CWD",
+    "Before any new thread, a fresh `list-cwd` with the absolute project `cwd` must show exactly one other peer",
+    "When no inbound Executor `ask` exists, after a user-approved `b-plan` the Architect uses one proactive `send` with that `cwd` and omits `to`",
+    "After completing implementation and required checks in explicit executor role, the Executor uses exactly one blocking `ask` with the absolute project `cwd`, omits `to`",
+    "An Executor request for b-plan, b-research, b-debug, or b-review arrives as a blocking `ask`; the Architect automatically begins the named skill and answers the active request with `reply`",
 ]:
     if intercom_marker not in kernel_template:
         errors.append(
@@ -1265,20 +1266,31 @@ for intercom_marker in [
     "sole user-facing writer",
     "independent read-only gate",
     "roles never filter tools",
-    "compact snapshot handoff",
+    "compact frozen-candidate handoff",
     "stop edits",
     "required checks",
     "exact unchanged snapshot",
     "READY WITH FOLLOW-UPS",
     "No automatic commit or push",
-    "automatically send the user-approved plan handoff through intercom",
-    "automatically request independent b-review through intercom",
-    "automatically return the structured disposition and findings",
-    "architect session in the same CWD",
-    "executor session in the same CWD",
+    "user-approved plan handoff",
+    "independent b-review",
+    "structured disposition and findings",
+    "same-CWD peer",
+    "fresh",
+    "absolute project",
+    "exactly one other peer",
+    "blocking",
+    "omit",
+    "proactive",
+    "active inbound request",
+    "pending",
+    "originating",
+    "reverse",
+    "same exchange",
 # generated:role-prompt-markers:shared:end
 ]:
-    if intercom_marker not in role_prompt:
+    source_marker = intercom_marker.replace("`", r"\`")
+    if intercom_marker not in role_prompt and source_marker not in role_prompt:
         errors.append(
             f"pi/extensions/b-agentic-support/role.ts: Intercom workflow marker missing {intercom_marker!r}"
         )

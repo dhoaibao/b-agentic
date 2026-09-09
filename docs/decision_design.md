@@ -79,24 +79,34 @@ legacy model preferences map to the corresponding v3 role only.
 - Compatible same-CWD peer payloads use protocol v3; unknown, v1, v2, or mixed
   payloads fail closed and never grant an Executor writer claim. Roles preserve normal
   Pi tools and shared approval policy.
-- The Architect resolves material planning decisions directly with the user. Once
-  the user approves a `b-plan` result, it sends the Executor a compact Intercom
-  handoff with scope, acceptance, paths, invariants, verification, risks, and open
-  items; the Executor begins the named skill without reopening settled decisions.
-  Missing coordination is reported, and the Architect remains read-only. It also
-  automatically begins same-CWD Executor requests for `b-plan`, `b-research`, or
-  `b-debug`; `b-debug` may create and remove only disposable OS-temporary scratch
-  probes outside the worktree. Its confirmed diagnosis handoff names the next skill
-  and carries the exact runnable repro command, observable to flip, and confirmed
-  causal mechanism; the Executor owns the resulting product change and any
-  performance remeasurement.
+- The Architect resolves material planning decisions directly with the user. Before
+  initiating any new thread, it runs a fresh `list-cwd` with the absolute project
+  `cwd` and requires exactly one other peer; zero/multiple peers, missing Intercom,
+  or an ambiguous roster is a coordination gap. Once the user approves a `b-plan`
+  result with no inbound Executor `ask`, it uses exactly one proactive `send` with
+  that `cwd` and omits `to` for a compact Intercom handoff with scope, acceptance,
+  paths, invariants, verification, risks, and open items. This is not blocking and
+  never pairs `send` plus `ask`. If the plan originated from an Executor `ask`, the
+  Architect returns it through the originating threaded `reply` instead. The
+  Executor begins the named skill without reopening settled decisions, while the
+  Architect remains read-only. For an Executor request for `b-plan`, `b-research`,
+  `b-debug`, or `b-review`, the Executor uses exactly one blocking `ask` with the
+  absolute project `cwd`, omits `to`, then stops and waits. The Architect begins
+  that named skill automatically and replies to the originating request; if its
+  triggered turn has ended, it inspects `pending` and uses the exact `replyTo`, never
+  a reverse `ask` or unthreaded `send`. `b-debug` may create and remove only
+  disposable OS-temporary scratch probes outside the worktree. Its confirmed
+  diagnosis handoff names the next skill and carries the exact runnable repro
+  command, observable to flip, and confirmed causal mechanism; the Executor owns
+  the resulting product change and any performance remeasurement.
 - When implementation is complete and required checks pass, the Executor sends a
-  frozen candidate handoff for independent review. The Architect begins `b-review`
-  without waiting for another prompt and, on `NEEDS FIXES`, returns structured
-  findings to the Executor while remaining read-only. Shipping requires the exact
-  unchanged snapshot, acceptance, fresh passing required checks, no
-  blockers/material gaps, and a valid review disposition. Follow-ups need explicit
-  disposition and never waive safety evidence. Review does not commit or push;
+  frozen candidate handoff for independent review through that single blocking ask,
+  then stops editing. The Architect begins `b-review` without waiting for another
+  prompt and, on every disposition, returns structured findings to the originating
+  Executor while remaining read-only. Shipping requires the exact unchanged
+  snapshot, acceptance, fresh passing required checks, no blockers/material gaps,
+  and a valid review disposition. Follow-ups need explicit disposition and never
+  waive safety evidence. Review does not commit or push;
   changelog changes for an authorized commit are part of the reviewed candidate.
   In default Off mode, commits require local snapshot verification and required
   checks, not automatic independent review, unless the user explicitly requires
