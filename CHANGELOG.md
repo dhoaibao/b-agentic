@@ -26,6 +26,7 @@ section per date and same-day changes aggregated in that section.
 
 ### Fixed
 
+- Fail closed Executor writer arbitration until same-CWD peer discovery confirms zero peers or one compatible Architect, including disconnects, role transitions, and stale discovery races.
 - Align repository documentation, skills, and validation with current architecture boundaries: record `b-diagram`'s executable payload boundary and include it in the build phase catalog, drop the stale measured kernel byte figure, correct role-article phrasing, prune obsolete writer rules from `b-debug`, and clean up unused script variables.
 - Allowlist the first-party `todo` task tool in specialized support policy so task list operations do not trigger generic custom-tool approval prompts or fail closed without UI.
 - Support `pi-intercom` 0.13.0 schema additions: permit `focus` and non-spawning `openProjectPaneIfMissing: false` in auto-approved Intercom calls while approval-gating session spawning.

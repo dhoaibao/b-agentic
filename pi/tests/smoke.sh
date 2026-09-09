@@ -682,13 +682,23 @@ expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 1, ro
 expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 2, role: 'implementer' }) === false, 'legacy v2 implementer/reviewer peer payloads must fail closed');
 expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 3, role: 'architect' }) === true, 'versioned Architect payloads must be compatible');
 expect(plannerTest.skillOwner('b-plan') === 'architect' && plannerTest.skillOwner('b-research') === 'architect' && plannerTest.skillOwner('b-design') === 'executor' && plannerTest.skillOwner('b-diagram') === 'executor', 'Architect owns only read-only planning and research while artifact-writing design and diagram work stay with the Executor');
-const peers = [{ id: 'self', cwd: root, pid: process.pid, startedAt: 1 }, { id: 'mixed', cwd: root, pid: 202, startedAt: 2 }];
-expect(roleTest.canClaimExecutor(peers, root, process.pid) === true && roleTest.canClaimExecutor([...peers, { id: 'third', cwd: root, pid: 303, startedAt: 3 }], root, process.pid) === false, 'a sole peer may coexist with an executor claim, while multiple peers block it');
-const architectPeer = { id: 'architect', cwd: root, pid: 202, startedAt: 2 };
-expect(roleTest.canClaimExecutor([peers[0], architectPeer], root, process.pid) === true, 'a sole architect peer permits an executor claim');
-expect(roleTest.canClaimExecutor([peers[0], architectPeer], root, process.pid) === true, 'an Off peer does not block an executor claim');
+const selfPeer = { id: 'self', cwd: root, pid: process.pid, startedAt: 1 };
+const unknownPeer = { id: 'unknown', cwd: root, pid: 202, startedAt: 2 };
+const architectPeer = { id: 'architect', cwd: root, pid: 203, startedAt: 3 };
+const offPeer = { id: 'off', cwd: root, pid: 204, startedAt: 4 };
+const executorPeer = { id: 'executor', cwd: root, pid: 205, startedAt: 5 };
+const architectRoles = new Map([['architect', 'architect']]);
+const offRoles = new Map([['off', 'off']]);
+const executorRoles = new Map([['executor', 'executor']]);
+expect(roleTest.canClaimExecutor([selfPeer], root, process.pid) === true, 'zero same-CWD peers permit an executor claim');
+expect(roleTest.canClaimExecutor([selfPeer, architectPeer], root, process.pid, architectRoles) === true, 'a sole confirmed protocol-v3 Architect permits an executor claim');
+expect(roleTest.canClaimExecutor([selfPeer, unknownPeer], root, process.pid) === false, 'an unknown sole peer blocks an executor claim');
+expect(roleTest.canClaimExecutor([selfPeer, offPeer], root, process.pid, offRoles) === false, 'a sole Off peer blocks an executor claim');
+expect(roleTest.canClaimExecutor([selfPeer, executorPeer], root, process.pid, executorRoles) === false, 'a sole Executor peer blocks an executor claim');
+expect(roleTest.canClaimExecutor([selfPeer, unknownPeer], root, process.pid) === false, 'a legacy or incompatible sole peer without a confirmed role blocks an executor claim');
+expect(roleTest.canClaimExecutor([selfPeer, architectPeer, unknownPeer], root, process.pid, architectRoles) === false && roleTest.canClaimExecutor([selfPeer, architectPeer, offPeer], root, process.pid, new Map([['architect', 'architect'], ['off', 'off']])) === false, 'multiple or mixed same-CWD peers block an executor claim');
 const publishedRoles = [];
-const peerSessions = [{ id: 'self', cwd: root, pid: process.pid, startedAt: 1 }, architectPeer];
+const peerSessions = [selfPeer, architectPeer];
 roleChannelRegistration.onReady({ publish(payload) { publishedRoles.push(payload); }, listSessions: async () => peerSessions });
 await roleChannelRegistration.onEvent({ type: 'connection', connected: true, supported: true });
 await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
@@ -712,7 +722,7 @@ await commands['b-role'].handler('off', roleContext);
 const offStart = await handlers.before_agent_start({ systemPrompt: 'base', systemPromptOptions: { skills: [] } }, roleContext);
 expect(offStart === undefined, 'Off role must not inject executor or architect coordination guidance');
 await commands['b-role'].handler('executor', roleContext);
-expect(roleStatuses.at(-1)?.value.includes('executor') && activeTools.includes('edit') && activeTools.includes('write'), 'a compatible solo executor request may claim the sole writer role without filtering tools');
+expect(roleStatuses.at(-1)?.value.includes('executor') && activeTools.includes('edit') && activeTools.includes('write'), 'an executor request with one confirmed Architect may claim the sole writer role without filtering tools');
 const executorStart = await handlers.before_agent_start({ systemPrompt: 'base', systemPromptOptions: { skills: [] } }, roleContext);
 expect(executorStart.systemPrompt.includes('sole user-facing writer') && executorStart.systemPrompt.includes('user-approved plan handoff') && executorStart.systemPrompt.includes('diagnosis handoff') && executorStart.systemPrompt.includes('compact snapshot handoff') && executorStart.systemPrompt.includes('automatically request independent b-review through intercom') && executorStart.systemPrompt.includes('architect session in the same CWD') && executorStart.systemPrompt.includes('B_AGENTIC_TASK_COMPLETE') && executorStart.systemPrompt.includes('Do not edit while review is pending'), 'Executor profile must route diagnosis to the Architect, receive required handoffs, require the automatic same-CWD candidate gate, and emit the post-review completion signal');
 for (const marker of [
@@ -729,10 +739,60 @@ for (const marker of [
 // generated:role-prompt-markers:executor:end
 ]) expect(executorStart.systemPrompt.includes(marker), `executor prompt must retain ${marker}`);
 await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'off' } });
-expect(roleStatuses.at(-1)?.value.includes('executor'), 'an active executor remains active when its sole peer becomes Off');
+expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off when its sole peer becomes Off');
+await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
+expect(roleStatuses.at(-1)?.value === undefined, 'an Off executor must not regain its claim merely because a peer becomes Architect');
+await commands['b-role'].handler('executor', roleContext);
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'an explicit executor request may reclaim with a confirmed Architect peer');
+await roleChannelRegistration.onEvent({ type: 'connection', connected: false, supported: false });
+expect(roleStatuses.at(-1)?.value === undefined, 'a disconnected role channel must force an active executor Off');
+await roleChannelRegistration.onEvent({ type: 'connection', connected: true, supported: true });
+expect(roleStatuses.at(-1)?.value === undefined, 'reconnection must not reuse a stale Architect authorization');
+await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'reconnection may reclaim only after a fresh compatible Architect payload');
+peerSessions.push(unknownPeer);
+await roleChannelRegistration.onEvent({ type: 'session_joined' });
+expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off immediately when an unknown peer joins');
+await commands['b-role'].handler('executor', roleContext);
+expect(roleStatuses.at(-1)?.value === undefined, 'a pending executor claim must remain Off while same-CWD peers are mixed or unknown');
+peerSessions.pop();
+await roleChannelRegistration.onEvent({ type: 'session_left', sessionId: unknownPeer.id });
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'a pending executor claim may resolve after the unknown peer leaves');
+await commands['b-role'].handler('off', roleContext);
+let releaseRaceList;
+let markRaceListStarted;
+const raceListStarted = new Promise((resolve) => { markRaceListStarted = resolve; });
+let firstRaceList = true;
+roleChannelRegistration.onReady({
+  publish(payload) { publishedRoles.push(payload); },
+  listSessions: async () => {
+    if (firstRaceList) {
+      firstRaceList = false;
+      const eligibleSnapshot = [...peerSessions];
+      const deferredRaceList = new Promise((resolve) => { releaseRaceList = resolve; });
+      markRaceListStarted();
+      await deferredRaceList;
+      return eligibleSnapshot;
+    }
+    return [...peerSessions];
+  },
+});
+const raceClaim = commands['b-role'].handler('executor', roleContext);
+await raceListStarted;
+peerSessions.push(unknownPeer);
+const raceJoin = roleChannelRegistration.onEvent({ type: 'session_joined' });
+await raceJoin;
+releaseRaceList();
+await raceClaim;
+expect(roleStatuses.at(-1)?.value === undefined, 'a stale eligible session snapshot must not grant Executor after an unknown peer joins');
+peerSessions.pop();
+await roleChannelRegistration.onEvent({ type: 'session_left', sessionId: unknownPeer.id });
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'the deferred race claim may resolve only after the unknown peer leaves');
+await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 2, role: 'implementer' } });
+expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off when its peer becomes legacy or incompatible');
 await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
 await commands['b-role'].handler('executor', roleContext);
-expect(roleStatuses.at(-1)?.value.includes('executor'), 'an executor remains active with a sole peer');
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'an explicit executor request may reclaim after incompatible peer state is corrected');
 await handlers.model_select({ model: { provider: 'anthropic', id: 'claude-sonnet-4-5' } }, roleContext);
 const roleModelPreferences = JSON.parse(readFileSync(path.join(process.env.PI_CODING_AGENT_DIR, 'b-agentic', 'role-models.json'), 'utf8'));
 expect(roleModelPreferences.executor.model === 'claude-sonnet-4-5' && !('planner' in roleModelPreferences), 'new model preferences persist by selected role only');

@@ -66,8 +66,13 @@ function canClaimExecutor(
   sessions: RoleSession[],
   cwd: string,
   pid: number,
+  peerRoles: ReadonlyMap<string, BAgenticRole> = new Map(),
 ): boolean {
-  return sameCwdPeers(sessions, cwd, pid).length <= 1;
+  const peers = sameCwdPeers(sessions, cwd, pid);
+  return (
+    peers.length === 0 ||
+    (peers.length === 1 && peerRoles.get(peers[0].id) === "architect")
+  );
 }
 function preferredExecutorId(
   sessions: RoleSession[],
@@ -89,6 +94,7 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
   let applyingSavedModel = false;
   let pendingExecutorClaim = false;
   let pendingExecutorModel = false;
+  let peerStateGeneration = 0;
   const peerRoles = new Map<string, BAgenticRole>();
 
   const updateStatus = (ctx: ExtensionContext): void => {
@@ -196,9 +202,11 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
     ctx: ExtensionContext,
   ): Promise<void> => {
     if (!pendingExecutorClaim || !channel) return;
+    const generation = peerStateGeneration;
     try {
       const sessions = await channel.listSessions();
-      if (!canClaimExecutor(sessions, ctx.cwd, process.pid)) return;
+      if (generation !== peerStateGeneration || !pendingExecutorClaim) return;
+      if (!canClaimExecutor(sessions, ctx.cwd, process.pid, peerRoles)) return;
       pendingExecutorClaim = false;
       const shouldApplySavedModel = pendingExecutorModel;
       pendingExecutorModel = false;
@@ -221,8 +229,11 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
     ctx: ExtensionContext,
   ): Promise<void> => {
     if (getRole() !== "executor" || !channel) return;
+    const generation = peerStateGeneration;
     try {
       const sessions = await channel.listSessions();
+      if (generation !== peerStateGeneration || getRole() !== "executor")
+        return;
       const self = sessions.find(
         (session) => session.cwd === ctx.cwd && session.pid === process.pid,
       );
@@ -250,6 +261,13 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
         }
         return;
       }
+      if (!canClaimExecutor(sessions, ctx.cwd, process.pid, peerRoles)) {
+        applyRole("off", ctx);
+        ctx.ui.notify(
+          "A same-CWD peer is not a confirmed Architect; remaining Off",
+          "warning",
+        );
+      }
     } catch {
       applyRole("off", ctx);
       ctx.ui.notify(
@@ -263,12 +281,27 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
     ctx: ExtensionContext,
   ): Promise<void> => {
     if (event.type === "session_left") {
+      peerStateGeneration += 1;
       peerRoles.delete(event.sessionId);
       await resolvePendingExecutorClaim(ctx);
       await resolveExecutorCollision(ctx);
       return;
     }
-    if (event.type === "connection" && event.connected && event.supported) {
+    if (event.type === "connection") {
+      peerStateGeneration += 1;
+      peerRoles.clear();
+      if (!event.connected || !event.supported) {
+        if (getRole() === "executor") {
+          pendingExecutorClaim = true;
+          pendingExecutorModel = false;
+          applyRole("off", ctx);
+          ctx.ui.notify(
+            "The role channel is unavailable; remaining Off until peer discovery completes",
+            "warning",
+          );
+        }
+        return;
+      }
       publishRole();
       requestPeerRoles();
       await resolvePendingExecutorClaim(ctx);
@@ -276,7 +309,9 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
       return;
     }
     if (event.type === "session_joined") {
+      peerStateGeneration += 1;
       publishRole();
+      await resolvePendingExecutorClaim(ctx);
       await resolveExecutorCollision(ctx);
       return;
     }
@@ -294,8 +329,11 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
       publishRole();
       return;
     }
-    if (isCompatibleRolePayload(payload)) {
-      peerRoles.set(event.fromSessionId, payload.role);
+    if (payload.type === "b-agentic-role") {
+      peerStateGeneration += 1;
+      if (isCompatibleRolePayload(payload))
+        peerRoles.set(event.fromSessionId, payload.role);
+      else peerRoles.delete(event.fromSessionId);
       await resolvePendingExecutorClaim(ctx);
       await resolveExecutorCollision(ctx);
     }
