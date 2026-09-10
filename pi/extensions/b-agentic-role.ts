@@ -6,6 +6,7 @@ import type {
 import {
   ROLE_ENTRY_TYPE,
   ROLE_PROTOCOL_VERSION,
+  SKILL_OWNERS,
   isCompatibleRolePayload,
   latestRoleState,
   parseRole,
@@ -88,6 +89,19 @@ function preferredExecutorId(
     )
     .map((session) => session.id)
     .sort((left, right) => left.localeCompare(right))[0];
+}
+/** Canonical one-line ownership display, derived only from the generated registry map. */
+export function ownershipLine(role: BAgenticRole): string | undefined {
+  if (role === "off") return undefined;
+  const label = role === "executor" ? "Executor" : "Architect";
+  const skills = Object.entries(SKILL_OWNERS)
+    .filter(([, owner]) => owner === role)
+    .map(([skill]) => skill)
+    .join(", ");
+  return `${label}-owned skills: ${skills}`;
+}
+function withOwnership(message: string, ownership: string | undefined): string {
+  return ownership === undefined ? message : `${message}. ${ownership}`;
 }
 export default function bAgenticRole(pi: ExtensionAPI): void {
   let channel: RoleChannel | undefined;
@@ -380,9 +394,12 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
         await resolvePendingExecutorClaim(ctx);
       }
       ctx.ui.notify(
-        pendingExecutorClaim
-          ? "b-agentic executor request is waiting for compatible peer discovery"
-          : `b-agentic role set to ${getRole()}`,
+        withOwnership(
+          pendingExecutorClaim
+            ? "b-agentic executor request is waiting for compatible peer discovery"
+            : `b-agentic role set to ${getRole()}`,
+          ownershipLine(next),
+        ),
         pendingExecutorClaim ? "warning" : "info",
       );
     },
@@ -429,6 +446,17 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
       ? "off"
       : (requestedRole ?? "off");
     applyRole(selectedRole, ctx, false);
+    const ownership = ownershipLine(requestedRole ?? "off");
+    if (event.reason !== "reload" && requestedRole && ownership)
+      ctx.ui.notify(
+        withOwnership(
+          pendingExecutorClaim
+            ? "b-agentic executor request is waiting for compatible peer discovery"
+            : `b-agentic role: ${requestedRole}`,
+          ownership,
+        ),
+        pendingExecutorClaim ? "warning" : "info",
+      );
     const startupModelRole =
       flagRole && flagRole !== "off"
         ? flagRole
@@ -461,6 +489,7 @@ export const __test__ = {
   ROLE_PROTOCOL_VERSION,
   parseRole,
   latestRoleState,
+  ownershipLine,
   isCompatibleRolePayload,
   loadRoleModelPreferences,
   saveRoleModelPreference,

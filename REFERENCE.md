@@ -303,7 +303,12 @@ an Executor pane and an Architect pane in one project never adopt each other's
 role. A session's own recorded role wins over both, and `pi --b-role` remains a
 one-session override that does not rewrite the stored selection. A restored
 executor still passes through same-CWD claim arbitration and stays Off when a
-peer already holds the writer role. The executor is the sole
+peer already holds the writer role. Selecting or restoring a non-Off role emits
+one concise ownership line — `Executor-owned skills: …` or
+`Architect-owned skills: …` — rendered from the generated registry ownership map
+that also builds the role prompts; Off selections, unrecorded panes, legacy
+inactive state, and extension reloads emit none, and a pending executor request
+shows the line without implying activation. The executor is the sole
 user-facing Executor and owns design, build, validation, commit, and PR summary.
 The architect is the read-only Architect and owns `b-plan`, `b-research`,
 `b-debug`, independent `b-review`, and `b-agentic-audit`. Roles govern prompts

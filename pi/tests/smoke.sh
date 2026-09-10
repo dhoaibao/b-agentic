@@ -678,10 +678,14 @@ expect(typeof roleSessionStartHandler === 'function', 'role extension must regis
 branchEntries.push({ type: 'custom', customType: 'b-agentic-role', data: { role: 'planner' } });
 await roleSessionStartHandler({}, roleContext);
 expect(roleStatuses.at(-1)?.value === undefined && roleTest.parseRole('planner') === undefined, 'legacy planner state must remain inactive until explicit reselection');
+expect(!roleNotifications.some((entry) => entry.message.includes('owned skills')), 'inactive or legacy startup must not emit an ownership line');
 expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 1, role: 'worker' }) === false, 'legacy v1 peer payloads must fail closed');
 expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 2, role: 'implementer' }) === false, 'legacy v2 implementer/reviewer peer payloads must fail closed');
 expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 3, role: 'architect' }) === true, 'versioned Architect payloads must be compatible');
 expect(plannerTest.skillOwner('b-plan') === 'architect' && plannerTest.skillOwner('b-research') === 'architect' && plannerTest.skillOwner('b-design') === 'executor' && plannerTest.skillOwner('b-diagram') === 'executor', 'Architect owns only read-only planning and research while artifact-writing design and diagram work stay with the Executor');
+const EXECUTOR_OWNERSHIP = 'Executor-owned skills: b-design, b-frontend, b-diagram, b-implement, b-init, b-refactor, b-test, b-browser, b-commit, b-pr-summary';
+const ARCHITECT_OWNERSHIP = 'Architect-owned skills: b-plan, b-research, b-debug, b-agentic-audit, b-review';
+expect(roleTest.ownershipLine('executor') === EXECUTOR_OWNERSHIP && roleTest.ownershipLine('architect') === ARCHITECT_OWNERSHIP && roleTest.ownershipLine('off') === undefined, 'ownership lines must render the generated registry lists exactly and omit Off');
 const selfPeer = { id: 'self', cwd: root, pid: process.pid, startedAt: 1 };
 const unknownPeer = { id: 'unknown', cwd: root, pid: 202, startedAt: 2 };
 const architectPeer = { id: 'architect', cwd: root, pid: 203, startedAt: 3 };
@@ -705,8 +709,9 @@ await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'archite
 expect(publishedRoles.some((payload) => payload.type === 'b-agentic-role' && payload.version === 3 && payload.role === 'off'), 'role channel must publish versioned Off state');
 await commands['b-role'].handler('architect', roleContext);
 expect(roleStatuses.at(-1)?.value === '<success>b-agentic: architect</success>' && activeTools.includes('edit') && activeTools.includes('write'), 'architect selection preserves tools and applies only prompt guidance');
+expect(roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role set to architect. ${ARCHITECT_OWNERSHIP}`, 'architect selection must append the exact canonical Architect-owned skills list');
 const architectStart = await handlers.before_agent_start({ systemPrompt: 'base', systemPromptOptions: { skills: [] } }, roleContext);
-expect(architectStart.systemPrompt.includes('independent read-only gate') && architectStart.systemPrompt.includes('Bounded read-only research') && architectStart.systemPrompt.includes('automatically send the user-approved plan handoff through intercom') && architectStart.systemPrompt.includes('executor session in the same CWD') && architectStart.systemPrompt.includes('begin the named Architect skill automatically') && architectStart.systemPrompt.includes('disposable diagnostic probes') && architectStart.systemPrompt.includes('begin b-review automatically') && architectStart.systemPrompt.includes('automatically return the structured disposition and findings through intercom') && architectStart.systemPrompt.includes('every disposition') && architectStart.systemPrompt.includes('executor session in the same CWD'), 'Architect profile must auto-begin inbound Architect work, constrain diagnostic scratch probes, hand approved plans to the same-CWD Executor, and return every review disposition before reporting completion');
+expect(architectStart.systemPrompt.includes('independent read-only gate') && architectStart.systemPrompt.includes('Bounded read-only research') && architectStart.systemPrompt.includes('user-approved plan handoff') && architectStart.systemPrompt.includes('same-CWD peer') && architectStart.systemPrompt.includes('begin the named Architect skill automatically') && architectStart.systemPrompt.includes('disposable diagnostic probes') && architectStart.systemPrompt.includes('active inbound request') && architectStart.systemPrompt.includes('structured disposition and findings') && architectStart.systemPrompt.includes('every disposition'), 'Architect profile must auto-begin inbound Architect work, constrain diagnostic scratch probes, hand approved plans to the same-CWD Executor, and return every review disposition before reporting completion');
 for (const marker of [
   // generated:role-prompt-markers:architect:start
   "independent read-only gate",
@@ -726,10 +731,12 @@ for (const marker of [
 await commands['b-role'].handler('off', roleContext);
 const offStart = await handlers.before_agent_start({ systemPrompt: 'base', systemPromptOptions: { skills: [] } }, roleContext);
 expect(offStart === undefined, 'Off role must not inject executor or architect coordination guidance');
+expect(roleNotifications.at(-1)?.message === 'b-agentic role set to off', 'an explicit Off selection must not append an ownership line');
 await commands['b-role'].handler('executor', roleContext);
 expect(roleStatuses.at(-1)?.value.includes('executor') && activeTools.includes('edit') && activeTools.includes('write'), 'an executor request with one confirmed Architect may claim the sole writer role without filtering tools');
+expect(roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role set to executor. ${EXECUTOR_OWNERSHIP}`, 'a claimed executor selection must append the exact canonical Executor-owned skills list');
 const executorStart = await handlers.before_agent_start({ systemPrompt: 'base', systemPromptOptions: { skills: [] } }, roleContext);
-expect(executorStart.systemPrompt.includes('sole user-facing writer') && executorStart.systemPrompt.includes('user-approved plan handoff') && executorStart.systemPrompt.includes('diagnosis handoff') && executorStart.systemPrompt.includes('compact snapshot handoff') && executorStart.systemPrompt.includes('automatically request independent b-review through intercom') && executorStart.systemPrompt.includes('architect session in the same CWD') && executorStart.systemPrompt.includes('B_AGENTIC_TASK_COMPLETE') && executorStart.systemPrompt.includes('Do not edit while review is pending'), 'Executor profile must route diagnosis to the Architect, receive required handoffs, require the automatic same-CWD candidate gate, and emit the post-review completion signal');
+expect(executorStart.systemPrompt.includes('sole user-facing writer') && executorStart.systemPrompt.includes('user-approved plan handoff') && executorStart.systemPrompt.includes('route to the Architect') && executorStart.systemPrompt.includes('diagnosis handoff') && executorStart.systemPrompt.includes('compact frozen-candidate handoff') && executorStart.systemPrompt.includes('independent b-review') && executorStart.systemPrompt.includes('same-CWD peer') && executorStart.systemPrompt.includes('B_AGENTIC_TASK_COMPLETE') && executorStart.systemPrompt.includes('Do not edit while review is pending'), 'Executor profile must route diagnosis to the Architect, receive required handoffs, require the automatic same-CWD candidate gate, and emit the post-review completion signal');
 for (const marker of [
   // generated:role-prompt-markers:executor:start
   "sole user-facing writer",
@@ -768,6 +775,7 @@ await roleChannelRegistration.onEvent({ type: 'session_joined' });
 expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off immediately when an unknown peer joins');
 await commands['b-role'].handler('executor', roleContext);
 expect(roleStatuses.at(-1)?.value === undefined, 'a pending executor claim must remain Off while same-CWD peers are mixed or unknown');
+expect(roleNotifications.at(-1)?.level === 'warning' && roleNotifications.at(-1)?.message === `b-agentic executor request is waiting for compatible peer discovery. ${EXECUTOR_OWNERSHIP}`, 'a pending executor request must display the canonical ownership list without implying activation');
 peerSessions.pop();
 await roleChannelRegistration.onEvent({ type: 'session_left', sessionId: unknownPeer.id });
 expect(roleStatuses.at(-1)?.value.includes('executor'), 'a pending executor claim may resolve after the unknown peer leaves');
@@ -838,6 +846,7 @@ expect(candidateTest.evaluateCandidateGate(skipped, skipped, 'architect-1', 'arc
 const failed = candidateTest.createCandidateSnapshot([{ path: 'src/a.ts', status: 'tracked', digest: 'one' }], [{ name: 'test', required: true, outcome: 'failed' }]);
 expect(candidateTest.evaluateCandidateGate(failed, failed, 'architect-1', 'architect-1', 'READY FOR PR').reason === 'required-check-failed', 'failed required checks cannot ship');
 flags['b-role'] = 'executor';
+let flagOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, roleContext);
 const startupFlagRoles = [];
 roleChannelRegistration.onReady({
@@ -847,6 +856,7 @@ roleChannelRegistration.onReady({
 await new Promise((resolve) => setImmediate(resolve));
 delete flags['b-role'];
 expect(roleStatuses.at(-1)?.value.includes('executor') && startupFlagRoles.some((payload) => payload.type === 'b-agentic-role-request'), 'a sole startup executor flag claims after channel readiness without a later connection event');
+expect(roleNotifications.length === flagOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'warning' && roleNotifications.at(-1)?.message === `b-agentic executor request is waiting for compatible peer discovery. ${EXECUTOR_OWNERSHIP}`, 'a startup executor flag must display the canonical ownership line exactly once while the claim stays pending');
 const notificationCommandStart = executedCommands.length;
 const notificationContextEnv = plannerNotifyTest.NOTIFICATION_CONTEXT_ENV;
 const previousNotificationContext = process.env[notificationContextEnv];
@@ -989,17 +999,23 @@ const architectPane = usePane('%architect-pane');
 await commands['b-role'].handler('architect', roleContext);
 expect(readPaneRole(architectPane) === 'architect' && readPaneRole(executorPane) === 'executor', "a later pane selection must not overwrite another pane's role");
 usePane('%executor-pane');
+let paneExecutorOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
 expect(roleStatuses.at(-1)?.value === undefined, 'a restored executor must wait for same-CWD claim arbitration');
+expect(roleNotifications.length === paneExecutorOwnershipStart + 1 && roleNotifications.at(-1)?.message === `b-agentic executor request is waiting for compatible peer discovery. ${EXECUTOR_OWNERSHIP}`, 'a pane-restored executor must display the canonical ownership line exactly once without implying activation');
 roleChannelRegistration.onReady(soloChannel);
 await settle();
 expect(roleStatuses.at(-1)?.value.includes('executor'), "a later session in the executor pane must restore executor, not another pane's architect selection");
 usePane('%architect-pane');
+let paneArchitectOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
 expect(roleStatuses.at(-1)?.value === '<success>b-agentic: architect</success>', 'a later session in the architect pane must restore architect');
+expect(roleNotifications.length === paneArchitectOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role: architect. ${ARCHITECT_OWNERSHIP}`, 'a pane-restored architect must display the canonical ownership line exactly once');
 usePane('%unrelated-pane');
+let unrelatedOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
 expect(roleStatuses.at(-1)?.value === undefined, 'a pane without a recorded selection must start Off');
+expect(roleNotifications.length === unrelatedOwnershipStart, 'a pane without a recorded selection must not display an ownership line');
 const lineageDir = mkdtempSync(path.join(os.tmpdir(), 'b-agentic-role-lineage-'));
 const predecessorFile = path.join(lineageDir, 'predecessor.jsonl');
 writeFileSync(predecessorFile, `${[
@@ -1013,21 +1029,38 @@ expect(roleTest.roleFromSessionFile(predecessorFile) === 'architect', 'a predece
 expect(roleTest.roleFromSessionFile(legacyPredecessorFile) === undefined, 'legacy v2 or malformed predecessor entries must fail closed');
 expect(roleTest.roleFromSessionFile(path.join(lineageDir, 'absent.jsonl')) === undefined, 'a missing predecessor session file must not activate a role');
 const lineageEntryStart = persistedEntries.length;
+let lineageOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({ previousSessionFile: predecessorFile }, newSessionContext);
 expect(roleStatuses.at(-1)?.value === '<success>b-agentic: architect</success>', 'a new session must continue the role of the session it replaced');
+expect(roleNotifications.length === lineageOwnershipStart + 1 && roleNotifications.at(-1)?.message === `b-agentic role: architect. ${ARCHITECT_OWNERSHIP}`, 'a continued lineage role must display the canonical ownership line exactly once');
 expect(persistedEntries.slice(lineageEntryStart).some((entry) => entry.customType === 'b-agentic-role' && entry.data.role === 'architect'), 'a continued role must be recorded so the next session in the lineage inherits it');
 await roleSessionStartHandler({ previousSessionFile: predecessorFile }, { ...roleContext, sessionManager: { getBranch: () => [{ type: 'custom', customType: 'b-agentic-role', data: { version: 3, role: 'off' } }] } });
 expect(roleStatuses.at(-1)?.value === undefined, "a resumed session's own recorded role must win over its predecessor");
+let ownOffOwnershipStart = roleNotifications.length;
+await roleSessionStartHandler({ previousSessionFile: predecessorFile }, { ...roleContext, sessionManager: { getBranch: () => [{ type: 'custom', customType: 'b-agentic-role', data: { version: 3, role: 'off' } }] } });
+expect(roleNotifications.length === ownOffOwnershipStart, "a session's own recorded Off role must not display an ownership line");
+let ownArchitectOwnershipStart = roleNotifications.length;
+await roleSessionStartHandler({ previousSessionFile: predecessorFile }, { ...roleContext, sessionManager: { getBranch: () => [{ type: 'custom', customType: 'b-agentic-role', data: { version: 3, role: 'architect' } }] } });
+expect(roleNotifications.length === ownArchitectOwnershipStart + 1 && roleNotifications.at(-1)?.message === `b-agentic role: architect. ${ARCHITECT_OWNERSHIP}`, "a session's own recorded role must display the canonical ownership line exactly once");
 rmSync(lineageDir, { recursive: true, force: true });
 usePane('%architect-pane');
 flags['b-role'] = 'off';
+let flagOffOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
 delete flags['b-role'];
 expect(roleStatuses.at(-1)?.value === undefined && readPaneRole(architectPane) === 'architect', 'a startup flag must override one session without rewriting the pane selection');
+expect(roleNotifications.length === flagOffOwnershipStart, 'an Off startup flag must not display an ownership line');
 await commands['b-role'].handler('off', roleContext);
 expect(readPaneRole(architectPane) === 'off', 'an explicit Off selection must persist for its pane');
+let explicitOffOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
 expect(roleStatuses.at(-1)?.value === undefined, 'an explicit Off selection must not restore a role in a later session');
+expect(roleNotifications.length === explicitOffOwnershipStart, 'an explicitly Off pane must not display an ownership line on restore');
+usePane('%executor-pane');
+let reloadOwnershipStart = roleNotifications.length;
+await roleSessionStartHandler({ reason: 'reload' }, newSessionContext);
+expect(roleStatuses.at(-1)?.value === undefined, 'a reload of a recorded executor pane must still wait for claim arbitration');
+expect(roleNotifications.length === reloadOwnershipStart, 'a reload must not repeat the ownership line');
 if (previousTmuxPane === undefined) delete process.env.TMUX_PANE;
 else process.env.TMUX_PANE = previousTmuxPane;
 if (previousTmux !== undefined) process.env.TMUX = previousTmux;

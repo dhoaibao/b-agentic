@@ -8,6 +8,14 @@ section per date and same-day changes aggregated in that section.
 
 ## [v2026.09.10] - 2026-09-10
 
+### Added
+
+- Add a concise role-owned-skills line to `/b-role` selection and startup role-restore notifications, rendered from the generated registry ownership map, displayed once per non-Off session across persisted, lineage, pane, and flag sources, and omitted for Off selections, unrecorded panes, legacy inactive state, and extension reloads.
+
+### Fixed
+
+- Restore the canonical coordination phrases in the Executor and Architect role prompts and reconcile the stale handwritten smoke assertions so the role behavioral fixture passes linearly again.
+
 ### Changed
 
 - Clarify coordinated Architect and Executor handoffs so blocking requests stay threaded, proactive plan delivery remains nonblocking, and ambiguous peer or pending-request state fails closed.
