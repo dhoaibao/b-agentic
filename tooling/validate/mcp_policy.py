@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "references" / "mcp_operations.yaml"
-PI_VALIDATOR = ROOT / "pi" / "scripts" / "validate_mcp_policy.py"
+PI_VALIDATOR = ROOT / "tooling" / "validate" / "validate_mcp_policy.py"
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "local-mutation", "auth"}
 READ_ONLY = "read-only"
 CONDITIONAL_CLASSES = {"conditional-read", "conditional-local"}
@@ -161,7 +161,7 @@ def main() -> int:
     validate_mcp_script_contract(policy, errors)
 
     if not PI_VALIDATOR.is_file():
-        errors.append("pi/scripts/validate_mcp_policy.py: missing Pi MCP policy validator")
+        errors.append("tooling/validate/validate_mcp_policy.py: missing Pi MCP policy validator")
     elif not errors:
         result = subprocess.run(
             [sys.executable, str(PI_VALIDATOR), "--policy", str(POLICY_PATH)],

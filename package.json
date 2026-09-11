@@ -20,7 +20,7 @@
     "**/*.{ts,tsx}": [
       "eslint --max-warnings=0 --no-warn-ignored",
       "prettier --check",
-      "bash pi/scripts/typecheck.sh"
+      "bash adapters/pi/scripts/typecheck.sh"
     ],
     "**/*.py": [
       "ruff check",

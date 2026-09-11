@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.11] - 2026-09-11
+
+### Added
+
+- Convert b-agentic from a Pi-integrated product into a host-neutral suite: portable skills, kernel, MCP configuration, and permission data delivered through per-host adapters, with the Pi integration demoted to `adapters/pi/` and kept as the full-fidelity shipped adapter.
+- De-Pi the kernel so every adapter can share it: neutral title and wording, repository-relative canonical source paths, an enforcement claim scoped to hosts running the managed MCP integration, and `[cap: id]` fallback annotations for every capability-backed tool it names, with the capability-fallback validator extended to enforce the kernel itself.
+- Verify five hosts from official documentation and record instruction paths, skill discovery, MCP configuration schemas, permission models, hook capabilities, command-matching strength, and multi-host coexistence obligations per host, with deferred data points stated explicitly instead of guessed.
+- Add host render manifests under `adapters/<host>/` for Claude Code, Codex, OpenCode, Antigravity, and Pi, marking non-Pi hosts as verified-but-deferred so installers are built only against recorded evidence.
+- Add `--agent <name>` (and `B_AGENTIC_AGENT`) to the root installer: deferred adapters fail closed before any Pi-specific source validation with a pointer to the host reference, unknown agents are rejected, and the default `pi` behavior is unchanged.
+- Add the portable permission contract `references/permissions.yaml` with ask, deny, service, dangerous-ask command patterns and protected path markers, generated into the Pi runtime module so the classifier and the shared data cannot drift.
+- Add a capability-fallback contract for skill prompts: every non-native tool named in a prompt must carry a `[cap: id]` annotation resolving to a non-empty fallback, enforced by validation with self-tests.
+
+### Changed
+
+- Remove the Executor/Architect role protocol entirely: role selection, prompt injection, notifications, candidate-freeze gating, peer arbitration, and ownership metadata are gone; skill routing and the review and commit gates remain solo-workflow features.
+- Restructure the capability contract to schema 2 with supporting-host lists per capability, cut its validation coupling to Pi installer internals, and rewrite tool-naming prompt clauses across the suite to the `[cap: id]` plus fallback form.
+- Make `b-pr-summary` rendering capability-aware: inline preview stays mandatory where the capability exists and falls back to returning the exact finished Markdown as plain text where it does not, with blocked outcomes still tool-free.
+- Lower the kernel ceiling from 12,800 bytes to 12,000 characters to match the strictest verified host (Antigravity's per-rules-file cap) and enforce the character limit in the suite audit.
+- Reverse the runtime decision in the decision record: b-agentic is a host-neutral suite with per-host adapters, adapter work is gated on official-documentation evidence, and unverified hosts stay unimplemented rather than guessed.
+- Move host-neutral prompt-effectiveness validation and the managed-MCP policy validator out of the Pi adapter tree into the shared `tests/` and `tooling/validate/` layers.
+- Extend the installer smoke coverage with an agent-gate case, legacy removal of retired role extension entrypoints including managed-snapshot semantics, and refreshed capability and contract-version assertions.
+
+### Removed
+
+- Delete the role extension entrypoints, role support modules, role behavior fixture, role scenarios, role prompt markers, and the Intercom roles section from the kernel; retired entrypoints move to the installer's legacy removal list so updates clean them from user machines while preserving user-modified content.
+
 ## [v2026.09.10] - 2026-09-10
 
 ### Added

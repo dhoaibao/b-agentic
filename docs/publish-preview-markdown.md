@@ -8,7 +8,7 @@ This does not replace the consumer installation guidance in the package README.
 The package root is:
 
 ```text
-pi/packages/preview-markdown
+adapters/pi/packages/preview-markdown
 ```
 
 It contains the package manifest, package-facing README, and the one canonical
@@ -20,7 +20,7 @@ extension or publish from the repository root.
 From the repository root, run the canonical repository-local validator:
 
 ```bash
-bash pi/scripts/validate-preview-markdown-package.sh
+bash adapters/pi/scripts/validate-preview-markdown-package.sh
 ```
 
 The validator reads the package manifest, checks the Pi manifest and peer
@@ -33,7 +33,7 @@ publish, authenticate, or change npm state.
 Review npm's dry-run file report first:
 
 ```bash
-cd pi/packages/preview-markdown
+cd adapters/pi/packages/preview-markdown
 npm pack --dry-run --ignore-scripts
 ```
 
@@ -83,7 +83,7 @@ Read the package identity and version from the manifest rather than copying a
 release number into this procedure:
 
 ```bash
-cd pi/packages/preview-markdown
+cd adapters/pi/packages/preview-markdown
 package_name="$(node -p "require('./package.json').name")"
 package_version="$(node -p "require('./package.json').version")"
 printf '%s@%s\n' "$package_name" "$package_version"
@@ -99,7 +99,7 @@ After the checks pass and scope access is confirmed, publish from the dedicated
 package directory:
 
 ```bash
-cd pi/packages/preview-markdown
+cd adapters/pi/packages/preview-markdown
 npm publish --access public
 ```
 
@@ -112,7 +112,7 @@ Use the manifest-derived name and version to verify npm made the expected
 release visible:
 
 ```bash
-cd pi/packages/preview-markdown
+cd adapters/pi/packages/preview-markdown
 package_name="$(node -p "require('./package.json').name")"
 package_version="$(node -p "require('./package.json').version")"
 npm view "$package_name@$package_version" version dist.tarball

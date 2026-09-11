@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "host": "codex",
+  "status": "deferred",
+  "description": "Verified target; declarative configuration delivery only. No installer in v1.",
+  "instruction": {"path": "AGENTS.md (project) + $CODEX_HOME/AGENTS.md (global)", "source": "references/kernel.template.md", "scope": "project+global"},
+  "skills": {"dir": "${CODEX_HOME:-$HOME/.codex}/skills/<name>/SKILL.md", "source": "skills/"},
+  "mcp": {"path": "~/.codex/config.toml", "key": "mcp_servers", "merge": true, "write_boundary": "user config.toml only"},
+  "permissions": {"mechanism": "sandbox_mode + approval_policy + execpolicy prefix_rule", "matching": "OS sandbox plus ordered tokens; shells/interpreters can never be allow-listed", "data": "references/permissions.yaml", "ask_tier": "approval_policy or execpolicy decision=\"prompt\", not hooks"},
+  "hook": {"event": "PreToolUse", "blocking": "deny-with-reason only; ask and bare allow are rejected", "trust": "handler runs only after the user trusts it", "location": "deferred (D2a)", "note": "documented capability only; v1 ships no hook scripts"},
+  "evidence": "docs/hosts.md"
+}

@@ -211,17 +211,17 @@
     {
       "id": "off-mode-no-review-ceremony",
       "principle": "goal-driven-execution",
-      "observed_failure": "Standalone b-implement initiated architect coordination during the normal solo workflow.",
-      "intended_behavior": "Off remains fully solo; automatic review handoffs belong only to the explicit executor role profile.",
-      "prompt": "Use b-implement in the normal solo Off workflow. The exact request is to change one documented default from 30 seconds to 45 seconds, and the source location and verification command are known. State the completion behavior after the check passes, including whether you initiate intercom review.",
+      "observed_failure": "b-implement initiated unrequested review coordination during the normal solo workflow.",
+      "intended_behavior": "The solo workflow stays direct: report the change and verification, and do not initiate review the user never requested.",
+      "prompt": "Use b-implement in the normal solo workflow. The exact request is to change one documented default from 30 seconds to 45 seconds, and the source location and verification command are known. State the completion behavior after the check passes, including whether you initiate a review.",
       "must": [
         "Make the scoped change and run the known verification",
         "Report the changes and verification directly",
-        "Do not initiate automatic intercom review in Off mode"
+        "Do not initiate review the user did not request"
       ],
       "avoid": [
-        "Select or invent an architect",
-        "Claim an architect disposition"
+        "Start an unrequested review handoff",
+        "Claim a review disposition nobody requested"
       ]
     },
     {
@@ -243,11 +243,11 @@
       "skill": "b-review",
       "observed_failure": "The b-review prompt said not to edit files but did not make the review phase's read-only boundary explicit enough to prevent directly fixing findings.",
       "intended_behavior": "Review findings without changing project files or the working tree; automatically hand off requested fixes to b-implement after the review.",
-      "prompt": "Use b-review. An executor sent a frozen candidate through intercom. Review the working-tree diff, report any findings, and do not edit files. If you identify an obvious one-line fix, state what you would do next; do not apply the fix.",
+      "prompt": "Use b-review. The user requests a review of the working-tree diff. Review the diff, report any findings, and do not edit files. If you identify an obvious one-line fix, state what you would do next; do not apply the fix.",
       "must": [
         "Keep the review read-only",
-        "Automatically return findings to b-implement through intercom",
-        "Report the finding and defer the fix to b-implement"
+        "Report findings without applying fixes",
+        "Name the next skill for corrections where applicable"
       ],
       "avoid": [
         "Edit or write repository files",

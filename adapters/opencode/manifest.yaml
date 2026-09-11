@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "host": "opencode",
+  "status": "deferred",
+  "description": "Verified target; declarative configuration delivery only. No installer in v1.",
+  "instruction": {"path": "AGENTS.md (project) + ~/.config/opencode/AGENTS.md (global)", "source": "references/kernel.template.md", "scope": "project+global", "note": "also reads CLAUDE.md fallbacks; see coexistence in docs/hosts.md"},
+  "skills": {"dir": ".opencode/skills/<name>/SKILL.md", "alternatives": [".claude/skills", ".agents/skills"], "source": "skills/", "frontmatter": "name must match directory, description 1-1024 chars"},
+  "mcp": {"path": "opencode.json", "key": "mcp", "global": "~/.config/opencode/opencode.json"},
+  "permissions": {"mechanism": "opencode.json permission object", "matching": "glob prefixes, last matching rule wins", "data": "references/permissions.yaml"},
+  "hook": {"event": "tool.execute.before", "blocking": "throw blocks", "note": "documented capability only; v1 ships no hook scripts"},
+  "evidence": "docs/hosts.md"
+}

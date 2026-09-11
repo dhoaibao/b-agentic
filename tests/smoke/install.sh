@@ -222,8 +222,8 @@ EOF
 	assert_not_contains "$mcp_path" '"linear"'
 	assert_not_contains "$mcp_path" '"mobbin"'
 	assert_json_value "$mcp_path" "data['settings']['requestTimeoutMs'] == 30000"
-	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilityContractVersion'] == 1"
-	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['contractVersion'] == 1"
+	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilityContractVersion'] == 2"
+	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['contractVersion'] == 2"
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['package.pi-mcp-adapter']['state'] == 'ready'"
 	assert_not_contains "$sandbox/home/.pi/agent/b-agentic/install.json" 'package.pi-lsp'
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['extension.b-agentic-status']['state'] == 'ready'"
@@ -394,12 +394,12 @@ run_manifest_only_extension_restore_case() {
 	local snapshot_repo="$1"
 	local sandbox="$WORK_DIR/manifest-only-extension restore"
 	local extension_path="$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
-	local worker_path="$sandbox/home/.pi/agent/extensions/b-agentic-executor.ts"
+	local worker_path="$sandbox/home/.pi/agent/extensions/b-agentic-status.ts"
 	local support_path="$sandbox/home/.pi/agent/extensions/b-agentic-support/shell.ts"
 
 	mkdir -p "$(dirname "$extension_path")" "$(dirname "$support_path")"
 	printf 'user-owned permission extension\n' >"$extension_path"
-	printf 'user-owned worker extension\n' >"$worker_path"
+	printf 'user-owned status extension\n' >"$worker_path"
 	printf 'user-owned shell support\n' >"$support_path"
 	expect_install_status 0 "$sandbox" "$snapshot_repo"
 	assert_not_contains "$extension_path" 'user-owned permission extension'
@@ -415,7 +415,7 @@ run_manifest_only_extension_restore_case() {
 
 	assert_contains "$sandbox/uninstall.log" 'Manifest-only uninstall complete for pi'
 	assert_contains "$extension_path" 'user-owned permission extension'
-	assert_contains "$worker_path" 'user-owned worker extension'
+	assert_contains "$worker_path" 'user-owned status extension'
 	assert_contains "$support_path" 'user-owned shell support'
 }
 
@@ -433,6 +433,14 @@ run_legacy_consult_extension_removal_case() {
 	local old_architect="$extensions_dir/b-agentic-planner.ts"
 	local old_executor="$extensions_dir/b-agentic-worker.ts"
 	local old_notify="$extensions_dir/b-agentic-planner-notify.ts"
+	local old_v3_role="$extensions_dir/b-agentic-role.ts"
+	local old_v3_architect="$extensions_dir/b-agentic-architect.ts"
+	local old_v3_executor="$extensions_dir/b-agentic-executor.ts"
+	local old_v3_executor_notify="$extensions_dir/b-agentic-executor-notify.ts"
+	local old_v3_role_snapshot="$snapshots_dir/b-agentic-role.ts"
+	local old_v3_architect_snapshot="$snapshots_dir/b-agentic-architect.ts"
+	local old_v3_executor_snapshot="$snapshots_dir/b-agentic-executor.ts"
+	local old_v3_executor_notify_snapshot="$snapshots_dir/b-agentic-executor-notify.ts"
 	local old_architect_snapshot="$snapshots_dir/b-agentic-planner.ts"
 	local old_executor_snapshot="$snapshots_dir/b-agentic-worker.ts"
 	local old_notify_snapshot="$snapshots_dir/b-agentic-planner-notify.ts"
@@ -454,6 +462,10 @@ EOF
 	assert_no_path "$old_architect"
 	assert_no_path "$old_executor"
 	assert_no_path "$old_notify"
+	assert_no_path "$old_v3_role"
+	assert_no_path "$old_v3_architect"
+	assert_no_path "$old_v3_executor"
+	assert_no_path "$old_v3_executor_notify"
 	mkdir -p "$(dirname "$old_support")" "$(dirname "$old_support_snapshot")"
 	printf 'legacy managed consultant tool\n' >"$old_extension"
 	printf 'legacy managed consultant role\n' >"$old_role_extension"
@@ -467,6 +479,15 @@ EOF
 	cp "$old_architect" "$old_architect_snapshot"
 	cp "$old_executor" "$old_executor_snapshot"
 	cp "$old_notify" "$old_notify_snapshot"
+	printf 'retired v3 role selection extension\n' >"$old_v3_role"
+	printf 'retired v3 architect profile\n' >"$old_v3_architect"
+	printf 'retired v3 executor profile\n' >"$old_v3_executor"
+	printf 'retired v3 executor notification\n' >"$old_v3_executor_notify"
+	mkdir -p "$(dirname "$old_v3_role_snapshot")"
+	cp "$old_v3_role" "$old_v3_role_snapshot"
+	cp "$old_v3_architect" "$old_v3_architect_snapshot"
+	cp "$old_v3_executor" "$old_v3_executor_snapshot"
+	cp "$old_v3_executor_notify" "$old_v3_executor_notify_snapshot"
 	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
 	assert_no_path "$old_extension"
 	assert_no_path "$old_extension_snapshot"
@@ -480,6 +501,14 @@ EOF
 	assert_no_path "$old_executor_snapshot"
 	assert_no_path "$old_notify"
 	assert_no_path "$old_notify_snapshot"
+	assert_no_path "$old_v3_role"
+	assert_no_path "$old_v3_role_snapshot"
+	assert_no_path "$old_v3_architect"
+	assert_no_path "$old_v3_architect_snapshot"
+	assert_no_path "$old_v3_executor"
+	assert_no_path "$old_v3_executor_snapshot"
+	assert_no_path "$old_v3_executor_notify"
+	assert_no_path "$old_v3_executor_notify_snapshot"
 
 	printf 'legacy managed executor profile\n' >"$old_executor"
 	cp "$old_executor" "$old_executor_snapshot"
@@ -787,7 +816,7 @@ assert_picker_key_reader_portability() {
 
 	fractional_timeouts="$(
 		grep -REn 'read( +-[A-Za-z]+)* +-t +[0-9]*\.[0-9]+' \
-			"$ROOT_DIR/install.sh" "$ROOT_DIR/tooling/install" "$ROOT_DIR/pi/scripts" || true
+			"$ROOT_DIR/install.sh" "$ROOT_DIR/tooling/install" "$ROOT_DIR/adapters/pi/scripts" || true
 	)"
 	[ -z "$fractional_timeouts" ] || fail "installer uses a fractional read timeout unsupported by bash 3.2: $fractional_timeouts"
 
@@ -2191,7 +2220,7 @@ while [ "\$#" -gt 0 ]; do
 done
 printf '%s\n' "\$url" >>"$curl_log"
 [ -n "\$output" ]
-cp "$snapshot_repo/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts" "\$output"
+cp "$snapshot_repo/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts" "\$output"
 EOF
 	chmod +x "$bin_dir/curl"
 
@@ -2199,12 +2228,12 @@ EOF
 		PI_CODING_AGENT_DIR="$sandbox/pi" \
 		TMPDIR="$sandbox/tmp" \
 		PATH="$bin_dir:$(smoke_system_path)" \
-		bash "$snapshot_repo/pi/scripts/install-preview-markdown.sh" "$test_version" >"$sandbox/install.log" 2>&1
+		bash "$snapshot_repo/adapters/pi/scripts/install-preview-markdown.sh" "$test_version" >"$sandbox/install.log" 2>&1
 
-	assert_equal_files "$target" "$snapshot_repo/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"
+	assert_equal_files "$target" "$snapshot_repo/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"
 	assert_contains "$unrelated_extension" 'user extension'
 	assert_contains "$config_path" 'keep-me'
-	assert_contains "$curl_log" "https://raw.githubusercontent.com/dhoaibao/b-agentic/$test_version/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"
+	assert_contains "$curl_log" "https://raw.githubusercontent.com/dhoaibao/b-agentic/$test_version/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"
 	assert_not_contains "$curl_log" 'b-agentic-permissions.ts'
 	assert_contains "$sandbox/install.log" 'Run /reload'
 	[ -z "$(find "$sandbox/tmp" -maxdepth 1 -name 'b-agentic-preview-markdown.*' -print -quit)" ] || fail 'standalone preview installer leaked a temporary download'
@@ -2215,7 +2244,7 @@ EOF
 		PI_CODING_AGENT_DIR="$sandbox/pi" \
 		TMPDIR="$sandbox/tmp" \
 		PATH="$bin_dir:$(smoke_system_path)" \
-		bash "$snapshot_repo/pi/scripts/install-preview-markdown.sh" not-a-version >"$sandbox/invalid.log" 2>&1
+		bash "$snapshot_repo/adapters/pi/scripts/install-preview-markdown.sh" not-a-version >"$sandbox/invalid.log" 2>&1
 	rc=$?
 	set -e
 	[ "$rc" -ne 0 ] || fail 'standalone preview installer accepted an invalid download'
@@ -2223,6 +2252,29 @@ EOF
 	assert_contains "$target" 'old preview extension'
 	[ "$(wc -l <"$curl_log")" -eq 1 ] || fail 'invalid standalone preview version unexpectedly invoked curl'
 	[ -z "$(find "$sandbox/tmp" -maxdepth 1 -name 'b-agentic-preview-markdown.*' -print -quit)" ] || fail 'standalone preview installer leaked a temporary file after validation failure'
+}
+
+run_agent_gate_case() {
+	local snapshot_repo="$1"
+	local sandbox="$WORK_DIR/agent-gate"
+	local install_log="$sandbox/install.log"
+
+	mkdir -p "$sandbox/home"
+	HOME="$sandbox/home" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --agent codex --dry-run >"$install_log" 2>&1 &&
+		fail "deferred agent must not reach the install plan"
+	assert_contains "$install_log" "verified but its installer is deferred"
+
+	HOME="$sandbox/home" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --agent bogus --dry-run >"$install_log" 2>&1 &&
+		fail "unknown agent must be rejected"
+	assert_contains "$install_log" "unknown agent 'bogus'"
 }
 
 run_rtk_latest_dry_run_case() {
@@ -2282,6 +2334,7 @@ run_base_smoke_cases() {
 	local pool_dir="$WORK_DIR/base-smoke-pool"
 	local -a cases=(
 		run_standalone_preview_installer_case
+		run_agent_gate_case
 		run_rtk_latest_dry_run_case
 		run_ref_install_case
 		run_manifest_only_corrupted_manifest_case
@@ -2360,7 +2413,7 @@ main() {
 	export B_AGENTIC_DRACULA_REPO="$default_dracula_fixture"
 	make_repo_snapshot "$snapshot_repo"
 	# shellcheck disable=SC1090
-	source "$ROOT_DIR/pi/tests/smoke.sh"
+	source "$ROOT_DIR/adapters/pi/tests/smoke.sh"
 	declare -F run_pi_smoke_cases >/dev/null || fail "Pi smoke suite did not define run_pi_smoke_cases"
 	echo "Running Pi smoke cases..."
 	run_pi_smoke_cases "$snapshot_repo" &

@@ -10,7 +10,7 @@ kernel, native skills, first-party extensions, and recommended MCP configuration
   package lifecycle, MCP readiness, safety behavior, and validation. `/b-status` provides a local, read-only capability snapshot
 without reading MCP configuration contents or API-key values, starting MCP
 services, authenticating providers, or claiming session usage.
-- **[See the installed Pi layout](pi/configs/README.md)** for managed paths and
+- **[See the installed Pi layout](adapters/pi/configs/README.md)** for managed paths and
   user-owned configuration boundaries.
 - Maintainer and project context: [AGENTS.md](AGENTS.md),
   [CHANGELOG.md](CHANGELOG.md), and [decision design](docs/decision_design.md).
@@ -29,15 +29,15 @@ controls and lifecycle behavior.
 For reviewed pins, flags, package lifecycle, readiness, the standalone
 Markdown preview install, and the preview package route, see
 [REFERENCE.md](REFERENCE.md). The preview package also has its own
-[package-facing guide](pi/packages/preview-markdown/README.md).
+[package-facing guide](adapters/pi/packages/preview-markdown/README.md).
 
 ## How b-agentic works
 
 Each request routes to one active phase rather than mixing planning, building,
-validation, and shipping. The normal solo workflow is **Off**; optional explicit
-roles are an **executor** (the sole user-facing writer) and a read-only
-**architect** gate. See [REFERENCE.md](REFERENCE.md) for operational role,
-safety, MCP, and coordination behavior.
+validation, and shipping. The workflow is solo: one agent loads one skill at a
+time, asks the user directly for material decisions, and never spawns a
+coordinating peer. See [REFERENCE.md](REFERENCE.md) for operational, safety,
+MCP, and installation behavior.
 
 | Phase | Skills | Purpose |
 |---|---|---|
@@ -78,10 +78,10 @@ path is:
 ## Learn more
 
 - [Operational reference](REFERENCE.md) — install/update/uninstall behavior,
-  packages, MCPs, roles, safety, and validation.
-- [Pi configuration layout](pi/configs/README.md) — installed paths and
+  packages, MCPs, safety, and validation.
+- [Pi configuration layout](adapters/pi/configs/README.md) — installed paths and
   managed-versus-user-owned boundaries.
-- [Standalone preview package](pi/packages/preview-markdown/README.md) —
+- [Standalone preview package](adapters/pi/packages/preview-markdown/README.md) —
   preview-only package and version-pinned installation documentation.
 - [Decision design](docs/decision_design.md) — evidence-backed repository
   decisions.

@@ -13,7 +13,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MAX_KERNEL_LINES = 120
-MAX_KERNEL_BYTES = 12_800
+# Antigravity caps each rules file at 12,000 characters (docs/hosts.md), so the
+# portable kernel must fit the strictest verified host.
+MAX_KERNEL_CHARS = 12_000
 
 
 def run_cmd(cmd: list[str], label: str) -> bool:
@@ -43,10 +45,11 @@ def audit_slimness(errors: list[str]) -> None:
     kernel = ROOT / "references" / "kernel.template.md"
     text = kernel.read_text()
     lines = len(text.splitlines())
+    chars = len(text)
     size = len(text.encode())
-    if lines > MAX_KERNEL_LINES or size > MAX_KERNEL_BYTES:
+    if lines > MAX_KERNEL_LINES or chars > MAX_KERNEL_CHARS:
         errors.append(
-            f"{kernel.relative_to(ROOT)}: kernel exceeds slimness limit ({lines} lines/{size} bytes; max {MAX_KERNEL_LINES} lines/{MAX_KERNEL_BYTES} bytes)"
+            f"{kernel.relative_to(ROOT)}: kernel exceeds slimness limit ({lines} lines/{chars} chars/{size} bytes; max {MAX_KERNEL_LINES} lines/{MAX_KERNEL_CHARS} chars)"
         )
 
 

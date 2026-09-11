@@ -106,16 +106,18 @@ branch is synchronized with `origin`:
 5. Assess canonical skill/kernel quality by checking routing boundaries,
    evidence thresholds, safety/privacy guidance, no-edit handoffs, prompt
    cohesion, generated assets, and kernel headroom against the source record.
-   When recurring recall/observational-memory lessons plausibly generalize across
+   When recurring recall [cap: package.pi-observational-memory]/observational-memory
+   lessons plausibly generalize across
    sessions, flag them as distillation candidates for canonical skill prompts;
    promote them through b-implement against `skills/*/prompt.md` with
    `registry_sync`, rather than leaving them only in volatile memory.
 6. Assess currentness/MCP compatibility from local pins and installed versions.
-   Use `context7` or bounded primary upstream evidence for compatibility claims. A live MCP
+   Use `context7` [cap: mcp.context7] or bounded primary upstream evidence for
+   compatibility claims; without it, rely on local pins and installed versions. A live MCP
    schema probe is an explicit operational step: obtain approval before running
    it, and if approval or a usable environment is missing, report the limitation
    rather than guessing or exposing raw errors.
-7. Use native inspection first. Select CodeGraph when a distinct concrete
+7. Use native inspection first. Select CodeGraph [cap: mcp.codegraph] when a distinct concrete
    architecture/impact/affected-test question is central to the audit and
    likely valuable; use an available index for that question and initialize an
    absent index only for that qualifying question. Spanning files alone never
@@ -159,4 +161,4 @@ Verdict:
   unavailable. Do not expose credentials, token values, private URLs, or raw
   operational errors.
 - Do not use this skill as a generic code-diff review; changed diffs belong to
-  **b-review**, including the mandatory frozen-candidate review gate.
+  **b-review**, including its candidate-review gate.

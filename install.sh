@@ -8,6 +8,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --dry-run
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --ref=<tag-or-sha>
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --agent pi
 #   ~/.b-agentic/install.sh --sync
 #   ~/.b-agentic/install.sh --update
 
@@ -27,13 +28,16 @@ REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
 readonly PI_NAME="Pi"
+# Agent adapter selection: only adapters whose manifest marks them shipped may
+# install; verified-but-deferred hosts stay explicit non-goals (docs/hosts.md).
+AGENT="${B_AGENTIC_AGENT:-pi}"
 # Bundled dependencies are mandatory and are installed without prompts.
 OPERATION="install"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
 REFERENCES_SRC="$SOURCE_DIR/references"
-TEMPLATES_SRC="$SOURCE_DIR/pi/configs"
+TEMPLATES_SRC="$SOURCE_DIR/adapters/pi/configs"
 KERNEL_SRC="$SOURCE_DIR/references/kernel.template.md"
 DRY_RUN_SOURCE_DIR=""
 UI_ENABLED=0
@@ -127,7 +131,7 @@ ui_component_draw() {
 			0) printf '%s [%s] Pi and b-agentic core files (required)\n' "$cursor" "$marker" ;;
 			1) printf '%s [%s] RTK, CodeGraph, and Bun (required)\n' "$cursor" "$marker" ;;
 			2) printf '%s [%s] MCP support (adapter, config, and API keys)\n' "$cursor" "$marker" ;;
-			3) printf '%s [%s] Pi integrations (memory, usage, auth, roles, prompts, and todo)\n' "$cursor" "$marker" ;;
+			3) printf '%s [%s] Pi integrations (memory, usage, auth, prompts, and todo)\n' "$cursor" "$marker" ;;
 			4) printf '%s [%s] Dracula theme\n' "$cursor" "$marker" ;;
 			esac
 		done
@@ -496,7 +500,17 @@ parse_args() {
 			PROMPT_API_KEYS_VALUE=N
 			;;
 		--runtime=* | --runtime)
-			die "b-agentic installs Pi only; remove the --runtime option"
+			die "--runtime was replaced by --agent <name>; b-agentic installs the pi adapter only"
+			;;
+		--agent=*)
+			AGENT="${1#--agent=}"
+			[ -n "$AGENT" ] || die "invalid --agent: empty"
+			;;
+		--agent)
+			shift
+			[ "$#" -gt 0 ] || die "--agent requires a value (supported today: pi)"
+			AGENT="$1"
+			[ -n "$AGENT" ] || die "invalid --agent: empty"
 			;;
 		--ref=*)
 			REF="${1#--ref=}"
@@ -518,6 +532,21 @@ validate_ref() {
 	esac
 }
 
+resolve_agent_manifest() {
+	local manifest="$SOURCE_DIR/adapters/$AGENT/manifest.yaml"
+	[ -f "$manifest" ] || die "unknown agent '$AGENT': no adapter manifest at adapters/$AGENT/manifest.yaml (shipped today: pi)"
+	local gate_status=0
+	python3 - "$manifest" <<'PY' || gate_status=$?
+import json
+import sys
+
+manifest = json.loads(open(sys.argv[1]).read())
+if manifest.get("status") != "shipped":
+    sys.exit(f"agent '{manifest.get('host')}' is verified but its installer is deferred; see docs/hosts.md")
+PY
+	return "$gate_status"
+}
+
 validate_operation() {
 	if uninstall_enabled && [ "$OPERATION" != "install" ]; then
 		die "--uninstall cannot be combined with --sync or --update"
@@ -528,7 +557,7 @@ set_source_dir() {
 	SOURCE_DIR="$1"
 	SKILLS_SRC="$SOURCE_DIR/skills"
 	REFERENCES_SRC="$SOURCE_DIR/references"
-	TEMPLATES_SRC="$SOURCE_DIR/pi/configs"
+	TEMPLATES_SRC="$SOURCE_DIR/adapters/pi/configs"
 	KERNEL_SRC="$SOURCE_DIR/references/kernel.template.md"
 }
 
@@ -539,8 +568,8 @@ validate_pi_source_layout() {
 	[ -f "$REFERENCES_SRC/capabilities.yaml" ] || die "missing capability contract: $REFERENCES_SRC/capabilities.yaml"
 	[ -d "$TEMPLATES_SRC" ] || die "missing Pi config directory: $TEMPLATES_SRC"
 	[ -f "$KERNEL_SRC" ] || die "missing Pi kernel source: $KERNEL_SRC"
-	[ -f "$SOURCE_DIR/pi/scripts/install.sh" ] || die "missing Pi installer: $SOURCE_DIR/pi/scripts/install.sh"
-	[ -f "$SOURCE_DIR/pi/extensions/b-agentic-support/capabilities.ts" ] || die "missing generated capability module: $SOURCE_DIR/pi/extensions/b-agentic-support/capabilities.ts"
+	[ -f "$SOURCE_DIR/adapters/pi/scripts/install.sh" ] || die "missing Pi installer: $SOURCE_DIR/adapters/pi/scripts/install.sh"
+	[ -f "$SOURCE_DIR/adapters/pi/extensions/b-agentic-support/capabilities.ts" ] || die "missing generated capability module: $SOURCE_DIR/adapters/pi/extensions/b-agentic-support/capabilities.ts"
 	[ -f "$SOURCE_DIR/tooling/install/common.sh" ] || die "missing installer core: $SOURCE_DIR/tooling/install/common.sh"
 	python3 - "$SKILLS_SRC/registry.yaml" "$SKILLS_SRC" <<'PY' || die "Pi skill payload does not match registry: $SKILLS_SRC"
 import json
@@ -574,6 +603,7 @@ sync_source() {
 		if [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; then
 			log "Dry-run source: $LOCAL_REPO (no fetch/pull)"
 			set_source_dir "$LOCAL_REPO"
+			resolve_agent_manifest || return 1
 		else
 			DRY_RUN_SOURCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-dry-run.XXXXXX")"
 			log "Dry-run source clone: $REPO_URL -> $DRY_RUN_SOURCE_DIR"
@@ -582,6 +612,7 @@ sync_source() {
 				git -C "$DRY_RUN_SOURCE_DIR" checkout --quiet "$REF"
 			fi
 			set_source_dir "$DRY_RUN_SOURCE_DIR"
+			resolve_agent_manifest || return 1
 		fi
 	elif [ -d "$LOCAL_REPO/.git" ]; then
 		log "Updating source: $LOCAL_REPO"
@@ -592,6 +623,7 @@ sync_source() {
 			git -C "$LOCAL_REPO" pull --ff-only --quiet
 		fi
 		set_source_dir "$LOCAL_REPO"
+		resolve_agent_manifest || return 1
 	else
 		log "Cloning source: $REPO_URL -> $LOCAL_REPO"
 		mkdir -p "$(dirname "$LOCAL_REPO")"
@@ -600,6 +632,7 @@ sync_source() {
 			git -C "$LOCAL_REPO" checkout --quiet "$REF"
 		fi
 		set_source_dir "$LOCAL_REPO"
+		resolve_agent_manifest || return 1
 	fi
 
 	validate_pi_source_layout
@@ -609,6 +642,7 @@ prepare_source() {
 	if [ "$OPERATION" = "update" ] || { uninstall_enabled && { [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; }; }; then
 		[ -d "$LOCAL_REPO/skills" ] || die "b-agentic source is not installed at $LOCAL_REPO; run the curl installer first"
 		set_source_dir "$LOCAL_REPO"
+		resolve_agent_manifest || return 1
 		validate_pi_source_layout
 		return 0
 	fi
@@ -942,7 +976,7 @@ source_installer_core() {
 }
 
 load_pi_installer() {
-	local pi_script="$SOURCE_DIR/pi/scripts/install.sh"
+	local pi_script="$SOURCE_DIR/adapters/pi/scripts/install.sh"
 	[ -f "$pi_script" ] || die "missing Pi installer: $pi_script"
 	# shellcheck disable=SC1090
 	source "$pi_script"
@@ -950,6 +984,7 @@ load_pi_installer() {
 
 load_installer_sources() {
 	source_installer_core
+	resolve_agent_manifest || return 1
 	validate_pi_source_layout
 	load_pi_installer
 }

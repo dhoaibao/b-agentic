@@ -77,7 +77,7 @@
     },
     {
       "id": "changed-code-review",
-      "prompt": "Review the working-tree diff before a PR and report architect findings.",
+      "prompt": "Review the working-tree diff before a PR and report review findings.",
       "expected_skill": "b-review",
       "forbidden_skills": [
         "b-commit",

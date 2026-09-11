@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Canonical managed MCP operation classification. Classified read-only and safe conditional-read operations are auto-approved through adapter-owned calls and unambiguous top-level mcp gateway calls. Roles do not alter active tools or MCP approval policy; prompt-level skill ownership directs executor and architect execution.",
+  "description": "Canonical managed MCP operation classification. Classified read-only and safe conditional-read operations are auto-approved through adapter-owned calls and unambiguous top-level mcp gateway calls. Skills do not alter active tools or MCP approval policy; prompt-level guidance directs solo execution.",
   "classes": {
     "read-only": {
       "policy": "Auto-approved for managed servers",
@@ -186,6 +186,6 @@
     }
   },
   "runtime_enforcement": {
-    "pi": "The adapter approval broker and Pi tool_call trust classified safe operations. The top-level mcp gateway requires an explicit managed server and matching tool name; conditional tools also require validated arguments. mcpScript permits tools.search/tools.describe metadata and nested tools.call retains normal approval/auth/output-guard policy. It is a bounded multi-call surface, not a general scripting or isolation boundary: follow the mcpScript contract above, do not batch browser mutations, and do not use unapproved nested calls. Roles do not add MCP restrictions. Auth, lifecycle, UI actions, selector mixtures, unclassified tools, unmanaged servers, and local/external mutations remain blocked. Validation requires runtime safe sets to match this policy."
+    "pi": "The adapter approval broker and Pi tool_call trust classified safe operations. The top-level mcp gateway requires an explicit managed server and matching tool name; conditional tools also require validated arguments. mcpScript permits tools.search/tools.describe metadata and nested tools.call retains normal approval/auth/output-guard policy. It is a bounded multi-call surface, not a general scripting or isolation boundary: follow the mcpScript contract above, do not batch browser mutations, and do not use unapproved nested calls. Auth, lifecycle, UI actions, selector mixtures, unclassified tools, unmanaged servers, and local/external mutations remain blocked. Validation requires runtime safe sets to match this policy."
   }
 }

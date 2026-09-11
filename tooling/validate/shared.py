@@ -128,8 +128,8 @@ prompt_regression_contracts = {
     ],
     "b-plan": ["candidate-review gate", "tracked plus relevant untracked/derived snapshot"],
     "b-research": ["resolved lockfiles", "go.mod"],
-    "b-implement": ["shared explicit executor-role profile", "standalone **Off** mode does not initiate intercom review", "active executor role initiates a handoff", "let the executor-role profile send a fresh snapshot and review request"],
-    "b-review": ["frozen changed-code candidate", "begin **b-review** automatically", "answer the active review request with `reply`", "inspect `pending` and use the exact originating `replyTo`", "every disposition", "same CWD", "intercom", "coordination gap"],
+    "b-implement": ["Do not initiate an automatic review handoff", "correct only unambiguous in-scope findings", "Never claim shipping readiness when required verification or a user-required review gate is absent"],
+    "b-review": ["Findings first", "Keep the repository review read-only: do not edit, patch, run generators/fixers, or otherwise mutate the worktree", "NEEDS FIXES", "READY WITH FOLLOW-UPS", "READY FOR PR", "Corrections must return as a reverified candidate for another review"],
     "b-agentic-audit": [
         "Existing source/design conformance",
         "Whole-project and first-party-extension health",
@@ -149,12 +149,13 @@ prompt_regression_contracts = {
         "READY WITH FOLLOW-UPS",
         "READY FOR PR",
     ],
-    "b-commit": ["explicit user commit request", "Do not ask for a second approval", "exact candidate snapshot", "reopen **b-review**"],
+    "b-commit": ["explicit user commit request", "Do not ask for a second approval", "exact candidate snapshot", "a changed candidate returns to review"],
     "b-pr-summary": [
         "Do not contact remotes, fetch, push, inspect merge bases, or open PR state.",
-        "After producing the normal PR title and description, invoke `preview_markdown` exactly once",
+        "After producing the normal PR title and description, invoke `preview_markdown` [cap: extension.b-agentic-preview-markdown] exactly once",
         "complete original finished PR Markdown source",
-        "Rendering is mandatory; do not make a separate optional offer.",
+        "Rendering is mandatory where the capability exists; never make a separate optional offer.",
+        "If the capability is unavailable, return the exact finished PR Markdown source as plain text instead of failing.",
         "Never invoke the tool for any BLOCKED outcome; return the exact single-line BLOCKED output above.",
         "Pass only an object with string `markdown` and, when included, string `title`; use no extra keys",
         "pass the original Markdown source rather than rendered text",
@@ -281,7 +282,7 @@ B_INIT_GUIDANCE_REGRESSION = {
             "Include only facts that answer where to change, source of truth, required companion or regeneration changes, a non-obvious project constraint, or how to verify",
             "Omit non-actionable catalogs or link to deeper docs instead of copying them into `AGENTS.md`",
             "list each existing, applicable repository verification command once",
-            "focused gap or TODO",
+            "focused gap instead of inventing a command",
             "The always-loaded kernel owns that guidance",
             "generic best-practice or security catalog",
         ],
@@ -305,7 +306,7 @@ B_INIT_GUIDANCE_REGRESSION = {
             "project-specific constraints and boundaries",
             "Omit non-actionable catalogs or link to deeper docs instead of copying them into `AGENTS.md`",
             "list each existing, applicable repository verification command once",
-            "focused gap or TODO",
+            "focused gap instead of inventing a command",
             "The always-loaded kernel owns that guidance",
         ],
     },
@@ -403,11 +404,9 @@ for relative_path, markers in B_INIT_GUIDANCE_REGRESSION["anchors"].items():
 # explicit commit request as its authorization, so its redundant second approval
 # prompt is intentionally not part of this interactive-decision check.
 INTERACTIVE_DECISION_REGRESSION = {
-    "observed_failure": "Material questions or notifications could bypass the explicit role contract.",
+    "observed_failure": "Material questions or notifications could bypass the direct user-question contract.",
     "anchors": {
-        "references/kernel.template.md": ["Interactive, user-facing material decisions or blockers use installed `ask_user_question`", "Executor calls surface a fixed privacy-safe"],
-        "pi/extensions/b-agentic-support/role.ts": ["Work directly with the user", "ask_user_question", "No automatic commit or push"],
-        "pi/extensions/b-agentic-executor-notify.ts": ["tool_call", "ask_user_question", "ui_prompt_start", "User input needed", "getRole() !== \"executor\""],
+        "references/kernel.template.md": ["Interactive, user-facing material decisions or blockers use installed `ask_user_question`"],
     },
 }
 for relative_path, markers in INTERACTIVE_DECISION_REGRESSION["anchors"].items():
@@ -428,16 +427,16 @@ MCP_WORKFLOW_REGRESSION = {
         "Every managed MCP has a distinct task-appropriate role; CodeGraph is "
         "selected affirmatively when a qualifying repository-wide question is "
         "central and likely valuable, initializes only for that concrete "
-        "qualifying question, and never merely because work spans files; the "
-        "planner role never initializes an absent index."
+        "qualifying question, and never merely because work spans files; no "
+        "skill initializes an absent index for anything less."
     ),
     "anchors": {
-        "b-plan": ["Select CodeGraph only for a concrete repository-wide architecture, impact, or affected-test question"],
+        "b-plan": ["Select CodeGraph [cap: mcp.codegraph] only for a concrete repository-wide architecture, impact, or affected-test question"],
         "b-debug": ["versioned dependency suspects"],
         "b-test": ["versioned framework semantics"],
         "b-browser": ["existing CI/script evidence; approved navigation", "mcpScript", "browser mutations"],
         "b-research": ["independent corroboration", "research_*", "mcpScript", "direct top-level `mcp` calls"],
-        "b-review": ["specialized Brave tools"],
+        "b-review": ["specialized Brave [cap: mcp.brave-search] tools"],
     },
 }
 for skill_name, markers in MCP_WORKFLOW_REGRESSION["anchors"].items():
@@ -457,7 +456,7 @@ MCP_SCRIPT_GUIDANCE_REGRESSION = {
     ),
     "kernel": [
         "Use top-level `mcp` for exactly one",
-        "Use `mcpScript` only for two or more",
+        "Use `mcpScript` [cap: package.pi-mcp-adapter] only for two or more",
         "at most 12 total nested operations",
         "at most 8 `tools.call` operations",
         "at most 3 source/server branches or browser routes",
@@ -578,7 +577,7 @@ PROMPT_TOOL_LEVERAGE_REGRESSION = {
     ),
     "anchors": {
         "b-implement": [
-            "Use Pi native file tools by default",
+            "Use native file tools by default",
             "Select CodeGraph",
             "native tools or local search",
             "repository-wide architecture, impact, or affected-test question",
@@ -599,13 +598,13 @@ PROMPT_TOOL_LEVERAGE_REGRESSION = {
             "research_search_github",
             "brave_news_search",
         ],
-        "b-review": ["specialized Brave tools", "rtk git"],
+        "b-review": ["specialized Brave [cap: mcp.brave-search] tools", "rtk git"],
         "b-browser": ["browser_snapshot", "browser_find", "browser_network_requests"],
         "b-commit": ["rtk git status --short", "rtk git diff"],
         "b-pr-summary": ["rtk git log", "rtk git show"],
-        "b-plan": ["Pi native `read`", "compacted prior planning"],
+        "b-plan": ["native `read`", "compacted prior planning"],
     },
-    # Runtime companions: pi/tests/smoke.sh recall specialized + firecrawl
+    # Runtime companions: adapters/pi/tests/smoke.sh recall specialized + firecrawl
     # skipTlsVerification rejection; permissions RTK_OPTIONAL_COMMANDS.
 }
 for skill_name, markers in PROMPT_TOOL_LEVERAGE_REGRESSION["anchors"].items():
@@ -694,43 +693,6 @@ else:
             errors.append(f"{label} must have a non-empty prompt")
     if len(routing_ids) != len(set(routing_ids)):
         errors.append(f"{rel(routing_path)}: scenario ids must be unique")
-
-roles_path = ROOT / "tests" / "behavior" / "roles.json"
-roles_fixture = load_json(roles_path)
-role_scenarios = roles_fixture.get("scenarios", [])
-if roles_fixture.get("version") != 1 or not isinstance(role_scenarios, list) or not role_scenarios:
-    errors.append(f"{rel(roles_path)}: expected version 1 with non-empty scenarios")
-else:
-    role_ids: list[str] = []
-    covered_roles: set[str] = set()
-    for index, scenario in enumerate(role_scenarios, start=1):
-        label = f"{rel(roles_path)}: scenario {index}"
-        if not isinstance(scenario, dict):
-            errors.append(f"{label} must be an object")
-            continue
-        scenario_id = scenario.get("id")
-        if not isinstance(scenario_id, str) or not scenario_id:
-            errors.append(f"{label} must have a non-empty id")
-        else:
-            role_ids.append(scenario_id)
-        role = scenario.get("role")
-        if role not in {"off", "executor", "architect"}:
-            errors.append(f"{label} has unknown role {role!r}")
-        else:
-            covered_roles.add(role)
-        if scenario.get("skill") not in skill_names:
-            errors.append(f"{label} has unknown skill {scenario.get('skill')!r}")
-        for field in ("prompt", "observed_failure", "intended_behavior"):
-            if not isinstance(scenario.get(field), str) or not scenario[field]:
-                errors.append(f"{label} {field} must be a non-empty string")
-        for field in ("must", "avoid"):
-            values = scenario.get(field)
-            if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
-                errors.append(f"{label} {field} must be a non-empty string array")
-    if len(role_ids) != len(set(role_ids)):
-        errors.append(f"{rel(roles_path)}: scenario ids must be unique")
-    if covered_roles != {"off", "executor", "architect"}:
-        errors.append(f"{rel(roles_path)}: scenarios must cover Off, executor, and architect")
 
 init_guidance_path = ROOT / "tests" / "behavior" / "init-guidance.json"
 init_guidance_fixture = load_json(init_guidance_path)
@@ -868,7 +830,7 @@ else:
             required_operating_content = [
                 "skills/",
                 "references/",
-                "pi/",
+                "adapters/pi/",
                 "tooling/",
                 "tests/",
                 "skills/registry.yaml",
@@ -951,12 +913,12 @@ else:
                         f"{catalog_marker!r}; {managed_marker_error_context}"
                     )
 
-prompt_runner_path = ROOT / "pi" / "tests" / "prompt_effectiveness.py"
+prompt_runner_path = ROOT / "tests" / "prompt_effectiveness.py"
 prompt_runner = read_text(prompt_runner_path)
 require_contains(
     prompt_runner_path,
     prompt_runner,
-    ["--allow-model-calls", '"--no-session"', '"--no-tools"', '"--routing"', "scenario_role_prompt", "ROLE_SOURCE", 'environment["PI_TELEMETRY"] = "0"'],
+    ["--allow-model-calls", '"--no-session"', '"--no-tools"', '"--routing"', 'environment["PI_TELEMETRY"] = "0"'],
     "prompt-effectiveness safety marker",
 )
 
@@ -985,7 +947,7 @@ LOCAL_TOOLS = {"bash", "read", "edit", "write", "recall"}
 KNOWN_TOOLS = MCP_SERVERS | LOCAL_TOOLS
 RETIRED_MCP_REFERENCE_ALLOWLIST = {
     "CHANGELOG.md",
-    "pi/tests/smoke.sh",
+    "adapters/pi/tests/smoke.sh",
     "tests/smoke/install.sh",
     "tooling/validate/shared.py",
 }
@@ -1190,14 +1152,14 @@ MCP_PORTFOLIO_REGRESSION = {
         "references/kernel.template.md",
         "references/mcp_operations.yaml",
         "references/capabilities.yaml",
-        "pi/configs/mcp.user.template.json",
-        "pi/extensions/b-agentic-support/mcp.ts",
-        "pi/extensions/b-agentic-support/capabilities.ts",
+        "adapters/pi/configs/mcp.user.template.json",
+        "adapters/pi/extensions/b-agentic-support/mcp.ts",
+        "adapters/pi/extensions/b-agentic-support/capabilities.ts",
         *[f"skills/{path.name}/prompt.md" for path in sorted((ROOT / "skills").glob("*/prompt.md"))],
         *[f"skills/{path.name}/SKILL.md" for path in sorted((ROOT / "skills").glob("*/SKILL.md"))],
     ],
     "codegraph_anchors": [
-        "Select CodeGraph when repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test analysis is central to the task",
+        "Select CodeGraph [cap: mcp.codegraph] when repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test analysis is central to the task",
         "Spanning files alone never justifies selection or initialization",
     ],
     "forbidden_codegraph_gates": [
@@ -1228,6 +1190,104 @@ for marker in _forbidden_codegraph_gates(
         f"intended behavior: {MCP_PORTFOLIO_REGRESSION['intended_behavior']}"
     )
 
+def capability_prompt_errors(
+    text: str,
+    label: str,
+    fallbacks: dict[str, bool],
+    tool_capability_ids: dict[str, list[str]],
+    cap_token: re.Pattern[str],
+) -> list[str]:
+    prompt_errors: list[str] = []
+    annotated = set(cap_token.findall(text))
+    for capability_id in sorted(annotated):
+        if capability_id not in fallbacks:
+            prompt_errors.append(f"{label}: [cap: {capability_id}] does not resolve to a capability id")
+        elif not fallbacks[capability_id]:
+            prompt_errors.append(f"{label}: [cap: {capability_id}] resolves to a capability with an empty fallback")
+    lowered = text.lower()
+    for tool, ids in sorted(tool_capability_ids.items()):
+        if re.search(rf"\b{re.escape(tool)}\b", lowered) and not annotated.intersection(ids):
+            prompt_errors.append(
+                f"{label}: names tool {tool!r} without a [cap: id] annotation resolving to a fallback "
+                f"(expected one of {ids})"
+            )
+    return prompt_errors
+
+
+def capability_fallback_contract() -> None:
+    """Every skill-prompt and kernel tool mention must resolve to a capability fallback.
+
+    Prompts and the kernel annotate capability-backed tools as `[cap: id]`.
+    Each id must exist in references/capabilities.yaml with a non-empty
+    fallback, and every known non-native tool named in one of those files must
+    carry at least one such annotation. Native tools (bash/read/edit/write)
+    are always available and unannotated.
+    """
+    contract = json.loads((ROOT / "references" / "capabilities.yaml").read_text())
+    fallbacks = {
+        capability.get("id"): isinstance(capability.get("fallback"), str) and bool(capability["fallback"].strip())
+        for capability in contract.get("capabilities", [])
+        if isinstance(capability, dict)
+    }
+    tool_capability_ids = {
+        "codegraph": ["mcp.codegraph"],
+        "context7": ["mcp.context7"],
+        "brave": ["mcp.brave-search"],
+        "brave-search": ["mcp.brave-search"],
+        "firecrawl": ["mcp.firecrawl"],
+        "playwright": ["mcp.playwright"],
+        "mcpscript": ["package.pi-mcp-adapter"],
+        "mcp-scripting": ["package.pi-mcp-adapter"],
+        "ask_user_question": ["package.pi-ask-user-question"],
+        "recall": ["package.pi-observational-memory"],
+        "preview_markdown": ["extension.b-agentic-preview-markdown"],
+        "intercom": ["package.pi-intercom"],
+        "todo": ["package.pi-todo"],
+    }
+    cap_token = re.compile(r"\[cap:\s*([a-z0-9.-]+)\]")
+
+    kernel_path = ROOT / "references" / "kernel.template.md"
+    kernel_errors = capability_prompt_errors(
+        kernel_path.read_text(), rel(kernel_path), fallbacks, tool_capability_ids, cap_token
+    )
+    errors.extend(kernel_errors)
+    for prompt in sorted((ROOT / "skills").glob("*/prompt.md")):
+        errors.extend(capability_prompt_errors(prompt.read_text(), rel(prompt), fallbacks, tool_capability_ids, cap_token))
+
+
+# Self-test: the contract must reject a tool mention without a resolvable
+# fallback annotation and accept the annotated equivalent.
+_self_test_fallbacks = {"mcp.codegraph": True}
+_self_test_tools = {"codegraph": ["mcp.codegraph"]}
+_self_test_token = re.compile(r"\[cap:\s*([a-z0-9.-]+)\]")
+if not capability_prompt_errors(
+    "Select CodeGraph for repository-wide questions.",
+    "fixture",
+    _self_test_fallbacks,
+    _self_test_tools,
+    _self_test_token,
+):
+    errors.append("capability fallback contract self-test: unannotated tool mention was not rejected")
+if capability_prompt_errors(
+    "Select CodeGraph [cap: mcp.codegraph] for repository-wide questions.",
+    "fixture",
+    _self_test_fallbacks,
+    _self_test_tools,
+    _self_test_token,
+):
+    errors.append("capability fallback contract self-test: annotated tool mention was rejected")
+if not capability_prompt_errors(
+    "Select CodeGraph [cap: missing.id] for repository-wide questions.",
+    "fixture",
+    _self_test_fallbacks,
+    _self_test_tools,
+    _self_test_token,
+):
+    errors.append("capability fallback contract self-test: unresolved capability id was not rejected")
+
+
+capability_fallback_contract()
+
 for fixture in [
     "Use CodeGraph only when native inspection leaves a concrete repository-wide question.",
     "Use CodeGraph only for a concrete repository-wide question native inspection cannot settle.",
@@ -1248,54 +1308,6 @@ if _forbidden_codegraph_gates(
 ):
     errors.append("CodeGraph gate regression self-test rejected corrected guidance")
 
-for intercom_marker in [
-    "b-agentic defaults to Off", "select roles with `/b-role` or `pi --b-role`", "Executor is the sole user-facing worktree writer", "independent prompt-governed read-only gate", "compatible same-CWD peers",
-    "Before any new thread, a fresh `list-cwd` with the absolute project `cwd` must show exactly one other peer",
-    "When no inbound Executor `ask` exists, after a user-approved `b-plan` the Architect uses one proactive `send` with that `cwd` and omits `to`",
-    "After completing implementation and required checks in explicit executor role, the Executor uses exactly one blocking `ask` with the absolute project `cwd`, omits `to`",
-    "An Executor request for b-plan, b-research, b-debug, or b-review arrives as a blocking `ask`; the Architect automatically begins the named skill and answers the active request with `reply`",
-]:
-    if intercom_marker not in kernel_template:
-        errors.append(
-            f"references/kernel.template.md: Intercom workflow marker missing {intercom_marker!r}"
-        )
-
-role_prompt = read_text(ROOT / "pi/extensions/b-agentic-support/role.ts")
-for intercom_marker in [
-    # generated:role-prompt-markers:shared:start
-    "sole user-facing writer",
-    "independent read-only gate",
-    "roles never filter tools",
-    "compact frozen-candidate handoff",
-    "stop edits",
-    "required checks",
-    "exact unchanged snapshot",
-    "READY WITH FOLLOW-UPS",
-    "No automatic commit or push",
-    "user-approved plan handoff",
-    "independent b-review",
-    "structured disposition and findings",
-    "same-CWD peer",
-    "fresh",
-    "absolute project",
-    "exactly one other peer",
-    "blocking",
-    "omit",
-    "proactive",
-    "active inbound request",
-    "pending",
-    "originating",
-    "reverse",
-    "same exchange",
-# generated:role-prompt-markers:shared:end
-]:
-    source_marker = intercom_marker.replace("`", r"\`")
-    if intercom_marker not in role_prompt and source_marker not in role_prompt:
-        errors.append(
-            f"pi/extensions/b-agentic-support/role.ts: Intercom workflow marker missing {intercom_marker!r}"
-        )
-
-role_extension = read_text(ROOT / "pi/extensions/b-agentic-role.ts")
 # The kernel owns the RTK requirement and modern shell-tool preferences.
 for required_tool in ["`rtk`", "`rg`", "`fdfind`", "`batcat`", "`eza`", "`sd`", "`jq`"]:
     if required_tool not in kernel_template:
@@ -1397,28 +1409,32 @@ def pi_gate_severity(tokens: list[str], extension_text: str) -> int:
     return 0
 
 
-pi_extension = read_text(ROOT / "pi" / "extensions" / "b-agentic-support" / "shell.ts")
+# Permission data is generated from references/permissions.yaml and imported by
+# the runtime classifier (adapters/pi/extensions/b-agentic-support/shell.ts), so parity
+# is checked against the generated module.
+permission_data = read_text(ROOT / "adapters" / "pi" / "extensions" / "b-agentic-support" / "permissions-data.ts")
+shell_extension = read_text(ROOT / "adapters" / "pi" / "extensions" / "b-agentic-support" / "shell.ts")
 skill_roster_match = re.search(
     r"export const B_AGENTIC_SKILL_NAMES = new Set\(\[(.*?)\]\);",
-    pi_extension,
+    shell_extension,
     re.DOTALL,
 )
 if not skill_roster_match:
     errors.append(
-        "pi/extensions/b-agentic-support/shell.ts: missing B_AGENTIC_SKILL_NAMES roster"
+        "adapters/pi/extensions/b-agentic-support/shell.ts: missing B_AGENTIC_SKILL_NAMES roster"
     )
 else:
     pi_skill_names = re.findall(r'\"([^\"]+)\"', skill_roster_match.group(1))
     if pi_skill_names != skill_names:
         errors.append(
-            "pi/extensions/b-agentic-support/shell.ts: B_AGENTIC_SKILL_NAMES must match "
+            "adapters/pi/extensions/b-agentic-support/shell.ts: B_AGENTIC_SKILL_NAMES must match "
             f"skills/registry.yaml (roster={pi_skill_names!r}, registry={skill_names!r})"
         )
 
 for tokens, min_severity in SAFETY_GATES:
-    if pi_gate_severity(tokens, pi_extension) < SEVERITY_RANK[min_severity]:
+    if pi_gate_severity(tokens, permission_data) < SEVERITY_RANK[min_severity]:
         errors.append(
-            f"pi/extensions/b-agentic-support/shell.ts: safety gate {' '.join(tokens)!r} weaker than required {min_severity!r}; "
+            f"adapters/pi/extensions/b-agentic-support/shell.ts: safety gate {' '.join(tokens)!r} weaker than required {min_severity!r}; "
             "align with references/kernel.template.md"
         )
 

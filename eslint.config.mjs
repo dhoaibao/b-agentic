@@ -4,8 +4,8 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
-      "pi/extensions/b-agentic-support/mcp.ts",
-      "pi/extensions/b-agentic-support/role.ts",
+      "adapters/pi/extensions/b-agentic-support/mcp.ts",
+      "adapters/pi/extensions/b-agentic-support/permissions-data.ts",
     ],
   },
   eslint.configs.recommended,

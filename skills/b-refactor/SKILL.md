@@ -38,7 +38,7 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 
 1. Lock the exact target and state the behavior that must remain unchanged.
 2. Use read for relevant repo context only when it materially affects the transform.
-3. Select CodeGraph when a concrete repository-wide impact question is central to the transform and likely valuable; use an available index and map that impact. Initialize an absent index only for that qualifying question. Use native search for routine discovery and bash with `rg`/`fdfind` for exports, routes, config keys, docs, and generated consumers.
+3. Select CodeGraph [cap: mcp.codegraph] when a concrete repository-wide impact question is central to the transform and likely valuable; use an available index and map that impact. Initialize an absent index only for that qualifying question. Use native search for routine discovery and bash with `rg`/`fdfind` for exports, routes, config keys, docs, and generated consumers.
 4. When practical, run the narrowest risk-appropriate check to establish a passing behavioral baseline.
 5. Apply the smallest matching transform via Pi native `edit`.
 6. Re-check references with native search and rerun the baseline check or equivalent narrow verification.
@@ -55,5 +55,5 @@ Target, impact, changes, verification, and follow-up risk.
 - Preserve behavior.
 - When an edit anchor (oldText) fails to match, re-read the target region and re-anchor the edit from current content; never blind-retry the same anchor or widen context speculatively.
 - Use symbol-aware tools when they provide a concrete precision or safety benefit; keep native inspection as the default for routine discovery.
-- Ask before broad moves or cascading ecosystem changes when they are an unresolved material user-facing choice. Use `ask_user_question` with 2–4 concrete options, the recommended option first, and the automatic custom-answer row; if unavailable or noninteractive, ask one focused plain-text question. Do not use the questionnaire for routine updates or no-choice confirmations.
+- Ask before broad moves or cascading ecosystem changes when they are an unresolved material user-facing choice. Use `ask_user_question` [cap: package.pi-ask-user-question] with 2–4 concrete options, the recommended option first, and the automatic custom-answer row; if unavailable or noninteractive, ask one focused plain-text question. Do not use the questionnaire for routine updates or no-choice confirmations.
 - Stop if redesign or behavior change appears.

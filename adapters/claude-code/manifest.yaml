@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "host": "claude-code",
+  "status": "deferred",
+  "description": "Verified target; declarative configuration delivery only. No installer in v1.",
+  "instruction": {"path": "CLAUDE.md", "source": "references/kernel.template.md", "scope": "project+global"},
+  "skills": {"dir": ".claude/skills/<name>/SKILL.md", "source": "skills/", "note": "also read by OpenCode; see coexistence in docs/hosts.md"},
+  "mcp": {"path": ".mcp.json (project root)", "key": "mcpServers", "personal": "~/.claude.json"},
+  "permissions": {"mechanism": "settings.json permissions.allow/ask/deny", "matching": "compound-command-aware, first match wins", "data": "references/permissions.yaml"},
+  "hook": {"event": "PreToolUse", "blocking": "exit 2 blocks", "note": "documented capability only; v1 ships no hook scripts"},
+  "evidence": "docs/hosts.md"
+}

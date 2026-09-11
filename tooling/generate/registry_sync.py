@@ -15,7 +15,9 @@ SKILL_REGISTRY_PATH = ROOT / "skills" / "registry.yaml"
 KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
 MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 CAPABILITIES_PATH = ROOT / "references" / "capabilities.yaml"
-CAPABILITIES_OUTPUT_PATH = ROOT / "pi" / "extensions" / "b-agentic-support" / "capabilities.ts"
+CAPABILITIES_OUTPUT_PATH = ROOT / "adapters" / "pi" / "extensions" / "b-agentic-support" / "capabilities.ts"
+PERMISSIONS_PATH = ROOT / "references" / "permissions.yaml"
+PERMISSIONS_OUTPUT_PATH = ROOT / "adapters" / "pi" / "extensions" / "b-agentic-support" / "permissions-data.ts"
 
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
@@ -23,10 +25,6 @@ MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
 MCP_OPERATIONS_END = "<!-- generated:mcp-operations:end -->"
 KERNEL_ROUTING_START = "<!-- generated:kernel-routing:start -->"
 KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
-KERNEL_SKILL_OWNERSHIP_START = "<!-- generated:skill-ownership:start -->"
-KERNEL_SKILL_OWNERSHIP_END = "<!-- generated:skill-ownership:end -->"
-ROLE_SKILL_OWNERSHIP_START = "// generated:skill-ownership:start"
-ROLE_SKILL_OWNERSHIP_END = "// generated:skill-ownership:end"
 MCP_RUNTIME_POLICY_START = "// generated:mcp-runtime-policy:start"
 MCP_RUNTIME_POLICY_END = "// generated:mcp-runtime-policy:end"
 
@@ -38,104 +36,6 @@ PROMPT_FRONTMATTER_FIELDS = [
     ("user_invocable", "user-invocable"),
 ]
 ALLOWED_PROMPT_KEYS = {"description", *[field for field, _ in PROMPT_FRONTMATTER_FIELDS]}
-SKILL_OWNERS = {"executor", "architect"}
-SKILL_OWNERSHIP_CRITERION = (
-    "Architect-owned skills perform planning, research, diagnosis, audit, or changed-code review; diagnosis may use only disposable OS-temporary scratch probes outside the worktree. "
-    "Executor-owned skills perform design, implementation, validation, commit, or PR-summary work. "
-    "Mixed or uncertain skills are executor-owned."
-)
-
-# Canonical role-prompt assertion markers. Consumer blocks below are generated
-# so prompt wording remains the only runtime source while assertions share one
-# maintained marker set per target prompt surface.
-ROLE_PROMPT_MARKERS = {
-    "common": [
-        "sole user-facing writer",
-        "independent read-only gate",
-        "roles never filter tools",
-        "compact frozen-candidate handoff",
-        "stop edits",
-        "required checks",
-        "exact unchanged snapshot",
-        "READY WITH FOLLOW-UPS",
-        "No automatic commit or push",
-        "user-approved plan handoff",
-        "independent b-review",
-        "structured disposition and findings",
-        "same-CWD peer",
-        "fresh",
-        "absolute project",
-        "exactly one other peer",
-        "blocking",
-        "omit",
-        "proactive",
-        "active inbound request",
-        "pending",
-        "originating",
-        "reverse",
-        "same exchange",
-    ],
-    "behavior": [
-        "sole user-facing writer",
-        "independent read-only gate",
-        "compact frozen-candidate handoff",
-        "wrong architect",
-        "skipped/failed checks",
-        "Corrections require re-verification and re-review",
-        "fresh",
-        "absolute project",
-        "exactly one other peer",
-        "blocking",
-        "omit",
-        "stop and wait",
-        "zero/multiple peer roster",
-        "ambiguous pending",
-    ],
-    "architect": [
-        "independent read-only gate",
-        "do not edit",
-        "Bounded read-only research",
-        "user-approved plan handoff",
-        "same-CWD peer",
-        "begin the named Architect skill automatically",
-        "disposable diagnostic probes",
-        "proactive",
-        "active inbound request",
-        "pending",
-        "originating",
-        "reverse",
-    ],
-    "executor": [
-        "sole user-facing writer",
-        "Work directly with the user",
-        "user-approved plan handoff",
-        "route to the Architect",
-        "remain stopped",
-        "diagnosis handoff",
-        "explicit executor role is active",
-        "compact frozen-candidate handoff",
-        "Do not edit while review is pending",
-        "fresh",
-        "absolute project",
-        "exactly one other peer",
-        "blocking",
-        "omit",
-        "stop and wait",
-        "same exchange",
-        "zero/multiple peers",
-    ],
-}
-
-ROLE_PROMPT_SHARED_START = "# generated:role-prompt-markers:shared:start"
-ROLE_PROMPT_SHARED_END = "# generated:role-prompt-markers:shared:end"
-ROLE_PROMPT_BEHAVIOR_START = "# generated:role-prompt-markers:behavior:start"
-ROLE_PROMPT_BEHAVIOR_END = "# generated:role-prompt-markers:behavior:end"
-ROLE_PROMPT_VALIDATE_START = "# generated:role-prompt-markers:validate:start"
-ROLE_PROMPT_VALIDATE_END = "# generated:role-prompt-markers:validate:end"
-ROLE_PROMPT_SMOKE_ARCHITECT_START = "// generated:role-prompt-markers:architect:start"
-ROLE_PROMPT_SMOKE_ARCHITECT_END = "// generated:role-prompt-markers:architect:end"
-ROLE_PROMPT_SMOKE_EXECUTOR_START = "// generated:role-prompt-markers:executor:start"
-ROLE_PROMPT_SMOKE_EXECUTOR_END = "// generated:role-prompt-markers:executor:end"
 
 
 def load_json_subset_yaml(path: Path) -> dict:
@@ -184,32 +84,109 @@ def load_capabilities() -> dict:
     return contract
 
 
+def load_permissions() -> dict:
+    try:
+        return load_json_subset_yaml(PERMISSIONS_PATH)
+    except SystemExit as exc:
+        raise SystemExit(f"{exc}") from exc
+
+
+def validate_permissions(data: dict) -> list[str]:
+    errors: list[str] = []
+    if data.get("schema_version") != 1:
+        errors.append(f"{PERMISSIONS_PATH}: schema_version must be 1")
+    if data.get("format") != "json-subset-of-yaml":
+        errors.append(f"{PERMISSIONS_PATH}: format must be json-subset-of-yaml")
+    if not isinstance(data.get("description"), str) or not data["description"]:
+        errors.append(f"{PERMISSIONS_PATH}: description must be a non-empty string")
+
+    command_sets = ("ask_commands", "deny_commands", "service_commands", "dangerous_ask_commands")
+    seen: dict[str, set[tuple[str, ...]]] = {}
+    for field in command_sets:
+        entries = data.get(field)
+        if not isinstance(entries, list) or not entries:
+            errors.append(f"{PERMISSIONS_PATH}: {field} must be a non-empty array")
+            seen[field] = set()
+            continue
+        unique: set[tuple[str, ...]] = set()
+        for index, pattern in enumerate(entries, start=1):
+            if (
+                not isinstance(pattern, list)
+                or not pattern
+                or not all(isinstance(token, str) and token and " " not in token for token in pattern)
+            ):
+                errors.append(f"{PERMISSIONS_PATH}: {field}[{index}] must be a non-empty array of single-token strings")
+                continue
+            unique.add(tuple(pattern))
+        seen[field] = unique
+
+    overlap = seen.get("ask_commands", set()) & seen.get("deny_commands", set())
+    if overlap:
+        errors.append(f"{PERMISSIONS_PATH}: ask_commands and deny_commands must not overlap: {sorted(overlap)}")
+
+    markers = data.get("protected_path_markers")
+    if (
+        not isinstance(markers, list)
+        or not markers
+        or not all(isinstance(marker, str) and marker for marker in markers)
+    ):
+        errors.append(f"{PERMISSIONS_PATH}: protected_path_markers must be a non-empty string array")
+    elif len(markers) != len(set(markers)):
+        errors.append(f"{PERMISSIONS_PATH}: protected_path_markers must be unique")
+    return errors
+
+
+def render_permissions_module(data: dict) -> str:
+    def const(name: str, entries: list) -> str:
+        body = json.dumps(entries, indent=2, ensure_ascii=False)
+        return f"export const {name}: string[][] = {body};"
+
+    return """/** Generated from references/permissions.yaml. Do not edit this file. */
+export const PERMISSIONS_CONTRACT_VERSION = %d as const;
+
+/** Ordered token prefixes that require user approval. */
+%s
+
+/** Ordered token prefixes that are always refused. */
+%s
+
+/** Long-running service starters that require user approval. */
+%s
+
+/** Destructive or service-disrupting commands that require user approval. */
+%s
+
+/** Substring or path-segment markers for secret-like and protected paths. */
+export const PROTECTED_PATH_MARKERS: string[] = %s;
+""" % (
+        data["schema_version"],
+        const("ASK_COMMANDS", data["ask_commands"]),
+        const("DENY_COMMANDS", data["deny_commands"]),
+        const("SERVICE_COMMANDS", data["service_commands"]),
+        const("DANGEROUS_ASK_COMMANDS", data["dangerous_ask_commands"]),
+        json.dumps(data["protected_path_markers"], indent=2, ensure_ascii=False),
+    )
+
+
 def _non_empty_string_list(value: object, label: str, errors: list[str]) -> None:
     if not isinstance(value, list) or not value or not all(isinstance(item, str) and item for item in value):
         errors.append(f"{label}: expected a non-empty string array")
 
 
 def _installer_package_metadata() -> tuple[set[str], set[str]]:
-    installer = ROOT / "pi" / "scripts" / "install.sh"
+    """Pi-adapter installer specs, retained for adapter-side smoke tooling only."""
+    installer = ROOT / "adapters" / "pi" / "scripts" / "install.sh"
     text = installer.read_text() if installer.exists() else ""
     specs = set(re.findall(r'^\s*PI_[A-Z0-9_]+_SPEC="([^"]+)"\s*$', text, re.MULTILINE))
     names = set(re.findall(r'^\s*PI_[A-Z0-9_]+_PACKAGE="([^"]+)"\s*$', text, re.MULTILINE))
     return specs, names
 
 
-def _installer_extension_names() -> set[str]:
-    installer = ROOT / "pi" / "scripts" / "install.sh"
-    text = installer.read_text() if installer.exists() else ""
-    match = re.search(r"EXTENSION_NAMES=\(\n(.*?)\n\)", text, re.DOTALL)
-    if not match:
-        return set()
-    return {line.strip() for line in match.group(1).splitlines() if line.strip() and not line.lstrip().startswith("#")}
-
-
 def validate_capabilities(contract: dict) -> list[str]:
     errors: list[str] = []
-    if contract.get("schema_version") != 1:
-        errors.append(f"{CAPABILITIES_PATH}: schema_version must be 1")
+    known_hosts = {"pi", "claude-code", "codex", "opencode", "antigravity"}
+    if contract.get("schema_version") != 2:
+        errors.append(f"{CAPABILITIES_PATH}: schema_version must be 2")
     if contract.get("format") != "json-subset-of-yaml":
         errors.append(f"{CAPABILITIES_PATH}: format must be json-subset-of-yaml")
 
@@ -259,6 +236,15 @@ def validate_capabilities(contract: dict) -> list[str]:
         for field in ("purpose", "owner", "trigger", "readiness", "fallback"):
             ensure_string(capability.get(field), f"{label}.{field}", errors)
         _non_empty_string_list(capability.get("prerequisites"), f"{label}.prerequisites", errors)
+        hosts = capability.get("hosts")
+        if (
+            not isinstance(hosts, list)
+            or not hosts
+            or not all(isinstance(host, str) and host in known_hosts for host in hosts)
+        ):
+            errors.append(f"{label}.hosts: expected non-empty host ids from {sorted(known_hosts)}")
+        if isinstance(capability.get("fallback"), str) and not capability["fallback"].strip():
+            errors.append(f"{label}.fallback: required for every capability; prompts resolve [cap: id] to it")
 
         signal = capability.get("status_signal")
         if not isinstance(signal, dict):
@@ -370,44 +356,15 @@ def validate_capabilities(contract: dict) -> list[str]:
     if len(ids) != len(set(ids)):
         errors.append(f"{CAPABILITIES_PATH}: capability ids must be unique")
 
-    installer_specs, installer_names = _installer_package_metadata()
-    if package_specs != installer_specs:
-        errors.append(
-            f"{CAPABILITIES_PATH}: package specs must match pi/scripts/install.sh "
-            f"(contract={sorted(package_specs)}, installer={sorted(installer_specs)})"
-        )
-    if package_names != installer_names:
-        errors.append(
-            f"{CAPABILITIES_PATH}: package names must match pi/scripts/install.sh "
-            f"(contract={sorted(package_names)}, installer={sorted(installer_names)})"
-        )
-
     forbidden_packages = {"pi-lens", "pi-subagents", "background-task", "background-tasks"}
     forbidden_found = sorted((package_names | package_specs) & forbidden_packages)
     if forbidden_found:
         errors.append(f"{CAPABILITIES_PATH}: forbidden packages are not managed: {forbidden_found}")
 
-    installer_extensions = _installer_extension_names()
-    expected_entrypoints = {path.name for path in (ROOT / "pi" / "extensions").glob("*.ts")}
-    preview_source = ROOT / "pi" / "packages" / "preview-markdown" / "extensions" / "b-agentic-preview-markdown.ts"
-    if preview_source.exists():
-        expected_entrypoints.add(preview_source.name)
-    if extension_names != expected_entrypoints:
-        errors.append(
-            f"{CAPABILITIES_PATH}: extension names must cover first-party entrypoints "
-            f"(contract={sorted(extension_names)}, entrypoints={sorted(expected_entrypoints)})"
-        )
-    missing_installer_extensions = sorted(extension_names - installer_extensions)
-    if missing_installer_extensions:
-        errors.append(
-            f"{CAPABILITIES_PATH}: first-party entrypoints missing from installer EXTENSION_NAMES: "
-            f"{missing_installer_extensions}"
-        )
-
     try:
-        template = json.loads((ROOT / "pi" / "configs" / "mcp.user.template.json").read_text())
+        template = json.loads((ROOT / "adapters" / "pi" / "configs" / "mcp.user.template.json").read_text())
     except Exception as exc:
-        errors.append(f"pi/configs/mcp.user.template.json: invalid JSON: {exc}")
+        errors.append(f"adapters/pi/configs/mcp.user.template.json: invalid JSON: {exc}")
         template = {}
     template_servers = set((template.get("mcpServers") or {}).keys())
     try:
@@ -439,6 +396,7 @@ export type CapabilityDefinition = {
   readonly kind: CapabilityKind;
   readonly purpose: string;
   readonly owner: string;
+  readonly hosts: readonly string[];
   readonly trigger: string;
   readonly prerequisites: readonly string[];
   readonly readiness: string;
@@ -526,9 +484,6 @@ def validate_skills(skills: list[dict]) -> list[str]:
             errors.append(f"skills[{index}]: expected object")
             continue
         name = ensure_string(skill.get("name"), f"skills[{index}].name", errors)
-        owner = ensure_string(skill.get("owner"), f"skills[{index}].owner", errors)
-        if owner and owner not in SKILL_OWNERS:
-            errors.append(f"skills[{index}].owner: expected one of {sorted(SKILL_OWNERS)}, got {owner!r}")
         phase = ensure_string(skill.get("phase"), f"skills[{index}].phase", errors)
         use = ensure_string(skill.get("use"), f"skills[{index}].use", errors)
 
@@ -621,34 +576,6 @@ def render_mcp_runtime_policy(policy: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
-def render_skill_ownership(skills: list[dict]) -> str:
-    by_owner = {owner: [skill["name"] for skill in skills if skill["owner"] == owner] for owner in sorted(SKILL_OWNERS)}
-    return "\n".join(
-        [
-            f"- Executor-owned skills: {', '.join(f'`{name}`' for name in by_owner['executor'])}. The Executor is the sole user-facing worktree writer.",
-            f"- Architect-owned skills: {', '.join(f'`{name}`' for name in by_owner['architect'])}. The Architect performs the independent read-only diagnosis, planning, research, audit, and review gate.",
-            f"- Ownership governs execution, not inspection. {SKILL_OWNERSHIP_CRITERION} Unknown or ambiguous skill ownership is executor-owned; registry rejects missing or invalid ownership.",
-        ]
-    )
-
-
-def render_role_skill_ownership(skills: list[dict]) -> str:
-    ownership = {skill["name"]: skill["owner"] for skill in skills}
-    return "\n".join(
-        [
-            "/** Generated from skills/registry.yaml. Unknown skills fail closed to executor ownership. */",
-            'export type SkillOwner = "executor" | "architect";',
-            f"export const SKILL_OWNERSHIP_CRITERION = {json.dumps(SKILL_OWNERSHIP_CRITERION)};",
-            f"export const SKILL_OWNERS: Readonly<Record<string, SkillOwner>> = {json.dumps(ownership, indent=2)};",
-            "export function skillOwner(skill: string): SkillOwner {",
-            '  return SKILL_OWNERS[skill] ?? "executor";',
-            "}",
-            'const EXECUTOR_OWNED_SKILLS = Object.entries(SKILL_OWNERS).filter(([, owner]) => owner === "executor").map(([skill]) => "`" + skill + "`");',
-            'const ARCHITECT_OWNED_SKILLS = Object.entries(SKILL_OWNERS).filter(([, owner]) => owner === "architect").map(([skill]) => "`" + skill + "`");',
-        ]
-    )
-
-
 def render_routing(skills: list[dict]) -> str:
     lines: list[str] = []
     for skill in skills:
@@ -698,10 +625,6 @@ def render_skill_file(skill: dict) -> str:
     return "\n".join(lines)
 
 
-def render_role_prompt_markers(markers: list[str], indent: str) -> str:
-    return "\n".join(f"{indent}{json.dumps(marker, ensure_ascii=False)}," for marker in markers)
-
-
 def replace_block(text: str, start_marker: str, end_marker: str, body: str) -> str:
     try:
         start = text.index(start_marker) + len(start_marker)
@@ -711,7 +634,7 @@ def replace_block(text: str, start_marker: str, end_marker: str, body: str) -> s
     return text[:start] + "\n" + body.rstrip() + "\n" + text[end:]
 
 
-def render_outputs(skills: list[dict], capabilities: dict) -> dict[Path, str]:
+def render_outputs(skills: list[dict], capabilities: dict, permissions: dict) -> dict[Path, str]:
     outputs: dict[Path, str] = {}
     readme = ROOT / "README.md"
     outputs[readme] = replace_block(
@@ -720,69 +643,17 @@ def render_outputs(skills: list[dict], capabilities: dict) -> dict[Path, str]:
 
     kernel = KERNEL_TEMPLATE_PATH.read_text()
     kernel = replace_block(kernel, KERNEL_ROUTING_START, KERNEL_ROUTING_END, render_routing(skills))
-    kernel = replace_block(
-        kernel, KERNEL_SKILL_OWNERSHIP_START, KERNEL_SKILL_OWNERSHIP_END, render_skill_ownership(skills)
-    )
     policy = load_json_subset_yaml(MCP_OPERATIONS_PATH)
     outputs[KERNEL_TEMPLATE_PATH] = replace_block(
         kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy)
     )
-    role_extension = ROOT / "pi" / "extensions" / "b-agentic-support" / "role.ts"
-    outputs[role_extension] = replace_block(
-        role_extension.read_text(),
-        ROLE_SKILL_OWNERSHIP_START,
-        ROLE_SKILL_OWNERSHIP_END,
-        render_role_skill_ownership(skills),
-    )
-    shared_validation = ROOT / "tooling" / "validate" / "shared.py"
-    outputs[shared_validation] = replace_block(
-        shared_validation.read_text(),
-        ROLE_PROMPT_SHARED_START,
-        ROLE_PROMPT_SHARED_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["common"], "    "),
-    )
-    behavior_validation = ROOT / "tooling" / "validate" / "behavior.py"
-    outputs[behavior_validation] = replace_block(
-        behavior_validation.read_text(),
-        ROLE_PROMPT_BEHAVIOR_START,
-        ROLE_PROMPT_BEHAVIOR_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["behavior"], "        "),
-    )
-    pi_validation = ROOT / "pi" / "scripts" / "validate.sh"
-    outputs[pi_validation] = replace_block(
-        pi_validation.read_text(),
-        ROLE_PROMPT_VALIDATE_START,
-        ROLE_PROMPT_VALIDATE_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["common"], "    "),
-    )
-    smoke = ROOT / "pi" / "tests" / "smoke.sh"
-    smoke_text = smoke.read_text()
-    for legacy, current in [
-        ("// generated:role-prompt-markers:planner:start", ROLE_PROMPT_SMOKE_ARCHITECT_START),
-        ("// generated:role-prompt-markers:planner:end", ROLE_PROMPT_SMOKE_ARCHITECT_END),
-        ("// generated:role-prompt-markers:worker:start", ROLE_PROMPT_SMOKE_EXECUTOR_START),
-        ("// generated:role-prompt-markers:worker:end", ROLE_PROMPT_SMOKE_EXECUTOR_END),
-    ]:
-        smoke_text = smoke_text.replace(legacy, current)
-    smoke_text = replace_block(
-        smoke_text,
-        ROLE_PROMPT_SMOKE_ARCHITECT_START,
-        ROLE_PROMPT_SMOKE_ARCHITECT_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["architect"], "  "),
-    )
-    smoke_text = replace_block(
-        smoke_text,
-        ROLE_PROMPT_SMOKE_EXECUTOR_START,
-        ROLE_PROMPT_SMOKE_EXECUTOR_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["executor"], "  "),
-    )
-    outputs[smoke] = smoke_text
-    extension = ROOT / "pi" / "extensions" / "b-agentic-support" / "mcp.ts"
+    extension = ROOT / "adapters" / "pi" / "extensions" / "b-agentic-support" / "mcp.ts"
     runtime_policy = re.sub(r"^const ", "export const ", render_mcp_runtime_policy(policy), flags=re.MULTILINE)
     outputs[extension] = replace_block(
         extension.read_text(), MCP_RUNTIME_POLICY_START, MCP_RUNTIME_POLICY_END, runtime_policy
     )
     outputs[CAPABILITIES_OUTPUT_PATH] = render_capability_module(capabilities)
+    outputs[PERMISSIONS_OUTPUT_PATH] = render_permissions_module(permissions)
     for skill in skills:
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
     return outputs
@@ -832,29 +703,37 @@ def validate_capability_regressions(contract: dict) -> list[str]:
     return errors
 
 
-def validate_owner_regressions(skills: list[dict]) -> list[str]:
+def validate_permission_regressions(data: dict) -> list[str]:
     errors: list[str] = []
-    for label, owner in (("missing", None), ("invalid", "coordinator")):
-        fixture = [dict(skill) for skill in skills]
-        if owner is None:
-            fixture[0].pop("owner", None)
-        else:
-            fixture[0]["owner"] = owner
-        if not any("owner" in error for error in validate_skills(fixture)):
-            errors.append(f"ownership regression: {label} owner must be rejected")
+    missing_set = json.loads(json.dumps(data))
+    missing_set.pop("deny_commands", None)
+    if not any("deny_commands" in error for error in validate_permissions(missing_set)):
+        errors.append("permissions regression: missing deny_commands must be rejected")
+
+    overlap = json.loads(json.dumps(data))
+    overlap["deny_commands"].append(list(overlap["ask_commands"][0]))
+    if not any("must not overlap" in error for error in validate_permissions(overlap)):
+        errors.append("permissions regression: ask/deny overlap must be rejected")
+
+    spaced_token = json.loads(json.dumps(data))
+    spaced_token["ask_commands"][0] = ["git", "push --force"]
+    if not any("single-token" in error for error in validate_permissions(spaced_token)):
+        errors.append("permissions regression: multi-token pattern entries must be rejected")
     return errors
 
 
 def sync_outputs(check: bool) -> int:
     skills = load_skills()
     capabilities = load_capabilities()
+    permissions = load_permissions()
     errors = validate_skills(skills)
     errors.extend(validate_capabilities(capabilities))
+    errors.extend(validate_permissions(permissions))
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
     dirty: list[str] = []
-    for path, content in render_outputs(skills, capabilities).items():
+    for path, content in render_outputs(skills, capabilities, permissions).items():
         if path.exists() and path.read_text() == content:
             continue
         dirty.append(str(path.relative_to(ROOT)))
@@ -872,17 +751,15 @@ def sync_outputs(check: bool) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render generated Pi assets from canonical sources.")
     parser.add_argument("--check", action="store_true", help="fail if generated outputs are stale")
-    parser.add_argument(
-        "--self-test", action="store_true", help="verify missing and invalid skill owners fail validation"
-    )
+    parser.add_argument("--self-test", action="store_true", help="verify invalid capability contracts fail validation")
     args = parser.parse_args()
     if args.self_test:
-        errors = validate_owner_regressions(load_skills())
-        errors.extend(validate_capability_regressions(load_capabilities()))
+        errors = validate_capability_regressions(load_capabilities())
+        errors.extend(validate_permission_regressions(load_permissions()))
         if errors:
             print("\n".join(errors), file=sys.stderr)
             return 1
-        print("Skill ownership and capability contract validation regressions passed.")
+        print("Capability contract validation regressions passed.")
     return sync_outputs(args.check)
 
 

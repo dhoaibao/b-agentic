@@ -30,7 +30,7 @@ Create a validated, portable technical diagram artifact from explicit user or re
 
 ## Tool guidance
 
-- Use `read` and local discovery for the smallest relevant repository evidence. Select CodeGraph only when a concrete repository-wide architecture, dependency, or call-flow question is central.
+- Use `read` and local discovery for the smallest relevant repository evidence. Select CodeGraph [cap: mcp.codegraph] only when a concrete repository-wide architecture, dependency, or call-flow question is central.
 - Use the bundled `./diagram.py` with Python 3. Its `validate` command never writes; its `deliver` command atomically replaces only the named HTML target after validation succeeds.
 - Do not fetch URLs or inspect live systems from diagram evidence references.
 

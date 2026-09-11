@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "host": "antigravity",
+  "status": "deferred",
+  "description": "Verified target; declarative configuration delivery only. No installer in v1.",
+  "instruction": {"path": "~/.gemini/GEMINI.md (global) + .agents/rules/*.md (workspace)", "source": "references/kernel.template.md", "scope": "user+workspace", "limit": "rules files are capped at 12,000 characters each"},
+  "skills": {"dir": ".agents/skills/<name>/SKILL.md", "global": "~/.gemini/config/skills/<name>/SKILL.md", "source": "skills/", "note": "also read by OpenCode; see coexistence in docs/hosts.md"},
+  "mcp": {"path": ".agents/mcp_config.json (workspace) or ~/.gemini/config/mcp_config.json (global)", "key": "mcpServers", "transport": "command+args or serverUrl; legacy url/httpUrl unsupported"},
+  "permissions": {"mechanism": "deny/ask/allow action(target) rules", "matching": "literal word-by-word prefix; command(regex:...) opt-in; Deny > Ask > Allow", "cli_path": "~/.gemini/antigravity-cli/settings.json", "data": "references/permissions.yaml"},
+  "hook": {"event": "PreToolUse", "blocking": "decision = allow|deny|ask|force_ask|deny_unless_prior_grant", "note": "documented capability only; v1 ships no hook scripts"},
+  "evidence": "docs/hosts.md"
+}

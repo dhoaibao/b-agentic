@@ -21,14 +21,14 @@ MARKDOWNLINT="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
 [ -x "$PRETTIER" ] || fail_missing prettier "install root development tools with 'npm ci'"
 [ -x "$MARKDOWNLINT" ] || fail_missing markdownlint-cli2 "install root development tools with 'npm ci'"
 
-PI_TSC="$ROOT_DIR/pi/node_modules/.bin/tsc"
+PI_TSC="$ROOT_DIR/adapters/pi/node_modules/.bin/tsc"
 [ -x "$PI_TSC" ] || fail_missing "Pi TypeScript dependencies" "install them with 'npm ci --prefix pi'"
-[ -d "$ROOT_DIR/pi/node_modules/@earendil-works/pi-coding-agent" ] || fail_missing "@earendil-works/pi-coding-agent" "install Pi dependencies with 'npm ci --prefix pi'"
-[ -d "$ROOT_DIR/pi/node_modules/@earendil-works/pi-tui" ] || fail_missing "@earendil-works/pi-tui" "install Pi dependencies with 'npm ci --prefix pi'"
+[ -d "$ROOT_DIR/adapters/pi/node_modules/@earendil-works/pi-coding-agent" ] || fail_missing "@earendil-works/pi-coding-agent" "install Pi dependencies with 'npm ci --prefix pi'"
+[ -d "$ROOT_DIR/adapters/pi/node_modules/@earendil-works/pi-tui" ] || fail_missing "@earendil-works/pi-tui" "install Pi dependencies with 'npm ci --prefix pi'"
 
 is_generated_delivery() {
 	case "$1" in
-	skills/*/SKILL.md|pi/extensions/b-agentic-support/mcp.ts|pi/extensions/b-agentic-support/role.ts|tooling/validate/behavior.py|tooling/validate/shared.py)
+	skills/*/SKILL.md|adapters/pi/extensions/b-agentic-support/mcp.ts|adapters/pi/extensions/b-agentic-support/permissions-data.ts|tooling/validate/behavior.py|tooling/validate/shared.py)
 		return 0
 		;;
 	*)
@@ -127,5 +127,5 @@ run_if_files "ShellCheck" "${#shell_files[@]}" shellcheck --shell=bash --externa
 run_if_files "Markdownlint" "${#markdown_files[@]}" "$MARKDOWNLINT" --config .markdownlint-cli2.jsonc "${markdown_files[@]}"
 
 printf 'Pi TypeScript typecheck\n'
-bash "$ROOT_DIR/pi/scripts/typecheck.sh"
+bash "$ROOT_DIR/adapters/pi/scripts/typecheck.sh"
 printf 'Repository quality checks passed.\n'

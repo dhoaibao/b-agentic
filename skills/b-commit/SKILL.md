@@ -27,14 +27,11 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Tool guidance
 
-- Pi native `read`/`edit` for applicable repository commit rules and required changelog preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
+- Native `read`/`edit` for applicable repository commit rules and required changelog preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
 
 ## Review and commit gate
 
-`b-commit` is executor-owned. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Complete repository-required commit preparation and checks, then capture an exact candidate snapshot and commit plan before staging.
-
-- In standalone **Off** mode, independent review is not a commit prerequisite and this skill does not initiate intercom review. Verify the candidate and checks locally. If the user explicitly requires review first, stop until that requirement is satisfied; never reuse stale review evidence.
-- In explicit **executor** mode, require a valid independent **b-review** disposition for the exact candidate and commit plan. If absent or changed—including relevant untracked content or required changelog preparation—let the executor-role profile request or reopen **b-review**, then pause without staging or editing. Missing peers, failed checks, or unresolved findings block committing. Resume only for the unchanged reviewed snapshot; never regroup silently or push.
+An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Verify the candidate and checks locally; complete repository-required commit preparation and checks, then capture an exact candidate snapshot and commit plan before staging. Independent review is not a commit prerequisite and this skill does not initiate review. If the user explicitly requires review first, stop until that requirement is satisfied; never reuse stale review evidence.
 
 ## Steps
 
@@ -46,7 +43,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 6. Block if a group mixes unrelated concerns, a protected file needs permission, or a file cannot be assigned confidently. Before freezing the candidate, read applicable repository commit rules and perform required preparation only for this user-authorized commit. Update `CHANGELOG.md` when required, following the repository's date/category convention; do not impose a changelog on repositories without that rule. Run the prescribed changelog validator when present and all required checks. Include prepared files in the commit plan without silently adding them to or rewriting a user-curated staged group; if grouping is ambiguous, stop. Message-only and staged PR-copy requests never reach this preparation step.
 7. For each group, choose the narrowest accurate type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`; write an imperative subject of at most 50 characters with no trailing punctuation.
 8. Record the groups, exact file paths, and commit messages in the execution response, then continue without a second approval prompt; the explicit user commit request is sufficient authorization. If the request did not explicitly authorize committing, stop.
-9. Apply the role-specific review and commit gate above to the complete candidate and plan. Before staging, verify the snapshot and commit plan are unchanged and required checks passed. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
+9. Apply the review and commit gate above to the complete candidate and plan. Before staging, verify the snapshot and commit plan are unchanged and required checks passed. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
 10. Reinspect each staged group immediately before committing with a targeted non-protected-path diff. Create its commit on the current branch, then continue to the next approved group. Stop on the first Git error; do not amend, reset, push, or retry by changing history.
 11. Report commit hashes, messages, remaining changes, and any blockers. Recommend `b-pr-summary <commit-count>` for PR copy.
 
@@ -90,5 +87,5 @@ BLOCKED: commit staged changes before generating PR copy
 - Preserve unrelated worktree changes and the user-curated index.
 - Evidence-only messages; do not invent behavior, verification, or impact.
 - Require an explicit user commit request, but do not ask for a second approval after it; do not push or create a PR.
-- Commit only for the unchanged verified snapshot and plan. In explicit executor mode, any candidate or plan change must reopen **b-review** before committing; Off mode remains solo unless the user requires review.
+- Commit only for the unchanged verified snapshot and plan; any candidate or plan change must be reverified before committing. If the user requires review first, a changed candidate returns to review.
 - Never use `git add -A`, `git add .`, `git commit --amend`, reset, or history-rewriting commands.

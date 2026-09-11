@@ -1,10 +1,11 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "format": "json-subset-of-yaml",
   "description": "Canonical activation contract for managed Pi capabilities. Status is local and non-sensitive; it never claims authentication, external verification, or usage unless a separate approved operation proves it.",
   "capabilities": [
     {
       "id": "package.pi-mcp-adapter",
+      "hosts": ["pi"],
       "kind": "package",
       "purpose": "Load Pi MCP configuration and expose managed servers through the adapter proxy.",
       "owner": "Pi MCP adapter",
@@ -21,10 +22,11 @@
       "probe": {"type": "package", "name": "pi-mcp-adapter"},
       "package": {"name": "pi-mcp-adapter", "spec": "npm:pi-mcp-adapter"},
       "install_state": {"action": "mcpAdapterAction", "state": "mcpAdapterState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "package.pi-observational-memory",
+      "hosts": ["pi"],
       "kind": "package",
       "purpose": "Provide long-session compaction continuity for Pi conversations.",
       "owner": "Pi observational memory",
@@ -41,10 +43,11 @@
       "probe": {"type": "package", "name": "pi-observational-memory"},
       "package": {"name": "pi-observational-memory", "spec": "npm:pi-observational-memory"},
       "install_state": {"action": "piObservationalMemoryAction", "state": "piObservationalMemoryState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "package.pi-usage",
+      "hosts": ["pi"],
       "kind": "package",
       "purpose": "Provide Pi usage reporting when the installed extension supports it.",
       "owner": "Pi usage extension",
@@ -61,10 +64,11 @@
       "probe": {"type": "package", "name": "@sreetej510/pi-usage"},
       "package": {"name": "@sreetej510/pi-usage", "spec": "npm:@sreetej510/pi-usage"},
       "install_state": {"action": "piUsageAction", "state": "piUsageState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "package.pi-anthropic-auth",
+      "hosts": ["pi"],
       "kind": "package",
       "purpose": "Provide Pi authentication support for Anthropic providers.",
       "owner": "Pi Anthropic auth extension",
@@ -81,17 +85,18 @@
       "probe": {"type": "package", "name": "@gotgenes/pi-anthropic-auth"},
       "package": {"name": "@gotgenes/pi-anthropic-auth", "spec": "npm:@gotgenes/pi-anthropic-auth"},
       "install_state": {"action": "piAnthropicAuthAction", "state": "piAnthropicAuthState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "package.pi-intercom",
+      "hosts": ["pi"],
       "kind": "package",
-      "purpose": "Connect compatible same-CWD Architect/Executor sessions for approved-plan, research, diagnosis, review-request, and review-findings handoffs.",
+      "purpose": "Connect compatible same-CWD sessions for optional session-to-session coordination, task delegation, and real-time collaboration.",
       "owner": "Pi Intercom",
-      "trigger": "Use when the user explicitly selects executor/architect roles, an Executor routes b-plan, b-research, or b-debug to the Architect, an Architect hands an approved plan or diagnosis to an Executor, an independent review gate is required, or an Architect returns findings to the Executor.",
+      "trigger": "Use only when the user explicitly requests cross-session coordination or delegation; the default workflow is solo.",
       "prerequisites": ["Pi CLI", "Same-CWD session coordination"],
       "readiness": "The package is present in the local Pi package listing; peer connectivity is not probed here.",
-      "fallback": "Remain in solo/Off mode or report the coordination gap; never invent a peer or handoff.",
+      "fallback": "Remain in the solo workflow or report the coordination gap; never invent a peer or handoff.",
       "status_signal": {
         "source": "local-package-listing",
         "states": ["installed", "missing", "unknown"],
@@ -101,10 +106,11 @@
       "probe": {"type": "package", "name": "pi-intercom"},
       "package": {"name": "pi-intercom", "spec": "npm:pi-intercom"},
       "install_state": {"action": "piIntercomAction", "state": "piIntercomState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "package.pi-ask-user-question",
+      "hosts": ["pi"],
       "kind": "package",
       "purpose": "Provide grouped structured choices for material user-facing decisions and blockers.",
       "owner": "Pi ask-user-question extension",
@@ -121,10 +127,11 @@
       "probe": {"type": "package", "name": "@juicesharp/rpiv-ask-user-question"},
       "package": {"name": "@juicesharp/rpiv-ask-user-question", "spec": "npm:@juicesharp/rpiv-ask-user-question"},
       "install_state": {"action": "piAskUserQuestionAction", "state": "piAskUserQuestionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "package.pi-todo",
+      "hosts": ["pi"],
       "kind": "package",
       "purpose": "Provide Pi's todo tool, /todos command, and persistent overlay.",
       "owner": "Pi Todo extension",
@@ -141,10 +148,11 @@
       "probe": {"type": "package", "name": "@juicesharp/rpiv-todo"},
       "package": {"name": "@juicesharp/rpiv-todo", "spec": "npm:@juicesharp/rpiv-todo"},
       "install_state": {"action": "piTodoAction", "state": "piTodoState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "mcp.codegraph",
+      "hosts": ["pi", "claude-code", "codex", "opencode", "antigravity"],
       "kind": "mcp",
       "purpose": "Answer repository-wide architecture, dependency/call-flow, impact, route, and affected-test questions.",
       "owner": "CodeGraph MCP",
@@ -161,10 +169,11 @@
       "probe": {"type": "mcp", "server": "codegraph", "launcher": "codegraph", "required_env": [], "auth": "none"},
       "mcp": {"server": "codegraph", "launcher": "codegraph", "required_env": [], "auth": "none"},
       "install_state": {"action": "mcpAction", "state": "mcpState"},
-      "source": {"template": "pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
+      "source": {"template": "adapters/pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
     },
     {
       "id": "mcp.context7",
+      "hosts": ["pi", "claude-code", "codex", "opencode", "antigravity"],
       "kind": "mcp",
       "purpose": "Provide versioned official framework, library, and API documentation facts.",
       "owner": "Context7 MCP",
@@ -181,10 +190,11 @@
       "probe": {"type": "mcp", "server": "context7", "launcher": null, "required_env": ["CONTEXT7_API_KEY"], "auth": "api-key"},
       "mcp": {"server": "context7", "launcher": null, "required_env": ["CONTEXT7_API_KEY"], "auth": "api-key"},
       "install_state": {"action": "mcpAction", "state": "mcpState"},
-      "source": {"template": "pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
+      "source": {"template": "adapters/pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
     },
     {
       "id": "mcp.brave-search",
+      "hosts": ["pi", "claude-code", "codex", "opencode", "antigravity"],
       "kind": "mcp",
       "purpose": "Provide independent current web corroboration and specialized current search modalities.",
       "owner": "Brave Search MCP",
@@ -201,10 +211,11 @@
       "probe": {"type": "mcp", "server": "brave-search", "launcher": "bunx", "required_env": ["BRAVE_API_KEY"], "auth": "api-key"},
       "mcp": {"server": "brave-search", "launcher": "bunx", "required_env": ["BRAVE_API_KEY"], "auth": "api-key"},
       "install_state": {"action": "mcpAction", "state": "mcpState"},
-      "source": {"template": "pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
+      "source": {"template": "adapters/pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
     },
     {
       "id": "mcp.firecrawl",
+      "hosts": ["pi", "claude-code", "codex", "opencode", "antigravity"],
       "kind": "mcp",
       "purpose": "Provide bounded public extraction, developer research, papers, and GitHub lookup.",
       "owner": "Firecrawl MCP",
@@ -221,10 +232,11 @@
       "probe": {"type": "mcp", "server": "firecrawl", "launcher": "bunx", "required_env": ["FIRECRAWL_API_KEY"], "auth": "api-key"},
       "mcp": {"server": "firecrawl", "launcher": "bunx", "required_env": ["FIRECRAWL_API_KEY"], "auth": "api-key"},
       "install_state": {"action": "mcpAction", "state": "mcpState"},
-      "source": {"template": "pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
+      "source": {"template": "adapters/pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
     },
     {
       "id": "mcp.playwright",
+      "hosts": ["pi", "claude-code", "codex", "opencode", "antigravity"],
       "kind": "mcp",
       "purpose": "Collect requested real-browser, live UI, visual, console/network, and e2e evidence.",
       "owner": "Playwright MCP",
@@ -241,10 +253,11 @@
       "probe": {"type": "mcp", "server": "playwright", "launcher": "bunx", "required_env": [], "auth": "none"},
       "mcp": {"server": "playwright", "launcher": "bunx", "required_env": [], "auth": "none"},
       "install_state": {"action": "mcpAction", "state": "mcpState"},
-      "source": {"template": "pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
+      "source": {"template": "adapters/pi/configs/mcp.user.template.json", "policy": "references/mcp_operations.yaml"}
     },
     {
       "id": "extension.b-agentic-permissions",
+      "hosts": ["pi"],
       "kind": "extension",
       "purpose": "Apply first-party shell and filesystem permission policy to Pi tool calls.",
       "owner": "b-agentic permissions extension",
@@ -259,12 +272,13 @@
         "sensitive": false
       },
       "probe": {"type": "extension", "name": "b-agentic-permissions.ts"},
-      "extension": {"name": "b-agentic-permissions.ts", "source": "pi/extensions/b-agentic-permissions.ts"},
+      "extension": {"name": "b-agentic-permissions.ts", "source": "adapters/pi/extensions/b-agentic-permissions.ts"},
       "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "extension.b-agentic-mcp-permissions",
+      "hosts": ["pi"],
       "kind": "extension",
       "purpose": "Apply managed MCP, custom-tool, and Intercom approval policy.",
       "owner": "b-agentic MCP permissions extension",
@@ -279,12 +293,13 @@
         "sensitive": false
       },
       "probe": {"type": "extension", "name": "b-agentic-mcp-permissions.ts"},
-      "extension": {"name": "b-agentic-mcp-permissions.ts", "source": "pi/extensions/b-agentic-mcp-permissions.ts"},
+      "extension": {"name": "b-agentic-mcp-permissions.ts", "source": "adapters/pi/extensions/b-agentic-mcp-permissions.ts"},
       "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "extension.b-agentic-auto-mode",
+      "hosts": ["pi"],
       "kind": "extension",
       "purpose": "Provide explicit opt-in automatic approval while retaining explicit denies.",
       "owner": "b-agentic auto-mode extension",
@@ -299,92 +314,13 @@
         "sensitive": false
       },
       "probe": {"type": "extension", "name": "b-agentic-auto-mode.ts"},
-      "extension": {"name": "b-agentic-auto-mode.ts", "source": "pi/extensions/b-agentic-auto-mode.ts"},
+      "extension": {"name": "b-agentic-auto-mode.ts", "source": "adapters/pi/extensions/b-agentic-auto-mode.ts"},
       "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
-    },
-    {
-      "id": "extension.b-agentic-role",
-      "kind": "extension",
-      "purpose": "Select and persist explicit roles while preserving single-writer arbitration for same-CWD sessions.",
-      "owner": "b-agentic role extension",
-      "trigger": "Use when the user selects /b-role or a startup role flag is active; default behavior is Off.",
-      "prerequisites": ["Installed Pi extension entrypoint", "Explicit role selection"],
-      "readiness": "The managed entrypoint exists; the current role is reported separately by Pi.",
-      "fallback": "Remain in Off/solo mode and do not infer legacy planner/worker activation.",
-      "status_signal": {
-        "source": "local-extension-file",
-        "states": ["installed", "missing"],
-        "description": "Reports only entrypoint presence; it does not expose session messages or model preferences.",
-        "sensitive": false
-      },
-      "probe": {"type": "extension", "name": "b-agentic-role.ts"},
-      "extension": {"name": "b-agentic-role.ts", "source": "pi/extensions/b-agentic-role.ts"},
-      "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
-    },
-    {
-      "id": "extension.b-agentic-architect",
-      "kind": "extension",
-      "purpose": "Inject the independent Architect profile from the managed extension entrypoint.",
-      "owner": "b-agentic architect profile extension",
-      "trigger": "Use when the explicit active role is architect; it is prompt-governed read-only.",
-      "prerequisites": ["Installed Pi extension entrypoint", "Architect role selected"],
-      "readiness": "The managed entrypoint exists in the local Pi extensions directory.",
-      "fallback": "Use the active role normal prompt and do not claim architect behavior.",
-      "status_signal": {
-        "source": "local-extension-file",
-        "states": ["installed", "missing"],
-        "description": "Reports only the local managed entrypoint; it does not persist or expose prompts.",
-        "sensitive": false
-      },
-      "probe": {"type": "extension", "name": "b-agentic-architect.ts"},
-      "extension": {"name": "b-agentic-architect.ts", "source": "pi/extensions/b-agentic-architect.ts"},
-      "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
-    },
-    {
-      "id": "extension.b-agentic-executor-notify",
-      "kind": "extension",
-      "purpose": "Emit privacy-safe executor user-input and post-review task-completion attention signals.",
-      "owner": "b-agentic role notification extension",
-      "trigger": "Use only for an executor user-input call with UI or an explicit executor task-completion signal after ready b-review.",
-      "prerequisites": ["Installed Pi extension entrypoint", "Supported desktop notifier"],
-      "readiness": "The managed entrypoint exists; notification delivery is not probed.",
-      "fallback": "Keep the event in the active session flow and report that desktop notification delivery is unavailable.",
-      "status_signal": {
-        "source": "local-extension-file",
-        "states": ["installed", "missing"],
-        "description": "Reports only entrypoint presence; it does not expose notification payloads or claim delivery.",
-        "sensitive": false
-      },
-      "probe": {"type": "extension", "name": "b-agentic-executor-notify.ts"},
-      "extension": {"name": "b-agentic-executor-notify.ts", "source": "pi/extensions/b-agentic-executor-notify.ts"},
-      "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
-    },
-    {
-      "id": "extension.b-agentic-executor",
-      "kind": "extension",
-      "purpose": "Inject the sole user-facing Executor profile from the managed extension entrypoint.",
-      "owner": "b-agentic executor profile extension",
-      "trigger": "Use when the explicit active role is executor.",
-      "prerequisites": ["Installed Pi extension entrypoint", "Executor role selected"],
-      "readiness": "The managed entrypoint exists in the local Pi extensions directory.",
-      "fallback": "Remain in the normal Off workflow and do not claim an executor role.",
-      "status_signal": {
-        "source": "local-extension-file",
-        "states": ["installed", "missing"],
-        "description": "Reports only the local managed entrypoint; it does not expose handoff content or worktree claims.",
-        "sensitive": false
-      },
-      "probe": {"type": "extension", "name": "b-agentic-executor.ts"},
-      "extension": {"name": "b-agentic-executor.ts", "source": "pi/extensions/b-agentic-executor.ts"},
-      "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "extension.b-agentic-sync",
+      "hosts": ["pi"],
       "kind": "extension",
       "purpose": "Refresh managed b-agentic assets or installed runtime tooling from an active Pi session.",
       "owner": "b-agentic sync extension",
@@ -399,12 +335,13 @@
         "sensitive": false
       },
       "probe": {"type": "extension", "name": "b-agentic-sync.ts"},
-      "extension": {"name": "b-agentic-sync.ts", "source": "pi/extensions/b-agentic-sync.ts"},
+      "extension": {"name": "b-agentic-sync.ts", "source": "adapters/pi/extensions/b-agentic-sync.ts"},
       "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "extension.b-agentic-status",
+      "hosts": ["pi"],
       "kind": "extension",
       "purpose": "Show a read-only local capability snapshot without starting managed services or persisting session content.",
       "owner": "b-agentic status extension",
@@ -419,12 +356,13 @@
         "sensitive": false
       },
       "probe": {"type": "extension", "name": "b-agentic-status.ts"},
-      "extension": {"name": "b-agentic-status.ts", "source": "pi/extensions/b-agentic-status.ts"},
+      "extension": {"name": "b-agentic-status.ts", "source": "adapters/pi/extensions/b-agentic-status.ts"},
       "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     },
     {
       "id": "extension.b-agentic-preview-markdown",
+      "hosts": ["pi"],
       "kind": "extension",
       "purpose": "Render requested Markdown inline in the Pi TUI and provide source-copy commands.",
       "owner": "b-agentic Markdown preview extension",
@@ -439,9 +377,9 @@
         "sensitive": false
       },
       "probe": {"type": "extension", "name": "b-agentic-preview-markdown.ts"},
-      "extension": {"name": "b-agentic-preview-markdown.ts", "source": "pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"},
+      "extension": {"name": "b-agentic-preview-markdown.ts", "source": "adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"},
       "install_state": {"action": "extensionAction", "state": "extensionState"},
-      "source": {"installer": "pi/scripts/install.sh"}
+      "source": {"installer": "adapters/pi/scripts/install.sh"}
     }
   ]
 }

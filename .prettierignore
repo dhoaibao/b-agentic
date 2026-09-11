@@ -1,11 +1,11 @@
 # Dependency trees are never repository source.
 node_modules/
-pi/node_modules/
+adapters/pi/node_modules/
 
 # Generated delivery outputs are checked by registry synchronization instead.
 skills/*/SKILL.md
-pi/extensions/b-agentic-support/mcp.ts
-pi/extensions/b-agentic-support/role.ts
+adapters/pi/extensions/b-agentic-support/mcp.ts
+adapters/pi/extensions/b-agentic-support/permissions-data.ts
 
 # These sources contain or feed generated blocks; registry synchronization owns
 # their delivery formatting.
@@ -18,3 +18,5 @@ skills/*/prompt.md
 skills/registry.yaml
 references/capabilities.yaml
 references/mcp_operations.yaml
+references/permissions.yaml
+adapters/*/manifest.yaml
