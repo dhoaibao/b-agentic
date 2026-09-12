@@ -1,11 +1,12 @@
 # Release procedure
 
-Maintainer reference for the automated release flow. Every push to `main`
-publishes a release: the release workflow (`.github/workflows/release.yml`)
-re-runs the quality gates on the pushed commit, builds the checksum-verified
-bundle, and publishes a release whose tag is derived from `VERSION` — no
-manual tagging, no personal access token, and no stored secrets (the built-in
-`GITHUB_TOKEN` with `contents: write` is the only credential).
+Maintainer reference for the automated release flow. A push to `main` (or a
+manual dispatch on `main`) can publish a release: the `release` job in the CI
+workflow (`.github/workflows/validate.yml`) runs only after the `validate` job
+passes on both matrix legs, then builds and publishes the checksum-verified
+bundle without re-running the gates. There is no manual tagging, personal
+access token, or stored secret (the built-in `GITHUB_TOKEN` with
+`contents: write` is the only credential).
 
 ## Version contract
 
@@ -17,24 +18,37 @@ manual tagging, no personal access token, and no stored secrets (the built-in
 
 ## What the workflow does, in order
 
-1. Checkout and Python 3.12 setup.
-2. Resolve the release version: read `VERSION`, assert it matches `vYYYY.MM.DD`, count existing remote `VERSION.*` tags with `git ls-remote`, and take `RELEASE_VERSION = VERSION.N` (first push of a day yields `.1`). The run fails loudly if the tag already exists.
-3. Full gates on the pristine tree: `bash -n` on the release scripts, `bash scripts/validate-skills.sh --release`, `bash scripts/smoke-install.sh`, and `bash scripts/b-agentic-audit.sh --skip-preflight`. Because the gates run before the stamp, changelog validation still sees the committed `VERSION`.
-4. Stamp the runner copy of `VERSION` with the full `RELEASE_VERSION` so the shipped payload self-identifies with the exact release. The workflow never commits or pushes to `main`; the repository's `VERSION` stays `vYYYY.MM.DD`.
-5. Build the bundle with `scripts/build-release.sh` and extract notes with `bash scripts/extract-release-notes.sh "$BASE_VERSION" CHANGELOG.md` — the bare date resolved in step 2, not the ordinal.
-6. Publish with `gh release create "$RELEASE_VERSION" --target "$GITHUB_SHA"`, which creates the tag itself, so no `git push` is needed and a workflow-created tag cannot suppress another workflow.
+1. The `validate` job runs its quality, validation, and structural-audit gates on
+   both Ubuntu and macOS matrix legs. The release job cannot start unless both
+   legs pass; the gates run on the pristine tree before the release stamp, so
+   changelog validation sees the committed `VERSION`.
+2. The `release` job checks out the source and resolves the release version:
+   read `VERSION`, assert it matches `vYYYY.MM.DD`, count existing remote
+   `VERSION.*` tags with `git ls-remote`, and take `RELEASE_VERSION = VERSION.N`
+   (the first push of a day yields `.1`). The run fails loudly if the tag
+   already exists.
+3. Check shell syntax with `bash -n` on the release scripts.
+4. Stamp the runner copy of `VERSION` with the full `RELEASE_VERSION` so the
+   shipped payload self-identifies with the exact release. The workflow never
+   commits or pushes to `main`; the repository's `VERSION` stays
+   `vYYYY.MM.DD`.
+5. Build the bundle with `scripts/build-release.sh` and extract notes with
+   `bash scripts/extract-release-notes.sh "$BASE_VERSION" CHANGELOG.md` — the
+   bare date resolved in step 2, not the ordinal.
+6. Publish with `gh release create "$RELEASE_VERSION" --target "$GITHUB_SHA"`,
+   which creates the tag itself, so no `git push` is needed and a
+   workflow-created tag cannot suppress another workflow.
 
 ## Before pushing
 
-Run the same gates the workflow runs; a failed gate blocks the release but not
-the push, so `main` can sit ahead of the latest release until the next green
-push:
+Run the validation-job gates and release packaging checks locally; a failed
+gate blocks the release but not the push, so `main` can sit ahead of the latest
+release until the next green push:
 
 ```bash
 bash -n install.sh scripts/build-release.sh scripts/extract-release-notes.sh
 bash scripts/validate-skills.sh --release
 bash scripts/b-agentic-audit.sh --skip-preflight
-bash scripts/smoke-install.sh
 bash scripts/build-release.sh dist
 (cd dist && sha256sum -c b-agentic.tar.gz.sha256)
 bash scripts/extract-release-notes.sh "$(cat VERSION)" CHANGELOG.md
