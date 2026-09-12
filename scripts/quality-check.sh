@@ -22,9 +22,9 @@ MARKDOWNLINT="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
 [ -x "$MARKDOWNLINT" ] || fail_missing markdownlint-cli2 "install root development tools with 'npm ci'"
 
 PI_TSC="$ROOT_DIR/adapters/pi/node_modules/.bin/tsc"
-[ -x "$PI_TSC" ] || fail_missing "Pi TypeScript dependencies" "install them with 'npm ci --prefix pi'"
-[ -d "$ROOT_DIR/adapters/pi/node_modules/@earendil-works/pi-coding-agent" ] || fail_missing "@earendil-works/pi-coding-agent" "install Pi dependencies with 'npm ci --prefix pi'"
-[ -d "$ROOT_DIR/adapters/pi/node_modules/@earendil-works/pi-tui" ] || fail_missing "@earendil-works/pi-tui" "install Pi dependencies with 'npm ci --prefix pi'"
+[ -x "$PI_TSC" ] || fail_missing "Pi TypeScript dependencies" "install them with 'npm ci --prefix adapters/pi'"
+[ -d "$ROOT_DIR/adapters/pi/node_modules/@earendil-works/pi-coding-agent" ] || fail_missing "@earendil-works/pi-coding-agent" "install Pi dependencies with 'npm ci --prefix adapters/pi'"
+[ -d "$ROOT_DIR/adapters/pi/node_modules/@earendil-works/pi-tui" ] || fail_missing "@earendil-works/pi-tui" "install Pi dependencies with 'npm ci --prefix adapters/pi'"
 
 is_generated_delivery() {
 	case "$1" in

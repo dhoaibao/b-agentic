@@ -25,13 +25,13 @@ jobs:
           cache: npm
           cache-dependency-path: |
             package-lock.json
-            pi/package-lock.json
+            adapters/pi/package-lock.json
       - name: Install locked repository development tools
         run: npm ci --no-fund --no-audit
       - name: Install locked Pi TypeScript dependencies
-        run: npm ci --prefix pi --no-fund --no-audit
+        run: npm ci --prefix adapters/pi --no-fund --no-audit
       - name: Use the locked Pi runtime
-        run: echo "$GITHUB_WORKSPACE/pi/node_modules/.bin" >> "$GITHUB_PATH"
+        run: echo "$GITHUB_WORKSPACE/adapters/pi/node_modules/.bin" >> "$GITHUB_PATH"
       - name: Run repository quality checks
         run: npm run quality
       - name: Run validation suite

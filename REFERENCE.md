@@ -368,7 +368,7 @@ repository root, install the locked Node tools and pinned Python quality tools:
 ```bash
 npm ci --no-fund --no-audit
 python3 -m pip install -r requirements-dev-quality.txt
-npm ci --prefix pi --no-fund --no-audit
+npm ci --prefix adapters/pi --no-fund --no-audit
 ```
 
 `npm run quality` (or `bash scripts/quality-check.sh`) enumerates tracked files

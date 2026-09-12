@@ -22,6 +22,10 @@ section per date and same-day changes aggregated in that section.
 - Narrow `--ref` from any tag-or-commit pin to `vYYYY.MM.DD.N` release tags only; bare dates, commit-SHA, and SemVer pins are rejected, and `releases/latest/download` URLs require a published release.
 - Skip the optional Dracula theme with a warning when `git` is missing instead of failing the install, since `git` is no longer an installer prerequisite.
 
+### Fixed
+
+- Repair the Validate CI workflow after the `adapters/pi/` restructure: the npm cache path, the locked Pi TypeScript install, and the PATH step again point at the live `adapters/pi/` lockfile and binaries instead of the removed `pi/` directory, and the stale `--prefix pi` recovery hints in the operational reference, the quality-check script, and the Pi typecheck scripts now use `--prefix adapters/pi`.
+
 ## [v2026.09.11] - 2026-09-11
 
 ### Added
