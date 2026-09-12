@@ -677,11 +677,17 @@ validate_ref() {
 	case "$REF" in
 	-*) die "invalid ref: $REF (must not start with -)" ;;
 	esac
-	# Release refs are CalVer release tags; commit SHAs and SemVer tags are no
-	# longer installable pins.
+	# Release refs are dated ordinal release tags (vYYYY.MM.DD.N, one per push
+	# to main); bare dates, commit SHAs, and SemVer tags are not installable
+	# pins. Bash 3.2-safe: glob the date portion, then verify the ordinal
+	# suffix is non-empty and all digits.
 	case "$REF" in
-	v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]) ;;
-	*) die "invalid ref: $REF (must be a vYYYY.MM.DD release tag, e.g. v$(date +%Y.%m.%d))" ;;
+	v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].*) ;;
+	*) die "invalid ref: $REF (must be a vYYYY.MM.DD.N release tag, e.g. v$(date +%Y.%m.%d).1)" ;;
+	esac
+	local ordinal="${REF#v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].}"
+	case "$ordinal" in
+	''|*[!0-9]*) die "invalid ref: $REF (must be a vYYYY.MM.DD.N release tag, e.g. v$(date +%Y.%m.%d).1)" ;;
 	esac
 }
 

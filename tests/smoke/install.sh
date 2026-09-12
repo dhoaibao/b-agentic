@@ -620,7 +620,9 @@ run_ref_install_case() {
 	local install_ref manifest_path rc
 
 	mkdir -p "$sandbox_ref/home" "$sandbox_invalid/home"
-	install_ref="$(cat "$ROOT_DIR/VERSION")"
+	# Pins use the ordinal release-tag scheme the release workflow publishes:
+	# $(cat VERSION).N.
+	install_ref="$(cat "$ROOT_DIR/VERSION").1"
 
 	expect_install_status 0 "$sandbox_ref" "$release_fixture" --ref="$install_ref"
 
@@ -770,10 +772,10 @@ run_release_ref_validation_case() {
 	local log ref
 
 	mkdir -p "$sandbox/home"
-	for ref in v0.1.2 main 1234567 v2026-09-11 v2026.9.11; do
+	for ref in v2026.09.12 v0.1.2 main 1234567 v2026-09-11 v2026.9.11; do
 		log="$sandbox/ref-$ref.log"
 		run_install_capture "$sandbox" "$release_fixture" "$log" "--ref=$ref" && fail "expected malformed --ref=$ref to fail safely"
-		assert_contains "$log" 'must be a vYYYY.MM.DD release tag'
+		assert_contains "$log" 'must be a vYYYY.MM.DD.N release tag'
 	done
 }
 
@@ -783,7 +785,9 @@ run_release_ref_url_case() {
 	local bin_dir="$sandbox/bin"
 	local ref install_log url_log
 
-	ref="$(cat "$ROOT_DIR/VERSION")"
+	# Pins use the ordinal release-tag scheme the release workflow publishes:
+	# $(cat VERSION).N.
+	ref="$(cat "$ROOT_DIR/VERSION").1"
 	mkdir -p "$sandbox/home" "$bin_dir"
 	url_log="$sandbox/curl.log"
 	install_log="$sandbox/install.log"

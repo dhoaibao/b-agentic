@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 ```
 
 The piped script is only a bootstrap: it downloads the release tarball for the
-current `vYYYY.MM.DD` release, verifies its SHA-256 checksum, validates every
+current `vYYYY.MM.DD.N` release, verifies its SHA-256 checksum, validates every
 archive entry against the published payload contract, and then re-executes all
 state changes from inside that verified bundle. `git` is not required.
 In an interactive terminal, the installer opens a component picker with the

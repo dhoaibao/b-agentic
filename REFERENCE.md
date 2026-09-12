@@ -40,7 +40,8 @@ it is preserved verbatim and never merged. `~/.b-agentic/install.sh --sync`
 re-downloads and verifies the latest release before refreshing that directory;
 `--update` and `--uninstall` reuse the installed source without any download.
 If no release is published yet, the bootstrap fails with an actionable error —
-the first `vYYYY.MM.DD` tag must be pushed before the installer can run
+releases publish automatically on every push to `main`, and until the first
+one exists the installer cannot run
 (see the [release procedure](docs/release-procedure.md)).
 
 ### Standalone Markdown preview install
@@ -88,11 +89,11 @@ reported without changing the active behavior. Preview entries do not retain a
 stored palette.
 
 For professional or shared environments, pin both the bootstrap script and the
-installed release to a reviewed `vYYYY.MM.DD` release tag instead of consuming
+installed release to a reviewed `vYYYY.MM.DD.N` release tag instead of consuming
 whatever release is currently latest:
 
 ```bash
-export B_AGENTIC_REF=<vYYYY.MM.DD>  # an existing release tag
+export B_AGENTIC_REF=<vYYYY.MM.DD.N>  # an existing release tag
 curl -fsSL "https://raw.githubusercontent.com/dhoaibao/b-agentic/${B_AGENTIC_REF}/install.sh" | bash -s -- --ref="${B_AGENTIC_REF}"
 ```
 
@@ -101,7 +102,7 @@ Useful flags:
 - `--dry-run` previews changes.
 - `--replace-memory` replaces an existing managed kernel file.
 - `--uninstall` removes managed files.
-- `--ref=vYYYY.MM.DD` downloads that release tag's verified tarball instead of the latest release; commit SHAs and SemVer tags are no longer installable pins.
+- `--ref=vYYYY.MM.DD.N` downloads that release tag's verified tarball instead of the latest release; bare dates, commit SHAs, and SemVer tags are not installable pins.
 - `--sync` re-downloads the latest verified release into the installed source and syncs managed Pi skills, kernel, and first-party extensions only.
 - `--update` installs or updates RTK, CodeGraph, Bun, Pi, Dracula theme, and Pi extensions without re-downloading the release.
 
