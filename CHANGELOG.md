@@ -22,6 +22,7 @@ section per date and same-day changes aggregated in that section.
 - Narrow `--ref` from any tag-or-commit pin to `vYYYY.MM.DD.N` release tags only; bare dates, commit-SHA, and SemVer pins are rejected, and `releases/latest/download` URLs require a published release.
 - Skip the optional Dracula theme with a warning when `git` is missing instead of failing the install, since `git` is no longer an installer prerequisite.
 - Gate release packaging and publication behind both validation matrix legs in the CI workflow, removing duplicated release-time gates and keeping the release job focused on versioning, bundling, notes, and publication.
+- Reframe the public installation docs around the host-neutral suite, link the supported-host reference, and make Pi's shipped-only status and deferred-host fail-closed behavior explicit.
 
 ### Fixed
 

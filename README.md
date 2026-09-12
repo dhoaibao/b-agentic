@@ -1,10 +1,11 @@
 # b-agentic
 
-**A slim personal workflow kernel for the Pi coding agent. b-agentic and Pi are one integrated product.**
+**A slim host-neutral personal workflow suite delivered through per-host adapters, with Pi as the shipped full-fidelity adapter.**
 
 b-agentic routes work to focused skills, preserves safety gates, uses the right
-evidence, and verifies before claiming completion. It installs a compact Pi
-kernel, native skills, first-party extensions, and recommended MCP configuration.
+evidence, and verifies before claiming completion. It installs the compact
+portable kernel, native skills, recommended MCP configuration, and Pi's
+first-party extensions.
 
 - **[Read the operational reference](REFERENCE.md)** for installation details,
   package lifecycle, MCP readiness, safety behavior, and validation. `/b-status` provides a local, read-only capability snapshot
@@ -16,6 +17,8 @@ services, authenticating providers, or claiming session usage.
   [CHANGELOG.md](CHANGELOG.md), and [decision design](docs/decision_design.md).
 
 ## Install
+
+**Supported hosts:** Pi is shipped; Claude Code, Codex, OpenCode, and Antigravity are verified but deferred. See the [host compatibility reference](docs/hosts.md).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
