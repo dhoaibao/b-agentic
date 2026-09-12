@@ -70,14 +70,25 @@ assert_equal_files() {
 	cmp -s "$left" "$right" || fail "expected files to match: $left vs $right"
 }
 
-make_repo_snapshot() {
-	local snapshot_dir="$1"
-	mkdir -p "$snapshot_dir"
-	cp -R "$ROOT_DIR"/. "$snapshot_dir"/
-	rm -rf "$snapshot_dir/.git" "$snapshot_dir/.b-agentic" "$snapshot_dir/.serena"
-	git -C "$snapshot_dir" init -q
-	git -C "$snapshot_dir" add .
-	git -C "$snapshot_dir" -c user.name='b-agentic smoke' -c user.email='smoke@example.com' commit -qm 'snapshot'
+make_release_fixture() {
+	local fixture_dir="$1"
+	mkdir -p "$fixture_dir"
+	bash "$ROOT_DIR/scripts/build-release.sh" "$fixture_dir" >/dev/null
+}
+
+# Tars an arbitrary staged payload directory into a release fixture layout
+# (tarball + matching checksum) for corrupted-payload cases.
+make_fixture_from_payload() {
+	local payload_dir="$1" fixture_dir="$2"
+	mkdir -p "$fixture_dir"
+	tar -czf "$fixture_dir/b-agentic.tar.gz" -C "$payload_dir" install.sh VERSION skills references adapters tooling
+	{
+		if command -v sha256sum >/dev/null 2>&1; then
+			sha256sum "$fixture_dir/b-agentic.tar.gz"
+		else
+			shasum -a 256 "$fixture_dir/b-agentic.tar.gz"
+		fi
+	} | awk '{print $1 "  b-agentic.tar.gz"}' >"$fixture_dir/b-agentic.tar.gz.sha256"
 }
 
 make_dracula_fixture() {
@@ -199,8 +210,18 @@ EOF
 	chmod +x "$bin_dir/pi"
 
 	# Required installer prerequisites are present in the isolated smoke PATH.
-	cat >"$bin_dir/curl" <<'EOF'
+	# file:// URLs pass through to the real curl so release-fixture downloads
+	# behave exactly as on a user machine; every other URL gets a no-op payload
+	# so piped remote installers never touch the network.
+	real_curl="$(command -v curl)"
+	cat >"$bin_dir/curl" <<EOF
 #!/usr/bin/env bash
+set -euo pipefail
+for arg in "\$@"; do
+	case "\$arg" in
+	file://*) exec "$real_curl" "\$@" ;;
+	esac
+done
 printf 'exit 0\n'
 EOF
 	chmod +x "$bin_dir/curl"
@@ -275,7 +296,7 @@ smoke_path_with_runtime_clis() {
 }
 
 run_install_status() {
-	local sandbox="$1" repo_snapshot="$2"
+	local sandbox="$1" release_fixture="$2"
 	shift 2
 
 	local smoke_path
@@ -285,7 +306,7 @@ run_install_status() {
 	set +e
 	HOME="$sandbox/home" \
 		PATH="$smoke_path" \
-		B_AGENTIC_REPO="$repo_snapshot" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_DRACULA_REPO="${B_AGENTIC_DRACULA_REPO:-}" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
@@ -297,7 +318,7 @@ run_install_status() {
 }
 
 run_install_status_in_cwd() {
-	local install_cwd="$1" sandbox="$2" repo_snapshot="$3"
+	local install_cwd="$1" sandbox="$2" release_fixture="$3"
 	shift 3
 
 	local smoke_path
@@ -309,7 +330,7 @@ run_install_status_in_cwd() {
 		cd "$install_cwd"
 		HOME="$sandbox/home" \
 			PATH="$smoke_path" \
-			B_AGENTIC_REPO="$repo_snapshot" \
+			B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 			B_AGENTIC_DIR="$sandbox/source" \
 			B_AGENTIC_DRACULA_REPO="${B_AGENTIC_DRACULA_REPO:-}" \
 			B_AGENTIC_PROMPT_API_KEYS=N \
@@ -322,7 +343,7 @@ run_install_status_in_cwd() {
 }
 
 run_install_with_tty_status() {
-	local sandbox="$1" repo_snapshot="$2" input="$3"
+	local sandbox="$1" release_fixture="$2" input="$3"
 	shift 3
 
 	local smoke_path
@@ -330,16 +351,17 @@ run_install_with_tty_status() {
 
 	local rc=0
 	set +e
-	python3 - "$sandbox" "$repo_snapshot" "$input" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY' >/dev/null 2>&1
+	python3 - "$sandbox" "$release_fixture" "$input" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY' >/dev/null 2>&1
 import os, pty, select, sys
 
-sandbox, repo_snapshot, input_data, smoke_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, input_data, smoke_path, install_script = sys.argv[1:6]
 args = sys.argv[6:]
 
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 
 pid, fd = pty.fork()
@@ -377,7 +399,7 @@ PY
 }
 
 run_install_with_tty_log() {
-	local sandbox="$1" repo_snapshot="$2" log_path="$3"
+	local sandbox="$1" release_fixture="$2" log_path="$3"
 	shift 3
 
 	local smoke_path
@@ -385,17 +407,18 @@ run_install_with_tty_log() {
 
 	local rc=0
 	set +e
-	python3 - "$sandbox" "$repo_snapshot" "$log_path" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY'
+	python3 - "$sandbox" "$release_fixture" "$log_path" "$smoke_path" "$ROOT_DIR/install.sh" "$@" <<'PY'
 import errno, os, pty, select, sys
 
-sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, log_path, smoke_path, install_script = sys.argv[1:6]
 args = sys.argv[6:]
 input_data = os.environ.get("B_AGENTIC_TTY_INPUT", "\n")
 
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 
@@ -449,30 +472,59 @@ PY
 }
 
 expect_install_with_tty_status() {
-	local expected="$1" sandbox="$2" repo_snapshot="$3" input="$4"
+	local expected="$1" sandbox="$2" release_fixture="$3" input="$4"
 	shift 4
 
 	local rc
-	rc="$(run_install_with_tty_status "$sandbox" "$repo_snapshot" "$input" "$@")"
+	rc="$(run_install_with_tty_status "$sandbox" "$release_fixture" "$input" "$@")"
 	[ "$rc" -eq "$expected" ] || fail "expected TTY install exit $expected, got $rc"
 }
 
 expect_install_status() {
-	local expected="$1" sandbox="$2" repo_snapshot="$3"
+	local expected="$1" sandbox="$2" release_fixture="$3"
 	shift 3
 
 	local rc
-	rc="$(run_install_status "$sandbox" "$repo_snapshot" "$@")"
+	rc="$(run_install_status "$sandbox" "$release_fixture" "$@")"
 	[ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
 }
 
+# Like run_install_status but captures full installer output into a log file
+# so cases can assert the exact failure or success messages.
+run_install_capture() {
+	local sandbox="$1" release_fixture="$2" log_path="$3"
+	shift 3
+
+	local smoke_path rc
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	set +e
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" \
+		B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" "$@" >"$log_path" 2>&1
+	rc=$?
+	set -e
+	return "$rc"
+}
+
 expect_install_status_in_cwd() {
-	local expected="$1" install_cwd="$2" sandbox="$3" repo_snapshot="$4"
+	local expected="$1" install_cwd="$2" sandbox="$3" release_fixture="$4"
 	shift 4
 
 	local rc
-	rc="$(run_install_status_in_cwd "$install_cwd" "$sandbox" "$repo_snapshot" "$@")"
+	rc="$(run_install_status_in_cwd "$install_cwd" "$sandbox" "$release_fixture" "$@")"
 	[ "$rc" -eq "$expected" ] || fail "expected install exit $expected, got $rc"
+}
+
+# Counts bootstrap download scratch dirs; the installer's EXIT cleanup must
+# keep this at zero across every install, success or failure. Pass a scoped
+# TMPDIR to avoid racing sibling workers that share the real one.
+temp_download_count() {
+	local dir="${1:-${TMPDIR:-/tmp}}"
+	find "$dir" -maxdepth 1 -name 'b-agentic-download.*' | wc -l
 }
 
 registry_skill_count() {

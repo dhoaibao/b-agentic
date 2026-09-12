@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# install.sh - Bootstrap or update b-agentic
-# Bootstraps source sync, then installs or refreshes Pi-managed assets through
-# the shared installer core.
+# B_AGENTIC_INSTALLER
+# install.sh - Bootstrap or update b-agentic from a checksum-verified release
+# tarball. The piped entrypoint is only a bootstrap: it downloads the release
+# bundle, verifies its SHA-256 checksum and archive layout, and re-executes
+# every state change from inside the verified bundle.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --dry-run
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
-#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --ref=<tag-or-sha>
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --ref=vYYYY.MM.DD
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --agent pi
 #   ~/.b-agentic/install.sh --sync
 #   ~/.b-agentic/install.sh --update
@@ -16,12 +18,43 @@ set -euo pipefail
 # Variables shared with the sourced installer core are intentionally defined
 # here even when ShellCheck analyzes this entrypoint in isolation.
 
-readonly REPO_URL="${B_AGENTIC_REPO:-https://github.com/dhoaibao/b-agentic.git}"
+readonly REPO_WEB_BASE="https://github.com/dhoaibao/b-agentic"
+readonly RELEASE_URL_LATEST="$REPO_WEB_BASE/releases/latest/download/b-agentic.tar.gz"
+readonly CHECKSUM_URL_LATEST="$REPO_WEB_BASE/releases/latest/download/b-agentic.tar.gz.sha256"
 readonly LOCAL_REPO="${B_AGENTIC_DIR:-$HOME/.b-agentic}"
 REF="${B_AGENTIC_REF:-}"
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 # shellcheck disable=SC2034
 readonly TIMESTAMP
+
+# Top-level payload paths the verified release bundle owns inside $LOCAL_REPO.
+# sync_source() replaces exactly these entries and nothing else; everything
+# beside them in $LOCAL_REPO is user-owned and is never touched.
+MANAGED_PAYLOAD_ENTRIES=(
+	"install.sh"
+	"VERSION"
+	"skills"
+	"references"
+	"adapters/pi/manifest.yaml"
+	"adapters/pi/configs"
+	"adapters/pi/extensions"
+	"adapters/pi/packages"
+	"adapters/pi/scripts"
+	"tooling/install/common.sh"
+	"tooling/install/json_cleanup.py"
+	"tooling/install/jsonc.py"
+	"tooling/install/manifest_uninstall.py"
+)
+
+SOURCE_DIR_EXPLICIT=""
+VERIFIED_PAYLOAD=""
+DOWNLOAD_TMP=""
+SYNC_STAGE_DIR=""
+SYNC_BACKUP_DIR=""
+SYNC_MIGRATED=0
+SYNC_MUTATED=0
+SYNC_COPIED=0
+SYNC_ROLLBACK_NEEDED=0
 
 DRY_RUN_VALUE="${B_AGENTIC_DRY_RUN:-N}"
 REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
@@ -39,7 +72,6 @@ SKILLS_SRC="$SOURCE_DIR/skills"
 REFERENCES_SRC="$SOURCE_DIR/references"
 TEMPLATES_SRC="$SOURCE_DIR/adapters/pi/configs"
 KERNEL_SRC="$SOURCE_DIR/references/kernel.template.md"
-DRY_RUN_SOURCE_DIR=""
 UI_ENABLED=0
 UI_SUPPRESS_LOGS=0
 UI_STAGE_CURRENT=0
@@ -383,12 +415,108 @@ run_ui_stage() {
 }
 
 cleanup() {
-	if [ -n "$DRY_RUN_SOURCE_DIR" ]; then
-		rm -rf "$DRY_RUN_SOURCE_DIR"
+	if [ -n "${DOWNLOAD_TMP:-}" ] && [ -d "$DOWNLOAD_TMP" ]; then
+		rm -rf "$DOWNLOAD_TMP"
 	fi
 }
 
 trap cleanup EXIT
+
+sha256() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | awk '{print $1}'
+		return
+	fi
+	if command -v shasum >/dev/null 2>&1; then
+		shasum -a 256 "$1" | awk '{print $1}'
+		return
+	fi
+	die "sha256sum or shasum is required for checksum verification"
+}
+
+fetch_url() {
+	local url="$1" dest="$2" hint="${3:-}"
+	require_bin curl
+	curl -fsSL "$url" -o "$dest" || {
+		if [ -n "$hint" ]; then
+			printf 'hint: %s\n' "$hint" >&2
+		fi
+		die "download failed: $url"
+	}
+}
+
+# Accepts only the release payload allowlist; rejects absolute paths, parent
+# traversal, dotfile members, and anything outside the published contract.
+validate_archive_listing() {
+	local archive="$1" listing verbose entry
+	require_bin tar
+	listing="$(tar -tzf "$archive")" || die "cannot read release archive"
+	[ -n "$listing" ] || die "release archive is empty"
+	while IFS= read -r entry; do
+		case "$entry" in
+		/* | ../* | */../* | */.. | .* | */./* | */. | */.* | *'\n'* | *'\r'*)
+			die "unsafe release archive entry: $entry"
+			;;
+		install.sh | install.sh/ | VERSION | VERSION/ | skills | skills/ | skills/* | references | references/ | references/* | adapters | adapters/ | adapters/pi | adapters/pi/ | adapters/pi/manifest.yaml | adapters/pi/configs | adapters/pi/configs/ | adapters/pi/configs/* | adapters/pi/extensions | adapters/pi/extensions/ | adapters/pi/extensions/* | adapters/pi/packages | adapters/pi/packages/ | adapters/pi/packages/* | adapters/pi/scripts | adapters/pi/scripts/ | adapters/pi/scripts/* | tooling | tooling/ | tooling/install | tooling/install/ | tooling/install/common.sh | tooling/install/json_cleanup.py | tooling/install/jsonc.py | tooling/install/manifest_uninstall.py) ;;
+		*)
+			die "unexpected release archive entry: $entry"
+			;;
+		esac
+	done <<EOF
+$listing
+EOF
+	verbose="$(tar -tvzf "$archive")" || die "cannot inspect release archive members"
+	while IFS= read -r entry; do
+		case "$entry" in
+		-* | d*) ;;
+		*) die "release archive contains a non-file/non-directory member" ;;
+		esac
+	done <<EOF
+$verbose
+EOF
+}
+
+# Downloads the release tarball and checksum, verifies the digest, validates
+# the archive layout, and extracts it. Sets VERIFIED_PAYLOAD (and DOWNLOAD_TMP,
+# owned until process exit) in the caller's scope: this function must be
+# called plainly, never inside a command substitution.
+prepare_download_source() {
+	local release_url checksum_url archive checksum expected actual extract bad_member latest_hint=""
+	if [ -n "${B_AGENTIC_RELEASE_URL:-}${B_AGENTIC_CHECKSUM_URL:-}" ] && [ -n "$REF" ]; then
+		warn "--ref=$REF is ignored while B_AGENTIC_RELEASE_URL/B_AGENTIC_CHECKSUM_URL overrides are set"
+	fi
+	if [ -n "$REF" ]; then
+		release_url="${B_AGENTIC_RELEASE_URL:-$REPO_WEB_BASE/releases/download/$REF/b-agentic.tar.gz}"
+		checksum_url="${B_AGENTIC_CHECKSUM_URL:-$REPO_WEB_BASE/releases/download/$REF/b-agentic.tar.gz.sha256}"
+	else
+		release_url="${B_AGENTIC_RELEASE_URL:-$RELEASE_URL_LATEST}"
+		checksum_url="${B_AGENTIC_CHECKSUM_URL:-$CHECKSUM_URL_LATEST}"
+		if [ -z "${B_AGENTIC_RELEASE_URL:-}" ]; then
+			latest_hint="no b-agentic release may be published yet; the first vYYYY.MM.DD release tag must be pushed to $REPO_WEB_BASE before this installer can bootstrap"
+		fi
+	fi
+	require_bin mktemp
+	DOWNLOAD_TMP="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-download.XXXXXX")"
+	archive="$DOWNLOAD_TMP/b-agentic.tar.gz"
+	checksum="$DOWNLOAD_TMP/b-agentic.tar.gz.sha256"
+	fetch_url "$release_url" "$archive" "$latest_hint"
+	fetch_url "$checksum_url" "$checksum" ""
+	expected="$(awk 'NF {print $1; exit}' "$checksum")"
+	case "$expected" in
+	'' | *[!0123456789abcdefABCDEF]*) die "checksum file does not contain a SHA-256 digest" ;;
+	esac
+	[ "${#expected}" -eq 64 ] || die "checksum file does not contain a 64-character SHA-256 digest"
+	actual="$(sha256 "$archive")"
+	[ "$actual" = "$expected" ] || die "release checksum mismatch: $archive does not match $checksum_url"
+	validate_archive_listing "$archive"
+	extract="$DOWNLOAD_TMP/extracted"
+	mkdir "$extract"
+	tar -xzf "$archive" -C "$extract" || die "cannot extract release archive"
+	bad_member="$(find "$extract" -type l -print -quit)"
+	[ -z "$bad_member" ] || die "release archive contains a symlink: $bad_member"
+	[ -f "$extract/install.sh" ] && [ -f "$extract/VERSION" ] && [ -d "$extract/skills" ] && [ -d "$extract/references" ] || die "release archive is missing required files"
+	VERIFIED_PAYLOAD="$extract"
+}
 
 yes_value() {
 	case "${1:-}" in
@@ -439,29 +567,38 @@ sys.exit(0 if sys.version_info >= (3, 11) else 1)
 PY
 }
 
-check_dependencies() {
-	local dependency_label="curl, git, python3"
-
-	if command -v curl >/dev/null 2>&1; then
-		:
-	else
-		warn "curl not found; install with the documented curl command will not work on this machine"
-		dependency_label="git, python3"
-	fi
-
-	# git is needed only when the installer must fetch or update its source checkout.
+# True when this run must fetch a checksum-verified release bundle. Updates
+# and uninstalls of an existing install operate purely on $LOCAL_REPO.
+download_needed() {
 	if [ "$OPERATION" = "update" ]; then
-		dependency_label="curl, python3, local source"
-	elif uninstall_enabled && { [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; }; then
-		dependency_label="${dependency_label}, local source"
-	else
-		require_bin git
+		return 1
 	fi
+	if uninstall_enabled; then
+		if [ -e "$LOCAL_REPO/install.sh" ] || [ -d "$LOCAL_REPO/skills" ]; then
+			return 1
+		fi
+		return 0
+	fi
+	return 0
+}
 
-	# Runtime installers use Python for structured config and manifest updates.
+require_sha256_tool() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		return 0
+	fi
+	if command -v shasum >/dev/null 2>&1; then
+		return 0
+	fi
+	die "required binary not found: sha256sum or shasum"
+}
+
+check_dependencies() {
+	# Download prerequisites (curl, tar, mktemp, a SHA-256 tool) are enforced
+	# in main() before the bootstrap fetch; the re-executed bundle run never
+	# downloads, so the staged pipeline only needs the runtime tooling.
 	require_bin python3
 	require_python_311
-	log "Using $dependency_label"
+	log "Using python3"
 }
 
 set_operation() {
@@ -516,6 +653,16 @@ parse_args() {
 			REF="${1#--ref=}"
 			[ -n "$REF" ] || die "invalid ref: empty"
 			;;
+		--source-dir=*)
+			SOURCE_DIR_EXPLICIT="${1#--source-dir=}"
+			[ -n "$SOURCE_DIR_EXPLICIT" ] || die "invalid --source-dir: empty"
+			;;
+		--source-dir)
+			shift
+			[ "$#" -gt 0 ] || die "--source-dir requires a value"
+			SOURCE_DIR_EXPLICIT="$1"
+			[ -n "$SOURCE_DIR_EXPLICIT" ] || die "invalid --source-dir: empty"
+			;;
 		*)
 			die "unknown argument: $1"
 			;;
@@ -529,6 +676,12 @@ validate_ref() {
 	[ "$OPERATION" != "update" ] || die "--ref cannot be used with --update"
 	case "$REF" in
 	-*) die "invalid ref: $REF (must not start with -)" ;;
+	esac
+	# Release refs are CalVer release tags; commit SHAs and SemVer tags are no
+	# longer installable pins.
+	case "$REF" in
+	v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]) ;;
+	*) die "invalid ref: $REF (must be a vYYYY.MM.DD release tag, e.g. v$(date +%Y.%m.%d))" ;;
 	esac
 }
 
@@ -550,6 +703,9 @@ PY
 validate_operation() {
 	if uninstall_enabled && [ "$OPERATION" != "install" ]; then
 		die "--uninstall cannot be combined with --sync or --update"
+	fi
+	if [ -n "$SOURCE_DIR_EXPLICIT" ] && ! download_needed; then
+		die "--source-dir cannot be combined with --update or with --uninstall on an installed b-agentic source"
 	fi
 }
 
@@ -595,64 +751,162 @@ if missing:
 PY
 }
 
+# Restores $LOCAL_REPO after a failed or interrupted source installation.
+# Runs under the sync EXIT/HUP/INT/TERM trap from the moment mutation is
+# possible; SYNC_ROLLBACK_NEEDED plus SYNC_MUTATED/SYNC_COPIED keep repeated
+# invocations idempotent and prevent rollback from ever destroying intact
+# pre-existing state.
+rollback_source_sync() {
+	local entry
+	if [ "$SYNC_ROLLBACK_NEEDED" -eq 1 ] && [ "$SYNC_MUTATED" -eq 1 ]; then
+		warn "source installation failed; rolling back $LOCAL_REPO"
+		if [ "$SYNC_MIGRATED" -eq 1 ] && [ -d "$SYNC_BACKUP_DIR" ]; then
+			rm -rf "$LOCAL_REPO"
+			mv "$SYNC_BACKUP_DIR" "$LOCAL_REPO"
+		else
+			for entry in "${MANAGED_PAYLOAD_ENTRIES[@]}"; do
+				if [ -e "$SYNC_BACKUP_DIR/$entry" ]; then
+					mkdir -p "$(dirname "$LOCAL_REPO/$entry")"
+					rm -rf "${LOCAL_REPO:?}/$entry"
+					mv "$SYNC_BACKUP_DIR/$entry" "$LOCAL_REPO/$entry"
+				elif [ "$SYNC_COPIED" -eq 1 ] && [ -e "$LOCAL_REPO/$entry" ]; then
+					rm -rf "${LOCAL_REPO:?}/$entry"
+				fi
+			done
+		fi
+	fi
+	if [ -n "$SYNC_STAGE_DIR" ] && [ -d "$SYNC_STAGE_DIR" ]; then
+		rm -rf "$SYNC_STAGE_DIR"
+	fi
+	if [ "$SYNC_MIGRATED" -eq 0 ] && [ -n "$SYNC_BACKUP_DIR" ] && [ -d "$SYNC_BACKUP_DIR" ]; then
+		rm -rf "$SYNC_BACKUP_DIR"
+	fi
+	cleanup
+	SYNC_STAGE_DIR=""
+	SYNC_BACKUP_DIR=""
+	SYNC_ROLLBACK_NEEDED=0
+	SYNC_MUTATED=0
+	SYNC_COPIED=0
+}
+
+# The managed marker on line 2 distinguishes installers this tool placed in
+# $LOCAL_REPO from any foreign install.sh a user may have put there.
+installer_marker_present() {
+	local marker
+	marker="$(sed -n '2p' "$LOCAL_REPO/install.sh")"
+	[ "$marker" = "# B_AGENTIC_INSTALLER" ]
+}
+
 sync_source() {
-	require_bin git
-	require_bin python3
+	local payload="$1" entry
+	[ -n "$payload" ] && [ -d "$payload" ] || die "verified release payload is missing"
 
 	if dry_run_enabled; then
-		if [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; then
-			log "Dry-run source: $LOCAL_REPO (no fetch/pull)"
-			set_source_dir "$LOCAL_REPO"
-			resolve_agent_manifest || return 1
-		else
-			DRY_RUN_SOURCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-dry-run.XXXXXX")"
-			log "Dry-run source clone: $REPO_URL -> $DRY_RUN_SOURCE_DIR"
-			git clone --quiet "$REPO_URL" "$DRY_RUN_SOURCE_DIR"
-			if [ -n "$REF" ]; then
-				git -C "$DRY_RUN_SOURCE_DIR" checkout --quiet "$REF"
-			fi
-			set_source_dir "$DRY_RUN_SOURCE_DIR"
-			resolve_agent_manifest || return 1
-		fi
-	elif [ -d "$LOCAL_REPO/.git" ]; then
-		log "Updating source: $LOCAL_REPO"
-		git -C "$LOCAL_REPO" fetch --all --tags --prune --quiet
-		if [ -n "$REF" ]; then
-			git -C "$LOCAL_REPO" checkout --quiet "$REF"
-		else
-			git -C "$LOCAL_REPO" pull --ff-only --quiet
-		fi
-		set_source_dir "$LOCAL_REPO"
+		log "Dry-run source: verified release payload at $payload (no fetch, no $LOCAL_REPO changes)"
+		set_source_dir "$payload"
 		resolve_agent_manifest || return 1
-	else
-		log "Cloning source: $REPO_URL -> $LOCAL_REPO"
-		mkdir -p "$(dirname "$LOCAL_REPO")"
-		git clone --quiet "$REPO_URL" "$LOCAL_REPO"
-		if [ -n "$REF" ]; then
-			git -C "$LOCAL_REPO" checkout --quiet "$REF"
-		fi
-		set_source_dir "$LOCAL_REPO"
-		resolve_agent_manifest || return 1
+		return 0
 	fi
 
+	require_bin python3
+
+	SYNC_MIGRATED=0
+	SYNC_MUTATED=0
+	SYNC_COPIED=0
+	if [ -e "$LOCAL_REPO/.git" ]; then
+		SYNC_MIGRATED=1
+	elif [ -f "$LOCAL_REPO/install.sh" ] && ! installer_marker_present; then
+		die "refusing to overwrite an unmanaged installer at $LOCAL_REPO/install.sh (line 2 is not the '# B_AGENTIC_INSTALLER' managed marker); move it aside or reinstall manually"
+	fi
+
+	# Arm rollback before anything destructive can happen.
+	SYNC_ROLLBACK_NEEDED=1
+	trap rollback_source_sync EXIT HUP INT TERM
+
+	mkdir -p "$(dirname "$LOCAL_REPO")"
+
+	# Stage the payload allowlist first so no $LOCAL_REPO mutation happens
+	# before the payload is known complete.
+	SYNC_STAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-stage.XXXXXX")"
+	for entry in "${MANAGED_PAYLOAD_ENTRIES[@]}"; do
+		[ -e "$payload/$entry" ] || die "release payload is missing required path: $entry"
+		mkdir -p "$(dirname "$SYNC_STAGE_DIR/$entry")"
+		cp -R "$payload/$entry" "$SYNC_STAGE_DIR/$entry"
+	done
+
+	if [ "$SYNC_MIGRATED" -eq 1 ]; then
+		# Legacy git checkouts move aside wholesale: the old checkout (including
+		# local modifications) is preserved verbatim and never merged.
+		SYNC_BACKUP_DIR="${LOCAL_REPO}.backup.${TIMESTAMP}"
+		SYNC_MUTATED=1
+		log "Migrating legacy git checkout: $LOCAL_REPO -> $SYNC_BACKUP_DIR"
+		mv "$LOCAL_REPO" "$SYNC_BACKUP_DIR"
+	else
+		SYNC_BACKUP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-backup.XXXXXX")"
+		SYNC_MUTATED=1
+		for entry in "${MANAGED_PAYLOAD_ENTRIES[@]}"; do
+			if [ -e "$LOCAL_REPO/$entry" ]; then
+				mkdir -p "$(dirname "$SYNC_BACKUP_DIR/$entry")"
+				mv "$LOCAL_REPO/$entry" "$SYNC_BACKUP_DIR/$entry"
+			fi
+		done
+	fi
+
+	mkdir -p "$LOCAL_REPO"
+	cp -R "$SYNC_STAGE_DIR/." "$LOCAL_REPO/"
+	SYNC_COPIED=1
+	[ -f "$LOCAL_REPO/install.sh" ] && [ -f "$LOCAL_REPO/VERSION" ] || die "staged payload did not install completely"
+
+	SYNC_ROLLBACK_NEEDED=0
+	trap - HUP INT TERM
+	trap cleanup EXIT
+	rm -rf "$SYNC_STAGE_DIR"
+	if [ "$SYNC_MIGRATED" -eq 0 ]; then
+		rm -rf "$SYNC_BACKUP_DIR"
+	fi
+	SYNC_STAGE_DIR=""
+	SYNC_BACKUP_DIR=""
+
+	log "Installed verified release payload into $LOCAL_REPO (VERSION $(cat "$LOCAL_REPO/VERSION"))"
+	if [ "$SYNC_MIGRATED" -eq 1 ]; then
+		# warn() prints through stage suppression so the backup path is always reported.
+		warn "previous b-agentic checkout preserved at: ${LOCAL_REPO}.backup.${TIMESTAMP}"
+	fi
+	set_source_dir "$LOCAL_REPO"
+	resolve_agent_manifest || return 1
+	validate_pi_source_layout
+}
+
+require_local_source() {
+	[ -d "$LOCAL_REPO/skills" ] || die "b-agentic source is not installed at $LOCAL_REPO; run the curl installer first"
+	set_source_dir "$LOCAL_REPO"
+	resolve_agent_manifest || return 1
 	validate_pi_source_layout
 }
 
 prepare_source() {
-	if [ "$OPERATION" = "update" ] || { uninstall_enabled && { [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; }; }; then
-		[ -d "$LOCAL_REPO/skills" ] || die "b-agentic source is not installed at $LOCAL_REPO; run the curl installer first"
-		set_source_dir "$LOCAL_REPO"
+	if [ "$OPERATION" = "update" ]; then
+		require_local_source
+		return 0
+	fi
+	if uninstall_enabled; then
+		if [ -e "$LOCAL_REPO/install.sh" ] || [ -d "$LOCAL_REPO/skills" ]; then
+			require_local_source
+			return 0
+		fi
+		# Uninstall without an installed source runs from the verified payload
+		# so manifest removal still has the uninstall helpers available.
+		set_source_dir "$VERIFIED_PAYLOAD"
 		resolve_agent_manifest || return 1
 		validate_pi_source_layout
 		return 0
 	fi
-
-	sync_source
+	require_local_source
 }
 
 install_app() {
 	if [ "$OPERATION" = "update" ]; then
-		log "Using installed b-agentic source without pulling changes"
+		log "Using installed b-agentic source without refreshing"
 		prepare_source
 		return 0
 	fi
@@ -664,13 +918,13 @@ install_app() {
 		return 0
 	fi
 
-	if [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; then
+	if [ -e "$LOCAL_REPO/install.sh" ] || [ -d "$LOCAL_REPO/skills" ]; then
 		warn "b-agentic is already installed; running upgrade"
 	else
-		log "b-agentic is not installed; downloading installer source"
+		log "b-agentic is not installed; installing from the verified release bundle"
 	fi
 
-	prepare_source
+	sync_source "$VERIFIED_PAYLOAD"
 	log "Installer source ready"
 }
 
@@ -999,6 +1253,33 @@ main() {
 
 	if try_manifest_only_uninstall; then
 		return 0
+	fi
+
+	if download_needed && [ -z "$SOURCE_DIR_EXPLICIT" ]; then
+		# Enforce download prerequisites before fetching: the bootstrap downloads
+		# before the staged pipeline runs, and the verified child never downloads.
+		require_bin curl
+		require_bin tar
+		require_bin mktemp
+		require_sha256_tool
+		# The raw entrypoint is only a bootstrap: fetch the checksum-verified
+		# release bundle and restart every state change from inside it, never
+		# from the piped script. Plain call so DOWNLOAD_TMP is owned by this
+		# process and removed by the EXIT cleanup.
+		prepare_download_source
+		log "Verified release payload: $VERIFIED_PAYLOAD"
+		local child_rc=0
+		if bash "$VERIFIED_PAYLOAD/install.sh" --source-dir "$VERIFIED_PAYLOAD" "$@"; then
+			child_rc=0
+		else
+			child_rc=$?
+		fi
+		return "$child_rc"
+	fi
+
+	if [ -n "$SOURCE_DIR_EXPLICIT" ]; then
+		[ -d "$SOURCE_DIR_EXPLICIT" ] || die "source directory does not exist: $SOURCE_DIR_EXPLICIT"
+		VERIFIED_PAYLOAD="$SOURCE_DIR_EXPLICIT"
 	fi
 
 	ui_component_picker || return $?

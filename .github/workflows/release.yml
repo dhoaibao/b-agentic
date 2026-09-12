@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  VERSION_FILE: VERSION
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check tag matches VERSION
+        run: test "$GITHUB_REF_NAME" = "$(cat "$VERSION_FILE")"
+      - name: Check shell syntax
+        run: bash -n install.sh scripts/build-release.sh scripts/extract-release-notes.sh
+      - name: Validate repository
+        run: bash scripts/validate-skills.sh --release
+      - name: Run installer smoke suite
+        run: bash scripts/smoke-install.sh
+      - name: Run structural suite audit
+        run: bash scripts/b-agentic-audit.sh --skip-preflight
+      - name: Build release bundle
+        run: bash scripts/build-release.sh dist
+      - name: Extract release notes
+        run: bash scripts/extract-release-notes.sh "$(cat "$VERSION_FILE")" CHANGELOG.md > dist/release-notes.md
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          dist/b-agentic.tar.gz
+          dist/b-agentic.tar.gz.sha256
+          --title "b-agentic $GITHUB_REF_NAME"
+          --notes-file dist/release-notes.md

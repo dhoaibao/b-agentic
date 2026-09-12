@@ -1660,7 +1660,7 @@ run_pi_smoke_cases() {
 	# Do not let the parent's EXIT trap remove the shared WORK_DIR while the
 	# installer smoke workers are still running.
 	trap - EXIT
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/pi"
 	local sandbox_adapter="$WORK_DIR/pi-adapter"
 	local sandbox_preserve="$WORK_DIR/pi-preserve"
@@ -1688,7 +1688,7 @@ run_pi_smoke_cases() {
 		"$sandbox_skill_symlink/home"
 
 	# Core install layout without adapter package.
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	assert_file "$sandbox/home/.pi/agent/AGENTS.md"
 	assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
 	assert_no_path "$sandbox/home/.pi/agent/skills/b-plan/prompt.md"
@@ -1758,7 +1758,7 @@ run_pi_smoke_cases() {
 		-u B_AGENTIC_PROMPT_API_KEYS \
 		HOME="$sandbox/home" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		bash "$ROOT_DIR/install.sh" --sync >/dev/null 2>&1
 	assert_equal_files "$sandbox/home/.pi/agent/mcp.json" "$sync_mcp_snapshot"
@@ -1777,14 +1777,12 @@ run_pi_smoke_cases() {
 exit 0
 EOF
 	chmod +x "$sandbox/smoke-bin/curl"
-	mv "$sandbox/source/.git" "$sandbox/source/.git-without-pull"
 	HOME="$sandbox/home" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --update >/dev/null 2>&1
-	mv "$sandbox/source/.git-without-pull" "$sandbox/source/.git"
 	assert_contains "$sandbox/smoke-bin/pi-install.log" 'update'
 	assert_contains "$sandbox/smoke-bin/pi-install.log" 'update --extensions'
 	[ "$(grep -Fc 'npm:@gotgenes/pi-anthropic-auth' "$sandbox/smoke-bin/pi-install.log")" -eq "$initial_anthropic_auth_install_count" ] || fail "Pi update reinstalled pi-anthropic-auth despite package being present"
@@ -1804,7 +1802,7 @@ EOF
 	smoke_path="$(smoke_runtime_cli_path "$sandbox_adapter")"
 	HOME="$sandbox_adapter/home" \
 		PATH="$smoke_path" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox_adapter/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" >/dev/null 2>&1
@@ -1831,7 +1829,7 @@ EOF
 	# Preserve user-owned kernel.
 	mkdir -p "$sandbox_preserve/home/.pi/agent"
 	printf 'user-owned pi kernel\n' >"$sandbox_preserve/home/.pi/agent/AGENTS.md"
-	expect_install_status 1 "$sandbox_preserve" "$snapshot_repo"
+	expect_install_status 1 "$sandbox_preserve" "$release_fixture"
 	assert_file "$sandbox_preserve/home/.pi/agent/AGENTS.md"
 	assert_contains "$sandbox_preserve/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
 	assert_file "$sandbox_preserve/home/.pi/agent/b-agentic/install.json"
@@ -1840,7 +1838,7 @@ EOF
 	# --replace-memory overwrites user kernel.
 	mkdir -p "$sandbox_replace/home/.pi/agent"
 	printf 'user-owned pi kernel\n' >"$sandbox_replace/home/.pi/agent/AGENTS.md"
-	expect_install_status 0 "$sandbox_replace" "$snapshot_repo" --replace-memory
+	expect_install_status 0 "$sandbox_replace" "$release_fixture" --replace-memory
 	assert_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
 	assert_not_contains "$sandbox_replace/home/.pi/agent/AGENTS.md" 'user-owned pi kernel'
 
@@ -1863,7 +1861,7 @@ EOF
   "settings": {"serenaPreference": "keep-me"}
 }
 EOF
-	expect_install_status 0 "$sandbox_mcp_merge" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_mcp_merge" "$release_fixture"
 	assert_contains "$sandbox_mcp_merge/home/.pi/agent/mcp.json" '"user-server"'
 	assert_json_value "$sandbox_mcp_merge/home/.pi/agent/mcp.json" "data['mcpServers']['serena'] == {'command': 'user-owned-serena', 'args': ['--custom'], 'env': {'USER_SETTING': 'keep-me'}, 'lifecycle': 'eager'}"
 	assert_json_value "$sandbox_mcp_merge/home/.pi/agent/mcp.json" "data['settings']['serenaPreference'] == 'keep-me'"
@@ -1873,43 +1871,43 @@ EOF
 	printf 'user-owned permission extension\n' >"$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts"
 	printf 'user-owned status extension\n' >"$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-status.ts"
 	printf 'user-owned shell support\n' >"$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-support/shell.ts"
-	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_extension_restore" "$release_fixture"
 	assert_not_contains "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts" 'user-owned permission extension'
-	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_extension_restore" "$release_fixture"
 	rm "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts"
 	rm "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-status.ts"
 	rm "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-support/shell.ts"
-	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo"
-	expect_install_status 0 "$sandbox_extension_restore" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox_extension_restore" "$release_fixture"
+	expect_install_status 0 "$sandbox_extension_restore" "$release_fixture" --uninstall
 	assert_contains "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-permissions.ts" 'user-owned permission extension'
 	assert_contains "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-status.ts" 'user-owned status extension'
 	assert_contains "$sandbox_extension_restore/home/.pi/agent/extensions/b-agentic-support/shell.ts" 'user-owned shell support'
 
 	# Uninstall preserves symlink destinations instead of restoring through them.
 	printf 'user-owned permission extension\n' >"$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts"
-	expect_install_status 0 "$sandbox_extension_symlink" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_extension_symlink" "$release_fixture"
 	cp "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts" "$sandbox_extension_symlink/target.ts"
 	rm "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts"
 	ln -s "$sandbox_extension_symlink/target.ts" "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts"
-	expect_install_status 0 "$sandbox_extension_symlink" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox_extension_symlink" "$release_fixture" --uninstall
 	[ -L "$sandbox_extension_symlink/home/.pi/agent/extensions/b-agentic-permissions.ts" ] || fail "expected symlinked extension to be preserved"
 	assert_contains "$sandbox_extension_symlink/target.ts" 'tool_call'
 	assert_not_contains "$sandbox_extension_symlink/target.ts" 'user-owned permission extension'
 
 	# Uninstall preserves an extension modified after installation.
-	expect_install_status 0 "$sandbox_extension_modified" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_extension_modified" "$release_fixture"
 	printf 'post-install user modification\n' >"$sandbox_extension_modified/home/.pi/agent/extensions/b-agentic-permissions.ts"
-	expect_install_status 0 "$sandbox_extension_modified" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox_extension_modified" "$release_fixture" --uninstall
 	assert_contains "$sandbox_extension_modified/home/.pi/agent/extensions/b-agentic-permissions.ts" 'post-install user modification'
 
 	# Reinstall preserves a modified managed skill.
-	expect_install_status 0 "$sandbox_skill_reinstall" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_skill_reinstall" "$release_fixture"
 	printf '\npost-install skill modification\n' >>"$sandbox_skill_reinstall/home/.pi/agent/skills/b-plan/SKILL.md"
-	expect_install_status 0 "$sandbox_skill_reinstall" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_skill_reinstall" "$release_fixture"
 	assert_contains "$sandbox_skill_reinstall/home/.pi/agent/skills/b-plan/SKILL.md" 'post-install skill modification'
 
 	# Stale modified and symlinked skills survive reinstall pruning.
-	expect_install_status 0 "$sandbox_skill_stale" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_skill_stale" "$release_fixture"
 	mkdir -p \
 		"$sandbox_skill_stale/home/.pi/agent/skills/stale-skill" \
 		"$sandbox_skill_stale/home/.pi/agent/b-agentic/skills/stale-skill"
@@ -1931,22 +1929,22 @@ data['skills'].extend(['stale-skill', 'stale-link'])
 path.write_text(json.dumps(data, indent=2) + '\n')
 PY
 	printf '\nuser stale-skill edit\n' >>"$sandbox_skill_stale/home/.pi/agent/skills/stale-skill/SKILL.md"
-	expect_install_status 0 "$sandbox_skill_stale" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_skill_stale" "$release_fixture"
 	assert_contains "$sandbox_skill_stale/home/.pi/agent/skills/stale-skill/SKILL.md" 'user stale-skill edit'
 	[ -L "$sandbox_skill_stale/home/.pi/agent/skills/stale-link" ] || fail "expected stale skill symlink to be preserved"
 
 	# Source-backed uninstall preserves a modified skill.
-	expect_install_status 0 "$sandbox_skill_modified" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_skill_modified" "$release_fixture"
 	printf '\npost-install skill modification\n' >>"$sandbox_skill_modified/home/.pi/agent/skills/b-plan/SKILL.md"
-	expect_install_status 0 "$sandbox_skill_modified" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox_skill_modified" "$release_fixture" --uninstall
 	assert_contains "$sandbox_skill_modified/home/.pi/agent/skills/b-plan/SKILL.md" 'post-install skill modification'
 
 	# Source-backed uninstall preserves a symlinked skill.
-	expect_install_status 0 "$sandbox_skill_symlink" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_skill_symlink" "$release_fixture"
 	cp -R "$sandbox_skill_symlink/home/.pi/agent/skills/b-plan" "$sandbox_skill_symlink/target-skill"
 	rm -rf "$sandbox_skill_symlink/home/.pi/agent/skills/b-plan"
 	ln -s "$sandbox_skill_symlink/target-skill" "$sandbox_skill_symlink/home/.pi/agent/skills/b-plan"
-	expect_install_status 0 "$sandbox_skill_symlink" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox_skill_symlink" "$release_fixture" --uninstall
 	[ -L "$sandbox_skill_symlink/home/.pi/agent/skills/b-plan" ] || fail "expected symlinked skill to be preserved"
 	assert_file "$sandbox_skill_symlink/target-skill/SKILL.md"
 
@@ -1970,7 +1968,7 @@ PY
 	fi
 
 	# Source-backed uninstall removes managed content only.
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox" "$release_fixture" --uninstall
 	assert_no_path "$sandbox/home/.pi/agent/skills/b-plan"
 	assert_no_path "$sandbox/home/.pi/agent/b-agentic/install.json"
 	assert_no_path "$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"

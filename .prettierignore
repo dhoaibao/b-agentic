@@ -20,3 +20,6 @@ references/capabilities.yaml
 references/mcp_operations.yaml
 references/permissions.yaml
 adapters/*/manifest.yaml
+
+# Release bundle output is build noise.
+dist/

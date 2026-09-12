@@ -12,6 +12,11 @@ trap cleanup EXIT
 
 source "$ROOT_DIR/tests/smoke/lib.sh"
 
+# Release URLs that intentionally point nowhere: manifest-only uninstall paths
+# must complete without any fetch, and an accidental download fails loudly.
+MISSING_RELEASE_URL="file:///nonexistent/b-agentic-release/b-agentic.tar.gz"
+MISSING_CHECKSUM_URL="file:///nonexistent/b-agentic-release/b-agentic.tar.gz.sha256"
+
 run_manifest_only_corrupted_manifest_case() {
 	local sandbox_corrupt="$WORK_DIR/manifest-only-corrupt"
 
@@ -24,7 +29,7 @@ EOF
 	local rc=0
 	set +e
 	HOME="$sandbox_corrupt/home" \
-		B_AGENTIC_REPO="$sandbox_corrupt/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox_corrupt/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox_corrupt/uninstall.log" 2>&1
@@ -185,15 +190,15 @@ run_manifest_only_mcp_symlink_preservation_case() {
 }
 
 run_manifest_only_modified_skill_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/manifest-only-modified-skill"
 	local skill_path="$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	printf '\npost-install skill modification\n' >>"$skill_path"
 	rm -rf "$sandbox/source"
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
@@ -203,7 +208,7 @@ run_manifest_only_modified_skill_case() {
 }
 
 run_manifest_only_merged_config_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/manifest-only-merged-config"
 	local mcp_path manifest_path
 
@@ -214,7 +219,7 @@ run_manifest_only_merged_config_case() {
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 
 	assert_contains "$mcp_path" '"user-server"'
 	assert_contains "$mcp_path" '"codegraph"'
@@ -239,7 +244,7 @@ data = json.loads(path.read_text())
 data.setdefault('settings', {})['requestTimeoutMs'] = 12345
 path.write_text(json.dumps(data) + '\n')
 PY
-expect_install_status 0 "$sandbox" "$snapshot_repo"
+expect_install_status 0 "$sandbox" "$release_fixture"
 assert_json_value "$mcp_path" "data['settings']['requestTimeoutMs'] == 12345"
 
 	manifest_path="$sandbox/home/.pi/agent/b-agentic/install.json"
@@ -247,7 +252,7 @@ assert_json_value "$mcp_path" "data['settings']['requestTimeoutMs'] == 12345"
 
 	rm -rf "$sandbox/source"
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
@@ -259,7 +264,7 @@ assert_json_value "$mcp_path" "data['settings']['requestTimeoutMs'] == 12345"
 }
 
 run_user_owned_serena_preservation_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/user-owned-serena-preservation"
 	local mcp_path="$sandbox/home/.pi/agent/mcp.json"
 	local serena_path="$sandbox/home/.local/bin/serena"
@@ -297,7 +302,7 @@ EOF
 		HOME="$sandbox/home" \
 		PATH="$sandbox/home/.local/bin:$smoke_path" \
 		SERENA_INVOCATION_LOG="$serena_log" \
-		B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N bash "$ROOT_DIR/install.sh" >"$sandbox/install.log" 2>&1
 	)
 	assert_json_value "$mcp_path" "data['mcpServers']['serena'] == {'command': 'user-owned-serena', 'args': ['--custom'], 'env': {'USER_SETTING': 'keep-me'}, 'lifecycle': 'eager'}"
@@ -311,7 +316,7 @@ EOF
 		HOME="$sandbox/home" \
 		PATH="$sandbox/home/.local/bin:$smoke_path" \
 		SERENA_INVOCATION_LOG="$serena_log" \
-		B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N bash "$ROOT_DIR/install.sh" --update >"$sandbox/update.log" 2>&1
 	)
 	assert_json_value "$mcp_path" "data['mcpServers']['serena'] == {'command': 'user-owned-serena', 'args': ['--custom'], 'env': {'USER_SETTING': 'keep-me'}, 'lifecycle': 'eager'}"
@@ -322,7 +327,7 @@ EOF
 }
 
 run_user_owned_retired_mcp_preservation_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/user-owned-retired-mcp-preservation"
 	local mcp_path="$sandbox/home/.pi/agent/mcp.json"
 	local install_log="$sandbox/install.log"
@@ -366,7 +371,7 @@ EOF
 		fi
 		HOME="$sandbox/home" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" "$@" >"$install_log" 2>&1
@@ -391,7 +396,7 @@ PY
 }
 
 run_manifest_only_extension_restore_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/manifest-only-extension restore"
 	local extension_path="$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
 	local worker_path="$sandbox/home/.pi/agent/extensions/b-agentic-status.ts"
@@ -401,14 +406,14 @@ run_manifest_only_extension_restore_case() {
 	printf 'user-owned permission extension\n' >"$extension_path"
 	printf 'user-owned status extension\n' >"$worker_path"
 	printf 'user-owned shell support\n' >"$support_path"
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	assert_not_contains "$extension_path" 'user-owned permission extension'
 	rm "$extension_path"
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 
 	rm -rf "$sandbox/source"
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
@@ -420,7 +425,7 @@ run_manifest_only_extension_restore_case() {
 }
 
 run_legacy_consult_extension_removal_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/legacy-consult-extension-removal"
 	local extensions_dir="$sandbox/home/.pi/agent/extensions"
 	local snapshots_dir="$sandbox/home/.pi/agent/b-agentic/extensions"
@@ -455,7 +460,7 @@ run_legacy_consult_extension_removal_case() {
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	assert_no_path "$old_extension"
 	assert_no_path "$old_role_extension"
 	assert_no_path "$old_support"
@@ -488,7 +493,7 @@ EOF
 	cp "$old_v3_architect" "$old_v3_architect_snapshot"
 	cp "$old_v3_executor" "$old_v3_executor_snapshot"
 	cp "$old_v3_executor_notify" "$old_v3_executor_notify_snapshot"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 	assert_no_path "$old_extension"
 	assert_no_path "$old_extension_snapshot"
 	assert_no_path "$old_role_extension"
@@ -513,7 +518,7 @@ EOF
 	printf 'legacy managed executor profile\n' >"$old_executor"
 	cp "$old_executor" "$old_executor_snapshot"
 	printf 'user-modified executor profile\n' >"$old_executor"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 	assert_file "$old_executor"
 	assert_file "$old_executor_snapshot"
 	assert_contains "$old_executor" 'user-modified executor profile'
@@ -521,14 +526,14 @@ EOF
 	printf 'legacy managed consultant support\n' >"$old_support"
 	cp "$old_support" "$old_support_snapshot"
 	printf 'user-modified consultant support\n' >"$old_support"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 	assert_file "$old_support"
 	assert_file "$old_support_snapshot"
 	assert_contains "$old_support" 'user-modified consultant support'
 	assert_equal_files "$user_extension" "$user_extension_snapshot"
 	assert_contains "$mcp_path" 'user-server'
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox" "$release_fixture" --uninstall
 	assert_file "$old_support"
 	assert_contains "$old_support" 'user-modified consultant support'
 	assert_no_path "$old_support_snapshot"
@@ -537,21 +542,21 @@ EOF
 }
 
 run_manifest_only_extension_symlink_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/manifest-only-extension-symlink"
 	local extension_path="$sandbox/home/.pi/agent/extensions/b-agentic-permissions.ts"
 	local target_path="$sandbox/target.ts"
 
 	mkdir -p "$(dirname "$extension_path")"
 	printf 'user-owned permission extension\n' >"$extension_path"
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	cp "$extension_path" "$target_path"
 	rm "$extension_path"
 	ln -s "$target_path" "$extension_path"
 
 	rm -rf "$sandbox/source"
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
@@ -563,7 +568,7 @@ run_manifest_only_extension_symlink_case() {
 }
 
 run_post_install_mcp_modification_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/post-install-mcp-modification"
 	local mcp_path manifest_path
 
@@ -574,7 +579,7 @@ run_post_install_mcp_modification_case() {
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 
 	assert_contains "$mcp_path" '"user-server"'
 	assert_contains "$mcp_path" '"codegraph"'
@@ -595,7 +600,7 @@ PY
 
 	rm -rf "$sandbox/source"
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
@@ -609,39 +614,219 @@ PY
 }
 
 run_ref_install_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox_ref="$WORK_DIR/ref-install"
 	local sandbox_invalid="$WORK_DIR/ref-install-invalid"
 	local install_ref manifest_path rc
 
 	mkdir -p "$sandbox_ref/home" "$sandbox_invalid/home"
-	install_ref="$(git -C "$snapshot_repo" rev-parse HEAD)"
+	install_ref="$(cat "$ROOT_DIR/VERSION")"
 
-	expect_install_status 0 "$sandbox_ref" "$snapshot_repo" --ref="$install_ref"
+	expect_install_status 0 "$sandbox_ref" "$release_fixture" --ref="$install_ref"
 
 	manifest_path="$sandbox_ref/home/.pi/agent/b-agentic/install.json"
 	assert_file "$manifest_path"
 	assert_json_value "$manifest_path" "data['runtime'] == 'pi'"
 
-	rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --ref=--bad)"
+	rc="$(run_install_status "$sandbox_invalid" "$release_fixture" --ref=--bad)"
 	[ "$rc" -ne 0 ] || fail "expected option-looking --ref value to fail safely"
 }
 
 run_invalid_skill_payload_case() {
-	local snapshot_repo="$1"
-	local sandbox_source="$WORK_DIR/missing-skill-payload-source"
+	local release_fixture="$1"
+	local sandbox_payload="$WORK_DIR/missing-skill-payload"
+	local sandbox_fixture="$WORK_DIR/missing-skill-payload-fixture"
 	local sandbox_install="$WORK_DIR/missing-skill-payload-install"
 
-	git clone --quiet "$snapshot_repo" "$sandbox_source"
-	rm "$sandbox_source/skills/b-plan/SKILL.md"
-	git -C "$sandbox_source" add -A
-	git -C "$sandbox_source" -c user.name='b-agentic smoke' -c user.email='smoke@example.test' commit -qm 'remove generated Pi skill payload'
+	mkdir -p "$sandbox_payload"
+	tar -xzf "$release_fixture/b-agentic.tar.gz" -C "$sandbox_payload"
+	rm "$sandbox_payload/skills/b-plan/SKILL.md"
+	make_fixture_from_payload "$sandbox_payload" "$sandbox_fixture"
 
-	expect_install_status 1 "$sandbox_install" "$sandbox_source"
+	expect_install_status 1 "$sandbox_install" "$sandbox_fixture"
+}
+
+run_release_checksum_mismatch_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/release-checksum-mismatch"
+	local fixture="$WORK_DIR/release-checksum-mismatch-fixture"
+
+	mkdir -p "$sandbox/home" "$fixture"
+	cp "$release_fixture/b-agentic.tar.gz" "$fixture/b-agentic.tar.gz"
+	printf '0000000000000000000000000000000000000000000000000000000000000000  b-agentic.tar.gz\n' >"$fixture/b-agentic.tar.gz.sha256"
+
+	local log="$sandbox/install.log" downloads_before smoke_path
+	local case_tmp="$sandbox/tmp"
+	mkdir -p "$case_tmp"
+	downloads_before="$(temp_download_count "$case_tmp")"
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		TMPDIR="$case_tmp" \
+		B_AGENTIC_RELEASE_URL="file://$fixture/b-agentic.tar.gz" \
+		B_AGENTIC_CHECKSUM_URL="file://$fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" >"$log" 2>&1 && fail "expected checksum mismatch to fail the install"
+	assert_contains "$log" 'release checksum mismatch'
+	[ "$(temp_download_count "$case_tmp")" -eq "$downloads_before" ] || fail "failed bootstrap leaked a download scratch directory"
+}
+
+run_release_unsafe_archive_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/release-unsafe-archive"
+	local payload="$WORK_DIR/release-unsafe-archive-payload"
+	local fixture rc kind
+
+	mkdir -p "$sandbox/home" "$payload"
+	tar -xzf "$release_fixture/b-agentic.tar.gz" -C "$payload"
+	ln -s "$payload/install.sh" "$payload/symlink"
+	printf 'hidden\n' >"$payload/.hidden"
+	cp "$payload/install.sh" "$WORK_DIR/outside-install.sh"
+
+	for kind in absolute dotfile symlink traversal; do
+		fixture="$WORK_DIR/release-unsafe-archive-$kind"
+		mkdir -p "$fixture"
+		case "$kind" in
+		absolute)
+			# -P keeps the leading slash so the archive carries an absolute member.
+			tar -P -czf "$fixture/b-agentic.tar.gz" "$payload/install.sh"
+			;;
+		dotfile)
+			tar -czf "$fixture/b-agentic.tar.gz" -C "$payload" install.sh .hidden
+			;;
+		symlink)
+			tar -czf "$fixture/b-agentic.tar.gz" -C "$payload" symlink
+			;;
+		traversal)
+			# Crafted with python tarfile because tar creation strips leading `..`
+			# components; the stored member must keep the traversal sequence.
+			python3 - "$fixture/b-agentic.tar.gz" "$WORK_DIR/outside-install.sh" <<'PY'
+import sys, tarfile
+
+dest, src = sys.argv[1], sys.argv[2]
+with tarfile.open(dest, "w:gz") as tf:
+    tf.add(src, arcname="../install.sh")
+PY
+			;;
+		esac
+		{
+			if command -v sha256sum >/dev/null 2>&1; then
+				sha256sum "$fixture/b-agentic.tar.gz"
+			else
+				shasum -a 256 "$fixture/b-agentic.tar.gz"
+			fi
+		} | awk '{print $1 "  b-agentic.tar.gz"}' >"$fixture/b-agentic.tar.gz.sha256"
+		log="$sandbox/install-$kind.log"
+		run_install_capture "$sandbox" "$fixture" "$log" && fail "expected unsafe archive case $kind to fail the install"
+		case "$kind" in
+		symlink) assert_contains "$log" 'unexpected release archive entry: symlink' ;;
+		*) assert_contains "$log" 'unsafe release archive entry' ;;
+		esac
+		rm -rf "$fixture"
+	done
+}
+
+run_git_checkout_migration_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/git-checkout-migration"
+	local backup install_log
+
+	mkdir -p "$sandbox/home" "$sandbox/source/.git"
+	printf 'ref: refs/heads/main\n' >"$sandbox/source/.git/HEAD"
+	printf 'user sentinel\n' >"$sandbox/source/user-file.txt"
+
+	install_log="$sandbox/install.log"
+	local downloads_before case_tmp
+	case_tmp="$sandbox/tmp"
+	mkdir -p "$case_tmp"
+	downloads_before="$(temp_download_count "$case_tmp")"
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		TMPDIR="$case_tmp" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" \
+		B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" >"$install_log" 2>&1 || fail "expected migrated install to succeed"
+	[ "$(temp_download_count "$case_tmp")" -eq "$downloads_before" ] || fail "successful bootstrap leaked a download scratch directory"
+
+	backup="$(compgen -G "$sandbox/source.backup.*" | head -1)"
+	[ -n "$backup" ] || fail "expected a .backup.<ts> migration directory"
+	assert_file "$backup/user-file.txt"
+	assert_file "$backup/.git/HEAD"
+	assert_contains "$install_log" 'previous b-agentic checkout preserved at:'
+	assert_file "$sandbox/source/skills/registry.yaml"
+	assert_file "$sandbox/source/VERSION"
+	assert_no_path "$sandbox/source/.git"
+	assert_no_path "$sandbox/source/user-file.txt"
+	assert_no_path "$sandbox/source/docs"
+}
+
+run_release_ref_validation_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/release-ref-validation"
+	local log ref
+
+	mkdir -p "$sandbox/home"
+	for ref in v0.1.2 main 1234567 v2026-09-11 v2026.9.11; do
+		log="$sandbox/ref-$ref.log"
+		run_install_capture "$sandbox" "$release_fixture" "$log" "--ref=$ref" && fail "expected malformed --ref=$ref to fail safely"
+		assert_contains "$log" 'must be a vYYYY.MM.DD release tag'
+	done
+}
+
+run_release_ref_url_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/release-ref-url"
+	local bin_dir="$sandbox/bin"
+	local ref install_log url_log
+
+	ref="$(cat "$ROOT_DIR/VERSION")"
+	mkdir -p "$sandbox/home" "$bin_dir"
+	url_log="$sandbox/curl.log"
+	install_log="$sandbox/install.log"
+	cp "$(command -v curl)" "$bin_dir/.curl-real"
+	cat >"$bin_dir/curl" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+selfdir="\$(cd "\$(dirname "\$0")" && pwd)"
+for arg in "\$@"; do
+	case "\$arg" in
+	-*) ;;
+	*) printf '%s\n' "\$arg" >>"$url_log" ;;
+	esac
+done
+args=()
+saw_release=0
+for arg in "\$@"; do
+	case "\$arg" in
+	https://*/b-agentic.tar.gz.sha256) args+=("file://$release_fixture/b-agentic.tar.gz.sha256"); saw_release=1 ;;
+	https://*/b-agentic.tar.gz) args+=("file://$release_fixture/b-agentic.tar.gz"); saw_release=1 ;;
+	*) args+=("\$arg") ;;
+	esac
+done
+if [ "\$saw_release" -eq 1 ]; then
+	exec "\$selfdir/.curl-real" "\${args[@]}"
+fi
+# Every non-release URL stays hermetic like the shared smoke curl mock.
+printf 'exit 0\n'
+EOF
+	chmod +x "$bin_dir/curl"
+
+	HOME="$sandbox/home" \
+		PATH="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" "--ref=$ref" >"$install_log" 2>&1 || fail "expected --ref install via the release download URL to succeed"
+	assert_contains "$url_log" "https://github.com/dhoaibao/b-agentic/releases/download/$ref/b-agentic.tar.gz.sha256"
+	assert_contains "$url_log" "https://github.com/dhoaibao/b-agentic/releases/download/$ref/b-agentic.tar.gz"
+	assert_file "$sandbox/source/VERSION"
 }
 
 run_skill_collision_smoke_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox_collision="$WORK_DIR/skill-collision"
 	local skill_path="$sandbox_collision/home/.pi/agent/skills/b-plan/SKILL.md"
 	local manifest_path="$sandbox_collision/home/.pi/agent/b-agentic/install.json"
@@ -649,21 +834,21 @@ run_skill_collision_smoke_case() {
 	mkdir -p "$(dirname "$skill_path")"
 	printf 'user-owned b-plan
 ' >"$skill_path"
-	expect_install_status 0 "$sandbox_collision" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_collision" "$release_fixture"
 	assert_file "$manifest_path"
 	assert_contains "$skill_path" 'user-owned b-plan'
 	assert_json_value "$manifest_path" "'b-plan' not in data['skills']"
 }
 
 run_readiness_report_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/readiness-pi"
 	local rc=0
 
 	mkdir -p "$sandbox/home"
 
 	set +e
-	run_install_with_tty_log "$sandbox" "$snapshot_repo" "$sandbox/install.log"
+	run_install_with_tty_log "$sandbox" "$release_fixture" "$sandbox/install.log"
 	rc=$?
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected Pi readiness install exit 0, got $rc"
@@ -678,7 +863,7 @@ run_readiness_report_case() {
 }
 
 run_output_contract_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/output-contract"
 	local tty_sandbox="$WORK_DIR/output-contract-tty"
 	local dumb_sandbox="$WORK_DIR/output-contract-dumb"
@@ -688,7 +873,7 @@ run_output_contract_case() {
 	mkdir -p "$sandbox/home" "$tty_sandbox/home" "$dumb_sandbox/home" "$failure_sandbox/home"
 	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
 	set +e
-	HOME="$sandbox/home" PATH="$smoke_path" B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+	HOME="$sandbox/home" PATH="$smoke_path" B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N bash "$ROOT_DIR/install.sh" --dry-run >"$sandbox/non-tty.log" 2>&1
 	rc=$?
 	set -e
@@ -706,7 +891,7 @@ assert output.endswith(b'\n')
 PY
 
 	set +e
-	TERM=xterm run_install_with_tty_log "$tty_sandbox" "$snapshot_repo" "$tty_sandbox/install.log" --dry-run
+	TERM=xterm run_install_with_tty_log "$tty_sandbox" "$release_fixture" "$tty_sandbox/install.log" --dry-run
 	rc=$?
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected TTY output contract install exit 0, got $rc"
@@ -725,18 +910,19 @@ assert output.endswith(b'\n')
 PY
 
 	set +e
-	TERM=dumb run_install_with_tty_log "$dumb_sandbox" "$snapshot_repo" "$dumb_sandbox/install.log" --dry-run
+	TERM=dumb run_install_with_tty_log "$dumb_sandbox" "$release_fixture" "$dumb_sandbox/install.log" --dry-run
 	rc=$?
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected TERM=dumb install exit 0, got $rc"
 	assert_not_contains "$dumb_sandbox/install.log" '[1/5] ['
 
-	git clone --quiet "$snapshot_repo" "$failure_sandbox/source-repo"
-	rm "$failure_sandbox/source-repo/skills/b-plan/SKILL.md"
-	git -C "$failure_sandbox/source-repo" add -A
-	git -C "$failure_sandbox/source-repo" -c user.name='b-agentic smoke' -c user.email='smoke@example.test' commit -qm 'remove generated Pi skill payload'
+	git_payload="$failure_sandbox/broken-payload"
+	mkdir -p "$git_payload"
+	tar -xzf "$release_fixture/b-agentic.tar.gz" -C "$git_payload"
+	rm "$git_payload/skills/b-plan/SKILL.md"
+	make_fixture_from_payload "$git_payload" "$failure_sandbox/broken-fixture"
 	set +e
-	TERM=xterm run_install_with_tty_log "$failure_sandbox" "$failure_sandbox/source-repo" "$failure_sandbox/install.log" --dry-run
+	TERM=xterm run_install_with_tty_log "$failure_sandbox" "$failure_sandbox/broken-fixture" "$failure_sandbox/install.log" --dry-run
 	rc=$?
 	set -e
 	[ "$rc" -ne 0 ] || fail "expected TTY failure output contract to fail"
@@ -744,7 +930,7 @@ PY
 }
 
 run_component_picker_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/component-picker"
 	local cancel_sandbox="$WORK_DIR/component-picker-cancel"
 	local preserve_sandbox="$WORK_DIR/component-picker-preserve"
@@ -762,7 +948,7 @@ run_component_picker_case() {
 	mkdir -p "$sandbox/home" "$cancel_sandbox/home" "$preserve_sandbox/home"
 	assert_picker_key_reader_portability
 	set +e
-	TERM=xterm B_AGENTIC_TTY_INPUT=$' \e[B \e[B \n' run_install_with_tty_log "$sandbox" "$snapshot_repo" "$install_log" --dry-run
+	TERM=xterm B_AGENTIC_TTY_INPUT=$' \e[B \e[B \n' run_install_with_tty_log "$sandbox" "$release_fixture" "$install_log" --dry-run
 	rc=$?
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected component picker dry-run exit 0, got $rc"
@@ -777,7 +963,7 @@ run_component_picker_case() {
 	assert_not_contains "$install_log" '[dry-run] git clone --depth 1 https://github.com/dracula/pi-coding-agent.git'
 
 	set +e
-	TERM=xterm B_AGENTIC_TTY_INPUT=$'\e' run_install_with_tty_log "$cancel_sandbox" "$snapshot_repo" "$cancel_log" --dry-run
+	TERM=xterm B_AGENTIC_TTY_INPUT=$'\e' run_install_with_tty_log "$cancel_sandbox" "$release_fixture" "$cancel_log" --dry-run
 	rc=$?
 	set -e
 	[ "$rc" -eq 130 ] || fail "expected Escape to cancel the component picker, got $rc"
@@ -785,12 +971,12 @@ run_component_picker_case() {
 	assert_no_path "$cancel_sandbox/source"
 	assert_no_path "$cancel_sandbox/home/.pi/agent"
 
-	expect_install_status 0 "$preserve_sandbox" "$snapshot_repo"
+	expect_install_status 0 "$preserve_sandbox" "$release_fixture"
 	cp "$mcp_path" "$mcp_before"
 	cp "$theme_cache" "$theme_before"
 	cp "$manifest_path" "$manifest_before"
 	set +e
-	TERM=xterm B_AGENTIC_TTY_INPUT=$' \e[B \e[B \n' run_install_with_tty_log "$preserve_sandbox" "$snapshot_repo" "$preserve_log"
+	TERM=xterm B_AGENTIC_TTY_INPUT=$' \e[B \e[B \n' run_install_with_tty_log "$preserve_sandbox" "$release_fixture" "$preserve_log"
 	rc=$?
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected component picker reconcile exit 0, got $rc"
@@ -830,9 +1016,12 @@ assert_picker_key_reader_portability() {
 }
 
 run_optional_shell_tool_case() {
-	local snapshot_repo="$1"
-	local output
-	output="$(SOURCE_DIR="$snapshot_repo" bash -s "$snapshot_repo" <<'EOF'
+	local release_fixture="$1"
+	local output payload
+	payload="$WORK_DIR/optional-shell-tool-payload"
+	mkdir -p "$payload"
+	tar -xzf "$release_fixture/b-agentic.tar.gz" -C "$payload"
+	output="$(SOURCE_DIR="$payload" bash -s "$payload" <<'EOF'
 set -euo pipefail
 dry_run_enabled() { return 1; }
 log() { printf '%s\n' "$*"; }
@@ -849,7 +1038,7 @@ EOF
 }
 
 run_prompted_mcp_key_pipe_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/prompted-mcp-key-pipe"
 	local bin_dir="$sandbox/bin"
 	local config_path="$sandbox/mcp.json"
@@ -861,6 +1050,8 @@ run_prompted_mcp_key_pipe_case() {
 	cat >"$config_path" <<'EOF'
 {"mcpServers":{}}
 EOF
+	mkdir -p "$WORK_DIR/prompted-mcp-key-pipe-payload"
+	tar -xzf "$release_fixture/b-agentic.tar.gz" -C "$WORK_DIR/prompted-mcp-key-pipe-payload"
 	cat >"$bin_dir/python3" <<EOF
 #!/usr/bin/env bash
 while IFS= read -r entry; do
@@ -875,13 +1066,13 @@ EOF
 	chmod +x "$bin_dir/python3"
 
 	PATH="$bin_dir:$(smoke_system_path)" \
-		SOURCE_DIR="$snapshot_repo" \
+		SOURCE_DIR="$WORK_DIR/prompted-mcp-key-pipe-payload" \
 		MCP_CONFIG_DST="$config_path" \
 		MCP_ROOT_KEY="mcpServers" \
 		MCP_CONTEXT7_SECTION="headers" \
 		MCP_BRAVE_SECTION="env" \
 		MCP_FIRECRAWL_SECTION="env" \
-		bash -s "$snapshot_repo" <<'EOF'
+		bash -s "$WORK_DIR/prompted-mcp-key-pipe-payload" <<'EOF'
 set -euo pipefail
 dry_run_enabled() { return 1; }
 run_cmd() { "$@"; }
@@ -902,7 +1093,7 @@ EOF
 }
 
 run_playwright_mcp_migration_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox_root="$WORK_DIR/playwright-mcp-migration"
 	local sandbox mcp_path case_name
 	local -a cases=(npx pnpm bunx-versioned bunx-unversioned npx-headless-first bunx-headless-first bunx-isolated-first)
@@ -929,13 +1120,13 @@ legacy = {
 }[case_name]
 path.write_text(json.dumps({"mcpServers": {"playwright": legacy}}, indent=2) + "\n")
 PY
-		expect_install_status 0 "$sandbox" "$snapshot_repo"
+		expect_install_status 0 "$sandbox" "$release_fixture"
 		assert_json_value "$mcp_path" "data['mcpServers']['playwright'] == {'command': 'bunx', 'args': ['@playwright/mcp', '--isolated', '--headless', '--caps=testing'], 'env': {}, 'lifecycle': 'lazy'}"
 	done
 }
 
 run_mcp_doctor_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/mcp-doctor-pi"
 	local bin_dir="$WORK_DIR/mcp-doctor-bin"
 	local doctor_log="$WORK_DIR/mcp-doctor.log"
@@ -982,7 +1173,7 @@ EOF
 	set +e
 	HOME="$sandbox/home" \
 		PATH="$bin_dir:$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" >/dev/null 2>&1
@@ -1055,7 +1246,7 @@ PY
 }
 
 run_fresh_dependency_install_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/fresh-dependency-install"
 	local bin_dir="$sandbox/smoke-bin"
 	local minimal_bin="$sandbox/minimal-bin"
@@ -1083,9 +1274,16 @@ run_fresh_dependency_install_case() {
 	for name in rtk codegraph rg fd bat eza sd jq; do
 		rm -f "$bin_dir/$name"
 	done
+	cp "$(command -v curl)" "$bin_dir/.curl-real"
 	cat >"$bin_dir/curl" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+selfdir="$(cd "$(dirname "$0")" && pwd)"
+for arg in "$@"; do
+	case "$arg" in
+	file://*) exec "$selfdir/.curl-real" "$@" ;;
+	esac
+done
 case "$*" in
   *rtk-ai/rtk*)
     cat <<'SH'
@@ -1109,14 +1307,15 @@ EOF
 	chmod +x "$bin_dir/curl"
 
 	set +e
-	python3 - "$sandbox" "$snapshot_repo" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+	python3 - "$sandbox" "$release_fixture" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
 import os, pty, select, sys
 
-sandbox, repo_snapshot, smoke_path, log_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, smoke_path, log_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 env["B_AGENTIC_SHELL_RECOMMEND_MANAGER"] = "apt-get"
@@ -1167,7 +1366,7 @@ PY
 }
 
 run_existing_tool_upgrade_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/existing-tool-upgrade"
 	local bin_dir="$sandbox/bin"
 	local upgrade_log="$sandbox/upgrade.log"
@@ -1186,22 +1385,31 @@ EOF
 printf 'codegraph:%s:refresh=%s\n' "\$*" "\${CODEGRAPH_NO_INSTALL_REFRESH:-unset}" >> "$upgrade_log"
 exit 0
 EOF
+	cp "$(command -v curl)" "$bin_dir/.curl-real"
 	cat >"$bin_dir/curl" <<EOF
 #!/usr/bin/env bash
-printf '%s\n' 'printf "rtk-upgrade\n" >> "$upgrade_log"'
+set -euo pipefail
+selfdir="\$(cd "\$(dirname "\$0")" && pwd)"
+for arg in "\$@"; do
+	case "\$arg" in
+	file://*) exec "\$selfdir/.curl-real" "\$@" ;;
+	esac
+done
+printf '%s\n' 'printf "rtk-upgrade\\n" >> "$upgrade_log"'
 EOF
 	chmod +x "$bin_dir/rtk" "$bin_dir/codegraph" "$bin_dir/curl"
 	smoke_path="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")"
 
 	set +e
-	python3 - "$sandbox" "$snapshot_repo" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+	python3 - "$sandbox" "$release_fixture" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
 import os, pty, select, sys
 
-sandbox, repo_snapshot, smoke_path, log_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, smoke_path, log_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 
@@ -1249,7 +1457,7 @@ PY
 	: >"$upgrade_log"
 	set +e
 	HOME="$sandbox/home" PATH="$smoke_path" \
-		B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N bash "$ROOT_DIR/install.sh" --update >"$sandbox/update.log" 2>&1
 	rc=$?
 	set -e
@@ -1265,7 +1473,7 @@ PY
 }
 
 run_existing_tool_default_skip_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/existing-tool-default-skip"
 	local bin_dir="$sandbox/bin"
 	local upgrade_log="$sandbox/upgrade.log"
@@ -1284,13 +1492,14 @@ EOF
 	done
 
 	set +e
-	python3 - "$sandbox" "$snapshot_repo" "$install_log" "$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" "$ROOT_DIR/install.sh" <<'PY'
+	python3 - "$sandbox" "$release_fixture" "$install_log" "$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" "$ROOT_DIR/install.sh" <<'PY'
 import os, subprocess, sys
-sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, log_path, smoke_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 
@@ -1312,7 +1521,7 @@ PY
 }
 
 run_runtime_cli_upgrade_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/runtime-cli-upgrade"
 	local bin_dir="$sandbox/bin"
 	local upgrade_log="$sandbox/upgrade.log"
@@ -1334,7 +1543,7 @@ EOF
 	set +e
 	HOME="$sandbox/home" \
 		PATH="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" >"$install_log" 2>&1
@@ -1346,7 +1555,7 @@ EOF
 }
 
 run_missing_runtime_cli_install_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/missing-runtime-cli-install"
 	local bin_dir="$sandbox/bin"
 	local install_log rc required_tool
@@ -1362,7 +1571,7 @@ run_missing_runtime_cli_install_case() {
 	set +e
 	HOME="$sandbox/home" \
 		PATH="$bin_dir:$(smoke_system_path)" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --dry-run >"$install_log" 2>&1
@@ -1374,7 +1583,7 @@ run_missing_runtime_cli_install_case() {
 }
 
 run_runtime_cli_default_skip_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/runtime-cli-default-skip"
 	local bin_dir="$sandbox/bin"
 	local upgrade_log="$sandbox/upgrade.log"
@@ -1386,20 +1595,29 @@ run_runtime_cli_default_skip_case() {
 		printf '#!/usr/bin/env bash\nexit 0\n' >"$bin_dir/$required_tool"
 		chmod +x "$bin_dir/$required_tool"
 	done
+	cp "$(command -v curl)" "$bin_dir/.curl-real"
 	cat >"$bin_dir/curl" <<'EOF'
 #!/usr/bin/env bash
+set -euo pipefail
+selfdir="$(cd "$(dirname "$0")" && pwd)"
+for arg in "$@"; do
+	case "$arg" in
+	file://*) exec "$selfdir/.curl-real" "$@" ;;
+	esac
+done
 exit 0
 EOF
 	chmod +x "$bin_dir/curl"
 
 	set +e
-	python3 - "$sandbox" "$snapshot_repo" "$install_log" "$bin_dir:$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
+	python3 - "$sandbox" "$release_fixture" "$install_log" "$bin_dir:$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
 import os, subprocess, sys
-sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, log_path, smoke_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 
@@ -1421,20 +1639,20 @@ PY
 }
 
 run_bun_mcp_package_lifecycle_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/bun-mcp-lifecycle"
 	local bun_log="$sandbox/smoke-bin/bun.log"
 
 	mkdir -p "$sandbox/home"
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture"
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 
 	[ "$(grep -Fc 'bun upgrade' "$bun_log")" -eq 2 ] || fail "expected Bun reconciliation during install and update"
 	assert_not_contains "$bun_log" 'bun install --global'
 }
 
 run_pi_package_lifecycle_preservation_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/pi-package-lifecycle-preservation"
 	local install_log="$sandbox/install.log"
 	local package_log="$sandbox/smoke-bin/pi-install.log"
@@ -1471,7 +1689,7 @@ EOF
 	(
 		cd "$project_dir"
 		HOME="$sandbox/home" PATH="$smoke_path" \
-			B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+			B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 			B_AGENTIC_PROMPT_API_KEYS=N bash "$ROOT_DIR/install.sh" --dry-run >"$install_log" 2>&1
 	)
 	rc=$?
@@ -1490,7 +1708,7 @@ EOF
 	assert_equal_files "$global_lsp_config" "$global_lsp_snapshot"
 	assert_equal_files "$project_lsp_config" "$project_lsp_snapshot"
 
-	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$snapshot_repo"
+	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$release_fixture"
 	assert_contains "$package_log" 'npm:@juicesharp/rpiv-ask-user-question'
 	assert_contains "$package_log" 'npm:@juicesharp/rpiv-todo'
 	assert_not_contains "$package_log" 'npm:@narumitw/pi-lsp'
@@ -1517,10 +1735,10 @@ EOF
 	[ "$todo_package_count" -eq 1 ] || fail "expected initial pi-todo install exactly once"
 	assert_contains "$install_log" 'update --extensions'
 
-	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$snapshot_repo"
+	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$release_fixture"
 	assert_equal_files "$global_lsp_config" "$global_lsp_snapshot"
 	assert_equal_files "$project_lsp_config" "$project_lsp_snapshot"
-	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$snapshot_repo" --update
+	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$release_fixture" --update
 	assert_equal_files "$global_lsp_config" "$global_lsp_snapshot"
 	assert_equal_files "$project_lsp_config" "$project_lsp_snapshot"
 	assert_file "$sandbox/smoke-bin/pi-lsp-ranged-installed"
@@ -1533,7 +1751,7 @@ EOF
 	assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"piTodoState": "ready"'
 	assert_contains "$sandbox/smoke-bin/pi-install.log" 'update --extensions'
 
-	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$snapshot_repo" --uninstall
+	expect_install_status_in_cwd 0 "$project_dir" "$sandbox" "$release_fixture" --uninstall
 	assert_equal_files "$global_lsp_config" "$global_lsp_snapshot"
 	assert_equal_files "$project_lsp_config" "$project_lsp_snapshot"
 	assert_file "$sandbox/smoke-bin/pi-lsp-ranged-installed"
@@ -1542,7 +1760,7 @@ EOF
 }
 
 run_rule_guard_lifecycle_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/rule-guard-lifecycle"
 	local extensions_dir="$sandbox/home/.pi/agent/extensions"
 	local snapshots_dir="$sandbox/home/.pi/agent/b-agentic/extensions"
@@ -1561,7 +1779,7 @@ run_rule_guard_lifecycle_case() {
 {"mcpServers":{"user-server":{"command":"user-server-cmd"}}}
 EOF
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	assert_no_path "$rule_guard_path"
 	assert_no_path "$rule_guard_snapshot"
 	assert_file "$permissions_path"
@@ -1573,7 +1791,7 @@ EOF
 
 	printf 'legacy managed rule guard\n' >"$rule_guard_path"
 	cp "$rule_guard_path" "$rule_guard_snapshot"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 	assert_no_path "$rule_guard_path"
 	assert_no_path "$rule_guard_snapshot"
 	assert_equal_files "$user_extension" "$user_extension_snapshot"
@@ -1582,7 +1800,7 @@ EOF
 	printf 'legacy managed rule guard\n' >"$rule_guard_path"
 	cp "$rule_guard_path" "$rule_guard_snapshot"
 	printf 'user-modified rule guard\n' >"$rule_guard_path"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 	assert_file "$rule_guard_path"
 	assert_file "$rule_guard_snapshot"
 	assert_contains "$rule_guard_path" 'user-modified rule guard'
@@ -1590,7 +1808,7 @@ EOF
 	assert_contains "$mcp_path" '"user-server"'
 	assert_not_contains "$manifest_path" 'b-agentic-rule-guard.ts'
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox" "$release_fixture" --uninstall
 	assert_file "$rule_guard_path"
 	assert_contains "$rule_guard_path" 'user-modified rule guard'
 	assert_no_path "$rule_guard_snapshot"
@@ -1600,7 +1818,7 @@ EOF
 }
 
 run_rule_guard_orphan_snapshot_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/rule-guard-orphan-snapshot"
 	local extensions_dir="$sandbox/home/.pi/agent/extensions"
 	local snapshots_dir="$sandbox/home/.pi/agent/b-agentic/extensions"
@@ -1608,15 +1826,15 @@ run_rule_guard_orphan_snapshot_case() {
 	local rule_guard_snapshot="$snapshots_dir/b-agentic-rule-guard.ts"
 
 	mkdir -p "$extensions_dir" "$snapshots_dir"
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	printf 'orphaned managed rule guard snapshot\n' >"$rule_guard_snapshot"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 	assert_no_path "$rule_guard_path"
 	assert_no_path "$rule_guard_snapshot"
 }
 
 run_rule_guard_manifest_backup_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/rule-guard-manifest-backup"
 	local extensions_dir="$sandbox/home/.pi/agent/extensions"
 	local snapshots_dir="$sandbox/home/.pi/agent/b-agentic/extensions"
@@ -1628,7 +1846,7 @@ run_rule_guard_manifest_backup_case() {
 	local manifest_path="$sandbox/home/.pi/agent/b-agentic/install.json"
 
 	mkdir -p "$extensions_dir" "$snapshots_dir" "$backups_dir"
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	printf 'legacy managed rule guard\n' >"$rule_guard_path"
 	cp "$rule_guard_path" "$rule_guard_snapshot"
 	printf 'user-original rule guard\n' >"$original_backup"
@@ -1647,7 +1865,7 @@ PY
 
 	rm -rf "$sandbox/source"
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
@@ -1658,7 +1876,7 @@ PY
 }
 
 run_pi_anthropic_auth_package_lifecycle_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/pi-anthropic-auth-package-lifecycle"
 	local install_log="$sandbox/install.log"
 	local package_log="$sandbox/smoke-bin/pi-install.log"
@@ -1668,7 +1886,7 @@ run_pi_anthropic_auth_package_lifecycle_case() {
 	mkdir -p "$sandbox/home"
 	set +e
 	HOME="$sandbox/home" PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N bash "$ROOT_DIR/install.sh" --dry-run >"$install_log" 2>&1
 	rc=$?
 	set -e
@@ -1677,26 +1895,26 @@ run_pi_anthropic_auth_package_lifecycle_case() {
 	assert_contains "$install_log" 'anthropic-auth:'
 	assert_no_path "$sandbox/smoke-bin/pi-anthropic-auth-installed"
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	assert_contains "$package_log" 'npm:@gotgenes/pi-anthropic-auth'
 	assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"piAnthropicAuthAction": "install"'
 	assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"piAnthropicAuthState": "ready"'
 	package_count="$(grep -Fc 'npm:@gotgenes/pi-anthropic-auth' "$package_log")"
 	[ "$package_count" -eq 1 ] || fail "expected initial pi-anthropic-auth install exactly once"
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --update
+	expect_install_status 0 "$sandbox" "$release_fixture"
+	expect_install_status 0 "$sandbox" "$release_fixture" --update
 	[ "$(grep -Fc 'npm:@gotgenes/pi-anthropic-auth' "$package_log")" -eq "$package_count" ] || fail "pi-anthropic-auth was reinstalled after package detection"
 	assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"piAnthropicAuthAction": "present"'
 	assert_contains "$sandbox/home/.pi/agent/b-agentic/install.json" '"piAnthropicAuthState": "ready"'
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox" "$release_fixture" --uninstall
 	assert_file "$sandbox/smoke-bin/pi-anthropic-auth-installed"
 	assert_no_path "$sandbox/home/.pi/agent/b-agentic/install.json"
 }
 
 run_parallel_chain_output_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/parallel-chain-output"
 	local install_log="$sandbox/install.log"
 	local bin_dir="$sandbox/smoke-bin"
@@ -1705,7 +1923,7 @@ run_parallel_chain_output_case() {
 	mkdir -p "$sandbox/home"
 	set +e
 	HOME="$sandbox/home" PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N B_AGENTIC_VERBOSE_MOCK=1 bash "$ROOT_DIR/install.sh" >"$install_log" 2>&1
 	rc=$?
 	set -e
@@ -1719,7 +1937,7 @@ run_parallel_chain_output_case() {
 	: >"$bin_dir/fail-codegraph"
 	set +e
 	HOME="$sandbox/home" PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N B_AGENTIC_VERBOSE_MOCK=1 bash "$ROOT_DIR/install.sh" --update >"$sandbox/failure.log" 2>&1
 	rc=$?
 	set -e
@@ -1729,7 +1947,7 @@ run_parallel_chain_output_case() {
 }
 
 run_uninstall_skips_dependency_reconciliation_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/uninstall-skips-dependency-reconciliation"
 	local bin_dir="$sandbox/smoke-bin"
 	local dependency_log="$sandbox/dependency.log"
@@ -1737,7 +1955,7 @@ run_uninstall_skips_dependency_reconciliation_case() {
 	local smoke_path rc tool
 
 	mkdir -p "$sandbox/home"
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
 	: >"$dependency_log"
 	for tool in rtk codegraph bun curl; do
@@ -1752,7 +1970,7 @@ EOF
 	set +e
 	HOME="$sandbox/home" \
 		PATH="$smoke_path" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$install_log" 2>&1
@@ -1765,7 +1983,7 @@ EOF
 }
 
 run_runtime_cli_prompt_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/runtime-cli-prompt"
 	local bin_dir="$sandbox/bin"
 	local install_log="$sandbox/install.log"
@@ -1778,14 +1996,15 @@ run_runtime_cli_prompt_case() {
 	done
 
 	set +e
-	python3 - "$sandbox" "$snapshot_repo" "$install_log" "$bin_dir:$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
+	python3 - "$sandbox" "$release_fixture" "$install_log" "$bin_dir:$(smoke_system_path)" "$ROOT_DIR/install.sh" <<'PY'
 import os, pty, select, sys
 
-sandbox, repo_snapshot, log_path, smoke_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, log_path, smoke_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 
@@ -1832,7 +2051,7 @@ PY
 }
 
 run_runtime_cli_auto_upgrade_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/runtime-cli-auto-upgrade"
 	local bin_dir="$sandbox/bin"
 	local install_log="$sandbox/install.log"
@@ -1851,14 +2070,15 @@ EOF
 	smoke_path="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")"
 
 	set +e
-	python3 - "$sandbox" "$snapshot_repo" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
+	python3 - "$sandbox" "$release_fixture" "$smoke_path" "$install_log" "$ROOT_DIR/install.sh" <<'PY'
 import os, pty, select, sys
 
-sandbox, repo_snapshot, smoke_path, log_path, install_script = sys.argv[1:6]
+sandbox, release_fixture, smoke_path, log_path, install_script = sys.argv[1:6]
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
 env["PATH"] = smoke_path
-env["B_AGENTIC_REPO"] = repo_snapshot
+env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
+env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
 env["B_AGENTIC_DIR"] = os.path.join(sandbox, "source")
 env["B_AGENTIC_PROMPT_API_KEYS"] = "N"
 
@@ -1910,7 +2130,7 @@ PY
 }
 
 run_runtime_cli_update_failure_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/runtime-cli-update-failure"
 	local bin_dir="$sandbox/bin"
 	local install_log="$sandbox/install.log"
@@ -1927,7 +2147,7 @@ EOF
 	set +e
 	HOME="$sandbox/home" \
 		PATH="$(smoke_path_with_runtime_clis "$sandbox" "$bin_dir")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" >"$install_log" 2>&1
@@ -1939,7 +2159,7 @@ EOF
 }
 
 run_skill_doctor_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/skill-doctor-pi"
 	local doctor_log="$WORK_DIR/skill-doctor.log"
 	local expected_skill_count
@@ -1947,7 +2167,7 @@ run_skill_doctor_case() {
 	mkdir -p "$sandbox/home"
 	expected_skill_count="$(registry_skill_count)"
 
-	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	expect_install_status 0 "$sandbox" "$release_fixture"
 	python3 "$ROOT_DIR/tooling/validate/skill_doctor.py" --home "$sandbox/home" >"$doctor_log"
 	assert_contains "$doctor_log" "expected-skills: $expected_skill_count"
 	assert_contains "$doctor_log" 'kernel: ready'
@@ -1980,7 +2200,7 @@ run_skill_doctor_case() {
 }
 
 run_dracula_theme_install_and_update_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/dracula-theme-install-and-update"
 	local fixture_repo="$WORK_DIR/dracula-fixture-update"
 
@@ -1990,7 +2210,7 @@ run_dracula_theme_install_and_update_case() {
 	HOME="$sandbox/home" \
 		TMPDIR="$sandbox/tmp" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_DRACULA_REPO="$fixture_repo" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
@@ -2020,7 +2240,7 @@ EOF
 	HOME="$sandbox/home" \
 		TMPDIR="$sandbox/tmp" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_DRACULA_REPO="$fixture_repo" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
@@ -2045,7 +2265,7 @@ EOF
 	HOME="$sandbox/home" \
 		TMPDIR="$sandbox/tmp" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_DRACULA_REPO="$fixture_repo" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
@@ -2067,7 +2287,7 @@ EOF
 	HOME="$sandbox_fail/home" \
 		TMPDIR="$sandbox_fail/tmp" \
 		PATH="$(smoke_runtime_cli_path "$sandbox_fail")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox_fail/source" \
 		B_AGENTIC_DRACULA_REPO="$fixture_repo" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
@@ -2082,12 +2302,12 @@ EOF
 }
 
 run_dracula_theme_dry_run_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/dracula-theme-dry-run"
 
 	HOME="$sandbox/home" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --dry-run >"$sandbox/dry-run.log" 2>&1
@@ -2100,7 +2320,7 @@ run_dracula_theme_dry_run_case() {
 }
 
 run_dracula_theme_collision_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox_user_file="$WORK_DIR/dracula-collision-file"
 	local sandbox_symlink="$WORK_DIR/dracula-collision-symlink"
 
@@ -2109,7 +2329,7 @@ run_dracula_theme_collision_case() {
 
 	HOME="$sandbox_user_file/home" \
 		PATH="$(smoke_runtime_cli_path "$sandbox_user_file")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox_user_file/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" >"$sandbox_user_file/install.log" 2>&1
@@ -2126,7 +2346,7 @@ run_dracula_theme_collision_case() {
 
 	HOME="$sandbox_symlink/home" \
 		PATH="$(smoke_runtime_cli_path "$sandbox_symlink")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox_symlink/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" >"$sandbox_symlink/install.log" 2>&1
@@ -2137,27 +2357,27 @@ run_dracula_theme_collision_case() {
 }
 
 run_dracula_theme_uninstall_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox_std="$WORK_DIR/dracula-uninstall-std"
 	local sandbox_user="$WORK_DIR/dracula-uninstall-user"
 	local sandbox_manifest_std="$WORK_DIR/dracula-uninstall-manifest-std"
 	local sandbox_manifest_user="$WORK_DIR/dracula-uninstall-manifest-user"
 
 	# Standard regular uninstall removes managed symlink
-	expect_install_status 0 "$sandbox_std" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_std" "$release_fixture"
 	assert_file "$sandbox_std/home/.pi/agent/b-agentic/themes/dracula.json"
 	[ -L "$sandbox_std/home/.pi/agent/themes/dracula.json" ] || fail "expected symlink"
-	expect_install_status 0 "$sandbox_std" "$snapshot_repo" --uninstall
+	expect_install_status 0 "$sandbox_std" "$release_fixture" --uninstall
 	assert_no_path "$sandbox_std/home/.pi/agent/themes/dracula.json"
 	assert_no_path "$sandbox_std/home/.pi/agent/b-agentic"
 
 	# Standard regular uninstall preserves user modified theme file
-	expect_install_status 0 "$sandbox_user" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_user" "$release_fixture"
 	rm "$sandbox_user/home/.pi/agent/themes/dracula.json"
 	printf '{"custom": 1}\n' >"$sandbox_user/home/.pi/agent/themes/dracula.json"
 	HOME="$sandbox_user/home" \
 		PATH="$(smoke_runtime_cli_path "$sandbox_user")" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox_user/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox_user/uninstall.log" 2>&1
@@ -2166,10 +2386,10 @@ run_dracula_theme_uninstall_case() {
 	assert_contains "$sandbox_user/home/.pi/agent/themes/dracula.json" '"custom": 1'
 
 	# Manifest-only uninstall removes managed symlink
-	expect_install_status 0 "$sandbox_manifest_std" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_manifest_std" "$release_fixture"
 	rm -rf "$sandbox_manifest_std/source"
 	HOME="$sandbox_manifest_std/home" \
-		B_AGENTIC_REPO="$sandbox_manifest_std/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox_manifest_std/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox_manifest_std/uninstall.log" 2>&1
@@ -2178,12 +2398,12 @@ run_dracula_theme_uninstall_case() {
 	assert_no_path "$sandbox_manifest_std/home/.pi/agent/b-agentic"
 
 	# Manifest-only uninstall preserves user modified theme file
-	expect_install_status 0 "$sandbox_manifest_user" "$snapshot_repo"
+	expect_install_status 0 "$sandbox_manifest_user" "$release_fixture"
 	rm "$sandbox_manifest_user/home/.pi/agent/themes/dracula.json"
 	printf '{"custom": 2}\n' >"$sandbox_manifest_user/home/.pi/agent/themes/dracula.json"
 	rm -rf "$sandbox_manifest_user/source"
 	HOME="$sandbox_manifest_user/home" \
-		B_AGENTIC_REPO="$sandbox_manifest_user/missing-source" \
+		B_AGENTIC_RELEASE_URL="$MISSING_RELEASE_URL" B_AGENTIC_CHECKSUM_URL="$MISSING_CHECKSUM_URL" \
 		B_AGENTIC_DIR="$sandbox_manifest_user/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox_manifest_user/uninstall.log" 2>&1
@@ -2193,7 +2413,7 @@ run_dracula_theme_uninstall_case() {
 }
 
 run_standalone_preview_installer_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/standalone-preview-installer"
 	local bin_dir="$sandbox/bin"
 	local curl_log="$sandbox/curl.log"
@@ -2220,7 +2440,7 @@ while [ "\$#" -gt 0 ]; do
 done
 printf '%s\n' "\$url" >>"$curl_log"
 [ -n "\$output" ]
-cp "$snapshot_repo/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts" "\$output"
+cp "$ROOT_DIR/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts" "\$output"
 EOF
 	chmod +x "$bin_dir/curl"
 
@@ -2228,9 +2448,9 @@ EOF
 		PI_CODING_AGENT_DIR="$sandbox/pi" \
 		TMPDIR="$sandbox/tmp" \
 		PATH="$bin_dir:$(smoke_system_path)" \
-		bash "$snapshot_repo/adapters/pi/scripts/install-preview-markdown.sh" "$test_version" >"$sandbox/install.log" 2>&1
+		bash "$ROOT_DIR/adapters/pi/scripts/install-preview-markdown.sh" "$test_version" >"$sandbox/install.log" 2>&1
 
-	assert_equal_files "$target" "$snapshot_repo/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"
+	assert_equal_files "$target" "$ROOT_DIR/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"
 	assert_contains "$unrelated_extension" 'user extension'
 	assert_contains "$config_path" 'keep-me'
 	assert_contains "$curl_log" "https://raw.githubusercontent.com/dhoaibao/b-agentic/$test_version/adapters/pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts"
@@ -2244,7 +2464,7 @@ EOF
 		PI_CODING_AGENT_DIR="$sandbox/pi" \
 		TMPDIR="$sandbox/tmp" \
 		PATH="$bin_dir:$(smoke_system_path)" \
-		bash "$snapshot_repo/adapters/pi/scripts/install-preview-markdown.sh" not-a-version >"$sandbox/invalid.log" 2>&1
+		bash "$ROOT_DIR/adapters/pi/scripts/install-preview-markdown.sh" not-a-version >"$sandbox/invalid.log" 2>&1
 	rc=$?
 	set -e
 	[ "$rc" -ne 0 ] || fail 'standalone preview installer accepted an invalid download'
@@ -2255,21 +2475,23 @@ EOF
 }
 
 run_agent_gate_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/agent-gate"
 	local install_log="$sandbox/install.log"
 
 	mkdir -p "$sandbox/home"
+	# Release payloads ship only the Pi adapter, so a deferred host cannot be
+	# resolved at all and must still fail closed before any install plan.
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --agent codex --dry-run >"$install_log" 2>&1 &&
 		fail "deferred agent must not reach the install plan"
-	assert_contains "$install_log" "verified but its installer is deferred"
+	assert_contains "$install_log" "unknown agent 'codex': no adapter manifest at adapters/codex/manifest.yaml"
 
 	HOME="$sandbox/home" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --agent bogus --dry-run >"$install_log" 2>&1 &&
@@ -2278,7 +2500,7 @@ run_agent_gate_case() {
 }
 
 run_rtk_latest_dry_run_case() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local sandbox="$WORK_DIR/rtk-latest-dry-run"
 	local bin_dir="$sandbox/bin"
 	local install_log="$sandbox/install.log"
@@ -2293,7 +2515,7 @@ run_rtk_latest_dry_run_case() {
 	set +e
 	HOME="$sandbox/home" \
 		PATH="$bin_dir:$(smoke_system_path)" \
-		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --dry-run >"$install_log" 2>&1
@@ -2304,7 +2526,7 @@ run_rtk_latest_dry_run_case() {
 }
 
 run_base_smoke_worker() {
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local worker_index="$2"
 	shift 2
 	local -a cases=("$@")
@@ -2313,7 +2535,7 @@ run_base_smoke_worker() {
 	for ((index = worker_index; index < ${#cases[@]}; index += 2)); do
 		case_name="${cases[$index]}"
 		printf 'Running %s...\n' "$case_name"
-		if ( "$case_name" "$snapshot_repo" ); then
+		if ( "$case_name" "$release_fixture" ); then
 			:
 		else
 			case_status=$?
@@ -2329,7 +2551,7 @@ run_base_smoke_cases() {
 	# cleanup trap out of it so a completed installer worker cannot delete the
 	# shared WORK_DIR while the Pi worker is still running.
 	trap - EXIT
-	local snapshot_repo="$1"
+	local release_fixture="$1"
 	local worker_count=2
 	local pool_dir="$WORK_DIR/base-smoke-pool"
 	local -a cases=(
@@ -2337,6 +2559,11 @@ run_base_smoke_cases() {
 		run_agent_gate_case
 		run_rtk_latest_dry_run_case
 		run_ref_install_case
+		run_release_checksum_mismatch_case
+		run_release_unsafe_archive_case
+		run_git_checkout_migration_case
+		run_release_ref_validation_case
+		run_release_ref_url_case
 		run_manifest_only_corrupted_manifest_case
 		run_manifest_only_custom_paths_case
 		run_manifest_only_mcp_symlink_preservation_case
@@ -2384,7 +2611,7 @@ run_base_smoke_cases() {
 
 	mkdir -p "$pool_dir"
 	for ((worker_index = 0; worker_index < worker_count; worker_index++)); do
-		run_base_smoke_worker "$snapshot_repo" "$worker_index" "${cases[@]}" \
+		run_base_smoke_worker "$release_fixture" "$worker_index" "${cases[@]}" \
 			>"$pool_dir/worker-$worker_index.log" 2>&1 &
 		pids+=("$!")
 	done
@@ -2403,7 +2630,7 @@ run_base_smoke_cases() {
 }
 
 main() {
-	local snapshot_repo="$WORK_DIR/repo-snapshot"
+	local release_fixture="$WORK_DIR/release-fixture"
 	local default_dracula_fixture="$WORK_DIR/dracula-default-fixture"
 
 	require_bin git
@@ -2411,16 +2638,17 @@ main() {
 	require_bin python3
 	make_dracula_fixture "$default_dracula_fixture"
 	export B_AGENTIC_DRACULA_REPO="$default_dracula_fixture"
-	make_repo_snapshot "$snapshot_repo"
+	echo "Building release fixture..."
+	make_release_fixture "$release_fixture"
 	# shellcheck disable=SC1090
 	source "$ROOT_DIR/adapters/pi/tests/smoke.sh"
 	declare -F run_pi_smoke_cases >/dev/null || fail "Pi smoke suite did not define run_pi_smoke_cases"
 	echo "Running Pi smoke cases..."
-	run_pi_smoke_cases "$snapshot_repo" &
+	run_pi_smoke_cases "$release_fixture" &
 	local pi_smoke_pid=$!
 
 	echo "Running base installer smoke cases with 2 workers..."
-	run_base_smoke_cases "$snapshot_repo" &
+	run_base_smoke_cases "$release_fixture" &
 	local base_pid=$!
 
 	local base_status

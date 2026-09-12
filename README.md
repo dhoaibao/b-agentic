@@ -21,6 +21,10 @@ services, authenticating providers, or claiming session usage.
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
+The piped script is only a bootstrap: it downloads the release tarball for the
+current `vYYYY.MM.DD` release, verifies its SHA-256 checksum, validates every
+archive entry against the published payload contract, and then re-executes all
+state changes from inside that verified bundle. `git` is not required.
 In an interactive terminal, the installer opens a component picker with the
 current optional features selected by default; redirected and CI runs keep the
 non-interactive install path. See [REFERENCE.md](REFERENCE.md) for the picker

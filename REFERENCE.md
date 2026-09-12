@@ -18,6 +18,31 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 
 Default install writes b-agentic files and Pi configuration only. Pi CLI installation and upgrade run automatically without prompts. In an interactive TTY, the default install opens a dependency-free component picker with all optional groups selected: MCP support, Pi integrations, and the Dracula theme. Core files and required tooling remain selected. Use Up/Down, Space, Enter, or Escape to navigate, toggle, continue, or cancel. Redirected, CI, `TERM=dumb`, and explicit `--update`, `--sync`, or `--uninstall` runs remain non-interactive.
 
+### Release transport
+
+The installer never clones a repository and never requires `git`. The piped
+`main` script is a bootstrap only: it downloads `b-agentic.tar.gz` and its
+SHA-256 checksum from the GitHub release, requires a 64-character hexadecimal
+digest match, rejects any archive entry outside the published payload contract
+(absolute paths, `..` traversal, dotfiles, symlinks, and non-file members),
+extracts to a temporary directory, and re-executes every state change from
+`bash <payload>/install.sh --source-dir <payload>`. State is therefore never
+changed by the piped script itself.
+
+The verified payload is installed into `~/.b-agentic` (override with
+`B_AGENTIC_DIR`): `install.sh`, `VERSION`, `skills/`, `references/`,
+`adapters/pi/`, and `tooling/install/`. Installation is transactional — staged,
+backed up, and rolled back on failure or interruption — and refuses to replace
+an `install.sh` that lacks the `# B_AGENTIC_INSTALLER` managed marker. A legacy
+`git clone`-based checkout at `~/.b-agentic` (detected via `.git`) moves aside
+wholesale to `~/.b-agentic.backup.<timestamp>` and the reported backup path;
+it is preserved verbatim and never merged. `~/.b-agentic/install.sh --sync`
+re-downloads and verifies the latest release before refreshing that directory;
+`--update` and `--uninstall` reuse the installed source without any download.
+If no release is published yet, the bootstrap fails with an actionable error —
+the first `vYYYY.MM.DD` tag must be pushed before the installer can run
+(see the [release procedure](docs/release-procedure.md)).
+
 ### Standalone Markdown preview install
 
 After the public immutable `v0.1.2` tag has been published, a user who wants
@@ -62,12 +87,12 @@ or missing preference safely falls back to Moon, and a persistence failure is
 reported without changing the active behavior. Preview entries do not retain a
 stored palette.
 
-For professional or shared environments, pin both the bootstrap script and
-installed source to a reviewed tag or commit instead of consuming whatever is
-currently on `main`:
+For professional or shared environments, pin both the bootstrap script and the
+installed release to a reviewed `vYYYY.MM.DD` release tag instead of consuming
+whatever release is currently latest:
 
 ```bash
-export B_AGENTIC_REF=<tag-or-commit>
+export B_AGENTIC_REF=<vYYYY.MM.DD>  # an existing release tag
 curl -fsSL "https://raw.githubusercontent.com/dhoaibao/b-agentic/${B_AGENTIC_REF}/install.sh" | bash -s -- --ref="${B_AGENTIC_REF}"
 ```
 
@@ -76,11 +101,14 @@ Useful flags:
 - `--dry-run` previews changes.
 - `--replace-memory` replaces an existing managed kernel file.
 - `--uninstall` removes managed files.
-- `--ref=<tag-or-commit>` checks out that b-agentic ref before installing managed files.
-- `--sync` pulls the installed checkout and syncs managed Pi skills, kernel, and first-party extensions only.
-- `--update` installs or updates RTK, CodeGraph, Bun, Pi, Dracula theme, and Pi extensions without pulling b-agentic.
+- `--ref=vYYYY.MM.DD` downloads that release tag's verified tarball instead of the latest release; commit SHAs and SemVer tags are no longer installable pins.
+- `--sync` re-downloads the latest verified release into the installed source and syncs managed Pi skills, kernel, and first-party extensions only.
+- `--update` installs or updates RTK, CodeGraph, Bun, Pi, Dracula theme, and Pi extensions without re-downloading the release.
 
-Requirements: `bash`, `git`, and Python 3.11+. Bun, Pi, RTK, and CodeGraph
+Requirements: `bash`, `curl`, `tar`, `mktemp`, a SHA-256 tool (`sha256sum` or
+`shasum`), and Python 3.11+. `git` is not an installer prerequisite; the
+optional Dracula theme is skipped with a warning when `git` is missing. Bun,
+Pi, RTK, and CodeGraph
 are installed or updated automatically without dependency opt-in variables or
 prompts. Bun-backed MCP servers use `bunx`, which resolves and
 caches their packages on first use. Modern shell tools are not

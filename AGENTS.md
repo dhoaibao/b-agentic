@@ -28,6 +28,7 @@ b-agentic is a slim, host-neutral personal workflow suite. It ships the always-l
 
 - `python3 tooling/generate/registry_sync.py --check` — confirm generated delivery assets match canonical sources.
 - `scripts/validate-skills.sh` — run the default synchronization, behavior, policy, readiness, and Pi integration checks.
+- `bash scripts/build-release.sh dist` — build the checksum-verified release bundle the installer and release workflow publish.
 - `npm run quality` — run tracked source quality checks and strict Pi TypeScript checks when dependencies are installed.
 - `rtk git diff --check` — check changed paths for whitespace errors.
 

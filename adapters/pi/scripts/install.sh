@@ -566,7 +566,14 @@ install_dracula_theme() {
 		return 0
 	fi
 
-	require_bin git
+	if ! command -v git >/dev/null 2>&1; then
+		# git is not an installer prerequisite; the theme is optional and simply
+		# degrades when its fetch tool is missing.
+		warn "git not found; skipping the optional Dracula theme"
+		INSTALL_THEME_ACTION="skip"
+		INSTALL_THEME_STATE="none"
+		return 0
+	fi
 	require_bin python3
 
 	tmp_clone="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-dracula.XXXXXX")"

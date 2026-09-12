@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CHANGELOG_PATH = ROOT / "CHANGELOG.md"
+VERSION_PATH = ROOT / "VERSION"
 CATEGORY_NAMES = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")
 CATEGORY_SET = set(CATEGORY_NAMES)
 H2_RE = re.compile(r"^##(?:[ \t]+(?P<name>.*?))?[ \t]*$", re.MULTILINE)
@@ -124,12 +125,41 @@ def validate(text: str) -> list[str]:
     return errors
 
 
+def newest_release_version(text: str) -> str | None:
+    for heading in H2_RE.finditer(text):
+        name = heading.group("name")
+        if name is None:
+            continue
+        match = RELEASE_HEADING_RE.fullmatch(name.strip())
+        if match is not None:
+            return match.group("version")
+    return None
+
+
+def validate_version_file(text: str) -> list[str]:
+    errors: list[str] = []
+    if not VERSION_PATH.exists():
+        return ["VERSION: missing; expected the newest `## [vYYYY.MM.DD]` version"]
+    version = VERSION_PATH.read_text().strip()
+    if not version:
+        return ["VERSION: empty; expected the newest `## [vYYYY.MM.DD]` version"]
+    if version != version.strip("\n") and "\n" in version:
+        errors.append("VERSION: multi-line content; expected exactly one version token")
+    newest = newest_release_version(text)
+    if newest is None:
+        errors.append("VERSION: CHANGELOG.md has no release heading to compare against")
+    elif version != newest:
+        errors.append(f"VERSION: {version!r} does not match the newest CHANGELOG.md release heading {newest!r}")
+    return errors
+
+
 def main() -> int:
     if not CHANGELOG_PATH.exists():
         print("CHANGELOG.md: missing", file=sys.stderr)
         return 1
     text = CHANGELOG_PATH.read_text()
     errors = validate(text)
+    errors.extend(validate_version_file(text))
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
