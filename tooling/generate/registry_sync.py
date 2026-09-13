@@ -428,6 +428,24 @@ def render_antigravity_mcp(servers: dict[str, dict]) -> str:
     return json.dumps({"mcpServers": out}, indent=2, ensure_ascii=False) + "\n"
 
 
+ENV_PLACEHOLDER_RE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-)?\}$")
+
+
+def _env_placeholder(value: object) -> str | None:
+    """The variable name of a whole-value `${VAR}` / `${VAR:-}` placeholder."""
+    match = ENV_PLACEHOLDER_RE.match(value) if isinstance(value, str) else None
+    return match.group(1) if match else None
+
+
+def _opencode_values(values: dict) -> dict:
+    """OpenCode substitutes `{env:VAR}`, not `${VAR}` (docs/hosts.md)."""
+    out = {}
+    for key, value in values.items():
+        variable = _env_placeholder(value)
+        out[key] = f"{{env:{variable}}}" if variable else value
+    return out
+
+
 def render_opencode_mcp(servers: dict[str, dict]) -> dict:
     """OpenCode opencode.json "mcp": local servers take a single command array."""
     out: dict[str, dict] = {}
@@ -435,11 +453,11 @@ def render_opencode_mcp(servers: dict[str, dict]) -> dict:
         if entry["remote"]:
             out[name] = {"type": "remote", "url": entry["url"], "enabled": True}
             if entry["headers"]:
-                out[name]["headers"] = entry["headers"]
+                out[name]["headers"] = _opencode_values(entry["headers"])
         else:
             out[name] = {"type": "local", "command": [entry["command"], *entry["args"]], "enabled": True}
             if entry["env"]:
-                out[name]["environment"] = entry["env"]
+                out[name]["environment"] = _opencode_values(entry["env"])
     return out
 
 
@@ -484,22 +502,32 @@ def render_codex_config(data: dict, servers: dict[str, dict]) -> str:
         "[sandbox_workspace_write]",
         f"network_access = {_toml_scalar(False)}",
     ]
+    # Codex does not expand `${VAR}` in config.toml (docs/hosts.md): a remote
+    # server reads secret headers through env_http_headers (header name to
+    # variable name), and a stdio server forwards host variables via env_vars.
+    # Only literal values stay in the static http_headers / env tables.
     for name, entry in servers.items():
         lines.append("")
         lines.append(f"[mcp_servers.{name}]")
+        values = entry["headers"] if entry["remote"] else entry["env"]
+        forwarded = {key: _env_placeholder(value) for key, value in values.items() if _env_placeholder(value)}
+        literal = {key: value for key, value in values.items() if key not in forwarded}
         if entry["remote"]:
             lines.append(f"url = {_toml_scalar(entry['url'])}")
-            if entry["headers"]:
-                lines.append(f"[mcp_servers.{name}.env]")
-                for key, value in entry["headers"].items():
-                    lines.append(f"{key} = {_toml_scalar(value)}")
+            if forwarded:
+                pairs = ", ".join(f"{_toml_scalar(key)} = {_toml_scalar(value)}" for key, value in forwarded.items())
+                lines.append(f"env_http_headers = {{ {pairs} }}")
+            literal_table = "http_headers"
         else:
             lines.append(f"command = {_toml_scalar(entry['command'])}")
             lines.append(f"args = {_toml_scalar(entry['args'])}")
-            if entry["env"]:
-                lines.append(f"[mcp_servers.{name}.env]")
-                for key, value in entry["env"].items():
-                    lines.append(f"{key} = {_toml_scalar(value)}")
+            if forwarded:
+                lines.append(f"env_vars = {_toml_scalar(sorted(set(forwarded.values())))}")
+            literal_table = "env"
+        if literal:
+            lines.append(f"[mcp_servers.{name}.{literal_table}]")
+            for key, value in literal.items():
+                lines.append(f"{key} = {_toml_scalar(value)}")
     # Referenced so a future permission-data change forces this file to be
     # regenerated and re-reviewed alongside the pattern-based hosts.
     lines.append("")

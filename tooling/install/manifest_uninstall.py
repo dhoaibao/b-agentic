@@ -313,6 +313,27 @@ def main() -> None:
         elif skill_dir.exists():
             warn(f"preserving modified or unsnapshotted skill: {skill_dir}")
 
+    # The user's pre-install instruction file, recorded when --replace-memory
+    # replaced it. It lives in the backups directory being removed, so it is
+    # restored in place or the backups directory is kept.
+    keep_backups = False
+    backups_root = metadata / "backups"
+    kernel_original = None
+    kernel_backup = data.get("backups", {}).get("agentsMd")
+    if isinstance(kernel_backup, str) and kernel_backup != "none":
+        candidate = Path(kernel_backup).expanduser()
+        try:
+            candidate_ok = (
+                candidate.is_file()
+                and not candidate.is_symlink()
+                and _is_relative_to(candidate.resolve(), backups_root.resolve())
+                and "<!-- b-agentic-managed -->" not in candidate.read_text()
+            )
+        except Exception:
+            candidate_ok = False
+        if candidate_ok:
+            kernel_original = candidate
+
     kernel_path = manifest_managed_path(paths, "kernel", defaults["kernel"])
     kernel_snapshot = metadata / kernel_path.name if kernel_path else None
     if kernel_path and kernel_snapshot and kernel_path.exists():
@@ -325,9 +346,15 @@ def main() -> None:
             and kernel_snapshot.exists()
             and files_equal(kernel_path, kernel_snapshot)
         ):
-            remove_file(kernel_path)
+            if kernel_original is not None and under_home(kernel_path):
+                shutil.copy2(kernel_original, kernel_path)
+            else:
+                remove_file(kernel_path)
         else:
             warn(f"preserving modified managed kernel: {kernel_path}")
+            if kernel_original is not None:
+                warn(f"your original instruction file is kept at {kernel_original}")
+                keep_backups = True
 
     if runtime == "pi":
         mcp_config_path = manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"], require_confined=True)
@@ -442,7 +469,16 @@ def main() -> None:
                     data,
                 )
 
-    remove_tree(metadata)
+    if keep_backups:
+        for entry in metadata.iterdir():
+            if entry == backups_root:
+                continue
+            if entry.is_dir() and not entry.is_symlink():
+                remove_tree(entry)
+            else:
+                remove_file(entry)
+    else:
+        remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 
 

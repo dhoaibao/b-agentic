@@ -992,6 +992,10 @@ run_declarative_host_lifecycle_case() {
 	assert_json_value "$home/.gemini/config/mcp_config.json" "'serverUrl' in data['mcpServers']['context7']"
 	assert_json_value "$home/.gemini/antigravity-cli/settings.json" "data['permissions']['deny']"
 	assert_json_value "$home/.config/opencode/opencode.json" "'context7' in data['mcp']"
+	assert_json_value "$home/.config/opencode/opencode.json" \
+		"data['mcp']['context7']['headers']['CONTEXT7_API_KEY'] == '{env:CONTEXT7_API_KEY}'"
+	assert_json_value "$home/.config/opencode/opencode.json" \
+		"data['mcp']['brave-search']['environment']['BRAVE_API_KEY'] == '{env:BRAVE_API_KEY}'"
 
 	# The user's own rules survive with their meaning intact.
 	assert_json_value "$home/.claude.json" "'user-server' in data['mcpServers']"
@@ -1022,6 +1026,167 @@ run_declarative_host_lifecycle_case() {
 	assert_json_value "$home/.config/opencode/opencode.json" \
 		"data['permission']['bash']['terraform destroy *'] == 'deny'"
 	assert_json_value "$home/.config/opencode/opencode.json" "not data.get('mcp')"
+}
+
+# Install records must describe the user's pre-install state for the whole
+# lifecycle: a reinstall must not replace the recorded originals with copies
+# that already hold managed content, --sync must keep the manifest current,
+# and uninstall must restore a kernel that --replace-memory displaced.
+run_declarative_backup_lifecycle_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/declarative-backups"
+	local home="$sandbox/home"
+	local manifest="$home/.claude/b-agentic/install.json"
+	local rc=0
+
+	mkdir -p "$home/.claude"
+	printf 'user-owned claude kernel\n' >"$home/.claude/CLAUDE.md"
+	printf '%s\n' '{"permissions":{"allow":["Bash(make lint)"]}}' >"$home/.claude/settings.json"
+
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$sandbox/install.log" \
+		--agent claude-code --replace-memory || fail "expected --replace-memory install to succeed"
+	assert_contains "$home/.claude/CLAUDE.md" 'b-agentic-managed'
+	local kernel_backup settings_backup
+	kernel_backup="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["backups"]["agentsMd"])' "$manifest")"
+	settings_backup="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["backups"]["permissionsConfig"])' "$manifest")"
+	assert_contains "$kernel_backup" 'user-owned claude kernel'
+	assert_not_contains "$settings_backup" 'git reset --hard'
+
+	# Drop one managed rule so the reinstall performs a real merge, not a no-op.
+	python3 - "$home/.claude/settings.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['permissions']['deny'].pop(0)
+path.write_text(json.dumps(data, indent=2) + '\n')
+PY
+	sleep 1
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$sandbox/reinstall.log" \
+		--agent claude-code || fail "expected reinstall to succeed"
+	assert_json_value "$manifest" "data['backups']['agentsMd'] == '$kernel_backup'"
+	assert_json_value "$manifest" "data['backups']['permissionsConfig'] == '$settings_backup'"
+
+	# --sync must re-record a skill the manifest no longer lists.
+	python3 - "$manifest" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['skills'] = [name for name in data['skills'] if name != 'b-plan']
+path.write_text(json.dumps(data, indent=2) + '\n')
+PY
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$sandbox/sync.log" \
+		--sync --agent claude-code || fail "expected sync to succeed"
+	assert_json_value "$manifest" "'b-plan' in data['skills']"
+	assert_json_value "$manifest" "data['backups']['agentsMd'] == '$kernel_backup'"
+
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$sandbox/uninstall.log" --uninstall --agent claude-code
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected uninstall exit 0, got $rc"
+	[ "$(cat "$home/.claude/CLAUDE.md")" = 'user-owned claude kernel' ] ||
+		fail "uninstall must restore the kernel that --replace-memory replaced"
+	assert_no_path "$home/.claude/b-agentic"
+	assert_no_path "$home/.claude/skills/b-plan"
+	assert_json_value "$home/.claude/settings.json" "data['permissions']['allow'] == ['Bash(make lint)']"
+	assert_json_value "$home/.claude/settings.json" "not data['permissions'].get('deny')"
+
+	# Uninstall restores only a backup this installer made: a manifest that
+	# names any other file must not have that file copied into the kernel.
+	printf 'user-owned claude kernel\n' >"$home/.claude/CLAUDE.md"
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$sandbox/replace-again.log" \
+		--agent claude-code --replace-memory || fail "expected second --replace-memory install to succeed"
+	printf 'not a b-agentic backup\n' >"$sandbox/outside.md"
+	python3 - "$manifest" "$sandbox/outside.md" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['backups']['agentsMd'] = sys.argv[2]
+path.write_text(json.dumps(data, indent=2) + '\n')
+PY
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$sandbox/uninstall-outside.log" \
+		--uninstall --agent claude-code || fail "expected uninstall with a foreign backup path to succeed"
+	assert_no_path "$home/.claude/CLAUDE.md"
+
+	# A failed uninstall step must fail the run and keep the metadata a rerun
+	# needs. Root ignores directory permissions, so the check needs a user.
+	[ "$(id -u)" -ne 0 ] || return 0
+	local failing="$WORK_DIR/declarative-uninstall-failure"
+	mkdir -p "$failing/home"
+	B_AGENTIC_AGENT='' run_install_capture "$failing" "$release_fixture" "$failing/install.log" \
+		--agent claude-code || fail "expected install to succeed"
+	chmod 555 "$failing/home/.claude/skills"
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$failing" "$release_fixture" "$failing/uninstall.log" --uninstall --agent claude-code
+	rc=$?
+	set -e
+	chmod 755 "$failing/home/.claude/skills"
+	[ "$rc" -ne 0 ] || fail "expected a failed uninstall step to fail the run"
+	assert_file "$failing/home/.claude/b-agentic/install.json"
+	assert_contains "$failing/uninstall.log" 'rerun --uninstall'
+}
+
+# Earlier OpenCode templates shipped `${VAR}`, which OpenCode sends literally.
+# A merge must rewrite a value still equal to that managed placeholder, and
+# must leave a user's own value alone.
+run_opencode_placeholder_migration_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/opencode-placeholder-migration"
+	local config="$sandbox/home/.config/opencode/opencode.json"
+
+	mkdir -p "$(dirname "$config")"
+	# shellcheck disable=SC2016 # the literal ${VAR} placeholder is the fixture
+	printf '%s\n' '{"mcp":{"context7":{"type":"remote","url":"https://mcp.context7.com/mcp","enabled":true,"headers":{"CONTEXT7_API_KEY":"${CONTEXT7_API_KEY}"}},"brave-search":{"type":"local","command":["bunx","@brave/brave-search-mcp-server","--transport","stdio"],"enabled":true,"environment":{"BRAVE_API_KEY":"user-literal-key"}}}}' >"$config"
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$sandbox/install.log" \
+		--agent opencode || fail "expected OpenCode install to succeed"
+	assert_json_value "$config" "data['mcp']['context7']['headers']['CONTEXT7_API_KEY'] == '{env:CONTEXT7_API_KEY}'"
+	assert_json_value "$config" "data['mcp']['brave-search']['environment']['BRAVE_API_KEY'] == 'user-literal-key'"
+}
+
+# Manifest-only uninstall runs without the installer source, so it carries its
+# own copy of the kernel-restore contract: restore a recorded original that
+# lives in the backups directory, keep that directory when the managed kernel
+# was modified, and never restore a file from anywhere else.
+run_manifest_only_kernel_restore_case() {
+	local sandbox="$WORK_DIR/manifest-only-kernel-restore"
+	local scenario home meta backup
+	for scenario in restore modified foreign; do
+		home="$sandbox/$scenario/home"
+		meta="$home/.claude/b-agentic"
+		mkdir -p "$meta/backups"
+		printf '<!-- b-agentic-managed -->\nkernel\n' >"$meta/CLAUDE.md"
+		printf 'user-owned original\n' >"$meta/backups/CLAUDE.md.bak-1"
+		printf 'foreign file\n' >"$home/foreign.md"
+		cp "$meta/CLAUDE.md" "$home/.claude/CLAUDE.md"
+		backup="$meta/backups/CLAUDE.md.bak-1"
+		[ "$scenario" != foreign ] || backup="$home/foreign.md"
+		[ "$scenario" != modified ] || printf 'user edit\n' >>"$home/.claude/CLAUDE.md"
+		printf '{"runtime":"claude-code","paths":{"kernel":"%s"},"skills":[],"backups":{"agentsMd":"%s"}}\n' \
+			"$home/.claude/CLAUDE.md" "$backup" >"$meta/install.json"
+		HOME="$home" python3 "$ROOT_DIR/tooling/install/manifest_uninstall.py" "$meta/install.json" \
+			>"$sandbox/$scenario.log" 2>&1 || fail "manifest-only uninstall failed for $scenario"
+	done
+
+	[ "$(cat "$sandbox/restore/home/.claude/CLAUDE.md")" = 'user-owned original' ] ||
+		fail "manifest-only uninstall must restore the recorded original kernel"
+	assert_no_path "$sandbox/restore/home/.claude/b-agentic"
+
+	assert_contains "$sandbox/modified/home/.claude/CLAUDE.md" 'user edit'
+	assert_file "$sandbox/modified/home/.claude/b-agentic/backups/CLAUDE.md.bak-1"
+	assert_no_path "$sandbox/modified/home/.claude/b-agentic/install.json"
+	assert_contains "$sandbox/modified.log" 'original instruction file is kept'
+
+	assert_no_path "$sandbox/foreign/home/.claude/CLAUDE.md"
+	assert_file "$sandbox/foreign/home/foreign.md"
 }
 
 # Codex is the only TOML host: its managed content is a delimited block, so the
@@ -1075,6 +1240,11 @@ assert data["approval_policy"] == "untrusted", "managed root key was absorbed in
 assert data["sandbox_mode"] == "workspace-write", "managed root key was absorbed into a table"
 assert "my-server" in data["mcp_servers"], "user server lost"
 assert "context7" in data["mcp_servers"], "managed server missing"
+# Codex does not expand ${VAR}: secrets are forwarded by variable name.
+servers = data["mcp_servers"]
+assert servers["context7"].get("env_http_headers") == {"CONTEXT7_API_KEY": "CONTEXT7_API_KEY"}, "context7 header not forwarded"
+assert servers["brave-search"].get("env_vars") == ["BRAVE_API_KEY"], "brave key not forwarded"
+assert "${" not in Path(sys.argv[1]).read_text(), "unexpanded placeholder in Codex config"
 PY
 
 	# A second install must replace the block, never append a second copy.
@@ -2875,6 +3045,9 @@ run_base_smoke_cases() {
 		run_component_picker_case
 		run_agent_picker_case
 		run_declarative_host_lifecycle_case
+		run_declarative_backup_lifecycle_case
+		run_opencode_placeholder_migration_case
+		run_manifest_only_kernel_restore_case
 		run_codex_config_block_case
 		run_optional_shell_tool_case
 		run_prompted_mcp_key_pipe_case

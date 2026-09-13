@@ -1107,7 +1107,9 @@ PY
 	elif [ -e "$theme_path" ]; then
 		warn "preserving modified Pi theme: $theme_path"
 	fi
-	# Intentionally leave all Pi packages installed.
+	# Intentionally leave all Pi packages installed. Preserved files are
+	# warnings, not failures, so a missing theme must not fail the stage.
+	return 0
 }
 
 

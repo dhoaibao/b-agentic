@@ -149,8 +149,11 @@ downgrade for v1:
   optional `metadata.short-description`; discovery scans to depth 6; official
   install path `${CODEX_HOME:-$HOME/.codex}/skills`. (`skills/src/parser.rs`)
 - **MCP:** `[mcp_servers.<name>]` in `~/.codex/config.toml`; stdio `command`,
-  `args`, `[mcp_servers.<name>.env]`; remote streamable HTTP `url`; per-server
-  `enabled_tools`/`disabled_tools`. Config writes are allowed only to user
+  `args`, literal `[mcp_servers.<name>.env]`, and `env_vars` to forward host
+  variables; remote streamable HTTP `url` with `bearer_token_env_var`,
+  static `http_headers`, or `env_http_headers` (header name to variable name);
+  per-server `enabled_tools`/`disabled_tools`. Values are not `${VAR}`-expanded,
+  so secrets are forwarded by variable name. Config writes are allowed only to user
   `config.toml`, preserving comments/formatting.
   (`protocol/src/config_types.rs`, `config/src/config_toml.rs`,
   `app-server/src/config_manager_service.rs`)
@@ -202,7 +205,9 @@ downgrade for v1:
   project). Local:
   `{"type":"local","command":[...],"enabled":true,"environment":{...}}` with
   optional `cwd`/`timeout`; remote:
-  `{"type":"remote","url":...,"enabled":true}`. (/config, /mcp-servers)
+  `{"type":"remote","url":...,"enabled":true}` with optional `headers`. Config
+  values substitute `{env:VAR}` (an unset variable becomes an empty string);
+  `${VAR}` is sent literally. (/config, /mcp-servers)
 - **Permissions:** `"permission"` object; coarse per-tool
   (`{"*":"ask","bash":"allow"}`) or granular pattern maps
   (`"bash":{"git *":"allow","git push *":"deny"}`); agent-scoped overrides under

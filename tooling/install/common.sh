@@ -126,7 +126,7 @@ run_install_triplet_stage() {
   local action_var="$6" state_var="$7" backup_var="$8"
   local result=""
 
-  capture_output_stage "$label" result "$command_name"
+  capture_output_stage "$label" result "$command_name" || return $?
   read_install_triplet "$result" "$default_action" "$default_state" "$default_backup" \
     "$action_var" "$state_var" "$backup_var"
 }
@@ -318,10 +318,13 @@ install_kernel() {
   fi
 
   if grep -Fq '<!-- b-agentic-managed -->' "$KERNEL_DST"; then
-    local backup
-    backup="$(backup_file "$KERNEL_DST")"
+    # Replacing our own kernel keeps a safety copy, but the recorded backup
+    # stays the user's pre-install original so uninstall can restore it.
+    local original
+    backup_file "$KERNEL_DST" >/dev/null
     copy_file "$KERNEL_SRC" "$KERNEL_DST"
-    printf 'replace\nactive\n%s' "${backup:-none}"
+    original="$(original_kernel_backup)"
+    printf 'replace\nactive\n%s' "${original:-none}"
     return 0
   fi
 
@@ -336,27 +339,93 @@ install_kernel() {
   printf 'preserve\npending\nnone'
 }
 
+# The recorded pre-install instruction file, when it is still a user-owned
+# backup (never one of our own managed kernels).
+original_kernel_backup() {
+  local backup
+  backup="$(manifest_backup_value agentsMd none)"
+  # Only a backup this installer made, matching the manifest-only uninstall.
+  if [ "$backup" != "none" ] && [[ "$backup" == "$METADATA_DIR/backups/"* ]] &&
+    [ -f "$backup" ] && [ ! -L "$backup" ] &&
+    ! grep -Fq '<!-- b-agentic-managed -->' "$backup"; then
+    printf '%s' "$backup"
+  fi
+}
+
+# Set when uninstall must keep install backups because a user original could
+# not be restored in place.
+UNINSTALL_KEEP_BACKUPS=""
+
 remove_managed_kernel() {
+  local original
+  original="$(original_kernel_backup)"
   if [ -f "$KERNEL_DST" ] && grep -Fq '<!-- b-agentic-managed -->' "$KERNEL_DST"; then
     if [ -f "$KERNEL_SNAPSHOT_DST" ] && cmp -s "$KERNEL_DST" "$KERNEL_SNAPSHOT_DST"; then
-      run_cmd rm -f "$KERNEL_DST"
+      if [ -n "$original" ]; then
+        copy_file "$original" "$KERNEL_DST" || return $?
+      else
+        run_cmd rm -f "$KERNEL_DST" || return $?
+      fi
     else
       warn "preserving modified managed kernel: $KERNEL_DST"
+      if [ -n "$original" ]; then
+        warn "your original instruction file is kept at $original"
+        UNINSTALL_KEEP_BACKUPS=1
+      fi
     fi
   fi
 }
 
+# Removes install metadata only after every uninstall stage succeeded, so a
+# rerun can still finish; keeps the backups directory when it holds an
+# original that was not restored.
+finish_uninstall_metadata() {
+  local rc="$1" entry
+  if [ "$rc" -ne 0 ]; then
+    warn "kept $METADATA_DIR because an uninstall step failed; rerun --uninstall after fixing it"
+    return "$rc"
+  fi
+  if [ -z "$UNINSTALL_KEEP_BACKUPS" ]; then
+    run_cmd rm -rf "$METADATA_DIR"
+    return $?
+  fi
+  for entry in "$METADATA_DIR"/* "$METADATA_DIR"/.[!.]*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    [ "$entry" = "$METADATA_DIR/backups" ] && continue
+    run_cmd rm -rf "$entry" || return $?
+  done
+}
+
+# Reports the action/backup a merge into an existing file should record. The
+# first install's record wins: a later merge must not replace the pre-install
+# original (or a first-run "write") with a copy that already holds managed
+# entries, or uninstall would treat those entries as user-owned and keep them.
+# Prints nothing when no prior record exists.
+recorded_merge_triplet() {
+  local backup_key="$1" action_key="$2"
+  local prior_backup prior_action
+  prior_backup="$(manifest_backup_value "$backup_key" none)"
+  prior_action="$(manifest_action_value "$action_key" "")"
+  if [ "$prior_backup" != "none" ] && [ -f "$prior_backup" ]; then
+    printf 'merge\nactive\n%s' "$prior_backup"
+  elif [ "$prior_action" = "write" ]; then
+    printf 'write\nactive\nnone'
+  fi
+}
+
 merge_json_file() {
-  local src="$1" dst="$2" label="$3" backup_key="$4"
+  local src="$1" dst="$2" label="$3" backup_key="$4" action_key="${5:-${4}Action}"
+  local recorded
   if [ ! -e "$dst" ]; then
     copy_file "$src" "$dst"
     printf 'write\nactive\nnone'
     return 0
   fi
+  recorded="$(recorded_merge_triplet "$backup_key" "$action_key")"
 
   if dry_run_enabled; then
     printf '[dry-run] merge %s %s into %s\n' "$label" "$src" "$dst" >&2
-    printf 'merge\nactive\n%s' "$(manifest_backup_value "$backup_key" none)"
+    printf '%s' "${recorded:-$(printf 'merge\nactive\nnone')}"
     return 0
   fi
 
@@ -601,8 +670,33 @@ def migrate_managed_values(data):
 if not isinstance(current, dict):
     raise SystemExit(f'{label} merge requires existing target to be a JSON object')
 
+def migrate_opencode_placeholders(data):
+    # Earlier OpenCode templates shipped `${VAR}`, which OpenCode sends
+    # literally; it substitutes `{env:VAR}`. Rewrite only values that still
+    # equal the old managed placeholder for the same variable.
+    servers = data.get('mcp')
+    recommended_servers = recommended.get('mcp')
+    if not isinstance(servers, dict) or not isinstance(recommended_servers, dict):
+        return
+    for server_name, incoming_server in recommended_servers.items():
+        server = servers.get(server_name)
+        if not isinstance(server, dict) or not isinstance(incoming_server, dict):
+            continue
+        for section_name in ('headers', 'environment'):
+            section = server.get(section_name)
+            incoming_section = incoming_server.get(section_name)
+            if not isinstance(section, dict) or not isinstance(incoming_section, dict):
+                continue
+            for key, incoming_value in incoming_section.items():
+                if not (isinstance(incoming_value, str) and incoming_value.startswith('{env:') and incoming_value.endswith('}')):
+                    continue
+                variable = incoming_value[len('{env:'):-1]
+                if section.get(key) in ('${' + variable + '}', '${' + variable + ':-}'):
+                    section[key] = incoming_value
+
 merged = merge(current, recommended)
 migrate_managed_values(merged)
+migrate_opencode_placeholders(merged)
 if merged == current:
     raise SystemExit(2)
 tmp.write_text(json.dumps(merged, indent=2, sort_keys=True) + '\n')
@@ -615,7 +709,7 @@ PY
 
   if [ "$rc" -eq 2 ]; then
     rm -f "$tmp"
-    printf 'merge\nactive\n%s' "$(manifest_backup_value "$backup_key" none)"
+    printf '%s' "${recorded:-$(printf 'merge\nactive\nnone')}"
     return 0
   fi
   if [ "$rc" -ne 0 ]; then
@@ -623,6 +717,11 @@ PY
     die "failed to merge $label config: $dst"
   fi
 
+  if [ -n "$recorded" ]; then
+    run_cmd mv "$tmp" "$dst"
+    printf '%s' "$recorded"
+    return 0
+  fi
   local backup
   backup="$(backup_file "$dst")"
   run_cmd mv "$tmp" "$dst"
@@ -1239,7 +1338,7 @@ install_mcp_config() {
 
   rendered_template="$(mktemp "${TMPDIR:-/tmp}/b-agentic-mcp-template.XXXXXX")"
   cp "$template_src" "$rendered_template"
-  merge_json_file "$rendered_template" "$MCP_CONFIG_DST" "mcp" "$MCP_BACKUP_KEY"
+  merge_json_file "$rendered_template" "$MCP_CONFIG_DST" "mcp" "$MCP_BACKUP_KEY" mcpAction
   rm -f "$rendered_template"
 }
 
@@ -1390,7 +1489,7 @@ manifest_skill_names() {
 }
 
 uninstall_installed_skills() {
-  local name skill_dir snapshot_dir
+  local name skill_dir snapshot_dir status=0
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     if ! managed_asset_name_is_safe "$name"; then
@@ -1411,8 +1510,9 @@ uninstall_installed_skills() {
       warn "preserving modified skill: $skill_dir"
       continue
     fi
-    run_cmd rm -rf "$skill_dir"
+    run_cmd rm -rf "$skill_dir" || status=$?
   done < <(manifest_skill_names)
+  return "$status"
 }
 
 runtime_warn_missing_cli() { :; }
@@ -1421,13 +1521,14 @@ runtime_upgrade_cli() { :; }
 runtime_install_config_stage_count() { printf '0'; }
 
 runtime_sync_common() {
-  set_install_stage_total 3
+  set_install_stage_total 4
 
-  run_stage "Syncing skills" install_skills
+  run_stage "Syncing skills" install_skills || return $?
   run_install_triplet_stage "Syncing kernel" install_kernel "preserve" "pending" "none" \
-    INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
+    INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP || return $?
   run_install_triplet_stage "Syncing Pi extensions" install_permissions_extension "skip" "none" "none" \
-    INSTALL_EXTENSION_ACTION INSTALL_EXTENSION_STATE INSTALL_EXTENSION_BACKUP
+    INSTALL_EXTENSION_ACTION INSTALL_EXTENSION_STATE INSTALL_EXTENSION_BACKUP || return $?
+  run_stage "Updating install manifest" update_manifest_after_sync || return $?
 
   if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
     return 2
@@ -1476,10 +1577,11 @@ runtime_uninstall_common() {
   require_bin python3
   set_install_stage_total 3
   installer_summary_log "Uninstalling b-agentic from $RUNTIME_UNINSTALL_LABEL"
-  run_stage "Removing managed skills" uninstall_installed_skills
-  run_stage "Removing managed kernel" remove_managed_kernel
-  run_stage "Cleaning Pi config" runtime_uninstall_configs
-  run_cmd rm -rf "$METADATA_DIR"
+  local rc=0
+  run_stage "Removing managed skills" uninstall_installed_skills || rc=$?
+  run_stage "Removing managed kernel" remove_managed_kernel || rc=$?
+  run_stage "Cleaning Pi config" runtime_uninstall_configs || rc=$?
+  finish_uninstall_metadata "$rc" || return $?
   installer_summary_log "Uninstall complete. User-owned $RUNTIME_PRESERVE_LABEL files were preserved."
 }
 
@@ -1534,13 +1636,14 @@ EOF
 
 # Removes only what this installer merged in, preserving user-owned entries.
 declarative_uninstall_configs() {
-  local entry key destination template label
+  local entry key destination template label status=0
   for entry in "${DECLARATIVE_CONFIGS[@]}"; do
     IFS='|' read -r key destination template label <<EOF
 $entry
 EOF
-    remove_merged_config "$destination" "$TEMPLATES_DST/$template" "$label" "$key" "${key}Action"
+    remove_merged_config "$destination" "$TEMPLATES_DST/$template" "$label" "$key" "${key}Action" || status=$?
   done
+  return "$status"
 }
 
 # TOML hosts (Codex) take a delimited managed block instead of a JSON merge,
@@ -1643,6 +1746,37 @@ Path(os.environ['MANIFEST_DST']).write_text(json.dumps(manifest, indent=2, sort_
 PY
 }
 
+# --sync can add skills from a newer release, but it does not rewrite the full
+# manifest, so record the synced skill list in place; uninstall and stale-skill
+# pruning read it. Every other field (kernel and config actions, backups,
+# extensions) keeps its install-time value, which uninstall relies on, and an
+# unchanged list leaves the manifest untouched.
+update_manifest_after_sync() {
+  [ -f "$MANIFEST_DST" ] || return 0
+  if dry_run_enabled; then
+    printf '[dry-run] update manifest skills %s\n' "$MANIFEST_DST" >&2
+    return 0
+  fi
+  # Arguments, not environment prefixes: some adapters mark these paths readonly.
+  python3 - "$MANIFEST_DST" "$SKILLS_DST" ${INSTALL_SKILL_NAMES[@]+"${INSTALL_SKILL_NAMES[@]}"} <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+skills_root = Path(sys.argv[2])
+installed = [name for name in sys.argv[3:] if name]
+manifest = json.loads(path.read_text())
+previous = [name for name in manifest.get('skills', []) if isinstance(name, str)]
+# A previously managed skill that sync preserved (modified) stays tracked.
+kept = [name for name in previous if name not in installed and (skills_root / name).exists()]
+skills = sorted(set(installed) | set(kept))
+if skills != sorted(previous):
+    manifest['skills'] = skills
+    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+PY
+}
+
 declarative_print_install_report() {
   local summary_label="Installed"
   dry_run_enabled && summary_label="Planned"
@@ -1698,10 +1832,11 @@ declarative_install_common() {
 }
 
 declarative_sync_common() {
-  set_install_stage_total 2
-  run_stage "Syncing skills" install_skills
+  set_install_stage_total 3
+  run_stage "Syncing skills" install_skills || return $?
   run_install_triplet_stage "Syncing kernel" install_kernel "preserve" "pending" "none" \
-    INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
+    INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP || return $?
+  run_stage "Updating install manifest" update_manifest_after_sync || return $?
 
   if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
     return 2
@@ -1712,9 +1847,10 @@ declarative_uninstall_common() {
   require_bin python3
   set_install_stage_total 3
   installer_summary_log "Uninstalling b-agentic from $RUNTIME_DISPLAY"
-  run_stage "Removing managed skills" uninstall_installed_skills
-  run_stage "Removing managed kernel" remove_managed_kernel
-  run_stage "Cleaning $RUNTIME_DISPLAY config" declarative_uninstall_configs
-  run_cmd rm -rf "$METADATA_DIR"
+  local rc=0
+  run_stage "Removing managed skills" uninstall_installed_skills || rc=$?
+  run_stage "Removing managed kernel" remove_managed_kernel || rc=$?
+  run_stage "Cleaning $RUNTIME_DISPLAY config" declarative_uninstall_configs || rc=$?
+  finish_uninstall_metadata "$rc" || return $?
   installer_summary_log "Uninstall complete. User-owned $RUNTIME_DISPLAY files were preserved."
 }

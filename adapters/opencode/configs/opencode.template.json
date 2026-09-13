@@ -86,7 +86,7 @@
       "url": "https://mcp.context7.com/mcp",
       "enabled": true,
       "headers": {
-        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
       }
     },
     "codegraph": {
@@ -111,7 +111,7 @@
       ],
       "enabled": true,
       "environment": {
-        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+        "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
       }
     },
     "firecrawl": {
@@ -122,7 +122,7 @@
       ],
       "enabled": true,
       "environment": {
-        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+        "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
       }
     },
     "playwright": {

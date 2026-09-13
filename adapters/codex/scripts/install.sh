@@ -101,9 +101,10 @@ codex_uninstall() {
 	require_bin python3
 	set_install_stage_total 3
 	installer_summary_log "Uninstalling b-agentic from $RUNTIME_DISPLAY"
-	run_stage "Removing managed skills" uninstall_installed_skills
-	run_stage "Removing managed kernel" remove_managed_kernel
-	run_stage "Removing Codex config block" declarative_uninstall_toml_block "$CODEX_CONFIG_DST" "Codex config"
-	run_cmd rm -rf "$METADATA_DIR"
+	local rc=0
+	run_stage "Removing managed skills" uninstall_installed_skills || rc=$?
+	run_stage "Removing managed kernel" remove_managed_kernel || rc=$?
+	run_stage "Removing Codex config block" declarative_uninstall_toml_block "$CODEX_CONFIG_DST" "Codex config" || rc=$?
+	finish_uninstall_metadata "$rc" || return $?
 	installer_summary_log "Uninstall complete. User-owned $RUNTIME_DISPLAY files were preserved."
 }
