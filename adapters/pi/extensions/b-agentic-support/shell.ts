@@ -46,12 +46,188 @@ export const SPECIALIZED_TOOLS = new Set([
 export const WRAPPER_COMMANDS = new Set([
   "rtk",
   "sudo",
+  "doas",
   "command",
   "nohup",
   "nice",
   "time",
+  "timeout",
+  "setsid",
+  "exec",
+  "stdbuf",
+  "ionice",
   "env",
 ]);
+
+type WrapperOptionSpec = {
+  value: ReadonlySet<string>;
+  flags: ReadonlySet<string>;
+  numericFlags?: boolean;
+  positionals?: number;
+};
+
+/**
+ * Leading options of command wrappers other than env and rtk. Unknown options
+ * make the wrapped command opaque, so they fail closed instead of being
+ * mistaken for (or hiding) the effective command.
+ */
+const WRAPPER_OPTION_SPECS: Record<string, WrapperOptionSpec> = {
+  sudo: {
+    value: new Set([
+      "-u",
+      "-g",
+      "-C",
+      "-h",
+      "-p",
+      "-U",
+      "-r",
+      "-t",
+      "-D",
+      "-R",
+      "-T",
+      "--user",
+      "--group",
+      "--close-from",
+      "--host",
+      "--prompt",
+      "--other-user",
+      "--role",
+      "--type",
+      "--chdir",
+      "--chroot",
+      "--command-timeout",
+    ]),
+    flags: new Set([
+      "-A",
+      "-B",
+      "-b",
+      "-E",
+      "-H",
+      "-i",
+      "-K",
+      "-k",
+      "-n",
+      "-P",
+      "-S",
+      "-s",
+      "--askpass",
+      "--bell",
+      "--background",
+      "--preserve-env",
+      "--set-home",
+      "--login",
+      "--remove-timestamp",
+      "--reset-timestamp",
+      "--non-interactive",
+      "--preserve-groups",
+      "--stdin",
+      "--shell",
+    ]),
+  },
+  doas: { value: new Set(["-u", "-C"]), flags: new Set(["-n", "-s", "-L"]) },
+  command: { value: new Set(), flags: new Set(["-p", "-v", "-V"]) },
+  nohup: { value: new Set(), flags: new Set() },
+  nice: {
+    value: new Set(["-n", "--adjustment"]),
+    flags: new Set(),
+    numericFlags: true,
+  },
+  time: {
+    value: new Set(["-f", "-o", "--format", "--output"]),
+    flags: new Set([
+      "-a",
+      "-p",
+      "-q",
+      "-v",
+      "--append",
+      "--portability",
+      "--quiet",
+      "--verbose",
+    ]),
+  },
+  timeout: {
+    value: new Set(["-k", "-s", "--kill-after", "--signal"]),
+    flags: new Set([
+      "-f",
+      "-p",
+      "-v",
+      "--foreground",
+      "--preserve-status",
+      "--verbose",
+    ]),
+    positionals: 1,
+  },
+  setsid: {
+    value: new Set(),
+    flags: new Set(["-c", "-f", "-w", "--ctty", "--fork", "--wait"]),
+  },
+  exec: { value: new Set(["-a"]), flags: new Set(["-c", "-l"]) },
+  stdbuf: {
+    value: new Set(["-i", "-o", "-e", "--input", "--output", "--error"]),
+    flags: new Set(),
+  },
+  ionice: {
+    value: new Set([
+      "-c",
+      "-n",
+      "-p",
+      "-P",
+      "-u",
+      "--class",
+      "--classdata",
+      "--pid",
+      "--pgid",
+      "--uid",
+    ]),
+    flags: new Set(["-t", "--ignore"]),
+  },
+};
+
+/** Consume a wrapper's leading options; returns the command index or -1 when an option is opaque. */
+function skipWrapperOptions(
+  tokens: string[],
+  start: number,
+  spec: WrapperOptionSpec,
+): number {
+  let i = start;
+  while (i < tokens.length && tokens[i].startsWith("-") && tokens[i] !== "-") {
+    const token = tokens[i];
+    if (token === "--") {
+      i += 1;
+      break;
+    }
+    if (spec.numericFlags && /^-\d+$/.test(token)) {
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--")) {
+      const name = token.split("=", 1)[0];
+      if (spec.value.has(name)) {
+        i += token.includes("=") ? 1 : 2;
+      } else if (spec.flags.has(name)) {
+        i += 1;
+      } else {
+        return -1;
+      }
+      continue;
+    }
+    // Short options, possibly clustered (-nE) or with an attached value (-uroot).
+    let consumed = 1;
+    for (let index = 1; index < token.length; index += 1) {
+      const option = `-${token[index]}`;
+      if (spec.flags.has(option)) continue;
+      if (!spec.value.has(option)) return -1;
+      if (index === token.length - 1) consumed = 2;
+      break;
+    }
+    i += consumed;
+  }
+  for (let count = 0; count < (spec.positionals ?? 0); count += 1) {
+    if (i >= tokens.length) break;
+    i += 1;
+  }
+  return Math.min(i, tokens.length);
+}
 /** RTK subcommands that execute another command and must expose it to policy matching. */
 export const RTK_EXECUTION_WRAPPERS = new Set([
   "proxy",
@@ -424,7 +600,21 @@ export function isInterpreterOpaque(tokens: string[]): boolean {
     // Existing project-local script files are routine repository automation.
     if (!t.startsWith("-")) return !isExistingProjectConfinedLocalPath(t);
   }
-  return false;
+  // Without a script operand the interpreter executes code read from stdin
+  // (for example `printf ... | bash`), unless it only prints metadata or runs
+  // the project's own test runner.
+  const shellInterpreter = [
+    "bash",
+    "sh",
+    "dash",
+    "zsh",
+    "ksh",
+    "fish",
+  ].includes(base);
+  const nonStdinFlags = shellInterpreter
+    ? ["--version", "--help"]
+    : ["--version", "-V", "-v", "--help", "-h", "--test"];
+  return !tokens.slice(1).some((token) => nonStdinFlags.includes(token));
 }
 
 export function isOpaqueExecutablePath(rawTokens: string[]): boolean {
@@ -503,24 +693,15 @@ export function unwrapTokens(tokens: string[]): {
       }
       continue;
     }
-    if (wrapper === "sudo" || wrapper === "nice" || wrapper === "command") {
-      while (
-        i < tokens.length &&
-        tokens[i].startsWith("-") &&
-        tokens[i] !== "--"
-      ) {
-        if (
-          ["-u", "-g", "-C", "-n", "-p"].includes(tokens[i]) &&
-          tokens[i + 1]
-        ) {
-          i += 2;
-        } else {
-          i += 1;
-        }
+    const spec = WRAPPER_OPTION_SPECS[wrapper];
+    if (spec) {
+      const next = skipWrapperOptions(tokens, i, spec);
+      if (next < 0) {
+        // An unrecognized wrapper option could consume or hide the command.
+        opaque = true;
+        break;
       }
-      if (tokens[i] === "--") {
-        i += 1;
-      }
+      i = next;
       continue;
     }
     if (wrapper === "rtk") {
@@ -534,6 +715,11 @@ export function unwrapTokens(tokens: string[]): {
           tokens[i] === "--verbose")
       )
         i += 1;
+      if (tokens[i]?.startsWith("-") && i + 1 < tokens.length) {
+        // Unknown RTK global options before a command could hide it.
+        opaque = true;
+        break;
+      }
 
       if (RTK_EXECUTION_WRAPPERS.has(tokens[i])) {
         const rtkOperation = tokens[i];
@@ -559,7 +745,6 @@ export function unwrapTokens(tokens: string[]): {
         continue;
       }
     }
-    // nohup / time: consume only the wrapper token
   }
   return { tokens: tokens.slice(i), wrappers, opaque };
 }
@@ -1589,13 +1774,20 @@ export function isGitForcePush(tokens: string[]): boolean {
   if (tokens[0] !== "git") {
     return false;
   }
-  if (!tokens.includes("push")) {
+  // Global options are already stripped, so tokens[1] is the subcommand.
+  if (tokens[1] !== "push") {
     return false;
   }
+  const rest = tokens.slice(2);
   return (
-    tokens.includes("--force") ||
-    tokens.includes("--force-with-lease") ||
-    tokens.includes("-f")
+    rest.some(
+      (token) =>
+        token === "--force" ||
+        token === "--mirror" ||
+        token.startsWith("--force-with-lease") ||
+        // A leading + on a refspec forces that ref update.
+        (token.startsWith("+") && token.length > 1),
+    ) || shortFlagChars(rest).includes("f")
   );
 }
 
@@ -1619,9 +1811,12 @@ export function isGitBranchForceDelete(tokens: string[]): boolean {
   if (!matchesPrefix(tokens, ["git", "branch"])) {
     return false;
   }
+  const rest = tokens.slice(2);
+  const chars = shortFlagChars(rest);
   return (
-    tokens.includes("-D") ||
-    (tokens.includes("--delete") && tokens.includes("--force"))
+    chars.includes("D") ||
+    ((chars.includes("d") || rest.includes("--delete")) &&
+      (chars.includes("f") || rest.includes("--force")))
   );
 }
 
@@ -1631,11 +1826,29 @@ export function isGitDestructiveWorktreeOrStashOperation(
   if (tokens[0] !== "git") return false;
   if (tokens[1] === "restore") return true;
   if (tokens[1] === "checkout") {
+    const rest = tokens.slice(2);
+    const positionals: string[] = [];
+    for (let i = 0; i < rest.length; i += 1) {
+      if (["-b", "-B", "--orphan"].includes(rest[i])) i += 1;
+      else if (!rest[i].startsWith("-")) positionals.push(rest[i]);
+    }
     return (
-      tokens.includes("--") ||
-      tokens.includes("--force") ||
-      shortFlagChars(tokens.slice(2)).includes("f")
+      rest.includes("--") ||
+      rest.includes("--force") ||
+      shortFlagChars(rest).includes("f") ||
+      // Pathspec checkouts overwrite worktree files; `git checkout <branch>`
+      // takes a single non-path operand.
+      positionals.length > 1 ||
+      positionals.some(
+        (operand) =>
+          operand === "." ||
+          operand.startsWith(":") ||
+          isExistingProjectConfinedLocalPath(operand),
+      )
     );
+  }
+  if (tokens[1] === "update-ref") {
+    return tokens.slice(2).some((token) => ["-d", "--stdin"].includes(token));
   }
   if (tokens[1] === "switch") return tokens.includes("--discard-changes");
   return (
@@ -1953,6 +2166,27 @@ export function isVersionCheck(tokens: string[]): boolean {
 }
 
 export function hasShellExecutionProxy(tokens: string[]): boolean {
+  if (["fd", "fdfind"].includes(tokens[0])) {
+    return tokens.some(
+      (token) =>
+        token === "--exec" ||
+        token === "--exec-batch" ||
+        token.startsWith("--exec=") ||
+        token.startsWith("--exec-batch=") ||
+        /^-[A-Za-z]*[xX]$/.test(token),
+    );
+  }
+  if (["awk", "gawk", "mawk", "nawk"].includes(tokens[0])) {
+    // Programs can run commands via system() or pipes, or load an opaque file.
+    return tokens
+      .slice(1)
+      .some(
+        (token) =>
+          token === "-f" ||
+          token.startsWith("--file") ||
+          /\bsystem\s*\(|\|/.test(token),
+      );
+  }
   return (
     tokens[0] === "xargs" ||
     (tokens[0] === "find" &&
@@ -1962,11 +2196,210 @@ export function hasShellExecutionProxy(tokens: string[]): boolean {
   );
 }
 
+/**
+ * Inline Git configuration keys known not to execute commands or load other
+ * configuration. Many keys run programs (filters, includes, transports,
+ * pagers, helpers), so every other key fails closed.
+ */
+const SAFE_GIT_CONFIG_KEY =
+  /^(?:color\.[a-z0-9.-]+|advice\.[a-z0-9]+|log\.[a-z0-9]+|status\.[a-z0-9]+|grep\.[a-z0-9]+|core\.(?:quotepath|abbrev|autocrlf|safecrlf|longpaths|ignorecase|filemode|whitespace)|user\.(?:name|email)|init\.defaultbranch|diff\.(?:noprefix|mnemonicprefix|renames|algorithm|colormoved|relative)|merge\.conflictstyle|pull\.(?:rebase|ff)|push\.default|column\.ui)$/;
+/** Environment variables that make Git execute a command or load other configuration. */
+const GIT_COMMAND_ENV =
+  /^GIT_(?:CONFIG_(?:PARAMETERS|COUNT|KEY_\d+|VALUE_\d+)|SSH|SSH_COMMAND|EXTERNAL_DIFF|PAGER|EDITOR|SEQUENCE_EDITOR|ASKPASS|PROXY_COMMAND|EXEC_PATH|TEMPLATE_DIR|CONFIG_GLOBAL|CONFIG_SYSTEM)=/;
+
+export function hasGitCommandConfig(
+  rawTokens: string[],
+  unwrappedTokens: string[],
+): boolean {
+  if (unwrappedTokens[0] !== "git") return false;
+  if (rawTokens.some((token) => GIT_COMMAND_ENV.test(token))) return true;
+  for (let i = 1; i < unwrappedTokens.length; i += 1) {
+    const option = unwrappedTokens[i];
+    if (!option.startsWith("-") || option === "--") break;
+    let value: string | undefined;
+    if (option === "-c" || option === "--config-env") {
+      value = unwrappedTokens[i + 1];
+      i += 1;
+    } else if (option.startsWith("-c") && option.length > 2) {
+      value = option.slice(2);
+    } else if (option.startsWith("--config-env=")) {
+      value = option.slice("--config-env=".length);
+    } else if (
+      ["-C", "--git-dir", "--work-tree", "--namespace"].includes(option)
+    ) {
+      i += 1;
+      continue;
+    }
+    if (value === undefined) continue;
+    const key = value.split("=", 1)[0].toLowerCase();
+    if (!SAFE_GIT_CONFIG_KEY.test(key)) return true;
+  }
+  return false;
+}
+
 export function hasEnvironmentBootstrapModifier(rawTokens: string[]): boolean {
   return rawTokens.some(
     (token) =>
       /^[A-Za-z_][A-Za-z0-9_]*\+?=/.test(token) || baseName(token) === "env",
   );
+}
+
+/** Explicitly denied operations for already-normalized tokens. */
+export function destructiveDenyDecision(
+  tokens: string[],
+): { decision: Decision; reason: string } | null {
+  if (isGitForcePush(tokens)) {
+    return {
+      decision: "deny",
+      reason: "Denied by b-agentic policy: git push --force",
+    };
+  }
+  if (matchesPrefix(tokens, ["git", "reset"]) && tokens.includes("--hard")) {
+    return {
+      decision: "deny",
+      reason: "Denied by b-agentic policy: git reset --hard",
+    };
+  }
+  if (isGitCleanForce(tokens)) {
+    return {
+      decision: "deny",
+      reason: "Denied by b-agentic policy: git clean -f",
+    };
+  }
+  if (isGitBranchForceDelete(tokens)) {
+    return {
+      decision: "deny",
+      reason: "Denied by b-agentic policy: git branch -D",
+    };
+  }
+  for (const pattern of DENY_COMMANDS) {
+    if (matchesPrefix(tokens, pattern)) {
+      return {
+        decision: "deny",
+        reason: `Denied by b-agentic policy: ${pattern.join(" ")}`,
+      };
+    }
+  }
+  return null;
+}
+
+/** Options whose value is a command string executed by the invoked program. */
+const COMMAND_STRING_OPTIONS = new Set([
+  "-c",
+  "-e",
+  "--eval",
+  "-S",
+  "--split-string",
+  "--command",
+  "-Command",
+]);
+
+/**
+ * Find an explicitly denied operation anywhere in a command that is not
+ * otherwise statically classifiable. Approval-required results may be
+ * auto-allowed (b-auto-mode), so a deny hidden behind wrappers, opaque
+ * options, expansions, control structures, execution proxies, or an
+ * interpreter command string must still surface as deny.
+ */
+export function findDeniedOperation(
+  command: string,
+  depth = 0,
+): { decision: Decision; reason: string } | null {
+  const segments = splitShellSegments(command);
+  const pipesIntoShell = segments.some((segment, index) => {
+    const tokens = normalizeTokens(tokenize(segment));
+    return index > 0 && INTERPRETER_BASES.has(tokens[0] || "");
+  });
+  for (const segment of segments) {
+    const rawTokens = tokenize(segment)
+      .map((token) => token.replace(/^[$(`{<>]+/, "").replace(/[)`;}]+$/, ""))
+      .filter(Boolean);
+    for (let start = 0; start < rawTokens.length; start += 1) {
+      const denied = destructiveDenyDecision(
+        normalizeTokens(rawTokens.slice(start)),
+      );
+      if (denied) return denied;
+    }
+    if (depth >= 2) continue;
+    const base = baseName(rawTokens[0] || "");
+    const awkProgram = ["awk", "gawk", "mawk", "nawk"].includes(base);
+    for (let index = 1; index < rawTokens.length; index += 1) {
+      // printf-style escapes separate commands once a shell reads the string.
+      const token = rawTokens[index].replace(/\\[nr]/g, "\n");
+      if (!/\s/.test(token)) continue;
+      const previous = rawTokens[index - 1];
+      const carriesCommand =
+        pipesIntoShell ||
+        base === "eval" ||
+        awkProgram ||
+        COMMAND_STRING_OPTIONS.has(previous) ||
+        previous.startsWith("--command=") ||
+        /^-[A-Za-z]*c$/.test(previous);
+      if (!carriesCommand) continue;
+      // Shell quotes inside an awk program were removed by tokenization, so
+      // take the system(...) argument text directly.
+      const bodies = awkProgram
+        ? [...token.matchAll(/system\s*\(([^)]*)/g)].map((match) =>
+            match[1].trim().replace(/^["']|["']$/g, ""),
+          )
+        : // `git -c key=command` carries the command after the key.
+          [token.replace(/^[A-Za-z][\w.-]*=/, "")];
+      for (const body of bodies) {
+        const denied = findDeniedOperation(body, depth + 1);
+        if (denied) return denied;
+      }
+    }
+  }
+  return null;
+}
+
+/** Unquoted redirection targets, including ones attached to a word (`echo x>>file`). */
+export function unquotedRedirectionTargets(segment: string): string[] {
+  const targets: string[] = [];
+  let quote: "'" | '"' | null = null;
+  for (let i = 0; i < segment.length; i += 1) {
+    const ch = segment[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else if (ch === "\\" && quote === '"') i += 1;
+      continue;
+    }
+    if (ch === "\\") {
+      i += 1;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch !== ">" && ch !== "<") continue;
+    // Process substitution is handled as unsafe syntax; heredocs carry no path.
+    if (segment[i + 1] === "(") continue;
+    if (ch === "<" && segment[i + 1] === "<") {
+      while (segment[i + 1] === "<") i += 1;
+      continue;
+    }
+    let j = i + 1;
+    while (j < segment.length && /[>&|]/.test(segment[j])) j += 1;
+    while (j < segment.length && /\s/.test(segment[j])) j += 1;
+    let end = j;
+    let targetQuote: "'" | '"' | null = null;
+    while (end < segment.length) {
+      const c = segment[end];
+      if (targetQuote) {
+        if (c === targetQuote) targetQuote = null;
+      } else if (c === "'" || c === '"') {
+        targetQuote = c;
+      } else if (/[\s<>]/.test(c)) {
+        break;
+      }
+      end += 1;
+    }
+    const target = tokenize(segment.slice(j, end))[0];
+    if (target && !/^\d+$|^-$/.test(target)) targets.push(target);
+    i = end - 1;
+  }
+  return targets;
 }
 
 export function segmentDecision(
@@ -1981,7 +2414,7 @@ export function segmentDecision(
   if (hasOpaqueWrapper(rawTokens)) {
     return {
       decision: "ask",
-      reason: "Requires approval: env -S command string is opaque",
+      reason: "Requires approval: wrapper command string or option is opaque",
     };
   }
   if (isStandaloneEnvCommand(rawTokens)) {
@@ -2020,7 +2453,12 @@ export function segmentDecision(
     };
   }
 
-  if (hasLocalFilesystemRisk(tokens, options)) {
+  if (
+    hasLocalFilesystemRisk(tokens, options) ||
+    unquotedRedirectionTargets(segment).some(
+      (target) => !isProjectConfinedLocalPath(target),
+    )
+  ) {
     return {
       decision: "ask",
       reason:
@@ -2064,6 +2502,13 @@ export function segmentDecision(
       reason: "Requires approval: inline Git alias invocation is opaque",
     };
   }
+  if (hasGitCommandConfig(rawTokens, unwrappedTokens)) {
+    return {
+      decision: "ask",
+      reason:
+        "Requires approval: inline Git configuration can execute a command",
+    };
+  }
   if (hasOpaqueGitOptions(unwrappedTokens) || hasOpaquePackageOptions(tokens)) {
     return {
       decision: "ask",
@@ -2086,36 +2531,8 @@ export function segmentDecision(
     };
   }
 
-  if (isGitForcePush(tokens)) {
-    return {
-      decision: "deny",
-      reason: "Denied by b-agentic policy: git push --force",
-    };
-  }
-
-  if (
-    matchesPrefix(tokens, ["git", "reset", "--hard"]) ||
-    (matchesPrefix(tokens, ["git", "reset"]) && tokens.includes("--hard"))
-  ) {
-    return {
-      decision: "deny",
-      reason: "Denied by b-agentic policy: git reset --hard",
-    };
-  }
-
-  if (isGitCleanForce(tokens)) {
-    return {
-      decision: "deny",
-      reason: "Denied by b-agentic policy: git clean -f",
-    };
-  }
-
-  if (isGitBranchForceDelete(tokens)) {
-    return {
-      decision: "deny",
-      reason: "Denied by b-agentic policy: git branch -D",
-    };
-  }
+  const denied = destructiveDenyDecision(tokens);
+  if (denied) return denied;
 
   if (isGitDestructiveWorktreeOrStashOperation(tokens)) {
     return {
@@ -2123,15 +2540,6 @@ export function segmentDecision(
       reason:
         "Requires approval: Git operation can discard worktree or stash changes",
     };
-  }
-
-  for (const pattern of DENY_COMMANDS) {
-    if (matchesPrefix(tokens, pattern)) {
-      return {
-        decision: "deny",
-        reason: `Denied by b-agentic policy: ${pattern.join(" ")}`,
-      };
-    }
   }
 
   if (unwrapTokens(rawTokens).wrappers.has("sudo")) {
@@ -2189,6 +2597,15 @@ export function segmentDecision(
     }
   }
 
+  for (const pattern of SERVICE_COMMANDS) {
+    if (matchesPrefix(tokens, pattern)) {
+      return {
+        decision: "ask",
+        reason: `Requires approval: long-running service ${pattern.join(" ")}`,
+      };
+    }
+  }
+
   return { decision: "allow", reason: "" };
 }
 
@@ -2210,11 +2627,13 @@ export function commandDecision(
       hasAmbiguousShellSyntax(trimmed) ||
       hasShellControlSyntax(trimmed);
   if (ambiguous) {
-    return {
-      decision: "ask",
-      reason:
-        "Requires approval: ambiguous shell syntax (quotes/expansion/control structure/eval/source)",
-    };
+    return (
+      findDeniedOperation(trimmed) ?? {
+        decision: "ask",
+        reason:
+          "Requires approval: ambiguous shell syntax (quotes/expansion/control structure/eval/source)",
+      }
+    );
   }
 
   const segments = splitShellSegments(trimmed);
@@ -2244,6 +2663,7 @@ export function commandDecision(
       worst = result;
     }
   }
+  if (worst.decision === "ask") return findDeniedOperation(trimmed) ?? worst;
   return worst;
 }
 

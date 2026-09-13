@@ -33,6 +33,11 @@ section per date and same-day changes aggregated in that section.
 - Let the release job recover from an interrupted publish. The GitHub CLI uploads release assets to a draft and publishes last, so an API error mid-call leaves a tagless, assetless draft that blocks every later attempt at the same version. The job now discards that incomplete draft before retrying, and refuses to replace a release that was already published.
 - Keep the installer smoke suite inside its sandbox. Overriding `HOME` was not enough, because OpenCode resolves its config directory from `XDG_CONFIG_HOME` and Codex from `CODEX_HOME`: on any machine exporting either variable, running the suite installed those hosts into the real user configuration instead of the sandbox and then failed on the missing files. Every launcher now pins both variables, and the adapter cases assert that an inherited value never reaches an installer.
 
+### Security
+
+- Close Pi shell-policy bypasses that let destructive Git commands run without approval. Wrappers such as `timeout`, `setsid`, `exec`, `nohup -- …`, `command -p`, and `sudo -n` hid the real command; a shell reading piped input, `fdfind -x`, an awk `system()` call, a word-attached redirect like `echo x>>~/.bashrc`, and inline `git -c` settings that run programs (filters, includes, transports, pagers) were all allowed outright. These now require approval, and any `git -c` key outside a small display-and-identity allowlist fails closed.
+- Keep explicit denies in force under auto-mode. A denied operation behind an approval-required construct — `git -C ../other reset --hard`, `git push --force origin $BRANCH`, a control structure, an execution proxy, or a shell command string — previously returned "ask" and ran unattended; the classifier now reports it as denied. Force-deleting a branch with `-df`, force-pushing through a `+refspec` or `-uf`, and `--force-with-lease=` are denied as well, while pathspec checkouts, `git update-ref -d`, and the long-running service commands in `references/permissions.yaml` now ask.
+
 ## [v2026.09.12] - 2026-09-12
 
 ### Added

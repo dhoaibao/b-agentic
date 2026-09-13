@@ -683,6 +683,10 @@ expect(autoTest.parseAutoMode(true) === true && autoTest.parseAutoMode('off') ==
 expect(autoTest.latestAutoModeState([{ type: 'custom', customType: 'b-agentic-auto-mode', data: { enabled: true } }]) === true, 'auto-mode state must restore from the session branch');
 await commands['b-auto-mode'].handler('on', baseContext);
 expect(statuses.at(-1)?.key === 'b-auto-mode' && statuses.at(-1)?.value === '<error>auto-mode</error>', 'enabled auto-mode must display red auto-mode status');
+for (const command of ['git -C ../other reset --hard', 'git push --force origin $BRANCH', "bash -c 'git reset --hard'"]) {
+  expect((await toolCallHandler({ toolName: 'bash', input: { command } }, noUiContext))?.block === true, `auto-mode must keep explicit denies for ${command}`);
+}
+expect(await toolCallHandler({ toolName: 'bash', input: { command: 'rtk git push' } }, noUiContext) === undefined, 'auto-mode must auto-allow approval-required commands');
 await commands['b-auto-mode'].handler('off', baseContext);
 const isolatedAutoModeRoot = mkdtempSync(path.join(os.tmpdir(), 'b-agentic-isolated-auto-mode-'));
 try {
@@ -1032,8 +1036,74 @@ for (const wrapper of ['err', 'test', 'summary']) {
 expect(t.commandDecision('rtk run git reset --hard').decision === 'deny', 'positional rtk run must preserve deny decisions');
 expect(t.commandDecision('rtk --ultra-compact run git reset --hard').decision === 'deny', 'RTK global options must not hide deny decisions');
 expect(t.commandDecision('rtk --skip-env git reset --hard').decision === 'deny', 'RTK global options must preserve direct command classification');
-expect(t.commandDecision("rtk run -c 'git reset --hard'").decision === 'ask', 'rtk run -c must fail closed as opaque');
+expect(t.commandDecision("rtk run -c 'git reset --hard'").decision === 'deny', 'rtk run -c command strings must preserve deny decisions');
+expect(t.commandDecision("rtk run -c 'rtk ls .'").decision === 'ask', 'rtk run -c must fail closed as opaque');
 expect(t.commandDecision('rtk g\\it reset --hard').decision === 'deny', 'escaped command name must not bypass reset denial');
+// Wrappers, execution proxies, and ambiguous syntax must not hide explicit denies.
+for (const command of [
+  'command -p git reset --hard',
+  'time -p git reset --hard',
+  'nohup -- git push --force',
+  'timeout 5 git reset --hard',
+  'setsid git push --force origin main',
+  'exec git clean -fdx',
+  'sudo -n git reset --hard',
+  'doas -u root git reset --hard',
+  'stdbuf -oL git reset --hard',
+  'rtk -u git reset --hard',
+  'sudo --unknown-option git reset --hard',
+  'git push --force origin $BRANCH',
+  'git -C ../other reset --hard',
+  'git reset --hard HEAD~1 -- ../x',
+  'if true; then git reset --hard; fi',
+  "printf 'git push --force\\n' | bash",
+  'fdfind . -x git reset --hard',
+  `awk 'BEGIN{system("git reset --hard")}'`,
+  'git branch -df feature',
+  'git branch -d -f feature',
+  'git push origin +main',
+  'git push -uf origin main',
+]) {
+  expect(t.commandDecision(command).decision === 'deny', `${command} must deny`);
+}
+for (const command of [
+  'cat payload | sh',
+  'rtk fdfind . -X rtk ls',
+  "git -c core.fsmonitor='rtk ls' status",
+  "git -c filter.x.clean='rtk ls' add .",
+  'git -c include.path=/tmp/evil.cfg status',
+  "git -c remote.origin.uploadpack='rtk ls' fetch origin",
+  'git -c protocol.ext.allow=always fetch origin',
+  'git --config-env=core.pager=PAGER log',
+  "git -c pager.log='rtk ls' log",
+  'GIT_SSH_COMMAND=ssh git fetch',
+  'echo evil>>/home/example/.bashrc',
+  'sudo --unknown-option rtk ls',
+  'git checkout .',
+  'git checkout HEAD~1 src/main.ts',
+  'git update-ref -d refs/heads/main',
+  'npm run dev',
+  'pnpm dev',
+  'cargo watch',
+]) {
+  expect(t.commandDecision(command).decision === 'ask', `${command} must ask`);
+}
+for (const command of [
+  'timeout 30 rtk npm test',
+  'nice -n 5 rtk npm test',
+  'command -v git',
+  'node --version',
+  'node --test',
+  'git checkout main',
+  'git -c color.ui=false log',
+  'git -c user.name=agent -c core.quotepath=false log',
+  'rtk git grep push -f patterns.txt',
+  'rtk git log push -Sfix',
+  "git commit -m 'never git reset --hard'",
+  'echo ok>notes.txt',
+]) {
+  expect(t.commandDecision(command).decision === 'allow', `${command} must allow`);
+}
 expect(t.commandDecision(['rtk g', '\\', '\n', 'it reset --hard'].join('')).decision === 'deny', 'line-continuation command name must not bypass reset denial');
 const noModernTools = new Set();
 const allModernTools = new Set(['rg', 'fd', 'bat', 'eza', 'sd', 'jq']);
@@ -1305,19 +1375,22 @@ expect(t.commandDecision("rtk rg '\\d+' src/main.ts").decision === 'allow', 'quo
 expect(t.commandDecision("cat '.env").decision === 'ask', 'unbalanced shell quotes must fail closed');
 
 // Ambiguous shell
-expect(t.commandDecision('eval "$(echo git reset --hard)"').decision === 'ask', 'eval must ask');
+expect(t.commandDecision('eval "$(echo git reset --hard)"').decision === 'deny', 'eval must preserve deny decisions');
+expect(t.commandDecision('eval "$(echo rtk ls .)"').decision === 'ask', 'eval must ask');
 expect(t.hasAmbiguousShellSyntax('$(git reset --hard)') === true, 'subshell must be ambiguous');
 expect(t.hasUnbalancedQuotes("cat '.env") === true, 'unbalanced quotes must be ambiguous');
 expect(t.commandDecision('bash <(printf "git reset --hard")').decision === 'ask', 'process substitution must ask');
-expect(t.commandDecision('rtk proxy find . -exec git reset --hard \\;').decision === 'ask', 'RTK find execution proxy must ask');
+expect(t.commandDecision('rtk proxy find . -exec git reset --hard \\;').decision === 'deny', 'RTK find execution proxy must preserve deny decisions');
+expect(t.commandDecision('rtk proxy find . -exec rtk ls {} \\;').decision === 'ask', 'RTK find execution proxy must ask');
 expect(t.commandDecision('rtk proxy printf "git reset --hard" | rtk proxy xargs sh').decision === 'ask', 'xargs execution proxy must ask');
 expect(t.commandDecision('if rtk ls .; then rtk proxy echo ok; fi').decision === 'ask', 'if control structure must ask');
 expect(t.commandDecision('while rtk ls .; do rtk proxy echo ok; break; done').decision === 'ask', 'while control structure must ask');
 expect(t.hasShellControlSyntax('for item in one; do rtk proxy echo "$item"; done') === true, 'for control structure must be recognized');
 
 // Interpreter/eval-style wrappers (opaque body) must ask
-expect(t.commandDecision("bash -c 'git reset --hard'").decision === 'ask', 'bash -c must ask');
-expect(t.commandDecision("sh -c 'git push --force'").decision === 'ask', 'sh -c must ask');
+expect(t.commandDecision("bash -c 'git reset --hard'").decision === 'deny', 'bash -c must preserve deny decisions');
+expect(t.commandDecision("bash -c 'rtk ls .'").decision === 'ask', 'bash -c must ask');
+expect(t.commandDecision("sh -c 'git push --force'").decision === 'deny', 'sh -c must preserve deny decisions');
 expect(t.commandDecision("node -e \"require('fs').rmSync('.')\"").decision === 'ask', 'node -e must ask');
 expect(t.commandDecision('python3 -c "import os; os.system(\'git reset --hard\')"').decision === 'ask', 'python -c must ask');
 for (const command of ['bash ./untrusted.sh', 'python3 ./untrusted.py', 'node app.js', 'python3 -m untrusted_module', './untrusted.sh', '../untrusted.sh', '/tmp/untrusted', '/tmp/rtk git status', 'sudo /tmp/untrusted', 'rtk /usr/bin/../../tmp/untrusted', 'rtk ~/untrusted']) {
