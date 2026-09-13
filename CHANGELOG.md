@@ -30,6 +30,7 @@ section per date and same-day changes aggregated in that section.
 ### Fixed
 
 - Reject a miscased adapter or skill name the same way on every shell. Adapter ids, release-archive adapter paths, and managed skill directories were validated with character ranges, which resolve through the shell's collation: on macOS, where bash has no C-locale range behavior, `--agent Pi` slipped past the name check and failed later with a confusing manifest error, and a `b-Foo` directory could be mistaken for a managed one. The installer now checks these names against an explicit character set, and the smoke suite reruns that check under the affected shell behavior.
+- Let the release job recover from an interrupted publish. The GitHub CLI uploads release assets to a draft and publishes last, so an API error mid-call leaves a tagless, assetless draft that blocks every later attempt at the same version. The job now discards that incomplete draft before retrying, and refuses to replace a release that was already published.
 - Keep the installer smoke suite inside its sandbox. Overriding `HOME` was not enough, because OpenCode resolves its config directory from `XDG_CONFIG_HOME` and Codex from `CODEX_HOME`: on any machine exporting either variable, running the suite installed those hosts into the real user configuration instead of the sandbox and then failed on the missing files. Every launcher now pins both variables, and the adapter cases assert that an inherited value never reaches an installer.
 
 ## [v2026.09.12] - 2026-09-12

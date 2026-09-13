@@ -93,13 +93,28 @@ jobs:
         run: bash scripts/extract-release-notes.sh "$BASE_VERSION" CHANGELOG.md > dist/release-notes.md
       # gh release create creates the tag itself, so no git push is needed and
       # the GITHUB_TOKEN-triggered-tag rule cannot suppress another workflow.
+      # gh uploads assets to a draft and publishes last, so an API error
+      # mid-call can leave a tagless, assetless draft that blocks every later
+      # attempt at the same version. The resolver above already proved no tag
+      # exists for $RELEASE_VERSION, and a published release always carries
+      # one, so any release visible here is that leftover draft. Discard it and
+      # retry; refuse to touch a published release.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create "$RELEASE_VERSION"
-          --target "$GITHUB_SHA"
-          --title "b-agentic $RELEASE_VERSION"
-          --notes-file dist/release-notes.md
-          dist/b-agentic.tar.gz
-          dist/b-agentic.tar.gz.sha256
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            if [ "$(gh release view "$RELEASE_VERSION" --json isDraft -q .isDraft)" != "true" ]; then
+              echo "release already published, refusing to replace it: $RELEASE_VERSION" >&2
+              exit 1
+            fi
+            echo "discarding incomplete draft release: $RELEASE_VERSION"
+            gh release delete "$RELEASE_VERSION" --yes
+          fi
+          gh release create "$RELEASE_VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "b-agentic $RELEASE_VERSION" \
+            --notes-file dist/release-notes.md \
+            dist/b-agentic.tar.gz \
+            dist/b-agentic.tar.gz.sha256
