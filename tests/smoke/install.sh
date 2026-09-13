@@ -953,12 +953,19 @@ run_declarative_host_lifecycle_case() {
 	printf '%s\n' '{"mcpServers":{"user-server":{"type":"stdio","command":"echo"}}}' >"$home/.claude.json"
 	printf '%s\n' '{"permission":{"bash":{"terraform destroy *":"deny"}}}' >"$home/.config/opencode/opencode.json"
 
+	# OpenCode resolves its config directory from XDG_CONFIG_HOME, so an
+	# inherited value (GitHub's ubuntu runner exports one) would install into
+	# the invoking user's real config directory. The harness must override it.
+	local inherited_xdg="$sandbox/inherited-xdg"
+
 	set +e
-	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$install_log" \
+	XDG_CONFIG_HOME="$inherited_xdg" B_AGENTIC_AGENT='' \
+		run_install_capture "$sandbox" "$release_fixture" "$install_log" \
 		--agent claude-code,opencode,antigravity
 	rc=$?
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected declarative host install exit 0, got $rc"
+	assert_no_path "$inherited_xdg"
 
 	local host_label
 	for host_label in 'Claude Code' OpenCode Antigravity; do
@@ -1037,11 +1044,17 @@ run_codex_config_block_case() {
 		'# A user-owned server with its own comment.' '[mcp_servers.my-server]' 'command = "echo"' >"$config"
 	cp "$config" "$sandbox/config.before"
 
+	# Codex resolves its home from CODEX_HOME, so an inherited value must not
+	# reach the installer either.
+	local inherited_codex_home="$sandbox/inherited-codex"
+
 	set +e
-	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$install_log" --agent codex
+	CODEX_HOME="$inherited_codex_home" B_AGENTIC_AGENT='' \
+		run_install_capture "$sandbox" "$release_fixture" "$install_log" --agent codex
 	rc=$?
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected Codex install exit 0, got $rc"
+	assert_no_path "$inherited_codex_home"
 	assert_contains "$install_log" 'b-agentic install complete for Codex CLI'
 	assert_file "$home/.codex/AGENTS.md"
 	assert_file "$home/.codex/skills/b-plan/SKILL.md"

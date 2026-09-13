@@ -346,6 +346,11 @@ smoke_path_with_runtime_clis() {
 	fi
 }
 
+# Overriding HOME is not enough to sandbox an install: some hosts resolve
+# their destination from another variable, and a CI image that exports one
+# (GitHub's ubuntu runner sets XDG_CONFIG_HOME) would send that host's files
+# into the invoking user's real config directory. Every launcher below pins
+# these to the sandbox so inherited values cannot reach an adapter.
 run_install_status() {
 	local sandbox="$1" release_fixture="$2"
 	shift 2
@@ -356,6 +361,8 @@ run_install_status() {
 	local rc=0
 	set +e
 	HOME="$sandbox/home" \
+		XDG_CONFIG_HOME="$sandbox/home/.config" \
+		CODEX_HOME="$sandbox/home/.codex" \
 		PATH="$smoke_path" \
 		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
@@ -380,6 +387,8 @@ run_install_status_in_cwd() {
 	(
 		cd "$install_cwd"
 		HOME="$sandbox/home" \
+			XDG_CONFIG_HOME="$sandbox/home/.config" \
+			CODEX_HOME="$sandbox/home/.codex" \
 			PATH="$smoke_path" \
 			B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 			B_AGENTIC_DIR="$sandbox/source" \
@@ -410,6 +419,8 @@ args = sys.argv[6:]
 
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
+env["XDG_CONFIG_HOME"] = os.path.join(sandbox, "home", ".config")
+env["CODEX_HOME"] = os.path.join(sandbox, "home", ".codex")
 env["PATH"] = smoke_path
 env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
 env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
@@ -467,6 +478,8 @@ input_data = os.environ.get("B_AGENTIC_TTY_INPUT", "\n")
 
 env = dict(os.environ)
 env["HOME"] = os.path.join(sandbox, "home")
+env["XDG_CONFIG_HOME"] = os.path.join(sandbox, "home", ".config")
+env["CODEX_HOME"] = os.path.join(sandbox, "home", ".codex")
 env["PATH"] = smoke_path
 env["B_AGENTIC_RELEASE_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz"
 env["B_AGENTIC_CHECKSUM_URL"] = "file://" + release_fixture + "/b-agentic.tar.gz.sha256"
@@ -550,6 +563,8 @@ run_install_capture() {
 	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
 	set +e
 	HOME="$sandbox/home" \
+		XDG_CONFIG_HOME="$sandbox/home/.config" \
+		CODEX_HOME="$sandbox/home/.codex" \
 		PATH="$smoke_path" \
 		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" \
 		B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \

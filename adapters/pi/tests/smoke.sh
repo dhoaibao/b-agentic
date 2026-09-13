@@ -1758,6 +1758,8 @@ run_pi_smoke_cases() {
 	env \
 		-u B_AGENTIC_PROMPT_API_KEYS \
 		HOME="$sandbox/home" \
+		XDG_CONFIG_HOME="$sandbox/home/.config" \
+		CODEX_HOME="$sandbox/home/.codex" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
 		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
@@ -1781,6 +1783,8 @@ exit 0
 EOF
 	chmod +x "$sandbox/smoke-bin/curl"
 	HOME="$sandbox/home" \
+		XDG_CONFIG_HOME="$sandbox/home/.config" \
+		CODEX_HOME="$sandbox/home/.codex" \
 		PATH="$(smoke_runtime_cli_path "$sandbox")" \
 		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
@@ -1804,6 +1808,8 @@ EOF
 	local smoke_path
 	smoke_path="$(smoke_runtime_cli_path "$sandbox_adapter")"
 	HOME="$sandbox_adapter/home" \
+		XDG_CONFIG_HOME="$sandbox_adapter/home/.config" \
+		CODEX_HOME="$sandbox_adapter/home/.codex" \
 		PATH="$smoke_path" \
 		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox_adapter/source" \
