@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.13] - 2026-09-13
+
+### Added
+
+- Install b-agentic on any supported host, not just Pi: `--agent` now takes a comma-separated list or `all`, an interactive terminal opens a host picker, and a scripted run with no selection targets the hosts that already have an install manifest before falling back to Pi. Each host installs in isolation, so one host's failure never leaves another half-configured.
+- Ship installers for Claude Code, OpenCode, Antigravity, and Codex CLI, each delivering skills, a kernel at the host's own instruction path, MCP servers in the host's schema, and host-native permission rules. Pi keeps its extra tier of TypeScript permission classifier, packages, and theme; no host receives hook scripts.
+- Render the kernel per host from host-conditional regions in the shared template, so Pi keeps its tool-specific guidance while other hosts get portable equivalents and never receive a capability marker their host cannot honor. A generator gate fails the build when guidance names a capability the host does not have.
+- Generate every host's permission configuration from the single portable contract in `references/permissions.yaml`, translated into each host's documented syntax and precedence rather than copied verbatim.
+- Merge Codex CLI settings and MCP servers into `config.toml` as two delimited managed regions, preserving comments and user-owned keys byte for byte outside those regions and restoring the original file exactly on uninstall.
+- Uninstall from a manifest alone for every host, so removing a host's kernel, skills, metadata, and merged configuration keeps working after the cached source is gone.
+
+### Changed
+
+- Define a six-function adapter contract and dispatch each host's installer in a subshell, so hosts cannot leak state into one another and `adapters/<host>/manifest.yaml` status is the single gate that decides whether a host installs.
+- Drive release packaging from the adapter manifests: a shipped host packages its declared payload and a deferred host ships its manifest only, and the archive contract validates adapter entries segment by segment instead of by a glob that could span directories.
+- Warn when both OpenCode and Claude Code are selected, since OpenCode also discovers Claude Code's skills and the same skills will appear from both installs.
+- Report a host-native install that preserved a user-owned configuration file as partial rather than ready, naming the file that was left untouched.
+- Keep multi-step-work guidance host-neutral in the kernel and attach the Pi-specific task and question tools as capability-gated detail.
+- Scale the installer smoke suite across available CPUs and cover the new hosts end to end: a three-host install and uninstall that proves user-owned entries keep their meaning, and a Codex run that proves comment preservation, idempotency, and exact restoration.
+- Document all five hosts as installable across the public overview, operational reference, host compatibility reference, and decision record, including the two deliberate enforcement gaps: Codex has no pattern-based command permissions, and Antigravity accepts only directory-shaped path denies.
+
 ## [v2026.09.12] - 2026-09-12
 
 ### Added

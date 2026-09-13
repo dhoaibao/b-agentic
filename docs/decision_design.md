@@ -310,7 +310,11 @@ Evidence: `tooling/generate/registry_sync.py`,
 - No host adapter without official-documentation confirmation of that host's
   instruction path, skill discovery, MCP configuration schema, permission
   model, and hook capability; unverified data points ship deferred, never
-  guessed. No extra runtime registry.
+  guessed. No extra runtime registry. All five verified hosts now ship an
+  adapter on that basis; the surfaces still unconfirmed (Codex hook location
+  and execpolicy discovery path) remain undelivered rather than approximated,
+  and `adapters/<host>/manifest.yaml` keeps `status` as the single gate the
+  installer honours.
 - No process-sandbox claim, blanket protection from repository-controlled build
   or test code, or approval shortcut that replaces isolation.
 - No automatic external/shared mutation, MCP authentication bootstrap, broad

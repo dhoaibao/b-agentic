@@ -16,9 +16,13 @@ Default install for Pi:
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-Only Pi is installable today. The `--agent <name>` selector fails closed for
-verified-but-deferred hosts; see the [host compatibility reference](docs/hosts.md)
-for current host status.
+All five hosts are installable. `--agent <name>[,<name>...]` selects them,
+`--agent all` takes every shipped adapter, and the selector still fails closed
+for unknown hosts or for an adapter whose manifest marks it deferred. With no
+`--agent` on an interactive terminal, the installer opens a host picker;
+scripted and piped runs fall back to the hosts that already have an install
+manifest, then to Pi. See the [host compatibility reference](docs/hosts.md) for
+per-host delivery and its two documented gaps.
 
 Default install writes b-agentic files and Pi configuration only. Pi CLI installation and upgrade run automatically without prompts. In an interactive TTY, the default install opens a dependency-free component picker with all optional groups selected: MCP support, Pi integrations, and the Dracula theme. Core files and required tooling remain selected. Use Up/Down, Space, Enter, or Escape to navigate, toggle, continue, or cancel. Redirected, CI, `TERM=dumb`, and explicit `--update`, `--sync`, or `--uninstall` runs remain non-interactive.
 
@@ -103,7 +107,7 @@ curl -fsSL "https://raw.githubusercontent.com/dhoaibao/b-agentic/${B_AGENTIC_REF
 
 Useful flags:
 
-- `--agent <name>` selects the host adapter, defaults to `pi`, and fails closed for verified-but-deferred or unknown hosts.
+- `--agent <name>[,<name>...]` or `--agent all` selects host adapters, defaults to the hosts already installed (then `pi`), and fails closed for deferred or unknown hosts.
 - `--dry-run` previews changes.
 - `--replace-memory` replaces an existing managed kernel file.
 - `--uninstall` removes managed files.

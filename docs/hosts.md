@@ -12,6 +12,47 @@ only** (the agreed basic level). Every verified host also has a deterministic
 pre-tool hook able to hard-block tool calls; those hook contracts are documented
 here as capability facts, but v1 ships no shared hook scripts.
 
+## Delivery status
+
+All five hosts now ship an installer. `./install.sh --agent <name>[,<name>...]`
+or `--agent all` selects them, and an interactive terminal that names no host
+prompts with a multi-select picker.
+
+| Host        | Skills | Kernel | MCP config               | Permissions                        | Packages and extensions |
+| ----------- | ------ | ------ | ------------------------ | ---------------------------------- | ----------------------- |
+| Pi          | yes    | yes    | merged `mcp.json`        | TypeScript classifier extension    | yes (full fidelity)     |
+| Claude Code | yes    | yes    | merged `~/.claude.json`  | `settings.json` allow/ask/deny     | no                      |
+| OpenCode    | yes    | yes    | merged `opencode.json`   | same file, `permission` object     | no                      |
+| Antigravity | yes    | yes    | merged `mcp_config.json` | `settings.json` allow/ask/deny     | no                      |
+| Codex       | yes    | yes    | `config.toml` block      | `approval_policy` + `sandbox_mode` | no                      |
+
+Three deliberate gaps follow from the evidence rather than from effort:
+
+- **Codex has no pattern-based permission delivery.** Its per-command rules
+  live in a Starlark execpolicy whose discovery path this reference does not
+  confirm, so the shared deny and ask lists are not enforced there. The adapter
+  sets `approval_policy = "untrusted"` instead, which asks before any command
+  Codex has not been told to trust.
+- **Antigravity receives only directory-shaped path denies.** Its file targets
+  are paths, so the extension and substring markers in
+  `references/permissions.yaml` (`.pem`, `credentials.`) cannot be expressed;
+  emitting them would be a deny rule that silently protects nothing. Only the
+  directory markers (`.ssh/`, `.aws/`, `.kube/`, `.config/gh/`, `.git/`) ship.
+- **No host receives hook scripts**, per the enforcement stance above.
+
+Pi keeps a higher fidelity tier — its permission extension, npm packages, and
+theme — because those surfaces have no cross-host equivalent.
+
+The kernel is rendered per host: `references/kernel.template.md` carries
+`<!-- host:if ... -->` regions, and `tooling/generate/registry_sync.py` writes
+one `references/kernel.<host>.md` per adapter, refusing to emit guidance that
+names a capability the host does not have.
+
+Skill directories do not collide: each adapter writes only its own native path.
+OpenCode additionally _reads_ `.claude/skills`, so installing both OpenCode and
+Claude Code surfaces the same skills from two owners; the installer reports
+that rather than silently sharing a directory.
+
 ## Evidence summary
 
 | Host        | Instruction file                             | Skills                                                         | MCP config                                                     | Declarative permissions                                               | Pre-tool hook                                   |
@@ -81,6 +122,10 @@ downgrade for v1:
   secrets. (/mcp-quickstart)
 - **Permissions:** `settings.json` -> `permissions.{allow,ask,deny}` +
   `defaultMode`; syntax `Bash(npm run *)`, `Read(./.env)`, `Read(./secrets/**)`.
+  File-tool targets follow the **gitignore spec**: `*` matches within a path
+  segment, `**` matches recursively, and a rule beginning with `/` anchors at
+  the session's primary working directory, not the filesystem root. (/settings,
+  /permissions)
   Deny also hides matching files from read/edit tools in all modes. Scopes:
   `~/.claude/settings.json`, `.claude/settings.json`,
   `.claude/settings.local.json`, managed settings. (/permissions)
@@ -200,6 +245,11 @@ downgrade for v1:
   `{"permissions":{"allow":[],"deny":[],"ask":[]}}`. Official deny examples
   match this suite's intent: `command(rm -rf)`, `command(sudo)`,
   `command(regex:curl .*)`, `write_file(.git/)`, `write_file(/home/user/.ssh)`.
+  Command targets match by prefix, or as an anchored regex behind the `regex:`
+  prefix. File targets are matched as **paths**, with recursive matching on
+  directories and no filename globbing, and the `regex:` prefix is documented
+  only for commands. An extension or substring pattern such as `.pem` is
+  therefore not expressible as a file rule here.
   (/docs/permissions, /docs/cli/permissions)
   - Deferred (D3): the Antigravity IDE/2.0 permissions config file path; only
     the CLI settings path is documented as a file (IDE permissions are a
@@ -252,5 +302,6 @@ Verified 2026-09 via the P0 gate against official documentation: Claude Code
 (code.claude.com/docs), Codex (github.com/openai/codex `codex-rs` sources),
 OpenCode (opencode.ai/docs), Antigravity (antigravity.google/docs), Pi
 (repository sources). Deferred points: D2a (Codex hooks.json location), D3
-(Antigravity IDE permissions file), D4 (Antigravity root AGENTS.md). No host
-ships deferred for skills, MCP, or declarative permissions.
+(Antigravity IDE permissions file), D4 (Antigravity root AGENTS.md), and the
+Codex execpolicy discovery path. No host ships deferred for skills, MCP, or
+declarative permissions.

@@ -18,10 +18,17 @@ services, authenticating providers, or claiming session usage.
 
 ## Install
 
-**Supported hosts:** Pi is shipped; Claude Code, Codex, OpenCode, and Antigravity are verified but deferred. See the [host compatibility reference](docs/hosts.md).
+**Supported hosts:** Pi, Claude Code, Codex, OpenCode, and Antigravity. Pi gets the full tier (packages, extensions, theme); the others receive skills, a host-rendered kernel, MCP configuration, and host-native permission rules. See the [host compatibility reference](docs/hosts.md).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
+```
+
+Pick hosts with `--agent`, or let an interactive terminal prompt for them:
+
+```bash
+curl -fsSL .../install.sh | bash -s -- --agent claude-code,codex
+curl -fsSL .../install.sh | bash -s -- --agent all
 ```
 
 The piped script is only a bootstrap: it downloads the release tarball for the

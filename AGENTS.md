@@ -8,8 +8,9 @@ b-agentic is a slim, host-neutral personal workflow suite. It ships the always-l
 
 ### Architecture and change map
 
-- `skills/` holds skill metadata, canonical prompts, and generated skill files; `references/` holds shared kernel and MCP policy; `adapters/pi/` holds Pi extensions, configuration, packages, scripts, and smoke coverage; `tooling/` holds generation, installation, and validation; `tests/` holds behavior and installer smoke coverage.
-- Change shared guidance in `references/`, Pi behavior in `adapters/pi/`, installer behavior in `install.sh` or `tooling/install/`, and validation in `tooling/validate/` or `scripts/`. Use the [decision record](docs/decision_design.md) when a change crosses these boundaries.
+- `skills/` holds skill metadata, canonical prompts, and generated skill files; `references/` holds shared kernel and MCP policy; `adapters/<host>/` holds each host adapter's manifest, generated configuration, and installer, with `adapters/pi/` additionally holding Pi extensions, packages, and smoke coverage; `tooling/` holds generation, installation, and validation; `tests/` holds behavior and installer smoke coverage.
+- Change shared guidance in `references/`, host behavior in `adapters/<host>/`, installer behavior in `install.sh` or `tooling/install/`, and validation in `tooling/validate/` or `scripts/`. Use the [decision record](docs/decision_design.md) when a change crosses these boundaries.
+- Every shipped adapter's `scripts/install.sh` implements the six-function contract in `tooling/install/adapters.sh` (`_set_source_dirs`, `_validate_source`, `_install`, `_sync`, `_update`, `_uninstall`) and is dispatched in a subshell, so adapters never leak state into each other. `adapters/<host>/manifest.yaml` `status` is the only gate that decides whether a host installs.
 
 ### Canonical sources and change flows
 
