@@ -2678,6 +2678,33 @@ EOF
 	[ -z "$(find "$sandbox/tmp" -maxdepth 1 -name 'b-agentic-preview-markdown.*' -print -quit)" ] || fail 'standalone preview installer leaked a temporary file after validation failure'
 }
 
+# Name validation must not depend on the shell's collation. Bash 3.2 on macOS
+# has no `globasciiranges`, so under a UTF-8 LC_COLLATE a bracket *range* like
+# [a-z] also matches 'P' — which let "Pi" through and reached the manifest
+# lookup instead of the name check. This runs the installer's own pattern under
+# that emulated shell, and rejects reintroduced alpha ranges elsewhere.
+assert_ascii_slug_class_portability() {
+	local pattern actual ranges
+
+	pattern="$(sed -n 's/^[[:space:]]*\(\*\[!.*\]\*\)) die "invalid agent name.*/\1/p' "$ROOT_DIR/install.sh")"
+	[ -n "$pattern" ] || fail "install.sh does not validate agent names with a character class"
+	actual="$(LC_ALL=en_US.UTF-8 bash -c 'shopt -u globasciiranges
+case "Pi" in
+'"$pattern"') echo rejected ;;
+*) echo accepted ;;
+esac')"
+	[ "$actual" = 'rejected' ] ||
+		fail "agent-name validation accepts 'Pi' on a shell without globasciiranges"
+
+	ranges="$(
+		grep -REn '\[!?[a-zA-Z]-[a-zA-Z]' \
+			"$ROOT_DIR/install.sh" "$ROOT_DIR/tooling/install" "$ROOT_DIR/adapters"/*/scripts/install.sh |
+			grep -v ':[0-9]*:[[:space:]]*#' || true
+	)"
+	[ -z "$ranges" ] ||
+		fail "installer uses a collation-dependent character range; enumerate the class instead: $ranges"
+}
+
 run_agent_gate_case() {
 	local release_fixture="$1"
 	local sandbox="$WORK_DIR/agent-gate"
@@ -2734,6 +2761,7 @@ run_agent_gate_case() {
 		bash "$ROOT_DIR/install.sh" --agent Pi --dry-run >"$install_log" 2>&1 &&
 		fail "a miscased agent name must be rejected"
 	assert_contains "$install_log" "invalid agent name: Pi"
+	assert_ascii_slug_class_portability
 
 	# 'all' covers every shipped adapter, and each one reports its own result.
 	HOME="$sandbox/home" \

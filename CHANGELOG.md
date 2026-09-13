@@ -27,6 +27,10 @@ section per date and same-day changes aggregated in that section.
 - Scale the installer smoke suite across available CPUs and cover the new hosts end to end: a three-host install and uninstall that proves user-owned entries keep their meaning, and a Codex run that proves comment preservation, idempotency, and exact restoration.
 - Document all five hosts as installable across the public overview, operational reference, host compatibility reference, and decision record, including the two deliberate enforcement gaps: Codex has no pattern-based command permissions, and Antigravity accepts only directory-shaped path denies.
 
+### Fixed
+
+- Reject a miscased adapter or skill name the same way on every shell. Adapter ids, release-archive adapter paths, and managed skill directories were validated with character ranges, which resolve through the shell's collation: on macOS, where bash has no C-locale range behavior, `--agent Pi` slipped past the name check and failed later with a confusing manifest error, and a `b-Foo` directory could be mistaken for a managed one. The installer now checks these names against an explicit character set, and the smoke suite reruns that check under the affected shell behavior.
+
 ## [v2026.09.12] - 2026-09-12
 
 ### Added

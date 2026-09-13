@@ -580,6 +580,11 @@ fetch_url() {
 
 # Accepts only the release payload allowlist; rejects absolute paths, parent
 # traversal, dotfile members, and anything outside the published contract.
+# Adapter ids are ASCII slugs, and every check below enumerates that class
+# instead of writing `[!a-z0-9-]`: bracket ranges resolve through LC_COLLATE,
+# so under a UTF-8 collation 'P' sorts inside a-z and "Pi" would pass. Bash 5
+# hides this behind `globasciiranges`, which bash 3.2 on macOS does not have.
+#
 # Accepts adapters/<host>/ plus that host's manifest and declared payload
 # subtrees, and nothing else. <host> must be a single path segment.
 validate_adapter_archive_entry() {
@@ -587,7 +592,9 @@ validate_adapter_archive_entry() {
 	remainder="${entry#adapters/}"
 	host="${remainder%%/*}"
 	case "$host" in
-	'' | *[!a-z0-9-]*) die "unexpected release archive entry: $entry" ;;
+	'' | *[!abcdefghijklmnopqrstuvwxyz0123456789-]*)
+		die "unexpected release archive entry: $entry"
+		;;
 	esac
 	rest="${remainder#"$host"}"
 	rest="${rest#/}"
@@ -893,7 +900,7 @@ resolve_selected_agents() {
 	for entry in "$@"; do
 		[ -n "$entry" ] || continue
 		case "$entry" in
-		*[!a-z0-9-]*) die "invalid agent name: $entry" ;;
+		*[!abcdefghijklmnopqrstuvwxyz0123456789-]*) die "invalid agent name: $entry" ;;
 		esac
 		adapter_require_shipped "$entry"
 		case " $seen " in

@@ -171,10 +171,14 @@ for path in sorted(root.glob('*/SKILL.md')):
 PY
 }
 
+# The character classes below are enumerated rather than written as ranges,
+# because bracket ranges resolve through LC_COLLATE: under a UTF-8 collation
+# 'P' sorts inside a-z, so `[!a-z0-9-]` would accept "b-Foo" on a shell without
+# `globasciiranges` (bash 3.2 on macOS).
 managed_asset_name_is_safe() {
   local name="$1"
   case "$name" in
-    b-[a-z]*)
+    b-[abcdefghijklmnopqrstuvwxyz]*)
       ;;
     *)
       return 1
@@ -182,7 +186,7 @@ managed_asset_name_is_safe() {
   esac
 
   case "$name" in
-    *[!a-z0-9-]*|*-)
+    *[!abcdefghijklmnopqrstuvwxyz0123456789-]*|*-)
       return 1
       ;;
   esac
