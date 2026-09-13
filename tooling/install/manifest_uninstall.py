@@ -43,6 +43,32 @@ def safe_name(name: object) -> bool:
     return all(ch.islower() or ch.isdigit() or ch == "-" for ch in name) and not name.endswith("-")
 
 
+def remove_managed_toml_block(config_path: Path, label: str) -> None:
+    """Reverse a delimited TOML managed block using the helper that wrote it."""
+    try:
+        import toml_block
+    except ImportError:
+        warn(f"preserving {label}: the TOML block helper is unavailable")
+        return
+    try:
+        toml_block.remove(config_path)
+    except SystemExit:
+        warn(f"preserving {label}: its managed block could not be removed cleanly")
+
+
+def safe_template_name(name: object) -> bool:
+    """A managed config template filename, never a path.
+
+    The name indexes into the installer's own snapshot directory, so it must
+    not be able to escape it.
+    """
+    if not isinstance(name, str) or not name or name in {".", ".."}:
+        return False
+    if "/" in name or "\\" in name:
+        return False
+    return all(ch.isalnum() or ch in {".", "-", "_"} for ch in name)
+
+
 def remove_tree(path: Path) -> None:
     if path.exists() and under_home(path):
         shutil.rmtree(path)
@@ -213,6 +239,9 @@ def main() -> None:
     paths = data.get("paths", {})
     metadata = manifest_path.parent
 
+    # Codex honours CODEX_HOME; the adapter installs there, so the fallback
+    # must resolve it the same way.
+    codex_home = Path(os.environ.get("CODEX_HOME") or (home / ".codex")).expanduser()
     runtime_defaults = {
         "pi": {
             "metadata": home / ".pi" / "agent" / "b-agentic",
@@ -223,6 +252,30 @@ def main() -> None:
             "mcpConfig": home / ".pi" / "agent" / "mcp.json",
             "theme": home / ".pi" / "agent" / "themes" / "dracula.json",
             "cachedTheme": home / ".pi" / "agent" / "b-agentic" / "themes" / "dracula.json",
+        },
+        # Declarative hosts: skills, kernel, and merged configuration only.
+        # Their managed configuration files are named by the manifest's own
+        # "configs" map, so these fallbacks only cover skills and the kernel
+        # (docs/hosts.md).
+        "claude-code": {
+            "metadata": home / ".claude" / "b-agentic",
+            "skills": home / ".claude" / "skills",
+            "kernel": home / ".claude" / "CLAUDE.md",
+        },
+        "opencode": {
+            "metadata": home / ".config" / "opencode" / "b-agentic",
+            "skills": home / ".config" / "opencode" / "skills",
+            "kernel": home / ".config" / "opencode" / "AGENTS.md",
+        },
+        "antigravity": {
+            "metadata": home / ".gemini" / "config" / "b-agentic",
+            "skills": home / ".gemini" / "config" / "skills",
+            "kernel": home / ".gemini" / "GEMINI.md",
+        },
+        "codex": {
+            "metadata": codex_home / "b-agentic",
+            "skills": codex_home / "skills",
+            "kernel": codex_home / "AGENTS.md",
         },
     }
 
@@ -351,6 +404,44 @@ def main() -> None:
                 warn(f"preserving symlinked Pi theme: {theme_path}")
         elif theme_path.exists():
             warn(f"preserving modified Pi theme: {theme_path}")
+    else:
+        # Declarative hosts: reverse exactly the merges this installer made,
+        # keyed by the manifest's own configs map so a host that carries both
+        # permissions and MCP in one file is handled once.
+        configs = data.get("configs")
+        if isinstance(configs, dict):
+            for key, entry in configs.items():
+                if not isinstance(key, str) or not isinstance(entry, dict):
+                    warn("preserving managed config with an unreadable manifest entry")
+                    continue
+                template_name = entry.get("template")
+                label = entry.get("label") if isinstance(entry.get("label"), str) else key
+                if not safe_template_name(template_name):
+                    warn(f"preserving {label} because its template name is unsafe")
+                    continue
+                config_value = entry.get("path")
+                if not isinstance(config_value, str) or not config_value:
+                    warn(f"preserving {label} because its managed path is missing")
+                    continue
+                config_path = Path(config_value).expanduser()
+                if not under_home(config_path) or not confined_regular_path(config_path, label):
+                    warn(f"preserving {label} because its managed path is not confined")
+                    continue
+                # Codex is TOML: its managed content is a delimited block, so
+                # it is reversed by the same helper that wrote it rather than
+                # by the JSON cleanup pass.
+                if template_name.endswith(".toml"):
+                    remove_managed_toml_block(config_path, label)
+                    continue
+                remove_merged_json_config(
+                    str(config_path),
+                    metadata / "templates" / template_name,
+                    template_name,
+                    key,
+                    f"{key}Action",
+                    data,
+                )
+
     remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 

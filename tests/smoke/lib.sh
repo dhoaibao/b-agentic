@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
 
+# Usable parallelism for the smoke pools. Falls back conservatively so the
+# suite still runs on hosts without nproc or getconf.
+detect_cpu_count() {
+	local count=""
+	if command -v nproc >/dev/null 2>&1; then
+		count="$(nproc 2>/dev/null || true)"
+	fi
+	if [ -z "$count" ] && command -v getconf >/dev/null 2>&1; then
+		count="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+	fi
+	case "$count" in
+	'' | *[!0-9]*) count=2 ;;
+	esac
+	[ "$count" -ge 1 ] || count=1
+	printf '%s' "$count"
+}
+
 fail() {
 	printf 'smoke-install.sh: %s\n' "$*" >&2
 	exit 1
@@ -74,6 +91,40 @@ make_release_fixture() {
 	local fixture_dir="$1"
 	mkdir -p "$fixture_dir"
 	bash "$ROOT_DIR/scripts/build-release.sh" "$fixture_dir" >/dev/null
+}
+
+# Rebuilds a release fixture with one adapter manifest marked deferred, so the
+# installer's deferred gate can be proven without depending on an adapter
+# staying unfinished in the repository.
+make_deferred_adapter_fixture() {
+	local source_fixture="$1" fixture_dir="$2" host="$3"
+	local stage="$fixture_dir/stage"
+
+	rm -rf "$fixture_dir"
+	mkdir -p "$stage"
+	tar -xzf "$source_fixture/b-agentic.tar.gz" -C "$stage"
+	python3 - "$stage/adapters/$host/manifest.yaml" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text()
+if '"status": "shipped"' not in text:
+    raise SystemExit(f"{path} is not shipped; the deferred fixture would prove nothing")
+path.write_text(text.replace('"status": "shipped"', '"status": "deferred"', 1))
+PY
+	# The installer refuses a payload whose declared files are missing, so the
+	# deferred adapter keeps its manifest and drops only its installer payload.
+	rm -rf "${stage:?}/adapters/$host/configs" "${stage:?}/adapters/$host/scripts"
+	# Repack with the same entry names the real builder uses; the installer
+	# rejects './'-prefixed archive entries.
+	(cd "$stage" && tar -czf "$fixture_dir/b-agentic.tar.gz" -- *)
+	if command -v shasum >/dev/null 2>&1; then
+		(cd "$fixture_dir" && shasum -a 256 b-agentic.tar.gz) >"$fixture_dir/b-agentic.tar.gz.sha256"
+	else
+		(cd "$fixture_dir" && sha256sum b-agentic.tar.gz) >"$fixture_dir/b-agentic.tar.gz.sha256"
+	fi
+	rm -rf "$stage"
 }
 
 # Tars an arbitrary staged payload directory into a release fixture layout

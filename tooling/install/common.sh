@@ -53,11 +53,15 @@ set_next_install_stage_label() {
   printf -v INSTALL_STAGE_LABEL '[%s] %s' "$INSTALL_STAGE_CURRENT" "$label"
 }
 
+# $1 is the bare stage label, $2 the counter-prefixed form. The UI renderer
+# draws its own counter from the totals set_install_stage_total synced to it,
+# so it must receive the bare label; only the plain-log fallback needs the
+# prefixed one.
 announce_install_stage() {
-  local stage_label="$1"
+  local label="$1" stage_label="${2:-$1}"
   [ "${UI_HIDE_STAGES:-0}" -eq 1 ] && return 0
   if declare -F ui_stage_start >/dev/null 2>&1; then
-    ui_stage_start "$stage_label"
+    ui_stage_start "$label"
   else
     log "==> $stage_label"
   fi
@@ -70,7 +74,7 @@ run_stage() {
 
   set_next_install_stage_label "$label"
   stage_label="$INSTALL_STAGE_LABEL"
-  announce_install_stage "$stage_label"
+  announce_install_stage "$label" "$stage_label"
 
   local previous_suppress="${UI_SUPPRESS_LOGS:-0}"
   UI_SUPPRESS_LOGS=1
@@ -96,7 +100,7 @@ capture_output_stage() {
 
   set_next_install_stage_label "$label"
   stage_label="$INSTALL_STAGE_LABEL"
-  announce_install_stage "$stage_label"
+  announce_install_stage "$label" "$stage_label"
 
   local previous_suppress="${UI_SUPPRESS_LOGS:-0}"
   UI_SUPPRESS_LOGS=1
@@ -1455,7 +1459,7 @@ runtime_install_common() {
 
 install_uninstall_helper() {
   local helper_name helper_src helper_dst
-  for helper_name in manifest_uninstall.py jsonc.py json_cleanup.py; do
+  for helper_name in manifest_uninstall.py jsonc.py json_cleanup.py toml_block.py; do
     helper_src="$SOURCE_DIR/tooling/install/$helper_name"
     helper_dst="$METADATA_DIR/tooling/install/$helper_name"
     [ -f "$helper_src" ] || return 0
@@ -1473,4 +1477,240 @@ runtime_uninstall_common() {
   run_stage "Cleaning Pi config" runtime_uninstall_configs
   run_cmd rm -rf "$METADATA_DIR"
   installer_summary_log "Uninstall complete. User-owned $RUNTIME_PRESERVE_LABEL files were preserved."
+}
+
+# ---------------------------------------------------------------------------
+# Declarative adapter flow
+#
+# Hosts other than Pi receive configuration only: skills, the host-resolved
+# kernel, merged MCP configuration, and host-native permission rules. There is
+# no extension, package, or hook delivery for them (docs/hosts.md), so this
+# flow is deliberately smaller than the Pi flow above and shares only the
+# primitives, never the Pi-specific stages.
+#
+# An adapter sets before calling in: RUNTIME_NAME, RUNTIME_DISPLAY,
+# METADATA_DIR, SKILLS_DST, SKILLS_SNAPSHOT_DST, KERNEL_DST,
+# KERNEL_SNAPSHOT_DST, REFERENCES_DST, TEMPLATES_DST, MANIFEST_DST, plus one
+# DECLARATIVE_CONFIG entry per managed configuration file.
+# ---------------------------------------------------------------------------
+
+# Each entry is "key|destination|template-name|label". A single host file that
+# carries both MCP and permission data (OpenCode) is one entry, because the
+# merge and the uninstall both operate on the whole file.
+DECLARATIVE_CONFIGS=()
+# One "key=action=state=backup" record per line. Newline separated, not space
+# separated: a backup path under a $HOME containing a space would otherwise
+# split into two unparseable records.
+DECLARATIVE_CONFIG_ACTIONS=""
+# Labels whose managed content was not applied because the destination is
+# user-owned. Surfaced in the install report so a preserved file is never
+# reported as a completed merge.
+DECLARATIVE_CONFIG_SKIPS=""
+
+# Merges every declared config template into its host destination, recording
+# the action and backup per key so uninstall can reverse exactly this run.
+declarative_install_configs() {
+  local entry key destination template label result action state backup
+  DECLARATIVE_CONFIG_ACTIONS=""
+  for entry in "${DECLARATIVE_CONFIGS[@]}"; do
+    IFS='|' read -r key destination template label <<EOF
+$entry
+EOF
+    [ -f "$TEMPLATES_SRC/$template" ] || die "missing $label template: $TEMPLATES_SRC/$template"
+    result=""
+    capture_output_stage "Merging $label" result merge_json_file \
+      "$TEMPLATES_SRC/$template" "$destination" "$label" "$key" || return $?
+    read_install_triplet "$result" "skip" "none" "none" action state backup
+    DECLARATIVE_CONFIG_ACTIONS="$DECLARATIVE_CONFIG_ACTIONS$key=$action=$state=$backup
+"
+    [ "$action" != "skip" ] || DECLARATIVE_CONFIG_SKIPS="$DECLARATIVE_CONFIG_SKIPS$label
+"
+  done
+}
+
+# Removes only what this installer merged in, preserving user-owned entries.
+declarative_uninstall_configs() {
+  local entry key destination template label
+  for entry in "${DECLARATIVE_CONFIGS[@]}"; do
+    IFS='|' read -r key destination template label <<EOF
+$entry
+EOF
+    remove_merged_config "$destination" "$TEMPLATES_DST/$template" "$label" "$key" "${key}Action"
+  done
+}
+
+# TOML hosts (Codex) take a delimited managed block instead of a JSON merge,
+# because their configuration format has no dependency-light writer that
+# preserves comments. tooling/install/toml_block.py owns that contract.
+declarative_install_toml_block() {
+  local destination="$1" template="$2" label="$3" backup_key="$4"
+  local source_file="$TEMPLATES_SRC/$template"
+  [ -f "$source_file" ] || die "missing $label template: $source_file"
+
+  if dry_run_enabled; then
+    printf '[dry-run] apply managed %s block %s into %s\n' "$label" "$source_file" "$destination" >&2
+    printf 'merge\nactive\n%s' "$(manifest_backup_value "$backup_key" none)"
+    return 0
+  fi
+
+  ensure_dir "$(dirname "$destination")"
+  local result
+  result="$(python3 "$SOURCE_DIR/tooling/install/toml_block.py" apply "$destination" "$source_file")" ||
+    die "failed to apply the managed $label block to $destination"
+  printf '%s\nactive\n%s' "$(printf '%s' "$result" | sed -n 1p)" "$(printf '%s' "$result" | sed -n 2p)"
+}
+
+declarative_uninstall_toml_block() {
+  local destination="$1" label="$2"
+  [ -f "$destination" ] || return 0
+  if dry_run_enabled; then
+    printf '[dry-run] remove managed %s block from %s\n' "$label" "$destination" >&2
+    return 0
+  fi
+  python3 "$SOURCE_DIR/tooling/install/toml_block.py" remove "$destination" ||
+    warn "preserving $destination: the managed $label block could not be removed"
+}
+
+declarative_write_manifest() {
+  local skills_string="${INSTALL_SKILL_NAMES[*]}"
+
+  if dry_run_enabled; then
+    printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
+    return 0
+  fi
+
+  ensure_dir "$METADATA_DIR"
+  # INSTALLED_AT, not TIMESTAMP: the entrypoint marks TIMESTAMP readonly, and
+  # bash rejects a command-prefix assignment to a readonly name.
+  RUNTIME="$RUNTIME_NAME" \
+    INSTALLED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    ACTIVATION_STATE="$INSTALL_ACTIVATION_STATE" \
+    MEMORY_ACTION="$INSTALL_MEMORY_ACTION" \
+    MEMORY_BACKUP="$INSTALL_MEMORY_BACKUP" \
+    CONFIG_ACTIONS="$DECLARATIVE_CONFIG_ACTIONS" \
+    CONFIGS="$(printf '%s\n' "${DECLARATIVE_CONFIGS[@]}")" \
+    KERNEL_DST="$KERNEL_DST" \
+    SKILLS_DST="$SKILLS_DST" \
+    REFERENCES_DST="$REFERENCES_DST" \
+    TEMPLATES_DST="$TEMPLATES_DST" \
+    MANIFEST_DST="$MANIFEST_DST" \
+    SKILLS="$skills_string" \
+    python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+skills = [name for name in os.environ['SKILLS'].split() if name]
+
+configs = {}
+for line in os.environ['CONFIGS'].splitlines():
+    if not line.strip():
+        continue
+    key, destination, template, label = line.split('|', 3)
+    configs[key] = {'path': destination, 'template': template, 'label': label}
+
+manifest = {
+    'suite': 'b-agentic',
+    'runtime': os.environ['RUNTIME'],
+    'installedAt': os.environ['INSTALLED_AT'],
+    'activationState': os.environ['ACTIVATION_STATE'],
+    'memoryAction': os.environ['MEMORY_ACTION'],
+    'paths': {
+        'kernel': os.environ['KERNEL_DST'],
+        'skills': os.environ['SKILLS_DST'],
+        'references': os.environ['REFERENCES_DST'],
+        'templates': os.environ['TEMPLATES_DST'],
+        'configs': {key: entry['path'] for key, entry in configs.items()},
+    },
+    'configs': configs,
+    'skills': skills,
+    'backups': {'agentsMd': os.environ['MEMORY_BACKUP']},
+}
+
+for item in os.environ['CONFIG_ACTIONS'].splitlines():
+    if not item.strip():
+        continue
+    key, action, state, backup = item.split('=', 3)
+    manifest[f'{key}Action'] = action
+    manifest[f'{key}State'] = state
+    manifest['backups'][key] = backup
+
+Path(os.environ['MANIFEST_DST']).write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+PY
+}
+
+declarative_print_install_report() {
+  local summary_label="Installed"
+  dry_run_enabled && summary_label="Planned"
+  installer_summary_log "b-agentic install complete for $RUNTIME_DISPLAY"
+  installer_summary_log "Components: skills, kernel, MCP configuration, and declarative permissions"
+  installer_summary_log "$summary_label: ${#INSTALL_SKILL_NAMES[@]} skills; kernel $INSTALL_MEMORY_ACTION"
+  if dry_run_enabled; then
+    installer_summary_log "Manifest: not written (dry-run)"
+  else
+    installer_summary_log "Manifest: $MANIFEST_DST"
+  fi
+  local skipped_label
+  if [ -n "$DECLARATIVE_CONFIG_SKIPS" ] || [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
+    installer_summary_log "Attention:"
+  fi
+  if [ -n "$DECLARATIVE_CONFIG_SKIPS" ]; then
+    while IFS= read -r skipped_label; do
+      [ -n "$skipped_label" ] || continue
+      installer_summary_log "  ${skipped_label}: preserved the user-owned file; managed entries were not applied"
+    done <<EOF
+$DECLARATIVE_CONFIG_SKIPS
+EOF
+  fi
+  if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
+    installer_summary_log "  kernel: preserved an existing unmanaged instruction file at $KERNEL_DST"
+    installer_summary_log "Next: merge the b-agentic kernel into $KERNEL_DST by hand, or rerun with --replace-memory."
+  else
+    if [ -n "$DECLARATIVE_CONFIG_SKIPS" ]; then
+      installer_summary_log "Readiness: partial"
+    else
+      installer_summary_log "Readiness: ready"
+    fi
+    installer_summary_log "Next: start a new $RUNTIME_DISPLAY session; see $MANIFEST_DST for backups and installed paths."
+  fi
+}
+
+declarative_install_common() {
+  set_install_stage_total $((5 + ${#DECLARATIVE_CONFIGS[@]}))
+
+  collect_installed_skills INSTALL_SKILL_NAMES
+  run_stage "Syncing skills" install_skills || return $?
+  run_stage "Syncing references and templates" install_references_and_templates || return $?
+  run_install_triplet_stage "Installing kernel" install_kernel "preserve" "pending" "none" \
+    INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP || return $?
+  declarative_install_configs || return $?
+  run_stage "Installing uninstall helper" install_uninstall_helper || return $?
+  run_stage "Writing install manifest" declarative_write_manifest || return $?
+  declarative_print_install_report
+
+  if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
+    return 2
+  fi
+}
+
+declarative_sync_common() {
+  set_install_stage_total 2
+  run_stage "Syncing skills" install_skills
+  run_install_triplet_stage "Syncing kernel" install_kernel "preserve" "pending" "none" \
+    INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
+
+  if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
+    return 2
+  fi
+}
+
+declarative_uninstall_common() {
+  require_bin python3
+  set_install_stage_total 3
+  installer_summary_log "Uninstalling b-agentic from $RUNTIME_DISPLAY"
+  run_stage "Removing managed skills" uninstall_installed_skills
+  run_stage "Removing managed kernel" remove_managed_kernel
+  run_stage "Cleaning $RUNTIME_DISPLAY config" declarative_uninstall_configs
+  run_cmd rm -rf "$METADATA_DIR"
+  installer_summary_log "Uninstall complete. User-owned $RUNTIME_DISPLAY files were preserved."
 }

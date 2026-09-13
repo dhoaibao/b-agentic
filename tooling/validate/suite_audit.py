@@ -41,23 +41,39 @@ def skill_names() -> list[str]:
     )
 
 
+def kernel_paths() -> list[Path]:
+    """The shared template plus every host-resolved kernel that ships.
+
+    Each variant is installed as a host's always-loaded instruction file, so
+    the budget has to hold for all of them, not just the shared source.
+    """
+    return [ROOT / "references" / "kernel.template.md", *sorted((ROOT / "references").glob("kernel.*.md"))]
+
+
 def audit_slimness(errors: list[str]) -> None:
-    kernel = ROOT / "references" / "kernel.template.md"
-    text = kernel.read_text()
-    lines = len(text.splitlines())
-    chars = len(text)
-    size = len(text.encode())
-    if lines > MAX_KERNEL_LINES or chars > MAX_KERNEL_CHARS:
-        errors.append(
-            f"{kernel.relative_to(ROOT)}: kernel exceeds slimness limit ({lines} lines/{chars} chars/{size} bytes; max {MAX_KERNEL_LINES} lines/{MAX_KERNEL_CHARS} chars)"
-        )
+    seen: set[Path] = set()
+    for kernel in kernel_paths():
+        if kernel in seen:
+            continue
+        seen.add(kernel)
+        if not kernel.exists():
+            errors.append(f"{kernel.relative_to(ROOT)}: missing rendered kernel")
+            continue
+        text = kernel.read_text()
+        lines = len(text.splitlines())
+        chars = len(text)
+        size = len(text.encode())
+        if lines > MAX_KERNEL_LINES or chars > MAX_KERNEL_CHARS:
+            errors.append(
+                f"{kernel.relative_to(ROOT)}: kernel exceeds slimness limit ({lines} lines/{chars} chars/{size} bytes; max {MAX_KERNEL_LINES} lines/{MAX_KERNEL_CHARS} chars)"
+            )
 
 
 def audit_unresolved_tokens(errors: list[str]) -> None:
     paths = [
         ROOT / "README.md",
         ROOT / "REFERENCE.md",
-        ROOT / "references" / "kernel.template.md",
+        *kernel_paths(),
         *(ROOT / "skills" / name / "SKILL.md" for name in skill_names()),
     ]
     for path in paths:

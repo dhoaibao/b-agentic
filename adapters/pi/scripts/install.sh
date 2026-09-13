@@ -1111,6 +1111,27 @@ PY
 }
 
 
+# Adapter contract (see tooling/install/adapters.sh).
+#
+# Managed destination paths are fixed and readonly from the moment this script
+# is sourced, so only the shared source paths the installer core reads need
+# pointing at this adapter. adapter_run sources the script in a dedicated
+# subshell, which is what keeps those readonly paths safe in a multi-host run.
+pi_set_source_dirs() {
+	TEMPLATES_SRC="$SOURCE_DIR/adapters/pi/configs"
+	# The host-resolved kernel, not the shared template: the template still
+	# carries host:if blocks and Pi guidance other hosts must not receive.
+	KERNEL_SRC="$SOURCE_DIR/references/kernel.pi.md"
+}
+
+pi_validate_source() {
+	pi_set_source_dirs
+	[ -f "$KERNEL_SRC" ] || die "missing rendered Pi kernel: $KERNEL_SRC"
+	[ -d "$TEMPLATES_SRC" ] || die "missing Pi config directory: $TEMPLATES_SRC"
+	[ -f "$SOURCE_DIR/adapters/pi/scripts/install.sh" ] || die "missing Pi installer: $SOURCE_DIR/adapters/pi/scripts/install.sh"
+	[ -f "$SOURCE_DIR/adapters/pi/extensions/b-agentic-support/capabilities.ts" ] || die "missing generated capability module: $SOURCE_DIR/adapters/pi/extensions/b-agentic-support/capabilities.ts"
+}
+
 pi_install() {
 	runtime_install_common
 }

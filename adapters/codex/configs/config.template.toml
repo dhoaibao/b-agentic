@@ -1,0 +1,43 @@
+# Generated from references/permissions.yaml and the managed MCP server list
+# by tooling/generate/registry_sync.py. Do not edit; edits are replaced.
+#
+# Codex enforces permissions through the OS sandbox and the approval policy
+# rather than per-command patterns. The shared deny and ask lists in
+# references/permissions.yaml therefore cannot be expressed here; the
+# untrusted approval policy asks before every command Codex has not been
+# told to trust, which is the accepted downgrade recorded in docs/hosts.md.
+
+approval_policy = "untrusted"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+[mcp_servers.context7.env]
+CONTEXT7_API_KEY = "${CONTEXT7_API_KEY}"
+
+[mcp_servers.codegraph]
+command = "codegraph"
+args = ["serve", "--mcp"]
+[mcp_servers.codegraph.env]
+CODEGRAPH_TELEMETRY = "0"
+
+[mcp_servers.brave-search]
+command = "bunx"
+args = ["@brave/brave-search-mcp-server", "--transport", "stdio"]
+[mcp_servers.brave-search.env]
+BRAVE_API_KEY = "${BRAVE_API_KEY}"
+
+[mcp_servers.firecrawl]
+command = "bunx"
+args = ["firecrawl-mcp"]
+[mcp_servers.firecrawl.env]
+FIRECRAWL_API_KEY = "${FIRECRAWL_API_KEY}"
+
+[mcp_servers.playwright]
+command = "bunx"
+args = ["@playwright/mcp", "--isolated", "--headless", "--caps=testing"]
+
+# permissions contract version: 1

@@ -1693,6 +1693,7 @@ run_pi_smoke_cases() {
 	assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
 	assert_no_path "$sandbox/home/.pi/agent/skills/b-plan/prompt.md"
 	assert_file "$sandbox/home/.pi/agent/b-agentic/references/kernel.template.md"
+	assert_file "$sandbox/home/.pi/agent/b-agentic/references/kernel.pi.md"
 	assert_file "$sandbox/home/.pi/agent/b-agentic/references/mcp_operations.yaml"
 	assert_file "$sandbox/home/.pi/agent/b-agentic/references/capabilities.yaml"
 	assert_no_path "$sandbox/home/.pi/agent/b-agentic/references/contract"
@@ -1765,7 +1766,9 @@ run_pi_smoke_cases() {
 	assert_equal_files "$sandbox/home/.pi/agent/b-agentic/install.json" "$sync_manifest_snapshot"
 	assert_equal_files "$sandbox/home/.pi/agent/b-agentic/tooling/install/manifest_uninstall.py" "$sync_helper_snapshot"
 	assert_equal_files "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md" "$sandbox/source/skills/b-plan/SKILL.md"
-	assert_equal_files "$sandbox/home/.pi/agent/AGENTS.md" "$sandbox/source/references/kernel.template.md"
+	# Pi installs its host-resolved kernel, never the shared template.
+	assert_equal_files "$sandbox/home/.pi/agent/AGENTS.md" "$sandbox/source/references/kernel.pi.md"
+	assert_not_contains "$sandbox/home/.pi/agent/AGENTS.md" '<!-- host:if'
 	assert_equal_files "$sandbox/home/.pi/agent/extensions/b-agentic-sync.ts" "$sandbox/source/adapters/pi/extensions/b-agentic-sync.ts"
 	assert_file "$sandbox/home/.pi/agent/b-agentic/themes/dracula.json"
 	[ -L "$sandbox/home/.pi/agent/themes/dracula.json" ] || fail "expected dracula.json to be a symlink"

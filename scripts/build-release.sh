@@ -28,11 +28,36 @@ marker="$(sed -n '2p' "$ROOT/install.sh")"
 [ "$marker" = "# B_AGENTIC_INSTALLER" ] || fail "install.sh line 2 must be the '# B_AGENTIC_INSTALLER' managed marker"
 [ -d "$ROOT/skills" ] || fail "missing skills directory"
 [ -d "$ROOT/references" ] || fail "missing references directory"
-[ -f "$ROOT/adapters/pi/manifest.yaml" ] || fail "missing adapters/pi/manifest.yaml"
-for payload_dir in configs extensions packages scripts; do
-	[ -d "$ROOT/adapters/pi/$payload_dir" ] || fail "missing adapters/pi/$payload_dir directory"
+# Every adapter ships its manifest so the installer can gate a selection with
+# an accurate shipped/deferred answer; only shipped adapters ship a payload.
+adapter_manifests=("$ROOT"/adapters/*/manifest.yaml)
+[ -e "${adapter_manifests[0]}" ] || fail "missing adapter manifests under adapters/"
+for manifest in "${adapter_manifests[@]}"; do
+	host="$(basename "$(dirname "$manifest")")"
+	python3 - "$manifest" "$host" <<'PY' || fail "invalid adapter manifest: adapters/$host/manifest.yaml"
+import json
+import sys
+
+manifest_path, host = sys.argv[1:3]
+data = json.loads(open(manifest_path).read())
+if data.get("host") != host:
+    raise SystemExit(f"host {data.get('host')!r} does not match directory {host!r}")
+if data.get("status") not in {"shipped", "deferred"}:
+    raise SystemExit(f"unknown status {data.get('status')!r}")
+if not isinstance(data.get("display_name"), str) or not data["display_name"]:
+    raise SystemExit("missing display_name")
+payload = data.get("payload")
+if not isinstance(payload, list) or not all(isinstance(entry, str) for entry in payload):
+    raise SystemExit("payload must be a list of strings")
+if data.get("status") == "shipped" and not payload:
+    raise SystemExit("a shipped adapter must declare a payload")
+PY
+	while IFS= read -r payload_dir; do
+		[ -n "$payload_dir" ] || continue
+		[ -d "$ROOT/adapters/$host/$payload_dir" ] || fail "missing adapters/$host/$payload_dir directory"
+	done < <(python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1]))["payload"]))' "$manifest")
 done
-for payload_file in common.sh json_cleanup.py jsonc.py manifest_uninstall.py; do
+for payload_file in adapters.sh common.sh json_cleanup.py jsonc.py manifest_uninstall.py toml_block.py; do
 	[ -f "$ROOT/tooling/install/$payload_file" ] || fail "missing tooling/install/$payload_file"
 done
 
@@ -49,12 +74,17 @@ cp "$ROOT/install.sh" "$tmp/install.sh"
 cp "$VERSION_FILE" "$tmp/VERSION"
 cp -R "$ROOT/skills" "$tmp/skills"
 cp -R "$ROOT/references" "$tmp/references"
-mkdir -p "$tmp/adapters/pi" "$tmp/tooling/install"
-cp "$ROOT/adapters/pi/manifest.yaml" "$tmp/adapters/pi/manifest.yaml"
-for payload_dir in configs extensions packages scripts; do
-	cp -R "$ROOT/adapters/pi/$payload_dir" "$tmp/adapters/pi/$payload_dir"
+mkdir -p "$tmp/adapters" "$tmp/tooling/install"
+for manifest in "${adapter_manifests[@]}"; do
+	host="$(basename "$(dirname "$manifest")")"
+	mkdir -p "$tmp/adapters/$host"
+	cp "$manifest" "$tmp/adapters/$host/manifest.yaml"
+	while IFS= read -r payload_dir; do
+		[ -n "$payload_dir" ] || continue
+		cp -R "$ROOT/adapters/$host/$payload_dir" "$tmp/adapters/$host/$payload_dir"
+	done < <(python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1]))["payload"]))' "$manifest")
 done
-for payload_file in common.sh json_cleanup.py jsonc.py manifest_uninstall.py; do
+for payload_file in adapters.sh common.sh json_cleanup.py jsonc.py manifest_uninstall.py toml_block.py; do
 	cp "$ROOT/tooling/install/$payload_file" "$tmp/tooling/install/$payload_file"
 done
 

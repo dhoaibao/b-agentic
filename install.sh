@@ -11,8 +11,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --uninstall
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --ref=vYYYY.MM.DD
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --agent pi
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --agent claude-code,opencode
+#   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash -s -- --agent all
 #   ~/.b-agentic/install.sh --sync
 #   ~/.b-agentic/install.sh --update
+#
+# With no --agent flag and an interactive terminal the installer prompts for
+# the host adapters to install; piped non-interactive runs default to pi.
 
 set -euo pipefail
 # Variables shared with the sourced installer core are intentionally defined
@@ -27,24 +32,26 @@ TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 # shellcheck disable=SC2034
 readonly TIMESTAMP
 
-# Top-level payload paths the verified release bundle owns inside $LOCAL_REPO.
-# sync_source() replaces exactly these entries and nothing else; everything
-# beside them in $LOCAL_REPO is user-owned and is never touched.
-MANAGED_PAYLOAD_ENTRIES=(
+# Payload paths the verified release bundle owns inside $LOCAL_REPO, shared by
+# every host adapter. sync_source() replaces exactly the resolved entries and
+# nothing else; everything beside them in $LOCAL_REPO is user-owned and is
+# never touched. Per-adapter entries are appended by
+# resolve_managed_payload_entries() from the payload actually shipped, so an
+# adapter directory that carries unmanaged local state (for example a
+# dependency tree the bundle never ships) is left intact.
+MANAGED_PAYLOAD_BASE_ENTRIES=(
 	"install.sh"
 	"VERSION"
 	"skills"
 	"references"
-	"adapters/pi/manifest.yaml"
-	"adapters/pi/configs"
-	"adapters/pi/extensions"
-	"adapters/pi/packages"
-	"adapters/pi/scripts"
+	"tooling/install/adapters.sh"
 	"tooling/install/common.sh"
 	"tooling/install/json_cleanup.py"
 	"tooling/install/jsonc.py"
 	"tooling/install/manifest_uninstall.py"
+	"tooling/install/toml_block.py"
 )
+MANAGED_PAYLOAD_ENTRIES=("${MANAGED_PAYLOAD_BASE_ENTRIES[@]}")
 
 SOURCE_DIR_EXPLICIT=""
 VERIFIED_PAYLOAD=""
@@ -60,18 +67,33 @@ DRY_RUN_VALUE="${B_AGENTIC_DRY_RUN:-N}"
 REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
-readonly PI_NAME="Pi"
 # Agent adapter selection: only adapters whose manifest marks them shipped may
 # install; verified-but-deferred hosts stay explicit non-goals (docs/hosts.md).
-AGENT="${B_AGENTIC_AGENT:-pi}"
+# AGENT names the adapter currently being dispatched; SELECTED_AGENTS holds the
+# full run selection and AGENT_SELECTION_EXPLICIT records whether the user set
+# it (so the interactive picker stays out of the way of scripted runs).
+AGENT=""
+SELECTED_AGENTS=()
+AGENT_SELECTION_REQUESTED="${B_AGENTIC_AGENT:-}"
+# B_AGENTIC_AGENT is a selection too, so it suppresses the picker exactly like
+# --agent does; otherwise a scripted run that sets it would still block on a
+# prompt it has already answered.
+AGENT_SELECTION_EXPLICIT=0
+[ -z "$AGENT_SELECTION_REQUESTED" ] || AGENT_SELECTION_EXPLICIT=1
+readonly DEFAULT_AGENT="pi"
 # Bundled dependencies are mandatory and are installed without prompts.
 OPERATION="install"
 
 SOURCE_DIR="$LOCAL_REPO"
 SKILLS_SRC="$SOURCE_DIR/skills"
 REFERENCES_SRC="$SOURCE_DIR/references"
-TEMPLATES_SRC="$SOURCE_DIR/adapters/pi/configs"
-KERNEL_SRC="$SOURCE_DIR/references/kernel.template.md"
+# TEMPLATES_SRC and KERNEL_SRC are adapter-owned: each adapter's
+# <prefix>_set_source_dirs points them at that host's rendered assets, so the
+# shared template is never installed directly.
+# shellcheck disable=SC2034
+TEMPLATES_SRC=""
+# shellcheck disable=SC2034
+KERNEL_SRC=""
 UI_ENABLED=0
 UI_SUPPRESS_LOGS=0
 UI_STAGE_CURRENT=0
@@ -79,6 +101,9 @@ UI_STAGE_TOTAL=0
 UI_STAGE_ACTIVE=0
 UI_STAGE_LABEL=""
 UI_COMPONENT_CURSOR=2
+UI_AGENT_CURSOR=0
+UI_AGENT_HOSTS=()
+UI_AGENT_STATES=()
 B_AGENTIC_COMPONENT_MCP=Y
 B_AGENTIC_COMPONENT_PI_INTEGRATIONS=Y
 B_AGENTIC_COMPONENT_THEME=Y
@@ -160,7 +185,7 @@ ui_component_draw() {
 			cursor=' '
 			[ "$UI_COMPONENT_CURSOR" -eq "$index" ] && cursor='>'
 			case "$index" in
-			0) printf '%s [%s] Pi and b-agentic core files (required)\n' "$cursor" "$marker" ;;
+			0) printf '%s [%s] b-agentic core files for %s (required)\n' "$cursor" "$marker" "$(selected_agents_label)" ;;
 			1) printf '%s [%s] RTK, CodeGraph, and Bun (required)\n' "$cursor" "$marker" ;;
 			2) printf '%s [%s] MCP support (adapter, config, and API keys)\n' "$cursor" "$marker" ;;
 			3) printf '%s [%s] Pi integrations (memory, usage, auth, prompts, and todo)\n' "$cursor" "$marker" ;;
@@ -264,13 +289,121 @@ ui_component_picker() {
 			ui_component_close
 			{
 				printf 'Selected components:\n'
-				printf '  Pi and b-agentic core files\n'
+				printf '  b-agentic core files for %s\n' "$(selected_agents_label)"
 				printf '  RTK, CodeGraph, and Bun\n'
 				component_enabled mcp && printf '  MCP support\n'
 				component_enabled pi-integrations && printf '  Pi integrations\n'
 				component_enabled theme && printf '  Dracula theme\n'
 				printf '\n'
 			} > /dev/tty
+			return 0
+			;;
+		escape)
+			ui_component_close
+			printf 'Installation cancelled.\n' > /dev/tty
+			return 130
+			;;
+		esac
+	done
+}
+
+ui_agent_draw() {
+	local index marker cursor selected="" separator=""
+	{
+		printf '\033[2J\033[H'
+		printf 'b-agentic installer\n\n'
+		printf 'Select the host adapters to install.\n'
+		printf 'Use Up/Down to move, Space to toggle, Enter to continue, Esc to cancel.\n\n'
+		for index in "${!UI_AGENT_HOSTS[@]}"; do
+			marker=' '
+			[ "${UI_AGENT_STATES[$index]}" -eq 1 ] && marker='x'
+			cursor=' '
+			[ "$UI_AGENT_CURSOR" -eq "$index" ] && cursor='>'
+			printf '%s [%s] %s\n' "$cursor" "$marker" "$(adapter_display_name "${UI_AGENT_HOSTS[$index]}")"
+		done
+		printf '\nSelected: '
+		for index in "${!UI_AGENT_HOSTS[@]}"; do
+			[ "${UI_AGENT_STATES[$index]}" -eq 1 ] || continue
+			selected="$selected$separator$(adapter_display_name "${UI_AGENT_HOSTS[$index]}")"
+			separator=', '
+		done
+		[ -n "$selected" ] && printf '%s' "$selected" || printf 'none'
+		printf '\n'
+	} > /dev/tty
+}
+
+ui_agent_move() {
+	local direction="$1" count="${#UI_AGENT_HOSTS[@]}"
+	local next=$((UI_AGENT_CURSOR + direction))
+	[ "$next" -lt 0 ] && next=$((count - 1))
+	[ "$next" -ge "$count" ] && next=0
+	UI_AGENT_CURSOR="$next"
+}
+
+# Interactive multi-select over the shipped adapters. Skipped entirely for an
+# explicit --agent selection and for non-interactive runs, which keeps piped
+# and CI installs deterministic.
+ui_agent_picker() {
+	[ "$AGENT_SELECTION_EXPLICIT" -eq 0 ] || return 0
+	# Only a fresh install chooses hosts. Sync, update, and uninstall act on the
+	# hosts that already have an install manifest, which detect_installed_agents
+	# resolves without asking.
+	[ "$OPERATION" = "install" ] || return 0
+	uninstall_enabled && return 0
+	ui_tty_enabled || return 0
+	[ -r /dev/tty ] && [ -w /dev/tty ] || return 0
+
+	local host index
+	UI_AGENT_HOSTS=()
+	UI_AGENT_STATES=()
+	while IFS= read -r host; do
+		[ -n "$host" ] || continue
+		UI_AGENT_HOSTS+=("$host")
+		case " ${SELECTED_AGENTS[*]} " in
+		*" $host "*) UI_AGENT_STATES+=(1) ;;
+		*) UI_AGENT_STATES+=(0) ;;
+		esac
+	done < <(adapter_shipped_hosts)
+
+	# A single shipped adapter makes the prompt pure friction.
+	[ "${#UI_AGENT_HOSTS[@]}" -gt 1 ] || return 0
+
+	UI_AGENT_CURSOR=0
+	while :; do
+		ui_agent_draw || return 1
+		local key=""
+		key="$(ui_component_read_key)" || {
+			ui_component_close
+			return 1
+		}
+		case "$key" in
+		up) ui_agent_move -1 ;;
+		down) ui_agent_move 1 ;;
+		toggle)
+			if [ "${UI_AGENT_STATES[UI_AGENT_CURSOR]}" -eq 1 ]; then
+				UI_AGENT_STATES[UI_AGENT_CURSOR]=0
+			else
+				UI_AGENT_STATES[UI_AGENT_CURSOR]=1
+			fi
+			;;
+		enter)
+			local chosen=""
+			for index in "${!UI_AGENT_HOSTS[@]}"; do
+				[ "${UI_AGENT_STATES[$index]}" -eq 1 ] || continue
+				if [ -n "$chosen" ]; then
+					chosen="$chosen,${UI_AGENT_HOSTS[$index]}"
+				else
+					chosen="${UI_AGENT_HOSTS[$index]}"
+				fi
+			done
+			if [ -z "$chosen" ]; then
+				printf 'Select at least one adapter.\n' > /dev/tty
+				continue
+			fi
+			ui_component_close
+			AGENT_SELECTION_REQUESTED="$chosen"
+			resolve_selected_agents
+			printf 'Selected adapters: %s\n\n' "$(selected_agents_label)" > /dev/tty
 			return 0
 			;;
 		escape)
@@ -447,6 +580,25 @@ fetch_url() {
 
 # Accepts only the release payload allowlist; rejects absolute paths, parent
 # traversal, dotfile members, and anything outside the published contract.
+# Accepts adapters/<host>/ plus that host's manifest and declared payload
+# subtrees, and nothing else. <host> must be a single path segment.
+validate_adapter_archive_entry() {
+	local entry="$1" remainder host rest
+	remainder="${entry#adapters/}"
+	host="${remainder%%/*}"
+	case "$host" in
+	'' | *[!a-z0-9-]*) die "unexpected release archive entry: $entry" ;;
+	esac
+	rest="${remainder#"$host"}"
+	rest="${rest#/}"
+	case "$rest" in
+	'' | manifest.yaml) return 0 ;;
+	configs | extensions | packages | scripts) return 0 ;;
+	configs/* | extensions/* | packages/* | scripts/*) return 0 ;;
+	esac
+	die "unexpected release archive entry: $entry"
+}
+
 validate_archive_listing() {
 	local archive="$1" listing verbose entry
 	require_bin tar
@@ -457,7 +609,13 @@ validate_archive_listing() {
 		/* | ../* | */../* | */.. | .* | */./* | */. | */.* | *'\n'* | *'\r'*)
 			die "unsafe release archive entry: $entry"
 			;;
-		install.sh | install.sh/ | VERSION | VERSION/ | skills | skills/ | skills/* | references | references/ | references/* | adapters | adapters/ | adapters/pi | adapters/pi/ | adapters/pi/manifest.yaml | adapters/pi/configs | adapters/pi/configs/ | adapters/pi/configs/* | adapters/pi/extensions | adapters/pi/extensions/ | adapters/pi/extensions/* | adapters/pi/packages | adapters/pi/packages/ | adapters/pi/packages/* | adapters/pi/scripts | adapters/pi/scripts/ | adapters/pi/scripts/* | tooling | tooling/ | tooling/install | tooling/install/ | tooling/install/common.sh | tooling/install/json_cleanup.py | tooling/install/jsonc.py | tooling/install/manifest_uninstall.py) ;;
+		install.sh | install.sh/ | VERSION | VERSION/ | skills | skills/ | skills/* | references | references/ | references/* | adapters | adapters/ | tooling | tooling/ | tooling/install | tooling/install/ | tooling/install/adapters.sh | tooling/install/common.sh | tooling/install/json_cleanup.py | tooling/install/jsonc.py | tooling/install/manifest_uninstall.py | tooling/install/toml_block.py) ;;
+		adapters/*)
+			# A case glob's '*' also matches '/', so adapter entries are
+			# checked segment by segment: exactly one host directory, then
+			# only the payload subtrees an adapter may ship.
+			validate_adapter_archive_entry "$entry"
+			;;
 		*)
 			die "unexpected release archive entry: $entry"
 			;;
@@ -637,17 +795,17 @@ parse_args() {
 			PROMPT_API_KEYS_VALUE=N
 			;;
 		--runtime=* | --runtime)
-			die "--runtime was replaced by --agent <name>; b-agentic installs the pi adapter only"
+			die "--runtime was replaced by --agent <name>[,<name>...]"
 			;;
 		--agent=*)
-			AGENT="${1#--agent=}"
-			[ -n "$AGENT" ] || die "invalid --agent: empty"
+			AGENT_SELECTION_REQUESTED="${1#--agent=}"
+			[ -n "$AGENT_SELECTION_REQUESTED" ] || die "invalid --agent: empty"
 			;;
 		--agent)
 			shift
-			[ "$#" -gt 0 ] || die "--agent requires a value (supported today: pi)"
-			AGENT="$1"
-			[ -n "$AGENT" ] || die "invalid --agent: empty"
+			[ "$#" -gt 0 ] || die "--agent requires a value (a comma-separated adapter list, or 'all')"
+			AGENT_SELECTION_REQUESTED="$1"
+			[ -n "$AGENT_SELECTION_REQUESTED" ] || die "invalid --agent: empty"
 			;;
 		--ref=*)
 			REF="${1#--ref=}"
@@ -691,19 +849,90 @@ validate_ref() {
 	esac
 }
 
-resolve_agent_manifest() {
-	local manifest="$SOURCE_DIR/adapters/$AGENT/manifest.yaml"
-	[ -f "$manifest" ] || die "unknown agent '$AGENT': no adapter manifest at adapters/$AGENT/manifest.yaml (shipped today: pi)"
-	local gate_status=0
-	python3 - "$manifest" <<'PY' || gate_status=$?
-import json
-import sys
+load_adapter_registry() {
+	declare -f adapter_require_shipped >/dev/null 2>&1 && return 0
+	local registry="$SOURCE_DIR/tooling/install/adapters.sh"
+	[ -f "$registry" ] || die "missing adapter registry: $registry"
+	# shellcheck disable=SC1090
+	source "$registry"
+}
 
-manifest = json.loads(open(sys.argv[1]).read())
-if manifest.get("status") != "shipped":
-    sys.exit(f"agent '{manifest.get('host')}' is verified but its installer is deferred; see docs/hosts.md")
-PY
-	return "$gate_status"
+# Expands the requested selection into SELECTED_AGENTS. Accepts a
+# comma-separated adapter list or the literal 'all', deduplicates while
+# preserving the requested order, and gates every entry on its manifest.
+resolve_selected_agents() {
+	load_adapter_registry
+
+	local requested="$AGENT_SELECTION_REQUESTED" entry host seen=""
+	SELECTED_AGENTS=()
+
+	if [ -z "$requested" ]; then
+		# No explicit selection: prefer the adapters this machine already has
+		# installed so --sync, --update, and --uninstall act on them without a
+		# flag, and fall back to the default adapter on a first install.
+		requested="$(detect_installed_agents)"
+		[ -n "$requested" ] || requested="$DEFAULT_AGENT"
+	else
+		AGENT_SELECTION_EXPLICIT=1
+	fi
+
+	if [ "$requested" = "all" ]; then
+		while IFS= read -r host; do
+			[ -n "$host" ] || continue
+			SELECTED_AGENTS+=("$host")
+		done < <(adapter_shipped_hosts)
+		[ "${#SELECTED_AGENTS[@]}" -gt 0 ] || die "--agent all matched no shipped adapter"
+		return 0
+	fi
+
+	local old_ifs="$IFS"
+	IFS=','
+	# shellcheck disable=SC2086
+	set -- $requested
+	IFS="$old_ifs"
+	for entry in "$@"; do
+		[ -n "$entry" ] || continue
+		case "$entry" in
+		*[!a-z0-9-]*) die "invalid agent name: $entry" ;;
+		esac
+		adapter_require_shipped "$entry"
+		case " $seen " in
+		*" $entry "*) continue ;;
+		esac
+		seen="$seen $entry"
+		SELECTED_AGENTS+=("$entry")
+	done
+	[ "${#SELECTED_AGENTS[@]}" -gt 0 ] || die "--agent selected no adapter"
+}
+
+# Comma-separated list of shipped adapters that already have a b-agentic
+# install manifest on this machine. Silent when nothing is installed.
+detect_installed_agents() {
+	local host manifest_path joined="" seen=""
+	while IFS=$'\t' read -r host manifest_path; do
+		[ -n "$host" ] && [ -f "$manifest_path" ] || continue
+		[ -f "$(adapter_manifest_path "$host")" ] || continue
+		[ "$(adapter_manifest_value "$host" status deferred)" = "shipped" ] || continue
+		case " $seen " in
+		*" $host "*) continue ;;
+		esac
+		seen="$seen $host"
+		if [ -n "$joined" ]; then joined="$joined,$host"; else joined="$host"; fi
+	done < <(manifest_only_records)
+	printf '%s' "$joined"
+}
+
+# Human label for stage lines and summaries: "Pi" or "Pi, Claude Code".
+selected_agents_label() {
+	local host label=""
+	for host in "${SELECTED_AGENTS[@]}"; do
+		if [ -n "$label" ]; then
+			label="$label, $(adapter_display_name "$host")"
+		else
+			label="$(adapter_display_name "$host")"
+		fi
+	done
+	printf '%s' "$label"
 }
 
 validate_operation() {
@@ -719,21 +948,20 @@ set_source_dir() {
 	SOURCE_DIR="$1"
 	SKILLS_SRC="$SOURCE_DIR/skills"
 	REFERENCES_SRC="$SOURCE_DIR/references"
-	TEMPLATES_SRC="$SOURCE_DIR/adapters/pi/configs"
-	KERNEL_SRC="$SOURCE_DIR/references/kernel.template.md"
 }
 
-validate_pi_source_layout() {
+# Host-neutral payload checks. Adapter-specific payload checks live in each
+# adapter's <prefix>_validate_source and run after the adapter is loaded.
+validate_shared_source_layout() {
 	[ -d "$SKILLS_SRC" ] || die "missing source directory: $SKILLS_SRC"
 	[ -f "$SKILLS_SRC/registry.yaml" ] || die "missing skill registry: $SKILLS_SRC/registry.yaml"
 	[ -d "$REFERENCES_SRC" ] || die "missing source directory: $REFERENCES_SRC"
 	[ -f "$REFERENCES_SRC/capabilities.yaml" ] || die "missing capability contract: $REFERENCES_SRC/capabilities.yaml"
-	[ -d "$TEMPLATES_SRC" ] || die "missing Pi config directory: $TEMPLATES_SRC"
-	[ -f "$KERNEL_SRC" ] || die "missing Pi kernel source: $KERNEL_SRC"
-	[ -f "$SOURCE_DIR/adapters/pi/scripts/install.sh" ] || die "missing Pi installer: $SOURCE_DIR/adapters/pi/scripts/install.sh"
-	[ -f "$SOURCE_DIR/adapters/pi/extensions/b-agentic-support/capabilities.ts" ] || die "missing generated capability module: $SOURCE_DIR/adapters/pi/extensions/b-agentic-support/capabilities.ts"
+	[ -f "$REFERENCES_SRC/permissions.yaml" ] || die "missing permission data: $REFERENCES_SRC/permissions.yaml"
 	[ -f "$SOURCE_DIR/tooling/install/common.sh" ] || die "missing installer core: $SOURCE_DIR/tooling/install/common.sh"
-	python3 - "$SKILLS_SRC/registry.yaml" "$SKILLS_SRC" <<'PY' || die "Pi skill payload does not match registry: $SKILLS_SRC"
+	[ -f "$SOURCE_DIR/tooling/install/adapters.sh" ] || die "missing adapter registry: $SOURCE_DIR/tooling/install/adapters.sh"
+	[ -f "$SOURCE_DIR/tooling/install/toml_block.py" ] || die "missing TOML block helper: $SOURCE_DIR/tooling/install/toml_block.py"
+	python3 - "$SKILLS_SRC/registry.yaml" "$SKILLS_SRC" <<'PY' || die "skill payload does not match registry: $SKILLS_SRC"
 import json
 import sys
 from pathlib import Path
@@ -803,14 +1031,34 @@ installer_marker_present() {
 	[ "$marker" = "# B_AGENTIC_INSTALLER" ]
 }
 
+# Appends the adapter entries the given payload actually ships to the managed
+# entry list. Only paths present in the verified payload become managed, so
+# unmanaged local state beside them in $LOCAL_REPO is never replaced.
+resolve_managed_payload_entries() {
+	local payload="$1" manifest host subdir
+	MANAGED_PAYLOAD_ENTRIES=("${MANAGED_PAYLOAD_BASE_ENTRIES[@]}")
+	for manifest in "$payload"/adapters/*/manifest.yaml; do
+		[ -f "$manifest" ] || continue
+		host="$(basename "$(dirname "$manifest")")"
+		MANAGED_PAYLOAD_ENTRIES+=("adapters/$host/manifest.yaml")
+		for subdir in configs extensions packages scripts; do
+			[ -d "$payload/adapters/$host/$subdir" ] || continue
+			MANAGED_PAYLOAD_ENTRIES+=("adapters/$host/$subdir")
+		done
+	done
+	[ "${#MANAGED_PAYLOAD_ENTRIES[@]}" -gt "${#MANAGED_PAYLOAD_BASE_ENTRIES[@]}" ] ||
+		die "release payload contains no adapter manifest"
+}
+
 sync_source() {
 	local payload="$1" entry
 	[ -n "$payload" ] && [ -d "$payload" ] || die "verified release payload is missing"
+	resolve_managed_payload_entries "$payload"
 
 	if dry_run_enabled; then
 		log "Dry-run source: verified release payload at $payload (no fetch, no $LOCAL_REPO changes)"
 		set_source_dir "$payload"
-		resolve_agent_manifest || return 1
+		resolve_selected_agents
 		return 0
 	fi
 
@@ -879,15 +1127,15 @@ sync_source() {
 		warn "previous b-agentic checkout preserved at: ${LOCAL_REPO}.backup.${TIMESTAMP}"
 	fi
 	set_source_dir "$LOCAL_REPO"
-	resolve_agent_manifest || return 1
-	validate_pi_source_layout
+	resolve_selected_agents
+	validate_shared_source_layout
 }
 
 require_local_source() {
 	[ -d "$LOCAL_REPO/skills" ] || die "b-agentic source is not installed at $LOCAL_REPO; run the curl installer first"
 	set_source_dir "$LOCAL_REPO"
-	resolve_agent_manifest || return 1
-	validate_pi_source_layout
+	resolve_selected_agents
+	validate_shared_source_layout
 }
 
 prepare_source() {
@@ -903,8 +1151,8 @@ prepare_source() {
 		# Uninstall without an installed source runs from the verified payload
 		# so manifest removal still has the uninstall helpers available.
 		set_source_dir "$VERIFIED_PAYLOAD"
-		resolve_agent_manifest || return 1
-		validate_pi_source_layout
+		resolve_selected_agents
+		validate_shared_source_layout
 		return 0
 	fi
 	require_local_source
@@ -993,18 +1241,28 @@ manifest_only_uninstall_one() {
 	die "manifest-only uninstall for $runtime_name requires $installed_script; reinstall once or restore the source checkout to uninstall safely"
 }
 
+# Uninstall path for a machine whose b-agentic source is gone: every recorded
+# host manifest is removed, not just the default adapter, so a multi-host
+# install never leaves managed assets behind.
 try_manifest_only_uninstall() {
 	uninstall_enabled || return 1
 	{ [ -d "$LOCAL_REPO/.git" ] || [ -d "$LOCAL_REPO/skills" ]; } && return 1
 
-	local product_name manifest_path
+	local product_name manifest_path handled=0 rc=0
 	while IFS=$'\t' read -r product_name manifest_path; do
-		[ "$product_name" = "pi" ] || continue
+		[ -n "$product_name" ] || continue
 		[ -f "$manifest_path" ] || continue
-		manifest_only_uninstall_one "$PI_NAME" "$manifest_path"
-		return $?
+		if [ -n "$AGENT_SELECTION_REQUESTED" ] && [ "$AGENT_SELECTION_REQUESTED" != "all" ]; then
+			case ",$AGENT_SELECTION_REQUESTED," in
+			*",$product_name,"*) ;;
+			*) continue ;;
+			esac
+		fi
+		handled=1
+		manifest_only_uninstall_one "$product_name" "$manifest_path" || rc=$?
 	done < <(manifest_only_records)
-	return 1
+	[ "$handled" -eq 1 ] || return 1
+	return "$rc"
 }
 
 prepare_user_bin_paths() {
@@ -1165,7 +1423,7 @@ run_parallel_chains() {
 		done
 	else
 		for index in "${!chains[@]}"; do
-			awk '/^(warning:|b-agentic .* complete for Pi|Installed:|Planned:|Manifest:|Readiness:|Attention:|  [[:alnum:]_-]+:|Next:)/ { print }' "${logs[$index]}"
+			filter_installer_output "${logs[$index]}"
 		done
 	fi
 	if [ "$rc" -ne 0 ]; then
@@ -1235,18 +1493,96 @@ source_installer_core() {
 	source "$common_src"
 }
 
-load_pi_installer() {
-	local pi_script="$SOURCE_DIR/adapters/pi/scripts/install.sh"
-	[ -f "$pi_script" ] || die "missing Pi installer: $pi_script"
-	# shellcheck disable=SC1090
-	source "$pi_script"
-}
-
+# Verifies every selected adapter satisfies the dispatch contract and ships a
+# complete payload, before any host state is touched. Adapters themselves are
+# sourced per dispatch inside adapter_run's subshell.
 load_installer_sources() {
 	source_installer_core
-	resolve_agent_manifest || return 1
-	validate_pi_source_layout
-	load_pi_installer
+	load_adapter_registry
+	validate_shared_source_layout
+	local host
+	for host in "${SELECTED_AGENTS[@]}"; do
+		adapter_require_shipped "$host"
+		adapter_check_contract "$host"
+		adapter_run "$host" validate_source || return 1
+	done
+	uninstall_enabled || adapter_warn_skill_overlap "${SELECTED_AGENTS[@]}"
+}
+
+# Keeps a host tool's routine stdout out of the installer log while letting
+# warnings and the install report through. Shared by the dependency chains and
+# the adapter dispatch so both surface the same lines.
+filter_installer_output() {
+	awk '/^(warning:|b-agentic .* complete|Installed:|Planned:|Manifest:|Readiness:|Attention:|  [[:alnum:]_-]+:|Next:)/ { print }' "$1"
+}
+
+# Runs one contract verb for every selected adapter.
+#
+# capture=1 hides the adapter's own stage rendering and replays only the
+# filtered report, which is what install and update do: the host tool's
+# routine chatter would otherwise flood the log. capture=0 lets the adapter
+# render its stages directly, which is what sync and uninstall do.
+#
+# Stops at the first failing adapter so a partial multi-host run never reports
+# success.
+for_each_selected_agent() {
+	local verb="$1" label_prefix="$2" capture="${3:-0}" host rc=0 status=0
+	local log_dir="" adapter_log=""
+
+	if [ "$capture" -eq 1 ]; then
+		log_dir="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-adapter.XXXXXX")"
+	fi
+
+	for host in "${SELECTED_AGENTS[@]}"; do
+		# Read by adapter_run and the installer core.
+		# shellcheck disable=SC2034
+		AGENT="$host"
+		status=0
+		if [ "$capture" -eq 1 ]; then
+			adapter_log="$log_dir/$host.log"
+			run_ui_stage "$label_prefix $(adapter_display_name "$host")" \
+				adapter_run_captured "$host" "$verb" "$adapter_log" || status=$?
+			if dry_run_enabled; then
+				cat "$adapter_log"
+			else
+				filter_installer_output "$adapter_log"
+			fi
+			if [ "$status" -ne 0 ] && [ "$status" -ne 2 ] && [ -s "$adapter_log" ]; then
+				cat "$adapter_log" >&2
+			fi
+		else
+			summary_log "==> $label_prefix $(adapter_display_name "$host")"
+			adapter_run "$host" "$verb" || status=$?
+		fi
+
+		if [ "$status" -ne 0 ]; then
+			# Exit 2 is the adapters' "installed, kernel activation pending"
+			# signal. It must surface, but it is not a host failure and must not
+			# abandon the rest of the selection.
+			if [ "$status" -eq 2 ]; then
+				[ "$rc" -eq 0 ] && rc=2
+				continue
+			fi
+			warn "$label_prefix $(adapter_display_name "$host") failed"
+			[ -n "$log_dir" ] && rm -rf "$log_dir"
+			return "$status"
+		fi
+	done
+	[ -n "$log_dir" ] && rm -rf "$log_dir"
+	return "$rc"
+}
+
+# adapter_run with its stage rendering suppressed and all output redirected,
+# matching how run_parallel_chains isolates a background chain.
+adapter_run_captured() {
+	local host="$1" verb="$2" destination="$3"
+	(
+		# Both are read by the installer core sourced into this subshell.
+		# shellcheck disable=SC2034
+		UI_HIDE_STAGES=1
+		UI_SUPPRESS_LOGS=1
+		adapter_run "$host" "$verb"
+	) > "$destination" 2>&1
 }
 
 main() {
@@ -1288,42 +1624,54 @@ main() {
 		VERIFIED_PAYLOAD="$SOURCE_DIR_EXPLICIT"
 	fi
 
+	# Adapter metadata comes from the payload about to be installed, falling
+	# back to the installed source for --sync/--update runs that never fetch.
+	set_source_dir "${VERIFIED_PAYLOAD:-$LOCAL_REPO}"
+	load_adapter_registry
+	resolve_selected_agents
+
+	# The agent picker must run before the component picker: which optional
+	# components apply depends on the adapters selected.
+	ui_agent_picker || return $?
 	ui_component_picker || return $?
 
+	# Only the fixed entrypoint stages are counted here; each adapter renders
+	# its own stage sequence once dispatched.
 	ui_set_stage_total 5
 	run_ui_stage "Checking prerequisites" check_dependencies || return 1
 	run_ui_stage "Preparing source" install_app || return 1
-	run_ui_stage "Loading Pi installer" load_installer_sources || return 1
+	run_ui_stage "Loading host adapters" load_installer_sources || return 1
 	prepare_user_bin_paths
 	run_ui_stage "Checking optional shell tooling" install_shell_tools || return 1
 
 	if uninstall_enabled; then
 		set +e
-		(
-			set -e
-			pi_uninstall
-		)
+		for_each_selected_agent uninstall "Uninstalling"
 		rc=$?
 		set -e
 		return "$rc"
 	fi
 
+	# Shared tooling installs once for the whole run; each adapter's own stage
+	# follows so a multi-host selection never duplicates dependency work.
 	if [ "$OPERATION" = "install" ]; then
-		run_ui_stage "Installing dependencies and Pi" run_parallel_chains dependency_install_chain install_codegraph bun_install_chain pi_install || return 1
+		run_ui_stage "Installing shared dependencies" run_parallel_chains dependency_install_chain install_codegraph bun_install_chain || return 1
+		for_each_selected_agent install "Installing" 1 || return 1
 	elif [ "$OPERATION" = "update" ]; then
-		run_ui_stage "Updating dependencies and Pi" run_parallel_chains update_tooling pi_update || return 1
+		run_ui_stage "Updating shared dependencies" run_parallel_chains update_tooling || return 1
+		for_each_selected_agent update "Updating" 1 || return 1
 	fi
 
 	if [ "$OPERATION" = "sync" ]; then
 		set +e
-		pi_sync
+		for_each_selected_agent sync "Syncing"
 		rc=$?
 		set -e
-		[ "$rc" -eq 0 ] && summary_log "b-agentic sync complete for Pi"
+		[ "$rc" -eq 0 ] && summary_log "b-agentic sync complete for $(selected_agents_label)"
 		return "$rc"
 	fi
 	if [ "$OPERATION" = "update" ]; then
-		summary_log "b-agentic update complete for Pi"
+		summary_log "b-agentic update complete for $(selected_agents_label)"
 	fi
 	return 0
 }

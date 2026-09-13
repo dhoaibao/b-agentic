@@ -49,7 +49,9 @@ def stale_assets(home: Path, skills: list[str]) -> list[str]:
         installed = home / PI_SKILLS_ROOT / name / "SKILL.md"
         if source.exists() and installed.exists() and source.read_bytes() != installed.read_bytes():
             stale.append(f"skill {name}")
-    source_kernel = ROOT / "references" / "kernel.template.md"
+    # Pi installs the host-resolved kernel, not the shared template, so that
+    # is what an installed kernel must match.
+    source_kernel = ROOT / "references" / "kernel.pi.md"
     installed_kernel = home / PI_KERNEL
     if (
         source_kernel.exists()

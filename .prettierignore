@@ -7,6 +7,15 @@ skills/*/SKILL.md
 adapters/pi/extensions/b-agentic-support/mcp.ts
 adapters/pi/extensions/b-agentic-support/permissions-data.ts
 
+# Per-host kernels and the non-Pi adapter configs are rendered from
+# references/kernel.template.md, references/permissions.yaml, and the Pi MCP
+# template. Pi's own configs stay hand-maintained and formatted.
+references/kernel.*.md
+adapters/antigravity/configs/
+adapters/claude-code/configs/
+adapters/codex/configs/
+adapters/opencode/configs/
+
 # These sources contain or feed generated blocks; registry synchronization owns
 # their delivery formatting.
 README.md

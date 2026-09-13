@@ -1,0 +1,140 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "docker compose up *": "ask",
+      "docker compose up": "ask",
+      "docker-compose up *": "ask",
+      "docker-compose up": "ask",
+      "npm run dev *": "ask",
+      "npm run dev": "ask",
+      "pnpm dev *": "ask",
+      "pnpm dev": "ask",
+      "yarn dev *": "ask",
+      "yarn dev": "ask",
+      "bun run dev *": "ask",
+      "bun run dev": "ask",
+      "cargo watch *": "ask",
+      "cargo watch": "ask",
+      "dd *": "ask",
+      "dd": "ask",
+      "mkfs *": "ask",
+      "mkfs": "ask",
+      "chmod *": "ask",
+      "chmod": "ask",
+      "chown *": "ask",
+      "chown": "ask",
+      "kill *": "ask",
+      "kill": "ask",
+      "pkill *": "ask",
+      "pkill": "ask",
+      "killall *": "ask",
+      "killall": "ask",
+      "shutdown *": "ask",
+      "shutdown": "ask",
+      "reboot *": "ask",
+      "reboot": "ask",
+      "poweroff *": "ask",
+      "poweroff": "ask",
+      "halt *": "ask",
+      "halt": "ask",
+      "systemctl stop *": "ask",
+      "systemctl stop": "ask",
+      "systemctl restart *": "ask",
+      "systemctl restart": "ask",
+      "systemctl disable *": "ask",
+      "systemctl disable": "ask",
+      "docker rm *": "ask",
+      "docker rm": "ask",
+      "docker container rm *": "ask",
+      "docker container rm": "ask",
+      "docker image rm *": "ask",
+      "docker image rm": "ask",
+      "docker compose down *": "ask",
+      "docker compose down": "ask",
+      "kubectl delete *": "ask",
+      "kubectl delete": "ask",
+      "git push *": "ask",
+      "git push": "ask",
+      "git pull *": "ask",
+      "git pull": "ask",
+      "rm -rf *": "ask",
+      "rm -rf": "ask",
+      "rm -fr *": "ask",
+      "rm -fr": "ask",
+      "git reset --hard *": "deny",
+      "git reset --hard": "deny",
+      "git clean -f *": "deny",
+      "git clean -f": "deny",
+      "git push --force *": "deny",
+      "git push --force": "deny",
+      "git push --force-with-lease *": "deny",
+      "git push --force-with-lease": "deny",
+      "git branch -D *": "deny",
+      "git branch -D": "deny",
+      "docker system prune *": "deny",
+      "docker system prune": "deny",
+      "docker volume rm *": "deny",
+      "docker volume rm": "deny"
+    },
+    "edit": "allow",
+    "webfetch": "ask"
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true,
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      }
+    },
+    "codegraph": {
+      "type": "local",
+      "command": [
+        "codegraph",
+        "serve",
+        "--mcp"
+      ],
+      "enabled": true,
+      "environment": {
+        "CODEGRAPH_TELEMETRY": "0"
+      }
+    },
+    "brave-search": {
+      "type": "local",
+      "command": [
+        "bunx",
+        "@brave/brave-search-mcp-server",
+        "--transport",
+        "stdio"
+      ],
+      "enabled": true,
+      "environment": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    },
+    "firecrawl": {
+      "type": "local",
+      "command": [
+        "bunx",
+        "firecrawl-mcp"
+      ],
+      "enabled": true,
+      "environment": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+      }
+    },
+    "playwright": {
+      "type": "local",
+      "command": [
+        "bunx",
+        "@playwright/mcp",
+        "--isolated",
+        "--headless",
+        "--caps=testing"
+      ],
+      "enabled": true
+    }
+  }
+}

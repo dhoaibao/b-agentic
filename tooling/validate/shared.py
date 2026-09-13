@@ -1086,7 +1086,11 @@ if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
 
 references_dir = ROOT / "references"
-expected_reference_mds = {"kernel.template.md"}
+# The shared template plus exactly one rendered kernel per adapter manifest.
+# Anything else in references/ is undeclared prose the installer would ship.
+expected_reference_mds = {"kernel.template.md"} | {
+    f"kernel.{path.parent.name}.md" for path in (ROOT / "adapters").glob("*/manifest.yaml")
+}
 actual_reference_mds = {path.name for path in references_dir.glob("*.md")}
 if actual_reference_mds != expected_reference_mds:
     errors.append(

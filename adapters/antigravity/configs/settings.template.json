@@ -1,0 +1,52 @@
+{
+  "$comment": "Generated from references/permissions.yaml by tooling/generate/registry_sync.py. Do not edit.",
+  "permissions": {
+    "deny": [
+      "command(git reset --hard)",
+      "command(git clean -f)",
+      "command(git push --force)",
+      "command(git push --force-with-lease)",
+      "command(git branch -D)",
+      "command(docker system prune)",
+      "command(docker volume rm)",
+      "read_file(.ssh/)",
+      "read_file(.config/gh/)",
+      "read_file(.aws/)",
+      "read_file(.kube/)",
+      "read_file(.git/)"
+    ],
+    "ask": [
+      "command(git push)",
+      "command(git pull)",
+      "command(rm -rf)",
+      "command(rm -fr)",
+      "command(dd)",
+      "command(mkfs)",
+      "command(chmod)",
+      "command(chown)",
+      "command(kill)",
+      "command(pkill)",
+      "command(killall)",
+      "command(shutdown)",
+      "command(reboot)",
+      "command(poweroff)",
+      "command(halt)",
+      "command(systemctl stop)",
+      "command(systemctl restart)",
+      "command(systemctl disable)",
+      "command(docker rm)",
+      "command(docker container rm)",
+      "command(docker image rm)",
+      "command(docker compose down)",
+      "command(kubectl delete)",
+      "command(docker compose up)",
+      "command(docker-compose up)",
+      "command(npm run dev)",
+      "command(pnpm dev)",
+      "command(yarn dev)",
+      "command(bun run dev)",
+      "command(cargo watch)"
+    ],
+    "allow": []
+  }
+}

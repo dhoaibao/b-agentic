@@ -933,6 +933,206 @@ PY
 	assert_contains "$failure_sandbox/install.log" 'error:'
 }
 
+# Full lifecycle for the declarative hosts: skills, a host-rendered kernel, a
+# merged MCP config, and host-native permissions, then an uninstall that
+# removes only what was merged in.
+#
+# Each host is seeded with a user-owned entry first, because "preserved the
+# user's key" is not the same claim as "preserved the user's meaning": on
+# OpenCode, whose last matching rule wins, a managed catch-all merged after a
+# user rule would keep the key and invert its effect.
+run_declarative_host_lifecycle_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/declarative-hosts"
+	local install_log="$sandbox/install.log"
+	local uninstall_log="$sandbox/uninstall.log"
+	local home="$sandbox/home"
+	local rc=0
+
+	mkdir -p "$home/.claude" "$home/.config/opencode" "$home/.gemini/config"
+	printf '%s\n' '{"mcpServers":{"user-server":{"type":"stdio","command":"echo"}}}' >"$home/.claude.json"
+	printf '%s\n' '{"permission":{"bash":{"terraform destroy *":"deny"}}}' >"$home/.config/opencode/opencode.json"
+
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$install_log" \
+		--agent claude-code,opencode,antigravity
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected declarative host install exit 0, got $rc"
+
+	local host_label
+	for host_label in 'Claude Code' OpenCode Antigravity; do
+		assert_contains "$install_log" "b-agentic install complete for $host_label"
+	done
+
+	# Each host gets its own instruction file, skills, and metadata.
+	assert_file "$home/.claude/CLAUDE.md"
+	assert_file "$home/.config/opencode/AGENTS.md"
+	assert_file "$home/.gemini/GEMINI.md"
+	assert_file "$home/.claude/skills/b-plan/SKILL.md"
+	assert_file "$home/.config/opencode/skills/b-plan/SKILL.md"
+	assert_file "$home/.gemini/config/skills/b-plan/SKILL.md"
+	assert_file "$home/.claude/b-agentic/install.json"
+
+	# A declarative host must never receive Pi-only guidance or an unresolved
+	# host-conditional marker.
+	assert_not_contains "$home/.claude/CLAUDE.md" 'package.pi-'
+	assert_not_contains "$home/.claude/CLAUDE.md" '<!-- host:if'
+
+	# Managed configuration landed in each host's documented file.
+	assert_json_value "$home/.claude.json" "'context7' in data['mcpServers']"
+	assert_json_value "$home/.claude/settings.json" "any(r.startswith('Bash(git reset --hard') for r in data['permissions']['deny'])"
+	assert_json_value "$home/.gemini/config/mcp_config.json" "'serverUrl' in data['mcpServers']['context7']"
+	assert_json_value "$home/.gemini/antigravity-cli/settings.json" "data['permissions']['deny']"
+	assert_json_value "$home/.config/opencode/opencode.json" "'context7' in data['mcp']"
+
+	# The user's own rules survive with their meaning intact.
+	assert_json_value "$home/.claude.json" "'user-server' in data['mcpServers']"
+	assert_json_value "$home/.config/opencode/opencode.json" \
+		"data['permission']['bash']['terraform destroy *'] == 'deny'"
+	assert_json_value "$home/.config/opencode/opencode.json" "'*' not in data['permission']['bash']"
+
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$uninstall_log" --uninstall
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected declarative host uninstall exit 0, got $rc"
+
+	# With no --agent, uninstall must find the installed hosts on its own.
+	for host_label in 'Claude Code' OpenCode Antigravity; do
+		assert_contains "$uninstall_log" "Uninstalling b-agentic from $host_label"
+	done
+	assert_no_path "$home/.claude/CLAUDE.md"
+	assert_no_path "$home/.config/opencode/AGENTS.md"
+	assert_no_path "$home/.gemini/GEMINI.md"
+	assert_no_path "$home/.claude/b-agentic"
+	assert_no_path "$home/.config/opencode/b-agentic"
+	assert_no_path "$home/.gemini/config/b-agentic"
+
+	# Managed entries are gone; user-owned entries are not.
+	assert_json_value "$home/.claude.json" "'user-server' in data['mcpServers']"
+	assert_json_value "$home/.claude.json" "'context7' not in data.get('mcpServers', {})"
+	assert_json_value "$home/.config/opencode/opencode.json" \
+		"data['permission']['bash']['terraform destroy *'] == 'deny'"
+	assert_json_value "$home/.config/opencode/opencode.json" "not data.get('mcp')"
+}
+
+# Codex is the only TOML host: its managed content is a delimited block, so the
+# claims that matter are comment preservation, idempotency, and a byte-exact
+# restore on uninstall.
+run_codex_config_block_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/codex-block"
+	local conflict_sandbox="$WORK_DIR/codex-block-conflict"
+	local home="$sandbox/home"
+	local config="$home/.codex/config.toml"
+	local install_log="$sandbox/install.log"
+	local rerun_log="$sandbox/rerun.log"
+	local uninstall_log="$sandbox/uninstall.log"
+	local conflict_log="$conflict_sandbox/install.log"
+	local rc=0
+
+	mkdir -p "$home/.codex" "$conflict_sandbox/home/.codex"
+	printf '%s\n' '# A user comment that must survive.' 'model = "gpt-5"' '' \
+		'# A user-owned server with its own comment.' '[mcp_servers.my-server]' 'command = "echo"' >"$config"
+	cp "$config" "$sandbox/config.before"
+
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$install_log" --agent codex
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected Codex install exit 0, got $rc"
+	assert_contains "$install_log" 'b-agentic install complete for Codex CLI'
+	assert_file "$home/.codex/AGENTS.md"
+	assert_file "$home/.codex/skills/b-plan/SKILL.md"
+
+	# Comments and user content survive, and the result is still valid TOML
+	# with the managed root keys at the top level rather than absorbed into the
+	# user's last table.
+	assert_contains "$config" 'must survive'
+	assert_contains "$config" 'own comment'
+	python3 - "$config" <<'PY' || fail "Codex config.toml is not valid or lost managed keys"
+import sys
+import tomllib
+from pathlib import Path
+
+data = tomllib.loads(Path(sys.argv[1]).read_text())
+assert data.get("model") == "gpt-5", "user key lost"
+assert data["approval_policy"] == "untrusted", "managed root key was absorbed into a table"
+assert data["sandbox_mode"] == "workspace-write", "managed root key was absorbed into a table"
+assert "my-server" in data["mcp_servers"], "user server lost"
+assert "context7" in data["mcp_servers"], "managed server missing"
+PY
+
+	# A second install must replace the block, never append a second copy.
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$rerun_log" --agent codex
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected Codex reinstall exit 0, got $rc"
+	[ "$(grep -c 'b-agentic managed settings (generated' "$config")" -eq 1 ] ||
+		fail "Codex managed settings block was duplicated"
+	[ "$(grep -c 'b-agentic managed tables (generated' "$config")" -eq 1 ] ||
+		fail "Codex managed tables block was duplicated"
+
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$sandbox" "$release_fixture" "$uninstall_log" --uninstall --agent codex
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected Codex uninstall exit 0, got $rc"
+	assert_equal_files "$config" "$sandbox/config.before"
+	assert_no_path "$home/.codex/AGENTS.md"
+	assert_no_path "$home/.codex/b-agentic"
+
+	# A config that already owns a managed key must be preserved untouched, and
+	# the run must say so instead of reporting a clean install.
+	printf '%s\n' 'approval_policy = "never"' >"$conflict_sandbox/home/.codex/config.toml"
+	cp "$conflict_sandbox/home/.codex/config.toml" "$conflict_sandbox/config.before"
+	set +e
+	B_AGENTIC_AGENT='' run_install_capture "$conflict_sandbox" "$release_fixture" "$conflict_log" --agent codex
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected Codex conflict install exit 0, got $rc"
+	assert_equal_files "$conflict_sandbox/home/.codex/config.toml" "$conflict_sandbox/config.before"
+	assert_contains "$conflict_log" 'not managing approval_policy'
+	assert_contains "$conflict_log" 'Readiness: partial'
+}
+
+# The host picker only appears when no host was named, so this case clears the
+# suite-wide B_AGENTIC_AGENT and drives the picker through a real pty.
+run_agent_picker_case() {
+	local release_fixture="$1"
+	local sandbox="$WORK_DIR/agent-picker"
+	local cancel_sandbox="$WORK_DIR/agent-picker-cancel"
+	local install_log="$sandbox/install.log"
+	local cancel_log="$cancel_sandbox/install.log"
+	local rc=0
+
+	mkdir -p "$sandbox/home" "$cancel_sandbox/home"
+
+	# Enter accepts the pre-checked default host, then Enter accepts the
+	# component defaults.
+	set +e
+	B_AGENTIC_AGENT='' TERM=xterm B_AGENTIC_TTY_INPUT=$'\n\n' \
+		run_install_with_tty_log "$sandbox" "$release_fixture" "$install_log" --dry-run
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected host picker dry-run exit 0, got $rc"
+	assert_contains "$install_log" 'Select the host adapters to install.'
+	assert_contains "$install_log" 'Selected adapters: Pi'
+	assert_contains "$install_log" 'b-agentic install complete for Pi'
+
+	# Escape at the host picker must cancel before anything is written.
+	set +e
+	B_AGENTIC_AGENT='' TERM=xterm B_AGENTIC_TTY_INPUT=$'\e' \
+		run_install_with_tty_log "$cancel_sandbox" "$release_fixture" "$cancel_log" --dry-run
+	rc=$?
+	set -e
+	[ "$rc" -eq 130 ] || fail "expected Escape to cancel the host picker, got $rc"
+	assert_contains "$cancel_log" 'Installation cancelled.'
+	assert_no_path "$cancel_sandbox/home/.pi/agent"
+}
+
 run_component_picker_case() {
 	local release_fixture="$1"
 	local sandbox="$WORK_DIR/component-picker"
@@ -2483,16 +2683,40 @@ run_agent_gate_case() {
 	local sandbox="$WORK_DIR/agent-gate"
 	local install_log="$sandbox/install.log"
 
+	local deferred_fixture="$WORK_DIR/agent-gate-deferred"
+
 	mkdir -p "$sandbox/home"
-	# Release payloads ship only the Pi adapter, so a deferred host cannot be
-	# resolved at all and must still fail closed before any install plan.
+
+	# Every shipped adapter installs today, so the deferred gate is proven
+	# against a payload whose manifest is marked deferred rather than against a
+	# host that happens to be unfinished.
+	make_deferred_adapter_fixture "$release_fixture" "$deferred_fixture" codex
 	HOME="$sandbox/home" \
-		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_RELEASE_URL="file://$deferred_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$deferred_fixture/b-agentic.tar.gz.sha256" \
 		B_AGENTIC_DIR="$sandbox/source" \
 		B_AGENTIC_PROMPT_API_KEYS=N \
 		bash "$ROOT_DIR/install.sh" --agent codex --dry-run >"$install_log" 2>&1 &&
 		fail "deferred agent must not reach the install plan"
-	assert_contains "$install_log" "unknown agent 'codex': no adapter manifest at adapters/codex/manifest.yaml"
+	assert_contains "$install_log" "agent 'codex' is verified but its installer is deferred"
+
+	# One deferred host in a multi-host selection fails the whole run: a
+	# partial install must never be reported as success.
+	HOME="$sandbox/home" \
+		B_AGENTIC_RELEASE_URL="file://$deferred_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$deferred_fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --agent pi,codex --dry-run >"$install_log" 2>&1 &&
+		fail "a deferred host in a multi-host selection must not reach the install plan"
+	assert_contains "$install_log" "agent 'codex' is verified but its installer is deferred"
+
+	# A deferred host is never implied by 'all' either.
+	HOME="$sandbox/home" \
+		B_AGENTIC_RELEASE_URL="file://$deferred_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$deferred_fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --agent all --dry-run >"$install_log" 2>&1 ||
+		fail "--agent all must skip a deferred host instead of failing"
+	assert_not_contains "$install_log" "Installing Codex CLI"
 
 	HOME="$sandbox/home" \
 		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
@@ -2501,6 +2725,27 @@ run_agent_gate_case() {
 		bash "$ROOT_DIR/install.sh" --agent bogus --dry-run >"$install_log" 2>&1 &&
 		fail "unknown agent must be rejected"
 	assert_contains "$install_log" "unknown agent 'bogus'"
+
+	# Casing and separators are part of the adapter id, not a convenience.
+	HOME="$sandbox/home" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --agent Pi --dry-run >"$install_log" 2>&1 &&
+		fail "a miscased agent name must be rejected"
+	assert_contains "$install_log" "invalid agent name: Pi"
+
+	# 'all' covers every shipped adapter, and each one reports its own result.
+	HOME="$sandbox/home" \
+		B_AGENTIC_RELEASE_URL="file://$release_fixture/b-agentic.tar.gz" B_AGENTIC_CHECKSUM_URL="file://$release_fixture/b-agentic.tar.gz.sha256" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --agent all --dry-run >"$install_log" 2>&1 ||
+		fail "--agent all must install every shipped adapter"
+	local host_label
+	for host_label in Pi 'Claude Code' 'Codex CLI' OpenCode Antigravity; do
+		assert_contains "$install_log" "b-agentic install complete for $host_label"
+	done
 }
 
 run_rtk_latest_dry_run_case() {
@@ -2532,18 +2777,19 @@ run_rtk_latest_dry_run_case() {
 run_base_smoke_worker() {
 	local release_fixture="$1"
 	local worker_index="$2"
-	shift 2
+	local worker_count="$3"
+	shift 3
 	local -a cases=("$@")
-	local worker_status=0 case_status case_name index
+	local worker_status=0 case_status case_name index started
 
-	for ((index = worker_index; index < ${#cases[@]}; index += 2)); do
+	for ((index = worker_index; index < ${#cases[@]}; index += worker_count)); do
 		case_name="${cases[$index]}"
-		printf 'Running %s...\n' "$case_name"
+		started=$SECONDS
 		if ( "$case_name" "$release_fixture" ); then
-			:
+			printf 'ok   %-52s %3ds\n' "$case_name" "$((SECONDS - started))"
 		else
 			case_status=$?
-			printf '%s failed with status %s\n' "$case_name" "$case_status"
+			printf 'FAIL %-52s %3ds (status %s)\n' "$case_name" "$((SECONDS - started))" "$case_status"
 			[ "$worker_status" -ne 0 ] || worker_status="$case_status"
 		fi
 	done
@@ -2556,7 +2802,10 @@ run_base_smoke_cases() {
 	# shared WORK_DIR while the Pi worker is still running.
 	trap - EXIT
 	local release_fixture="$1"
-	local worker_count=2
+	# One worker per core by default. Each case is an isolated sandbox that
+	# spends most of its time waiting on subprocesses, so the pool scales with
+	# available cores instead of the historical fixed pair.
+	local worker_count="${B_AGENTIC_SMOKE_WORKERS:-0}"
 	local pool_dir="$WORK_DIR/base-smoke-pool"
 	local -a cases=(
 		run_standalone_preview_installer_case
@@ -2583,6 +2832,9 @@ run_base_smoke_cases() {
 		run_readiness_report_case
 		run_output_contract_case
 		run_component_picker_case
+		run_agent_picker_case
+		run_declarative_host_lifecycle_case
+		run_codex_config_block_case
 		run_optional_shell_tool_case
 		run_prompted_mcp_key_pipe_case
 		run_playwright_mcp_migration_case
@@ -2613,9 +2865,14 @@ run_base_smoke_cases() {
 	local -a pids=()
 	local worker_index status rc=0
 
+	if [ "$worker_count" -le 0 ]; then
+		worker_count="$(detect_cpu_count)"
+	fi
+	[ "$worker_count" -le "${#cases[@]}" ] || worker_count="${#cases[@]}"
+
 	mkdir -p "$pool_dir"
 	for ((worker_index = 0; worker_index < worker_count; worker_index++)); do
-		run_base_smoke_worker "$release_fixture" "$worker_index" "${cases[@]}" \
+		run_base_smoke_worker "$release_fixture" "$worker_index" "$worker_count" "${cases[@]}" \
 			>"$pool_dir/worker-$worker_index.log" 2>&1 &
 		pids+=("$!")
 	done
@@ -2637,6 +2894,12 @@ main() {
 	local release_fixture="$WORK_DIR/release-fixture"
 	local default_dracula_fixture="$WORK_DIR/dracula-default-fixture"
 
+	# Every case below asserts Pi behaviour, and a TTY case that did not name a
+	# host would stop on the interactive host picker waiting for a keystroke the
+	# harness never sends. Naming the host keeps those cases deterministic;
+	# run_agent_gate_case and run_agent_picker_case cover selection itself.
+	export B_AGENTIC_AGENT=pi
+
 	require_bin git
 	require_bin node
 	require_bin python3
@@ -2651,7 +2914,7 @@ main() {
 	run_pi_smoke_cases "$release_fixture" &
 	local pi_smoke_pid=$!
 
-	echo "Running base installer smoke cases with 2 workers..."
+	echo "Running base installer smoke cases..."
 	run_base_smoke_cases "$release_fixture" &
 	local base_pid=$!
 

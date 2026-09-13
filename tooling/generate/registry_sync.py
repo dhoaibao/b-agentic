@@ -31,6 +31,18 @@ MCP_RUNTIME_POLICY_END = "// generated:mcp-runtime-policy:end"
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
 
+ADAPTERS_DIR = ROOT / "adapters"
+KNOWN_HOSTS = ("pi", "claude-code", "codex", "opencode", "antigravity")
+
+# Host-conditional kernel blocks. The kernel template is shared, but a host
+# must never be told to use a capability it does not have, so every sentence
+# that names a host-specific capability lives inside one of these blocks and
+# the rendered variants are validated against references/capabilities.yaml.
+HOST_IF_RE = re.compile(r"^<!-- host:if ([a-z0-9,\- ]+) -->$")
+HOST_ELSE = "<!-- host:else -->"
+HOST_ENDIF = "<!-- host:endif -->"
+CAP_MARKER_RE = re.compile(r"\[cap: ([a-z0-9.\-]+)\]")
+
 PROMPT_FRONTMATTER_FIELDS = [
     ("when_to_use", "when_to_use"),
     ("user_invocable", "user-invocable"),
@@ -166,6 +178,333 @@ export const PROTECTED_PATH_MARKERS: string[] = %s;
         const("DANGEROUS_ASK_COMMANDS", data["dangerous_ask_commands"]),
         json.dumps(data["protected_path_markers"], indent=2, ensure_ascii=False),
     )
+
+
+def adapter_hosts() -> list[str]:
+    """Hosts that carry an adapter manifest, in the canonical KNOWN_HOSTS order."""
+    present = {path.parent.name for path in ADAPTERS_DIR.glob("*/manifest.yaml")}
+    unknown = sorted(present - set(KNOWN_HOSTS))
+    if unknown:
+        raise SystemExit(f"adapters/: unknown host directory: {', '.join(unknown)}")
+    return [host for host in KNOWN_HOSTS if host in present]
+
+
+def render_host_kernel(template: str, host: str, path_label: str) -> str:
+    """Resolve the shared kernel's host-conditional blocks for one host.
+
+    Blocks nest no deeper than one level by design: a kernel rule either
+    applies everywhere or has exactly one host-specific alternate.
+    """
+    out: list[str] = []
+    state: str | None = None
+    keep = True
+    for number, line in enumerate(template.splitlines(), start=1):
+        opened = HOST_IF_RE.match(line)
+        if opened:
+            if state is not None:
+                raise SystemExit(f"{path_label}:{number}: nested host:if block")
+            hosts = {entry.strip() for entry in opened.group(1).split(",") if entry.strip()}
+            unknown = sorted(hosts - set(KNOWN_HOSTS))
+            if unknown:
+                raise SystemExit(f"{path_label}:{number}: unknown host in host:if: {', '.join(unknown)}")
+            state = "if"
+            keep = host in hosts
+            continue
+        if line.strip() == HOST_ELSE:
+            if state != "if":
+                raise SystemExit(f"{path_label}:{number}: host:else outside a host:if block")
+            state = "else"
+            keep = not keep
+            continue
+        if line.strip() == HOST_ENDIF:
+            if state is None:
+                raise SystemExit(f"{path_label}:{number}: host:endif outside a host:if block")
+            state = None
+            keep = True
+            continue
+        if keep:
+            out.append(line)
+    if state is not None:
+        raise SystemExit(f"{path_label}: unterminated host:if block")
+    # Conditional removal can leave a run of blank lines behind.
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(out))
+    return text.rstrip() + "\n"
+
+
+def validate_host_kernels(kernels: dict[str, str], capabilities: dict, errors: list[str]) -> None:
+    """Every capability marker a host's kernel carries must be supported there."""
+    supported: dict[str, set[str]] = {}
+    for capability in capabilities.get("capabilities", []):
+        if isinstance(capability, dict) and isinstance(capability.get("id"), str):
+            hosts = capability.get("hosts")
+            supported[capability["id"]] = set(hosts) if isinstance(hosts, list) else set()
+    for host, text in kernels.items():
+        for marker in sorted(set(CAP_MARKER_RE.findall(text))):
+            if marker not in supported:
+                errors.append(f"references/kernel.{host}.md: unknown capability marker [cap: {marker}]")
+            elif host not in supported[marker]:
+                errors.append(
+                    f"references/kernel.{host}.md: capability {marker} is not available on {host}; "
+                    "move that guidance into a host:if block"
+                )
+
+
+def _permission_command_strings(entries: list[list[str]]) -> list[str]:
+    return [" ".join(tokens) for tokens in entries]
+
+
+def _gitignore_path_patterns(markers: list[str]) -> list[str]:
+    """Protected path markers as gitignore-spec patterns.
+
+    Claude Code matches Read/Edit targets with the gitignore spec: `*` within a
+    path segment, `**` across segments, and a leading `/` anchors to the
+    session's working directory rather than the filesystem root.
+
+    A marker is a substring rather than a path, so each one is widened on both
+    sides; a trailing slash marks a directory, whose whole subtree is covered
+    instead. Markers that differ only by surrounding slashes collapse to one
+    pattern.
+    """
+    patterns: list[str] = []
+    for marker in markers:
+        trimmed = marker.strip("/")
+        pattern = f"**/{trimmed}/**" if marker.endswith("/") else f"**/*{marker}*"
+        if pattern not in patterns:
+            patterns.append(pattern)
+    return patterns
+
+
+def render_claude_code_permissions(data: dict) -> str:
+    """Claude Code settings.json permissions: deny > ask > allow, first match wins.
+
+    Deny entries also hide matching files from read/edit tools, which is why the
+    protected path markers are emitted as Read/Edit rules (docs/hosts.md).
+    """
+    deny = [f"Bash({command}:*)" for command in _permission_command_strings(data["deny_commands"])]
+    deny += [f"Read({pattern})" for pattern in _gitignore_path_patterns(data["protected_path_markers"])]
+    ask = [
+        f"Bash({command}:*)"
+        for command in _permission_command_strings(
+            data["ask_commands"] + data["dangerous_ask_commands"] + data["service_commands"]
+        )
+    ]
+    document = {
+        "$comment": "Generated from references/permissions.yaml by tooling/generate/registry_sync.py. Do not edit.",
+        "permissions": {"deny": deny, "ask": ask, "allow": []},
+    }
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_opencode_config(data: dict, servers: dict[str, dict]) -> str:
+    """OpenCode opencode.json: permission object plus MCP servers in one file.
+
+    Permission matching is LAST match wins, the reverse of Claude Code's, so
+    the broad default comes first and the strictest rules come last
+    (docs/hosts.md).
+    """
+    # Deliberately no catch-all `"*": "allow"` entry. Managed keys merge in
+    # after the user's, so under last-match-wins a catch-all would land behind
+    # any rule the user already wrote and silently downgrade their own denies.
+    bash: dict[str, str] = {}
+    for command in _permission_command_strings(
+        data["service_commands"] + data["dangerous_ask_commands"] + data["ask_commands"]
+    ):
+        bash[f"{command} *"] = "ask"
+        bash[command] = "ask"
+    for command in _permission_command_strings(data["deny_commands"]):
+        bash[f"{command} *"] = "deny"
+        bash[command] = "deny"
+    document = {
+        "$schema": "https://opencode.ai/config.json",
+        "permission": {"bash": bash, "edit": "allow", "webfetch": "ask"},
+        "mcp": render_opencode_mcp(servers),
+    }
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_antigravity_permissions(data: dict) -> str:
+    """Antigravity action(target) rules with Deny > Ask > Allow precedence.
+
+    Matching is literal prefix by default, so each command entry is the plain
+    command prefix rather than a glob (docs/hosts.md).
+
+    File targets are matched as *paths*, with recursive matching on
+    directories and no filename globbing. Only the markers that name a
+    directory can therefore be expressed here; an extension or substring
+    marker such as `.pem` would read as a path and match nothing, so emitting
+    it would be a deny rule that silently protects nothing. The resulting gap
+    is recorded in docs/hosts.md instead of being papered over.
+    """
+    deny = [f"command({command})" for command in _permission_command_strings(data["deny_commands"])]
+    directories: list[str] = []
+    for marker in data["protected_path_markers"]:
+        if not marker.endswith("/"):
+            continue
+        target = f"{marker.strip('/')}/"
+        if target not in directories:
+            directories.append(target)
+    deny += [f"read_file({target})" for target in directories]
+    ask = [
+        f"command({command})"
+        for command in _permission_command_strings(
+            data["ask_commands"] + data["dangerous_ask_commands"] + data["service_commands"]
+        )
+    ]
+    document = {
+        "$comment": "Generated from references/permissions.yaml by tooling/generate/registry_sync.py. Do not edit.",
+        "permissions": {"deny": deny, "ask": ask, "allow": []},
+    }
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
+HOST_PERMISSION_RENDERERS = {
+    "claude-code": ("settings.template.json", render_claude_code_permissions),
+    "antigravity": ("settings.template.json", render_antigravity_permissions),
+}
+
+PI_MCP_TEMPLATE_PATH = ADAPTERS_DIR / "pi" / "configs" / "mcp.user.template.json"
+
+
+def _managed_mcp_servers() -> dict[str, dict]:
+    """Transport-neutral view of the managed servers, read from the Pi template.
+
+    The Pi template stays the single hand-maintained server list; the other
+    hosts' templates are projections of it into their documented schemas
+    (docs/hosts.md). Pi-only keys (settings, lifecycle) are not projected.
+    """
+    template = json.loads(PI_MCP_TEMPLATE_PATH.read_text())
+    servers = template.get("mcpServers")
+    if not isinstance(servers, dict) or not servers:
+        raise SystemExit(f"{PI_MCP_TEMPLATE_PATH}: mcpServers must be a non-empty object")
+    normalized: dict[str, dict] = {}
+    for name, entry in servers.items():
+        if not isinstance(entry, dict):
+            raise SystemExit(f"{PI_MCP_TEMPLATE_PATH}: server {name} must be an object")
+        if "url" in entry:
+            normalized[name] = {"remote": True, "url": entry["url"], "headers": entry.get("headers", {})}
+        elif "command" in entry:
+            normalized[name] = {
+                "remote": False,
+                "command": entry["command"],
+                "args": entry.get("args", []),
+                "env": entry.get("env", {}),
+            }
+        else:
+            raise SystemExit(f"{PI_MCP_TEMPLATE_PATH}: server {name} declares neither url nor command")
+    return normalized
+
+
+def render_claude_code_mcp(servers: dict[str, dict]) -> str:
+    """Claude Code .mcp.json: key mcpServers, explicit http/stdio type."""
+    out: dict[str, dict] = {}
+    for name, entry in servers.items():
+        if entry["remote"]:
+            out[name] = {"type": "http", "url": entry["url"]}
+            if entry["headers"]:
+                out[name]["headers"] = entry["headers"]
+        else:
+            out[name] = {"type": "stdio", "command": entry["command"], "args": entry["args"]}
+            if entry["env"]:
+                out[name]["env"] = entry["env"]
+    return json.dumps({"mcpServers": out}, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_antigravity_mcp(servers: dict[str, dict]) -> str:
+    """Antigravity mcp_config.json: remote entries use serverUrl.
+
+    Legacy `url`/`httpUrl` fields are explicitly unsupported (docs/hosts.md),
+    so a remote server must be emitted as serverUrl or it silently fails.
+    """
+    out: dict[str, dict] = {}
+    for name, entry in servers.items():
+        if entry["remote"]:
+            out[name] = {"serverUrl": entry["url"]}
+            if entry["headers"]:
+                out[name]["headers"] = entry["headers"]
+        else:
+            out[name] = {"command": entry["command"], "args": entry["args"]}
+            if entry["env"]:
+                out[name]["env"] = entry["env"]
+    return json.dumps({"mcpServers": out}, indent=2, ensure_ascii=False) + "\n"
+
+
+def render_opencode_mcp(servers: dict[str, dict]) -> dict:
+    """OpenCode opencode.json "mcp": local servers take a single command array."""
+    out: dict[str, dict] = {}
+    for name, entry in servers.items():
+        if entry["remote"]:
+            out[name] = {"type": "remote", "url": entry["url"], "enabled": True}
+            if entry["headers"]:
+                out[name]["headers"] = entry["headers"]
+        else:
+            out[name] = {"type": "local", "command": [entry["command"], *entry["args"]], "enabled": True}
+            if entry["env"]:
+                out[name]["environment"] = entry["env"]
+    return out
+
+
+HOST_MCP_RENDERERS = {
+    "claude-code": ("mcp.template.json", render_claude_code_mcp),
+    "antigravity": ("mcp_config.template.json", render_antigravity_mcp),
+}
+
+
+def _toml_scalar(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return json.dumps(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_scalar(item) for item in value) + "]"
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def render_codex_config(data: dict, servers: dict[str, dict]) -> str:
+    """The managed block of Codex's ~/.codex/config.toml.
+
+    Codex has no per-pattern permission list: enforcement is `sandbox_mode`
+    plus `approval_policy` plus a Starlark execpolicy. docs/hosts.md records
+    the execpolicy *syntax* but not its discovery path, so this block sets only
+    the two confirmed keys and the MCP servers, and the accepted downgrade is
+    stated in the header rather than guessed at.
+    """
+    lines = [
+        "# Generated from references/permissions.yaml and the managed MCP server list",
+        "# by tooling/generate/registry_sync.py. Do not edit; edits are replaced.",
+        "#",
+        "# Codex enforces permissions through the OS sandbox and the approval policy",
+        "# rather than per-command patterns. The shared deny and ask lists in",
+        "# references/permissions.yaml therefore cannot be expressed here; the",
+        "# untrusted approval policy asks before every command Codex has not been",
+        "# told to trust, which is the accepted downgrade recorded in docs/hosts.md.",
+        "",
+        f"approval_policy = {_toml_scalar('untrusted')}",
+        f"sandbox_mode = {_toml_scalar('workspace-write')}",
+        "",
+        "[sandbox_workspace_write]",
+        f"network_access = {_toml_scalar(False)}",
+    ]
+    for name, entry in servers.items():
+        lines.append("")
+        lines.append(f"[mcp_servers.{name}]")
+        if entry["remote"]:
+            lines.append(f"url = {_toml_scalar(entry['url'])}")
+            if entry["headers"]:
+                lines.append(f"[mcp_servers.{name}.env]")
+                for key, value in entry["headers"].items():
+                    lines.append(f"{key} = {_toml_scalar(value)}")
+        else:
+            lines.append(f"command = {_toml_scalar(entry['command'])}")
+            lines.append(f"args = {_toml_scalar(entry['args'])}")
+            if entry["env"]:
+                lines.append(f"[mcp_servers.{name}.env]")
+                for key, value in entry["env"].items():
+                    lines.append(f"{key} = {_toml_scalar(value)}")
+    # Referenced so a future permission-data change forces this file to be
+    # regenerated and re-reviewed alongside the pattern-based hosts.
+    lines.append("")
+    lines.append(f"# permissions contract version: {data['schema_version']}")
+    return "\n".join(lines) + "\n"
 
 
 def _non_empty_string_list(value: object, label: str, errors: list[str]) -> None:
@@ -644,9 +983,33 @@ def render_outputs(skills: list[dict], capabilities: dict, permissions: dict) ->
     kernel = KERNEL_TEMPLATE_PATH.read_text()
     kernel = replace_block(kernel, KERNEL_ROUTING_START, KERNEL_ROUTING_END, render_routing(skills))
     policy = load_json_subset_yaml(MCP_OPERATIONS_PATH)
-    outputs[KERNEL_TEMPLATE_PATH] = replace_block(
-        kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy)
-    )
+    kernel = replace_block(kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy))
+    outputs[KERNEL_TEMPLATE_PATH] = kernel
+
+    # One installable kernel per adapter, with host-conditional guidance
+    # resolved. Adapters install these, never the shared template.
+    for host in adapter_hosts():
+        outputs[ROOT / "references" / f"kernel.{host}.md"] = render_host_kernel(
+            kernel, host, "references/kernel.template.md"
+        )
+
+    # Host-native permission and MCP config rendered from the shared sources.
+    servers = _managed_mcp_servers()
+    for host, (filename, renderer) in HOST_PERMISSION_RENDERERS.items():
+        if (ADAPTERS_DIR / host / "manifest.yaml").exists():
+            outputs[ADAPTERS_DIR / host / "configs" / filename] = renderer(permissions)
+    for host, (filename, renderer) in HOST_MCP_RENDERERS.items():
+        if (ADAPTERS_DIR / host / "manifest.yaml").exists():
+            outputs[ADAPTERS_DIR / host / "configs" / filename] = renderer(servers)
+    # OpenCode carries permissions and MCP in one configuration file.
+    if (ADAPTERS_DIR / "opencode" / "manifest.yaml").exists():
+        outputs[ADAPTERS_DIR / "opencode" / "configs" / "opencode.template.json"] = render_opencode_config(
+            permissions, servers
+        )
+    # Codex is TOML and is delivered as one managed block, not a merged tree.
+    if (ADAPTERS_DIR / "codex" / "manifest.yaml").exists():
+        outputs[ADAPTERS_DIR / "codex" / "configs" / "config.template.toml"] = render_codex_config(permissions, servers)
+
     extension = ROOT / "adapters" / "pi" / "extensions" / "b-agentic-support" / "mcp.ts"
     runtime_policy = re.sub(r"^const ", "export const ", render_mcp_runtime_policy(policy), flags=re.MULTILINE)
     outputs[extension] = replace_block(
@@ -703,6 +1066,33 @@ def validate_capability_regressions(contract: dict) -> list[str]:
     return errors
 
 
+def validate_host_kernel_regressions(capabilities: dict) -> list[str]:
+    """A Pi-only capability marker outside a host:if block must be rejected.
+
+    This is the check that keeps a non-Pi host from being instructed to call a
+    tool it does not have.
+    """
+    errors: list[str] = []
+    template = KERNEL_TEMPLATE_PATH.read_text()
+    leaked = template.replace("9. Quality means", "9. Use todo [cap: package.pi-todo] everywhere. Quality means", 1)
+    if leaked == template:
+        return ["host kernel regression: could not construct the leaked-marker fixture"]
+    rendered = {host: render_host_kernel(leaked, host, "<fixture>") for host in adapter_hosts()}
+    detected: list[str] = []
+    validate_host_kernels(rendered, capabilities, detected)
+    if not any("package.pi-todo is not available on claude-code" in error for error in detected):
+        errors.append("host kernel regression: an unsupported capability marker must be rejected")
+
+    unterminated = template + "\n<!-- host:if pi -->\nunterminated\n"
+    try:
+        render_host_kernel(unterminated, "pi", "<fixture>")
+    except SystemExit:
+        pass
+    else:
+        errors.append("host kernel regression: an unterminated host:if block must be rejected")
+    return errors
+
+
 def validate_permission_regressions(data: dict) -> list[str]:
     errors: list[str] = []
     missing_set = json.loads(json.dumps(data))
@@ -732,8 +1122,17 @@ def sync_outputs(check: bool) -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
+    rendered = render_outputs(skills, capabilities, permissions)
+    validate_host_kernels(
+        {host: rendered[ROOT / "references" / f"kernel.{host}.md"] for host in adapter_hosts()},
+        capabilities,
+        errors,
+    )
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        return 1
     dirty: list[str] = []
-    for path, content in render_outputs(skills, capabilities, permissions).items():
+    for path, content in rendered.items():
         if path.exists() and path.read_text() == content:
             continue
         dirty.append(str(path.relative_to(ROOT)))
@@ -756,6 +1155,7 @@ def main() -> int:
     if args.self_test:
         errors = validate_capability_regressions(load_capabilities())
         errors.extend(validate_permission_regressions(load_permissions()))
+        errors.extend(validate_host_kernel_regressions(load_capabilities()))
         if errors:
             print("\n".join(errors), file=sys.stderr)
             return 1

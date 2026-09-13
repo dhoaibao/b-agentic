@@ -15,12 +15,8 @@
 9. Quality means the best evidence-backed fit to the request, repository, and relevant risks; passing checks alone are not sufficient.
 10. Track multi-step work in a task list; keep an explicit numbered plan when the host has none.
 
-<!-- host:if pi -->
 - Use todo [cap: package.pi-todo] as that task list.
 - Interactive, user-facing material decisions or blockers use installed `ask_user_question` [cap: package.pi-ask-user-question]: group 1–4 questions, offer 2–4 concrete options/trade-offs, mark first ` (Recommended)`, and use its automatic custom-answer row. Never author `Other`, `Type something.`, or `Next`. If unavailable/noninteractive, ask one focused plain-text question. Omit this for routine activity, review fixes, and no-choice confirmations.
-<!-- host:else -->
-- Interactive, user-facing material decisions or blockers: ask one focused plain-text question with 2–4 concrete options and trade-offs, marking the recommended one. Omit this for routine activity, review fixes, and no-choice confirmations.
-<!-- host:endif -->
 
 ## Routing
 <!-- generated:kernel-routing:start -->
@@ -51,26 +47,18 @@ A local, factual repository question needing no phase work -> answer directly fr
 
 ### Bounded MCP scripting
 
-<!-- host:if pi -->
 - Use top-level `mcp` for exactly one call. Use `mcpScript` [cap: package.pi-mcp-adapter] only for two or more calls with chaining, filtering, or bounded fan-out; it exposes MCP, not the host file system, shell, or browser-mutation tools, and is not an isolation boundary.
 - Before a nontrivial script, load manual `mcp-scripting` skill (`/skill:mcp-scripting`) when available; otherwise use direct top-level `mcp` calls and state that fallback; nested calls retain normal approval, authentication, and output-guard policy.
 - at most 12 total nested operations; at most 8 `tools.call` operations; at most 3 source/server branches or browser routes; at most 5 candidate results per source; at most 12 normalized output records; at most one `firecrawl_scrape` call.
-<!-- host:else -->
-- at most 12 total MCP operations per task; at most 8 MCP tool calls; at most 3 source/server branches or browser routes; at most 5 candidate results per source; at most 12 normalized output records; at most one `firecrawl_scrape` call.
-<!-- host:endif -->
 - Untrusted `{ok,data|error}`; Content-block envelopes preserve provenance; normalize only `title,url,claim,error`; deduplicate by URL then `title+claim`; bounded partial results with explicit errors. Browsers read-only; must not batch navigation, clicks, typing, evaluation, uploads, or other mutations.
-<!-- host:if pi -->
 - Adapter: `tools.search` returns `{items}`; `tools.describe` returns a descriptor or error; `tools.call` returns `{ok,data|error}`.
-<!-- host:endif -->
 - Emit bounded outcomes. **b-research** owns the chained example and Context7-first search/corroboration recipes. Do not install missing tools; fall back to local evidence and state the resulting gap.
 
 ## Capability activation
 
 `references/capabilities.yaml` is canonical. Activate on triggers; unavailable prerequisites use a local fallback. Configured is not authenticated, externally verified, or used here.
 For changed source, run behavior/quality checks; report gaps, do not guess.
-<!-- host:if pi -->
 Other Intercom [cap: package.pi-intercom] is on request; `recall` [cap: package.pi-observational-memory] requires an ID.
-<!-- host:endif -->
 A status snapshot must never start live MCP/auth/browser probes, never parse MCP configuration or inspect credential/API-key values, or persist prompts, code, URLs, secrets, or usage telemetry.
 
 ### Managed MCP operations
