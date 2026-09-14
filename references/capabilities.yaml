@@ -306,9 +306,9 @@
     {
       "id": "extension.b-agentic-role",
       "kind": "extension",
-      "purpose": "Select and persist explicit roles while preserving single-writer arbitration for same-CWD sessions.",
+      "purpose": "Select and persist explicit roles directly, independently of same-CWD peers or Intercom availability.",
       "owner": "b-agentic role extension",
-      "trigger": "Use when the user selects /b-role or a startup role flag is active; default behavior is Off.",
+      "trigger": "Use when the user selects /b-role, a session or pane role is restored, or a startup role flag is active; default behavior is Off.",
       "prerequisites": ["Installed Pi extension entrypoint", "Explicit role selection"],
       "readiness": "The managed entrypoint exists; the current role is reported separately by Pi.",
       "fallback": "Remain in Off/solo mode and do not infer legacy planner/worker activation.",

@@ -28,20 +28,20 @@
       "avoid": ["Relay the question", "Ask architect to edit"]
     },
     {
-      "id": "compatible-peer-writer-claim",
+      "id": "executor-direct-selection",
       "role": "executor",
       "skill": "b-implement",
-      "observed_failure": "An unknown, mixed-version, or duplicate same-CWD peer allowed a writer claim.",
-      "intended_behavior": "Only compatible versioned peer payloads permit the single executor claim; mixed peers fail closed.",
-      "prompt": "A same-CWD peer announces an old planner/worker payload while you selected executor. Explain whether you claim writer status.",
+      "observed_failure": "Selecting executor waited for same-CWD peer discovery or left the session Off when the role channel was unavailable.",
+      "intended_behavior": "An explicit executor selection is active immediately, independently of same-CWD peers, role payload compatibility, or Intercom availability.",
+      "prompt": "Explain what happens immediately after /b-role executor, including when peer discovery or Intercom is unavailable.",
       "must": [
-        "Fail closed",
-        "Do not claim writer status",
-        "Require compatible versioned peer payloads"
+        "Activate executor immediately",
+        "Do not depend on peer discovery",
+        "Do not depend on Intercom availability"
       ],
       "avoid": [
-        "Assume legacy payload compatibility",
-        "Activate a second writer"
+        "Remain Off pending a claim",
+        "Require compatible peer payloads"
       ]
     },
     {
@@ -90,23 +90,6 @@
         "Wait for another user prompt",
         "Invent or provision an architect",
         "Claim review readiness without an architect"
-      ]
-    },
-    {
-      "id": "active-role-addresses-unlabeled-peer",
-      "role": "executor",
-      "skill": "b-implement",
-      "observed_failure": "An active executor treated the missing peer-role label in intercom list-cwd as a coordination failure.",
-      "intended_behavior": "An active executor trusts b-role's completed compatible-peer arbitration; list-cwd supplies the sole peer address but does not expose peer roles.",
-      "prompt": "The active executor role is shown, required checks pass, and intercom list-cwd reports exactly one same-CWD peer without a role field. State whether you send the review handoff and why.",
-      "must": [
-        "Send the compact frozen-candidate b-review handoff to the sole peer",
-        "Treat active executor status as evidence that b-role completed compatible-peer arbitration",
-        "Use list-cwd only to address the peer"
-      ],
-      "avoid": [
-        "Treat the absent list-cwd role label as a coordination gap",
-        "Infer or invent a peer role from the list output"
       ]
     },
     {

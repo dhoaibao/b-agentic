@@ -1249,7 +1249,7 @@ if _forbidden_codegraph_gates(
     errors.append("CodeGraph gate regression self-test rejected corrected guidance")
 
 for intercom_marker in [
-    "b-agentic defaults to Off", "select roles with `/b-role` or `pi --b-role`", "Executor is the sole user-facing worktree writer", "independent prompt-governed read-only gate", "compatible same-CWD peers",
+    "b-agentic defaults to Off", "select roles with `/b-role` or `pi --b-role`", "Executor is the sole user-facing worktree writer", "independent prompt-governed read-only gate", "active immediately and does not depend on same-CWD peers, role payloads, or Intercom availability",
     "Before any new thread, a fresh `list-cwd` with the absolute project `cwd` must show exactly one other peer",
     "When no inbound Executor `ask` exists, after a user-approved `b-plan` the Architect uses one proactive `send` with that `cwd` and omits `to`",
     "After completing implementation and required checks in explicit executor role, the Executor uses exactly one blocking `ask` with the absolute project `cwd`, omits `to`",

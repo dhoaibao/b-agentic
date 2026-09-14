@@ -76,9 +76,9 @@ legacy model preferences map to the corresponding v3 role only.
 
 ### Coordination
 
-- Compatible same-CWD peer payloads use protocol v3; unknown, v1, v2, or mixed
-  payloads fail closed and never grant an Executor writer claim. Roles preserve normal
-  Pi tools and shared approval policy.
+- Explicit executor selection, restored pane/session roles, and startup flags activate
+  immediately without same-CWD peer discovery, role-payload compatibility, or Intercom
+  availability. Roles preserve normal Pi tools and shared approval policy.
 - The Architect resolves material planning decisions directly with the user. Before
   initiating any new thread, it runs a fresh `list-cwd` with the absolute project
   `cwd` and requires exactly one other peer; zero/multiple peers, missing Intercom,

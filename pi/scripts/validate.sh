@@ -207,7 +207,7 @@ if extension.exists():
         'stop edits', 'exact unchanged snapshot',
         'independent b-review',
         'structured disposition and findings', 'every disposition', 'same-CWD peer',
-        'ROLE_PROTOCOL_VERSION', 'isCompatibleRolePayload', 'createCandidateSnapshot',
+        'ROLE_PROTOCOL_VERSION', 'latestRoleState', 'createCandidateSnapshot',
         'isDirectClassifiedManagedTool', 'CODEGRAPH_TRUSTED_TOOLS', 'mcpScript',
         'roles never filter tools'
     ]:

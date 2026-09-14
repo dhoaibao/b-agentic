@@ -215,7 +215,6 @@ const terminalTitles = [];
 const sentMessages = [];
 const sentUserMessages = [];
 let mcpApprovalHandler;
-let roleChannelRegistration;
 const executedCommands = [];
 const extensionHost = {
   on(eventName, handler) {
@@ -256,9 +255,7 @@ const extensionHost = {
       if (channel === 'pi-mcp-adapter:tool-approval-request') mcpApprovalHandler = handler;
       return () => {};
     },
-    emit(channel, value) {
-      if (channel === 'intercom:extension-register') roleChannelRegistration = value;
-    },
+    emit() {},
   },
 };
 for (const extension of extensionModules) extension.default(extensionHost);
@@ -679,34 +676,10 @@ branchEntries.push({ type: 'custom', customType: 'b-agentic-role', data: { role:
 await roleSessionStartHandler({}, roleContext);
 expect(roleStatuses.at(-1)?.value === undefined && roleTest.parseRole('planner') === undefined, 'legacy planner state must remain inactive until explicit reselection');
 expect(!roleNotifications.some((entry) => entry.message.includes('owned skills')), 'inactive or legacy startup must not emit an ownership line');
-expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 1, role: 'worker' }) === false, 'legacy v1 peer payloads must fail closed');
-expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 2, role: 'implementer' }) === false, 'legacy v2 implementer/reviewer peer payloads must fail closed');
-expect(roleTest.isCompatibleRolePayload({ type: 'b-agentic-role', version: 3, role: 'architect' }) === true, 'versioned Architect payloads must be compatible');
 expect(plannerTest.skillOwner('b-plan') === 'architect' && plannerTest.skillOwner('b-research') === 'architect' && plannerTest.skillOwner('b-design') === 'executor' && plannerTest.skillOwner('b-diagram') === 'executor', 'Architect owns only read-only planning and research while artifact-writing design and diagram work stay with the Executor');
 const EXECUTOR_OWNERSHIP = 'Executor-owned skills: b-design, b-frontend, b-diagram, b-implement, b-init, b-refactor, b-test, b-browser, b-commit, b-pr-summary';
 const ARCHITECT_OWNERSHIP = 'Architect-owned skills: b-plan, b-research, b-debug, b-agentic-audit, b-review';
 expect(roleTest.ownershipLine('executor') === EXECUTOR_OWNERSHIP && roleTest.ownershipLine('architect') === ARCHITECT_OWNERSHIP && roleTest.ownershipLine('off') === undefined, 'ownership lines must render the generated registry lists exactly and omit Off');
-const selfPeer = { id: 'self', cwd: root, pid: process.pid, startedAt: 1 };
-const unknownPeer = { id: 'unknown', cwd: root, pid: 202, startedAt: 2 };
-const architectPeer = { id: 'architect', cwd: root, pid: 203, startedAt: 3 };
-const offPeer = { id: 'off', cwd: root, pid: 204, startedAt: 4 };
-const executorPeer = { id: 'executor', cwd: root, pid: 205, startedAt: 5 };
-const architectRoles = new Map([['architect', 'architect']]);
-const offRoles = new Map([['off', 'off']]);
-const executorRoles = new Map([['executor', 'executor']]);
-expect(roleTest.canClaimExecutor([selfPeer], root, process.pid) === true, 'zero same-CWD peers permit an executor claim');
-expect(roleTest.canClaimExecutor([selfPeer, architectPeer], root, process.pid, architectRoles) === true, 'a sole confirmed protocol-v3 Architect permits an executor claim');
-expect(roleTest.canClaimExecutor([selfPeer, unknownPeer], root, process.pid) === false, 'an unknown sole peer blocks an executor claim');
-expect(roleTest.canClaimExecutor([selfPeer, offPeer], root, process.pid, offRoles) === false, 'a sole Off peer blocks an executor claim');
-expect(roleTest.canClaimExecutor([selfPeer, executorPeer], root, process.pid, executorRoles) === false, 'a sole Executor peer blocks an executor claim');
-expect(roleTest.canClaimExecutor([selfPeer, unknownPeer], root, process.pid) === false, 'a legacy or incompatible sole peer without a confirmed role blocks an executor claim');
-expect(roleTest.canClaimExecutor([selfPeer, architectPeer, unknownPeer], root, process.pid, architectRoles) === false && roleTest.canClaimExecutor([selfPeer, architectPeer, offPeer], root, process.pid, new Map([['architect', 'architect'], ['off', 'off']])) === false, 'multiple or mixed same-CWD peers block an executor claim');
-const publishedRoles = [];
-const peerSessions = [selfPeer, architectPeer];
-roleChannelRegistration.onReady({ publish(payload) { publishedRoles.push(payload); }, listSessions: async () => peerSessions });
-await roleChannelRegistration.onEvent({ type: 'connection', connected: true, supported: true });
-await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
-expect(publishedRoles.some((payload) => payload.type === 'b-agentic-role' && payload.version === 3 && payload.role === 'off'), 'role channel must publish versioned Off state');
 await commands['b-role'].handler('architect', roleContext);
 expect(roleStatuses.at(-1)?.value === '<success>b-agentic: architect</success>' && activeTools.includes('edit') && activeTools.includes('write'), 'architect selection preserves tools and applies only prompt guidance');
 expect(roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role set to architect. ${ARCHITECT_OWNERSHIP}`, 'architect selection must append the exact canonical Architect-owned skills list');
@@ -733,7 +706,7 @@ const offStart = await handlers.before_agent_start({ systemPrompt: 'base', syste
 expect(offStart === undefined, 'Off role must not inject executor or architect coordination guidance');
 expect(roleNotifications.at(-1)?.message === 'b-agentic role set to off', 'an explicit Off selection must not append an ownership line');
 await commands['b-role'].handler('executor', roleContext);
-expect(roleStatuses.at(-1)?.value.includes('executor') && activeTools.includes('edit') && activeTools.includes('write'), 'an executor request with one confirmed Architect may claim the sole writer role without filtering tools');
+expect(roleStatuses.at(-1)?.value.includes('executor') && activeTools.includes('edit') && activeTools.includes('write'), 'an executor selection must activate immediately without filtering tools');
 expect(roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role set to executor. ${EXECUTOR_OWNERSHIP}`, 'a claimed executor selection must append the exact canonical Executor-owned skills list');
 const executorStart = await handlers.before_agent_start({ systemPrompt: 'base', systemPromptOptions: { skills: [] } }, roleContext);
 expect(executorStart.systemPrompt.includes('sole user-facing writer') && executorStart.systemPrompt.includes('user-approved plan handoff') && executorStart.systemPrompt.includes('route to the Architect') && executorStart.systemPrompt.includes('diagnosis handoff') && executorStart.systemPrompt.includes('compact frozen-candidate handoff') && executorStart.systemPrompt.includes('independent b-review') && executorStart.systemPrompt.includes('same-CWD peer') && executorStart.systemPrompt.includes('B_AGENTIC_TASK_COMPLETE') && executorStart.systemPrompt.includes('Do not edit while review is pending'), 'Executor profile must route diagnosis to the Architect, receive required handoffs, require the automatic same-CWD candidate gate, and emit the post-review completion signal');
@@ -758,63 +731,9 @@ for (const marker of [
   "zero/multiple peers",
 // generated:role-prompt-markers:executor:end
 ]) expect(executorStart.systemPrompt.includes(marker), `executor prompt must retain ${marker}`);
-await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'off' } });
-expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off when its sole peer becomes Off');
-await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
-expect(roleStatuses.at(-1)?.value === undefined, 'an Off executor must not regain its claim merely because a peer becomes Architect');
-await commands['b-role'].handler('executor', roleContext);
-expect(roleStatuses.at(-1)?.value.includes('executor'), 'an explicit executor request may reclaim with a confirmed Architect peer');
-await roleChannelRegistration.onEvent({ type: 'connection', connected: false, supported: false });
-expect(roleStatuses.at(-1)?.value === undefined, 'a disconnected role channel must force an active executor Off');
-await roleChannelRegistration.onEvent({ type: 'connection', connected: true, supported: true });
-expect(roleStatuses.at(-1)?.value === undefined, 'reconnection must not reuse a stale Architect authorization');
-await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
-expect(roleStatuses.at(-1)?.value.includes('executor'), 'reconnection may reclaim only after a fresh compatible Architect payload');
-peerSessions.push(unknownPeer);
-await roleChannelRegistration.onEvent({ type: 'session_joined' });
-expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off immediately when an unknown peer joins');
-let pendingOwnershipStart = roleNotifications.length;
-await commands['b-role'].handler('executor', roleContext);
-expect(roleStatuses.at(-1)?.value === undefined, 'a pending executor claim must remain Off while same-CWD peers are mixed or unknown');
-expect(roleNotifications.length === pendingOwnershipStart, 'a pending executor request must remain silent without implying activation');
-peerSessions.pop();
-await roleChannelRegistration.onEvent({ type: 'session_left', sessionId: unknownPeer.id });
-expect(roleStatuses.at(-1)?.value.includes('executor'), 'a pending executor claim may resolve after the unknown peer leaves');
 await commands['b-role'].handler('off', roleContext);
-let releaseRaceList;
-let markRaceListStarted;
-const raceListStarted = new Promise((resolve) => { markRaceListStarted = resolve; });
-let firstRaceList = true;
-roleChannelRegistration.onReady({
-  publish(payload) { publishedRoles.push(payload); },
-  listSessions: async () => {
-    if (firstRaceList) {
-      firstRaceList = false;
-      const eligibleSnapshot = [...peerSessions];
-      const deferredRaceList = new Promise((resolve) => { releaseRaceList = resolve; });
-      markRaceListStarted();
-      await deferredRaceList;
-      return eligibleSnapshot;
-    }
-    return [...peerSessions];
-  },
-});
-const raceClaim = commands['b-role'].handler('executor', roleContext);
-await raceListStarted;
-peerSessions.push(unknownPeer);
-const raceJoin = roleChannelRegistration.onEvent({ type: 'session_joined' });
-await raceJoin;
-releaseRaceList();
-await raceClaim;
-expect(roleStatuses.at(-1)?.value === undefined, 'a stale eligible session snapshot must not grant Executor after an unknown peer joins');
-peerSessions.pop();
-await roleChannelRegistration.onEvent({ type: 'session_left', sessionId: unknownPeer.id });
-expect(roleStatuses.at(-1)?.value.includes('executor'), 'the deferred race claim may resolve only after the unknown peer leaves');
-await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 2, role: 'implementer' } });
-expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off when its peer becomes legacy or incompatible');
-await roleChannelRegistration.onEvent({ type: 'message', fromSessionId: 'architect', payload: { type: 'b-agentic-role', version: 3, role: 'architect' } });
 await commands['b-role'].handler('executor', roleContext);
-expect(roleStatuses.at(-1)?.value.includes('executor'), 'an explicit executor request may reclaim after incompatible peer state is corrected');
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'an executor selection must stay active without peer discovery or a role channel');
 await handlers.model_select({ model: { provider: 'anthropic', id: 'claude-sonnet-4-5' } }, roleContext);
 const roleModelPreferences = JSON.parse(readFileSync(path.join(process.env.PI_CODING_AGENT_DIR, 'b-agentic', 'role-models.json'), 'utf8'));
 expect(roleModelPreferences.executor.model === 'claude-sonnet-4-5' && !('planner' in roleModelPreferences), 'new model preferences persist by selected role only');
@@ -849,16 +768,9 @@ expect(candidateTest.evaluateCandidateGate(failed, failed, 'architect-1', 'archi
 flags['b-role'] = 'executor';
 let flagOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, roleContext);
-expect(roleNotifications.length === flagOwnershipStart, 'a startup executor flag must remain silent while its claim is pending');
-const startupFlagRoles = [];
-roleChannelRegistration.onReady({
-  publish(payload) { startupFlagRoles.push(payload); },
-  listSessions: async () => [{ id: 'self', cwd: root, pid: process.pid, startedAt: 1 }],
-});
-await new Promise((resolve) => setImmediate(resolve));
 delete flags['b-role'];
-expect(roleStatuses.at(-1)?.value.includes('executor') && startupFlagRoles.some((payload) => payload.type === 'b-agentic-role-request'), 'a sole startup executor flag claims after channel readiness without a later connection event');
-expect(roleNotifications.length === flagOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role: executor. ${EXECUTOR_OWNERSHIP}`, 'a startup executor flag must emit the canonical ownership line exactly once after the claim wins');
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'a startup executor flag must activate immediately without channel readiness');
+expect(roleNotifications.length === flagOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role: executor. ${EXECUTOR_OWNERSHIP}`, 'a startup executor flag must emit the canonical ownership line exactly once');
 const notificationCommandStart = executedCommands.length;
 const notificationContextEnv = plannerNotifyTest.NOTIFICATION_CONTEXT_ENV;
 const previousNotificationContext = process.env[notificationContextEnv];
@@ -944,23 +856,8 @@ await handlers.agent_end({ messages: [] });
 await handlers.ui_prompt_start({ type: 'ui_prompt_start', reason: 'ui_prompt', kind: 'confirm' }, roleContext);
 expect(executedCommands.length === promptNotificationStart + 2, 'ui_prompt_start after agent_end must produce zero notifications');
 await handlers.ui_prompt_end({ type: 'ui_prompt_end', reason: 'ui_prompt', kind: 'confirm' }, roleContext);
-roleChannelRegistration.onReady({
-  publish() {},
-  listSessions: async () => [
-    { id: 'z-self', cwd: root, pid: process.pid, startedAt: 1 },
-    { id: 'a-peer', cwd: root, pid: 202, startedAt: 2 },
-  ],
-});
-await roleChannelRegistration.onEvent({
-  type: 'message',
-  fromSessionId: 'a-peer',
-  payload: { type: 'b-agentic-role', version: 3, role: 'executor' },
-});
-expect(roleStatuses.at(-1)?.value === undefined && roleNotifications.at(-1)?.message.includes('claim won'), 'simultaneous compatible executor claims deterministically leave the losing session Off');
 await commands['b-role'].handler('off', roleContext);
 const newSessionContext = { ...roleContext, sessionManager: { getBranch: () => [] } };
-const soloChannel = { publish() {}, listSessions: async () => [{ id: 'self', cwd: root, pid: process.pid, startedAt: 1 }] };
-const settle = () => new Promise((resolve) => setImmediate(resolve));
 const previousTmuxPane = process.env.TMUX_PANE;
 const previousTmux = process.env.TMUX;
 delete process.env.TMUX;
@@ -996,19 +893,15 @@ expect(roleTest.loadPaneRole(root, 'pane-a', contentionDir) === 'executor' && ro
 rmSync(contentionDir, { recursive: true, force: true });
 const executorPane = usePane('%executor-pane');
 await commands['b-role'].handler('executor', roleContext);
-expect(readPaneRole(executorPane) === 'executor', 'an explicit executor request must persist for its pane while the claim is pending');
+expect(readPaneRole(executorPane) === 'executor', 'an explicit executor selection must persist for its pane');
 const architectPane = usePane('%architect-pane');
 await commands['b-role'].handler('architect', roleContext);
 expect(readPaneRole(architectPane) === 'architect' && readPaneRole(executorPane) === 'executor', "a later pane selection must not overwrite another pane's role");
 usePane('%executor-pane');
 let paneExecutorOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
-expect(roleStatuses.at(-1)?.value === undefined, 'a restored executor must wait for same-CWD claim arbitration');
-expect(roleNotifications.length === paneExecutorOwnershipStart, 'a pane-restored executor must remain silent while its claim is pending');
-roleChannelRegistration.onReady(soloChannel);
-await settle();
 expect(roleStatuses.at(-1)?.value.includes('executor'), "a later session in the executor pane must restore executor, not another pane's architect selection");
-expect(roleNotifications.length === paneExecutorOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role: executor. ${EXECUTOR_OWNERSHIP}`, 'a pane-restored executor must emit the canonical ownership line exactly once after the claim wins');
+expect(roleNotifications.length === paneExecutorOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role: executor. ${EXECUTOR_OWNERSHIP}`, 'a pane-restored executor must emit the canonical ownership line exactly once');
 usePane('%architect-pane');
 let paneArchitectOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
@@ -1062,7 +955,7 @@ expect(roleNotifications.length === explicitOffOwnershipStart, 'an explicitly Of
 usePane('%executor-pane');
 let reloadOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({ reason: 'reload' }, newSessionContext);
-expect(roleStatuses.at(-1)?.value === undefined, 'a reload of a recorded executor pane must still wait for claim arbitration');
+expect(roleStatuses.at(-1)?.value.includes('executor'), 'a reload of a recorded executor pane must retain the directly selected executor role');
 expect(roleNotifications.length === reloadOwnershipStart, 'a reload must not repeat the ownership line');
 if (previousTmuxPane === undefined) delete process.env.TMUX_PANE;
 else process.env.TMUX_PANE = previousTmuxPane;

@@ -10,7 +10,7 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
-- Keep pending Executor claims silent until same-CWD arbitration succeeds, then emit the canonical ownership line once.
+- Activate explicitly selected, restored, and startup-flag Executor roles directly without same-CWD peer arbitration, role-payload compatibility, or Intercom availability, while retaining durable role state and coordination handoff safeguards.
 
 ## [v2026.09.10] - 2026-09-10
 

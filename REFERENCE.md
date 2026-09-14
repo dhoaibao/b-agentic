@@ -301,14 +301,13 @@ terminal pane and project, kept as an independent record under
 `~/.pi/agent/b-agentic/roles/`. A pane with no recorded selection starts Off, so
 an Executor pane and an Architect pane in one project never adopt each other's
 role. A session's own recorded role wins over both, and `pi --b-role` remains a
-one-session override that does not rewrite the stored selection. A restored
-executor still passes through same-CWD claim arbitration and stays Off when a
-peer already holds the writer role. Selecting or restoring a non-Off role emits
-one concise ownership line — `Executor-owned skills: …` or
+one-session override that does not rewrite the stored selection. Selecting or
+restoring executor activates it immediately, regardless of same-CWD peers, role
+payload compatibility, or Intercom availability. Selecting or restoring a
+non-Off role emits one concise ownership line — `Executor-owned skills: …` or
 `Architect-owned skills: …` — rendered from the generated registry ownership map
 that also builds the role prompts; Off selections, unrecorded panes, legacy
-inactive state, and extension reloads emit none, and an executor request emits
-the ownership line only once the same-CWD claim wins. The executor is the sole
+inactive state, and extension reloads emit none. The executor is the sole
 user-facing Executor and owns design, build, validation, commit, and PR summary.
 The architect is the read-only Architect and owns `b-plan`, `b-research`,
 `b-debug`, independent `b-review`, and `b-agentic-audit`. Roles govern prompts
@@ -316,12 +315,11 @@ rather than filtering tools; shared shell, filesystem, MCP, and approval policy
 remains authoritative.
 
 Legacy v1 planner/worker and v2 implementer/reviewer session entries remain
-inactive until the user explicitly reselects a new role. Model/thinking preferences
-map legacy values by role only (implementer and worker to executor; reviewer and
-planner to architect); that compatibility never activates a role. Peer role payloads
-use protocol v3; unknown, v1, v2, legacy, or mixed same-CWD peers fail closed: an
-Executor does not claim writer status. The runtime
-does not provision, reset, or promise fresh architect sessions.
+inactive until the user explicitly reselects a new role. Durable session and pane
+records use version 3. Model/thinking preferences map legacy values by role only
+(implementer and worker to executor; reviewer and planner to architect); that
+compatibility never activates a role. The runtime does not provision, reset, or
+promise fresh architect sessions.
 
 The Architect directly asks material planning questions with `ask_user_question`.
 Before initiating any new thread, it obtains a fresh `list-cwd` using the absolute
