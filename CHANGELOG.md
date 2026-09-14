@@ -11,6 +11,7 @@ section per date and same-day changes aggregated in that section.
 ### Changed
 
 - Activate explicitly selected, restored, and startup-flag Executor roles directly without same-CWD peer arbitration, role-payload compatibility, or Intercom availability, while retaining durable role state and coordination handoff safeguards.
+- Require independent Architect review before an Executor reports completion for any task that leaves tracked or relevant untracked/derived candidate content, while leaving no-change outputs outside changed-code review.
 
 ## [v2026.09.10] - 2026-09-10
 

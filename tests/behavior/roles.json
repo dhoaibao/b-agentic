@@ -73,23 +73,43 @@
       "avoid": ["Continue editing", "Hand off a full transcript"]
     },
     {
-      "id": "executor-automatically-requests-review",
+      "id": "executor-changed-candidate-review-is-mandatory",
       "role": "executor",
       "skill": "b-implement",
-      "observed_failure": "A completed implementation in the explicit executor role waited for another user prompt instead of requesting its independent review.",
-      "intended_behavior": "After required checks pass in the explicit executor role, the executor automatically sends a compact frozen-candidate handoff through intercom to one compatible same-CWD architect and stops edits; missing coordination is reported as a gap.",
-      "prompt": "The explicit executor role is active, the implementation is complete, and required checks pass. Explain the next action, including the intercom message and what happens if no architect session is available in the same CWD.",
+      "observed_failure": "A completed Executor-owned task with a changed worktree candidate sent a final result without requesting independent review.",
+      "intended_behavior": "After required checks pass in the explicit executor role, every task that leaves tracked or relevant untracked/derived candidate content freezes that candidate, sends one compact b-review handoff through Intercom to the sole same-CWD peer, and stops edits; missing coordination is reported as a gap instead of a normal final result.",
+      "prompt": "The explicit executor role is active. A completed Executor-owned task leaves both a tracked source change and a relevant generated untracked file; required checks pass. Explain the mandatory next action, including how you freeze and hand off the candidate and what happens if no sole same-CWD architect can be addressed.",
       "must": [
-        "Automatically request b-review",
-        "Use intercom to contact the architect session in the same CWD",
+        "Automatically request b-review before any final result",
+        "Freeze tracked and relevant untracked/derived candidate content after required checks",
+        "Use exactly one blocking Intercom ask to the sole same-CWD peer",
         "Send a compact frozen-candidate handoff",
         "Stop edits while review is pending",
-        "Report a coordination gap when no peer is available"
+        "Report a coordination gap rather than a normal final result"
       ],
       "avoid": [
         "Wait for another user prompt",
+        "Send an unthreaded review handoff",
         "Invent or provision an architect",
         "Claim review readiness without an architect"
+      ]
+    },
+    {
+      "id": "executor-no-change-output-skips-review",
+      "role": "executor",
+      "skill": "b-pr-summary",
+      "observed_failure": "An Executor routed a no-change output through changed-code review.",
+      "intended_behavior": "An explicit Executor does not request b-review when the completed task leaves no tracked or relevant untracked/derived worktree candidate, including PR prose.",
+      "prompt": "The explicit executor role is active. You finish PR prose without changing tracked files or adding relevant untracked or derived content. State whether you request b-review before responding and why.",
+      "must": [
+        "Do not request b-review",
+        "No changed worktree candidate",
+        "Return the PR prose without changed-code review"
+      ],
+      "avoid": [
+        "Freeze a candidate",
+        "Send an Intercom ask",
+        "Require an architect"
       ]
     },
     {

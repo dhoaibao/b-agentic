@@ -1249,10 +1249,10 @@ if _forbidden_codegraph_gates(
     errors.append("CodeGraph gate regression self-test rejected corrected guidance")
 
 for intercom_marker in [
-    "b-agentic defaults to Off", "select roles with `/b-role` or `pi --b-role`", "Executor is the sole user-facing worktree writer", "independent prompt-governed read-only gate", "active immediately and does not depend on same-CWD peers, role payloads, or Intercom availability",
+    "b-agentic defaults to Off", "select roles with `/b-role` or `pi --b-role`", "Executor is the sole user-facing worktree writer", "independent prompt-governed read-only gate", "active immediately and does not depend on same-CWD peers, role payloads, or Intercom availability", "Every completed Executor-owned task that leaves a tracked or relevant untracked/derived worktree candidate requires independent `b-review` before any final response", "No-change tasks, including PR prose, do not require changed-code review",
     "Before any new thread, a fresh `list-cwd` with the absolute project `cwd` must show exactly one other peer",
     "When no inbound Executor `ask` exists, after a user-approved `b-plan` the Architect uses one proactive `send` with that `cwd` and omits `to`",
-    "After completing implementation and required checks in explicit executor role, the Executor uses exactly one blocking `ask` with the absolute project `cwd`, omits `to`",
+    "after required checks pass, freeze that candidate and use exactly one blocking `ask` with the absolute project `cwd`, omitting `to`",
     "An Executor request for b-plan, b-research, b-debug, or b-review arrives as a blocking `ask`; the Architect automatically begins the named skill and answers the active request with `reply`",
 ]:
     if intercom_marker not in kernel_template:
@@ -1267,6 +1267,8 @@ for intercom_marker in [
     "independent read-only gate",
     "roles never filter tools",
     "compact frozen-candidate handoff",
+    "every completed Executor-owned task",
+    "No-change tasks, including PR prose",
     "stop edits",
     "required checks",
     "exact unchanged snapshot",

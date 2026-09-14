@@ -89,6 +89,8 @@ for marker in [
     "independent read-only gate",
     "roles never filter tools",
     "compact frozen-candidate handoff",
+    "every completed Executor-owned task",
+    "No-change tasks, including PR prose",
     "stop edits",
     "required checks",
     "exact unchanged snapshot",

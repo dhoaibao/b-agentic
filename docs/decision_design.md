@@ -99,19 +99,22 @@ legacy model preferences map to the corresponding v3 role only.
   diagnosis handoff names the next skill and carries the exact runnable repro
   command, observable to flip, and confirmed causal mechanism; the Executor owns
   the resulting product change and any performance remeasurement.
-- When implementation is complete and required checks pass, the Executor sends a
-  frozen candidate handoff for independent review through that single blocking ask,
-  then stops editing. The Architect begins `b-review` without waiting for another
-  prompt and, on every disposition, returns structured findings to the originating
-  Executor while remaining read-only. Shipping requires the exact unchanged
-  snapshot, acceptance, fresh passing required checks, no blockers/material gaps,
-  and a valid review disposition. Follow-ups need explicit disposition and never
-  waive safety evidence. Review does not commit or push;
-  changelog changes for an authorized commit are part of the reviewed candidate.
-  In default Off mode, commits require local snapshot verification and required
-  checks, not automatic independent review, unless the user explicitly requires
-  review first. In either mode, repository-required commit preparation precedes
-  the final candidate snapshot.
+- Every completed Executor-owned task that leaves a tracked or relevant
+  untracked/derived worktree candidate requires independent review before any final
+  response. After required checks pass, the Executor freezes the candidate and sends
+  its handoff through that single blocking ask, then stops editing. No-change tasks,
+  including PR prose, do not enter changed-code review. The Architect begins
+  `b-review` without waiting for another prompt and, on every disposition, returns
+  structured findings to the originating Executor while remaining read-only. A
+  missing valid Architect handoff is a coordination gap, not a normal final result.
+  Shipping requires the exact unchanged snapshot, acceptance, fresh passing required
+  checks, no blockers/material gaps, and a valid review disposition. Follow-ups need
+  explicit disposition and never waive safety evidence. Review does not commit or
+  push; changelog changes for an authorized commit are part of the reviewed
+  candidate. In default Off mode, commits require local snapshot verification and
+  required checks, not automatic independent review, unless the user explicitly
+  requires review first. In either mode, repository-required commit preparation
+  precedes the final candidate snapshot.
 
 Evidence: `references/kernel.template.md`, `skills/registry.yaml`,
 `skills/b-plan/prompt.md`, `skills/b-review/prompt.md`,

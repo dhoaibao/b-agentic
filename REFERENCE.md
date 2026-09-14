@@ -341,18 +341,20 @@ confirmed diagnosis hands the Executor the exact runnable repro command, observa
 to flip, and confirmed causal mechanism, routing UI, non-UI, test-only, and unclear
 fixes to `b-frontend`, `b-implement`, `b-test`, and `b-plan` respectively.
 
-When a scoped task is complete and required checks pass, the Executor sends the
-architect/Architect a compact frozen-candidate `b-review` handoff covering tracked
-and relevant untracked/derived content, acceptance, required checks, gaps, and
-risk, then stops editing while review is pending. The Architect begins from that
-handoff without waiting for another prompt. It independently reads the handoff and
-diff; bounded read-only research may support its assigned work or substantiate a
+Every completed Executor-owned task that leaves a tracked or relevant
+untracked/derived worktree candidate requires independent `b-review` before any
+final response. After required checks pass, the Executor freezes that candidate and
+sends the Architect a compact frozen-candidate handoff covering acceptance, required
+checks, gaps, and risk, then stops editing while review is pending. No-change tasks,
+including PR prose, do not require changed-code review. The Architect begins from
+that handoff without waiting for another prompt. It independently reads the handoff
+and diff; bounded read-only research may support its assigned work or substantiate a
 finding. It answers the active request with `reply` for every disposition. If no
 longer in the triggered turn, it inspects `pending` and uses the exact originating
 `replyTo`; it never opens a reverse `ask` or sends an unthreaded response. An
-ambiguous pending request is a coordination gap. For `NEEDS FIXES`, it returns
-structured findings to the originating Executor in the same CWD while remaining
-read-only; it does not implement the fix.
+ambiguous pending request is a coordination gap, reported instead of a normal final
+result. For `NEEDS FIXES`, it returns structured findings to the originating
+Executor in the same CWD while remaining read-only; it does not implement the fix.
 
 A candidate is eligible only when its exact snapshot remains unchanged, acceptance is
 met, required checks are fresh and passed, no blocker/material gap remains, and a
