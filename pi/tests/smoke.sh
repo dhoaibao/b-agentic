@@ -773,9 +773,10 @@ expect(roleStatuses.at(-1)?.value.includes('executor'), 'reconnection may reclai
 peerSessions.push(unknownPeer);
 await roleChannelRegistration.onEvent({ type: 'session_joined' });
 expect(roleStatuses.at(-1)?.value === undefined, 'an active executor must fall Off immediately when an unknown peer joins');
+let pendingOwnershipStart = roleNotifications.length;
 await commands['b-role'].handler('executor', roleContext);
 expect(roleStatuses.at(-1)?.value === undefined, 'a pending executor claim must remain Off while same-CWD peers are mixed or unknown');
-expect(roleNotifications.at(-1)?.level === 'warning' && roleNotifications.at(-1)?.message === `b-agentic executor request is waiting for compatible peer discovery. ${EXECUTOR_OWNERSHIP}`, 'a pending executor request must display the canonical ownership list without implying activation');
+expect(roleNotifications.length === pendingOwnershipStart, 'a pending executor request must remain silent without implying activation');
 peerSessions.pop();
 await roleChannelRegistration.onEvent({ type: 'session_left', sessionId: unknownPeer.id });
 expect(roleStatuses.at(-1)?.value.includes('executor'), 'a pending executor claim may resolve after the unknown peer leaves');
@@ -848,6 +849,7 @@ expect(candidateTest.evaluateCandidateGate(failed, failed, 'architect-1', 'archi
 flags['b-role'] = 'executor';
 let flagOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, roleContext);
+expect(roleNotifications.length === flagOwnershipStart, 'a startup executor flag must remain silent while its claim is pending');
 const startupFlagRoles = [];
 roleChannelRegistration.onReady({
   publish(payload) { startupFlagRoles.push(payload); },
@@ -856,7 +858,7 @@ roleChannelRegistration.onReady({
 await new Promise((resolve) => setImmediate(resolve));
 delete flags['b-role'];
 expect(roleStatuses.at(-1)?.value.includes('executor') && startupFlagRoles.some((payload) => payload.type === 'b-agentic-role-request'), 'a sole startup executor flag claims after channel readiness without a later connection event');
-expect(roleNotifications.length === flagOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'warning' && roleNotifications.at(-1)?.message === `b-agentic executor request is waiting for compatible peer discovery. ${EXECUTOR_OWNERSHIP}`, 'a startup executor flag must display the canonical ownership line exactly once while the claim stays pending');
+expect(roleNotifications.length === flagOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role: executor. ${EXECUTOR_OWNERSHIP}`, 'a startup executor flag must emit the canonical ownership line exactly once after the claim wins');
 const notificationCommandStart = executedCommands.length;
 const notificationContextEnv = plannerNotifyTest.NOTIFICATION_CONTEXT_ENV;
 const previousNotificationContext = process.env[notificationContextEnv];
@@ -1002,10 +1004,11 @@ usePane('%executor-pane');
 let paneExecutorOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);
 expect(roleStatuses.at(-1)?.value === undefined, 'a restored executor must wait for same-CWD claim arbitration');
-expect(roleNotifications.length === paneExecutorOwnershipStart + 1 && roleNotifications.at(-1)?.message === `b-agentic executor request is waiting for compatible peer discovery. ${EXECUTOR_OWNERSHIP}`, 'a pane-restored executor must display the canonical ownership line exactly once without implying activation');
+expect(roleNotifications.length === paneExecutorOwnershipStart, 'a pane-restored executor must remain silent while its claim is pending');
 roleChannelRegistration.onReady(soloChannel);
 await settle();
 expect(roleStatuses.at(-1)?.value.includes('executor'), "a later session in the executor pane must restore executor, not another pane's architect selection");
+expect(roleNotifications.length === paneExecutorOwnershipStart + 1 && roleNotifications.at(-1)?.level === 'info' && roleNotifications.at(-1)?.message === `b-agentic role: executor. ${EXECUTOR_OWNERSHIP}`, 'a pane-restored executor must emit the canonical ownership line exactly once after the claim wins');
 usePane('%architect-pane');
 let paneArchitectOwnershipStart = roleNotifications.length;
 await roleSessionStartHandler({}, newSessionContext);

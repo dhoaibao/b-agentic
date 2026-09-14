@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.14] - 2026-09-14
+
+### Changed
+
+- Keep pending Executor claims silent until same-CWD arbitration succeeds, then emit the canonical ownership line once.
+
 ## [v2026.09.10] - 2026-09-10
 
 ### Added

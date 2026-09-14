@@ -214,6 +214,7 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
   };
   const resolvePendingExecutorClaim = async (
     ctx: ExtensionContext,
+    { announce = true }: { announce?: boolean } = {},
   ): Promise<void> => {
     if (!pendingExecutorClaim || !channel) return;
     const generation = peerStateGeneration;
@@ -234,6 +235,11 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
         return;
       }
       applyRole("executor", ctx);
+      if (announce)
+        ctx.ui.notify(
+          withOwnership("b-agentic role: executor", ownershipLine("executor")),
+          "info",
+        );
       if (shouldApplySavedModel) await applySavedModel("executor", ctx);
     } catch {
       /* Remain Off until compatible discovery completes. */
@@ -391,17 +397,16 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
       if (next === "architect") await applySavedModel("architect", ctx);
       if (pendingExecutorClaim) {
         requestPeerRoles();
-        await resolvePendingExecutorClaim(ctx);
+        await resolvePendingExecutorClaim(ctx, { announce: false });
       }
-      ctx.ui.notify(
-        withOwnership(
-          pendingExecutorClaim
-            ? "b-agentic executor request is waiting for compatible peer discovery"
-            : `b-agentic role set to ${getRole()}`,
-          ownershipLine(next),
-        ),
-        pendingExecutorClaim ? "warning" : "info",
-      );
+      if (!pendingExecutorClaim)
+        ctx.ui.notify(
+          withOwnership(
+            `b-agentic role set to ${getRole()}`,
+            ownershipLine(next),
+          ),
+          "info",
+        );
     },
   });
   pi.on("model_select", (event) => {
@@ -447,15 +452,15 @@ export default function bAgenticRole(pi: ExtensionAPI): void {
       : (requestedRole ?? "off");
     applyRole(selectedRole, ctx, false);
     const ownership = ownershipLine(requestedRole ?? "off");
-    if (event.reason !== "reload" && requestedRole && ownership)
+    if (
+      event.reason !== "reload" &&
+      requestedRole &&
+      ownership &&
+      !pendingExecutorClaim
+    )
       ctx.ui.notify(
-        withOwnership(
-          pendingExecutorClaim
-            ? "b-agentic executor request is waiting for compatible peer discovery"
-            : `b-agentic role: ${requestedRole}`,
-          ownership,
-        ),
-        pendingExecutorClaim ? "warning" : "info",
+        withOwnership(`b-agentic role: ${requestedRole}`, ownership),
+        "info",
       );
     const startupModelRole =
       flagRole && flagRole !== "off"
