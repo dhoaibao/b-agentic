@@ -562,6 +562,8 @@ def render_mcp_runtime_policy(policy: dict) -> str:
         "brave-search": "BRAVE_SEARCH_TRUSTED_TOOLS",
         "firecrawl": "FIRECRAWL_TRUSTED_TOOLS",
         "playwright": "PLAYWRIGHT_TRUSTED_TOOLS",
+        "mobbin": "MOBBIN_TRUSTED_TOOLS",
+        "shadcn": "SHADCN_TRUSTED_TOOLS",
     }
     conditional_classes = {"conditional-read", "conditional-local"}
     safe = {"read-only", *conditional_classes}

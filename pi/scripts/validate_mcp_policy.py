@@ -71,6 +71,8 @@ def main() -> int:
         "brave-search": "BRAVE_SEARCH_TRUSTED_TOOLS",
         "firecrawl": "FIRECRAWL_TRUSTED_TOOLS",
         "playwright": "PLAYWRIGHT_TRUSTED_TOOLS",
+        "mobbin": "MOBBIN_TRUSTED_TOOLS",
+        "shadcn": "SHADCN_TRUSTED_TOOLS",
     }
     conditional: set[str] = set()
     for server, runtime_set in runtime_sets.items():

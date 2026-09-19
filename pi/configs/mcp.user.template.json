@@ -42,6 +42,16 @@
       "args": ["@playwright/mcp", "--isolated", "--headless", "--caps=testing"],
       "env": {},
       "lifecycle": "lazy"
+    },
+    "mobbin": {
+      "url": "https://api.mobbin.com/mcp",
+      "lifecycle": "lazy"
+    },
+    "shadcn": {
+      "command": "bunx",
+      "args": ["shadcn@latest", "mcp"],
+      "env": {},
+      "lifecycle": "lazy"
     }
   }
 }

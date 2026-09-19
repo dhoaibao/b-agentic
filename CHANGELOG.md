@@ -11,6 +11,8 @@ section per date and same-day changes aggregated in that section.
 ### Added
 
 - Install managed `pi-subagents` planner, researcher, debugger, and reviewer profiles with disabled bundled agents, inherited parent-model defaults, local readiness reporting, and technically enforced read-only child tool access.
+- Manage the Mobbin MCP server as an optional, read-only design-reference source that `b-design` queries in a bounded way for real product screens, flows, and sections, recording links as labelled evidence in `docs/DESIGN.md` and degrading gracefully when unauthenticated; it is OAuth-backed through the approval-gated `auth` class and verified only in-session.
+- Manage the shadcn MCP server as an optional, read-only registry lookup that `b-frontend` uses to prefer real registry components and examples over bespoke equivalents when a shadcn stack (`components.json`) is already present.
 
 ### Changed
 

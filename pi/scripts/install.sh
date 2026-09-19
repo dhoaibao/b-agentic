@@ -158,7 +158,7 @@ PRESERVE_METADATA_DIR=0
 runtime_warn_missing_cli() {
 	command -v pi >/dev/null 2>&1 || warn "Pi CLI 'pi' not found; files will still be installed for Pi to discover later."
 	command -v codegraph >/dev/null 2>&1 || warn "codegraph CLI not found; CodeGraph MCP will not start until CodeGraph is installed."
-	command -v bunx >/dev/null 2>&1 || warn "bunx not found; MCP servers that use bunx (Brave, Firecrawl, Playwright) will not start until Bun is installed."
+	command -v bunx >/dev/null 2>&1 || warn "bunx not found; MCP servers that use bunx (Brave, Firecrawl, Playwright, shadcn) will not start until Bun is installed."
 	if installer_component_enabled mcp && command -v pi >/dev/null 2>&1 && ! pi_mcp_adapter_installed; then
 		warn "pi-mcp-adapter not installed; MCP servers will not load until the adapter is installed."
 	fi
@@ -1165,6 +1165,10 @@ runtime_print_install_report() {
 		case "$status" in ready:*) ;; *) attention+=("firecrawl: $status") ;; esac
 		status="$(playwright_readiness_status)"
 		case "$status" in ready:*) ;; *) attention+=("playwright: $status") ;; esac
+		status="$(mobbin_readiness_status)"
+		case "$status" in ready:*) ;; *) attention+=("mobbin: $status") ;; esac
+		status="$(shadcn_readiness_status)"
+		case "$status" in ready:*) ;; *) attention+=("shadcn: $status") ;; esac
 		[ "$INSTALL_PI_MCP_ADAPTER_STATE" = "ready" ] || attention+=("mcp-adapter: install $PI_MCP_ADAPTER_PACKAGE with 'pi install $PI_MCP_ADAPTER_SPEC'")
 	fi
 

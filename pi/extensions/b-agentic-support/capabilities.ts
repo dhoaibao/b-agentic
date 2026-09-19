@@ -631,6 +631,94 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     }
   },
   {
+    "id": "mcp.mobbin",
+    "kind": "mcp",
+    "purpose": "Provide real product UI screens, flows, and sections as bounded design-reference evidence.",
+    "owner": "Mobbin MCP",
+    "trigger": "Use only inside b-design reference gathering when local evidence leaves a real open direction or the user asked for references; never use it as a substitute for repo tokens and components.",
+    "prerequisites": [
+      "Lazy MCP entry configured",
+      "Paid Mobbin plan",
+      "Approval-gated in-session OAuth"
+    ],
+    "readiness": "The local configuration contains a Mobbin entry; the paid plan, OAuth state, and service are not probed.",
+    "fallback": "Continue from local evidence, record that Mobbin references are unavailable, and never block or loop on authentication.",
+    "status_signal": {
+      "source": "local-config-file-presence",
+      "states": [
+        "unknown",
+        "blocked"
+      ],
+      "description": "Reports only MCP configuration-file presence; it never reads entry content and never claims authentication, a paid plan, external health, or session usage.",
+      "sensitive": false
+    },
+    "probe": {
+      "type": "mcp",
+      "server": "mobbin",
+      "launcher": null,
+      "required_env": [],
+      "auth": "oauth"
+    },
+    "mcp": {
+      "server": "mobbin",
+      "launcher": null,
+      "required_env": [],
+      "auth": "oauth"
+    },
+    "install_state": {
+      "action": "mcpAction",
+      "state": "mcpState"
+    },
+    "source": {
+      "template": "pi/configs/mcp.user.template.json",
+      "policy": "references/mcp_operations.yaml"
+    }
+  },
+  {
+    "id": "mcp.shadcn",
+    "kind": "mcp",
+    "purpose": "Browse real shadcn registry items, examples, and add commands for frontend implementation.",
+    "owner": "shadcn MCP",
+    "trigger": "Use only inside b-frontend when the project already has a shadcn stack (components.json present); prefer registry components over bespoke equivalents.",
+    "prerequisites": [
+      "Bun bunx",
+      "Lazy MCP entry configured",
+      "Project components.json"
+    ],
+    "readiness": "The local configuration contains a shadcn entry and bunx is available; the registry service is not probed.",
+    "fallback": "Implement from existing project components and tokens and state that registry lookup was unavailable.",
+    "status_signal": {
+      "source": "local-config-file-presence-and-launcher",
+      "states": [
+        "unknown",
+        "blocked"
+      ],
+      "description": "Reports only MCP configuration-file presence and launcher metadata; it never reads entry content or claims registry health or session usage.",
+      "sensitive": false
+    },
+    "probe": {
+      "type": "mcp",
+      "server": "shadcn",
+      "launcher": "bunx",
+      "required_env": [],
+      "auth": "none"
+    },
+    "mcp": {
+      "server": "shadcn",
+      "launcher": "bunx",
+      "required_env": [],
+      "auth": "none"
+    },
+    "install_state": {
+      "action": "mcpAction",
+      "state": "mcpState"
+    },
+    "source": {
+      "template": "pi/configs/mcp.user.template.json",
+      "policy": "references/mcp_operations.yaml"
+    }
+  },
+  {
     "id": "extension.b-agentic-permissions",
     "kind": "extension",
     "purpose": "Apply first-party shell and filesystem permission policy to Pi tool calls.",

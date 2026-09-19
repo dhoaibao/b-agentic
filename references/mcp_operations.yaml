@@ -123,6 +123,24 @@
         "browser_verify_text_visible": "conditional-read",
         "browser_verify_value": "conditional-read"
       }
+    },
+    "mobbin": {
+      "tools": {
+        "mobbin_search_screens": "read-only",
+        "mobbin_search_flows": "read-only",
+        "mobbin_search_sections": "read-only"
+      }
+    },
+    "shadcn": {
+      "tools": {
+        "shadcn_get_project_registries": "read-only",
+        "shadcn_list_items_in_registries": "read-only",
+        "shadcn_search_items_in_registries": "read-only",
+        "shadcn_view_items_in_registries": "read-only",
+        "shadcn_get_item_examples_from_registries": "read-only",
+        "shadcn_get_add_command_for_items": "read-only",
+        "shadcn_get_audit_checklist": "read-only"
+      }
     }
   },
   "mcpScript": {

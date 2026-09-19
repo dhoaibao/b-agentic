@@ -48,7 +48,7 @@ def load_jsonc(text: str) -> object:
     return module.loads(text)
 
 
-SUPPORTED_SERVERS = ("codegraph", "context7", "brave-search", "firecrawl", "playwright")
+SUPPORTED_SERVERS = ("codegraph", "context7", "brave-search", "firecrawl", "playwright", "shadcn")
 CONTEXT7_URL = "https://mcp.context7.com/mcp"
 POLICY_PATH = ROOT / "references" / "mcp_operations.yaml"
 
@@ -142,6 +142,7 @@ def pi_server_status(server: str, config: dict) -> str:
         "brave-search": ["@brave/brave-search-mcp-server", "--transport", "stdio"],
         "firecrawl": ["firecrawl-mcp"],
         "playwright": ["@playwright/mcp", "--isolated", "--headless", "--caps=testing"],
+        "shadcn": ["shadcn@latest", "mcp"],
     }[server]
     if normalized.command != "bunx" or normalized.args != expected:
         return f"blocked: invalid {server} launcher"

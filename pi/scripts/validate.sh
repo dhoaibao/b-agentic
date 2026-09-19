@@ -168,7 +168,7 @@ if status_support.exists():
 if mcp.exists():
     data = json.loads(mcp.read_text())
     servers = data.get('mcpServers', {})
-    for server in ['context7', 'codegraph', 'brave-search', 'firecrawl', 'playwright']:
+    for server in ['context7', 'codegraph', 'brave-search', 'firecrawl', 'playwright', 'mobbin', 'shadcn']:
         if server not in servers:
             errors.append(f'{mcp}: missing MCP server {server!r}')
         elif servers[server].get('lifecycle') != 'lazy':
@@ -210,7 +210,7 @@ if extension.exists():
         errors.append(f'{extension}: must be able to block tool calls')
     if 'custom/MCP tool' not in text and 'MCP' not in text:
         errors.append(f'{extension}: must gate MCP/custom tools')
-    for server in ['codegraph', 'context7', 'brave-search', 'firecrawl', 'playwright']:
+    for server in ['codegraph', 'context7', 'brave-search', 'firecrawl', 'playwright', 'mobbin', 'shadcn']:
         if f'"{server}"' not in text:
             errors.append(f'{extension}: missing managed MCP server {server!r}')
     firecrawl_trusted = re.search(r'FIRECRAWL_TRUSTED_TOOLS = new Set\(\[(.*?)\]\)', text, re.DOTALL)

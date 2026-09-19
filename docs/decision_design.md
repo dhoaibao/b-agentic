@@ -164,7 +164,10 @@ Evidence: `references/kernel.template.md`,
 `references/mcp_operations.yaml` is the canonical classification for managed
 servers, operation classes, conditional arguments, and runtime enforcement.
 Generated runtime sets are checked against it. The managed servers are
-CodeGraph, Context7, Brave Search, Firecrawl, and Playwright;
+CodeGraph, Context7, Brave Search, Firecrawl, Playwright, Mobbin, and shadcn.
+Mobbin is read-only, OAuth-backed through the approval-gated `auth` class, and
+optional/degradable inside `b-design`; shadcn is read-only registry lookup
+gated on an existing shadcn project stack inside `b-frontend`.
 Delegation does not change active tools or MCP approval policy. Gateway calls require an
 explicit managed server and matching tool, and nested `mcpScript` calls retain
 the same policy. Read-only/trusted lifecycle operations may be automatic; safe

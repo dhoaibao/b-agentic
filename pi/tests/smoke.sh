@@ -253,6 +253,10 @@ expect((await invokeChildGuard({ toolName: 'mcpScript', input: { code: 'emit({})
 expect((await invokeChildGuard({ toolName: 'mcp__firecrawl__firecrawl_search', input: { query: 'docs' } }))?.block === true, 'child guard must block direct MCP tools');
 expect((await invokeChildGuard({ toolName: 'mcp', input: { server: 'firecrawl', tool: 'firecrawl_crawl', args: { url: 'https://example.test' } } }))?.block === true, 'child guard must block unclassified gateway operations');
 expect(await invokeChildGuard({ toolName: 'mcp', input: { server: 'codegraph', tool: 'codegraph_codegraph_explore', args: { query: 'callers' } } }) === undefined, 'child guard must allow a classified read-only gateway operation');
+expect(await invokeChildGuard({ toolName: 'mcp', input: { server: 'mobbin', tool: 'mobbin_search_screens', args: { query: 'fintech onboarding' } } }) === undefined, 'child guard must allow a classified Mobbin read-only gateway operation');
+expect((await invokeChildGuard({ toolName: 'mcp', input: { server: 'mobbin', tool: 'mobbin_delete_project', args: {} } }))?.block === true, 'child guard must block unclassified Mobbin gateway operations');
+expect(await invokeChildGuard({ toolName: 'mcp', input: { server: 'shadcn', tool: 'shadcn_search_items_in_registries', args: { query: 'table' } } }) === undefined, 'child guard must allow a classified shadcn read-only gateway operation');
+expect((await invokeChildGuard({ toolName: 'mcp', input: { server: 'shadcn', tool: 'shadcn_install_item', args: {} } }))?.block === true, 'child guard must block unclassified shadcn gateway operations');
 expect(await invokeChildGuard({ toolName: 'read', input: { path: 'README.md' } }) === undefined, 'child guard must preserve native read access');
 expect(typeof mcpApprovalHandler === 'function', 'MCP approval extension must register the package approval broker');
 expect(commands['b-auto-mode'] && commands['b-status'] && commands['b-sync'] && commands['b-update'], 'single-session runtime must retain auto, status, sync, and update commands');
@@ -409,7 +413,7 @@ run_pi_smoke_cases() {
 	assert_file "$sandbox/home/.pi/agent/b-agentic/install.json"
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilityContractVersion'] == 1"
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['contractVersion'] == 1"
-	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "len(data['capabilities']['states']) == 20"
+	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "len(data['capabilities']['states']) == 22"
 	assert_not_contains "$sandbox/home/.pi/agent/b-agentic/install.json" 'extension.b-agentic-consult'
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['package.pi-mcp-adapter']['state'] == 'ready'"
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['package.pi-todo']['state'] == 'ready'"
@@ -417,6 +421,8 @@ run_pi_smoke_cases() {
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['agent.b-agentic-subagent-settings']['state'] == 'ready'"
 	assert_not_contains "$sandbox/home/.pi/agent/b-agentic/install.json" 'package.pi-lsp'
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['extension.b-agentic-status']['state'] == 'ready'"
+	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['mcp.mobbin']['state'] == 'ready'"
+	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['states']['mcp.shadcn']['state'] == 'ready'"
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['paths']['capabilityContract'].endswith('/references/capabilities.yaml')"
 	assert_contains "$sandbox/home/.pi/agent/mcp.json" '"codegraph"'
 	assert_contains "$sandbox/home/.pi/agent/mcp.json" '"lifecycle": "lazy"'

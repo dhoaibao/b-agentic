@@ -941,17 +941,16 @@ for required in ["exact runnable repro command", "observable to flip", "confirme
             f"authorization marker {required!r}"
         )
 
-MCP_SERVERS = {"codegraph", "context7", "brave-search", "firecrawl", "playwright"}
+MCP_SERVERS = {"codegraph", "context7", "brave-search", "firecrawl", "playwright", "mobbin", "shadcn"}
 LOCAL_TOOLS = {"bash", "read", "edit", "write", "recall", "mcp"}
 KNOWN_TOOLS = MCP_SERVERS | LOCAL_TOOLS
 RETIRED_MCP_REFERENCE_ALLOWLIST = {
     "CHANGELOG.md",
-    "pi/tests/smoke.sh",
     "tests/smoke/install.sh",
     "tooling/validate/shared.py",
 }
 RETIRED_MCP_REFERENCE_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9])(?:linear|mobbin)(?![A-Za-z0-9])",
+    r"(?<![A-Za-z0-9])linear(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
 
@@ -975,13 +974,12 @@ def tracked_product_files() -> list[Path]:
 for sample in [
     "mcp__linear_get_issue",
     "linear_get_issue",
-    "mobbin_search_screens",
     "mcp.linear",
-    "Linear and Mobbin integrations",
+    "Linear and Serena integrations",
 ]:
     if not RETIRED_MCP_REFERENCE_PATTERN.search(sample):
         errors.append(f"retired MCP reference self-test missed {sample!r}")
-for sample in ["linearized", "mobbinx", "xlinear"]:
+for sample in ["linearized", "xlinear"]:
     if RETIRED_MCP_REFERENCE_PATTERN.search(sample):
         errors.append(f"retired MCP reference self-test matched embedded word {sample!r}")
 
@@ -999,7 +997,7 @@ def validate_retired_mcp_references() -> None:
             continue
         if RETIRED_MCP_REFERENCE_PATTERN.search(text):
             errors.append(
-                f"{relative}: retired Linear/Mobbin reference is outside the compatibility/validator allowlist"
+                f"{relative}: retired Linear reference is outside the compatibility/validator allowlist"
             )
 
 
@@ -1031,6 +1029,8 @@ TOKEN_TO_DISPLAY_NAME = {
     "brave-search": "Brave",
     "firecrawl": "Firecrawl",
     "playwright": "Playwright",
+    "mobbin": "Mobbin",
+    "shadcn": "shadcn",
     "bash": "Bash",
     "read": "read",
     "edit": "edit",

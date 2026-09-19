@@ -58,7 +58,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 - Preserve unrelated changes; never autonomously run `git push`, `git pull`, `git reset --hard`, `git clean -f`, or `git branch -D`.
 - Never read/expose/commit likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission; protected paths and ambiguous shell input stay gated.
 - Prefer sources; regenerate when required. Never invent behavior or compatibility.
-- MCP: CodeGraph, Context7, Brave, Firecrawl, Playwright. Main-session delegation does not change approval policy; protected/outside-project/mismatched tools stay gated.
+- MCP: CodeGraph, Context7, Brave, Firecrawl, Playwright, Mobbin, shadcn. Main-session delegation does not change approval policy; protected/outside-project/mismatched tools stay gated.
 
 ### Bounded MCP scripting
 

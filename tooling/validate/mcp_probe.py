@@ -279,7 +279,7 @@ def probe_server(entry: dict[str, Any], timeout: float) -> dict[str, dict[str, A
 
 def policy_upstream_name(server: str, policy_tool: str) -> str:
     prefix = server.replace("-", "_") + "_"
-    if server in {"codegraph", "context7", "brave-search"} and policy_tool.startswith(prefix):
+    if server in {"codegraph", "context7", "brave-search", "mobbin", "shadcn"} and policy_tool.startswith(prefix):
         return policy_tool[len(prefix) :]
     return policy_tool
 

@@ -254,9 +254,12 @@ EOF
 
 	assert_contains "$mcp_path" '"user-server"'
 	assert_contains "$mcp_path" '"codegraph"'
+	assert_contains "$mcp_path" '"mobbin"'
+	assert_contains "$mcp_path" '"shadcn"'
 	assert_not_contains "$mcp_path" '"serena"'
 	assert_not_contains "$mcp_path" '"linear"'
-	assert_not_contains "$mcp_path" '"mobbin"'
+	assert_json_value "$mcp_path" "data['mcpServers']['mobbin'] == {'url': 'https://api.mobbin.com/mcp', 'lifecycle': 'lazy'}"
+	assert_json_value "$mcp_path" "data['mcpServers']['shadcn'] == {'command': 'bunx', 'args': ['shadcn@latest', 'mcp'], 'env': {}, 'lifecycle': 'lazy'}"
 	assert_json_value "$mcp_path" "data['settings']['requestTimeoutMs'] == 30000"
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilityContractVersion'] == 1"
 	assert_json_value "$sandbox/home/.pi/agent/b-agentic/install.json" "data['capabilities']['contractVersion'] == 1"
@@ -381,6 +384,13 @@ run_user_owned_retired_mcp_preservation_case() {
       "lifecycle": "eager",
       "custom": {"nested": ["keep", 42]}
     },
+    "serena": {
+      "command": "custom-serena",
+      "args": ["--keep"],
+      "env": {"SERENA_USER_SETTING": "keep-me"},
+      "lifecycle": "eager",
+      "custom": {"nested": {"keep": true}}
+    },
     "mobbin": {
       "command": "custom-mobbin",
       "args": ["--keep"],
@@ -415,7 +425,12 @@ from pathlib import Path
 actual = json.loads(Path(sys.argv[1]).read_text())
 before = json.loads(Path(sys.argv[2]).read_text())
 assert actual['mcpServers']['linear'] == before['mcpServers']['linear']
-assert actual['mcpServers']['mobbin'] == before['mcpServers']['mobbin']
+assert actual['mcpServers']['serena'] == before['mcpServers']['serena']
+# A user-modified mobbin entry keeps user keys; managed template keys merge in.
+mobbin = actual['mcpServers']['mobbin']
+for key, value in before['mcpServers']['mobbin'].items():
+    assert mobbin[key] == value
+assert mobbin['url'] == 'https://api.mobbin.com/mcp'
 for key, value in before['settings'].items():
     assert actual['settings'][key] == value
 assert actual['settings']['directTools'] is True
@@ -423,7 +438,7 @@ PY
 	done
 
 	assert_not_contains "$install_log" 'linear:'
-	assert_not_contains "$install_log" 'mobbin:'
+	assert_not_contains "$install_log" 'serena:'
 }
 
 run_manifest_only_extension_restore_case() {
@@ -678,7 +693,7 @@ run_readiness_report_case() {
 	assert_contains "$sandbox/install.log" 'Readiness:'
 	assert_contains "$sandbox/install.log" 'Attention:'
 	assert_not_contains "$sandbox/install.log" 'linear:'
-	assert_not_contains "$sandbox/install.log" 'mobbin:'
+	assert_contains "$sandbox/install.log" 'mobbin: configured:'
 	assert_contains "$sandbox/install.log" 'Next:'
 	assert_not_contains "$sandbox/install.log" 'Backups:'
 	assert_not_contains "$sandbox/install.log" 'mcp-startup:'
@@ -1014,6 +1029,7 @@ EOF
 	assert_contains "$doctor_log" 'brave-search: ready:'
 	assert_contains "$doctor_log" 'firecrawl: ready:'
 	assert_contains "$doctor_log" 'playwright: ready:'
+	assert_contains "$doctor_log" 'shadcn: ready:'
 	assert_json_value "$sandbox/home/.pi/agent/mcp.json" "data['mcpServers']['playwright']['args'] == ['@playwright/mcp', '--isolated', '--headless', '--caps=testing']"
 	assert_contains "$doctor_log" 'schema-probe: not run; live tool inventory is unverified'
 
@@ -1035,6 +1051,7 @@ PY
 	assert_contains "$config_doctor_log" 'context7: ready:'
 	assert_contains "$config_doctor_log" 'brave-search: ready:'
 	assert_contains "$config_doctor_log" 'firecrawl: ready:'
+	assert_contains "$config_doctor_log" 'shadcn: ready:'
 	assert_not_contains "$config_doctor_log" 'linear:'
 	assert_not_contains "$config_doctor_log" 'mobbin:'
 

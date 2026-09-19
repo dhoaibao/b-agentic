@@ -162,19 +162,21 @@ Existing CodeGraph installations are refreshed with `codegraph upgrade`. Select 
 ## Managed MCPs
 
 The installer writes recommended entries for CodeGraph, Context7, Brave Search,
-Firecrawl, and Playwright. Servers use lazy lifecycle through the
+Firecrawl, Playwright, Mobbin, and shadcn. Servers use lazy lifecycle through the
 adapter's proxy tool, so they are not eagerly started or injected into context.
 The template sets a global `settings.requestTimeoutMs` of 30000 milliseconds
 (30 seconds). API keys are user-supplied and are written only to user config,
 never tracked templates.
 
-| MCP          | Use                                                                    | Local readiness                                                                                                                                                    |
-| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CodeGraph    | Architecture, dependency/call flows, impact, and affected tests        | `codegraph` CLI; initialize only for a concrete qualifying repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test question |
-| Context7     | Versioned framework and API facts                                      | `CONTEXT7_API_KEY`                                                                                                                                                 |
-| Firecrawl    | Primary public research, bounded extraction, papers, and GitHub lookup | Bun (`bunx`) and `FIRECRAWL_API_KEY`                                                                                                                               |
-| Brave Search | Independent corroboration and specialized current search               | Bun (`bunx`) and `BRAVE_API_KEY`                                                                                                                                   |
-| Playwright   | Live browser, visual, console/network, and e2e evidence                | Bun (`bunx`)                                                                                                                                                       |
+| MCP          | Use                                                                                | Local readiness                                                                                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CodeGraph    | Architecture, dependency/call flows, impact, and affected tests                    | `codegraph` CLI; initialize only for a concrete qualifying repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test question |
+| Context7     | Versioned framework and API facts                                                  | `CONTEXT7_API_KEY`                                                                                                                                                 |
+| Firecrawl    | Primary public research, bounded extraction, papers, and GitHub lookup             | Bun (`bunx`) and `FIRECRAWL_API_KEY`                                                                                                                               |
+| Brave Search | Independent corroboration and specialized current search                           | Bun (`bunx`) and `BRAVE_API_KEY`                                                                                                                                   |
+| Playwright   | Live browser, visual, console/network, and e2e evidence                            | Bun (`bunx`)                                                                                                                                                       |
+| Mobbin       | Optional real product UI screens/flows/sections as b-design references             | Paid Mobbin plan plus approval-gated in-session OAuth (`auth-start`); not probed by mcp-doctor                                                                     |
+| shadcn       | Optional real registry items/examples for b-frontend when `components.json` exists | Bun (`bunx`)                                                                                                                                                       |
 
 The installer does not eagerly start MCP servers or initialize repositories;
 Bun is installed or refreshed automatically, while Bun-backed MCP packages are
@@ -192,8 +194,10 @@ When live network/process activity is approved,
 configured server and compares its current tool inventory with the canonical
 operation policy. The Playwright MCP server enables testing capabilities
 (`--caps=testing`), providing locator generation (`browser_generate_locator`)
-and state verification tools (`browser_verify_*`). The probe covers only the
-five managed servers; user-added servers (such as `serena` or other third-party
+and state verification tools (`browser_verify_*`). The live probe covers the
+key/launcher-backed managed servers (CodeGraph, Context7, Brave Search,
+Firecrawl, Playwright, shadcn); Mobbin is OAuth-backed and verified only
+in-session. User-added servers (such as `serena` or other third-party
 tools) fail closed through generic custom-tool approval with no argument
 validation. Template MCP package specifications are unversioned, so `bunx`
 resolves latest at runtime. The doctor never acquires OAuth tokens. Run it

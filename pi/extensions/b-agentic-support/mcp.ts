@@ -27,7 +27,9 @@ export const MANAGED_MCP_SERVERS = new Set([
   "codegraph",
   "context7",
   "firecrawl",
-  "playwright"
+  "mobbin",
+  "playwright",
+  "shadcn"
 ]);
 
 /** Operations autonomous only for a validated safe argument shape. */
@@ -198,6 +200,22 @@ export const PLAYWRIGHT_TRUSTED_TOOLS = new Set([
   "browser_verify_text_visible",
   "browser_verify_value",
   "browser_wait_for"
+]);
+
+export const MOBBIN_TRUSTED_TOOLS = new Set([
+  "mobbin_search_flows",
+  "mobbin_search_screens",
+  "mobbin_search_sections"
+]);
+
+export const SHADCN_TRUSTED_TOOLS = new Set([
+  "shadcn_get_add_command_for_items",
+  "shadcn_get_audit_checklist",
+  "shadcn_get_item_examples_from_registries",
+  "shadcn_get_project_registries",
+  "shadcn_list_items_in_registries",
+  "shadcn_search_items_in_registries",
+  "shadcn_view_items_in_registries"
 ]);
 // generated:mcp-runtime-policy:end
 const MCP_CONDITIONAL_ARGUMENT_KEY_SETS: Record<string, ReadonlySet<string>> = Object.fromEntries(
@@ -480,6 +498,8 @@ export function isTrustedManagedTool(server: string, toolName: string, input?: u
   if (server === "brave-search") return BRAVE_SEARCH_TRUSTED_TOOLS.has(base);
   if (server === "firecrawl") return FIRECRAWL_TRUSTED_TOOLS.has(base);
   if (server === "playwright") return PLAYWRIGHT_TRUSTED_TOOLS.has(base);
+  if (server === "mobbin") return MOBBIN_TRUSTED_TOOLS.has(base);
+  if (server === "shadcn") return SHADCN_TRUSTED_TOOLS.has(base);
   return false;
 }
 

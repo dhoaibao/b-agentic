@@ -1161,6 +1161,18 @@ playwright_readiness_status() {
   fi
 }
 
+mobbin_readiness_status() {
+  printf 'configured: OAuth-backed remote; paid Mobbin plan and in-session OAuth verified only in-session'
+}
+
+shadcn_readiness_status() {
+  if command -v bunx >/dev/null 2>&1; then
+    printf 'ready: bunx available for shadcn registry MCP'
+  else
+    printf 'blocked: install Bun (bunx) for shadcn registry MCP'
+  fi
+}
+
 rtk_readiness_status() {
   if command -v rtk >/dev/null 2>&1; then
     printf 'ready: rtk installed'
@@ -1187,6 +1199,8 @@ print_install_report_readiness() {
   report_item "brave-search" "$(brave_search_readiness_status)"
   report_item "firecrawl" "$(firecrawl_readiness_status)"
   report_item "playwright" "$(playwright_readiness_status)"
+  report_item "mobbin" "$(mobbin_readiness_status)"
+  report_item "shadcn" "$(shadcn_readiness_status)"
   report_item "rtk" "$(rtk_readiness_status)"
   report_item "mcp-startup" "Pi starts MCP servers on demand; installer does not preload or authenticate them"
   report_item "safety" "Pi permissions plus kernel approval gates; no separate hook/state setup"

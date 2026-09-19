@@ -37,12 +37,14 @@ Create or refresh `docs/DESIGN.md`, the repo-local frontend design standard. Do 
 
 - `bash` - `rtk git status --short`, diffs, and modern discovery (`rg`, `fdfind`, `eza`).
 - `read`/`edit`/`write` - inspect sources and update only `docs/DESIGN.md` unless broader docs were approved.
+- `mobbin` - optional real product UI screens, flows, and sections for reference gathering. Use one classified read-only `mcp` gateway call at a time (`mobbin_search_screens`, `mobbin_search_flows`, `mobbin_search_sections`), at most three calls per task. Requires a paid Mobbin plan and a one-time approval-gated in-session OAuth (`auth-start`); never send repository content, private URLs, or customer data.
 
 ## Steps
 
 1. Confirm the source mode: user description, attached image/mockup, existing `docs/DESIGN.md`, design-token source, current frontend code, or a mix.
 2. Run `rtk git status --short` via Bash for repo work and preserve unrelated changes.
 3. Inspect the lightest useful evidence: existing design docs, frontend components, tokens, CSS, layout files, screenshots, and repo conventions. Use native `read` first. Do not invent a design system when evidence is thin. Before drafting, make an explicit, task-conditional design read: identify the surface, audience, brand/repository evidence, hierarchy, density, layout variance, and motion posture; then state one product-appropriate art direction and its anti-default constraints. Treat marketing pages, product apps, dashboards, and trust/regulated surfaces differently. If evidence leaves materially different directions, ask one focused question rather than guessing.
+   - Reference gathering (optional, bounded): only after local evidence is read, and only when the design read leaves a real open direction or the user asked for references, query Mobbin by surface, product type, or pattern (e.g. "fintech onboarding", "dense admin table"). Record each used result in `docs/DESIGN.md` under *Source evidence* as a Mobbin link labelled observed/inferred, separate from repo facts. If the server is unconfigured, unauthenticated, or errors, state "Mobbin references unavailable" once and continue — never block or loop on auth.
 4. If analyzing images, separate observed facts from inferred rules. Treat exact dimensions, counts, colors, and spatial alignment as approximate unless supported by source files or browser evidence.
 5. Create or update only `docs/DESIGN.md` with edit/write unless the user explicitly approved a broader documentation change. Preserve useful existing content and remove generic filler. If an unresolved product choice is material and user-facing, use `ask_user_question` with 2–4 concrete options, the recommended option first, and the automatic custom-answer row; if unavailable or noninteractive, ask one focused plain-text question. Otherwise, record the unresolved choice as an open question.
 6. Keep the document implementation-facing and concise. Prefer rules an agent can apply while coding over design theory.
@@ -90,3 +92,4 @@ Files changed, evidence used, verification, confidence level, and open questions
 - Do not prescribe a particular font, icon library, dark mode, image-generation workflow, or heavy motion without evidence from the brief or repository.
 - Do not create extra root docs or design artifacts without explicit scope.
 - Do not scaffold unused section headings when repo evidence is sparse.
+- Treat Mobbin results as pattern evidence only, never brand authority; do not copy a specific product's screens or claim its tokens. Keep external evidence optional, bounded, and subordinate to local evidence.

@@ -20,7 +20,7 @@ PI_VALIDATOR = ROOT / "pi" / "scripts" / "validate_mcp_policy.py"
 GATED_CLASSES = {"local-upload", "external-mutation", "monitor-lifecycle", "local-mutation", "auth"}
 READ_ONLY = "read-only"
 CONDITIONAL_CLASSES = {"conditional-read", "conditional-local"}
-MANAGED_SERVERS = {"codegraph", "context7", "brave-search", "firecrawl", "playwright"}
+MANAGED_SERVERS = {"codegraph", "context7", "brave-search", "firecrawl", "playwright", "mobbin", "shadcn"}
 MCP_SCRIPT_NUMERIC_FIELDS = {
     "max_total_operations",
     "max_tool_calls",
