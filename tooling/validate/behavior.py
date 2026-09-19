@@ -101,6 +101,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-plan` -> `b-planner`.",
         "`b-research` -> `b-researcher`.",
         "`b-debug` -> `b-debugger`.",
+        "`b-agentic-audit` -> `b-reviewer`.",
         "`b-review` -> `b-reviewer`.",
     ),
 }
@@ -493,21 +494,19 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
         name = skill.get("name")
         if not isinstance(name, str):
             continue
-        if skill.get("routing") is None:
-            expected_ship_rules = {
-                "b-commit": "Split and commit working-tree changes -> `b-commit`",
-                "b-pr-summary": "Commit-backed PR summary or supplied PR-prose review/rewrite -> `b-pr-summary`",
-            }
-            expected_rule = expected_ship_rules.get(name)
-            if expected_rule and expected_rule not in text:
-                errors.append(f"references/kernel.template.md: missing {name} routing rule")
+        routing = skill.get("routing")
+        if not isinstance(routing, dict):
+            errors.append(f"skills/registry.yaml: {name} has no routing metadata")
             continue
         if f"`{name}`" not in text:
             errors.append(f"references/kernel.template.md: missing routing entry for {name}")
-        routing = skill.get("routing", {})
         intent = routing.get("intent")
         if isinstance(intent, str) and intent not in text:
             errors.append(f"references/kernel.template.md: missing routing intent for {name}")
+        if routing.get("explicit_request") is True:
+            if f"`{name}` only on explicit user request" not in text:
+                errors.append(f"references/kernel.template.md: missing explicit-request routing rule for {name}")
+            continue
         skill_text = normalize((ROOT / "skills" / name / "SKILL.md").read_text())
         kernel_text = normalize(text)
         for trigger in routing.get("triggers", []):

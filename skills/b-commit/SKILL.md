@@ -20,8 +20,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## When NOT to use
 
-- The user wants PR copy for commits -> use **b-pr-summary**.
-- The user wants PR copy for staged changes -> commit those changes first, then use **b-pr-summary**.
+- The user wants PR copy for already-created commits -> use **b-pr-summary**. (PR copy for staged changes stays here: step 1 returns the commit-first blocker.)
 - The changes cannot be grouped confidently -> use **b-plan**.
 - The user wants a review before committing -> use **b-review**.
 

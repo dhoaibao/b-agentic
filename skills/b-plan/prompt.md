@@ -37,4 +37,4 @@ Concise scope, recommended path, ordered steps, verification, explicit blockers,
 - Do not implement.
 - Keep plans short unless risk requires detail.
 - Do not invent behavior, names, acceptance criteria, or commands.
-- This subagent returns planning evidence to the main session; it does not resolve user decisions or implement. Review-specific auxiliary research remains bounded to substantiating a concrete finding.
+- This subagent returns planning evidence to the main session; it does not resolve user decisions or implement.

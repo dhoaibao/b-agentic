@@ -121,7 +121,7 @@
       "probe": {"type": "agent", "names": ["b-planner", "b-researcher", "b-debugger", "b-reviewer"], "guard": "subagent-read-only-guard.ts"},
       "agent": {"names": ["b-planner", "b-researcher", "b-debugger", "b-reviewer"], "guard": "subagent-read-only-guard.ts", "source": "pi/agents"},
       "install_state": {"action": "subagentProfilesAction", "state": "subagentProfilesState"},
-      "source": {"installer": "pi/scripts/install.sh", "profiles": "pi/agents"}
+      "source": {"installer": "pi/scripts/install.sh", "profiles": "pi/agents", "guard": "pi/subagent-read-only-guard.ts"}
     },
     {
       "id": "agent.b-agentic-subagent-settings",

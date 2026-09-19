@@ -301,7 +301,10 @@
       "execution": {"mode": "main"},
       "phase": "Ship",
       "use": "Split working-tree changes into cohesive commits from an explicit user request",
-      "routing": null,
+      "routing": {
+        "intent": "Split and commit working-tree changes",
+        "explicit_request": true
+      },
       "prompt": {
         "description": "Analyze tracked, staged, and untracked working-tree changes; select cohesive commits after an explicit user request, then stage and create them on the current branch without a second approval prompt or pushing."
       }
@@ -311,7 +314,10 @@
       "execution": {"mode": "main"},
       "phase": "Ship",
       "use": "Write commit-backed PR copy or review and rewrite supplied PR prose",
-      "routing": null,
+      "routing": {
+        "intent": "Commit-backed PR summary or supplied PR-prose review/rewrite",
+        "explicit_request": true
+      },
       "prompt": {
         "description": "Write an evidence-backed PR title and description from a specified count of latest local commits or commits ahead of cached origin. Also review or rewrite supplied PR copy, titles, and descriptions for clarity and supported claims, without a changed-code review gate."
       }

@@ -283,7 +283,8 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     },
     "source": {
       "installer": "pi/scripts/install.sh",
-      "profiles": "pi/agents"
+      "profiles": "pi/agents",
+      "guard": "pi/subagent-read-only-guard.ts"
     }
   },
   {

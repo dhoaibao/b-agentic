@@ -26,6 +26,7 @@ section per date and same-day changes aggregated in that section.
 ### Fixed
 
 - Document that delegated `pi-subagents` launches must run as background children (`async: true`) because foreground children never load the ambient extensions providing the managed `mcp` and `recall` tools, replacing the ambiguous "synchronously" guidance that caused managed agent launches to fail at startup.
+- Tighten canonical skill and kernel guidance after a conformance audit: resolve a `b-commit` routing self-contradiction, move Ship-skill routing into `skills/registry.yaml` with explicit-request metadata so no skill can be silently omitted from kernel routing, replace unexecutable "ask for approval" phrasing in `b-research` with main-session escalation, remove an out-of-scope sentence from `b-plan`, pin the `b-agentic-audit` delegation mapping in behavior validation, record the subagent guard's real source path in `capabilities.yaml`, and mark kernel Core Rules 3/4/10 as main-session-only obligations for read-only children. Add negative self-test coverage and a phase allowlist so these invariants fail loudly if weakened.
 
 ## [v2026.09.14] - 2026-09-14
 

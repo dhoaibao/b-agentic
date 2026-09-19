@@ -37,6 +37,7 @@ PROMPT_FRONTMATTER_FIELDS = [
 ]
 ALLOWED_PROMPT_KEYS = {"description", *[field for field, _ in PROMPT_FRONTMATTER_FIELDS]}
 EXECUTION_MODES = {"main", "subagent"}
+PHASES = {"Decide", "Build", "Validate", "Ship"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-reviewer"}
 
 
@@ -275,6 +276,11 @@ def validate_capabilities(contract: dict) -> list[str]:
                         errors.append(f"{label}.agent.guard: expected 'subagent-read-only-guard.ts'")
                     elif not (ROOT / "pi" / guard).is_file():
                         errors.append(f"{label}.agent.guard: missing managed guard {guard!r}")
+                    source_map = capability.get("source")
+                    if isinstance(source_map, dict):
+                        guard_source = source_map.get("guard")
+                        if guard_source is not None and not (ROOT / guard_source).is_file():
+                            errors.append(f"{label}.source.guard: missing guard source {guard_source!r}")
                 elif settings is not None:
                     if not isinstance(settings, str) or not settings:
                         errors.append(f"{label}.agent.settings: expected a non-empty string")
@@ -498,6 +504,8 @@ def validate_skills(skills: list[dict]) -> list[str]:
             elif agent is not None:
                 errors.append(f"skills[{index}].execution.agent: only subagent execution may name an agent")
         phase = ensure_string(skill.get("phase"), f"skills[{index}].phase", errors)
+        if phase and phase not in PHASES:
+            errors.append(f"skills[{index}].phase: expected one of {sorted(PHASES)}, got {phase!r}")
         use = ensure_string(skill.get("use"), f"skills[{index}].use", errors)
 
         routing = skill.get("routing")
@@ -506,8 +514,14 @@ def validate_skills(skills: list[dict]) -> list[str]:
                 errors.append(f"skills[{index}].routing: expected object or null")
             else:
                 ensure_string(routing.get("intent"), f"skills[{index}].routing.intent", errors)
+                explicit_request = routing.get("explicit_request", False)
+                if not isinstance(explicit_request, bool):
+                    errors.append(f"skills[{index}].routing.explicit_request: expected boolean")
                 triggers = routing.get("triggers")
-                if not isinstance(triggers, list) or not triggers:
+                if explicit_request:
+                    if triggers is not None:
+                        errors.append(f"skills[{index}].routing.triggers: explicit-request skills must omit triggers")
+                elif not isinstance(triggers, list) or not triggers:
                     errors.append(f"skills[{index}].routing.triggers: expected non-empty array")
                 else:
                     for trigger_index, trigger in enumerate(triggers, start=1):
@@ -516,10 +530,10 @@ def validate_skills(skills: list[dict]) -> list[str]:
         validate_skill_prompt_source(skill, errors)
         if name:
             names.append(name)
-        if phase == "Ship" and routing is not None:
-            errors.append(f"skills[{index}]: ship-only skills must omit routing metadata")
-        if phase != "Ship" and routing is None:
-            errors.append(f"skills[{index}]: non-ship skills must include routing metadata")
+        if phase == "Ship" and not (isinstance(routing, dict) and routing.get("explicit_request") is True):
+            errors.append(f"skills[{index}]: ship-only skills must declare explicit-request routing metadata")
+        if phase != "Ship" and (not isinstance(routing, dict) or routing.get("explicit_request") is True):
+            errors.append(f"skills[{index}]: non-ship skills must include intent-and-triggers routing metadata")
         if not use:
             errors.append(f"skills[{index}]: missing README/use summary")
 
@@ -609,14 +623,10 @@ def render_routing(skills: list[dict]) -> str:
     lines: list[str] = []
     for skill in skills:
         routing = skill.get("routing")
-        if isinstance(routing, dict):
-            lines.append(f"- {routing['intent']} -> `{skill['name']}`.")
-        elif skill["name"] == "b-commit":
-            lines.append("- Split and commit working-tree changes -> `b-commit` only on explicit user request.")
-        elif skill["name"] == "b-pr-summary":
-            lines.append(
-                "- Commit-backed PR summary or supplied PR-prose review/rewrite -> `b-pr-summary` only on explicit user request."
-            )
+        if not isinstance(routing, dict):
+            raise SystemExit(f"render_routing: {skill.get('name')} has no routing metadata")
+        suffix = " only on explicit user request" if routing.get("explicit_request") is True else ""
+        lines.append(f"- {routing['intent']} -> `{skill['name']}`{suffix}.")
     return "\n".join(lines)
 
 
@@ -634,7 +644,7 @@ def render_skill_file(skill: dict) -> str:
     ).rstrip()
     routing = skill.get("routing")
     description = skill["prompt"]["description"]
-    if isinstance(routing, dict):
+    if isinstance(routing, dict) and routing.get("triggers"):
         description += f" Routing signals: {', '.join(routing['triggers'])}."
     lines = ["---", f"name: {skill['name']}"]
     lines.extend(render_folded_yaml_block("description", description))
@@ -729,6 +739,24 @@ def validate_capability_regressions(contract: dict) -> list[str]:
             pass
         else:
             errors.append("capability regression: MCP coverage mismatch must be rejected")
+
+    missing_guard_source = json.loads(json.dumps(contract))
+    guard_cap = next(
+        (
+            item
+            for item in missing_guard_source["capabilities"]
+            if isinstance(item, dict) and isinstance(item.get("source"), dict) and "guard" in item["source"]
+        ),
+        None,
+    )
+    if isinstance(guard_cap, dict):
+        guard_cap["source"]["guard"] = "pi/nonexistent-guard.ts"
+        if validate_capabilities(missing_guard_source):
+            pass
+        else:
+            errors.append("capability regression: missing source.guard file must be rejected")
+    else:
+        errors.append("capability regression: baseline must contain a capability with source.guard")
     return errors
 
 
@@ -746,6 +774,32 @@ def validate_execution_regressions(skills: list[dict]) -> list[str]:
             fixture[0]["execution"] = execution
         if not any("execution" in error for error in validate_skills(fixture)):
             errors.append(f"execution regression: {label} execution metadata must be rejected")
+
+    ship = next((s for s in skills if s.get("phase") == "Ship"), None)
+    non_ship = next((s for s in skills if s.get("phase") != "Ship"), None)
+    if ship is None or non_ship is None:
+        errors.append("routing regression: baseline must contain ship and non-ship skills")
+        return errors
+    for label, target, routing in (
+        ("ship-with-triggers", ship, {"intent": "x", "explicit_request": True, "triggers": ["x"]}),
+        ("ship-missing-explicit-request", ship, {"intent": "x", "triggers": ["x"]}),
+        ("non-ship-explicit-request", non_ship, {"intent": "x", "explicit_request": True}),
+        ("non-ship-missing-routing", non_ship, None),
+        ("non-ship-missing-triggers", non_ship, {"intent": "x"}),
+    ):
+        fixture = json.loads(json.dumps(skills))
+        index = next(i for i, s in enumerate(fixture) if s.get("name") == target.get("name"))
+        if routing is None:
+            fixture[index].pop("routing", None)
+        else:
+            fixture[index]["routing"] = routing
+        if not any("routing" in error for error in validate_skills(fixture)):
+            errors.append(f"routing regression: {label} routing metadata must be rejected")
+
+    bad_phase = json.loads(json.dumps(skills))
+    bad_phase[0]["phase"] = "ship"
+    if not any("phase" in error for error in validate_skills(bad_phase)):
+        errors.append("phase regression: an unknown phase must be rejected")
     return errors
 
 
