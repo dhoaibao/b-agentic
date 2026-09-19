@@ -217,6 +217,8 @@ def main() -> None:
         "pi": {
             "metadata": home / ".pi" / "agent" / "b-agentic",
             "skills": home / ".pi" / "agent" / "skills",
+            "agents": home / ".pi" / "agent" / "agents" / "b-agentic",
+            "settings": home / ".pi" / "agent" / "settings.json",
             "kernel": home / ".pi" / "agent" / "AGENTS.md",
             "permissionsExtension": home / ".pi" / "agent" / "extensions" / "b-agentic-permissions.ts",
             "extensions": home / ".pi" / "agent" / "extensions",
@@ -276,7 +278,54 @@ def main() -> None:
         else:
             warn(f"preserving modified managed kernel: {kernel_path}")
 
+    preserve_metadata = False
+
     if runtime == "pi":
+        settings_path = manifest_managed_path(paths, "settings", defaults["settings"], require_confined=True)
+        if settings_path:
+            remove_merged_json_config(
+                str(settings_path),
+                metadata / "templates" / "subagents.user.template.json",
+                "settings.json",
+                "subagentSettings",
+                "subagentSettingsAction",
+                data,
+            )
+        agents_root = manifest_managed_path(paths, "agents", defaults["agents"], require_confined=True)
+        agents_snapshot_root = metadata / "agents"
+        for name in data.get("agents", []):
+            if agents_root is None:
+                warn("preserving subagent profiles because managed path is not confined")
+                break
+            if not safe_name(name):
+                warn("preserving subagent profile with unsafe manifest name")
+                continue
+            profile = agents_root / f"{name}.md"
+            profile_snapshot = agents_snapshot_root / f"{name}.md"
+            if profile.is_symlink():
+                warn(f"preserving symlinked subagent profile: {profile}")
+            elif profile.exists() and profile_snapshot.exists() and files_equal(profile, profile_snapshot):
+                remove_file(profile)
+            elif profile.exists():
+                warn(f"preserving modified subagent profile: {profile}")
+
+        guard_path = metadata / "subagent-read-only-guard.ts"
+        guard_snapshot = metadata / "subagent-read-only-guard.snapshot.ts"
+        if guard_path.is_symlink():
+            warn(f"preserving symlinked subagent read-only guard: {guard_path}")
+            preserve_metadata = True
+        elif (
+            guard_path.exists()
+            and guard_snapshot.is_file()
+            and not guard_snapshot.is_symlink()
+            and files_equal(guard_path, guard_snapshot)
+        ):
+            remove_file(guard_path)
+            remove_file(guard_snapshot)
+        elif guard_path.exists():
+            warn(f"preserving modified or unsnapshotted subagent read-only guard: {guard_path}")
+            preserve_metadata = True
+
         mcp_config_path = manifest_managed_path(paths, "mcpConfig", defaults["mcpConfig"], require_confined=True)
         if mcp_config_path:
             remove_merged_json_config(
@@ -351,7 +400,10 @@ def main() -> None:
                 warn(f"preserving symlinked Pi theme: {theme_path}")
         elif theme_path.exists():
             warn(f"preserving modified Pi theme: {theme_path}")
-    remove_tree(metadata)
+    if preserve_metadata:
+        warn(f"preserving managed metadata because it contains a user-modified asset: {metadata}")
+    else:
+        remove_tree(metadata)
     print(f"Manifest-only uninstall complete for {runtime}. Source cache was not required.")
 
 

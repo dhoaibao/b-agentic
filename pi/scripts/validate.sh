@@ -45,76 +45,73 @@ extension_files = [
     preview_extension,
     root / 'pi/extensions/b-agentic-mcp-permissions.ts',
     root / 'pi/extensions/b-agentic-auto-mode.ts',
-    root / 'pi/extensions/b-agentic-role.ts',
-    root / 'pi/extensions/b-agentic-architect.ts',
-    root / 'pi/extensions/b-agentic-executor-notify.ts',
-    root / 'pi/extensions/b-agentic-executor.ts',
     root / 'pi/extensions/b-agentic-sync.ts',
+    status_extension,
     root / 'pi/extensions/b-agentic-support/shell.ts',
     root / 'pi/extensions/b-agentic-support/mcp.ts',
-    root / 'pi/extensions/b-agentic-support/role.ts',
-    root / 'pi/extensions/b-agentic-support/role-models.ts',
-    root / 'pi/extensions/b-agentic-support/role-store.ts',
-    root / 'pi/extensions/b-agentic-support/worker.ts',
     root / 'pi/extensions/b-agentic-support/auto.ts',
-    status_extension,
     root / 'pi/extensions/b-agentic-support/capabilities.ts',
-    root / 'pi/extensions/b-agentic-support/candidate.ts',
     root / 'pi/extensions/b-agentic-support/status.ts',
 ]
+subagent_profiles = [
+    root / 'pi/agents/b-planner.md',
+    root / 'pi/agents/b-researcher.md',
+    root / 'pi/agents/b-debugger.md',
+    root / 'pi/agents/b-reviewer.md',
+]
+subagent_settings = root / 'pi/configs/subagents.user.template.json'
+subagent_guard = root / 'pi/subagent-read-only-guard.ts'
+
 config_readme = root / 'pi/configs/README.md'
 standalone_preview_installer = root / 'pi/scripts/install-preview-markdown.sh'
 
-for path in [kernel, mcp, capabilities, capabilities_module, *extension_files, config_readme, standalone_preview_installer, preview_package]:
+for path in [kernel, mcp, capabilities, capabilities_module, *extension_files, *subagent_profiles, subagent_settings, subagent_guard, config_readme, standalone_preview_installer, preview_package]:
     if not path.exists():
         errors.append(f'{path}: missing')
 
 if kernel.exists():
     text = kernel.read_text()
     for marker in [
-        'Pi Workflow Kernel', 'b-agentic defaults to Off', 'Executor-owned skills:',
-        'Architect-owned skills:', 'Executor is the sole user-facing worktree writer',
+        'Pi Workflow Kernel', 'b-agentic has one main session.',
+        'launch the named `pi-subagents` agent synchronously with an explicit bounded task and wait for its result',
+        'Delegated agents are read-only specialists.',
+        'requires `b-reviewer` review before the main session reports normal completion',
         'ask_user_question', '2–4 concrete options', 'automatic custom-answer row',
-        'legacy v1 planner/worker and v2 implementer/reviewer state stays inactive', 'Candidate review freezes executor edits',
         '~/.pi/agent/b-agentic/references/capabilities.yaml',
         'never parse MCP configuration or inspect credential/API-key values',
     ]:
         if marker not in text:
             errors.append(f'{kernel}: missing {marker!r}')
+    for legacy in ['Roles do not change approval policy', 'Other Intercom is on request', 'freezes executor edits']:
+        if legacy in text:
+            errors.append(f'{kernel}: retired two-role directive must be absent ({legacy!r})')
 
-role_prompt = (root / 'pi/extensions/b-agentic-support/role.ts').read_text()
-for marker in [
-    # generated:role-prompt-markers:validate:start
-    "sole user-facing writer",
-    "independent read-only gate",
-    "roles never filter tools",
-    "compact frozen-candidate handoff",
-    "every completed Executor-owned task",
-    "No-change tasks, including PR prose",
-    "stop edits",
-    "required checks",
-    "exact unchanged snapshot",
-    "READY WITH FOLLOW-UPS",
-    "No automatic commit or push",
-    "user-approved plan handoff",
-    "independent b-review",
-    "structured disposition and findings",
-    "same-CWD peer",
-    "fresh",
-    "absolute project",
-    "exactly one other peer",
-    "blocking",
-    "omit",
-    "proactive",
-    "active inbound request",
-    "pending",
-    "originating",
-    "reverse",
-    "same exchange",
-# generated:role-prompt-markers:validate:end
-]:
-    if marker not in role_prompt:
-        errors.append(f"{root / 'pi/extensions/b-agentic-support/role.ts'}: missing {marker!r}")
+for profile in subagent_profiles:
+    if not profile.exists():
+        continue
+    profile_text = profile.read_text()
+    for marker in ['systemPromptMode: append', 'inheritProjectContext: true', 'inheritGlobalContext: true', 'subagentOnlyExtensions: ../../b-agentic/subagent-read-only-guard.ts', 'read-only']:
+        if marker not in profile_text:
+            errors.append(f'{profile}: missing {marker!r}')
+    frontmatter = profile_text.split('---', 2)[1] if profile_text.startswith('---') else profile_text
+    if any(tool in frontmatter for tool in ['- bash', '- edit', '- write', '- mcpScript', '- intercom']):
+        errors.append(f'{profile}: must not grant raw shell, mutation, script, or peer-coordination tools')
+if subagent_guard.exists():
+    guard_text = subagent_guard.read_text()
+    for marker in ['READ_ONLY_ALLOWED_TOOLS', 'ALWAYS_BLOCKED_TOOLS', '"bash"', '"powershell"', '"mcpScript"', '"mcp__"', 'isTrustedManagedGatewayCall', 'tool_call']:
+        if marker not in guard_text:
+            errors.append(f'{subagent_guard}: missing enforced child-read-only marker {marker!r}')
+    for forbidden in ['pi.exec(', 'child_process', 'spawn(', 'exec(']:
+        if forbidden in guard_text:
+            errors.append(f'{subagent_guard}: guard must not execute a shell or subprocess ({forbidden!r})')
+if subagent_settings.exists():
+    settings = json.loads(subagent_settings.read_text())
+    subagents = settings.get('subagents', {})
+    if subagents.get('disableBuiltins') is not True:
+        errors.append(f'{subagent_settings}: must disable bundled agents')
+    for name in ['b-planner', 'b-researcher', 'b-debugger', 'b-reviewer']:
+        if subagents.get('agentOverrides', {}).get(name, {}).get('model') != 'inherit':
+            errors.append(f'{subagent_settings}: {name} must inherit the parent model by default')
 
 if rule_guard_source.exists():
     errors.append(f'{rule_guard_source}: retired managed rule-guard source must be absent')
@@ -133,13 +130,13 @@ if capabilities.exists():
         errors.append(f'{capabilities}: must contain schema_version 1 and a non-empty capabilities array')
     if len({entry.get('id') for entry in contract_entries if isinstance(entry, dict)}) != len(contract_entries):
         errors.append(f'{capabilities}: capability ids must be unique')
-    if any(name in capabilities_text for name in ['pi-lens', 'pi-subagents', 'background-task', 'pi-lsp', '@narumitw/pi-lsp', 'piLspAction', 'piLspState', 'b-agentic-consult']):
+    if any(name in capabilities_text for name in ['pi-lens', 'background-task', 'pi-lsp', '@narumitw/pi-lsp', 'piLspAction', 'piLspState', 'b-agentic-consult']):
         errors.append(f'{capabilities}: retired or forbidden packages/integrations must not be managed')
 if capabilities_module.exists():
     text = capabilities_module.read_text()
     if 'b-agentic-rule-guard' in text:
         errors.append(f'{capabilities_module}: retired managed rule-guard capability must be absent')
-    for marker in ['Generated from references/capabilities.yaml', 'CAPABILITY_CONTRACT_VERSION', 'CAPABILITIES', 'package.pi-mcp-adapter', 'mcp.playwright', 'extension.b-agentic-status']:
+    for marker in ['Generated from references/capabilities.yaml', 'CAPABILITY_CONTRACT_VERSION', 'CAPABILITIES', 'package.pi-mcp-adapter', 'agent.b-agentic-subagent-profiles', 'agent.b-agentic-subagent-settings', 'mcp.playwright', 'extension.b-agentic-status']:
         if marker not in text:
             errors.append(f'{capabilities_module}: missing generated capability marker {marker!r}')
 installer = root / 'pi/scripts/install.sh'
@@ -150,8 +147,6 @@ if installer.exists():
         for retired_name in ['b-agentic-rule-guard.ts', 'b-agentic-consult.ts', 'b-agentic-support/consult.ts']:
             if retired_name in installer_match.group(1):
                 errors.append(f'{installer}: retired managed extension {retired_name} must not remain in EXTENSION_NAMES')
-if 'b_consult' in role_prompt or 'b-consult-model' in role_prompt:
-    errors.append(f'{root / "pi/extensions/b-agentic-support/role.ts"}: retired consult guidance must be absent')
 
 if status_extension.exists():
     text = status_extension.read_text()
@@ -163,7 +158,7 @@ if status_extension.exists():
 status_support = root / 'pi/extensions/b-agentic-support/status.ts'
 if status_support.exists():
     text = status_support.read_text()
-    for marker in ['mcpConfigPresent', 'MCP configuration contents and credential/key readiness are intentionally unverified']:
+    for marker in ['mcpConfigPresent', 'agentRoot', 'settingsPath', 'MCP configuration contents and credential/key readiness are intentionally unverified']:
         if marker not in text:
             errors.append(f'{status_support}: missing privacy/readiness marker {marker!r}')
     for forbidden in ['readFileSync', 'readLocalJsonConfig', 'hasConfiguredValue', 'process.env[']:
@@ -202,29 +197,15 @@ if extension.exists():
             if marker not in preview_text:
                 errors.append(f'{preview_extension}: missing preview marker {marker!r}')
     for marker in [
-        'tool_call', 'ask_user_question', 'User input needed', 'isAutoApprovedIntercomCall',
-        'ARCHITECT_PROMPT', 'executorPrompt', 'architect profile', 'executor profile',
-        'SKILL_OWNERS', 'skillOwner', 'SKILL_OWNERSHIP_CRITERION',
-        'sole user-facing writer', 'independent read-only gate', 'compact frozen-candidate handoff',
-        'stop edits', 'exact unchanged snapshot',
-        'independent b-review',
-        'structured disposition and findings', 'every disposition', 'same-CWD peer',
-        'ROLE_PROTOCOL_VERSION', 'latestRoleState', 'createCandidateSnapshot',
+        'tool_call', 'isAutoModeEnabled', 'isTrustedPreviewMarkdownCall',
         'isDirectClassifiedManagedTool', 'CODEGRAPH_TRUSTED_TOOLS', 'mcpScript',
-        'roles never filter tools'
+        'custom/MCP tool',
     ]:
         if marker not in text:
             errors.append(f'{extension}: missing policy marker {marker!r}')
-    planner_extension = root / 'pi/extensions/b-agentic-architect.ts'
-    planner_text = planner_extension.read_text() if planner_extension.exists() else ''
-    planner_body = planner_text.split('export const __test__', 1)[0]
-    if 'pi.on("tool_call"' in planner_body:
-        errors.append(f'{planner_extension}: planner roles must not add role-specific tool-call blocks')
-    if 'plannerCommandDecision(' in planner_body or 'isPlannerReadOnlyMcpCall(' in planner_body:
-        errors.append(f'{planner_extension}: planner commands and MCP calls must use shared policy, not role-specific blocks')
     mcp_permissions = root / 'pi/extensions/b-agentic-mcp-permissions.ts'
-    if 'getRole() === "executor"' in mcp_permissions.read_text() or 'getRole() === "architect"' in mcp_permissions.read_text():
-        errors.append(f'{mcp_permissions}: role MCP restrictions must not override shared policy')
+    if 'getRole()' in mcp_permissions.read_text():
+        errors.append(f'{mcp_permissions}: deleted role state must not override shared policy')
     if 'return { block: true' not in text and 'block: true' not in text:
         errors.append(f'{extension}: must be able to block tool calls')
     if 'custom/MCP tool' not in text and 'MCP' not in text:
@@ -341,9 +322,11 @@ if config_readme.exists():
         '`~/.pi/agent/b-agentic/`',
         'ownership boundary',
         '[operational reference](../../REFERENCE.md)',
-        'Architect/architect and Executor/executor role selection and coordination',
-        'normal Pi tools',
-        'shared approval policy',
+        '`~/.pi/agent/agents/b-agentic/{b-planner,b-researcher,b-debugger,b-reviewer}.md`',
+        '`~/.pi/agent/settings.json`',
+        '`~/.pi/agent/b-agentic/subagent-read-only-guard.ts`',
+        'disable pi-subagents bundled agents',
+        'The main session\nremains the only user-facing worktree writer',
     ]:
         if marker not in text:
             errors.append(f'{config_readme}: missing layout/boundary marker {marker!r}')

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.19] - 2026-09-19
+
+### Added
+
+- Install managed `pi-subagents` planner, researcher, debugger, and reviewer profiles with disabled bundled agents, inherited parent-model defaults, local readiness reporting, and technically enforced read-only child tool access.
+
+### Changed
+
+- Replace the Executor/Architect and `pi-intercom` workflow with a single main-session workflow that delegates bounded read-only evidence work to named subagents and requires a fresh frozen `b-reviewer` review for changed candidates.
+- Preserve modified or symlinked managed child read-only guards during sync and both normal and manifest-only uninstalls, while removing unchanged managed guards safely.
+
+### Removed
+
+- Retire role selection, role state, role-specific extensions, candidate handoff modules, and the managed `pi-intercom` integration.
+
 ## [v2026.09.14] - 2026-09-14
 
 ### Changed

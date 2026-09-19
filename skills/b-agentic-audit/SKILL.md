@@ -37,20 +37,20 @@ prose semantics and never substitutes for changed-code `b-review`.
 
 ## Mandatory origin freshness gate
 
-Before any other audit step or repository read, establish that the current
-branch is synchronized with `origin`:
+Before any other audit step or repository read, require the main session to
+supply its completed origin-freshness evidence:
 
-1. Refresh the local remote-tracking metadata with `rtk git fetch origin`.
-   Do not pull, merge, rebase, or modify working-tree files.
-2. Resolve the current branch and its configured upstream. Require that the
-   upstream is an `origin/*` ref, then compare `HEAD` with that ref using
-   metadata-only Git commands (for example, `git rev-list --left-right --count
-   <origin-ref>...HEAD`). Proceed only when both counts are zero.
-3. If the branch is detached, the `origin` ref is missing, fetch or comparison
-   fails, or the branch is ahead, behind, or diverged, notify the user and stop:
-   `BLOCKED: current branch is not up to date with origin; synchronize it and
-   rerun the audit.` Do not read audit sources, run the audit script, perform
-   MCP/currentness probes, or issue findings or a verdict.
+1. The main session refreshes local remote-tracking metadata and resolves the
+   current branch and its configured `origin/*` upstream without pull, merge,
+   rebase, or working-tree modification.
+2. It supplies the metadata-only comparison of `HEAD` with that upstream and
+   its ahead/behind counts. Proceed only when both counts are zero.
+3. If the evidence is missing, the branch is detached, the `origin` ref is
+   missing, the metadata-only branch comparison fails, or the branch is ahead,
+   behind, or diverged, report only: `BLOCKED: current branch is not up to date
+   with origin; synchronize it and rerun the audit.` Do not read audit sources,
+   run audit checks, perform MCP/currentness probes, or issue normal findings or
+   a verdict.
 
 ## When to use
 
@@ -74,9 +74,9 @@ branch is synchronized with `origin`:
 
 ## Tool guidance
 
-- `bash` - run `rtk git fetch origin` and the mandatory metadata-only branch
-  freshness comparison before `rtk git status --short`, the existing
-  `scripts/b-agentic-audit.sh` entrypoint, and narrow repository checks.
+- No shell is available to this read-only child. Inspect the main session's
+  supplied freshness, status, audit-script, and narrow-check evidence; state an
+  explicit evidence gap instead of attempting a command.
 - `read` - inspect `docs/decision_design.md` and the canonical source files it
   cites; prefer sources over generated assets when comparing behavior.
 - `context7` or bounded primary upstream documentation/release metadata - verify
@@ -84,20 +84,20 @@ branch is synchronized with `origin`:
   repository content, credentials, or private URLs.
 - `codegraph` - select when a concrete repository-wide architecture, impact, or
   affected-test question is central to the audit and likely valuable; use an
-  available index for that question and initialize an absent index only for
-  that qualifying question. Spanning files alone never justifies it.
+  available index for that question and report an absent-index gap to the main
+  session. Spanning files alone never justifies it.
 
 ## Steps
 
-1. Complete the mandatory origin freshness gate above before defining the
-   four-dimension audit surface or reading repository files. After it passes,
-   run `rtk git status --short`; preserve unrelated changes and classify
-   protected paths before reading them.
+1. Confirm the main session's mandatory origin-freshness and status evidence
+   before defining the four-dimension audit surface or reading repository files.
+   If it is incomplete, report the blocking evidence gap.
 2. Read the decision record and identify relevant decisions, evidence markers,
    referenced sources, generated surfaces, explicit non-goals, and local pins.
-3. Use `bash` to run `scripts/b-agentic-audit.sh` and record structural, generated-sync,
-   behavioral, and decision-design traceability results. Treat a passing script
-   as evidence for those checks only.
+3. Assess the main session's `scripts/b-agentic-audit.sh` output for structural,
+   generated-sync, behavioral, and decision-design traceability results. Treat a
+   passing script as evidence for those checks only; report it as missing when it
+   was not supplied.
 4. Perform the source-based comparison for conformance and health: read cited
    canonical sources, inspect first-party extensions and integration seams, and
    report concrete defects, gaps, duplication, maintainability friction, and
@@ -112,14 +112,15 @@ branch is synchronized with `origin`:
    `registry_sync`, rather than leaving them only in volatile memory.
 6. Assess currentness/MCP compatibility from local pins and installed versions.
    Use `context7` or bounded primary upstream evidence for compatibility claims. A live MCP
-   schema probe is an explicit operational step: obtain approval before running
-   it, and if approval or a usable environment is missing, report the limitation
-   rather than guessing or exposing raw errors.
+   schema probe is an explicit operational step: require the main session to
+   obtain approval and supply its result, and if approval, evidence, or a usable
+   environment is missing, report the limitation rather than guessing or
+   exposing raw errors.
 7. Use native inspection first. Select CodeGraph when a distinct concrete
    architecture/impact/affected-test question is central to the audit and
-   likely valuable; use an available index for that question and initialize an
-   absent index only for that qualifying question. Spanning files alone never
-   justifies initialization.
+   likely valuable; use an available index for that question and report an
+   absent-index gap to the main session. Spanning files alone never justifies
+   initialization.
 8. Separate deterministic results from semantic findings. Order findings by
    severity and cite repository-relative paths, evidence, impact, and the
    smallest follow-up route. State what was not mechanically proven.
@@ -140,15 +141,12 @@ Verdict:
 
 ## Rules
 
-- Keep the audit strictly read-only: the mandatory freshness gate may refresh
-  only local `origin` tracking metadata with `rtk git fetch origin`; do not edit,
-  stage, commit, push, or apply fixes. Route frontend/UI production fixes to
-  **b-frontend**, other behavioral fixes to **b-implement**, and named
-  behavior-preserving transforms to **b-refactor**; do not edit during the audit.
-- The origin freshness gate is mandatory and runs before every audit action. It
-  is the stricter skill-mandated gate the kernel freshness rule allows, so the
-  `rtk git fetch origin` refresh is required even when cached `origin` metadata
-  looks current. A failed or non-zero comparison is a blocked audit, not a
+- Keep the audit strictly read-only: do not edit, stage, commit, push, run
+  commands, or apply fixes. Route frontend/UI production fixes to **b-frontend**,
+  other behavioral fixes to **b-implement**, and named behavior-preserving
+  transforms to **b-refactor**; do not edit during the audit.
+- The main-session origin freshness evidence is mandatory before every audit
+  action. A missing, failed, or non-zero comparison is a blocked audit, not a
   finding; notify the user and stop without auditing or issuing a verdict.
 - Prefer repository evidence over assumptions and cite repository-relative paths.
 - Do not claim that passing structural or traceability checks proves all prose

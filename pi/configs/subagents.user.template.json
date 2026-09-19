@@ -1,0 +1,11 @@
+{
+  "subagents": {
+    "disableBuiltins": true,
+    "agentOverrides": {
+      "b-planner": { "model": "inherit" },
+      "b-researcher": { "model": "inherit" },
+      "b-debugger": { "model": "inherit" },
+      "b-reviewer": { "model": "inherit" }
+    }
+  }
+}

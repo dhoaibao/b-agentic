@@ -10,6 +10,20 @@ import { dirname, join } from "node:path";
 
 export const AUTO_MODE_ENTRY_TYPE = "b-agentic-auto-mode";
 
+const AUTO_MODE_STATE_KEY = Symbol.for("b-agentic.auto-mode-state");
+const globalState = globalThis as typeof globalThis & {
+  [key: symbol]: { enabled: boolean } | undefined;
+};
+const state = (globalState[AUTO_MODE_STATE_KEY] ??= { enabled: false });
+
+export function isAutoModeEnabled(): boolean {
+  return state.enabled;
+}
+
+export function setAutoModeEnabled(enabled: boolean): void {
+  state.enabled = enabled;
+}
+
 type AutoModePreference = { enabled: boolean };
 
 export function autoModePath(): string {

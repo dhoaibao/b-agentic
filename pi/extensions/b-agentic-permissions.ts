@@ -14,7 +14,7 @@ import {
 } from "./b-agentic-support/shell.ts";
 import * as shell from "./b-agentic-support/shell.ts";
 import * as mcp from "./b-agentic-support/mcp.ts";
-import { isAutoModeEnabled } from "./b-agentic-support/state.ts";
+import { isAutoModeEnabled } from "./b-agentic-support/auto.ts";
 
 function hasExactOldTextError(content: readonly unknown[]): boolean {
   const text = content

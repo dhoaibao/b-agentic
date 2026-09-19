@@ -5,7 +5,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { isAutoModeEnabled } from "./b-agentic-support/state.ts";
+import { isAutoModeEnabled } from "./b-agentic-support/auto.ts";
 
 const installerPath = (): string =>
   join(

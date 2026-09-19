@@ -1,10 +1,10 @@
-/** Managed MCP, custom-tool, and Intercom approval policy. */
+/** Managed MCP and custom-tool approval policy. */
 import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import * as policy from "./b-agentic-support/mcp.ts";
-import { isAutoModeEnabled } from "./b-agentic-support/state.ts";
+import { isAutoModeEnabled } from "./b-agentic-support/auto.ts";
 
 let currentContext: ExtensionContext | undefined;
 
@@ -12,8 +12,6 @@ export default function bAgenticMcpPermissions(pi: ExtensionAPI): void {
   pi.on("tool_call", async (event, ctx) => {
     currentContext = ctx;
     const input = event.input;
-    if (policy.isAutoApprovedIntercomCall(event.toolName, input))
-      return undefined;
     if (policy.isMcpOrCustomTool(event.toolName, input)) {
       if (isAutoModeEnabled()) return undefined;
       if (!ctx.hasUI)

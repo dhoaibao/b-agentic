@@ -3,7 +3,7 @@
 [Back to the public overview](README.md)
 
 This is the operational source of truth for installation, lifecycle, safety,
-MCP, package, role, and verification behavior behind the concise
+MCP, package, subagent, and verification behavior behind the concise
 [README.md](README.md). The installed path map and managed-versus-user-owned
 boundary live in [pi/configs/README.md](pi/configs/README.md); this reference
 owns the operations performed on those paths.
@@ -205,11 +205,13 @@ machine-readable report; suggestion mode never edits policy or configuration.
 
 The installed [`~/.pi/agent/b-agentic/references/capabilities.yaml`](references/capabilities.yaml)
 contract records activation triggers, prerequisites, local readiness, fallbacks,
-and non-sensitive status signals for every managed package, MCP server, and
-first-party extension. `/b-status` renders a local, read-only snapshot from
-that contract using only package-listing, extension-file, MCP-config-file
-existence, and non-sensitive launcher metadata. It does not parse `mcp.json`,
-inspect environment/API-key values, start MCP servers, authenticate providers,
+and non-sensitive status signals for every managed package, custom-agent
+profile/settings asset, MCP server, and first-party extension. `/b-status`
+renders a local, read-only snapshot from that contract using only
+package-listing, extension-file, managed-agent-profile/settings-file,
+MCP-config-file existence, and non-sensitive launcher metadata. It does not
+parse `mcp.json` or Pi settings, inspect environment/API-key values, start MCP
+servers, authenticate providers,
 run browser probes, or persist prompts, code, URLs, secrets, or usage telemetry.
 Managed MCP configuration and credentials remain unknown or unverified in this
 snapshot; use `mcp-doctor` or an explicitly approved operation for readiness
@@ -238,34 +240,34 @@ b-agentic installs `@gotgenes/pi-anthropic-auth` automatically for Anthropic aut
 
 b-agentic installs `@juicesharp/rpiv-todo` automatically at the latest release. This Pi package provides the todo tool, `/todos` command, and persistent overlay; the kernel guides lightweight task tracking for non-trivial multi-step work when available, without requiring it for small or routine tasks or imposing workflow orchestration, persistence, or telemetry.
 
-b-agentic installs `pi-intercom` automatically for compatible Architect/Executor coordination and installs
-`@juicesharp/rpiv-ask-user-question` at the latest release for structured Architect planning and Executor execution decisions and blockers.
-Architect and Executor questions group 1–4 related questions, offer 2–4 concrete options with
-concise trade-offs, suffix the first recommended option with ` (Recommended)`,
-and rely on the extension's automatic custom-answer row. Do not author `Other`,
-`Type something.`, or `Next`. If the package or interactive UI is unavailable,
-fall back to one focused plain-text question and retain the user-input attention
-signal. After checking `pi list`, the installer runs `pi update --extensions`
-after reconciling required Pi packages. Uninstall removes managed config and
-extension files but not any package.
+b-agentic installs `pi-subagents` automatically. Its default merged settings
+disable the package's bundled agents and provide four managed custom profiles:
+`b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. Their initial
+`model: "inherit"` setting uses the parent session model. Users can inspect or
+persist per-agent model, thinking, and prompt choices with `/subagents`; those
+settings are Pi-owned and project scope takes precedence over user scope.
 
-Pi has no native permission model, so b-agentic installs a first-party set of
-purpose-specific `tool_call` extensions under `~/.pi/agent/extensions/`:
+b-agentic installs `@juicesharp/rpiv-ask-user-question` at the latest release
+for main-session material decisions and blockers. Questions group 1–4 related
+choices, offer 2–4 concise trade-offs, suffix the first recommended option with
+` (Recommended)`, and rely on the extension's automatic custom-answer row. Do
+not author `Other`, `Type something.`, or `Next`. If the package or interactive
+UI is unavailable, ask one focused plain-text question. After checking `pi
+list`, the installer runs `pi update --extensions` after reconciling required Pi
+packages. Uninstall removes unchanged managed config, custom-agent definitions, and
+extension files but leaves installed packages untouched. Modified or symlinked
+managed custom-agent profiles and child-only guards are preserved rather than
+overwritten or removed.
+
+Pi has no native permission model, so b-agentic installs purpose-specific
+`tool_call` extensions under `~/.pi/agent/extensions/`:
 
 - `b-agentic-permissions.ts` for shell/filesystem policy.
 - `b-agentic-mcp-permissions.ts` for managed MCP and custom-tool approval.
 - `b-agentic-auto-mode.ts` for confirmed automatic approval with explicit-deny protection.
-- `b-agentic-role.ts` for role selection, session state, and durable per-session/pane persistence.
-- `b-agentic-architect.ts` and `b-agentic-executor.ts` inject the Architect and Executor profiles without duplicate profile entrypoints.
-- `b-agentic-executor-notify.ts` emits privacy-safe Executor user-input and post-review task-completion notifications; role prompts use `pi-intercom` for approved-plan handoffs, automatic review requests, and findings handbacks.
 - `b-agentic-sync.ts` for in-session refresh commands.
-
-Role desktop notifications remain fixed and privacy-safe by default. To opt in to
-repository context, set `B_AGENTIC_NOTIFICATION_CONTEXT=1`. On Linux and macOS,
-this adds only a sanitized basename of the current working directory to role
-notifications; in interactive TUI sessions it also sets the terminal title to
-`pi — <repo>`. Absolute paths, session details, task text, and unusable basenames
-are never included.
+- `b-agentic-status.ts` for local, read-only capability status.
+- `b-agentic-preview-markdown.ts` for inline Markdown previews.
 
 Helpers under `pi/extensions/b-agentic-support/` are not discovered as
 standalone Pi extensions. Pi enforces managed MCP and RTK policy from
@@ -290,92 +292,40 @@ are preserved with a warning. Uninstall removes only unchanged managed content
 and symlinks, restores recorded user backups, preserves modified or
 symlinked files, and never removes installed packages, including `@gotgenes/pi-anthropic-auth` and `@juicesharp/rpiv-todo`.
 
-## Roles and coordination
+## Single-session delegation
 
-b-agentic defaults to Off. Explicitly select `/b-role executor`, `/b-role architect`,
-or `/b-role off` (and matching `pi --b-role` flags). Every explicit `/b-role`
-selection follows the session and the terminal pane it runs in, never the project
-as a whole. A new, forked, or resumed session continues the role recorded in the
-session it replaced; otherwise it restores the last explicit selection for that
-terminal pane and project, kept as an independent record under
-`~/.pi/agent/b-agentic/roles/`. A pane with no recorded selection starts Off, so
-an Executor pane and an Architect pane in one project never adopt each other's
-role. A session's own recorded role wins over both, and `pi --b-role` remains a
-one-session override that does not rewrite the stored selection. Selecting or
-restoring executor activates it immediately, regardless of same-CWD peers, role
-payload compatibility, or Intercom availability. Selecting or restoring a
-non-Off role emits one concise ownership line — `Executor-owned skills: …` or
-`Architect-owned skills: …` — rendered from the generated registry ownership map
-that also builds the role prompts; Off selections, unrecorded panes, legacy
-inactive state, and extension reloads emit none. The executor is the sole
-user-facing Executor and owns design, build, validation, commit, and PR summary.
-The architect is the read-only Architect and owns `b-plan`, `b-research`,
-`b-debug`, independent `b-review`, and `b-agentic-audit`. Roles govern prompts
-rather than filtering tools; shared shell, filesystem, MCP, and approval policy
-remains authoritative.
+b-agentic has one main session. It owns user-facing discussion, material
+decisions, worktree changes, verification, commits, and final reporting. It
+never selects a role or coordinates with a peer session.
 
-Legacy v1 planner/worker and v2 implementer/reviewer session entries remain
-inactive until the user explicitly reselects a new role. Durable session and pane
-records use version 3. Model/thinking preferences map legacy values by role only
-(implementer and worker to executor; reviewer and planner to architect); that
-compatibility never activates a role. The runtime does not provision, reset, or
-promise fresh architect sessions.
+When routing selects `b-plan`, `b-research`, `b-debug`, `b-review`, or
+`b-agentic-audit`, the main session launches its named pi-subagents profile
+synchronously with a bounded task and waits for a result: `b-planner`,
+`b-researcher`, `b-debugger`, or `b-reviewer`. A returned plan, report,
+diagnosis, or review is evidence only. It is not user approval, implementation
+authorization, or permission to commit.
 
-The Architect directly asks material planning questions with `ask_user_question`.
-Before initiating any new thread, it obtains a fresh `list-cwd` using the absolute
-project `cwd` and requires exactly one other peer; zero or multiple peers, missing
-Intercom, or an ambiguous roster is a coordination gap. After the user approves
-`b-plan` with no inbound Executor `ask`, it uses one proactive `send` with that
-`cwd` and omits `to` for a compact approved-plan handoff with scope, acceptance,
-affected paths, invariants, verification, risks, and open items; this is not
-blocking and never pairs `send` plus `ask`. If the plan originated from an
-Executor `ask`, the Architect returns it through the originating threaded
-`reply` instead. The Executor begins the named skill without reopening settled
-decisions, but stops for new ambiguity or scope drift. Missing coordination is reported. When an Executor requests `b-plan`,
-`b-research`, `b-debug`, or `b-review`, it uses exactly one blocking `ask` with the
-absolute project `cwd`, omits `to`, and then stops and waits; the Architect begins
-that named skill automatically.
-For `b-debug`, it may create and remove only disposable probes or harnesses in an
-OS-temporary scratch path outside the worktree; it never edits product code. A
-confirmed diagnosis hands the Executor the exact runnable repro command, observable
-to flip, and confirmed causal mechanism, routing UI, non-UI, test-only, and unclear
-fixes to `b-frontend`, `b-implement`, `b-test`, and `b-plan` respectively.
+Managed profiles inherit project and global context but are read-only and
+non-nested. They do not edit, stage, commit, run generators or fixers, ask the
+user questions, inspect peer sessions, or use Intercom. A managed child-only
+guard blocks Bash, mutating native/orchestration tools, direct MCP tools, and
+unclassified MCP gateway calls; only classified read-only or safe
+conditional-read gateway operations remain available. The main session evaluates
+each result and performs every next user-facing or mutating action.
 
-Every completed Executor-owned task that leaves a tracked or relevant
-untracked/derived worktree candidate requires independent `b-review` before any
-final response. After required checks pass, the Executor freezes that candidate and
-sends the Architect a compact frozen-candidate handoff covering acceptance, required
-checks, gaps, and risk, then stops editing while review is pending. No-change tasks,
-including PR prose, do not require changed-code review. The Architect begins from
-that handoff without waiting for another prompt. It independently reads the handoff
-and diff; bounded read-only research may support its assigned work or substantiate a
-finding. It answers the active request with `reply` for every disposition. If no
-longer in the triggered turn, it inspects `pending` and uses the exact originating
-`replyTo`; it never opens a reverse `ask` or sends an unthreaded response. An
-ambiguous pending request is a coordination gap, reported instead of a normal final
-result. For `NEEDS FIXES`, it returns structured findings to the originating
-Executor in the same CWD while remaining read-only; it does not implement the fix.
+Every completed task leaving tracked or relevant untracked/derived candidate
+content requires independent `b-reviewer` review before normal completion. The
+main session runs required checks, freezes the exact candidate, requests review,
+and pauses edits. A changed snapshot, a missing/skipped/failed required check,
+`NEEDS FIXES`, or an unaccepted follow-up blocks readiness; corrections require
+fresh verification and a newly frozen review candidate. No-change tasks,
+including PR prose, do not use the changed-code gate. Review never commits,
+pushes, or accepts work automatically.
 
-A candidate is eligible only when its exact snapshot remains unchanged, acceptance is
-met, required checks are fresh and passed, no blocker/material gap remains, and a
-compatible architect gives a valid disposition. `READY WITH FOLLOW-UPS` requires an
-explicit accepted disposition and cannot waive safety evidence; `NEEDS FIXES`, a stale
-verdict, missing baseline, wrong architect/snapshot, untracked change, or skipped or
-failed check blocks shipping. Corrections require re-verification and re-review.
-Review completion, task acceptance, and commit creation are distinct. No automatic
-commit or push occurs without an explicit user commit request; once requested,
-b-commit executes its snapshot-verified plan without a second confirmation. In Off
-mode, required local checks and snapshot verification suffice unless the user
-explicitly requires review; no intercom review starts automatically. In explicit
-executor mode, the exact candidate and commit plan require independent review.
-Complete repository-required commit preparation before freezing that candidate:
-prepare the same-day changelog only for a user-authorized commit when repository
-rules require it, run prescribed validation, and include it in the reviewed
-snapshot or reopen review.
-
-`b-pr-summary` also reviews or rewrites supplied PR prose without requiring Git
-history or a frozen code candidate. Editorial feedback is not a changed-code
-review disposition; commit-backed fact checking remains explicitly scoped.
+For explicit user-authorized commits, `b-commit` completes repository-required
+preparation—including changelog work where required—before freezing the final
+candidate and commit plan. It stages only unchanged reviewed paths and does not
+ask for a second approval or push.
 
 ## In-session refresh
 

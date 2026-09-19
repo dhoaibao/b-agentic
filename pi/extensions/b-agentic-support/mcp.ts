@@ -5,42 +5,8 @@ import { isAbsolute, relative } from "node:path";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isProtectedPath, isProtectedLocalPath, SPECIALIZED_TOOLS } from "./shell.ts";
-import { isAutoModeEnabled } from "./state.ts";
+import { isAutoModeEnabled } from "./auto.ts";
 
-export const INTERCOM_ACTIONS = new Set(["list", "list-cwd", "send", "ask", "reply", "pending", "status", "cancel"]);
-export const INTERCOM_FIELDS = new Set([
-  "action",
-  "to",
-  "message",
-  "attachments",
-  "replyTo",
-  "messageId",
-  "supersedes",
-  "retryOf",
-  "cwd",
-  "focus",
-  "openProjectPaneIfMissing",
-]);
-export const INTERCOM_ATTACHMENT_TYPES = new Set(["file", "snippet", "context"]);
-const INTERCOM_ATTACHMENT_FIELDS = new Set(["type", "name", "content", "language"]);
-
-export function isValidIntercomAttachment(value: unknown): boolean {
-  if (!isPlainObject(value) || typeof value.type !== "string" || !INTERCOM_ATTACHMENT_TYPES.has(value.type) || typeof value.name !== "string" || typeof value.content !== "string") return false;
-  if (value.language !== undefined && typeof value.language !== "string") return false;
-  return Object.keys(value).every((key) => INTERCOM_ATTACHMENT_FIELDS.has(key));
-}
-
-export function isAutoApprovedIntercomCall(toolName: string, input: unknown): boolean {
-  if (toolName !== "intercom" || !isPlainObject(input) || typeof input.action !== "string" || !INTERCOM_ACTIONS.has(input.action)) return false;
-  return Object.entries(input).every(([key, value]) => {
-    if (!INTERCOM_FIELDS.has(key)) return false;
-    if (key === "action") return typeof value === "string" && INTERCOM_ACTIONS.has(value);
-    if (key === "attachments") return Array.isArray(value) && value.every(isValidIntercomAttachment);
-    if (key === "focus") return typeof value === "boolean";
-    if (key === "openProjectPaneIfMissing") return value === false;
-    return typeof value === "string";
-  });
-}
 export type McpToolApprovalDecision = "allow_once" | "allow_for_session" | "deny" | "abstain";
 export type McpToolApprovalOrigin = "proxy" | "direct" | "script" | "resource" | "iframe";
 export type McpToolApprovalRequest = {

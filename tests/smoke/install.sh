@@ -202,6 +202,42 @@ run_manifest_only_modified_skill_case() {
 	assert_contains "$skill_path" 'post-install skill modification'
 }
 
+run_manifest_only_modified_subagent_guard_case() {
+	local snapshot_repo="$1"
+	local sandbox="$WORK_DIR/manifest-only-modified-subagent-guard"
+	local symlink_sandbox="$WORK_DIR/manifest-only-symlinked-subagent-guard"
+	local guard_path="$sandbox/home/.pi/agent/b-agentic/subagent-read-only-guard.ts"
+	local symlink_guard_path="$symlink_sandbox/home/.pi/agent/b-agentic/subagent-read-only-guard.ts"
+
+	expect_install_status 0 "$sandbox" "$snapshot_repo"
+	printf '\npost-install guard modification\n' >>"$guard_path"
+	rm -rf "$sandbox/source"
+	HOME="$sandbox/home" \
+		B_AGENTIC_REPO="$sandbox/missing-source" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --uninstall >"$sandbox/uninstall.log" 2>&1
+
+	assert_contains "$sandbox/uninstall.log" 'preserving modified or unsnapshotted subagent read-only guard:'
+	assert_contains "$guard_path" 'post-install guard modification'
+	assert_file "$sandbox/home/.pi/agent/b-agentic/install.json"
+
+	expect_install_status 0 "$symlink_sandbox" "$snapshot_repo"
+	cp "$symlink_guard_path" "$symlink_sandbox/guard-target.ts"
+	rm "$symlink_guard_path"
+	ln -s "$symlink_sandbox/guard-target.ts" "$symlink_guard_path"
+	rm -rf "$symlink_sandbox/source"
+	HOME="$symlink_sandbox/home" \
+		B_AGENTIC_REPO="$symlink_sandbox/missing-source" \
+		B_AGENTIC_DIR="$symlink_sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --uninstall >"$symlink_sandbox/uninstall.log" 2>&1
+
+	assert_contains "$symlink_sandbox/uninstall.log" 'preserving symlinked subagent read-only guard:'
+	[ -L "$symlink_guard_path" ] || fail "expected manifest-only uninstall to preserve symlinked subagent read-only guard"
+	assert_file "$symlink_sandbox/home/.pi/agent/b-agentic/install.json"
+}
+
 run_manifest_only_merged_config_case() {
 	local snapshot_repo="$1"
 	local sandbox="$WORK_DIR/manifest-only-merged-config"
@@ -2288,6 +2324,7 @@ run_base_smoke_cases() {
 		run_manifest_only_custom_paths_case
 		run_manifest_only_mcp_symlink_preservation_case
 		run_manifest_only_modified_skill_case
+		run_manifest_only_modified_subagent_guard_case
 		run_manifest_only_merged_config_case
 		run_user_owned_serena_preservation_case
 		run_user_owned_retired_mcp_preservation_case

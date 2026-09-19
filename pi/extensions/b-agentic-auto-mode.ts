@@ -10,11 +10,9 @@ import {
   loadAutoModePreference,
   parseAutoMode,
   saveAutoModePreference,
-} from "./b-agentic-support/auto.ts";
-import {
   isAutoModeEnabled,
   setAutoModeEnabled,
-} from "./b-agentic-support/state.ts";
+} from "./b-agentic-support/auto.ts";
 
 function updateStatus(ctx: ExtensionContext): void {
   ctx.ui.setStatus(

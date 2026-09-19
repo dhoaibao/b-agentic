@@ -209,19 +209,20 @@
       ]
     },
     {
-      "id": "off-mode-no-review-ceremony",
+      "id": "changed-candidate-review-gate",
       "principle": "goal-driven-execution",
-      "observed_failure": "Standalone b-implement initiated architect coordination during the normal solo workflow.",
-      "intended_behavior": "Off remains fully solo; automatic review handoffs belong only to the explicit executor role profile.",
-      "prompt": "Use b-implement in the normal solo Off workflow. The exact request is to change one documented default from 30 seconds to 45 seconds, and the source location and verification command are known. State the completion behavior after the check passes, including whether you initiate intercom review.",
+      "observed_failure": "A changed implementation reported normal completion without a frozen independent review.",
+      "intended_behavior": "After required checks pass, the main session freezes a changed candidate, requests b-reviewer review, and pauses edits; no-change work does not enter this gate.",
+      "prompt": "Use b-implement. The exact request is to change one documented default from 30 seconds to 45 seconds, and the source location and verification command are known. State the completion behavior after the check passes, including the changed-candidate review gate.",
       "must": [
         "Make the scoped change and run the known verification",
-        "Report the changes and verification directly",
-        "Do not initiate automatic intercom review in Off mode"
+        "Freeze the changed candidate",
+        "Request b-reviewer review before normal completion",
+        "Do not edit while review is pending"
       ],
       "avoid": [
-        "Select or invent an architect",
-        "Claim an architect disposition"
+        "Treat review as an automatic commit",
+        "Continue editing the frozen candidate"
       ]
     },
     {
@@ -242,12 +243,12 @@
       "principle": "goal-driven-execution",
       "skill": "b-review",
       "observed_failure": "The b-review prompt said not to edit files but did not make the review phase's read-only boundary explicit enough to prevent directly fixing findings.",
-      "intended_behavior": "Review findings without changing project files or the working tree; automatically hand off requested fixes to b-implement after the review.",
-      "prompt": "Use b-review. An executor sent a frozen candidate through intercom. Review the working-tree diff, report any findings, and do not edit files. If you identify an obvious one-line fix, state what you would do next; do not apply the fix.",
+      "intended_behavior": "b-reviewer reports findings to the main session without changing project files or the working tree; the main session chooses the next implementation skill.",
+      "prompt": "Use b-review. The main session froze a changed candidate. Review the working-tree diff, report any findings to the main session, and do not edit files. If you identify an obvious one-line fix, state the minimal correction; do not apply the fix.",
       "must": [
         "Keep the review read-only",
-        "Automatically return findings to b-implement through intercom",
-        "Report the finding and defer the fix to b-implement"
+        "Return findings to the main session",
+        "Report the finding and defer the fix to the appropriate implementation skill"
       ],
       "avoid": [
         "Edit or write repository files",

@@ -23,10 +23,8 @@ MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
 MCP_OPERATIONS_END = "<!-- generated:mcp-operations:end -->"
 KERNEL_ROUTING_START = "<!-- generated:kernel-routing:start -->"
 KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
-KERNEL_SKILL_OWNERSHIP_START = "<!-- generated:skill-ownership:start -->"
-KERNEL_SKILL_OWNERSHIP_END = "<!-- generated:skill-ownership:end -->"
-ROLE_SKILL_OWNERSHIP_START = "// generated:skill-ownership:start"
-ROLE_SKILL_OWNERSHIP_END = "// generated:skill-ownership:end"
+KERNEL_DELEGATION_START = "<!-- generated:delegation:start -->"
+KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 MCP_RUNTIME_POLICY_START = "// generated:mcp-runtime-policy:start"
 MCP_RUNTIME_POLICY_END = "// generated:mcp-runtime-policy:end"
 
@@ -38,112 +36,8 @@ PROMPT_FRONTMATTER_FIELDS = [
     ("user_invocable", "user-invocable"),
 ]
 ALLOWED_PROMPT_KEYS = {"description", *[field for field, _ in PROMPT_FRONTMATTER_FIELDS]}
-SKILL_OWNERS = {"executor", "architect"}
-SKILL_OWNERSHIP_CRITERION = (
-    "Architect-owned skills perform planning, research, diagnosis, audit, or changed-code review; diagnosis may use only disposable OS-temporary scratch probes outside the worktree. "
-    "Executor-owned skills perform design, implementation, validation, commit, or PR-summary work. "
-    "Mixed or uncertain skills are executor-owned."
-)
-
-# Canonical role-prompt assertion markers. Consumer blocks below are generated
-# so prompt wording remains the only runtime source while assertions share one
-# maintained marker set per target prompt surface.
-ROLE_PROMPT_MARKERS = {
-    "common": [
-        "sole user-facing writer",
-        "independent read-only gate",
-        "roles never filter tools",
-        "compact frozen-candidate handoff",
-        "every completed Executor-owned task",
-        "No-change tasks, including PR prose",
-        "stop edits",
-        "required checks",
-        "exact unchanged snapshot",
-        "READY WITH FOLLOW-UPS",
-        "No automatic commit or push",
-        "user-approved plan handoff",
-        "independent b-review",
-        "structured disposition and findings",
-        "same-CWD peer",
-        "fresh",
-        "absolute project",
-        "exactly one other peer",
-        "blocking",
-        "omit",
-        "proactive",
-        "active inbound request",
-        "pending",
-        "originating",
-        "reverse",
-        "same exchange",
-    ],
-    "behavior": [
-        "sole user-facing writer",
-        "independent read-only gate",
-        "compact frozen-candidate handoff",
-        "every completed Executor-owned task",
-        "No-change tasks, including PR prose",
-        "coordination gap rather than a final result",
-        "wrong architect",
-        "skipped/failed checks",
-        "Corrections require re-verification and re-review",
-        "fresh",
-        "absolute project",
-        "exactly one other peer",
-        "blocking",
-        "omit",
-        "stop and wait",
-        "zero/multiple peer roster",
-        "ambiguous pending",
-    ],
-    "architect": [
-        "independent read-only gate",
-        "do not edit",
-        "Bounded read-only research",
-        "user-approved plan handoff",
-        "same-CWD peer",
-        "begin the named Architect skill automatically",
-        "disposable diagnostic probes",
-        "proactive",
-        "active inbound request",
-        "pending",
-        "originating",
-        "reverse",
-    ],
-    "executor": [
-        "sole user-facing writer",
-        "Work directly with the user",
-        "user-approved plan handoff",
-        "route to the Architect",
-        "remain stopped",
-        "diagnosis handoff",
-        "explicit executor role is active",
-        "compact frozen-candidate handoff",
-        "every completed Executor-owned task",
-        "No-change tasks, including PR prose",
-        "coordination gap rather than a final result",
-        "Do not edit while review is pending",
-        "fresh",
-        "absolute project",
-        "exactly one other peer",
-        "blocking",
-        "omit",
-        "stop and wait",
-        "same exchange",
-        "zero/multiple peers",
-    ],
-}
-
-ROLE_PROMPT_SHARED_START = "# generated:role-prompt-markers:shared:start"
-ROLE_PROMPT_SHARED_END = "# generated:role-prompt-markers:shared:end"
-ROLE_PROMPT_BEHAVIOR_START = "# generated:role-prompt-markers:behavior:start"
-ROLE_PROMPT_BEHAVIOR_END = "# generated:role-prompt-markers:behavior:end"
-ROLE_PROMPT_VALIDATE_START = "# generated:role-prompt-markers:validate:start"
-ROLE_PROMPT_VALIDATE_END = "# generated:role-prompt-markers:validate:end"
-ROLE_PROMPT_SMOKE_ARCHITECT_START = "// generated:role-prompt-markers:architect:start"
-ROLE_PROMPT_SMOKE_ARCHITECT_END = "// generated:role-prompt-markers:architect:end"
-ROLE_PROMPT_SMOKE_EXECUTOR_START = "// generated:role-prompt-markers:executor:start"
-ROLE_PROMPT_SMOKE_EXECUTOR_END = "// generated:role-prompt-markers:executor:end"
+EXECUTION_MODES = {"main", "subagent"}
+MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-reviewer"}
 
 
 def load_json_subset_yaml(path: Path) -> dict:
@@ -232,7 +126,7 @@ def validate_capabilities(contract: dict) -> list[str]:
     mcp_servers: set[str] = set()
     extension_names: set[str] = set()
     expected_state_keys = {"action", "state"}
-    allowed_kinds = {"package", "mcp", "extension"}
+    allowed_kinds = {"package", "mcp", "extension", "agent"}
     known_install_state_keys = {
         "extensionAction",
         "extensionState",
@@ -246,8 +140,12 @@ def validate_capabilities(contract: dict) -> list[str]:
         "piUsageState",
         "piAnthropicAuthAction",
         "piAnthropicAuthState",
-        "piIntercomAction",
-        "piIntercomState",
+        "piSubagentsAction",
+        "piSubagentsState",
+        "subagentProfilesAction",
+        "subagentProfilesState",
+        "subagentSettingsAction",
+        "subagentSettingsState",
         "piAskUserQuestionAction",
         "piAskUserQuestionState",
         "piTodoAction",
@@ -322,7 +220,7 @@ def validate_capabilities(contract: dict) -> list[str]:
                     "pi-observational-memory": ("piObservationalMemoryAction", "piObservationalMemoryState"),
                     "@sreetej510/pi-usage": ("piUsageAction", "piUsageState"),
                     "@gotgenes/pi-anthropic-auth": ("piAnthropicAuthAction", "piAnthropicAuthState"),
-                    "pi-intercom": ("piIntercomAction", "piIntercomState"),
+                    "pi-subagents": ("piSubagentsAction", "piSubagentsState"),
                     "@juicesharp/rpiv-ask-user-question": ("piAskUserQuestionAction", "piAskUserQuestionState"),
                     "@juicesharp/rpiv-todo": ("piTodoAction", "piTodoState"),
                 }
@@ -352,6 +250,48 @@ def validate_capabilities(contract: dict) -> list[str]:
                             errors.append(f"{label}.probe.{field}: must match mcp.{field}")
             if not isinstance(probe, dict) or probe.get("server") != mcp_meta.get("server"):
                 errors.append(f"{label}.probe.server: must match mcp.server")
+        elif kind == "agent":
+            agent = capability.get("agent")
+            agent_meta = agent if isinstance(agent, dict) else {}
+            if not isinstance(agent, dict):
+                errors.append(f"{label}.agent: expected managed profile or settings metadata")
+            else:
+                names = agent.get("names")
+                settings = agent.get("settings")
+                guard = agent.get("guard")
+                source = ensure_string(agent.get("source"), f"{label}.agent.source", errors)
+                if names is not None:
+                    if (
+                        not isinstance(names, list)
+                        or not names
+                        or not all(isinstance(name, str) and name for name in names)
+                    ):
+                        errors.append(f"{label}.agent.names: expected a non-empty string array")
+                    elif set(names) != MANAGED_SUBAGENT_NAMES:
+                        errors.append(f"{label}.agent.names: must name exactly {sorted(MANAGED_SUBAGENT_NAMES)}")
+                    elif not (ROOT / source).is_dir():
+                        errors.append(f"{label}.agent.source: missing managed profile directory {source!r}")
+                    if guard != "subagent-read-only-guard.ts":
+                        errors.append(f"{label}.agent.guard: expected 'subagent-read-only-guard.ts'")
+                    elif not (ROOT / "pi" / guard).is_file():
+                        errors.append(f"{label}.agent.guard: missing managed guard {guard!r}")
+                elif settings is not None:
+                    if not isinstance(settings, str) or not settings:
+                        errors.append(f"{label}.agent.settings: expected a non-empty string")
+                    elif settings != "settings.json":
+                        errors.append(f"{label}.agent.settings: expected 'settings.json'")
+                    elif not (ROOT / source).is_file():
+                        errors.append(f"{label}.agent.source: missing managed settings template {source!r}")
+                else:
+                    errors.append(f"{label}.agent: requires names or settings metadata")
+            if not isinstance(probe, dict):
+                continue
+            if (
+                probe.get("names") != agent_meta.get("names")
+                or probe.get("settings") != agent_meta.get("settings")
+                or probe.get("guard") != agent_meta.get("guard")
+            ):
+                errors.append(f"{label}.probe: must match agent names, guard, or settings metadata")
         elif kind == "extension":
             extension = capability.get("extension")
             extension_meta = extension if isinstance(extension, dict) else {}
@@ -390,7 +330,7 @@ def validate_capabilities(contract: dict) -> list[str]:
             f"(contract={sorted(package_names)}, installer={sorted(installer_names)})"
         )
 
-    forbidden_packages = {"pi-lens", "pi-subagents", "background-task", "background-tasks"}
+    forbidden_packages = {"pi-lens", "background-task", "background-tasks"}
     forbidden_found = sorted((package_names | package_specs) & forbidden_packages)
     if forbidden_found:
         errors.append(f"{CAPABILITIES_PATH}: forbidden packages are not managed: {forbidden_found}")
@@ -440,7 +380,7 @@ def validate_capabilities(contract: dict) -> list[str]:
 def render_capability_module(contract: dict) -> str:
     capabilities = json.dumps(contract["capabilities"], indent=2, ensure_ascii=False)
     return """/** Generated from references/capabilities.yaml. Do not edit this file. */
-export type CapabilityKind = "package" | "mcp" | "extension";
+export type CapabilityKind = "package" | "mcp" | "extension" | "agent";
 
 export type CapabilityDefinition = {
   readonly id: string;
@@ -464,6 +404,9 @@ export type CapabilityDefinition = {
     readonly launcher?: string | null;
     readonly required_env?: readonly string[];
     readonly auth?: string;
+    readonly names?: readonly string[];
+    readonly settings?: string;
+    readonly guard?: string;
   };
   readonly package?: { readonly name: string; readonly spec: string };
   readonly mcp?: {
@@ -473,6 +416,12 @@ export type CapabilityDefinition = {
     readonly auth: string;
   };
   readonly extension?: { readonly name: string; readonly source: string };
+  readonly agent?: {
+    readonly names?: readonly string[];
+    readonly settings?: string;
+    readonly guard?: string;
+    readonly source: string;
+  };
   readonly install_state: { readonly action: string; readonly state: string };
   readonly source: Record<string, string>;
 };
@@ -534,9 +483,20 @@ def validate_skills(skills: list[dict]) -> list[str]:
             errors.append(f"skills[{index}]: expected object")
             continue
         name = ensure_string(skill.get("name"), f"skills[{index}].name", errors)
-        owner = ensure_string(skill.get("owner"), f"skills[{index}].owner", errors)
-        if owner and owner not in SKILL_OWNERS:
-            errors.append(f"skills[{index}].owner: expected one of {sorted(SKILL_OWNERS)}, got {owner!r}")
+        execution = skill.get("execution")
+        if not isinstance(execution, dict):
+            errors.append(f"skills[{index}].execution: expected object")
+        else:
+            mode = ensure_string(execution.get("mode"), f"skills[{index}].execution.mode", errors)
+            if mode and mode not in EXECUTION_MODES:
+                errors.append(
+                    f"skills[{index}].execution.mode: expected one of {sorted(EXECUTION_MODES)}, got {mode!r}"
+                )
+            agent = execution.get("agent")
+            if mode == "subagent":
+                ensure_string(agent, f"skills[{index}].execution.agent", errors)
+            elif agent is not None:
+                errors.append(f"skills[{index}].execution.agent: only subagent execution may name an agent")
         phase = ensure_string(skill.get("phase"), f"skills[{index}].phase", errors)
         use = ensure_string(skill.get("use"), f"skills[{index}].use", errors)
 
@@ -629,32 +589,18 @@ def render_mcp_runtime_policy(policy: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
-def render_skill_ownership(skills: list[dict]) -> str:
-    by_owner = {owner: [skill["name"] for skill in skills if skill["owner"] == owner] for owner in sorted(SKILL_OWNERS)}
-    return "\n".join(
-        [
-            f"- Executor-owned skills: {', '.join(f'`{name}`' for name in by_owner['executor'])}. The Executor is the sole user-facing worktree writer.",
-            f"- Architect-owned skills: {', '.join(f'`{name}`' for name in by_owner['architect'])}. The Architect performs the independent read-only diagnosis, planning, research, audit, and review gate.",
-            f"- Ownership governs execution, not inspection. {SKILL_OWNERSHIP_CRITERION} Unknown or ambiguous skill ownership is executor-owned; registry rejects missing or invalid ownership.",
-        ]
+def render_delegation(skills: list[dict]) -> str:
+    delegated = [skill for skill in skills if skill["execution"]["mode"] == "subagent"]
+    main = [skill["name"] for skill in skills if skill["execution"]["mode"] == "main"]
+    lines = [
+        f"- The main session owns user interaction and worktree changes: {', '.join(f'`{name}`' for name in main)}.",
+        "- Delegated skills run once through their named pi-subagents; the main session waits for the result, evaluates it, and performs any next user-facing or worktree action:",
+    ]
+    lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
+    lines.append(
+        "- Subagents are read-only workflow specialists. They do not select a main session, discover peers, use Intercom, ask users questions, or launch nested subagents."
     )
-
-
-def render_role_skill_ownership(skills: list[dict]) -> str:
-    ownership = {skill["name"]: skill["owner"] for skill in skills}
-    return "\n".join(
-        [
-            "/** Generated from skills/registry.yaml. Unknown skills fail closed to executor ownership. */",
-            'export type SkillOwner = "executor" | "architect";',
-            f"export const SKILL_OWNERSHIP_CRITERION = {json.dumps(SKILL_OWNERSHIP_CRITERION)};",
-            f"export const SKILL_OWNERS: Readonly<Record<string, SkillOwner>> = {json.dumps(ownership, indent=2)};",
-            "export function skillOwner(skill: string): SkillOwner {",
-            '  return SKILL_OWNERS[skill] ?? "executor";',
-            "}",
-            'const EXECUTOR_OWNED_SKILLS = Object.entries(SKILL_OWNERS).filter(([, owner]) => owner === "executor").map(([skill]) => "`" + skill + "`");',
-            'const ARCHITECT_OWNED_SKILLS = Object.entries(SKILL_OWNERS).filter(([, owner]) => owner === "architect").map(([skill]) => "`" + skill + "`");',
-        ]
-    )
+    return "\n".join(lines)
 
 
 def render_routing(skills: list[dict]) -> str:
@@ -706,10 +652,6 @@ def render_skill_file(skill: dict) -> str:
     return "\n".join(lines)
 
 
-def render_role_prompt_markers(markers: list[str], indent: str) -> str:
-    return "\n".join(f"{indent}{json.dumps(marker, ensure_ascii=False)}," for marker in markers)
-
-
 def replace_block(text: str, start_marker: str, end_marker: str, body: str) -> str:
     try:
         start = text.index(start_marker) + len(start_marker)
@@ -728,63 +670,11 @@ def render_outputs(skills: list[dict], capabilities: dict) -> dict[Path, str]:
 
     kernel = KERNEL_TEMPLATE_PATH.read_text()
     kernel = replace_block(kernel, KERNEL_ROUTING_START, KERNEL_ROUTING_END, render_routing(skills))
-    kernel = replace_block(
-        kernel, KERNEL_SKILL_OWNERSHIP_START, KERNEL_SKILL_OWNERSHIP_END, render_skill_ownership(skills)
-    )
+    kernel = replace_block(kernel, KERNEL_DELEGATION_START, KERNEL_DELEGATION_END, render_delegation(skills))
     policy = load_json_subset_yaml(MCP_OPERATIONS_PATH)
     outputs[KERNEL_TEMPLATE_PATH] = replace_block(
         kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy)
     )
-    role_extension = ROOT / "pi" / "extensions" / "b-agentic-support" / "role.ts"
-    outputs[role_extension] = replace_block(
-        role_extension.read_text(),
-        ROLE_SKILL_OWNERSHIP_START,
-        ROLE_SKILL_OWNERSHIP_END,
-        render_role_skill_ownership(skills),
-    )
-    shared_validation = ROOT / "tooling" / "validate" / "shared.py"
-    outputs[shared_validation] = replace_block(
-        shared_validation.read_text(),
-        ROLE_PROMPT_SHARED_START,
-        ROLE_PROMPT_SHARED_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["common"], "    "),
-    )
-    behavior_validation = ROOT / "tooling" / "validate" / "behavior.py"
-    outputs[behavior_validation] = replace_block(
-        behavior_validation.read_text(),
-        ROLE_PROMPT_BEHAVIOR_START,
-        ROLE_PROMPT_BEHAVIOR_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["behavior"], "        "),
-    )
-    pi_validation = ROOT / "pi" / "scripts" / "validate.sh"
-    outputs[pi_validation] = replace_block(
-        pi_validation.read_text(),
-        ROLE_PROMPT_VALIDATE_START,
-        ROLE_PROMPT_VALIDATE_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["common"], "    "),
-    )
-    smoke = ROOT / "pi" / "tests" / "smoke.sh"
-    smoke_text = smoke.read_text()
-    for legacy, current in [
-        ("// generated:role-prompt-markers:planner:start", ROLE_PROMPT_SMOKE_ARCHITECT_START),
-        ("// generated:role-prompt-markers:planner:end", ROLE_PROMPT_SMOKE_ARCHITECT_END),
-        ("// generated:role-prompt-markers:worker:start", ROLE_PROMPT_SMOKE_EXECUTOR_START),
-        ("// generated:role-prompt-markers:worker:end", ROLE_PROMPT_SMOKE_EXECUTOR_END),
-    ]:
-        smoke_text = smoke_text.replace(legacy, current)
-    smoke_text = replace_block(
-        smoke_text,
-        ROLE_PROMPT_SMOKE_ARCHITECT_START,
-        ROLE_PROMPT_SMOKE_ARCHITECT_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["architect"], "  "),
-    )
-    smoke_text = replace_block(
-        smoke_text,
-        ROLE_PROMPT_SMOKE_EXECUTOR_START,
-        ROLE_PROMPT_SMOKE_EXECUTOR_END,
-        render_role_prompt_markers(ROLE_PROMPT_MARKERS["executor"], "  "),
-    )
-    outputs[smoke] = smoke_text
     extension = ROOT / "pi" / "extensions" / "b-agentic-support" / "mcp.ts"
     runtime_policy = re.sub(r"^const ", "export const ", render_mcp_runtime_policy(policy), flags=re.MULTILINE)
     outputs[extension] = replace_block(
@@ -840,16 +730,20 @@ def validate_capability_regressions(contract: dict) -> list[str]:
     return errors
 
 
-def validate_owner_regressions(skills: list[dict]) -> list[str]:
+def validate_execution_regressions(skills: list[dict]) -> list[str]:
     errors: list[str] = []
-    for label, owner in (("missing", None), ("invalid", "coordinator")):
-        fixture = [dict(skill) for skill in skills]
-        if owner is None:
-            fixture[0].pop("owner", None)
+    for label, execution in (
+        ("missing", None),
+        ("invalid", {"mode": "coordinator"}),
+        ("main-agent", {"mode": "main", "agent": "b-planner"}),
+    ):
+        fixture = json.loads(json.dumps(skills))
+        if execution is None:
+            fixture[0].pop("execution", None)
         else:
-            fixture[0]["owner"] = owner
-        if not any("owner" in error for error in validate_skills(fixture)):
-            errors.append(f"ownership regression: {label} owner must be rejected")
+            fixture[0]["execution"] = execution
+        if not any("execution" in error for error in validate_skills(fixture)):
+            errors.append(f"execution regression: {label} execution metadata must be rejected")
     return errors
 
 
@@ -881,16 +775,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Render generated Pi assets from canonical sources.")
     parser.add_argument("--check", action="store_true", help="fail if generated outputs are stale")
     parser.add_argument(
-        "--self-test", action="store_true", help="verify missing and invalid skill owners fail validation"
+        "--self-test", action="store_true", help="verify invalid skill execution metadata fails validation"
     )
     args = parser.parse_args()
     if args.self_test:
-        errors = validate_owner_regressions(load_skills())
+        errors = validate_execution_regressions(load_skills())
         errors.extend(validate_capability_regressions(load_capabilities()))
         if errors:
             print("\n".join(errors), file=sys.stderr)
             return 1
-        print("Skill ownership and capability contract validation regressions passed.")
+        print("Skill execution and capability contract validation regressions passed.")
     return sync_outputs(args.check)
 
 

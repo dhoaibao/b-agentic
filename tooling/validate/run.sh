@@ -30,7 +30,7 @@ python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --fixtures "$ROOT_DIR/tests
 python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --fixtures "$ROOT_DIR/tests/behavior/test-selection.json" --skill "$ROOT_DIR/skills/b-test/SKILL.md" --validate-inputs
 python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --fixtures "$ROOT_DIR/tests/behavior/browser-evidence.json" --skill "$ROOT_DIR/skills/b-browser/SKILL.md" --validate-inputs
 python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --fixtures "$ROOT_DIR/tests/behavior/ui-guidance.json" --skill "$ROOT_DIR/skills/b-design/SKILL.md" --validate-inputs
-python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --fixtures "$ROOT_DIR/tests/behavior/roles.json" --validate-inputs
+python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --fixtures "$ROOT_DIR/tests/behavior/subagents.json" --validate-inputs
 python3 "$ROOT_DIR/pi/tests/prompt_effectiveness.py" --fixtures "$ROOT_DIR/tests/behavior/init-guidance.json" --skill "$ROOT_DIR/skills/b-init/SKILL.md" --validate-inputs
 python3 "$ROOT_DIR/tooling/validate/browser_evidence.py" --self-test
 python3 "$ROOT_DIR/skills/b-diagram/diagram.py" self-test

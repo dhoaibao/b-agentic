@@ -21,11 +21,18 @@ METADATA_DIR="$PI_AGENT_DIR/b-agentic"
 BACKUPS_DIR="$METADATA_DIR/backups"
 SKILLS_DST="$PI_AGENT_DIR/skills"
 SKILLS_SNAPSHOT_DST="$METADATA_DIR/skills"
+AGENTS_DST="$PI_AGENT_DIR/agents/b-agentic"
+AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
+SUBAGENT_GUARD_SRC="$SOURCE_DIR/pi/subagent-read-only-guard.ts"
+SUBAGENT_GUARD_DST="$METADATA_DIR/subagent-read-only-guard.ts"
+SUBAGENT_GUARD_SNAPSHOT="$METADATA_DIR/subagent-read-only-guard.snapshot.ts"
+SETTINGS_DST="$PI_AGENT_DIR/settings.json"
 KERNEL_DST="$PI_AGENT_DIR/AGENTS.md"
 KERNEL_SNAPSHOT_DST="$METADATA_DIR/AGENTS.md"
 REFERENCES_DST="$METADATA_DIR/references"
 CAPABILITIES_SRC="$SOURCE_DIR/references/capabilities.yaml"
 TEMPLATES_DST="$METADATA_DIR/templates"
+SUBAGENT_SETTINGS_TEMPLATE_DST="$TEMPLATES_DST/subagents.user.template.json"
 MANIFEST_DST="$METADATA_DIR/install.json"
 MCP_CONFIG_DST="${B_AGENTIC_PI_MCP_JSON:-$PI_AGENT_DIR/mcp.json}"
 EXTENSIONS_DST="$PI_AGENT_DIR/extensions"
@@ -34,27 +41,23 @@ THEME_DST="$THEMES_DST/dracula.json"
 THEMES_SNAPSHOT_DST="$METADATA_DIR/themes"
 THEME_CACHED_DST="$THEMES_SNAPSHOT_DST/dracula.json"
 DRACULA_REPO_URL="${B_AGENTIC_DRACULA_REPO:-https://github.com/dracula/pi-coding-agent.git}"
+AGENT_NAMES=(
+	b-planner
+	b-researcher
+	b-debugger
+	b-reviewer
+)
 EXTENSION_NAMES=(
 	b-agentic-preview-markdown.ts
 	b-agentic-permissions.ts
 	b-agentic-mcp-permissions.ts
 	b-agentic-auto-mode.ts
-	b-agentic-role.ts
-	b-agentic-architect.ts
-	b-agentic-executor-notify.ts
-	b-agentic-executor.ts
 	b-agentic-sync.ts
 	b-agentic-status.ts
 	b-agentic-support/shell.ts
 	b-agentic-support/mcp.ts
-	b-agentic-support/role.ts
-	b-agentic-support/role-models.ts
-	b-agentic-support/role-store.ts
-	b-agentic-support/worker.ts
-	b-agentic-support/state.ts
 	b-agentic-support/auto.ts
 	b-agentic-support/capabilities.ts
-	b-agentic-support/candidate.ts
 	b-agentic-support/status.ts
 )
 LEGACY_EXTENSION_NAMES=(
@@ -64,7 +67,17 @@ LEGACY_EXTENSION_NAMES=(
 	b-agentic-consult.ts
 	b-agentic-consultant.ts
 	b-agentic-rule-guard.ts
+	b-agentic-role.ts
+	b-agentic-architect.ts
+	b-agentic-executor-notify.ts
+	b-agentic-executor.ts
 	b-agentic-support/consult.ts
+	b-agentic-support/role.ts
+	b-agentic-support/role-models.ts
+	b-agentic-support/role-store.ts
+	b-agentic-support/worker.ts
+	b-agentic-support/state.ts
+	b-agentic-support/candidate.ts
 )
 EXTENSION_DST="$EXTENSIONS_DST/b-agentic-permissions.ts"
 EXTENSION_SNAPSHOT_DST="$METADATA_DIR/extensions/b-agentic-permissions.ts"
@@ -77,8 +90,8 @@ PI_USAGE_SPEC="npm:@sreetej510/pi-usage"
 PI_USAGE_PACKAGE="@sreetej510/pi-usage"
 PI_ANTHROPIC_AUTH_SPEC="npm:@gotgenes/pi-anthropic-auth"
 PI_ANTHROPIC_AUTH_PACKAGE="@gotgenes/pi-anthropic-auth"
-PI_INTERCOM_SPEC="npm:pi-intercom"
-PI_INTERCOM_PACKAGE="pi-intercom"
+PI_SUBAGENTS_SPEC="npm:pi-subagents"
+PI_SUBAGENTS_PACKAGE="pi-subagents"
 PI_ASK_USER_QUESTION_SPEC="npm:@juicesharp/rpiv-ask-user-question"
 PI_ASK_USER_QUESTION_PACKAGE="@juicesharp/rpiv-ask-user-question"
 PI_TODO_SPEC="npm:@juicesharp/rpiv-todo"
@@ -93,12 +106,12 @@ EXTENSION_BACKUP_KEY="permissionsExtension"
 
 set_pi_readonly \
 	RUNTIME_UNINSTALL_LABEL RUNTIME_PRESERVE_LABEL PI_AGENT_DIR METADATA_DIR \
-	BACKUPS_DIR SKILLS_DST SKILLS_SNAPSHOT_DST KERNEL_DST KERNEL_SNAPSHOT_DST \
+	BACKUPS_DIR SKILLS_DST SKILLS_SNAPSHOT_DST AGENTS_DST AGENTS_SNAPSHOT_DST AGENT_NAMES SUBAGENT_GUARD_SRC SUBAGENT_GUARD_DST SUBAGENT_GUARD_SNAPSHOT SETTINGS_DST SUBAGENT_SETTINGS_TEMPLATE_DST KERNEL_DST KERNEL_SNAPSHOT_DST \
 	REFERENCES_DST CAPABILITIES_SRC TEMPLATES_DST MANIFEST_DST MCP_CONFIG_DST EXTENSIONS_DST \
 	EXTENSION_NAMES LEGACY_EXTENSION_NAMES EXTENSION_DST EXTENSION_SNAPSHOT_DST EXTENSION_SRC \
 	PI_MCP_ADAPTER_SPEC PI_MCP_ADAPTER_PACKAGE PI_OBSERVATIONAL_MEMORY_SPEC \
 	PI_OBSERVATIONAL_MEMORY_PACKAGE PI_USAGE_SPEC PI_USAGE_PACKAGE \
-	PI_ANTHROPIC_AUTH_SPEC PI_ANTHROPIC_AUTH_PACKAGE PI_INTERCOM_SPEC PI_INTERCOM_PACKAGE \
+	PI_ANTHROPIC_AUTH_SPEC PI_ANTHROPIC_AUTH_PACKAGE PI_SUBAGENTS_SPEC PI_SUBAGENTS_PACKAGE \
 	PI_ASK_USER_QUESTION_SPEC PI_ASK_USER_QUESTION_PACKAGE \
 	PI_TODO_SPEC PI_TODO_PACKAGE MCP_ROOT_KEY MCP_PLACEHOLDER_STYLE \
 	MCP_CONTEXT7_SECTION MCP_BRAVE_SECTION MCP_FIRECRAWL_SECTION MCP_BACKUP_KEY \
@@ -123,14 +136,24 @@ INSTALL_PI_USAGE_ACTION="skip"
 INSTALL_PI_USAGE_STATE="missing"
 INSTALL_PI_ANTHROPIC_AUTH_ACTION="skip"
 INSTALL_PI_ANTHROPIC_AUTH_STATE="missing"
-INSTALL_PI_INTERCOM_ACTION="skip"
-INSTALL_PI_INTERCOM_STATE="missing"
+INSTALL_PI_SUBAGENTS_ACTION="skip"
+INSTALL_PI_SUBAGENTS_STATE="missing"
+INSTALL_SUBAGENT_PROFILES_ACTION="skip"
+INSTALL_SUBAGENT_PROFILES_STATE="missing"
+INSTALL_SUBAGENT_PROFILES_BACKUP="none"
+INSTALL_SUBAGENT_GUARD_ACTION="skip"
+INSTALL_SUBAGENT_GUARD_STATE="missing"
+INSTALL_SUBAGENT_GUARD_BACKUP="none"
+INSTALL_SUBAGENT_SETTINGS_ACTION="skip"
+INSTALL_SUBAGENT_SETTINGS_STATE="missing"
+INSTALL_SUBAGENT_SETTINGS_BACKUP="none"
 INSTALL_PI_ASK_USER_QUESTION_ACTION="skip"
 INSTALL_PI_ASK_USER_QUESTION_STATE="missing"
 INSTALL_PI_TODO_ACTION="skip"
 INSTALL_PI_TODO_STATE="missing"
 INSTALL_THEME_ACTION="skip"
 INSTALL_THEME_STATE="none"
+PRESERVE_METADATA_DIR=0
 
 runtime_warn_missing_cli() {
 	command -v pi >/dev/null 2>&1 || warn "Pi CLI 'pi' not found; files will still be installed for Pi to discover later."
@@ -253,8 +276,8 @@ pi_anthropic_auth_installed() {
 	pi_package_installed "$PI_ANTHROPIC_AUTH_PACKAGE"
 }
 
-pi_intercom_installed() {
-	pi_package_installed "$PI_INTERCOM_PACKAGE"
+pi_subagents_installed() {
+	pi_package_installed "$PI_SUBAGENTS_PACKAGE"
 }
 
 pi_ask_user_question_installed() {
@@ -366,18 +389,18 @@ maybe_install_pi_anthropic_auth() {
 	fi
 }
 
-maybe_install_pi_intercom() {
-	if pi_intercom_installed; then INSTALL_PI_INTERCOM_ACTION="present"; INSTALL_PI_INTERCOM_STATE="ready"; return 0; fi
-	if ! command -v pi >/dev/null 2>&1 && ! dry_run_enabled; then warn "Pi CLI missing; cannot install $PI_INTERCOM_PACKAGE"; return 1; fi
+maybe_install_pi_subagents() {
+	if pi_subagents_installed; then INSTALL_PI_SUBAGENTS_ACTION="present"; INSTALL_PI_SUBAGENTS_STATE="ready"; return 0; fi
+	if ! command -v pi >/dev/null 2>&1 && ! dry_run_enabled; then warn "Pi CLI missing; cannot install $PI_SUBAGENTS_PACKAGE"; return 1; fi
 	if dry_run_enabled; then
-		printf '[dry-run] pi install %s\n' "$PI_INTERCOM_SPEC" >&2
-		INSTALL_PI_INTERCOM_ACTION="install"; INSTALL_PI_INTERCOM_STATE="dry-run"; return 0
+		printf '[dry-run] pi install %s\n' "$PI_SUBAGENTS_SPEC" >&2
+		INSTALL_PI_SUBAGENTS_ACTION="install"; INSTALL_PI_SUBAGENTS_STATE="dry-run"; return 0
 	fi
-	if pi install "$PI_INTERCOM_SPEC"; then
-		INSTALL_PI_INTERCOM_ACTION="install"; INSTALL_PI_INTERCOM_STATE="ready"
+	if pi install "$PI_SUBAGENTS_SPEC"; then
+		INSTALL_PI_SUBAGENTS_ACTION="install"; INSTALL_PI_SUBAGENTS_STATE="ready"
 	else
-		INSTALL_PI_INTERCOM_ACTION="failed"; INSTALL_PI_INTERCOM_STATE="missing"
-		warn "Failed to install $PI_INTERCOM_PACKAGE"
+		INSTALL_PI_SUBAGENTS_ACTION="failed"; INSTALL_PI_SUBAGENTS_STATE="missing"
+		warn "Failed to install $PI_SUBAGENTS_PACKAGE"
 		return 1
 	fi
 }
@@ -495,6 +518,7 @@ maybe_install_pi_observational_memory() {
 }
 
 install_selected_pi_packages() {
+	maybe_install_pi_subagents || return $?
 	if installer_component_enabled mcp; then
 		maybe_install_pi_mcp_adapter || return $?
 	fi
@@ -502,7 +526,6 @@ install_selected_pi_packages() {
 		maybe_install_pi_observational_memory || return $?
 		maybe_install_pi_usage || return $?
 		maybe_install_pi_anthropic_auth || return $?
-		maybe_install_pi_intercom || return $?
 		maybe_install_pi_ask_user_question || return $?
 		maybe_install_pi_todo || return $?
 	fi
@@ -524,8 +547,6 @@ preserve_skipped_component_state() {
 		INSTALL_PI_USAGE_STATE="$(manifest_action_value piUsageState "$INSTALL_PI_USAGE_STATE")"
 		INSTALL_PI_ANTHROPIC_AUTH_ACTION="$(manifest_action_value piAnthropicAuthAction "$INSTALL_PI_ANTHROPIC_AUTH_ACTION")"
 		INSTALL_PI_ANTHROPIC_AUTH_STATE="$(manifest_action_value piAnthropicAuthState "$INSTALL_PI_ANTHROPIC_AUTH_STATE")"
-		INSTALL_PI_INTERCOM_ACTION="$(manifest_action_value piIntercomAction "$INSTALL_PI_INTERCOM_ACTION")"
-		INSTALL_PI_INTERCOM_STATE="$(manifest_action_value piIntercomState "$INSTALL_PI_INTERCOM_STATE")"
 		INSTALL_PI_ASK_USER_QUESTION_ACTION="$(manifest_action_value piAskUserQuestionAction "$INSTALL_PI_ASK_USER_QUESTION_ACTION")"
 		INSTALL_PI_ASK_USER_QUESTION_STATE="$(manifest_action_value piAskUserQuestionState "$INSTALL_PI_ASK_USER_QUESTION_STATE")"
 		INSTALL_PI_TODO_ACTION="$(manifest_action_value piTodoAction "$INSTALL_PI_TODO_ACTION")"
@@ -539,10 +560,7 @@ preserve_skipped_component_state() {
 }
 
 runtime_install_config_stage_count() {
-	local count=2
-	if installer_component_enabled mcp || installer_component_enabled pi-integrations; then
-		count=$((count + 1))
-	fi
+	local count=6
 	if installer_component_enabled mcp; then
 		count=$((count + 2))
 	fi
@@ -664,8 +682,24 @@ PY
 	return 0
 }
 
+remove_legacy_role_state() {
+	local path
+	for path in "$METADATA_DIR/roles" "$METADATA_DIR/role-models.json"; do
+		if [ -L "$path" ]; then
+			warn "preserving symlinked legacy role state: $path"
+		elif [ -e "$path" ]; then
+			if dry_run_enabled; then
+				printf '[dry-run] remove legacy role state %s\n' "$path" >&2
+			else
+				run_cmd rm -rf "$path"
+			fi
+		fi
+	done
+}
+
 remove_legacy_extensions() {
 	local name dst snapshot
+	remove_legacy_role_state
 	for name in "${LEGACY_EXTENSION_NAMES[@]}"; do
 		dst="$EXTENSIONS_DST/$name"
 		snapshot="$METADATA_DIR/extensions/$name"
@@ -739,6 +773,95 @@ install_permissions_extension() {
 	fi
 }
 
+install_subagent_read_only_guard() {
+	local action="skip" state="active"
+	if [ ! -f "$SUBAGENT_GUARD_SRC" ]; then
+		die "missing subagent read-only guard source: $SUBAGENT_GUARD_SRC"
+	fi
+	if dry_run_enabled; then
+		printf '[dry-run] install subagent read-only guard %s -> %s\n' "$SUBAGENT_GUARD_SRC" "$SUBAGENT_GUARD_DST" >&2
+		printf 'write\nactive\nnone'
+		return 0
+	fi
+	ensure_dir "$METADATA_DIR"
+	if [ -L "$SUBAGENT_GUARD_SNAPSHOT" ]; then
+		warn "preserving subagent read-only guard because its managed snapshot is symlinked: $SUBAGENT_GUARD_SNAPSHOT"
+		action="preserve"
+		state="preserved"
+	elif [ -L "$SUBAGENT_GUARD_DST" ]; then
+		warn "preserving symlinked subagent read-only guard: $SUBAGENT_GUARD_DST"
+		action="preserve"
+		state="preserved"
+	elif [ ! -e "$SUBAGENT_GUARD_DST" ]; then
+		copy_file "$SUBAGENT_GUARD_SRC" "$SUBAGENT_GUARD_DST"
+		copy_file "$SUBAGENT_GUARD_SRC" "$SUBAGENT_GUARD_SNAPSHOT"
+		action="write"
+	elif cmp -s "$SUBAGENT_GUARD_SRC" "$SUBAGENT_GUARD_DST"; then
+		copy_file "$SUBAGENT_GUARD_SRC" "$SUBAGENT_GUARD_SNAPSHOT"
+	elif [ -f "$SUBAGENT_GUARD_SNAPSHOT" ] && cmp -s "$SUBAGENT_GUARD_DST" "$SUBAGENT_GUARD_SNAPSHOT"; then
+		copy_file "$SUBAGENT_GUARD_SRC" "$SUBAGENT_GUARD_DST"
+		copy_file "$SUBAGENT_GUARD_SRC" "$SUBAGENT_GUARD_SNAPSHOT"
+		action="replace"
+	else
+		warn "preserving modified subagent read-only guard: $SUBAGENT_GUARD_DST"
+		action="preserve"
+		state="preserved"
+	fi
+	printf '%s\n%s\nnone' "$action" "$state"
+}
+
+install_subagent_profiles() {
+	local name src dst snapshot action="skip" state="active"
+	for name in "${AGENT_NAMES[@]}"; do
+		src="$SOURCE_DIR/pi/agents/$name.md"
+		dst="$AGENTS_DST/$name.md"
+		snapshot="$AGENTS_SNAPSHOT_DST/$name.md"
+		if [ ! -f "$src" ]; then
+			die "missing subagent profile source: $src"
+		fi
+		if dry_run_enabled; then
+			printf '[dry-run] install subagent profile %s -> %s\n' "$src" "$dst" >&2
+			action="write"
+			continue
+		fi
+		ensure_dir "$AGENTS_DST"
+		ensure_dir "$AGENTS_SNAPSHOT_DST"
+		if [ -L "$dst" ]; then
+			warn "preserving symlinked subagent profile: $dst"
+			action="preserve"
+			state="preserved"
+		elif [ ! -e "$dst" ]; then
+			copy_file "$src" "$dst"
+			copy_file "$src" "$snapshot"
+			action="write"
+		elif cmp -s "$src" "$dst"; then
+			copy_file "$src" "$snapshot"
+		elif [ -f "$snapshot" ] && cmp -s "$dst" "$snapshot"; then
+			copy_file "$src" "$dst"
+			copy_file "$src" "$snapshot"
+			action="replace"
+		else
+			warn "preserving modified subagent profile: $dst"
+			action="preserve"
+			state="preserved"
+		fi
+	done
+	printf '%s\n%s\nnone' "$action" "$state"
+}
+
+install_subagent_settings() {
+	local template_src="${SUBAGENT_SETTINGS_TEMPLATE_SRC:-$TEMPLATES_SRC/subagents.user.template.json}"
+	if [ ! -f "$template_src" ]; then
+		die "missing subagent settings template: $template_src"
+	fi
+	merge_json_file "$template_src" "$SETTINGS_DST" "subagents-settings" "subagentsSettings"
+}
+
+runtime_sync_assets() {
+	install_subagent_read_only_guard >/dev/null
+	install_subagent_profiles >/dev/null
+}
+
 update_pi_extensions() {
 	if ! command -v pi >/dev/null 2>&1 && ! dry_run_enabled; then
 		warn "Pi CLI missing; cannot update Pi extensions"
@@ -762,12 +885,16 @@ update_pi_extensions() {
 runtime_install_configs() {
 	preserve_skipped_component_state
 
-	if installer_component_enabled mcp || installer_component_enabled pi-integrations; then
-		run_stage "Installing selected Pi packages" install_selected_pi_packages || return $?
-	fi
+	run_stage "Installing Pi subagents and selected packages" install_selected_pi_packages || return $?
 	run_stage "Updating Pi extensions" update_pi_extensions || return $?
 	run_install_triplet_stage "Installing Pi permission extension" install_permissions_extension "skip" "none" "none" \
 		INSTALL_EXTENSION_ACTION INSTALL_EXTENSION_STATE INSTALL_EXTENSION_BACKUP || return $?
+	run_install_triplet_stage "Installing b-agentic subagent read-only guard" install_subagent_read_only_guard "skip" "none" "none" \
+		INSTALL_SUBAGENT_GUARD_ACTION INSTALL_SUBAGENT_GUARD_STATE INSTALL_SUBAGENT_GUARD_BACKUP || return $?
+	run_install_triplet_stage "Installing b-agentic subagent profiles" install_subagent_profiles "skip" "none" "none" \
+		INSTALL_SUBAGENT_PROFILES_ACTION INSTALL_SUBAGENT_PROFILES_STATE INSTALL_SUBAGENT_PROFILES_BACKUP || return $?
+	run_install_triplet_stage "Merging subagent settings" install_subagent_settings "skip" "none" "none" \
+		INSTALL_SUBAGENT_SETTINGS_ACTION INSTALL_SUBAGENT_SETTINGS_STATE INSTALL_SUBAGENT_SETTINGS_BACKUP || return $?
 	if installer_component_enabled mcp; then
 		run_install_triplet_stage "Merging MCP config" install_mcp_config "skip" "none" "none" \
 		INSTALL_MCP_ACTION INSTALL_MCP_STATE INSTALL_MCP_BACKUP || return $?
@@ -780,6 +907,7 @@ runtime_install_configs() {
 
 runtime_write_manifest() {
 	local skills_string="${INSTALL_SKILL_NAMES[*]}"
+	local agents_string="${AGENT_NAMES[*]}"
 
 	if dry_run_enabled; then
 		printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
@@ -808,8 +936,15 @@ runtime_write_manifest() {
 		PI_USAGE_STATE="$INSTALL_PI_USAGE_STATE" \
 		PI_ANTHROPIC_AUTH_ACTION="$INSTALL_PI_ANTHROPIC_AUTH_ACTION" \
 		PI_ANTHROPIC_AUTH_STATE="$INSTALL_PI_ANTHROPIC_AUTH_STATE" \
-		PI_INTERCOM_ACTION="$INSTALL_PI_INTERCOM_ACTION" \
-		PI_INTERCOM_STATE="$INSTALL_PI_INTERCOM_STATE" \
+		PI_SUBAGENTS_ACTION="$INSTALL_PI_SUBAGENTS_ACTION" \
+		PI_SUBAGENTS_STATE="$INSTALL_PI_SUBAGENTS_STATE" \
+		SUBAGENT_PROFILES_ACTION="$INSTALL_SUBAGENT_PROFILES_ACTION" \
+		SUBAGENT_PROFILES_STATE="$INSTALL_SUBAGENT_PROFILES_STATE" \
+		SUBAGENT_GUARD_ACTION="$INSTALL_SUBAGENT_GUARD_ACTION" \
+		SUBAGENT_GUARD_STATE="$INSTALL_SUBAGENT_GUARD_STATE" \
+		SUBAGENT_SETTINGS_ACTION="$INSTALL_SUBAGENT_SETTINGS_ACTION" \
+		SUBAGENT_SETTINGS_STATE="$INSTALL_SUBAGENT_SETTINGS_STATE" \
+		SUBAGENT_SETTINGS_BACKUP="$INSTALL_SUBAGENT_SETTINGS_BACKUP" \
 		PI_ASK_USER_QUESTION_ACTION="$INSTALL_PI_ASK_USER_QUESTION_ACTION" \
 		PI_ASK_USER_QUESTION_STATE="$INSTALL_PI_ASK_USER_QUESTION_STATE" \
 		PI_TODO_ACTION="$INSTALL_PI_TODO_ACTION" \
@@ -817,6 +952,10 @@ runtime_write_manifest() {
 		THEME_ACTION="$INSTALL_THEME_ACTION" \
 		THEME_STATE="$INSTALL_THEME_STATE" \
 		PI_AGENT_DIR="$PI_AGENT_DIR" \
+		AGENTS_DST="$AGENTS_DST" \
+		SUBAGENT_GUARD_DST="$SUBAGENT_GUARD_DST" \
+		SUBAGENT_GUARD_SNAPSHOT="$SUBAGENT_GUARD_SNAPSHOT" \
+		SETTINGS_DST="$SETTINGS_DST" \
 		MCP_CONFIG_DST="$MCP_CONFIG_DST" \
 		EXTENSION_DST="$EXTENSION_DST" \
 		EXTENSION_NAMES="${EXTENSION_NAMES[*]}" \
@@ -830,12 +969,14 @@ runtime_write_manifest() {
 		THEME_DST="$THEME_DST" \
 		THEME_CACHED_DST="$THEME_CACHED_DST" \
 		SKILLS="$skills_string" \
+		AGENTS="$agents_string" \
 		python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
 skills = [name for name in os.environ['SKILLS'].split() if name]
+agents = [name for name in os.environ['AGENTS'].split() if name]
 import base64
 
 extension_backups = {}
@@ -871,8 +1012,14 @@ legacy_states = {
     'piUsageState': os.environ['PI_USAGE_STATE'],
     'piAnthropicAuthAction': os.environ['PI_ANTHROPIC_AUTH_ACTION'],
     'piAnthropicAuthState': os.environ['PI_ANTHROPIC_AUTH_STATE'],
-    'piIntercomAction': os.environ['PI_INTERCOM_ACTION'],
-    'piIntercomState': os.environ['PI_INTERCOM_STATE'],
+    'piSubagentsAction': os.environ['PI_SUBAGENTS_ACTION'],
+    'piSubagentsState': os.environ['PI_SUBAGENTS_STATE'],
+    'subagentProfilesAction': os.environ['SUBAGENT_PROFILES_ACTION'],
+    'subagentProfilesState': os.environ['SUBAGENT_PROFILES_STATE'],
+    'subagentGuardAction': os.environ['SUBAGENT_GUARD_ACTION'],
+    'subagentGuardState': os.environ['SUBAGENT_GUARD_STATE'],
+    'subagentSettingsAction': os.environ['SUBAGENT_SETTINGS_ACTION'],
+    'subagentSettingsState': os.environ['SUBAGENT_SETTINGS_STATE'],
     'piAskUserQuestionAction': os.environ['PI_ASK_USER_QUESTION_ACTION'],
     'piAskUserQuestionState': os.environ['PI_ASK_USER_QUESTION_STATE'],
     'piTodoAction': os.environ['PI_TODO_ACTION'],
@@ -919,8 +1066,14 @@ manifest = {
     'piUsageState': os.environ['PI_USAGE_STATE'],
     'piAnthropicAuthAction': os.environ['PI_ANTHROPIC_AUTH_ACTION'],
     'piAnthropicAuthState': os.environ['PI_ANTHROPIC_AUTH_STATE'],
-    'piIntercomAction': os.environ['PI_INTERCOM_ACTION'],
-    'piIntercomState': os.environ['PI_INTERCOM_STATE'],
+    'piSubagentsAction': os.environ['PI_SUBAGENTS_ACTION'],
+    'piSubagentsState': os.environ['PI_SUBAGENTS_STATE'],
+    'subagentProfilesAction': os.environ['SUBAGENT_PROFILES_ACTION'],
+    'subagentProfilesState': os.environ['SUBAGENT_PROFILES_STATE'],
+    'subagentGuardAction': os.environ['SUBAGENT_GUARD_ACTION'],
+    'subagentGuardState': os.environ['SUBAGENT_GUARD_STATE'],
+    'subagentSettingsAction': os.environ['SUBAGENT_SETTINGS_ACTION'],
+    'subagentSettingsState': os.environ['SUBAGENT_SETTINGS_STATE'],
     'piAskUserQuestionAction': os.environ['PI_ASK_USER_QUESTION_ACTION'],
     'piAskUserQuestionState': os.environ['PI_ASK_USER_QUESTION_STATE'],
     'piTodoAction': os.environ['PI_TODO_ACTION'],
@@ -929,6 +1082,10 @@ manifest = {
     'themeState': os.environ['THEME_STATE'],
     'paths': {
         'piAgentDir': os.environ['PI_AGENT_DIR'],
+        'agents': os.environ['AGENTS_DST'],
+        'subagentGuard': os.environ['SUBAGENT_GUARD_DST'],
+        'subagentGuardSnapshot': os.environ['SUBAGENT_GUARD_SNAPSHOT'],
+        'settings': os.environ['SETTINGS_DST'],
         'mcpConfig': os.environ['MCP_CONFIG_DST'],
         'permissionsExtension': os.environ['EXTENSION_DST'],
         'extensions': {
@@ -944,11 +1101,13 @@ manifest = {
         'cachedTheme': os.environ['THEME_CACHED_DST'],
     },
     'skills': skills,
+    'agents': agents,
     'backups': {
         'agentsMd': os.environ['MEMORY_BACKUP'],
         'permissionsExtension': extension_backups.get('b-agentic-permissions.ts', 'none'),
         'extensions': extension_backups,
         'mcpConfig': os.environ['MCP_BACKUP'],
+        'subagentSettings': os.environ['SUBAGENT_SETTINGS_BACKUP'],
     },
 }
 Path(os.environ['MANIFEST_DST']).write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
@@ -1009,11 +1168,15 @@ runtime_print_install_report() {
 		[ "$INSTALL_PI_MCP_ADAPTER_STATE" = "ready" ] || attention+=("mcp-adapter: install $PI_MCP_ADAPTER_PACKAGE with 'pi install $PI_MCP_ADAPTER_SPEC'")
 	fi
 
+	[ "$INSTALL_PI_SUBAGENTS_STATE" = "ready" ] || attention+=("pi-subagents: install $PI_SUBAGENTS_PACKAGE with 'pi install $PI_SUBAGENTS_SPEC'")
+	[ "$INSTALL_SUBAGENT_GUARD_STATE" = "active" ] || attention+=("subagent read-only guard: preserve or sync $SUBAGENT_GUARD_DST")
+	[ "$INSTALL_SUBAGENT_PROFILES_STATE" = "active" ] || attention+=("subagent profiles: sync b-agentic managed agent definitions")
+	[ "$INSTALL_SUBAGENT_SETTINGS_STATE" = "active" ] || attention+=("subagent settings: merge $SUBAGENT_SETTINGS_TEMPLATE_DST into $SETTINGS_DST")
+
 	if installer_component_enabled pi-integrations; then
 		[ "$INSTALL_PI_OBSERVATIONAL_MEMORY_STATE" = "ready" ] || attention+=("observational-memory: install $PI_OBSERVATIONAL_MEMORY_PACKAGE with 'pi install $PI_OBSERVATIONAL_MEMORY_SPEC'")
 		[ "$INSTALL_PI_USAGE_STATE" = "ready" ] || attention+=("pi-usage: install $PI_USAGE_PACKAGE with 'pi install $PI_USAGE_SPEC'")
 		[ "$INSTALL_PI_ANTHROPIC_AUTH_STATE" = "ready" ] || attention+=("anthropic-auth: install $PI_ANTHROPIC_AUTH_PACKAGE with 'pi install $PI_ANTHROPIC_AUTH_SPEC'")
-		[ "$INSTALL_PI_INTERCOM_STATE" = "ready" ] || attention+=("pi-intercom: install $PI_INTERCOM_PACKAGE with 'pi install $PI_INTERCOM_SPEC'")
 		[ "$INSTALL_PI_ASK_USER_QUESTION_STATE" = "ready" ] || attention+=("ask-user-question: install $PI_ASK_USER_QUESTION_PACKAGE with 'pi install $PI_ASK_USER_QUESTION_SPEC'")
 		[ "$INSTALL_PI_TODO_STATE" = "ready" ] || attention+=("pi-todo: install $PI_TODO_PACKAGE with 'pi install $PI_TODO_SPEC'")
 	fi
@@ -1043,8 +1206,62 @@ runtime_print_install_report() {
 	fi
 }
 
+manifest_agent_names() {
+	if manifest_array_values agents; then
+		return 0
+	fi
+	printf '%s\n' "${AGENT_NAMES[@]}"
+}
+
+uninstall_subagent_read_only_guard() {
+	local guard_path
+	guard_path="$(manifest_path_value subagentGuard "$SUBAGENT_GUARD_DST")"
+	if [ "$guard_path" != "$SUBAGENT_GUARD_DST" ]; then
+		warn "preserving subagent read-only guard at unrecognized manifest path: $guard_path"
+		return 1
+	fi
+	if [ -L "$guard_path" ]; then
+		warn "preserving symlinked subagent read-only guard: $guard_path"
+		return 1
+	fi
+	if [ -f "$guard_path" ] && [ -f "$SUBAGENT_GUARD_SNAPSHOT" ] && [ ! -L "$SUBAGENT_GUARD_SNAPSHOT" ] && cmp -s "$guard_path" "$SUBAGENT_GUARD_SNAPSHOT"; then
+		run_cmd rm -f "$guard_path" "$SUBAGENT_GUARD_SNAPSHOT"
+	elif [ -e "$guard_path" ]; then
+		warn "preserving modified subagent read-only guard: $guard_path"
+		return 1
+	fi
+	return 0
+}
+
+uninstall_subagent_profiles() {
+	local name agent_root profile snapshot
+	agent_root="$(manifest_path_value agents "$AGENTS_DST")"
+	while IFS= read -r name; do
+		[ -n "$name" ] || continue
+		if ! managed_asset_name_is_safe "$name"; then
+			warn "preserving subagent profile with unsafe manifest name"
+			continue
+		fi
+		profile="$agent_root/$name.md"
+		snapshot="$AGENTS_SNAPSHOT_DST/$name.md"
+		if [ -L "$profile" ]; then
+			warn "preserving symlinked subagent profile: $profile"
+		elif [ -f "$profile" ] && [ -f "$snapshot" ] && cmp -s "$profile" "$snapshot"; then
+			run_cmd rm -f "$profile"
+		elif [ -e "$profile" ]; then
+			warn "preserving modified subagent profile: $profile"
+		fi
+	done < <(manifest_agent_names)
+}
+
 runtime_uninstall_configs() {
-	local mcp_config_path name extension_path snapshot original backup theme_path cached_theme_path is_owned
+	local mcp_config_path settings_path name extension_path snapshot original backup theme_path cached_theme_path is_owned
+	settings_path="$(manifest_path_value settings "$SETTINGS_DST")"
+	remove_merged_config "$settings_path" "$TEMPLATES_DST/subagents.user.template.json" "settings.json" "subagentSettings" "subagentSettingsAction"
+	if ! uninstall_subagent_read_only_guard; then
+		PRESERVE_METADATA_DIR=1
+	fi
+	uninstall_subagent_profiles
 	mcp_config_path="$(manifest_path_value mcpConfig "$MCP_CONFIG_DST")"
 	remove_merged_config "$mcp_config_path" "$TEMPLATES_DST/mcp.user.template.json" "mcp.json" "mcpConfig" "mcpAction"
 	for name in "${EXTENSION_NAMES[@]}"; do
@@ -1112,16 +1329,19 @@ pi_sync() {
 }
 
 pi_update() {
-	set_install_stage_total 11
+	set_install_stage_total 14
 	run_stage "Updating Pi CLI" runtime_upgrade_cli || return $?
 	run_stage "Installing Pi MCP adapter" maybe_install_pi_mcp_adapter || return $?
 	run_stage "Installing observational memory" maybe_install_pi_observational_memory || return $?
 	run_stage "Installing Pi usage" maybe_install_pi_usage || return $?
 	run_stage "Installing Anthropic auth" maybe_install_pi_anthropic_auth || return $?
-	run_stage "Installing Pi intercom" maybe_install_pi_intercom || return $?
+	run_stage "Installing Pi subagents" maybe_install_pi_subagents || return $?
 	run_stage "Installing ask-user-question extension" maybe_install_pi_ask_user_question || return $?
 	run_stage "Installing Pi todo" maybe_install_pi_todo || return $?
 	run_stage "Syncing first-party extensions" install_permissions_extension >/dev/null || return $?
+	run_stage "Syncing b-agentic subagent read-only guard" install_subagent_read_only_guard >/dev/null || return $?
+	run_stage "Syncing b-agentic subagent profiles" install_subagent_profiles >/dev/null || return $?
+	run_stage "Merging b-agentic subagent settings" install_subagent_settings >/dev/null || return $?
 	run_stage "Updating Pi extensions" update_pi_extensions || return $?
 	run_stage "Updating Dracula theme" install_dracula_theme
 }

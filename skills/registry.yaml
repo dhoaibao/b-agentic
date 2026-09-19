@@ -4,7 +4,7 @@
   "skills": [
     {
       "name": "b-plan",
-      "owner": "architect",
+      "execution": {"mode": "subagent", "agent": "b-planner"},
       "phase": "Decide",
       "use": "Figure out what to do when scope or approach is fuzzy, then produce an execution-ready plan",
       "routing": {
@@ -29,7 +29,7 @@
     },
     {
       "name": "b-research",
-      "owner": "architect",
+      "execution": {"mode": "subagent", "agent": "b-researcher"},
       "phase": "Decide",
       "use": "Fetch outside truth: docs, API facts, comparisons, or recent evidence",
       "routing": {
@@ -49,7 +49,7 @@
     },
     {
       "name": "b-design",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Decide",
       "use": "Create or refresh docs/DESIGN.md as a frontend design standard",
       "routing": {
@@ -75,7 +75,7 @@
     },
     {
       "name": "b-frontend",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Implement contextual frontend/UI code, styling, responsive behavior, interactions, visual refreshes, and landing pages",
       "routing": {
@@ -102,7 +102,7 @@
     },
     {
       "name": "b-diagram",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Create validated, portable technical architecture and flow diagrams from explicit facts",
       "routing": {
@@ -122,7 +122,7 @@
     },
     {
       "name": "b-implement",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Make the scoped non-UI change from an approved plan or a small direct request",
       "routing": {
@@ -142,7 +142,7 @@
     },
     {
       "name": "b-init",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Initialize or refresh repo-local agent instruction docs",
       "routing": {
@@ -163,7 +163,7 @@
     },
     {
       "name": "b-refactor",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Rename, extract, move, inline, simplify, or delete behavior-preserving code",
       "routing": {
@@ -186,7 +186,7 @@
     },
     {
       "name": "b-debug",
-      "owner": "architect",
+      "execution": {"mode": "subagent", "agent": "b-debugger"},
       "phase": "Decide",
       "use": "Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code",
       "routing": {
@@ -209,7 +209,7 @@
     },
     {
       "name": "b-test",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Validate",
       "use": "Write or fix unit, integration, contract, and simulated-DOM tests",
       "routing": {
@@ -232,7 +232,7 @@
     },
     {
       "name": "b-browser",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Validate",
       "use": "Collect real-browser, visual, screenshot, live UI, or e2e evidence",
       "routing": {
@@ -257,7 +257,7 @@
     },
     {
       "name": "b-agentic-audit",
-      "owner": "architect",
+      "execution": {"mode": "subagent", "agent": "b-reviewer"},
       "phase": "Validate",
       "use": "Audit b-agentic repository conformance, health, skill/kernel quality, and currentness",
       "routing": {
@@ -276,7 +276,7 @@
     },
     {
       "name": "b-review",
-      "owner": "architect",
+      "execution": {"mode": "subagent", "agent": "b-reviewer"},
       "phase": "Validate",
       "use": "Review changed code",
       "routing": {
@@ -298,7 +298,7 @@
     },
     {
       "name": "b-commit",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Ship",
       "use": "Split working-tree changes into cohesive commits from an explicit user request",
       "routing": null,
@@ -308,7 +308,7 @@
     },
     {
       "name": "b-pr-summary",
-      "owner": "executor",
+      "execution": {"mode": "main"},
       "phase": "Ship",
       "use": "Write commit-backed PR copy or review and rewrite supplied PR prose",
       "routing": null,

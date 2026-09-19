@@ -1411,15 +1411,17 @@ runtime_warn_missing_cli() { :; }
 runtime_cli_installed() { return 1; }
 runtime_upgrade_cli() { :; }
 runtime_install_config_stage_count() { printf '0'; }
+runtime_sync_assets() { :; }
 
 runtime_sync_common() {
-  set_install_stage_total 3
+  set_install_stage_total 4
 
   run_stage "Syncing skills" install_skills
   run_install_triplet_stage "Syncing kernel" install_kernel "preserve" "pending" "none" \
     INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
   run_install_triplet_stage "Syncing Pi extensions" install_permissions_extension "skip" "none" "none" \
     INSTALL_EXTENSION_ACTION INSTALL_EXTENSION_STATE INSTALL_EXTENSION_BACKUP
+  run_stage "Syncing runtime assets" runtime_sync_assets
 
   if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
     return 2
@@ -1471,6 +1473,10 @@ runtime_uninstall_common() {
   run_stage "Removing managed skills" uninstall_installed_skills
   run_stage "Removing managed kernel" remove_managed_kernel
   run_stage "Cleaning Pi config" runtime_uninstall_configs
-  run_cmd rm -rf "$METADATA_DIR"
+  if [ "${PRESERVE_METADATA_DIR:-0}" = "1" ]; then
+    warn "preserving managed metadata because it contains a user-modified asset: $METADATA_DIR"
+  else
+    run_cmd rm -rf "$METADATA_DIR"
+  fi
   installer_summary_log "Uninstall complete. User-owned $RUNTIME_PRESERVE_LABEL files were preserved."
 }

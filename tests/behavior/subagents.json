@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "source": "b-agentic single-session subagent regressions",
+  "description": "Human-scored scenarios for bounded delegation and frozen-candidate review.",
+  "scenarios": [
+    {
+      "id": "main-session-owns-mutations",
+      "skill": "b-implement",
+      "observed_failure": "A delegated specialist or a peer session performed user-facing worktree changes.",
+      "intended_behavior": "The one main session owns user discussion, decisions, worktree changes, verification, commits, and final reporting.",
+      "prompt": "A scoped implementation needs one material product decision and then a small code edit. State who asks the user, who edits, and whether a child agent may mutate the worktree.",
+      "must": [
+        "Main session asks the user",
+        "Main session makes the edit",
+        "Delegated child is read-only"
+      ],
+      "avoid": ["Assign the edit to a child", "Coordinate with a peer session"]
+    },
+    {
+      "id": "planner-returns-evidence",
+      "skill": "b-plan",
+      "observed_failure": "Planning was treated as automatic approval or implementation authority.",
+      "intended_behavior": "b-planner returns bounded read-only planning evidence to the main session, which retains approval and implementation decisions.",
+      "prompt": "The main session delegates an unclear feature request to b-planner. Explain the delegation boundary, the result it returns, and what the main session must still decide.",
+      "must": [
+        "Bounded task",
+        "Read-only plan or evidence",
+        "Main session retains approval and next action"
+      ],
+      "avoid": [
+        "Child asks the user",
+        "Child edits files",
+        "Automatic approval"
+      ]
+    },
+    {
+      "id": "debugger-reports-evidence-gap",
+      "skill": "b-debug",
+      "observed_failure": "A diagnostic child used a shell or probe to mutate state while chasing a runtime failure.",
+      "intended_behavior": "b-debugger stays technically read-only, diagnoses from supplied evidence, and asks the main session for the exact additional reproduction artifact when evidence is insufficient.",
+      "prompt": "A runtime failure needs a minimal reproducer but the delegated b-debugger has no shell. State what it may inspect, what it returns, and how it handles missing evidence.",
+      "must": [
+        "Read-only supplied evidence",
+        "Exact additional reproduction or diagnostic artifact",
+        "Return a diagnosis handoff"
+      ],
+      "avoid": ["Run a shell command", "Create a probe", "Edit product code"]
+    },
+    {
+      "id": "reviewer-freezes-candidate",
+      "skill": "b-review",
+      "observed_failure": "Review covered a moving candidate or made corrections itself.",
+      "intended_behavior": "The main session freezes the exact candidate after required checks, b-reviewer inspects it read-only, and corrections get fresh verification and a new review.",
+      "prompt": "A changed task has passing required checks and a tracked source change plus a relevant generated file. Describe the review sequence and what happens after NEEDS FIXES.",
+      "must": [
+        "Freeze the exact candidate",
+        "b-reviewer is read-only",
+        "Do not edit while review runs",
+        "Fresh verification and review after corrections"
+      ],
+      "avoid": [
+        "Review a moving snapshot",
+        "Reviewer applies the fix",
+        "Commit automatically"
+      ]
+    },
+    {
+      "id": "no-change-prose-skips-review",
+      "skill": "b-pr-summary",
+      "observed_failure": "Editorial PR-prose review invoked a changed-code gate.",
+      "intended_behavior": "A no-change PR-prose task does not require b-reviewer changed-code review.",
+      "prompt": "Review supplied PR prose only; no files or commits change. State whether a changed-code review is needed and how unsupported verification claims are handled.",
+      "must": ["No changed-code review", "Do not invent verification evidence"],
+      "avoid": ["Freeze a code candidate", "Issue a changed-code verdict"]
+    },
+    {
+      "id": "commit-requires-reviewed-plan",
+      "skill": "b-commit",
+      "observed_failure": "A user-authorized commit staged a changed candidate without fresh independent review evidence.",
+      "intended_behavior": "The main session completes required preparation, freezes the exact candidate and commit plan, obtains b-reviewer review, and stages only unchanged reviewed paths.",
+      "prompt": "A user explicitly requests one commit. Required changelog preparation changes the candidate after an earlier review. Explain the required sequence before staging.",
+      "must": [
+        "Prepare changelog before final snapshot",
+        "Reopen b-reviewer review",
+        "Verify unchanged reviewed candidate before staging"
+      ],
+      "avoid": ["Stage before review", "Push automatically"]
+    }
+  ]
+}

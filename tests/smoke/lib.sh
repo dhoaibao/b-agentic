@@ -138,8 +138,8 @@ if [ "${1:-}" = "list" ]; then
     printf 'npm:@gotgenes/pi-anthropic-auth\n'
     found=1
   fi
-  if [ -f "$log_dir/pi-intercom-installed" ]; then
-    printf 'npm:pi-intercom\n'
+  if [ -f "$log_dir/pi-subagents-installed" ]; then
+    printf 'npm:pi-subagents\n'
     found=1
   fi
   if [ -f "$log_dir/pi-ask-user-question-versioned-installed" ]; then
@@ -181,8 +181,8 @@ if [ "${1:-}" = "install" ]; then
   if [ "${2:-}" = "npm:@gotgenes/pi-anthropic-auth" ]; then
     : > "$log_dir/pi-anthropic-auth-installed"
   fi
-  if [ "${2:-}" = "npm:pi-intercom" ]; then
-    : > "$log_dir/pi-intercom-installed"
+  if [ "${2:-}" = "npm:pi-subagents" ]; then
+    : > "$log_dir/pi-subagents-installed"
   fi
   if [ "${2:-}" = "npm:@juicesharp/rpiv-ask-user-question" ]; then
     rm -f "$log_dir/pi-ask-user-question-versioned-installed"

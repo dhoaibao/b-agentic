@@ -34,10 +34,11 @@ Markdown preview install, and the preview package route, see
 ## How b-agentic works
 
 Each request routes to one active phase rather than mixing planning, building,
-validation, and shipping. The normal solo workflow is **Off**; optional explicit
-roles are an **executor** (the sole user-facing writer) and a read-only
-**architect** gate. See [REFERENCE.md](REFERENCE.md) for operational role,
-safety, MCP, and coordination behavior.
+validation, and shipping. One main session owns user-facing work, decisions,
+verification, and all worktree mutations. It can synchronously delegate bounded,
+read-only planning, research, diagnosis, and changed-code review to named
+`pi-subagents` profiles; see [REFERENCE.md](REFERENCE.md) for the delegation,
+safety, MCP, and review-gate behavior.
 
 | Phase | Skills | Purpose |
 |---|---|---|
@@ -78,7 +79,7 @@ path is:
 ## Learn more
 
 - [Operational reference](REFERENCE.md) — install/update/uninstall behavior,
-  packages, MCPs, roles, safety, and validation.
+  packages, custom subagents, safety, and validation.
 - [Pi configuration layout](pi/configs/README.md) — installed paths and
   managed-versus-user-owned boundaries.
 - [Standalone preview package](pi/packages/preview-markdown/README.md) —

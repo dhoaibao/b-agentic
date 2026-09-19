@@ -15,17 +15,23 @@
 9. Quality means the best evidence-backed fit to the request, repository, and relevant risks; passing checks alone are not sufficient.
 10. Use todo for multi-step work.
 
-## Intercom roles
+## Single-session delegation
 
-- b-agentic defaults to Off; select roles with `/b-role` or `pi --b-role`. The Executor is the sole user-facing worktree writer; the Architect is an independent prompt-governed read-only gate for diagnosis, planning, research, audit, and review. An explicit executor selection, including a restored pane/session role or startup flag, is active immediately and does not depend on same-CWD peers, role payloads, or Intercom availability; legacy v1 planner/worker and v2 implementer/reviewer state stays inactive.
-- Before any new thread, a fresh `list-cwd` with the absolute project `cwd` must show exactly one other peer. When no inbound Executor `ask` exists, after a user-approved `b-plan` the Architect uses one proactive `send` with that `cwd` and omits `to` for the compact approved-plan handoff covering scope, acceptance, paths, invariants, verification, risks, and open items; this is not blocking, so never pair `send` plus `ask`. An approved plan that originated from an Executor `ask` is returned with the originating threaded `reply` instead. Every completed Executor-owned task that leaves a tracked or relevant untracked/derived worktree candidate requires independent `b-review` before any final response: after required checks pass, freeze that candidate and use exactly one blocking `ask` with the absolute project `cwd`, omitting `to`, for the compact frozen-candidate handoff; then stop edits and wait. No-change tasks, including PR prose, do not require changed-code review. Never send plus ask for the same exchange. Zero/multiple peers, missing Intercom, or an ambiguous roster is a coordination gap and blocks a normal final result. An active executor role is an explicit local selection; `list-cwd` supplies only the sole peer's address, not its role. After receiving a valid ready b-review disposition, emit `B_AGENTIC_TASK_COMPLETE` on its own line immediately before the final task response so only the executor receives the task-completion notification.
-- An Executor request for b-plan, b-research, b-debug, or b-review arrives as a blocking `ask`; the Architect automatically begins the named skill and answers the active request with `reply`. If no longer in the triggered turn, inspect `pending` and use the exact originating `replyTo`; an ambiguous pending request is a coordination gap. Never open a reverse `ask` or use an unthreaded `send` for the response. The Architect never writes except disposable b-debug probes outside the worktree, removed before reporting.
-<!-- generated:skill-ownership:start -->
-- Executor-owned skills: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`. The Executor is the sole user-facing worktree writer.
-- Architect-owned skills: `b-plan`, `b-research`, `b-debug`, `b-agentic-audit`, `b-review`. The Architect performs the independent read-only diagnosis, planning, research, audit, and review gate.
-- Ownership governs execution, not inspection. Architect-owned skills perform planning, research, diagnosis, audit, or changed-code review; diagnosis may use only disposable OS-temporary scratch probes outside the worktree. Executor-owned skills perform design, implementation, validation, commit, or PR-summary work. Mixed or uncertain skills are executor-owned. Unknown or ambiguous skill ownership is executor-owned; registry rejects missing or invalid ownership.
-<!-- generated:skill-ownership:end -->
-- Interactive, user-facing material decisions or blockers use installed `ask_user_question`: group 1–4 questions, offer 2–4 concrete options/trade-offs, mark first ` (Recommended)`, and use its automatic custom-answer row. Never author `Other`, `Type something.`, or `Next`. If unavailable/noninteractive, ask one focused plain-text question. Executor calls surface a fixed privacy-safe `User input needed` notification only with UI. Omit this for routine activity, review fixes, and no-choice confirmations.
+- b-agentic has one main session. It owns all user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting. It does not select roles or coordinate with peer sessions.
+- When routing selects a delegated skill, launch the named `pi-subagents` agent synchronously with an explicit bounded task and wait for its result. Treat a returned plan, research report, diagnosis, or review as evidence for the main session—not as user approval, an implementation action, or permission to commit.
+- Delegated agents are read-only specialists. They do not edit, commit, ask the user questions, launch nested agents, inspect peer sessions, or use Intercom. Their managed child-only guard blocks Bash, mutating native/orchestration tools, direct MCP tools, and unclassified MCP gateway calls; it permits only classified read-only or safe conditional-read gateway operations.
+- Every completed task that leaves a tracked or relevant untracked/derived worktree candidate requires `b-reviewer` review before the main session reports normal completion. After required checks pass, freeze the exact candidate, request review, and do not edit while it runs. A changed snapshot, missing/skipped/failed required check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review. No-change tasks, including PR prose, do not require changed-code review. Review never commits or pushes automatically.
+<!-- generated:delegation:start -->
+- The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.
+- Delegated skills run once through their named pi-subagents; the main session waits for the result, evaluates it, and performs any next user-facing or worktree action:
+  - `b-plan` -> `b-planner`.
+  - `b-research` -> `b-researcher`.
+  - `b-debug` -> `b-debugger`.
+  - `b-agentic-audit` -> `b-reviewer`.
+  - `b-review` -> `b-reviewer`.
+- Subagents are read-only workflow specialists. They do not select a main session, discover peers, use Intercom, ask users questions, or launch nested subagents.
+<!-- generated:delegation:end -->
+- Interactive, user-facing material decisions or blockers use installed `ask_user_question`: group 1–4 questions, offer 2–4 concrete options/trade-offs, mark first ` (Recommended)`, and use its automatic custom-answer row. Never author `Other`, `Type something.`, or `Next`. If unavailable/noninteractive, ask one focused plain-text question. Omit this for routine activity, review fixes, and no-choice confirmations.
 
 ## Routing
 <!-- generated:kernel-routing:start -->
@@ -52,7 +58,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 - Preserve unrelated changes; never autonomously run `git push`, `git pull`, `git reset --hard`, `git clean -f`, or `git branch -D`.
 - Never read/expose/commit likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission; protected paths and ambiguous shell input stay gated.
 - Prefer sources; regenerate when required. Never invent behavior or compatibility.
-- MCP: CodeGraph, Context7, Brave, Firecrawl, Playwright. Roles do not change approval policy; protected/outside-project/mismatched tools stay gated.
+- MCP: CodeGraph, Context7, Brave, Firecrawl, Playwright. Main-session delegation does not change approval policy; protected/outside-project/mismatched tools stay gated.
 
 ### Bounded MCP scripting
 
@@ -67,7 +73,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 
 `~/.pi/agent/b-agentic/references/capabilities.yaml` is canonical. Activate on triggers; unavailable prerequisites use a local fallback. Configured is not authenticated, externally verified, or used here.
 For changed source, run behavior/quality checks; report gaps, do not guess.
-Other Intercom is on request; `recall` requires an ID. Candidate review freezes executor edits; needs unchanged snapshot, fresh checks, acceptance, no blockers, and valid disposition; never auto-commits or pushes.
+`recall` requires an ID. Candidate review freezes main-session edits; it needs an unchanged snapshot, fresh checks, acceptance, no blockers, and a valid disposition; it never auto-commits or pushes.
 A status snapshot must never start live MCP/auth/browser probes, never parse MCP configuration or inspect credential/API-key values, or persist prompts, code, URLs, secrets, or usage telemetry.
 
 ### Managed MCP operations

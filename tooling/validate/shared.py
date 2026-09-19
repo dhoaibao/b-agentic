@@ -95,7 +95,7 @@ for skill_name in sorted(prompt_dirs):
 # into a broad exact-wording contract. These anchors correspond to behavior that
 # cannot be inferred from routing or structural validation alone.
 prompt_regression_contracts = {
-    "b-debug": ["exact runnable repro command", "confirmed causal mechanism", "Do not include a product fix"],
+    "b-debug": ["exact runnable repro command", "confirmed causal mechanism", "Do not include a product fix", "does not run commands or create probes"],
     "b-test": ["explicitly requested a tightly scoped TDD red-green loop"],
     "b-design": [
         "explicit, task-conditional design read",
@@ -128,20 +128,20 @@ prompt_regression_contracts = {
     ],
     "b-plan": ["candidate-review gate", "tracked plus relevant untracked/derived snapshot"],
     "b-research": ["resolved lockfiles", "go.mod"],
-    "b-implement": ["shared explicit executor-role profile", "standalone **Off** mode does not initiate intercom review", "active executor role initiates a handoff", "let the executor-role profile send a fresh snapshot and review request"],
-    "b-review": ["frozen changed-code candidate", "begin **b-review** automatically", "answer the active review request with `reply`", "inspect `pending` and use the exact originating `replyTo`", "every disposition", "same CWD", "intercom", "coordination gap"],
+    "b-implement": ["freeze every tracked plus relevant untracked/derived candidate", "request **b-reviewer** review", "Do not edit while review is pending", "fresh candidate and request review"],
+    "b-review": ["This skill runs in the `b-reviewer` subagent.", "frozen candidate snapshot", "Return the structured disposition and findings to the main session", "do not ask users questions, message peers, or implement a correction", "another review"],
     "b-agentic-audit": [
         "Existing source/design conformance",
         "Whole-project and first-party-extension health",
         "Canonical skill/kernel quality",
         "Currentness/MCP compatibility",
         "Mandatory origin freshness gate",
-        "`rtk git fetch origin`",
+        "require the main session to",
         "metadata-only branch",
-        "freshness comparison",
+        "freshness evidence",
         "Proceed only when both counts are zero.",
         "notify the user and stop",
-        "BLOCKED: current branch is not up to date with origin",
+        "BLOCKED: current branch is not up to date",
         "Do not read audit sources",
         "measured hotspot or explicit algorithmic, safety, or complexity evidence",
         "Live MCP schema probing is approval-gated",
@@ -149,7 +149,7 @@ prompt_regression_contracts = {
         "READY WITH FOLLOW-UPS",
         "READY FOR PR",
     ],
-    "b-commit": ["explicit user commit request", "Do not ask for a second approval", "exact candidate snapshot", "reopen **b-review**"],
+    "b-commit": ["explicit user commit request", "Do not ask for a second approval", "exact candidate snapshot", "reopen **b-reviewer** review"],
     "b-pr-summary": [
         "Do not contact remotes, fetch, push, inspect merge bases, or open PR state.",
         "After producing the normal PR title and description, invoke `preview_markdown` exactly once",
@@ -403,11 +403,10 @@ for relative_path, markers in B_INIT_GUIDANCE_REGRESSION["anchors"].items():
 # explicit commit request as its authorization, so its redundant second approval
 # prompt is intentionally not part of this interactive-decision check.
 INTERACTIVE_DECISION_REGRESSION = {
-    "observed_failure": "Material questions or notifications could bypass the explicit role contract.",
+    "observed_failure": "Material questions could bypass the main-session decision contract.",
     "anchors": {
-        "references/kernel.template.md": ["Interactive, user-facing material decisions or blockers use installed `ask_user_question`", "Executor calls surface a fixed privacy-safe"],
-        "pi/extensions/b-agentic-support/role.ts": ["Work directly with the user", "ask_user_question", "No automatic commit or push"],
-        "pi/extensions/b-agentic-executor-notify.ts": ["tool_call", "ask_user_question", "ui_prompt_start", "User input needed", "getRole() !== \"executor\""],
+        "references/kernel.template.md": ["Interactive, user-facing material decisions or blockers use installed `ask_user_question`"],
+        "skills/b-implement/prompt.md": ["Ask the user directly with `ask_user_question` only for material unresolved choices or blockers."],
     },
 }
 for relative_path, markers in INTERACTIVE_DECISION_REGRESSION["anchors"].items():
@@ -415,6 +414,7 @@ for relative_path, markers in INTERACTIVE_DECISION_REGRESSION["anchors"].items()
     for marker in markers:
         if marker not in text:
             errors.append(f"{relative_path}: missing interactive-decision regression anchor {marker!r}; observed failure: {INTERACTIVE_DECISION_REGRESSION['observed_failure']}")
+
 
 # Regression: MCPs were named but agents had no durable selection, sequencing, or
 # first-use bootstrap workflow, and broad cross-file tasks could trigger needless
@@ -433,10 +433,10 @@ MCP_WORKFLOW_REGRESSION = {
     ),
     "anchors": {
         "b-plan": ["Select CodeGraph only for a concrete repository-wide architecture, impact, or affected-test question"],
-        "b-debug": ["versioned dependency suspects"],
+        "b-debug": ["versioned dependency suspects", "child guard blocks `mcpScript`"],
         "b-test": ["versioned framework semantics"],
         "b-browser": ["existing CI/script evidence; approved navigation", "mcpScript", "browser mutations"],
-        "b-research": ["independent corroboration", "research_*", "mcpScript", "direct top-level `mcp` calls"],
+        "b-research": ["independent corroboration", "one explicitly classified read-only or safe conditional-read `mcp` gateway operation", "managed child guard blocks `mcpScript`"],
         "b-review": ["specialized Brave tools"],
     },
 }
@@ -471,13 +471,6 @@ MCP_SCRIPT_GUIDANCE_REGRESSION = {
         "direct top-level `mcp` calls and state that fallback",
         "must not batch navigation, clicks, typing, evaluation, uploads, or other mutations",
     ],
-    "research": [
-        "manual `mcp-scripting` skill",
-        "direct top-level `mcp` calls and state that fallback",
-        "resolve a Context7 library ID",
-        "one primary public URL",
-        "bounded partial results with explicit errors",
-    ],
     "browser": [
         "top-level `mcp` for one browser observation",
         "manual `mcp-scripting` skill",
@@ -488,7 +481,6 @@ MCP_SCRIPT_GUIDANCE_REGRESSION = {
 }
 for path, markers in (
     (ROOT / "references" / "kernel.template.md", MCP_SCRIPT_GUIDANCE_REGRESSION["kernel"]),
-    (ROOT / "skills" / "b-research" / "prompt.md", MCP_SCRIPT_GUIDANCE_REGRESSION["research"]),
     (ROOT / "skills" / "b-browser" / "prompt.md", MCP_SCRIPT_GUIDANCE_REGRESSION["browser"]),
 ):
     text = read_text(path)
@@ -509,7 +501,6 @@ MCP_SCRIPT_LIMIT_PATTERNS = {
     "firecrawl scrapes": r"at most (?P<value>one|\d+) `firecrawl_scrape` call",
 }
 MCP_SCRIPT_SKILL_LIMITS = {
-    "skills/b-research/prompt.md": set(MCP_SCRIPT_LIMIT_PATTERNS),
     "skills/b-browser/prompt.md": set(MCP_SCRIPT_LIMIT_PATTERNS) - {"firecrawl scrapes"},
 }
 kernel_mcp_guidance = read_text(ROOT / "references" / "kernel.template.md")
@@ -529,37 +520,8 @@ for limit_name, pattern in MCP_SCRIPT_LIMIT_PATTERNS.items():
                 f"{relative_path}: mcpScript {limit_name} must match kernel value {expected!r}"
             )
 
-# The always-loaded kernel keeps limits and envelope semantics; the detailed
-# example lives with the research recipe to preserve kernel headroom.
-chained_example_path = ROOT / "skills" / "b-research" / "prompt.md"
-chained_example_match = re.search(
-    r"Use this direct adapter API for a chained operation:\n\n```js\n(?P<code>.*?)\n```",
-    read_text(chained_example_path),
-    re.DOTALL,
-)
-if not chained_example_match:
-    errors.append(
-        f"{rel(chained_example_path)}: missing executable mcpScript chained example; "
-        f"observed failure: {MCP_SCRIPT_GUIDANCE_REGRESSION['observed_failure']}"
-    )
-else:
-    chained_example = chained_example_match.group("code")
-    if "emit(" not in chained_example or re.search(r"\breturn\b", chained_example):
-        errors.append(
-            f"{rel(chained_example_path)}: chained mcpScript example must emit terminal outcomes "
-            "and must not return an undocumented script value"
-        )
-    for marker in (
-        'emit({ error: "No matching tool" })',
-        "emit(details)",
-        "emit({ error: result.error })",
-        "emit(result.data)",
-    ):
-        if marker not in chained_example:
-            errors.append(
-                f"{rel(chained_example_path)}: chained mcpScript example missing terminal emit {marker!r}"
-            )
-
+# The always-loaded kernel owns multi-call scripting guidance. Delegated
+# b-researcher runs intentionally expose only the single-call gateway.
 # Regression: suite audit found skills under-specified Pi native file tools, optional
 # recall, and specialized research/browser surfaces that policy already classifies.
 # The prompts must keep native-first file work explicit and select CodeGraph only
@@ -590,7 +552,7 @@ PROMPT_TOOL_LEVERAGE_REGRESSION = {
             "Prefer native edits",
         ],
         "b-debug": [
-            "OS-temporary scratch files",
+            "does not run commands or create probes",
             "Select CodeGraph",
             "compacted repro",
         ],
@@ -599,7 +561,7 @@ PROMPT_TOOL_LEVERAGE_REGRESSION = {
             "research_search_github",
             "brave_news_search",
         ],
-        "b-review": ["specialized Brave tools", "rtk git"],
+        "b-review": ["specialized Brave tools", "main session's frozen snapshot"],
         "b-browser": ["browser_snapshot", "browser_find", "browser_network_requests"],
         "b-commit": ["rtk git status --short", "rtk git diff"],
         "b-pr-summary": ["rtk git log", "rtk git show"],
@@ -695,16 +657,16 @@ else:
     if len(routing_ids) != len(set(routing_ids)):
         errors.append(f"{rel(routing_path)}: scenario ids must be unique")
 
-roles_path = ROOT / "tests" / "behavior" / "roles.json"
-roles_fixture = load_json(roles_path)
-role_scenarios = roles_fixture.get("scenarios", [])
-if roles_fixture.get("version") != 1 or not isinstance(role_scenarios, list) or not role_scenarios:
-    errors.append(f"{rel(roles_path)}: expected version 1 with non-empty scenarios")
+subagents_path = ROOT / "tests" / "behavior" / "subagents.json"
+subagents_fixture = load_json(subagents_path)
+subagent_scenarios = subagents_fixture.get("scenarios", [])
+if subagents_fixture.get("version") != 1 or not isinstance(subagent_scenarios, list) or not subagent_scenarios:
+    errors.append(f"{rel(subagents_path)}: expected version 1 with non-empty scenarios")
 else:
-    role_ids: list[str] = []
-    covered_roles: set[str] = set()
-    for index, scenario in enumerate(role_scenarios, start=1):
-        label = f"{rel(roles_path)}: scenario {index}"
+    scenario_ids: list[str] = []
+    covered_skills: set[str] = set()
+    for index, scenario in enumerate(subagent_scenarios, start=1):
+        label = f"{rel(subagents_path)}: scenario {index}"
         if not isinstance(scenario, dict):
             errors.append(f"{label} must be an object")
             continue
@@ -712,14 +674,12 @@ else:
         if not isinstance(scenario_id, str) or not scenario_id:
             errors.append(f"{label} must have a non-empty id")
         else:
-            role_ids.append(scenario_id)
-        role = scenario.get("role")
-        if role not in {"off", "executor", "architect"}:
-            errors.append(f"{label} has unknown role {role!r}")
+            scenario_ids.append(scenario_id)
+        skill = scenario.get("skill")
+        if skill not in skill_names:
+            errors.append(f"{label} has unknown skill {skill!r}")
         else:
-            covered_roles.add(role)
-        if scenario.get("skill") not in skill_names:
-            errors.append(f"{label} has unknown skill {scenario.get('skill')!r}")
+            covered_skills.add(skill)
         for field in ("prompt", "observed_failure", "intended_behavior"):
             if not isinstance(scenario.get(field), str) or not scenario[field]:
                 errors.append(f"{label} {field} must be a non-empty string")
@@ -727,10 +687,11 @@ else:
             values = scenario.get(field)
             if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
                 errors.append(f"{label} {field} must be a non-empty string array")
-    if len(role_ids) != len(set(role_ids)):
-        errors.append(f"{rel(roles_path)}: scenario ids must be unique")
-    if covered_roles != {"off", "executor", "architect"}:
-        errors.append(f"{rel(roles_path)}: scenarios must cover Off, executor, and architect")
+    if len(scenario_ids) != len(set(scenario_ids)):
+        errors.append(f"{rel(subagents_path)}: scenario ids must be unique")
+    required_skills = {"b-plan", "b-debug", "b-review", "b-implement", "b-commit", "b-pr-summary"}
+    if not required_skills <= covered_skills:
+        errors.append(f"{rel(subagents_path)}: scenarios must cover {sorted(required_skills)}")
 
 init_guidance_path = ROOT / "tests" / "behavior" / "init-guidance.json"
 init_guidance_fixture = load_json(init_guidance_path)
@@ -956,7 +917,7 @@ prompt_runner = read_text(prompt_runner_path)
 require_contains(
     prompt_runner_path,
     prompt_runner,
-    ["--allow-model-calls", '"--no-session"', '"--no-tools"', '"--routing"', "scenario_role_prompt", "ROLE_SOURCE", 'environment["PI_TELEMETRY"] = "0"'],
+    ["--allow-model-calls", '"--no-session"', '"--no-tools"', '"--routing"', "scenario prompt must not inject a role-specific runtime prompt", 'environment["PI_TELEMETRY"] = "0"'],
     "prompt-effectiveness safety marker",
 )
 
@@ -981,7 +942,7 @@ for required in ["exact runnable repro command", "observable to flip", "confirme
         )
 
 MCP_SERVERS = {"codegraph", "context7", "brave-search", "firecrawl", "playwright"}
-LOCAL_TOOLS = {"bash", "read", "edit", "write", "recall"}
+LOCAL_TOOLS = {"bash", "read", "edit", "write", "recall", "mcp"}
 KNOWN_TOOLS = MCP_SERVERS | LOCAL_TOOLS
 RETIRED_MCP_REFERENCE_ALLOWLIST = {
     "CHANGELOG.md",
@@ -1248,56 +1209,24 @@ if _forbidden_codegraph_gates(
 ):
     errors.append("CodeGraph gate regression self-test rejected corrected guidance")
 
-for intercom_marker in [
-    "b-agentic defaults to Off", "select roles with `/b-role` or `pi --b-role`", "Executor is the sole user-facing worktree writer", "independent prompt-governed read-only gate", "active immediately and does not depend on same-CWD peers, role payloads, or Intercom availability", "Every completed Executor-owned task that leaves a tracked or relevant untracked/derived worktree candidate requires independent `b-review` before any final response", "No-change tasks, including PR prose, do not require changed-code review",
-    "Before any new thread, a fresh `list-cwd` with the absolute project `cwd` must show exactly one other peer",
-    "When no inbound Executor `ask` exists, after a user-approved `b-plan` the Architect uses one proactive `send` with that `cwd` and omits `to`",
-    "after required checks pass, freeze that candidate and use exactly one blocking `ask` with the absolute project `cwd`, omitting `to`",
-    "An Executor request for b-plan, b-research, b-debug, or b-review arrives as a blocking `ask`; the Architect automatically begins the named skill and answers the active request with `reply`",
+for subagent_marker in [
+    "b-agentic has one main session.",
+    "launch the named `pi-subagents` agent synchronously with an explicit bounded task and wait for its result",
+    "Delegated agents are read-only specialists.",
+    "They do not edit, commit, ask the user questions, launch nested agents, inspect peer sessions, or use Intercom.",
+    "Their managed child-only guard blocks Bash, mutating native/orchestration tools, direct MCP tools, and unclassified MCP gateway calls",
+    "requires `b-reviewer` review before the main session reports normal completion",
+    "freeze the exact candidate, request review, and do not edit while it runs",
+    "No-change tasks, including PR prose, do not require changed-code review",
+    "`b-plan` -> `b-planner`.",
+    "`b-review` -> `b-reviewer`.",
 ]:
-    if intercom_marker not in kernel_template:
+    if subagent_marker not in kernel_template:
         errors.append(
-            f"references/kernel.template.md: Intercom workflow marker missing {intercom_marker!r}"
+            f"references/kernel.template.md: subagent workflow marker missing {subagent_marker!r}"
         )
 
-role_prompt = read_text(ROOT / "pi/extensions/b-agentic-support/role.ts")
-for intercom_marker in [
-    # generated:role-prompt-markers:shared:start
-    "sole user-facing writer",
-    "independent read-only gate",
-    "roles never filter tools",
-    "compact frozen-candidate handoff",
-    "every completed Executor-owned task",
-    "No-change tasks, including PR prose",
-    "stop edits",
-    "required checks",
-    "exact unchanged snapshot",
-    "READY WITH FOLLOW-UPS",
-    "No automatic commit or push",
-    "user-approved plan handoff",
-    "independent b-review",
-    "structured disposition and findings",
-    "same-CWD peer",
-    "fresh",
-    "absolute project",
-    "exactly one other peer",
-    "blocking",
-    "omit",
-    "proactive",
-    "active inbound request",
-    "pending",
-    "originating",
-    "reverse",
-    "same exchange",
-# generated:role-prompt-markers:shared:end
-]:
-    source_marker = intercom_marker.replace("`", r"\`")
-    if intercom_marker not in role_prompt and source_marker not in role_prompt:
-        errors.append(
-            f"pi/extensions/b-agentic-support/role.ts: Intercom workflow marker missing {intercom_marker!r}"
-        )
 
-role_extension = read_text(ROOT / "pi/extensions/b-agentic-role.ts")
 # The kernel owns the RTK requirement and modern shell-tool preferences.
 for required_tool in ["`rtk`", "`rg`", "`fdfind`", "`batcat`", "`eza`", "`sd`", "`jq`"]:
     if required_tool not in kernel_template:
@@ -1349,7 +1278,7 @@ else:
         errors.append("REFERENCE.md: must link back to README.md")
 if "REFERENCE.md" not in readme:
     errors.append("README.md: must link to REFERENCE.md")
-for forbidden in ["hooks", "subagent", "strict", "state-machine"]:
+for forbidden in ["hooks", "strict", "state-machine"]:
     if re.search(rf"\b{re.escape(forbidden)}\b", readme, re.IGNORECASE):
         errors.append(f"README.md: removed product concept remains: {forbidden!r}")
 

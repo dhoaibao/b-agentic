@@ -22,6 +22,9 @@ export type CapabilityStatus = {
 export type CapabilityObservation = {
   packageListing?: string;
   extensionRoot?: string;
+  agentRoot?: string;
+  guardPath?: string;
+  settingsPath?: string;
   mcpConfigPresent?: boolean;
   commandAvailable?: (command: string) => boolean;
 };
@@ -63,7 +66,7 @@ function packageIsListed(listing: string, packageName: string): boolean {
 }
 
 function capabilityLabel(capability: CapabilityDefinition): string {
-  return capability.id.replace(/^(package|mcp|extension)\./, "");
+  return capability.id.replace(/^(package|mcp|extension|agent)\./, "");
 }
 
 function packageStatus(
@@ -137,6 +140,91 @@ function extensionStatus(
   };
 }
 
+function agentStatus(
+  capability: CapabilityDefinition,
+  observation: CapabilityObservation,
+): CapabilityStatus {
+  const probe = capability.agent ?? capability.probe;
+  if (probe.names) {
+    if (!observation.agentRoot) {
+      return {
+        id: capability.id,
+        kind: capability.kind,
+        state: "unknown",
+        detail: "unknown: local managed agent directory is unavailable",
+      };
+    }
+    const missing = probe.names.filter(
+      (name) => !existsSync(join(observation.agentRoot!, `${name}.md`)),
+    );
+    if (missing.length) {
+      return {
+        id: capability.id,
+        kind: capability.kind,
+        state: "missing",
+        detail: `missing: managed subagent profiles are absent locally (${missing.join(", ")})`,
+      };
+    }
+    if (probe.guard) {
+      if (!observation.guardPath) {
+        return {
+          id: capability.id,
+          kind: capability.kind,
+          state: "unknown",
+          detail: "unknown: local managed child-only guard path is unavailable",
+        };
+      }
+      if (!existsSync(observation.guardPath)) {
+        return {
+          id: capability.id,
+          kind: capability.kind,
+          state: "missing",
+          detail:
+            "missing: managed child-only read-only guard is absent locally",
+        };
+      }
+    }
+    return {
+      id: capability.id,
+      kind: capability.kind,
+      state: "installed",
+      detail:
+        "installed locally; profile prompts, child-guard loading, runtime discovery, provider readiness, and session use are not independently verified",
+    };
+  }
+  if (probe.settings) {
+    if (!observation.settingsPath) {
+      return {
+        id: capability.id,
+        kind: capability.kind,
+        state: "unknown",
+        detail: "unknown: local Pi settings path is unavailable",
+      };
+    }
+    if (!existsSync(observation.settingsPath)) {
+      return {
+        id: capability.id,
+        kind: capability.kind,
+        state: "missing",
+        detail: "missing: local Pi settings file is absent",
+      };
+    }
+    return {
+      id: capability.id,
+      kind: capability.kind,
+      state: "configured",
+      detail:
+        "local settings file is present; its values, provider readiness, authentication, and session use are not inspected",
+    };
+  }
+  return {
+    id: capability.id,
+    kind: capability.kind,
+    state: "unknown",
+    detail: "unknown: managed agent probe metadata is incomplete",
+  };
+}
+
 function mcpStatus(
   capability: CapabilityDefinition,
   observation: CapabilityObservation,
@@ -179,6 +267,7 @@ export function statusForCapability(
     return packageStatus(capability, observation);
   if (capability.kind === "extension")
     return extensionStatus(capability, observation);
+  if (capability.kind === "agent") return agentStatus(capability, observation);
   return mcpStatus(capability, observation);
 }
 
@@ -226,6 +315,9 @@ export function defaultCapabilityObservation(
 ): CapabilityObservation {
   return {
     extensionRoot: join(agentDir, "extensions"),
+    agentRoot: join(agentDir, "agents", "b-agentic"),
+    guardPath: join(agentDir, "b-agentic", "subagent-read-only-guard.ts"),
+    settingsPath: join(agentDir, "settings.json"),
     mcpConfigPresent: existsSync(mcpConfigPath),
     commandAvailable: (command) => commandOnPath(command),
   };
