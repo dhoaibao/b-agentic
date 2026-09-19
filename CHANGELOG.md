@@ -21,6 +21,10 @@ section per date and same-day changes aggregated in that section.
 
 - Retire role selection, role state, role-specific extensions, candidate handoff modules, and the managed `pi-intercom` integration.
 
+### Fixed
+
+- Document that delegated `pi-subagents` launches must run as background children (`async: true`) because foreground children never load the ambient extensions providing the managed `mcp` and `recall` tools, replacing the ambiguous "synchronously" guidance that caused managed agent launches to fail at startup.
+
 ## [v2026.09.14] - 2026-09-14
 
 ### Changed

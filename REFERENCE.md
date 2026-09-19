@@ -300,9 +300,11 @@ never selects a role or coordinates with a peer session.
 
 When routing selects `b-plan`, `b-research`, `b-debug`, `b-review`, or
 `b-agentic-audit`, the main session launches its named pi-subagents profile
-synchronously with a bounded task and waits for a result: `b-planner`,
-`b-researcher`, `b-debugger`, or `b-reviewer`. A returned plan, report,
-diagnosis, or review is evidence only. It is not user approval, implementation
+as a background child (`async: true`) with a bounded task and waits for the
+native completion result: `b-planner`, `b-researcher`, `b-debugger`, or
+`b-reviewer`. Background launch is required because foreground children never
+load the ambient extensions providing the managed `mcp` and `recall` tools.
+A returned plan, report, diagnosis, or review is evidence only. It is not user approval, implementation
 authorization, or permission to commit.
 
 Managed profiles inherit project and global context but are read-only and

@@ -1211,7 +1211,7 @@ if _forbidden_codegraph_gates(
 
 for subagent_marker in [
     "b-agentic has one main session.",
-    "launch the named `pi-subagents` agent synchronously with an explicit bounded task and wait for its result",
+    "launch the named `pi-subagents` agent as a background child (`async: true`) with an explicit bounded task and wait for its native completion result",
     "Delegated agents are read-only specialists.",
     "They do not edit, commit, ask the user questions, launch nested agents, inspect peer sessions, or use Intercom.",
     "Their managed child-only guard blocks Bash, mutating native/orchestration tools, direct MCP tools, and unclassified MCP gateway calls",

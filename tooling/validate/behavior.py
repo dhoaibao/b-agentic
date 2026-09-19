@@ -89,7 +89,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
     "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents return read-only evidence, and changed candidates receive an independent frozen b-reviewer gate.",
     "required_clauses": (
         "b-agentic has one main session. It owns all user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting.",
-        "launch the named `pi-subagents` agent synchronously with an explicit bounded task and wait for its result",
+        "launch the named `pi-subagents` agent as a background child (`async: true`) with an explicit bounded task and wait for its native completion result",
         "Delegated agents are read-only specialists.",
         "They do not edit, commit, ask the user questions, launch nested agents, inspect peer sessions, or use Intercom.",
         "Their managed child-only guard blocks Bash, mutating native/orchestration tools, direct MCP tools, and unclassified MCP gateway calls",

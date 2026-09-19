@@ -73,7 +73,7 @@ if kernel.exists():
     text = kernel.read_text()
     for marker in [
         'Pi Workflow Kernel', 'b-agentic has one main session.',
-        'launch the named `pi-subagents` agent synchronously with an explicit bounded task and wait for its result',
+        'launch the named `pi-subagents` agent as a background child (`async: true`) with an explicit bounded task and wait for its native completion result',
         'Delegated agents are read-only specialists.',
         'requires `b-reviewer` review before the main session reports normal completion',
         'ask_user_question', '2–4 concrete options', 'automatic custom-answer row',

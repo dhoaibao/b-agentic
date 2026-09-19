@@ -70,9 +70,12 @@ One main Pi session owns all user interaction, material decisions, worktree
 changes, verification, commits, and final reporting. It delegates only bounded
 read-only evidence tasks through pi-subagents: `b-plan` to `b-planner`,
 `b-research` to `b-researcher`, `b-debug` to `b-debugger`, and `b-review` and
-`b-agentic-audit` to `b-reviewer`. Delegation is synchronous; results are
-information for the main session, not automatic approval or authorization to
-mutate or commit.
+`b-agentic-audit` to `b-reviewer`. Delegation is synchronous in effect: the
+main session launches the agent as a background child (`async: true`) and waits
+for its native completion result, because foreground children never load the
+ambient extensions that provide the managed `mcp` and `recall` tools. Results
+are information for the main session, not automatic approval or authorization
+to mutate or commit.
 
 - Managed custom agents inherit project/global context but not the skills
   catalog. A child-only guard enforces their read-only boundary: it blocks Bash,
