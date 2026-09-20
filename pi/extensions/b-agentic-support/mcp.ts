@@ -136,13 +136,43 @@ function managedDirectMcpTool(
   return undefined;
 }
 
+/** Trusted policy-key sets for the servers whose keys are `{server}_{upstream}`. */
+const NAMESPACED_POLICY_TOOLS: Record<string, ReadonlySet<string>> = {
+  "brave-search": BRAVE_SEARCH_TRUSTED_TOOLS,
+  codegraph: CODEGRAPH_TRUSTED_TOOLS,
+  context7: CONTEXT7_TRUSTED_TOOLS,
+  mobbin: MOBBIN_TRUSTED_TOOLS,
+  shadcn: SHADCN_TRUSTED_TOOLS,
+};
+
 /**
- * Strip adapter/namespace prefixes to get the server-local tool base name.
+ * Resolve an incoming tool name to its canonical policy key.
+ *
+ * Policy keys are namespaced by server: `{server_underscore}_{upstream_name}`
+ * (e.g. `brave_search_brave_web_search`, `context7_resolve-library-id`).
+ * Firecrawl and Playwright are the exceptions — their policy keys are the bare
+ * upstream tool ids (`firecrawl_search`, `browser_click`), so only the adapter
+ * prefix is stripped, never the tool's own leading id.
+ *
+ * The approval broker emits the upstream `originalName` (e.g.
+ * `brave_web_search`, `codegraph_explore`), while a direct tool call carries
+ * the registered `{server_underscore}_{upstream}` name (e.g.
+ * `codegraph_codegraph_explore`). For namespaced servers the policy key is
+ * always `{server_underscore}_{upstream}`, so the prefix is added whenever the
+ * incoming name is not already a classified policy key for that server. This
+ * keeps codegraph's own `codegraph_`-prefixed upstream id distinct from its
+ * doubled policy key `codegraph_codegraph_explore`.
+ *
  * Examples:
  *   mcp__firecrawl__firecrawl_search -> firecrawl_search
  *   firecrawl_firecrawl_search -> firecrawl_search
  *   playwright_browser_click -> browser_click
  *   browser_click -> browser_click
+ *   brave_web_search -> brave_search_brave_web_search        (server=brave-search)
+ *   codegraph_explore -> codegraph_codegraph_explore         (server=codegraph)
+ *   resolve-library-id -> context7_resolve-library-id        (server=context7)
+ *   search_screens -> mobbin_search_screens                  (server=mobbin)
+ *   codegraph_codegraph_explore -> codegraph_codegraph_explore (already a key)
  */
 export function managedToolBaseName(toolName: string, server: string): string {
   let name = toolName;
@@ -150,24 +180,29 @@ export function managedToolBaseName(toolName: string, server: string): string {
   if (direct) name = direct.tool;
 
   const serverUnderscore = server.replace(/-/g, "_");
-  const repeated = `${serverUnderscore}_${serverUnderscore}_`;
-  // Firecrawl's adapter prefix duplicates its public `firecrawl_` tool id.
-  // Other managed tools retain their policy identifier unchanged.
-  if (server === "firecrawl" && name.startsWith(repeated)) {
-    return name.slice(serverUnderscore.length + 1);
-  }
   const prefixed = `${serverUnderscore}_`;
-  if (name.startsWith(prefixed)) {
-    // firecrawl_search stays firecrawl_search; playwright_browser_click -> browser_click
-    if (server === "playwright") {
-      return name.slice(prefixed.length);
+
+  // Firecrawl's adapter prefix duplicates its public `firecrawl_` tool id;
+  // the policy key is that bare id.
+  if (server === "firecrawl") {
+    const repeated = `${serverUnderscore}_${serverUnderscore}_`;
+    if (name.startsWith(repeated)) {
+      return name.slice(serverUnderscore.length + 1);
     }
-    // firecrawl tools keep their firecrawl_ prefix as the public tool id
-    if (server === "firecrawl" && name.startsWith("firecrawl_firecrawl_")) {
-      return name.slice("firecrawl_".length);
-    }
+    return name;
   }
-  return name;
+
+  // Playwright policy keys are the bare `browser_*` upstream ids.
+  if (server === "playwright") {
+    return name.startsWith(prefixed) ? name.slice(prefixed.length) : name;
+  }
+
+  // Namespaced servers: the policy key is `{server_underscore}_{upstream}`.
+  // An already-classified policy key (e.g. a direct tool's registered name) is
+  // returned unchanged; anything else is the bare upstream id and is prefixed.
+  const keys = NAMESPACED_POLICY_TOOLS[server];
+  if (keys?.has(name)) return name;
+  return `${prefixed}${name}`;
 }
 
 export function isPlainObject(
@@ -532,8 +567,10 @@ function isDirectClassifiedManagedTool(
     const namespace = `${server.replace(/-/g, "_")}_`;
     if (!toolName.startsWith(namespace)) return false;
   }
-  const base = managedToolBaseName(toolName, server);
-  return isTrustedManagedTool(server, base, input);
+  // `isTrustedManagedTool` resolves the policy key itself; passing the raw
+  // name once avoids a double `managedToolBaseName` pass that would otherwise
+  // re-prefix an already-resolved upstream id into a classified key.
+  return isTrustedManagedTool(server, toolName, input);
 }
 
 /** Return true only for the exact, local-only preview_markdown tool shape. */

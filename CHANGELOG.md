@@ -65,6 +65,15 @@ section per date and same-day changes aggregated in that section.
   them, while `registry_sync.py --check` now fails when a generated output
   is not tracked by git so untracked artifacts cannot escape the quality
   gates.
+- Restore auto-approval of classified read-only managed MCP calls for the
+  five servers whose policy keys are namespaced as `{server}_{tool}`
+  (brave-search, codegraph, context7, mobbin, shadcn). `managedToolBaseName`
+  in `b-agentic-support/mcp.ts` only stripped adapter prefixes for firecrawl
+  and playwright, so the bare upstream `originalName` the approval broker
+  emits never matched the namespaced policy key and every one of those
+  servers' calls failed closed inside managed subagents; the resolver now
+  prefixes the upstream id for namespaced servers while still accepting an
+  already-classified policy key from a direct tool call.
 
 ## [v2026.09.19] - 2026-09-19
 
