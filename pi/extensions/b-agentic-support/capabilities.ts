@@ -87,11 +87,11 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     }
   },
   {
-    "id": "package.pi-observational-memory",
+    "id": "package.pi-magic-context",
     "kind": "package",
-    "purpose": "Provide long-session compaction continuity for Pi conversations.",
-    "owner": "Pi observational memory",
-    "trigger": "Use when a long session needs compaction continuity; do not add a second memory layer.",
+    "purpose": "Provide long-session compaction continuity and cross-session project memory for Pi conversations.",
+    "owner": "Pi Magic Context",
+    "trigger": "Use when a long session needs compaction continuity or cross-session project memory; do not add a second memory layer.",
     "prerequisites": [
       "Pi CLI"
     ],
@@ -109,15 +109,15 @@ export const CAPABILITIES: readonly CapabilityDefinition[] = [
     },
     "probe": {
       "type": "package",
-      "name": "pi-observational-memory"
+      "name": "@cortexkit/pi-magic-context"
     },
     "package": {
-      "name": "pi-observational-memory",
-      "spec": "npm:pi-observational-memory"
+      "name": "@cortexkit/pi-magic-context",
+      "spec": "npm:@cortexkit/pi-magic-context"
     },
     "install_state": {
-      "action": "piObservationalMemoryAction",
-      "state": "piObservationalMemoryState"
+      "action": "piMagicContextAction",
+      "state": "piMagicContextState"
     },
     "source": {
       "installer": "pi/scripts/install.sh"

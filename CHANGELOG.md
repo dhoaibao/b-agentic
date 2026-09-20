@@ -27,6 +27,14 @@ section per date and same-day changes aggregated in that section.
   still run so a deleted managed file is repaired.
 - Consolidate all installer escape-sequence decisions behind a single
   `supports_ansi` predicate (TTY + `TERM` + `NO_COLOR`/`B_AGENTIC_PLAIN`).
+- Replace the optional long-session memory package: the installer now installs
+  `@cortexkit/pi-magic-context` instead of `pi-observational-memory`. Magic
+  Context runs its background historian/dreamer work in separate child Pi
+  processes, so a worker failure does not take down the main session, and it
+  adds cross-session project memory on top of compaction continuity. Because
+  the installer never removes Pi packages, existing installs should uninstall
+  `pi-observational-memory` manually so it does not run as a second memory
+  layer.
 
 ### Security
 

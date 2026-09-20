@@ -544,7 +544,7 @@ PROMPT_TOOL_LEVERAGE_REGRESSION = {
             "Select CodeGraph",
             "native tools or local search",
             "repository-wide architecture, impact, or affected-test question",
-            "compacted observational-memory ids",
+            "compacted memory references",
         ],
         "b-refactor": [
             "native search for routine discovery",

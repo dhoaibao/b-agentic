@@ -84,8 +84,8 @@ EXTENSION_SNAPSHOT_DST="$METADATA_DIR/extensions/b-agentic-permissions.ts"
 EXTENSION_SRC="$SOURCE_DIR/pi/extensions/b-agentic-permissions.ts"
 PI_MCP_ADAPTER_SPEC="npm:pi-mcp-adapter"
 PI_MCP_ADAPTER_PACKAGE="pi-mcp-adapter"
-PI_OBSERVATIONAL_MEMORY_SPEC="npm:pi-observational-memory"
-PI_OBSERVATIONAL_MEMORY_PACKAGE="pi-observational-memory"
+PI_MAGIC_CONTEXT_SPEC="npm:@cortexkit/pi-magic-context"
+PI_MAGIC_CONTEXT_PACKAGE="@cortexkit/pi-magic-context"
 PI_USAGE_SPEC="npm:@sreetej510/pi-usage"
 PI_USAGE_PACKAGE="@sreetej510/pi-usage"
 PI_ANTHROPIC_AUTH_SPEC="npm:@gotgenes/pi-anthropic-auth"
@@ -109,8 +109,8 @@ set_pi_readonly \
 	BACKUPS_DIR SKILLS_DST SKILLS_SNAPSHOT_DST AGENTS_DST AGENTS_SNAPSHOT_DST AGENT_NAMES SUBAGENT_GUARD_SRC SUBAGENT_GUARD_DST SUBAGENT_GUARD_SNAPSHOT SETTINGS_DST SUBAGENT_SETTINGS_TEMPLATE_DST KERNEL_DST KERNEL_SNAPSHOT_DST \
 	REFERENCES_DST CAPABILITIES_SRC TEMPLATES_DST MANIFEST_DST MCP_CONFIG_DST EXTENSIONS_DST \
 	EXTENSION_NAMES LEGACY_EXTENSION_NAMES EXTENSION_DST EXTENSION_SNAPSHOT_DST EXTENSION_SRC \
-	PI_MCP_ADAPTER_SPEC PI_MCP_ADAPTER_PACKAGE PI_OBSERVATIONAL_MEMORY_SPEC \
-	PI_OBSERVATIONAL_MEMORY_PACKAGE PI_USAGE_SPEC PI_USAGE_PACKAGE \
+	PI_MCP_ADAPTER_SPEC PI_MCP_ADAPTER_PACKAGE PI_MAGIC_CONTEXT_SPEC \
+	PI_MAGIC_CONTEXT_PACKAGE PI_USAGE_SPEC PI_USAGE_PACKAGE \
 	PI_ANTHROPIC_AUTH_SPEC PI_ANTHROPIC_AUTH_PACKAGE PI_SUBAGENTS_SPEC PI_SUBAGENTS_PACKAGE \
 	PI_ASK_USER_QUESTION_SPEC PI_ASK_USER_QUESTION_PACKAGE \
 	PI_TODO_SPEC PI_TODO_PACKAGE MCP_ROOT_KEY MCP_PLACEHOLDER_STYLE \
@@ -130,8 +130,8 @@ INSTALL_EXTENSION_STATE="none"
 INSTALL_EXTENSION_BACKUP="none"
 INSTALL_PI_MCP_ADAPTER_ACTION="skip"
 INSTALL_PI_MCP_ADAPTER_STATE="missing"
-INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION="skip"
-INSTALL_PI_OBSERVATIONAL_MEMORY_STATE="missing"
+INSTALL_PI_MAGIC_CONTEXT_ACTION="skip"
+INSTALL_PI_MAGIC_CONTEXT_STATE="missing"
 INSTALL_PI_USAGE_ACTION="skip"
 INSTALL_PI_USAGE_STATE="missing"
 INSTALL_PI_ANTHROPIC_AUTH_ACTION="skip"
@@ -163,8 +163,8 @@ runtime_warn_missing_cli() {
 		warn "pi-mcp-adapter not installed; MCP servers will not load until the adapter is installed."
 	fi
 	if installer_component_enabled pi-integrations && command -v pi >/dev/null 2>&1; then
-		if ! pi_observational_memory_installed; then
-			warn "pi-observational-memory not installed; long-session compaction continuity is unavailable."
+		if ! pi_magic_context_installed; then
+			warn "$PI_MAGIC_CONTEXT_PACKAGE not installed; long-session compaction continuity is unavailable."
 		fi
 		if ! pi_usage_installed; then
 			warn "@sreetej510/pi-usage not installed; Pi usage reporting is unavailable."
@@ -264,8 +264,8 @@ pi_mcp_adapter_installed() {
 	pi_package_installed "$PI_MCP_ADAPTER_PACKAGE"
 }
 
-pi_observational_memory_installed() {
-	pi_package_installed "$PI_OBSERVATIONAL_MEMORY_PACKAGE"
+pi_magic_context_installed() {
+	pi_package_installed "$PI_MAGIC_CONTEXT_PACKAGE"
 }
 
 pi_usage_installed() {
@@ -483,36 +483,36 @@ maybe_install_pi_todo() {
 	fi
 }
 
-maybe_install_pi_observational_memory() {
-	if pi_observational_memory_installed; then
-		INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION="present"
-		INSTALL_PI_OBSERVATIONAL_MEMORY_STATE="ready"
-		log "Pi Observational Memory $PI_OBSERVATIONAL_MEMORY_PACKAGE already installed"
+maybe_install_pi_magic_context() {
+	if pi_magic_context_installed; then
+		INSTALL_PI_MAGIC_CONTEXT_ACTION="present"
+		INSTALL_PI_MAGIC_CONTEXT_STATE="ready"
+		log "Pi Magic Context $PI_MAGIC_CONTEXT_PACKAGE already installed"
 		return 0
 	fi
 
 	if ! command -v pi >/dev/null 2>&1 && ! dry_run_enabled; then
-		warn "Pi CLI missing; cannot install $PI_OBSERVATIONAL_MEMORY_PACKAGE"
+		warn "Pi CLI missing; cannot install $PI_MAGIC_CONTEXT_PACKAGE"
 		return 1
 	fi
 
 
 	if dry_run_enabled; then
-		printf '[dry-run] pi install %s\n' "$PI_OBSERVATIONAL_MEMORY_SPEC" >&2
-		INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION="install"
-		INSTALL_PI_OBSERVATIONAL_MEMORY_STATE="dry-run"
+		printf '[dry-run] pi install %s\n' "$PI_MAGIC_CONTEXT_SPEC" >&2
+		INSTALL_PI_MAGIC_CONTEXT_ACTION="install"
+		INSTALL_PI_MAGIC_CONTEXT_STATE="dry-run"
 		return 0
 	fi
 
-	log "Installing $PI_OBSERVATIONAL_MEMORY_PACKAGE"
-	if pi install "$PI_OBSERVATIONAL_MEMORY_SPEC"; then
-		INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION="install"
-		INSTALL_PI_OBSERVATIONAL_MEMORY_STATE="ready"
-		log "Installed $PI_OBSERVATIONAL_MEMORY_PACKAGE"
+	log "Installing $PI_MAGIC_CONTEXT_PACKAGE"
+	if pi install "$PI_MAGIC_CONTEXT_SPEC"; then
+		INSTALL_PI_MAGIC_CONTEXT_ACTION="install"
+		INSTALL_PI_MAGIC_CONTEXT_STATE="ready"
+		log "Installed $PI_MAGIC_CONTEXT_PACKAGE"
 	else
-		INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION="failed"
-		INSTALL_PI_OBSERVATIONAL_MEMORY_STATE="missing"
-		warn "Failed to install $PI_OBSERVATIONAL_MEMORY_PACKAGE"
+		INSTALL_PI_MAGIC_CONTEXT_ACTION="failed"
+		INSTALL_PI_MAGIC_CONTEXT_STATE="missing"
+		warn "Failed to install $PI_MAGIC_CONTEXT_PACKAGE"
 		return 1
 	fi
 }
@@ -523,7 +523,7 @@ install_selected_pi_packages() {
 		maybe_install_pi_mcp_adapter || return $?
 	fi
 	if installer_component_enabled pi-integrations; then
-		maybe_install_pi_observational_memory || return $?
+		maybe_install_pi_magic_context || return $?
 		maybe_install_pi_usage || return $?
 		maybe_install_pi_anthropic_auth || return $?
 		maybe_install_pi_ask_user_question || return $?
@@ -541,8 +541,8 @@ preserve_skipped_component_state() {
 	fi
 
 	if ! installer_component_enabled pi-integrations; then
-		INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION="$(manifest_action_value piObservationalMemoryAction "$INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION")"
-		INSTALL_PI_OBSERVATIONAL_MEMORY_STATE="$(manifest_action_value piObservationalMemoryState "$INSTALL_PI_OBSERVATIONAL_MEMORY_STATE")"
+		INSTALL_PI_MAGIC_CONTEXT_ACTION="$(manifest_action_value piMagicContextAction "$INSTALL_PI_MAGIC_CONTEXT_ACTION")"
+		INSTALL_PI_MAGIC_CONTEXT_STATE="$(manifest_action_value piMagicContextState "$INSTALL_PI_MAGIC_CONTEXT_STATE")"
 		INSTALL_PI_USAGE_ACTION="$(manifest_action_value piUsageAction "$INSTALL_PI_USAGE_ACTION")"
 		INSTALL_PI_USAGE_STATE="$(manifest_action_value piUsageState "$INSTALL_PI_USAGE_STATE")"
 		INSTALL_PI_ANTHROPIC_AUTH_ACTION="$(manifest_action_value piAnthropicAuthAction "$INSTALL_PI_ANTHROPIC_AUTH_ACTION")"
@@ -938,8 +938,8 @@ runtime_write_manifest() {
 		MCP_BACKUP="$INSTALL_MCP_BACKUP" \
 		MCP_ADAPTER_ACTION="$INSTALL_PI_MCP_ADAPTER_ACTION" \
 		MCP_ADAPTER_STATE="$INSTALL_PI_MCP_ADAPTER_STATE" \
-		PI_OBSERVATIONAL_MEMORY_ACTION="$INSTALL_PI_OBSERVATIONAL_MEMORY_ACTION" \
-		PI_OBSERVATIONAL_MEMORY_STATE="$INSTALL_PI_OBSERVATIONAL_MEMORY_STATE" \
+		PI_MAGIC_CONTEXT_ACTION="$INSTALL_PI_MAGIC_CONTEXT_ACTION" \
+		PI_MAGIC_CONTEXT_STATE="$INSTALL_PI_MAGIC_CONTEXT_STATE" \
 		PI_USAGE_ACTION="$INSTALL_PI_USAGE_ACTION" \
 		PI_USAGE_STATE="$INSTALL_PI_USAGE_STATE" \
 		PI_ANTHROPIC_AUTH_ACTION="$INSTALL_PI_ANTHROPIC_AUTH_ACTION" \
@@ -1014,8 +1014,8 @@ legacy_states = {
     'mcpState': os.environ['MCP_STATE'],
     'mcpAdapterAction': os.environ['MCP_ADAPTER_ACTION'],
     'mcpAdapterState': os.environ['MCP_ADAPTER_STATE'],
-    'piObservationalMemoryAction': os.environ['PI_OBSERVATIONAL_MEMORY_ACTION'],
-    'piObservationalMemoryState': os.environ['PI_OBSERVATIONAL_MEMORY_STATE'],
+    'piMagicContextAction': os.environ['PI_MAGIC_CONTEXT_ACTION'],
+    'piMagicContextState': os.environ['PI_MAGIC_CONTEXT_STATE'],
     'piUsageAction': os.environ['PI_USAGE_ACTION'],
     'piUsageState': os.environ['PI_USAGE_STATE'],
     'piAnthropicAuthAction': os.environ['PI_ANTHROPIC_AUTH_ACTION'],
@@ -1070,8 +1070,8 @@ manifest = {
     'mcpState': os.environ['MCP_STATE'],
     'mcpAdapterAction': os.environ['MCP_ADAPTER_ACTION'],
     'mcpAdapterState': os.environ['MCP_ADAPTER_STATE'],
-    'piObservationalMemoryAction': os.environ['PI_OBSERVATIONAL_MEMORY_ACTION'],
-    'piObservationalMemoryState': os.environ['PI_OBSERVATIONAL_MEMORY_STATE'],
+    'piMagicContextAction': os.environ['PI_MAGIC_CONTEXT_ACTION'],
+    'piMagicContextState': os.environ['PI_MAGIC_CONTEXT_STATE'],
     'piUsageAction': os.environ['PI_USAGE_ACTION'],
     'piUsageState': os.environ['PI_USAGE_STATE'],
     'piAnthropicAuthAction': os.environ['PI_ANTHROPIC_AUTH_ACTION'],
@@ -1188,7 +1188,7 @@ runtime_print_install_report() {
 	[ "$INSTALL_SUBAGENT_SETTINGS_STATE" = "active" ] || attention+=("subagent settings: merge $SUBAGENT_SETTINGS_TEMPLATE_DST into $SETTINGS_DST")
 
 	if installer_component_enabled pi-integrations; then
-		[ "$INSTALL_PI_OBSERVATIONAL_MEMORY_STATE" = "ready" ] || attention+=("observational-memory: install $PI_OBSERVATIONAL_MEMORY_PACKAGE with 'pi install $PI_OBSERVATIONAL_MEMORY_SPEC'")
+		[ "$INSTALL_PI_MAGIC_CONTEXT_STATE" = "ready" ] || attention+=("magic-context: install $PI_MAGIC_CONTEXT_PACKAGE with 'pi install $PI_MAGIC_CONTEXT_SPEC'")
 		[ "$INSTALL_PI_USAGE_STATE" = "ready" ] || attention+=("pi-usage: install $PI_USAGE_PACKAGE with 'pi install $PI_USAGE_SPEC'")
 		[ "$INSTALL_PI_ANTHROPIC_AUTH_STATE" = "ready" ] || attention+=("anthropic-auth: install $PI_ANTHROPIC_AUTH_PACKAGE with 'pi install $PI_ANTHROPIC_AUTH_SPEC'")
 		[ "$INSTALL_PI_ASK_USER_QUESTION_STATE" = "ready" ] || attention+=("ask-user-question: install $PI_ASK_USER_QUESTION_PACKAGE with 'pi install $PI_ASK_USER_QUESTION_SPEC'")
@@ -1346,7 +1346,7 @@ pi_update() {
 	set_install_stage_total 14
 	run_stage "Updating Pi CLI" runtime_upgrade_cli || return $?
 	run_stage "Installing Pi MCP adapter" maybe_install_pi_mcp_adapter || return $?
-	run_stage "Installing observational memory" maybe_install_pi_observational_memory || return $?
+	run_stage "Installing Magic Context" maybe_install_pi_magic_context || return $?
 	run_stage "Installing Pi usage" maybe_install_pi_usage || return $?
 	run_stage "Installing Anthropic auth" maybe_install_pi_anthropic_auth || return $?
 	run_stage "Installing Pi subagents" maybe_install_pi_subagents || return $?

@@ -253,11 +253,19 @@ Pi does not provide native MCP. b-agentic installs MCP server entries into
 `~/.pi/agent/mcp.json` and expects the community package `pi-mcp-adapter` to load
 them. The installer runs `pi install npm:pi-mcp-adapter` automatically.
 
-For long-session compaction continuity, b-agentic can install the optional
-`pi-observational-memory` package. The installer runs `pi install npm:pi-observational-memory` automatically. Use it as the sole automatic
-memory/compaction layer rather than combining it with another such extension.
-Its V3 model does not read V2 settings or memory entries; after upgrading from
-V2, migrate the settings and start a clean Pi session.
+For long-session compaction continuity and cross-session project memory,
+b-agentic can install the optional `@cortexkit/pi-magic-context` package. The
+installer runs `pi install npm:@cortexkit/pi-magic-context` automatically. Use
+it as the sole automatic memory/compaction layer rather than combining it with
+another such extension. It runs its background historian/dreamer work in
+separate child Pi processes, so a worker failure does not take down the main
+session. For richer configuration (embedding + worker model choices), run
+`npx @cortexkit/magic-context@latest setup --harness pi` — that wizard ships as
+the separate `@cortexkit/magic-context` CLI package.
+
+The installer never removes Pi packages. If you previously installed
+`pi-observational-memory`, remove it manually (`pi uninstall
+npm:pi-observational-memory`) so it does not run as a second memory layer.
 
 b-agentic installs the `@sreetej510/pi-usage` extension automatically.
 

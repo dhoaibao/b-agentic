@@ -947,7 +947,7 @@ run_component_picker_case() {
 	assert_contains "$install_log" 'Dracula theme skipped'
 	assert_contains "$install_log" '[dry-run] curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh'
 	assert_not_contains "$install_log" '[dry-run] pi install npm:pi-mcp-adapter'
-	assert_not_contains "$install_log" '[dry-run] pi install npm:pi-observational-memory'
+	assert_not_contains "$install_log" '[dry-run] pi install npm:@cortexkit/pi-magic-context'
 	assert_not_contains "$install_log" '[dry-run] git clone --depth 1 https://github.com/dracula/pi-coding-agent.git'
 
 	set +e

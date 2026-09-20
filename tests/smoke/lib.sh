@@ -126,8 +126,8 @@ if [ "${1:-}" = "list" ]; then
     printf 'npm:pi-mcp-adapter\n'
     found=1
   fi
-  if [ -f "$log_dir/pi-observational-memory-installed" ]; then
-    printf 'npm:pi-observational-memory\n'
+  if [ -f "$log_dir/pi-magic-context-installed" ]; then
+    printf 'npm:@cortexkit/pi-magic-context\n'
     found=1
   fi
   if [ -f "$log_dir/pi-usage-installed" ]; then
@@ -172,8 +172,8 @@ if [ "${1:-}" = "install" ]; then
   if [ "${2:-}" = "npm:pi-mcp-adapter" ]; then
     : > "$log_dir/pi-adapter-installed"
   fi
-  if [ "${2:-}" = "npm:pi-observational-memory" ]; then
-    : > "$log_dir/pi-observational-memory-installed"
+  if [ "${2:-}" = "npm:@cortexkit/pi-magic-context" ]; then
+    : > "$log_dir/pi-magic-context-installed"
   fi
   if [ "${2:-}" = "npm:@sreetej510/pi-usage" ]; then
     : > "$log_dir/pi-usage-installed"

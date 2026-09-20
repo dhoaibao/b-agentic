@@ -33,7 +33,7 @@ Make the scoped non-UI change in the smallest coherent step after an approved pl
 
 ## Tool guidance
 
-- Use Pi native file tools by default and native tools or local search for routine discovery. Select CodeGraph only when a repository-wide architecture, impact, or affected-test question is central. Use supplied compacted observational-memory ids rather than guessing.
+- Use Pi native file tools by default and native tools or local search for routine discovery. Select CodeGraph only when a repository-wide architecture, impact, or affected-test question is central. Use supplied compacted memory references rather than guessing.
 
 ## Steps
 

@@ -24,11 +24,11 @@
       "source": {"installer": "pi/scripts/install.sh"}
     },
     {
-      "id": "package.pi-observational-memory",
+      "id": "package.pi-magic-context",
       "kind": "package",
-      "purpose": "Provide long-session compaction continuity for Pi conversations.",
-      "owner": "Pi observational memory",
-      "trigger": "Use when a long session needs compaction continuity; do not add a second memory layer.",
+      "purpose": "Provide long-session compaction continuity and cross-session project memory for Pi conversations.",
+      "owner": "Pi Magic Context",
+      "trigger": "Use when a long session needs compaction continuity or cross-session project memory; do not add a second memory layer.",
       "prerequisites": ["Pi CLI"],
       "readiness": "The package is present in the local Pi package listing.",
       "fallback": "Continue with the active session and report that compaction continuity is unavailable.",
@@ -38,9 +38,9 @@
         "description": "Reports only local package presence; it does not persist or expose prompts, memory contents, or usage telemetry.",
         "sensitive": false
       },
-      "probe": {"type": "package", "name": "pi-observational-memory"},
-      "package": {"name": "pi-observational-memory", "spec": "npm:pi-observational-memory"},
-      "install_state": {"action": "piObservationalMemoryAction", "state": "piObservationalMemoryState"},
+      "probe": {"type": "package", "name": "@cortexkit/pi-magic-context"},
+      "package": {"name": "@cortexkit/pi-magic-context", "spec": "npm:@cortexkit/pi-magic-context"},
+      "install_state": {"action": "piMagicContextAction", "state": "piMagicContextState"},
       "source": {"installer": "pi/scripts/install.sh"}
     },
     {

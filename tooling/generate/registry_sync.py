@@ -135,8 +135,8 @@ def validate_capabilities(contract: dict) -> list[str]:
         "mcpState",
         "mcpAdapterAction",
         "mcpAdapterState",
-        "piObservationalMemoryAction",
-        "piObservationalMemoryState",
+        "piMagicContextAction",
+        "piMagicContextState",
         "piUsageAction",
         "piUsageState",
         "piAnthropicAuthAction",
@@ -218,7 +218,7 @@ def validate_capabilities(contract: dict) -> list[str]:
                     package_specs.add(package_spec)
                 package_state_keys = {
                     "pi-mcp-adapter": ("mcpAdapterAction", "mcpAdapterState"),
-                    "pi-observational-memory": ("piObservationalMemoryAction", "piObservationalMemoryState"),
+                    "@cortexkit/pi-magic-context": ("piMagicContextAction", "piMagicContextState"),
                     "@sreetej510/pi-usage": ("piUsageAction", "piUsageState"),
                     "@gotgenes/pi-anthropic-auth": ("piAnthropicAuthAction", "piAnthropicAuthState"),
                     "pi-subagents": ("piSubagentsAction", "piSubagentsState"),

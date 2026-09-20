@@ -434,7 +434,7 @@ run_pi_smoke_cases() {
 	assert_contains "$sandbox/home/.pi/agent/AGENTS.md" 'b-agentic-managed'
 	assert_file "$sandbox/smoke-bin/pi-install.log"
 	assert_contains "$sandbox/smoke-bin/pi-install.log" 'npm:pi-mcp-adapter'
-	assert_contains "$sandbox/smoke-bin/pi-install.log" 'npm:pi-observational-memory'
+	assert_contains "$sandbox/smoke-bin/pi-install.log" 'npm:@cortexkit/pi-magic-context'
 	assert_contains "$sandbox/smoke-bin/pi-install.log" 'npm:@sreetej510/pi-usage'
 	assert_contains "$sandbox/smoke-bin/pi-install.log" 'npm:@gotgenes/pi-anthropic-auth'
 	assert_contains "$sandbox/smoke-bin/pi-install.log" 'npm:pi-subagents'
@@ -526,12 +526,12 @@ EOF
 		bash "$ROOT_DIR/install.sh" >/dev/null 2>&1
 	assert_file "$sandbox_adapter/home/.pi/agent/b-agentic/install.json"
 	assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"mcpAdapterState": "ready"'
-	assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piObservationalMemoryState": "ready"'
+	assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piMagicContextState": "ready"'
 	assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piUsageState": "ready"'
 	assert_contains "$sandbox_adapter/home/.pi/agent/b-agentic/install.json" '"piAnthropicAuthState": "ready"'
 	assert_file "$sandbox_adapter/smoke-bin/pi-install.log"
 	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-mcp-adapter'
-	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:pi-observational-memory'
+	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:@cortexkit/pi-magic-context'
 	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:@sreetej510/pi-usage'
 	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:@gotgenes/pi-anthropic-auth'
 	assert_contains "$sandbox_adapter/smoke-bin/pi-install.log" 'npm:@juicesharp/rpiv-ask-user-question'

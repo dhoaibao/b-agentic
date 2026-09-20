@@ -106,7 +106,7 @@ supply its completed origin-freshness evidence:
 5. Assess canonical skill/kernel quality by checking routing boundaries,
    evidence thresholds, safety/privacy guidance, no-edit handoffs, prompt
    cohesion, generated assets, and kernel headroom against the source record.
-   When recurring recall/observational-memory lessons plausibly generalize across
+   When recurring memory lessons plausibly generalize across
    sessions, flag them as distillation candidates for canonical skill prompts;
    promote them through b-implement against `skills/*/prompt.md` with
    `registry_sync`, rather than leaving them only in volatile memory.
