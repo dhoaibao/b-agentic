@@ -11,6 +11,10 @@
 #   ~/.b-agentic/install.sh --sync
 #   ~/.b-agentic/install.sh --update
 
+# Wrap the whole script so a truncated `curl | bash` download executes nothing:
+# bash only runs the body once the closing brace and `main "$@"` arrive intact.
+{
+
 set -euo pipefail
 # Variables shared with the sourced installer core are intentionally defined
 # here even when ShellCheck analyzes this entrypoint in isolation.
@@ -23,6 +27,7 @@ TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 readonly TIMESTAMP
 
 DRY_RUN_VALUE="${B_AGENTIC_DRY_RUN:-N}"
+FORCE_VALUE="${B_AGENTIC_FORCE:-N}"
 REPLACE_MEMORY_VALUE="${B_AGENTIC_REPLACE_MEMORY:-}"
 UNINSTALL_VALUE="${B_AGENTIC_UNINSTALL:-N}"
 PROMPT_API_KEYS_VALUE="${B_AGENTIC_PROMPT_API_KEYS:-auto}"
@@ -53,8 +58,20 @@ readonly UI_COMPONENT_COUNT=5
 # shellcheck disable=SC2034
 INSTALL_PI_CLI_DECISION=""
 
+# Single ANSI predicate: stdout must be a TTY, TERM must not be dumb, and the
+# user must not have opted out via NO_COLOR or B_AGENTIC_PLAIN. Every escape
+# decision (picker redraw, stage bar) flows through this so piped/CI logs and
+# colour-opt-out environments never see control sequences.
+supports_ansi() {
+	[ -t 1 ] || return 1
+	[ "${TERM:-}" != "dumb" ] || return 1
+	[ -z "${NO_COLOR:-}" ] || return 1
+	! yes_value "${B_AGENTIC_PLAIN:-N}" || return 1
+	return 0
+}
+
 ui_init() {
-	if [ -t 1 ] && [ "${TERM:-}" != "dumb" ]; then
+	if supports_ansi; then
 		UI_ENABLED=1
 	else
 		UI_ENABLED=0
@@ -62,7 +79,7 @@ ui_init() {
 }
 
 ui_tty_enabled() {
-	[ "${UI_ENABLED:-0}" -eq 1 ] && [ -t 1 ] && [ "${TERM:-}" != "dumb" ]
+	[ "${UI_ENABLED:-0}" -eq 1 ] && supports_ansi
 }
 
 component_enabled() {
@@ -397,6 +414,10 @@ dry_run_enabled() {
 	yes_value "$DRY_RUN_VALUE"
 }
 
+force_enabled() {
+	yes_value "$FORCE_VALUE"
+}
+
 replace_memory_enabled() {
 	yes_value "$REPLACE_MEMORY_VALUE"
 }
@@ -474,6 +495,9 @@ parse_args() {
 		--dry-run)
 			DRY_RUN_VALUE=Y
 			;;
+		--force)
+			FORCE_VALUE=Y
+			;;
 		--replace-memory)
 			REPLACE_MEMORY_VALUE=Y
 			;;
@@ -511,10 +535,39 @@ parse_args() {
 }
 
 validate_ref() {
+	local needs_check
 	[ -n "$REF" ] || return 0
 	[ "$OPERATION" != "update" ] || die "--ref cannot be used with --update"
+	# Treat the ref as untrusted input: whitelist a safe charset and reject
+	# path-traversal / option-injection shapes before it reaches git or a URL.
 	case "$REF" in
-	-*) die "invalid ref: $REF (must not start with -)" ;;
+	-* | /* | *..* | *@\{* | *.lock | *//* | *[!A-Za-z0-9._/@+-]*)
+		die "invalid ref: $REF"
+		;;
+	esac
+	[ "${#REF}" -le 256 ] || die "invalid ref: $REF (too long)"
+	# A full 40/64-char hex sha is a valid --ref but not a refname, so bypass
+	# check-ref-format only for that exact shape; all other values must be a
+	# valid refname.
+	case "$REF" in
+	*[!0-9a-fA-F]*) needs_check=1 ;;
+	*)
+		case "${#REF}" in
+		40 | 64) needs_check=0 ;;
+		*) needs_check=1 ;;
+		esac
+		;;
+	esac
+	if [ "${needs_check:-1}" -eq 1 ]; then
+		git check-ref-format --allow-onelevel "$REF" 2>/dev/null || die "invalid ref: $REF"
+	fi
+}
+
+validate_repo_url() {
+	# Reject option-injection through a repo override; allow https/ssh/git@,
+	# file://, and local paths (smoke tests clone from a local snapshot path).
+	case "$REPO_URL" in
+	-*) die "invalid repository URL: $REPO_URL (must not start with -)" ;;
 	esac
 }
 
@@ -566,6 +619,37 @@ if missing:
 PY
 }
 
+# A remote URL supports partial/shallow clone; a plain local path makes git
+# ignore --filter/--depth with a warning, so only apply them to remotes.
+repo_url_is_remote() {
+	case "$REPO_URL" in
+	*://* | *@*:*) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+# Partial clone (--filter) needs git >= 2.27 for stable server support.
+git_supports_partial_clone() {
+	local version major minor
+	version="$(git --version 2>/dev/null)" || return 1
+	version="${version#git version }"
+	major="${version%%.*}"
+	minor="${version#*.}"
+	minor="${minor%%.*}"
+	case "$major" in *[!0-9]* | '') return 1 ;; esac
+	case "$minor" in *[!0-9]* | '') return 1 ;; esac
+	[ "$major" -gt 2 ] || { [ "$major" -eq 2 ] && [ "$minor" -ge 27 ]; }
+}
+
+# Resolve the remote head sha for the branch the kept checkout tracks. Empty
+# output (offline, no upstream, detached) means "cannot prove up-to-date".
+source_remote_head() {
+	local upstream remote_ref
+	upstream="$(git -C "$LOCAL_REPO" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || return 1
+	remote_ref="refs/heads/${upstream#*/}"
+	git ls-remote -q -- "$REPO_URL" "$remote_ref" 2>/dev/null | cut -f1
+}
+
 sync_source() {
 	require_bin git
 	require_bin python3
@@ -577,17 +661,38 @@ sync_source() {
 		else
 			DRY_RUN_SOURCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-dry-run.XXXXXX")"
 			log "Dry-run source clone: $REPO_URL -> $DRY_RUN_SOURCE_DIR"
-			git clone --quiet "$REPO_URL" "$DRY_RUN_SOURCE_DIR"
+			# Throwaway clone: shallowest fetch wins, but an arbitrary --ref sha/tag
+			# is not reachable at depth 1, so fall back to a blobless clone then.
+			if [ -z "$REF" ] && repo_url_is_remote; then
+				git clone --quiet --depth=1 -- "$REPO_URL" "$DRY_RUN_SOURCE_DIR"
+			elif repo_url_is_remote && git_supports_partial_clone; then
+				git clone --quiet --filter=blob:none -- "$REPO_URL" "$DRY_RUN_SOURCE_DIR"
+			else
+				git clone --quiet -- "$REPO_URL" "$DRY_RUN_SOURCE_DIR"
+			fi
 			if [ -n "$REF" ]; then
-				git -C "$DRY_RUN_SOURCE_DIR" checkout --quiet "$REF"
+				git -C "$DRY_RUN_SOURCE_DIR" checkout --quiet "$REF" --
 			fi
 			set_source_dir "$DRY_RUN_SOURCE_DIR"
 		fi
 	elif [ -d "$LOCAL_REPO/.git" ]; then
+		# Fast path: for a plain --sync with no ref override and no --force, skip
+		# the network fetch/pull when the remote head already equals HEAD. The
+		# local reconcile stages still run so a deleted managed file is repaired.
+		if [ "$OPERATION" = "sync" ] && [ -z "$REF" ] && ! force_enabled; then
+			local remote_head
+			remote_head="$(source_remote_head || true)"
+			if [ -n "$remote_head" ] && [ "$remote_head" = "$(git -C "$LOCAL_REPO" rev-parse HEAD 2>/dev/null)" ]; then
+				log "Source already up to date: $LOCAL_REPO (skipped fetch)"
+				set_source_dir "$LOCAL_REPO"
+				validate_pi_source_layout
+				return 0
+			fi
+		fi
 		log "Updating source: $LOCAL_REPO"
 		git -C "$LOCAL_REPO" fetch --all --tags --prune --quiet
 		if [ -n "$REF" ]; then
-			git -C "$LOCAL_REPO" checkout --quiet "$REF"
+			git -C "$LOCAL_REPO" checkout --quiet "$REF" --
 		else
 			git -C "$LOCAL_REPO" pull --ff-only --quiet
 		fi
@@ -595,9 +700,15 @@ sync_source() {
 	else
 		log "Cloning source: $REPO_URL -> $LOCAL_REPO"
 		mkdir -p "$(dirname "$LOCAL_REPO")"
-		git clone --quiet "$REPO_URL" "$LOCAL_REPO"
+		# Kept clone: blobless cuts first-install cost roughly in half while still
+		# allowing full `git fetch` later (a shallow kept repo fetches ~full cost).
+		if repo_url_is_remote && git_supports_partial_clone; then
+			git clone --quiet --filter=blob:none -- "$REPO_URL" "$LOCAL_REPO"
+		else
+			git clone --quiet -- "$REPO_URL" "$LOCAL_REPO"
+		fi
 		if [ -n "$REF" ]; then
-			git -C "$LOCAL_REPO" checkout --quiet "$REF"
+			git -C "$LOCAL_REPO" checkout --quiet "$REF" --
 		fi
 		set_source_dir "$LOCAL_REPO"
 	fi
@@ -960,6 +1071,7 @@ main() {
 	ui_init
 	parse_args "$@"
 	validate_operation
+	validate_repo_url
 	validate_ref
 
 	if try_manifest_only_uninstall; then
@@ -1007,3 +1119,5 @@ main() {
 }
 
 main "$@"
+
+} # end of download guard: nothing above runs until the whole script arrives

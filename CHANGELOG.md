@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.20] - 2026-09-20
+
+### Added
+
+- Add a `--force` flag (and `B_AGENTIC_FORCE` override) that bypasses the new
+  `--sync` up-to-date check, and a `B_AGENTIC_PLAIN`/`NO_COLOR` opt-out that
+  forces plain newline output on a TTY with no picker, stage bar, or escapes.
+- Record the installed source commit and ref (`sourceCommit`, `sourceRef`) in
+  the install manifest and refresh them on each `--sync`.
+
+### Changed
+
+- Speed up the installer bootstrap: the kept `~/.b-agentic` checkout now uses a
+  blobless partial clone (`--filter=blob:none`, git ≥ 2.27, remote URLs only),
+  cutting first-install transfer roughly in half while still allowing full
+  `git fetch`, and throwaway `--dry-run` clones use `--depth=1`. A plain
+  `--sync` now probes the remote head with `ls-remote` and skips the
+  fetch/pull when it already equals `HEAD`, while the local reconcile stages
+  still run so a deleted managed file is repaired.
+- Consolidate all installer escape-sequence decisions behind a single
+  `supports_ansi` predicate (TTY + `TERM` + `NO_COLOR`/`B_AGENTIC_PLAIN`).
+
+### Security
+
+- Validate `--ref`/`B_AGENTIC_REF` and `B_AGENTIC_REPO` as untrusted input
+  before they reach git arguments or URLs, rejecting path-traversal and
+  option-injection shapes, and wrap the whole script so a truncated
+  `curl | bash` download executes nothing instead of running a partial body.
+
 ## [v2026.09.19] - 2026-09-19
 
 ### Added

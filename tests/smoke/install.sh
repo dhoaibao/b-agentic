@@ -647,6 +647,141 @@ run_ref_install_case() {
 
 	rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --ref=--bad)"
 	[ "$rc" -ne 0 ] || fail "expected option-looking --ref value to fail safely"
+
+	# Path-traversal, shell-metachar, and malformed refs must all fail safely
+	# before any git/network work runs.
+	local bad_ref
+	for bad_ref in 'a..b' 'x;y' 'a//b' 'x@{y}' 'name.lock'; do
+		rc="$(run_install_status "$sandbox_invalid" "$snapshot_repo" --ref="$bad_ref")"
+		[ "$rc" -ne 0 ] || fail "expected --ref=$bad_ref to fail safely"
+	done
+
+	# Confirm the rejection is for the right reason, not an unrelated failure.
+	local bad_log="$sandbox_invalid/ref.log"
+	local smoke_path
+	smoke_path="$(smoke_runtime_cli_path "$sandbox_invalid")"
+	set +e
+	HOME="$sandbox_invalid/home" \
+		PATH="$smoke_path" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox_invalid/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --ref='a..b' >"$bad_log" 2>&1
+	rc=$?
+	set -e
+	[ "$rc" -ne 0 ] || fail "expected --ref=a..b to fail"
+	assert_contains "$bad_log" 'invalid ref:'
+	assert_not_contains "$bad_log" 'Cloning source'
+}
+
+run_sync_fast_path_case() {
+	local snapshot_repo="$1"
+	local sandbox="$WORK_DIR/sync-fast-path"
+	local manifest_path second_log rc
+
+	mkdir -p "$sandbox/home"
+	expect_install_status 0 "$sandbox" "$snapshot_repo"
+
+	manifest_path="$sandbox/home/.pi/agent/b-agentic/install.json"
+	assert_file "$manifest_path"
+	# First --sync records the source commit in the manifest.
+	expect_install_status 0 "$sandbox" "$snapshot_repo" --sync
+	assert_json_value "$manifest_path" "data.get('sourceCommit') == '$(git -C "$snapshot_repo" rev-parse HEAD)'"
+
+	# Second --sync skips the network fetch (remote head == HEAD, proven via
+	# GIT_TRACE showing an ls-remote but no fetch) yet still runs the local
+	# reconcile stages so a deleted managed file is repaired.
+	second_log="$sandbox/sync2.log"
+	local smoke_path trace2="$sandbox/sync2.trace"
+	smoke_path="$(smoke_runtime_cli_path "$sandbox")"
+	set +e
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		GIT_TRACE="$trace2" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --sync >"$second_log" 2>&1
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected --sync exit 0, got $rc"
+	assert_contains "$second_log" 'Syncing skills'
+	grep -q 'ls-remote' "$trace2" || fail "expected an ls-remote probe in GIT_TRACE"
+	! grep -qE 'git (fetch|pull)' "$trace2" || fail "expected no fetch/pull when remote head unchanged"
+
+	# A deleted managed skill is restored even when the fetch is skipped.
+	rm -rf "$sandbox/home/.pi/agent/skills/b-plan"
+	set +e
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --sync >"$sandbox/sync3.log" 2>&1
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected repair --sync exit 0, got $rc"
+	assert_file "$sandbox/home/.pi/agent/skills/b-plan/SKILL.md"
+
+	# --sync --dry-run must not mutate the manifest: the recorded sourceCommit
+	# stage is a no-op in dry-run. Assert the dry-run marker so this detects a
+	# regression even when a re-run would be byte-identical.
+	cp "$manifest_path" "$sandbox/manifest.before-dryrun"
+	set +e
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --sync --dry-run >"$sandbox/sync-dryrun.log" 2>&1
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected --sync --dry-run exit 0, got $rc"
+	assert_equal_files "$manifest_path" "$sandbox/manifest.before-dryrun"
+	assert_contains "$sandbox/sync-dryrun.log" '[dry-run] record source commit ->'
+
+	# --force bypasses the fast path and re-runs the fetch.
+	local trace_force="$sandbox/sync-force.trace"
+	set +e
+	HOME="$sandbox/home" \
+		PATH="$smoke_path" \
+		GIT_TRACE="$trace_force" \
+		B_AGENTIC_REPO="$snapshot_repo" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$ROOT_DIR/install.sh" --sync --force >"$sandbox/sync-force.log" 2>&1
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected --sync --force exit 0, got $rc"
+	grep -qE 'git (fetch|pull)' "$trace_force" || fail "expected --force to run fetch/pull"
+}
+
+run_truncated_download_case() {
+	# A truncated `curl | bash` body must execute nothing: the whole-script
+	# guard means bash never reaches `main "$@"`. Cut at a *syntactically
+	# complete* prefix — everything except the final `main "$@"` and the
+	# closing `}` — so the only thing that can fail is the unclosed guard.
+	# Without the guard this prefix would parse and run to completion.
+	local sandbox="$WORK_DIR/truncated-download"
+	local log_path="$sandbox/truncated.log"
+	local rc=0
+
+	mkdir -p "$sandbox/home"
+	# Emit every line except the final `main "$@"` (and the closing guard brace
+	# that follows it), leaving a script whose only defect is the unclosed `{`.
+	awk '/^main "\$@"$/{exit} {print}' "$ROOT_DIR/install.sh" >"$sandbox/truncated.sh"
+	set +e
+	HOME="$sandbox/home" \
+		B_AGENTIC_REPO="$1" \
+		B_AGENTIC_DIR="$sandbox/source" \
+		B_AGENTIC_PROMPT_API_KEYS=N \
+		bash "$sandbox/truncated.sh" >"$log_path" 2>&1
+	rc=$?
+	set -e
+
+	[ "$rc" -ne 0 ] || fail "expected truncated install script to fail"
+	! grep -q 'Checking prerequisites' "$log_path" || fail "truncated script executed installer stages"
+	grep -q 'unexpected end of file' "$log_path" || fail "expected unclosed-guard syntax error in log"
 }
 
 run_invalid_skill_payload_case() {
@@ -752,6 +887,23 @@ PY
 	set -e
 	[ "$rc" -eq 0 ] || fail "expected TERM=dumb install exit 0, got $rc"
 	assert_not_contains "$dumb_sandbox/install.log" '[1/5] ['
+
+	# B_AGENTIC_PLAIN=1 on a TTY must suppress escape sequences: a PTY still
+	# emits \r\n line endings, but no ESC and plain [n/N] stage lines.
+	local plain_sandbox="$WORK_DIR/output-contract-plain"
+	mkdir -p "$plain_sandbox/home"
+	set +e
+	TERM=xterm B_AGENTIC_PLAIN=1 run_install_with_tty_log "$plain_sandbox" "$snapshot_repo" "$plain_sandbox/install.log" --dry-run
+	rc=$?
+	set -e
+	[ "$rc" -eq 0 ] || fail "expected B_AGENTIC_PLAIN install exit 0, got $rc"
+	python3 - "$plain_sandbox/install.log" <<'PY' || fail "B_AGENTIC_PLAIN TTY output still contained control data"
+from pathlib import Path
+import sys
+output = Path(sys.argv[1]).read_bytes()
+assert b'\x1b' not in output
+assert b'[1/5] Checking prerequisites' in output
+PY
 
 	git clone --quiet "$snapshot_repo" "$failure_sandbox/source-repo"
 	rm "$failure_sandbox/source-repo/skills/b-plan/SKILL.md"
@@ -2337,6 +2489,8 @@ run_base_smoke_cases() {
 		run_standalone_preview_installer_case
 		run_rtk_latest_dry_run_case
 		run_ref_install_case
+		run_truncated_download_case
+		run_sync_fast_path_case
 		run_manifest_only_corrupted_manifest_case
 		run_manifest_only_custom_paths_case
 		run_manifest_only_mcp_symlink_preservation_case

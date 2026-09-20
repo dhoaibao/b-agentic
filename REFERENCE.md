@@ -74,11 +74,32 @@ curl -fsSL "https://raw.githubusercontent.com/dhoaibao/b-agentic/${B_AGENTIC_REF
 Useful flags:
 
 - `--dry-run` previews changes.
+- `--force` bypasses the `--sync` up-to-date check and re-fetches the source.
 - `--replace-memory` replaces an existing managed kernel file.
 - `--uninstall` removes managed files.
 - `--ref=<tag-or-commit>` checks out that b-agentic ref before installing managed files.
 - `--sync` pulls the installed checkout and syncs managed Pi skills, kernel, and first-party extensions only.
 - `--update` installs or updates RTK, CodeGraph, Bun, Pi, Dracula theme, and Pi extensions without pulling b-agentic.
+
+Useful environment overrides: `B_AGENTIC_FORCE=1` is the `--force` equivalent,
+and `B_AGENTIC_PLAIN=1` (or `NO_COLOR`) forces plain newline output on a TTY —
+no component picker, stage bar, or escape sequences.
+
+The installer hardens the bootstrap path: the whole script is wrapped so a
+truncated `curl | bash` download executes nothing, `--ref`/`B_AGENTIC_REF` and
+`B_AGENTIC_REPO` are validated as untrusted input before reaching git, and the
+kept `~/.b-agentic` checkout uses a blobless partial clone (`--filter=blob:none`,
+git ≥ 2.27, remote URLs only) so first install downloads roughly half the data
+while still allowing full `git fetch`. A plain `--sync` probes the remote head
+with `ls-remote` and skips the fetch/pull when it already equals `HEAD`; the
+local reconcile stages still run so a deleted managed file is repaired. The
+upstream RTK, CodeGraph, and Bun installers are still fetched and run over TLS
+without checksum pinning — trust in those scripts is trust in their repositories.
+
+The install manifest records `sourceCommit`/`sourceRef` as provenance of the
+checkout that last installed or synced managed files. `--update` does not touch
+the b-agentic source, so these fields reflect the last install or `--sync`, not
+the last `--update`.
 
 Requirements: `bash`, `git`, and Python 3.11+. Bun, Pi, RTK, and CodeGraph
 are installed or updated automatically without dependency opt-in variables or

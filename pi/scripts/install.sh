@@ -915,9 +915,17 @@ runtime_write_manifest() {
 	fi
 
 	ensure_dir "$METADATA_DIR"
+	# Record the source commit as provenance for /b-status and audit.
+	local source_commit="" source_ref=""
+	if [ -d "$SOURCE_DIR/.git" ]; then
+		source_commit="$(git -C "$SOURCE_DIR" rev-parse HEAD 2>/dev/null || printf '')"
+		source_ref="$(git -C "$SOURCE_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')"
+	fi
 	env \
 		MANIFEST_DST="$MANIFEST_DST" \
 		TIMESTAMP="$TIMESTAMP" \
+		SOURCE_COMMIT="$source_commit" \
+		SOURCE_REF="$source_ref" \
 		RUNTIME="pi" \
 		MEMORY_ACTION="$INSTALL_MEMORY_ACTION" \
 		ACTIVATION_STATE="$INSTALL_ACTIVATION_STATE" \
@@ -1047,6 +1055,8 @@ manifest = {
     'suite': 'b-agentic',
     'runtime': os.environ['RUNTIME'],
     'installedAt': os.environ['TIMESTAMP'],
+    'sourceCommit': os.environ.get('SOURCE_COMMIT', ''),
+    'sourceRef': os.environ.get('SOURCE_REF', ''),
     'activationState': os.environ['ACTIVATION_STATE'],
     'capabilityContractVersion': capability_contract.get('schema_version', 1),
     'capabilities': {

@@ -1427,8 +1427,40 @@ runtime_upgrade_cli() { :; }
 runtime_install_config_stage_count() { printf '0'; }
 runtime_sync_assets() { :; }
 
+# Persist the synced source commit into the manifest as provenance for /b-status
+# and audit. No-op in dry-run, and when the manifest or source checkout is absent.
+record_source_commit() {
+  if dry_run_enabled; then
+    printf '[dry-run] record source commit -> %s\n' "$MANIFEST_DST" >&2
+    return 0
+  fi
+  [ -f "$MANIFEST_DST" ] || return 0
+  [ -d "$SOURCE_DIR/.git" ] || return 0
+  local commit ref
+  commit="$(git -C "$SOURCE_DIR" rev-parse HEAD 2>/dev/null || printf '')"
+  ref="$(git -C "$SOURCE_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '')"
+  [ -n "$commit" ] || return 0
+  MANIFEST_DST="$MANIFEST_DST" SOURCE_COMMIT="$commit" SOURCE_REF="$ref" python3 - <<'PY'
+import json
+import os
+import tempfile
+from pathlib import Path
+path = Path(os.environ['MANIFEST_DST'])
+try:
+    data = json.loads(path.read_text())
+    data['sourceCommit'] = os.environ['SOURCE_COMMIT']
+    data['sourceRef'] = os.environ['SOURCE_REF']
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix='.install.json.')
+    with os.fdopen(fd, 'w') as handle:
+        handle.write(json.dumps(data, indent=2, sort_keys=True) + '\n')
+    os.replace(tmp, path)
+except Exception:
+    pass
+PY
+}
+
 runtime_sync_common() {
-  set_install_stage_total 4
+  set_install_stage_total 5
 
   run_stage "Syncing skills" install_skills
   run_install_triplet_stage "Syncing kernel" install_kernel "preserve" "pending" "none" \
@@ -1436,6 +1468,7 @@ runtime_sync_common() {
   run_install_triplet_stage "Syncing Pi extensions" install_permissions_extension "skip" "none" "none" \
     INSTALL_EXTENSION_ACTION INSTALL_EXTENSION_STATE INSTALL_EXTENSION_BACKUP
   run_stage "Syncing runtime assets" runtime_sync_assets
+  run_stage "Recording source commit" record_source_commit
 
   if [ "$INSTALL_ACTIVATION_STATE" = "pending" ]; then
     return 2
