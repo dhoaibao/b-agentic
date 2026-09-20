@@ -668,8 +668,6 @@ export function hasInlineGitAliasInvocation(tokens: string[]): boolean {
     }
     const match = /^alias\.([^=]+)=/.exec(value);
     if (match) aliases.add(match[1]);
-    const configEnvMatch = /^alias\.([^=]+)=/.exec(value);
-    if (configEnvMatch) aliases.add(configEnvMatch[1]);
   }
   return aliases.has(tokens[i]);
 }
@@ -1831,8 +1829,6 @@ export function hasGitMutationRisk(tokens: string[]): boolean {
     }
     return false;
   }
-  if (operation === "reflog")
-    return !new Set(["", "show", "list"]).has(tokens[2] || "");
   if (operation === "stash")
     return !new Set(["list", "show"]).has(tokens[2] ?? "");
   if (operation === "submodule")

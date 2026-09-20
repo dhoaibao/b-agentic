@@ -1,12 +1,6 @@
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-force-exclude = true
-extend-exclude = [
-  "tooling/validate/behavior.py",
-  "tooling/validate/shared.py",
-]
-
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
 

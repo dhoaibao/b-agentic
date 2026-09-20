@@ -65,8 +65,7 @@ OUTPUT_SHAPE_REGRESSION = {
 # literal path token, and RTK guidance must not weaken that protection.
 SHELL_POLICY_REGRESSION = {
     "observed_failure": (
-        "Kernel designated RTK and modern replacements, but unscoped Git content "
-        "reads bypassed path protection."
+        "Kernel designated RTK and modern replacements, but unscoped Git content reads bypassed path protection."
     ),
     "intended_behavior": (
         "Recommend RTK and modern fallbacks while allowing regular repository-local "
@@ -105,7 +104,6 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-review` -> `b-reviewer`.",
     ),
 }
-
 
 
 FIXTURES = [
@@ -388,12 +386,80 @@ def normalize(text: str) -> str:
 
 def words(text: str) -> set[str]:
     stopwords = {
-        "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
-        "from", "as", "is", "was", "are", "were", "be", "been", "being", "have", "has", "had",
-        "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "shall",
-        "i", "me", "my", "myself", "we", "our", "ours", "us", "you", "your", "yours", "he", "him",
-        "his", "she", "her", "hers", "it", "its", "they", "them", "their", "this", "that", "these",
-        "those", "not", "no", "yes", "if", "then", "than", "so", "very", "just", "now", "only",
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "as",
+        "is",
+        "was",
+        "are",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "shall",
+        "i",
+        "me",
+        "my",
+        "myself",
+        "we",
+        "our",
+        "ours",
+        "us",
+        "you",
+        "your",
+        "yours",
+        "he",
+        "him",
+        "his",
+        "she",
+        "her",
+        "hers",
+        "it",
+        "its",
+        "they",
+        "them",
+        "their",
+        "this",
+        "that",
+        "these",
+        "those",
+        "not",
+        "no",
+        "yes",
+        "if",
+        "then",
+        "than",
+        "so",
+        "very",
+        "just",
+        "now",
+        "only",
     }
     return set(re.findall(r"[a-z0-9][a-z0-9-]*", text.lower())) - stopwords
 
@@ -434,7 +500,14 @@ def score(prompt: str, skill: dict) -> int:
     score_value = 0
 
     if name == "b-commit":
-        commit_markers = ["commit changes", "commit message", "working-tree changes", "working tree changes", "create commits", "split my"]
+        commit_markers = [
+            "commit changes",
+            "commit message",
+            "working-tree changes",
+            "working tree changes",
+            "create commits",
+            "split my",
+        ]
         matched_markers = [m for m in commit_markers if m in normalized_prompt]
         staged_change = "staged changes" in normalized_prompt or "staged diff" in normalized_prompt
         staged_commit_intent = "commit message" in normalized_prompt or "pr copy" in normalized_prompt
@@ -447,7 +520,17 @@ def score(prompt: str, skill: dict) -> int:
     if name == "b-pr-summary":
         if "staged changes" in normalized_prompt or "staged diff" in normalized_prompt:
             return 0
-        pr_summary_markers = ["b-pr-summary", "pr summary", "pr copy", "pr description", "pr title", "pr prose", "unpushed commits", "latest commits", "recent commits"]
+        pr_summary_markers = [
+            "b-pr-summary",
+            "pr summary",
+            "pr copy",
+            "pr description",
+            "pr title",
+            "pr prose",
+            "unpushed commits",
+            "latest commits",
+            "recent commits",
+        ]
         matched_markers = [m for m in pr_summary_markers if m in normalized_prompt]
         if not matched_markers:
             return 0
@@ -510,7 +593,11 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
         skill_text = normalize((ROOT / "skills" / name / "SKILL.md").read_text())
         kernel_text = normalize(text)
         for trigger in routing.get("triggers", []):
-            if isinstance(trigger, str) and normalize(trigger.strip('"')) not in kernel_text and normalize(trigger.strip('"')) not in skill_text:
+            if (
+                isinstance(trigger, str)
+                and normalize(trigger.strip('"')) not in kernel_text
+                and normalize(trigger.strip('"')) not in skill_text
+            ):
                 errors.append(
                     f"runtime routing signal missing for {name}: {trigger!r} is absent from kernel and SKILL.md"
                 )
@@ -521,8 +608,7 @@ def validate_clause_regression(name: str, regression: dict, errors: list[str]) -
     for clause in regression["required_clauses"]:
         if clause not in kernel:
             errors.append(
-                f"{name}: missing required clause {clause!r}; observed failure: "
-                f"{regression['observed_failure']}"
+                f"{name}: missing required clause {clause!r}; observed failure: {regression['observed_failure']}"
             )
 
 
@@ -616,13 +702,16 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             if clause not in text:
                 errors.append(f"cross-skill contract: {path} missing {clause!r}")
     commit = (ROOT / "skills/b-commit/prompt.md").read_text()
-    sequence = [commit.find(clause) for clause in (
-        "6. Block if a group mixes unrelated concerns",
-        "Before freezing the candidate, read applicable repository commit rules",
-        "9. Apply the review and commit gate above",
-        "Stage only the selected paths",
-        "10. Reinspect each staged group",
-    )]
+    sequence = [
+        commit.find(clause)
+        for clause in (
+            "6. Block if a group mixes unrelated concerns",
+            "Before freezing the candidate, read applicable repository commit rules",
+            "9. Apply the review and commit gate above",
+            "Stage only the selected paths",
+            "10. Reinspect each staged group",
+        )
+    ]
     if -1 in sequence or sequence != sorted(sequence):
         errors.append("cross-skill contract: commit preparation must precede final gate, staging, and commit")
 
@@ -650,9 +739,7 @@ def main() -> int:
             ordered = ", ".join(
                 f"{name}={value}" for name, value in sorted(scores.items(), key=lambda item: (-item[1], item[0]))
             )
-            errors.append(
-                f"{fixture.name}: expected {fixture.expected}, classified as {actual}; scores: {ordered}"
-            )
+            errors.append(f"{fixture.name}: expected {fixture.expected}, classified as {actual}; scores: {ordered}")
         for forbidden in fixture.not_expected:
             if forbidden in actual:
                 errors.append(f"{fixture.name}: incorrectly routed to {forbidden}")

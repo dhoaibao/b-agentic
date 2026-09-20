@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 errors: list[str] = []
 
+
 def rel(path: Path) -> str:
     try:
         return path.relative_to(ROOT).as_posix()
@@ -75,7 +76,14 @@ for skill_name in sorted(prompt_dirs):
     frontmatter, body = frontmatter_parts(skill_file)
     if f"name: {skill_name}" not in frontmatter:
         errors.append(f"{rel(skill_file)}: frontmatter name must match directory")
-    for section in ["## When to use", "## When NOT to use", "## Tool guidance", "## Steps", "## Output format", "## Rules"]:
+    for section in [
+        "## When to use",
+        "## When NOT to use",
+        "## Tool guidance",
+        "## Steps",
+        "## Output format",
+        "## Rules",
+    ]:
         if section not in body:
             errors.append(f"{rel(skill_file)}: missing section {section!r}")
     text = prompt.read_text()
@@ -95,7 +103,12 @@ for skill_name in sorted(prompt_dirs):
 # into a broad exact-wording contract. These anchors correspond to behavior that
 # cannot be inferred from routing or structural validation alone.
 prompt_regression_contracts = {
-    "b-debug": ["exact runnable repro command", "confirmed causal mechanism", "Do not include a product fix", "does not run commands or create probes"],
+    "b-debug": [
+        "exact runnable repro command",
+        "confirmed causal mechanism",
+        "Do not include a product fix",
+        "does not run commands or create probes",
+    ],
     "b-test": ["explicitly requested a tightly scoped TDD red-green loop"],
     "b-design": [
         "explicit, task-conditional design read",
@@ -128,8 +141,19 @@ prompt_regression_contracts = {
     ],
     "b-plan": ["candidate-review gate", "tracked plus relevant untracked/derived snapshot"],
     "b-research": ["resolved lockfiles", "go.mod"],
-    "b-implement": ["freeze every tracked plus relevant untracked/derived candidate", "request **b-reviewer** review", "Do not edit while review is pending", "fresh candidate and request review"],
-    "b-review": ["This skill runs in the `b-reviewer` subagent.", "frozen candidate snapshot", "Return the structured disposition and findings to the main session", "do not ask users questions, message peers, or implement a correction", "another review"],
+    "b-implement": [
+        "freeze every tracked plus relevant untracked/derived candidate",
+        "request **b-reviewer** review",
+        "Do not edit while review is pending",
+        "fresh candidate and request review",
+    ],
+    "b-review": [
+        "This skill runs in the `b-reviewer` subagent.",
+        "frozen candidate snapshot",
+        "Return the structured disposition and findings to the main session",
+        "do not ask users questions, message peers, or implement a correction",
+        "another review",
+    ],
     "b-agentic-audit": [
         "Existing source/design conformance",
         "Whole-project and first-party-extension health",
@@ -149,7 +173,12 @@ prompt_regression_contracts = {
         "READY WITH FOLLOW-UPS",
         "READY FOR PR",
     ],
-    "b-commit": ["explicit user commit request", "Do not ask for a second approval", "exact candidate snapshot", "reopen **b-reviewer** review"],
+    "b-commit": [
+        "explicit user commit request",
+        "Do not ask for a second approval",
+        "exact candidate snapshot",
+        "reopen **b-reviewer** review",
+    ],
     "b-pr-summary": [
         "Do not contact remotes, fetch, push, inspect merge bases, or open PR state.",
         "After producing the normal PR title and description, invoke `preview_markdown` exactly once",
@@ -176,10 +205,7 @@ for forbidden in [
     "Keep this skippable",
 ]:
     if forbidden in b_pr_summary_prompt:
-        errors.append(
-            "skills/b-pr-summary/prompt.md: obsolete optional preview behavior remains "
-            f"{forbidden!r}"
-        )
+        errors.append(f"skills/b-pr-summary/prompt.md: obsolete optional preview behavior remains {forbidden!r}")
 
 # Regression: quality guidance could equate passing checks with quality, skip
 # proportionate alternatives for material work, or add ceremony to obvious tasks.
@@ -405,25 +431,28 @@ for relative_path, markers in B_INIT_GUIDANCE_REGRESSION["anchors"].items():
 INTERACTIVE_DECISION_REGRESSION = {
     "observed_failure": "Material questions could bypass the main-session decision contract.",
     "anchors": {
-        "references/kernel.template.md": ["Interactive, user-facing material decisions or blockers use installed `ask_user_question`"],
-        "skills/b-implement/prompt.md": ["Ask the user directly with `ask_user_question` only for material unresolved choices or blockers."],
+        "references/kernel.template.md": [
+            "Interactive, user-facing material decisions or blockers use installed `ask_user_question`"
+        ],
+        "skills/b-implement/prompt.md": [
+            "Ask the user directly with `ask_user_question` only for material unresolved choices or blockers."
+        ],
     },
 }
 for relative_path, markers in INTERACTIVE_DECISION_REGRESSION["anchors"].items():
     text = read_text(ROOT / relative_path)
     for marker in markers:
         if marker not in text:
-            errors.append(f"{relative_path}: missing interactive-decision regression anchor {marker!r}; observed failure: {INTERACTIVE_DECISION_REGRESSION['observed_failure']}")
+            errors.append(
+                f"{relative_path}: missing interactive-decision regression anchor {marker!r}; observed failure: {INTERACTIVE_DECISION_REGRESSION['observed_failure']}"
+            )
 
 
 # Regression: MCPs were named but agents had no durable selection, sequencing, or
 # first-use bootstrap workflow, and broad cross-file tasks could trigger needless
 # CodeGraph setup. Keep the checks narrow so prompts remain editable.
 MCP_WORKFLOW_REGRESSION = {
-    "observed_failure": (
-        "MCP capabilities lacked actionable roles and encouraged broad cross-file "
-        "CodeGraph setup."
-    ),
+    "observed_failure": ("MCP capabilities lacked actionable roles and encouraged broad cross-file CodeGraph setup."),
     "intended_behavior": (
         "Every managed MCP has a distinct task-appropriate role; CodeGraph is "
         "selected affirmatively when a qualifying repository-wide question is "
@@ -432,11 +461,17 @@ MCP_WORKFLOW_REGRESSION = {
         "planner role never initializes an absent index."
     ),
     "anchors": {
-        "b-plan": ["Select CodeGraph only for a concrete repository-wide architecture, impact, or affected-test question"],
+        "b-plan": [
+            "Select CodeGraph only for a concrete repository-wide architecture, impact, or affected-test question"
+        ],
         "b-debug": ["versioned dependency suspects", "child guard blocks `mcpScript`"],
         "b-test": ["versioned framework semantics"],
         "b-browser": ["existing CI/script evidence; approved navigation", "mcpScript", "browser mutations"],
-        "b-research": ["independent corroboration", "one explicitly classified read-only or safe conditional-read `mcp` gateway operation", "managed child guard blocks `mcpScript`"],
+        "b-research": [
+            "independent corroboration",
+            "one explicitly classified read-only or safe conditional-read `mcp` gateway operation",
+            "managed child guard blocks `mcpScript`",
+        ],
         "b-review": ["specialized Brave tools"],
     },
 }
@@ -516,9 +551,7 @@ for limit_name, pattern in MCP_SCRIPT_LIMIT_PATTERNS.items():
             if observed:
                 errors.append(f"{relative_path}: unrelated mcpScript limit {limit_name!r} must be omitted")
         elif not observed or observed.group("value") != expected:
-            errors.append(
-                f"{relative_path}: mcpScript {limit_name} must match kernel value {expected!r}"
-            )
+            errors.append(f"{relative_path}: mcpScript {limit_name} must match kernel value {expected!r}")
 
 # The always-loaded kernel owns multi-call scripting guidance. Delegated
 # b-researcher runs intentionally expose only the single-call gateway.
@@ -685,7 +718,11 @@ else:
                 errors.append(f"{label} {field} must be a non-empty string")
         for field in ("must", "avoid"):
             values = scenario.get(field)
-            if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
+            if (
+                not isinstance(values, list)
+                or not values
+                or not all(isinstance(value, str) and value for value in values)
+            ):
                 errors.append(f"{label} {field} must be a non-empty string array")
     if len(scenario_ids) != len(set(scenario_ids)):
         errors.append(f"{rel(subagents_path)}: scenario ids must be unique")
@@ -758,16 +795,14 @@ managed_marker_error_context = (
 )
 if managed_agents.count(managed_start_marker) != 1 or managed_agents.count(managed_end_marker) != 1:
     errors.append(
-        f"{rel(managed_agents_path)}: b-init managed markers must occur exactly once; "
-        f"{managed_marker_error_context}"
+        f"{rel(managed_agents_path)}: b-init managed markers must occur exactly once; {managed_marker_error_context}"
     )
 else:
     managed_start = managed_agents.index(managed_start_marker) + len(managed_start_marker)
     managed_end = managed_agents.index(managed_end_marker)
     if managed_end < managed_start:
         errors.append(
-            f"{rel(managed_agents_path)}: b-init managed markers are out of order; "
-            f"{managed_marker_error_context}"
+            f"{rel(managed_agents_path)}: b-init managed markers are out of order; {managed_marker_error_context}"
         )
     else:
         managed_block = managed_agents[managed_start:managed_end]
@@ -845,9 +880,7 @@ else:
                         f"orientation marker {marker!r}; {managed_marker_error_context}"
                     )
 
-        project_rules_matches = list(
-            re.finditer(r"^##\s+Project Rules\s*$", managed_agents, re.MULTILINE)
-        )
+        project_rules_matches = list(re.finditer(r"^##\s+Project Rules\s*$", managed_agents, re.MULTILINE))
         if len(project_rules_matches) != 1:
             errors.append(
                 f"{rel(managed_agents_path)}: expected exactly one developer-owned ## Project Rules "
@@ -875,8 +908,7 @@ else:
         )
         if verification_match is None:
             errors.append(
-                f"{rel(managed_agents_path)}: missing ## Verification section; "
-                f"{managed_marker_error_context}"
+                f"{rel(managed_agents_path)}: missing ## Verification section; {managed_marker_error_context}"
             )
         else:
             verification_body = verification_match.group(1)
@@ -917,7 +949,14 @@ prompt_runner = read_text(prompt_runner_path)
 require_contains(
     prompt_runner_path,
     prompt_runner,
-    ["--allow-model-calls", '"--no-session"', '"--no-tools"', '"--routing"', "scenario prompt must not inject a role-specific runtime prompt", 'environment["PI_TELEMETRY"] = "0"'],
+    [
+        "--allow-model-calls",
+        '"--no-session"',
+        '"--no-tools"',
+        '"--routing"',
+        "scenario prompt must not inject a role-specific runtime prompt",
+        'environment["PI_TELEMETRY"] = "0"',
+    ],
     "prompt-effectiveness safety marker",
 )
 
@@ -934,11 +973,15 @@ b_debug_metadata = " ".join(
         (b_debug.get("prompt") or {}).get("description", ""),
     )
 )
-for required in ["exact runnable repro command", "observable to flip", "confirmed causal mechanism", "without editing product code"]:
+for required in [
+    "exact runnable repro command",
+    "observable to flip",
+    "confirmed causal mechanism",
+    "without editing product code",
+]:
     if required not in b_debug_metadata:
         errors.append(
-            "skills/registry.yaml: b-debug metadata must preserve diagnosis-only "
-            f"authorization marker {required!r}"
+            f"skills/registry.yaml: b-debug metadata must preserve diagnosis-only authorization marker {required!r}"
         )
 
 MCP_SERVERS = {"codegraph", "context7", "brave-search", "firecrawl", "playwright", "mobbin", "shadcn"}
@@ -996,9 +1039,7 @@ def validate_retired_mcp_references() -> None:
         except (OSError, UnicodeDecodeError):
             continue
         if RETIRED_MCP_REFERENCE_PATTERN.search(text):
-            errors.append(
-                f"{relative}: retired Linear reference is outside the compatibility/validator allowlist"
-            )
+            errors.append(f"{relative}: retired Linear reference is outside the compatibility/validator allowlist")
 
 
 validate_retired_mcp_references()
@@ -1050,7 +1091,7 @@ for skill_name in sorted(prompt_dirs):
     in_tool_guidance = False
     for line in lines:
         if line.startswith("## "):
-            in_tool_guidance = (line.strip() == "## Tool guidance")
+            in_tool_guidance = line.strip() == "## Tool guidance"
             if not in_tool_guidance:
                 outside_lines.append(line)
             continue
@@ -1061,13 +1102,12 @@ for skill_name in sorted(prompt_dirs):
     for token in tokens:
         if token not in KNOWN_TOOLS:
             errors.append(
-                f"{rel(prompt)}: unknown tool {token!r} in Tool guidance; "
-                f"expected one of {sorted(KNOWN_TOOLS)}"
+                f"{rel(prompt)}: unknown tool {token!r} in Tool guidance; expected one of {sorted(KNOWN_TOOLS)}"
             )
         else:
             if token in MCP_SERVERS:
                 referenced_servers.add(token)
-            
+
             display_name = TOKEN_TO_DISPLAY_NAME.get(token, token)
             if (token not in outside_text) and (display_name not in outside_text):
                 errors.append(
@@ -1076,10 +1116,7 @@ for skill_name in sorted(prompt_dirs):
 
 unreferenced_servers = sorted(MCP_SERVERS - referenced_servers)
 if unreferenced_servers:
-    errors.append(
-        "skills/: configured MCP servers not referenced by any skill Tool guidance: "
-        f"{unreferenced_servers}"
-    )
+    errors.append(f"skills/: configured MCP servers not referenced by any skill Tool guidance: {unreferenced_servers}")
 
 if list((ROOT / "skills").glob("*/reference.md")):
     errors.append("skills/: skill-local reference.md files were removed from the slim product")
@@ -1089,8 +1126,7 @@ expected_reference_mds = {"kernel.template.md"}
 actual_reference_mds = {path.name for path in references_dir.glob("*.md")}
 if actual_reference_mds != expected_reference_mds:
     errors.append(
-        f"references/: expected markdown {sorted(expected_reference_mds)}, "
-        f"found {sorted(actual_reference_mds)}"
+        f"references/: expected markdown {sorted(expected_reference_mds)}, found {sorted(actual_reference_mds)}"
     )
 if (references_dir / "contract").exists():
     errors.append("references/contract/: removed contract directory remains")
@@ -1106,17 +1142,11 @@ for forbidden in ["state-machine.md", "decisions.md", "index.md", "Strict govern
         errors.append(f"references/kernel.template.md: removed kernel concept remains: {forbidden!r}")
 
 if "Use `rtk` for every command family it supports" not in kernel_template:
-    errors.append(
-        "references/kernel.template.md: RTK must cover every supported command family"
-    )
+    errors.append("references/kernel.template.md: RTK must cover every supported command family")
 if "Prefer modern shell tools when available" not in kernel_template:
-    errors.append(
-        "references/kernel.template.md: modern shell-tool preference must remain explicit"
-    )
+    errors.append("references/kernel.template.md: modern shell-tool preference must remain explicit")
 if "RTK never bypasses these protections" not in kernel_template:
-    errors.append(
-        "references/kernel.template.md: RTK must not be described as bypassing protections"
-    )
+    errors.append("references/kernel.template.md: RTK must not be described as bypassing protections")
 
 # Regression: work could start on a branch that silently trailed its origin ref,
 # so edits were built on outdated code and produced avoidable conflicts.
@@ -1131,6 +1161,8 @@ for marker in BRANCH_FRESHNESS_REGRESSION:
             f"references/kernel.template.md: missing branch-freshness anchor {marker!r}; "
             "non-trivial work must check the current branch against origin before acting"
         )
+
+
 def _forbidden_codegraph_gates(text: str, markers: list[str]) -> list[str]:
     normalized = text.lower()
     return [marker for marker in markers if marker in normalized]
@@ -1181,9 +1213,7 @@ for marker in MCP_PORTFOLIO_REGRESSION["codegraph_anchors"]:
             f"references/kernel.template.md: missing CodeGraph portfolio anchor {marker!r}; "
             f"intended behavior: {MCP_PORTFOLIO_REGRESSION['intended_behavior']}"
         )
-for marker in _forbidden_codegraph_gates(
-    kernel_template, MCP_PORTFOLIO_REGRESSION["forbidden_codegraph_gates"]
-):
+for marker in _forbidden_codegraph_gates(kernel_template, MCP_PORTFOLIO_REGRESSION["forbidden_codegraph_gates"]):
     errors.append(
         f"references/kernel.template.md: forbidden legacy CodeGraph gate remains {marker!r}; "
         f"intended behavior: {MCP_PORTFOLIO_REGRESSION['intended_behavior']}"
@@ -1194,19 +1224,12 @@ for fixture in [
     "Use CodeGraph only for a concrete repository-wide question native inspection cannot settle.",
     "Select CodeGraph only after native inspection fails for a repository-wide question.",
 ]:
-    if not _forbidden_codegraph_gates(
-        fixture, MCP_PORTFOLIO_REGRESSION["forbidden_codegraph_gates"]
-    ):
-        errors.append(
-            "CodeGraph gate regression self-test failed to detect a legacy fixture"
-        )
+    if not _forbidden_codegraph_gates(fixture, MCP_PORTFOLIO_REGRESSION["forbidden_codegraph_gates"]):
+        errors.append("CodeGraph gate regression self-test failed to detect a legacy fixture")
 corrected_codegraph_fixture = (
-    "Select CodeGraph when repository-wide architecture analysis is central; "
-    "use an available index for that question."
+    "Select CodeGraph when repository-wide architecture analysis is central; use an available index for that question."
 )
-if _forbidden_codegraph_gates(
-    corrected_codegraph_fixture, MCP_PORTFOLIO_REGRESSION["forbidden_codegraph_gates"]
-):
+if _forbidden_codegraph_gates(corrected_codegraph_fixture, MCP_PORTFOLIO_REGRESSION["forbidden_codegraph_gates"]):
     errors.append("CodeGraph gate regression self-test rejected corrected guidance")
 
 for subagent_marker in [
@@ -1222,21 +1245,15 @@ for subagent_marker in [
     "`b-review` -> `b-reviewer`.",
 ]:
     if subagent_marker not in kernel_template:
-        errors.append(
-            f"references/kernel.template.md: subagent workflow marker missing {subagent_marker!r}"
-        )
+        errors.append(f"references/kernel.template.md: subagent workflow marker missing {subagent_marker!r}")
 
 
 # The kernel owns the RTK requirement and modern shell-tool preferences.
 for required_tool in ["`rtk`", "`rg`", "`fdfind`", "`batcat`", "`eza`", "`sd`", "`jq`"]:
     if required_tool not in kernel_template:
-        errors.append(
-            f"references/kernel.template.md: missing shell-tool guidance for {required_tool!r}"
-        )
+        errors.append(f"references/kernel.template.md: missing shell-tool guidance for {required_tool!r}")
 if "prompt the user to install the shell tooling before falling back" in kernel_template:
-    errors.append(
-        "references/kernel.template.md: blocking shell-tool install prompt remains"
-    )
+    errors.append("references/kernel.template.md: blocking shell-tool install prompt remains")
 
 installer = read_text(ROOT / "tooling" / "install" / "common.sh")
 if 'CONTEXT7_API_KEY_INPUT="$CONTEXT7_API_KEY_INPUT"' in installer:
@@ -1257,9 +1274,7 @@ for skill in skills:
         continue
     name_token = f"`{skill['name']}`"
     if name_token not in kernel_template:
-        errors.append(
-            f"references/kernel.template.md: routing is missing {name_token}"
-        )
+        errors.append(f"references/kernel.template.md: routing is missing {name_token}")
 
 # Firecrawl is external research infrastructure, not browser evidence. Keeping
 # it out of b-browser prevents overlapping tool ownership with b-research.
@@ -1335,11 +1350,9 @@ skill_roster_match = re.search(
     re.DOTALL,
 )
 if not skill_roster_match:
-    errors.append(
-        "pi/extensions/b-agentic-support/shell.ts: missing B_AGENTIC_SKILL_NAMES roster"
-    )
+    errors.append("pi/extensions/b-agentic-support/shell.ts: missing B_AGENTIC_SKILL_NAMES roster")
 else:
-    pi_skill_names = re.findall(r'\"([^\"]+)\"', skill_roster_match.group(1))
+    pi_skill_names = re.findall(r"\"([^\"]+)\"", skill_roster_match.group(1))
     if pi_skill_names != skill_names:
         errors.append(
             "pi/extensions/b-agentic-support/shell.ts: B_AGENTIC_SKILL_NAMES must match "
@@ -1355,7 +1368,8 @@ for tokens, min_severity in SAFETY_GATES:
 
 for deleted_path in ["tooling/policy", "tooling/state", "tooling/hooks", "tooling/conformance", "tooling/scenarios"]:
     leftovers = [
-        path for path in (ROOT / deleted_path).glob("**/*")
+        path
+        for path in (ROOT / deleted_path).glob("**/*")
         if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
     ]
     if leftovers:

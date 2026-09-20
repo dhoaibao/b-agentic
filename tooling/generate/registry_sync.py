@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -16,6 +17,7 @@ KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
 MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 CAPABILITIES_PATH = ROOT / "references" / "capabilities.yaml"
 CAPABILITIES_OUTPUT_PATH = ROOT / "pi" / "extensions" / "b-agentic-support" / "capabilities.ts"
+MCP_POLICY_OUTPUT_PATH = ROOT / "pi" / "extensions" / "b-agentic-support" / "mcp-generated-policy.ts"
 
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
@@ -25,8 +27,6 @@ KERNEL_ROUTING_START = "<!-- generated:kernel-routing:start -->"
 KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
 KERNEL_DELEGATION_START = "<!-- generated:delegation:start -->"
 KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
-MCP_RUNTIME_POLICY_START = "// generated:mcp-runtime-policy:start"
-MCP_RUNTIME_POLICY_END = "// generated:mcp-runtime-policy:end"
 
 SKILL_SUPPORT_PATH_TOKEN = "{{skill_support_path}}"
 TEMPLATE_TOKEN_RE = re.compile(r"\{\{[a-z0-9_]+\}\}")
@@ -581,14 +581,20 @@ def render_mcp_runtime_policy(policy: dict) -> str:
     }
     conditional_classes = {"conditional-read", "conditional-local"}
     safe = {"read-only", *conditional_classes}
+    # json.dumps(indent=2) output is not Prettier-conformant (no trailing commas,
+    # exploded short arrays). Each literal gets a prettier-ignore marker, matching
+    # the capabilities.ts pattern, so the generated module stays lint/format-clean
+    # while remaining exact JSON for validate_mcp_policy.py.
     lines = [
-        "/** Generated from references/mcp_operations.yaml. */",
+        "// prettier-ignore",
         f"const MANAGED_MCP_SERVERS = new Set({json.dumps(sorted(servers), indent=2)});",
         "",
         "/** Operations autonomous only for a validated safe argument shape. */",
+        "// prettier-ignore",
         f"const MCP_CONDITIONAL_TOOLS = new Set({json.dumps(sorted(f'{server}:{tool}' for server, record in servers.items() if isinstance(record, dict) for tool, operation in record.get('tools', {}).items() if operation in conditional_classes), indent=2)});",
         "",
         "/** Known arguments for conditional operations, generated from the canonical policy. */",
+        "// prettier-ignore",
         f"const MCP_CONDITIONAL_ARGUMENTS: Record<string, readonly string[]> = {json.dumps({key: value['known'] for key, value in sorted(conditional_arguments.items())}, indent=2)};",
         "",
     ]
@@ -598,6 +604,7 @@ def render_mcp_runtime_policy(policy: dict) -> str:
             raise SystemExit(f"{MCP_OPERATIONS_PATH}: {server} has no tools map")
         lines.extend(
             [
+                "// prettier-ignore",
                 f"const {set_name} = new Set({json.dumps(sorted(tool for tool, operation in tools.items() if operation in safe), indent=2)});",
                 "",
             ]
@@ -687,10 +694,11 @@ def render_outputs(skills: list[dict], capabilities: dict) -> dict[Path, str]:
     outputs[KERNEL_TEMPLATE_PATH] = replace_block(
         kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy)
     )
-    extension = ROOT / "pi" / "extensions" / "b-agentic-support" / "mcp.ts"
     runtime_policy = re.sub(r"^const ", "export const ", render_mcp_runtime_policy(policy), flags=re.MULTILINE)
-    outputs[extension] = replace_block(
-        extension.read_text(), MCP_RUNTIME_POLICY_START, MCP_RUNTIME_POLICY_END, runtime_policy
+    outputs[MCP_POLICY_OUTPUT_PATH] = (
+        "/** Generated from references/mcp_operations.yaml. Do not edit; regenerate with tooling/generate/registry_sync.py. */\n"
+        + runtime_policy
+        + "\n"
     )
     outputs[CAPABILITIES_OUTPUT_PATH] = render_capability_module(capabilities)
     for skill in skills:
@@ -811,8 +819,9 @@ def sync_outputs(check: bool) -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
+    outputs = render_outputs(skills, capabilities)
     dirty: list[str] = []
-    for path, content in render_outputs(skills, capabilities).items():
+    for path, content in outputs.items():
         if path.exists() and path.read_text() == content:
             continue
         dirty.append(str(path.relative_to(ROOT)))
@@ -822,6 +831,26 @@ def sync_outputs(check: bool) -> int:
     if check and dirty:
         print("\n".join(f"generated output out of date: {path}" for path in dirty), file=sys.stderr)
         return 1
+    if check:
+        # Generated artifacts must be tracked so quality gates that enumerate
+        # `git ls-files` (lint, format, typecheck) actually cover them.
+        try:
+            tracked = subprocess.run(
+                ["git", "ls-files", "--", *[str(path.relative_to(ROOT)) for path in outputs]],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.split()
+        except (OSError, subprocess.CalledProcessError):
+            tracked = []
+        untracked = [str(path.relative_to(ROOT)) for path in outputs if str(path.relative_to(ROOT)) not in tracked]
+        if untracked:
+            print(
+                "\n".join(f"generated output is not tracked by git: {path}" for path in untracked),
+                file=sys.stderr,
+            )
+            return 1
     if not check:
         print("Generated Pi suite outputs refreshed.")
     return 0

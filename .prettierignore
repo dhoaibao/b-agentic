@@ -4,8 +4,6 @@ pi/node_modules/
 
 # Generated delivery outputs are checked by registry synchronization instead.
 skills/*/SKILL.md
-pi/extensions/b-agentic-support/mcp.ts
-pi/extensions/b-agentic-support/role.ts
 
 # These sources contain or feed generated blocks; registry synchronization owns
 # their delivery formatting.

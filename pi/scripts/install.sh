@@ -56,6 +56,7 @@ EXTENSION_NAMES=(
 	b-agentic-status.ts
 	b-agentic-support/shell.ts
 	b-agentic-support/mcp.ts
+	b-agentic-support/mcp-generated-policy.ts
 	b-agentic-support/auto.ts
 	b-agentic-support/capabilities.ts
 	b-agentic-support/status.ts

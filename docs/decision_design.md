@@ -35,8 +35,10 @@ b-agentic and Pi are one integrated personal workflow product with Pi as the shi
   `references/kernel.template.md` and `references/mcp_operations.yaml` own the
   shared kernel and managed MCP classifications.
 - `tooling/generate/registry_sync.py` renders generated skills, README and kernel
-  blocks, managed subagent profiles, and runtime policy sets. Generated assets are delivery
-  outputs, not sources; registry and policy files use the repository's
+  blocks, the capability module, and runtime policy sets. Generated assets are delivery
+  outputs, not sources; managed subagent profiles under `pi/agents/` are
+  hand-maintained sources validated by capability and Pi-integration checks.
+  Registry and policy files use the repository's
   dependency-light JSON-compatible YAML subset.
 
 ### Extension seams

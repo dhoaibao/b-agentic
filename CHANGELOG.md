@@ -43,6 +43,29 @@ section per date and same-day changes aggregated in that section.
   option-injection shapes, and wrap the whole script so a truncated
   `curl | bash` download executes nothing instead of running a partial body.
 
+### Fixed
+
+- Close conformance-audit findings across the quality gates: extract the
+  generated MCP runtime policy sets from `b-agentic-support/mcp.ts` into a
+  dedicated `mcp-generated-policy.ts` module (emitted wholesale by
+  `registry_sync.py` with `// prettier-ignore` markers, matching the
+  capabilities pattern) so the hand-written URL/IP and argument-validation
+  safety logic in `mcp.ts` is linted, formatted, and type-checked; bring the
+  hand-maintained `tooling/validate/behavior.py` and `shared.py` under Ruff
+  by dropping their inaccurate "generated" exclusions; add
+  `pi/subagent-read-only-guard.ts` to the Pi TypeScript project so the
+  managed child-only guard is type-checked; correct the decision record's
+  claim that `registry_sync.py` renders managed subagent profiles (they are
+  hand-maintained sources); delete stale `role.ts` exclusion entries; and
+  remove dead/duplicated logic in `shell.ts`. Harden the validators that
+  cover the split: `validate_mcp_policy.py` now attributes set mismatches to
+  the generated module, asserts `MCP_CONDITIONAL_ARGUMENTS` against the
+  canonical `conditional_arguments`, fails closed on malformed entries, and
+  requires `mcp.ts` to import the generated sets rather than re-declare
+  them, while `registry_sync.py --check` now fails when a generated output
+  is not tracked by git so untracked artifacts cannot escape the quality
+  gates.
+
 ## [v2026.09.19] - 2026-09-19
 
 ### Added

@@ -49,6 +49,7 @@ extension_files = [
     status_extension,
     root / 'pi/extensions/b-agentic-support/shell.ts',
     root / 'pi/extensions/b-agentic-support/mcp.ts',
+    root / 'pi/extensions/b-agentic-support/mcp-generated-policy.ts',
     root / 'pi/extensions/b-agentic-support/auto.ts',
     root / 'pi/extensions/b-agentic-support/capabilities.ts',
     root / 'pi/extensions/b-agentic-support/status.ts',

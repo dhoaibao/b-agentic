@@ -28,7 +28,7 @@ PI_TSC="$ROOT_DIR/pi/node_modules/.bin/tsc"
 
 is_generated_delivery() {
 	case "$1" in
-	skills/*/SKILL.md|pi/extensions/b-agentic-support/mcp.ts|pi/extensions/b-agentic-support/role.ts|tooling/validate/behavior.py|tooling/validate/shared.py)
+	skills/*/SKILL.md)
 		return 0
 		;;
 	*)
