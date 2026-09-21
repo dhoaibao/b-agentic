@@ -80,8 +80,9 @@ Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 
 ## Installation, configuration, and lifecycle
 
-The installer runs OpenCode v2's current curl installer (`https://opencode.ai/v2/install`)
-and does not manage OpenCode's auto-update preference. Bootstrap repository and
+The installer upgrades an existing OpenCode CLI with `opencode upgrade` and
+runs OpenCode v2's current curl installer (`https://opencode.ai/v2/install`)
+only when `opencode` is not on PATH. It does not manage OpenCode's auto-update preference. Bootstrap repository and
 ref inputs are constrained before reaching Git. It installs global kernel, skills, agents,
 commands, references, and snapshots under `~/.config/opencode`. It merges the recommended configuration
 without replacing unrelated user keys. Since OpenCode configuration may be

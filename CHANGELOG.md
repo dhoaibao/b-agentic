@@ -31,6 +31,9 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
+- The installer now upgrades an existing OpenCode CLI in place with
+  `opencode upgrade` and only falls back to the curl installer on first
+  install, so repeat installs no longer re-run the remote script.
 - Hard cut from Pi to native OpenCode v2: `install.sh` now uses
   `curl -fsSL https://opencode.ai/v2/install | bash` and writes only to
   `~/.config/opencode`; legacy Pi installs are detected but never modified.

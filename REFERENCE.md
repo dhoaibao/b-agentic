@@ -11,11 +11,15 @@ safety boundary, MCP configuration, and repository validation behavior.
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-The installer runs OpenCode's current curl installer (`curl -fsSL
-https://opencode.ai/v2/install | bash`) and writes b-agentic assets to
+The installer upgrades an existing OpenCode CLI with `opencode upgrade` and
+falls back to OpenCode's current curl installer (`curl -fsSL
+https://opencode.ai/v2/install | bash`) only when `opencode` is not on PATH.
+It writes b-agentic assets to
 `~/.config/opencode`. Because this intentionally tracks OpenCode updates, test
 native config, permissions, agent, and command compatibility before relying on a
-newly released major version. If the OpenCode installer cannot run, b-agentic
+newly released major version. `opencode upgrade` does not restart a running
+OpenCode session; start a new session to pick up the new CLI. If the OpenCode
+installer cannot run, b-agentic
 warns and still installs its local assets; install OpenCode manually, then rerun
 `--update`. It installs the global kernel, generated skills, specialist agents, generated commands,
 references, templates, snapshots, and manifest. It merges the managed
@@ -37,7 +41,7 @@ Useful flags:
 - `--uninstall` removes unmodified managed OpenCode assets and managed config
   values; it preserves modified or symlinked assets.
 - `--sync` refreshes managed assets from the installed b-agentic checkout and adds missing configuration values; existing user configuration values remain authoritative.
-- `--update` refreshes the OpenCode CLI through its current curl installer without updating the b-agentic checkout.
+- `--update` refreshes the OpenCode CLI (`opencode upgrade`, or the curl installer when OpenCode is absent) without updating the b-agentic checkout.
 - `--ref=<tag-or-commit>` selects a checkout ref for installation; only safe
   branch, tag, and commit-like names are accepted. `B_AGENTIC_REPO` accepts
   HTTPS, SSH, or local-path repository locations.

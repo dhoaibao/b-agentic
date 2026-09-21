@@ -29,13 +29,19 @@ make_source() {
 make_bin() {
   local directory="$1"
   mkdir -p "$directory"
-  for command in opencode rtk codegraph bunx; do
+  for command in rtk codegraph bunx; do
     cat >"$directory/$command" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
     chmod +x "$directory/$command"
   done
+  cat >"$directory/opencode" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$(dirname "$0")/opencode.log"
+exit 0
+EOF
+  chmod +x "$directory/opencode"
   cat >"$directory/curl" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -114,8 +120,8 @@ assert_json "$config" "data['custom'] is True and data['mcp']['servers']['user_s
 assert_json "$config" "all(any(rule == {'action': 'read', 'resource': path, 'effect': 'deny'} for rule in data['permissions']) for path in ('*credentials.*', '**/*credentials.*', '*secrets.*', '**/*secrets.*')) and any(rule == {'action': 'edit', 'resource': '*', 'effect': 'allow'} for rule in data['permissions']) and any(rule == {'action': 'shell', 'resource': 'git push*', 'effect': 'deny'} for rule in data['permissions']) and any(rule == {'action': 'firecrawl_*', 'resource': '*', 'effect': 'ask'} for rule in data['permissions']) and any(rule == {'action': 'context7_resolve_library_id', 'resource': '*', 'effect': 'allow'} for rule in data['permissions']) and all(data['mcp']['servers'][name]['timeout'] == {'startup': 30000, 'catalog': 30000} for name in ('codegraph', 'context7', 'brave_search', 'firecrawl', 'playwright', 'mobbin', 'shadcn'))"
 python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --config "$config" --allow-degraded >"$sandbox/doctor.log"
 assert_contains "$sandbox/doctor.log" "config: $config"
-assert_contains "$sandbox/bin/curl.log" '-fsSL https://opencode.ai/v2/install'
-assert_not_contains "$sandbox/bin/curl.log" 'opencode-ai@'
+assert_contains "$sandbox/bin/opencode.log" 'upgrade'
+assert_no_path "$sandbox/bin/curl.log"
 assert_contains "$sandbox/install.log" '[9/9] Writing install manifest'
 assert_contains "$sandbox/install.log" 'A previous Pi b-agentic install remains'
 assert_file "$sandbox/home/.pi/agent/b-agentic/install.json"
@@ -309,37 +315,74 @@ make_source "$dry/source"
 make_bin "$dry/bin"
 run_install "$dry" --dry-run >"$dry/log" 2>&1
 assert_no_path "$dry/home/.config/opencode"
-assert_contains "$dry/log" 'curl -fsSL https://opencode.ai/v2/install | bash'
-assert_not_contains "$dry/log" 'opencode-ai@'
+assert_contains "$dry/log" '[dry-run] opencode upgrade'
 assert_no_path "$dry/bin/curl.log"
+assert_no_path "$dry/bin/opencode.log"
 run_install "$dry" --update --dry-run >"$dry/update.log" 2>&1
-assert_contains "$dry/update.log" 'b-agentic update planned: curl installer not run in dry-run.'
+assert_contains "$dry/update.log" 'b-agentic update planned: upgrade not run in dry-run.'
 assert_no_path "$dry/bin/curl.log"
+assert_no_path "$dry/bin/opencode.log"
 
-# Missing curl and a failed vendor installer must not block local asset setup.
+# Missing curl does not block an upgrade when OpenCode is already installed,
+# and a failed vendor installer must not block local asset setup.
 missing_curl="$WORK_DIR/missing-curl"
 mkdir -p "$missing_curl/home"
 make_source "$missing_curl/source"
 make_bin "$missing_curl/bin"
 run_install_without_curl "$missing_curl" >"$missing_curl/install.log" 2>&1
-assert_contains "$missing_curl/install.log" 'curl is required to install the current OpenCode CLI; skipping OpenCode installation'
+assert_contains "$missing_curl/install.log" "Upgrading OpenCode CLI with 'opencode upgrade'"
 assert_contains "$missing_curl/install.log" '[9/9] Writing install manifest'
 assert_file "$missing_curl/home/.config/opencode/AGENTS.md"
-run_install_without_curl "$missing_curl" --update >"$missing_curl/update.log" 2>&1
-assert_contains "$missing_curl/update.log" 'b-agentic update skipped: curl unavailable.'
+assert_no_path "$missing_curl/bin/curl.log"
 
-failed_curl="$WORK_DIR/failed-curl"
-mkdir -p "$failed_curl/home"
-make_source "$failed_curl/source"
-make_bin "$failed_curl/bin"
-printf '#!/usr/bin/env bash\nexit 1\n' >"$failed_curl/bin/curl"
-chmod +x "$failed_curl/bin/curl"
-run_install "$failed_curl" >"$failed_curl/install.log" 2>&1
-assert_contains "$failed_curl/install.log" 'OpenCode CLI installation failed; install it manually, then rerun with --update'
-assert_contains "$failed_curl/install.log" '[9/9] Writing install manifest'
-assert_file "$failed_curl/home/.config/opencode/AGENTS.md"
-run_install "$failed_curl" --update >"$failed_curl/update.log" 2>&1
-assert_contains "$failed_curl/update.log" 'b-agentic update skipped: OpenCode CLI installer failed.'
+# Missing curl still warns when OpenCode is not installed yet.
+missing_curl_fresh="$WORK_DIR/missing-curl-fresh"
+mkdir -p "$missing_curl_fresh/home"
+make_source "$missing_curl_fresh/source"
+make_bin "$missing_curl_fresh/bin"
+rm -f "$missing_curl_fresh/bin/opencode"
+cat >"$missing_curl_fresh/no-cli.bash" <<'EOF'
+command() {
+  if [ "${1:-}" = "-v" ] && { [ "${2:-}" = "curl" ] || [ "${2:-}" = "opencode" ]; }; then
+    return 1
+  fi
+  builtin command "$@"
+}
+EOF
+HOME="$missing_curl_fresh/home" \
+  PATH="$missing_curl_fresh/bin:$PATH" \
+  BASH_ENV="$missing_curl_fresh/no-cli.bash" \
+  B_AGENTIC_DIR="$missing_curl_fresh/source" \
+  B_AGENTIC_REPO="$missing_curl_fresh/source" \
+  bash "$ROOT_DIR/install.sh" >"$missing_curl_fresh/install.log" 2>&1
+assert_contains "$missing_curl_fresh/install.log" 'curl is required to install the current OpenCode CLI; skipping OpenCode installation'
+assert_contains "$missing_curl_fresh/install.log" '[9/9] Writing install manifest'
+assert_file "$missing_curl_fresh/home/.config/opencode/AGENTS.md"
+
+failed_upgrade="$WORK_DIR/failed-upgrade"
+mkdir -p "$failed_upgrade/home"
+make_source "$failed_upgrade/source"
+make_bin "$failed_upgrade/bin"
+printf '#!/usr/bin/env bash\nexit 1\n' >"$failed_upgrade/bin/opencode"
+chmod +x "$failed_upgrade/bin/opencode"
+run_install "$failed_upgrade" >"$failed_upgrade/install.log" 2>&1
+assert_contains "$failed_upgrade/install.log" 'OpenCode CLI upgrade failed; upgrade it manually, then rerun with --update'
+assert_contains "$failed_upgrade/install.log" '[9/9] Writing install manifest'
+assert_file "$failed_upgrade/home/.config/opencode/AGENTS.md"
+assert_no_path "$failed_upgrade/bin/curl.log"
+run_install "$failed_upgrade" --update >"$failed_upgrade/update.log" 2>&1
+assert_contains "$failed_upgrade/update.log" 'b-agentic update skipped: OpenCode CLI upgrade failed.'
+
+# A fresh install without OpenCode on PATH still uses the curl installer.
+fresh_install="$WORK_DIR/fresh-install"
+mkdir -p "$fresh_install/home"
+make_source "$fresh_install/source"
+make_bin "$fresh_install/bin"
+rm -f "$fresh_install/bin/opencode"
+run_install_without_opencode "$fresh_install" >"$fresh_install/install.log" 2>&1
+assert_contains "$fresh_install/bin/curl.log" '-fsSL https://opencode.ai/v2/install'
+assert_not_contains "$fresh_install/bin/curl.log" 'opencode-ai@'
+assert_contains "$fresh_install/install.log" '[9/9] Writing install manifest'
 
 # A successful vendor installer with no discoverable CLI reports the PATH gap.
 missing_path="$WORK_DIR/missing-path"

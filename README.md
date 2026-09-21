@@ -17,7 +17,8 @@ read-only specialist agents, and managed MCP configuration.
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-The installer uses OpenCode v2's current curl installer, writes only under
+The installer upgrades an existing OpenCode CLI with `opencode upgrade` (or
+uses OpenCode v2's curl installer on first install), writes only under
 `~/.config/opencode`, and preserves unrelated configuration. It detects but
 never changes a legacy b-agentic installation in a different runtime directory.
 See [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.

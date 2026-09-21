@@ -42,6 +42,21 @@ PRESERVE_METADATA_DIR=0
 OPENCODE_CLI_INSTALL_STATUS="not-run"
 
 runtime_upgrade_cli() {
+  if command -v opencode >/dev/null 2>&1; then
+    if dry_run_enabled; then
+      OPENCODE_CLI_INSTALL_STATUS="planned"
+      printf '[dry-run] opencode upgrade\n' >&2
+      return 0
+    fi
+    log "Upgrading OpenCode CLI with 'opencode upgrade'"
+    if opencode upgrade; then
+      OPENCODE_CLI_INSTALL_STATUS="installed"
+    else
+      OPENCODE_CLI_INSTALL_STATUS="failed"
+      warn "OpenCode CLI upgrade failed; upgrade it manually, then rerun with --update"
+    fi
+    return 0
+  fi
   if ! command -v curl >/dev/null 2>&1; then
     OPENCODE_CLI_INSTALL_STATUS="skipped"
     warn "curl is required to install the current OpenCode CLI; skipping OpenCode installation"
@@ -253,8 +268,8 @@ opencode_update() {
   runtime_upgrade_cli
   case "$OPENCODE_CLI_INSTALL_STATUS" in
     skipped) log 'b-agentic update skipped: curl unavailable.' ;;
-    failed) log 'b-agentic update skipped: OpenCode CLI installer failed.' ;;
-    planned) log 'b-agentic update planned: curl installer not run in dry-run.' ;;
+    failed) log 'b-agentic update skipped: OpenCode CLI upgrade failed.' ;;
+    planned) log 'b-agentic update planned: upgrade not run in dry-run.' ;;
     *) log 'b-agentic update complete for OpenCode.' ;;
   esac
 }
