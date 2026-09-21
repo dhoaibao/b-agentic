@@ -22,9 +22,11 @@ MCP, delegated-agent, safety, refresh, and readiness details, see the
 
 The installer manages b-agentic files and caches under the OpenCode
 configuration directory while preserving unrelated files, configuration, and
-symlinks. It merges only b-agentic's native v2 `mcp.servers`, ordered `permissions`,
-and `experimental.subagent_depth` recommendations into `opencode.json`; it
-never replaces unrelated user settings. Modified or symlinked managed skills
+symlinks. It merges b-agentic's native v2 `mcp.servers`, ordered `permissions`,
+`plugins`, `compaction`, and `experimental.subagent_depth` recommendations into
+`opencode.json`; it never replaces unrelated user settings. Managed `plugins`
+entries union ahead of user entries and are removed on uninstall.
+Modified or symlinked managed skills
 and agents are preserved rather than overwritten or removed.
 
 The four specialist agents are native `mode: subagent` profiles. Their

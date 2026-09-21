@@ -271,12 +271,19 @@ def merge(existing, recommended):
                         print('warning: preserving reordered user permissions after managed rules changed', file=sys.stderr)
                     user_rules = current_rules
                 merged[key] = value + user_rules
+            elif key == 'plugins' and isinstance(merged.get(key), list) and isinstance(value, list):
+                # Plugin entries are a package set, not an ordered command.
+                # Managed packages merge ahead of user packages; user entries
+                # are preserved and deduplicated.
+                merged[key] = value + [item for item in merged[key] if item not in value]
             else:
                 merged[key] = merge(merged[key], value) if key in merged else value
         return merged
     if isinstance(existing, list) and isinstance(recommended, list):
         # Command and other ordered arrays are user-owned values, not sets.
         # Keeping an existing array avoids corrupting an MCP launch command.
+        # `plugins` is the exception: it is a package set, so managed entries
+        # merge ahead of user entries without dropping either side.
         return existing
     return existing
 merged = merge(current, incoming)

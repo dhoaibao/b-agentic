@@ -25,6 +25,9 @@ section per date and same-day changes aggregated in that section.
   merge, sync, uninstall, JSONC, permission ordering, and error paths.
 - `tooling/install/json_cleanup.py` for inverse-merge config removal and
   `tooling/install/manifest_uninstall.py` for manifest-only uninstall.
+- The managed configuration now ships `@cortexkit/opencode-magic-context`
+  in `plugins` and sets `compaction.auto`/`compaction.prune` off so the
+  plugin owns context management for long sessions.
 
 ### Changed
 
@@ -40,7 +43,8 @@ section per date and same-day changes aggregated in that section.
   `references/mcp_operations.yaml`.
 - `tooling/install/common.sh` merges `opencode.json`/`opencode.jsonc` with
   user-owned arrays preserved and managed `permissions` prepended so user
-  rules stay last and authoritative.
+  rules stay last and authoritative. Managed `plugins` entries union ahead
+  of user entries and are removed on uninstall.
 - `tooling/validate/*` and `opencode/scripts/validate.sh` assert v2 config
   shape, permission ordering, agent deny rules, MCP server set, and
   Code Mode off.

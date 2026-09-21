@@ -61,7 +61,11 @@ Evidence: [`opencode/configs/opencode.user.template.json`](../opencode/configs/o
 ## MCP and external-evidence design
 
 Managed servers are configured through OpenCode v2 `mcp.servers` with Code Mode
-disabled, exposing direct `<server>_<tool>` names. `references/mcp_operations.yaml` classifies each tool;
+disabled, exposing direct `<server>_<tool>` names. The managed `plugins` array
+ships `@cortexkit/opencode-magic-context` for cross-session context management
+and sets `compaction.auto: false` so the plugin owns compaction exclusively;
+the installer unions managed plugin entries ahead of user entries and removes
+them on uninstall. `references/mcp_operations.yaml` classifies each tool;
 the generator renders that classification to native `allow`, `ask`, or `deny`
 rules. Read-only tools are allowed. Formerly conditional operations are allowed
 only by their named tool because argument-aware validation has no native home.
@@ -110,10 +114,13 @@ Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 ## Intentional non-goals
 
 b-agentic does not maintain a second runtime, compatibility shim, custom
-permission engine, OpenCode plugin, argument-aware MCP gate, or TUI extension
-package. It does not promise background subagent orchestration, cross-session
-memory, in-session installer controls, usage reporting, or a bundled theme.
+permission engine, argument-aware MCP gate, or TUI extension
+package. It does not promise background subagent orchestration, in-session
+installer controls, usage reporting, or a bundled theme.
 Those omissions keep the supported boundary native, inspectable, and small.
+The shipped Magic Context plugin is a managed third-party dependency, not a
+b-agentic-authored plugin; it owns context management in place of native
+compaction (`compaction.auto: false`).
 
 Evidence: [`README.md`](../README.md),
 [`REFERENCE.md`](../REFERENCE.md), and

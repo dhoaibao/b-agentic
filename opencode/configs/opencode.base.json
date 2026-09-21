@@ -2,6 +2,11 @@
   "experimental": {
     "subagent_depth": 1
   },
+  "plugins": ["@cortexkit/opencode-magic-context"],
+  "compaction": {
+    "auto": false,
+    "prune": false
+  },
   "mcp": {
     "servers": {
       "context7": {

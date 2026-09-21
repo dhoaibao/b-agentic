@@ -19,7 +19,12 @@ newly released major version. If the OpenCode installer cannot run, b-agentic
 warns and still installs its local assets; install OpenCode manually, then rerun
 `--update`. It installs the global kernel, generated skills, specialist agents, generated commands,
 references, templates, snapshots, and manifest. It merges the managed
-recommendations into `opencode.json` instead of replacing unrelated user keys. If
+recommendations — `mcp.servers`, ordered `permissions`, `plugins`
+(`@cortexkit/opencode-magic-context`), `compaction` (`auto`/`prune` off so the
+plugin owns context management), and `experimental.subagent_depth` — into
+`opencode.json` instead of replacing unrelated user keys. Managed `plugins`
+entries union ahead of user entries; an explicit user `compaction` value
+remains authoritative. If
 an existing `permissions` value is not a v2 rule array, it remains user-owned
 and the installer warns that b-agentic's managed rules were not merged.
 
