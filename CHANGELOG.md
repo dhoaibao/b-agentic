@@ -55,6 +55,11 @@ section per date and same-day changes aggregated in that section.
 
 ### Fixed
 
+- `b-pr-summary` no longer requires the removed `preview_markdown` tool:
+  finished PR copy returns in the normal response, and the cross-skill
+  validator now pins that contract.
+- Kernel rule 10 now falls back to tracking multi-step work in prose when
+  `todowrite` is unavailable in the installed OpenCode version.
 - `--sync` now refreshes references, templates, and the install manifest
   (previously skipped).
 - Source-present `--uninstall` removes unmodified managed skills and
