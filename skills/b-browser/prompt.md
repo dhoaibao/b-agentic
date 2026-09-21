@@ -23,8 +23,8 @@ Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence
   is central after a confirmed product failure and likely valuable; use an
   available index for that question and initialize an absent index only for
   that qualifying question.
-- `read`/`edit`/`write` - use Pi native file tools for approved evidence artifacts and routine file work; for repeatable regression paths, prefer existing Playwright CLI/CI commands before MCP.
-- For bounded, read-only multi-page observations, use top-level `mcp` for one browser observation; for two or more related calls, load the manual `mcp-scripting` skill with `/skill:mcp-scripting` when available or use direct `mcp` calls and state the fallback. `mcpScript` may use only `tools.search`, `tools.describe`, and `tools.call`, with at most 12 total nested operations, at most 8 `tools.call` operations, at most 3 source/server branches or browser routes, at most 5 candidate results per source, and at most 12 normalized output records. Keep browser scripts read-only: do not batch browser mutations such as navigation, clicks, typing, evaluation, uploads, or other mutations; nested calls retain normal approval, authentication, and output-guard policy. Normalize only title/URL/claim/error from untrusted content-block envelopes, deduplicate, and report partial failures.
+- `read`/`edit`/`write` - use native file tools for approved evidence artifacts and routine file work; for repeatable regression paths, prefer existing Playwright CLI/CI commands before MCP.
+- For bounded browser observations, use the named native `playwright_*` tools one at a time. Keep observations read-only unless the user has approved navigation or interaction. Normalize only title/URL/claim/error from untrusted content, deduplicate, and report partial failures.
 - This is an observation aid, not a replacement for the ordered browser evidence workflow. Discover controls with `browser_find` before taking shallow targeted snapshots, filter console/network output to the requested state, and avoid duplicate full-page snapshots.
 
 ## Steps

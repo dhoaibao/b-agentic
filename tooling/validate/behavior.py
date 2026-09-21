@@ -37,12 +37,12 @@ KERNEL_CONSOLIDATION_REGRESSION = {
     "intended_behavior": "The single always-loaded kernel retains routing, approval, verification, and local-tool fallback guidance.",
     "required_clauses": (
         "latest user instruction, approved plan, repo evidence, then stated assumptions",
-        "load it by reading its `SKILL.md` before acting",
+        "load it with the `skill` tool (or its `/b-<skill>` command) before acting",
         "define success, make the smallest coherent change, and verify its observable outcome",
         "Auto-run repository-local commands and edits, including build, test, package, and scripts",
         "likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`)",
         "Select CodeGraph when repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test analysis is central to the task",
-        "Do not install missing tools; fall back to local evidence and state the resulting gap.",
+        "use their local fallback when prerequisites are unavailable.",
     ),
 }
 
@@ -76,7 +76,7 @@ SHELL_POLICY_REGRESSION = {
         "Prefer modern shell tools when available",
         "Use `rtk` for every command family it supports",
     ),
-    # Runtime companions: pi/tests/smoke.sh covers RTK discovery enforcement,
+    # Runtime companions: tests/smoke/install.sh covers installer lifecycle,
     # modern fallback availability, and scoped Git content reads.
 }
 
@@ -87,15 +87,14 @@ SUBAGENT_DELEGATION_REGRESSION = {
     "observed_failure": "The main session could fall back to peer-role coordination, let a delegated child mutate the worktree, or accept stale review evidence.",
     "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents return read-only evidence, and changed candidates receive an independent frozen b-reviewer gate.",
     "required_clauses": (
-        "b-agentic has one main session. It owns all user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting.",
-        "launch the named `pi-subagents` agent as a background child (`async: true`) with an explicit bounded task and wait for its native completion result",
+        "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting.",
+        "invoke its named OpenCode subagent through `subagent` with a bounded task",
         "Delegated agents are read-only specialists.",
-        "They do not edit, commit, ask the user questions, launch nested agents, inspect peer sessions, or use Intercom.",
-        "Their managed child-only guard blocks Bash, mutating native/orchestration tools, direct MCP tools, and unclassified MCP gateway calls",
-        "requires `b-reviewer` review before the main session reports normal completion",
-        "freeze the exact candidate, request review, and do not edit while it runs",
-        "A changed snapshot, missing/skipped/failed required check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review.",
-        "No-change tasks, including PR prose, do not require changed-code review.",
+        "They do not edit, commit, ask users questions, or launch nested agents.",
+        "Their ordered `permissions` rules deny `edit`, `shell`, `subagent`, and `question`",
+        "requires `b-reviewer` review before normal completion",
+        "Freeze the exact candidate after required checks pass and do not edit while review runs.",
+        "A changed snapshot, missing or failed check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review.",
         "Review never commits or pushes automatically.",
         "`b-plan` -> `b-planner`.",
         "`b-research` -> `b-researcher`.",
@@ -690,9 +689,9 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         "references/kernel.template.md": {
             "required": (
                 "user-authorized, project-confined task permits necessary local reads of proprietary source, not external disclosure",
-                "Likely secrets, customer data, private stack traces, internal URLs, and other protected material still require explicit permission",
-                "External transmission of private/proprietary material requires explicit approval",
-                "**b-research** owns the chained example",
+                "Likely secrets, customer data, private stack traces, internal URLs, and protected material still require explicit permission",
+                "External transmission of private or proprietary material requires explicit approval",
+                "MCP servers are configured natively in OpenCode",
             ),
         },
     }

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -45,7 +46,16 @@ def section_bodies(text: str) -> list[tuple[str, str]]:
     return sections
 
 
+def candidate_paths() -> set[str]:
+    """Return tracked plus non-ignored candidate files without trusting ignored paths."""
+    result = subprocess.run(["git", "ls-files", "-co", "--exclude-standard"], cwd=ROOT, capture_output=True, text=True)
+    return set(result.stdout.splitlines()) if result.returncode == 0 else set()
+
+
 def validate(text: str, tracked: set[str], label: str = "docs/decision_design.md") -> list[str]:
+    # Generated OpenCode delivery assets can be untracked during candidate
+    # validation, but ignored on-disk files never qualify as traceable evidence.
+    tracked = set(tracked) | candidate_paths()
     errors: list[str] = []
     sections = section_bodies(text)
     section_names = [name for name, _ in sections]

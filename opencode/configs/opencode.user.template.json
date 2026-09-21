@@ -1,0 +1,807 @@
+{
+  "experimental": {
+    "subagent_depth": 1
+  },
+  "mcp": {
+    "servers": {
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp",
+        "headers": {
+          "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "codegraph": {
+        "type": "local",
+        "command": [
+          "codegraph",
+          "serve",
+          "--mcp"
+        ],
+        "environment": {
+          "CODEGRAPH_TELEMETRY": "0"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "brave_search": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@brave/brave-search-mcp-server",
+          "--transport",
+          "stdio"
+        ],
+        "environment": {
+          "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "firecrawl": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "firecrawl-mcp"
+        ],
+        "environment": {
+          "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "playwright": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@playwright/mcp",
+          "--isolated",
+          "--headless",
+          "--caps=testing"
+        ],
+        "environment": {},
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "mobbin": {
+        "type": "remote",
+        "url": "https://api.mobbin.com/mcp",
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "shadcn": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "shadcn@latest",
+          "mcp"
+        ],
+        "environment": {},
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      }
+    }
+  },
+  "permissions": [
+    {
+      "action": "read",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "read",
+      "resource": "*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*.env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "read",
+      "resource": "**/*.env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "read",
+      "resource": ".env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "read",
+      "resource": "**/.env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "read",
+      "resource": "*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": "*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/.env",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*.env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/.env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*.env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": "**/.env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": "*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git push*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git pull*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git pull*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git reset --hard*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git reset --hard*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git clean -f*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git clean -f*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git branch -D*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git branch -D*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rm -rf /*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "sudo *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "docker system prune*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "curl * | sh*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "curl * | bash*",
+      "effect": "ask"
+    },
+    {
+      "action": "external_directory",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "subagent",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "skill",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "question",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "todowrite",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "codegraph_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "codegraph_codegraph_explore",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "context7_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "context7_resolve_library_id",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "context7_query_docs",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "brave_search_brave_web_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_local_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_video_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_image_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_news_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_summarizer",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_llm_context",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_place_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_developer_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_scrape",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_map",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_extract",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_agent_status",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_check_crawl_status",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_interact_stop",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_research_search_papers",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_research_inspect_paper",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_research_read_paper",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_research_related_papers",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_research_search_github",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_parse",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_agent",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_crawl",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_interact",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_search_feedback",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_feedback",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_create",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_update",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_delete",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_get",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_list",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_run",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_check",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_monitor_checks",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_snapshot",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_find",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_take_screenshot",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_console_messages",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_network_requests",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_network_request",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_wait_for",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_navigate",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_navigate_back",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_resize",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_hover",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_close",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_tabs",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_click",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_type",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_fill_form",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_press_key",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_select_option",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_file_upload",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_drop",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_drag",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_evaluate",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_run_code_unsafe",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_handle_dialog",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_generate_locator",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_element_visible",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_list_visible",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_text_visible",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_value",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "mobbin_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "mobbin_search_screens",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "mobbin_search_flows",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "mobbin_search_sections",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "shadcn_get_project_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_list_items_in_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_search_items_in_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_view_items_in_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_get_add_command_for_items",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_get_audit_checklist",
+      "resource": "*",
+      "effect": "allow"
+    }
+  ]
+}

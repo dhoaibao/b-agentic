@@ -1,27 +1,16 @@
 {
   "name": "@dhoaibao/b-agentic-dev-tools",
   "private": true,
-  "type": "module",
   "scripts": {
     "prepare": "husky",
     "quality": "bash scripts/quality-check.sh"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
-    "eslint": "10.9.1",
     "husky": "9.1.7",
-    "lint-staged": "16.1.6",
     "markdownlint-cli2": "0.23.2",
-    "prettier": "3.9.6",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.69.0"
+    "prettier": "3.9.6"
   },
   "lint-staged": {
-    "**/*.{ts,tsx}": [
-      "eslint --max-warnings=0 --no-warn-ignored",
-      "prettier --check",
-      "bash pi/scripts/typecheck.sh"
-    ],
     "**/*.py": [
       "ruff check",
       "ruff format --check"

@@ -1,19 +1,15 @@
 # b-agentic
 
-**A slim personal workflow kernel for the Pi coding agent. b-agentic and Pi are one integrated product.**
+**A slim personal workflow kernel for native OpenCode.**
 
-b-agentic routes work to focused skills, preserves safety gates, uses the right
-evidence, and verifies before claiming completion. It installs a compact Pi
-kernel, native skills, first-party extensions, and recommended MCP configuration.
+b-agentic routes coding work to focused skills, preserves evidence and review
+gates, and keeps the main session responsible for all worktree changes. It
+installs an always-loaded OpenCode kernel, native skills and commands,
+read-only specialist agents, and managed MCP configuration.
 
-- **[Read the operational reference](REFERENCE.md)** for installation details,
-  package lifecycle, MCP readiness, safety behavior, and validation. `/b-status` provides a local, read-only capability snapshot
-without reading MCP configuration contents or API-key values, starting MCP
-services, authenticating providers, or claiming session usage.
-- **[See the installed Pi layout](pi/configs/README.md)** for managed paths and
-  user-owned configuration boundaries.
-- Maintainer and project context: [AGENTS.md](AGENTS.md),
-  [CHANGELOG.md](CHANGELOG.md), and [decision design](docs/decision_design.md).
+- [Operational reference](REFERENCE.md) — install, lifecycle, safety, MCP, and validation.
+- [OpenCode configuration layout](opencode/configs/README.md) — managed paths and ownership boundaries.
+- [Project guidance](AGENTS.md), [changelog](CHANGELOG.md), and [decision design](docs/decision_design.md).
 
 ## Install
 
@@ -21,28 +17,22 @@ services, authenticating providers, or claiming session usage.
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-In an interactive terminal, the installer opens a component picker with the
-current optional features selected by default; redirected and CI runs keep the
-non-interactive install path. See [REFERENCE.md](REFERENCE.md) for the picker
-controls and lifecycle behavior.
+The installer uses OpenCode v2's current curl installer, writes only under
+`~/.config/opencode`, and preserves unrelated configuration. It detects but
+never changes a legacy b-agentic installation in a different runtime directory.
+See [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
-For reviewed pins, flags, package lifecycle, readiness, the standalone
-Markdown preview install, and the preview package route, see
-[REFERENCE.md](REFERENCE.md). The preview package also has its own
-[package-facing guide](pi/packages/preview-markdown/README.md).
+## How it works
 
-## How b-agentic works
-
-Each request routes to one active phase rather than mixing planning, building,
-validation, and shipping. One main session owns user-facing work, decisions,
-verification, and all worktree mutations. It can synchronously delegate bounded,
-read-only planning, research, diagnosis, and changed-code review to named
-`pi-subagents` profiles; see [REFERENCE.md](REFERENCE.md) for the delegation,
-safety, MCP, and review-gate behavior.
+Each request uses one active skill rather than mixing planning, building,
+validation, and shipping. The main OpenCode session owns user interaction,
+decisions, verification, and mutations. It delegates bounded planning,
+research, diagnosis, and changed-code review through native read-only
+subagents.
 
 | Phase | Skills | Purpose |
 |---|---|---|
-| **Decide** | `b-plan`, `b-research`, `b-design`, `b-debug` | Resolve ambiguity, gather outside facts, diagnose runtime causes, or define a frontend standard. |
+| **Decide** | `b-plan`, `b-research`, `b-design`, `b-debug` | Resolve ambiguity, gather external facts, diagnose runtime causes, or define a frontend standard. |
 | **Build** | `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor` | Make the smallest approved change. |
 | **Validate** | `b-test`, `b-browser`, `b-agentic-audit`, `b-review` | Confirm tests, browser evidence, repository conformance, and changed-code quality. |
 | **Ship** | `b-commit`, `b-pr-summary` | Create explicitly requested local commits or write PR copy from local history. |
@@ -69,20 +59,12 @@ safety, MCP, and review-gate behavior.
 | `b-pr-summary` | Ship | Write commit-backed PR copy or review and rewrite supplied PR prose |
 <!-- generated:skills-table:end -->
 
-Invoke a skill explicitly with Pi's native `/skill:<name>` command. The usual
-path is:
-
-```text
-/skill:b-plan [goal] -> approve -> /skill:b-implement -> /skill:b-test -> /skill:b-review
-```
+OpenCode can select skills with its native `skill` tool. For an explicit route,
+use generated commands such as `/b-plan`, `/b-research`, `/b-implement`,
+`/b-test`, and `/b-review`.
 
 ## Learn more
 
-- [Operational reference](REFERENCE.md) — install/update/uninstall behavior,
-  packages, custom subagents, safety, and validation.
-- [Pi configuration layout](pi/configs/README.md) — installed paths and
-  managed-versus-user-owned boundaries.
-- [Standalone preview package](pi/packages/preview-markdown/README.md) —
-  preview-only package and version-pinned installation documentation.
-- [Decision design](docs/decision_design.md) — evidence-backed repository
-  decisions.
+- [Operational reference](REFERENCE.md) — lifecycle, native permissions, MCP, and verification.
+- [OpenCode configuration layout](opencode/configs/README.md) — installed paths and ownership boundaries.
+- [Decision design](docs/decision_design.md) — evidence-backed architecture decisions.

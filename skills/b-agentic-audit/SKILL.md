@@ -7,6 +7,10 @@ description: >
   thresholds and approval-gated live probing. Routing signals: b-agentic
   audit, suite audit, maintainer audit, design-conformance audit,
   decision-design drift.
+metadata:
+  phase: Validate
+  execution_mode: subagent
+  agent: b-reviewer
 ---
 
 <!-- Generated from skills/registry.yaml and skills/b-agentic-audit/prompt.md. Edit those sources, not this file. -->

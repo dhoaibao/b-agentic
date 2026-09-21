@@ -7,6 +7,9 @@ description: >
   ownership, runtime behavior, impact, or merge safety. Routing signals:
   architecture diagram, system map, workflow diagram, sequence diagram,
   data-flow diagram, lifecycle diagram.
+metadata:
+  phase: Build
+  execution_mode: main
 ---
 
 <!-- Generated from skills/registry.yaml and skills/b-diagram/prompt.md. Edit those sources, not this file. -->
@@ -31,16 +34,16 @@ Create a validated, portable technical diagram artifact from explicit user or re
 ## Tool guidance
 
 - Use `read` and local discovery for the smallest relevant repository evidence. Select CodeGraph only when a concrete repository-wide architecture, dependency, or call-flow question is central.
-- Use the bundled `./diagram.py` with Python 3. Its `validate` command never writes; its `deliver` command atomically replaces only the named HTML target after validation succeeds.
+- Use the bundled `~/.config/opencode/skills/b-diagram/diagram.py` with Python 3. Its `validate` command never writes; its `deliver` command atomically replaces only the named HTML target after validation succeeds.
 - Do not fetch URLs or inspect live systems from diagram evidence references.
 
 ## Steps
 
 1. Confirm the diagram kind, audience, target path, and source facts. Ask one focused question if any is material and unresolved.
 2. Establish the bounded fact set. For repository-based diagrams, distinguish observed source facts from user-provided assumptions; preserve exact paths or symbols only when they are safe to disclose.
-3. Create a version-1 JSON source conforming to `./schema.json`: stable node and edge IDs, labels, explicit edge endpoints, and optional evidence IDs. Cite evidence only as supplied metadata; never claim it was verified unless it was actually read.
-4. Run `python3 ./diagram.py validate <source.json>`. Repair only the reported local source defects.
-5. Run `python3 ./diagram.py deliver <source.json> <target.html>` only for the user-approved target. This writes one portable HTML/SVG artifact with no external assets.
+3. Create a version-1 JSON source conforming to `~/.config/opencode/skills/b-diagram/schema.json`: stable node and edge IDs, labels, explicit edge endpoints, and optional evidence IDs. Cite evidence only as supplied metadata; never claim it was verified unless it was actually read.
+4. Run `python3 ~/.config/opencode/skills/b-diagram/diagram.py validate <source.json>`. Repair only the reported local source defects.
+5. Run `python3 ~/.config/opencode/skills/b-diagram/diagram.py deliver <source.json> <target.html>` only for the user-approved target. This writes one portable HTML/SVG artifact with no external assets.
 6. Inspect the source and artifact paths, report the exact validation result, and state what the diagram does not establish. Route browser-based visual proof separately to **b-browser** when requested.
 
 ## Content rules

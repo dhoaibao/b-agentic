@@ -5,6 +5,9 @@ description: >
   of latest local commits or commits ahead of cached origin. Also review
   or rewrite supplied PR copy, titles, and descriptions for clarity and
   supported claims, without a changed-code review gate.
+metadata:
+  phase: Ship
+  execution_mode: main
 ---
 
 <!-- Generated from skills/registry.yaml and skills/b-pr-summary/prompt.md. Edit those sources, not this file. -->

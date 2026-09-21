@@ -23,18 +23,11 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            pi/package-lock.json
       - name: Install locked repository development tools
         run: npm ci --no-fund --no-audit
-      - name: Install locked Pi TypeScript dependencies
-        run: npm ci --prefix pi --no-fund --no-audit
-      - name: Use the locked Pi runtime
-        run: echo "$GITHUB_WORKSPACE/pi/node_modules/.bin" >> "$GITHUB_PATH"
       - name: Run repository quality checks
         run: npm run quality
-      - name: Run validation suite
+      - name: Run native OpenCode validation suite
         run: bash scripts/validate-skills.sh --release
       - name: Run structural suite audit
         run: bash scripts/b-agentic-audit.sh --skip-preflight

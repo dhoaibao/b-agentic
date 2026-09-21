@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Structural suite audit for b-agentic's Pi integration."""
+"""Structural suite audit for b-agentic's native OpenCode integration."""
 
 from __future__ import annotations
 

@@ -16,7 +16,7 @@ Independently review a frozen changed-code candidate for blockers, regressions, 
 
 ## Tool guidance
 
-- Use the main session's frozen snapshot, metadata-only path list, targeted safe diff evidence, and Pi native `read`. The child guard blocks Bash; if the handoff lacks the necessary candidate evidence, report that gap rather than collecting it. Select CodeGraph only for a central repository-wide review question; bounded specialized Brave tools may substantiate public semantics.
+- Use the main session's frozen snapshot, metadata-only path list, targeted safe diff evidence, and native `read`. This subagent's permission denies Bash; if the handoff lacks necessary candidate evidence, report that gap rather than collecting it. Select CodeGraph only for a central repository-wide review question; bounded specialized Brave tools may substantiate public semantics.
 
 ## Steps
 

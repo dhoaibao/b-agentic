@@ -1,209 +1,27 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Canonical managed MCP operation classification. Classified read-only and safe conditional-read operations are auto-approved through adapter-owned calls and unambiguous top-level mcp gateway calls. Main-session delegation does not alter active tools or MCP approval policy.",
+  "description": "Canonical native OpenCode v2 MCP operation classification. Ordered native permissions apply directly to <server>_<tool> names with Code Mode disabled and cannot validate arguments.",
   "classes": {
-    "read-only": {
-      "policy": "Auto-approved for managed servers",
-      "notes": "Gateway observations; server/classified tool required."
-    },
-    "conditional-read": {
-      "policy": "Auto-approved for safe arguments",
-      "notes": "Gate mutation/local access/arbitrary output."
-    },
-    "conditional-local": {
-      "policy": "Auto-approved inside current project",
-      "notes": "Repo-confined edits; unsafe paths gated."
-    },
-    "local-upload": {
-      "policy": "Approval required",
-      "notes": "Reads local files for remote use"
-    },
-    "external-mutation": {
-      "policy": "Approval required",
-      "notes": "Remote state changes."
-    },
-    "monitor-lifecycle": {
-      "policy": "Approval required",
-      "notes": "Firecrawl monitor ops."
-    },
-    "local-mutation": {
-      "policy": "Approval required",
-      "notes": "Mutates local repo/agent state"
-    },
-    "auth": {
-      "policy": "Approval required",
-      "notes": "MCP auth"
-    }
+    "read-only": {"policy": "Auto-allowed by tool name", "native_permission": "allow", "notes": "Observation-only MCP operation."},
+    "conditional-read": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly argument-validated; native OpenCode cannot inspect arguments."},
+    "conditional-local": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly repository-scoped; native OpenCode cannot inspect arguments."},
+    "local-upload": {"policy": "Approval required", "native_permission": "ask", "notes": "May read a local file for remote use."},
+    "external-mutation": {"policy": "Approval required", "native_permission": "ask", "notes": "May mutate remote or browser state."},
+    "monitor-lifecycle": {"policy": "Approval required", "native_permission": "ask", "notes": "Creates, changes, or runs a monitor."},
+    "local-mutation": {"policy": "Approval required", "native_permission": "ask", "notes": "May create a local artifact."},
+    "auth": {"policy": "Approval required", "native_permission": "ask", "notes": "May start or change authentication."}
   },
   "servers": {
-    "codegraph": {
-      "tools": {
-        "codegraph_codegraph_explore": "read-only"
-      }
-    },
-    "context7": {
-      "tools": {
-        "context7_resolve-library-id": "read-only",
-        "context7_query-docs": "read-only"
-      }
-    },
-    "brave-search": {
-      "tools": {
-        "brave_search_brave_web_search": "read-only",
-        "brave_search_brave_local_search": "read-only",
-        "brave_search_brave_video_search": "read-only",
-        "brave_search_brave_image_search": "read-only",
-        "brave_search_brave_news_search": "read-only",
-        "brave_search_brave_summarizer": "read-only",
-        "brave_search_brave_llm_context": "read-only",
-        "brave_search_brave_place_search": "read-only"
-      }
-    },
-    "firecrawl": {
-      "tools": {
-        "firecrawl_search": "conditional-read",
-        "firecrawl_developer_search": "read-only",
-        "firecrawl_scrape": "conditional-read",
-        "firecrawl_map": "conditional-read",
-        "firecrawl_extract": "conditional-read",
-        "firecrawl_agent_status": "read-only",
-        "firecrawl_check_crawl_status": "read-only",
-        "firecrawl_interact_stop": "external-mutation",
-        "firecrawl_research_search_papers": "read-only",
-        "firecrawl_research_inspect_paper": "read-only",
-        "firecrawl_research_read_paper": "read-only",
-        "firecrawl_research_related_papers": "read-only",
-        "firecrawl_research_search_github": "read-only",
-        "firecrawl_parse": "local-upload",
-        "firecrawl_agent": "external-mutation",
-        "firecrawl_crawl": "external-mutation",
-        "firecrawl_interact": "external-mutation",
-        "firecrawl_search_feedback": "external-mutation",
-        "firecrawl_feedback": "external-mutation",
-        "firecrawl_monitor_create": "monitor-lifecycle",
-        "firecrawl_monitor_update": "monitor-lifecycle",
-        "firecrawl_monitor_delete": "monitor-lifecycle",
-        "firecrawl_monitor_get": "monitor-lifecycle",
-        "firecrawl_monitor_list": "monitor-lifecycle",
-        "firecrawl_monitor_run": "monitor-lifecycle",
-        "firecrawl_monitor_check": "monitor-lifecycle",
-        "firecrawl_monitor_checks": "monitor-lifecycle"
-      }
-    },
-    "playwright": {
-      "tools": {
-        "browser_snapshot": "conditional-read",
-        "browser_find": "read-only",
-        "browser_take_screenshot": "local-mutation",
-        "browser_console_messages": "conditional-read",
-        "browser_network_requests": "conditional-read",
-        "browser_network_request": "conditional-read",
-        "browser_wait_for": "read-only",
-        "browser_navigate": "external-mutation",
-        "browser_navigate_back": "external-mutation",
-        "browser_resize": "external-mutation",
-        "browser_hover": "external-mutation",
-        "browser_close": "external-mutation",
-        "browser_tabs": "conditional-read",
-        "browser_click": "external-mutation",
-        "browser_type": "external-mutation",
-        "browser_fill_form": "external-mutation",
-        "browser_press_key": "external-mutation",
-        "browser_select_option": "external-mutation",
-        "browser_file_upload": "external-mutation",
-        "browser_drop": "external-mutation",
-        "browser_drag": "external-mutation",
-        "browser_evaluate": "external-mutation",
-        "browser_run_code_unsafe": "external-mutation",
-        "browser_handle_dialog": "external-mutation",
-        "browser_generate_locator": "read-only",
-        "browser_verify_element_visible": "conditional-read",
-        "browser_verify_list_visible": "conditional-read",
-        "browser_verify_text_visible": "conditional-read",
-        "browser_verify_value": "conditional-read"
-      }
-    },
-    "mobbin": {
-      "tools": {
-        "mobbin_search_screens": "read-only",
-        "mobbin_search_flows": "read-only",
-        "mobbin_search_sections": "read-only"
-      }
-    },
-    "shadcn": {
-      "tools": {
-        "shadcn_get_project_registries": "read-only",
-        "shadcn_list_items_in_registries": "read-only",
-        "shadcn_search_items_in_registries": "read-only",
-        "shadcn_view_items_in_registries": "read-only",
-        "shadcn_get_item_examples_from_registries": "read-only",
-        "shadcn_get_add_command_for_items": "read-only",
-        "shadcn_get_audit_checklist": "read-only"
-      }
-    }
-  },
-  "mcpScript": {
-    "purpose": "bounded multi-call MCP orchestration; not a general scripting or isolation boundary",
-    "max_total_operations": 12,
-    "max_tool_calls": 8,
-    "max_sources_or_routes": 3,
-    "max_results_per_source": 5,
-    "max_normalized_records": 12,
-    "max_primary_scrapes": 1,
-    "allowed_operations": ["tools.search", "tools.describe", "tools.call"],
-    "result_envelope": {
-      "success": ["ok", "data"],
-      "failure": ["ok", "error"],
-      "content_block_types": ["text", "image", "audio", "resource", "resource_link"],
-      "normalized_fields": ["title", "url", "claim", "error"],
-      "deduplicate_by": ["url", "title+claim"],
-      "partial_failure": "Return bounded partial results with explicit errors; never claim complete coverage."
-    },
-    "fallback": "If the manual mcp-scripting skill is unavailable, use direct top-level mcp calls and state the fallback; use mcpScript only when this contract can be followed."
-  },
-  "conditional_arguments": {
-    "firecrawl:firecrawl_search": {
-      "known": ["query", "limit", "tbs", "filter", "location", "includeDomains", "excludeDomains", "sources", "categories", "scrapeOptions", "enterprise", "highlights"]
-    },
-    "firecrawl:firecrawl_scrape": {
-      "known": ["url", "formats", "jsonOptions", "queryOptions", "screenshotOptions", "parsers", "pdfOptions", "onlyMainContent", "redactPII", "includeTags", "excludeTags", "waitFor", "actions", "mobile", "skipTlsVerification", "removeBase64Images", "location", "storeInCache", "zeroDataRetention", "maxAge", "lockdown", "proxy", "profile"]
-    },
-    "firecrawl:firecrawl_map": {
-      "known": ["url", "search", "sitemap", "includeSubdomains", "limit", "ignoreQueryParameters"]
-    },
-    "firecrawl:firecrawl_extract": {
-      "known": ["urls", "prompt", "schema", "allowExternalLinks", "enableWebSearch", "includeSubdomains"]
-    },
-    "playwright:browser_snapshot": {
-      "known": ["target", "filename", "depth", "boxes"]
-    },
-    "playwright:browser_console_messages": {
-      "known": ["level", "all", "filename"]
-    },
-    "playwright:browser_network_requests": {
-      "known": ["static", "filter", "filename"]
-    },
-    "playwright:browser_network_request": {
-      "known": ["index", "part", "filename"]
-    },
-    "playwright:browser_tabs": {
-      "known": ["action", "index", "url"]
-    },
-    "playwright:browser_verify_element_visible": {
-      "known": ["accessibleName", "role"]
-    },
-    "playwright:browser_verify_list_visible": {
-      "known": ["element", "items", "target"]
-    },
-    "playwright:browser_verify_text_visible": {
-      "known": ["text"]
-    },
-    "playwright:browser_verify_value": {
-      "known": ["element", "target", "type", "value"]
-    }
+    "codegraph": {"tools": {"codegraph_explore": "read-only"}},
+    "context7": {"tools": {"resolve_library_id": "read-only", "query_docs": "read-only"}},
+    "brave_search": {"tools": {"brave_web_search": "read-only", "brave_local_search": "read-only", "brave_video_search": "read-only", "brave_image_search": "read-only", "brave_news_search": "read-only", "brave_summarizer": "read-only", "brave_llm_context": "read-only", "brave_place_search": "read-only"}},
+    "firecrawl": {"tools": {"search": "conditional-read", "developer_search": "read-only", "scrape": "conditional-read", "map": "conditional-read", "extract": "conditional-read", "agent_status": "read-only", "check_crawl_status": "read-only", "interact_stop": "external-mutation", "research_search_papers": "read-only", "research_inspect_paper": "read-only", "research_read_paper": "read-only", "research_related_papers": "read-only", "research_search_github": "read-only", "parse": "local-upload", "agent": "external-mutation", "crawl": "external-mutation", "interact": "external-mutation", "search_feedback": "external-mutation", "feedback": "external-mutation", "monitor_create": "monitor-lifecycle", "monitor_update": "monitor-lifecycle", "monitor_delete": "monitor-lifecycle", "monitor_get": "monitor-lifecycle", "monitor_list": "monitor-lifecycle", "monitor_run": "monitor-lifecycle", "monitor_check": "monitor-lifecycle", "monitor_checks": "monitor-lifecycle"}},
+    "playwright": {"tools": {"browser_snapshot": "conditional-read", "browser_find": "read-only", "browser_take_screenshot": "local-mutation", "browser_console_messages": "conditional-read", "browser_network_requests": "conditional-read", "browser_network_request": "conditional-read", "browser_wait_for": "read-only", "browser_navigate": "external-mutation", "browser_navigate_back": "external-mutation", "browser_resize": "external-mutation", "browser_hover": "external-mutation", "browser_close": "external-mutation", "browser_tabs": "conditional-read", "browser_click": "external-mutation", "browser_type": "external-mutation", "browser_fill_form": "external-mutation", "browser_press_key": "external-mutation", "browser_select_option": "external-mutation", "browser_file_upload": "external-mutation", "browser_drop": "external-mutation", "browser_drag": "external-mutation", "browser_evaluate": "external-mutation", "browser_run_code_unsafe": "external-mutation", "browser_handle_dialog": "external-mutation", "browser_generate_locator": "read-only", "browser_verify_element_visible": "conditional-read", "browser_verify_list_visible": "conditional-read", "browser_verify_text_visible": "conditional-read", "browser_verify_value": "conditional-read"}},
+    "mobbin": {"tools": {"search_screens": "read-only", "search_flows": "read-only", "search_sections": "read-only"}},
+    "shadcn": {"tools": {"get_project_registries": "read-only", "list_items_in_registries": "read-only", "search_items_in_registries": "read-only", "view_items_in_registries": "read-only", "get_add_command_for_items": "read-only", "get_audit_checklist": "read-only"}}
   },
   "runtime_enforcement": {
-    "pi": "The adapter approval broker and Pi tool_call trust classified safe operations. The top-level mcp gateway requires an explicit managed server and matching tool name; conditional tools also require validated arguments. mcpScript permits tools.search/tools.describe metadata and nested tools.call retains normal approval/auth/output-guard policy. It is a bounded multi-call surface, not a general scripting or isolation boundary: follow the mcpScript contract above, do not batch browser mutations, and do not use unapproved nested calls. Delegation does not add MCP restrictions. Auth, lifecycle, UI actions, selector mixtures, unclassified tools, unmanaged servers, and local/external mutations remain blocked. Validation requires runtime safe sets to match this policy."
+    "opencode": "Generated native v2 permissions use direct tool-name allow, ask, and deny decisions with Code Mode disabled. Argument-conditional classification and a proxy gateway are intentionally unavailable; unknown and mutating tools must be asked or denied by explicit rule."
   }
 }

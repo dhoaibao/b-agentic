@@ -2,466 +2,160 @@
 
 [Back to the public overview](README.md)
 
-This is the operational source of truth for installation, lifecycle, safety,
-MCP, package, subagent, and verification behavior behind the concise
-[README.md](README.md). The installed path map and managed-versus-user-owned
-boundary live in [pi/configs/README.md](pi/configs/README.md); this reference
-owns the operations performed on those paths.
+This reference defines the installed native OpenCode workflow, lifecycle,
+safety boundary, MCP configuration, and repository validation behavior.
 
 ## Install
-
-Default install for Pi:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-Default install writes b-agentic files and Pi configuration only. Pi CLI installation and upgrade run automatically without prompts. In an interactive TTY, the default install opens a dependency-free component picker with all optional groups selected: MCP support, Pi integrations, and the Dracula theme. Core files and required tooling remain selected. Use Up/Down, Space, Enter, or Escape to navigate, toggle, continue, or cancel. Redirected, CI, `TERM=dumb`, and explicit `--update`, `--sync`, or `--uninstall` runs remain non-interactive.
-
-### Standalone Markdown preview install
-
-After the public immutable `v0.1.2` tag has been published, a user who wants
-only the inline Markdown preview can run:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/v0.1.2/pi/scripts/install-preview-markdown.sh | bash -s -- v0.1.2
-```
-
-The trailing `v0.1.2` argument must match the bootstrap URL tag; the
-installer accepts only `vX.Y.Z` release refs. This exact future command fetches
-only `pi/packages/preview-markdown/extensions/b-agentic-preview-markdown.ts` from the `v0.1.2` tag,
-validates it, and atomically installs it as
-`${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/extensions/b-agentic-preview-markdown.ts`.
-It preserves unrelated extension files and Pi configuration and does not
-install any other b-agentic extension or dependency. Run `/reload` in the
-current Pi session after installation. The tag is not claimed to be published
-or executable from this repository state; wait until `v0.1.2` exists publicly.
-
-After the package is published, the same canonical extension can also be
-installed through Pi:
-
-```bash
-pi install npm:@dhoaibao/preview-markdown
-```
-
-The npm package contains only the preview extension and package-facing
-documentation; the raw GitHub installer remains the version-pinned alternative
-and does not install the broader b-agentic bundle. Maintainers should use the
-[standalone preview package publishing procedure](docs/publish-preview-markdown.md)
-for validation and release steps.
-
-No `AGENTS.md` entry is required because the extension self-registers its
-`preview_markdown` tool and prompt metadata. An optional local `AGENTS.md` note
-may remind future sessions to prefer `preview_markdown` when appropriate.
-
-The preview defaults to Tokyo Night Moon. In a TUI session,
-`/preview-markdown:theme` opens a native Moon/Day selector and immediately refreshes existing visible previews; restored previews use the current global theme without mutating stored session entries. `/preview-markdown:render <prompt>` requests a one-response preview, and `/preview-markdown:list` lists the 20 most recent successful previews on the active branch for source copying. This cap affects only the selectable list and does not delete session history. The selected theme is persisted globally in
-`<Pi agent dir>/b-agentic/preview-theme.json`, not in a project file or Pi
-`settings.json`. Escape cancels without changing the preference. A malformed
-or missing preference safely falls back to Moon, and a persistence failure is
-reported without changing the active behavior. Preview entries do not retain a
-stored palette.
-
-For professional or shared environments, pin both the bootstrap script and
-installed source to a reviewed tag or commit instead of consuming whatever is
-currently on `main`:
-
-```bash
-export B_AGENTIC_REF=<tag-or-commit>
-curl -fsSL "https://raw.githubusercontent.com/dhoaibao/b-agentic/${B_AGENTIC_REF}/install.sh" | bash -s -- --ref="${B_AGENTIC_REF}"
-```
+The installer runs OpenCode's current curl installer (`curl -fsSL
+https://opencode.ai/v2/install | bash`) and writes b-agentic assets to
+`~/.config/opencode`. Because this intentionally tracks OpenCode updates, test
+native config, permissions, agent, and command compatibility before relying on a
+newly released major version. If the OpenCode installer cannot run, b-agentic
+warns and still installs its local assets; install OpenCode manually, then rerun
+`--update`. It installs the global kernel, generated skills, specialist agents, generated commands,
+references, templates, snapshots, and manifest. It merges the managed
+recommendations into `opencode.json` instead of replacing unrelated user keys. If
+an existing `permissions` value is not a v2 rule array, it remains user-owned
+and the installer warns that b-agentic's managed rules were not merged.
 
 Useful flags:
 
-- `--dry-run` previews changes.
-- `--force` bypasses the `--sync` up-to-date check and re-fetches the source.
-- `--replace-memory` replaces an existing managed kernel file.
-- `--uninstall` removes managed files.
-- `--ref=<tag-or-commit>` checks out that b-agentic ref before installing managed files.
-- `--sync` pulls the installed checkout and syncs managed Pi skills, kernel, and first-party extensions only.
-- `--update` installs or updates RTK, CodeGraph, Bun, Pi, Dracula theme, and Pi extensions without pulling b-agentic.
+- `--dry-run` prints planned commands and avoids writes.
+- `--force` permits the installer's normal source-refresh path when applicable.
+- `--replace-memory` replaces an existing non-managed global `AGENTS.md` after
+  the caller expressly opts in; `--preserve-memory` keeps it.
+- `--uninstall` removes unmodified managed OpenCode assets and managed config
+  values; it preserves modified or symlinked assets.
+- `--sync` refreshes managed assets from the installed b-agentic checkout and adds missing configuration values; existing user configuration values remain authoritative.
+- `--update` refreshes the OpenCode CLI through its current curl installer without updating the b-agentic checkout.
+- `--ref=<tag-or-commit>` selects a checkout ref for installation; only safe
+  branch, tag, and commit-like names are accepted. `B_AGENTIC_REPO` accepts
+  HTTPS, SSH, or local-path repository locations.
 
-Useful environment overrides: `B_AGENTIC_FORCE=1` is the `--force` equivalent,
-and `B_AGENTIC_PLAIN=1` (or `NO_COLOR`) forces plain newline output on a TTY —
-no component picker, stage bar, or escape sequences.
+`B_AGENTIC_DIR`, `B_AGENTIC_REPO`, `B_AGENTIC_REF`,
+`B_AGENTIC_OPENCODE_DIR`, and `B_AGENTIC_OPENCODE_CONFIG` support isolated
+testing and controlled installs. OpenCode configuration is JSONC-compatible:
+when only `opencode.jsonc` exists, the installer merges into that file; every
+merge writes JSON after creating a backup, so comments are not preserved. A detected legacy runtime installation is only reported and never
+modified.
 
-The installer hardens the bootstrap path: the whole script is wrapped so a
-truncated `curl | bash` download executes nothing, `--ref`/`B_AGENTIC_REF` and
-`B_AGENTIC_REPO` are validated as untrusted input before reaching git, and the
-kept `~/.b-agentic` checkout uses a blobless partial clone (`--filter=blob:none`,
-git ≥ 2.27, remote URLs only) so first install downloads roughly half the data
-while still allowing full `git fetch`. A plain `--sync` probes the remote head
-with `ls-remote` and skips the fetch/pull when it already equals `HEAD`; the
-local reconcile stages still run so a deleted managed file is repaired. The
-upstream RTK, CodeGraph, and Bun installers are still fetched and run over TLS
-without checksum pinning — trust in those scripts is trust in their repositories.
+See [OpenCode configuration layout](opencode/configs/README.md) for paths and
+managed-versus-user-owned boundaries.
 
-The install manifest records `sourceCommit`/`sourceRef` as provenance of the
-checkout that last installed or synced managed files. `--update` does not touch
-the b-agentic source, so these fields reflect the last install or `--sync`, not
-the last `--update`.
+## Kernel, skills, commands, and delegation
 
-Requirements: `bash`, `git`, and Python 3.11+. Bun, Pi, RTK, and CodeGraph
-are installed or updated automatically without dependency opt-in variables or
-prompts. Bun-backed MCP servers use `bunx`, which resolves and
-caches their packages on first use. Modern shell tools are not
-installed or updated automatically because they generally require sudo; the
-readiness report provides a platform-specific install hint.
+OpenCode discovers the global kernel at `~/.config/opencode/AGENTS.md` and
+skills below `~/.config/opencode/skills/`. The `skill` tool loads a `SKILL.md`;
+the kernel requires one active skill at a time. Generated `/b-<skill>` commands
+provide explicit routing. `skills/registry.yaml` and `skills/*/prompt.md` are
+canonical; generated output must never be hand-edited.
 
-Installer output stays newline-based for redirected and CI runs. On an interactive
-TTY the default install uses a dependency-free ASCII component picker followed by
-its stage indicator (both disabled for `TERM=dumb`), then prints a concise success
-and attention summary. A later picker run reconciles checked groups and leaves
-unchecked managed groups untouched; explicit uninstall is still required to remove
-those groups.
+The four specialist profiles are native `mode: subagent` definitions:
+`b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. The main session
+uses native `subagent` delegation and treats each synchronous returned result as
+evidence only. Specialist ordered permissions deny `edit`, `shell`, `subagent`,
+and `question`; their named MCP access is limited to the relevant read-only tools.
+`experimental.subagent_depth: 1` prevents nested delegation. The main session stays the only
+user-facing worktree writer.
 
-## RTK (Rust Token Killer)
+Every changed candidate requires fresh verification and a frozen
+`b-reviewer` disposition before normal completion. Review never commits or
+pushes.
 
-The installer downloads and runs the RTK install script from its `master`
-branch when RTK is missing and reruns it to refresh an existing installation.
-This is a remote shell script; only use it if you
-trust the RTK repository. RTK is required for b-agentic sessions; installation
-fails if it cannot be installed.
+## Native permissions
 
-Once installed, agents use RTK for every command family it supports, including
-local discovery. For unsupported command families, they prefer modern shell
-tools (`rg`, `fd`/`fdfind`, `eza`/`exa`, `bat`/`batcat`, `sd`, `jq`) and fall back
-only when the replacement is missing or a worse fit. Regular repository-local
-commands are auto-allowed regardless of that recommendation, including routine
-build, test, package, dependency, and script automation; RTK does not bypass
-protections for explicit destructive or privileged commands, external/shared
-mutations, protected paths, outside-project paths, or unscoped Git content
-reads. Explicit destructive commands are denied. Build and test tools can
-execute code from the current repository, so this permission layer is not a
-process sandbox. Use Pi's sandbox integration or an isolated environment when
-running genuinely untrusted code.
+The generated `opencode.json` uses ordered OpenCode v2 `permissions` rules. Ordinary local
+work, including native edits, is allowed, while named destructive commands such
+as `git push`, `git pull`, `git reset --hard`, `git clean -f`, and `git branch -D`
+are denied. Native `read` and `edit` rules deny likely-secret file patterns. External-directory
+access and consequential MCP tools ask. Last matching permissions rule wins, so
+rendered rule order is part of the configuration contract. User rules remain
+last and authoritative: a user-supplied broad allow can intentionally override
+a managed denial.
 
-Examples:
-
-```bash
-rtk rg pattern src
-fd -t f '.ts$'
-eza -la
-rtk git status
-rtk cargo test
-rtk pytest -q
-```
-
-Meta commands:
-
-```bash
-rtk gain            # Token savings analytics
-rtk gain --history  # Recent command savings history
-rtk --help          # Supported command families
-rtk proxy <cmd>     # Optional raw execution with RTK tracking
-```
-
-RTK also provides an optional rewrite-only Pi extension:
-
-```bash
-rtk init --agent pi --global
-```
-
-This improves transparent command rewriting but does not replace b-agentic's
-permission extension or approval policy. b-agentic does not install it
-automatically.
-
-Verification: `rtk --version`, `rtk gain`, `which rtk`.
-
-## CodeGraph MCP agent
-
-b-agentic writes a default [CodeGraph](https://github.com/colbymchenry/codegraph)
-entry that runs `codegraph serve --mcp` with `CODEGRAPH_TELEMETRY=0`. Interactive
-the installer installs CodeGraph with:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh
-```
-
-Existing CodeGraph installations are refreshed with `codegraph upgrade`. Select CodeGraph when repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test analysis is central to the task and likely valuable; use an available index for that question and initialize an absent index only for that concrete qualifying question. Do not select or initialize CodeGraph merely because a task spans files.
+This is intentionally not a custom policy engine or process sandbox. Native
+matching is glob-based: it does not normalize wrappers or compound shell
+commands, and direct MCP permissions cannot inspect arguments. In particular,
+an allowed shell command can bypass native `read` path rules; b-agentic does
+not claim shell-level secret-path protection. The kernel's approval rules and a
+suitable isolated environment remain necessary for untrusted code or sensitive
+data.
 
 ## Managed MCPs
 
-The installer writes recommended entries for CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Mobbin, and shadcn. Servers use lazy lifecycle through the
-adapter's proxy tool, so they are not eagerly started or injected into context.
-The template sets a global `settings.requestTimeoutMs` of 30000 milliseconds
-(30 seconds). API keys are user-supplied and are written only to user config,
-never tracked templates.
+The template configures native OpenCode v2 `mcp.servers` entries for CodeGraph,
+Context7, Brave Search, Firecrawl, Playwright, Mobbin, and shadcn. Code Mode is
+disabled so direct OpenCode MCP tool names use `<server>_<tool>`; the Brave server is named `brave_search` to make
+that convention unambiguous. API credentials are environment placeholders in
+the tracked template and are never collected or written by the installer.
 
-| MCP          | Use                                                                                | Local readiness                                                                                                                                                    |
-| ------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CodeGraph    | Architecture, dependency/call flows, impact, and affected tests                    | `codegraph` CLI; initialize only for a concrete qualifying repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test question |
-| Context7     | Versioned framework and API facts                                                  | `CONTEXT7_API_KEY`                                                                                                                                                 |
-| Firecrawl    | Primary public research, bounded extraction, papers, and GitHub lookup             | Bun (`bunx`) and `FIRECRAWL_API_KEY`                                                                                                                               |
-| Brave Search | Independent corroboration and specialized current search                           | Bun (`bunx`) and `BRAVE_API_KEY`                                                                                                                                   |
-| Playwright   | Live browser, visual, console/network, and e2e evidence                            | Bun (`bunx`)                                                                                                                                                       |
-| Mobbin       | Optional real product UI screens/flows/sections as b-design references             | Paid Mobbin plan plus approval-gated in-session OAuth (`auth-start`); not probed by mcp-doctor                                                                     |
-| shadcn       | Optional real registry items/examples for b-frontend when `components.json` exists | Bun (`bunx`)                                                                                                                                                       |
+| MCP          | Primary use                                                                | Local prerequisite                  |
+| ------------ | -------------------------------------------------------------------------- | ----------------------------------- |
+| CodeGraph    | Repository-wide architecture, dependency/call-flow, impact, affected tests | `codegraph`                         |
+| Context7     | Versioned framework and API documentation                                  | `CONTEXT7_API_KEY`                  |
+| Brave Search | Independent current-web corroboration                                      | `bunx`, `BRAVE_API_KEY`             |
+| Firecrawl    | Bounded public research and extraction                                     | `bunx`, `FIRECRAWL_API_KEY`         |
+| Playwright   | Browser, visual, and e2e evidence                                          | `bunx`                              |
+| Mobbin       | Optional product UI reference research                                     | native OAuth/account when requested |
+| shadcn       | Optional component registry references                                     | `bunx`                              |
 
-The installer does not eagerly start MCP servers or initialize repositories;
-Bun is installed or refreshed automatically, while Bun-backed MCP packages are
-resolved and cached by `bunx` on first use. b-agentic selects CodeGraph when
-repository-wide architecture, dependency/call-flow, route-to-handler, impact,
-or affected-test analysis is central to the task and likely valuable; it uses
-an available index for that question and initializes an absent index only for
-that concrete qualifying question. It does not select or initialize CodeGraph
-merely because a task spans files. b-agentic automatically installs or updates
-RTK, CodeGraph, and Bun; modern shell tools remain user-installed. Use `scripts/mcp-doctor.sh --session-tools` to verify the active
-session has RTK. Use `--allow-degraded` to inspect status without failing.
+The native policy asks for an unknown managed-server tool name and allows only
+listed read-only or intentionally selected conditional tool names. It asks for
+upload, mutation, monitor, and authentication tool names. Some formerly
+conditional operations are allowed by name because native OpenCode cannot
+inspect their arguments. The installer does not use the inert v2 `instructions`
+array; required workflow guidance lives in `AGENTS.md`.
+Configuration never proves authentication, reachability, or use. Run
+`scripts/mcp-doctor.sh` for local config/prerequisite status; it never starts
+or authenticates MCP servers. Add `--allow-degraded` to report blockers without
+a failing exit code.
 
-When live network/process activity is approved,
-`scripts/mcp-doctor.sh --probe-schemas` explicitly starts or connects to each
-configured server and compares its current tool inventory with the canonical
-operation policy. The Playwright MCP server enables testing capabilities
-(`--caps=testing`), providing locator generation (`browser_generate_locator`)
-and state verification tools (`browser_verify_*`). The live probe covers the
-key/launcher-backed managed servers (CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, shadcn); Mobbin is OAuth-backed and verified only
-in-session. User-added servers (such as `serena` or other third-party
-tools) fail closed through generic custom-tool approval with no argument
-validation. Template MCP package specifications are unversioned, so `bunx`
-resolves latest at runtime. The doctor never acquires OAuth tokens. Run it
-after MCP package updates and before release candidates. Add `--suggestions`
-for human-readable review records and `--suggestions-json=<path>` for a
-machine-readable report; suggestion mode never edits policy or configuration.
+## RTK and CodeGraph
 
-## Capability contract and local status
+RTK remains a required session prerequisite and is recommended for every
+supported command family. When RTK does not support a command family, use the
+best available shell tool (`rg`, `fdfind`, `batcat`, `eza`, `sd`, `jq`) or a
+safe fallback. RTK does not bypass the kernel's destructive, protected,
+outside-project, or external/shared boundaries.
 
-The installed [`~/.pi/agent/b-agentic/references/capabilities.yaml`](references/capabilities.yaml)
-contract records activation triggers, prerequisites, local readiness, fallbacks,
-and non-sensitive status signals for every managed package, custom-agent
-profile/settings asset, MCP server, and first-party extension. `/b-status`
-renders a local, read-only snapshot from that contract using only
-package-listing, extension-file, managed-agent-profile/settings-file,
-MCP-config-file existence, and non-sensitive launcher metadata. It does not
-parse `mcp.json` or Pi settings, inspect environment/API-key values, start MCP
-servers, authenticate providers,
-run browser probes, or persist prompts, code, URLs, secrets, or usage telemetry.
-Managed MCP configuration and credentials remain unknown or unverified in this
-snapshot; use `mcp-doctor` or an explicitly approved operation for readiness
-that requires config content or authentication. The snapshot complements
-`mcp-doctor` and approved live/browser evidence rather than replacing them.
-
-## Pi integration and packages
-
-Pi discovers native skills from `~/.pi/agent/skills/` and MCP configuration from
-`~/.pi/agent/mcp.json` through `pi-mcp-adapter`. b-agentic preserves user-owned
-configuration and reports every managed change.
-
-Pi does not provide native MCP. b-agentic installs MCP server entries into
-`~/.pi/agent/mcp.json` and expects the community package `pi-mcp-adapter` to load
-them. The installer runs `pi install npm:pi-mcp-adapter` automatically.
-
-For long-session compaction continuity and cross-session project memory,
-b-agentic can install the optional `@cortexkit/pi-magic-context` package. The
-installer runs `pi install npm:@cortexkit/pi-magic-context` automatically. Use
-it as the sole automatic memory/compaction layer rather than combining it with
-another such extension. It runs its background historian/dreamer work in
-separate child Pi processes, so a worker failure does not take down the main
-session. For richer configuration (embedding + worker model choices), run
-`npx @cortexkit/magic-context@latest setup --harness pi` — that wizard ships as
-the separate `@cortexkit/magic-context` CLI package.
-
-The installer never removes Pi packages. If you previously installed
-`pi-observational-memory`, remove it manually (`pi uninstall
-npm:pi-observational-memory`) so it does not run as a second memory layer.
-
-b-agentic installs the `@sreetej510/pi-usage` extension automatically.
-
-b-agentic installs `@gotgenes/pi-anthropic-auth` automatically for Anthropic authentication support.
-
-b-agentic installs `@juicesharp/rpiv-todo` automatically at the latest release. This Pi package provides the todo tool, `/todos` command, and persistent overlay; the kernel guides lightweight task tracking for non-trivial multi-step work when available, without requiring it for small or routine tasks or imposing workflow orchestration, persistence, or telemetry.
-
-b-agentic installs `pi-subagents` automatically. Its default merged settings
-disable the package's bundled agents and provide four managed custom profiles:
-`b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. Their initial
-`model: "inherit"` setting uses the parent session model. Users can inspect or
-persist per-agent model, thinking, and prompt choices with `/subagents`; those
-settings are Pi-owned and project scope takes precedence over user scope.
-
-b-agentic installs `@juicesharp/rpiv-ask-user-question` at the latest release
-for main-session material decisions and blockers. Questions group 1–4 related
-choices, offer 2–4 concise trade-offs, suffix the first recommended option with
-` (Recommended)`, and rely on the extension's automatic custom-answer row. Do
-not author `Other`, `Type something.`, or `Next`. If the package or interactive
-UI is unavailable, ask one focused plain-text question. After checking `pi
-list`, the installer runs `pi update --extensions` after reconciling required Pi
-packages. Uninstall removes unchanged managed config, custom-agent definitions, and
-extension files but leaves installed packages untouched. Modified or symlinked
-managed custom-agent profiles and child-only guards are preserved rather than
-overwritten or removed.
-
-Pi has no native permission model, so b-agentic installs purpose-specific
-`tool_call` extensions under `~/.pi/agent/extensions/`:
-
-- `b-agentic-permissions.ts` for shell/filesystem policy.
-- `b-agentic-mcp-permissions.ts` for managed MCP and custom-tool approval.
-- `b-agentic-auto-mode.ts` for confirmed automatic approval with explicit-deny protection.
-- `b-agentic-sync.ts` for in-session refresh commands.
-- `b-agentic-status.ts` for local, read-only capability status.
-- `b-agentic-preview-markdown.ts` for inline Markdown previews.
-
-Helpers under `pi/extensions/b-agentic-support/` are not discovered as
-standalone Pi extensions. Pi enforces managed MCP and RTK policy from
-`references/mcp_operations.yaml` and `references/kernel.template.md`.
-
-## Installed configuration layout
-
-See [Pi Configuration Layout](pi/configs/README.md) for the installed path
-map and managed-versus-user-owned boundary. This reference owns the lifecycle
-that acts on those paths: merge, preservation, backup, restore, and uninstall
-behavior is documented in the installation and package sections above and
-below.
-
-Installers merge MCP configuration rather than replace it: unrelated user
-servers survive, prompted secrets use a private input pipe, and API-key
-placeholders remain in the tracked template. On normal install/upgrade and
-`--update` (not `--sync`), b-agentic shallow-clones the Dracula Pi theme
-repository, validates `dracula.json`, copies it to the theme cache, and links
-`~/.pi/agent/themes/dracula.json` to that cached copy without changing Pi theme
-settings or selection. User files and unrelated symlinks at the theme destination
-are preserved with a warning. Uninstall removes only unchanged managed content
-and symlinks, restores recorded user backups, preserves modified or
-symlinked files, and never removes installed packages, including `@gotgenes/pi-anthropic-auth` and `@juicesharp/rpiv-todo`.
-
-## Single-session delegation
-
-b-agentic has one main session. It owns user-facing discussion, material
-decisions, worktree changes, verification, commits, and final reporting. It
-never selects a role or coordinates with a peer session.
-
-When routing selects `b-plan`, `b-research`, `b-debug`, `b-review`, or
-`b-agentic-audit`, the main session launches its named pi-subagents profile
-as a background child (`async: true`) with a bounded task and waits for the
-native completion result: `b-planner`, `b-researcher`, `b-debugger`, or
-`b-reviewer`. Background launch is required because foreground children never
-load the ambient extensions providing the managed `mcp` and `recall` tools.
-A returned plan, report, diagnosis, or review is evidence only. It is not user approval, implementation
-authorization, or permission to commit.
-
-Managed profiles inherit project and global context but are read-only and
-non-nested. They do not edit, stage, commit, run generators or fixers, ask the
-user questions, inspect peer sessions, or use Intercom. A managed child-only
-guard blocks Bash, mutating native/orchestration tools, direct MCP tools, and
-unclassified MCP gateway calls; only classified read-only or safe
-conditional-read gateway operations remain available. The main session evaluates
-each result and performs every next user-facing or mutating action.
-
-Every completed task leaving tracked or relevant untracked/derived candidate
-content requires independent `b-reviewer` review before normal completion. The
-main session runs required checks, freezes the exact candidate, requests review,
-and pauses edits. A changed snapshot, a missing/skipped/failed required check,
-`NEEDS FIXES`, or an unaccepted follow-up blocks readiness; corrections require
-fresh verification and a newly frozen review candidate. No-change tasks,
-including PR prose, do not use the changed-code gate. Review never commits,
-pushes, or accepts work automatically.
-
-For explicit user-authorized commits, `b-commit` completes repository-required
-preparation—including changelog work where required—before freezing the final
-candidate and commit plan. It stages only unchanged reviewed paths and does not
-ask for a second approval or push.
-
-## In-session refresh
-
-`/b-sync` confirms, pulls the installed b-agentic checkout, and syncs only
-managed Pi skills, kernel, and first-party extensions before reloading Pi. It
-does not install packages or change MCP configuration. `/b-update` runs without
-an additional confirmation and updates RTK, CodeGraph, Bun, and Pi extensions without pulling b-agentic;
-Bun-backed MCP packages are resolved by `bunx` on first use. It then reloads Pi.
-Both commands require an interactive session and take no arguments.
-
-## Safety and approvals
-
-The permission extension:
-
-- auto-allows regular repository-local commands, including routine build, test, package, dependency, and script automation
-- asks before external/shared mutations, dangerous-but-approvable actions, protected reads, and unclassified or unsafe MCP operations
-- blocks prohibited destructive Git and Docker families and protected native writes/edits
-- inspects compound shell segments and strips `env`/`sudo`/`rtk` wrappers and `git -C` option prefixes before matching
-- fails closed for ambiguous expansion, opaque interpreters, outside-project executables, protected paths, and approval-required actions without UI; b-auto-mode is the only opt-in exception for `ask` decisions and never overrides `deny`
-- auto-allows classified CodeGraph operations, plus classified read-only and safe conditional-read MCP operations; other custom tools require approval
-
-This is a command-policy guard, not a process sandbox: approved build and test
-tools may execute repository-controlled code. Use Pi sandboxing or an isolated
-environment for genuinely untrusted code. b-agentic never pushes changes.
-
-Native `read`/`edit`/`write` is preferred for routine repository work. Select
-CodeGraph when repository-wide architecture, dependency/call-flow,
-route-to-handler, impact, or affected-test analysis is central to the task and
-likely valuable. Use an available index for that question and initialize an
-absent index only for that concrete qualifying question; do not initialize it
-merely because work spans files.
-
-## Repository quality checks
-
-Repository-development tooling is separate from the installed runtime. From the
-repository root, install the locked Node tools and pinned Python quality tools:
-
-```bash
-npm ci --no-fund --no-audit
-python3 -m pip install -r requirements-dev-quality.txt
-npm ci --prefix pi --no-fund --no-audit
-```
-
-`npm run quality` (or `bash scripts/quality-check.sh`) enumerates tracked files
-with `git ls-files` and runs check-only ESLint, Prettier, Ruff lint and format
-checks, ShellCheck, Markdownlint, and strict Pi TypeScript checks. It never
-rewrites files. The tracked `.husky/pre-commit` hook is enabled by `npm ci`'s
-`prepare` script and uses lint-staged to run the same applicable checks only on
-staged files; it does not run the behavioral or installer suite and does not
-rewrite the commit.
-
-The quality check intentionally leaves generator-owned delivery outputs and the
-JSON-compatible YAML registries to their existing synchronization and structural
-validators. CI runs the complete quality check on Ubuntu and macOS before the
-release validation and b-agentic audit lanes.
+Use CodeGraph only when repository-wide architecture, dependency/call flow,
+route-to-handler, impact, or affected-test analysis is central. Use an existing
+index, or initialize an absent index only for that concrete question.
 
 ## Validation
 
-Run the narrowest applicable checks from the repository root:
+From the repository root:
 
 ```bash
 python3 tooling/generate/registry_sync.py --check
 scripts/validate-skills.sh
 scripts/validate-skills.sh --release
+npm run quality
 scripts/b-agentic-audit.sh
 scripts/smoke-install.sh
-scripts/mcp-doctor.sh
 scripts/mcp-doctor.sh --allow-degraded
 scripts/skill-doctor.sh
 ```
 
-The validation suite proves generated sync, install safety, Pi config shape,
-skill payloads, MCP operation policy regression, and local MCP readiness
-blockers. The default routing check is static. The opt-in `--routing`
-effectiveness lane and prompt-effectiveness runner make model calls and require
-human review against their included rubrics.
-
-Prompt effectiveness is opt-in and human-scored because it makes potentially
-billable model calls and is nondeterministic. Validate inputs without model
-calls, then pin provider, model, and thinking level for comparisons:
-
-```bash
-python3 pi/tests/prompt_effectiveness.py --validate-inputs
-python3 pi/tests/prompt_effectiveness.py --allow-model-calls --provider=<provider> --model=<model> --thinking=<level> --label=baseline > baseline.json
-python3 pi/tests/prompt_effectiveness.py --routing --validate-inputs
-python3 pi/tests/prompt_effectiveness.py --routing --allow-model-calls --provider=<provider> --model=<model> --thinking=<level> --label=baseline-routing > baseline-routing.json
-```
-
-Browser evidence is opt-in. When requested, b-browser writes only under an
-explicitly approved local evidence directory and never claims screenshot
-coverage unless a screenshot was collected. Live MCP schema probing is also
-opt-in because it starts processes and network activity.
+The validation suite checks generated assets, kernel budget, routing behavior,
+capability and MCP contracts, decision-record citations, static readiness, and
+installer lifecycle. Release validation adds sandboxed install smoke coverage.
+`npm run quality` runs check-only formatting and language checks; it never
+rewrites files. The changed candidate is frozen after checks, then independently
+reviewed before normal completion.
 
 ## Repository map
 
-- `skills/` — canonical prompts, registry metadata, and generated skill assets.
-- `pi/` — Pi integration, configuration, extensions, and Pi smoke tests.
-- `references/` — kernel and canonical MCP policy.
-- `tooling/generate/` — registry synchronization and renderers.
-- `tooling/install/` — shared installer implementation.
-- `tooling/validate/` — validation harness.
-- `tests/smoke/` — installer and Pi smoke coverage.
+- `skills/` — canonical prompts, registry metadata, and generated skills.
+- `opencode/` — native agents, generated commands, configuration, installer, and validation.
+- `references/` — kernel, capability registry, and MCP policy.
+- `tooling/generate/` — synchronization renderer.
+- `tooling/install/` — merge, backup, uninstall, and manifest helpers.
+- `tooling/validate/` — static validation and readiness tools.
+- `tests/smoke/` — sandboxed installer coverage.
 - `scripts/` — validation, doctor, smoke, and acceptance entrypoints.
-- `docs/decision_design.md` — evidence-backed repository decisions.

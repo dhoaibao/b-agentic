@@ -1,9 +1,10 @@
 # Dependency trees are never repository source.
 node_modules/
-pi/node_modules/
 
 # Generated delivery outputs are checked by registry synchronization instead.
 skills/*/SKILL.md
+opencode/commands/*.md
+opencode/configs/opencode.user.template.json
 
 # These sources contain or feed generated blocks; registry synchronization owns
 # their delivery formatting.

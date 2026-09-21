@@ -1,158 +1,33 @@
 #!/usr/bin/env python3
-"""Check the active session has RTK support required by b-agentic."""
+"""Check the active OpenCode session has the RTK prerequisite b-agentic uses."""
 
 from __future__ import annotations
 
 import argparse
-import re
 import shutil
-import subprocess
 import sys
-from collections.abc import Callable
-from pathlib import Path
 
-REQUIRED_TOOLS: tuple[tuple[str, tuple[str, ...]], ...] = (("rtk", ("rtk",)),)
-REMEDIATION = (
-    "Install the missing prerequisites, then restart the runtime session; see the kernel's Shell commands section."
-)
-ROOT = Path(__file__).resolve().parents[2]
-RTK_POLICY = ROOT / "pi" / "extensions" / "b-agentic-support" / "shell.ts"
-# RTK commands that operate on RTK itself or generic command streams rather
-# than proxying a same-named native command family. New commands must be
-# reviewed and added to RTK_REQUIRED_COMMANDS. RTK-supported families are mandatory.
-RTK_NON_NATIVE_COMMANDS = {
-    "read",
-    "smart",
-    "err",
-    "test",
-    "json",
-    "deps",
-    "env",
-    "summary",
-    "log",
-    "gain",
-    "cc-economics",
-    "config",
-    "init",
-    "discover",
-    "session",
-    "telemetry",
-    "learn",
-    "run",
-    "proxy",
-    "pipe",
-    "trust",
-    "untrust",
-    "verify",
-    "hook-audit",
-    "rewrite",
-    "hook",
-    "help",
-}
+REMEDIATION = "Install RTK, then restart the OpenCode session; see the kernel's Shell commands section."
 
 
-def _parse_rtk_command_set(text: str, const_name: str) -> set[str]:
-    match = re.search(rf"const {const_name} = new Set\(\[(.*?)\]\);", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"{const_name} is missing or unparsable")
-    return set(re.findall(r'"([^"]+)"', match.group(1)))
-
-
-def configured_rtk_families(path: Path = RTK_POLICY) -> set[str]:
-    text = path.read_text()
-    required = _parse_rtk_command_set(text, "RTK_REQUIRED_COMMANDS")
-    optional = _parse_rtk_command_set(text, "RTK_OPTIONAL_COMMANDS")
-    return required | optional
-
-
-def required_rtk_families(path: Path = RTK_POLICY) -> set[str]:
-    return _parse_rtk_command_set(path.read_text(), "RTK_REQUIRED_COMMANDS")
-
-
-def available_rtk_families(help_text: str) -> set[str]:
-    return set(re.findall(r"^  ([a-z][a-z0-9-]*)\s{2,}", help_text, re.MULTILINE))
-
-
-def check_rtk_policy() -> tuple[bool, str]:
-    try:
-        completed = subprocess.run(["rtk", "--help"], capture_output=True, text=True)
-        if completed.returncode:
-            return False, "blocked: rtk --help failed; cannot verify command-policy compatibility"
-        configured = configured_rtk_families()
-        required = required_rtk_families()
-    except (OSError, ValueError) as exc:
-        return False, f"blocked: cannot verify RTK command policy: {exc}"
-    available = available_rtk_families(completed.stdout)
-    missing = sorted(required - available)
-    uncovered = sorted(available - configured - RTK_NON_NATIVE_COMMANDS)
-    if missing:
-        return False, f"blocked: RTK command-policy drift; required families unavailable: {', '.join(missing)}"
-    if uncovered:
-        return False, f"blocked: RTK command-policy drift; unclassified families: {', '.join(uncovered)}"
-    return True, "RTK command policy compatible"
-
-
-def missing_tools(which: Callable[[str], str | None] = shutil.which) -> list[str]:
-    return [label for label, commands in REQUIRED_TOOLS if not any(which(command) for command in commands)]
-
-
-def check_session_tools(
-    which: Callable[[str], str | None] = shutil.which,
-    *,
-    verify_rtk_policy: bool = True,
-) -> tuple[bool, str]:
-    missing = missing_tools(which)
-    if missing:
-        return False, f"blocked: missing {', '.join(missing)}. {REMEDIATION}"
-    if verify_rtk_policy:
-        compatible, detail = check_rtk_policy()
-        if not compatible:
-            return False, detail
-        return True, f"ready: rtk available; {detail}"
+def check_session_tools(which=shutil.which) -> tuple[bool, str]:
+    if which("rtk") is None:
+        return False, f"blocked: missing rtk. {REMEDIATION}"
     return True, "ready: rtk available"
 
 
-def self_test() -> int:
-    available = {command for _, commands in REQUIRED_TOOLS for command in commands}
-    ok, _ = check_session_tools(
-        lambda command: command if command in available else None,
-        verify_rtk_policy=False,
-    )
-    if not ok:
-        print("complete-tool fixture unexpectedly failed", file=sys.stderr)
-        return 1
-    ok, detail = check_session_tools(
-        lambda command: command if command in available - {"rtk"} else None,
-        verify_rtk_policy=False,
-    )
-    if ok or "rtk" not in detail or REMEDIATION not in detail:
-        print("missing-tool fixture unexpectedly passed", file=sys.stderr)
-        return 1
-    parsed = available_rtk_families("Commands:\n  git            Git commands\n  pytest         Pytest commands\n")
-    if parsed != {"git", "pytest"}:
-        print("RTK help fixture unexpectedly failed", file=sys.stderr)
-        return 1
-    configured = configured_rtk_families()
-    required = required_rtk_families()
-    if {"git", "pytest"} - required:
-        print("required RTK family fixture unexpectedly failed", file=sys.stderr)
-        return 1
-    if not ({"ls", "rg"} <= required):
-        print("RTK discovery family fixture unexpectedly failed", file=sys.stderr)
-        return 1
-    if not ({"new-native-family"} - configured - RTK_NON_NATIVE_COMMANDS):
-        print("unclassified RTK family fixture unexpectedly passed", file=sys.stderr)
-        return 1
-    print("Session tool readiness self-test passed.")
-    return 0
-
-
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check shell-tool readiness for the active b-agentic session.")
-    parser.add_argument("--self-test", action="store_true", help="Run complete-tool and missing-tool fixtures.")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
-        return self_test()
+        ready, _ = check_session_tools(lambda tool: tool if tool == "rtk" else None)
+        missing, detail = check_session_tools(lambda _tool: None)
+        if not ready or missing or "missing rtk" not in detail:
+            print("Session tool readiness self-test failed.", file=sys.stderr)
+            return 1
+        print("Session tool readiness self-test passed.")
+        return 0
     ready, detail = check_session_tools()
     print(f"session-tools: {detail}")
     return 0 if ready else 1

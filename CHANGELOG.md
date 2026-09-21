@@ -6,6 +6,66 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.21] - 2026-09-21
+
+### Added
+
+- Native OpenCode v2 runtime: global kernel at `~/.config/opencode/AGENTS.md`,
+  15 skills under `skills/`, 15 generated `/b-*` commands under `commands/`,
+  and four read-only `mode: subagent` specialist profiles under `agents/`.
+- Ordered v2 `permissions` rules: last-match-wins with managed defaults before
+  user rules, explicit denies for destructive git commands and secret paths
+  (`.env`, `*.pem`, `*credentials.*`, `*secrets.*` at root and nested), and
+  `ask` for external-directory access and mutating MCP tools.
+- Native `mcp.servers` configuration for CodeGraph, Context7, Brave Search,
+  Firecrawl, Playwright, Mobbin, and shadcn with Code Mode disabled so direct
+  `<server>_<tool>` names apply.
+- `opencode/scripts/install.sh` and `opencode/scripts/validate.sh` for the
+  OpenCode runtime tree, plus `tests/smoke/install.sh` covering install,
+  merge, sync, uninstall, JSONC, permission ordering, and error paths.
+- `tooling/install/json_cleanup.py` for inverse-merge config removal and
+  `tooling/install/manifest_uninstall.py` for manifest-only uninstall.
+
+### Changed
+
+- Hard cut from Pi to native OpenCode v2: `install.sh` now uses
+  `curl -fsSL https://opencode.ai/v2/install | bash` and writes only to
+  `~/.config/opencode`; legacy Pi installs are detected but never modified.
+- `skills/registry.yaml` and `skills/*/prompt.md` are retargeted to native
+  OpenCode semantics (`skill` tool, `subagent` delegation, `question`,
+  `todowrite`, direct MCP tool names); `references/kernel.template.md` is
+  regenerated with OpenCode-native wording.
+- `tooling/generate/registry_sync.py` renders OpenCode commands, agents,
+  and the `opencode.user.template.json` permission set from canonical
+  `references/mcp_operations.yaml`.
+- `tooling/install/common.sh` merges `opencode.json`/`opencode.jsonc` with
+  user-owned arrays preserved and managed `permissions` prepended so user
+  rules stay last and authoritative.
+- `tooling/validate/*` and `opencode/scripts/validate.sh` assert v2 config
+  shape, permission ordering, agent deny rules, MCP server set, and
+  Code Mode off.
+
+### Removed
+
+- Entire `pi/` runtime tree: extensions, packages, configs, scripts, tests,
+  and the `preview-markdown` package (moved to its own repository).
+- `eslint.config.mjs`, `pi/package-lock.json`, and all Pi-specific CI steps.
+- `tests/smoke/lib.sh` (superseded by the self-contained
+  `tests/smoke/install.sh`).
+
+### Fixed
+
+- `--sync` now refreshes references, templates, and the install manifest
+  (previously skipped).
+- Source-present `--uninstall` removes unmodified managed skills and
+  preserves modified assets and metadata.
+- `merge_json_file` preserves user MCP launch arrays and non-array
+  `permissions` values with an explicit warning.
+- `remove_merged_config` deletes an emptied `opencode.json` and preserves
+  metadata when the recorded backup is missing.
+- Bootstrap `--ref`/`B_AGENTIC_REPO` inputs are validated before reaching
+  Git.
+
 ## [v2026.09.20] - 2026-09-20
 
 ### Added

@@ -7,6 +7,10 @@ description: >
   review, plan review, or research synthesis review. Routing signals: code
   review, review diff, review my diff, review changes, review these
   changes, working tree diff, pre-PR, "what would an architect".
+metadata:
+  phase: Validate
+  execution_mode: subagent
+  agent: b-reviewer
 ---
 
 <!-- Generated from skills/registry.yaml and skills/b-review/prompt.md. Edit those sources, not this file. -->
@@ -29,7 +33,7 @@ Independently review a frozen changed-code candidate for blockers, regressions, 
 
 ## Tool guidance
 
-- Use the main session's frozen snapshot, metadata-only path list, targeted safe diff evidence, and Pi native `read`. The child guard blocks Bash; if the handoff lacks the necessary candidate evidence, report that gap rather than collecting it. Select CodeGraph only for a central repository-wide review question; bounded specialized Brave tools may substantiate public semantics.
+- Use the main session's frozen snapshot, metadata-only path list, targeted safe diff evidence, and native `read`. This subagent's permission denies Bash; if the handoff lacks necessary candidate evidence, report that gap rather than collecting it. Select CodeGraph only for a central repository-wide review question; bounded specialized Brave tools may substantiate public semantics.
 
 ## Steps
 

@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
+"""Check locally installed native OpenCode b-agentic skill discovery readiness."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
-PI_SKILLS_ROOT = ".pi/agent/skills"
-PI_METADATA_ROOT = ".pi/agent/b-agentic"
-PI_KERNEL = ".pi/agent/AGENTS.md"
 
 
 def registry_skill_names() -> list[str]:
@@ -42,15 +40,15 @@ def payload_status(installed: list[str], expected: list[str]) -> str:
     return "missing or mismatched: " + "; ".join(details or ["no skills installed"])
 
 
-def stale_assets(home: Path, skills: list[str]) -> list[str]:
+def stale_assets(opencode_root: Path, skills: list[str]) -> list[str]:
     stale = []
     for name in skills:
         source = ROOT / "skills" / name / "SKILL.md"
-        installed = home / PI_SKILLS_ROOT / name / "SKILL.md"
+        installed = opencode_root / "skills" / name / "SKILL.md"
         if source.exists() and installed.exists() and source.read_bytes() != installed.read_bytes():
             stale.append(f"skill {name}")
     source_kernel = ROOT / "references" / "kernel.template.md"
-    installed_kernel = home / PI_KERNEL
+    installed_kernel = opencode_root / "AGENTS.md"
     if (
         source_kernel.exists()
         and installed_kernel.exists()
@@ -61,21 +59,30 @@ def stale_assets(home: Path, skills: list[str]) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check installed b-agentic Pi skill discovery readiness.")
+    parser = argparse.ArgumentParser(description="Check installed b-agentic OpenCode skill discovery readiness.")
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
+    parser.add_argument("--config-dir", help="Inspect this explicit OpenCode configuration directory.")
     args = parser.parse_args()
 
     home = Path(args.home).expanduser()
-    skills_root = home / PI_SKILLS_ROOT
-    metadata_root = home / PI_METADATA_ROOT
-    kernel = home / PI_KERNEL
+    configured_dir = args.config_dir or os.environ.get("B_AGENTIC_OPENCODE_DIR")
+    configured_file = os.environ.get("B_AGENTIC_OPENCODE_CONFIG")
+    if configured_dir:
+        opencode_root = Path(configured_dir).expanduser()
+    elif configured_file:
+        opencode_root = Path(configured_file).expanduser().parent
+    else:
+        opencode_root = home / ".config" / "opencode"
+    skills_root = opencode_root / "skills"
+    metadata_root = opencode_root / "b-agentic"
+    kernel = opencode_root / "AGENTS.md"
     expected = registry_skill_names()
     installed = installed_skill_names(skills_root)
     skills = payload_status(installed, expected)
-    stale = stale_assets(home, expected)
+    stale = stale_assets(opencode_root, expected)
     ready = kernel.exists() and skills.startswith("ready") and not stale
 
-    print("agent: Pi")
+    print("agent: OpenCode")
     print(f"expected-skills: {len(expected)}")
     print(f"kernel-path: {kernel}")
     print(f"skill-path: {skills_root / 'b-plan' / 'SKILL.md'}")

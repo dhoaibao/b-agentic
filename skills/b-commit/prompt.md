@@ -16,7 +16,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Tool guidance
 
-- Pi native `read`/`edit` for applicable repository commit rules and required changelog preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
+- Native `read`/`edit` for applicable repository commit rules and required changelog preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
 
 ## Review and commit gate
 

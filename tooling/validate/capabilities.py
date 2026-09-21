@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the canonical managed-capability contract and generated runtime copy."""
+"""Validate the slim native OpenCode capability registry and rendered config."""
 
 from __future__ import annotations
 
@@ -8,41 +8,39 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT))
 
 
 def main() -> int:
     from tooling.generate.registry_sync import (
-        CAPABILITIES_OUTPUT_PATH,
+        OPENCODE_TEMPLATE_PATH,
         load_capabilities,
-        render_capability_module,
+        load_policy,
+        render_opencode_template,
         validate_capabilities,
-        validate_capability_regressions,
     )
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--self-test",
-        action="store_true",
-        help="also verify deterministic contract-validation regressions",
-    )
+    parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
-
-    contract = load_capabilities()
-    errors = validate_capabilities(contract)
+    capabilities = load_capabilities()
+    policy = load_policy()
+    errors = validate_capabilities(capabilities, policy)
+    expected = render_opencode_template(policy)
+    if not OPENCODE_TEMPLATE_PATH.exists():
+        errors.append(f"{OPENCODE_TEMPLATE_PATH}: missing generated OpenCode config template")
+    elif OPENCODE_TEMPLATE_PATH.read_text() != expected:
+        errors.append(f"{OPENCODE_TEMPLATE_PATH}: generated OpenCode config template is out of date")
     if args.self_test:
-        errors.extend(validate_capability_regressions(contract))
-    generated = render_capability_module(contract)
-    if not CAPABILITIES_OUTPUT_PATH.exists():
-        errors.append(f"{CAPABILITIES_OUTPUT_PATH}: missing generated capability module")
-    elif CAPABILITIES_OUTPUT_PATH.read_text() != generated:
-        errors.append(f"{CAPABILITIES_OUTPUT_PATH}: generated capability module is out of date")
-
+        ids = [item.get("id") for item in capabilities.get("capabilities", [])]
+        if len(ids) != len(set(ids)):
+            errors.append("capability registry contains duplicate IDs")
+        if any(item.get("kind") not in {"mcp", "agent"} for item in capabilities.get("capabilities", [])):
+            errors.append("capability registry contains a retired non-native kind")
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Capability contract validation passed.")
+    print("Native OpenCode capability contract validation passed.")
     return 0
 
 

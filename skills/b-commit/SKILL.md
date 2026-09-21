@@ -4,6 +4,9 @@ description: >
   Analyze tracked, staged, and untracked working-tree changes; select
   cohesive commits after an explicit user request, then stage and create
   them on the current branch without a second approval prompt or pushing.
+metadata:
+  phase: Ship
+  execution_mode: main
 ---
 
 <!-- Generated from skills/registry.yaml and skills/b-commit/prompt.md. Edit those sources, not this file. -->
@@ -26,7 +29,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Tool guidance
 
-- Pi native `read`/`edit` for applicable repository commit rules and required changelog preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
+- Native `read`/`edit` for applicable repository commit rules and required changelog preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
 
 ## Review and commit gate
 

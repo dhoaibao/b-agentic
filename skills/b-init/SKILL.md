@@ -7,6 +7,9 @@ description: >
   content, and keeps the output slim. Routing signals: /init, init agent
   docs, initialize agent docs, create AGENTS.md, create CLAUDE.md, refresh
   AGENTS.md, refresh agent docs.
+metadata:
+  phase: Build
+  execution_mode: main
 ---
 
 <!-- Generated from skills/registry.yaml and skills/b-init/prompt.md. Edit those sources, not this file. -->

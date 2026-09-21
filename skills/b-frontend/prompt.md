@@ -19,7 +19,7 @@ Implement clearly scoped frontend/UI code, visual refreshes, landing pages, and 
 
 - Use native repository reads and edits plus the existing project commands. Inspect the package manifest and relevant lockfile before adding imports; do not assume React, Tailwind, GSAP, an icon library, or any other framework/library.
 - Use the repository's existing tokens, components, assets, content, and `docs/DESIGN.md` when present as the visual authority. Do not generate or fetch external assets as a prerequisite; use real repo assets/data only.
-- `shadcn` - optional real registry lookup, only when the project already has a shadcn stack (`components.json` present). Use classified read-only `mcp` gateway calls one at a time: `shadcn_get_project_registries`, then `shadcn_search_items_in_registries` / `shadcn_view_items_in_registries` / `shadcn_get_item_examples_from_registries` to find real registry components and usage before hand-rolling. The MCP never installs anything; adding a component goes through the project's package runner in shell with manifest review.
+- `shadcn_*` - optional native registry lookup, only when the project already has a shadcn stack (`components.json` present). Use read-only tools one at a time to find real registry components and usage before hand-rolling. The MCP never installs anything; adding a component goes through the project's package runner in shell with manifest review.
 
 ## Steps
 

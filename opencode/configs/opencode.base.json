@@ -1,0 +1,75 @@
+{
+  "experimental": {
+    "subagent_depth": 1
+  },
+  "mcp": {
+    "servers": {
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp",
+        "headers": { "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}" },
+        "disabled": false,
+        "codemode": false,
+        "timeout": { "startup": 30000, "catalog": 30000 }
+      },
+      "codegraph": {
+        "type": "local",
+        "command": ["codegraph", "serve", "--mcp"],
+        "environment": { "CODEGRAPH_TELEMETRY": "0" },
+        "disabled": false,
+        "codemode": false,
+        "timeout": { "startup": 30000, "catalog": 30000 }
+      },
+      "brave_search": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@brave/brave-search-mcp-server",
+          "--transport",
+          "stdio"
+        ],
+        "environment": { "BRAVE_API_KEY": "{env:BRAVE_API_KEY}" },
+        "disabled": false,
+        "codemode": false,
+        "timeout": { "startup": 30000, "catalog": 30000 }
+      },
+      "firecrawl": {
+        "type": "local",
+        "command": ["bunx", "firecrawl-mcp"],
+        "environment": { "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}" },
+        "disabled": false,
+        "codemode": false,
+        "timeout": { "startup": 30000, "catalog": 30000 }
+      },
+      "playwright": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@playwright/mcp",
+          "--isolated",
+          "--headless",
+          "--caps=testing"
+        ],
+        "environment": {},
+        "disabled": false,
+        "codemode": false,
+        "timeout": { "startup": 30000, "catalog": 30000 }
+      },
+      "mobbin": {
+        "type": "remote",
+        "url": "https://api.mobbin.com/mcp",
+        "disabled": false,
+        "codemode": false,
+        "timeout": { "startup": 30000, "catalog": 30000 }
+      },
+      "shadcn": {
+        "type": "local",
+        "command": ["bunx", "shadcn@latest", "mcp"],
+        "environment": {},
+        "disabled": false,
+        "codemode": false,
+        "timeout": { "startup": 30000, "catalog": 30000 }
+      }
+    }
+  }
+}
