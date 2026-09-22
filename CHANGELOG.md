@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.22] - 2026-09-22
+
+### Changed
+
+- Adopted native OpenCode v2 permission resource patterns: the managed
+  `subagent` rule now allows `b-*` specialists while asking before any other
+  agent, and kernel/reference prose was corrected to reflect that `resource`
+  patterns match tool inputs (shell commands, file paths, subagent names)
+  while MCP tool arguments remain unpatterned.
+- Removed the dead V1 `compaction.prune` field from the managed base config;
+  `compaction.auto` stays off so the magic-context plugin owns compaction.
+- Managed specialist agents now pin models in frontmatter: `b-researcher`
+  uses `hdwebsoft/gemini-3.8-flash-high` for cheaper lookups, while
+  `b-planner`, `b-debugger`, and `b-reviewer` use `hdwebsoft/swe-2-high`.
+
 ## [v2026.09.21] - 2026-09-21
 
 ### Added

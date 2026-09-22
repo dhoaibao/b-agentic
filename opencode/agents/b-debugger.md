@@ -1,6 +1,7 @@
 ---
 description: Diagnose a runtime problem without changing product code.
 mode: subagent
+model: hdwebsoft/swe-2-high
 permissions:
   - action: edit
     resource: "*"

@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Canonical native OpenCode v2 MCP operation classification. Ordered native permissions apply directly to <server>_<tool> names with Code Mode disabled and cannot validate arguments.",
+  "description": "Canonical native OpenCode v2 MCP operation classification. Ordered native permissions apply directly to <server>_<tool> names with Code Mode disabled; MCP tool arguments are not pattern-matched.",
   "classes": {
     "read-only": {"policy": "Auto-allowed by tool name", "native_permission": "allow", "notes": "Observation-only MCP operation."},
-    "conditional-read": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly argument-validated; native OpenCode cannot inspect arguments."},
-    "conditional-local": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly repository-scoped; native OpenCode cannot inspect arguments."},
+    "conditional-read": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly argument-validated; MCP tool arguments are not pattern-matched."},
+    "conditional-local": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly repository-scoped; MCP tool arguments are not pattern-matched."},
     "local-upload": {"policy": "Approval required", "native_permission": "ask", "notes": "May read a local file for remote use."},
     "external-mutation": {"policy": "Approval required", "native_permission": "ask", "notes": "May mutate remote or browser state."},
     "monitor-lifecycle": {"policy": "Approval required", "native_permission": "ask", "notes": "Creates, changes, or runs a monitor."},

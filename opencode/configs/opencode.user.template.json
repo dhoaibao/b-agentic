@@ -6,8 +6,7 @@
     "@cortexkit/opencode-magic-context"
   ],
   "compaction": {
-    "auto": false,
-    "prune": false
+    "auto": false
   },
   "mcp": {
     "servers": {
@@ -378,6 +377,11 @@
     {
       "action": "subagent",
       "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "subagent",
+      "resource": "b-*",
       "effect": "allow"
     },
     {

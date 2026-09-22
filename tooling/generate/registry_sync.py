@@ -422,7 +422,8 @@ def render_permissions(policy: dict[str, Any]) -> list[dict[str, str]]:
     rules.extend(
         [
             permission_rule("external_directory", "*", "ask"),
-            permission_rule("subagent", "*", "allow"),
+            permission_rule("subagent", "*", "ask"),
+            permission_rule("subagent", "b-*", "allow"),
             permission_rule("skill", "*", "allow"),
             permission_rule("question", "*", "allow"),
             permission_rule("todowrite", "*", "allow"),

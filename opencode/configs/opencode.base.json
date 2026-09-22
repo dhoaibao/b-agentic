@@ -4,8 +4,7 @@
   },
   "plugins": ["@cortexkit/opencode-magic-context"],
   "compaction": {
-    "auto": false,
-    "prune": false
+    "auto": false
   },
   "mcp": {
     "servers": {

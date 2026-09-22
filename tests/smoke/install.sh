@@ -116,7 +116,7 @@ assert_file "$sandbox/home/.config/opencode/agents/b-planner.md"
 assert_file "$sandbox/home/.config/opencode/commands/b-plan.md"
 assert_file "$metadata/install.json"
 assert_json "$metadata/install.json" "data['runtime'] == 'opencode'"
-assert_json "$config" "data['custom'] is True and data['mcp']['servers']['user_server']['url'] == 'https://example.invalid/mcp' and data['mcp']['servers']['context7']['type'] == 'remote' and data['experimental']['subagent_depth'] == 1 and data['plugins'] == ['@cortexkit/opencode-magic-context'] and data['compaction'] == {'auto': False, 'prune': False}"
+assert_json "$config" "data['custom'] is True and data['mcp']['servers']['user_server']['url'] == 'https://example.invalid/mcp' and data['mcp']['servers']['context7']['type'] == 'remote' and data['experimental']['subagent_depth'] == 1 and data['plugins'] == ['@cortexkit/opencode-magic-context'] and data['compaction'] == {'auto': False}"
 assert_json "$config" "all(any(rule == {'action': 'read', 'resource': path, 'effect': 'deny'} for rule in data['permissions']) for path in ('*credentials.*', '**/*credentials.*', '*secrets.*', '**/*secrets.*')) and any(rule == {'action': 'edit', 'resource': '*', 'effect': 'allow'} for rule in data['permissions']) and any(rule == {'action': 'shell', 'resource': 'git push*', 'effect': 'deny'} for rule in data['permissions']) and any(rule == {'action': 'firecrawl_*', 'resource': '*', 'effect': 'ask'} for rule in data['permissions']) and any(rule == {'action': 'context7_resolve_library_id', 'resource': '*', 'effect': 'allow'} for rule in data['permissions']) and all(data['mcp']['servers'][name]['timeout'] == {'startup': 30000, 'catalog': 30000} for name in ('codegraph', 'context7', 'brave_search', 'firecrawl', 'playwright', 'mobbin', 'shadcn'))"
 python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --config "$config" --allow-degraded >"$sandbox/doctor.log"
 assert_contains "$sandbox/doctor.log" "config: $config"
@@ -172,7 +172,7 @@ make_bin "$plugins/bin"
 printf '%s\n' '{"plugins": ["user-plugin"], "compaction": {"keep": {"tokens": 30000}}}' >"$plugins/home/.config/opencode/opencode.json"
 run_install "$plugins" >"$plugins/install.log" 2>&1
 plugins_config="$plugins/home/.config/opencode/opencode.json"
-assert_json "$plugins_config" "data['plugins'] == ['@cortexkit/opencode-magic-context', 'user-plugin'] and data['compaction'] == {'keep': {'tokens': 30000}, 'auto': False, 'prune': False}"
+assert_json "$plugins_config" "data['plugins'] == ['@cortexkit/opencode-magic-context', 'user-plugin'] and data['compaction'] == {'keep': {'tokens': 30000}, 'auto': False}"
 run_install "$plugins" --uninstall >"$plugins/uninstall.log" 2>&1
 assert_json "$plugins_config" "data == {'plugins': ['user-plugin'], 'compaction': {'keep': {'tokens': 30000}}}"
 

@@ -24,7 +24,7 @@ warns and still installs its local assets; install OpenCode manually, then rerun
 `--update`. It installs the global kernel, generated skills, specialist agents, generated commands,
 references, templates, snapshots, and manifest. It merges the managed
 recommendations — `mcp.servers`, ordered `permissions`, `plugins`
-(`@cortexkit/opencode-magic-context`), `compaction` (`auto`/`prune` off so the
+(`@cortexkit/opencode-magic-context`), `compaction` (`auto` off so the
 plugin owns context management), and `experimental.subagent_depth` — into
 `opencode.json` instead of replacing unrelated user keys. Managed `plugins`
 entries union ahead of user entries; an explicit user `compaction` value
@@ -88,8 +88,9 @@ last and authoritative: a user-supplied broad allow can intentionally override
 a managed denial.
 
 This is intentionally not a custom policy engine or process sandbox. Native
-matching is glob-based: it does not normalize wrappers or compound shell
-commands, and direct MCP permissions cannot inspect arguments. In particular,
+matching is glob-based: `resource` patterns match tool inputs (shell commands,
+file paths, subagent names), but it does not normalize wrappers or compound
+shell commands, and MCP tool arguments are not pattern-matched. In particular,
 an allowed shell command can bypass native `read` path rules; b-agentic does
 not claim shell-level secret-path protection. The kernel's approval rules and a
 suitable isolated environment remain necessary for untrusted code or sensitive
@@ -116,8 +117,8 @@ the tracked template and are never collected or written by the installer.
 The native policy asks for an unknown managed-server tool name and allows only
 listed read-only or intentionally selected conditional tool names. It asks for
 upload, mutation, monitor, and authentication tool names. Some formerly
-conditional operations are allowed by name because native OpenCode cannot
-inspect their arguments. The installer does not use the inert v2 `instructions`
+conditional operations are allowed by name because MCP tool arguments are not
+pattern-matched. The installer does not use the inert v2 `instructions`
 array; required workflow guidance lives in `AGENTS.md`.
 Configuration never proves authentication, reachability, or use. Run
 `scripts/mcp-doctor.sh` for local config/prerequisite status; it never starts

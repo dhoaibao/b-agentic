@@ -58,7 +58,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 - Preserve unrelated changes; never autonomously run `git push`, `git pull`, `git reset --hard`, `git clean -f`, or `git branch -D`.
 - Never read, expose, or commit likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission; protected paths and ambiguous shell input remain gated.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
-- MCP servers are configured natively in OpenCode. Direct tools use `<server>_<tool>` names; native permissions can allow, ask, or deny by name, but do not inspect tool arguments. Never treat a configured server as authenticated, externally verified, or used in this session.
+- MCP servers are configured natively in OpenCode. Direct tools use `<server>_<tool>` names; native permissions can allow, ask, or deny by tool name and by `resource` input patterns (e.g., shell commands, file paths, subagent names). MCP tool arguments are not pattern-matched. Never treat a configured server as authenticated, externally verified, or used in this session.
 
 ## Capability activation
 
@@ -74,15 +74,15 @@ Canonical policy: `~/.config/opencode/b-agentic/references/mcp_operations.yaml`.
 | Class | Policy | Scope |
 |---|---|---|
 | `read-only` | Auto-allowed by tool name | Observation-only MCP operation. |
-| `conditional-read` | Auto-allowed by user decision | Formerly argument-validated; native OpenCode cannot inspect arguments. |
-| `conditional-local` | Auto-allowed by user decision | Formerly repository-scoped; native OpenCode cannot inspect arguments. |
+| `conditional-read` | Auto-allowed by user decision | Formerly argument-validated; MCP tool arguments are not pattern-matched. |
+| `conditional-local` | Auto-allowed by user decision | Formerly repository-scoped; MCP tool arguments are not pattern-matched. |
 | `local-upload` | Approval required | May read a local file for remote use. |
 | `external-mutation` | Approval required | May mutate remote or browser state. |
 | `monitor-lifecycle` | Approval required | Creates, changes, or runs a monitor. |
 | `local-mutation` | Approval required | May create a local artifact. |
 | `auth` | Approval required | May start or change authentication. |
 <!-- generated:mcp-operations:end -->
-OpenCode enforces these direct tool-name rules. Managed MCP servers disable Code Mode so direct tool names and their per-tool permissions remain available. Conditional argument validation is intentionally unavailable in the native-only runtime.
+OpenCode enforces these direct tool-name and resource-pattern rules. Managed MCP servers disable Code Mode so direct tool names and their per-tool permissions remain available. MCP tool arguments are not pattern-matched, so conditional MCP classes stay governed by the named tool rules above.
 
 ## Shell commands
 

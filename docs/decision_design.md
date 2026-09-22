@@ -48,8 +48,9 @@ The kernel adds the workflow requirement to preserve unrelated changes and to
 obtain explicit approval for protected, destructive, outside-project, or
 external/shared actions.
 
-Native permissions are glob-based. They do not normalize shell wrappers or
-compound commands, and direct MCP permissions cannot inspect arguments. An
+Native permissions are glob-based. `resource` patterns match tool inputs
+(shell commands, file paths, subagent names), but they do not normalize shell
+wrappers or compound commands, and MCP tool arguments are not pattern-matched. An
 allowed shell command can also bypass native `read` path rules, so b-agentic
 does not claim shell-level secret-path protection. Those limitations are
 accepted instead of adding a custom plugin or policy engine.
