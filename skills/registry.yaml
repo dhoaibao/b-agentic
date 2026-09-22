@@ -8,7 +8,7 @@
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
-      "model": "hdwebsoft/gemini-3.8-flash-high"
+      "model": "hdwebsoft/swe-2-high"
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
@@ -16,7 +16,7 @@
     },
     "b-reviewer": {
       "description": "Independently review a frozen change candidate or b-agentic conformance evidence.",
-      "model": "openai/gpt-5.6-terra"
+      "model": "hdwebsoft/swe-2-high"
     }
   },
   "skills": [

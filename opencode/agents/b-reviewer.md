@@ -1,7 +1,7 @@
 ---
 description: Independently review a frozen change candidate or b-agentic conformance evidence.
 mode: subagent
-model: openai/gpt-5.6-terra
+model: hdwebsoft/swe-2-high
 permissions:
   - action: edit
     resource: "*"

@@ -1,7 +1,7 @@
 ---
 description: Return bounded sourced research findings to the main b-agentic session.
 mode: subagent
-model: hdwebsoft/gemini-3.8-flash-high
+model: hdwebsoft/swe-2-high
 permissions:
   - action: edit
     resource: "*"
