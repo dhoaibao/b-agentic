@@ -17,7 +17,7 @@ permissions:
     effect: deny
   - action: webfetch
     resource: "*"
-    effect: deny
+    effect: allow
   - action: codegraph_*
     resource: "*"
     effect: deny
@@ -30,40 +30,43 @@ permissions:
   - action: firecrawl_*
     resource: "*"
     effect: deny
-  - action: firecrawl_search
+  - action: firecrawl_firecrawl_search
     resource: "*"
     effect: allow
-  - action: firecrawl_developer_search
+  - action: firecrawl_firecrawl_developer_search
     resource: "*"
     effect: allow
-  - action: firecrawl_scrape
+  - action: firecrawl_firecrawl_scrape
     resource: "*"
     effect: allow
-  - action: firecrawl_map
+  - action: firecrawl_firecrawl_map
     resource: "*"
     effect: allow
-  - action: firecrawl_extract
+  - action: firecrawl_firecrawl_extract
     resource: "*"
     effect: allow
-  - action: firecrawl_agent_status
+  - action: firecrawl_firecrawl_agent_status
     resource: "*"
     effect: allow
-  - action: firecrawl_check_crawl_status
+  - action: firecrawl_firecrawl_check_crawl_status
     resource: "*"
     effect: allow
-  - action: firecrawl_research_search_papers
+  - action: firecrawl_firecrawl_find_tools
     resource: "*"
     effect: allow
-  - action: firecrawl_research_inspect_paper
+  - action: firecrawl_firecrawl_research_search_papers
     resource: "*"
     effect: allow
-  - action: firecrawl_research_read_paper
+  - action: firecrawl_firecrawl_research_inspect_paper
     resource: "*"
     effect: allow
-  - action: firecrawl_research_related_papers
+  - action: firecrawl_firecrawl_research_read_paper
     resource: "*"
     effect: allow
-  - action: firecrawl_research_search_github
+  - action: firecrawl_firecrawl_research_related_papers
+    resource: "*"
+    effect: allow
+  - action: firecrawl_firecrawl_research_search_github
     resource: "*"
     effect: allow
   - action: playwright_*

@@ -71,7 +71,10 @@ def main() -> int:
         if not isinstance(rules, list):
             errors.append("generated native permissions must be an ordered list")
         else:
-            if effect(rules, "firecrawl_crawl") != "ask" or effect(rules, "playwright_browser_click") != "ask":
+            if (
+                effect(rules, "firecrawl_firecrawl_crawl") != "ask"
+                or effect(rules, "playwright_browser_click") != "ask"
+            ):
                 errors.append("generated native permissions must ask for mutating MCP tools")
             if effect(rules, "context7_resolve_library_id") != "allow":
                 errors.append("generated native permissions must allow read-only MCP tools")

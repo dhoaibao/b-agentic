@@ -29,10 +29,19 @@ permissions:
     effect: allow
   - action: brave_search_*
     resource: "*"
-    effect: deny
+    effect: allow
   - action: firecrawl_*
     resource: "*"
     effect: deny
+  - action: firecrawl_firecrawl_search
+    resource: "*"
+    effect: allow
+  - action: firecrawl_firecrawl_developer_search
+    resource: "*"
+    effect: allow
+  - action: firecrawl_firecrawl_research_search_github
+    resource: "*"
+    effect: allow
   - action: playwright_*
     resource: "*"
     effect: deny

@@ -475,137 +475,142 @@
       "effect": "ask"
     },
     {
-      "action": "firecrawl_search",
+      "action": "firecrawl_firecrawl_search",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_developer_search",
+      "action": "firecrawl_firecrawl_developer_search",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_scrape",
+      "action": "firecrawl_firecrawl_scrape",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_map",
+      "action": "firecrawl_firecrawl_map",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_extract",
+      "action": "firecrawl_firecrawl_extract",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_agent_status",
+      "action": "firecrawl_firecrawl_agent_status",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_check_crawl_status",
+      "action": "firecrawl_firecrawl_check_crawl_status",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_interact_stop",
-      "resource": "*",
-      "effect": "ask"
-    },
-    {
-      "action": "firecrawl_research_search_papers",
+      "action": "firecrawl_firecrawl_find_tools",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_research_inspect_paper",
+      "action": "firecrawl_firecrawl_interact_stop",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_firecrawl_research_search_papers",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_research_read_paper",
+      "action": "firecrawl_firecrawl_research_inspect_paper",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_research_related_papers",
+      "action": "firecrawl_firecrawl_research_read_paper",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_research_search_github",
+      "action": "firecrawl_firecrawl_research_related_papers",
       "resource": "*",
       "effect": "allow"
     },
     {
-      "action": "firecrawl_parse",
+      "action": "firecrawl_firecrawl_research_search_github",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_parse",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_agent",
+      "action": "firecrawl_firecrawl_agent",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_crawl",
+      "action": "firecrawl_firecrawl_crawl",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_interact",
+      "action": "firecrawl_firecrawl_interact",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_search_feedback",
+      "action": "firecrawl_firecrawl_search_feedback",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_feedback",
+      "action": "firecrawl_firecrawl_feedback",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_create",
+      "action": "firecrawl_firecrawl_monitor_create",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_update",
+      "action": "firecrawl_firecrawl_monitor_update",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_delete",
+      "action": "firecrawl_firecrawl_monitor_delete",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_get",
+      "action": "firecrawl_firecrawl_monitor_get",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_list",
+      "action": "firecrawl_firecrawl_monitor_list",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_run",
+      "action": "firecrawl_firecrawl_monitor_run",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_check",
+      "action": "firecrawl_firecrawl_monitor_check",
       "resource": "*",
       "effect": "ask"
     },
     {
-      "action": "firecrawl_monitor_checks",
+      "action": "firecrawl_firecrawl_monitor_checks",
       "resource": "*",
       "effect": "ask"
     },

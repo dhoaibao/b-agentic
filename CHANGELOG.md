@@ -10,6 +10,18 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
+- Made the curl installer output more visual: TTY- and `NO_COLOR`-gated
+  colors, `==>` step markers on staged work, a green `✓` on completion, a
+  non-interactive notice when stdin is not a TTY or `CI` is set, and a
+  closing `Next steps:` block that folds the optional-tool warnings
+  (rtk/codegraph/bunx) into one checklist.
+- Widened read-only specialist access so each subagent can use the tools
+  its skill needs: `b-researcher` gains `webfetch` and
+  `firecrawl_firecrawl_find_tools`, `b-debugger` gains `brave_search_*`
+  plus Firecrawl search/developer/GitHub-issue tools for error and
+  known-bug lookup, and `b-reviewer` gains `webfetch` and
+  `firecrawl_firecrawl_scrape` for fetching cited sources. The
+  `edit`/`shell`/`subagent`/`question` denies are unchanged.
 - Adopted native OpenCode v2 permission resource patterns: the managed
   `subagent` rule now allows `b-*` specialists while asking before any other
   agent, and kernel/reference prose was corrected to reflect that `resource`
@@ -21,6 +33,16 @@ section per date and same-day changes aggregated in that section.
   uses `zai/glm-5.3-flash` for cheaper lookups, while `b-planner`,
   `b-debugger`, and `b-reviewer` use `hdwebsoft/swe-2-max` for the
   reasoning-heavy planning, diagnosis, and review-gate work.
+
+### Fixed
+
+- Firecrawl MCP permission actions now match the real tool names. The
+  firecrawl-mcp server self-prefixes its tools (`firecrawl_search`), so
+  OpenCode resolves them as `firecrawl_firecrawl_*`; the canonical
+  `mcp_operations.yaml` listed them unprefixed, which left every specific
+  rule dead and let the `firecrawl_*` deny win — `b-researcher` reported
+  "Firecrawl isn't available." All Firecrawl tool keys are now prefixed
+  and the generated template and `b-researcher` allows resolve correctly.
 
 ## [v2026.09.21] - 2026-09-21
 

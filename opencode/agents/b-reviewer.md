@@ -17,7 +17,7 @@ permissions:
     effect: deny
   - action: webfetch
     resource: "*"
-    effect: deny
+    effect: allow
   - action: codegraph_*
     resource: "*"
     effect: deny
@@ -39,6 +39,9 @@ permissions:
   - action: firecrawl_*
     resource: "*"
     effect: deny
+  - action: firecrawl_firecrawl_scrape
+    resource: "*"
+    effect: allow
   - action: playwright_*
     resource: "*"
     effect: deny
