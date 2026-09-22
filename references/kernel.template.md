@@ -23,7 +23,7 @@
 - Every completed task that leaves a tracked or relevant untracked/derived candidate requires `b-reviewer` review before normal completion. Freeze the exact candidate after required checks pass and do not edit while review runs. A changed snapshot, missing or failed check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review. Review never commits or pushes automatically.
 <!-- generated:delegation:start -->
 - The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.
-- Delegated skills run once through their named OpenCode subagent via `subagent`; the main session evaluates the returned result before any user-facing or worktree action:
+- Delegated skills run once through their named OpenCode subagent via `subagent`; the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template. The main session evaluates the returned result before any user-facing or worktree action:
   - `b-plan` -> `b-planner`.
   - `b-research` -> `b-researcher`.
   - `b-debug` -> `b-debugger`.

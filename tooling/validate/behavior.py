@@ -85,7 +85,7 @@ SHELL_POLICY_REGRESSION = {
 # remain stranded instead of returning to the sole writer.
 SUBAGENT_DELEGATION_REGRESSION = {
     "observed_failure": "The main session could fall back to peer-role coordination, let a delegated child mutate the worktree, or accept stale review evidence.",
-    "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents return read-only evidence, and changed candidates receive an independent frozen b-reviewer gate.",
+    "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents load and return the selected skill's own output format, and changed candidates receive an independent frozen b-reviewer gate.",
     "required_clauses": (
         "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting.",
         "invoke its named OpenCode subagent through `subagent` with a bounded task",
@@ -101,6 +101,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-debug` -> `b-debugger`.",
         "`b-agentic-audit` -> `b-reviewer`.",
         "`b-review` -> `b-reviewer`.",
+        "the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template.",
     ),
 }
 
@@ -713,6 +714,18 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
     ]
     if -1 in sequence or sequence != sorted(sequence):
         errors.append("cross-skill contract: commit preparation must precede final gate, staging, and commit")
+
+    registry = json.loads((ROOT / "skills" / "registry.yaml").read_text())
+    for skill in registry.get("skills", []):
+        execution = skill.get("execution", {}) if isinstance(skill, dict) else {}
+        if execution.get("mode") != "subagent":
+            continue
+        name = skill["name"]
+        command = (ROOT / "opencode" / "commands" / f"{name}.md").read_text()
+        if f"Load and execute the `{name}` skill" not in command:
+            errors.append(f"delegation contract: command missing named skill load for {name}")
+        if f"Return the `{name}` skill's own Output format" not in command:
+            errors.append(f"delegation contract: command missing named output format for {name}")
 
 
 def main() -> int:

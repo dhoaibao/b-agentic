@@ -15,6 +15,14 @@ import json
 from pathlib import Path
 
 root = Path.cwd()
+registry = json.loads((root / 'skills/registry.yaml').read_text())
+agent_marker = 'Managed by b-agentic'
+assert agent_marker in (root / 'opencode/scripts/install.sh').read_text()
+bound_skills = {}
+for skill in registry['skills']:
+    execution = skill['execution']
+    if execution['mode'] == 'subagent':
+        bound_skills.setdefault(execution['agent'], []).append(skill['name'])
 config = json.loads((root / 'opencode/configs/opencode.user.template.json').read_text())
 assert 'autoupdate' not in config
 assert config['experimental']['subagent_depth'] == 1
@@ -39,19 +47,31 @@ assert effect('shell', 'curl * | bash*') == 'ask'
 assert effect('context7_resolve_library_id') == 'allow'
 for server in ('codegraph', 'context7', 'brave_search', 'firecrawl', 'playwright', 'mobbin', 'shadcn'):
     assert effect(f'{server}_*') == 'ask'
-for name in ('b-planner', 'b-researcher', 'b-debugger', 'b-reviewer'):
+for name, skill_names in bound_skills.items():
     text = (root / 'opencode/agents' / f'{name}.md').read_text()
     assert 'mode: subagent' in text and 'permissions:' in text
+    assert 'Generated from skills/registry.yaml' in text
+    assert agent_marker in text
     for action in ('edit', 'subagent', 'question'):
         assert f'action: {action}\n    resource: "*"\n    effect: deny' in text
     actions = {line.split(': ', 1)[1] for line in text.splitlines() if line.strip().startswith('- action: ')}
     assert actions == {'edit', 'subagent', 'question'}
+    for skill_name in skill_names:
+        assert f'`{skill_name}`' in text
+    assert "Load and execute the named skill" in text
+    assert "Return that named skill's own Output format" in text
 
 for path in (root / 'opencode/commands').glob('b-*.md'):
     lines = path.read_text().splitlines()
     assert lines[0] == '---' and lines[1].startswith('description: ')
     assert isinstance(json.loads(lines[1].removeprefix('description: ')), str)
     assert 'Generated from skills/registry.yaml' in path.read_text()
+    skill_name = path.stem
+    skill = next(item for item in registry['skills'] if item['name'] == skill_name)
+    if skill['execution']['mode'] == 'subagent':
+        text = path.read_text()
+        assert f"Load and execute the `{skill_name}` skill" in text
+        assert f"Return the `{skill_name}` skill's own Output format" in text
 PY
 
 echo 'Native OpenCode v2 runtime validation passed.'

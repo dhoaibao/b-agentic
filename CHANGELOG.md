@@ -10,6 +10,10 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
+- Generated specialist-agent profiles from `skills/registry.yaml` and made
+  delegated commands name and load the selected skill. Subagents now return the
+  selected skill's own output format instead of a generic evidence or handoff
+  response; runtime validators and delegation regressions enforce that binding.
 - Made the curl installer output more visual: TTY- and `NO_COLOR`-gated
   colors, `==>` step markers on staged work, a green `✓` on completion, a
   non-interactive notice when stdin is not a TTY or `CI` is set, and a

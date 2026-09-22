@@ -4,6 +4,23 @@
   "description": "Human-scored scenarios for bounded delegation and frozen-candidate review.",
   "scenarios": [
     {
+      "id": "delegated-skill-owns-output",
+      "skill": "b-plan",
+      "observed_failure": "A delegated subagent returned a generic evidence or handoff template instead of executing the selected skill's output contract.",
+      "intended_behavior": "The command names b-plan, b-planner loads and executes b-plan, and its final response uses b-plan's Output format rather than a profile-specific template.",
+      "prompt": "Delegate an unclear feature request through b-plan. State the exact skill the child loads and the output contract it returns.",
+      "must": [
+        "Load and execute b-plan",
+        "b-plan Output format",
+        "No generic evidence or handoff template"
+      ],
+      "avoid": [
+        "Return only generic evidence",
+        "Choose a different skill",
+        "Child asks the user"
+      ]
+    },
+    {
       "id": "main-session-owns-mutations",
       "skill": "b-implement",
       "observed_failure": "A delegated specialist or a peer session performed user-facing worktree changes.",

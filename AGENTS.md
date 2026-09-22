@@ -16,7 +16,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 ### Canonical sources and change flows
 
-- `skills/registry.yaml` owns skill metadata, routing, phase, and execution ownership; each `skills/*/prompt.md` owns its canonical skill body. `tooling/generate/registry_sync.py` renders `SKILL.md` files, commands, configuration, and delivery blocks, so edit sources and regenerate rather than hand-editing output.
+- `skills/registry.yaml` owns skill metadata, routing, phase, execution ownership, and specialist-agent profiles; each `skills/*/prompt.md` owns its canonical skill body. `tooling/generate/registry_sync.py` renders `SKILL.md` files, commands, agents, configuration, and delivery blocks, so edit sources and regenerate rather than hand-editing output.
 - `references/kernel.template.md`, `references/mcp_operations.yaml`, and `references/capabilities.yaml` own runtime guidance and capability policy. The OpenCode runtime tree consumes generated output; the [operational reference](REFERENCE.md) documents the installed boundary.
 
 ### Project constraints and boundaries

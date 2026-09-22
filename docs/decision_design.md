@@ -16,8 +16,9 @@ Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 The runtime boundary is native OpenCode: global assets install under
 `~/.config/opencode`, project guidance remains in repository `AGENTS.md`, and
 OpenCode discovers skills, agents, commands, and MCP servers from its standard
-locations. `references/` and `skills/` are canonical sources;
-`tooling/generate/registry_sync.py` renders delivery assets. The installer owns
+locations. `references/`, `skills/registry.yaml`, and skill prompts are canonical sources;
+`tooling/generate/registry_sync.py` renders delivery assets, including agent
+profiles. The installer owns
 only b-agentic-managed files, snapshots, backups, and configuration entries.
 
 Evidence: [`install.sh`](../install.sh),
@@ -31,11 +32,13 @@ loads the canonical skill descriptor; generated `/b-<skill>` commands provide an
 explicit path when model-driven selection is unsuitable. Worktree mutation,
 user interaction, verification, and reporting remain main-session duties.
 Planning, research, debugging, and review delegate through native `subagent` to
-four `mode: subagent` profiles, with synchronous returned evidence.
+four generated `mode: subagent` profiles. Each invocation names one skill; the
+profile loads that skill and returns its own output format, rather than a
+generic profile handoff.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
-[`opencode/agents/b-reviewer.md`](../opencode/agents/b-reviewer.md).
+[`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py).
 
 ## Safety and approval design
 

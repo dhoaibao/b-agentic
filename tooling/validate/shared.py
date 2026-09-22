@@ -38,6 +38,10 @@ def main() -> int:
             errors.append(f"references/kernel.template.md: missing native OpenCode marker {marker!r}")
 
     registry = json.loads((ROOT / "skills" / "registry.yaml").read_text())
+    agents = registry.get("agents", {})
+    if not isinstance(agents, dict):
+        errors.append("skills/registry.yaml: missing generated agent definitions")
+        agents = {}
     for skill in registry.get("skills", []):
         name = skill.get("name") if isinstance(skill, dict) else None
         if not isinstance(name, str):
@@ -47,7 +51,13 @@ def main() -> int:
         if not generated.exists() or "Generated from skills/registry.yaml" not in generated.read_text():
             errors.append(f"{generated.relative_to(ROOT)}: missing or not generated")
 
-    for name in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
+    bindings: dict[str, list[str]] = {}
+    for skill in registry.get("skills", []):
+        execution = skill.get("execution", {}) if isinstance(skill, dict) else {}
+        if execution.get("mode") == "subagent":
+            bindings.setdefault(execution.get("agent", ""), []).append(skill.get("name", ""))
+
+    for name, skill_names in bindings.items():
         path = ROOT / "opencode" / "agents" / f"{name}.md"
         body = path.read_text() if path.exists() else ""
         for marker in (
@@ -59,6 +69,15 @@ def main() -> int:
         ):
             if marker not in body:
                 errors.append(f"{path.relative_to(ROOT)}: missing {marker!r}")
+        if "Generated from skills/registry.yaml" not in body:
+            errors.append(f"{path.relative_to(ROOT)}: missing generated marker")
+        if "Managed by b-agentic" not in body:
+            errors.append(f"{path.relative_to(ROOT)}: missing installer-managed marker")
+        if "Load and execute the named skill" not in body or "Return that named skill's own Output format" not in body:
+            errors.append(f"{path.relative_to(ROOT)}: missing named-skill output contract")
+        for skill_name in skill_names:
+            if f"`{skill_name}`" not in body:
+                errors.append(f"{path.relative_to(ROOT)}: missing binding for {skill_name}")
 
     if errors:
         print("\n".join(errors), file=sys.stderr)
