@@ -40,6 +40,7 @@ INSTALL_CONFIG_STATE="none"
 INSTALL_CONFIG_BACKUP="none"
 PRESERVE_METADATA_DIR=0
 OPENCODE_CLI_INSTALL_STATUS="not-run"
+INSTALL_MISSING_TOOLS=()
 
 runtime_upgrade_cli() {
   if command -v opencode >/dev/null 2>&1; then
@@ -217,14 +218,21 @@ PY
 runtime_print_install_report() {
   local summary_label="Installed"
   dry_run_enabled && summary_label="Planned"
-  installer_summary_log "b-agentic install complete for OpenCode"
+  success "b-agentic install complete for OpenCode"
   installer_summary_log "$summary_label: ${#INSTALL_SKILL_NAMES[@]} skills; agents $INSTALL_AGENTS_ACTION; config $INSTALL_CONFIG_ACTION"
   if dry_run_enabled; then
     installer_summary_log "Manifest: not written (dry-run)"
   else
     installer_summary_log "Manifest: $MANIFEST_DST"
   fi
-  installer_summary_log "Next: start a new OpenCode session; use /b-plan, /b-research, /b-debug, or /b-review for explicit specialist routing."
+  step 'Next steps:'
+  installer_summary_log "  - Start a new OpenCode session; use /b-plan, /b-research, /b-debug, or /b-review for explicit specialist routing."
+  if [ "$OPENCODE_CLI_INSTALL_STATUS" = "installed-not-on-path" ]; then
+    installer_summary_log "  - Add the OpenCode CLI install directory to your shell profile, then restart your shell."
+  fi
+  if [ "${#INSTALL_MISSING_TOOLS[@]}" -gt 0 ]; then
+    installer_summary_log "  - Optional tools not found: ${INSTALL_MISSING_TOOLS[*]}. Install them to enable the affected workflows."
+  fi
 }
 
 manifest_agent_names() {

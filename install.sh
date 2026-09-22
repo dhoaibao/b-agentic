@@ -27,9 +27,25 @@ KERNEL_SRC=""
 INSTALL_STAGE_CURRENT=0
 INSTALL_STAGE_TOTAL=0
 
+# Output helpers: colors are empty unless stdout is a TTY and NO_COLOR is unset,
+# so piped/CI output stays plain (bun/Homebrew pattern).
+C_RESET='' C_BOLD='' C_DIM='' C_BLUE='' C_GREEN='' C_YELLOW='' C_RED=''
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  C_RESET="$(printf '\033[0m')" C_BOLD="$(printf '\033[1m')" C_DIM="$(printf '\033[2m')"
+  C_BLUE="$(printf '\033[34m')" C_GREEN="$(printf '\033[32m')"
+  C_YELLOW="$(printf '\033[33m')" C_RED="$(printf '\033[31m')"
+fi
+
 log() { printf '%s\n' "$*"; }
-warn() { printf 'warning: %s\n' "$*" >&2; }
-die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+step() { printf '%s==>%s %s\n' "$C_BLUE$C_BOLD" "$C_RESET" "$*"; }
+success() { printf '%s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+warn() { printf '%swarning:%s %s\n' "$C_YELLOW" "$C_RESET" "$*" >&2; }
+die() { printf '%serror:%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
+note_noninteractive() {
+  if [ ! -t 0 ] || [ -n "${CI:-}" ]; then
+    log "${C_DIM}Running non-interactively; output is reduced and no prompts are shown.${C_RESET}"
+  fi
+}
 yes_value() { case "${1:-}" in y|Y|yes|YES|Yes|true|TRUE|1) return 0;; *) return 1;; esac; }
 dry_run_enabled() { yes_value "$DRY_RUN_VALUE"; }
 force_enabled() { yes_value "$FORCE_VALUE"; }
@@ -136,9 +152,14 @@ warn_legacy_pi_install() {
 }
 
 install_optional_runtime_tools() {
-  command -v rtk >/dev/null 2>&1 || warn 'rtk is not installed; install it before workflows that require RTK command families.'
-  command -v codegraph >/dev/null 2>&1 || warn 'codegraph is not installed; CodeGraph MCP will remain unavailable.'
-  command -v bunx >/dev/null 2>&1 || warn 'bunx is not installed; local MCP servers that use bunx will remain unavailable.'
+  command -v rtk >/dev/null 2>&1 || INSTALL_MISSING_TOOLS+=('rtk')
+  command -v codegraph >/dev/null 2>&1 || INSTALL_MISSING_TOOLS+=('codegraph')
+  command -v bunx >/dev/null 2>&1 || INSTALL_MISSING_TOOLS+=('bunx')
+  # Install reports these in its Next steps block; other operations have no
+  # summary, so surface them as a warning there.
+  if [ "$OPERATION" != install ] && [ "${#INSTALL_MISSING_TOOLS[@]}" -gt 0 ]; then
+    warn "optional tools not found: ${INSTALL_MISSING_TOOLS[*]}; install them to enable the affected workflows."
+  fi
 }
 
 load_runtime() {
@@ -150,6 +171,7 @@ load_runtime() {
 
 main() {
   parse_args "$@"
+  note_noninteractive
   command -v python3 >/dev/null 2>&1 || die 'python3 is required for configuration management'
   if manifest_only_uninstall; then return 0; fi
   command -v git >/dev/null 2>&1 || die 'git is required to prepare b-agentic source'
@@ -159,14 +181,14 @@ main() {
 
   if uninstall_enabled; then
     opencode_uninstall
-    log 'b-agentic uninstall complete for OpenCode.'
+    success 'b-agentic uninstall complete for OpenCode.'
     return 0
   fi
 
   install_optional_runtime_tools
   case "$OPERATION" in
     install) opencode_install ;;
-    sync) opencode_sync; log 'b-agentic sync complete for OpenCode.' ;;
+    sync) opencode_sync; success 'b-agentic sync complete for OpenCode.' ;;
     update) opencode_update ;;
   esac
 }

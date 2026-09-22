@@ -13,7 +13,7 @@ run_stage() {
   local label="$1"
   shift
   INSTALL_STAGE_CURRENT=$((INSTALL_STAGE_CURRENT + 1))
-  printf '[%s/%s] %s\n' "$INSTALL_STAGE_CURRENT" "${INSTALL_STAGE_TOTAL:-?}" "$label"
+  step "[$INSTALL_STAGE_CURRENT/${INSTALL_STAGE_TOTAL:-?}] $label"
   "$@"
 }
 
@@ -21,7 +21,7 @@ capture_output_stage() {
   local label="$1" output_var="$2" captured
   shift 2
   INSTALL_STAGE_CURRENT=$((INSTALL_STAGE_CURRENT + 1))
-  printf '[%s/%s] %s\n' "$INSTALL_STAGE_CURRENT" "${INSTALL_STAGE_TOTAL:-?}" "$label"
+  step "[$INSTALL_STAGE_CURRENT/${INSTALL_STAGE_TOTAL:-?}] $label"
   captured="$("$@")" || return $?
   printf -v "$output_var" '%s' "$captured"
 }
