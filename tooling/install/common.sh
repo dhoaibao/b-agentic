@@ -275,6 +275,13 @@ def merge(existing, recommended):
                 # Plugin entries are a package set, not an ordered command.
                 # Managed packages merge ahead of user packages; user entries
                 # are preserved and deduplicated.
+                legacy_magic_context = '@cortexkit/opencode-magic-context'
+                if legacy_magic_context in merged[key] and legacy_magic_context not in value:
+                    print(
+                        'warning: preserving @cortexkit/opencode-magic-context; '
+                        'remove it from plugins because it conflicts with @tarquinen/opencode-dcp',
+                        file=sys.stderr,
+                    )
                 merged[key] = value + [item for item in merged[key] if item not in value]
             else:
                 merged[key] = merge(merged[key], value) if key in merged else value

@@ -24,13 +24,17 @@ warns and still installs its local assets; install OpenCode manually, then rerun
 `--update`. It installs the global kernel, generated skills, specialist agents, generated commands,
 references, templates, snapshots, and manifest. It merges the managed
 recommendations — `mcp.servers`, ordered `permissions`, `plugins`
-(`@cortexkit/opencode-magic-context`), `compaction` (`auto` off so the
-plugin owns context management), and `experimental.subagent_depth` — into
+(`@tarquinen/opencode-dcp`), `compaction` (`auto` off so DCP owns context
+pruning), and `experimental.subagent_depth` — into
 `opencode.json` instead of replacing unrelated user keys. Managed `plugins`
 entries union ahead of user entries; an explicit user `compaction` value
 remains authoritative. If
 an existing `permissions` value is not a v2 rule array, it remains user-owned
 and the installer warns that b-agentic's managed rules were not merged.
+When upgrading from a b-agentic build that managed Magic Context, remove
+`@cortexkit/opencode-magic-context` from the user plugin list before installing
+this version: the installer preserves existing plugin entries, and Magic Context
+conflicts with DCP.
 
 Useful flags:
 

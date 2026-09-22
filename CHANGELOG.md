@@ -28,7 +28,12 @@ section per date and same-day changes aggregated in that section.
   patterns match tool inputs (shell commands, file paths, subagent names)
   while MCP tool arguments remain unpatterned.
 - Removed the dead V1 `compaction.prune` field from the managed base config;
-  `compaction.auto` stays off so the magic-context plugin owns compaction.
+  `compaction.auto` stays off so the managed context-pruning plugin owns
+  compaction.
+- Replaced the managed Magic Context plugin with DCP for dynamic context
+  pruning. The installer now warns when a preserved Magic Context entry would
+  conflict with DCP, and the operational guidance clarifies that DCP does not
+  provide persistent memory.
 - Managed specialist agents now pin models in frontmatter: `b-researcher`
   uses `hdwebsoft/gemini-3.8-flash-high` for cheaper lookups, `b-reviewer`
   uses `openai/gpt-5.6-terra` for the review gate, and `b-planner` and

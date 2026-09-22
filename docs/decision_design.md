@@ -64,10 +64,10 @@ Evidence: [`opencode/configs/opencode.user.template.json`](../opencode/configs/o
 
 Managed servers are configured through OpenCode v2 `mcp.servers` with Code Mode
 disabled, exposing direct `<server>_<tool>` names. The managed `plugins` array
-ships `@cortexkit/opencode-magic-context` for cross-session context management
-and sets `compaction.auto: false` so the plugin owns compaction exclusively;
-the installer unions managed plugin entries ahead of user entries and removes
-them on uninstall. `references/mcp_operations.yaml` classifies each tool;
+ships `@tarquinen/opencode-dcp` for dynamic context pruning and sets
+`compaction.auto: false` so DCP owns context pruning exclusively; the installer
+unions managed plugin entries ahead of user entries and removes them on
+uninstall. `references/mcp_operations.yaml` classifies each tool;
 the generator renders that classification to native `allow`, `ask`, or `deny`
 rules. Read-only tools are allowed. Formerly conditional operations are allowed
 only by their named tool because argument-aware validation has no native home.
@@ -121,9 +121,9 @@ permission engine, argument-aware MCP gate, or TUI extension
 package. It does not promise background subagent orchestration, in-session
 installer controls, usage reporting, or a bundled theme.
 Those omissions keep the supported boundary native, inspectable, and small.
-The shipped Magic Context plugin is a managed third-party dependency, not a
-b-agentic-authored plugin; it owns context management in place of native
-compaction (`compaction.auto: false`).
+The shipped DCP plugin is a managed third-party dependency, not a
+b-agentic-authored plugin; it owns context pruning in place of native
+compaction (`compaction.auto: false`). It does not provide persistent memory.
 
 Evidence: [`README.md`](../README.md),
 [`REFERENCE.md`](../REFERENCE.md), and

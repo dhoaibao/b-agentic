@@ -3,7 +3,7 @@
     "subagent_depth": 1
   },
   "plugins": [
-    "@cortexkit/opencode-magic-context"
+    "@tarquinen/opencode-dcp"
   ],
   "compaction": {
     "auto": false
