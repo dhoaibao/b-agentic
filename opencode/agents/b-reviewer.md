@@ -1,7 +1,7 @@
 ---
 description: Independently review a frozen change candidate or b-agentic conformance evidence.
 mode: subagent
-model: hdwebsoft/swe-2-high
+model: hdwebsoft/swe-2-max
 permissions:
   - action: edit
     resource: "*"

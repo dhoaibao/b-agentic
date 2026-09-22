@@ -18,8 +18,9 @@ section per date and same-day changes aggregated in that section.
 - Removed the dead V1 `compaction.prune` field from the managed base config;
   `compaction.auto` stays off so the magic-context plugin owns compaction.
 - Managed specialist agents now pin models in frontmatter: `b-researcher`
-  uses `hdwebsoft/gemini-3.8-flash-high` for cheaper lookups, while
-  `b-planner`, `b-debugger`, and `b-reviewer` use `hdwebsoft/swe-2-high`.
+  uses `zai/glm-5.3-flash` for cheaper lookups, while `b-planner`,
+  `b-debugger`, and `b-reviewer` use `hdwebsoft/swe-2-max` for the
+  reasoning-heavy planning, diagnosis, and review-gate work.
 
 ## [v2026.09.21] - 2026-09-21
 

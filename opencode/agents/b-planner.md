@@ -1,7 +1,7 @@
 ---
 description: Produce a read-only execution-ready plan for the main b-agentic session.
 mode: subagent
-model: hdwebsoft/swe-2-high
+model: hdwebsoft/swe-2-max
 permissions:
   - action: edit
     resource: "*"
