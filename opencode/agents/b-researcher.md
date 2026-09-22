@@ -1,7 +1,7 @@
 ---
 description: Return bounded sourced research findings to the main b-agentic session.
 mode: subagent
-model: hdwebsoft/swe-2-high
+model: zai/glm-5.3-flash#high
 permissions:
   - action: edit
     resource: "*"
