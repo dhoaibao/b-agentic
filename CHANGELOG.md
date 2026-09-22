@@ -10,6 +10,8 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
+- Removed the obsolete repository-local Pi dependency ignore rule after the
+  retired runtime cleanup.
 - Clarified that delegated skills execute only in their named read-only
   subagent, reserving external/shared mutation, uploads, lifecycle, and
   authentication actions for the main session. Regenerated agent profiles and
