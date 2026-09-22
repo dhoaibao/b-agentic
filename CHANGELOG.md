@@ -10,6 +10,11 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
+- Clarified that delegated skills execute only in their named read-only
+  subagent, reserving external/shared mutation, uploads, lifecycle, and
+  authentication actions for the main session. Regenerated agent profiles and
+  strengthened canonical-prompt and behavioral regression coverage across all
+  delegated skills.
 - Guided `b-research` to check Firecrawl's tool catalog before generic web
   discovery when a request needs structured records, filterable listings,
   transcripts, or data APIs, while preserving terms and approval escalation.

@@ -131,12 +131,12 @@ Verdict:
 ## Rules
 
 - Keep the audit strictly read-only: do not edit, stage, commit, push, run
-  commands, or apply fixes. Route frontend/UI production fixes to **b-frontend**,
+  mutating commands, or apply fixes. Route frontend/UI production fixes to **b-frontend**,
   other behavioral fixes to **b-implement**, and named behavior-preserving
   transforms to **b-refactor**; do not edit during the audit.
 - The main-session origin freshness evidence is mandatory before every audit
   action. A missing, failed, or non-zero comparison is a blocked audit, not a
-  finding; notify the user and stop without auditing or issuing a verdict.
+  finding; return the blocking message to the main session and stop without auditing or issuing a verdict.
 - Prefer repository evidence over assumptions and cite repository-relative paths.
 - Do not claim that passing structural or traceability checks proves all prose
   semantics, production readiness, health, currentness, or the absence of drift.

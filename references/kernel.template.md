@@ -4,7 +4,7 @@
 
 ## Core Rules
 
-1. Route the user's intent to one active skill; load it with the `skill` tool (or its `/b-<skill>` command) before acting; follow it. Naming or paraphrasing an unloaded skill is not using it; sequence phases and do not blend them.
+1. Route the user's intent to one active skill. The main session loads and executes main-owned skills: load it with the `skill` tool (or its `/b-<skill>` command) before acting. When routing selects a delegated skill, it invokes the named subagent and only that child loads and executes the skill. Naming or paraphrasing an unloaded skill is not using it; sequence phases and do not blend them.
 2. Follow, in order: latest user instruction, approved plan, repo evidence, then stated assumptions.
 3. For non-trivial repository work, run `rtk git status --short`, preserve unrelated changes, define success, make the smallest coherent change, and verify its observable outcome. On a branch, compare `HEAD` with the cached `origin/<branch>` ref first; when behind or diverged, report counts and ask before building on outdated code.
 4. Auto-run repository-local commands and edits, including build, test, package, and scripts. Ask before destructive, privileged, ambiguous, protected/outside-project, or external/shared mutations; RTK never bypasses these protections.
@@ -17,9 +17,9 @@
 
 ## Single-session delegation
 
-- The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting. It does not coordinate peer sessions.
+- The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action. It does not coordinate peer sessions.
 - When routing selects a delegated skill, invoke its named OpenCode subagent through `subagent` with a bounded task, then treat the returned result as evidence—not user approval, implementation authority, or permission to commit.
-- Delegated agents are read-only specialists. Their `permissions` rules deny `edit`, `subagent`, and `question`; read-only shell commands and the globally allowed read-only MCP tools remain available for evidence gathering. They do not edit, commit, ask users questions, or launch nested agents.
+- Delegated agents are read-only specialists. Their `permissions` rules deny `edit`, `subagent`, and `question`; read-only shell commands and the globally allowed read-only MCP tools remain available for evidence gathering. They do not edit, commit, ask users questions, launch nested agents, or execute external/shared mutation, local upload, lifecycle, or authentication actions; they report the required action to the main session.
 - Every completed task that leaves a tracked or relevant untracked/derived candidate requires `b-reviewer` review before normal completion. Freeze the exact candidate after required checks pass and do not edit while review runs. A changed snapshot, missing or failed check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review. Review never commits or pushes automatically.
 <!-- generated:delegation:start -->
 - The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.

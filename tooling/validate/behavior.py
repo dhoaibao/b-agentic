@@ -87,10 +87,11 @@ SUBAGENT_DELEGATION_REGRESSION = {
     "observed_failure": "The main session could fall back to peer-role coordination, let a delegated child mutate the worktree, or accept stale review evidence.",
     "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents load and return the selected skill's own output format, and changed candidates receive an independent frozen b-reviewer gate.",
     "required_clauses": (
-        "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting.",
+        "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action.",
+        "The main session loads and executes main-owned skills: load it with the `skill` tool (or its `/b-<skill>` command) before acting. When routing selects a delegated skill, it invokes the named subagent and only that child loads and executes the skill.",
         "invoke its named OpenCode subagent through `subagent` with a bounded task",
         "Delegated agents are read-only specialists.",
-        "They do not edit, commit, ask users questions, or launch nested agents.",
+        "They do not edit, commit, ask users questions, launch nested agents, or execute external/shared mutation, local upload, lifecycle, or authentication actions; they report the required action to the main session.",
         "Their `permissions` rules deny `edit`, `subagent`, and `question`",
         "requires `b-reviewer` review before normal completion",
         "Freeze the exact candidate after required checks pass and do not edit while review runs.",
@@ -102,6 +103,30 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-agentic-audit` -> `b-reviewer`.",
         "`b-review` -> `b-reviewer`.",
         "the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template.",
+    ),
+}
+
+SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
+    "b-plan": (
+        "Return the plan to the main session",
+        "The main session owns approval and any later implementation.",
+    ),
+    "b-research": (
+        "`b-research` runs only in the `b-researcher` subagent.",
+        "the main session delegates a bounded task and must not perform the research itself.",
+        "the main session evaluates that result before any user-facing or consequential action.",
+    ),
+    "b-debug": (
+        "report the exact additional reproduction or diagnostic artifact the main session must collect",
+        "the main session changes product code",
+    ),
+    "b-agentic-audit": (
+        "supply its completed origin-freshness evidence:",
+        "return the blocking message to the main session",
+    ),
+    "b-review": (
+        "This skill runs in the `b-reviewer` subagent.",
+        "Return the structured disposition and findings to the main session",
     ),
 }
 
@@ -650,6 +675,40 @@ def validate_subagent_delegation_regression(errors: list[str]) -> None:
     )
 
 
+def validate_subagent_prompt_boundaries(skills: list[dict], errors: list[str]) -> None:
+    delegated = {
+        skill.get("name")
+        for skill in skills
+        if isinstance(skill, dict) and skill.get("execution", {}).get("mode") == "subagent"
+    }
+    contracts = set(SUBAGENT_PROMPT_BOUNDARY_CONTRACTS)
+    if delegated != contracts:
+        errors.append(
+            "subagent prompt boundary contract: delegated skills differ from covered skills "
+            f"(delegated={sorted(delegated)}, covered={sorted(contracts)})"
+        )
+    for name in sorted(delegated & contracts):
+        text = (ROOT / "skills" / name / "prompt.md").read_text()
+        for clause in SUBAGENT_PROMPT_BOUNDARY_CONTRACTS[name]:
+            if clause not in text:
+                errors.append(f"subagent prompt boundary contract: skills/{name}/prompt.md missing {clause!r}")
+
+    fixture_path = ROOT / "tests" / "behavior" / "subagents.json"
+    try:
+        scenarios = json.loads(fixture_path.read_text()).get("scenarios", [])
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"subagent fixture coverage: cannot read {fixture_path.relative_to(ROOT)}: {exc}")
+        return
+    fixture_skills = {
+        scenario.get("skill")
+        for scenario in scenarios
+        if isinstance(scenario, dict) and isinstance(scenario.get("skill"), str)
+    }
+    missing = sorted(delegated - fixture_skills)
+    if missing:
+        errors.append(f"subagent fixture coverage: missing delegated skills {missing}")
+
+
 def validate_cross_skill_contracts(errors: list[str]) -> None:
     """Static prose guards; model-executed scenarios remain opt-in in subagents.json."""
     contracts = {
@@ -739,6 +798,7 @@ def main() -> int:
     validate_local_repository_qa_regression(errors)
     validate_shell_policy_regression(errors)
     validate_subagent_delegation_regression(errors)
+    validate_subagent_prompt_boundaries(skills, errors)
     validate_cross_skill_contracts(errors)
 
     for fixture in FIXTURES:

@@ -75,6 +75,8 @@ def main() -> int:
             errors.append(f"{path.relative_to(ROOT)}: missing installer-managed marker")
         if "Load and execute the named skill" not in body or "Return that named skill's own Output format" not in body:
             errors.append(f"{path.relative_to(ROOT)}: missing named-skill output contract")
+        if "Do not execute external/shared mutation, local upload, lifecycle, or authentication actions" not in body:
+            errors.append(f"{path.relative_to(ROOT)}: missing consequential-operation boundary")
         for skill_name in skill_names:
             if f"`{skill_name}`" not in body:
                 errors.append(f"{path.relative_to(ROOT)}: missing binding for {skill_name}")
