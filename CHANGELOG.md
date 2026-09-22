@@ -30,9 +30,17 @@ section per date and same-day changes aggregated in that section.
 - Removed the dead V1 `compaction.prune` field from the managed base config;
   `compaction.auto` stays off so the magic-context plugin owns compaction.
 - Managed specialist agents now pin models in frontmatter: `b-researcher`
-  uses `zai/glm-5.3-flash` for cheaper lookups, while `b-planner`,
-  `b-debugger`, and `b-reviewer` use `hdwebsoft/swe-2-max` for the
-  reasoning-heavy planning, diagnosis, and review-gate work.
+  uses `hdwebsoft/gemini-3.8-flash-high` for cheaper lookups, `b-reviewer`
+  uses `openai/gpt-5.6-terra` for the review gate, and `b-planner` and
+  `b-debugger` use `hdwebsoft/swe-2-max` for reasoning-heavy planning and
+  diagnosis.
+- Simplified the four specialist agents' permission lists to three denies —
+  `edit`, `subagent`, `question` — and dropped the per-agent `shell` deny
+  and the duplicated MCP allow/deny lists. Delegated agents can now run
+  read-only shell commands (`git diff`, `git status`, `rg`) and inherit the
+  global managed MCP policy, so `b-reviewer` can inspect the candidate diff
+  directly instead of reporting that no git tooling is available. Skill
+  prompts, the kernel, validators, and docs were updated to match.
 
 ### Fixed
 

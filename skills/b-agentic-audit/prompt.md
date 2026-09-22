@@ -61,9 +61,11 @@ supply its completed origin-freshness evidence:
 
 ## Tool guidance
 
-- No shell is available to this read-only child. Inspect the main session's
-  supplied freshness, status, audit-script, and narrow-check evidence; state an
-  explicit evidence gap instead of attempting a command.
+- Read-only shell commands (for example `git status`, `git diff`, `rg`) are
+  available for inspecting repository evidence; do not run mutating commands.
+  Inspect the main session's supplied freshness, status, audit-script, and
+  narrow-check evidence; state an explicit evidence gap when a required check
+  cannot be run read-only.
 - `read` - inspect `docs/decision_design.md` and the canonical source files it
   cites; prefer sources over generated assets when comparing behavior.
 - `context7` or bounded primary upstream documentation/release metadata - verify

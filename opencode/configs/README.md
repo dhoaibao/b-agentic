@@ -30,8 +30,9 @@ Modified or symlinked managed skills
 and agents are preserved rather than overwritten or removed.
 
 The four specialist agents are native `mode: subagent` profiles. Their
-ordered permissions rules deny edits, shell access, user questions, and nested subagents,
-and they expose only the named MCP tools needed for their read-only role. The
+permissions rules deny edits, user questions, and nested subagents, while
+read-only shell commands and the globally allowed read-only MCP tools remain
+available for evidence gathering. The
 main session remains the only user-facing worktree writer. OpenCode permissions
 are tool-name based, so b-agentic intentionally does not claim argument-aware
 MCP classification.

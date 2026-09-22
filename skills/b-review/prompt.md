@@ -16,7 +16,7 @@ Independently review a frozen changed-code candidate for blockers, regressions, 
 
 ## Tool guidance
 
-- Use the main session's frozen snapshot, metadata-only path list, targeted safe diff evidence, and native `read`. This subagent's permission denies Bash; if the handoff lacks necessary candidate evidence, report that gap rather than collecting it. Select CodeGraph only for a central repository-wide review question; bounded specialized Brave tools may substantiate public semantics.
+- Use the main session's frozen snapshot, metadata-only path list, targeted safe diff evidence, and native `read`. Read-only shell commands such as `git diff`, `git status`, and `rg` are available for independently inspecting the candidate; do not run mutating commands. If the handoff lacks necessary candidate evidence that inspection cannot supply, report that gap. Select CodeGraph only for a central repository-wide review question; bounded specialized Brave tools may substantiate public semantics.
 
 ## Steps
 

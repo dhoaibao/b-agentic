@@ -19,7 +19,7 @@
 
 - The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, and final reporting. It does not coordinate peer sessions.
 - When routing selects a delegated skill, invoke its named OpenCode subagent through `subagent` with a bounded task, then treat the returned result as evidence—not user approval, implementation authority, or permission to commit.
-- Delegated agents are read-only specialists. Their ordered `permissions` rules deny `edit`, `shell`, `subagent`, and `question`, and allow only named read-only MCP tools. They do not edit, commit, ask users questions, or launch nested agents.
+- Delegated agents are read-only specialists. Their `permissions` rules deny `edit`, `subagent`, and `question`; read-only shell commands and the globally allowed read-only MCP tools remain available for evidence gathering. They do not edit, commit, ask users questions, or launch nested agents.
 - Every completed task that leaves a tracked or relevant untracked/derived candidate requires `b-reviewer` review before normal completion. Freeze the exact candidate after required checks pass and do not edit while review runs. A changed snapshot, missing or failed check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review. Review never commits or pushes automatically.
 <!-- generated:delegation:start -->
 - The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.

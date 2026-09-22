@@ -91,7 +91,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "invoke its named OpenCode subagent through `subagent` with a bounded task",
         "Delegated agents are read-only specialists.",
         "They do not edit, commit, ask users questions, or launch nested agents.",
-        "Their ordered `permissions` rules deny `edit`, `shell`, `subagent`, and `question`",
+        "Their `permissions` rules deny `edit`, `subagent`, and `question`",
         "requires `b-reviewer` review before normal completion",
         "Freeze the exact candidate after required checks pass and do not edit while review runs.",
         "A changed snapshot, missing or failed check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review.",

@@ -42,8 +42,9 @@ Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 OpenCode v2's ordered native `permissions` rules are the enforcement boundary.
 Global rules allow ordinary local work while denying named destructive command
 patterns and likely-secret file reads; external directories and consequential MCP
-tools remain `ask`. Specialist agents deny `edit`, `shell`, `subagent`, and
-`question`.
+tools remain `ask`. Specialist agents deny `edit`, `subagent`, and `question`;
+read-only shell and the globally allowed read-only MCP tools remain available
+for evidence gathering.
 The kernel adds the workflow requirement to preserve unrelated changes and to
 obtain explicit approval for protected, destructive, outside-project, or
 external/shared actions.

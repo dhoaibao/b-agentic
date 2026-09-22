@@ -39,19 +39,13 @@ assert effect('shell', 'curl * | bash*') == 'ask'
 assert effect('context7_resolve_library_id') == 'allow'
 for server in ('codegraph', 'context7', 'brave_search', 'firecrawl', 'playwright', 'mobbin', 'shadcn'):
     assert effect(f'{server}_*') == 'ask'
-allowed_agent_actions = {rule['action'] for rule in rules} | {'edit', 'shell', 'subagent', 'question', 'webfetch'}
-webfetch_effect = {'b-planner': 'deny', 'b-researcher': 'allow', 'b-debugger': 'deny', 'b-reviewer': 'allow'}
 for name in ('b-planner', 'b-researcher', 'b-debugger', 'b-reviewer'):
     text = (root / 'opencode/agents' / f'{name}.md').read_text()
     assert 'mode: subagent' in text and 'permissions:' in text
-    for action in ('edit', 'shell', 'subagent', 'question'):
+    for action in ('edit', 'subagent', 'question'):
         assert f'action: {action}\n    resource: "*"\n    effect: deny' in text
-    assert f'action: webfetch\n    resource: "*"\n    effect: {webfetch_effect[name]}' in text
     actions = {line.split(': ', 1)[1] for line in text.splitlines() if line.strip().startswith('- action: ')}
-    assert actions <= allowed_agent_actions
-reviewer = (root / 'opencode/agents/b-reviewer.md').read_text()
-for marker in ('action: context7_resolve_library_id', 'action: context7_query_docs'):
-    assert marker in reviewer
+    assert actions == {'edit', 'subagent', 'question'}
 
 for path in (root / 'opencode/commands').glob('b-*.md'):
     lines = path.read_text().splitlines()

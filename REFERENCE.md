@@ -67,8 +67,9 @@ canonical; generated output must never be hand-edited.
 The four specialist profiles are native `mode: subagent` definitions:
 `b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. The main session
 uses native `subagent` delegation and treats each synchronous returned result as
-evidence only. Specialist ordered permissions deny `edit`, `shell`, `subagent`,
-and `question`; their named MCP access is limited to the relevant read-only tools.
+evidence only. Specialist permissions deny `edit`, `subagent`, and `question`;
+read-only shell and the globally allowed read-only MCP tools remain available
+for evidence gathering.
 `experimental.subagent_depth: 1` prevents nested delegation. The main session stays the only
 user-facing worktree writer.
 

@@ -54,7 +54,6 @@ def main() -> int:
             "mode: subagent",
             "permissions:",
             "action: edit",
-            "action: shell",
             "action: subagent",
             "action: question",
         ):

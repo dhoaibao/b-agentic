@@ -37,14 +37,18 @@
       "id": "debugger-reports-evidence-gap",
       "skill": "b-debug",
       "observed_failure": "A diagnostic child used a shell or probe to mutate state while chasing a runtime failure.",
-      "intended_behavior": "b-debugger stays technically read-only, diagnoses from supplied evidence, and asks the main session for the exact additional reproduction artifact when evidence is insufficient.",
-      "prompt": "A runtime failure needs a minimal reproducer but the delegated b-debugger has no shell. State what it may inspect, what it returns, and how it handles missing evidence.",
+      "intended_behavior": "b-debugger stays technically read-only, diagnoses from supplied evidence plus read-only inspection, and asks the main session for the exact additional reproduction artifact when evidence is insufficient.",
+      "prompt": "A runtime failure needs a minimal reproducer and the delegated b-debugger has read-only shell access. State what it may inspect, what it returns, and how it handles missing evidence.",
       "must": [
         "Read-only supplied evidence",
         "Exact additional reproduction or diagnostic artifact",
         "Return a diagnosis handoff"
       ],
-      "avoid": ["Run a shell command", "Create a probe", "Edit product code"]
+      "avoid": [
+        "Run a mutating command",
+        "Create a state-changing probe",
+        "Edit product code"
+      ]
     },
     {
       "id": "reviewer-freezes-candidate",
