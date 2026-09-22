@@ -34,7 +34,14 @@ user interaction, verification, and reporting remain main-session duties.
 Planning, research, debugging, and review delegate through native `subagent` to
 four generated `mode: subagent` profiles. Each invocation names one skill; the
 profile loads that skill and returns its own output format, rather than a
-generic profile handoff.
+generic profile handoff. The main session defaults to foreground delegation and
+uses background children only for independent, read-only work. It retains a
+child `sessionID` only in main-session context and may continue it only when the
+specialist, model/profile, task scope, and repository baseline remain
+compatible. A research continuation carries bounded prior evidence and refreshes
+version- or currentness-sensitive claims. Independent tasks, mismatched or stale
+context, and changed-candidate review use a fresh child; a reviewer session is
+never reused.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
@@ -120,9 +127,9 @@ Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 ## Intentional non-goals
 
 b-agentic does not maintain a second runtime, compatibility shim, custom
-permission engine, argument-aware MCP gate, or TUI extension
-package. It does not promise background subagent orchestration, in-session
-installer controls, usage reporting, or a bundled theme.
+permission engine, argument-aware MCP gate, persistent subagent store, or TUI
+extension package. It does not promise unbounded background orchestration,
+in-session installer controls, usage reporting, or a bundled theme.
 Those omissions keep the supported boundary native, inspectable, and small.
 The shipped DCP plugin is a managed third-party dependency, not a
 b-agentic-authored plugin; it owns context pruning in place of native

@@ -15,15 +15,18 @@
 9. Quality is the best evidence-backed fit to the request, repository, and relevant risks; passing checks alone are insufficient.
 10. Use `todowrite` for multi-step work; when it is unavailable, track the steps in prose.
 
-## Single-session delegation
+## Session-aware delegation
 
-- The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action. It does not coordinate peer sessions.
-- When routing selects a delegated skill, invoke its named OpenCode subagent through `subagent` with a bounded task, then treat the returned result as evidence—not user approval, implementation authority, or permission to commit.
+- The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action. It coordinates only its read-only child sessions, never peer writers.
+- When routing selects a delegated skill, invoke its named OpenCode subagent through `subagent` with a bounded task, then treat the returned result as evidence—not user approval, implementation authority, or permission to commit. Default to foreground when its result gates the next decision or action.
+- Start a background child only for independent, read-only work that the main session can safely continue without; retain its returned `sessionID` and bounded task metadata in the main-session context. Do not start concurrent children with overlapping scope or rely on an active child for a decision.
+- Reuse a completed child through its `sessionID` only for a direct continuation with the same specialist, compatible model/profile, scope, and repository baseline. Supply the delta question and prior evidence limits; treat prior external claims as stale when their version or currentness matters.
+- Start a fresh child for independent work, a different specialist or model/profile, changed scope/baseline, failed or overly broad context, or a required independent review. Never reuse a reviewer session for a changed candidate.
 - Delegated agents are read-only specialists. Their `permissions` rules deny `edit`, `subagent`, and `question`; read-only shell commands and the globally allowed read-only MCP tools remain available for evidence gathering. They do not edit, commit, ask users questions, launch nested agents, or execute external/shared mutation, local upload, lifecycle, or authentication actions; they report the required action to the main session.
 - Every completed task that leaves a tracked or relevant untracked/derived candidate requires `b-reviewer` review before normal completion. Freeze the exact candidate after required checks pass and do not edit while review runs. A changed snapshot, missing or failed check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review. Review never commits or pushes automatically.
 <!-- generated:delegation:start -->
 - The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.
-- Delegated skills run once through their named OpenCode subagent via `subagent`; the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template. The main session evaluates the returned result before any user-facing or worktree action:
+- Delegated skills run through their named OpenCode subagent via `subagent`; the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template. The main session evaluates the returned result before any user-facing or worktree action:
   - `b-plan` -> `b-planner`.
   - `b-research` -> `b-researcher`.
   - `b-debug` -> `b-debugger`.

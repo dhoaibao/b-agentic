@@ -313,7 +313,7 @@ def render_delegation(skills: list[dict[str, Any]]) -> str:
     main = [skill["name"] for skill in skills if skill["execution"]["mode"] == "main"]
     lines = [
         f"- The main session owns user interaction and worktree changes: {', '.join(f'`{name}`' for name in main)}.",
-        "- Delegated skills run once through their named OpenCode subagent via `subagent`; the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template. The main session evaluates the returned result before any user-facing or worktree action:",
+        "- Delegated skills run through their named OpenCode subagent via `subagent`; the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template. The main session evaluates the returned result before any user-facing or worktree action:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
     lines.append(

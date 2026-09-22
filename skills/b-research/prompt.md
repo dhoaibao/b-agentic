@@ -4,7 +4,7 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 
 ## Delegation boundary
 
-`b-research` runs only in the `b-researcher` subagent. After routing selects it, the main session delegates a bounded task and must not perform the research itself. The child returns sourced evidence in this skill's Output format; the main session evaluates that result before any user-facing or consequential action.
+`b-research` runs only in the `b-researcher` subagent. After routing selects it, the main session delegates a bounded task and must not perform the research itself. The child returns sourced evidence in this skill's Output format; the main session evaluates that result before any user-facing or consequential action. The main session may continue a compatible research thread through its returned `sessionID`; the child must treat the continuation packet as evidence, not current truth.
 
 ## When to use
 
@@ -43,10 +43,11 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 13. Never send private or local material to external tools; report any requested exception to the main session.
 14. Synthesize only from gathered evidence and cite sources.
 15. When research points directly to a local change, hand frontend/UI production work to **b-frontend** and non-UI code/config work to **b-implement**; when uncertainty remains, say what is still unknown.
+16. For a continuation, use the supplied scope, source URLs, versions, as-of times, limitations, and delta question to avoid repeating work. Refresh any claim whose source, version, currentness, or applicability is no longer established; report identity, scope, baseline, or missing-evidence mismatches to the main session.
 
 ## Output format
 
-Direct answer, key evidence, limitations, sources, and confidence when not high. Include the next handoff only when it is naturally implied.
+Direct answer, key evidence, limitations, sources, and confidence when not high. For a continuation, state reused evidence, refreshed evidence, and unresolved freshness gaps. Include the next handoff only when it is naturally implied.
 
 ## Rules
 

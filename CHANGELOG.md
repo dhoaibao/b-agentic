@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.23] - 2026-09-23
+
+### Changed
+
+- Added bounded background delegation and compatible child-session continuation
+  rules, with refreshed evidence requirements for continuing research and a
+  fresh-session requirement for independent reviews.
+
 ## [v2026.09.22] - 2026-09-22
 
 ### Changed

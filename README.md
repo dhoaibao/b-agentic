@@ -29,7 +29,8 @@ Each request uses one active skill rather than mixing planning, building,
 validation, and shipping. The main OpenCode session owns user interaction,
 decisions, verification, and mutations. It delegates bounded planning,
 research, diagnosis, and changed-code review through native read-only
-subagents.
+subagents, using background work only when it is independent and safely
+continuing compatible research threads through their child session IDs.
 
 | Phase | Skills | Purpose |
 |---|---|---|

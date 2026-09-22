@@ -70,10 +70,16 @@ canonical; generated output must never be hand-edited.
 
 The four specialist profiles are native `mode: subagent` definitions:
 `b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. The main session
-uses native `subagent` delegation and treats each synchronous returned result as
-evidence only. Specialist permissions deny `edit`, `subagent`, and `question`;
-read-only shell and the globally allowed read-only MCP tools remain available
-for evidence gathering.
+uses native `subagent` delegation and treats every returned result as evidence
+only. It defaults to foreground work; it uses a background child only for
+independent read-only work and keeps that child's `sessionID` in the main-session
+context. A completed child may be continued only when its specialist,
+model/profile, scope, and repository baseline remain compatible. Research
+continuations carry a bounded evidence packet and refresh version- or
+currentness-sensitive claims. Independent work, changed context, and every
+changed-candidate review require a fresh child. Specialist permissions deny
+`edit`, `subagent`, and `question`; read-only shell and the globally allowed
+read-only MCP tools remain available for evidence gathering.
 `experimental.subagent_depth: 1` prevents nested delegation. The main session stays the only
 user-facing worktree writer.
 

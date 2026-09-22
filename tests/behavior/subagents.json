@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "source": "b-agentic single-session subagent regressions",
-  "description": "Human-scored scenarios for bounded delegation and frozen-candidate review.",
+  "source": "b-agentic session-aware subagent regressions",
+  "description": "Human-scored scenarios for bounded delegation, safe continuation, and frozen-candidate review.",
   "scenarios": [
     {
       "id": "delegated-skill-owns-output",
@@ -83,6 +83,42 @@
         "Main session performs research directly",
         "Child authenticates or mutates a browser",
         "Nested delegation"
+      ]
+    },
+    {
+      "id": "background-child-is-independent",
+      "skill": "b-research",
+      "observed_failure": "The main session started background work whose result gated a decision, or let concurrent child scopes overlap.",
+      "intended_behavior": "The main session starts a background child only for independent read-only research, retains its sessionID and bounded task metadata, and does not rely on an active child for a decision.",
+      "prompt": "Research two unrelated public API facts while implementing a local change whose next step does not depend on either answer. State whether background delegation is allowed, what the main session retains, and when it evaluates the result.",
+      "must": [
+        "Independent read-only work",
+        "Retain the sessionID",
+        "Main session evaluates returned evidence",
+        "No overlapping child scope"
+      ],
+      "avoid": [
+        "Use background work for a gated decision",
+        "Let the child edit or ask the user",
+        "Treat an active child result as available"
+      ]
+    },
+    {
+      "id": "continuation-reuses-compatible-child",
+      "skill": "b-research",
+      "observed_failure": "The main session either discarded a compatible research thread or reused a mismatched child without refreshing stale claims.",
+      "intended_behavior": "The main session continues a completed b-researcher through sessionID only for a direct compatible follow-up, passes the delta question and prior evidence limits, and refreshes currentness-sensitive claims.",
+      "prompt": "Continue a completed b-researcher thread to check a newly released version of the same library. State the compatibility checks, the continuation packet, and what must be refreshed.",
+      "must": [
+        "Same specialist and compatible model/profile",
+        "Same scope and repository baseline",
+        "Delta question and prior evidence limits",
+        "Refresh version- or currentness-sensitive claims"
+      ],
+      "avoid": [
+        "Reuse a reviewer session",
+        "Assume prior sources are current",
+        "Reuse an active or mismatched child"
       ]
     },
     {

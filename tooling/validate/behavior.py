@@ -106,6 +106,20 @@ SUBAGENT_DELEGATION_REGRESSION = {
     ),
 }
 
+SUBAGENT_SESSION_REGRESSION = {
+    "observed_failure": "Background child work could gate a decision, overwrite another child scope, or reuse incompatible or stale child context.",
+    "intended_behavior": "The main session uses bounded background work only when independent, and continues only a compatible completed child while retaining independent review.",
+    "required_clauses": (
+        "Default to foreground when its result gates the next decision or action.",
+        "Start a background child only for independent, read-only work that the main session can safely continue without",
+        "retain its returned `sessionID` and bounded task metadata in the main-session context.",
+        "Do not start concurrent children with overlapping scope or rely on an active child for a decision.",
+        "Reuse a completed child through its `sessionID` only for a direct continuation with the same specialist, compatible model/profile, scope, and repository baseline.",
+        "Start a fresh child for independent work, a different specialist or model/profile, changed scope/baseline, failed or overly broad context, or a required independent review.",
+        "Never reuse a reviewer session for a changed candidate.",
+    ),
+}
+
 SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
     "b-plan": (
         "Return the plan to the main session",
@@ -115,6 +129,8 @@ SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
         "`b-research` runs only in the `b-researcher` subagent.",
         "the main session delegates a bounded task and must not perform the research itself.",
         "the main session evaluates that result before any user-facing or consequential action.",
+        "The main session may continue a compatible research thread through its returned `sessionID`",
+        "the child must treat the continuation packet as evidence, not current truth.",
     ),
     "b-debug": (
         "report the exact additional reproduction or diagnostic artifact the main session must collect",
@@ -675,6 +691,14 @@ def validate_subagent_delegation_regression(errors: list[str]) -> None:
     )
 
 
+def validate_subagent_session_regression(errors: list[str]) -> None:
+    validate_clause_regression(
+        "subagent session regression",
+        SUBAGENT_SESSION_REGRESSION,
+        errors,
+    )
+
+
 def validate_subagent_prompt_boundaries(skills: list[dict], errors: list[str]) -> None:
     delegated = {
         skill.get("name")
@@ -798,6 +822,7 @@ def main() -> int:
     validate_local_repository_qa_regression(errors)
     validate_shell_policy_regression(errors)
     validate_subagent_delegation_regression(errors)
+    validate_subagent_session_regression(errors)
     validate_subagent_prompt_boundaries(skills, errors)
     validate_cross_skill_contracts(errors)
 
