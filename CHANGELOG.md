@@ -10,6 +10,9 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
+- Guided `b-research` to check Firecrawl's tool catalog before generic web
+  discovery when a request needs structured records, filterable listings,
+  transcripts, or data APIs, while preserving terms and approval escalation.
 - Generated specialist-agent profiles from `skills/registry.yaml` and made
   delegated commands name and load the selected skill. Subagents now return the
   selected skill's own output format instead of a generic evidence or handoff
