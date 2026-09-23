@@ -33,9 +33,9 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Review and commit gate
 
-The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Complete repository-required commit preparation and checks, then capture an exact candidate snapshot and commit plan before staging.
+The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Complete repository-required commit preparation and checks, then capture an exact candidate snapshot and commit plan before staging. Supply b-reviewer with each proposed group's exact paths, message, and any pre-existing staged set.
 
-- Require a valid independent **b-reviewer** disposition for the exact candidate and commit plan. If absent or changed—including relevant untracked content or required changelog preparation—freeze the candidate, request or reopen review, then pause without staging or editing. Failed checks or unresolved findings block committing. Resume only for the unchanged reviewed snapshot; never regroup silently or push.
+- Require a valid independent **b-reviewer** disposition explicitly covering the exact candidate and commit plan. A candidate-only verdict does not approve staging. If either is absent or changed—including relevant untracked content or required changelog preparation—freeze the candidate, request or reopen review, then pause without staging or editing. Failed checks or unresolved findings block committing. Resume only for the unchanged reviewed snapshot and plan; never regroup silently or push.
 
 ## Steps
 

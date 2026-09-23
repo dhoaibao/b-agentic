@@ -740,6 +740,8 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "The main session owns `b-commit`.",
                 "Require a valid independent **b-reviewer** disposition",
+                "each proposed group's exact paths, message, and any pre-existing staged set",
+                "A candidate-only verdict does not approve staging",
                 "pause without staging or editing",
                 "Failed checks or unresolved findings block committing",
                 "Before freezing the candidate, read applicable repository commit rules",
@@ -765,9 +767,20 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "This skill runs in the `b-reviewer` subagent.",
                 "Confirm the baseline and exact frozen candidate snapshot.",
+                "For a `b-commit` handoff, require the proposed plan",
+                "complete and non-overlapping assignment of intended commit paths",
+                "Preserve any pre-existing staged set as one group",
+                "a candidate-only verdict does not approve the commit plan",
                 "Return the structured disposition and findings to the main session",
                 "do not ask users questions, message peers, or implement a correction.",
                 "Corrections must return as a reverified, frozen candidate for another review.",
+            ),
+        },
+        "skills/b-debug/prompt.md": {
+            "required": (
+                "When the cause is confirmed, produce a diagnosis handoff",
+                "For an unconfirmed cause or bug:",
+                "Mark root cause and causal mechanism unconfirmed",
             ),
         },
         "references/kernel.template.md": {

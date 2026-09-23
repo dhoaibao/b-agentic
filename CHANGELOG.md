@@ -19,6 +19,10 @@ section per date and same-day changes aggregated in that section.
 
 ### Fixed
 
+- Made inconclusive debugger handoffs report missing evidence without claiming a
+  confirmed cause or inventing a reproduction command.
+- Required commit review to inspect the proposed groups, file assignments, and
+  messages and to preserve any pre-existing staged set as one group.
 - Isolated the installer smoke test from host OpenCode configuration overrides
   so CI checks the sandbox installation path consistently.
 

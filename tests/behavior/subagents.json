@@ -54,17 +54,18 @@
       "id": "debugger-reports-evidence-gap",
       "skill": "b-debug",
       "observed_failure": "A diagnostic child used a shell or probe to mutate state while chasing a runtime failure.",
-      "intended_behavior": "b-debugger stays technically read-only, diagnoses from supplied evidence plus read-only inspection, and asks the main session for the exact additional reproduction artifact when evidence is insufficient.",
-      "prompt": "A runtime failure needs a minimal reproducer and the delegated b-debugger has read-only shell access. State what it may inspect, what it returns, and how it handles missing evidence.",
+      "intended_behavior": "b-debugger stays technically read-only, diagnoses from supplied evidence plus read-only inspection, and reports an explicit evidence gap and exact additional artifact rather than a confirmed cause when evidence is insufficient.",
+      "prompt": "A runtime failure lacks a runnable reproducer and the delegated b-debugger has read-only shell access. State what it may inspect and what it returns when the cause cannot be confirmed.",
       "must": [
         "Read-only supplied evidence",
         "Exact additional reproduction or diagnostic artifact",
-        "Return a diagnosis handoff"
+        "Mark the root cause and causal mechanism unconfirmed"
       ],
       "avoid": [
         "Run a mutating command",
         "Create a state-changing probe",
-        "Edit product code"
+        "Edit product code",
+        "Invent a confirmed cause or runnable repro command"
       ]
     },
     {
@@ -137,6 +138,25 @@
         "Review a moving snapshot",
         "Reviewer applies the fix",
         "Commit automatically"
+      ]
+    },
+    {
+      "id": "reviewer-assesses-commit-plan",
+      "skill": "b-review",
+      "observed_failure": "A reviewer approved the code candidate without examining the proposed commit groups, paths, and messages.",
+      "intended_behavior": "For a b-commit handoff, b-reviewer reviews the exact frozen candidate and supplied commit plan; an absent or changed plan blocks staging even when the code is sound.",
+      "prompt": "The candidate passes code checks, but a b-commit handoff proposes two commits. One generated file is assigned to neither group and a pre-existing staged set is split across them. State what b-reviewer must inspect and whether a code-only READY disposition authorizes staging.",
+      "must": [
+        "Inspect the frozen candidate and proposed groups, exact paths, messages, and pre-existing staged set",
+        "Check complete non-overlapping assignment of intended commit paths and group coherence",
+        "Reject splitting or reorganizing the pre-existing staged set",
+        "Block staging on an incomplete or changed plan",
+        "Candidate-only READY does not approve staging"
+      ],
+      "avoid": [
+        "Approve the unexamined commit plan",
+        "Stage or edit files",
+        "Silently regroup the candidate"
       ]
     },
     {

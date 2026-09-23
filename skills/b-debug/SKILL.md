@@ -50,13 +50,15 @@ Confirm the real cause of broken runtime behavior, then produce an evidence-back
 3. Rank suspects from stack traces, diagnostics, recent changes, config, data shape, call paths, and the feedback loop.
 4. Select CodeGraph when a concrete repository-wide flow or impact question is central to the diagnosis and likely valuable; use an available index for that question and report an absent-index gap to the main session. Use Context7 only for versioned dependency suspects.
 5. Confirm the root cause before handing it off. If the supplied evidence cannot prove it, report the exact additional reproduction or diagnostic artifact the main session must collect rather than creating a probe.
-6. Produce a diagnosis handoff that names the next skill: **b-frontend** for a UI fix, **b-implement** for a clear non-UI fix, **b-test** for a test-only correction, or **b-plan** when scope remains unclear. Include the exact runnable repro command, the observable that must flip, and the confirmed causal mechanism.
+6. When the cause is confirmed, produce a diagnosis handoff that names the next skill: **b-frontend** for a UI fix, **b-implement** for a clear non-UI fix, **b-test** for a test-only correction, or **b-plan** when scope remains unclear. Include the exact runnable repro command, the observable that must flip, and the confirmed causal mechanism. When it is unconfirmed, report the evidence gap and exact artifact needed instead of a confirmed diagnosis handoff.
 7. Stop without editing product code. For performance work, include the baseline measurement in the handoff; the main session changes product code and reruns the same measurement.
 8. If the issue is not yet a confirmed bug, say whether the next step belongs in **b-plan**, **b-research**, or **b-test**.
 
 ## Output format
 
-Symptom, confirmed root cause, and evidence. Include the diagnosis handoff: target skill, exact runnable repro command, observable to flip, confirmed causal mechanism, and baseline measurement for performance work. Do not include a product fix.
+For a confirmed cause: symptom, confirmed root cause, and evidence. Include the diagnosis handoff: target skill, exact runnable repro command, observable to flip, confirmed causal mechanism, and baseline measurement for performance work.
+
+For an unconfirmed cause or bug: symptom, evidence inspected, remaining uncertainty, the exact additional reproduction or diagnostic artifact needed, and the next skill if known. Mark root cause and causal mechanism unconfirmed; do not invent a runnable repro command. Do not include a product fix in either case.
 
 ## Rules
 
