@@ -77,15 +77,22 @@ context. A completed child may be continued only when its specialist,
 model/profile, scope, and repository baseline remain compatible. Research
 continuations carry a bounded evidence packet and refresh version- or
 currentness-sensitive claims. Independent work, changed context, and every
-changed-candidate review require a fresh child. Specialist permissions deny
+required changed-candidate review use a fresh child. Specialist permissions deny
 `edit`, `subagent`, and `question`; read-only shell and the globally allowed
 read-only MCP tools remain available for evidence gathering.
 `experimental.subagent_depth: 1` prevents nested delegation. The main session stays the only
 user-facing worktree writer.
 
-Every changed candidate requires fresh verification and a frozen
-`b-reviewer` disposition before normal completion. Review never commits or
-pushes.
+Every changed candidate needs an inspected diff and applicable passing checks.
+Independent `b-reviewer` review is required on request or for changes to trust
+boundaries, data integrity, public contracts, dependencies/runtime configuration,
+installer/workflow policy, or multiple subsystems; unclear acceptance, material
+residual risk, and complex commit plans also trigger it. A clear, bounded,
+verified low-risk change may finish without independent review and must report
+that exception. Triggered review freezes the exact candidate after fresh checks;
+it never commits or pushes. A single cohesive low-risk commit can use an
+exact-path and index self-audit, while multiple groups or a pre-existing staged
+set require review of the candidate and commit plan.
 
 ## Native permissions
 
@@ -167,8 +174,8 @@ The validation suite checks generated assets, kernel budget, routing behavior,
 capability and MCP contracts, decision-record citations, static readiness, and
 installer lifecycle. Release validation adds sandboxed install smoke coverage.
 `npm run quality` runs check-only formatting and language checks; it never
-rewrites files. The changed candidate is frozen after checks, then independently
-reviewed before normal completion.
+rewrites files. After checks, candidates meeting the risk triggers are frozen
+and independently reviewed before normal completion.
 
 ## Repository map
 

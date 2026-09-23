@@ -45,18 +45,18 @@ Make the scoped non-UI change in the smallest coherent step after an approved pl
 3. Ask the user directly with native `question` only for material unresolved choices or blockers. Group related questions up to four; address independent blockers in priority order and wait for each answer.
 4. Make the smallest coherent edit with native tools, matching the target module's local style. Remove imports/helpers made unused by it, but retain unrelated pre-existing dead code.
 5. Run the narrowest useful verification. If an unambiguous in-scope defect causes failure, correct it and rerun until required verification passes. If failure reveals ambiguity, scope drift, or an unrelated issue, stop and ask or route rather than guessing. Inspect explicit non-protected changed paths.
-6. When the scoped task is complete and required checks pass, freeze every tracked plus relevant untracked/derived candidate and request **b-reviewer** review before a normal final response. No-change tasks, including PR prose, do not require changed-code review.
-7. Do not edit while review is pending. A changed snapshot, skipped/failed required check, missing baseline, `NEEDS FIXES`, or unaccepted follow-up blocks shipping. For `NEEDS FIXES`, correct only unambiguous in-scope findings, rerun the required checks, then freeze a fresh candidate and request review. No review automatically commits or pushes.
+6. Inspect every tracked and relevant untracked/derived path and diff. Apply the kernel's risk-triggered review rule after required checks pass. For a bounded, verified low-risk change with no trigger, finish and state that independent review was skipped under the low-risk exception. No-change tasks, including PR prose, need no changed-code review.
+7. When review is required, freeze the exact candidate and request **b-reviewer** review before normal completion. Do not edit while review is pending. A changed reviewed snapshot, missing baseline, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh checks, and new review. Missing or failed required checks and unexpected paths block completion even without review; reclassify uncertain risk for review and ask the user about ambiguous requirements. No review automatically commits or pushes.
 
 ## Output format
 
-Changes, verification, acceptance coverage, and deviations or gaps. A changed candidate requires the **b-reviewer** gate and pause before a normal final response.
+Changes, verification, acceptance coverage, and deviations or gaps. Report the low-risk review exception when used; a triggered candidate requires the **b-reviewer** gate before a normal final response.
 
 ## Rules
 
 - Stay within approved scope and use the smallest evidence-backed fit.
 - Shared approval policy remains authoritative.
-- Automatic review is mandatory for changed candidates; no-change outputs must not initiate it.
+- Apply the kernel's risk triggers to changed candidates; no-change outputs must not initiate changed-code review.
 - When **b-reviewer** returns `NEEDS FIXES`, correct only unambiguous in-scope findings, rerun checks, then request a fresh review; stop for ambiguity or scope drift.
-- Same-day changelog maintenance is required only when preparing a user-authorized commit. Include it in the reviewed candidate or reopen review.
-- Never claim shipping readiness when required verification or the independent review gate is absent.
+- Same-day changelog maintenance is required only when preparing a user-authorized commit. Include it in the candidate and reclassify risk after preparation; reopen review if the reviewed snapshot changed.
+- Never claim shipping readiness when required verification or a triggered independent review is absent.

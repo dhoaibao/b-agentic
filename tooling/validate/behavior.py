@@ -81,11 +81,11 @@ SHELL_POLICY_REGRESSION = {
 }
 
 # Regression: a mixed or stale peer could silently gain writer status, a
-# completed implementation could stop before review, or review findings could
+# risky implementation could stop before review, or review findings could
 # remain stranded instead of returning to the sole writer.
 SUBAGENT_DELEGATION_REGRESSION = {
     "observed_failure": "The main session could fall back to peer-role coordination, let a delegated child mutate the worktree, or accept stale review evidence.",
-    "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents load and return the selected skill's own output format, and changed candidates receive an independent frozen b-reviewer gate.",
+    "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents load and return the selected skill's own output format, and risk-triggered changed candidates receive an independent frozen b-reviewer gate.",
     "required_clauses": (
         "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action.",
         "The main session loads and executes main-owned skills: load it with the `skill` tool (or its `/b-<skill>` command) before acting. When routing selects a delegated skill, it invokes the named subagent and only that child loads and executes the skill.",
@@ -93,9 +93,13 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "Delegated agents are read-only specialists.",
         "They do not edit, commit, ask users questions, launch nested agents, or execute external/shared mutation, local upload, lifecycle, or authentication actions; they report the required action to the main session.",
         "Their `permissions` rules deny `edit`, `subagent`, and `question`",
-        "requires `b-reviewer` review before normal completion",
-        "Freeze the exact candidate after required checks pass and do not edit while review runs.",
-        "A changed snapshot, missing or failed check, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review.",
+        "For every changed candidate, inspect tracked and relevant untracked/derived paths and their diff, run applicable required checks",
+        "Require independent `b-reviewer` review when requested by the user",
+        "data integrity or migrations, public interfaces or contracts, dependencies or runtime configuration, installer or workflow policy, or multiple subsystems",
+        "Skip review only when scope and acceptance are clear",
+        "Missing or failed required checks or unexpected paths block normal completion",
+        "When review is required, freeze the exact tracked plus relevant untracked/derived candidate after fresh checks and do not edit while review runs.",
+        "A changed reviewed snapshot or plan, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review.",
         "Review never commits or pushes automatically.",
         "`b-plan` -> `b-planner`.",
         "`b-research` -> `b-researcher`.",
@@ -739,17 +743,33 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         "skills/b-commit/prompt.md": {
             "required": (
                 "The main session owns `b-commit`.",
-                "Require a valid independent **b-reviewer** disposition",
+                "Apply the kernel's risk-triggered review rule to the prepared candidate and plan",
+                "a single cohesive low-risk group with no pre-existing staged set may proceed after a self-audit",
+                "Multiple groups, a pre-existing staged set, uncertain path assignment, or any other review trigger requires independent review",
+                "When review is required, require a valid independent **b-reviewer** disposition",
                 "each proposed group's exact paths, message, and any pre-existing staged set",
                 "A candidate-only verdict does not approve staging",
                 "pause without staging or editing",
-                "Failed checks or unresolved findings block committing",
+                "Failed checks, unexpected paths, or unresolved findings block committing",
                 "Before freezing the candidate, read applicable repository commit rules",
                 "Update `CHANGELOG.md` when required",
                 "Run the prescribed changelog validator when present and all required checks",
                 "Message-only and staged PR-copy requests never reach this preparation step",
                 "required checks passed",
+                "Any candidate or plan change requires fresh checks and risk reclassification",
             ),
+        },
+        "skills/b-implement/prompt.md": {
+            "required": (
+                "Inspect every tracked and relevant untracked/derived path and diff",
+                "Apply the kernel's risk-triggered review rule",
+                "independent review was skipped under the low-risk exception",
+                "When review is required, freeze the exact candidate",
+                "Missing or failed required checks and unexpected paths block completion even without review",
+            ),
+        },
+        "skills/b-plan/prompt.md": {
+            "required": ("include applicable checks and the kernel's risk classification",),
         },
         "skills/b-pr-summary/prompt.md": {
             "required": (
@@ -803,7 +823,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         for clause in (
             "6. Block if a group mixes unrelated concerns",
             "Before freezing the candidate, read applicable repository commit rules",
-            "9. Apply the review and commit gate above",
+            "9. Apply the risk-triggered review and commit gate above",
             "Stage only the selected paths",
             "10. Reinspect each staged group",
         )

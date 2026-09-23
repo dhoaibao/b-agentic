@@ -209,20 +209,53 @@
       ]
     },
     {
-      "id": "changed-candidate-review-gate",
+      "id": "low-risk-candidate-skips-review",
       "principle": "goal-driven-execution",
-      "observed_failure": "A changed implementation reported normal completion without a frozen independent review.",
-      "intended_behavior": "After required checks pass, the main session freezes a changed candidate, requests b-reviewer review, and pauses edits; no-change work does not enter this gate.",
-      "prompt": "Use b-implement. The exact request is to change one documented default from 30 seconds to 45 seconds, and the source location and verification command are known. State the completion behavior after the check passes, including the changed-candidate review gate.",
+      "observed_failure": "An independently reviewed child was required for even a bounded, verified documentation correction.",
+      "intended_behavior": "The main session inspects all changed paths and checks the result, then finishes a clear, bounded low-risk candidate without independent review and reports that exception.",
+      "prompt": "Use b-implement. Change one documented default from 30 seconds to 45 seconds; the source location, acceptance, and verification command are known. The diff contains only this correction, its check passes, and there are no review triggers. State completion behavior.",
       "must": [
-        "Make the scoped change and run the known verification",
-        "Freeze the changed candidate",
-        "Request b-reviewer review before normal completion",
-        "Do not edit while review is pending"
+        "Inspect the changed paths and run the known verification",
+        "Finish without independent review under the low-risk exception",
+        "Report that independent review was skipped"
       ],
       "avoid": [
-        "Treat review as an automatic commit",
-        "Continue editing the frozen candidate"
+        "Request b-reviewer for this low-risk change",
+        "Claim a READY FOR PR reviewer verdict"
+      ]
+    },
+    {
+      "id": "risk-triggered-candidate-review",
+      "principle": "goal-driven-execution",
+      "observed_failure": "A verified but consequential change could finish under a low-risk label without independent review.",
+      "intended_behavior": "User-requested review or changes to trust boundaries, data, public contracts, dependencies/runtime config, workflow policy, or multiple subsystems trigger independent review after fresh checks.",
+      "prompt": "Use b-implement. A candidate changes authentication permissions, a data migration, an exported API contract, a dependency, and installer policy across subsystems. All required checks pass. Describe the review gate, including what happens if the user expressly asks for review of an otherwise tiny change.",
+      "must": [
+        "Classify the changes and user request as review triggers",
+        "Freeze the exact candidate after fresh required checks",
+        "Request read-only b-reviewer review before normal completion",
+        "Do not edit while review runs"
+      ],
+      "avoid": [
+        "Use file count alone as the trigger",
+        "Treat review as an automatic commit"
+      ]
+    },
+    {
+      "id": "uncertain-or-failed-candidate-blocks",
+      "principle": "goal-driven-execution",
+      "observed_failure": "A change with an unexpected path or failed required check was finished by skipping review.",
+      "intended_behavior": "Missing or failed checks and unexpected paths block completion until resolved; uncertain risk escalates to review and ambiguous acceptance goes to the user.",
+      "prompt": "Use b-implement. A seemingly local change has an unexpected generated path, the required check fails, and acceptance of the resulting public behavior is ambiguous. Can you mark this low-risk and finish without review? State the next steps.",
+      "must": [
+        "Block normal completion",
+        "Inspect unexpected paths and resolve the required check",
+        "Ask the user about ambiguous requirements",
+        "Escalate uncertain risk for review"
+      ],
+      "avoid": [
+        "Treat skipped review as a substitute for verification",
+        "Silently choose acceptance criteria"
       ]
     },
     {

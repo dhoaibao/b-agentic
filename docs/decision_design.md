@@ -40,8 +40,8 @@ child `sessionID` only in main-session context and may continue it only when the
 specialist, model/profile, task scope, and repository baseline remain
 compatible. A research continuation carries bounded prior evidence and refreshes
 version- or currentness-sensitive claims. Independent tasks, mismatched or stale
-context, and changed-candidate review use a fresh child; a reviewer session is
-never reused.
+context, and required changed-candidate review use a fresh child; a reviewer
+session is never reused.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
@@ -117,8 +117,20 @@ validation adds installer smoke coverage. A live OpenCode v2 smoke against a
 sandboxed install confirmed `AGENTS.md`, skills, `b-*` agents and commands,
 ordered permissions, `mcp.servers`, and `experimental.subagent_depth` load
 correctly; MCP servers connect and the only failures are expected credential
-gaps. A changed candidate is frozen after fresh checks and reviewed by the
-read-only reviewer before normal completion.
+gaps. Every changed candidate gets an inspected diff and applicable fresh
+checks. Independent read-only review is triggered by a user request, changes to
+security/permissions/authentication/privacy, data integrity/migrations, public
+interfaces/contracts, dependencies/runtime configuration, installer/workflow
+policy, or multiple subsystems; unclear acceptance, material residual risk, and
+complex commit plans (multiple groups, pre-existing staged changes, or uncertain
+path assignment) also trigger it. File count alone does not. Only a clear,
+bounded, verified low-risk candidate with no trigger can skip independent review,
+and the main session reports that exception without claiming a reviewer verdict.
+The same rule applies to commits: a simple group gets exact-path and index
+self-audit, while triggered plans need a frozen candidate-and-plan review. This
+trades independent scrutiny of routine changes for lower latency without
+relaxing checks or the single-writer and frozen-review boundaries. A failure,
+unexpected path, or uncertainty blocks completion until resolved or escalated.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 [`tooling/validate/behavior.py`](../tooling/validate/behavior.py), and

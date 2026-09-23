@@ -16,6 +16,10 @@ section per date and same-day changes aggregated in that section.
 - Added bounded background delegation and compatible child-session continuation
   rules, with refreshed evidence requirements for continuing research and a
   fresh-session requirement for independent reviews.
+- Replaced automatic review of every changed task and commit with risk-triggered
+  review. Bounded, verified low-risk changes now use inspected diffs and a
+  reported review exception; consequential changes and complex commit plans
+  retain frozen independent review.
 
 ### Fixed
 

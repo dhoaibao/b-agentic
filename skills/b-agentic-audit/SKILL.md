@@ -162,5 +162,5 @@ Verdict:
 - Do not use live MCP schema probing without approval; report it unverified when
   unavailable. Do not expose credentials, token values, private URLs, or raw
   operational errors.
-- Do not use this skill as a generic code-diff review; changed diffs belong to
-  **b-review**, including the mandatory frozen-candidate review gate.
+- Do not use this skill as a generic code-diff review; triggered independent
+  review of a frozen changed candidate belongs to **b-review**.
