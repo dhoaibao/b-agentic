@@ -250,7 +250,7 @@ previous_path = Path(os.environ['JSON_PREVIOUS_TEMPLATE'])
 previous = json.loads(previous_path.read_text()) if previous_path.is_file() else {}
 if not isinstance(incoming, dict) or not isinstance(current, dict) or not isinstance(previous, dict):
     raise SystemExit('configuration roots must be objects')
-def merge(existing, recommended):
+def merge(existing, recommended, path=()):
     if isinstance(existing, dict) and isinstance(recommended, dict):
         merged = dict(existing)
         for key, value in recommended.items():
@@ -283,8 +283,12 @@ def merge(existing, recommended):
                         file=sys.stderr,
                     )
                 merged[key] = value + [item for item in merged[key] if item not in value]
+            elif path == ('compaction',) and key == 'auto':
+                if key in merged and merged[key] != value:
+                    print('warning: setting compaction.auto to false while DCP is installed; the original value is backed up', file=sys.stderr)
+                merged[key] = value
             else:
-                merged[key] = merge(merged[key], value) if key in merged else value
+                merged[key] = merge(merged[key], value, path + (key,)) if key in merged else value
         return merged
     if isinstance(existing, list) and isinstance(recommended, list):
         # Command and other ordered arrays are user-owned values, not sets.
@@ -308,6 +312,11 @@ PY
 
 remove_merged_config() {
   local path="$1" template="$2" label="$3" backup_key="$4" action_key="$5" backup original_arg tmp
+  if [ -L "$path" ]; then
+    warn "preserving symlinked $label: $path"
+    PRESERVE_METADATA_DIR=1
+    return 0
+  fi
   [ -f "$path" ] || return 0
   backup="$(manifest_backup_value "$backup_key" none)"
   if [ "$backup" = "none" ] && [ "$(manifest_action_value "$action_key" '')" = "write" ]; then
@@ -360,7 +369,7 @@ install_uninstall_helper() {
 
 runtime_sync_configs() {
   local prior_config_action="" prior_config_backup="none"
-  if [ -f "$MANIFEST_DST" ]; then
+  if [ -f "$MANIFEST_DST" ] && [ "$(manifest_path_value opencodeConfig "")" = "$OPENCODE_CONFIG_DST" ]; then
     prior_config_action="$(manifest_action_value opencodeConfigAction "")"
     prior_config_backup="$(manifest_backup_value opencodeConfig none)"
   fi

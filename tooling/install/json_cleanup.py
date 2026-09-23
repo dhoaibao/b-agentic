@@ -10,7 +10,7 @@ from jsonc import loads as load_jsonc
 MISSING = object()
 
 
-def cleanup(current_value, incoming_value, original_value):
+def cleanup(current_value, incoming_value, original_value, path=()):
     """Remove values introduced by an incoming managed config.
 
     Values present in the original user config retain their original ownership.
@@ -35,22 +35,28 @@ def cleanup(current_value, incoming_value, original_value):
                     else:
                         result[key] = cleaned
                 else:
-                    result[key] = cleanup(result[key], incoming_child, original_child)
+                    result[key] = cleanup(result[key], incoming_child, original_child, path + (key,))
             elif original_child is MISSING:
                 if result[key] == incoming_child:
                     result.pop(key)
                 elif isinstance(result[key], type(incoming_child)) and isinstance(result[key], (dict, list)):
-                    cleaned = cleanup(result[key], incoming_child, {} if isinstance(result[key], dict) else [])
+                    cleaned = cleanup(
+                        result[key], incoming_child, {} if isinstance(result[key], dict) else [], path + (key,)
+                    )
                     if cleaned in ({}, []):
                         result.pop(key)
                     else:
                         result[key] = cleaned
             else:
-                result[key] = cleanup(result[key], incoming_child, original_child)
+                result[key] = cleanup(result[key], incoming_child, original_child, path + (key,))
         return result
     if isinstance(current_value, list) and isinstance(incoming_value, list):
         original = original_value if isinstance(original_value, list) else []
         return [item for item in current_value if item in original or item not in incoming_value]
+    # Only compaction.auto is overridden by install; other user-owned scalars
+    # may have been changed to the managed value since installation.
+    if path == ("compaction", "auto") and original_value is not MISSING and current_value == incoming_value:
+        return original_value
     return current_value
 
 

@@ -139,7 +139,10 @@ def main() -> int:
     template = metadata / "templates" / "opencode.user.template.json"
     backup = data.get("backups", {}).get("opencodeConfig") if isinstance(data.get("backups"), dict) else None
     original = Path(backup).expanduser() if isinstance(backup, str) and backup not in {"", "none"} else None
-    if config.exists():
+    if config.is_symlink():
+        warn(f"preserving symlinked opencode.json: {config}")
+        preserved = True
+    elif config.exists():
         if not template.exists():
             warn(f"preserving opencode.json: missing managed template: {template}")
             preserved = True

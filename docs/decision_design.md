@@ -76,8 +76,12 @@ Managed servers are configured through OpenCode v2 `mcp.servers` with Code Mode
 disabled, exposing direct `<server>_<tool>` names. The managed `plugins` array
 ships `@tarquinen/opencode-dcp` for dynamic context pruning and sets
 `compaction.auto: false` so DCP owns context pruning exclusively; the installer
+overrides an existing `compaction.auto: true` and restores it from the original
+config backup on uninstall if the managed value remains unchanged. It
 unions managed plugin entries ahead of user entries and removes them on
-uninstall. `references/mcp_operations.yaml` classifies each tool;
+uninstall. Changing the managed config path requires uninstall before reinstall
+so the previous file is cleaned with its own backup.
+`references/mcp_operations.yaml` classifies each tool;
 the generator renders that classification to native `allow`, `ask`, or `deny`
 rules. Read-only tools are allowed. Formerly conditional operations are allowed
 only by their named tool because argument-aware validation has no native home.

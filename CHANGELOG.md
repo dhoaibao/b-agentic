@@ -25,6 +25,11 @@ section per date and same-day changes aggregated in that section.
 
 ### Fixed
 
+- Preserved user-replaced OpenCode config symlinks in both uninstall paths,
+  avoiding writes through the link during managed-config cleanup.
+- Applied DCP's `compaction.auto: false` over existing user settings while
+  restoring the original value on uninstall after repeat installs and syncs;
+  config-path changes now require uninstall first to clean the prior file.
 - Made inconclusive debugger handoffs report missing evidence without claiming a
   confirmed cause or inventing a reproduction command.
 - Required commit review to inspect the proposed groups, file assignments, and

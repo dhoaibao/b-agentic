@@ -142,12 +142,21 @@ install_opencode_config() {
 }
 
 runtime_install_configs() {
+  local prior_config_action="" prior_config_backup="none"
+  if [ -f "$MANIFEST_DST" ] && [ "$(manifest_path_value opencodeConfig "")" = "$OPENCODE_CONFIG_DST" ]; then
+    prior_config_action="$(manifest_action_value opencodeConfigAction "")"
+    prior_config_backup="$(manifest_backup_value opencodeConfig none)"
+  fi
   run_install_triplet_stage "Installing OpenCode subagents" install_agents "skip" "none" "none" \
     INSTALL_AGENTS_ACTION INSTALL_AGENTS_STATE _unused_agents_backup || return $?
   run_install_triplet_stage "Installing OpenCode commands" install_commands "skip" "none" "none" \
     INSTALL_COMMANDS_ACTION INSTALL_COMMANDS_STATE _unused_commands_backup || return $?
   run_install_triplet_stage "Merging OpenCode config" install_opencode_config "skip" "none" "none" \
     INSTALL_CONFIG_ACTION INSTALL_CONFIG_STATE INSTALL_CONFIG_BACKUP || return $?
+  if [ -n "$prior_config_action" ]; then
+    INSTALL_CONFIG_ACTION="$prior_config_action"
+    INSTALL_CONFIG_BACKUP="$prior_config_backup"
+  fi
 }
 
 runtime_write_manifest() {
@@ -270,8 +279,17 @@ runtime_uninstall_configs() {
   remove_merged_config "$config_path" "$TEMPLATES_DST/opencode.user.template.json" "opencode.json" "opencodeConfig" "opencodeConfigAction"
 }
 
-opencode_install() { runtime_install_common; }
-opencode_sync() { runtime_sync_common; }
+require_existing_config_path() {
+  local prior_path
+  [ -f "$MANIFEST_DST" ] || return 0
+  prior_path="$(manifest_path_value opencodeConfig "")"
+  if [ -n "$prior_path" ] && [ "$prior_path" != "$OPENCODE_CONFIG_DST" ]; then
+    die "OpenCode config path changed; uninstall the existing installation before using a different config path"
+  fi
+}
+
+opencode_install() { require_existing_config_path; runtime_install_common; }
+opencode_sync() { require_existing_config_path; runtime_sync_common; }
 opencode_update() {
   runtime_upgrade_cli
   case "$OPENCODE_CLI_INSTALL_STATUS" in

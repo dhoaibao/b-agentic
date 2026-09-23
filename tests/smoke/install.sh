@@ -172,13 +172,49 @@ plugins="$WORK_DIR/plugins"
 mkdir -p "$plugins/home/.config/opencode"
 make_source "$plugins/source"
 make_bin "$plugins/bin"
-printf '%s\n' '{"plugins": ["user-plugin", "@cortexkit/opencode-magic-context"], "compaction": {"keep": {"tokens": 30000}}}' >"$plugins/home/.config/opencode/opencode.json"
+printf '%s\n' '{"plugins": ["user-plugin", "@cortexkit/opencode-magic-context"], "compaction": {"keep": {"tokens": 30000}, "auto": true}, "experimental": {"subagent_depth": 2}}' >"$plugins/home/.config/opencode/opencode.json"
 run_install "$plugins" >"$plugins/install.log" 2>&1
 plugins_config="$plugins/home/.config/opencode/opencode.json"
 assert_contains "$plugins/install.log" 'preserving @cortexkit/opencode-magic-context'
+assert_contains "$plugins/install.log" 'setting compaction.auto to false'
 assert_json "$plugins_config" "data['plugins'] == ['@tarquinen/opencode-dcp', 'user-plugin', '@cortexkit/opencode-magic-context'] and data['compaction'] == {'keep': {'tokens': 30000}, 'auto': False}"
+run_install "$plugins" >"$plugins/repeat-install.log" 2>&1
+assert_json "$plugins_config" "data['compaction']['auto'] is False"
+run_install "$plugins" --sync >"$plugins/sync.log" 2>&1
+assert_json "$plugins_config" "data['compaction']['auto'] is False"
+python3 - "$plugins_config" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['experimental']['subagent_depth'] = 1
+path.write_text(json.dumps(data) + '\n')
+PY
 run_install "$plugins" --uninstall >"$plugins/uninstall.log" 2>&1
-assert_json "$plugins_config" "data == {'plugins': ['user-plugin', '@cortexkit/opencode-magic-context'], 'compaction': {'keep': {'tokens': 30000}}}"
+assert_json "$plugins_config" "data == {'plugins': ['user-plugin', '@cortexkit/opencode-magic-context'], 'compaction': {'keep': {'tokens': 30000}, 'auto': True}, 'experimental': {'subagent_depth': 1}}"
+python3 - "$plugins_config" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['experimental']['subagent_depth'] = 2
+path.write_text(json.dumps(data) + '\n')
+PY
+run_install "$plugins" >"$plugins/reinstall.log" 2>&1
+run_install "$plugins" >"$plugins/repeat-reinstall.log" 2>&1
+python3 - "$plugins_config" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['experimental']['subagent_depth'] = 1
+path.write_text(json.dumps(data) + '\n')
+PY
+rm -rf "$plugins/source"
+HOME="$plugins/home" PATH="$plugins/bin:$PATH" B_AGENTIC_DIR="$plugins/source" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$plugins/manifest-uninstall.log" 2>&1
+assert_contains "$plugins/manifest-uninstall.log" 'Manifest-only uninstall complete for OpenCode'
+assert_json "$plugins_config" "data == {'plugins': ['user-plugin', '@cortexkit/opencode-magic-context'], 'compaction': {'keep': {'tokens': 30000}, 'auto': True}, 'experimental': {'subagent_depth': 1}}"
 
 # Existing managed server launch arrays remain user-owned and survive uninstall.
 conflict="$WORK_DIR/conflict"
@@ -311,6 +347,58 @@ HOME="$missing_backup/home" PATH="$missing_backup/bin:$PATH" B_AGENTIC_DIR="$mis
 assert_contains "$missing_backup/uninstall.log" 'recorded backup is missing'
 assert_file "$missing_backup/home/.config/opencode/b-agentic/install.json"
 assert_file "$missing_backup/home/.config/opencode/opencode.json"
+
+# Both uninstall paths preserve a replaced config symlink and its target.
+for mode in source manifest; do
+  linked_config="$WORK_DIR/linked-config-$mode"
+  mkdir -p "$linked_config/home/.config/opencode" "$linked_config/user"
+  make_source "$linked_config/source"
+  make_bin "$linked_config/bin"
+  printf '%s\n' '{"custom": true}' >"$linked_config/home/.config/opencode/opencode.json"
+  run_install "$linked_config" >"$linked_config/install.log" 2>&1
+  linked_path="$linked_config/home/.config/opencode/opencode.json"
+  target="$linked_config/user/config.json"
+  cp "$linked_path" "$target"
+  rm "$linked_path"
+  ln -s "$target" "$linked_path"
+  if [ "$mode" = manifest ]; then
+    rm -rf "$linked_config/source"
+  fi
+  HOME="$linked_config/home" PATH="$linked_config/bin:$PATH" B_AGENTIC_DIR="$linked_config/source" \
+    bash "$ROOT_DIR/install.sh" --uninstall >"$linked_config/uninstall.log" 2>&1
+  assert_contains "$linked_config/uninstall.log" 'preserving symlinked opencode.json'
+  [ -L "$linked_path" ] || fail 'expected config symlink to be preserved'
+  assert_file "$linked_config/home/.config/opencode/b-agentic/install.json"
+  assert_json "$target" "data['custom'] is True and data['plugins'] == ['@tarquinen/opencode-dcp']"
+done
+
+# Switching config paths requires uninstall so the old managed config is cleaned.
+for mode in source manifest; do
+  switched="$WORK_DIR/switched-config-$mode"
+  mkdir -p "$switched/home/.config/opencode"
+  make_source "$switched/source"
+  make_bin "$switched/bin"
+  printf '%s\n' '{"custom": "old", "compaction": {"auto": true}}' >"$switched/home/.config/opencode/opencode.json"
+  run_install "$switched" >"$switched/install.log" 2>&1
+  new_config="$switched/home/.config/opencode/opencode.jsonc"
+  printf '%s\n' '{"custom": "new", "compaction": {"auto": false}}' >"$new_config"
+  if B_AGENTIC_OPENCODE_CONFIG="$new_config" run_install "$switched" >"$switched/reinstall.log" 2>&1; then
+    fail 'expected changed config path to require uninstall'
+  fi
+  assert_contains "$switched/reinstall.log" 'uninstall the existing installation before using a different config path'
+  if B_AGENTIC_OPENCODE_CONFIG="$new_config" run_install "$switched" --sync >"$switched/sync.log" 2>&1; then
+    fail 'expected changed config path to block sync'
+  fi
+  assert_contains "$switched/sync.log" 'uninstall the existing installation before using a different config path'
+  assert_json "$new_config" "data == {'custom': 'new', 'compaction': {'auto': False}}"
+  if [ "$mode" = manifest ]; then
+    rm -rf "$switched/source"
+  fi
+  HOME="$switched/home" PATH="$switched/bin:$PATH" B_AGENTIC_DIR="$switched/source" \
+    bash "$ROOT_DIR/install.sh" --uninstall >"$switched/uninstall.log" 2>&1
+  assert_json "$switched/home/.config/opencode/opencode.json" "data == {'custom': 'old', 'compaction': {'auto': True}}"
+  assert_json "$new_config" "data == {'custom': 'new', 'compaction': {'auto': False}}"
+done
 
 # Dry runs cannot create a configuration directory.
 dry="$WORK_DIR/dry"
