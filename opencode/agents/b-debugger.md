@@ -1,7 +1,7 @@
 ---
 description: Diagnose a runtime problem without changing product code.
 mode: subagent
-model: hdwebsoft/swe-2-max
+model: openai/gpt-6-sol#xhigh
 permissions:
   - action: edit
     resource: "*"

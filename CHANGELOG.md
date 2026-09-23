@@ -10,6 +10,9 @@ section per date and same-day changes aggregated in that section.
 
 ### Changed
 
+- Assigned `b-planner` and `b-debugger` to `openai/gpt-6-sol#xhigh`,
+  `b-reviewer` to `openai/gpt-6-sol#high`, and `b-researcher` to
+  `hdwebsoft/swe-2-high` in the agent registry and generated profiles.
 - Added bounded background delegation and compatible child-session continuation
   rules, with refreshed evidence requirements for continuing research and a
   fresh-session requirement for independent reviews.

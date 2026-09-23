@@ -1,7 +1,7 @@
 ---
 description: Produce a read-only execution-ready plan for the main b-agentic session.
 mode: subagent
-model: openai/gpt-5.6-terra#xhigh
+model: openai/gpt-6-sol#xhigh
 permissions:
   - action: edit
     resource: "*"
