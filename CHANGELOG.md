@@ -25,6 +25,8 @@ section per date and same-day changes aggregated in that section.
   messages and to preserve any pre-existing staged set as one group.
 - Isolated the installer smoke test from host OpenCode configuration overrides
   so CI checks the sandbox installation path consistently.
+- Normalized the installer smoke sandbox path so macOS temporary-directory
+  separators no longer break doctor output assertions.
 
 ## [v2026.09.22] - 2026-09-22
 

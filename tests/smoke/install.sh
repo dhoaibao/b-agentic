@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Installer assertions use each sandbox's HOME; ignore host config overrides.
 unset XDG_CONFIG_HOME B_AGENTIC_OPENCODE_DIR B_AGENTIC_OPENCODE_CONFIG
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-opencode-smoke.XXXXXX")"
+WORK_DIR="$(cd "$WORK_DIR" && pwd -P)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 fail() { printf 'smoke-install.sh: %s\n' "$*" >&2; exit 1; }
