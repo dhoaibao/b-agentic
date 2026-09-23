@@ -17,6 +17,11 @@ section per date and same-day changes aggregated in that section.
   rules, with refreshed evidence requirements for continuing research and a
   fresh-session requirement for independent reviews.
 
+### Fixed
+
+- Isolated the installer smoke test from host OpenCode configuration overrides
+  so CI checks the sandbox installation path consistently.
+
 ## [v2026.09.22] - 2026-09-22
 
 ### Changed
