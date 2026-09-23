@@ -8,7 +8,7 @@
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
-      "model": "hdwebsoft/swe-2-high"
+      "model": "zai/glm-5.3-flash#max"
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
