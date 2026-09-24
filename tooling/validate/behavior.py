@@ -99,7 +99,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "Skip review only when scope and acceptance are clear",
         "Missing or failed required checks or unexpected paths block normal completion",
         "When review is required, freeze the exact tracked plus relevant untracked/derived candidate after fresh checks and do not edit while review runs.",
-        "A changed reviewed snapshot or plan, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review.",
+        "A changed reviewed snapshot, `NEEDS FIXES`, or unaccepted follow-up requires correction, fresh verification, and a new review during change-producing work.",
         "Review never commits or pushes automatically.",
         "`b-plan` -> `b-planner`.",
         "`b-research` -> `b-researcher`.",
@@ -762,19 +762,15 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         "skills/b-commit/prompt.md": {
             "required": (
                 "The main session owns `b-commit`.",
-                "Apply the kernel's risk-triggered review rule to the prepared candidate and plan",
-                "a single cohesive low-risk group with no pre-existing staged set may proceed after a self-audit",
-                "Multiple groups, a pre-existing staged set, uncertain path assignment, or any other review trigger requires independent review",
-                "When review is required, require a valid independent **b-reviewer** disposition",
-                "each proposed group's exact paths, message, and any pre-existing staged set",
-                "A candidate-only verdict does not approve staging",
-                "pause without staging or editing",
-                "Failed checks, unexpected paths, or unresolved findings block committing",
+                "Do not invoke **b-reviewer** or require a prior review disposition solely to stage or commit",
+                "Self-audit each group's exact paths, the user-curated index, messages, and passing required checks",
+                "If either changes—including relevant untracked content or required repository preparation—reinspect the candidate and plan, rerun required checks, and repeat the self-audit",
+                "Failed checks, unexpected paths, unresolved findings, or uncertain path assignment block committing",
                 "Before freezing the candidate, read applicable repository commit rules",
                 "Run all required checks after any repository-specific preparation.",
                 "Message-only and staged PR-copy requests never reach this preparation step",
                 "required checks passed",
-                "Any candidate or plan change requires fresh checks and risk reclassification",
+                "Any candidate or plan change requires fresh inspection, checks, and self-audit before staging",
             ),
         },
         "skills/b-implement/prompt.md": {
@@ -805,10 +801,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "This skill runs in the `b-reviewer` subagent.",
                 "Confirm the baseline and exact frozen candidate snapshot.",
-                "For a `b-commit` handoff, require the proposed plan",
-                "complete and non-overlapping assignment of intended commit paths",
-                "Preserve any pre-existing staged set as one group",
-                "a candidate-only verdict does not approve the commit plan",
+                "Review does not authorize staging or committing; `b-commit` separately self-audits any commit plan",
                 "Return the structured disposition and findings to the main session",
                 "do not ask users questions, message peers, or implement a correction.",
                 "Corrections must return as a reverified, frozen candidate for another review.",
@@ -836,12 +829,15 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             if clause not in text:
                 errors.append(f"cross-skill contract: {path} missing {clause!r}")
     commit = (ROOT / "skills/b-commit/prompt.md").read_text()
+    kernel = (ROOT / "references/kernel.template.md").read_text()
+    if "`b-commit` does not initiate changed-code review for the prepared candidate or commit plan" not in kernel:
+        errors.append("cross-skill contract: commit must not trigger a second changed-code review")
     sequence = [
         commit.find(clause)
         for clause in (
             "6. Block if a group mixes unrelated concerns",
             "Before freezing the candidate, read applicable repository commit rules",
-            "9. Apply the risk-triggered review and commit gate above",
+            "9. Apply the commit gate above",
             "Stage only the selected paths",
             "10. Reinspect each staged group",
         )

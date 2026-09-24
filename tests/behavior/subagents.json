@@ -142,23 +142,17 @@
       ]
     },
     {
-      "id": "reviewer-assesses-commit-plan",
+      "id": "explicit-pre-commit-review",
       "skill": "b-review",
-      "observed_failure": "A reviewer approved the code candidate without examining the proposed commit groups, paths, and messages.",
-      "intended_behavior": "For a b-commit handoff, b-reviewer reviews the exact frozen candidate and supplied commit plan; an absent or changed plan blocks staging even when the code is sound.",
-      "prompt": "The candidate passes code checks, but a b-commit handoff proposes two commits. One generated file is assigned to neither group and a pre-existing staged set is split across them. State what b-reviewer must inspect and whether a code-only READY disposition authorizes staging.",
+      "observed_failure": "An explicit request to review changes before committing was treated as authorization to stage and commit.",
+      "intended_behavior": "An explicit pre-commit review request routes to b-review separately; b-reviewer remains read-only and does not approve or perform staging.",
+      "prompt": "The user asks to review changed code before committing. Describe the read-only b-review handoff and whether this request itself authorizes a commit.",
       "must": [
-        "Inspect the frozen candidate and proposed groups, exact paths, messages, and pre-existing staged set",
-        "Check complete non-overlapping assignment of intended commit paths and group coherence",
-        "Reject splitting or reorganizing the pre-existing staged set",
-        "Block staging on an incomplete or changed plan",
-        "Candidate-only READY does not approve staging"
+        "Review the frozen changed-code candidate read-only",
+        "Return findings to the main session",
+        "Do not stage or commit without a separate explicit commit request"
       ],
-      "avoid": [
-        "Approve the unexamined commit plan",
-        "Stage or edit files",
-        "Silently regroup the candidate"
-      ]
+      "avoid": ["Stage or edit files", "Treat review as commit authorization"]
     },
     {
       "id": "audit-returns-freshness-blocker",
@@ -187,28 +181,29 @@
       "avoid": ["Freeze a code candidate", "Issue a changed-code verdict"]
     },
     {
-      "id": "complex-commit-requires-reviewed-plan",
+      "id": "complex-commit-self-audits-plan",
       "skill": "b-commit",
-      "observed_failure": "A complex user-authorized commit staged a changed candidate without fresh independent review evidence.",
-      "intended_behavior": "For a triggered commit plan, the main session completes preparation, freezes the exact candidate and commit plan, obtains b-reviewer review, and stages only unchanged reviewed paths.",
+      "observed_failure": "Multiple commit groups and a pre-existing staged set triggered a redundant b-reviewer run.",
+      "intended_behavior": "The main session completes required preparation and checks, preserves the user-curated staged group, self-audits the exact paths and messages, and stages only unchanged selected paths without another reviewer run.",
       "prompt": "A user explicitly requests two commits, one with a pre-existing staged set. Required repository-specific preparation changes the candidate after an earlier review. Explain the required sequence before staging.",
       "must": [
         "Complete required preparation before final snapshot",
-        "Reopen b-reviewer review",
-        "Verify unchanged reviewed candidate before staging"
+        "Preserve the pre-existing staged set as one group",
+        "Rerun checks after preparation and self-audit exact paths, index, and messages",
+        "Verify the prepared snapshot and plan are unchanged before staging"
       ],
-      "avoid": ["Stage before review", "Push automatically"]
+      "avoid": ["Reopen b-reviewer solely for committing", "Push automatically"]
     },
     {
       "id": "simple-commit-self-audit",
       "skill": "b-commit",
       "observed_failure": "A routine single-group commit incurred an unnecessary second independent review.",
-      "intended_behavior": "A prepared, verified single cohesive low-risk group without a pre-existing staged set can proceed after an exact-path/index self-audit and report the review exception.",
+      "intended_behavior": "A prepared, verified single cohesive group can proceed after an exact-path/index self-audit without a redundant reviewer run.",
       "prompt": "A user explicitly requests one commit of a bounded low-risk correction. All repository-required preparation is complete, all candidate paths and the index are inspected, required checks pass, and no paths were staged beforehand. State what happens before staging and whether b-reviewer is required.",
       "must": [
         "Self-audit the exact paths, index, and message",
         "Confirm unchanged snapshot and passing checks",
-        "Report independent review skipped under the low-risk exception",
+        "Do not require another b-reviewer run for committing",
         "Stage only selected paths"
       ],
       "avoid": [
@@ -218,20 +213,20 @@
       ]
     },
     {
-      "id": "commit-reclassifies-after-change",
+      "id": "commit-reaudits-after-change",
       "skill": "b-commit",
-      "observed_failure": "A simple plan stayed classified low-risk after an additional public-contract change.",
-      "intended_behavior": "A changed prepared candidate needs fresh checks and risk reclassification; new review triggers require a frozen candidate-and-plan disposition before staging.",
-      "prompt": "A single low-risk commit plan passed its checks, but before staging the candidate gains a public API contract change. State what happens to the self-audit exception and plan.",
+      "observed_failure": "A changed candidate was staged under an obsolete snapshot and plan.",
+      "intended_behavior": "Any changed prepared candidate needs fresh inspection, required checks, and a repeated path/index/message self-audit before staging; an uncertain or unrelated change blocks committing rather than prompting another reviewer run.",
+      "prompt": "A commit plan passed its checks, but before staging the candidate gains an unexpected public API contract change. State what happens to the snapshot and plan.",
       "must": [
         "Reinspect the changed candidate and plan",
         "Run fresh required checks",
-        "Reclassify as review required",
-        "Review the frozen candidate and plan before staging"
+        "Block on unexpected paths or uncertain assignment",
+        "Repeat the self-audit before any staging"
       ],
       "avoid": [
-        "Stage under the old low-risk classification",
-        "Treat an old candidate-only verdict as plan approval"
+        "Stage under the old snapshot",
+        "Require b-reviewer solely for committing"
       ]
     }
   ]

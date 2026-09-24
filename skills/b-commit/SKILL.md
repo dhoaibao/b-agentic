@@ -31,11 +31,11 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 - Native `read`/`edit` for applicable repository commit rules and required preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
 
-## Review and commit gate
+## Commit gate
 
-The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Complete repository-required commit preparation and checks, inspect the full tracked and relevant untracked/derived candidate, then capture its exact snapshot and commit plan before staging. Apply the kernel's risk-triggered review rule to the prepared candidate and plan; a single cohesive low-risk group with no pre-existing staged set may proceed after a self-audit of exact paths, index, message, and passing required checks. Multiple groups, a pre-existing staged set, uncertain path assignment, or any other review trigger requires independent review. Supply b-reviewer with each proposed group's exact paths, message, and any pre-existing staged set when review is required.
+The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Complete repository-required commit preparation and checks, inspect the full tracked and relevant untracked/derived candidate, then capture its exact snapshot and commit plan before staging. Self-audit each group's exact paths, the user-curated index, messages, and passing required checks. Do not invoke **b-reviewer** or require a prior review disposition solely to stage or commit, even for multiple groups or a pre-existing staged set.
 
-- When review is required, require a valid independent **b-reviewer** disposition explicitly covering the exact candidate and commit plan. A candidate-only verdict does not approve staging. If either is absent or changed—including relevant untracked content or required repository preparation—freeze the candidate, request or reopen review, then pause without staging or editing. For a low-risk exception, recheck the classification and self-audit the unchanged prepared snapshot and plan before staging; a change requires fresh checks and reclassification. Failed checks, unexpected paths, or unresolved findings block committing. Never regroup silently or push.
+- Before staging, confirm the prepared snapshot and plan are unchanged. If either changes—including relevant untracked content or required repository preparation—reinspect the candidate and plan, rerun required checks, and repeat the self-audit. Failed checks, unexpected paths, unresolved findings, or uncertain path assignment block committing. Never regroup silently or push.
 
 ## Steps
 
@@ -47,7 +47,7 @@ The main session owns `b-commit`. An explicit user request to commit authorizes 
 6. Block if a group mixes unrelated concerns, a protected file needs permission, or a file cannot be assigned confidently. Before freezing the candidate, read applicable repository commit rules and perform required preparation only for this user-authorized commit. Run all required checks after any repository-specific preparation. Include prepared files in the commit plan without silently adding them to or rewriting a user-curated staged group; if grouping is ambiguous, stop. Message-only and staged PR-copy requests never reach this preparation step.
 7. For each group, choose the narrowest accurate type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`; write an imperative subject of at most 50 characters with no trailing punctuation.
 8. Record the groups, exact file paths, and commit messages in the execution response, then continue without a second approval prompt; the explicit user commit request is sufficient authorization. If the request did not explicitly authorize committing, stop.
-9. Apply the risk-triggered review and commit gate above to the complete candidate and plan. Before staging, verify the snapshot and commit plan are unchanged and required checks passed. For a low-risk exception, report that independent review was skipped; do not claim an independent review verdict. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
+9. Apply the commit gate above to the complete candidate and plan. Before staging, verify the snapshot and commit plan are unchanged and required checks passed. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
 10. Reinspect each staged group immediately before committing with a targeted non-protected-path diff. Create its commit on the current branch, then continue to the next approved group. Stop on the first Git error; do not amend, reset, push, or retry by changing history.
 11. Report commit hashes, messages, remaining changes, and any blockers. Recommend `b-pr-summary <commit-count>` for PR copy.
 
@@ -91,5 +91,5 @@ BLOCKED: commit staged changes before generating PR copy
 - Preserve unrelated worktree changes and the user-curated index.
 - Evidence-only messages; do not invent behavior, verification, or impact.
 - Require an explicit user commit request, but do not ask for a second approval after it; do not push or create a PR.
-- Commit only for the unchanged verified snapshot and plan. Any candidate or plan change requires fresh checks and risk reclassification; reopen **b-reviewer** review if review was or is required.
+- Commit only for the unchanged verified snapshot and plan. Any candidate or plan change requires fresh inspection, checks, and self-audit before staging.
 - Never use `git add -A`, `git add .`, `git commit --amend`, reset, or history-rewriting commands.
