@@ -13,7 +13,7 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 
 With Pi already on PATH, install runs `pi update --self`; otherwise it installs
 the latest `@earendil-works/pi-coding-agent` through npm. Six bare npm package
-names are installed into the Pi agent directory: `@gotgenes/pi-subagents`,
+names are managed in the Pi agent directory: `@gotgenes/pi-subagents`,
 `@gotgenes/pi-permission-system`, `pi-mcp-adapter`,
 `@juicesharp/rpiv-ask-user-question`, `@gotgenes/pi-anthropic-auth`, and
 `@sreetej510/pi-usage`. None is pinned. The default directory is
@@ -23,7 +23,10 @@ source-absent manifest uninstall remains confined to the same boundary.
 
 - `--dry-run` prints the planned operations without installing or writing.
 - `--sync` refreshes managed assets and merges missing configuration values
-  without updating Pi; `--update` updates Pi and installed extensions.
+  without updating Pi. Install and sync use `pi list` to install missing extensions
+  and `pi update --extensions` when any managed extension is already installed.
+  This updates all configured packages, including user-owned extensions;
+  `--update` updates Pi and installed extensions.
 - `--uninstall` removes only unmodified managed assets and managed config
   values; it preserves changed or symlinked files and the metadata needed to
   finish cleanup. Replacing successive user-edited kernels retains older

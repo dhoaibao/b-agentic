@@ -158,18 +158,36 @@ remember_config_baseline() {
 }
 
 install_packages() {
-  local package name
+  local package name listed update_existing=0
   if dry_run_enabled; then
-    printf '[dry-run] install six unpinned Pi extensions in %s\n' "$PI_CONFIG_DIR" >&2
+    printf '[dry-run] install missing or update existing Pi extensions in %s\n' "$PI_CONFIG_DIR" >&2
     return 0
   fi
   command -v pi >/dev/null 2>&1 || die 'Pi CLI not on PATH; cannot install extensions'
+  listed="$( cd "$PI_CONFIG_DIR" && PI_CODING_AGENT_DIR="$PI_CONFIG_DIR" pi list --no-approve )" \
+    || die 'failed to list Pi extensions'
   while IFS= read -r package; do
     [ -n "$package" ] || continue
     name="${package#npm:}"
-    if [ "$OPERATION" = sync ] && [ "${PRIOR_PACKAGE_STATE:-pending}" = ready ] && [ -d "$PI_CONFIG_DIR/npm/node_modules/$name" ]; then
+    # pi list also shows declared packages whose cache has not been installed yet.
+    if [ "$package" != "${PRIOR_FAILED_PACKAGE:-}" ] &&
+       { printf '%s\n' "$listed" | grep -Fqx "  $package" ||
+         printf '%s\n' "$listed" | grep -Fqx "  $package (filtered)"; } &&
+       [ -d "$PI_CONFIG_DIR/npm/node_modules/$name" ]; then
+      update_existing=1
       continue
     fi
+    # Record the attempted package before Pi touches its cache so an interrupted
+    # install cannot be mistaken for a complete installation on the next run.
+    env MANIFEST_DST="$MANIFEST_DST" FAILED_PACKAGE="$package" python3 - <<'PY'
+import json, os
+from pathlib import Path
+path = Path(os.environ['MANIFEST_DST'])
+data = json.loads(path.read_text())
+data['packageState'] = 'partial'
+data['failedPackage'] = os.environ['FAILED_PACKAGE']
+path.write_text(json.dumps(data, indent=2) + '\n')
+PY
     ( cd "$PI_CONFIG_DIR" && PI_CODING_AGENT_DIR="$PI_CONFIG_DIR" pi install "$package" --no-approve ) \
       || die "failed to install $package"
   done < <(python3 - "$TEMPLATES_SRC/settings.base.json" <<'PY'
@@ -178,6 +196,10 @@ for package in json.load(open(sys.argv[1]))['packages']:
     print(package)
 PY
 )
+  if [ "$update_existing" -eq 1 ]; then
+    ( cd "$PI_CONFIG_DIR" && PI_CODING_AGENT_DIR="$PI_CONFIG_DIR" pi update --extensions --no-approve ) \
+      || die 'Pi extension update failed'
+  fi
 }
 
 runtime_install_configs() {
@@ -200,7 +222,7 @@ runtime_install_configs() {
 }
 
 runtime_finish_packages() {
-  run_stage 'Installing Pi extensions' install_packages
+  run_stage 'Reconciling Pi extensions' install_packages
   if ! dry_run_enabled; then
     env MANIFEST_DST="$MANIFEST_DST" python3 - <<'PY'
 import json, os
@@ -208,6 +230,7 @@ from pathlib import Path
 path = Path(os.environ['MANIFEST_DST'])
 data = json.loads(path.read_text())
 data['packageState'] = 'ready'
+data.pop('failedPackage', None)
 path.write_text(json.dumps(data, indent=2) + '\n')
 PY
   fi
@@ -286,6 +309,9 @@ manifest = {
         'permission': os.environ['PERMISSION_BACKUP'],
     },
 }
+if previous.get('packageState') == 'partial' and previous.get('failedPackage'):
+    manifest['packageState'] = 'partial'
+    manifest['failedPackage'] = previous['failedPackage']
 Path(os.environ['MANIFEST_DST']).write_text(json.dumps(manifest, indent=2) + '\n')
 PY
 }

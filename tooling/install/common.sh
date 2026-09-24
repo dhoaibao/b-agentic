@@ -379,6 +379,8 @@ runtime_sync_common() {
   run_stage 'Refreshing uninstall helper' install_uninstall_helper
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
+  # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
+  PRIOR_FAILED_PACKAGE="$(manifest_action_value failedPackage '')"
   run_stage 'Writing install manifest' runtime_write_manifest
   runtime_finish_packages
 }
@@ -394,6 +396,8 @@ runtime_install_common() {
   run_stage 'Installing uninstall helper' install_uninstall_helper
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
+  # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
+  PRIOR_FAILED_PACKAGE="$(manifest_action_value failedPackage '')"
   run_stage 'Writing install manifest' runtime_write_manifest
   runtime_finish_packages
   runtime_print_install_report

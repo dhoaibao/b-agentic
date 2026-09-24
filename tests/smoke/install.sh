@@ -36,12 +36,41 @@ cat >"$directory/pi" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$(dirname "$0")/pi.log"
 if [ "${PI_MOCK_FAIL_REMOVE:-0}" = 1 ] && [ "$1" = remove ]; then exit 1; fi
+if [ "${PI_MOCK_FAIL_LIST:-0}" = 1 ] && [ "$1" = list ]; then exit 1; fi
+if [ "$1" = list ]; then
+  python3 - "$PI_CODING_AGENT_DIR" <<'PY'
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+print('User packages:')
+for package in json.loads((root / 'settings.json').read_text()).get('packages', []):
+    print('  ' + package)
+    cache = root / 'npm/node_modules' / package.removeprefix('npm:')
+    if cache.is_dir():
+        print('    ' + str(cache))
+PY
+  exit $?
+fi
 if [ "${PI_MOCK_FAIL_INSTALL:-0}" = 1 ] && [ "$1" = install ]; then exit 1; fi
 if [ "${PI_MOCK_PARTIAL_INSTALL:-0}" = 1 ] && [ "$1" = install ]; then
+  python3 - "$PI_CODING_AGENT_DIR/b-agentic/install.json" "$2" <<'PY' || exit 1
+import json, sys
+from pathlib import Path
+manifest = json.loads(Path(sys.argv[1]).read_text())
+assert manifest['packageState'] == 'partial' and manifest['failedPackage'] == sys.argv[2]
+PY
   mkdir -p "$PI_CODING_AGENT_DIR/npm/node_modules/@gotgenes/pi-subagents"
+  printf '{"version":"1.0.0"}\n' >"$PI_CODING_AGENT_DIR/npm/node_modules/@gotgenes/pi-subagents/package.json"
   exit 1
 fi
-if [ "$1" = install ]; then mkdir -p "$PI_CODING_AGENT_DIR/npm/node_modules/${2#npm:}"; fi
+if [ "$1" = install ]; then
+  mkdir -p "$PI_CODING_AGENT_DIR/npm/node_modules/${2#npm:}"
+  touch "$PI_CODING_AGENT_DIR/npm/node_modules/${2#npm:}/extension.js"
+fi
+if [ "$1" = update ] && [ "$2" = --extensions ] &&
+   [ -d "$PI_CODING_AGENT_DIR/npm/node_modules/user-extension" ]; then
+  touch "$PI_CODING_AGENT_DIR/npm/node_modules/user-extension/.updated"
+fi
 EOF
   chmod +x "$directory/pi"
 }
@@ -82,7 +111,11 @@ assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server i
 assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
 assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
 assert_contains "$sandbox/bin/pi.log" 'update --self'
+assert_contains "$sandbox/bin/pi.log" 'list --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@gotgenes/pi-subagents --no-approve'
+if grep -Fq 'update --extensions --no-approve' "$sandbox/bin/pi.log"; then
+  fail 'fresh install unexpectedly updated Pi extensions'
+fi
 assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
 
 # A failed package removal must retain both ownership evidence and the
@@ -111,10 +144,38 @@ run_install "$plain" --sync >"$plain/sync.log" 2>&1
 assert_json "$plain/home/.pi/agent/b-agentic/install.json" "data['themeAction']=='replace'"
 [ "$(grep -Fc 'install npm:@gotgenes/pi-subagents --no-approve' "$plain/bin/pi.log")" -eq 1 ] ||
   fail 'completed sync reinstalled a Pi extension'
+assert_contains "$plain/bin/pi.log" 'update --extensions --no-approve'
 run_install "$plain" --uninstall >"$plain/uninstall.log" 2>&1
 assert_no_path "$plain/home/.pi/agent/AGENTS.md"
 assert_no_path "$plain/home/.pi/agent/themes/dracula.json"
 assert_no_path "$plain/home/.pi/agent/b-agentic/install.json"
+
+# Pre-existing listed packages are updated rather than installed again.
+existing="$WORK_DIR/existing-package"
+mkdir -p "$existing/home/.pi/agent/npm/node_modules/@gotgenes/pi-subagents" \
+  "$existing/home/.pi/agent/npm/node_modules/user-extension"
+make_source "$existing/source"
+make_bin "$existing/bin"
+printf '%s\n' '{"packages":["npm:@gotgenes/pi-subagents","npm:user-extension"]}' >"$existing/home/.pi/agent/settings.json"
+run_install "$existing" >"$existing/install.log" 2>&1
+assert_contains "$existing/bin/pi.log" 'update --extensions --no-approve'
+assert_file "$existing/home/.pi/agent/npm/node_modules/user-extension/.updated"
+if grep -Fq 'install npm:@gotgenes/pi-subagents --no-approve' "$existing/bin/pi.log"; then
+  fail 'pre-existing Pi extension was reinstalled'
+fi
+
+# A failed list must not silently fall back to reinstalling packages.
+list_failure="$WORK_DIR/list-failure"
+mkdir -p "$list_failure/home"
+make_source "$list_failure/source"
+make_bin "$list_failure/bin"
+if PI_MOCK_FAIL_LIST=1 run_install "$list_failure" >"$list_failure/install.log" 2>&1; then
+  fail 'expected Pi list failure to abort installation'
+fi
+assert_json "$list_failure/home/.pi/agent/b-agentic/install.json" "data['packageState']=='pending'"
+if grep -Fq 'install npm:' "$list_failure/bin/pi.log"; then
+  fail 'Pi list failure fell back to reinstalling packages'
+fi
 
 # Sync refreshes an unchanged managed theme from the checked-in source.
 theme_refresh="$WORK_DIR/theme-refresh"
@@ -245,7 +306,7 @@ printf '%s\n' '{"custom":true,"packages":["npm:user-extension"]}' >"$interrupted
 if PI_MOCK_FAIL_INSTALL=1 run_install "$interrupted" >"$interrupted/failed-install.log" 2>&1; then
   fail 'expected interrupted Pi package install'
 fi
-assert_json "$interrupted/home/.pi/agent/b-agentic/install.json" "data['packageState']=='pending' and data['backups']['settings']!='none'"
+assert_json "$interrupted/home/.pi/agent/b-agentic/install.json" "data['packageState']=='partial' and data['failedPackage']=='npm:@gotgenes/pi-subagents' and data['backups']['settings']!='none'"
 run_install "$interrupted" --sync >"$interrupted/retry-sync.log" 2>&1
 run_install "$interrupted" --uninstall >"$interrupted/uninstall.log" 2>&1
 assert_json "$interrupted/home/.pi/agent/settings.json" "data=={'custom':True,'packages':['npm:user-extension']}"
@@ -259,10 +320,17 @@ make_bin "$partial/bin"
 if PI_MOCK_PARTIAL_INSTALL=1 run_install "$partial" >"$partial/failed-install.log" 2>&1; then
   fail 'expected partial Pi package install failure'
 fi
+assert_json "$partial/home/.pi/agent/b-agentic/install.json" "data['packageState']=='partial' and data['failedPackage']=='npm:@gotgenes/pi-subagents'"
+assert_no_path "$partial/home/.pi/agent/npm/node_modules/@gotgenes/pi-subagents/extension.js"
+if PI_MOCK_FAIL_LIST=1 run_install "$partial" --sync >"$partial/failed-retry.log" 2>&1; then
+  fail 'expected Pi list failure during partial install recovery'
+fi
+assert_json "$partial/home/.pi/agent/b-agentic/install.json" "data['packageState']=='partial' and data['failedPackage']=='npm:@gotgenes/pi-subagents'"
 run_install "$partial" --sync >"$partial/retry-sync.log" 2>&1
+assert_json "$partial/home/.pi/agent/b-agentic/install.json" "data['packageState']=='ready' and 'failedPackage' not in data"
 [ "$(grep -Fc 'install npm:@gotgenes/pi-subagents --no-approve' "$partial/bin/pi.log")" -eq 2 ] ||
-  fail 'retry skipped partially installed Pi extension'
-assert_json "$partial/home/.pi/agent/b-agentic/install.json" "data['packageState']=='ready'"
+  fail 'retry did not repair a partial Pi extension installation'
+assert_file "$partial/home/.pi/agent/npm/node_modules/@gotgenes/pi-subagents/extension.js"
 
 empty="$WORK_DIR/empty-config"
 mkdir -p "$empty/home/.pi/agent/extensions/pi-permission-system"
