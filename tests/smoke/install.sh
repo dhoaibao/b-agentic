@@ -83,12 +83,99 @@ run_install() {
     bash "$ROOT_DIR/install.sh" "$@"
 }
 
+# Unsafe shared-config locations fail before the installer touches Pi or assets.
+for case_name in outside symlink; do
+  unsafe="$WORK_DIR/unsafe-$case_name"
+  mkdir -p "$unsafe/home"
+  make_source "$unsafe/source"
+  make_bin "$unsafe/bin"
+  if [ "$case_name" = outside ]; then
+    config_home="$unsafe/outside-home"
+  else
+    mkdir -p "$unsafe/elsewhere"
+    ln -s "$unsafe/elsewhere" "$unsafe/home/linked-config"
+    config_home="$unsafe/home/linked-config"
+  fi
+  if XDG_CONFIG_HOME="$config_home" run_install "$unsafe" >"$unsafe/install.log" 2>&1; then
+    fail "accepted unsafe Magic Context $case_name path"
+  fi
+  assert_contains "$unsafe/install.log" 'Magic Context config must be a non-symlinked path under HOME'
+  assert_no_path "$unsafe/bin/pi.log"
+  assert_no_path "$unsafe/home/.pi/agent/b-agentic"
+  assert_no_path "$unsafe/home/.pi/agent/settings.json"
+done
+
+# A corrupt prior manifest is rejected before any Pi or shared-config changes.
+malformed="$WORK_DIR/malformed-manifest"
+mkdir -p "$malformed/home/.pi/agent/b-agentic" "$malformed/home/.config/cortexkit"
+make_source "$malformed/source"
+make_bin "$malformed/bin"
+printf '%s\n' '{invalid json' >"$malformed/home/.pi/agent/b-agentic/install.json"
+printf '%s\n' '{"custom":true}' >"$malformed/home/.config/cortexkit/magic-context.jsonc"
+if run_install "$malformed" >"$malformed/install.log" 2>&1; then
+  fail 'accepted malformed Pi install manifest'
+fi
+assert_contains "$malformed/install.log" 'unreadable Pi install manifest'
+assert_no_path "$malformed/bin/pi.log"
+assert_no_path "$malformed/home/.pi/agent/settings.json"
+assert_json "$malformed/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
+
+# A manifest-write failure on sync must restore this run's pre-merge file,
+# even when the original manifest says b-agentic created it.
+rollback="$WORK_DIR/manifest-rollback"
+mkdir -p "$rollback/home"
+make_source "$rollback/source"
+make_bin "$rollback/bin"
+run_install "$rollback" >"$rollback/install.log" 2>&1
+printf '%s\n' '{"enabled":true,"embedding":{"provider":"local"},"userNote":"retain me"}' >"$rollback/home/.config/cortexkit/magic-context.jsonc"
+python3 - "$rollback/home/.pi/agent/b-agentic/install.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+manifest = json.loads(path.read_text())
+manifest['backups'] = 'invalid'
+path.write_text(json.dumps(manifest))
+PY
+if run_install "$rollback" --sync >"$rollback/sync.log" 2>&1; then
+  fail 'expected malformed backup metadata to abort manifest write'
+fi
+assert_contains "$rollback/sync.log" 'failed to write Pi install manifest'
+assert_json "$rollback/home/.config/cortexkit/magic-context.jsonc" "data['userNote']=='retain me' and data['embedding']['provider']=='local'"
+
+# A later config-merge failure must not touch the shared CortexKit config
+# before ownership can be recorded. Retry and clean up through both paths.
+for removal in source manifest; do
+  interrupted_magic="$WORK_DIR/interrupted-magic-$removal"
+  mkdir -p "$interrupted_magic/home/.pi/agent" "$interrupted_magic/home/.config/cortexkit"
+  make_source "$interrupted_magic/source"
+  make_bin "$interrupted_magic/bin"
+  printf '%s\n' '{"custom":true}' >"$interrupted_magic/home/.config/cortexkit/magic-context.jsonc"
+  printf '%s\n' '{invalid json' >"$interrupted_magic/home/.pi/agent/mcp.json"
+  if run_install "$interrupted_magic" >"$interrupted_magic/failed.log" 2>&1; then
+    fail 'expected invalid MCP config to abort installation'
+  fi
+  assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
+  printf '%s\n' '{}' >"$interrupted_magic/home/.pi/agent/mcp.json"
+  run_install "$interrupted_magic" >"$interrupted_magic/retry.log" 2>&1
+  assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True"
+  if [ "$removal" = manifest ]; then
+    rm -rf "$interrupted_magic/source"
+    HOME="$interrupted_magic/home" PATH="$interrupted_magic/bin:$PATH" B_AGENTIC_DIR="$interrupted_magic/missing" \
+      bash "$ROOT_DIR/install.sh" --uninstall >"$interrupted_magic/uninstall.log" 2>&1
+  else
+    run_install "$interrupted_magic" --uninstall >"$interrupted_magic/uninstall.log" 2>&1
+  fi
+  assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
+done
+
 sandbox="$WORK_DIR/primary"
 mkdir -p "$sandbox/home/.pi/agent" "$sandbox/home/.config/opencode"
 make_source "$sandbox/source"
 make_bin "$sandbox/bin"
 printf '%s\n' 'old runtime belongs to user' >"$sandbox/home/.config/opencode/AGENTS.md"
 printf '%s\n' '{"custom":true,"theme":"light","packages":["npm:user-extension"],"compaction":{"enabled":false}}' >"$sandbox/home/.pi/agent/settings.json"
+mkdir -p "$sandbox/home/.config/cortexkit"
+printf '%s\n' '{"historian":{"pi":{"model":"anthropic/claude-haiku-4-5"}},"custom":true}' >"$sandbox/home/.config/cortexkit/magic-context.jsonc"
 printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp","directTools":["custom_tool"]}}}' >"$sandbox/home/.pi/agent/mcp.json"
 run_install "$sandbox" >"$sandbox/install.log" 2>&1
 
@@ -105,7 +192,8 @@ assert_file "$agent/prompts/b-plan.md"
 assert_file "$agent/extensions/pi-permission-system/config.json"
 assert_file "$metadata/install.json"
 assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
-assert_json "$agent/settings.json" "data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
+assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True and data['embedding']['provider']=='local' and data['historian']['pi']['model']=='anthropic/claude-haiku-4-5'"
+assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
 assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
 assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==45"
 assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
@@ -113,6 +201,7 @@ assert_json "$agent/extensions/pi-permission-system/config.json" "data['permissi
 assert_contains "$sandbox/bin/pi.log" 'update --self'
 assert_contains "$sandbox/bin/pi.log" 'list --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@gotgenes/pi-subagents --no-approve'
+assert_contains "$sandbox/bin/pi.log" 'install npm:@cortexkit/pi-magic-context --no-approve'
 if grep -Fq 'update --extensions --no-approve' "$sandbox/bin/pi.log"; then
   fail 'fresh install unexpectedly updated Pi extensions'
 fi
@@ -125,7 +214,8 @@ mkdir -p "$retry/home"
 make_source "$retry/source"
 make_bin "$retry/bin"
 run_install "$retry" >"$retry/install.log" 2>&1
-assert_json "$retry/home/.pi/agent/settings.json" "data['theme']=='dracula'"
+assert_json "$retry/home/.pi/agent/settings.json" "data['theme']=='dracula' and data['compaction']=={'enabled': False}"
+assert_json "$retry/home/.config/cortexkit/magic-context.jsonc" "data=={'enabled': True, 'embedding': {'provider': 'local'}}"
 PI_MOCK_FAIL_REMOVE=1 run_install "$retry" --uninstall >"$retry/failed-uninstall.log" 2>&1
 assert_contains "$retry/failed-uninstall.log" 'could not remove npm:@gotgenes/pi-subagents'
 assert_file "$retry/home/.pi/agent/b-agentic/install.json"
@@ -133,6 +223,7 @@ assert_json "$retry/home/.pi/agent/settings.json" "'npm:@gotgenes/pi-subagents' 
 run_install "$retry" --uninstall >"$retry/retry-uninstall.log" 2>&1
 assert_no_path "$retry/home/.pi/agent/b-agentic/install.json"
 assert_no_path "$retry/home/.pi/agent/settings.json"
+assert_no_path "$retry/home/.config/cortexkit/magic-context.jsonc"
 assert_no_path "$retry/home/.pi/agent/themes/dracula.json"
 
 plain="$WORK_DIR/plain-sync"
@@ -149,6 +240,7 @@ run_install "$plain" --uninstall >"$plain/uninstall.log" 2>&1
 assert_no_path "$plain/home/.pi/agent/AGENTS.md"
 assert_no_path "$plain/home/.pi/agent/themes/dracula.json"
 assert_no_path "$plain/home/.pi/agent/b-agentic/install.json"
+assert_no_path "$plain/home/.config/cortexkit/magic-context.jsonc"
 
 # Pre-existing listed packages are updated rather than installed again.
 existing="$WORK_DIR/existing-package"
@@ -156,9 +248,11 @@ mkdir -p "$existing/home/.pi/agent/npm/node_modules/@gotgenes/pi-subagents" \
   "$existing/home/.pi/agent/npm/node_modules/user-extension"
 make_source "$existing/source"
 make_bin "$existing/bin"
-printf '%s\n' '{"packages":["npm:@gotgenes/pi-subagents","npm:user-extension"]}' >"$existing/home/.pi/agent/settings.json"
+printf '%s\n' '{"packages":["npm:@gotgenes/pi-subagents","npm:user-extension"],"compaction":{"enabled":true}}' >"$existing/home/.pi/agent/settings.json"
 run_install "$existing" >"$existing/install.log" 2>&1
 assert_contains "$existing/bin/pi.log" 'update --extensions --no-approve'
+assert_contains "$existing/install.log" 'Pi native compaction remains enabled in user settings'
+assert_json "$existing/home/.pi/agent/settings.json" "data['compaction']=={'enabled': True}"
 assert_file "$existing/home/.pi/agent/npm/node_modules/user-extension/.updated"
 if grep -Fq 'install npm:@gotgenes/pi-subagents --no-approve' "$existing/bin/pi.log"; then
   fail 'pre-existing Pi extension was reinstalled'
@@ -387,6 +481,7 @@ assert_no_path "$agent/skills/b-plan"
 assert_no_path "$agent/prompts/b-plan.md"
 assert_file "$agent/agents/b-planner.md"
 assert_file "$metadata/install.json"
+assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data=={'historian': {'pi': {'model': 'anthropic/claude-haiku-4-5'}}, 'custom': True}"
 assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
 assert_no_path "$agent/themes/dracula.json"
 assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
@@ -471,6 +566,7 @@ HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" \
 assert_contains "$clean/dry-uninstall.log" 'Manifest-only uninstall preview for Pi'
 assert_file "$clean/home/.pi/agent/skills/b-plan/SKILL.md"
 assert_file "$clean/home/.pi/agent/settings.json"
+assert_file "$clean/home/.config/cortexkit/magic-context.jsonc"
 assert_file "$clean/home/.pi/agent/themes/dracula.json"
 assert_file "$clean/home/.pi/agent/b-agentic/install.json"
 if grep -Fq 'remove npm:' "$clean/bin/pi.log"; then fail 'dry-run removed a Pi package'; fi
@@ -487,6 +583,7 @@ assert_no_path "$clean/home/.pi/agent/agents/b-planner.md"
 assert_no_path "$clean/home/.pi/agent/AGENTS.md"
 assert_no_path "$clean/home/.pi/agent/themes/dracula.json"
 assert_contains "$clean/bin/pi.log" 'remove npm:@gotgenes/pi-subagents --no-approve'
+assert_no_path "$clean/home/.config/cortexkit/magic-context.jsonc"
 
 edited_orphan="$WORK_DIR/edited-orphan-kernel"
 mkdir -p "$edited_orphan/home"

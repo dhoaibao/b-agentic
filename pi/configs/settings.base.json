@@ -5,9 +5,10 @@
     "npm:pi-mcp-adapter",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:@gotgenes/pi-anthropic-auth",
-    "npm:@sreetej510/pi-usage"
+    "npm:@sreetej510/pi-usage",
+    "npm:@cortexkit/pi-magic-context"
   ],
   "theme": "dracula",
-  "compaction": { "enabled": true },
+  "compaction": { "enabled": false },
   "enableSkillCommands": true
 }

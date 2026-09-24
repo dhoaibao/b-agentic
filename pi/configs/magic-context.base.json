@@ -1,0 +1,4 @@
+{
+  "enabled": true,
+  "embedding": { "provider": "local" }
+}

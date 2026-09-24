@@ -17,8 +17,8 @@ read-only specialist agents, and managed MCP configuration.
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-The installer updates Pi to the latest available release, installs six unpinned
-extensions, installs the [Dracula theme](https://draculatheme.com/pi-coding-agent)
+The installer updates Pi to the latest available release, installs seven unpinned
+extensions (including [Magic Context](https://github.com/cortexkit/magic-context)), installs the [Dracula theme](https://draculatheme.com/pi-coding-agent)
 and selects it when no theme is already chosen, writes managed assets under
 `~/.pi/agent`, and preserves unrelated configuration. It never changes an
 existing OpenCode installation.

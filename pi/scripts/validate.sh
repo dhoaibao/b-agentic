@@ -15,9 +15,13 @@ mcp = json.loads((root / 'pi/configs/mcp.base.json').read_text())
 policy = json.loads((root / 'pi/configs/permission.user.template.json').read_text())
 assert len(registry['skills']) == 15
 assert len(registry['agents']) == 4
-assert len(settings['packages']) == 6
+assert len(settings['packages']) == 7
+assert 'npm:@cortexkit/pi-magic-context' in settings['packages']
+assert json.loads((root / 'pi/configs/magic-context.base.json').read_text()) == {
+    'enabled': True, 'embedding': {'provider': 'local'}
+}
 assert all(name.startswith('npm:') and not name.rsplit('/', 1)[-1].count('@') for name in settings['packages'])
-assert settings['compaction']['enabled'] is True
+assert settings['compaction']['enabled'] is False
 assert len(mcp['mcpServers']) == 7
 assert mcp['settings']['scriptMode'] is False
 assert mcp['settings']['allowInstall'] is False

@@ -1,12 +1,13 @@
 # Pi configuration ownership
 
-`settings.base.json` and `mcp.base.json` are canonical checked-in templates;
+`settings.base.json`, `magic-context.base.json`, and `mcp.base.json` are canonical checked-in templates;
 `permission.user.template.json` is generated from
 `references/mcp_operations.yaml` by `tooling/generate/registry_sync.py`.
 
 | Source | Installed path (default agent directory `~/.pi/agent`) | Owner |
 | --- | --- | --- |
-| `settings.base.json` | `settings.json` | Pi, six unpinned packages, and Dracula as a default only when no theme is selected |
+| `settings.base.json` | `settings.json` | Pi, seven unpinned packages, native compaction off by default, and Dracula only when no theme is selected |
+| `magic-context.base.json` | `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`) | Shared CortexKit defaults: enabled with local embeddings; historian falls back to the live Pi model |
 | `mcp.base.json` | `mcp.json` | `pi-mcp-adapter`; seven lazy servers with policy-aligned direct-tool lists, no stored credentials |
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |

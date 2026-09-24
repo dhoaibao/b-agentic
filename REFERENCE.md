@@ -12,11 +12,11 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 ```
 
 With Pi already on PATH, install runs `pi update --self`; otherwise it installs
-the latest `@earendil-works/pi-coding-agent` through npm. Six bare npm package
+the latest `@earendil-works/pi-coding-agent` through npm. Seven bare npm package
 names are managed in the Pi agent directory: `@gotgenes/pi-subagents`,
 `@gotgenes/pi-permission-system`, `pi-mcp-adapter`,
 `@juicesharp/rpiv-ask-user-question`, `@gotgenes/pi-anthropic-auth`, and
-`@sreetej510/pi-usage`. None is pinned. The default directory is
+`@sreetej510/pi-usage`, and `@cortexkit/pi-magic-context`. None is pinned. The default directory is
 `~/.pi/agent`; `B_AGENTIC_PI_DIR` or `PI_CODING_AGENT_DIR` overrides it.
 The override must be an absolute path inside the invoking user's home, so
 source-absent manifest uninstall remains confined to the same boundary.
@@ -49,7 +49,15 @@ The installer backs up existing JSON/JSONC before merging; user values remain
 authoritative, including an explicit compaction preference. Comments are not
 preserved by the JSON rewrite. Package declarations union ahead of user
 packages. Existing OpenCode configuration and installation are never removed or
-updated. See [Pi configuration layout](pi/configs/README.md).
+updated. Magic Context defaults to local embeddings and uses the current Pi
+session model for historian work unless the user sets `historian.pi.model` in
+`~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`).
+New Pi settings disable native compaction so Magic Context owns context; an
+existing explicit compaction setting remains unchanged and is warned about when
+still enabled. The shared CortexKit config is merged without replacing existing
+values, and uninstall removes only managed values. Magic Context requires
+Pi >= 0.74.0; run `/ctx-status` after a new session to verify it loaded.
+See [Pi configuration layout](pi/configs/README.md).
 
 ## Kernel and skills
 
@@ -68,8 +76,9 @@ identifier. Different scope/baseline or required independent review uses a
 fresh child. Model IDs and thinking levels come from the registry; missing
 provider/model access is reported rather than silently replaced.
 
-Pi native compaction remains enabled by default. There is no DCP or Magic
-Context replacement and no `rpiv-todo` dependency. The grouped-choice
+Magic Context owns context management by default with Pi native compaction
+disabled in new settings; existing user compaction preferences remain authoritative.
+There is no DCP or `rpiv-todo` dependency. The grouped-choice
 `ask_user_question` extension handles material decisions; the native Pi
 `ask_question` tool is disabled in the managed permission policy. The
 `pi-anthropic-auth` package shapes Anthropic OAuth requests but does not log

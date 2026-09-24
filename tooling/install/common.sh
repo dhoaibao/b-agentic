@@ -370,35 +370,41 @@ runtime_sync_configs() {
 }
 
 runtime_sync_common() {
-  set_install_stage_total 12
+  set_install_stage_total 13
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Syncing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
   remember_kernel_baseline
-  runtime_sync_configs
   run_stage 'Syncing references and templates' install_references_and_templates
   run_stage 'Refreshing uninstall helper' install_uninstall_helper
+  runtime_sync_configs
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_FAILED_PACKAGE="$(manifest_action_value failedPackage '')"
-  run_stage 'Writing install manifest' runtime_write_manifest
+  if ! run_stage 'Writing install manifest' runtime_write_manifest; then
+    rollback_magic_context
+    die 'failed to write Pi install manifest'
+  fi
   runtime_finish_packages
 }
 
 runtime_install_common() {
-  set_install_stage_total 13
+  set_install_stage_total 14
   run_stage 'Preparing Pi CLI' runtime_upgrade_cli
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Installing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
   remember_kernel_baseline
-  runtime_install_configs
   run_stage 'Syncing references and templates' install_references_and_templates
   run_stage 'Installing uninstall helper' install_uninstall_helper
+  runtime_install_configs
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_FAILED_PACKAGE="$(manifest_action_value failedPackage '')"
-  run_stage 'Writing install manifest' runtime_write_manifest
+  if ! run_stage 'Writing install manifest' runtime_write_manifest; then
+    rollback_magic_context
+    die 'failed to write Pi install manifest'
+  fi
   runtime_finish_packages
   runtime_print_install_report
 }

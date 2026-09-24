@@ -77,10 +77,11 @@ Script mode and model-driven installs are disabled. The policy classifies known
 tools; allowed direct names avoid proxy approval, while consequential and
 unknown operations ask. The adapter does not make configuration a live server
 or authentication proof. `mcp-doctor` checks only local configuration, launcher,
-and variable presence; it starts no MCP or browser sessions. Pi native
-compaction is the default; no dynamic pruning or durable memory plugin is
-installed. Provider usage and Anthropic OAuth request shaping are user-requested
-optional capabilities of the six managed extensions, not login or entitlements.
+and variable presence; it starts no MCP or browser sessions. Magic Context
+provides context management and durable memory by default, with Pi native
+compaction disabled for new settings; existing user preferences are preserved.
+Provider usage and Anthropic OAuth request shaping are user-requested optional
+capabilities of the seven managed extensions, not login or entitlements.
 
 Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 [`pi/configs/mcp.base.json`](../pi/configs/mcp.base.json), and
@@ -89,11 +90,11 @@ Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 ## Installation, configuration, and lifecycle
 
 Existing Pi is updated with `pi update --self`; first install uses the latest
-unversioned npm package. Six extensions are installed with bare npm names and
+unversioned npm package. Seven extensions are installed with bare npm names and
 updated through `pi update --extensions`. Bootstrap repository/ref inputs are
 constrained before Git. Installer sync copies the kernel, skills, specialists,
-prompts, references, and templates; it merges settings, MCP, and permission
-JSON while preserving unrelated values and ordered user arrays. Existing JSONC
+prompts, references, and templates; it merges settings, shared CortexKit config,
+MCP, and permission JSON while preserving unrelated values and ordered user arrays. Existing JSONC
 is backed up before a JSON rewrite. Uninstall removes only owned unmodified
 assets and values; symlinks or changed files retain metadata for a safe retry.
 An existing OpenCode installation is outside this lifecycle boundary.
@@ -133,8 +134,8 @@ b-agentic does not maintain a second runtime, custom permission engine,
 argument-aware MCP gate, persistent subagent store, or bundled TUI extension.
 It does not promise detached background work, authenticated MCP readiness from
 configuration, unbounded orchestration, or an automatic migration of the
-user-owned OpenCode installation. Native Pi compaction replaces the prior DCP
-strategy; `rpiv-todo` and Magic Context are not installed.
+user-owned OpenCode installation. Magic Context replaces the prior DCP
+strategy for Pi context management; `rpiv-todo` is not installed.
 
 Evidence: [`README.md`](../README.md),
 [`REFERENCE.md`](../REFERENCE.md), and

@@ -24,6 +24,7 @@ REFERENCES_DST="$METADATA_DIR/references"
 TEMPLATES_DST="$METADATA_DIR/templates"
 MANIFEST_DST="$METADATA_DIR/install.json"
 PI_SETTINGS_DST="$PI_CONFIG_DIR/settings.json"
+MAGIC_CONTEXT_DST="${XDG_CONFIG_HOME:-$HOME/.config}/cortexkit/magic-context.jsonc"
 PI_THEME_DST="$PI_CONFIG_DIR/themes/dracula.json"
 PI_THEME_SNAPSHOT_DST="$METADATA_DIR/themes/dracula.json"
 PI_THEME_LICENSE_DST="$METADATA_DIR/themes/LICENSE"
@@ -141,6 +142,38 @@ remember_theme_baseline() {
 }
 
 install_settings() { merge_json_file "$TEMPLATES_SRC/settings.base.json" "$PI_SETTINGS_DST" settings settings; }
+safe_magic_context_path() {
+  # The CortexKit config is shared across harnesses. Do not follow a symlinked
+  # directory or manage a path outside the user's home.
+  python3 - "$1" <<'PY'
+from pathlib import Path
+import sys
+home = Path.home().resolve()
+path = Path(sys.argv[1])
+raise SystemExit(0 if path.is_absolute() and path.resolve().is_relative_to(home) and
+                 not any(parent.is_symlink() for parent in path.parents if parent != home) else 1)
+PY
+}
+preflight_magic_context() {
+  safe_magic_context_path "$MAGIC_CONTEXT_DST" || die "Magic Context config must be a non-symlinked path under HOME: $MAGIC_CONTEXT_DST"
+  [ ! -L "$MAGIC_CONTEXT_DST" ] || die "preserving symlinked Magic Context config: $MAGIC_CONTEXT_DST"
+  if [ -e "$MANIFEST_DST" ] || [ -L "$MANIFEST_DST" ]; then
+    [ ! -L "$MANIFEST_DST" ] || die "symlinked Pi install manifest: $MANIFEST_DST"
+    if ! python3 - "$MANIFEST_DST" <<'PY'
+import json, sys
+from pathlib import Path
+manifest = json.loads(Path(sys.argv[1]).read_text())
+raise SystemExit(0 if isinstance(manifest, dict) and manifest.get('runtime') == 'pi' else 1)
+PY
+    then
+      die "unreadable Pi install manifest: $MANIFEST_DST"
+    fi
+  fi
+}
+install_magic_context() {
+  preflight_magic_context
+  merge_json_file "$TEMPLATES_SRC/magic-context.base.json" "$MAGIC_CONTEXT_DST" magic-context magicContext
+}
 install_mcp() { merge_json_file "$TEMPLATES_SRC/mcp.base.json" "$PI_MCP_DST" mcp mcp; }
 install_permission() {
   merge_json_file "$TEMPLATES_SRC/permission.user.template.json" "$PI_PERMISSION_DST" permission permission
@@ -213,12 +246,30 @@ runtime_install_configs() {
   run_install_triplet_stage 'Merging Pi settings' install_settings skip none none \
     INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_STATE INSTALL_SETTINGS_BACKUP
   remember_config_baseline settings "$PI_SETTINGS_DST" INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_BACKUP
+  if ! dry_run_enabled && env SOURCE_DIR="$SOURCE_DIR" PI_SETTINGS_DST="$PI_SETTINGS_DST" python3 - <<'PY'
+import os, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
+from jsonc import loads
+settings = loads(Path(os.environ['PI_SETTINGS_DST']).read_text())
+raise SystemExit(0 if settings.get('compaction', {}).get('enabled') is True else 1)
+PY
+  then
+    warn 'Pi native compaction remains enabled in user settings; disable it to let Magic Context manage context.'
+  fi
   run_install_triplet_stage 'Merging Pi MCP servers' install_mcp skip none none \
     INSTALL_MCP_ACTION INSTALL_MCP_STATE INSTALL_MCP_BACKUP
   remember_config_baseline mcp "$PI_MCP_DST" INSTALL_MCP_ACTION INSTALL_MCP_BACKUP
   run_install_triplet_stage 'Merging Pi permission policy' install_permission skip none none \
     INSTALL_PERMISSION_ACTION INSTALL_PERMISSION_STATE INSTALL_PERMISSION_BACKUP
   remember_config_baseline permission "$PI_PERMISSION_DST" INSTALL_PERMISSION_ACTION INSTALL_PERMISSION_BACKUP
+  # Keep this shared config last: later config merge failures must not leave it
+  # changed before the ownership manifest is written.
+  run_install_triplet_stage 'Configuring Magic Context' install_magic_context skip none none \
+    INSTALL_MAGIC_CONTEXT_ACTION INSTALL_MAGIC_CONTEXT_STATE INSTALL_MAGIC_CONTEXT_BACKUP
+  MAGIC_CONTEXT_STAGE_BACKUP="$INSTALL_MAGIC_CONTEXT_BACKUP"
+  MAGIC_CONTEXT_STAGE_ACTION="$INSTALL_MAGIC_CONTEXT_ACTION"
+  remember_config_baseline magicContext "$MAGIC_CONTEXT_DST" INSTALL_MAGIC_CONTEXT_ACTION INSTALL_MAGIC_CONTEXT_BACKUP
 }
 
 runtime_finish_packages() {
@@ -261,6 +312,8 @@ runtime_write_manifest() {
   ensure_dir "$METADATA_DIR"
   env MANIFEST_DST="$MANIFEST_DST" TIMESTAMP="$TIMESTAMP" PI_CONFIG_DIR="$PI_CONFIG_DIR" \
     PI_SETTINGS_DST="$PI_SETTINGS_DST" PI_MCP_DST="$PI_MCP_DST" PI_PERMISSION_DST="$PI_PERMISSION_DST" \
+    MAGIC_CONTEXT_DST="$MAGIC_CONTEXT_DST" MAGIC_CONTEXT_ACTION="$INSTALL_MAGIC_CONTEXT_ACTION" \
+    MAGIC_CONTEXT_BACKUP="$INSTALL_MAGIC_CONTEXT_BACKUP" \
     AGENTS_DST="$AGENTS_DST" COMMANDS_DST="$COMMANDS_DST" SKILLS_DST="$SKILLS_DST" \
     REFERENCES_DST="$REFERENCES_DST" TEMPLATES_DST="$TEMPLATES_DST" KERNEL_DST="$KERNEL_DST" \
     KERNEL_ACTION="$INSTALL_MEMORY_ACTION" KERNEL_BACKUP="$INSTALL_MEMORY_BACKUP" \
@@ -290,10 +343,12 @@ manifest = {
     'agentsAction': os.environ['AGENTS_ACTION'], 'commandsAction': os.environ['COMMANDS_ACTION'],
     'themeAction': os.environ['THEME_ACTION'],
     'settingsAction': os.environ['SETTINGS_ACTION'], 'mcpAction': os.environ['MCP_ACTION'],
+    'magicContextAction': os.environ['MAGIC_CONTEXT_ACTION'],
     'permissionAction': os.environ['PERMISSION_ACTION'],
     'paths': {
         'piConfigDir': os.environ['PI_CONFIG_DIR'], 'settings': os.environ['PI_SETTINGS_DST'],
         'mcp': os.environ['PI_MCP_DST'], 'permission': os.environ['PI_PERMISSION_DST'],
+        'magicContext': os.environ['MAGIC_CONTEXT_DST'],
         'agents': os.environ['AGENTS_DST'], 'commands': os.environ['COMMANDS_DST'],
         'kernel': os.environ['KERNEL_DST'], 'skills': os.environ['SKILLS_DST'],
         'references': os.environ['REFERENCES_DST'],
@@ -306,19 +361,39 @@ manifest = {
     'backups': {
         'kernel': os.environ['KERNEL_BACKUP'],
         'settings': os.environ['SETTINGS_BACKUP'], 'mcp': os.environ['MCP_BACKUP'],
+        'magicContext': os.environ['MAGIC_CONTEXT_BACKUP'],
         'permission': os.environ['PERMISSION_BACKUP'],
     },
 }
 if previous.get('packageState') == 'partial' and previous.get('failedPackage'):
     manifest['packageState'] = 'partial'
     manifest['failedPackage'] = previous['failedPackage']
-Path(os.environ['MANIFEST_DST']).write_text(json.dumps(manifest, indent=2) + '\n')
+import tempfile
+with tempfile.NamedTemporaryFile(mode='w', dir=manifest_path.parent, prefix='.install-', delete=False) as temp:
+    temp.write(json.dumps(manifest, indent=2) + '\n')
+try:
+    os.replace(temp.name, manifest_path)
+finally:
+    if os.path.exists(temp.name):
+        os.unlink(temp.name)
 PY
+}
+
+rollback_magic_context() {
+  # A manifest-write failure must not leave shared config without ownership.
+  if dry_run_enabled; then return 0; fi
+  if [ -f "${MAGIC_CONTEXT_STAGE_BACKUP:-}" ]; then
+    cp "$MAGIC_CONTEXT_STAGE_BACKUP" "$MAGIC_CONTEXT_DST"
+  elif [ "${MAGIC_CONTEXT_STAGE_ACTION:-}" = write ]; then
+    rm -f "$MAGIC_CONTEXT_DST"
+  else
+    warn "cannot restore Magic Context config after manifest failure: $MAGIC_CONTEXT_DST"
+  fi
 }
 
 runtime_print_install_report() {
   success 'b-agentic install complete for Pi'
-  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, six unpinned extensions."
+  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, seven unpinned extensions."
   installer_summary_log "Manifest: $MANIFEST_DST"
   step 'Next steps:'
   installer_summary_log '  - Start a new Pi session and invoke /b-plan or another explicit /b-* prompt.'
@@ -369,6 +444,17 @@ runtime_uninstall_configs() {
     remove_merged_config "$PI_SETTINGS_DST" "$TEMPLATES_DST/settings.base.json" settings settings settingsAction
   else
     PRESERVE_METADATA_DIR=1
+  fi
+  if [ "$(manifest_action_value magicContextAction '')" != '' ]; then
+    local magic_path
+    magic_path="$(manifest_path_value magicContext "$MAGIC_CONTEXT_DST")"
+    if safe_magic_context_path "$magic_path"; then
+      remove_merged_config "$magic_path" \
+        "$TEMPLATES_DST/magic-context.base.json" magic-context magicContext magicContextAction
+    else
+      warn "preserving unsafe Magic Context config path: $magic_path"
+      PRESERVE_METADATA_DIR=1
+    fi
   fi
   remove_merged_config "$PI_MCP_DST" "$TEMPLATES_DST/mcp.base.json" mcp mcp mcpAction
   remove_merged_config "$PI_PERMISSION_DST" "$TEMPLATES_DST/permission.user.template.json" permission permission permissionAction
@@ -424,19 +510,20 @@ PY
 require_existing_config_path() {
   local key expected existing
   [ -f "$MANIFEST_DST" ] || return 0
-  for key in settings mcp permission; do
+  for key in settings mcp permission magicContext; do
     case "$key" in
       settings) expected="$PI_SETTINGS_DST" ;;
       mcp) expected="$PI_MCP_DST" ;;
       permission) expected="$PI_PERMISSION_DST" ;;
+      magicContext) expected="$MAGIC_CONTEXT_DST" ;;
     esac
     existing="$(manifest_path_value "$key" '')"
     [ -z "$existing" ] || [ "$existing" = "$expected" ] || die "Pi $key path changed; uninstall the existing installation first"
   done
 }
 
-pi_install() { require_existing_config_path; runtime_install_common; }
-pi_sync() { require_existing_config_path; runtime_sync_common; }
+pi_install() { require_existing_config_path; preflight_magic_context; runtime_install_common; }
+pi_sync() { require_existing_config_path; preflight_magic_context; runtime_sync_common; }
 pi_update() {
   runtime_upgrade_cli
   command -v pi >/dev/null 2>&1 || die 'Pi CLI not on PATH'

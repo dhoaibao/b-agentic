@@ -229,8 +229,23 @@ def main() -> int:
             "permission.user.template.json",
         ),
     )
+    if data.get("magicContextAction"):
+        configs += (
+            ("magicContext", home / ".config" / "cortexkit" / "magic-context.jsonc", "magic-context.base.json"),
+        )
     backups = data.get("backups", {}) if isinstance(data.get("backups"), dict) else {}
     for key, default, template_name in configs:
+        if key == "magicContext":
+            declared = paths.get(key)
+            if (
+                not isinstance(declared, str)
+                or not Path(declared).is_absolute()
+                or not confined(Path(declared), home)
+                or any(parent.is_symlink() for parent in Path(declared).parents if parent != home)
+            ):
+                warn("preserving Magic Context config: unsafe manifest path")
+                preserved = True
+                continue
         config = manifest_path(paths, key, default, home)
         template = metadata / "templates" / template_name
         backup = backups.get(key)
