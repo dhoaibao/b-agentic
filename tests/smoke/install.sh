@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-unset B_AGENTIC_PI_DIR PI_CODING_AGENT_DIR
+# Keep runner-level XDG configuration from escaping the per-case HOME sandboxes.
+unset B_AGENTIC_PI_DIR PI_CODING_AGENT_DIR XDG_CONFIG_HOME
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-pi-smoke.XXXXXX")"
 WORK_DIR="$(cd "$WORK_DIR" && pwd -P)"
 trap 'rm -rf "$WORK_DIR"' EXIT
