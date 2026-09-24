@@ -69,6 +69,11 @@ def main() -> int:
         errors.append("MCP proxy must not gain tool allows that can cross server boundaries")
     if permission.get("skill") != "allow":
         errors.append("skill invocation must not prompt; tool and path gates remain active")
+    for name in ("ctx_search", "ctx_expand", "ctx_memory", "ctx_note", "ctx_reduce", "todowrite"):
+        if permission.get(name) != "allow":
+            errors.append(f"Magic Context tool must not prompt: {name}")
+    if permission.get("*") != "ask" or "ctx_*" in permission:
+        errors.append("unknown extension tools must still ask")
     if permission.get("path", {}).get("*.env") != "deny":
         errors.append("protected paths must be denied")
     if permission.get("external_directory_write") != "deny":

@@ -96,7 +96,10 @@ MCP operations ask. The generic `mcp` proxy asks by default, with metadata
 operations allowed. Use read-only named direct tools to avoid proxy approval:
 the proxy cannot safely bind an allow rule to the server that will execute it. Skill invocation and
 read-only named direct tools are allowed; upload, mutation, monitor, and auth
-tools ask. The specialists additionally have complete tool allowlists and
+tools ask. The named Magic Context tools (`ctx_search`, `ctx_expand`,
+`ctx_memory`, `ctx_note`, `ctx_reduce`) and `todowrite` are allowed without
+approval, including local memory and note writes; unknown extension tools
+still ask. The specialists additionally have complete tool allowlists and
 no child-specific permission policies, so global policy applies to their tools.
 On existing installs, newly named deny rules follow legacy ask entries without
 rewriting user-owned values. `rm -rf *` also denies repository-local cleanup;

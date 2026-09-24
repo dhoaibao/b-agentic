@@ -209,6 +209,7 @@ assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']
 assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==45"
 assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
 assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
+assert_json "$agent/extensions/pi-permission-system/config.json" "all(data['permission'][name]=='allow' for name in ('ctx_search', 'ctx_expand', 'ctx_memory', 'ctx_note', 'ctx_reduce', 'todowrite')) and data['permission']['*']=='ask'"
 assert_contains "$sandbox/bin/pi.log" 'update --self'
 assert_contains "$sandbox/bin/pi.log" 'list --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@gotgenes/pi-subagents --no-approve'

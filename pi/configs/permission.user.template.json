@@ -47,6 +47,12 @@
     "subagent": "allow",
     "ask_question": "deny",
     "ask_user_question": "allow",
+    "ctx_search": "allow",
+    "ctx_expand": "allow",
+    "ctx_memory": "allow",
+    "ctx_note": "allow",
+    "ctx_reduce": "allow",
+    "todowrite": "allow",
     "mcp": {
       "*": "ask",
       "mcp_status": "allow",

@@ -475,6 +475,14 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         "subagent": "allow",
         "ask_question": "deny",
         "ask_user_question": "allow",
+        # Explicitly allow the requested Magic Context tools, including memory
+        # writes; unknown future tools still inherit the global ask rule.
+        "ctx_search": "allow",
+        "ctx_expand": "allow",
+        "ctx_memory": "allow",
+        "ctx_note": "allow",
+        "ctx_reduce": "allow",
+        "todowrite": "allow",
         "mcp": {"*": "ask", "mcp_status": "allow", "mcp_search": "allow", "mcp_describe": "allow"},
     }
     for server, record in policy["servers"].items():
