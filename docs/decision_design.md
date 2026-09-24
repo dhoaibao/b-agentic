@@ -45,11 +45,15 @@ Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 ## Safety and approval design
 
 `@gotgenes/pi-permission-system` gates main and child tools. The generated
-global policy allows ordinary local edits, denies protected path patterns and
-named destructive commands, and asks before external directories, unknown MCP
-tools, and consequential actions. Specialist profiles deny by default and
-allow only read, bounded inspection shell, and named observation-only direct
-MCP tools; nested delegation and user questions are not on their tool lists.
+global policy allows ordinary local edits and skill invocation, denies protected
+path patterns and named destructive commands, and asks before external
+directories, unknown MCP tools, proxy tool calls, and consequential actions.
+Known read-only direct MCP operations are allowed by exact tool name; proxy
+calls still ask because its targets cannot securely bind the tool to its server.
+Invoking a skill never bypasses tool and path gates for its subsequent work.
+Specialist profiles deny by default and allow only read, bounded inspection
+shell, and named observation-only direct MCP tools; nested delegation and user
+questions are not on their tool lists.
 The kernel additionally requires approval for protected, destructive,
 outside-project, and external/shared actions. Pi permission rules and adapter
 tool matching are not filesystem or process isolation. Shell indirection and

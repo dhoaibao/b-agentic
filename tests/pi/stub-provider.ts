@@ -119,16 +119,19 @@ function streamStub(
                               ],
                             },
                   }
-                : prompt === "mcp"
+                : prompt === "mcp" || prompt === "mcp-lookup"
                   ? {
                       type: "toolCall" as const,
                       id: "probe-1",
                       name: "mcp",
-                      arguments: {
-                        tool: "fake_delete",
-                        server: "fake",
-                        args: { path: "scratch.txt" },
-                      },
+                      arguments:
+                        prompt === "mcp-lookup"
+                          ? { tool: "fake_lookup", server: "fake", args: {} }
+                          : {
+                              tool: "fake_delete",
+                              server: "fake",
+                              args: { path: "scratch.txt" },
+                            },
                     }
                   : prompt === "path"
                     ? {

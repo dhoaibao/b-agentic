@@ -37,6 +37,7 @@
       "curl * | bash*": "ask"
     },
     "external_directory": "ask",
+    "skill": "allow",
     "subagent": "allow",
     "ask_question": "deny",
     "ask_user_question": "allow",

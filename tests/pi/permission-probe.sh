@@ -45,7 +45,7 @@ JSON
 run_case() {
   local name=$1 policy=$2 child_policy=$3 prompt=$4 expected=$5
   cat >"$probe/home/extensions/pi-permission-system/config.json" <<JSON
-{"permission":{"*":"ask","subagent":"allow","fake_lookup":"allow","path":{"*":"allow","*.env":"deny"},"bash":{"echo permission-probe":"$policy"},"mcp":{"*":"ask","mcp_connect":"allow","fake":"deny"}}}
+{"permission":{"*":"ask","skill":"allow","subagent":"allow","fake_lookup":"allow","path":{"*":"allow","*.env":"deny"},"bash":{"echo permission-probe":"$policy"},"mcp":{"*":"ask","mcp_connect":"allow","fake":"deny"}}}
 JSON
   cat >"$probe/home/agents/probe-reader.md" <<MD
 ---
@@ -80,6 +80,7 @@ run_case child-nested allow deny child-nested "Tool subagent not found"
 run_case child-question allow deny child-question "Tool ask_user_question not found"
 run_case child-path allow allow child-path "Denied by policy"
 run_case mcp-proxy allow deny mcp "Denied by policy: 'mcp' for target 'fake'"
+run_case mcp-proxy-lookup allow deny mcp-lookup "Denied by policy: 'mcp' for target 'fake'"
 run_case mcp-direct allow deny direct "requires approval"
 run_case mcp-direct-allow allow deny direct-allow "server-called:lookup"
 run_case protected-path allow deny path "Denied by policy"
@@ -106,3 +107,9 @@ if grep -Fq 'server-called:erase' "$probe/mcp-direct.jsonl"; then
 fi
 jq -e 'select(.type == "tool_execution_end" and .toolName == "fake_lookup" and .isError == false)' \
   "$probe/mcp-direct-allow.jsonl" >/dev/null
+jq -e 'select(.type == "tool_execution_end" and .toolName == "mcp" and .isError == true)' \
+  "$probe/mcp-proxy-lookup.jsonl" >/dev/null
+if grep -Fq 'server-called:lookup' "$probe/mcp-proxy-lookup.jsonl"; then
+  echo "Pi permission probe failed: proxy lookup bypassed server deny" >&2
+  exit 1
+fi

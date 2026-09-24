@@ -51,6 +51,10 @@ def main() -> int:
         errors.append("read-only context7 lookup must be allowed")
     if permission.get("mcp", {}).get("*") != "ask":
         errors.append("MCP proxy must ask for unknown operations")
+    if set(permission.get("mcp", {})) != {"*", "mcp_status", "mcp_search", "mcp_describe"}:
+        errors.append("MCP proxy must not gain tool allows that can cross server boundaries")
+    if permission.get("skill") != "allow":
+        errors.append("skill invocation must not prompt; tool and path gates remain active")
     if permission.get("path", {}).get("*.env") != "deny":
         errors.append("protected paths must be denied")
     if permission.get("bash", {}).get("curl * | bash*") != "ask":

@@ -485,6 +485,9 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
             "curl * | bash*": "ask",
         },
         "external_directory": "ask",
+        # Invoking a skill only loads instructions; its subsequent tool calls
+        # still pass through their own permission and path gates.
+        "skill": "allow",
         "subagent": "allow",
         "ask_question": "deny",
         "ask_user_question": "allow",

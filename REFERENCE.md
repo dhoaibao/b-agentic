@@ -79,8 +79,10 @@ The generated `pi/configs/permission.user.template.json` is a configuration
 for `@gotgenes/pi-permission-system`. Main-session local work is allowed,
 protected path patterns are denied, named destructive shell commands are
 denied, external directories ask, and unknown direct MCP operations ask. The
-generic `mcp` proxy asks by default, with metadata operations allowed.
-Read-only named direct tools are allowed; upload, mutation, monitor, and auth
+generic `mcp` proxy asks by default, with metadata operations allowed. Use
+read-only named direct tools to avoid proxy approval: the proxy cannot safely
+bind an allow rule to the server that will execute it. Skill invocation and
+read-only named direct tools are allowed; upload, mutation, monitor, and auth
 tools ask. The specialists additionally have complete tool allowlists and
 deny-by-default per-agent policies. Extension policy is not a process sandbox:
 shell normalization, path-field recognition, and dynamic tool registration
