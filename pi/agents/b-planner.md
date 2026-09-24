@@ -1,6 +1,6 @@
 ---
 description: "Produce a read-only execution-ready plan for the main b-agentic session."
-tools: read, grep, find, ls, bash, codegraph_codegraph_explore, context7_resolve-library-id, context7_query-docs, brave_search_brave_web_search, brave_search_brave_local_search, brave_search_brave_video_search, brave_search_brave_image_search, brave_search_brave_news_search, brave_search_brave_summarizer, brave_search_brave_llm_context, brave_search_brave_place_search, firecrawl_firecrawl_developer_search, firecrawl_firecrawl_agent_status, firecrawl_firecrawl_check_crawl_status, firecrawl_firecrawl_find_tools, firecrawl_firecrawl_research_search_papers, firecrawl_firecrawl_research_inspect_paper, firecrawl_firecrawl_research_read_paper, firecrawl_firecrawl_research_related_papers, firecrawl_firecrawl_research_search_github, playwright_browser_find, playwright_browser_wait_for, playwright_browser_generate_locator, mobbin_search_screens, mobbin_search_flows, mobbin_search_sections, shadcn_get_project_registries, shadcn_list_items_in_registries, shadcn_search_items_in_registries, shadcn_view_items_in_registries, shadcn_get_add_command_for_items, shadcn_get_audit_checklist
+tools: read, grep, find, ls, bash, codegraph_explore, context7_resolve-library-id, context7_query-docs, brave_search_brave_web_search, brave_search_brave_local_search, brave_search_brave_video_search, brave_search_brave_image_search, brave_search_brave_news_search, brave_search_brave_summarizer, brave_search_brave_llm_context, brave_search_brave_place_search, firecrawl_developer_search, firecrawl_agent_status, firecrawl_check_crawl_status, firecrawl_find_tools, firecrawl_research_search_papers, firecrawl_research_inspect_paper, firecrawl_research_read_paper, firecrawl_research_related_papers, firecrawl_research_search_github, playwright_browser_find, playwright_browser_wait_for, playwright_browser_generate_locator, mobbin_search_screens, mobbin_search_flows, mobbin_search_sections, shadcn_get_project_registries, shadcn_list_items_in_registries, shadcn_search_items_in_registries, shadcn_view_items_in_registries, shadcn_get_add_command_for_items, shadcn_get_audit_checklist
 model: anthropic/claude-opus-5-5
 thinking: xhigh
 prompt_mode: replace
@@ -29,7 +29,7 @@ permission:
   external_directory: deny
   mcp:
     "*": deny
-  codegraph_codegraph_explore: allow
+  codegraph_explore: allow
   context7_resolve-library-id: allow
   context7_query-docs: allow
   brave_search_brave_web_search: allow
@@ -40,15 +40,15 @@ permission:
   brave_search_brave_summarizer: allow
   brave_search_brave_llm_context: allow
   brave_search_brave_place_search: allow
-  firecrawl_firecrawl_developer_search: allow
-  firecrawl_firecrawl_agent_status: allow
-  firecrawl_firecrawl_check_crawl_status: allow
-  firecrawl_firecrawl_find_tools: allow
-  firecrawl_firecrawl_research_search_papers: allow
-  firecrawl_firecrawl_research_inspect_paper: allow
-  firecrawl_firecrawl_research_read_paper: allow
-  firecrawl_firecrawl_research_related_papers: allow
-  firecrawl_firecrawl_research_search_github: allow
+  firecrawl_developer_search: allow
+  firecrawl_agent_status: allow
+  firecrawl_check_crawl_status: allow
+  firecrawl_find_tools: allow
+  firecrawl_research_search_papers: allow
+  firecrawl_research_inspect_paper: allow
+  firecrawl_research_read_paper: allow
+  firecrawl_research_related_papers: allow
+  firecrawl_research_search_github: allow
   playwright_browser_find: allow
   playwright_browser_wait_for: allow
   playwright_browser_generate_locator: allow

@@ -184,8 +184,10 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
 
 
 def native_tool_name(server: str, tool: str) -> str:
-    # pi-mcp-adapter's formatToolName preserves hyphens and replaces dots.
-    return f"{server}_{tool.replace('.', '_')}"
+    # Match pi-mcp-adapter: do not prefix tools that already start with server_.
+    name = tool.replace(".", "_")
+    prefix = f"{server}_"
+    return name if name.startswith(prefix) and len(name) > len(prefix) else f"{prefix}{name}"
 
 
 def validate_policy(policy: dict[str, Any]) -> list[str]:

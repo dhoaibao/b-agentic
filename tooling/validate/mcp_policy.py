@@ -23,7 +23,7 @@ EXPECTED_CLASSES = {
 
 
 def main() -> int:
-    from tooling.generate.registry_sync import load_policy, render_permissions
+    from tooling.generate.registry_sync import load_policy, native_tool_name, render_permissions
 
     errors: list[str] = []
     policy = load_policy()
@@ -42,9 +42,21 @@ def main() -> int:
             errors.append(f"unknown direct tools on {server} must ask")
         for tool, classification in record.get("tools", {}).items():
             expected = policy["classes"][classification]["native_permission"]
-            if permission.get(f"{server}_{tool.replace('.', '_')}") != expected:
+            if permission.get(native_tool_name(server, tool)) != expected:
                 errors.append(f"{server}:{tool} differs from canonical policy")
-    for name in ("firecrawl_firecrawl_crawl", "playwright_browser_click"):
+    if native_tool_name("codegraph", "codegraph_explore") != "codegraph_explore":
+        errors.append("adapter-prefixed CodeGraph tool must not be double-prefixed")
+    if permission.get("codegraph_explore") != "allow":
+        errors.append("CodeGraph explore must be allowed under its actual Pi tool name")
+    if permission.get("firecrawl_search") != "allow":
+        errors.append("adapter-prefixed Firecrawl search must be allowed")
+    if "codegraph_codegraph_explore" in permission or "firecrawl_firecrawl_search" in permission:
+        errors.append("doubled adapter tool names must not appear in permission policy")
+    for agent in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
+        profile = (ROOT / "pi" / "agents" / f"{agent}.md").read_text()
+        if "codegraph_explore: allow" not in profile or "codegraph_codegraph_explore" in profile:
+            errors.append(f"{agent} must allow the actual CodeGraph direct tool")
+    for name in ("firecrawl_crawl", "playwright_browser_click"):
         if permission.get(name) != "ask":
             errors.append(f"{name} must ask before mutation")
     if permission.get("context7_resolve-library-id") != "allow":
