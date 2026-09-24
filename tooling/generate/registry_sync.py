@@ -176,8 +176,12 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
             continue
         ensure_string(agent.get("description"), f"{label}.description", errors)
         ensure_string(agent.get("model"), f"{label}.model", errors)
-        if set(agent) != {"description", "model"}:
-            errors.append(f"{label}: only description and model are supported")
+        allowed_fields = {"description", "model"}
+        if name == "b-researcher":
+            allowed_fields.add("conditional_tools")
+            non_empty_string_list(agent.get("conditional_tools"), f"{label}.conditional_tools", errors)
+        if set(agent) != allowed_fields:
+            errors.append(f"{label}: expected only {sorted(allowed_fields)}")
     if delegated_agents != MANAGED_SUBAGENT_NAMES:
         errors.append(f"skills/registry.yaml: delegated skills must use {sorted(MANAGED_SUBAGENT_NAMES)}")
     return errors
@@ -188,6 +192,29 @@ def native_tool_name(server: str, tool: str) -> str:
     name = tool.replace(".", "_")
     prefix = f"{server}_"
     return name if name.startswith(prefix) and len(name) > len(prefix) else f"{prefix}{name}"
+
+
+def validate_agent_tools(agents: dict[str, dict[str, Any]], policy: dict[str, Any]) -> list[str]:
+    conditional = {
+        native_tool_name(server, tool)
+        for server, record in policy["servers"].items()
+        for tool, classification in record["tools"].items()
+        if classification == "conditional-read"
+    }
+    errors: list[str] = []
+    for name, agent in agents.items():
+        tools = agent.get("conditional_tools", [])
+        if (
+            not isinstance(tools, list)
+            or not all(isinstance(tool, str) for tool in tools)
+            or len(tools) != len(set(tools))
+        ):
+            errors.append(f"agents.{name}.conditional_tools: expected unique tool names")
+            continue
+        for tool in tools:
+            if tool not in conditional:
+                errors.append(f"agents.{name}.conditional_tools: {tool!r} is not a conditional-read tool")
+    return errors
 
 
 def validate_policy(policy: dict[str, Any]) -> list[str]:
@@ -404,7 +431,7 @@ def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, A
         [
             "---",
             f"description: {json.dumps(agent['description'])}",
-            f"tools: {', '.join(['read', 'grep', 'find', 'ls', 'bash', *read_only_mcp])}",
+            f"tools: {', '.join(['read', 'grep', 'find', 'ls', 'bash', *read_only_mcp, *agent.get('conditional_tools', [])])}",
             f"model: {model}",
             f"thinking: {thinking}",
             "prompt_mode: replace",
@@ -543,6 +570,10 @@ def validate_regressions(
     invalid_capabilities["capabilities"][0].pop("status_signal", None)
     if not validate_capabilities(invalid_capabilities, policy):
         errors.append("capability regression: missing status signal must fail")
+    invalid_agent_tools = json.loads(json.dumps(agents))
+    invalid_agent_tools["b-researcher"]["conditional_tools"].append("playwright_browser_click")
+    if not validate_agent_tools(invalid_agent_tools, policy):
+        errors.append("agent regression: mutating conditional tool must fail")
     invalid_policy = json.loads(json.dumps(policy))
     first_server = next(iter(invalid_policy["servers"].values()))
     first_server["tools"]["bad"] = "missing"
@@ -556,7 +587,12 @@ def sync_outputs(check: bool) -> int:
     agents = load_agents()
     policy = load_policy()
     capabilities = load_capabilities()
-    errors = [*validate_skills(skills, agents), *validate_policy(policy), *validate_capabilities(capabilities, policy)]
+    errors = [
+        *validate_skills(skills, agents),
+        *validate_policy(policy),
+        *validate_agent_tools(agents, policy),
+        *validate_capabilities(capabilities, policy),
+    ]
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
