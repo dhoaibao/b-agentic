@@ -127,10 +127,12 @@
       "id": "reviewer-freezes-candidate",
       "skill": "b-review",
       "observed_failure": "Review covered a moving candidate or made corrections itself.",
-      "intended_behavior": "The main session freezes the exact candidate after required checks, b-reviewer inspects it read-only, and corrections get fresh verification and a new review.",
-      "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant generated file. Describe the review sequence and what happens after NEEDS FIXES.",
+      "intended_behavior": "The main session fingerprints the exact candidate after required checks, b-reviewer recomputes its identity at the start and end read-only, and corrections get fresh verification and a new review.",
+      "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant untracked generated file. Describe the review handoff, how its identity is checked, and what happens after NEEDS FIXES.",
       "must": [
-        "Freeze the exact candidate",
+        "Freeze and fingerprint the exact tracked and relevant untracked candidate",
+        "b-reviewer recomputes identity at the start and end",
+        "Main session compares identity after return",
         "b-reviewer is read-only",
         "Do not edit while review runs",
         "Fresh verification and review after corrections"

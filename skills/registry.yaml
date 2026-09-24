@@ -206,6 +206,7 @@
     {
       "name": "b-debug",
       "execution": {"mode": "subagent", "agent": "b-debugger"},
+      "handoff": ["repro command, observed output, expected behavior, and environment; state gaps rather than asking the child to run state-changing probes"],
       "phase": "Decide",
       "use": "Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code",
       "routing": {
@@ -277,6 +278,7 @@
     {
       "name": "b-agentic-audit",
       "execution": {"mode": "subagent", "agent": "b-reviewer"},
+      "handoff": ["after approved origin fetch, branch/upstream and HEAD ahead/behind counts (both zero required)", "status and scripts/b-agentic-audit.sh output; installed versions and approved live-probe results when available"],
       "phase": "Validate",
       "use": "Audit b-agentic repository conformance, health, skill/kernel quality, and currentness",
       "routing": {
@@ -296,6 +298,7 @@
     {
       "name": "b-review",
       "execution": {"mode": "subagent", "agent": "b-reviewer"},
+      "handoff": ["baseline, acceptance, check results, safe candidate paths and snapshot fingerprint; recheck the fingerprint after review"],
       "phase": "Validate",
       "use": "Review changed code",
       "routing": {

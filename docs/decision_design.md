@@ -27,10 +27,13 @@ Evidence: [`install.sh`](../install.sh),
 ## Workflow and skill design
 
 The kernel selects one skill at a time. Pi discovers skill descriptors, and generated
-`/b-<name>` prompt templates supply an explicit route. Worktree mutation,
-user interaction, verification, and reporting stay in the main session. The
-`@gotgenes/pi-subagents` extension supplies four named specialists. Each child
-reads its named skill, uses a tool list without edit/write, questions, or nested
+`/b-<name>` prompt templates supply an explicit route and registry-backed
+parent evidence handoffs for audit, debug, and changed-code review. The main
+session reads the delegated skill and gathers that evidence before launch.
+Worktree mutation, user interaction, verification, and reporting stay in the
+main session. The `@gotgenes/pi-subagents` extension supplies four named
+specialists. Each child reads its named skill, uses a tool list without
+edit/write, questions, or nested
 delegation, and returns the skill's own output format. Read-only shell behavior
 is instructed rather than enforced by a child-specific permission policy.
 Foreground is default; background work is independent and read-only,
@@ -128,8 +131,12 @@ not cover. Routine skill-prompt wording is not automatically policy. Direct
 tests/docs and faithfully regenerated outputs count with their source, not as
 extra subsystems. A bounded, clear, verified low-risk change may skip review
 with its reason reported. Failed checks or unexpected paths block completion;
-ambiguous acceptance goes to the user. Review freezes the exact checked
-candidate; a changed snapshot needs fresh checks and a new review.
+ambiguous acceptance goes to the user. Review records HEAD, staged and
+unstaged binary-diff digests, and relevant untracked path/type/content digests.
+The reviewer checks that identity at the start and end, and main checks it on
+return; a changed snapshot needs fresh
+checks and a new review. Protected paths require permission before content is
+hashed.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 [`tooling/validate/behavior.py`](../tooling/validate/behavior.py), and
