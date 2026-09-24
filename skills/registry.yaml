@@ -4,7 +4,7 @@
   "agents": {
     "b-planner": {
       "description": "Produce a read-only execution-ready plan for the main b-agentic session.",
-      "model": "openai/gpt-6-sol#xhigh"
+      "model": "anthropic/claude-opus-5-5#xhigh"
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
@@ -12,7 +12,7 @@
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
-      "model": "openai/gpt-6-sol#xhigh"
+      "model": "anthropic/claude-opus-5-5#xhigh"
     },
     "b-reviewer": {
       "description": "Independently review a frozen change candidate or b-agentic conformance evidence.",
