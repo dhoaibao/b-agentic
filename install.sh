@@ -103,6 +103,8 @@ validate_source_layout() {
   [ -d "$TEMPLATES_SRC" ] || die "missing Pi configs: $TEMPLATES_SRC"
   [ -f "$TEMPLATES_SRC/permission.user.template.json" ] || die 'missing generated Pi permission template'
   [ -f "$TEMPLATES_SRC/mcp.base.json" ] || die 'missing Pi MCP template'
+  [ -f "$SOURCE_DIR/pi/themes/dracula.json" ] || die 'missing Dracula theme'
+  [ -f "$SOURCE_DIR/pi/themes/LICENSE" ] || die 'missing Dracula theme license'
   [ -f "$SOURCE_DIR/pi/scripts/install.sh" ] || die 'missing Pi runtime installer'
   [ -f "$SOURCE_DIR/tooling/install/common.sh" ] || die "missing installer core"
 }

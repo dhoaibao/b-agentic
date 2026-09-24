@@ -59,20 +59,24 @@ mkdir -p "$sandbox/home/.pi/agent" "$sandbox/home/.config/opencode"
 make_source "$sandbox/source"
 make_bin "$sandbox/bin"
 printf '%s\n' 'old runtime belongs to user' >"$sandbox/home/.config/opencode/AGENTS.md"
-printf '%s\n' '{"custom":true,"packages":["npm:user-extension"],"compaction":{"enabled":false}}' >"$sandbox/home/.pi/agent/settings.json"
+printf '%s\n' '{"custom":true,"theme":"light","packages":["npm:user-extension"],"compaction":{"enabled":false}}' >"$sandbox/home/.pi/agent/settings.json"
 printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp"}}}' >"$sandbox/home/.pi/agent/mcp.json"
 run_install "$sandbox" >"$sandbox/install.log" 2>&1
 
 agent="$sandbox/home/.pi/agent"
 metadata="$agent/b-agentic"
 assert_file "$agent/AGENTS.md"
+assert_file "$agent/themes/dracula.json"
+assert_json "$agent/themes/dracula.json" "data['name']=='dracula' and data['colors']['accent']=='purple'"
+assert_file "$metadata/themes/LICENSE"
+assert_file "$metadata/themes/LICENSE.snapshot"
 assert_file "$agent/skills/b-plan/SKILL.md"
 assert_file "$agent/agents/b-planner.md"
 assert_file "$agent/prompts/b-plan.md"
 assert_file "$agent/extensions/pi-permission-system/config.json"
 assert_file "$metadata/install.json"
-assert_json "$metadata/install.json" "data['runtime']=='pi' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
-assert_json "$agent/settings.json" "data['custom'] is True and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
+assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
+assert_json "$agent/settings.json" "data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
 assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp'"
 assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
 assert_contains "$sandbox/bin/pi.log" 'update --self'
@@ -86,6 +90,7 @@ mkdir -p "$retry/home"
 make_source "$retry/source"
 make_bin "$retry/bin"
 run_install "$retry" >"$retry/install.log" 2>&1
+assert_json "$retry/home/.pi/agent/settings.json" "data['theme']=='dracula'"
 PI_MOCK_FAIL_REMOVE=1 run_install "$retry" --uninstall >"$retry/failed-uninstall.log" 2>&1
 assert_contains "$retry/failed-uninstall.log" 'could not remove npm:@gotgenes/pi-subagents'
 assert_file "$retry/home/.pi/agent/b-agentic/install.json"
@@ -93,6 +98,7 @@ assert_json "$retry/home/.pi/agent/settings.json" "'npm:@gotgenes/pi-subagents' 
 run_install "$retry" --uninstall >"$retry/retry-uninstall.log" 2>&1
 assert_no_path "$retry/home/.pi/agent/b-agentic/install.json"
 assert_no_path "$retry/home/.pi/agent/settings.json"
+assert_no_path "$retry/home/.pi/agent/themes/dracula.json"
 
 plain="$WORK_DIR/plain-sync"
 mkdir -p "$plain/home"
@@ -100,11 +106,122 @@ make_source "$plain/source"
 make_bin "$plain/bin"
 run_install "$plain" >"$plain/install.log" 2>&1
 run_install "$plain" --sync >"$plain/sync.log" 2>&1
+assert_json "$plain/home/.pi/agent/b-agentic/install.json" "data['themeAction']=='replace'"
 [ "$(grep -Fc 'install npm:@gotgenes/pi-subagents --no-approve' "$plain/bin/pi.log")" -eq 1 ] ||
   fail 'completed sync reinstalled a Pi extension'
 run_install "$plain" --uninstall >"$plain/uninstall.log" 2>&1
 assert_no_path "$plain/home/.pi/agent/AGENTS.md"
+assert_no_path "$plain/home/.pi/agent/themes/dracula.json"
 assert_no_path "$plain/home/.pi/agent/b-agentic/install.json"
+
+# Sync refreshes an unchanged managed theme from the checked-in source.
+theme_refresh="$WORK_DIR/theme-refresh"
+mkdir -p "$theme_refresh/home"
+make_source "$theme_refresh/source"
+make_bin "$theme_refresh/bin"
+run_install "$theme_refresh" >"$theme_refresh/install.log" 2>&1
+python3 - "$theme_refresh/source/pi/themes/dracula.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['vars']['purple'] = '#c4a0fc'
+path.write_text(json.dumps(data, indent=2) + '\n')
+PY
+run_install "$theme_refresh" --sync >"$theme_refresh/sync.log" 2>&1
+assert_json "$theme_refresh/home/.pi/agent/themes/dracula.json" "data['vars']['purple']=='#c4a0fc'"
+run_install "$theme_refresh" --uninstall >"$theme_refresh/uninstall.log" 2>&1
+assert_no_path "$theme_refresh/home/.pi/agent/themes/dracula.json"
+
+# An existing or modified theme is user-owned; neither sync nor uninstall overwrites it.
+user_theme="$WORK_DIR/user-theme"
+mkdir -p "$user_theme/home/.pi/agent/themes"
+make_source "$user_theme/source"
+make_bin "$user_theme/bin"
+printf '{"name":"dracula","colors":{"accent":"#ffffff"}}\n' >"$user_theme/home/.pi/agent/themes/dracula.json"
+run_install "$user_theme" >"$user_theme/install.log" 2>&1
+assert_json "$user_theme/home/.pi/agent/b-agentic/install.json" "data['themeAction']=='preserve'"
+run_install "$user_theme" --uninstall >"$user_theme/uninstall.log" 2>&1
+assert_json "$user_theme/home/.pi/agent/themes/dracula.json" "data['colors']['accent']=='#ffffff'"
+
+modified_theme="$WORK_DIR/modified-theme"
+mkdir -p "$modified_theme/home"
+make_source "$modified_theme/source"
+make_bin "$modified_theme/bin"
+run_install "$modified_theme" >"$modified_theme/install.log" 2>&1
+printf '\n' >>"$modified_theme/home/.pi/agent/themes/dracula.json"
+run_install "$modified_theme" --sync >"$modified_theme/sync.log" 2>&1
+assert_contains "$modified_theme/sync.log" 'preserving modified or user-owned Pi theme'
+rm -rf "$modified_theme/source"
+HOME="$modified_theme/home" PATH="$modified_theme/bin:$PATH" B_AGENTIC_DIR="$modified_theme/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$modified_theme/uninstall.log" 2>&1
+assert_contains "$modified_theme/uninstall.log" 'preserving modified Pi theme'
+assert_file "$modified_theme/home/.pi/agent/b-agentic/install.json"
+assert_file "$modified_theme/home/.pi/agent/themes/dracula.json"
+
+linked_theme="$WORK_DIR/linked-theme"
+mkdir -p "$linked_theme/home/.pi/agent/themes" "$linked_theme/home/user"
+make_source "$linked_theme/source"
+make_bin "$linked_theme/bin"
+printf '%s\n' 'user theme' >"$linked_theme/home/user/dracula.json"
+ln -s "$linked_theme/home/user/dracula.json" "$linked_theme/home/.pi/agent/themes/dracula.json"
+run_install "$linked_theme" >"$linked_theme/install.log" 2>&1
+run_install "$linked_theme" --uninstall >"$linked_theme/uninstall.log" 2>&1
+[ -L "$linked_theme/home/.pi/agent/themes/dracula.json" ] || fail 'symlinked Pi theme not preserved'
+assert_contains "$linked_theme/home/user/dracula.json" 'user theme'
+
+linked_theme_dir="$WORK_DIR/linked-theme-dir"
+mkdir -p "$linked_theme_dir/home/.pi/agent" "$linked_theme_dir/home/user/themes"
+make_source "$linked_theme_dir/source"
+make_bin "$linked_theme_dir/bin"
+ln -s "$linked_theme_dir/home/user/themes" "$linked_theme_dir/home/.pi/agent/themes"
+run_install "$linked_theme_dir" >"$linked_theme_dir/install.log" 2>&1
+assert_no_path "$linked_theme_dir/home/user/themes/dracula.json"
+run_install "$linked_theme_dir" --uninstall >"$linked_theme_dir/uninstall.log" 2>&1
+[ -L "$linked_theme_dir/home/.pi/agent/themes" ] || fail 'symlinked Pi theme directory not preserved'
+
+linked_license="$WORK_DIR/linked-license"
+mkdir -p "$linked_license/home/.pi/agent/b-agentic/themes" "$linked_license/home/user"
+make_source "$linked_license/source"
+make_bin "$linked_license/bin"
+printf '%s\n' 'user-owned license' >"$linked_license/home/user/LICENSE"
+ln -s "$linked_license/home/user/LICENSE" "$linked_license/home/.pi/agent/b-agentic/themes/LICENSE"
+if run_install "$linked_license" >"$linked_license/install.log" 2>&1; then
+  fail 'accepted symlinked Pi theme license destination'
+fi
+assert_contains "$linked_license/install.log" 'symlinked Pi theme snapshot or license'
+assert_contains "$linked_license/home/user/LICENSE" 'user-owned license'
+assert_no_path "$linked_license/home/.pi/agent/themes/dracula.json"
+
+regular_license="$WORK_DIR/regular-license"
+mkdir -p "$regular_license/home/.pi/agent/b-agentic/themes"
+make_source "$regular_license/source"
+make_bin "$regular_license/bin"
+printf '%s\n' 'user-owned license' >"$regular_license/home/.pi/agent/b-agentic/themes/LICENSE"
+if run_install "$regular_license" >"$regular_license/install.log" 2>&1; then
+  fail 'accepted conflicting Pi theme license destination'
+fi
+assert_contains "$regular_license/install.log" 'preserving modified Pi theme license'
+assert_contains "$regular_license/home/.pi/agent/b-agentic/themes/LICENSE" 'user-owned license'
+assert_no_path "$regular_license/home/.pi/agent/themes/dracula.json"
+
+edited_license="$WORK_DIR/edited-license"
+mkdir -p "$edited_license/home"
+make_source "$edited_license/source"
+make_bin "$edited_license/bin"
+run_install "$edited_license" >"$edited_license/install.log" 2>&1
+printf '\nuser edit\n' >>"$edited_license/home/.pi/agent/b-agentic/themes/LICENSE"
+if run_install "$edited_license" --sync >"$edited_license/sync.log" 2>&1; then
+  fail 'sync overwrote modified Pi theme license'
+fi
+assert_contains "$edited_license/home/.pi/agent/b-agentic/themes/LICENSE" 'user edit'
+assert_file "$edited_license/home/.pi/agent/themes/dracula.json"
+rm -rf "$edited_license/source"
+HOME="$edited_license/home" PATH="$edited_license/bin:$PATH" B_AGENTIC_DIR="$edited_license/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$edited_license/uninstall.log" 2>&1
+assert_contains "$edited_license/uninstall.log" 'preserving modified Pi theme license'
+assert_file "$edited_license/home/.pi/agent/b-agentic/install.json"
+assert_contains "$edited_license/home/.pi/agent/b-agentic/themes/LICENSE" 'user edit'
 
 edited_kernel="$WORK_DIR/edited-kernel"
 mkdir -p "$edited_kernel/home"
@@ -130,6 +247,7 @@ assert_json "$interrupted/home/.pi/agent/b-agentic/install.json" "data['packageS
 run_install "$interrupted" --sync >"$interrupted/retry-sync.log" 2>&1
 run_install "$interrupted" --uninstall >"$interrupted/uninstall.log" 2>&1
 assert_json "$interrupted/home/.pi/agent/settings.json" "data=={'custom':True,'packages':['npm:user-extension']}"
+assert_no_path "$interrupted/home/.pi/agent/themes/dracula.json"
 assert_no_path "$interrupted/home/.pi/agent/b-agentic/install.json"
 
 partial="$WORK_DIR/partial-package"
@@ -199,7 +317,8 @@ assert_no_path "$agent/skills/b-plan"
 assert_no_path "$agent/prompts/b-plan.md"
 assert_file "$agent/agents/b-planner.md"
 assert_file "$metadata/install.json"
-assert_json "$agent/settings.json" "data == {'custom': True, 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
+assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
+assert_no_path "$agent/themes/dracula.json"
 assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp'}}}"
 assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
 
@@ -282,6 +401,7 @@ HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" \
 assert_contains "$clean/dry-uninstall.log" 'Manifest-only uninstall preview for Pi'
 assert_file "$clean/home/.pi/agent/skills/b-plan/SKILL.md"
 assert_file "$clean/home/.pi/agent/settings.json"
+assert_file "$clean/home/.pi/agent/themes/dracula.json"
 assert_file "$clean/home/.pi/agent/b-agentic/install.json"
 if grep -Fq 'remove npm:' "$clean/bin/pi.log"; then fail 'dry-run removed a Pi package'; fi
 HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" PI_MOCK_FAIL_REMOVE=1 \
@@ -295,6 +415,7 @@ assert_contains "$clean/uninstall.log" 'Manifest-only uninstall complete for Pi'
 assert_no_path "$clean/home/.pi/agent/skills/b-plan"
 assert_no_path "$clean/home/.pi/agent/agents/b-planner.md"
 assert_no_path "$clean/home/.pi/agent/AGENTS.md"
+assert_no_path "$clean/home/.pi/agent/themes/dracula.json"
 assert_contains "$clean/bin/pi.log" 'remove npm:@gotgenes/pi-subagents --no-approve'
 
 edited_orphan="$WORK_DIR/edited-orphan-kernel"
@@ -338,6 +459,7 @@ rm -rf "$orphan/source"
 HOME="$orphan/home" PATH="$orphan/bin:$PATH" B_AGENTIC_DIR="$orphan/missing" \
   bash "$ROOT_DIR/install.sh" --uninstall >"$orphan/uninstall.log" 2>&1
 assert_json "$orphan/home/.pi/agent/settings.json" "data=={'custom':True}"
+assert_no_path "$orphan/home/.pi/agent/themes/dracula.json"
 assert_contains "$orphan/home/.pi/agent/AGENTS.md" 'orphan original kernel'
 assert_no_path "$orphan/home/.pi/agent/b-agentic/install.json"
 
@@ -383,6 +505,7 @@ make_bin "$dry/bin"
 run_install "$dry" --dry-run >"$dry/log" 2>&1
 assert_no_path "$dry/home/.pi/agent"
 assert_contains "$dry/log" '[dry-run] pi update --self'
+assert_contains "$dry/log" '[dry-run] install Pi theme'
 assert_no_path "$dry/bin/pi.log"
 run_install "$dry" --update --dry-run >"$dry/update.log" 2>&1
 assert_contains "$dry/update.log" '[dry-run] pi update --extensions'

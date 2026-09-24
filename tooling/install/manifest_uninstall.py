@@ -198,6 +198,28 @@ def main() -> int:
     preserved |= remove_profiles(data.get("agents"), agents, snapshots["agents"], "Pi specialist", dry_run)
     preserved |= remove_profiles(data.get("commands"), commands, snapshots["commands"], "Pi prompt", dry_run)
 
+    if data.get("themeAction") in {"write", "replace"}:
+        license_file = metadata / "themes" / "LICENSE"
+        license_snapshot = metadata / "themes" / "LICENSE.snapshot"
+        if (
+            license_file.is_symlink()
+            or license_snapshot.is_symlink()
+            or (license_file.exists() and not equal(license_file, license_snapshot))
+        ):
+            warn(f"preserving modified Pi theme license: {license_file}")
+            preserved = True
+        theme = config_dir / "themes" / "dracula.json"
+        snapshot = metadata / "themes" / "dracula.json"
+        if theme.parent.is_symlink() or theme.is_symlink() or not confined(theme, home):
+            warn(f"preserving symlinked or unsafe Pi theme: {theme}")
+            preserved = True
+        elif theme.exists() and equal(theme, snapshot):
+            if not dry_run:
+                theme.unlink()
+        elif theme.exists():
+            warn(f"preserving modified Pi theme: {theme}")
+            preserved = True
+
     configs = (
         ("settings", config_dir / "settings.json", "settings.base.json"),
         ("mcp", config_dir / "mcp.json", "mcp.base.json"),

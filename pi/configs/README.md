@@ -6,15 +6,18 @@
 
 | Source | Installed path (default agent directory `~/.pi/agent`) | Owner |
 | --- | --- | --- |
-| `settings.base.json` | `settings.json` | Pi and six unpinned packages; b-agentic merges missing recommendations |
+| `settings.base.json` | `settings.json` | Pi, six unpinned packages, and Dracula as a default only when no theme is selected |
 | `mcp.base.json` | `mcp.json` | `pi-mcp-adapter`; seven lazy servers, no stored credentials |
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
+| `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |
 | `../agents/b-*.md` | `agents/b-*.md` | Four specialist profiles and child policies |
 | `../prompts/b-*.md` | `prompts/b-*.md` | Fifteen explicit `/b-*` routes |
 
 `install.sh` merges without replacing user-owned keys, snapshots the managed
 assets, backs up existing configs, and records ownership in
-`b-agentic/install.json`. A modified file or symlink remains user-owned.
+`b-agentic/install.json`. An existing Dracula theme file, a modified file, or a
+symlink remains user-owned. `--sync` refreshes an unchanged managed theme from
+the checked-in source; uninstall removes only an unchanged managed copy.
 `--sync` refreshes local assets; `--update` asks Pi to update itself and the
 installed extensions. Bare npm package names track the latest available
 release. Status and doctor commands do not open network/auth/browser sessions

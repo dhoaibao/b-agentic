@@ -24,11 +24,16 @@ REFERENCES_DST="$METADATA_DIR/references"
 TEMPLATES_DST="$METADATA_DIR/templates"
 MANIFEST_DST="$METADATA_DIR/install.json"
 PI_SETTINGS_DST="$PI_CONFIG_DIR/settings.json"
+PI_THEME_DST="$PI_CONFIG_DIR/themes/dracula.json"
+PI_THEME_SNAPSHOT_DST="$METADATA_DIR/themes/dracula.json"
+PI_THEME_LICENSE_DST="$METADATA_DIR/themes/LICENSE"
+PI_THEME_LICENSE_SNAPSHOT_DST="$METADATA_DIR/themes/LICENSE.snapshot"
 PI_MCP_DST="$PI_CONFIG_DIR/mcp.json"
 PI_PERMISSION_DST="$PI_CONFIG_DIR/extensions/pi-permission-system/config.json"
 AGENT_NAMES=(b-planner b-researcher b-debugger b-reviewer)
 INSTALL_AGENTS_ACTION=skip
 INSTALL_COMMANDS_ACTION=skip
+INSTALL_THEME_ACTION=skip
 PRESERVE_METADATA_DIR=0
 PI_CLI_INSTALL_STATUS=not-run
 INSTALL_MISSING_TOOLS=()
@@ -96,6 +101,45 @@ install_commands() {
   managed_file_set "$SOURCE_DIR/pi/prompts" "$COMMANDS_DST" "$COMMANDS_SNAPSHOT_DST" 'Pi prompt'
 }
 
+install_theme() {
+  local src="$SOURCE_DIR/pi/themes/dracula.json"
+  if dry_run_enabled; then
+    printf '[dry-run] install Pi theme %s -> %s\n' "$src" "$PI_THEME_DST" >&2
+    printf 'write\nactive\nnone'
+  elif [ -L "$(dirname "$PI_THEME_SNAPSHOT_DST")" ] || [ -L "$PI_THEME_SNAPSHOT_DST" ] ||
+       [ -L "$PI_THEME_LICENSE_DST" ] || [ -L "$PI_THEME_LICENSE_SNAPSHOT_DST" ]; then
+    die "symlinked Pi theme snapshot or license: $METADATA_DIR/themes"
+  elif [ -e "$PI_THEME_LICENSE_DST" ] &&
+       { [ ! -f "$PI_THEME_LICENSE_SNAPSHOT_DST" ] || ! cmp -s "$PI_THEME_LICENSE_DST" "$PI_THEME_LICENSE_SNAPSHOT_DST"; }; then
+    die "preserving modified Pi theme license: $PI_THEME_LICENSE_DST"
+  elif [ -L "$(dirname "$PI_THEME_DST")" ] || [ -L "$PI_THEME_DST" ]; then
+    warn "preserving symlinked Pi theme: $PI_THEME_DST"
+    printf 'preserve\npreserved\nnone'
+  elif [ ! -e "$PI_THEME_DST" ]; then
+    copy_file "$src" "$PI_THEME_DST"
+    copy_file "$src" "$PI_THEME_SNAPSHOT_DST"
+    copy_file "$SOURCE_DIR/pi/themes/LICENSE" "$PI_THEME_LICENSE_DST"
+    copy_file "$SOURCE_DIR/pi/themes/LICENSE" "$PI_THEME_LICENSE_SNAPSHOT_DST"
+    printf 'write\nactive\nnone'
+  elif [ -f "$PI_THEME_SNAPSHOT_DST" ] && cmp -s "$PI_THEME_DST" "$PI_THEME_SNAPSHOT_DST"; then
+    copy_file "$src" "$PI_THEME_DST"
+    copy_file "$src" "$PI_THEME_SNAPSHOT_DST"
+    copy_file "$SOURCE_DIR/pi/themes/LICENSE" "$PI_THEME_LICENSE_DST"
+    copy_file "$SOURCE_DIR/pi/themes/LICENSE" "$PI_THEME_LICENSE_SNAPSHOT_DST"
+    printf 'replace\nactive\nnone'
+  else
+    warn "preserving modified or user-owned Pi theme: $PI_THEME_DST"
+    printf 'preserve\npreserved\nnone'
+  fi
+}
+
+remember_theme_baseline() {
+  local prior
+  [ "$INSTALL_THEME_ACTION" = preserve ] && [ -f "$PI_THEME_SNAPSHOT_DST" ] || return 0
+  prior="$(manifest_action_value themeAction skip)"
+  case "$prior" in write|replace) INSTALL_THEME_ACTION="$prior" ;; esac
+}
+
 install_settings() { merge_json_file "$TEMPLATES_SRC/settings.base.json" "$PI_SETTINGS_DST" settings settings; }
 install_mcp() { merge_json_file "$TEMPLATES_SRC/mcp.base.json" "$PI_MCP_DST" mcp mcp; }
 install_permission() {
@@ -141,6 +185,9 @@ runtime_install_configs() {
     INSTALL_AGENTS_ACTION INSTALL_AGENTS_STATE INSTALL_AGENTS_BACKUP
   run_install_triplet_stage 'Syncing Pi prompts' install_commands skip none none \
     INSTALL_COMMANDS_ACTION INSTALL_COMMANDS_STATE INSTALL_COMMANDS_BACKUP
+  run_install_triplet_stage 'Installing Dracula theme' install_theme skip none none \
+    INSTALL_THEME_ACTION INSTALL_THEME_STATE INSTALL_THEME_BACKUP
+  remember_theme_baseline
   run_install_triplet_stage 'Merging Pi settings' install_settings skip none none \
     INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_STATE INSTALL_SETTINGS_BACKUP
   remember_config_baseline settings "$PI_SETTINGS_DST" INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_BACKUP
@@ -198,6 +245,7 @@ runtime_write_manifest() {
     MCP_ACTION="$INSTALL_MCP_ACTION" MCP_BACKUP="$INSTALL_MCP_BACKUP" \
     PERMISSION_ACTION="$INSTALL_PERMISSION_ACTION" PERMISSION_BACKUP="$INSTALL_PERMISSION_BACKUP" \
     AGENTS_ACTION="$INSTALL_AGENTS_ACTION" COMMANDS_ACTION="$INSTALL_COMMANDS_ACTION" \
+    THEME_ACTION="$INSTALL_THEME_ACTION" \
     SKILLS="${INSTALL_SKILL_NAMES[*]}" AGENTS="${AGENT_NAMES[*]}" python3 - <<'PY'
 import json, os
 from pathlib import Path
@@ -217,6 +265,7 @@ manifest = {
     'kernelAction': os.environ['KERNEL_ACTION'],
     'kernelPriorBackups': prior_backups,
     'agentsAction': os.environ['AGENTS_ACTION'], 'commandsAction': os.environ['COMMANDS_ACTION'],
+    'themeAction': os.environ['THEME_ACTION'],
     'settingsAction': os.environ['SETTINGS_ACTION'], 'mcpAction': os.environ['MCP_ACTION'],
     'permissionAction': os.environ['PERMISSION_ACTION'],
     'paths': {
@@ -243,7 +292,7 @@ PY
 
 runtime_print_install_report() {
   success 'b-agentic install complete for Pi'
-  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, six unpinned extensions."
+  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, six unpinned extensions."
   installer_summary_log "Manifest: $MANIFEST_DST"
   step 'Next steps:'
   installer_summary_log '  - Start a new Pi session and invoke /b-plan or another explicit /b-* prompt.'
@@ -267,7 +316,27 @@ remove_managed_profiles() {
   done < <(manifest_array_values "$key")
 }
 
+remove_managed_theme() {
+  case "$(manifest_action_value themeAction skip)" in write|replace) ;; *) return 0 ;; esac
+  if [ -L "$PI_THEME_LICENSE_DST" ] || [ -L "$PI_THEME_LICENSE_SNAPSHOT_DST" ] ||
+     { [ -e "$PI_THEME_LICENSE_DST" ] &&
+       { [ ! -f "$PI_THEME_LICENSE_SNAPSHOT_DST" ] || ! cmp -s "$PI_THEME_LICENSE_DST" "$PI_THEME_LICENSE_SNAPSHOT_DST"; }; }; then
+    warn "preserving modified Pi theme license: $PI_THEME_LICENSE_DST"
+    PRESERVE_METADATA_DIR=1
+  fi
+  if [ -L "$(dirname "$PI_THEME_DST")" ] || [ -L "$PI_THEME_DST" ]; then
+    warn "preserving symlinked Pi theme: $PI_THEME_DST"
+    PRESERVE_METADATA_DIR=1
+  elif [ -f "$PI_THEME_DST" ] && [ -f "$PI_THEME_SNAPSHOT_DST" ] && [ ! -L "$PI_THEME_SNAPSHOT_DST" ] && cmp -s "$PI_THEME_DST" "$PI_THEME_SNAPSHOT_DST"; then
+    run_cmd rm -f "$PI_THEME_DST"
+  elif [ -e "$PI_THEME_DST" ]; then
+    warn "preserving modified Pi theme: $PI_THEME_DST"
+    PRESERVE_METADATA_DIR=1
+  fi
+}
+
 runtime_uninstall_configs() {
+  remove_managed_theme
   remove_managed_profiles "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" agents 'Pi specialist'
   remove_managed_profiles "$COMMANDS_DST" "$COMMANDS_SNAPSHOT_DST" commands 'Pi prompt'
   if remove_managed_packages; then

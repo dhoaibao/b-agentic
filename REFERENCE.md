@@ -35,6 +35,13 @@ source-absent manifest uninstall remains confined to the same boundary.
 - `--ref=<branch-tag-or-commit>` selects a safe checkout ref. `B_AGENTIC_DIR`,
   `B_AGENTIC_REPO`, and `B_AGENTIC_REF` support controlled installs.
 
+The installer bundles the [Dracula theme](https://draculatheme.com/pi-coding-agent)
+under `<agent-dir>/themes/dracula.json` and selects it only when `theme` is not
+already set in user settings. The checked-in copy is refreshed on `--sync` if
+unchanged; existing, edited, or symlinked theme files remain user-owned. An
+unchanged managed theme is removed on uninstall, including manifest-only
+uninstall. Pi may need `/reload` or a new session to pick up the theme.
+
 The installer backs up existing JSON/JSONC before merging; user values remain
 authoritative, including an explicit compaction preference. Comments are not
 preserved by the JSON rewrite. Package declarations union ahead of user
