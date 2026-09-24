@@ -110,13 +110,18 @@ routing, Pi assets, capability/MCP policy, decision traceability, and local
 readiness. Release validation adds sandboxed installer smoke. The offline Pi
 integration probe uses a deterministic stub model and local MCP fixture, with
 explicit limitations for live providers, UI approval, and production servers.
-Every candidate gets an inspected diff and applicable checks. Independent
-read-only review is required by request or when changing security, privacy,
-data integrity, public contracts, dependencies/runtime config, installer or
-workflow policy, multiple subsystems, or when acceptance/risk is uncertain.
-Review freezes the exact checked candidate; a changed snapshot needs fresh
-checks and a new review. A bounded clear low-risk change may skip independent
-review only with its exception reported.
+Every candidate gets an inspected diff and applicable checks. Classify the
+final change against the task baseline. Independent read-only review is required
+by request or for security/privacy/authority, data integrity, externally
+consumed contracts, dependencies/runtime configuration, installer or user-config
+merge behavior, approval/safety/delegation/review/commit/routing policy,
+behavior across independently owned subsystems, or a concrete risk checks do
+not cover. Routine skill-prompt wording is not automatically policy. Direct
+tests/docs and faithfully regenerated outputs count with their source, not as
+extra subsystems. A bounded, clear, verified low-risk change may skip review
+with its reason reported. Failed checks or unexpected paths block completion;
+ambiguous acceptance goes to the user. Review freezes the exact checked
+candidate; a changed snapshot needs fresh checks and a new review.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 [`tooling/validate/behavior.py`](../tooling/validate/behavior.py), and

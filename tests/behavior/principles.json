@@ -228,7 +228,7 @@
       "id": "risk-triggered-candidate-review",
       "principle": "goal-driven-execution",
       "observed_failure": "A verified but consequential change could finish under a low-risk label without independent review.",
-      "intended_behavior": "User-requested review or changes to trust boundaries, data, public contracts, dependencies/runtime config, workflow policy, or multiple subsystems trigger independent review after fresh checks.",
+      "intended_behavior": "User-requested review or changes to trust boundaries, data, externally consumed contracts, dependencies/runtime config, safety/approval/routing policy, or behavior across independently owned subsystems trigger independent review after fresh checks.",
       "prompt": "Use b-implement. A candidate changes authentication permissions, a data migration, an exported API contract, a dependency, and installer policy across subsystems. All required checks pass. Describe the review gate, including what happens if the user expressly asks for review of an otherwise tiny change.",
       "must": [
         "Classify the changes and user request as review triggers",
@@ -245,17 +245,64 @@
       "id": "uncertain-or-failed-candidate-blocks",
       "principle": "goal-driven-execution",
       "observed_failure": "A change with an unexpected path or failed required check was finished by skipping review.",
-      "intended_behavior": "Missing or failed checks and unexpected paths block completion until resolved; uncertain risk escalates to review and ambiguous acceptance goes to the user.",
+      "intended_behavior": "Missing or failed checks and unexpected paths block completion until resolved; ambiguous acceptance goes to the user. Remaining uncertain risk triggers review only after naming the closest trigger.",
       "prompt": "Use b-implement. A seemingly local change has an unexpected generated path, the required check fails, and acceptance of the resulting public behavior is ambiguous. Can you mark this low-risk and finish without review? State the next steps.",
       "must": [
         "Block normal completion",
         "Inspect unexpected paths and resolve the required check",
         "Ask the user about ambiguous requirements",
-        "Escalate uncertain risk for review"
+        "Name the closest review trigger if risk remains uncertain after resolving the blockers"
       ],
       "avoid": [
         "Treat skipped review as a substitute for verification",
         "Silently choose acceptance criteria"
+      ]
+    },
+    {
+      "id": "generated-output-does-not-trigger-review",
+      "principle": "goal-driven-execution",
+      "observed_failure": "Regenerating a skill made one small change appear to span multiple subsystems.",
+      "intended_behavior": "Faithfully regenerated outputs and direct tests/docs count with their source after generator checks pass; they do not independently trigger review.",
+      "prompt": "Use b-implement. Correct a typo in one skill prompt, regenerate its SKILL.md and Pi command, and run the generator check and required checks successfully. The final diff is limited to the expected paths, acceptance is clear, and no routing, authority, approval, safety, or review behavior changes. State whether b-reviewer is needed.",
+      "must": [
+        "Inspect the source and generated paths",
+        "Treat faithful generated output as the same concern",
+        "Finish without b-reviewer and report why review was skipped"
+      ],
+      "avoid": [
+        "Treat generated paths or file count alone as multiple subsystems",
+        "Claim an independent reviewer verdict"
+      ]
+    },
+    {
+      "id": "ordinary-change-needs-no-generator",
+      "principle": "goal-driven-execution",
+      "observed_failure": "A global skill demanded a generator check even when the project has no generator and the candidate has no generated outputs.",
+      "intended_behavior": "Generator checks apply only when the candidate includes regenerated outputs; ordinary bounded changes need their applicable required checks, not a nonexistent generator check.",
+      "prompt": "Use b-implement in a project with no generator. Make one bounded documentation correction; the final diff contains no generated output and all applicable required checks pass. Is a generator check necessary to skip b-reviewer?",
+      "must": [
+        "Inspect the final diff and run applicable required checks",
+        "Do not demand a generator check without regenerated outputs",
+        "Report the low-risk exception if no other trigger applies"
+      ],
+      "avoid": [
+        "Block completion because this project has no generator",
+        "Skip applicable verification"
+      ]
+    },
+    {
+      "id": "policy-change-still-triggers-review",
+      "principle": "goal-driven-execution",
+      "observed_failure": "A short skill edit could be labeled routine wording even though it changes who has authority to approve a protected action.",
+      "intended_behavior": "Review is mandatory for approval, safety, delegation-authority, review, commit, or routing policy even when the diff is tiny and checks pass.",
+      "prompt": "Use b-implement. A one-line skill-prompt edit now permits a delegated child to approve a protected action. Its SKILL.md is faithfully regenerated and every required check passes. Is the low-risk review exception available?",
+      "must": [
+        "Classify the authority change as a review trigger",
+        "Freeze the checked candidate and request b-reviewer before normal completion"
+      ],
+      "avoid": [
+        "Skip review because the edit is one line",
+        "Treat generated files as the reason for review"
       ]
     },
     {

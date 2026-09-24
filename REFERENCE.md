@@ -97,8 +97,11 @@ in an isolated repo-local profile and runs an offline stub-provider gate for
 parent/child writes, protected paths, and dynamic MCP decisions. It does not
 prove interactive dialogs, real-provider availability, or production MCP
 connectivity. Every changed candidate needs inspected paths and applicable
-checks; security, installer, runtime, or multi-subsystem changes require an
-independent frozen-snapshot reviewer before normal completion.
+checks. Bounded, verified low-risk changes may report a skipped independent
+review; security, installer, runtime, policy, or independently owned
+multi-subsystem behavior changes require a frozen-snapshot reviewer before
+normal completion. Direct tests/docs and faithfully regenerated outputs count
+with their source rather than as additional subsystems.
 
 ## MCP and readiness
 
