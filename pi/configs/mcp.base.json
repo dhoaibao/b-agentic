@@ -9,38 +9,88 @@
     "codegraph": {
       "command": "codegraph",
       "args": ["serve", "--mcp"],
+      "directTools": ["codegraph_explore"],
       "env": { "CODEGRAPH_TELEMETRY": "0" },
       "lifecycle": "lazy"
     },
     "context7": {
       "url": "https://mcp.context7.com/mcp",
       "headers": { "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}" },
+      "directTools": ["resolve-library-id", "query-docs"],
       "lifecycle": "lazy"
     },
     "brave_search": {
       "command": "bunx",
       "args": ["@brave/brave-search-mcp-server", "--transport", "stdio"],
+      "directTools": [
+        "brave_web_search",
+        "brave_local_search",
+        "brave_video_search",
+        "brave_image_search",
+        "brave_news_search",
+        "brave_summarizer",
+        "brave_llm_context",
+        "brave_place_search"
+      ],
       "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" },
       "lifecycle": "lazy"
     },
     "firecrawl": {
       "command": "bunx",
       "args": ["firecrawl-mcp"],
+      "directTools": [
+        "firecrawl_search",
+        "firecrawl_developer_search",
+        "firecrawl_scrape",
+        "firecrawl_map",
+        "firecrawl_extract",
+        "firecrawl_agent_status",
+        "firecrawl_check_crawl_status",
+        "firecrawl_find_tools",
+        "firecrawl_research_search_papers",
+        "firecrawl_research_inspect_paper",
+        "firecrawl_research_read_paper",
+        "firecrawl_research_related_papers",
+        "firecrawl_research_search_github"
+      ],
       "env": { "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}" },
       "lifecycle": "lazy"
     },
     "playwright": {
       "command": "bunx",
       "args": ["@playwright/mcp", "--isolated", "--headless", "--caps=testing"],
+      "directTools": [
+        "browser_snapshot",
+        "browser_find",
+        "browser_console_messages",
+        "browser_network_requests",
+        "browser_network_request",
+        "browser_wait_for",
+        "browser_tabs",
+        "browser_generate_locator",
+        "browser_verify_element_visible",
+        "browser_verify_list_visible",
+        "browser_verify_text_visible",
+        "browser_verify_value"
+      ],
       "lifecycle": "lazy"
     },
     "mobbin": {
       "url": "https://api.mobbin.com/mcp",
+      "directTools": ["search_screens", "search_flows", "search_sections"],
       "lifecycle": "lazy"
     },
     "shadcn": {
       "command": "bunx",
       "args": ["shadcn@latest", "mcp"],
+      "directTools": [
+        "get_project_registries",
+        "list_items_in_registries",
+        "search_items_in_registries",
+        "view_items_in_registries",
+        "get_add_command_for_items",
+        "get_audit_checklist"
+      ],
       "lifecycle": "lazy"
     }
   }

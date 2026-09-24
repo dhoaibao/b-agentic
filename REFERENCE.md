@@ -101,9 +101,14 @@ independent frozen-snapshot reviewer before normal completion.
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
 Firecrawl, Playwright, Mobbin, and shadcn through `pi-mcp-adapter`. Connections
-are lazy. Direct names use `<server>_<tool>`; the generic proxy is separately
-gated. The adapter's script/install tool surfaces are disabled. Credentials
-remain environment placeholders; the installer does not collect them.
+are lazy. Per-server `directTools` lists eagerly register only the 45 known
+allowed operations from `references/mcp_operations.yaml`, below the adapter's
+75-tool advisory threshold. Direct names use `<server>_<tool>`; other operations
+remain available through the separately gated proxy, where calls ask for
+approval. The adapter's script/install tool surfaces are disabled. Credentials
+remain environment placeholders; the installer does not collect them. Sync adds
+missing per-server lists to existing configurations but preserves user-edited
+lists; `/reload` or a restart is needed to pick up changes.
 
 | MCP          | Local prerequisite                           |
 | ------------ | -------------------------------------------- |

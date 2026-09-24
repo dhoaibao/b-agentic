@@ -60,7 +60,7 @@ make_source "$sandbox/source"
 make_bin "$sandbox/bin"
 printf '%s\n' 'old runtime belongs to user' >"$sandbox/home/.config/opencode/AGENTS.md"
 printf '%s\n' '{"custom":true,"theme":"light","packages":["npm:user-extension"],"compaction":{"enabled":false}}' >"$sandbox/home/.pi/agent/settings.json"
-printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp"}}}' >"$sandbox/home/.pi/agent/mcp.json"
+printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp","directTools":["custom_tool"]}}}' >"$sandbox/home/.pi/agent/mcp.json"
 run_install "$sandbox" >"$sandbox/install.log" 2>&1
 
 agent="$sandbox/home/.pi/agent"
@@ -77,7 +77,9 @@ assert_file "$agent/extensions/pi-permission-system/config.json"
 assert_file "$metadata/install.json"
 assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
 assert_json "$agent/settings.json" "data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
-assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp'"
+assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
+assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==45"
+assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
 assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
 assert_contains "$sandbox/bin/pi.log" 'update --self'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@gotgenes/pi-subagents --no-approve'
@@ -319,7 +321,7 @@ assert_file "$agent/agents/b-planner.md"
 assert_file "$metadata/install.json"
 assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
 assert_no_path "$agent/themes/dracula.json"
-assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp'}}}"
+assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
 assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
 
 # A symlinked specialist remains user-owned and prevents manifest disposal.

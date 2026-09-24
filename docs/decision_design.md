@@ -69,10 +69,13 @@ Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.
 ## MCP and external-evidence design
 
 Seven servers use `pi-mcp-adapter`'s lazy `mcpServers` config and direct
-`<server>_<tool>` names. The generic proxy is separately gated. Script mode
-and model-driven installs are disabled. `references/mcp_operations.yaml`
-classifies known tools; read-only names are allowed, consequential names ask,
-and unknown names ask. The adapter does not make configuration a live server
+`<server>_<tool>` names. Per-server direct-tool lists eagerly register only
+operations allowed by `references/mcp_operations.yaml`; other operations remain
+available through the separately gated proxy, which asks for calls. This keeps
+the eager set below the adapter's advisory threshold without disabling tools.
+Script mode and model-driven installs are disabled. The policy classifies known
+tools; allowed direct names avoid proxy approval, while consequential and
+unknown operations ask. The adapter does not make configuration a live server
 or authentication proof. `mcp-doctor` checks only local configuration, launcher,
 and variable presence; it starts no MCP or browser sessions. Pi native
 compaction is the default; no dynamic pruning or durable memory plugin is

@@ -67,6 +67,22 @@ def main() -> int:
     settings = mcp.get("settings", {})
     if settings.get("directTools") is not True or settings.get("scriptMode") is not False:
         errors.append("direct tools must be enabled and MCP script mode disabled")
+    eager_count = 0
+    for server, record in servers.items():
+        configured = mcp.get("mcpServers", {}).get(server, {}).get("directTools")
+        allowed = {
+            tool
+            for tool, classification in record.get("tools", {}).items()
+            if policy["classes"][classification]["native_permission"] == "allow"
+        }
+        if not isinstance(configured, list) or any(not isinstance(tool, str) for tool in configured):
+            errors.append(f"{server} must list allowed direct tools")
+            continue
+        if len(configured) != len(set(configured)) or set(configured) != allowed:
+            errors.append(f"{server} direct tools differ from allowed MCP operations")
+        eager_count += len(configured)
+    if eager_count >= 75:
+        errors.append("configured direct tools meet the adapter's 75-tool advisory threshold")
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
