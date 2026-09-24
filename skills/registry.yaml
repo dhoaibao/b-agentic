@@ -8,7 +8,7 @@
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
-      "model": "hdwebsoft/deepseek-v4.1-flash#max",
+      "model": "anthropic/claude-sonnet-5#high",
       "conditional_tools": ["firecrawl_search", "firecrawl_scrape", "firecrawl_map", "firecrawl_extract"]
     },
     "b-debugger": {
