@@ -181,53 +181,83 @@
       "avoid": ["Freeze a code candidate", "Issue a changed-code verdict"]
     },
     {
-      "id": "complex-commit-self-audits-plan",
+      "id": "complex-commit-preserves-index",
       "skill": "b-commit",
-      "observed_failure": "Multiple commit groups and a pre-existing staged set triggered a redundant b-reviewer run.",
-      "intended_behavior": "The main session completes required preparation and checks, preserves the user-curated staged group, self-audits the exact paths and messages, and stages only unchanged selected paths without another reviewer run.",
-      "prompt": "A user explicitly requests two commits, one with a pre-existing staged set. Required repository-specific preparation changes the candidate after an earlier review. Explain the required sequence before staging.",
+      "observed_failure": "Multiple commit groups and a pre-existing staged set triggered redundant commit-time validation.",
+      "intended_behavior": "The main session preserves the user-curated staged group, assigns exact paths and messages, and stages only unchanged selected paths without rerunning checks or review.",
+      "prompt": "A user explicitly requests two commits, one with a pre-existing staged set. The candidate has already passed verification and is unchanged. Explain the sequence before staging.",
       "must": [
-        "Complete required preparation before final snapshot",
         "Preserve the pre-existing staged set as one group",
-        "Rerun checks after preparation and self-audit exact paths, index, and messages",
-        "Verify the prepared snapshot and plan are unchanged before staging"
+        "Inspect exact paths, index, and messages",
+        "Confirm selected paths and index are unchanged before staging",
+        "Do not rerun checks or b-reviewer solely for committing"
       ],
-      "avoid": ["Reopen b-reviewer solely for committing", "Push automatically"]
+      "avoid": ["Repeat implementation validation", "Push automatically"]
     },
     {
-      "id": "simple-commit-self-audit",
+      "id": "simple-commit-skips-revalidation",
       "skill": "b-commit",
-      "observed_failure": "A routine single-group commit incurred an unnecessary second independent review.",
-      "intended_behavior": "A prepared, verified single cohesive group can proceed after an exact-path/index self-audit without a redundant reviewer run.",
-      "prompt": "A user explicitly requests one commit of a bounded low-risk correction. All repository-required preparation is complete, all candidate paths and the index are inspected, required checks pass, and no paths were staged beforehand. State what happens before staging and whether b-reviewer is required.",
+      "observed_failure": "A routine commit repeated passing checks and self-authorization after change-phase review.",
+      "intended_behavior": "A verified single cohesive group proceeds with exact-path staging and no duplicate commit-time validation or reviewer run.",
+      "prompt": "A user explicitly requests one commit of a correction already verified and reviewed. Preparation is complete, candidate paths and index are inspected, and nothing has changed. State what happens before staging.",
       "must": [
-        "Self-audit the exact paths, index, and message",
-        "Confirm unchanged snapshot and passing checks",
+        "Confirm selected paths and index are unchanged",
+        "Do not rerun required checks solely to commit",
         "Do not require another b-reviewer run for committing",
         "Stage only selected paths"
       ],
       "avoid": [
-        "Require b-reviewer automatically",
-        "Skip required repository preparation",
-        "Claim an independent reviewer verdict"
+        "Self-authorize the candidate again",
+        "Require a new review for an unchanged candidate",
+        "Claim a new independent reviewer verdict"
       ]
     },
     {
-      "id": "commit-reaudits-after-change",
+      "id": "commit-stops-after-change",
       "skill": "b-commit",
       "observed_failure": "A changed candidate was staged under an obsolete snapshot and plan.",
-      "intended_behavior": "Any changed prepared candidate needs fresh inspection, required checks, and a repeated path/index/message self-audit before staging; an uncertain or unrelated change blocks committing rather than prompting another reviewer run.",
+      "intended_behavior": "A changed prepared candidate blocks staging and returns to the change-producing phase for verification and any applicable review, not a commit-time validation loop.",
       "prompt": "A commit plan passed its checks, but before staging the candidate gains an unexpected public API contract change. State what happens to the snapshot and plan.",
       "must": [
-        "Reinspect the changed candidate and plan",
-        "Run fresh required checks",
-        "Block on unexpected paths or uncertain assignment",
-        "Repeat the self-audit before any staging"
+        "Stop before staging under the old plan",
+        "Return to the change-producing phase for verification and applicable review",
+        "Original commit request remains valid after re-verification",
+        "Block on unexpected paths or uncertain assignment"
       ],
       "avoid": [
+        "Run a second validation gate in b-commit",
         "Stage under the old snapshot",
-        "Require b-reviewer solely for committing"
+        "Ask for a second commit authorization after re-verification"
       ]
+    },
+    {
+      "id": "commit-honors-repo-checks",
+      "skill": "b-commit",
+      "observed_failure": "Removing duplicate validation also bypassed checks explicitly mandated at commit time by the repository.",
+      "intended_behavior": "b-commit skips routine revalidation but honors repository-mandated commit-time checks on the final candidate.",
+      "prompt": "A verified unchanged candidate is ready to commit. The repository's AGENTS.md explicitly requires a named check before each commit. What does b-commit run?",
+      "must": [
+        "Run the explicitly mandated pre-commit check",
+        "Report any failure and do not commit",
+        "Do not rerun unrelated implementation checks"
+      ],
+      "avoid": [
+        "Skip the repository-mandated check",
+        "Run the full change-phase validation suite again"
+      ]
+    },
+    {
+      "id": "commit-reports-unverified-candidate",
+      "skill": "b-commit",
+      "observed_failure": "An outside-session edit was committed with an invented verification claim.",
+      "intended_behavior": "A user-requested commit of an unverified candidate does not trigger automatic change-phase validation, and missing verification evidence is disclosed.",
+      "prompt": "A user explicitly asks to commit their own changes. There is no verification evidence in this session and no repository-mandated commit-time check. The paths are safe and the group is cohesive. Explain how b-commit proceeds and reports verification.",
+      "must": [
+        "Do not invent prior verification",
+        "Report that verification evidence is unavailable",
+        "Do not rerun implementation checks solely to commit"
+      ],
+      "avoid": ["Claim b-reviewer approval", "Create a new validation gate"]
     }
   ]
 }

@@ -769,14 +769,18 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "The main session owns `b-commit`.",
                 "Do not invoke **b-reviewer** or require a prior review disposition solely to stage or commit",
-                "Self-audit each group's exact paths, the user-curated index, messages, and passing required checks",
-                "If either changes—including relevant untracked content or required repository preparation—reinspect the candidate and plan, rerun required checks, and repeat the self-audit",
-                "Failed checks, unexpected paths, unresolved findings, or uncertain path assignment block committing",
-                "Before freezing the candidate, read applicable repository commit rules",
-                "Run all required checks after any repository-specific preparation.",
+                "Do not rerun implementation checks or independently revalidate or self-authorize an unchanged candidate solely to commit it",
+                "Before staging, confirm the selected paths and index still match the inspected candidate",
+                "pause rather than commit under an obsolete plan",
+                "The original commit request remains authorization to resume once the changed candidate is verified",
+                "Unexpected paths, unresolved findings, or uncertain path assignment block committing",
+                "Read applicable repository commit rules",
+                "If preparation changes the candidate, pause for change-phase verification",
+                "a failed mandated check blocks committing and must be reported",
+                "If verification evidence is unavailable, report that gap without inventing results",
                 "Message-only and staged PR-copy requests never reach this preparation step",
-                "required checks passed",
-                "Any candidate or plan change requires fresh inspection, checks, and self-audit before staging",
+                "Before staging, confirm the selected paths and index are unchanged",
+                "a changed candidate returns to the change-producing phase rather than receiving commit-time validation",
             ),
         },
         "skills/b-implement/prompt.md": {
@@ -808,7 +812,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "This skill runs in the `b-reviewer` subagent.",
                 "Confirm the baseline and exact frozen candidate snapshot.",
-                "Review does not authorize staging or committing; `b-commit` separately self-audits any commit plan",
+                "Review does not authorize staging or committing; `b-commit` separately inspects the exact staged paths and commit plan without repeating validation",
                 "Return the structured disposition and findings to the main session",
                 "do not ask users questions, message peers, or implement a correction.",
                 "Corrections must return as a reverified, frozen candidate for another review.",
@@ -837,20 +841,23 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 errors.append(f"cross-skill contract: {path} missing {clause!r}")
     commit = (ROOT / "skills/b-commit/prompt.md").read_text()
     kernel = (ROOT / "references/kernel.template.md").read_text()
-    if "`b-commit` does not initiate changed-code review for the prepared candidate or commit plan" not in kernel:
-        errors.append("cross-skill contract: commit must not trigger a second changed-code review")
+    if (
+        "`b-commit` does not rerun checks, self-authorize the candidate, or initiate changed-code review solely to commit"
+        not in kernel
+    ):
+        errors.append("cross-skill contract: commit must not repeat validation or changed-code review")
     sequence = [
         commit.find(clause)
         for clause in (
             "6. Block if a group mixes unrelated concerns",
-            "Before freezing the candidate, read applicable repository commit rules",
-            "9. Apply the commit gate above",
+            "Read applicable repository commit rules",
+            "9. Apply the commit boundary above",
             "Stage only the selected paths",
             "10. Reinspect each staged group",
         )
     ]
     if -1 in sequence or sequence != sorted(sequence):
-        errors.append("cross-skill contract: commit preparation must precede final gate, staging, and commit")
+        errors.append("cross-skill contract: commit preparation must precede staging and commit")
 
     registry = json.loads((ROOT / "skills" / "registry.yaml").read_text())
     for skill in registry.get("skills", []):

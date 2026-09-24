@@ -16,13 +16,13 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Tool guidance
 
-- Native `read`/`edit` for applicable repository commit rules and required preparation; `bash` for repository-prescribed validation, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
+- Native `read`/`edit` for applicable repository commit rules and required preparation; `bash` for repository-mandated commit-time checks, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
 
-## Commit gate
+## Commit boundary
 
-The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Complete repository-required commit preparation and checks, inspect the full tracked and relevant untracked/derived candidate, then capture its exact snapshot and commit plan before staging. Self-audit each group's exact paths, the user-curated index, messages, and passing required checks. Do not invoke **b-reviewer** or require a prior review disposition solely to stage or commit, even for multiple groups or a pre-existing staged set.
+The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Inspect the tracked and relevant untracked/derived candidate, preserve any user-curated index, and assign exact paths and messages before staging. Do not rerun implementation checks or independently revalidate or self-authorize an unchanged candidate solely to commit it. Run only checks explicitly required by repository rules at commit time; do not use `b-commit` to fill in missing change-phase verification. If verification evidence is unavailable, report that gap without inventing results. Do not invoke **b-reviewer** or require a prior review disposition solely to stage or commit, even for multiple groups or a pre-existing staged set.
 
-- Before staging, confirm the prepared snapshot and plan are unchanged. If either changes—including relevant untracked content or required repository preparation—reinspect the candidate and plan, rerun required checks, and repeat the self-audit. Failed checks, unexpected paths, unresolved findings, or uncertain path assignment block committing. Never regroup silently or push.
+- Before staging, confirm the selected paths and index still match the inspected candidate. If the candidate changes—including relevant untracked content or repository preparation—pause rather than commit under an obsolete plan; return it to the change-producing phase for verification and any applicable review. The original commit request remains authorization to resume once the changed candidate is verified and the plan is reconfirmed. Unexpected paths, unresolved findings, or uncertain path assignment block committing. Never regroup silently or push.
 
 ## Steps
 
@@ -31,10 +31,10 @@ The main session owns `b-commit`. An explicit user request to commit authorizes 
 3. Using Bash, run `rtk git status --short` and metadata-only path lists for staged and unstaged changes. Classify protected paths before reading any content; inspect untracked files only when their paths are not likely-secret files.
 4. Read diffs only for explicit non-protected paths, using `rtk git diff -- <paths>` or `rtk git diff --cached -- <paths>`. Record the initial index and working-tree snapshot. Do not read, stage, or commit likely-secret files without explicit permission.
 5. Select the smallest set of cohesive commit groups. Treat a pre-existing staged set as user-curated: preserve it as one group and do not reset or reorganize it.
-6. Block if a group mixes unrelated concerns, a protected file needs permission, or a file cannot be assigned confidently. Before freezing the candidate, read applicable repository commit rules and perform required preparation only for this user-authorized commit. Run all required checks after any repository-specific preparation. Include prepared files in the commit plan without silently adding them to or rewriting a user-curated staged group; if grouping is ambiguous, stop. Message-only and staged PR-copy requests never reach this preparation step.
+6. Block if a group mixes unrelated concerns, a protected file needs permission, or a file cannot be assigned confidently. Read applicable repository commit rules and perform required preparation only for this user-authorized commit. If preparation changes the candidate, pause for change-phase verification rather than run a second validation gate inside `b-commit`; do not silently add prepared files to a user-curated staged group. Run any repository-mandated commit-time checks on the final candidate; a failed mandated check blocks committing and must be reported. Message-only and staged PR-copy requests never reach this preparation step.
 7. For each group, choose the narrowest accurate type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`; write an imperative subject of at most 50 characters with no trailing punctuation.
 8. Record the groups, exact file paths, and commit messages in the execution response, then continue without a second approval prompt; the explicit user commit request is sufficient authorization. If the request did not explicitly authorize committing, stop.
-9. Apply the commit gate above to the complete candidate and plan. Before staging, verify the snapshot and commit plan are unchanged and required checks passed. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
+9. Apply the commit boundary above to the complete candidate and plan. Before staging, confirm the selected paths and index are unchanged. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
 10. Reinspect each staged group immediately before committing with a targeted non-protected-path diff. Create its commit on the current branch, then continue to the next approved group. Stop on the first Git error; do not amend, reset, push, or retry by changing history.
 11. Report commit hashes, messages, remaining changes, and any blockers. Recommend `b-pr-summary <commit-count>` for PR copy.
 
@@ -78,5 +78,5 @@ BLOCKED: commit staged changes before generating PR copy
 - Preserve unrelated worktree changes and the user-curated index.
 - Evidence-only messages; do not invent behavior, verification, or impact.
 - Require an explicit user commit request, but do not ask for a second approval after it; do not push or create a PR.
-- Commit only for the unchanged verified snapshot and plan. Any candidate or plan change requires fresh inspection, checks, and self-audit before staging.
+- Commit only the inspected candidate and selected paths; a changed candidate returns to the change-producing phase rather than receiving commit-time validation.
 - Never use `git add -A`, `git add .`, `git commit --amend`, reset, or history-rewriting commands.
