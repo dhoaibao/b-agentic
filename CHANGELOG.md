@@ -25,6 +25,12 @@ section per date and same-day changes aggregated in that section.
   protected paths, and MCP operations, plus installer smoke coverage for
   interrupted installs, retries, backups, and manifest-only uninstall.
 
+### Fixed
+
+- Made the Pi installer smoke test create its sandbox in the system temporary
+  directory, so macOS validation no longer depends on a missing `/tmp/opencode`
+  directory.
+
 ## [v2026.09.23] - 2026-09-23
 
 ### Changed

@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 unset B_AGENTIC_PI_DIR PI_CODING_AGENT_DIR
-WORK_DIR="$(mktemp -d /tmp/opencode/b-agentic-pi-smoke.XXXXXX)"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-pi-smoke.XXXXXX")"
+WORK_DIR="$(cd "$WORK_DIR" && pwd -P)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 fail() { printf 'smoke-install.sh: %s\n' "$*" >&2; exit 1; }
