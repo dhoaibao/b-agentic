@@ -1,4 +1,4 @@
-"""Inverse merge helpers for native OpenCode configuration uninstall."""
+"""Inverse merge helpers for native Pi configuration uninstall."""
 
 from __future__ import annotations
 
@@ -24,19 +24,7 @@ def cleanup(current_value, incoming_value, original_value, path=()):
             if key not in result:
                 continue
             original_child = original.get(key, MISSING)
-            if key == "permissions" and isinstance(result[key], list) and isinstance(incoming_child, list):
-                # The installer places the whole managed OpenCode v2 rule block
-                # first. Remove that positional prefix so a trailing user rule
-                # identical to a managed rule retains its ownership and order.
-                if result[key][: len(incoming_child)] == incoming_child:
-                    cleaned = result[key][len(incoming_child) :]
-                    if original_child is MISSING and not cleaned:
-                        result.pop(key)
-                    else:
-                        result[key] = cleaned
-                else:
-                    result[key] = cleanup(result[key], incoming_child, original_child, path + (key,))
-            elif original_child is MISSING:
+            if original_child is MISSING:
                 if result[key] == incoming_child:
                     result.pop(key)
                 elif isinstance(result[key], type(incoming_child)) and isinstance(result[key], (dict, list)):
@@ -53,10 +41,8 @@ def cleanup(current_value, incoming_value, original_value, path=()):
     if isinstance(current_value, list) and isinstance(incoming_value, list):
         original = original_value if isinstance(original_value, list) else []
         return [item for item in current_value if item in original or item not in incoming_value]
-    # Only compaction.auto is overridden by install; other user-owned scalars
-    # may have been changed to the managed value since installation.
-    if path == ("compaction", "auto") and original_value is not MISSING and current_value == incoming_value:
-        return original_value
+    # User-owned scalar values remain authoritative even if they happen to
+    # match a managed default after installation.
     return current_value
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the active OpenCode session has the RTK prerequisite b-agentic uses."""
+"""Check the active Pi session has the RTK prerequisite b-agentic uses."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import argparse
 import shutil
 import sys
 
-REMEDIATION = "Install RTK, then restart the OpenCode session; see the kernel's Shell commands section."
+REMEDIATION = "Install RTK, then restart the Pi session; see the kernel's Shell commands section."
 
 
 def check_session_tools(which=shutil.which) -> tuple[bool, str]:

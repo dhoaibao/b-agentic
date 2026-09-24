@@ -1,0 +1,21 @@
+# Pi configuration ownership
+
+`settings.base.json` and `mcp.base.json` are canonical checked-in templates;
+`permission.user.template.json` is generated from
+`references/mcp_operations.yaml` by `tooling/generate/registry_sync.py`.
+
+| Source | Installed path (default agent directory `~/.pi/agent`) | Owner |
+| --- | --- | --- |
+| `settings.base.json` | `settings.json` | Pi and six unpinned packages; b-agentic merges missing recommendations |
+| `mcp.base.json` | `mcp.json` | `pi-mcp-adapter`; seven lazy servers, no stored credentials |
+| `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
+| `../agents/b-*.md` | `agents/b-*.md` | Four specialist profiles and child policies |
+| `../prompts/b-*.md` | `prompts/b-*.md` | Fifteen explicit `/b-*` routes |
+
+`install.sh` merges without replacing user-owned keys, snapshots the managed
+assets, backs up existing configs, and records ownership in
+`b-agentic/install.json`. A modified file or symlink remains user-owned.
+`--sync` refreshes local assets; `--update` asks Pi to update itself and the
+installed extensions. Bare npm package names track the latest available
+release. Status and doctor commands do not open network/auth/browser sessions
+or read credential values. Configuration presence is not live usability.

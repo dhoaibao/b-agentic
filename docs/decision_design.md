@@ -2,139 +2,114 @@
 
 ## Scope and evidence
 
-b-agentic is a slim OpenCode workflow kernel. Its maintained scope is the
-always-loaded kernel, canonical skills, native MCP configuration, read-only
-specialist subagents, and a merge-safe installer. This record describes the
-single supported runtime and deliberately avoids a runtime-neutral abstraction.
+b-agentic supports one runtime, native Pi. It ships an always-loaded kernel,
+canonical skills, named read-only specialists, managed MCP configuration, and a
+merge-safe installer. The hard cut replaces the previous OpenCode runtime
+without maintaining a compatibility shim.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
-[`opencode/configs/opencode.base.json`](../opencode/configs/opencode.base.json).
+[`pi/configs/settings.base.json`](../pi/configs/settings.base.json).
 
 ## Product boundary and architecture
 
-The runtime boundary is native OpenCode: global assets install under
-`~/.config/opencode`, project guidance remains in repository `AGENTS.md`, and
-OpenCode discovers skills, agents, commands, and MCP servers from its standard
-locations. `references/`, `skills/registry.yaml`, and skill prompts are canonical sources;
-`tooling/generate/registry_sync.py` renders delivery assets, including agent
-profiles. The installer owns
-only b-agentic-managed files, snapshots, backups, and configuration entries.
+Global assets install under Pi's agent directory (`~/.pi/agent` by default);
+project guidance remains in repository `AGENTS.md`. Canonical policy and skill
+sources live in `references/` and `skills/`; the registry generator renders Pi
+prompt templates, subagent profiles, skill descriptors, and permission policy.
+The installer owns only its recorded assets, snapshots, backup files, and
+merged configuration entries. It does not touch a user's old OpenCode install.
 
 Evidence: [`install.sh`](../install.sh),
-[`opencode/scripts/install.sh`](../opencode/scripts/install.sh), and
+[`pi/scripts/install.sh`](../pi/scripts/install.sh), and
 [`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py).
 
 ## Workflow and skill design
 
-The kernel routes an intent to one skill at a time. OpenCode's `skill` tool
-loads the canonical skill descriptor; generated `/b-<skill>` commands provide an
-explicit path when model-driven selection is unsuitable. Worktree mutation,
-user interaction, verification, and reporting remain main-session duties.
-Planning, research, debugging, and review delegate through native `subagent` to
-four generated `mode: subagent` profiles. Each invocation names one skill; the
-profile loads that skill and returns its own output format, rather than a
-generic profile handoff. The main session defaults to foreground delegation and
-uses background children only for independent, read-only work. It retains a
-child `sessionID` only in main-session context and may continue it only when the
-specialist, model/profile, task scope, and repository baseline remain
-compatible. A research continuation carries bounded prior evidence and refreshes
-version- or currentness-sensitive claims. Independent tasks, mismatched or stale
-context, and required changed-candidate review use a fresh child; a reviewer
-session is never reused.
+The kernel selects one skill at a time. Pi discovers skill descriptors, and generated
+`/b-<name>` prompt templates supply an explicit route. Worktree mutation,
+user interaction, verification, and reporting stay in the main session. The
+`@gotgenes/pi-subagents` extension supplies four named specialists. Each child
+reads its named skill, applies a complete tool allowlist and per-agent
+permission policy, and returns the skill's own output format. Foreground is
+default; background work is independent and read-only, in-process, and lost
+when its parent ends. Compatible continuation requires the supported `resume`
+identifier; different scope/baseline and an independent reviewer use a fresh
+child. The registry retains explicit provider/model and thinking choices; no
+silent model substitution is made.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
-[`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py).
+[`pi/agents/b-reviewer.md`](../pi/agents/b-reviewer.md).
 
 ## Safety and approval design
 
-OpenCode v2's ordered native `permissions` rules are the enforcement boundary.
-Global rules allow ordinary local work while denying named destructive command
-patterns and likely-secret file reads; external directories and consequential MCP
-tools remain `ask`. Specialist agents deny `edit`, `subagent`, and `question`;
-read-only shell and the globally allowed read-only MCP tools remain available
-for evidence gathering.
-The kernel adds the workflow requirement to preserve unrelated changes and to
-obtain explicit approval for protected, destructive, outside-project, or
-external/shared actions.
+`@gotgenes/pi-permission-system` gates main and child tools. The generated
+global policy allows ordinary local edits, denies protected path patterns and
+named destructive commands, and asks before external directories, unknown MCP
+tools, and consequential actions. Specialist profiles deny by default and
+allow only read, bounded inspection shell, and named observation-only direct
+MCP tools; nested delegation and user questions are not on their tool lists.
+The kernel additionally requires approval for protected, destructive,
+outside-project, and external/shared actions. Pi permission rules and adapter
+tool matching are not filesystem or process isolation. Shell indirection and
+MCP argument fields not recognized by the path gate remain residual risks.
+An offline stub-provider integration probe tests representative parent/child
+allow/deny and direct/proxy MCP decisions. Interactive approval UI and real
+server/provider access are separate evidence, not inferred from static config.
 
-Native permissions are glob-based. `resource` patterns match tool inputs
-(shell commands, file paths, subagent names), but they do not normalize shell
-wrappers or compound commands, and MCP tool arguments are not pattern-matched. An
-allowed shell command can also bypass native `read` path rules, so b-agentic
-does not claim shell-level secret-path protection. Those limitations are
-accepted instead of adding a custom plugin or policy engine.
-
-Evidence: [`opencode/configs/opencode.user.template.json`](../opencode/configs/opencode.user.template.json),
-[`opencode/agents/b-researcher.md`](../opencode/agents/b-researcher.md), and
-[`references/kernel.template.md`](../references/kernel.template.md).
+Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.user.template.json),
+[`pi/agents/b-researcher.md`](../pi/agents/b-researcher.md), and
+[`tests/pi/permission-probe.sh`](../tests/pi/permission-probe.sh).
 
 ## MCP and external-evidence design
 
-Managed servers are configured through OpenCode v2 `mcp.servers` with Code Mode
-disabled, exposing direct `<server>_<tool>` names. The managed `plugins` array
-ships `@tarquinen/opencode-dcp` for dynamic context pruning and sets
-`compaction.auto: false` so DCP owns context pruning exclusively; the installer
-overrides an existing `compaction.auto: true` and restores it from the original
-config backup on uninstall if the managed value remains unchanged. It
-unions managed plugin entries ahead of user entries and removes them on
-uninstall. Changing the managed config path requires uninstall before reinstall
-so the previous file is cleaned with its own backup.
-`references/mcp_operations.yaml` classifies each tool;
-the generator renders that classification to native `allow`, `ask`, or `deny`
-rules. Read-only tools are allowed. Formerly conditional operations are allowed
-only by their named tool because argument-aware validation has no native home.
-Upload, mutation, monitor-lifecycle, and authentication tools ask first.
-
-Configuration is not evidence that an MCP server is authenticated, reachable,
-or used. `mcp-doctor` is local and does not start or authenticate servers.
+Seven servers use `pi-mcp-adapter`'s lazy `mcpServers` config and direct
+`<server>_<tool>` names. The generic proxy is separately gated. Script mode
+and model-driven installs are disabled. `references/mcp_operations.yaml`
+classifies known tools; read-only names are allowed, consequential names ask,
+and unknown names ask. The adapter does not make configuration a live server
+or authentication proof. `mcp-doctor` checks only local configuration, launcher,
+and variable presence; it starts no MCP or browser sessions. Pi native
+compaction is the default; no dynamic pruning or durable memory plugin is
+installed. Provider usage and Anthropic OAuth request shaping are user-requested
+optional capabilities of the six managed extensions, not login or entitlements.
 
 Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
-[`opencode/configs/opencode.user.template.json`](../opencode/configs/opencode.user.template.json), and
+[`pi/configs/mcp.base.json`](../pi/configs/mcp.base.json), and
 [`tooling/validate/mcp_doctor.py`](../tooling/validate/mcp_doctor.py).
 
 ## Installation, configuration, and lifecycle
 
-The installer upgrades an existing OpenCode CLI with `opencode upgrade` and
-runs OpenCode v2's current curl installer (`https://opencode.ai/v2/install`)
-only when `opencode` is not on PATH. It does not manage OpenCode's auto-update preference. Bootstrap repository and
-ref inputs are constrained before reaching Git. It installs global kernel, skills, agents,
-commands, references, and snapshots under `~/.config/opencode`. It merges the recommended configuration
-without replacing unrelated user keys. Since OpenCode configuration may be
-JSONC but merge output is JSON, the installer backs up the existing file before
-writing and does not promise comment preservation. Uninstall restores only
-unmodified managed assets and removes only configuration values introduced by
-b-agentic.
+Existing Pi is updated with `pi update --self`; first install uses the latest
+unversioned npm package. Six extensions are installed with bare npm names and
+updated through `pi update --extensions`. Bootstrap repository/ref inputs are
+constrained before Git. Installer sync copies the kernel, skills, specialists,
+prompts, references, and templates; it merges settings, MCP, and permission
+JSON while preserving unrelated values and ordered user arrays. Existing JSONC
+is backed up before a JSON rewrite. Uninstall removes only owned unmodified
+assets and values; symlinks or changed files retain metadata for a safe retry.
+An existing OpenCode installation is outside this lifecycle boundary.
 
 Evidence: [`install.sh`](../install.sh),
-[`opencode/scripts/install.sh`](../opencode/scripts/install.sh),
+[`pi/scripts/install.sh`](../pi/scripts/install.sh),
 [`tooling/install/common.sh`](../tooling/install/common.sh), and
 [`tooling/install/manifest_uninstall.py`](../tooling/install/manifest_uninstall.py).
 
 ## Verification and change discipline
 
-Canonical sources regenerate before validation. The default suite checks
-routing, generated OpenCode assets, capability and MCP policy contracts,
-decision-record traceability, behavior rules, and static readiness. Release
-validation adds installer smoke coverage. A live OpenCode v2 smoke against a
-sandboxed install confirmed `AGENTS.md`, skills, `b-*` agents and commands,
-ordered permissions, `mcp.servers`, and `experimental.subagent_depth` load
-correctly; MCP servers connect and the only failures are expected credential
-gaps. Every changed candidate gets an inspected diff and applicable fresh
-checks. Independent read-only review is triggered by a user request, changes to
-security/permissions/authentication/privacy, data integrity/migrations, public
-interfaces/contracts, dependencies/runtime configuration, installer/workflow
-policy, or multiple subsystems; unclear acceptance, material residual risk, and
-complex commit plans (multiple groups, pre-existing staged changes, or uncertain
-path assignment) also trigger it. File count alone does not. Only a clear,
-bounded, verified low-risk candidate with no trigger can skip independent review,
-and the main session reports that exception without claiming a reviewer verdict.
-The same rule applies to commits: a simple group gets exact-path and index
-self-audit, while triggered plans need a frozen candidate-and-plan review. This
-trades independent scrutiny of routine changes for lower latency without
-relaxing checks or the single-writer and frozen-review boundaries. A failure,
-unexpected path, or uncertainty blocks completion until resolved or escalated.
+Canonical sources regenerate before static validation. The suite checks
+routing, Pi assets, capability/MCP policy, decision traceability, and local
+readiness. Release validation adds sandboxed installer smoke. The offline Pi
+integration probe uses a deterministic stub model and local MCP fixture, with
+explicit limitations for live providers, UI approval, and production servers.
+Every candidate gets an inspected diff and applicable checks. Independent
+read-only review is required by request or when changing security, privacy,
+data integrity, public contracts, dependencies/runtime config, installer or
+workflow policy, multiple subsystems, or when acceptance/risk is uncertain.
+Review freezes the exact checked candidate; a changed snapshot needs fresh
+checks and a new review. A bounded clear low-risk change may skip independent
+review only with its exception reported.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 [`tooling/validate/behavior.py`](../tooling/validate/behavior.py), and
@@ -142,15 +117,13 @@ Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 
 ## Intentional non-goals
 
-b-agentic does not maintain a second runtime, compatibility shim, custom
-permission engine, argument-aware MCP gate, persistent subagent store, or TUI
-extension package. It does not promise unbounded background orchestration,
-in-session installer controls, usage reporting, or a bundled theme.
-Those omissions keep the supported boundary native, inspectable, and small.
-The shipped DCP plugin is a managed third-party dependency, not a
-b-agentic-authored plugin; it owns context pruning in place of native
-compaction (`compaction.auto: false`). It does not provide persistent memory.
+b-agentic does not maintain a second runtime, custom permission engine,
+argument-aware MCP gate, persistent subagent store, or bundled TUI extension.
+It does not promise detached background work, authenticated MCP readiness from
+configuration, unbounded orchestration, or an automatic migration of the
+user-owned OpenCode installation. Native Pi compaction replaces the prior DCP
+strategy; `rpiv-todo` and Magic Context are not installed.
 
 Evidence: [`README.md`](../README.md),
 [`REFERENCE.md`](../REFERENCE.md), and
-[`opencode/configs/README.md`](../opencode/configs/README.md).
+[`pi/configs/README.md`](../pi/configs/README.md).

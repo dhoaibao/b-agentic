@@ -2,17 +2,14 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# Installer assertions use each sandbox's HOME; ignore host config overrides.
-unset XDG_CONFIG_HOME B_AGENTIC_OPENCODE_DIR B_AGENTIC_OPENCODE_CONFIG
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-opencode-smoke.XXXXXX")"
-WORK_DIR="$(cd "$WORK_DIR" && pwd -P)"
+unset B_AGENTIC_PI_DIR PI_CODING_AGENT_DIR
+WORK_DIR="$(mktemp -d /tmp/opencode/b-agentic-pi-smoke.XXXXXX)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 fail() { printf 'smoke-install.sh: %s\n' "$*" >&2; exit 1; }
 assert_file() { [ -f "$1" ] || fail "expected file: $1"; }
 assert_no_path() { [ ! -e "$1" ] || fail "unexpected path: $1"; }
 assert_contains() { grep -Fq -- "$2" "$1" || fail "expected $2 in $1"; }
-assert_not_contains() { ! grep -Fq -- "$2" "$1" || fail "did not expect $2 in $1"; }
 assert_json() {
   python3 - "$1" "$2" <<'PY' || fail "JSON assertion failed: $1"
 import json, sys
@@ -23,468 +20,400 @@ PY
 }
 
 make_source() {
-  local destination="$1"
+  local destination="$1" directory
   mkdir -p "$destination"
-  cp -R "$ROOT_DIR"/. "$destination"/
-  rm -rf "$destination/.git" "$destination/node_modules"
+  cp "$ROOT_DIR/install.sh" "$destination/"
+  for directory in pi skills references tooling; do
+    cp -R "$ROOT_DIR/$directory" "$destination/"
+  done
 }
 
 make_bin() {
   local directory="$1"
   mkdir -p "$directory"
-  for command in rtk codegraph bunx; do
-    cat >"$directory/$command" <<'EOF'
+cat >"$directory/pi" <<'EOF'
 #!/usr/bin/env bash
-exit 0
+printf '%s\n' "$*" >> "$(dirname "$0")/pi.log"
+if [ "${PI_MOCK_FAIL_REMOVE:-0}" = 1 ] && [ "$1" = remove ]; then exit 1; fi
+if [ "${PI_MOCK_FAIL_INSTALL:-0}" = 1 ] && [ "$1" = install ]; then exit 1; fi
+if [ "${PI_MOCK_PARTIAL_INSTALL:-0}" = 1 ] && [ "$1" = install ]; then
+  mkdir -p "$PI_CODING_AGENT_DIR/npm/node_modules/@gotgenes/pi-subagents"
+  exit 1
+fi
+if [ "$1" = install ]; then mkdir -p "$PI_CODING_AGENT_DIR/npm/node_modules/${2#npm:}"; fi
 EOF
-    chmod +x "$directory/$command"
-  done
-  cat >"$directory/opencode" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$(dirname "$0")/opencode.log"
-exit 0
-EOF
-  chmod +x "$directory/opencode"
-  cat >"$directory/curl" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >> "$(dirname "$0")/curl.log"
-printf '%s\n' ':'
-EOF
-  chmod +x "$directory/curl"
+  chmod +x "$directory/pi"
 }
 
 run_install() {
   local sandbox="$1"
   shift
-  HOME="$sandbox/home" \
-    PATH="$sandbox/bin:$PATH" \
-    B_AGENTIC_DIR="$sandbox/source" \
-    B_AGENTIC_REPO="$sandbox/source" \
-    bash "$ROOT_DIR/install.sh" "$@"
-}
-
-run_install_without_curl() {
-  local sandbox="$1"
-  shift
-  cat >"$sandbox/no-curl.bash" <<'EOF'
-command() {
-  if [ "${1:-}" = "-v" ] && [ "${2:-}" = "curl" ]; then
-    return 1
-  fi
-  builtin command "$@"
-}
-EOF
-  HOME="$sandbox/home" \
-    PATH="$sandbox/bin:$PATH" \
-    BASH_ENV="$sandbox/no-curl.bash" \
-    B_AGENTIC_DIR="$sandbox/source" \
-    B_AGENTIC_REPO="$sandbox/source" \
-    bash "$ROOT_DIR/install.sh" "$@"
-}
-
-run_install_without_opencode() {
-  local sandbox="$1"
-  shift
-  cat >"$sandbox/no-opencode.bash" <<'EOF'
-command() {
-  if [ "${1:-}" = "-v" ] && [ "${2:-}" = "opencode" ]; then
-    return 1
-  fi
-  builtin command "$@"
-}
-EOF
-  HOME="$sandbox/home" \
-    PATH="$sandbox/bin:$PATH" \
-    BASH_ENV="$sandbox/no-opencode.bash" \
-    B_AGENTIC_DIR="$sandbox/source" \
-    B_AGENTIC_REPO="$sandbox/source" \
+  HOME="$sandbox/home" PATH="$sandbox/bin:$PATH" \
+    B_AGENTIC_DIR="$sandbox/source" B_AGENTIC_REPO="$sandbox/source" \
     bash "$ROOT_DIR/install.sh" "$@"
 }
 
 sandbox="$WORK_DIR/primary"
-mkdir -p "$sandbox/home/.config/opencode" "$sandbox/home/.pi/agent/b-agentic"
+mkdir -p "$sandbox/home/.pi/agent" "$sandbox/home/.config/opencode"
 make_source "$sandbox/source"
 make_bin "$sandbox/bin"
-printf '%s\n' '{"custom": true, "mcp": {"servers": {"user_server": {"type": "remote", "url": "https://example.invalid/mcp"}}}}' >"$sandbox/home/.config/opencode/opencode.json"
-printf '%s\n' '{"legacy": true}' >"$sandbox/home/.pi/agent/b-agentic/install.json"
+printf '%s\n' 'old runtime belongs to user' >"$sandbox/home/.config/opencode/AGENTS.md"
+printf '%s\n' '{"custom":true,"packages":["npm:user-extension"],"compaction":{"enabled":false}}' >"$sandbox/home/.pi/agent/settings.json"
+printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp"}}}' >"$sandbox/home/.pi/agent/mcp.json"
 run_install "$sandbox" >"$sandbox/install.log" 2>&1
 
-config="$sandbox/home/.config/opencode/opencode.json"
-metadata="$sandbox/home/.config/opencode/b-agentic"
-assert_file "$sandbox/home/.config/opencode/AGENTS.md"
-assert_file "$sandbox/home/.config/opencode/skills/b-plan/SKILL.md"
-assert_no_path "$sandbox/home/.config/opencode/skills/b-plan/prompt.md"
-assert_file "$sandbox/home/.config/opencode/agents/b-planner.md"
-assert_file "$sandbox/home/.config/opencode/commands/b-plan.md"
+agent="$sandbox/home/.pi/agent"
+metadata="$agent/b-agentic"
+assert_file "$agent/AGENTS.md"
+assert_file "$agent/skills/b-plan/SKILL.md"
+assert_file "$agent/agents/b-planner.md"
+assert_file "$agent/prompts/b-plan.md"
+assert_file "$agent/extensions/pi-permission-system/config.json"
 assert_file "$metadata/install.json"
-assert_json "$metadata/install.json" "data['runtime'] == 'opencode'"
-assert_json "$config" "data['custom'] is True and data['mcp']['servers']['user_server']['url'] == 'https://example.invalid/mcp' and data['mcp']['servers']['context7']['type'] == 'remote' and data['experimental']['subagent_depth'] == 1 and data['plugins'] == ['@tarquinen/opencode-dcp'] and data['compaction'] == {'auto': False}"
-assert_json "$config" "all(any(rule == {'action': 'read', 'resource': path, 'effect': 'deny'} for rule in data['permissions']) for path in ('*credentials.*', '**/*credentials.*', '*secrets.*', '**/*secrets.*')) and any(rule == {'action': 'edit', 'resource': '*', 'effect': 'allow'} for rule in data['permissions']) and any(rule == {'action': 'shell', 'resource': 'git push*', 'effect': 'deny'} for rule in data['permissions']) and any(rule == {'action': 'firecrawl_*', 'resource': '*', 'effect': 'ask'} for rule in data['permissions']) and any(rule == {'action': 'context7_resolve_library_id', 'resource': '*', 'effect': 'allow'} for rule in data['permissions']) and all(data['mcp']['servers'][name]['timeout'] == {'startup': 30000, 'catalog': 30000} for name in ('codegraph', 'context7', 'brave_search', 'firecrawl', 'playwright', 'mobbin', 'shadcn'))"
-python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --config "$config" --allow-degraded >"$sandbox/doctor.log"
-assert_contains "$sandbox/doctor.log" "config: $config"
-assert_contains "$sandbox/bin/opencode.log" 'upgrade'
-assert_no_path "$sandbox/bin/curl.log"
-assert_contains "$sandbox/install.log" '[9/9] Writing install manifest'
-assert_contains "$sandbox/install.log" 'A previous Pi b-agentic install remains'
-assert_file "$sandbox/home/.pi/agent/b-agentic/install.json"
+assert_json "$metadata/install.json" "data['runtime']=='pi' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
+assert_json "$agent/settings.json" "data['custom'] is True and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
+assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp'"
+assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
+assert_contains "$sandbox/bin/pi.log" 'update --self'
+assert_contains "$sandbox/bin/pi.log" 'install npm:@gotgenes/pi-subagents --no-approve'
+assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
+
+# A failed package removal must retain both ownership evidence and the
+# settings declaration so a later uninstall can retry.
+retry="$WORK_DIR/retry"
+mkdir -p "$retry/home"
+make_source "$retry/source"
+make_bin "$retry/bin"
+run_install "$retry" >"$retry/install.log" 2>&1
+PI_MOCK_FAIL_REMOVE=1 run_install "$retry" --uninstall >"$retry/failed-uninstall.log" 2>&1
+assert_contains "$retry/failed-uninstall.log" 'could not remove npm:@gotgenes/pi-subagents'
+assert_file "$retry/home/.pi/agent/b-agentic/install.json"
+assert_json "$retry/home/.pi/agent/settings.json" "'npm:@gotgenes/pi-subagents' in data['packages']"
+run_install "$retry" --uninstall >"$retry/retry-uninstall.log" 2>&1
+assert_no_path "$retry/home/.pi/agent/b-agentic/install.json"
+assert_no_path "$retry/home/.pi/agent/settings.json"
+
+plain="$WORK_DIR/plain-sync"
+mkdir -p "$plain/home"
+make_source "$plain/source"
+make_bin "$plain/bin"
+run_install "$plain" >"$plain/install.log" 2>&1
+run_install "$plain" --sync >"$plain/sync.log" 2>&1
+[ "$(grep -Fc 'install npm:@gotgenes/pi-subagents --no-approve' "$plain/bin/pi.log")" -eq 1 ] ||
+  fail 'completed sync reinstalled a Pi extension'
+run_install "$plain" --uninstall >"$plain/uninstall.log" 2>&1
+assert_no_path "$plain/home/.pi/agent/AGENTS.md"
+assert_no_path "$plain/home/.pi/agent/b-agentic/install.json"
+
+edited_kernel="$WORK_DIR/edited-kernel"
+mkdir -p "$edited_kernel/home"
+make_source "$edited_kernel/source"
+make_bin "$edited_kernel/bin"
+run_install "$edited_kernel" >"$edited_kernel/install.log" 2>&1
+printf '\nuser-edited kernel\n' >>"$edited_kernel/home/.pi/agent/AGENTS.md"
+run_install "$edited_kernel" --sync --replace-memory >"$edited_kernel/sync.log" 2>&1
+run_install "$edited_kernel" --uninstall >"$edited_kernel/uninstall.log" 2>&1
+assert_contains "$edited_kernel/home/.pi/agent/AGENTS.md" 'user-edited kernel'
+
+# An interrupted first install records the original config before attempting
+# package installation. A retry must not reclassify managed values as user data.
+interrupted="$WORK_DIR/interrupted"
+mkdir -p "$interrupted/home/.pi/agent"
+make_source "$interrupted/source"
+make_bin "$interrupted/bin"
+printf '%s\n' '{"custom":true,"packages":["npm:user-extension"]}' >"$interrupted/home/.pi/agent/settings.json"
+if PI_MOCK_FAIL_INSTALL=1 run_install "$interrupted" >"$interrupted/failed-install.log" 2>&1; then
+  fail 'expected interrupted Pi package install'
+fi
+assert_json "$interrupted/home/.pi/agent/b-agentic/install.json" "data['packageState']=='pending' and data['backups']['settings']!='none'"
+run_install "$interrupted" --sync >"$interrupted/retry-sync.log" 2>&1
+run_install "$interrupted" --uninstall >"$interrupted/uninstall.log" 2>&1
+assert_json "$interrupted/home/.pi/agent/settings.json" "data=={'custom':True,'packages':['npm:user-extension']}"
+assert_no_path "$interrupted/home/.pi/agent/b-agentic/install.json"
+
+partial="$WORK_DIR/partial-package"
+mkdir -p "$partial/home"
+make_source "$partial/source"
+make_bin "$partial/bin"
+if PI_MOCK_PARTIAL_INSTALL=1 run_install "$partial" >"$partial/failed-install.log" 2>&1; then
+  fail 'expected partial Pi package install failure'
+fi
+run_install "$partial" --sync >"$partial/retry-sync.log" 2>&1
+[ "$(grep -Fc 'install npm:@gotgenes/pi-subagents --no-approve' "$partial/bin/pi.log")" -eq 2 ] ||
+  fail 'retry skipped partially installed Pi extension'
+assert_json "$partial/home/.pi/agent/b-agentic/install.json" "data['packageState']=='ready'"
+
+empty="$WORK_DIR/empty-config"
+mkdir -p "$empty/home/.pi/agent/extensions/pi-permission-system"
+make_source "$empty/source"
+make_bin "$empty/bin"
+printf '{}\n' >"$empty/home/.pi/agent/settings.json"
+printf '{}\n' >"$empty/home/.pi/agent/mcp.json"
+printf '{}\n' >"$empty/home/.pi/agent/extensions/pi-permission-system/config.json"
+run_install "$empty" >"$empty/install.log" 2>&1
+run_install "$empty" --uninstall >"$empty/uninstall.log" 2>&1
+assert_json "$empty/home/.pi/agent/settings.json" "data=={}"
+assert_json "$empty/home/.pi/agent/mcp.json" "data=={}"
+assert_json "$empty/home/.pi/agent/extensions/pi-permission-system/config.json" "data=={}"
+
+replaced="$WORK_DIR/replaced-kernel"
+mkdir -p "$replaced/home/.pi/agent"
+make_source "$replaced/source"
+make_bin "$replaced/bin"
+printf '%s\n' 'original user kernel' >"$replaced/home/.pi/agent/AGENTS.md"
+run_install "$replaced" --replace-memory >"$replaced/install.log" 2>&1
+run_install "$replaced" --sync >"$replaced/sync.log" 2>&1
+run_install "$replaced" --uninstall >"$replaced/uninstall.log" 2>&1
+assert_contains "$replaced/home/.pi/agent/AGENTS.md" 'original user kernel'
+assert_no_path "$replaced/home/.pi/agent/b-agentic/install.json"
+
+twice="$WORK_DIR/twice-replaced-kernel"
+mkdir -p "$twice/home/.pi/agent"
+make_source "$twice/source"
+make_bin "$twice/bin"
+printf '%s\n' 'first user kernel' >"$twice/home/.pi/agent/AGENTS.md"
+run_install "$twice" --replace-memory >"$twice/install.log" 2>&1
+printf '\nsecond user kernel\n' >>"$twice/home/.pi/agent/AGENTS.md"
+run_install "$twice" --sync --replace-memory >"$twice/sync.log" 2>&1
+assert_json "$twice/home/.pi/agent/b-agentic/install.json" "len(data['kernelPriorBackups'])==1"
+run_install "$twice" --uninstall >"$twice/uninstall.log" 2>&1
+assert_contains "$twice/home/.pi/agent/AGENTS.md" 'second user kernel'
+assert_file "$twice/home/.pi/agent/b-agentic/install.json"
+first_backup="$(python3 - "$twice/home/.pi/agent/b-agentic/install.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))['kernelPriorBackups'][0])
+PY
+)"
+assert_contains "$first_backup" 'first user kernel'
 
 printf '\n' >>"$sandbox/source/references/capabilities.yaml"
-python3 - "$metadata/install.json" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-data['skills'] = []
-path.write_text(json.dumps(data) + '\n')
-PY
 run_install "$sandbox" --sync >"$sandbox/sync.log" 2>&1
-assert_contains "$sandbox/sync.log" '[8/8] Writing install manifest'
 cmp "$sandbox/source/references/capabilities.yaml" "$metadata/references/capabilities.yaml"
-cmp "$sandbox/source/opencode/configs/opencode.user.template.json" "$metadata/templates/opencode.user.template.json"
-assert_json "$metadata/install.json" "'b-plan' in data['skills']"
-assert_file "$sandbox/home/.config/opencode/agents/b-planner.md"
-printf '\nmodified\n' >>"$sandbox/home/.config/opencode/agents/b-planner.md"
+printf '\nmodified\n' >>"$agent/agents/b-planner.md"
 run_install "$sandbox" --sync >"$sandbox/modified-sync.log" 2>&1
-assert_contains "$sandbox/modified-sync.log" 'preserving modified OpenCode subagent'
-assert_contains "$sandbox/home/.config/opencode/agents/b-planner.md" modified
+assert_contains "$sandbox/modified-sync.log" 'preserving modified or user-owned Pi specialist'
+assert_contains "$agent/agents/b-planner.md" modified
 run_install "$sandbox" --uninstall >"$sandbox/uninstall.log" 2>&1
-assert_no_path "$sandbox/home/.config/opencode/skills/b-plan"
-assert_no_path "$sandbox/home/.config/opencode/agents/b-researcher.md"
-assert_file "$sandbox/home/.config/opencode/agents/b-planner.md"
-assert_file "$sandbox/home/.config/opencode/b-agentic/install.json"
-assert_json "$config" "data == {'custom': True, 'mcp': {'servers': {'user_server': {'type': 'remote', 'url': 'https://example.invalid/mcp'}}}}"
+assert_no_path "$agent/skills/b-plan"
+assert_no_path "$agent/prompts/b-plan.md"
+assert_file "$agent/agents/b-planner.md"
+assert_file "$metadata/install.json"
+assert_json "$agent/settings.json" "data == {'custom': True, 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
+assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp'}}}"
+assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
 
-# A symlinked profile is preserved with its metadata for a future safe cleanup.
-symlinked="$WORK_DIR/symlinked"
-mkdir -p "$symlinked/home/.config/opencode/agents" "$symlinked/user"
-make_source "$symlinked/source"
-make_bin "$symlinked/bin"
-printf '%s\n' 'user-owned agent' >"$symlinked/user/b-planner.md"
-ln -s "$symlinked/user/b-planner.md" "$symlinked/home/.config/opencode/agents/b-planner.md"
-run_install "$symlinked" >"$symlinked/install.log" 2>&1
-run_install "$symlinked" --uninstall >"$symlinked/uninstall.log" 2>&1
-[ -L "$symlinked/home/.config/opencode/agents/b-planner.md" ] || fail 'expected symlinked agent to be preserved'
-assert_file "$symlinked/home/.config/opencode/b-agentic/install.json"
+# A symlinked specialist remains user-owned and prevents manifest disposal.
+linked="$WORK_DIR/symlinked"
+mkdir -p "$linked/home/.pi/agent/agents" "$linked/user"
+make_source "$linked/source"
+make_bin "$linked/bin"
+printf '%s\n' 'user-owned agent' >"$linked/user/b-planner.md"
+ln -s "$linked/user/b-planner.md" "$linked/home/.pi/agent/agents/b-planner.md"
+run_install "$linked" >"$linked/install.log" 2>&1
+run_install "$linked" --uninstall >"$linked/uninstall.log" 2>&1
+[ -L "$linked/home/.pi/agent/agents/b-planner.md" ] || fail 'symlinked agent not preserved'
+assert_file "$linked/home/.pi/agent/b-agentic/install.json"
 
-# Managed plugins union ahead of user plugins and are removed on uninstall.
-plugins="$WORK_DIR/plugins"
-mkdir -p "$plugins/home/.config/opencode"
-make_source "$plugins/source"
-make_bin "$plugins/bin"
-printf '%s\n' '{"plugins": ["user-plugin", "@cortexkit/opencode-magic-context"], "compaction": {"keep": {"tokens": 30000}, "auto": true}, "experimental": {"subagent_depth": 2}}' >"$plugins/home/.config/opencode/opencode.json"
-run_install "$plugins" >"$plugins/install.log" 2>&1
-plugins_config="$plugins/home/.config/opencode/opencode.json"
-assert_contains "$plugins/install.log" 'preserving @cortexkit/opencode-magic-context'
-assert_contains "$plugins/install.log" 'setting compaction.auto to false'
-assert_json "$plugins_config" "data['plugins'] == ['@tarquinen/opencode-dcp', 'user-plugin', '@cortexkit/opencode-magic-context'] and data['compaction'] == {'keep': {'tokens': 30000}, 'auto': False}"
-run_install "$plugins" >"$plugins/repeat-install.log" 2>&1
-assert_json "$plugins_config" "data['compaction']['auto'] is False"
-run_install "$plugins" --sync >"$plugins/sync.log" 2>&1
-assert_json "$plugins_config" "data['compaction']['auto'] is False"
-python3 - "$plugins_config" <<'PY'
+# A symlinked kernel cannot be replaced through its target, even when it
+# happens to match the prior managed snapshot on a later sync.
+linked_kernel="$WORK_DIR/symlinked-kernel"
+mkdir -p "$linked_kernel/home/.pi/agent" "$linked_kernel/user"
+make_source "$linked_kernel/source"
+make_bin "$linked_kernel/bin"
+run_install "$linked_kernel" >"$linked_kernel/install.log" 2>&1
+mv "$linked_kernel/home/.pi/agent/AGENTS.md" "$linked_kernel/user/AGENTS.md"
+ln -s "$linked_kernel/user/AGENTS.md" "$linked_kernel/home/.pi/agent/AGENTS.md"
+printf '\n' >>"$linked_kernel/source/references/kernel.template.md"
+run_install "$linked_kernel" --sync >"$linked_kernel/sync.log" 2>&1
+assert_contains "$linked_kernel/sync.log" 'preserving symlinked kernel'
+cmp "$linked_kernel/user/AGENTS.md" "$linked_kernel/home/.pi/agent/b-agentic/AGENTS.md"
+run_install "$linked_kernel" --uninstall >"$linked_kernel/uninstall.log" 2>&1
+[ -L "$linked_kernel/home/.pi/agent/AGENTS.md" ] || fail 'symlinked kernel not preserved'
+
+# A changed config path or missing backup cannot silently discard user values.
+missing="$WORK_DIR/missing-backup"
+mkdir -p "$missing/home/.pi/agent"
+make_source "$missing/source"
+make_bin "$missing/bin"
+printf '%s\n' '{"custom":true}' >"$missing/home/.pi/agent/settings.json"
+run_install "$missing" >"$missing/install.log" 2>&1
+backup="$(python3 - "$missing/home/.pi/agent/b-agentic/install.json" <<'PY'
 import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-data['experimental']['subagent_depth'] = 1
-path.write_text(json.dumps(data) + '\n')
+print(json.load(open(sys.argv[1]))['backups']['settings'])
 PY
-run_install "$plugins" --uninstall >"$plugins/uninstall.log" 2>&1
-assert_json "$plugins_config" "data == {'plugins': ['user-plugin', '@cortexkit/opencode-magic-context'], 'compaction': {'keep': {'tokens': 30000}, 'auto': True}, 'experimental': {'subagent_depth': 1}}"
-python3 - "$plugins_config" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-data['experimental']['subagent_depth'] = 2
-path.write_text(json.dumps(data) + '\n')
-PY
-run_install "$plugins" >"$plugins/reinstall.log" 2>&1
-run_install "$plugins" >"$plugins/repeat-reinstall.log" 2>&1
-python3 - "$plugins_config" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-data['experimental']['subagent_depth'] = 1
-path.write_text(json.dumps(data) + '\n')
-PY
-rm -rf "$plugins/source"
-HOME="$plugins/home" PATH="$plugins/bin:$PATH" B_AGENTIC_DIR="$plugins/source" \
-  bash "$ROOT_DIR/install.sh" --uninstall >"$plugins/manifest-uninstall.log" 2>&1
-assert_contains "$plugins/manifest-uninstall.log" 'Manifest-only uninstall complete for OpenCode'
-assert_json "$plugins_config" "data == {'plugins': ['user-plugin', '@cortexkit/opencode-magic-context'], 'compaction': {'keep': {'tokens': 30000}, 'auto': True}, 'experimental': {'subagent_depth': 1}}"
+)"
+rm -f "$backup"
+run_install "$missing" --uninstall >"$missing/uninstall.log" 2>&1
+assert_contains "$missing/uninstall.log" 'preserving package cache: original settings backup is missing'
+assert_file "$missing/home/.pi/agent/b-agentic/install.json"
+rm -rf "$missing/source"
+HOME="$missing/home" PATH="$missing/bin:$PATH" B_AGENTIC_DIR="$missing/source" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$missing/manifest-uninstall.log" 2>&1
+assert_contains "$missing/manifest-uninstall.log" 'missing managed template or backup'
+assert_file "$missing/home/.pi/agent/b-agentic/install.json"
 
-# Existing managed server launch arrays remain user-owned and survive uninstall.
-conflict="$WORK_DIR/conflict"
-mkdir -p "$conflict/home/.config/opencode"
-make_source "$conflict/source"
-make_bin "$conflict/bin"
-printf '%s\n' '{"mcp": {"servers": {"firecrawl": {"type": "local", "command": ["npx", "firecrawl-mcp"], "environment": {"FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"}}}}}' >"$conflict/home/.config/opencode/opencode.json"
-run_install "$conflict" >"$conflict/install.log" 2>&1
-conflict_config="$conflict/home/.config/opencode/opencode.json"
-assert_json "$conflict_config" "data['mcp']['servers']['firecrawl']['command'] == ['npx', 'firecrawl-mcp']"
-run_install "$conflict" --uninstall >"$conflict/uninstall.log" 2>&1
-assert_no_path "$conflict/home/.config/opencode/skills/b-plan"
-assert_json "$conflict_config" "data == {'mcp': {'servers': {'firecrawl': {'type': 'local', 'command': ['npx', 'firecrawl-mcp'], 'environment': {'FIRECRAWL_API_KEY': '{env:FIRECRAWL_API_KEY}'}}}}}"
+# A symlinked config and its target are not rewritten on uninstall.
+symlink="$WORK_DIR/symlink-config"
+mkdir -p "$symlink/home/.pi/agent" "$symlink/user"
+make_source "$symlink/source"
+make_bin "$symlink/bin"
+run_install "$symlink" >"$symlink/install.log" 2>&1
+mv "$symlink/home/.pi/agent/mcp.json" "$symlink/user/mcp.json"
+ln -s "$symlink/user/mcp.json" "$symlink/home/.pi/agent/mcp.json"
+run_install "$symlink" --uninstall >"$symlink/uninstall.log" 2>&1
+assert_contains "$symlink/uninstall.log" 'preserving symlinked mcp'
+[ -L "$symlink/home/.pi/agent/mcp.json" ] || fail 'symlinked config not preserved'
+assert_file "$symlink/home/.pi/agent/b-agentic/install.json"
 
-# Existing v2 permission rules remain authoritative while managed defaults are added.
-permissions="$WORK_DIR/permissions"
-mkdir -p "$permissions/home/.config/opencode"
-make_source "$permissions/source"
-make_bin "$permissions/bin"
-printf '%s\n' '{"permissions": [{"action": "shell", "resource": "git status*", "effect": "deny"}]}' >"$permissions/home/.config/opencode/opencode.json"
-run_install "$permissions" >"$permissions/install.log" 2>&1
-permissions_config="$permissions/home/.config/opencode/opencode.json"
-assert_json "$permissions_config" "data['permissions'][-1] == {'action': 'shell', 'resource': 'git status*', 'effect': 'deny'} and any(rule == {'action': 'shell', 'resource': 'git push*', 'effect': 'deny'} for rule in data['permissions'])"
-# A broad user rule remains authoritative because OpenCode evaluates the last match.
-broad_permissions="$WORK_DIR/broad-permissions"
-mkdir -p "$broad_permissions/home/.config/opencode"
-make_source "$broad_permissions/source"
-make_bin "$broad_permissions/bin"
-printf '%s\n' '{"permissions": [{"action": "shell", "resource": "*", "effect": "allow"}]}' >"$broad_permissions/home/.config/opencode/opencode.json"
-run_install "$broad_permissions" >"$broad_permissions/install.log" 2>&1
-assert_json "$broad_permissions/home/.config/opencode/opencode.json" "data['permissions'][-1] == {'action': 'shell', 'resource': '*', 'effect': 'allow'}"
-run_install "$broad_permissions" --sync >"$broad_permissions/sync.log" 2>&1
-assert_json "$broad_permissions/home/.config/opencode/opencode.json" "data['permissions'][-1] == {'action': 'shell', 'resource': '*', 'effect': 'allow'}"
-python3 - "$permissions/source/opencode/configs/opencode.user.template.json" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-data['permissions'].append({'action': 'shell', 'resource': 'git fetch*', 'effect': 'deny'})
-path.write_text(json.dumps(data) + '\n')
-PY
-run_install "$permissions" --sync >"$permissions/sync.log" 2>&1
-assert_json "$permissions_config" "(lambda rules: next(i for i, rule in enumerate(rules) if rule == {'action': 'shell', 'resource': '*', 'effect': 'allow'}) < next(i for i, rule in enumerate(rules) if rule == {'action': 'shell', 'resource': 'git fetch*', 'effect': 'deny'}) < next(i for i, rule in enumerate(rules) if rule == {'action': 'shell', 'resource': 'git status*', 'effect': 'deny'}))(data['permissions'])"
-assert_json "$permissions_config" "sum(rule == {'action': 'shell', 'resource': 'git push*', 'effect': 'deny'} for rule in data['permissions']) == 1 and sum(rule == {'action': 'shell', 'resource': 'git fetch*', 'effect': 'deny'} for rule in data['permissions']) == 1"
-run_install "$permissions" --uninstall >"$permissions/uninstall.log" 2>&1
-assert_json "$permissions_config" "data == {'permissions': [{'action': 'shell', 'resource': 'git status*', 'effect': 'deny'}]}"
-
-# A malformed user permissions value is preserved with an explicit safety warning.
-invalid_permissions="$WORK_DIR/invalid-permissions"
-mkdir -p "$invalid_permissions/home/.config/opencode"
-make_source "$invalid_permissions/source"
-make_bin "$invalid_permissions/bin"
-printf '%s\n' '{"permissions": {}}' >"$invalid_permissions/home/.config/opencode/opencode.json"
-run_install "$invalid_permissions" >"$invalid_permissions/install.log" 2>&1
-invalid_permissions_config="$invalid_permissions/home/.config/opencode/opencode.json"
-assert_contains "$invalid_permissions/install.log" 'preserving non-array user permissions'
-assert_json "$invalid_permissions_config" "data['permissions'] == {}"
-run_install "$invalid_permissions" --uninstall >"$invalid_permissions/uninstall.log" 2>&1
-assert_json "$invalid_permissions_config" "data == {'permissions': {}}"
-
-# A pre-existing JSONC config remains the single managed config path.
-jsonc="$WORK_DIR/jsonc"
-mkdir -p "$jsonc/home/.config/opencode"
-make_source "$jsonc/source"
-make_bin "$jsonc/bin"
-printf '%s\n' '// user comment' '{"custom": true}' >"$jsonc/home/.config/opencode/opencode.jsonc"
-run_install "$jsonc" >"$jsonc/install.log" 2>&1
-jsonc_config="$jsonc/home/.config/opencode/opencode.jsonc"
-assert_file "$jsonc_config"
-assert_no_path "$jsonc/home/.config/opencode/opencode.json"
-assert_json "$jsonc_config" "data['custom'] is True and data['mcp']['servers']['context7']['type'] == 'remote'"
-python3 "$ROOT_DIR/tooling/validate/mcp_doctor.py" --home "$jsonc/home" --allow-degraded >"$jsonc/doctor.log"
-assert_contains "$jsonc/doctor.log" "config: $jsonc_config"
-run_install "$jsonc" --uninstall >"$jsonc/uninstall.log" 2>&1
-assert_json "$jsonc_config" "data == {'custom': True}"
-
-# Bootstrap repository and ref inputs reject option-like and remote-helper forms.
-invalid="$WORK_DIR/invalid"
-mkdir -p "$invalid/home"
-make_source "$invalid/source"
-make_bin "$invalid/bin"
-if HOME="$invalid/home" PATH="$invalid/bin:$PATH" B_AGENTIC_DIR="$invalid/source" B_AGENTIC_REPO='ext::unsafe' bash "$ROOT_DIR/install.sh" --dry-run >"$invalid/repo.log" 2>&1; then
-  fail 'expected invalid B_AGENTIC_REPO to fail'
-fi
-assert_contains "$invalid/repo.log" 'invalid B_AGENTIC_REPO'
-if HOME="$invalid/home" PATH="$invalid/bin:$PATH" B_AGENTIC_DIR="$invalid/source" B_AGENTIC_REPO="$invalid/source" bash "$ROOT_DIR/install.sh" --dry-run --ref=-unsafe >"$invalid/ref.log" 2>&1; then
-  fail 'expected option-like --ref to fail'
-fi
-assert_contains "$invalid/ref.log" 'invalid --ref or B_AGENTIC_REF'
-
-# A fresh install exercises automatic config cleanup and manifest-only removal.
+# Manifest-only uninstall requires no source checkout.
 clean="$WORK_DIR/clean"
-mkdir -p "$clean/home/.config/opencode"
+mkdir -p "$clean/home"
 make_source "$clean/source"
 make_bin "$clean/bin"
 run_install "$clean" >"$clean/install.log" 2>&1
-assert_file "$clean/home/.config/opencode/b-agentic/tooling/install/manifest_uninstall.py"
-run_install "$clean" --uninstall >"$clean/source-uninstall.log" 2>&1
-assert_no_path "$clean/home/.config/opencode/opencode.json"
-assert_no_path "$clean/home/.config/opencode/skills/b-plan"
-assert_no_path "$clean/home/.config/opencode/b-agentic"
-run_install "$clean" >"$clean/reinstall.log" 2>&1
+run_install "$clean" --sync >"$clean/sync.log" 2>&1
+[ "$(grep -Fc 'install npm:@gotgenes/pi-subagents --no-approve' "$clean/bin/pi.log")" -eq 1 ] ||
+  fail 'manifest-only fixture reinstalled a Pi extension during sync'
+assert_no_path "$clean/home/.pi/agent/b-agentic/backups/AGENTS.md.bak"
 rm -rf "$clean/source"
-HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" bash "$ROOT_DIR/install.sh" --uninstall >"$clean/uninstall.log" 2>&1
-assert_contains "$clean/uninstall.log" 'Manifest-only uninstall complete for OpenCode'
-assert_no_path "$clean/home/.config/opencode/b-agentic"
-assert_no_path "$clean/home/.config/opencode/skills/b-plan"
-assert_no_path "$clean/home/.config/opencode/agents/b-planner.md"
+HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall --dry-run >"$clean/dry-uninstall.log" 2>&1
+assert_contains "$clean/dry-uninstall.log" 'Manifest-only uninstall preview for Pi'
+assert_file "$clean/home/.pi/agent/skills/b-plan/SKILL.md"
+assert_file "$clean/home/.pi/agent/settings.json"
+assert_file "$clean/home/.pi/agent/b-agentic/install.json"
+if grep -Fq 'remove npm:' "$clean/bin/pi.log"; then fail 'dry-run removed a Pi package'; fi
+HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" PI_MOCK_FAIL_REMOVE=1 \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$clean/failed-uninstall.log" 2>&1
+assert_contains "$clean/failed-uninstall.log" 'could not remove managed package'
+assert_file "$clean/home/.pi/agent/b-agentic/install.json"
+assert_json "$clean/home/.pi/agent/settings.json" "'npm:@gotgenes/pi-subagents' in data['packages']"
+HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$clean/uninstall.log" 2>&1
+assert_contains "$clean/uninstall.log" 'Manifest-only uninstall complete for Pi'
+assert_no_path "$clean/home/.pi/agent/skills/b-plan"
+assert_no_path "$clean/home/.pi/agent/agents/b-planner.md"
+assert_no_path "$clean/home/.pi/agent/AGENTS.md"
+assert_contains "$clean/bin/pi.log" 'remove npm:@gotgenes/pi-subagents --no-approve'
 
-# A missing config backup must preserve metadata rather than silently strand values.
-missing_backup="$WORK_DIR/missing-backup"
-mkdir -p "$missing_backup/home/.config/opencode"
-make_source "$missing_backup/source"
-make_bin "$missing_backup/bin"
-printf '%s\n' '{"custom": true}' >"$missing_backup/home/.config/opencode/opencode.json"
-run_install "$missing_backup" >"$missing_backup/install.log" 2>&1
-backup_path="$(python3 - "$missing_backup/home/.config/opencode/b-agentic/install.json" <<'PY'
+edited_orphan="$WORK_DIR/edited-orphan-kernel"
+mkdir -p "$edited_orphan/home"
+make_source "$edited_orphan/source"
+make_bin "$edited_orphan/bin"
+run_install "$edited_orphan" >"$edited_orphan/install.log" 2>&1
+printf '\nuser-edited orphan kernel\n' >>"$edited_orphan/home/.pi/agent/AGENTS.md"
+run_install "$edited_orphan" --sync --replace-memory >"$edited_orphan/sync.log" 2>&1
+rm -rf "$edited_orphan/source"
+HOME="$edited_orphan/home" PATH="$edited_orphan/bin:$PATH" B_AGENTIC_DIR="$edited_orphan/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$edited_orphan/uninstall.log" 2>&1
+assert_contains "$edited_orphan/home/.pi/agent/AGENTS.md" 'user-edited orphan kernel'
+
+dangling="$WORK_DIR/dangling-kernel"
+mkdir -p "$dangling/home" "$dangling/user"
+make_source "$dangling/source"
+make_bin "$dangling/bin"
+run_install "$dangling" >"$dangling/install.log" 2>&1
+rm "$dangling/home/.pi/agent/AGENTS.md"
+ln -s "$dangling/user/missing.md" "$dangling/home/.pi/agent/AGENTS.md"
+rm -rf "$dangling/source"
+HOME="$dangling/home" PATH="$dangling/bin:$PATH" B_AGENTIC_DIR="$dangling/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$dangling/uninstall.log" 2>&1
+[ -L "$dangling/home/.pi/agent/AGENTS.md" ] || fail 'dangling user kernel symlink removed'
+assert_file "$dangling/home/.pi/agent/b-agentic/install.json"
+
+# Source-absent removal must restore the pre-install settings and user kernel,
+# including when the first package install was interrupted.
+orphan="$WORK_DIR/orphan-interrupted"
+mkdir -p "$orphan/home/.pi/agent"
+make_source "$orphan/source"
+make_bin "$orphan/bin"
+printf '%s\n' '{"custom":true}' >"$orphan/home/.pi/agent/settings.json"
+printf '%s\n' 'orphan original kernel' >"$orphan/home/.pi/agent/AGENTS.md"
+if PI_MOCK_FAIL_INSTALL=1 run_install "$orphan" --replace-memory >"$orphan/failed-install.log" 2>&1; then
+  fail 'expected interrupted manifest-only fixture install'
+fi
+run_install "$orphan" --sync >"$orphan/retry-sync.log" 2>&1
+rm -rf "$orphan/source"
+HOME="$orphan/home" PATH="$orphan/bin:$PATH" B_AGENTIC_DIR="$orphan/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$orphan/uninstall.log" 2>&1
+assert_json "$orphan/home/.pi/agent/settings.json" "data=={'custom':True}"
+assert_contains "$orphan/home/.pi/agent/AGENTS.md" 'orphan original kernel'
+assert_no_path "$orphan/home/.pi/agent/b-agentic/install.json"
+
+twice_orphan="$WORK_DIR/twice-replaced-orphan"
+mkdir -p "$twice_orphan/home/.pi/agent"
+make_source "$twice_orphan/source"
+make_bin "$twice_orphan/bin"
+printf '%s\n' 'first orphan kernel' >"$twice_orphan/home/.pi/agent/AGENTS.md"
+run_install "$twice_orphan" --replace-memory >"$twice_orphan/install.log" 2>&1
+printf '\nsecond orphan kernel\n' >>"$twice_orphan/home/.pi/agent/AGENTS.md"
+run_install "$twice_orphan" --sync --replace-memory >"$twice_orphan/sync.log" 2>&1
+rm -rf "$twice_orphan/source"
+HOME="$twice_orphan/home" PATH="$twice_orphan/bin:$PATH" B_AGENTIC_DIR="$twice_orphan/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$twice_orphan/uninstall.log" 2>&1
+assert_contains "$twice_orphan/home/.pi/agent/AGENTS.md" 'second orphan kernel'
+assert_file "$twice_orphan/home/.pi/agent/b-agentic/install.json"
+orphan_first_backup="$(python3 - "$twice_orphan/home/.pi/agent/b-agentic/install.json" <<'PY'
 import json, sys
-from pathlib import Path
-print(json.loads(Path(sys.argv[1]).read_text())['backups']['opencodeConfig'])
+print(json.load(open(sys.argv[1]))['kernelPriorBackups'][0])
 PY
 )"
-rm -f "$backup_path"
-run_install "$missing_backup" --uninstall >"$missing_backup/source-uninstall.log" 2>&1
-assert_contains "$missing_backup/source-uninstall.log" 'preserving modified opencode.json'
-assert_file "$missing_backup/home/.config/opencode/b-agentic/install.json"
-assert_file "$missing_backup/home/.config/opencode/opencode.json"
-rm -rf "$missing_backup/source"
-HOME="$missing_backup/home" PATH="$missing_backup/bin:$PATH" B_AGENTIC_DIR="$missing_backup/missing" bash "$ROOT_DIR/install.sh" --uninstall >"$missing_backup/uninstall.log" 2>&1
-assert_contains "$missing_backup/uninstall.log" 'recorded backup is missing'
-assert_file "$missing_backup/home/.config/opencode/b-agentic/install.json"
-assert_file "$missing_backup/home/.config/opencode/opencode.json"
+assert_contains "$orphan_first_backup" 'first orphan kernel'
 
-# Both uninstall paths preserve a replaced config symlink and its target.
-for mode in source manifest; do
-  linked_config="$WORK_DIR/linked-config-$mode"
-  mkdir -p "$linked_config/home/.config/opencode" "$linked_config/user"
-  make_source "$linked_config/source"
-  make_bin "$linked_config/bin"
-  printf '%s\n' '{"custom": true}' >"$linked_config/home/.config/opencode/opencode.json"
-  run_install "$linked_config" >"$linked_config/install.log" 2>&1
-  linked_path="$linked_config/home/.config/opencode/opencode.json"
-  target="$linked_config/user/config.json"
-  cp "$linked_path" "$target"
-  rm "$linked_path"
-  ln -s "$target" "$linked_path"
-  if [ "$mode" = manifest ]; then
-    rm -rf "$linked_config/source"
-  fi
-  HOME="$linked_config/home" PATH="$linked_config/bin:$PATH" B_AGENTIC_DIR="$linked_config/source" \
-    bash "$ROOT_DIR/install.sh" --uninstall >"$linked_config/uninstall.log" 2>&1
-  assert_contains "$linked_config/uninstall.log" 'preserving symlinked opencode.json'
-  [ -L "$linked_path" ] || fail 'expected config symlink to be preserved'
-  assert_file "$linked_config/home/.config/opencode/b-agentic/install.json"
-  assert_json "$target" "data['custom'] is True and data['plugins'] == ['@tarquinen/opencode-dcp']"
-done
+empty_orphan="$WORK_DIR/empty-config-orphan"
+mkdir -p "$empty_orphan/home/.pi/agent/extensions/pi-permission-system"
+make_source "$empty_orphan/source"
+make_bin "$empty_orphan/bin"
+printf '{}\n' >"$empty_orphan/home/.pi/agent/settings.json"
+printf '{}\n' >"$empty_orphan/home/.pi/agent/mcp.json"
+printf '{}\n' >"$empty_orphan/home/.pi/agent/extensions/pi-permission-system/config.json"
+run_install "$empty_orphan" >"$empty_orphan/install.log" 2>&1
+rm -rf "$empty_orphan/source"
+HOME="$empty_orphan/home" PATH="$empty_orphan/bin:$PATH" B_AGENTIC_DIR="$empty_orphan/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$empty_orphan/uninstall.log" 2>&1
+assert_json "$empty_orphan/home/.pi/agent/settings.json" "data=={}"
+assert_json "$empty_orphan/home/.pi/agent/mcp.json" "data=={}"
+assert_json "$empty_orphan/home/.pi/agent/extensions/pi-permission-system/config.json" "data=={}"
 
-# Switching config paths requires uninstall so the old managed config is cleaned.
-for mode in source manifest; do
-  switched="$WORK_DIR/switched-config-$mode"
-  mkdir -p "$switched/home/.config/opencode"
-  make_source "$switched/source"
-  make_bin "$switched/bin"
-  printf '%s\n' '{"custom": "old", "compaction": {"auto": true}}' >"$switched/home/.config/opencode/opencode.json"
-  run_install "$switched" >"$switched/install.log" 2>&1
-  new_config="$switched/home/.config/opencode/opencode.jsonc"
-  printf '%s\n' '{"custom": "new", "compaction": {"auto": false}}' >"$new_config"
-  if B_AGENTIC_OPENCODE_CONFIG="$new_config" run_install "$switched" >"$switched/reinstall.log" 2>&1; then
-    fail 'expected changed config path to require uninstall'
-  fi
-  assert_contains "$switched/reinstall.log" 'uninstall the existing installation before using a different config path'
-  if B_AGENTIC_OPENCODE_CONFIG="$new_config" run_install "$switched" --sync >"$switched/sync.log" 2>&1; then
-    fail 'expected changed config path to block sync'
-  fi
-  assert_contains "$switched/sync.log" 'uninstall the existing installation before using a different config path'
-  assert_json "$new_config" "data == {'custom': 'new', 'compaction': {'auto': False}}"
-  if [ "$mode" = manifest ]; then
-    rm -rf "$switched/source"
-  fi
-  HOME="$switched/home" PATH="$switched/bin:$PATH" B_AGENTIC_DIR="$switched/source" \
-    bash "$ROOT_DIR/install.sh" --uninstall >"$switched/uninstall.log" 2>&1
-  assert_json "$switched/home/.config/opencode/opencode.json" "data == {'custom': 'old', 'compaction': {'auto': True}}"
-  assert_json "$new_config" "data == {'custom': 'new', 'compaction': {'auto': False}}"
-done
-
-# Dry runs cannot create a configuration directory.
 dry="$WORK_DIR/dry"
 mkdir -p "$dry/home"
 make_source "$dry/source"
 make_bin "$dry/bin"
 run_install "$dry" --dry-run >"$dry/log" 2>&1
-assert_no_path "$dry/home/.config/opencode"
-assert_contains "$dry/log" '[dry-run] opencode upgrade'
-assert_no_path "$dry/bin/curl.log"
-assert_no_path "$dry/bin/opencode.log"
+assert_no_path "$dry/home/.pi/agent"
+assert_contains "$dry/log" '[dry-run] pi update --self'
+assert_no_path "$dry/bin/pi.log"
 run_install "$dry" --update --dry-run >"$dry/update.log" 2>&1
-assert_contains "$dry/update.log" 'b-agentic update planned: upgrade not run in dry-run.'
-assert_no_path "$dry/bin/curl.log"
-assert_no_path "$dry/bin/opencode.log"
+assert_contains "$dry/update.log" '[dry-run] pi update --extensions'
+assert_no_path "$dry/bin/pi.log"
 
-# Missing curl does not block an upgrade when OpenCode is already installed,
-# and a failed vendor installer must not block local asset setup.
-missing_curl="$WORK_DIR/missing-curl"
-mkdir -p "$missing_curl/home"
-make_source "$missing_curl/source"
-make_bin "$missing_curl/bin"
-run_install_without_curl "$missing_curl" >"$missing_curl/install.log" 2>&1
-assert_contains "$missing_curl/install.log" "Upgrading OpenCode CLI with 'opencode upgrade'"
-assert_contains "$missing_curl/install.log" '[9/9] Writing install manifest'
-assert_file "$missing_curl/home/.config/opencode/AGENTS.md"
-assert_no_path "$missing_curl/bin/curl.log"
+# An override outside HOME is rejected before installation; a home-confined
+# override remains removable after the source checkout is lost.
+outside="$WORK_DIR/outside-home"
+mkdir -p "$outside/home"
+make_source "$outside/source"
+make_bin "$outside/bin"
+if B_AGENTIC_PI_DIR="$outside/agent" run_install "$outside" >"$outside/install.log" 2>&1; then
+  fail 'accepted Pi agent directory outside HOME'
+fi
+assert_contains "$outside/install.log" 'Pi agent directory must be an absolute path under'
+assert_no_path "$outside/agent"
+rm -rf "$outside/source"
+if HOME="$outside/home" PATH="$outside/bin:$PATH" B_AGENTIC_DIR="$outside/missing" B_AGENTIC_PI_DIR="$outside/agent" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$outside/uninstall.log" 2>&1; then
+  fail 'accepted outside-HOME manifest-only uninstall'
+fi
+assert_no_path "$outside/agent"
 
-# Missing curl still warns when OpenCode is not installed yet.
-missing_curl_fresh="$WORK_DIR/missing-curl-fresh"
-mkdir -p "$missing_curl_fresh/home"
-make_source "$missing_curl_fresh/source"
-make_bin "$missing_curl_fresh/bin"
-rm -f "$missing_curl_fresh/bin/opencode"
-cat >"$missing_curl_fresh/no-cli.bash" <<'EOF'
-command() {
-  if [ "${1:-}" = "-v" ] && { [ "${2:-}" = "curl" ] || [ "${2:-}" = "opencode" ]; }; then
-    return 1
-  fi
-  builtin command "$@"
-}
-EOF
-HOME="$missing_curl_fresh/home" \
-  PATH="$missing_curl_fresh/bin:$PATH" \
-  BASH_ENV="$missing_curl_fresh/no-cli.bash" \
-  B_AGENTIC_DIR="$missing_curl_fresh/source" \
-  B_AGENTIC_REPO="$missing_curl_fresh/source" \
-  bash "$ROOT_DIR/install.sh" >"$missing_curl_fresh/install.log" 2>&1
-assert_contains "$missing_curl_fresh/install.log" 'curl is required to install the current OpenCode CLI; skipping OpenCode installation'
-assert_contains "$missing_curl_fresh/install.log" '[9/9] Writing install manifest'
-assert_file "$missing_curl_fresh/home/.config/opencode/AGENTS.md"
+override="$WORK_DIR/home-override"
+mkdir -p "$override/home"
+make_source "$override/source"
+make_bin "$override/bin"
+B_AGENTIC_PI_DIR="$override/home/custom-agent" run_install "$override" >"$override/install.log" 2>&1
+assert_file "$override/home/custom-agent/b-agentic/install.json"
+rm -rf "$override/source"
+HOME="$override/home" PATH="$override/bin:$PATH" B_AGENTIC_DIR="$override/missing" \
+  B_AGENTIC_PI_DIR="$override/home/custom-agent" bash "$ROOT_DIR/install.sh" --uninstall >"$override/uninstall.log" 2>&1
+assert_no_path "$override/home/custom-agent/b-agentic/install.json"
 
-failed_upgrade="$WORK_DIR/failed-upgrade"
-mkdir -p "$failed_upgrade/home"
-make_source "$failed_upgrade/source"
-make_bin "$failed_upgrade/bin"
-printf '#!/usr/bin/env bash\nexit 1\n' >"$failed_upgrade/bin/opencode"
-chmod +x "$failed_upgrade/bin/opencode"
-run_install "$failed_upgrade" >"$failed_upgrade/install.log" 2>&1
-assert_contains "$failed_upgrade/install.log" 'OpenCode CLI upgrade failed; upgrade it manually, then rerun with --update'
-assert_contains "$failed_upgrade/install.log" '[9/9] Writing install manifest'
-assert_file "$failed_upgrade/home/.config/opencode/AGENTS.md"
-assert_no_path "$failed_upgrade/bin/curl.log"
-run_install "$failed_upgrade" --update >"$failed_upgrade/update.log" 2>&1
-assert_contains "$failed_upgrade/update.log" 'b-agentic update skipped: OpenCode CLI upgrade failed.'
-
-# A fresh install without OpenCode on PATH still uses the curl installer.
-fresh_install="$WORK_DIR/fresh-install"
-mkdir -p "$fresh_install/home"
-make_source "$fresh_install/source"
-make_bin "$fresh_install/bin"
-rm -f "$fresh_install/bin/opencode"
-run_install_without_opencode "$fresh_install" >"$fresh_install/install.log" 2>&1
-assert_contains "$fresh_install/bin/curl.log" '-fsSL https://opencode.ai/v2/install'
-assert_not_contains "$fresh_install/bin/curl.log" 'opencode-ai@'
-assert_contains "$fresh_install/install.log" '[9/9] Writing install manifest'
-
-# A successful vendor installer with no discoverable CLI reports the PATH gap.
-missing_path="$WORK_DIR/missing-path"
-mkdir -p "$missing_path/home"
-make_source "$missing_path/source"
-make_bin "$missing_path/bin"
-rm -f "$missing_path/bin/opencode"
-run_install_without_opencode "$missing_path" >"$missing_path/install.log" 2>&1
-assert_contains "$missing_path/install.log" "OpenCode CLI installed but 'opencode' is not on PATH"
-assert_contains "$missing_path/install.log" '[9/9] Writing install manifest'
-assert_file "$missing_path/home/.config/opencode/AGENTS.md"
-
-echo 'OpenCode installer smoke tests passed.'
+echo 'Pi installer smoke tests passed.'

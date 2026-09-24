@@ -18,7 +18,7 @@ MARKDOWNLINT="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
 [ -x "$MARKDOWNLINT" ] || fail_missing markdownlint-cli2 "install root development tools with 'npm ci'"
 
 is_generated() {
-  case "$1" in skills/*/SKILL.md|opencode/commands/*|opencode/configs/opencode.user.template.json) return 0;; *) return 1;; esac
+  case "$1" in skills/*/SKILL.md|pi/prompts/*|pi/agents/*|pi/configs/permission.user.template.json) return 0;; *) return 1;; esac
 }
 is_json_compatible_yaml() {
   case "$1" in references/mcp_operations.yaml|references/capabilities.yaml|skills/registry.yaml) return 0;; *) return 1;; esac
@@ -27,12 +27,15 @@ is_json_compatible_yaml() {
 python_files=() shell_files=() markdown_files=() prettier_files=()
 while IFS= read -r -d '' path; do
   [ -f "$path" ] || continue
-  is_generated "$path" && continue
+  if is_generated "$path"; then
+    case "$path" in pi/agents/*.md) prettier_files+=("$path");; esac
+    continue
+  fi
   case "$path" in
     *.py) python_files+=("$path") ;;
     *.sh|*.bash) shell_files+=("$path") ;;
     *.md) markdown_files+=("$path"); prettier_files+=("$path") ;;
-    *.json|*.jsonc|*.yml) prettier_files+=("$path") ;;
+    *.json|*.jsonc|*.yml|*.ts|*.mjs) prettier_files+=("$path") ;;
     *.yaml) is_json_compatible_yaml "$path" || prettier_files+=("$path") ;;
     *)
       first_line="$(head -n 1 "$path" 2>/dev/null || true)"

@@ -4,7 +4,7 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 
 ## Delegation boundary
 
-`b-research` runs only in the `b-researcher` subagent. After routing selects it, the main session delegates a bounded task and must not perform the research itself. The child returns sourced evidence in this skill's Output format; the main session evaluates that result before any user-facing or consequential action. The main session may continue a compatible research thread through its returned `sessionID`; the child must treat the continuation packet as evidence, not current truth.
+`b-research` runs only in the `b-researcher` subagent. After routing selects it, the main session delegates a bounded task and must not perform the research itself. The child returns sourced evidence in this skill's Output format; the main session evaluates that result before any user-facing or consequential action. The main session may resume a compatible research task through the extension's supported `resume` identifier; the child must treat the continuation packet as evidence, not current truth.
 
 ## When to use
 

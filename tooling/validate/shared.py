@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared static checks for the native OpenCode b-agentic delivery surface."""
+"""Shared static checks for the native Pi b-agentic delivery surface."""
 
 from __future__ import annotations
 
@@ -16,8 +16,9 @@ def main() -> int:
         ROOT / "skills" / "registry.yaml",
         ROOT / "references" / "mcp_operations.yaml",
         ROOT / "references" / "capabilities.yaml",
-        ROOT / "opencode" / "configs" / "opencode.base.json",
-        ROOT / "opencode" / "configs" / "opencode.user.template.json",
+        ROOT / "pi" / "configs" / "mcp.base.json",
+        ROOT / "pi" / "configs" / "settings.base.json",
+        ROOT / "pi" / "configs" / "permission.user.template.json",
     ):
         try:
             json.loads(path.read_text())
@@ -27,15 +28,15 @@ def main() -> int:
     kernel = ROOT / "references" / "kernel.template.md"
     text = kernel.read_text() if kernel.exists() else ""
     for marker in (
-        "OpenCode Workflow Kernel",
-        "load it with the `skill` tool",
-        "through `subagent`",
-        "native `question`",
-        "Direct tools use `<server>_<tool>` names",
-        "Use `todowrite` for multi-step work",
+        "Pi Workflow Kernel",
+        "reads the installed `skills/<name>/SKILL.md`",
+        "Pi `subagent` type",
+        "`ask_user_question`",
+        "direct `<server>_<tool>` names",
+        "Track multi-step work in concise prose",
     ):
         if marker not in text:
-            errors.append(f"references/kernel.template.md: missing native OpenCode marker {marker!r}")
+            errors.append(f"references/kernel.template.md: missing native Pi marker {marker!r}")
 
     registry = json.loads((ROOT / "skills" / "registry.yaml").read_text())
     agents = registry.get("agents", {})
@@ -58,14 +59,14 @@ def main() -> int:
             bindings.setdefault(execution.get("agent", ""), []).append(skill.get("name", ""))
 
     for name, skill_names in bindings.items():
-        path = ROOT / "opencode" / "agents" / f"{name}.md"
+        path = ROOT / "pi" / "agents" / f"{name}.md"
         body = path.read_text() if path.exists() else ""
         for marker in (
-            "mode: subagent",
-            "permissions:",
-            "action: edit",
-            "action: subagent",
-            "action: question",
+            "tools: read, grep, find, ls, bash",
+            "permission:",
+            '  "*": deny',
+            "  external_directory: deny",
+            "  mcp:",
         ):
             if marker not in body:
                 errors.append(f"{path.relative_to(ROOT)}: missing {marker!r}")
@@ -73,7 +74,7 @@ def main() -> int:
             errors.append(f"{path.relative_to(ROOT)}: missing generated marker")
         if "Managed by b-agentic" not in body:
             errors.append(f"{path.relative_to(ROOT)}: missing installer-managed marker")
-        if "Load and execute the named skill" not in body or "Return that named skill's own Output format" not in body:
+        if "Read and execute the named skill" not in body or "Return that skill's own Output format" not in body:
             errors.append(f"{path.relative_to(ROOT)}: missing named-skill output contract")
         if "Do not execute external/shared mutation, local upload, lifecycle, or authentication actions" not in body:
             errors.append(f"{path.relative_to(ROOT)}: missing consequential-operation boundary")
@@ -84,7 +85,7 @@ def main() -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Native OpenCode shared validation passed.")
+    print("Native Pi shared validation passed.")
     return 0
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render native OpenCode delivery assets from b-agentic's canonical sources."""
+"""Render native Pi delivery assets from b-agentic's canonical sources."""
 
 from __future__ import annotations
 
@@ -16,10 +16,9 @@ SKILL_REGISTRY_PATH = ROOT / "skills" / "registry.yaml"
 KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
 MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 CAPABILITIES_PATH = ROOT / "references" / "capabilities.yaml"
-OPENCODE_BASE_CONFIG_PATH = ROOT / "opencode" / "configs" / "opencode.base.json"
-OPENCODE_TEMPLATE_PATH = ROOT / "opencode" / "configs" / "opencode.user.template.json"
-OPENCODE_COMMANDS_DIR = ROOT / "opencode" / "commands"
-OPENCODE_AGENTS_DIR = ROOT / "opencode" / "agents"
+PI_CONFIGS_DIR = ROOT / "pi" / "configs"
+PI_PROMPTS_DIR = ROOT / "pi" / "prompts"
+PI_AGENTS_DIR = ROOT / "pi" / "agents"
 
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
@@ -86,11 +85,11 @@ def load_capabilities() -> dict[str, Any]:
 
 def validate_kernel_template(errors: list[str]) -> None:
     if not KERNEL_TEMPLATE_PATH.is_file():
-        errors.append(f"{KERNEL_TEMPLATE_PATH}: missing OpenCode kernel template")
+        errors.append(f"{KERNEL_TEMPLATE_PATH}: missing Pi kernel template")
         return
     text = KERNEL_TEMPLATE_PATH.read_text()
     for marker in (
-        "OpenCode Workflow Kernel",
+        "Pi Workflow Kernel",
         "<!-- b-agentic-managed -->",
         KERNEL_ROUTING_START,
         KERNEL_DELEGATION_START,
@@ -185,7 +184,8 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
 
 
 def native_tool_name(server: str, tool: str) -> str:
-    return f"{server}_{tool}".replace("-", "_")
+    # pi-mcp-adapter's formatToolName preserves hyphens and replaces dots.
+    return f"{server}_{tool.replace('.', '_')}"
 
 
 def validate_policy(policy: dict[str, Any]) -> list[str]:
@@ -213,7 +213,7 @@ def validate_policy(policy: dict[str, Any]) -> list[str]:
     seen_tools: set[str] = set()
     for server, record in servers.items():
         if not isinstance(server, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", server):
-            errors.append(f"servers.{server}: server name must use native OpenCode-safe spelling")
+            errors.append(f"servers.{server}: server name must use Pi MCP-safe spelling")
             continue
         tools = record.get("tools") if isinstance(record, dict) else None
         if not isinstance(tools, dict) or not tools:
@@ -285,8 +285,8 @@ def validate_capabilities(contract: dict[str, Any], policy: dict[str, Any]) -> l
             else:
                 agent_names.update(names)
                 source_dir = agent.get("source")
-                if not isinstance(source_dir, str) or not (ROOT / source_dir).is_dir():
-                    errors.append(f"{label}.agent.source: missing managed agent directory")
+                if source_dir != str(PI_AGENTS_DIR.relative_to(ROOT)):
+                    errors.append(f"{label}.agent.source: expected generated Pi agent directory")
     policy_servers = set((policy.get("servers") or {}).keys())
     if mcp_servers != policy_servers:
         errors.append(f"{CAPABILITIES_PATH}: MCP server set differs from policy")
@@ -313,7 +313,7 @@ def render_delegation(skills: list[dict[str, Any]]) -> str:
     main = [skill["name"] for skill in skills if skill["execution"]["mode"] == "main"]
     lines = [
         f"- The main session owns user interaction and worktree changes: {', '.join(f'`{name}`' for name in main)}.",
-        "- Delegated skills run through their named OpenCode subagent via `subagent`; the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template. The main session evaluates the returned result before any user-facing or worktree action:",
+        "- Delegated skills run through their named Pi `subagent` type; pass a bounded task naming the exact skill. The child reads its installed `SKILL.md` and returns that skill's own Output format; the main session evaluates the result before any user-facing or worktree action:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
     lines.append(
@@ -342,7 +342,7 @@ def render_skill_file(skill: dict[str, Any]) -> str:
     if triggers:
         description += f" Routing signals: {', '.join(triggers)}."
     body = (ROOT / "skills" / name / "prompt.md").read_text().rstrip()
-    body = body.replace("{{skill_support_path}}", f"~/.config/opencode/skills/{name}")
+    body = body.replace("{{skill_support_path}}", f"~/.pi/agent/skills/{name}")
     execution = skill["execution"]
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))
@@ -368,21 +368,16 @@ def render_skill_file(skill: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_command_file(skill: dict[str, Any]) -> str:
+def render_prompt_file(skill: dict[str, Any]) -> str:
     name = skill["name"]
     execution = skill["execution"]
-    lines = ["---", f"description: {json.dumps(skill['use'])}"]
-    if execution["mode"] == "subagent":
-        lines.extend([f"agent: {execution['agent']}", "subagent: true"])
-    else:
-        lines.append("agent: build")
-    lines.extend(["---", "", "<!-- Generated from skills/registry.yaml. Do not edit this file. -->", ""])
+    lines = ["<!-- Generated from skills/registry.yaml. Do not edit this file. -->", ""]
     if execution["mode"] == "subagent":
         lines.append(
-            f"Load and execute the `{name}` skill for this bounded task: $ARGUMENTS\n\nReturn the `{name}` skill's own Output format as your final response; do not substitute a generic evidence or handoff template. Do not edit, ask the user questions, or launch another agent."
+            f"Delegate this bounded task to the `{execution['agent']}` agent with the `subagent` tool. Name the `{name}` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS\n\nThe child must read and follow its installed `skills/{name}/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action."
         )
     else:
-        lines.append(f"Load the `{name}` skill with the `skill` tool, then follow it for: $ARGUMENTS")
+        lines.append(f"Read and follow the installed `skills/{name}/SKILL.md` before acting on: $ARGUMENTS")
     lines.append("")
     return "\n".join(lines)
 
@@ -394,29 +389,56 @@ def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, A
         if skill["execution"]["mode"] == "subagent" and skill["execution"]["agent"] == name
     ]
     skill_list = " or ".join(f"`{skill}`" for skill in bound_skills)
+    model, sep, thinking = agent["model"].partition("#")
+    if not sep or thinking not in {"off", "minimal", "low", "medium", "high", "xhigh", "max"}:
+        raise SystemExit(f"agents.{name}.model: expected provider/model#thinking")
+    read_only_mcp = [
+        native_tool_name(server, tool)
+        for server, record in load_policy()["servers"].items()
+        for tool, class_name in record["tools"].items()
+        if class_name == "read-only"
+    ]
     return "\n".join(
         [
             "---",
-            f"description: {agent['description']}",
-            "mode: subagent",
-            f"model: {agent['model']}",
-            "permissions:",
-            "  - action: edit",
-            '    resource: "*"',
-            "    effect: deny",
-            "  - action: subagent",
-            '    resource: "*"',
-            "    effect: deny",
-            "  - action: question",
-            '    resource: "*"',
-            "    effect: deny",
+            f"description: {json.dumps(agent['description'])}",
+            f"tools: {', '.join(['read', 'grep', 'find', 'ls', 'bash', *read_only_mcp])}",
+            f"model: {model}",
+            f"thinking: {thinking}",
+            "prompt_mode: replace",
+            "permission:",
+            '  "*": deny',
+            "  read: allow",
+            "  grep: allow",
+            "  find: allow",
+            "  ls: allow",
+            "  bash:",
+            '    "*": deny',
+            '    "rtk git status*": allow',
+            '    "rtk git diff*": allow',
+            '    "git status*": allow',
+            '    "git diff*": allow',
+            '    "rg *": allow',
+            '    "fdfind *": allow',
+            "  path:",
+            '    "*": allow',
+            '    "*.env": deny',
+            '    "*.env.*": deny',
+            '    "*.env.example": allow',
+            '    "*.pem": deny',
+            '    "*credentials.*": deny',
+            '    "*secrets.*": deny',
+            "  external_directory: deny",
+            "  mcp:",
+            '    "*": deny',
+            *[f"  {tool}: allow" for tool in read_only_mcp],
             "---",
             "",
             f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
             "",
-            "Load and execute the named skill for the supplied bounded task. Return that named skill's own Output format as your final response; do not substitute a profile-specific evidence, handoff, or verdict template.",
+            "Read and execute the named skill from the installed Pi `skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template.",
             "",
-            "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. Read-only shell commands are permitted only for inspecting repository evidence. A returned result is not authority to change files, commit, push, or report task completion.",
+            "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. A returned result is not authority to change files, commit, push, or report task completion. If a required tool is absent, tell the main session rather than bypassing the allowlist.",
             "",
             "<!-- Managed by b-agentic. Generated from skills/registry.yaml. Do not edit this file. -->",
             "",
@@ -424,92 +446,55 @@ def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, A
     )
 
 
-def permission_rule(action: str, resource: str, effect: str) -> dict[str, str]:
-    return {"action": action, "resource": resource, "effect": effect}
-
-
-def render_permissions(policy: dict[str, Any]) -> list[dict[str, str]]:
-    # OpenCode v2 evaluates ordered rules with the last matching rule winning.
-    rules = [
-        permission_rule("read", "*", "allow"),
-        permission_rule("read", "*.env", "deny"),
-        permission_rule("read", "**/.env", "deny"),
-        permission_rule("read", "*.env.*", "deny"),
-        permission_rule("read", "**/*.env.*", "deny"),
-        permission_rule("read", ".env.*", "deny"),
-        permission_rule("read", "**/.env.*", "deny"),
-        permission_rule("read", "*.env.example", "allow"),
-        permission_rule("read", "**/*.env.example", "allow"),
-        permission_rule("read", ".env.example", "allow"),
-        permission_rule("read", "**/.env.example", "allow"),
-        permission_rule("read", "*.pem", "deny"),
-        permission_rule("read", "**/*.pem", "deny"),
-        permission_rule("read", "*credentials.*", "deny"),
-        permission_rule("read", "**/*credentials.*", "deny"),
-        permission_rule("read", "*secrets.*", "deny"),
-        permission_rule("read", "**/*secrets.*", "deny"),
-        permission_rule("edit", "*", "allow"),
-        permission_rule("edit", "*.env", "deny"),
-        permission_rule("edit", "**/.env", "deny"),
-        permission_rule("edit", "*.env.*", "deny"),
-        permission_rule("edit", "**/*.env.*", "deny"),
-        permission_rule("edit", ".env.*", "deny"),
-        permission_rule("edit", "**/.env.*", "deny"),
-        permission_rule("edit", "*.env.example", "allow"),
-        permission_rule("edit", "**/*.env.example", "allow"),
-        permission_rule("edit", ".env.example", "allow"),
-        permission_rule("edit", "**/.env.example", "allow"),
-        permission_rule("edit", "*.pem", "deny"),
-        permission_rule("edit", "**/*.pem", "deny"),
-        permission_rule("edit", "*credentials.*", "deny"),
-        permission_rule("edit", "**/*credentials.*", "deny"),
-        permission_rule("edit", "*secrets.*", "deny"),
-        permission_rule("edit", "**/*secrets.*", "deny"),
-        permission_rule("shell", "*", "allow"),
-    ]
-    for resource in (
-        "git push*",
-        "rtk git push*",
-        "git pull*",
-        "rtk git pull*",
-        "git reset --hard*",
-        "rtk git reset --hard*",
-        "git clean -f*",
-        "rtk git clean -f*",
-        "git branch -D*",
-        "rtk git branch -D*",
-        "rm -rf /*",
-    ):
-        rules.append(permission_rule("shell", resource, "deny"))
-    for resource in ("sudo *", "docker system prune*", "curl * | sh*", "curl * | bash*"):
-        rules.append(permission_rule("shell", resource, "ask"))
-    rules.extend(
-        [
-            permission_rule("external_directory", "*", "ask"),
-            permission_rule("subagent", "*", "ask"),
-            permission_rule("subagent", "b-*", "allow"),
-            permission_rule("skill", "*", "allow"),
-            permission_rule("question", "*", "allow"),
-            permission_rule("todowrite", "*", "allow"),
-        ]
-    )
+def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
+    # Unknown tools ask. The path gate also applies to recognized MCP arguments;
+    # the adapter proxy remains ask-only so it cannot bypass direct-tool rules.
+    permissions: dict[str, Any] = {
+        "*": "ask",
+        "path": {
+            "*": "allow",
+            "*.env": "deny",
+            "*.env.*": "deny",
+            "*.env.example": "allow",
+            "*.pem": "deny",
+            "*credentials.*": "deny",
+            "*secrets.*": "deny",
+        },
+        "read": "allow",
+        "grep": "allow",
+        "find": "allow",
+        "ls": "allow",
+        "write": "allow",
+        "edit": "allow",
+        "bash": {
+            "*": "allow",
+            "git push*": "deny",
+            "rtk git push*": "deny",
+            "git pull*": "deny",
+            "rtk git pull*": "deny",
+            "git reset --hard*": "deny",
+            "rtk git reset --hard*": "deny",
+            "git clean -f*": "deny",
+            "rtk git clean -f*": "deny",
+            "git branch -D*": "deny",
+            "rtk git branch -D*": "deny",
+            "rm -rf /*": "deny",
+            "sudo *": "ask",
+            "docker system prune*": "ask",
+            "curl * | sh*": "ask",
+            "curl * | bash*": "ask",
+        },
+        "external_directory": "ask",
+        "subagent": "allow",
+        "ask_question": "deny",
+        "ask_user_question": "allow",
+        "mcp": {"*": "ask", "mcp_status": "allow", "mcp_search": "allow", "mcp_describe": "allow"},
+    }
     for server, record in policy["servers"].items():
-        # Native OpenCode permissions cannot classify unknown MCP tools by
-        # argument. Ask on new server tools, then override known safe names.
-        rules.append(permission_rule(f"{server}_*", "*", "ask"))
+        permissions[f"{server}_*"] = "ask"
         for tool, class_name in record["tools"].items():
-            rules.append(
-                permission_rule(native_tool_name(server, tool), "*", policy["classes"][class_name]["native_permission"])
-            )
-    return rules
-
-
-def render_opencode_template(policy: dict[str, Any]) -> str:
-    base = load_json_subset_yaml(OPENCODE_BASE_CONFIG_PATH)
-    if "permissions" in base:
-        raise SystemExit(f"{OPENCODE_BASE_CONFIG_PATH}: permissions are generated; remove them from the base config")
-    base["permissions"] = render_permissions(policy)
-    return json.dumps(base, indent=2, ensure_ascii=False) + "\n"
+            permissions[native_tool_name(server, tool)] = policy["classes"][class_name]["native_permission"]
+    return {"permissionReviewLog": False, "yoloMode": False, "permission": permissions}
 
 
 def replace_block(text: str, start: str, end: str, body: str) -> str:
@@ -534,17 +519,13 @@ def render_outputs(
             readme.read_text(), README_SKILLS_START, README_SKILLS_END, render_readme_skills_table(skills)
         ),
         KERNEL_TEMPLATE_PATH: kernel,
-        OPENCODE_TEMPLATE_PATH: render_opencode_template(policy),
+        PI_CONFIGS_DIR / "permission.user.template.json": json.dumps(render_permissions(policy), indent=2) + "\n",
     }
     for skill in skills:
-        command = render_command_file(skill)
-        description = command.splitlines()[1].removeprefix("description: ")
-        if not isinstance(json.loads(description), str):
-            raise SystemExit(f"generated command description must be a JSON string: {skill['name']}")
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
-        outputs[OPENCODE_COMMANDS_DIR / f"{skill['name']}.md"] = command
+        outputs[PI_PROMPTS_DIR / f"{skill['name']}.md"] = render_prompt_file(skill)
     for name, agent in agents.items():
-        outputs[OPENCODE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills)
+        outputs[PI_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills)
     return outputs
 
 
@@ -593,12 +574,12 @@ def sync_outputs(check: bool) -> int:
         for path in stale:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(outputs[path])
-        print("Generated OpenCode delivery assets refreshed.")
+        print("Generated Pi delivery assets refreshed.")
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Render native OpenCode assets from canonical b-agentic sources.")
+    parser = argparse.ArgumentParser(description="Render native Pi assets from canonical b-agentic sources.")
     parser.add_argument("--check", action="store_true", help="fail when generated outputs are stale")
     parser.add_argument("--self-test", action="store_true", help="verify invalid canonical contracts fail validation")
     args = parser.parse_args()

@@ -90,11 +90,11 @@
       "id": "background-child-is-independent",
       "skill": "b-research",
       "observed_failure": "The main session started background work whose result gated a decision, or let concurrent child scopes overlap.",
-      "intended_behavior": "The main session starts a background child only for independent read-only research, retains its sessionID and bounded task metadata, and does not rely on an active child for a decision.",
+      "intended_behavior": "The main session starts a background child only for independent read-only research, retains its returned task ID and bounded task metadata, and does not rely on an active child for a decision.",
       "prompt": "Research two unrelated public API facts while implementing a local change whose next step does not depend on either answer. State whether background delegation is allowed, what the main session retains, and when it evaluates the result.",
       "must": [
         "Independent read-only work",
-        "Retain the sessionID",
+        "Retain the returned task ID",
         "Main session evaluates returned evidence",
         "No overlapping child scope"
       ],
@@ -108,9 +108,10 @@
       "id": "continuation-reuses-compatible-child",
       "skill": "b-research",
       "observed_failure": "The main session either discarded a compatible research thread or reused a mismatched child without refreshing stale claims.",
-      "intended_behavior": "The main session continues a completed b-researcher through sessionID only for a direct compatible follow-up, passes the delta question and prior evidence limits, and refreshes currentness-sensitive claims.",
+      "intended_behavior": "The main session continues a completed b-researcher with the extension's supported `resume` identifier only for a direct compatible follow-up, passes the delta question and prior evidence limits, and refreshes currentness-sensitive claims.",
       "prompt": "Continue a completed b-researcher thread to check a newly released version of the same library. State the compatibility checks, the continuation packet, and what must be refreshed.",
       "must": [
+        "Use the extension's supported `resume` identifier",
         "Same specialist and compatible model/profile",
         "Same scope and repository baseline",
         "Delta question and prior evidence limits",

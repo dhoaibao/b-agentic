@@ -27,7 +27,7 @@ jobs:
         run: npm ci --no-fund --no-audit
       - name: Run repository quality checks
         run: npm run quality
-      - name: Run native OpenCode validation suite
+      - name: Run native Pi validation suite
         run: bash scripts/validate-skills.sh --release
       - name: Run structural suite audit
         run: bash scripts/b-agentic-audit.sh --skip-preflight

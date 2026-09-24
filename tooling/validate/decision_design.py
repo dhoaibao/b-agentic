@@ -53,7 +53,7 @@ def candidate_paths() -> set[str]:
 
 
 def validate(text: str, tracked: set[str], label: str = "docs/decision_design.md") -> list[str]:
-    # Generated OpenCode delivery assets can be untracked during candidate
+    # Generated Pi delivery assets can be untracked during candidate
     # validation, but ignored on-disk files never qualify as traceable evidence.
     tracked = set(tracked) | candidate_paths()
     errors: list[str] = []

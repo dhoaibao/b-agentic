@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.
 and this project adheres to Calendar Versioning: `vYYYY.MM.DD`, with one release
 section per date and same-day changes aggregated in that section.
 
+## [v2026.09.24] - 2026-09-24
+
+### Changed
+
+- Migrated the supported workflow runtime from OpenCode to Pi, including native
+  skill prompts, four read-only specialists, permission policy, seven MCP server
+  configurations, installer lifecycle, and repository diagnostics. Removed the
+  shipped OpenCode runtime while leaving existing user installations untouched.
+- Adopted Pi native compaction and six unpinned extensions for subagents,
+  permissions, MCP, user questions, Anthropic request compatibility, and usage
+  visibility. The installer merges user configuration and preserves user-owned
+  files and package declarations across sync and uninstall.
+
+### Added
+
+- Added isolated Pi integration probes for parent and specialist permissions,
+  protected paths, and MCP operations, plus installer smoke coverage for
+  interrupted installs, retries, backups, and manifest-only uninstall.
+
 ## [v2026.09.23] - 2026-09-23
 
 ### Changed

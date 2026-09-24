@@ -1,4 +1,4 @@
-# Shared native OpenCode installer helpers. Sourced by install.sh.
+# Shared native Pi installer helpers. Sourced by install.sh.
 # shellcheck shell=bash
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   echo "error: this script is sourced by install.sh" >&2
@@ -143,19 +143,22 @@ install_references_and_templates() {
 
 install_kernel() {
   ensure_dir "$METADATA_DIR"
-  copy_file "$KERNEL_SRC" "$KERNEL_SNAPSHOT_DST"
-  if [ ! -e "$KERNEL_DST" ]; then
+  if [ -L "$KERNEL_DST" ]; then
+    warn "preserving symlinked kernel: $KERNEL_DST"
+    printf 'preserve\npending\nnone'
+  elif [ ! -e "$KERNEL_DST" ]; then
     copy_file "$KERNEL_SRC" "$KERNEL_DST"
+    copy_file "$KERNEL_SRC" "$KERNEL_SNAPSHOT_DST"
     printf 'write\nactive\nnone'
-  elif grep -Fq '<!-- b-agentic-managed -->' "$KERNEL_DST"; then
-    local backup
-    backup="$(backup_file "$KERNEL_DST")"
+  elif [ -f "$KERNEL_SNAPSHOT_DST" ] && cmp -s "$KERNEL_DST" "$KERNEL_SNAPSHOT_DST"; then
     copy_file "$KERNEL_SRC" "$KERNEL_DST"
-    printf 'replace\nactive\n%s' "${backup:-none}"
+    copy_file "$KERNEL_SRC" "$KERNEL_SNAPSHOT_DST"
+    printf 'replace\nactive\nnone'
   elif replace_memory_enabled; then
     local backup
     backup="$(backup_file "$KERNEL_DST")"
     copy_file "$KERNEL_SRC" "$KERNEL_DST"
+    copy_file "$KERNEL_SRC" "$KERNEL_SNAPSHOT_DST"
     printf 'replace\nactive\n%s' "${backup:-none}"
   else
     printf 'preserve\npending\nnone'
@@ -163,9 +166,34 @@ install_kernel() {
 }
 
 remove_managed_kernel() {
+  if [ -L "$KERNEL_DST" ]; then
+    warn "preserving symlinked kernel: $KERNEL_DST"
+    PRESERVE_METADATA_DIR=1
+    return 0
+  fi
   [ -f "$KERNEL_DST" ] || return 0
   if grep -Fq '<!-- b-agentic-managed -->' "$KERNEL_DST" && [ -f "$KERNEL_SNAPSHOT_DST" ] && cmp -s "$KERNEL_DST" "$KERNEL_SNAPSHOT_DST"; then
-    run_cmd rm -f "$KERNEL_DST"
+    local original
+    original="$(manifest_backup_value kernel none)"
+    if [ "$original" != none ]; then
+      if [ -f "$original" ] && [ ! -L "$original" ]; then
+        run_cmd cp "$original" "$KERNEL_DST"
+        if [ -f "$MANIFEST_DST" ] && python3 - "$MANIFEST_DST" <<'PY'
+import json, sys
+from pathlib import Path
+raise SystemExit(0 if json.loads(Path(sys.argv[1]).read_text()).get('kernelPriorBackups') else 1)
+PY
+        then
+          warn "preserving earlier user kernel backups in $BACKUPS_DIR"
+          PRESERVE_METADATA_DIR=1
+        fi
+      else
+        warn "preserving managed kernel: original backup is missing: $original"
+        PRESERVE_METADATA_DIR=1
+      fi
+    else
+      run_cmd rm -f "$KERNEL_DST"
+    fi
   else
     warn "preserving modified or user-owned kernel: $KERNEL_DST"
     PRESERVE_METADATA_DIR=1
@@ -226,6 +254,7 @@ PY
 
 merge_json_file() {
   local src="$1" dst="$2" label="$3" backup_key="$4"
+  [ ! -L "$dst" ] || die "preserving symlinked $label configuration: $dst"
   if [ ! -e "$dst" ]; then
     copy_file "$src" "$dst"
     printf 'write\nactive\nnone'
@@ -238,7 +267,7 @@ merge_json_file() {
   fi
   local tmp backup
   tmp="$(mktemp "${TMPDIR:-/tmp}/b-agentic-${label}.XXXXXX")"
-  if ! env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_PREVIOUS_TEMPLATE="$TEMPLATES_DST/opencode.user.template.json" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
+  if ! env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_PREVIOUS_TEMPLATE="$TEMPLATES_DST/$(basename "$src")" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
 import json, os, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
@@ -254,51 +283,16 @@ def merge(existing, recommended, path=()):
     if isinstance(existing, dict) and isinstance(recommended, dict):
         merged = dict(existing)
         for key, value in recommended.items():
-            if key == 'permissions' and key in merged and not isinstance(merged[key], list):
-                print('warning: preserving non-array user permissions; b-agentic permissions were not merged', file=sys.stderr)
-            elif key == 'permissions' and isinstance(merged.get(key), list) and isinstance(value, list):
-                # OpenCode v2 evaluates ordered rules last-match-wins. When the
-                # prior managed block is an exact prefix, retain every trailing
-                # user rule (including one byte-identical to a managed rule).
-                # If users reordered the block, keep all their rules authoritative.
-                prior_rules = previous.get('permissions', [])
-                if not isinstance(prior_rules, list): prior_rules = []
-                current_rules = merged[key]
-                if current_rules[: len(prior_rules)] == prior_rules:
-                    user_rules = current_rules[len(prior_rules) :]
-                else:
-                    if prior_rules:
-                        print('warning: preserving reordered user permissions after managed rules changed', file=sys.stderr)
-                    user_rules = current_rules
-                merged[key] = value + user_rules
-            elif key == 'plugins' and isinstance(merged.get(key), list) and isinstance(value, list):
-                # Plugin entries are a package set, not an ordered command.
-                # Managed packages merge ahead of user packages; user entries
-                # are preserved and deduplicated.
-                legacy_magic_context = '@cortexkit/opencode-magic-context'
-                if legacy_magic_context in merged[key] and legacy_magic_context not in value:
-                    print(
-                        'warning: preserving @cortexkit/opencode-magic-context; '
-                        'remove it from plugins because it conflicts with @tarquinen/opencode-dcp',
-                        file=sys.stderr,
-                    )
+            if key == 'packages' and isinstance(merged.get(key), list) and isinstance(value, list):
                 merged[key] = value + [item for item in merged[key] if item not in value]
-            elif path == ('compaction',) and key == 'auto':
-                if key in merged and merged[key] != value:
-                    print('warning: setting compaction.auto to false while DCP is installed; the original value is backed up', file=sys.stderr)
-                merged[key] = value
             else:
                 merged[key] = merge(merged[key], value, path + (key,)) if key in merged else value
         return merged
     if isinstance(existing, list) and isinstance(recommended, list):
-        # Command and other ordered arrays are user-owned values, not sets.
-        # Keeping an existing array avoids corrupting an MCP launch command.
-        # `plugins` is the exception: it is a package set, so managed entries
-        # merge ahead of user entries without dropping either side.
+        # Preserve user-owned command and other ordered arrays.
         return existing
     return existing
 merged = merge(current, incoming)
-# JSON object insertion order is semantically relevant to OpenCode permission rules.
 tmp.write_text(json.dumps(merged, indent=2) + '\n')
 PY
   then
@@ -342,7 +336,7 @@ from json_cleanup import remove_managed_json_config
 current = Path(os.environ['JSON_CURRENT'])
 template = Path(os.environ['JSON_TEMPLATE'])
 original = Path(os.environ['JSON_ORIGINAL']) if os.environ['JSON_ORIGINAL'] else None
-cleaned = remove_managed_json_config(current, template, original, 'opencode.json')
+cleaned = remove_managed_json_config(current, template, original, current.name)
 Path(os.environ['JSON_TMP']).write_text(json.dumps(cleaned, indent=2) + '\n')
 PY
   then
@@ -352,8 +346,12 @@ PY
     return 0
   fi
   if [ "$(cat "$tmp")" = "{}" ]; then
-    run_cmd rm -f "$path"
-    rm -f "$tmp"
+    if [ "$(manifest_action_value "$action_key" '')" = write ]; then
+      run_cmd rm -f "$path"
+      rm -f "$tmp"
+    else
+      run_cmd mv "$tmp" "$path"
+    fi
   else
     run_cmd mv "$tmp" "$path"
   fi
@@ -368,44 +366,36 @@ install_uninstall_helper() {
 }
 
 runtime_sync_configs() {
-  local prior_config_action="" prior_config_backup="none"
-  if [ -f "$MANIFEST_DST" ] && [ "$(manifest_path_value opencodeConfig "")" = "$OPENCODE_CONFIG_DST" ]; then
-    prior_config_action="$(manifest_action_value opencodeConfigAction "")"
-    prior_config_backup="$(manifest_backup_value opencodeConfig none)"
-  fi
-  run_install_triplet_stage "Syncing OpenCode subagents" install_agents "skip" "none" "none" \
-    INSTALL_AGENTS_ACTION INSTALL_AGENTS_STATE _unused_agents_backup || return $?
-  run_install_triplet_stage "Syncing OpenCode commands" install_commands "skip" "none" "none" \
-    INSTALL_COMMANDS_ACTION INSTALL_COMMANDS_STATE _unused_commands_backup || return $?
-  run_install_triplet_stage "Merging OpenCode config" install_opencode_config "skip" "none" "none" \
-    INSTALL_CONFIG_ACTION INSTALL_CONFIG_STATE INSTALL_CONFIG_BACKUP || return $?
-  if [ -n "$prior_config_action" ]; then
-    # shellcheck disable=SC2034 # Values are consumed by runtime_write_manifest.
-    INSTALL_CONFIG_ACTION="$prior_config_action"
-    # shellcheck disable=SC2034 # Values are consumed by runtime_write_manifest.
-    INSTALL_CONFIG_BACKUP="$prior_config_backup"
-  fi
+  runtime_install_configs
 }
 
 runtime_sync_common() {
-  set_install_stage_total 8
+  set_install_stage_total 11
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Syncing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
+  remember_kernel_baseline
   runtime_sync_configs
   run_stage 'Syncing references and templates' install_references_and_templates
   run_stage 'Refreshing uninstall helper' install_uninstall_helper
+  # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
+  PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
   run_stage 'Writing install manifest' runtime_write_manifest
+  runtime_finish_packages
 }
 
 runtime_install_common() {
-  set_install_stage_total 9
-  run_stage 'Preparing OpenCode CLI' runtime_upgrade_cli
+  set_install_stage_total 12
+  run_stage 'Preparing Pi CLI' runtime_upgrade_cli
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Installing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
+  remember_kernel_baseline
   runtime_install_configs
   run_stage 'Syncing references and templates' install_references_and_templates
   run_stage 'Installing uninstall helper' install_uninstall_helper
+  # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
+  PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
   run_stage 'Writing install manifest' runtime_write_manifest
+  runtime_finish_packages
   runtime_print_install_report
 }
 
@@ -438,7 +428,7 @@ uninstall_installed_skills() {
 
 runtime_uninstall_common() {
   set_install_stage_total 4
-  run_stage 'Removing OpenCode config' runtime_uninstall_configs
+  run_stage 'Removing Pi config' runtime_uninstall_configs
   run_stage 'Removing managed skills' uninstall_installed_skills
   run_stage 'Removing managed kernel' remove_managed_kernel
   if [ "${PRESERVE_METADATA_DIR:-0}" -eq 0 ]; then

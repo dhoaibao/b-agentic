@@ -23,7 +23,7 @@ python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/session_readiness.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/browser_evidence.py" --self-test
 python3 "$ROOT_DIR/skills/b-diagram/diagram.py" self-test
-bash "$ROOT_DIR/opencode/scripts/validate.sh"
+bash "$ROOT_DIR/pi/scripts/validate.sh"
 
 if [ "$run_release" -eq 1 ]; then
   if command -v rtk >/dev/null 2>&1; then

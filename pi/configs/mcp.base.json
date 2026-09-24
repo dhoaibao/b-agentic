@@ -1,0 +1,47 @@
+{
+  "settings": {
+    "directTools": true,
+    "toolPrefix": "server",
+    "scriptMode": false,
+    "allowInstall": false
+  },
+  "mcpServers": {
+    "codegraph": {
+      "command": "codegraph",
+      "args": ["serve", "--mcp"],
+      "env": { "CODEGRAPH_TELEMETRY": "0" },
+      "lifecycle": "lazy"
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": { "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}" },
+      "lifecycle": "lazy"
+    },
+    "brave_search": {
+      "command": "bunx",
+      "args": ["@brave/brave-search-mcp-server", "--transport", "stdio"],
+      "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" },
+      "lifecycle": "lazy"
+    },
+    "firecrawl": {
+      "command": "bunx",
+      "args": ["firecrawl-mcp"],
+      "env": { "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}" },
+      "lifecycle": "lazy"
+    },
+    "playwright": {
+      "command": "bunx",
+      "args": ["@playwright/mcp", "--isolated", "--headless", "--caps=testing"],
+      "lifecycle": "lazy"
+    },
+    "mobbin": {
+      "url": "https://api.mobbin.com/mcp",
+      "lifecycle": "lazy"
+    },
+    "shadcn": {
+      "command": "bunx",
+      "args": ["shadcn@latest", "mcp"],
+      "lifecycle": "lazy"
+    }
+  }
+}

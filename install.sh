@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — bootstrap, refresh, or remove the native OpenCode b-agentic setup.
+# install.sh — bootstrap, refresh, or remove the native Pi b-agentic setup.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
@@ -57,7 +57,7 @@ set_source_dir() {
   SOURCE_DIR="$1"
   SKILLS_SRC="$SOURCE_DIR/skills"
   REFERENCES_SRC="$SOURCE_DIR/references"
-  TEMPLATES_SRC="$SOURCE_DIR/opencode/configs"
+  TEMPLATES_SRC="$SOURCE_DIR/pi/configs"
   KERNEL_SRC="$SOURCE_DIR/references/kernel.template.md"
 }
 
@@ -83,8 +83,8 @@ parse_args() {
         [ "$OPERATION" = install ] || die '--sync and --update cannot be combined'
         OPERATION="${1#--}"
         ;;
-      --runtime=opencode) ;;
-      --runtime=pi|--runtime) die 'b-agentic now targets native OpenCode only; Pi installs are intentionally untouched.' ;;
+      --runtime=pi) ;;
+      --runtime=opencode|--runtime) die 'b-agentic targets Pi only.' ;;
       --ref=*) REF="${1#--ref=}"; [ -n "$REF" ] || die 'invalid empty --ref' ;;
       *) die "unknown argument: $1" ;;
     esac
@@ -100,9 +100,10 @@ validate_source_layout() {
   [ -d "$REFERENCES_SRC" ] || die "missing references: $REFERENCES_SRC"
   [ -f "$REFERENCES_SRC/capabilities.yaml" ] || die "missing capability registry: $REFERENCES_SRC/capabilities.yaml"
   [ -f "$KERNEL_SRC" ] || die "missing kernel: $KERNEL_SRC"
-  [ -d "$TEMPLATES_SRC" ] || die "missing OpenCode configs: $TEMPLATES_SRC"
-  [ -f "$TEMPLATES_SRC/opencode.user.template.json" ] || die "missing generated OpenCode config template"
-  [ -f "$SOURCE_DIR/opencode/scripts/install.sh" ] || die "missing OpenCode runtime installer"
+  [ -d "$TEMPLATES_SRC" ] || die "missing Pi configs: $TEMPLATES_SRC"
+  [ -f "$TEMPLATES_SRC/permission.user.template.json" ] || die 'missing generated Pi permission template'
+  [ -f "$TEMPLATES_SRC/mcp.base.json" ] || die 'missing Pi MCP template'
+  [ -f "$SOURCE_DIR/pi/scripts/install.sh" ] || die 'missing Pi runtime installer'
   [ -f "$SOURCE_DIR/tooling/install/common.sh" ] || die "missing installer core"
 }
 
@@ -138,17 +139,27 @@ prepare_source() {
 }
 
 manifest_only_uninstall() {
-  local config_dir="${B_AGENTIC_OPENCODE_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
+  local config_dir="${B_AGENTIC_PI_DIR:-${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}}"
   local manifest="$config_dir/b-agentic/install.json"
   local helper="$config_dir/b-agentic/tooling/install/manifest_uninstall.py"
   uninstall_enabled && [ ! -d "$LOCAL_REPO/skills" ] && [ -f "$manifest" ] && [ -f "$helper" ] || return 1
-  python3 "$helper" "$manifest"
+  if dry_run_enabled; then
+    python3 "$helper" "$manifest" --dry-run
+  else
+    python3 "$helper" "$manifest"
+  fi
 }
 
-warn_legacy_pi_install() {
-  local legacy="${HOME}/.pi/agent/b-agentic/install.json"
-  [ -f "$legacy" ] || return 0
-  warn "A previous Pi b-agentic install remains at $legacy. It was not modified; use its last supported installer to remove it if desired."
+validate_pi_config_dir() {
+  local config_dir="${B_AGENTIC_PI_DIR:-${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}}"
+  python3 - "$config_dir" <<'PY' || die 'Pi agent directory must be an absolute path under the invoking user home'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+home = Path.home().resolve()
+if not path.is_absolute() or path.resolve() == home or not path.resolve().is_relative_to(home):
+    raise SystemExit(1)
+PY
 }
 
 install_optional_runtime_tools() {
@@ -166,30 +177,29 @@ load_runtime() {
   # shellcheck disable=SC1090
   source "$SOURCE_DIR/tooling/install/common.sh"
   # shellcheck disable=SC1090
-  source "$SOURCE_DIR/opencode/scripts/install.sh"
+  source "$SOURCE_DIR/pi/scripts/install.sh"
 }
 
 main() {
   parse_args "$@"
   note_noninteractive
   command -v python3 >/dev/null 2>&1 || die 'python3 is required for configuration management'
+  validate_pi_config_dir
   if manifest_only_uninstall; then return 0; fi
   command -v git >/dev/null 2>&1 || die 'git is required to prepare b-agentic source'
   prepare_source
   load_runtime
-  warn_legacy_pi_install
-
   if uninstall_enabled; then
-    opencode_uninstall
-    success 'b-agentic uninstall complete for OpenCode.'
+    pi_uninstall
+    success 'b-agentic uninstall complete for Pi.'
     return 0
   fi
 
   install_optional_runtime_tools
   case "$OPERATION" in
-    install) opencode_install ;;
-    sync) opencode_sync; success 'b-agentic sync complete for OpenCode.' ;;
-    update) opencode_update ;;
+    install) pi_install ;;
+    sync) pi_sync; success 'b-agentic sync complete for Pi.' ;;
+    update) pi_update ;;
   esac
 }
 

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Canonical native OpenCode v2 MCP operation classification. Ordered native permissions apply directly to <server>_<tool> names with Code Mode disabled; MCP tool arguments are not pattern-matched.",
+  "description": "Canonical Pi MCP operation classification for direct adapter tools and permission-system enforcement. Unrecognized tools and proxy mutations require approval.",
   "classes": {
     "read-only": {"policy": "Auto-allowed by tool name", "native_permission": "allow", "notes": "Observation-only MCP operation."},
     "conditional-read": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly argument-validated; MCP tool arguments are not pattern-matched."},
@@ -14,7 +14,7 @@
   },
   "servers": {
     "codegraph": {"tools": {"codegraph_explore": "read-only"}},
-    "context7": {"tools": {"resolve_library_id": "read-only", "query_docs": "read-only"}},
+    "context7": {"tools": {"resolve-library-id": "read-only", "query-docs": "read-only"}},
     "brave_search": {"tools": {"brave_web_search": "read-only", "brave_local_search": "read-only", "brave_video_search": "read-only", "brave_image_search": "read-only", "brave_news_search": "read-only", "brave_summarizer": "read-only", "brave_llm_context": "read-only", "brave_place_search": "read-only"}},
     "firecrawl": {"tools": {"firecrawl_search": "conditional-read", "firecrawl_developer_search": "read-only", "firecrawl_scrape": "conditional-read", "firecrawl_map": "conditional-read", "firecrawl_extract": "conditional-read", "firecrawl_agent_status": "read-only", "firecrawl_check_crawl_status": "read-only", "firecrawl_find_tools": "read-only", "firecrawl_interact_stop": "external-mutation", "firecrawl_research_search_papers": "read-only", "firecrawl_research_inspect_paper": "read-only", "firecrawl_research_read_paper": "read-only", "firecrawl_research_related_papers": "read-only", "firecrawl_research_search_github": "read-only", "firecrawl_parse": "local-upload", "firecrawl_agent": "external-mutation", "firecrawl_crawl": "external-mutation", "firecrawl_interact": "external-mutation", "firecrawl_search_feedback": "external-mutation", "firecrawl_feedback": "external-mutation", "firecrawl_monitor_create": "monitor-lifecycle", "firecrawl_monitor_update": "monitor-lifecycle", "firecrawl_monitor_delete": "monitor-lifecycle", "firecrawl_monitor_get": "monitor-lifecycle", "firecrawl_monitor_list": "monitor-lifecycle", "firecrawl_monitor_run": "monitor-lifecycle", "firecrawl_monitor_check": "monitor-lifecycle", "firecrawl_monitor_checks": "monitor-lifecycle"}},
     "playwright": {"tools": {"browser_snapshot": "conditional-read", "browser_find": "read-only", "browser_take_screenshot": "local-mutation", "browser_console_messages": "conditional-read", "browser_network_requests": "conditional-read", "browser_network_request": "conditional-read", "browser_wait_for": "read-only", "browser_navigate": "external-mutation", "browser_navigate_back": "external-mutation", "browser_resize": "external-mutation", "browser_hover": "external-mutation", "browser_close": "external-mutation", "browser_tabs": "conditional-read", "browser_click": "external-mutation", "browser_type": "external-mutation", "browser_fill_form": "external-mutation", "browser_press_key": "external-mutation", "browser_select_option": "external-mutation", "browser_file_upload": "external-mutation", "browser_drop": "external-mutation", "browser_drag": "external-mutation", "browser_evaluate": "external-mutation", "browser_run_code_unsafe": "external-mutation", "browser_handle_dialog": "external-mutation", "browser_generate_locator": "read-only", "browser_verify_element_visible": "conditional-read", "browser_verify_list_visible": "conditional-read", "browser_verify_text_visible": "conditional-read", "browser_verify_value": "conditional-read"}},
@@ -22,6 +22,6 @@
     "shadcn": {"tools": {"get_project_registries": "read-only", "list_items_in_registries": "read-only", "search_items_in_registries": "read-only", "view_items_in_registries": "read-only", "get_add_command_for_items": "read-only", "get_audit_checklist": "read-only"}}
   },
   "runtime_enforcement": {
-    "opencode": "Generated native v2 permissions use direct tool-name allow, ask, and deny decisions with Code Mode disabled. Argument-conditional classification and a proxy gateway are intentionally unavailable; unknown and mutating tools must be asked or denied by explicit rule."
+    "pi": "Generated permission-system rules gate direct tools and recognized paths; the MCP proxy is separately gated. Unknown and mutating tools require approval. Path checks cannot classify every arbitrary MCP argument."
   }
 }

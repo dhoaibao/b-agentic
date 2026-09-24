@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the slim native OpenCode capability registry and rendered config."""
+"""Validate the slim native Pi capability registry and rendered policy."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ sys.path.insert(0, str(ROOT))
 
 def main() -> int:
     from tooling.generate.registry_sync import (
-        OPENCODE_TEMPLATE_PATH,
+        PI_CONFIGS_DIR,
         load_capabilities,
         load_policy,
-        render_opencode_template,
+        render_permissions,
         validate_capabilities,
     )
 
@@ -26,11 +26,14 @@ def main() -> int:
     capabilities = load_capabilities()
     policy = load_policy()
     errors = validate_capabilities(capabilities, policy)
-    expected = render_opencode_template(policy)
-    if not OPENCODE_TEMPLATE_PATH.exists():
-        errors.append(f"{OPENCODE_TEMPLATE_PATH}: missing generated OpenCode config template")
-    elif OPENCODE_TEMPLATE_PATH.read_text() != expected:
-        errors.append(f"{OPENCODE_TEMPLATE_PATH}: generated OpenCode config template is out of date")
+    import json
+
+    template = PI_CONFIGS_DIR / "permission.user.template.json"
+    expected = json.dumps(render_permissions(policy), indent=2) + "\n"
+    if not template.exists():
+        errors.append(f"{template}: missing generated Pi permission template")
+    elif template.read_text() != expected:
+        errors.append(f"{template}: generated Pi permission template is out of date")
     if args.self_test:
         ids = [item.get("id") for item in capabilities.get("capabilities", [])]
         if len(ids) != len(set(ids)):
@@ -40,7 +43,7 @@ def main() -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Native OpenCode capability contract validation passed.")
+    print("Native Pi capability contract validation passed.")
     return 0
 
 

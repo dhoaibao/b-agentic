@@ -43,7 +43,7 @@ Test scope, changes, verification, and remaining gaps.
 - Never change production code only because a test is red.
 - When an edit anchor (oldText) fails to match, re-read the target region and re-anchor the edit from current content; never blind-retry the same anchor or widen context speculatively.
 - Keep production-code changes in **b-implement** unless they are frontend/UI changes, which belong to **b-frontend**, or the user explicitly requested a tightly scoped TDD red-green loop.
-- Never update assertions, snapshots, or goldens without confirming intended behavior. If the intended contract is materially unresolved, use native `question` with 2–4 concrete intent options (for example, keep the current expectation, adopt the changed behavior, or defer the test change); if unavailable or noninteractive, ask one focused plain-text question. Do not use the question tool for routine test-result updates or no-choice confirmations.
+- Never update assertions, snapshots, or goldens without confirming intended behavior. If the intended contract is materially unresolved, use `ask_user_question` with 2–4 concrete intent options (for example, keep the current expectation, adopt the changed behavior, or defer the test change); if unavailable or noninteractive, ask one focused plain-text question. Do not use the question tool for routine test-result updates or no-choice confirmations.
 - Avoid implementation-coupled tests and mocks derived from buggy implementation instead of the real interface.
 - Do not introduce frameworks without approval.
 - Keep fixture and mock changes local when practical.

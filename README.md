@@ -1,14 +1,14 @@
 # b-agentic
 
-**A slim personal workflow kernel for native OpenCode.**
+**A slim personal workflow kernel for native Pi.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
-installs an always-loaded OpenCode kernel, native skills and commands,
+installs an always-loaded Pi kernel, native skills and prompt templates,
 read-only specialist agents, and managed MCP configuration.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, MCP, and validation.
-- [OpenCode configuration layout](opencode/configs/README.md) — managed paths and ownership boundaries.
+- [Pi configuration layout](pi/configs/README.md) — managed paths and ownership boundaries.
 - [Project guidance](AGENTS.md), [changelog](CHANGELOG.md), and [decision design](docs/decision_design.md).
 
 ## Install
@@ -17,20 +17,19 @@ read-only specialist agents, and managed MCP configuration.
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-The installer upgrades an existing OpenCode CLI with `opencode upgrade` (or
-uses OpenCode v2's curl installer on first install), writes only under
-`~/.config/opencode`, and preserves unrelated configuration. It detects but
-never changes a legacy b-agentic installation in a different runtime directory.
+The installer updates Pi to the latest available release, installs six unpinned
+extensions, writes managed assets under `~/.pi/agent`, and preserves unrelated
+configuration. It never changes an existing OpenCode installation.
 See [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
 ## How it works
 
 Each request uses one active skill rather than mixing planning, building,
-validation, and shipping. The main OpenCode session owns user interaction,
+validation, and shipping. The main Pi session owns user interaction,
 decisions, verification, and mutations. It delegates bounded planning,
 research, diagnosis, and changed-code review through native read-only
-subagents, using background work only when it is independent and safely
-continuing compatible research threads through their child session IDs.
+subagents, using background work only when it is independent and resuming a
+compatible child through its supported task identifier.
 
 | Phase | Skills | Purpose |
 |---|---|---|
@@ -61,12 +60,12 @@ continuing compatible research threads through their child session IDs.
 | `b-pr-summary` | Ship | Write commit-backed PR copy or review and rewrite supplied PR prose |
 <!-- generated:skills-table:end -->
 
-OpenCode can select skills with its native `skill` tool. For an explicit route,
-use generated commands such as `/b-plan`, `/b-research`, `/b-implement`,
+Pi discovers the installed `SKILL.md` files. For an explicit route, use
+generated prompt templates such as `/b-plan`, `/b-research`, `/b-implement`,
 `/b-test`, and `/b-review`.
 
 ## Learn more
 
 - [Operational reference](REFERENCE.md) — lifecycle, native permissions, MCP, and verification.
-- [OpenCode configuration layout](opencode/configs/README.md) — installed paths and ownership boundaries.
+- [Pi configuration layout](pi/configs/README.md) — installed paths and ownership boundaries.
 - [Decision design](docs/decision_design.md) — evidence-backed architecture decisions.

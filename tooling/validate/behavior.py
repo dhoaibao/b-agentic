@@ -37,7 +37,7 @@ KERNEL_CONSOLIDATION_REGRESSION = {
     "intended_behavior": "The single always-loaded kernel retains routing, approval, verification, and local-tool fallback guidance.",
     "required_clauses": (
         "latest user instruction, approved plan, repo evidence, then stated assumptions",
-        "load it with the `skill` tool (or its `/b-<skill>` command) before acting",
+        "reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` prompt) before acting",
         "define success, make the smallest coherent change, and verify its observable outcome",
         "Auto-run repository-local commands and edits, including build, test, package, and scripts",
         "likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`)",
@@ -88,11 +88,11 @@ SUBAGENT_DELEGATION_REGRESSION = {
     "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents load and return the selected skill's own output format, and risk-triggered changed candidates receive an independent frozen b-reviewer gate.",
     "required_clauses": (
         "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action.",
-        "The main session loads and executes main-owned skills: load it with the `skill` tool (or its `/b-<skill>` command) before acting. When routing selects a delegated skill, it invokes the named subagent and only that child loads and executes the skill.",
-        "invoke its named OpenCode subagent through `subagent` with a bounded task",
+        "The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` prompt) before acting. For delegated skills, call the named Pi `subagent` type and require the child to read that skill.",
+        "invoke its named Pi `subagent` type with a bounded task",
         "Delegated agents are read-only specialists.",
-        "They do not edit, commit, ask users questions, launch nested agents, or execute external/shared mutation, local upload, lifecycle, or authentication actions; they report the required action to the main session.",
-        "Their `permissions` rules deny `edit`, `subagent`, and `question`",
+        "They do not edit, commit, ask users questions, launch nested agents, or execute external/shared mutation, local upload, lifecycle, or authentication actions; they report required action to main.",
+        "Their complete tool allowlists and per-agent Pi permission policy gate writes, shell commands, MCP tools, questions, and nested delegation.",
         "For every changed candidate, inspect tracked and relevant untracked/derived paths and their diff, run applicable required checks",
         "Require independent `b-reviewer` review when requested by the user",
         "data integrity or migrations, public interfaces or contracts, dependencies or runtime configuration, installer or workflow policy, or multiple subsystems",
@@ -106,7 +106,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-debug` -> `b-debugger`.",
         "`b-agentic-audit` -> `b-reviewer`.",
         "`b-review` -> `b-reviewer`.",
-        "the invocation names the exact skill, which the subagent loads and executes before returning that skill's own Output format—not a generic evidence template.",
+        "the child reads its installed SKILL.md. Treat the returned result as evidence—not approval or implementation authority.",
     ),
 }
 
@@ -114,13 +114,20 @@ SUBAGENT_SESSION_REGRESSION = {
     "observed_failure": "Background child work could gate a decision, overwrite another child scope, or reuse incompatible or stale child context.",
     "intended_behavior": "The main session uses bounded background work only when independent, and continues only a compatible completed child while retaining independent review.",
     "required_clauses": (
-        "Default to foreground when its result gates the next decision or action.",
+        "Default to foreground when the result gates action.",
         "Start a background child only for independent, read-only work that the main session can safely continue without",
-        "retain its returned `sessionID` and bounded task metadata in the main-session context.",
+        "retain its returned task ID and bounded task metadata.",
         "Do not start concurrent children with overlapping scope or rely on an active child for a decision.",
-        "Reuse a completed child through its `sessionID` only for a direct continuation with the same specialist, compatible model/profile, scope, and repository baseline.",
+        "Resume a child only with the extension's supported `resume` identifier for a direct continuation with the same specialist, model/profile, scope, and repository baseline",
         "Start a fresh child for independent work, a different specialist or model/profile, changed scope/baseline, failed or overly broad context, or a required independent review.",
         "Never reuse a reviewer session for a changed candidate.",
+    ),
+}
+SUBAGENT_FIXTURE_CONTINUATION = {
+    "background-child-is-independent": ("Retain the returned task ID", "returned task ID"),
+    "continuation-reuses-compatible-child": (
+        "Use the extension's supported `resume` identifier",
+        "extension's supported `resume` identifier",
     ),
 }
 
@@ -133,7 +140,7 @@ SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
         "`b-research` runs only in the `b-researcher` subagent.",
         "the main session delegates a bounded task and must not perform the research itself.",
         "the main session evaluates that result before any user-facing or consequential action.",
-        "The main session may continue a compatible research thread through its returned `sessionID`",
+        "The main session may resume a compatible research task through the extension's supported `resume` identifier",
         "the child must treat the continuation packet as evidence, not current truth.",
     ),
     "b-debug": (
@@ -736,6 +743,18 @@ def validate_subagent_prompt_boundaries(skills: list[dict], errors: list[str]) -
     if missing:
         errors.append(f"subagent fixture coverage: missing delegated skills {missing}")
 
+    by_id = {scenario.get("id"): scenario for scenario in scenarios if isinstance(scenario, dict)}
+    for scenario_id, (must_clause, behavior_clause) in SUBAGENT_FIXTURE_CONTINUATION.items():
+        scenario = by_id.get(scenario_id)
+        if not isinstance(scenario, dict):
+            errors.append(f"subagent fixture continuation: missing scenario {scenario_id}")
+            continue
+        expectations = scenario.get("must", [])
+        if not isinstance(expectations, list):
+            expectations = []
+        if must_clause not in expectations or behavior_clause not in scenario.get("intended_behavior", ""):
+            errors.append(f"subagent fixture continuation: {scenario_id} missing Pi contract {must_clause!r}")
+
 
 def validate_cross_skill_contracts(errors: list[str]) -> None:
     """Static prose guards; model-executed scenarios remain opt-in in subagents.json."""
@@ -808,7 +827,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "user-authorized, project-confined task permits necessary local reads of proprietary source, not external disclosure",
                 "Likely secrets, customer data, private stack traces, internal URLs, and protected material still require explicit permission",
                 "External transmission of private or proprietary material requires explicit approval",
-                "MCP servers are configured natively in OpenCode",
+                "Pi MCP adapter exposes direct `<server>_<tool>` names",
             ),
         },
     }
@@ -837,11 +856,11 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         if execution.get("mode") != "subagent":
             continue
         name = skill["name"]
-        command = (ROOT / "opencode" / "commands" / f"{name}.md").read_text()
-        if f"Load and execute the `{name}` skill" not in command:
-            errors.append(f"delegation contract: command missing named skill load for {name}")
-        if f"Return the `{name}` skill's own Output format" not in command:
-            errors.append(f"delegation contract: command missing named output format for {name}")
+        prompt = (ROOT / "pi" / "prompts" / f"{name}.md").read_text()
+        if f"`{name}` skill" not in prompt or "`subagent` tool" not in prompt:
+            errors.append(f"delegation contract: Pi prompt missing named skill delegation for {name}")
+        if "that skill's Output format" not in prompt:
+            errors.append(f"delegation contract: Pi prompt missing named output format for {name}")
 
 
 def main() -> int:

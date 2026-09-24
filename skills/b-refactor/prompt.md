@@ -41,5 +41,5 @@ Target, impact, changes, verification, and follow-up risk.
 - Preserve behavior.
 - When an edit anchor (oldText) fails to match, re-read the target region and re-anchor the edit from current content; never blind-retry the same anchor or widen context speculatively.
 - Use symbol-aware tools when they provide a concrete precision or safety benefit; keep native inspection as the default for routine discovery.
-- Ask before broad moves or cascading ecosystem changes when they are an unresolved material user-facing choice. Use native `question` with 2–4 concrete options and a concise recommended choice; if unavailable or noninteractive, ask one focused plain-text question. Do not use the question tool for routine updates or no-choice confirmations.
+- Ask before broad moves or cascading ecosystem changes when they are an unresolved material user-facing choice. Use `ask_user_question` with 2–4 concrete options and a concise recommended choice; if unavailable or noninteractive, ask one focused plain-text question. Do not use the question tool for routine updates or no-choice confirmations.
 - Stop if redesign or behavior change appears.
