@@ -78,23 +78,23 @@
       "id": "approved-clean-baseline-migration",
       "skill": "b-init",
       "observed_failure": "A clean-baseline migration could retain old generated boilerplate or lose a known developer rule, leaving an exhaustive or unsafe exemplar.",
-      "intended_behavior": "With explicit approval, remove only old generated boilerplate, move the identified changelog rule verbatim into the developer-owned Project Rules section after the managed block, and write a concise three-section operating guide.",
-      "prompt": "The user explicitly approves a clean-baseline migration for this repository's root AGENTS.md. The old managed block contains generated Project Profile and Project Map and Ownership boilerplate plus one known developer-directed changelog rule. Replace it with the new b-init model, move that known rule to a developer-owned Project Rules section after the managed end marker, and describe the resulting concise document; do not edit files.",
+      "intended_behavior": "With explicit approval, remove only old generated boilerplate, move the identified developer rule verbatim into the developer-owned Project Rules section after the managed block, and write a concise three-section operating guide.",
+      "prompt": "The user explicitly approves a clean-baseline migration for a repository's root AGENTS.md. The old managed block contains generated Project Profile and Project Map and Ownership boilerplate plus one known developer-directed deployment rule. Replace it with the new b-init model, move that known rule to a developer-owned Project Rules section after the managed end marker, and describe the resulting concise document; do not edit files.",
       "must": [
         "Use the explicit clean-baseline approval as the migration decision",
         "Remove old generated Project Profile and Project Map and Ownership boilerplate",
-        "Move the specifically identified changelog rule into Project Rules after the managed end marker",
+        "Move the specifically identified deployment rule into Project Rules after the managed end marker",
         "Preserve that developer rule verbatim",
         "Write exactly three top-level sections in this order: Repository Purpose, Project Operating Guide, Verification",
         "Keep only relevant orientation, sources/flows/boundaries, and applicable verification",
-        "Do not add a changelog entry for an uncommitted change"
+        "Do not add an unrelated rule during migration"
       ],
       "avoid": [
         "Retain legacy Project Profile or Project Map and Ownership headings",
         "Place Project Rules inside the managed markers",
         "Keep the old exhaustive setup, release, or diagnostic command inventory",
         "Invent project facts or verification commands",
-        "Discard the identified changelog rule"
+        "Discard the identified deployment rule"
       ]
     }
   ]

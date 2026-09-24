@@ -191,9 +191,9 @@
       "skill": "b-commit",
       "observed_failure": "A complex user-authorized commit staged a changed candidate without fresh independent review evidence.",
       "intended_behavior": "For a triggered commit plan, the main session completes preparation, freezes the exact candidate and commit plan, obtains b-reviewer review, and stages only unchanged reviewed paths.",
-      "prompt": "A user explicitly requests two commits, one with a pre-existing staged set. Required changelog preparation changes the candidate after an earlier review. Explain the required sequence before staging.",
+      "prompt": "A user explicitly requests two commits, one with a pre-existing staged set. Required repository-specific preparation changes the candidate after an earlier review. Explain the required sequence before staging.",
       "must": [
-        "Prepare changelog before final snapshot",
+        "Complete required preparation before final snapshot",
         "Reopen b-reviewer review",
         "Verify unchanged reviewed candidate before staging"
       ],
@@ -204,7 +204,7 @@
       "skill": "b-commit",
       "observed_failure": "A routine single-group commit incurred an unnecessary second independent review.",
       "intended_behavior": "A prepared, verified single cohesive low-risk group without a pre-existing staged set can proceed after an exact-path/index self-audit and report the review exception.",
-      "prompt": "A user explicitly requests one commit of a bounded low-risk correction. Changelog preparation is complete, all candidate paths and the index are inspected, required checks pass, and no paths were staged beforehand. State what happens before staging and whether b-reviewer is required.",
+      "prompt": "A user explicitly requests one commit of a bounded low-risk correction. All repository-required preparation is complete, all candidate paths and the index are inspected, required checks pass, and no paths were staged beforehand. State what happens before staging and whether b-reviewer is required.",
       "must": [
         "Self-audit the exact paths, index, and message",
         "Confirm unchanged snapshot and passing checks",
@@ -213,7 +213,7 @@
       ],
       "avoid": [
         "Require b-reviewer automatically",
-        "Skip the changelog preparation",
+        "Skip required repository preparation",
         "Claim an independent reviewer verdict"
       ]
     },

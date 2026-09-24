@@ -58,5 +58,4 @@ Changes, verification, acceptance coverage, and deviations or gaps. Report the l
 - Shared approval policy remains authoritative.
 - Apply the kernel's risk triggers to changed candidates; no-change outputs must not initiate changed-code review.
 - When **b-reviewer** returns `NEEDS FIXES`, correct only unambiguous in-scope findings, rerun checks, then request a fresh review; stop for ambiguity or scope drift.
-- Same-day changelog maintenance is required only when preparing a user-authorized commit. Include it in the candidate and reclassify risk after preparation; reopen review if the reviewed snapshot changed.
 - Never claim shipping readiness when required verification or a triggered independent review is absent.

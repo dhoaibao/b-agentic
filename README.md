@@ -9,7 +9,7 @@ read-only specialist agents, and managed MCP configuration.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, MCP, and validation.
 - [Pi configuration layout](pi/configs/README.md) — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md), [changelog](CHANGELOG.md), and [decision design](docs/decision_design.md).
+- [Project guidance](AGENTS.md) and [decision design](docs/decision_design.md).
 
 ## Install
 

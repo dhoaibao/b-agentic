@@ -34,9 +34,3 @@ overview](README.md) and [operational reference](REFERENCE.md).
 - `rtk git diff --check` — check changed paths for whitespace errors.
 
 <!-- b-init-managed:end -->
-
-## Project Rules
-
-This section is developer-owned. b-init refreshes must preserve it verbatim and never regenerate, move, or delete it.
-
-- **Scope: changelog maintenance (enforced local convention).** Agents preparing a commit—including b-commit work—must update `CHANGELOG.md` before committing. Include every change made in a calendar day in that day's single `## [vYYYY.MM.DD] - YYYY-MM-DD` section; do not retain a persistent `## [Unreleased]` section, never create a separate ordinal release for another same-day commit, and append a cohesive human-facing entry under the appropriate standard Keep a Changelog category (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, or `Security`). Keep dated sections one per date and newest-first. Never copy or mechanically reuse raw commit-subject text as the entry. This is agent-maintained policy, not Git-hook or other commit automation; do not create a release entry merely for an uncommitted change. **Evidence:** `CHANGELOG.md`, `tooling/validate/changelog.py`.
