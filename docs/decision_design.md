@@ -30,10 +30,11 @@ The kernel selects one skill at a time. Pi discovers skill descriptors, and gene
 `/b-<name>` prompt templates supply an explicit route. Worktree mutation,
 user interaction, verification, and reporting stay in the main session. The
 `@gotgenes/pi-subagents` extension supplies four named specialists. Each child
-reads its named skill, applies a complete tool allowlist and per-agent
-permission policy, and returns the skill's own output format. Foreground is
-default; background work is independent and read-only, in-process, and lost
-when its parent ends. Compatible continuation requires the supported `resume`
+reads its named skill, uses a tool list without edit/write, questions, or nested
+delegation, and returns the skill's own output format. Read-only shell behavior
+is instructed rather than enforced by a child-specific permission policy.
+Foreground is default; background work is independent and read-only,
+in-process, and lost when its parent ends. Compatible continuation requires the supported `resume`
 identifier; different scope/baseline and an independent reviewer use a fresh
 child. The registry retains explicit provider/model and thinking choices; no
 silent model substitution is made.
@@ -45,18 +46,23 @@ Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 ## Safety and approval design
 
 `@gotgenes/pi-permission-system` gates main and child tools. The generated
-global policy allows ordinary local edits and skill invocation, denies protected
-path patterns and named destructive commands, and asks before external
-directories, unknown MCP tools, proxy tool calls, and consequential actions.
+global policy allows ordinary repository-local edits and skill invocation, denies
+protected path patterns, named dangerous commands, and outside-project writes,
+and asks before outside-project reads, unknown MCP tools, proxy tool calls, and
+consequential actions.
 Known read-only direct MCP operations are allowed by exact tool name; proxy
 calls still ask because its targets cannot securely bind the tool to its server.
 Invoking a skill never bypasses tool and path gates for its subsequent work.
-Specialist profiles deny by default and allow only read, bounded inspection
-shell, and named observation-only direct MCP tools; nested delegation and user
-questions are not on their tool lists.
-The kernel additionally requires approval for protected, destructive,
-outside-project, and external/shared actions. Pi permission rules and adapter
-tool matching are not filesystem or process isolation. Shell indirection and
+Specialist profiles expose read and shell tools plus named observation-only
+direct MCP tools, without a per-agent permission block; nested delegation and
+user questions are not on their tool lists. The global Pi permission policy
+still applies to their calls. A shell can mutate files inside the repo or
+invoke external services, so the read-only specialist boundary now depends on
+instructions, not enforcement by a child-specific command allowlist. The shared
+permission policy's named denials are not a process sandbox.
+The kernel additionally requires approval for other destructive, privileged,
+ambiguous, protected, and external/shared actions. Pi permission rules and
+adapter tool matching are not filesystem or process isolation. Shell indirection and
 MCP argument fields not recognized by the path gate remain residual risks.
 An offline stub-provider integration probe tests representative parent/child
 allow/deny and direct/proxy MCP decisions. Interactive approval UI and real

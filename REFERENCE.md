@@ -66,9 +66,10 @@ The main session reads one skill before acting, or invokes a generated
 `/b-<name>` prompt template. `skills/registry.yaml` and `skills/*/prompt.md`
 are canonical; `tooling/generate/registry_sync.py` generates the delivery
 assets. The four `@gotgenes/pi-subagents` specialist profiles are
-`b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. Their complete tool
-allowlists and per-agent permission rules prohibit worktree writes, user
-questions, nested delegation, and mutating MCP tools. The main session owns
+`b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. Their tool lists
+omit edit/write, user questions, nested delegation, and mutating direct MCP
+tools. Their read-only behavior is instructed, not enforced by a child-specific
+permission block: shell access can still mutate state. The main session owns
 those activities, verification, and final reporting. A child result is
 evidence, not authorization. Background children run only while the parent Pi
 process remains alive; compatible continuations use the extension's `resume`
@@ -89,17 +90,24 @@ provider usage if authenticated; its banked-reset action requires approval.
 
 The generated `pi/configs/permission.user.template.json` is a configuration
 for `@gotgenes/pi-permission-system`. Main-session local work is allowed,
-protected path patterns are denied, named destructive shell commands are
-denied, external directories ask, and unknown direct MCP operations ask. The
-generic `mcp` proxy asks by default, with metadata operations allowed. Use
-read-only named direct tools to avoid proxy approval: the proxy cannot safely
-bind an allow rule to the server that will execute it. Skill invocation and
+protected path patterns and named dangerous shell commands are denied,
+outside-project writes are denied, outside-project reads ask, and unknown direct
+MCP operations ask. The generic `mcp` proxy asks by default, with metadata
+operations allowed. Use read-only named direct tools to avoid proxy approval:
+the proxy cannot safely bind an allow rule to the server that will execute it. Skill invocation and
 read-only named direct tools are allowed; upload, mutation, monitor, and auth
 tools ask. The specialists additionally have complete tool allowlists and
-deny-by-default per-agent policies. Extension policy is not a process sandbox:
-shell normalization, path-field recognition, and dynamic tool registration
-have limits. The kernel requires explicit approval for protected/outside-project
-or external/shared actions even when a tool-level rule would allow them.
+no child-specific permission policies, so global policy applies to their tools.
+On existing installs, newly named deny rules follow legacy ask entries without
+rewriting user-owned values. `rm -rf *` also denies repository-local cleanup;
+pipe-to-shell rules catch plain `| bash` and `| sh`, not every shell spelling
+or indirection. Extension policy is not a process sandbox: shell normalization,
+path-field recognition, and dynamic tool registration have limits. Remaining
+approval requests from children can be forwarded to the parent UI. The kernel
+requires explicit approval for other destructive, privileged, ambiguous,
+protected, or external/shared actions even when a
+tool-level rule would allow them; outside-project writes are denied rather
+than approvable through this policy.
 
 `tests/pi/permission-probe.sh --setup` installs the current unpinned extensions
 in an isolated repo-local profile and runs an offline stub-provider gate for

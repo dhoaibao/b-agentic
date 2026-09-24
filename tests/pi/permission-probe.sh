@@ -4,6 +4,9 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 probe=${PI_PROBE_DIR:-"$root/node_modules/.pi-migration-probe"}
 mkdir -p "$probe/home/extensions/pi-permission-system" "$probe/home/agents"
+# Outside the probe cwd but still inside this repository; unique and cleaned up.
+export PI_PROBE_OUTSIDE_FILE="$probe/../b-agentic-permission-probe-outside-$$.txt"
+trap 'rm -f "$PI_PROBE_OUTSIDE_FILE"' EXIT
 export PI_CODING_AGENT_DIR="$probe/home" PI_OFFLINE=1 PI_SKIP_VERSION_CHECK=1 PI_TELEMETRY=0
 
 cd "$probe"
@@ -44,10 +47,32 @@ JSON
 
 run_case() {
   local name=$1 policy=$2 child_policy=$3 prompt=$4 expected=$5
-  cat >"$probe/home/extensions/pi-permission-system/config.json" <<JSON
-{"permission":{"*":"ask","skill":"allow","subagent":"allow","fake_lookup":"allow","path":{"*":"allow","*.env":"deny"},"bash":{"echo permission-probe":"$policy"},"mcp":{"*":"ask","mcp_connect":"allow","fake":"deny"}}}
-JSON
-  cat >"$probe/home/agents/probe-reader.md" <<MD
+  python3 - "$root/pi/configs/permission.user.template.json" \
+    "$probe/home/extensions/pi-permission-system/config.json" "$policy" <<'PY'
+import json, sys
+from pathlib import Path
+config = json.loads(Path(sys.argv[1]).read_text())
+permission = config['permission']
+permission['fake_lookup'] = 'allow'
+permission['bash']['echo permission-probe'] = sys.argv[3]
+# Model a pre-upgrade profile: old ask keys precede the newly named denies.
+permission['bash']['sudo *'] = 'ask'
+permission['bash']['docker system prune*'] = 'ask'
+permission['mcp'] = {'*': 'ask', 'mcp_connect': 'allow', 'fake': 'deny'}
+Path(sys.argv[2]).write_text(json.dumps(config))
+PY
+  if [[ "$child_policy" == inherit ]]; then
+    cat >"$probe/home/agents/probe-reader.md" <<'MD'
+---
+description: Probe prompt-only read-only specialist
+tools: read, bash
+model: stub/stub-1
+---
+
+Remain read-only. Report the observed tool result.
+MD
+  else
+    cat >"$probe/home/agents/probe-reader.md" <<MD
 ---
 description: Probe read-only specialist policy
 tools: read, bash
@@ -60,6 +85,7 @@ permission:
 
 Report the observed tool result.
 MD
+  fi
   pi -a -e "$root/tests/pi/stub-provider.ts" --model stub/stub-1 \
     --mode json --no-session "$prompt" >"$probe/$name.jsonl"
   if ! jq -r 'select(.type == "tool_execution_end") | .result.content[]? | select(.type == "text") | .text' \
@@ -73,6 +99,24 @@ MD
 run_case parent-deny deny deny shell "Denied by policy"
 run_case parent-allow allow deny shell "permission-probe"
 run_case child-allow allow allow child-shell "done: false permission-probe"
+run_case child-inherit allow inherit child-shell "done: false permission-probe"
+run_case child-inherit-deny deny inherit child-shell "Denied by policy"
+run_case parent-danger allow inherit danger "rule 'sudo*'"
+run_case child-danger allow inherit child-danger "rule 'sudo*'"
+run_case parent-danger-docker allow inherit danger-docker "rule 'docker system prun*'"
+run_case child-danger-docker allow inherit child-danger-docker "rule 'docker system prun*'"
+run_case parent-curl-pipe-bash allow inherit curl-pipe-bash "rule 'bash'"
+run_case child-curl-pipe-bash allow inherit child-curl-pipe-bash "rule 'bash'"
+run_case parent-curl-pipe-sh allow inherit curl-pipe-sh "rule 'sh'"
+run_case child-curl-pipe-sh allow inherit child-curl-pipe-sh "rule 'sh'"
+run_case child-shell-with-args allow inherit child-shell-with-args "GNU bash"
+run_case parent-outside-write allow inherit outside-write "Denied by policy: 'external_directory_write'"
+run_case child-outside-write allow inherit child-outside-write "Denied by policy: 'external_directory_write'"
+[ ! -e "$PI_PROBE_OUTSIDE_FILE" ] || { echo 'outside-write probe changed a file' >&2; exit 1; }
+run_case child-inherit-write allow inherit child-write "Tool write not found"
+run_case child-sensitive-path allow inherit child-path "Denied by policy"
+[ ! -e "$probe/missing-for-probe.env" ] || { echo 'probe path unexpectedly exists' >&2; exit 1; }
+run_case child-sensitive-shell allow inherit child-path-shell "Denied by policy: 'path_read'"
 run_case child-deny allow deny child-deny "Tool bash not found"
 run_case child-ask allow ask child-ask "no interactive UI is available"
 run_case child-write allow deny child-write "Tool write not found"

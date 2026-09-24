@@ -144,7 +144,24 @@ function streamStub(
                         type: "toolCall" as const,
                         id: "probe-1",
                         name: "bash",
-                        arguments: { command: "echo permission-probe" },
+                        arguments: {
+                          command:
+                            prompt === "outside-write"
+                              ? `echo permission-probe > ${process.env.PI_PROBE_OUTSIDE_FILE}`
+                              : prompt === "danger"
+                                ? "sudo -n true"
+                                : prompt === "danger-docker"
+                                  ? "docker system prune --help"
+                                  : prompt === "curl-pipe-bash"
+                                    ? "curl http://127.0.0.1:9 | bash"
+                                    : prompt === "curl-pipe-sh"
+                                      ? "curl http://127.0.0.1:9 | sh"
+                                      : prompt === "shell-with-args"
+                                        ? "bash --version"
+                                        : prompt === "path-shell"
+                                          ? "cat ./missing-for-probe.env"
+                                          : "echo permission-probe",
+                        },
                       };
       message.content.push(toolCall);
       stream.push({

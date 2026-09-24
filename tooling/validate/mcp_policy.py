@@ -54,8 +54,10 @@ def main() -> int:
         errors.append("doubled adapter tool names must not appear in permission policy")
     for agent in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
         profile = (ROOT / "pi" / "agents" / f"{agent}.md").read_text()
-        if "codegraph_explore: allow" not in profile or "codegraph_codegraph_explore" in profile:
-            errors.append(f"{agent} must allow the actual CodeGraph direct tool")
+        if "bash, codegraph_explore," not in profile or "codegraph_codegraph_explore" in profile:
+            errors.append(f"{agent} must expose the actual CodeGraph direct tool")
+        if "\npermission:\n" in profile:
+            errors.append(f"{agent} must inherit global permission policy")
     for name in ("firecrawl_crawl", "playwright_browser_click"):
         if permission.get(name) != "ask":
             errors.append(f"{name} must ask before mutation")
@@ -69,8 +71,24 @@ def main() -> int:
         errors.append("skill invocation must not prompt; tool and path gates remain active")
     if permission.get("path", {}).get("*.env") != "deny":
         errors.append("protected paths must be denied")
-    if permission.get("bash", {}).get("curl * | bash*") != "ask":
-        errors.append("curl pipes must ask")
+    if permission.get("external_directory_write") != "deny":
+        errors.append("outside-repository writes must be denied")
+    if permission.get("external_directory") != "ask":
+        errors.append("outside-repository reads must still ask")
+    for command in (
+        "sudo *",
+        "sudo*",
+        "doas *",
+        "docker system prune*",
+        "docker system prun*",
+        "rm -rf *",
+        "bash",
+        "sh",
+        "bash -s*",
+        "sh -s*",
+    ):
+        if permission.get("bash", {}).get(command) != "deny":
+            errors.append(f"dangerous command must be denied: {command}")
     if rendered.get("permissionReviewLog") is not False or rendered.get("yoloMode") is not False:
         errors.append("permission review logging and yolo mode must be disabled")
     mcp = json.loads((ROOT / "pi" / "configs" / "mcp.base.json").read_text())

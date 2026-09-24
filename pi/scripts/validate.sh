@@ -29,6 +29,10 @@ assert mcp['settings']['directTools'] is True
 assert policy['permissionReviewLog'] is False
 assert policy['permission']['mcp']['*'] == 'ask'
 assert policy['permission']['path']['*.env'] == 'deny'
+assert policy['permission']['external_directory'] == 'ask'
+assert policy['permission']['external_directory_write'] == 'deny'
+assert policy['permission']['bash']['sudo *'] == 'deny'
+assert policy['permission']['bash']['rm -rf *'] == 'deny'
 assert policy['permission']['ask_question'] == 'deny'
 assert policy['permission']['ask_user_question'] == 'allow'
 
@@ -36,10 +40,8 @@ for name, agent in registry['agents'].items():
     text = (root / 'pi/agents' / f'{name}.md').read_text()
     assert 'Generated from skills/registry.yaml' in text
     assert 'prompt_mode: replace' in text
-    assert 'permission:\n  ' in text
-    assert '  "*": deny' in text
-    assert '  external_directory: deny' in text
-    assert '  mcp:\n    ' in text
+    assert '\npermission:\n' not in text
+    assert 'Remain read-only.' in text
     assert f'model: {agent["model"].split("#", 1)[0]}' in text
     assert 'tools: read, grep, find, ls, bash' in text
     for skill in registry['skills']:

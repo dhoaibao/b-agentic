@@ -121,6 +121,16 @@ assert_no_path "$malformed/bin/pi.log"
 assert_no_path "$malformed/home/.pi/agent/settings.json"
 assert_json "$malformed/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
 
+# Existing user-owned ask rules stay intact, while newly appended deny rules
+# take precedence when the Pi permission extension matches the last rule.
+legacy_policy="$WORK_DIR/legacy-permission-policy"
+mkdir -p "$legacy_policy/home/.pi/agent/extensions/pi-permission-system"
+make_source "$legacy_policy/source"
+make_bin "$legacy_policy/bin"
+printf '%s\n' '{"permission":{"bash":{"sudo *":"ask","docker system prune*":"ask","user-tool *":"allow"}}}' >"$legacy_policy/home/.pi/agent/extensions/pi-permission-system/config.json"
+run_install "$legacy_policy" >"$legacy_policy/install.log" 2>&1
+assert_json "$legacy_policy/home/.pi/agent/extensions/pi-permission-system/config.json" "data['permission']['bash']['sudo *']=='ask' and data['permission']['bash']['docker system prune*']=='ask' and data['permission']['bash']['user-tool *']=='allow' and list(data['permission']['bash']).index('sudo*') > list(data['permission']['bash']).index('sudo *') and list(data['permission']['bash']).index('docker system prun*') > list(data['permission']['bash']).index('docker system prune*') and data['permission']['external_directory_write']=='deny'"
+
 # A manifest-write failure on sync must restore this run's pre-merge file,
 # even when the original manifest says b-agentic created it.
 rollback="$WORK_DIR/manifest-rollback"

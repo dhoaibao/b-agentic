@@ -63,13 +63,13 @@ def main() -> int:
         body = path.read_text() if path.exists() else ""
         for marker in (
             "tools: read, grep, find, ls, bash",
-            "permission:",
-            '  "*": deny',
-            "  external_directory: deny",
-            "  mcp:",
+            "Remain read-only.",
+            "Do not edit, write, commit, stage",
         ):
             if marker not in body:
                 errors.append(f"{path.relative_to(ROOT)}: missing {marker!r}")
+        if "\npermission:\n" in body:
+            errors.append(f"{path.relative_to(ROOT)}: per-agent permission policy must not block shell inspection")
         if "Generated from skills/registry.yaml" not in body:
             errors.append(f"{path.relative_to(ROOT)}: missing generated marker")
         if "Managed by b-agentic" not in body:
