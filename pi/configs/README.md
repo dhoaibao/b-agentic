@@ -7,7 +7,7 @@
 
 | Source | Installed path (default agent directory `~/.pi/agent`) | Owner |
 | --- | --- | --- |
-| `settings.base.json` | `settings.json` | Pi, seven unpinned packages, native compaction off by default, and Dracula only when no theme is selected |
+| `settings.base.json` | `settings.json` | Pi, eight unpinned packages, native compaction off by default, and Dracula only when no theme is selected |
 | `subagents.base.json` | `subagents.json` | `pi-subagents` excludes Magic Context from children; existing user exclusions are retained |
 | `magic-context.base.json` | `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`) | Shared CortexKit defaults: enabled with local embeddings; historian falls back to the live Pi model |
 | `mcp.base.json` | `mcp.json` | `pi-mcp-adapter`; seven lazy servers with policy-aligned direct-tool lists, no stored credentials |

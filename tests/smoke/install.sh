@@ -209,7 +209,7 @@ assert_file "$metadata/install.json"
 assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and data['subagentsAction']=='merge' and data['paths']['subagents']=='$agent/subagents.json' and data['backups']['subagents']!='none' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
 assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:@cortexkit/pi-magic-context','npm:user-extension']}"
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True and data['embedding']['provider']=='local' and data['historian']['pi']['model']=='anthropic/claude-haiku-4-5'"
-assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
+assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and 'npm:pi-antigravity' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
 assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
 assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==44"
 assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
@@ -219,6 +219,7 @@ assert_contains "$sandbox/bin/pi.log" 'update --self'
 assert_contains "$sandbox/bin/pi.log" 'list --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@gotgenes/pi-subagents --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@cortexkit/pi-magic-context --no-approve'
+assert_contains "$sandbox/bin/pi.log" 'install npm:pi-antigravity --no-approve'
 if grep -Fq 'update --extensions --no-approve' "$sandbox/bin/pi.log"; then
   fail 'fresh install unexpectedly updated Pi extensions'
 fi

@@ -91,8 +91,13 @@ native compaction disabled for new settings. The installer excludes Magic Contex
 context guidance without its tools; children have no compaction under the new
 settings default and should be kept bounded. Project-level pi-subagents
 exclusions can override the global list; existing user preferences are preserved.
-Provider usage and Anthropic OAuth request shaping are user-requested optional
-capabilities of the seven managed extensions, not login or entitlements.
+Provider usage, Anthropic OAuth request shaping, and Antigravity model
+routing are user-requested optional capabilities of the eight managed
+extensions, not login or entitlements. Antigravity OAuth login (`/login
+antigravity`) is at the user's discretion and risk; third-party Antigravity
+OAuth clients carry Google account suspension risks. Its registered
+`generate_image` tool is gated by the default ask policy in the main session and
+excluded from read-only specialists.
 
 Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 [`pi/configs/mcp.base.json`](../pi/configs/mcp.base.json),
@@ -102,7 +107,7 @@ Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 ## Installation, configuration, and lifecycle
 
 Existing Pi is updated with `pi update --self`; first install uses the latest
-unversioned npm package. Seven extensions are installed with bare npm names and
+unversioned npm package. Eight extensions are installed with bare npm names and
 updated through `pi update --extensions`. Bootstrap repository/ref inputs are
 constrained before Git. Installer sync copies the kernel, skills, specialists,
 prompts, references, and templates; it merges settings, specialist exclusions,

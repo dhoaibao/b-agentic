@@ -399,7 +399,7 @@ rollback_magic_context() {
 
 runtime_print_install_report() {
   success 'b-agentic install complete for Pi'
-  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, seven unpinned extensions."
+  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, eight unpinned extensions."
   installer_summary_log "Manifest: $MANIFEST_DST"
   step 'Next steps:'
   installer_summary_log '  - Start a new Pi session and invoke /b-plan or another explicit /b-* prompt.'

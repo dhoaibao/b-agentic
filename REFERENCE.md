@@ -12,12 +12,13 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 ```
 
 With Pi already on PATH, install runs `pi update --self`; otherwise it installs
-the latest `@earendil-works/pi-coding-agent` through npm. Seven bare npm package
+the latest `@earendil-works/pi-coding-agent` through npm. Eight bare npm package
 names are managed in the Pi agent directory: `@gotgenes/pi-subagents`,
 `@gotgenes/pi-permission-system`, `pi-mcp-adapter`,
 `@juicesharp/rpiv-ask-user-question`, `@gotgenes/pi-anthropic-auth`,
-`@sreetej510/pi-usage`, and `@cortexkit/pi-magic-context`. None is pinned. The
-default directory is `~/.pi/agent`; `B_AGENTIC_PI_DIR` or `PI_CODING_AGENT_DIR` overrides it.
+`@sreetej510/pi-usage`, `@cortexkit/pi-magic-context`, and `pi-antigravity`.
+None is pinned. The default directory is `~/.pi/agent`; `B_AGENTIC_PI_DIR` or
+`PI_CODING_AGENT_DIR` overrides it.
 The override must be an absolute path inside the invoking user's home, so
 source-absent manifest uninstall remains confined to the same boundary.
 
@@ -91,6 +92,14 @@ There is no `rpiv-todo` dependency. The grouped-choice
 `pi-anthropic-auth` package shapes Anthropic OAuth requests but does not log
 users in, grant plan access, or change provider terms. `/usage` reports
 provider usage if authenticated; its banked-reset action requires approval.
+The `pi-antigravity` package enables Google Antigravity / Cloud Code Assist
+models and image generation via Google OAuth; model availability and entitlement
+depend on the user's account. Logging in (`/login antigravity`) is at the user's
+discretion and risk: third-party Antigravity OAuth client use is unauthorized by
+Google and carries account suspension risk. Its `generate_image` tool is gated
+by the managed permission policy's default ask rule and excluded from read-only
+specialist subagents; pre-warm TLS requests can be disabled with
+`ANTIGRAVITY_NO_PREWARM=1`.
 
 ## Permission boundary
 
