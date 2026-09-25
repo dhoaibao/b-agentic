@@ -767,6 +767,21 @@ run_install "$dry" --update --dry-run >"$dry/update.log" 2>&1
 assert_contains "$dry/update.log" '[dry-run] pi update --extensions'
 assert_no_path "$dry/bin/pi.log"
 
+# A git-backed source dry-run reports the exact refresh operations: fetch plus
+# pull, or fetch plus checkout when a ref is pinned.
+gitdry="$WORK_DIR/git-dry"
+mkdir -p "$gitdry/home"
+make_source "$gitdry/source"
+make_bin "$gitdry/bin"
+git -C "$gitdry/source" init --quiet
+run_install "$gitdry" --dry-run >"$gitdry/log" 2>&1
+assert_contains "$gitdry/log" "[dry-run] git -C $gitdry/source fetch --tags --prune"
+assert_contains "$gitdry/log" "[dry-run] git -C $gitdry/source pull --ff-only"
+run_install "$gitdry" --ref=v1.2.3 --dry-run >"$gitdry/ref.log" 2>&1
+assert_contains "$gitdry/ref.log" "[dry-run] git -C $gitdry/source checkout v1.2.3 --"
+if grep -Fq 'pull --ff-only' "$gitdry/ref.log"; then fail 'dry-run reported pull for a pinned ref'; fi
+assert_no_path "$gitdry/bin/pi.log"
+
 # An override outside HOME is rejected before installation; a home-confined
 # override remains removable after the source checkout is lost.
 outside="$WORK_DIR/outside-home"

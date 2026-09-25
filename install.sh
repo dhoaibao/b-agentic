@@ -115,7 +115,12 @@ prepare_source() {
       log "Using installed source without fetching: $LOCAL_REPO"
     elif ! uninstall_enabled; then
       if dry_run_enabled; then
-        log "[dry-run] git -C $LOCAL_REPO pull --ff-only"
+        log "[dry-run] git -C $LOCAL_REPO fetch --tags --prune"
+        if [ -n "$REF" ]; then
+          log "[dry-run] git -C $LOCAL_REPO checkout $REF --"
+        else
+          log "[dry-run] git -C $LOCAL_REPO pull --ff-only"
+        fi
       else
         log "Updating source: $LOCAL_REPO"
         git -C "$LOCAL_REPO" fetch --quiet --tags --prune
