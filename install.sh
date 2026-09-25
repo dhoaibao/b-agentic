@@ -83,8 +83,6 @@ parse_args() {
         [ "$OPERATION" = install ] || die '--sync and --update cannot be combined'
         OPERATION="${1#--}"
         ;;
-      --runtime=pi) ;;
-      --runtime=opencode|--runtime) die 'b-agentic targets Pi only.' ;;
       --ref=*) REF="${1#--ref=}"; [ -n "$REF" ] || die 'invalid empty --ref' ;;
       *) die "unknown argument: $1" ;;
     esac

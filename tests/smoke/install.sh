@@ -180,15 +180,18 @@ for removal in source manifest; do
 done
 
 sandbox="$WORK_DIR/primary"
-mkdir -p "$sandbox/home/.pi/agent" "$sandbox/home/.config/opencode"
+mkdir -p "$sandbox/home/.pi/agent"
 make_source "$sandbox/source"
 make_bin "$sandbox/bin"
-printf '%s\n' 'old runtime belongs to user' >"$sandbox/home/.config/opencode/AGENTS.md"
 printf '%s\n' '{"custom":true,"theme":"light","packages":["npm:user-extension"],"compaction":{"enabled":false}}' >"$sandbox/home/.pi/agent/settings.json"
 printf '%s\n' '{"maxConcurrent":2,"excludedExtensionPackages":["npm:user-extension"]}' >"$sandbox/home/.pi/agent/subagents.json"
 mkdir -p "$sandbox/home/.config/cortexkit"
 printf '%s\n' '{"historian":{"pi":{"model":"anthropic/claude-haiku-4-5"}},"custom":true}' >"$sandbox/home/.config/cortexkit/magic-context.jsonc"
 printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp","directTools":["custom_tool"]}}}' >"$sandbox/home/.pi/agent/mcp.json"
+if run_install "$sandbox" --runtime=pi >"$sandbox/invalid-arg.log" 2>&1; then
+  fail 'accepted removed runtime selection flag'
+fi
+assert_contains "$sandbox/invalid-arg.log" 'unknown argument: --runtime=pi'
 run_install "$sandbox" >"$sandbox/install.log" 2>&1
 
 agent="$sandbox/home/.pi/agent"
@@ -219,7 +222,6 @@ assert_contains "$sandbox/bin/pi.log" 'install npm:@cortexkit/pi-magic-context -
 if grep -Fq 'update --extensions --no-approve' "$sandbox/bin/pi.log"; then
   fail 'fresh install unexpectedly updated Pi extensions'
 fi
-assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
 
 # A failed package removal must retain both ownership evidence and the
 # settings declaration so a later uninstall can retry.
@@ -558,7 +560,6 @@ assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', '
 assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:user-extension','npm:added-by-user']}"
 assert_no_path "$agent/themes/dracula.json"
 assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
-assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
 
 # A symlinked specialist remains user-owned and prevents manifest disposal.
 linked="$WORK_DIR/symlinked"

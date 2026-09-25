@@ -48,8 +48,7 @@ uninstall. Pi may need `/reload` or a new session to pick up the theme.
 The installer backs up existing JSON/JSONC before merging; user values remain
 authoritative, including an explicit compaction preference. Comments are not
 preserved by the JSON rewrite. Package declarations and specialist exclusions
-union ahead of user entries. Existing OpenCode configuration and installation
-are never removed or updated. Magic Context defaults to local embeddings and uses the current Pi
+union ahead of user entries. Magic Context defaults to local embeddings and uses the current Pi
 session model for historian work unless the user sets `historian.pi.model` in
 `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`).
 New Pi settings disable native compaction so Magic Context owns context; an
@@ -86,7 +85,7 @@ provider/model access is reported rather than silently replaced.
 Magic Context owns main-session context management by default with Pi native
 compaction disabled in new settings; existing user compaction preferences remain
 authoritative.
-There is no DCP or `rpiv-todo` dependency. The grouped-choice
+There is no `rpiv-todo` dependency. The grouped-choice
 `ask_user_question` extension handles material decisions; the native Pi
 `ask_question` tool is disabled in the managed permission policy. The
 `pi-anthropic-auth` package shapes Anthropic OAuth requests but does not log

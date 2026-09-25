@@ -6,9 +6,6 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exit 1
 fi
 
-RUNTIME_NAME=Pi
-RUNTIME_UNINSTALL_LABEL='Pi agent directory'
-RUNTIME_PRESERVE_LABEL=Pi
 PI_CONFIG_DIR="${B_AGENTIC_PI_DIR:-${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}}"
 METADATA_DIR="$PI_CONFIG_DIR/b-agentic"
 BACKUPS_DIR="$METADATA_DIR/backups"

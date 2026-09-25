@@ -4,8 +4,7 @@
 
 b-agentic supports one runtime, native Pi. It ships an always-loaded kernel,
 canonical skills, named read-only specialists, managed MCP configuration, and a
-merge-safe installer. The hard cut replaces the previous OpenCode runtime
-without maintaining a compatibility shim.
+merge-safe installer.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
@@ -18,7 +17,7 @@ project guidance remains in repository `AGENTS.md`. Canonical policy and skill
 sources live in `references/` and `skills/`; the registry generator renders Pi
 prompt templates, subagent profiles, skill descriptors, and permission policy.
 The installer owns only its recorded assets, snapshots, backup files, and
-merged configuration entries. It does not touch a user's old OpenCode install.
+merged configuration entries.
 
 Evidence: [`install.sh`](../install.sh),
 [`pi/scripts/install.sh`](../pi/scripts/install.sh), and
@@ -111,7 +110,6 @@ shared CortexKit config, MCP, and permission JSON while preserving unrelated
 values and ordered user arrays. Managed package and specialist-exclusion lists
 union with existing user entries. Existing JSONC is backed up before a JSON
 rewrite. Uninstall removes only owned unmodified assets and values; symlinks or changed files retain metadata for a safe retry.
-An existing OpenCode installation is outside this lifecycle boundary.
 
 Evidence: [`install.sh`](../install.sh),
 [`pi/scripts/install.sh`](../pi/scripts/install.sh),
@@ -151,9 +149,8 @@ Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 b-agentic does not maintain a second runtime, custom permission engine,
 argument-aware MCP gate, persistent subagent store, or bundled TUI extension.
 It does not promise detached background work, authenticated MCP readiness from
-configuration, unbounded orchestration, or an automatic migration of the
-user-owned OpenCode installation. Magic Context replaces the prior DCP
-strategy for Pi context management; `rpiv-todo` is not installed.
+configuration, or unbounded orchestration. Magic Context owns Pi context
+management; `rpiv-todo` is not installed.
 
 Evidence: [`README.md`](../README.md),
 [`REFERENCE.md`](../REFERENCE.md), and
