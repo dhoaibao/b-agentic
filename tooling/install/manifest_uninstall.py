@@ -229,6 +229,8 @@ def main() -> int:
             "permission.user.template.json",
         ),
     )
+    if data.get("subagentsAction"):
+        configs += (("subagents", config_dir / "subagents.json", "subagents.base.json"),)
     if data.get("magicContextAction"):
         configs += (
             ("magicContext", home / ".config" / "cortexkit" / "magic-context.jsonc", "magic-context.base.json"),

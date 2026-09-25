@@ -31,10 +31,9 @@ The kernel selects one skill at a time. Pi discovers skill descriptors, and gene
 parent evidence handoffs for audit, debug, and changed-code review. The main
 session reads the delegated skill and gathers that evidence before launch.
 Worktree mutation, user interaction, verification, and reporting stay in the
-main session. The `@gotgenes/pi-subagents` extension supplies four named
-specialists. Each child reads its named skill, uses a tool list without
-edit/write, questions, or nested
-delegation, and returns the skill's own output format. Read-only shell behavior
+main session. b-agentic generates four named specialist profiles for the
+`@gotgenes/pi-subagents` extension to run. Each child reads its named skill,
+uses a tool list without edit/write, questions, or nested delegation, and returns the skill's own output format. Read-only shell behavior
 is instructed rather than enforced by a child-specific permission policy.
 Foreground is default; background work is independent and read-only,
 in-process, and lost when its parent ends. Compatible continuation requires the supported `resume`
@@ -88,13 +87,17 @@ tools; allowed direct names avoid proxy approval, while consequential and
 unknown operations ask. The adapter does not make configuration a live server
 or authentication proof. `mcp-doctor` checks only local configuration, launcher,
 and variable presence; it starts no MCP or browser sessions. Magic Context
-provides context management and durable memory by default, with Pi native
-compaction disabled for new settings; existing user preferences are preserved.
+provides context management and durable memory in the main session, with Pi
+native compaction disabled for new settings. The installer excludes Magic Context from specialist children to prevent full main-session
+context guidance without its tools; children have no compaction under the new
+settings default and should be kept bounded. Project-level pi-subagents
+exclusions can override the global list; existing user preferences are preserved.
 Provider usage and Anthropic OAuth request shaping are user-requested optional
 capabilities of the seven managed extensions, not login or entitlements.
 
 Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
-[`pi/configs/mcp.base.json`](../pi/configs/mcp.base.json), and
+[`pi/configs/mcp.base.json`](../pi/configs/mcp.base.json),
+[`pi/configs/subagents.base.json`](../pi/configs/subagents.base.json), and
 [`tooling/validate/mcp_doctor.py`](../tooling/validate/mcp_doctor.py).
 
 ## Installation, configuration, and lifecycle
@@ -103,10 +106,11 @@ Existing Pi is updated with `pi update --self`; first install uses the latest
 unversioned npm package. Seven extensions are installed with bare npm names and
 updated through `pi update --extensions`. Bootstrap repository/ref inputs are
 constrained before Git. Installer sync copies the kernel, skills, specialists,
-prompts, references, and templates; it merges settings, shared CortexKit config,
-MCP, and permission JSON while preserving unrelated values and ordered user arrays. Existing JSONC
-is backed up before a JSON rewrite. Uninstall removes only owned unmodified
-assets and values; symlinks or changed files retain metadata for a safe retry.
+prompts, references, and templates; it merges settings, specialist exclusions,
+shared CortexKit config, MCP, and permission JSON while preserving unrelated
+values and ordered user arrays. Managed package and specialist-exclusion lists
+union with existing user entries. Existing JSONC is backed up before a JSON
+rewrite. Uninstall removes only owned unmodified assets and values; symlinks or changed files retain metadata for a safe retry.
 An existing OpenCode installation is outside this lifecycle boundary.
 
 Evidence: [`install.sh`](../install.sh),

@@ -267,7 +267,7 @@ merge_json_file() {
   fi
   local tmp backup
   tmp="$(mktemp "${TMPDIR:-/tmp}/b-agentic-${label}.XXXXXX")"
-  if ! env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_PREVIOUS_TEMPLATE="$TEMPLATES_DST/$(basename "$src")" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
+  if ! env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
 import json, os, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
@@ -275,15 +275,13 @@ from jsonc import loads
 src, dst, tmp = map(Path, (os.environ['JSON_SRC'], os.environ['JSON_DST'], os.environ['JSON_TMP']))
 incoming = json.loads(src.read_text())
 current = loads(dst.read_text())
-previous_path = Path(os.environ['JSON_PREVIOUS_TEMPLATE'])
-previous = json.loads(previous_path.read_text()) if previous_path.is_file() else {}
-if not isinstance(incoming, dict) or not isinstance(current, dict) or not isinstance(previous, dict):
+if not isinstance(incoming, dict) or not isinstance(current, dict):
     raise SystemExit('configuration roots must be objects')
 def merge(existing, recommended, path=()):
     if isinstance(existing, dict) and isinstance(recommended, dict):
         merged = dict(existing)
         for key, value in recommended.items():
-            if key == 'packages' and isinstance(merged.get(key), list) and isinstance(value, list):
+            if key in ('packages', 'excludedExtensionPackages') and isinstance(merged.get(key), list) and isinstance(value, list):
                 merged[key] = value + [item for item in merged[key] if item not in value]
             else:
                 merged[key] = merge(merged[key], value, path + (key,)) if key in merged else value

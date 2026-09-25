@@ -185,6 +185,7 @@ make_source "$sandbox/source"
 make_bin "$sandbox/bin"
 printf '%s\n' 'old runtime belongs to user' >"$sandbox/home/.config/opencode/AGENTS.md"
 printf '%s\n' '{"custom":true,"theme":"light","packages":["npm:user-extension"],"compaction":{"enabled":false}}' >"$sandbox/home/.pi/agent/settings.json"
+printf '%s\n' '{"maxConcurrent":2,"excludedExtensionPackages":["npm:user-extension"]}' >"$sandbox/home/.pi/agent/subagents.json"
 mkdir -p "$sandbox/home/.config/cortexkit"
 printf '%s\n' '{"historian":{"pi":{"model":"anthropic/claude-haiku-4-5"}},"custom":true}' >"$sandbox/home/.config/cortexkit/magic-context.jsonc"
 printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp","directTools":["custom_tool"]}}}' >"$sandbox/home/.pi/agent/mcp.json"
@@ -202,11 +203,12 @@ assert_file "$agent/agents/b-planner.md"
 assert_file "$agent/prompts/b-plan.md"
 assert_file "$agent/extensions/pi-permission-system/config.json"
 assert_file "$metadata/install.json"
-assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
+assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and data['subagentsAction']=='merge' and data['paths']['subagents']=='$agent/subagents.json' and data['backups']['subagents']!='none' and len(data['agents'])==4 and len(data['skills'])==15 and len(data['commands'])==15"
+assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:@cortexkit/pi-magic-context','npm:user-extension']}"
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True and data['embedding']['provider']=='local' and data['historian']['pi']['model']=='anthropic/claude-haiku-4-5'"
 assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
 assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
-assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==45"
+assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==44"
 assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
 assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
 assert_json "$agent/extensions/pi-permission-system/config.json" "all(data['permission'][name]=='allow' for name in ('ctx_search', 'ctx_expand', 'ctx_memory', 'ctx_note', 'ctx_reduce', 'todowrite')) and data['permission']['*']=='ask'"
@@ -227,6 +229,7 @@ make_source "$retry/source"
 make_bin "$retry/bin"
 run_install "$retry" >"$retry/install.log" 2>&1
 assert_json "$retry/home/.pi/agent/settings.json" "data['theme']=='dracula' and data['compaction']=={'enabled': False}"
+assert_json "$retry/home/.pi/agent/subagents.json" "data=={'excludedExtensionPackages':['npm:@cortexkit/pi-magic-context']}"
 assert_json "$retry/home/.config/cortexkit/magic-context.jsonc" "data=={'enabled': True, 'embedding': {'provider': 'local'}}"
 PI_MOCK_FAIL_REMOVE=1 run_install "$retry" --uninstall >"$retry/failed-uninstall.log" 2>&1
 assert_contains "$retry/failed-uninstall.log" 'could not remove npm:@gotgenes/pi-subagents'
@@ -235,6 +238,7 @@ assert_json "$retry/home/.pi/agent/settings.json" "'npm:@gotgenes/pi-subagents' 
 run_install "$retry" --uninstall >"$retry/retry-uninstall.log" 2>&1
 assert_no_path "$retry/home/.pi/agent/b-agentic/install.json"
 assert_no_path "$retry/home/.pi/agent/settings.json"
+assert_no_path "$retry/home/.pi/agent/subagents.json"
 assert_no_path "$retry/home/.config/cortexkit/magic-context.jsonc"
 assert_no_path "$retry/home/.pi/agent/themes/dracula.json"
 
@@ -243,7 +247,9 @@ mkdir -p "$plain/home"
 make_source "$plain/source"
 make_bin "$plain/bin"
 run_install "$plain" >"$plain/install.log" 2>&1
+rm "$plain/home/.pi/agent/subagents.json"
 run_install "$plain" --sync >"$plain/sync.log" 2>&1
+assert_json "$plain/home/.pi/agent/subagents.json" "data['excludedExtensionPackages']==['npm:@cortexkit/pi-magic-context']"
 assert_json "$plain/home/.pi/agent/b-agentic/install.json" "data['themeAction']=='replace'"
 [ "$(grep -Fc 'install npm:@gotgenes/pi-subagents --no-approve' "$plain/bin/pi.log")" -eq 1 ] ||
   fail 'completed sync reinstalled a Pi extension'
@@ -252,7 +258,53 @@ run_install "$plain" --uninstall >"$plain/uninstall.log" 2>&1
 assert_no_path "$plain/home/.pi/agent/AGENTS.md"
 assert_no_path "$plain/home/.pi/agent/themes/dracula.json"
 assert_no_path "$plain/home/.pi/agent/b-agentic/install.json"
+assert_no_path "$plain/home/.pi/agent/subagents.json"
 assert_no_path "$plain/home/.config/cortexkit/magic-context.jsonc"
+
+# Sync upgrades older installs without a subagents entry, preserving the
+# original user list so uninstall can remove only the new exclusion.
+upgrade="$WORK_DIR/upgrade-subagents"
+mkdir -p "$upgrade/home/.pi/agent"
+make_source "$upgrade/source"
+make_bin "$upgrade/bin"
+printf '%s\n' '{"excludedExtensionPackages":["npm:user-extension"],"maxConcurrent":2}' >"$upgrade/home/.pi/agent/subagents.json"
+run_install "$upgrade" >"$upgrade/install.log" 2>&1
+python3 - "$upgrade/home/.pi/agent/b-agentic/install.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data.pop('subagentsAction')
+data['paths'].pop('subagents')
+data['backups'].pop('subagents')
+path.write_text(json.dumps(data))
+PY
+printf '%s\n' '{"excludedExtensionPackages":["npm:user-extension"],"maxConcurrent":2}' >"$upgrade/home/.pi/agent/subagents.json"
+run_install "$upgrade" --sync >"$upgrade/sync.log" 2>&1
+assert_json "$upgrade/home/.pi/agent/subagents.json" "data['excludedExtensionPackages']==['npm:@cortexkit/pi-magic-context','npm:user-extension']"
+run_install "$upgrade" --uninstall >"$upgrade/uninstall.log" 2>&1
+assert_json "$upgrade/home/.pi/agent/subagents.json" "data=={'excludedExtensionPackages':['npm:user-extension'],'maxConcurrent':2}"
+
+# An old manifest has no claim on a user-created subagents file during uninstall.
+legacy="$WORK_DIR/legacy-subagents"
+mkdir -p "$legacy/home"
+make_source "$legacy/source"
+make_bin "$legacy/bin"
+run_install "$legacy" >"$legacy/install.log" 2>&1
+python3 - "$legacy/home/.pi/agent/b-agentic/install.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data.pop('subagentsAction')
+data['paths'].pop('subagents')
+data['backups'].pop('subagents')
+path.write_text(json.dumps(data))
+PY
+printf '%s\n' '{"excludedExtensionPackages":["npm:user-extension"]}' >"$legacy/home/.pi/agent/subagents.json"
+run_install "$legacy" --uninstall >"$legacy/uninstall.log" 2>&1
+assert_json "$legacy/home/.pi/agent/subagents.json" "data=={'excludedExtensionPackages':['npm:user-extension']}"
+assert_no_path "$legacy/home/.pi/agent/b-agentic/install.json"
 
 # Pre-existing listed packages are updated rather than installed again.
 existing="$WORK_DIR/existing-package"
@@ -488,6 +540,14 @@ printf '\nmodified\n' >>"$agent/agents/b-planner.md"
 run_install "$sandbox" --sync >"$sandbox/modified-sync.log" 2>&1
 assert_contains "$sandbox/modified-sync.log" 'preserving modified or user-owned Pi specialist'
 assert_contains "$agent/agents/b-planner.md" modified
+python3 - "$agent/subagents.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['excludedExtensionPackages'].append('npm:added-by-user')
+path.write_text(json.dumps(data))
+PY
 run_install "$sandbox" --uninstall >"$sandbox/uninstall.log" 2>&1
 assert_no_path "$agent/skills/b-plan"
 assert_no_path "$agent/prompts/b-plan.md"
@@ -495,6 +555,7 @@ assert_file "$agent/agents/b-planner.md"
 assert_file "$metadata/install.json"
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data=={'historian': {'pi': {'model': 'anthropic/claude-haiku-4-5'}}, 'custom': True}"
 assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
+assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:user-extension','npm:added-by-user']}"
 assert_no_path "$agent/themes/dracula.json"
 assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
 assert_contains "$sandbox/home/.config/opencode/AGENTS.md" 'old runtime belongs to user'
@@ -562,6 +623,19 @@ assert_contains "$symlink/uninstall.log" 'preserving symlinked mcp'
 [ -L "$symlink/home/.pi/agent/mcp.json" ] || fail 'symlinked config not preserved'
 assert_file "$symlink/home/.pi/agent/b-agentic/install.json"
 
+# An existing symlinked specialist config remains user-owned on install.
+linked_subagents="$WORK_DIR/linked-subagents"
+mkdir -p "$linked_subagents/home/.pi/agent" "$linked_subagents/user"
+make_source "$linked_subagents/source"
+make_bin "$linked_subagents/bin"
+printf '%s\n' '{"excludedExtensionPackages":["npm:user-extension"]}' >"$linked_subagents/user/subagents.json"
+ln -s "$linked_subagents/user/subagents.json" "$linked_subagents/home/.pi/agent/subagents.json"
+if run_install "$linked_subagents" >"$linked_subagents/install.log" 2>&1; then
+  fail 'accepted symlinked Pi specialist configuration'
+fi
+assert_contains "$linked_subagents/install.log" 'preserving symlinked subagents configuration'
+assert_json "$linked_subagents/user/subagents.json" "data=={'excludedExtensionPackages':['npm:user-extension']}"
+
 # Manifest-only uninstall requires no source checkout.
 clean="$WORK_DIR/clean"
 mkdir -p "$clean/home"
@@ -578,6 +652,7 @@ HOME="$clean/home" PATH="$clean/bin:$PATH" B_AGENTIC_DIR="$clean/missing" \
 assert_contains "$clean/dry-uninstall.log" 'Manifest-only uninstall preview for Pi'
 assert_file "$clean/home/.pi/agent/skills/b-plan/SKILL.md"
 assert_file "$clean/home/.pi/agent/settings.json"
+assert_file "$clean/home/.pi/agent/subagents.json"
 assert_file "$clean/home/.config/cortexkit/magic-context.jsonc"
 assert_file "$clean/home/.pi/agent/themes/dracula.json"
 assert_file "$clean/home/.pi/agent/b-agentic/install.json"
@@ -594,6 +669,7 @@ assert_no_path "$clean/home/.pi/agent/skills/b-plan"
 assert_no_path "$clean/home/.pi/agent/agents/b-planner.md"
 assert_no_path "$clean/home/.pi/agent/AGENTS.md"
 assert_no_path "$clean/home/.pi/agent/themes/dracula.json"
+assert_no_path "$clean/home/.pi/agent/subagents.json"
 assert_contains "$clean/bin/pi.log" 'remove npm:@gotgenes/pi-subagents --no-approve'
 assert_no_path "$clean/home/.config/cortexkit/magic-context.jsonc"
 

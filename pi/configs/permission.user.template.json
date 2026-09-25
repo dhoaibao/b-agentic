@@ -87,7 +87,6 @@
     "firecrawl_research_inspect_paper": "allow",
     "firecrawl_research_read_paper": "allow",
     "firecrawl_research_related_papers": "allow",
-    "firecrawl_research_search_github": "allow",
     "firecrawl_parse": "ask",
     "firecrawl_agent": "ask",
     "firecrawl_crawl": "ask",

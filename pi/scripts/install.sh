@@ -24,6 +24,7 @@ REFERENCES_DST="$METADATA_DIR/references"
 TEMPLATES_DST="$METADATA_DIR/templates"
 MANIFEST_DST="$METADATA_DIR/install.json"
 PI_SETTINGS_DST="$PI_CONFIG_DIR/settings.json"
+PI_SUBAGENTS_DST="$PI_CONFIG_DIR/subagents.json"
 MAGIC_CONTEXT_DST="${XDG_CONFIG_HOME:-$HOME/.config}/cortexkit/magic-context.jsonc"
 PI_THEME_DST="$PI_CONFIG_DIR/themes/dracula.json"
 PI_THEME_SNAPSHOT_DST="$METADATA_DIR/themes/dracula.json"
@@ -142,6 +143,7 @@ remember_theme_baseline() {
 }
 
 install_settings() { merge_json_file "$TEMPLATES_SRC/settings.base.json" "$PI_SETTINGS_DST" settings settings; }
+install_subagents() { merge_json_file "$TEMPLATES_SRC/subagents.base.json" "$PI_SUBAGENTS_DST" subagents subagents; }
 safe_magic_context_path() {
   # The CortexKit config is shared across harnesses. Do not follow a symlinked
   # directory or manage a path outside the user's home.
@@ -246,6 +248,9 @@ runtime_install_configs() {
   run_install_triplet_stage 'Merging Pi settings' install_settings skip none none \
     INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_STATE INSTALL_SETTINGS_BACKUP
   remember_config_baseline settings "$PI_SETTINGS_DST" INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_BACKUP
+  run_install_triplet_stage 'Configuring Pi specialists' install_subagents skip none none \
+    INSTALL_SUBAGENTS_ACTION INSTALL_SUBAGENTS_STATE INSTALL_SUBAGENTS_BACKUP
+  remember_config_baseline subagents "$PI_SUBAGENTS_DST" INSTALL_SUBAGENTS_ACTION INSTALL_SUBAGENTS_BACKUP
   if ! dry_run_enabled && env SOURCE_DIR="$SOURCE_DIR" PI_SETTINGS_DST="$PI_SETTINGS_DST" python3 - <<'PY'
 import os, sys
 from pathlib import Path
@@ -311,13 +316,14 @@ runtime_write_manifest() {
   fi
   ensure_dir "$METADATA_DIR"
   env MANIFEST_DST="$MANIFEST_DST" TIMESTAMP="$TIMESTAMP" PI_CONFIG_DIR="$PI_CONFIG_DIR" \
-    PI_SETTINGS_DST="$PI_SETTINGS_DST" PI_MCP_DST="$PI_MCP_DST" PI_PERMISSION_DST="$PI_PERMISSION_DST" \
+    PI_SETTINGS_DST="$PI_SETTINGS_DST" PI_SUBAGENTS_DST="$PI_SUBAGENTS_DST" PI_MCP_DST="$PI_MCP_DST" PI_PERMISSION_DST="$PI_PERMISSION_DST" \
     MAGIC_CONTEXT_DST="$MAGIC_CONTEXT_DST" MAGIC_CONTEXT_ACTION="$INSTALL_MAGIC_CONTEXT_ACTION" \
     MAGIC_CONTEXT_BACKUP="$INSTALL_MAGIC_CONTEXT_BACKUP" \
     AGENTS_DST="$AGENTS_DST" COMMANDS_DST="$COMMANDS_DST" SKILLS_DST="$SKILLS_DST" \
     REFERENCES_DST="$REFERENCES_DST" TEMPLATES_DST="$TEMPLATES_DST" KERNEL_DST="$KERNEL_DST" \
     KERNEL_ACTION="$INSTALL_MEMORY_ACTION" KERNEL_BACKUP="$INSTALL_MEMORY_BACKUP" \
     SETTINGS_ACTION="$INSTALL_SETTINGS_ACTION" SETTINGS_BACKUP="$INSTALL_SETTINGS_BACKUP" \
+    SUBAGENTS_ACTION="$INSTALL_SUBAGENTS_ACTION" SUBAGENTS_BACKUP="$INSTALL_SUBAGENTS_BACKUP" \
     MCP_ACTION="$INSTALL_MCP_ACTION" MCP_BACKUP="$INSTALL_MCP_BACKUP" \
     PERMISSION_ACTION="$INSTALL_PERMISSION_ACTION" PERMISSION_BACKUP="$INSTALL_PERMISSION_BACKUP" \
     AGENTS_ACTION="$INSTALL_AGENTS_ACTION" COMMANDS_ACTION="$INSTALL_COMMANDS_ACTION" \
@@ -342,11 +348,13 @@ manifest = {
     'kernelPriorBackups': prior_backups,
     'agentsAction': os.environ['AGENTS_ACTION'], 'commandsAction': os.environ['COMMANDS_ACTION'],
     'themeAction': os.environ['THEME_ACTION'],
-    'settingsAction': os.environ['SETTINGS_ACTION'], 'mcpAction': os.environ['MCP_ACTION'],
+    'settingsAction': os.environ['SETTINGS_ACTION'], 'subagentsAction': os.environ['SUBAGENTS_ACTION'],
+    'mcpAction': os.environ['MCP_ACTION'],
     'magicContextAction': os.environ['MAGIC_CONTEXT_ACTION'],
     'permissionAction': os.environ['PERMISSION_ACTION'],
     'paths': {
         'piConfigDir': os.environ['PI_CONFIG_DIR'], 'settings': os.environ['PI_SETTINGS_DST'],
+        'subagents': os.environ['PI_SUBAGENTS_DST'],
         'mcp': os.environ['PI_MCP_DST'], 'permission': os.environ['PI_PERMISSION_DST'],
         'magicContext': os.environ['MAGIC_CONTEXT_DST'],
         'agents': os.environ['AGENTS_DST'], 'commands': os.environ['COMMANDS_DST'],
@@ -360,7 +368,8 @@ manifest = {
                  if p.name in {f'{name}.md' for name in os.environ['SKILLS'].split()}],
     'backups': {
         'kernel': os.environ['KERNEL_BACKUP'],
-        'settings': os.environ['SETTINGS_BACKUP'], 'mcp': os.environ['MCP_BACKUP'],
+        'settings': os.environ['SETTINGS_BACKUP'], 'subagents': os.environ['SUBAGENTS_BACKUP'],
+        'mcp': os.environ['MCP_BACKUP'],
         'magicContext': os.environ['MAGIC_CONTEXT_BACKUP'],
         'permission': os.environ['PERMISSION_BACKUP'],
     },
@@ -445,6 +454,9 @@ runtime_uninstall_configs() {
   else
     PRESERVE_METADATA_DIR=1
   fi
+  if [ "$(manifest_action_value subagentsAction '')" != '' ]; then
+    remove_merged_config "$PI_SUBAGENTS_DST" "$TEMPLATES_DST/subagents.base.json" subagents subagents subagentsAction
+  fi
   if [ "$(manifest_action_value magicContextAction '')" != '' ]; then
     local magic_path
     magic_path="$(manifest_path_value magicContext "$MAGIC_CONTEXT_DST")"
@@ -510,9 +522,10 @@ PY
 require_existing_config_path() {
   local key expected existing
   [ -f "$MANIFEST_DST" ] || return 0
-  for key in settings mcp permission magicContext; do
+  for key in settings subagents mcp permission magicContext; do
     case "$key" in
       settings) expected="$PI_SETTINGS_DST" ;;
+      subagents) expected="$PI_SUBAGENTS_DST" ;;
       mcp) expected="$PI_MCP_DST" ;;
       permission) expected="$PI_PERMISSION_DST" ;;
       magicContext) expected="$MAGIC_CONTEXT_DST" ;;
