@@ -133,7 +133,7 @@ with their source rather than as additional subsystems.
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
 Firecrawl, Playwright, Mobbin, and shadcn through `pi-mcp-adapter`. Connections
-are lazy. Per-server `directTools` lists eagerly register only the 45 known
+are lazy. Per-server `directTools` lists eagerly register only the 44 known
 allowed operations from `references/mcp_operations.yaml`, below the adapter's
 75-tool advisory threshold. Direct names use `<server>_<tool>`; other operations
 remain available through the separately gated proxy, where calls ask for
