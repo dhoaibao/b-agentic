@@ -107,6 +107,26 @@ validate_source_layout() {
   [ -f "$SOURCE_DIR/tooling/install/common.sh" ] || die "missing installer core"
 }
 
+resolve_default_branch() {
+  local target=""
+  target="$(git -C "$LOCAL_REPO" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  if [ -n "$target" ]; then
+    echo "${target#origin/}"
+    return 0
+  fi
+  if git -C "$LOCAL_REPO" rev-parse --verify --quiet refs/remotes/origin/main >/dev/null 2>&1 || \
+     git -C "$LOCAL_REPO" show-ref --verify --quiet refs/heads/main; then
+    echo "main"
+    return 0
+  fi
+  if git -C "$LOCAL_REPO" rev-parse --verify --quiet refs/remotes/origin/master >/dev/null 2>&1 || \
+     git -C "$LOCAL_REPO" show-ref --verify --quiet refs/heads/master; then
+    echo "master"
+    return 0
+  fi
+  return 1
+}
+
 prepare_source() {
   if [ -d "$LOCAL_REPO/.git" ]; then
     if [ "$OPERATION" = sync ] && [ -z "$REF" ] && ! force_enabled; then
@@ -119,12 +139,33 @@ prepare_source() {
         if [ -n "$REF" ]; then
           log "[dry-run] git -C $LOCAL_REPO checkout $REF --"
         else
+          if ! git -C "$LOCAL_REPO" symbolic-ref -q HEAD >/dev/null 2>&1; then
+            local branch
+            branch="$(resolve_default_branch 2>/dev/null)" || die "detached HEAD checkout at $LOCAL_REPO cannot be updated automatically; pass --ref=<branch>"
+            log "[dry-run] git -C $LOCAL_REPO checkout $branch --"
+          fi
           log "[dry-run] git -C $LOCAL_REPO pull --ff-only"
         fi
       else
         log "Updating source: $LOCAL_REPO"
         git -C "$LOCAL_REPO" fetch --quiet --tags --prune
-        if [ -n "$REF" ]; then git -C "$LOCAL_REPO" checkout --quiet "$REF" --; else git -C "$LOCAL_REPO" pull --ff-only --quiet; fi
+        if [ -n "$REF" ]; then
+          git -C "$LOCAL_REPO" checkout --quiet "$REF" --
+        else
+          if ! git -C "$LOCAL_REPO" symbolic-ref -q HEAD >/dev/null 2>&1; then
+            local branch
+            branch="$(resolve_default_branch 2>/dev/null)" || die "detached HEAD checkout at $LOCAL_REPO cannot be updated automatically; pass --ref=<branch>"
+            log "Detached checkout at $LOCAL_REPO; switching to default branch: $branch"
+            if git -C "$LOCAL_REPO" show-ref --verify --quiet "refs/heads/$branch"; then
+              git -C "$LOCAL_REPO" checkout --quiet "$branch" --
+            elif git -C "$LOCAL_REPO" rev-parse --verify --quiet "refs/remotes/origin/$branch" >/dev/null 2>&1; then
+              git -C "$LOCAL_REPO" checkout --quiet -b "$branch" "origin/$branch" --
+            else
+              die "detached HEAD checkout at $LOCAL_REPO cannot be updated automatically; branch '$branch' not found; pass --ref=<branch>"
+            fi
+          fi
+          git -C "$LOCAL_REPO" pull --ff-only --quiet
+        fi
       fi
     fi
   elif [ -d "$LOCAL_REPO/skills" ]; then

@@ -223,7 +223,7 @@ assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtension
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True and data['embedding']['provider']=='local' and data['historian']['pi']['model']=='anthropic/claude-haiku-4-5'"
 assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and 'npm:pi-antigravity' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
 assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
-assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==44"
+assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==47"
 assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
 assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
 assert_json "$agent/extensions/pi-permission-system/config.json" "all(data['permission'][name]=='allow' for name in ('ctx_search', 'ctx_expand', 'ctx_memory', 'ctx_note', 'ctx_reduce', 'todowrite')) and data['permission']['*']=='ask'"
@@ -577,6 +577,45 @@ PY
 )"
 assert_contains "$first_backup" 'first user kernel'
 
+# A modified skill remains user-owned on sync and retains its command and metadata on uninstall.
+mod_skill="$WORK_DIR/modified-skill"
+mkdir -p "$mod_skill/home"
+make_source "$mod_skill/source"
+make_bin "$mod_skill/bin"
+run_install "$mod_skill" >"$mod_skill/install.log" 2>&1
+printf '\nmodified\n' >>"$mod_skill/home/.pi/agent/skills/b-plan/SKILL.md"
+run_install "$mod_skill" --sync >"$mod_skill/sync.log" 2>&1
+assert_contains "$mod_skill/sync.log" 'preserving user-owned or modified skill'
+assert_json "$mod_skill/home/.pi/agent/b-agentic/install.json" "'b-plan' in data['skills'] and 'b-plan' in data['commands']"
+run_install "$mod_skill" --uninstall >"$mod_skill/uninstall.log" 2>&1
+assert_contains "$mod_skill/uninstall.log" 'preserving modified skill'
+assert_file "$mod_skill/home/.pi/agent/skills/b-plan/SKILL.md"
+assert_no_path "$mod_skill/home/.pi/agent/prompts/b-plan.md"
+assert_file "$mod_skill/home/.pi/agent/b-agentic/install.json"
+rm -rf "$mod_skill/source"
+HOME="$mod_skill/home" PATH="$mod_skill/bin:$PATH" B_AGENTIC_DIR="$mod_skill/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$mod_skill/manifest-uninstall.log" 2>&1
+assert_contains "$mod_skill/manifest-uninstall.log" 'preserving modified skill'
+assert_file "$mod_skill/home/.pi/agent/skills/b-plan/SKILL.md"
+assert_file "$mod_skill/home/.pi/agent/b-agentic/install.json"
+
+# A retired skill is tracked during sync and cleanly removed on uninstall if unmodified.
+retired_skill="$WORK_DIR/retired-skill"
+mkdir -p "$retired_skill/home"
+make_source "$retired_skill/source"
+make_bin "$retired_skill/bin"
+run_install "$retired_skill" >"$retired_skill/install.log" 2>&1
+rm -rf "$retired_skill/source/skills/b-diagram"
+rm -f "$retired_skill/source/pi/prompts/b-diagram.md"
+run_install "$retired_skill" --sync >"$retired_skill/sync.log" 2>&1
+assert_json "$retired_skill/home/.pi/agent/b-agentic/install.json" "'b-diagram' in data['skills'] and 'b-diagram' in data['commands']"
+assert_file "$retired_skill/home/.pi/agent/skills/b-diagram/SKILL.md"
+assert_file "$retired_skill/home/.pi/agent/prompts/b-diagram.md"
+run_install "$retired_skill" --uninstall >"$retired_skill/uninstall.log" 2>&1
+assert_no_path "$retired_skill/home/.pi/agent/skills/b-diagram"
+assert_no_path "$retired_skill/home/.pi/agent/prompts/b-diagram.md"
+assert_no_path "$retired_skill/home/.pi/agent/b-agentic/install.json"
+
 ) & pids+=("$!")
 
 (
@@ -607,6 +646,22 @@ assert_contains "$linked_kernel/sync.log" 'preserving symlinked kernel'
 cmp "$linked_kernel/user/AGENTS.md" "$linked_kernel/home/.pi/agent/b-agentic/AGENTS.md"
 run_install "$linked_kernel" --uninstall >"$linked_kernel/uninstall.log" 2>&1
 [ -L "$linked_kernel/home/.pi/agent/AGENTS.md" ] || fail 'symlinked kernel not preserved'
+
+# A symlinked skill is preserved on sync and prevents manifest disposal on uninstall.
+linked_skill="$WORK_DIR/symlinked-skill"
+mkdir -p "$linked_skill/home/.pi/agent/skills" "$linked_skill/user"
+make_source "$linked_skill/source"
+make_bin "$linked_skill/bin"
+run_install "$linked_skill" >"$linked_skill/install.log" 2>&1
+mv "$linked_skill/home/.pi/agent/skills/b-plan" "$linked_skill/user/b-plan"
+ln -s "$linked_skill/user/b-plan" "$linked_skill/home/.pi/agent/skills/b-plan"
+run_install "$linked_skill" --sync >"$linked_skill/sync.log" 2>&1
+assert_contains "$linked_skill/sync.log" 'preserving symlinked skill'
+assert_json "$linked_skill/home/.pi/agent/b-agentic/install.json" "'b-plan' in data['skills'] and 'b-plan' in data['commands']"
+run_install "$linked_skill" --uninstall >"$linked_skill/uninstall.log" 2>&1
+assert_contains "$linked_skill/uninstall.log" 'preserving symlinked skill'
+[ -L "$linked_skill/home/.pi/agent/skills/b-plan" ] || fail 'symlinked skill not preserved'
+assert_file "$linked_skill/home/.pi/agent/b-agentic/install.json"
 
 # A changed config path or missing backup cannot silently discard user values.
 missing="$WORK_DIR/missing-backup"
@@ -800,6 +855,42 @@ run_install "$gitdry" --ref=v1.2.3 --dry-run >"$gitdry/ref.log" 2>&1
 assert_contains "$gitdry/ref.log" "[dry-run] git -C $gitdry/source checkout v1.2.3 --"
 if grep -Fq 'pull --ff-only' "$gitdry/ref.log"; then fail 'dry-run reported pull for a pinned ref'; fi
 assert_no_path "$gitdry/bin/pi.log"
+
+# A checkout on a detached HEAD (from --ref=<tag>) can be updated by a plain install
+# or --sync --force to the remote default branch.
+gitdetached="$WORK_DIR/git-detached"
+mkdir -p "$gitdetached/home" "$gitdetached/origin"
+make_source "$gitdetached/origin"
+make_bin "$gitdetached/bin"
+git -C "$gitdetached/origin" init --quiet
+git -C "$gitdetached/origin" symbolic-ref HEAD refs/heads/main
+git -C "$gitdetached/origin" add .
+git -C "$gitdetached/origin" -c user.name=test -c user.email=test@example.com commit -m "initial" --quiet
+git -C "$gitdetached/origin" tag v1.0.0
+git -C "$gitdetached/origin" -c user.name=test -c user.email=test@example.com commit --allow-empty -m "second" --quiet
+HOME="$gitdetached/home" PATH="$gitdetached/bin:$PATH" B_AGENTIC_REPO="$gitdetached/origin" B_AGENTIC_DIR="$gitdetached/clone" \
+  bash "$ROOT_DIR/install.sh" --ref=v1.0.0 >"$gitdetached/install-ref.log" 2>&1
+if git -C "$gitdetached/clone" symbolic-ref -q HEAD >/dev/null 2>&1; then
+  fail 'clone with --ref was not detached'
+fi
+HOME="$gitdetached/home" PATH="$gitdetached/bin:$PATH" B_AGENTIC_REPO="$gitdetached/origin" B_AGENTIC_DIR="$gitdetached/clone" \
+  bash "$ROOT_DIR/install.sh" --dry-run >"$gitdetached/dryrun.log" 2>&1
+assert_contains "$gitdetached/dryrun.log" "[dry-run] git -C $gitdetached/clone checkout main --"
+assert_contains "$gitdetached/dryrun.log" "[dry-run] git -C $gitdetached/clone pull --ff-only"
+HOME="$gitdetached/home" PATH="$gitdetached/bin:$PATH" B_AGENTIC_REPO="$gitdetached/origin" B_AGENTIC_DIR="$gitdetached/clone" \
+  bash "$ROOT_DIR/install.sh" >"$gitdetached/plain-update.log" 2>&1
+[ "$(git -C "$gitdetached/clone" symbolic-ref --short HEAD)" = "main" ] || fail 'plain install did not return to main'
+[ "$(git -C "$gitdetached/clone" rev-parse HEAD)" = "$(git -C "$gitdetached/origin" rev-parse main)" ] || fail 'plain install did not pull latest commit'
+commit_sha="$(git -C "$gitdetached/origin" rev-parse HEAD~1)"
+HOME="$gitdetached/home" PATH="$gitdetached/bin:$PATH" B_AGENTIC_REPO="$gitdetached/origin" B_AGENTIC_DIR="$gitdetached/clone" \
+  bash "$ROOT_DIR/install.sh" --ref="$commit_sha" >"$gitdetached/commit-ref.log" 2>&1
+if git -C "$gitdetached/clone" symbolic-ref -q HEAD >/dev/null 2>&1; then
+  fail 'clone with commit ref was not detached'
+fi
+HOME="$gitdetached/home" PATH="$gitdetached/bin:$PATH" B_AGENTIC_REPO="$gitdetached/origin" B_AGENTIC_DIR="$gitdetached/clone" \
+  bash "$ROOT_DIR/install.sh" --sync --force >"$gitdetached/sync-force.log" 2>&1
+[ "$(git -C "$gitdetached/clone" symbolic-ref --short HEAD)" = "main" ] || fail 'sync --force did not return to main'
+[ "$(git -C "$gitdetached/clone" rev-parse HEAD)" = "$(git -C "$gitdetached/origin" rev-parse main)" ] || fail 'sync --force did not pull latest commit'
 
 # An override outside HOME is rejected before installation; a home-confined
 # override remains removable after the source checkout is lost.

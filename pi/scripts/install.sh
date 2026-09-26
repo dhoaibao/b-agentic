@@ -325,10 +325,24 @@ runtime_write_manifest() {
     PERMISSION_ACTION="$INSTALL_PERMISSION_ACTION" PERMISSION_BACKUP="$INSTALL_PERMISSION_BACKUP" \
     AGENTS_ACTION="$INSTALL_AGENTS_ACTION" COMMANDS_ACTION="$INSTALL_COMMANDS_ACTION" \
     THEME_ACTION="$INSTALL_THEME_ACTION" \
-    SKILLS="${INSTALL_SKILL_NAMES[*]}" AGENTS="${AGENT_NAMES[*]}" python3 - <<'PY'
+    SOURCE_DIR="$SOURCE_DIR" \
+    SKILLS="${MANAGED_SKILL_NAMES[*]}" AGENTS="${AGENT_NAMES[*]}" python3 - <<'PY'
 import json, os
 from pathlib import Path
+
+
+def safe_name(name):
+    return (
+        isinstance(name, str)
+        and name.startswith('b-')
+        and all(('a' <= c <= 'z') or ('0' <= c <= '9') or c == '-' for c in name)
+        and not name.endswith('-')
+    )
+
+
 root = Path(os.environ['COMMANDS_DST'])
+agents_dst = Path(os.environ['AGENTS_DST'])
+source_dir = Path(os.environ['SOURCE_DIR'])
 manifest_path = Path(os.environ['MANIFEST_DST'])
 previous = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
 prior_backups = previous.get('kernelPriorBackups', [])
@@ -338,6 +352,22 @@ old_backup = previous.get('backups', {}).get('kernel', 'none')
 new_backup = os.environ['KERNEL_BACKUP']
 if old_backup not in ('none', new_backup) and old_backup not in prior_backups:
     prior_backups.append(old_backup)
+
+agents_set = set(os.environ['AGENTS'].split())
+for prior_agent in previous.get('agents', []):
+    if safe_name(prior_agent) and ((agents_dst / f'{prior_agent}.md').exists() or (agents_dst / f'{prior_agent}.md').is_symlink()):
+        agents_set.add(prior_agent)
+
+commands_set = set()
+source_prompts = source_dir / 'pi' / 'prompts'
+if source_prompts.is_dir():
+    for p in source_prompts.glob('b-*.md'):
+        if safe_name(p.stem):
+            commands_set.add(p.stem)
+for prior_cmd in previous.get('commands', []):
+    if safe_name(prior_cmd) and ((root / f'{prior_cmd}.md').exists() or (root / f'{prior_cmd}.md').is_symlink()):
+        commands_set.add(prior_cmd)
+
 manifest = {
     'suite': 'b-agentic', 'runtime': 'pi', 'installedAt': os.environ['TIMESTAMP'],
     'activationState': 'active', 'packageState': 'pending',
@@ -360,9 +390,8 @@ manifest = {
         'capabilityContract': str(Path(os.environ['REFERENCES_DST']) / 'capabilities.yaml'),
         'templates': os.environ['TEMPLATES_DST'],
     },
-    'skills': os.environ['SKILLS'].split(), 'agents': os.environ['AGENTS'].split(),
-    'commands': [p.stem for p in sorted(root.glob('b-*.md'))
-                 if p.name in {f'{name}.md' for name in os.environ['SKILLS'].split()}],
+    'skills': os.environ['SKILLS'].split(), 'agents': sorted(agents_set),
+    'commands': sorted(commands_set),
     'backups': {
         'kernel': os.environ['KERNEL_BACKUP'],
         'settings': os.environ['SETTINGS_BACKUP'], 'subagents': os.environ['SUBAGENTS_BACKUP'],

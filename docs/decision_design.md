@@ -32,8 +32,8 @@ session reads the delegated skill and gathers that evidence before launch.
 Worktree mutation, user interaction, verification, and reporting stay in the
 main session. b-agentic generates four named specialist profiles for the
 `@gotgenes/pi-subagents` extension to run. Each child reads its named skill,
-uses a tool list without edit/write, questions, or nested delegation, and returns the skill's own output format. Read-only shell behavior
-is instructed rather than enforced by a child-specific permission policy.
+uses a tool list without edit/write, user questions, or nested delegation, and returns the skill's own output format. Read-only shell behavior
+is instructed rather than enforced by a child-specific permission policy; parent-messaging tools (`ask_parent`, `notify_parent`) may be provided by the subagent runtime.
 Foreground is default; background work is independent and read-only,
 in-process, and lost when its parent ends. Compatible continuation requires the supported `resume`
 identifier; different scope/baseline and an independent reviewer use a fresh

@@ -116,10 +116,12 @@ PY
 install_skills() {
   local name src dst snapshot
   INSTALL_SKILL_NAMES=()
+  MANAGED_SKILL_NAMES=()
   ensure_dir "$SKILLS_DST"
   ensure_dir "$SKILLS_SNAPSHOT_DST"
   while IFS= read -r name; do
     [ -n "$name" ] || continue
+    MANAGED_SKILL_NAMES+=("$name")
     src="$SKILLS_SRC/$name"; dst="$SKILLS_DST/$name"; snapshot="$SKILLS_SNAPSHOT_DST/$name"
     if [ -L "$dst" ]; then
       warn "preserving symlinked skill: $dst"
@@ -134,6 +136,19 @@ install_skills() {
     copy_dir_replace "$dst" "$snapshot"
     INSTALL_SKILL_NAMES+=("$name")
   done < <(skill_names)
+  local prior_name prior_path
+  while IFS= read -r prior_name; do
+    [ -n "$prior_name" ] || continue
+    case " ${MANAGED_SKILL_NAMES[*]} " in *" $prior_name "*) continue ;; esac
+    if ! managed_asset_name_is_safe "$prior_name"; then
+      warn "ignoring unsafe skill name from previous manifest: $prior_name"
+      continue
+    fi
+    prior_path="$SKILLS_DST/$prior_name"
+    if [ -e "$prior_path" ] || [ -L "$prior_path" ]; then
+      MANAGED_SKILL_NAMES+=("$prior_name")
+    fi
+  done < <(manifest_array_values skills 2>/dev/null || true)
 }
 
 install_references_and_templates() {

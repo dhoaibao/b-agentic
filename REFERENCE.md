@@ -29,14 +29,17 @@ source-absent manifest uninstall remains confined to the same boundary.
   This updates all configured packages, including user-owned extensions;
   `--update` updates Pi and installed extensions.
 - `--uninstall` removes only unmodified managed assets and managed config
-  values; it preserves changed or symlinked files and the metadata needed to
+  values (including unmodified retired assets tracked from prior manifests);
+  it preserves changed or symlinked files and the metadata needed to
   finish cleanup. Replacing successive user-edited kernels retains older
   backups in managed metadata while restoring the latest edit. Manifest-only
   uninstall works without the source checkout.
 - `--replace-memory` expressly replaces a pre-existing global `AGENTS.md`;
   otherwise that user-owned file is preserved. `--preserve-memory` makes the
-  default explicit. `--force` permits the normal source refresh path.
-- `--ref=<branch-tag-or-commit>` selects a safe checkout ref. `B_AGENTIC_DIR`,
+  default explicit. `--force` permits the normal source refresh path for `--sync`.
+- `--ref=<branch-tag-or-commit>` selects a safe checkout ref. A tag or commit
+  leaves a detached checkout, and a subsequent plain install or `--sync --force`
+  returns to the remote default branch. `B_AGENTIC_DIR`,
   `B_AGENTIC_REPO`, and `B_AGENTIC_REF` support controlled installs.
 
 The installer bundles the [Dracula theme](https://draculatheme.com/pi-coding-agent)
@@ -142,7 +145,7 @@ with their source rather than as additional subsystems.
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
 Firecrawl, Playwright, Mobbin, and shadcn through `pi-mcp-adapter`. Connections
-are lazy. Per-server `directTools` lists eagerly register only the 44 known
+are lazy. Per-server `directTools` lists eagerly register only the 47 known
 allowed operations from `references/mcp_operations.yaml`, below the adapter's
 75-tool advisory threshold. Direct names use `<server>_<tool>`; other operations
 remain available through the separately gated proxy, where calls ask for

@@ -47,7 +47,9 @@
         "firecrawl_agent_status",
         "firecrawl_check_crawl_status",
         "firecrawl_find_tools",
+        "firecrawl_credit_usage",
         "firecrawl_research_search_papers",
+        "firecrawl_research_search_github",
         "firecrawl_research_inspect_paper",
         "firecrawl_research_read_paper",
         "firecrawl_research_related_papers"
@@ -86,6 +88,7 @@
         "get_project_registries",
         "list_items_in_registries",
         "search_items_in_registries",
+        "get_item_examples_from_registries",
         "view_items_in_registries",
         "get_add_command_for_items",
         "get_audit_checklist"
