@@ -6,7 +6,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 unset B_AGENTIC_PI_DIR PI_CODING_AGENT_DIR XDG_CONFIG_HOME
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-pi-smoke.XXXXXX")"
 WORK_DIR="$(cd "$WORK_DIR" && pwd -P)"
-trap 'rm -rf "$WORK_DIR"' EXIT
+pids=()
+cleanup() {
+  local pid
+  # Never remove a sandbox while another smoke group is still using it.
+  for pid in "${pids[@]}"; do wait "$pid" 2>/dev/null || :; done
+  rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT
 
 fail() { printf 'smoke-install.sh: %s\n' "$*" >&2; exit 1; }
 assert_file() { [ -f "$1" ] || fail "expected file: $1"; }
@@ -84,6 +91,9 @@ run_install() {
     bash "$ROOT_DIR/install.sh" "$@"
 }
 
+# Each group has its own sandboxes. Keep lifecycle steps within a group ordered,
+# but run independent groups concurrently to shorten the release gate.
+(
 # Unsafe shared-config locations fail before the installer touches Pi or assets.
 for case_name in outside symlink; do
   unsafe="$WORK_DIR/unsafe-$case_name"
@@ -178,7 +188,9 @@ for removal in source manifest; do
   fi
   assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
 done
+) & pids+=("$!")
 
+(
 sandbox="$WORK_DIR/primary"
 mkdir -p "$sandbox/home/.pi/agent"
 make_source "$sandbox/source"
@@ -223,6 +235,32 @@ assert_contains "$sandbox/bin/pi.log" 'install npm:pi-antigravity --no-approve'
 if grep -Fq 'update --extensions --no-approve' "$sandbox/bin/pi.log"; then
   fail 'fresh install unexpectedly updated Pi extensions'
 fi
+
+printf '\n' >>"$sandbox/source/references/capabilities.yaml"
+run_install "$sandbox" --sync >"$sandbox/sync.log" 2>&1
+cmp "$sandbox/source/references/capabilities.yaml" "$metadata/references/capabilities.yaml"
+printf '\nmodified\n' >>"$agent/agents/b-planner.md"
+run_install "$sandbox" --sync >"$sandbox/modified-sync.log" 2>&1
+assert_contains "$sandbox/modified-sync.log" 'preserving modified or user-owned Pi specialist'
+assert_contains "$agent/agents/b-planner.md" modified
+python3 - "$agent/subagents.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['excludedExtensionPackages'].append('npm:added-by-user')
+path.write_text(json.dumps(data))
+PY
+run_install "$sandbox" --uninstall >"$sandbox/uninstall.log" 2>&1
+assert_no_path "$agent/skills/b-plan"
+assert_no_path "$agent/prompts/b-plan.md"
+assert_file "$agent/agents/b-planner.md"
+assert_file "$metadata/install.json"
+assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data=={'historian': {'pi': {'model': 'anthropic/claude-haiku-4-5'}}, 'custom': True}"
+assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
+assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:user-extension','npm:added-by-user']}"
+assert_no_path "$agent/themes/dracula.json"
+assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
 
 # A failed package removal must retain both ownership evidence and the
 # settings declaration so a later uninstall can retry.
@@ -338,6 +376,9 @@ if grep -Fq 'install npm:' "$list_failure/bin/pi.log"; then
   fail 'Pi list failure fell back to reinstalling packages'
 fi
 
+) & pids+=("$!")
+
+(
 # Sync refreshes an unchanged managed theme from the checked-in source.
 theme_refresh="$WORK_DIR/theme-refresh"
 mkdir -p "$theme_refresh/home"
@@ -536,32 +577,9 @@ PY
 )"
 assert_contains "$first_backup" 'first user kernel'
 
-printf '\n' >>"$sandbox/source/references/capabilities.yaml"
-run_install "$sandbox" --sync >"$sandbox/sync.log" 2>&1
-cmp "$sandbox/source/references/capabilities.yaml" "$metadata/references/capabilities.yaml"
-printf '\nmodified\n' >>"$agent/agents/b-planner.md"
-run_install "$sandbox" --sync >"$sandbox/modified-sync.log" 2>&1
-assert_contains "$sandbox/modified-sync.log" 'preserving modified or user-owned Pi specialist'
-assert_contains "$agent/agents/b-planner.md" modified
-python3 - "$agent/subagents.json" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-data['excludedExtensionPackages'].append('npm:added-by-user')
-path.write_text(json.dumps(data))
-PY
-run_install "$sandbox" --uninstall >"$sandbox/uninstall.log" 2>&1
-assert_no_path "$agent/skills/b-plan"
-assert_no_path "$agent/prompts/b-plan.md"
-assert_file "$agent/agents/b-planner.md"
-assert_file "$metadata/install.json"
-assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data=={'historian': {'pi': {'model': 'anthropic/claude-haiku-4-5'}}, 'custom': True}"
-assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
-assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:user-extension','npm:added-by-user']}"
-assert_no_path "$agent/themes/dracula.json"
-assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
+) & pids+=("$!")
 
+(
 # A symlinked specialist remains user-owned and prevents manifest disposal.
 linked="$WORK_DIR/symlinked"
 mkdir -p "$linked/home/.pi/agent/agents" "$linked/user"
@@ -811,5 +829,14 @@ rm -rf "$override/source"
 HOME="$override/home" PATH="$override/bin:$PATH" B_AGENTIC_DIR="$override/missing" \
   B_AGENTIC_PI_DIR="$override/home/custom-agent" bash "$ROOT_DIR/install.sh" --uninstall >"$override/uninstall.log" 2>&1
 assert_no_path "$override/home/custom-agent/b-agentic/install.json"
+) & pids+=("$!")
 
+failed=0
+for index in "${!pids[@]}"; do
+  if ! wait "${pids[$index]}"; then
+    printf 'smoke-install.sh: group %s failed\n' "$((index + 1))" >&2
+    failed=1
+  fi
+done
+[ "$failed" -eq 0 ] || fail 'one or more installer smoke groups failed'
 echo 'Pi installer smoke tests passed.'
