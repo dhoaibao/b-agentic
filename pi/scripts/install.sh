@@ -572,6 +572,7 @@ require_existing_config_path() {
 pi_install() { require_existing_config_path; preflight_magic_context; runtime_install_common; }
 pi_sync() { require_existing_config_path; preflight_magic_context; runtime_sync_common; }
 pi_update() {
+  require_existing_config_path
   runtime_upgrade_cli
   command -v pi >/dev/null 2>&1 || die 'Pi CLI not on PATH'
   if dry_run_enabled; then

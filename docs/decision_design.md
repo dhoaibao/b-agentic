@@ -37,8 +37,8 @@ is instructed rather than enforced by a child-specific permission policy; parent
 Foreground is default; background work is independent and read-only,
 in-process, and lost when its parent ends. Compatible continuation requires the supported `resume`
 identifier; different scope/baseline and an independent reviewer use a fresh
-child. The registry retains explicit provider/model and thinking choices; no
-silent model substitution is made.
+child. The registry retains explicit provider/model and thinking choices, but
+an unavailable agent-profile model can silently fall back to the parent model.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
@@ -93,11 +93,13 @@ settings default and should be kept bounded. Project-level pi-subagents
 exclusions can override the global list; existing user preferences are preserved.
 Provider usage, Anthropic OAuth request shaping, and Antigravity model
 routing are user-requested optional capabilities of the eight managed
-extensions, not login or entitlements. Antigravity OAuth login (`/login
-antigravity`) is at the user's discretion and risk; third-party Antigravity
-OAuth clients carry Google account suspension risks. Its registered
-`generate_image` tool is gated by the default ask policy in the main session and
-excluded from read-only specialists.
+extensions, not login or entitlements. The intended `b-researcher` model is
+Antigravity Gemini, which needs `/login antigravity`. Without access,
+`pi-subagents` 21.7.7 silently uses the parent session's model instead.
+Antigravity OAuth login remains at the user's discretion and risk;
+third-party Antigravity OAuth clients carry Google account suspension risks.
+Its registered `generate_image` tool is gated by the default ask policy in the
+main session and excluded from read-only specialists.
 
 Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 [`pi/configs/mcp.base.json`](../pi/configs/mcp.base.json),
@@ -114,7 +116,11 @@ prompts, references, and templates; it merges settings, specialist exclusions,
 shared CortexKit config, MCP, and permission JSON while preserving unrelated
 values and ordered user arrays. Managed package and specialist-exclusion lists
 union with existing user entries. Existing JSONC is backed up before a JSON
-rewrite. Uninstall removes only owned unmodified assets and values; symlinks or changed files retain metadata for a safe retry.
+rewrite. A recorded legacy MCP config path blocks install, sync, and update
+before Pi or its extensions are updated; uninstall and reinstall switch the
+managed destination to the adapter config file; user-owned entries must be
+copied manually. Uninstall removes only owned unmodified assets and values;
+symlinks or changed files retain metadata for a safe retry.
 
 Evidence: [`install.sh`](../install.sh),
 [`pi/scripts/install.sh`](../pi/scripts/install.sh),

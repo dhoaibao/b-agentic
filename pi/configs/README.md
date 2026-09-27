@@ -21,10 +21,11 @@ assets, backs up existing configs, and records ownership in
 `b-agentic/install.json`. The MCP template adds missing per-server direct-tool
 lists; existing user-owned lists remain unchanged. Existing `mcp.json` files are
 left untouched; the installer does not migrate them to `mcp-adapter.json`.
-For an existing b-agentic install using `mcp.json`, uninstall first, then install
-again; copy any user-owned MCP entries you still need into `mcp-adapter.json`.
-Update the adapter to 3.x (`install.sh --update`) if an older 2.x copy is
-installed; 2.x does not read the new filename. Until removed, legacy entries
+For an existing b-agentic install recorded against `mcp.json`, install,
+`--sync`, and `--update` refuse to proceed. Uninstall first, then install again;
+copy any user-owned MCP entries you still need into `mcp-adapter.json`.
+Only then update the adapter to 3.x (`install.sh --update`) if an older 2.x copy
+is installed; 2.x does not read the new filename. Until removed, legacy entries
 in `mcp.json` may be loaded by Pi's built-in MCP
 support rather than the adapter. Non-direct operations are available through
 the approval-gated proxy. An existing Dracula theme file, a modified file, or a

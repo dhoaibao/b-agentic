@@ -287,6 +287,14 @@ if run_install "$legacy" --sync >"$legacy/sync.log" 2>&1; then
   fail 'expected legacy MCP path to require uninstall before sync'
 fi
 assert_contains "$legacy/sync.log" 'Pi mcp path changed; uninstall the existing installation first'
+: >"$legacy/bin/pi.log"
+if run_install "$legacy" --update >"$legacy/update.log" 2>&1; then
+  fail 'expected legacy MCP path to require uninstall before update'
+fi
+assert_contains "$legacy/update.log" 'Pi mcp path changed; uninstall the existing installation first'
+if grep -Fq 'update ' "$legacy/bin/pi.log"; then
+  fail 'updated Pi before rejecting the legacy MCP path'
+fi
 run_install "$legacy" --uninstall >"$legacy/uninstall.log" 2>&1
 assert_json "$legacy/home/.pi/agent/mcp.json" "data=={'mcpServers':{'user_server':{'url':'https://example.invalid/mcp'}}}"
 assert_no_path "$legacy/home/.pi/agent/mcp-adapter.json"

@@ -27,7 +27,10 @@ source-absent manifest uninstall remains confined to the same boundary.
   without updating Pi. Install and sync use `pi list` to install missing extensions
   and `pi update --extensions` when any managed extension is already installed.
   This updates all configured packages, including user-owned extensions;
-  `--update` updates Pi and installed extensions.
+  `--update` updates Pi and installed extensions. Install, sync, and update
+  reject a recorded configuration path that has changed; an install still
+  recorded against `mcp.json` must be uninstalled before reinstalling with
+  `mcp-adapter.json` and updating the adapter.
 - `--uninstall` removes only unmodified managed assets and managed config
   values (including unmodified retired assets tracked from prior manifests);
   it preserves changed or symlinked files and the metadata needed to
@@ -59,7 +62,7 @@ New Pi settings disable native compaction so Magic Context owns context; an
 existing explicit compaction setting remains unchanged and is warned about when
 still enabled. The shared CortexKit config is merged without replacing existing
 values, and uninstall removes only managed values. Magic Context requires
-Pi >= 0.74.0; run `/ctx-status` after a new session to verify it loaded.
+Pi >= 0.80.2; run `/ctx-status` after a new session to verify it loaded.
 `subagents.json` excludes Magic Context from specialist children to avoid
 main-session guidance and message tagging without context tools. Children do
 not compact when they inherit the new Pi settings default; keep tasks bounded
@@ -83,8 +86,8 @@ those activities, verification, and final reporting. A child result is
 evidence, not authorization. Background children run only while the parent Pi
 process remains alive; compatible continuations use the extension's `resume`
 identifier. Different scope/baseline or required independent review uses a
-fresh child. Model IDs and thinking levels come from the registry; missing
-provider/model access is reported rather than silently replaced.
+fresh child. Model IDs and thinking levels come from the registry, but an
+unavailable agent-profile model can silently fall back to the parent model.
 
 Magic Context owns main-session context management by default with Pi native
 compaction disabled in new settings; existing user compaction preferences remain
@@ -97,12 +100,14 @@ users in, grant plan access, or change provider terms. `/usage` reports
 provider usage if authenticated; its banked-reset action requires approval.
 The `pi-antigravity` package enables Google Antigravity / Cloud Code Assist
 models and image generation via Google OAuth; model availability and entitlement
-depend on the user's account. Logging in (`/login antigravity`) is at the user's
-discretion and risk: third-party Antigravity OAuth client use is unauthorized by
-Google and carries account suspension risk. Its `generate_image` tool is gated
-by the managed permission policy's default ask rule and excluded from read-only
-specialist subagents; pre-warm TLS requests can be disabled with
-`ANTIGRAVITY_NO_PREWARM=1`.
+depend on the user's account. The intended `b-researcher` model is Antigravity
+Gemini, which requires `/login antigravity`. Without access, `pi-subagents`
+21.7.7 silently uses the parent session's model instead. Logging in is at the
+user's discretion and risk: third-party Antigravity OAuth client use is
+unauthorized by Google and carries account suspension risk. Its
+`generate_image` tool is gated by the managed permission policy's default ask
+rule and excluded from read-only specialist subagents; pre-warm TLS requests
+can be disabled with `ANTIGRAVITY_NO_PREWARM=1`.
 
 ## Permission boundary
 
