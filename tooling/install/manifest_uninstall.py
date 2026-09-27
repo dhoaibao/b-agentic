@@ -222,7 +222,7 @@ def main() -> int:
 
     configs = (
         ("settings", config_dir / "settings.json", "settings.base.json"),
-        ("mcp", config_dir / "mcp.json", "mcp.base.json"),
+        ("mcp", config_dir / "mcp-adapter.json", "mcp.base.json"),
         (
             "permission",
             config_dir / "extensions" / "pi-permission-system" / "config.json",

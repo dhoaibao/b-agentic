@@ -27,7 +27,7 @@ PI_THEME_DST="$PI_CONFIG_DIR/themes/dracula.json"
 PI_THEME_SNAPSHOT_DST="$METADATA_DIR/themes/dracula.json"
 PI_THEME_LICENSE_DST="$METADATA_DIR/themes/LICENSE"
 PI_THEME_LICENSE_SNAPSHOT_DST="$METADATA_DIR/themes/LICENSE.snapshot"
-PI_MCP_DST="$PI_CONFIG_DIR/mcp.json"
+PI_MCP_DST="$PI_CONFIG_DIR/mcp-adapter.json"
 PI_PERMISSION_DST="$PI_CONFIG_DIR/extensions/pi-permission-system/config.json"
 AGENT_NAMES=(b-planner b-researcher b-debugger b-reviewer)
 INSTALL_AGENTS_ACTION=skip
@@ -494,7 +494,15 @@ runtime_uninstall_configs() {
       PRESERVE_METADATA_DIR=1
     fi
   fi
-  remove_merged_config "$PI_MCP_DST" "$TEMPLATES_DST/mcp.base.json" mcp mcp mcpAction
+  local mcp_path
+  mcp_path="$(manifest_path_value mcp "$PI_MCP_DST")"
+  case "$mcp_path" in
+    "$PI_CONFIG_DIR/mcp.json"|"$PI_MCP_DST")
+      remove_merged_config "$mcp_path" "$TEMPLATES_DST/mcp.base.json" mcp mcp mcpAction ;;
+    *)
+      warn "preserving unexpected Pi MCP config path: $mcp_path"
+      PRESERVE_METADATA_DIR=1 ;;
+  esac
   remove_merged_config "$PI_PERMISSION_DST" "$TEMPLATES_DST/permission.user.template.json" permission permission permissionAction
 }
 

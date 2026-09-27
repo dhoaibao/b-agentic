@@ -20,9 +20,9 @@ def configured_path(home: str | None, config: str | None) -> Path:
     if config:
         return Path(config).expanduser()
     if home:
-        return Path(home).expanduser() / ".pi" / "agent" / "mcp.json"
+        return Path(home).expanduser() / ".pi" / "agent" / "mcp-adapter.json"
     explicit = os.environ.get("B_AGENTIC_PI_DIR") or os.environ.get("PI_CODING_AGENT_DIR")
-    return (Path(explicit).expanduser() if explicit else Path.home() / ".pi" / "agent") / "mcp.json"
+    return (Path(explicit).expanduser() if explicit else Path.home() / ".pi" / "agent") / "mcp-adapter.json"
 
 
 def status(server: str, entry: object) -> str:

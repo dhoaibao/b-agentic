@@ -41,7 +41,7 @@ for source in \
   }
 done
 
-cat >"$probe/home/mcp.json" <<JSON
+cat >"$probe/home/mcp-adapter.json" <<JSON
 {"mcpServers":{"fake":{"command":"node","args":["$root/tests/pi/fake-mcp-server.mjs"],"directTools":true,"exposeResources":false}},"settings":{"toolPrefix":"server","allowInstall":false}}
 JSON
 

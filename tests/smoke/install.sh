@@ -171,12 +171,12 @@ for removal in source manifest; do
   make_source "$interrupted_magic/source"
   make_bin "$interrupted_magic/bin"
   printf '%s\n' '{"custom":true}' >"$interrupted_magic/home/.config/cortexkit/magic-context.jsonc"
-  printf '%s\n' '{invalid json' >"$interrupted_magic/home/.pi/agent/mcp.json"
+  printf '%s\n' '{invalid json' >"$interrupted_magic/home/.pi/agent/mcp-adapter.json"
   if run_install "$interrupted_magic" >"$interrupted_magic/failed.log" 2>&1; then
     fail 'expected invalid MCP config to abort installation'
   fi
   assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
-  printf '%s\n' '{}' >"$interrupted_magic/home/.pi/agent/mcp.json"
+  printf '%s\n' '{}' >"$interrupted_magic/home/.pi/agent/mcp-adapter.json"
   run_install "$interrupted_magic" >"$interrupted_magic/retry.log" 2>&1
   assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True"
   if [ "$removal" = manifest ]; then
@@ -199,7 +199,8 @@ printf '%s\n' '{"custom":true,"theme":"light","packages":["npm:user-extension"],
 printf '%s\n' '{"maxConcurrent":2,"excludedExtensionPackages":["npm:user-extension"]}' >"$sandbox/home/.pi/agent/subagents.json"
 mkdir -p "$sandbox/home/.config/cortexkit"
 printf '%s\n' '{"historian":{"pi":{"model":"anthropic/claude-haiku-4-5"}},"custom":true}' >"$sandbox/home/.config/cortexkit/magic-context.jsonc"
-printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp","directTools":["custom_tool"]}}}' >"$sandbox/home/.pi/agent/mcp.json"
+printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp","directTools":["custom_tool"]}}}' >"$sandbox/home/.pi/agent/mcp-adapter.json"
+printf '%s\n' '{"legacy":"untouched"}' >"$sandbox/home/.pi/agent/mcp.json"
 if run_install "$sandbox" --runtime=pi >"$sandbox/invalid-arg.log" 2>&1; then
   fail 'accepted removed runtime selection flag'
 fi
@@ -222,9 +223,11 @@ assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeActio
 assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:@cortexkit/pi-magic-context','npm:user-extension']}"
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True and data['embedding']['provider']=='local' and data['historian']['pi']['model']=='anthropic/claude-haiku-4-5'"
 assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and 'npm:pi-antigravity' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
-assert_json "$agent/mcp.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
-assert_json "$agent/mcp.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==47"
-assert_json "$agent/mcp.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
+assert_json "$metadata/install.json" "data['paths']['mcp']=='$agent/mcp-adapter.json'"
+assert_json "$agent/mcp-adapter.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
+assert_json "$agent/mcp-adapter.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==47"
+assert_json "$agent/mcp-adapter.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
+assert_json "$agent/mcp.json" "data=={'legacy':'untouched'}"
 assert_json "$agent/extensions/pi-permission-system/config.json" "data['permission']['path']['*.env']=='deny' and data['permission']['mcp']['*']=='ask' and data['permissionReviewLog'] is False"
 assert_json "$agent/extensions/pi-permission-system/config.json" "all(data['permission'][name]=='allow' for name in ('ctx_search', 'ctx_expand', 'ctx_memory', 'ctx_note', 'ctx_reduce', 'todowrite')) and data['permission']['*']=='ask'"
 assert_contains "$sandbox/bin/pi.log" 'update --self'
@@ -260,7 +263,33 @@ assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data=={'histo
 assert_json "$agent/settings.json" "data == {'custom': True, 'theme': 'light', 'packages': ['npm:user-extension'], 'compaction': {'enabled': False}}"
 assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:user-extension','npm:added-by-user']}"
 assert_no_path "$agent/themes/dracula.json"
-assert_json "$agent/mcp.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
+assert_json "$agent/mcp-adapter.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
+assert_json "$agent/mcp.json" "data=={'legacy':'untouched'}"
+
+# An install from before the adapter path change retains the recorded legacy
+# destination until it is uninstalled; uninstall must clean that file safely.
+legacy="$WORK_DIR/legacy-mcp"
+mkdir -p "$legacy/home/.pi/agent"
+make_source "$legacy/source"
+make_bin "$legacy/bin"
+printf '%s\n' '{"mcpServers":{"user_server":{"url":"https://example.invalid/mcp"}}}' >"$legacy/home/.pi/agent/mcp-adapter.json"
+run_install "$legacy" >"$legacy/install.log" 2>&1
+mv "$legacy/home/.pi/agent/mcp-adapter.json" "$legacy/home/.pi/agent/mcp.json"
+python3 - "$legacy/home/.pi/agent/b-agentic/install.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data['paths']['mcp'] = str(path.parent.parent / 'mcp.json')
+path.write_text(json.dumps(data))
+PY
+if run_install "$legacy" --sync >"$legacy/sync.log" 2>&1; then
+  fail 'expected legacy MCP path to require uninstall before sync'
+fi
+assert_contains "$legacy/sync.log" 'Pi mcp path changed; uninstall the existing installation first'
+run_install "$legacy" --uninstall >"$legacy/uninstall.log" 2>&1
+assert_json "$legacy/home/.pi/agent/mcp.json" "data=={'mcpServers':{'user_server':{'url':'https://example.invalid/mcp'}}}"
+assert_no_path "$legacy/home/.pi/agent/mcp-adapter.json"
 
 # A failed package removal must retain both ownership evidence and the
 # settings declaration so a later uninstall can retry.
@@ -539,12 +568,12 @@ mkdir -p "$empty/home/.pi/agent/extensions/pi-permission-system"
 make_source "$empty/source"
 make_bin "$empty/bin"
 printf '{}\n' >"$empty/home/.pi/agent/settings.json"
-printf '{}\n' >"$empty/home/.pi/agent/mcp.json"
+printf '{}\n' >"$empty/home/.pi/agent/mcp-adapter.json"
 printf '{}\n' >"$empty/home/.pi/agent/extensions/pi-permission-system/config.json"
 run_install "$empty" >"$empty/install.log" 2>&1
 run_install "$empty" --uninstall >"$empty/uninstall.log" 2>&1
 assert_json "$empty/home/.pi/agent/settings.json" "data=={}"
-assert_json "$empty/home/.pi/agent/mcp.json" "data=={}"
+assert_json "$empty/home/.pi/agent/mcp-adapter.json" "data=={}"
 assert_json "$empty/home/.pi/agent/extensions/pi-permission-system/config.json" "data=={}"
 
 replaced="$WORK_DIR/replaced-kernel"
@@ -691,11 +720,11 @@ mkdir -p "$symlink/home/.pi/agent" "$symlink/user"
 make_source "$symlink/source"
 make_bin "$symlink/bin"
 run_install "$symlink" >"$symlink/install.log" 2>&1
-mv "$symlink/home/.pi/agent/mcp.json" "$symlink/user/mcp.json"
-ln -s "$symlink/user/mcp.json" "$symlink/home/.pi/agent/mcp.json"
+mv "$symlink/home/.pi/agent/mcp-adapter.json" "$symlink/user/mcp-adapter.json"
+ln -s "$symlink/user/mcp-adapter.json" "$symlink/home/.pi/agent/mcp-adapter.json"
 run_install "$symlink" --uninstall >"$symlink/uninstall.log" 2>&1
 assert_contains "$symlink/uninstall.log" 'preserving symlinked mcp'
-[ -L "$symlink/home/.pi/agent/mcp.json" ] || fail 'symlinked config not preserved'
+[ -L "$symlink/home/.pi/agent/mcp-adapter.json" ] || fail 'symlinked config not preserved'
 assert_file "$symlink/home/.pi/agent/b-agentic/install.json"
 
 # An existing symlinked specialist config remains user-owned on install.
@@ -818,14 +847,14 @@ mkdir -p "$empty_orphan/home/.pi/agent/extensions/pi-permission-system"
 make_source "$empty_orphan/source"
 make_bin "$empty_orphan/bin"
 printf '{}\n' >"$empty_orphan/home/.pi/agent/settings.json"
-printf '{}\n' >"$empty_orphan/home/.pi/agent/mcp.json"
+printf '{}\n' >"$empty_orphan/home/.pi/agent/mcp-adapter.json"
 printf '{}\n' >"$empty_orphan/home/.pi/agent/extensions/pi-permission-system/config.json"
 run_install "$empty_orphan" >"$empty_orphan/install.log" 2>&1
 rm -rf "$empty_orphan/source"
 HOME="$empty_orphan/home" PATH="$empty_orphan/bin:$PATH" B_AGENTIC_DIR="$empty_orphan/missing" \
   bash "$ROOT_DIR/install.sh" --uninstall >"$empty_orphan/uninstall.log" 2>&1
 assert_json "$empty_orphan/home/.pi/agent/settings.json" "data=={}"
-assert_json "$empty_orphan/home/.pi/agent/mcp.json" "data=={}"
+assert_json "$empty_orphan/home/.pi/agent/mcp-adapter.json" "data=={}"
 assert_json "$empty_orphan/home/.pi/agent/extensions/pi-permission-system/config.json" "data=={}"
 
 dry="$WORK_DIR/dry"
