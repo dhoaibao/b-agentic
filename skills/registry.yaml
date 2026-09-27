@@ -8,7 +8,7 @@
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
-      "model": "anthropic/claude-sonnet-5#high",
+      "model": "antigravity/gemini-3.8-flash#high",
       "conditional_tools": ["firecrawl_search", "firecrawl_scrape", "firecrawl_map", "firecrawl_extract"]
     },
     "b-debugger": {
