@@ -821,6 +821,13 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "approval-gated generic `mcp` proxy",
                 "local paths may be read and uploaded",
                 "non-ClickUp HTTP(S) image URLs may be fetched and uploaded",
+                "In scope:",
+                "Out of scope:",
+                "whenever scope could plausibly expand",
+                "Grounding always wins over completeness",
+                "leave its body empty instead of adding placeholder text",
+                "ask one concise focused question",
+                "explicitly approved including them",
             ),
         },
         "references/capabilities.yaml": {
