@@ -38,7 +38,7 @@ compatible child through its supported task identifier.
 | Phase | Skills | Purpose |
 |---|---|---|
 | **Decide** | `b-plan`, `b-research`, `b-design`, `b-debug` | Resolve ambiguity, gather external facts, diagnose runtime causes, or define a frontend standard. |
-| **Build** | `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor` | Make the smallest approved change. |
+| **Build** | `b-frontend`, `b-diagram`, `b-implement`, `b-clickup`, `b-init`, `b-refactor` | Make the smallest approved change. |
 | **Validate** | `b-test`, `b-browser`, `b-agentic-audit`, `b-review` | Confirm tests, browser evidence, repository conformance, and changed-code quality. |
 | **Ship** | `b-commit`, `b-pr-summary` | Create explicitly requested local commits or write PR copy from local history. |
 
@@ -53,6 +53,7 @@ compatible child through its supported task identifier.
 | `b-frontend` | Build | Implement contextual frontend/UI code, styling, responsive behavior, interactions, visual refreshes, and landing pages |
 | `b-diagram` | Build | Create validated, portable technical architecture and flow diagrams from explicit facts |
 | `b-implement` | Build | Make the scoped non-UI change from an approved plan or a small direct request |
+| `b-clickup` | Build | Create and update ClickUp tasks with a consistent four-section description |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
 | `b-debug` | Decide | Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code |

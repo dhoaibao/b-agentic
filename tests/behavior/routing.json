@@ -4,6 +4,18 @@
   "description": "Human-scored Pi native skill-selection scenarios.",
   "scenarios": [
     {
+      "id": "clickup-task-creation",
+      "prompt": "Create a ClickUp task with Context, Requirements, Acceptance Criteria, and Checklist.",
+      "expected_skill": "b-clickup",
+      "forbidden_skills": ["b-implement", "b-plan"]
+    },
+    {
+      "id": "clickup-task-update",
+      "prompt": "Find and update this ClickUp task with revised acceptance criteria.",
+      "expected_skill": "b-clickup",
+      "forbidden_skills": ["b-implement", "b-plan"]
+    },
+    {
       "id": "plan-vs-implement",
       "prompt": "The desired billing behavior is ambiguous. Decide which b-agentic skill should handle clarifying scope before any code changes.",
       "expected_skill": "b-plan",

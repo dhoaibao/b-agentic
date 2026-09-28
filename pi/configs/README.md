@@ -15,7 +15,7 @@
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |
 | `../agents/b-*.md` | `agents/b-*.md` | Four generated specialist profiles (tool allowlists; global permission policy applies, no per-agent block) |
-| `../prompts/b-*.md` | `prompts/b-*.md` | Fifteen generated explicit `/b-*` routes |
+| `../prompts/b-*.md` | `prompts/b-*.md` | Sixteen generated explicit `/b-*` routes |
 
 `install.sh` merges without replacing user-owned keys, snapshots the managed
 assets, backs up existing configs, and records ownership in

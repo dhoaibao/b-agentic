@@ -225,6 +225,18 @@ FIXTURES = [
         expected="b-implement",
     ),
     Fixture(
+        name="ClickUp task creation",
+        prompt="Create a ClickUp task with Context, Requirements, Acceptance Criteria, and Checklist.",
+        expected="b-clickup",
+        not_expected=("b-implement", "b-plan"),
+    ),
+    Fixture(
+        name="ClickUp task update",
+        prompt="Find and update this ClickUp task with revised acceptance criteria.",
+        expected="b-clickup",
+        not_expected=("b-implement", "b-plan"),
+    ),
+    Fixture(
         name="mechanical rename",
         prompt="Rename UserService to AccountService without changing behavior.",
         expected="b-refactor",
@@ -795,6 +807,26 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "When review is required, freeze and fingerprint the exact candidate",
                 "Compare the identity after it returns",
                 "Missing or failed required checks, unexpected paths, and hand-edited generated outputs block completion even without review",
+            ),
+        },
+        "skills/b-clickup/prompt.md": {
+            "required": (
+                "contain exactly these headings in this order",
+                "## Context\n\n## Requirements\n\n## Acceptance Criteria\n\n## Checklist",
+                "using its `terms` array",
+                "identifier argument is `id`",
+                "uses `task_id` to identify the task",
+                "explicitly pass `assignees: []`",
+                "cannot remove or replace existing assignees",
+                "approval-gated generic `mcp` proxy",
+                "local paths may be read and uploaded",
+                "non-ClickUp HTTP(S) image URLs may be fetched and uploaded",
+            ),
+        },
+        "references/capabilities.yaml": {
+            "required": (
+                "all upstream write-mode actions, including task creation and updates",
+                "All write-mode tools, including task creation and updates, are approval-gated.",
             ),
         },
         "skills/b-plan/prompt.md": {

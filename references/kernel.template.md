@@ -29,7 +29,7 @@
 - `b-commit` does not rerun checks, self-authorize the candidate, or initiate changed-code review solely to commit. It checks paths/index and honors explicit repo pre-commit checks; changed candidates return to the change phase. Explicit review routes to `b-review`.
 - When review is required, freeze the checked tracked plus relevant untracked/derived candidate. Record HEAD and SHA-256 digests of staged and unstaged binary diffs, plus sorted relevant untracked paths, types, and content digests. Exclude protected content until authorized; block if its identity cannot safely be checked. Compare the identity at handoff, reviewer start/end, and after return. Do not edit during review. A changed candidate, `NEEDS FIXES`, or unaccepted follow-up needs correction, fresh checks, and a new review. Review never commits or pushes.
 <!-- generated:delegation:start -->
-- The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.
+- The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-clickup`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.
 - Delegated skills run through their named Pi `subagent` type; pass a bounded task naming the exact skill. The child reads its installed `SKILL.md` and returns that skill's own Output format; the main session evaluates the result before any user-facing or worktree action:
   - `b-plan` -> `b-planner`.
   - `b-research` -> `b-researcher`.
@@ -47,6 +47,7 @@
 - Clearly scoped frontend/UI code implementation or visual refresh (pages, layouts, components, responsiveness, interactions) -> `b-frontend`.
 - Create a technical architecture, system map, workflow, sequence, data-flow, or lifecycle diagram -> `b-diagram`.
 - Implement approved or clearly scoped non-UI work (general fallback) -> `b-implement`.
+- Create and update ClickUp tasks using Context, Requirements, Acceptance Criteria, and Checklist -> `b-clickup`.
 - Initialize repo-local agent instruction files -> `b-init`.
 - Mechanical rename, extract, move, inline, simplify, delete dead code -> `b-refactor`.
 - Runtime bug, error, "not working" -> `b-debug`.
