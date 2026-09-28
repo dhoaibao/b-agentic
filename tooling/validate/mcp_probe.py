@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Pi MCP inventory policy note.
 
-The Pi adapter's static configuration lists seven lazy servers. This validator
-never starts a server, opens a browser, authenticates, or tests live tool use.
+The Pi adapter's base configuration lists seven lazy servers and offers an
+optional ClickUp server. This validator never starts a server, opens a browser,
+authenticates, or tests live tool use.
 """
 
 from __future__ import annotations

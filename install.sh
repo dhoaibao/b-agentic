@@ -26,6 +26,7 @@ TEMPLATES_SRC=""
 KERNEL_SRC=""
 INSTALL_STAGE_CURRENT=0
 INSTALL_STAGE_TOTAL=0
+CLICKUP_MCP_ENABLED=false
 
 # Output helpers: colors are empty unless stdout is a TTY and NO_COLOR is unset,
 # so piped/CI output stays plain (bun/Homebrew pattern).
@@ -43,7 +44,11 @@ warn() { printf '%swarning:%s %s\n' "$C_YELLOW" "$C_RESET" "$*" >&2; }
 die() { printf '%serror:%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
 note_noninteractive() {
   if [ ! -t 0 ] || [ -n "${CI:-}" ]; then
-    log "${C_DIM}Running non-interactively; output is reduced and no prompts are shown.${C_RESET}"
+    if [ -z "${CI:-}" ] && { tty -s </dev/tty; } 2>/dev/null; then
+      log "${C_DIM}Piped input detected; any installation prompt will use the controlling terminal.${C_RESET}"
+    else
+      log "${C_DIM}Running non-interactively; output is reduced and prompts are disabled.${C_RESET}"
+    fi
   fi
 }
 yes_value() { case "${1:-}" in y|Y|yes|YES|Yes|true|TRUE|1) return 0;; *) return 1;; esac; }
@@ -52,6 +57,44 @@ force_enabled() { yes_value "$FORCE_VALUE"; }
 replace_memory_enabled() { yes_value "$REPLACE_MEMORY_VALUE"; }
 uninstall_enabled() { yes_value "$UNINSTALL_VALUE"; }
 run_cmd() { if dry_run_enabled; then printf '[dry-run] %s\n' "$*" >&2; else "$@"; fi; }
+
+choose_optional_clickup_mcp() {
+  [ "$OPERATION" = install ] && ! uninstall_enabled || return 0
+  local choice="${B_AGENTIC_CLICKUP_MCP:-}"
+  if [ -f "$MANIFEST_DST" ]; then
+    local persisted_choice
+    persisted_choice="$(manifest_action_value clickupMcpEnabled __unset__)"
+    if [ "$persisted_choice" != __unset__ ]; then
+      case "$persisted_choice" in
+        true|True|1) CLICKUP_MCP_ENABLED=true ;;
+        *) CLICKUP_MCP_ENABLED=false ;;
+      esac
+      return 0
+    fi
+  fi
+  if [ -n "$choice" ]; then
+    case "$choice" in
+      y|Y|yes|YES|Yes|true|TRUE|1) CLICKUP_MCP_ENABLED=true ;;
+      n|N|no|NO|No|false|FALSE|0) CLICKUP_MCP_ENABLED=false ;;
+      *) die 'B_AGENTIC_CLICKUP_MCP must be yes or no' ;;
+    esac
+    return 0
+  fi
+  if [ -z "${CI:-}" ] && { tty -s </dev/tty; } 2>/dev/null; then
+    printf 'Enable optional ClickUp MCP? Its third-party write mode can mutate tasks/comments, lists, time entries, and documents; Pi asks before writes. Image handling may read/upload local files or fetch remote URLs. It uses a personal API token with your account permissions. Configure CLICKUP_API_KEY and CLICKUP_TEAM_ID in your environment; no token is stored in Pi config. [y/N] ' > /dev/tty
+    if IFS= read -r choice < /dev/tty; then
+      case "$choice" in
+        y|Y|yes|YES|Yes) CLICKUP_MCP_ENABLED=true ;;
+        *) CLICKUP_MCP_ENABLED=false ;;
+      esac
+    else
+      CLICKUP_MCP_ENABLED=false
+    fi
+  else
+    CLICKUP_MCP_ENABLED=false
+    log 'Optional ClickUp MCP not selected (no interactive terminal; set B_AGENTIC_CLICKUP_MCP=yes to opt in).'
+  fi
+}
 
 set_source_dir() {
   SOURCE_DIR="$1"
@@ -101,6 +144,7 @@ validate_source_layout() {
   [ -d "$TEMPLATES_SRC" ] || die "missing Pi configs: $TEMPLATES_SRC"
   [ -f "$TEMPLATES_SRC/permission.user.template.json" ] || die 'missing generated Pi permission template'
   [ -f "$TEMPLATES_SRC/mcp.base.json" ] || die 'missing Pi MCP template'
+  [ -f "$TEMPLATES_SRC/mcp.clickup.json" ] || die 'missing optional ClickUp MCP template'
   [ -f "$SOURCE_DIR/pi/themes/dracula.json" ] || die 'missing Dracula theme'
   [ -f "$SOURCE_DIR/pi/themes/LICENSE" ] || die 'missing Dracula theme license'
   [ -f "$SOURCE_DIR/pi/scripts/install.sh" ] || die 'missing Pi runtime installer'
@@ -242,6 +286,8 @@ main() {
   fi
 
   install_optional_runtime_tools
+  choose_optional_clickup_mcp
+  if [ "$OPERATION" = install ]; then preflight_clickup_server_entry; fi
   case "$OPERATION" in
     install) pi_install ;;
     sync) pi_sync; success 'b-agentic sync complete for Pi.' ;;

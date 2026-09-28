@@ -11,6 +11,7 @@
 | `subagents.base.json` | `subagents.json` | `pi-subagents` excludes Magic Context from children; existing user exclusions are retained |
 | `magic-context.base.json` | `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`) | Shared CortexKit defaults: enabled with local embeddings; historian falls back to the live Pi model |
 | `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; seven lazy servers with policy-aligned direct-tool lists, no stored credentials |
+| `mcp.clickup.json` | `mcp-adapter.json` | Optional ClickUp stdio server (`@1.9.0`), added only after install opt-in; uses environment references for its personal API token and team ID |
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |
 | `../agents/b-*.md` | `agents/b-*.md` | Four generated specialist profiles (tool allowlists; global permission policy applies, no per-agent block) |
@@ -18,8 +19,12 @@
 
 `install.sh` merges without replacing user-owned keys, snapshots the managed
 assets, backs up existing configs, and records ownership in
-`b-agentic/install.json`. The MCP template adds missing per-server direct-tool
-lists; existing user-owned lists remain unchanged. Existing `mcp.json` files are
+`b-agentic/install.json`. It asks once whether to add the optional ClickUp MCP
+when no choice is recorded; non-interactive first installs or upgrades leave it
+out unless `B_AGENTIC_CLICKUP_MCP=yes` is set. Later install and sync runs
+preserve the recorded choice; uninstall and reinstall to change it. The MCP
+template adds missing per-server
+direct-tool lists; existing user-owned lists remain unchanged. Existing `mcp.json` files are
 left untouched; the installer does not migrate them to `mcp-adapter.json`.
 For an existing b-agentic install recorded against `mcp.json`, install,
 `--sync`, and `--update` refuse to proceed. Uninstall first, then install again;

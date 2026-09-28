@@ -9,7 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-EXPECTED_SERVERS = {"codegraph", "context7", "brave_search", "firecrawl", "playwright", "mobbin", "shadcn"}
+EXPECTED_SERVERS = {"codegraph", "context7", "brave_search", "firecrawl", "playwright", "mobbin", "shadcn", "clickup"}
+OPTIONAL_SERVERS = {"clickup"}
 EXPECTED_CLASSES = {
     "read-only",
     "conditional-read",
@@ -107,14 +108,19 @@ def main() -> int:
     if rendered.get("permissionReviewLog") is not False or rendered.get("yoloMode") is not False:
         errors.append("permission review logging and yolo mode must be disabled")
     mcp = json.loads((ROOT / "pi" / "configs" / "mcp.base.json").read_text())
-    if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS:
-        errors.append("Pi MCP adapter must configure all seven servers")
+    optional_mcp = json.loads((ROOT / "pi" / "configs" / "mcp.clickup.json").read_text())
+    configured_servers = dict(mcp.get("mcpServers", {}))
+    configured_servers.update(optional_mcp.get("mcpServers", {}))
+    if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - OPTIONAL_SERVERS:
+        errors.append("Pi base MCP config must configure all required servers only")
+    if set(optional_mcp.get("mcpServers", {})) != OPTIONAL_SERVERS:
+        errors.append("Pi optional MCP config must configure each optional server exactly once")
     settings = mcp.get("settings", {})
     if settings.get("directTools") is not True or settings.get("scriptMode") is not False:
         errors.append("direct tools must be enabled and MCP script mode disabled")
     eager_count = 0
     for server, record in servers.items():
-        configured = mcp.get("mcpServers", {}).get(server, {}).get("directTools")
+        configured = configured_servers.get(server, {}).get("directTools")
         allowed = {
             tool
             for tool, classification in record.get("tools", {}).items()

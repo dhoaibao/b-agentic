@@ -20,7 +20,10 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 The installer updates Pi to the latest available release, installs eight unpinned
 extensions (including [Magic Context](https://github.com/cortexkit/magic-context)), installs the [Dracula theme](https://draculatheme.com/pi-coding-agent)
 and selects it when no theme is already chosen, writes managed assets under
-`~/.pi/agent`, and preserves unrelated configuration.
+`~/.pi/agent`, and preserves unrelated configuration. An interactive install
+asks once when no ClickUp choice is recorded; non-interactive first installs or
+upgrades default to off unless `B_AGENTIC_CLICKUP_MCP=yes` is set. Later install
+and sync runs preserve the recorded choice; uninstall and reinstall to change it.
 See [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
 ## How it works

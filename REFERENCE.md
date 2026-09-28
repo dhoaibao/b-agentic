@@ -150,24 +150,25 @@ with their source rather than as additional subsystems.
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
 Firecrawl, Playwright, Mobbin, and shadcn through `pi-mcp-adapter`. Connections
-are lazy. Per-server `directTools` lists eagerly register only the 47 known
-allowed operations from `references/mcp_operations.yaml`, below the adapter's
-75-tool advisory threshold. Direct names use `<server>_<tool>`; other operations
+are lazy. Per-server `directTools` lists eagerly register the 47 base known
+allowed operations from `references/mcp_operations.yaml`; optional ClickUp adds
+two read tools, keeping the total below the adapter's 75-tool advisory threshold. Direct names use `<server>_<tool>`; other operations
 remain available through the separately gated proxy, where calls ask for
 approval. The adapter's script/install tool surfaces are disabled. Credentials
 remain environment placeholders; the installer does not collect them. Sync adds
 missing per-server lists to existing configurations but preserves user-edited
 lists; `/reload` or a restart is needed to pick up changes.
 
-| MCP          | Local prerequisite                           |
-| ------------ | -------------------------------------------- |
-| CodeGraph    | `codegraph` and an index for graph questions |
-| Context7     | `CONTEXT7_API_KEY`                           |
-| Brave Search | `bunx`, `BRAVE_API_KEY`                      |
-| Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                  |
-| Playwright   | `bunx` (isolated/headless testing)           |
-| Mobbin       | approved OAuth/account when requested        |
-| shadcn       | `bunx`, project `components.json`            |
+| MCP          | Local prerequisite                                                   |
+| ------------ | -------------------------------------------------------------------- |
+| CodeGraph    | `codegraph` and an index for graph questions                         |
+| Context7     | `CONTEXT7_API_KEY`                                                   |
+| Brave Search | `bunx`, `BRAVE_API_KEY`                                              |
+| Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                          |
+| Playwright   | `bunx` (isolated/headless testing)                                   |
+| Mobbin       | approved OAuth/account when requested                                |
+| shadcn       | `bunx`, project `components.json`                                    |
+| ClickUp      | optional install opt-in, `npx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
 
 `scripts/mcp-doctor.sh --allow-degraded` reports local launcher/config and
 environment-variable presence only. It never reads credential values, starts

@@ -145,6 +145,17 @@
     "shadcn_get_item_examples_from_registries": "allow",
     "shadcn_view_items_in_registries": "allow",
     "shadcn_get_add_command_for_items": "allow",
-    "shadcn_get_audit_checklist": "allow"
+    "shadcn_get_audit_checklist": "allow",
+    "clickup_*": "ask",
+    "clickup_getTaskById": "allow",
+    "clickup_searchTasks": "allow",
+    "clickup_updateTask": "ask",
+    "clickup_addComment": "ask",
+    "clickup_editComment": "ask",
+    "clickup_createTask": "ask",
+    "clickup_updateListInfo": "ask",
+    "clickup_createTimeEntry": "ask",
+    "clickup_updateDocumentPage": "ask",
+    "clickup_createDocumentOrPage": "ask"
   }
 }

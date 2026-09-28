@@ -76,10 +76,10 @@ Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.
 
 ## MCP and external-evidence design
 
-Seven servers use `pi-mcp-adapter`'s lazy `mcpServers` config and direct
-`<server>_<tool>` names. Per-server direct-tool lists eagerly register only
-operations allowed by `references/mcp_operations.yaml`; other operations remain
-available through the separately gated proxy, which asks for calls. This keeps
+Seven base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
+ClickUp is added only after install opt-in. Per-server direct-tool lists eagerly
+register only operations allowed by `references/mcp_operations.yaml`; other
+operations remain available through the separately gated proxy, which asks for calls. This keeps
 the eager set below the adapter's advisory threshold without disabling tools.
 Script mode and model-driven installs are disabled. The policy classifies known
 tools; allowed direct names avoid proxy approval, while consequential and
@@ -114,7 +114,11 @@ updated through `pi update --extensions`. Bootstrap repository/ref inputs are
 constrained before Git. Installer sync copies the kernel, skills, specialists,
 prompts, references, and templates; it merges settings, specialist exclusions,
 shared CortexKit config, MCP, and permission JSON while preserving unrelated
-values and ordered user arrays. Managed package and specialist-exclusion lists
+values and ordered user arrays. An interactive install asks once when no
+ClickUp choice is recorded; non-interactive first installs or upgrades opt out
+unless `B_AGENTIC_CLICKUP_MCP=yes` is set. Later install and sync runs preserve
+the recorded choice; uninstall and reinstall to change it. Managed package and
+specialist-exclusion lists
 union with existing user entries. Existing JSONC is backed up before a JSON
 rewrite. A recorded legacy MCP config path blocks install, sync, and update
 before Pi or its extensions are updated; uninstall and reinstall switch the

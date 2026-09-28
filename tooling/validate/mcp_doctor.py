@@ -12,8 +12,14 @@ from pathlib import Path
 
 from session_readiness import check_session_tools
 
-SERVERS = ("codegraph", "context7", "brave_search", "firecrawl", "playwright", "mobbin", "shadcn")
-CREDENTIALS = {"context7": "CONTEXT7_API_KEY", "brave_search": "BRAVE_API_KEY", "firecrawl": "FIRECRAWL_API_KEY"}
+SERVERS = ("codegraph", "context7", "brave_search", "firecrawl", "playwright", "mobbin", "shadcn", "clickup")
+OPTIONAL_SERVERS = {"clickup"}
+CREDENTIALS = {
+    "context7": ("CONTEXT7_API_KEY",),
+    "brave_search": ("BRAVE_API_KEY",),
+    "firecrawl": ("FIRECRAWL_API_KEY",),
+    "clickup": ("CLICKUP_API_KEY", "CLICKUP_TEAM_ID"),
+}
 
 
 def configured_path(home: str | None, config: str | None) -> Path:
@@ -27,12 +33,14 @@ def configured_path(home: str | None, config: str | None) -> Path:
 
 def status(server: str, entry: object) -> str:
     if not isinstance(entry, dict):
-        return "missing: config entry not installed"
+        return "not installed: optional" if server in OPTIONAL_SERVERS else "missing: config entry not installed"
     if entry.get("disabled") is True:
         return "blocked: server disabled in config"
-    credential = CREDENTIALS.get(server)
-    if credential and credential not in os.environ:
-        return f"blocked: {credential} environment variable not present"
+    missing = [name for name in CREDENTIALS.get(server, ()) if name not in os.environ]
+    if missing:
+        variables = ", ".join(missing)
+        suffix = "environment variable" if len(missing) == 1 else "environment variables"
+        return f"blocked: {variables} {suffix} not present"
     if isinstance(entry.get("url"), str):
         return "configured: remote endpoint present; not connected"
     binary = entry.get("command")

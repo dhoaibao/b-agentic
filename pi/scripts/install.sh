@@ -173,7 +173,64 @@ install_magic_context() {
   preflight_magic_context
   merge_json_file "$TEMPLATES_SRC/magic-context.base.json" "$MAGIC_CONTEXT_DST" magic-context magicContext
 }
-install_mcp() { merge_json_file "$TEMPLATES_SRC/mcp.base.json" "$PI_MCP_DST" mcp mcp; }
+preflight_clickup_server_entry() {
+  [ "$CLICKUP_MCP_ENABLED" = true ] || return 0
+  [ -f "$PI_MCP_DST" ] || return 0
+  if [ -f "$MANIFEST_DST" ]; then
+    case "$(manifest_action_value clickupMcpEnabled __unset__)" in
+      true|True|1) return 0 ;;
+    esac
+  fi
+  env SOURCE_DIR="$SOURCE_DIR" PI_MCP_DST="$PI_MCP_DST" CLICKUP_TEMPLATE="$TEMPLATES_SRC/mcp.clickup.json" python3 - <<'PY' || die 'could not safely check for an existing ClickUp MCP entry'
+import json, os, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
+from jsonc import loads
+try:
+    current = loads(Path(os.environ['PI_MCP_DST']).read_text())
+    optional = json.loads(Path(os.environ['CLICKUP_TEMPLATE']).read_text())
+    existing = current.get('mcpServers', {}).get('clickup')
+    expected = optional['mcpServers']['clickup']
+except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    raise SystemExit(2)
+if existing is not None and existing != expected:
+    print('error: a different ClickUp MCP entry already exists; preserving user configuration. Rename that entry or rerun with B_AGENTIC_CLICKUP_MCP=no.', file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+prepare_mcp_template() {
+  local template="$TEMPLATES_DST/mcp.base.json"
+  if [ "$OPERATION" != install ]; then
+    case "$(manifest_action_value clickupMcpEnabled false)" in
+      true|True|1) CLICKUP_MCP_ENABLED=true ;;
+      *) CLICKUP_MCP_ENABLED=false ;;
+    esac
+  fi
+  [ "$CLICKUP_MCP_ENABLED" = true ] || return 0
+  env MCP_TEMPLATE="$template" CLICKUP_TEMPLATE="$TEMPLATES_DST/mcp.clickup.json" python3 - <<'PY'
+import json, os
+from pathlib import Path
+base_path = Path(os.environ['MCP_TEMPLATE'])
+clickup_path = Path(os.environ['CLICKUP_TEMPLATE'])
+base = json.loads(base_path.read_text())
+optional = json.loads(clickup_path.read_text())
+servers = base.setdefault('mcpServers', {})
+clickup = optional.get('mcpServers', {}).get('clickup')
+if not isinstance(clickup, dict):
+    raise SystemExit('optional ClickUp MCP template is invalid')
+servers['clickup'] = clickup
+base_path.write_text(json.dumps(base, indent=2) + '\n')
+PY
+}
+install_mcp() {
+  if dry_run_enabled; then
+    [ "$CLICKUP_MCP_ENABLED" != true ] || printf '%s\n' '[dry-run] would merge the optional ClickUp MCP server' >&2
+    merge_json_file "$TEMPLATES_SRC/mcp.base.json" "$PI_MCP_DST" mcp mcp
+    return 0
+  fi
+  prepare_mcp_template
+  merge_json_file "$TEMPLATES_DST/mcp.base.json" "$PI_MCP_DST" mcp mcp
+}
 install_permission() {
   merge_json_file "$TEMPLATES_SRC/permission.user.template.json" "$PI_PERMISSION_DST" permission permission
 }
@@ -235,6 +292,12 @@ PY
 }
 
 runtime_install_configs() {
+  if [ "$OPERATION" != install ]; then
+    case "$(manifest_action_value clickupMcpEnabled false)" in
+      true|True|1) CLICKUP_MCP_ENABLED=true ;;
+      *) CLICKUP_MCP_ENABLED=false ;;
+    esac
+  fi
   run_install_triplet_stage 'Syncing Pi specialists' install_agents skip none none \
     INSTALL_AGENTS_ACTION INSTALL_AGENTS_STATE INSTALL_AGENTS_BACKUP
   run_install_triplet_stage 'Syncing Pi prompts' install_commands skip none none \
@@ -311,6 +374,10 @@ runtime_write_manifest() {
     printf '[dry-run] write manifest %s\n' "$MANIFEST_DST" >&2
     return 0
   fi
+  local clickup_state_recorded=false
+  if [ "$OPERATION" = install ] || [ "$(manifest_action_value clickupMcpEnabled __unset__)" != __unset__ ]; then
+    clickup_state_recorded=true
+  fi
   ensure_dir "$METADATA_DIR"
   env MANIFEST_DST="$MANIFEST_DST" TIMESTAMP="$TIMESTAMP" PI_CONFIG_DIR="$PI_CONFIG_DIR" \
     PI_SETTINGS_DST="$PI_SETTINGS_DST" PI_SUBAGENTS_DST="$PI_SUBAGENTS_DST" PI_MCP_DST="$PI_MCP_DST" PI_PERMISSION_DST="$PI_PERMISSION_DST" \
@@ -321,7 +388,8 @@ runtime_write_manifest() {
     KERNEL_ACTION="$INSTALL_MEMORY_ACTION" KERNEL_BACKUP="$INSTALL_MEMORY_BACKUP" \
     SETTINGS_ACTION="$INSTALL_SETTINGS_ACTION" SETTINGS_BACKUP="$INSTALL_SETTINGS_BACKUP" \
     SUBAGENTS_ACTION="$INSTALL_SUBAGENTS_ACTION" SUBAGENTS_BACKUP="$INSTALL_SUBAGENTS_BACKUP" \
-    MCP_ACTION="$INSTALL_MCP_ACTION" MCP_BACKUP="$INSTALL_MCP_BACKUP" \
+    MCP_ACTION="$INSTALL_MCP_ACTION" MCP_BACKUP="$INSTALL_MCP_BACKUP" CLICKUP_MCP_ENABLED="$CLICKUP_MCP_ENABLED" \
+    CLICKUP_STATE_RECORDED="$clickup_state_recorded" \
     PERMISSION_ACTION="$INSTALL_PERMISSION_ACTION" PERMISSION_BACKUP="$INSTALL_PERMISSION_BACKUP" \
     AGENTS_ACTION="$INSTALL_AGENTS_ACTION" COMMANDS_ACTION="$INSTALL_COMMANDS_ACTION" \
     THEME_ACTION="$INSTALL_THEME_ACTION" \
@@ -400,6 +468,8 @@ manifest = {
         'permission': os.environ['PERMISSION_BACKUP'],
     },
 }
+if os.environ['CLICKUP_STATE_RECORDED'] == 'true':
+    manifest['clickupMcpEnabled'] = os.environ['CLICKUP_MCP_ENABLED'] == 'true'
 if previous.get('packageState') == 'partial' and previous.get('failedPackage'):
     manifest['packageState'] = 'partial'
     manifest['failedPackage'] = previous['failedPackage']
@@ -429,6 +499,11 @@ rollback_magic_context() {
 runtime_print_install_report() {
   success 'b-agentic install complete for Pi'
   installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, eight unpinned extensions."
+  if [ "$CLICKUP_MCP_ENABLED" = true ]; then
+    installer_summary_log 'Optional ClickUp MCP: enabled; set CLICKUP_API_KEY and CLICKUP_TEAM_ID in your environment.'
+  else
+    installer_summary_log 'Optional ClickUp MCP: not enabled.'
+  fi
   installer_summary_log "Manifest: $MANIFEST_DST"
   step 'Next steps:'
   installer_summary_log '  - Start a new Pi session and invoke /b-plan or another explicit /b-* prompt.'

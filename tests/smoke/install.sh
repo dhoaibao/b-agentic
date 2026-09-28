@@ -88,6 +88,7 @@ run_install() {
   shift
   HOME="$sandbox/home" PATH="$sandbox/bin:$PATH" \
     B_AGENTIC_DIR="$sandbox/source" B_AGENTIC_REPO="$sandbox/source" \
+    B_AGENTIC_CLICKUP_MCP="${B_AGENTIC_CLICKUP_MCP:-N}" \
     bash "$ROOT_DIR/install.sh" "$@"
 }
 
@@ -224,7 +225,8 @@ assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtension
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True and data['embedding']['provider']=='local' and data['historian']['pi']['model']=='anthropic/claude-haiku-4-5'"
 assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and 'npm:pi-antigravity' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
 assert_json "$metadata/install.json" "data['paths']['mcp']=='$agent/mcp-adapter.json'"
-assert_json "$agent/mcp-adapter.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool']"
+assert_json "$agent/mcp-adapter.json" "len(data['mcpServers'])==8 and data['mcpServers']['user_server']['url']=='https://example.invalid/mcp' and data['mcpServers']['user_server']['directTools']==['custom_tool'] and 'clickup' not in data['mcpServers']"
+assert_json "$metadata/install.json" "data['clickupMcpEnabled'] is False"
 assert_json "$agent/mcp-adapter.json" "sum(len(server['directTools']) for name, server in data['mcpServers'].items() if name!='user_server')==47"
 assert_json "$agent/mcp-adapter.json" "'browser_snapshot' in data['mcpServers']['playwright']['directTools'] and 'browser_click' not in data['mcpServers']['playwright']['directTools']"
 assert_json "$agent/mcp.json" "data=={'legacy':'untouched'}"
@@ -265,6 +267,57 @@ assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtension
 assert_no_path "$agent/themes/dracula.json"
 assert_json "$agent/mcp-adapter.json" "data == {'mcpServers': {'user_server': {'url': 'https://example.invalid/mcp', 'directTools': ['custom_tool']}}}"
 assert_json "$agent/mcp.json" "data=={'legacy':'untouched'}"
+
+# ClickUp is opt-in, persists across sync, and is removed on uninstall.
+clickup="$WORK_DIR/clickup-opt-in"
+mkdir -p "$clickup/home"
+make_source "$clickup/source"
+make_bin "$clickup/bin"
+B_AGENTIC_CLICKUP_MCP=yes run_install "$clickup" >"$clickup/install.log" 2>&1
+agent="$clickup/home/.pi/agent"
+assert_json "$agent/mcp-adapter.json" "'clickup' in data['mcpServers'] and data['mcpServers']['clickup']['command']=='npx' and data['mcpServers']['clickup']['args']==['-y','@hauptsache.net/clickup-mcp@1.9.0']"
+assert_json "$agent/mcp-adapter.json" "data['mcpServers']['clickup']['env']['CLICKUP_API_KEY']==chr(36)+'{CLICKUP_API_KEY}' and data['mcpServers']['clickup']['env']['CLICKUP_TEAM_ID']==chr(36)+'{CLICKUP_TEAM_ID}' and data['mcpServers']['clickup']['directTools']==['getTaskById','searchTasks']"
+assert_json "$agent/b-agentic/install.json" "data['clickupMcpEnabled'] is True"
+run_install "$clickup" --sync >"$clickup/sync.log" 2>&1
+assert_json "$agent/mcp-adapter.json" "'clickup' in data['mcpServers']"
+assert_json "$agent/b-agentic/install.json" "data['clickupMcpEnabled'] is True"
+rm -rf "$clickup/source"
+HOME="$clickup/home" PATH="$clickup/bin:$PATH" B_AGENTIC_DIR="$clickup/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$clickup/uninstall.log" 2>&1
+assert_no_path "$agent/mcp-adapter.json"
+
+# A pre-existing user-owned server named clickup is never altered or merged into.
+clickup_conflict="$WORK_DIR/clickup-conflict"
+mkdir -p "$clickup_conflict/home/.pi/agent"
+make_source "$clickup_conflict/source"
+make_bin "$clickup_conflict/bin"
+printf '%s\n' '{"mcpServers":{"clickup":{"url":"https://example.invalid/mcp","name":"user ClickUp"}}}' >"$clickup_conflict/home/.pi/agent/mcp-adapter.json"
+if B_AGENTIC_CLICKUP_MCP=yes run_install "$clickup_conflict" >"$clickup_conflict/install.log" 2>&1; then
+  fail 'accepted conflicting user-owned ClickUp MCP entry'
+fi
+assert_contains "$clickup_conflict/install.log" 'a different ClickUp MCP entry already exists'
+assert_json "$clickup_conflict/home/.pi/agent/mcp-adapter.json" "data=={'mcpServers':{'clickup':{'url':'https://example.invalid/mcp','name':'user ClickUp'}}}"
+assert_no_path "$clickup_conflict/bin/pi.log"
+
+# An old install without a recorded ClickUp choice gets the opt-in question/override once.
+clickup_upgrade="$WORK_DIR/clickup-upgrade"
+mkdir -p "$clickup_upgrade/home"
+make_source "$clickup_upgrade/source"
+make_bin "$clickup_upgrade/bin"
+run_install "$clickup_upgrade" >"$clickup_upgrade/initial.log" 2>&1
+python3 - "$clickup_upgrade/home/.pi/agent/b-agentic/install.json" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data.pop('clickupMcpEnabled', None)
+path.write_text(json.dumps(data, indent=2) + '\n')
+PY
+run_install "$clickup_upgrade" --sync >"$clickup_upgrade/sync.log" 2>&1
+assert_json "$clickup_upgrade/home/.pi/agent/b-agentic/install.json" "'clickupMcpEnabled' not in data"
+B_AGENTIC_CLICKUP_MCP=yes run_install "$clickup_upgrade" >"$clickup_upgrade/upgrade.log" 2>&1
+assert_json "$clickup_upgrade/home/.pi/agent/mcp-adapter.json" "'clickup' in data['mcpServers']"
+assert_json "$clickup_upgrade/home/.pi/agent/b-agentic/install.json" "data['clickupMcpEnabled'] is True"
 
 # An install from before the adapter path change retains the recorded legacy
 # destination until it is uninstalled; uninstall must clean that file safely.
@@ -874,6 +927,14 @@ assert_no_path "$dry/home/.pi/agent"
 assert_contains "$dry/log" '[dry-run] pi update --self'
 assert_contains "$dry/log" '[dry-run] install Pi theme'
 assert_no_path "$dry/bin/pi.log"
+dry_clickup="$WORK_DIR/dry-clickup"
+mkdir -p "$dry_clickup/home"
+make_source "$dry_clickup/source"
+make_bin "$dry_clickup/bin"
+B_AGENTIC_CLICKUP_MCP=yes run_install "$dry_clickup" --dry-run >"$dry_clickup/log" 2>&1
+assert_no_path "$dry_clickup/home/.pi/agent"
+assert_contains "$dry_clickup/log" '[dry-run] would merge the optional ClickUp MCP server'
+assert_no_path "$dry_clickup/bin/pi.log"
 run_install "$dry" --update --dry-run >"$dry/update.log" 2>&1
 assert_contains "$dry/update.log" '[dry-run] pi update --extensions'
 assert_no_path "$dry/bin/pi.log"
