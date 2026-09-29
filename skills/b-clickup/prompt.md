@@ -13,6 +13,18 @@ Create and update ClickUp tasks with a consistent four-section description, usin
 - The user asks only to plan task work without creating or changing a ClickUp task; route the plan-only request to **b-plan**.
 - The user asks for external ClickUp API research; use **b-research**.
 
+## Task naming format
+
+Every task name created, or renamed at the user's request, must follow `[TEAM] [TYPE] Task Name`:
+
+- **TEAM** (exactly one): `[BA/QC]`, `[MOBILE]`, `[FE]`, `[BE]`, `[PM]`.
+- **TYPE** (exactly one): `[TASK]`, `[BUG]`, `[IMPROVE]`, `[FEATURE]`, `[DOC]`.
+- **Task Name**: short, specific description of the work, without repeating the team or type.
+
+Example: `[BE] [BUG] Login request hangs on slow connections`.
+
+Infer TEAM and TYPE only when the user's request states or clearly implies them; otherwise ask one concise question (offer the allowed values). Never invent values outside these lists. Do not rename existing tasks unless the user asks; when they do, keep the existing task name text and only add or correct the prefixes.
+
 ## Task description format
 
 Every description created or replaced must contain exactly these headings in this order, with no preamble, footer, or additional sections:
@@ -70,16 +82,16 @@ Example bug task (grounded in the user request and support ticket):
 
 ## Create a task
 
-1. Confirm the task title and the target ClickUp list ID (`list_id`). Never guess a list. If it is missing, ask the user for it; only use another available list-lookup tool when its schema is exposed and the user approves the read.
+1. Confirm the task title (formatted per **Task naming format**) and the target ClickUp list ID (`list_id`). Never guess a list. If it is missing, ask the user for it; only use another available list-lookup tool when its schema is exposed and the user approves the read.
 2. When `clickup_searchTasks` is available, check the name or unique details for an obvious duplicate using its `terms` array. If a likely match appears, show its task ID/name and ask whether to update it or create a separate task; do not silently choose.
 3. Compose the description using only the four required sections. Set optional task fields only when the user specifies them. `createTask` assigns the current API user when `assignees` is omitted, so explicitly pass `assignees: []` unless the user requests specific assignees; never guess user IDs, and ask for the ID if it is unavailable.
-4. Direct tools expose reads only. Submit `createTask` through the approval-gated generic `mcp` proxy for server `clickup`, using the exposed schema (`name`, `list_id`, `description`, and `assignees`). Honor the proxy's Pi approval prompt for the write.
+4. Direct tools expose reads only. Submit `createTask` through the approval-gated generic `mcp` proxy for server `clickup`, using the exposed schema (`name` in the `[TEAM] [TYPE] Task Name` format, `list_id`, `description`, and `assignees`). Honor the proxy's Pi approval prompt for the write.
 
 ## Find and update a task
 
 1. When the user has not supplied an ID, search by name or unique details with `clickup_searchTasks` using `terms` (an array of OR-matched search terms). If results are ambiguous, present the matching names and IDs and ask which task they mean. Never create a task as a fallback for an unresolved update.
 2. Call `clickup_getTaskById` before changing the selected task. Its identifier argument is `id`, a bare 6–16 character alphanumeric ID without `#`, `CU-`, or a URL prefix. If given a prefixed ID or URL, search with `terms` or ask for the bare ID; do not guess. Use only the exposed schema.
-3. Change only the task fields the user requested. Before replacing a description, read and preserve its useful information, mapping it into the four sections. If preserving existing information would require guessing or discarding material, ask before writing.
+3. Change only the task fields the user requested; apply the naming format only when the user asks to rename. Before replacing a description, read and preserve its useful information, mapping it into the four sections. If preserving existing information would require guessing or discarding material, ask before writing.
 4. `updateTask.description` replaces the whole description and uses `task_id` to identify the task. Submit it through the approval-gated generic `mcp` proxy for server `clickup`; do not assume `clickup_updateTask` is a direct tool. Do not use `append_description`, which would add content outside the four-section format. Do not change tags, status, dates, assignees, or other metadata unless asked.
 5. `updateTask` can only add assignees; it always sends `rem: []` and cannot remove or replace existing assignees. If the user requests removal or replacement, explain this limit; when combined with other requested changes, ask whether to proceed without the unsupported assignee change.
 6. Honor the proxy's Pi approval prompt for every write; never bypass or retry around a denial.
