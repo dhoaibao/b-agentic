@@ -277,7 +277,7 @@ make_bin "$clickup/bin"
 B_AGENTIC_CLICKUP_MCP=yes run_install "$clickup" >"$clickup/install.log" 2>&1
 agent="$clickup/home/.pi/agent"
 assert_json "$agent/mcp-adapter.json" "'clickup' in data['mcpServers'] and data['mcpServers']['clickup']['command']=='npx' and data['mcpServers']['clickup']['args']==['-y','@hauptsache.net/clickup-mcp@1.9.0']"
-assert_json "$agent/mcp-adapter.json" "data['mcpServers']['clickup']['env']['CLICKUP_API_KEY']==chr(36)+'{CLICKUP_API_KEY}' and data['mcpServers']['clickup']['env']['CLICKUP_TEAM_ID']==chr(36)+'{CLICKUP_TEAM_ID}' and data['mcpServers']['clickup']['directTools']==['getTaskById','searchTasks']"
+assert_json "$agent/mcp-adapter.json" "data['mcpServers']['clickup']['env']['CLICKUP_API_KEY']==chr(36)+'{CLICKUP_API_KEY}' and data['mcpServers']['clickup']['env']['CLICKUP_TEAM_ID']==chr(36)+'{CLICKUP_TEAM_ID}' and data['mcpServers']['clickup']['directTools']==['getTaskById','searchTasks','readDocument','getListInfo','searchSpaces','getTimeEntries','read_space_clickup_space_txt']"
 assert_json "$agent/b-agentic/install.json" "data['clickupMcpEnabled'] is True"
 run_install "$clickup" --sync >"$clickup/sync.log" 2>&1
 assert_json "$agent/mcp-adapter.json" "'clickup' in data['mcpServers']"
