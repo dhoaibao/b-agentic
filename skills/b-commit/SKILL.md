@@ -45,10 +45,10 @@ The main session owns `b-commit`. An explicit user request to commit authorizes 
 4. Read diffs only for explicit non-protected paths, using `rtk git diff -- <paths>` or `rtk git diff --cached -- <paths>`. Record the initial index and working-tree snapshot. Do not read, stage, or commit likely-secret files without explicit permission.
 5. Select the smallest set of cohesive commit groups. Treat a pre-existing staged set as user-curated: preserve it as one group and do not reset or reorganize it.
 6. Block if a group mixes unrelated concerns, a protected file needs permission, or a file cannot be assigned confidently. Read applicable repository commit rules and perform required preparation only for this user-authorized commit. If preparation changes the candidate, pause for change-phase verification rather than run a second validation gate inside `b-commit`; do not silently add prepared files to a user-curated staged group. Run any repository-mandated commit-time checks on the final candidate; a failed mandated check blocks committing and must be reported. Message-only and staged PR-copy requests never reach this preparation step.
-7. For each group, choose the narrowest accurate type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`; write an imperative subject of at most 50 characters with no trailing punctuation.
+7. For each group, choose the narrowest accurate type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`; write an imperative subject of at most 50 characters with no trailing punctuation. The message is the subject line only: no body, description, bullets, footers, or trailers (including `Co-authored-by`).
 8. Record the groups, exact file paths, and commit messages in the execution response, then continue without a second approval prompt; the explicit user commit request is sufficient authorization. If the request did not explicitly authorize committing, stop.
 9. Apply the commit boundary above to the complete candidate and plan. Before staging, confirm the selected paths and index are unchanged. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
-10. Reinspect each staged group immediately before committing with a targeted non-protected-path diff. Create its commit on the current branch, then continue to the next approved group. Stop on the first Git error; do not amend, reset, push, or retry by changing history.
+10. Reinspect each staged group immediately before committing with a targeted non-protected-path diff. Create its commit with a single `-m "<type>: <subject>"` and no other `-m`, `-F`, or editor body on the current branch, then continue to the next approved group. Stop on the first Git error; do not amend, reset, push, or retry by changing history.
 11. Report commit hashes, messages, remaining changes, and any blockers. Recommend `b-pr-summary <commit-count>` for PR copy.
 
 ## Output format
@@ -89,7 +89,7 @@ BLOCKED: commit staged changes before generating PR copy
 ## Rules
 
 - Preserve unrelated worktree changes and the user-curated index.
-- Evidence-only messages; do not invent behavior, verification, or impact.
+- Evidence-only, subject-only messages: never add a commit body or description; do not invent behavior, verification, or impact.
 - Require an explicit user commit request, but do not ask for a second approval after it; do not push or create a PR.
 - Commit only the inspected candidate and selected paths; a changed candidate returns to the change-producing phase rather than receiving commit-time validation.
 - Never use `git add -A`, `git add .`, `git commit --amend`, reset, or history-rewriting commands.
