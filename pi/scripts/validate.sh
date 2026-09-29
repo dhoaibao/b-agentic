@@ -16,9 +16,10 @@ mcp = json.loads((root / 'pi/configs/mcp.base.json').read_text())
 policy = json.loads((root / 'pi/configs/permission.user.template.json').read_text())
 assert len(registry['skills']) == 16
 assert len(registry['agents']) == 4
-assert len(settings['packages']) == 8
+assert len(settings['packages']) == 9
 assert 'npm:@cortexkit/pi-magic-context' in settings['packages']
 assert 'npm:pi-antigravity' in settings['packages']
+assert 'npm:pi-intercom' in settings['packages']
 assert subagents == {'excludedExtensionPackages': ['npm:@cortexkit/pi-magic-context']}
 assert json.loads((root / 'pi/configs/magic-context.base.json').read_text()) == {
     'enabled': True, 'embedding': {'provider': 'local'}

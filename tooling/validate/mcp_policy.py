@@ -83,6 +83,12 @@ def main() -> int:
     for name in ("ctx_search", "ctx_expand", "ctx_memory", "ctx_note", "ctx_reduce", "todowrite"):
         if permission.get(name) != "allow":
             errors.append(f"Magic Context tool must not prompt: {name}")
+    if permission.get("intercom") != "allow":
+        errors.append("intercom must not prompt")
+    kernel = (ROOT / "references" / "kernel.template.md").read_text()
+    for clause in ("`intercom` is auto-allowed", "untrusted input", "cross-machine sends", "launching sessions/panes"):
+        if clause not in kernel:
+            errors.append(f"kernel intercom boundary missing: {clause}")
     if permission.get("*") != "ask" or "ctx_*" in permission:
         errors.append("unknown extension tools must still ask")
     if permission.get("path", {}).get("*.env") != "deny":

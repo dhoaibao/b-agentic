@@ -237,6 +237,7 @@ assert_contains "$sandbox/bin/pi.log" 'list --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@gotgenes/pi-subagents --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:@cortexkit/pi-magic-context --no-approve'
 assert_contains "$sandbox/bin/pi.log" 'install npm:pi-antigravity --no-approve'
+assert_contains "$sandbox/bin/pi.log" 'install npm:pi-intercom --no-approve'
 if grep -Fq 'update --extensions --no-approve' "$sandbox/bin/pi.log"; then
   fail 'fresh install unexpectedly updated Pi extensions'
 fi

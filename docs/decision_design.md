@@ -92,7 +92,7 @@ context guidance without its tools; children have no compaction under the new
 settings default and should be kept bounded. Project-level pi-subagents
 exclusions can override the global list; existing user preferences are preserved.
 Provider usage, Anthropic OAuth request shaping, and Antigravity model
-routing are user-requested optional capabilities of the eight managed
+routing are user-requested optional capabilities of the nine managed
 extensions, not login or entitlements. The intended `b-researcher` model is
 Antigravity Gemini, which needs `/login antigravity`. Without access,
 `pi-subagents` 21.7.7 silently uses the parent session's model instead.
@@ -109,7 +109,7 @@ Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 ## Installation, configuration, and lifecycle
 
 Existing Pi is updated with `pi update --self`; first install uses the latest
-unversioned npm package. Eight extensions are installed with bare npm names and
+unversioned npm package. Nine extensions are installed with bare npm names and
 updated through `pi update --extensions`. Bootstrap repository/ref inputs are
 constrained before Git. Installer sync copies the kernel, skills, specialists,
 prompts, references, and templates; it merges settings, specialist exclusions,

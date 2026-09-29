@@ -498,7 +498,7 @@ rollback_magic_context() {
 
 runtime_print_install_report() {
   success 'b-agentic install complete for Pi'
-  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, eight unpinned extensions."
+  installer_summary_log "Installed: ${#INSTALL_SKILL_NAMES[@]} skills, four specialists, Dracula theme, nine unpinned extensions."
   if [ "$CLICKUP_MCP_ENABLED" = true ]; then
     installer_summary_log 'Optional ClickUp MCP: enabled; set CLICKUP_API_KEY and CLICKUP_TEAM_ID in your environment.'
   else

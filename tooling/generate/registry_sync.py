@@ -520,6 +520,8 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         "ctx_note": "allow",
         "ctx_reduce": "allow",
         "todowrite": "allow",
+        # Local session messaging via pi-intercom; auto-allowed by user decision.
+        "intercom": "allow",
         "mcp": {"*": "ask", "mcp_status": "allow", "mcp_search": "allow", "mcp_describe": "allow"},
     }
     for server, record in policy["servers"].items():

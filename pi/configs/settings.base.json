@@ -7,7 +7,8 @@
     "npm:@gotgenes/pi-anthropic-auth",
     "npm:@sreetej510/pi-usage",
     "npm:@cortexkit/pi-magic-context",
-    "npm:pi-antigravity"
+    "npm:pi-antigravity",
+    "npm:pi-intercom"
   ],
   "theme": "dracula",
   "compaction": { "enabled": false },

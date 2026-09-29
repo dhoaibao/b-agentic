@@ -53,6 +53,7 @@
     "ctx_note": "allow",
     "ctx_reduce": "allow",
     "todowrite": "allow",
+    "intercom": "allow",
     "mcp": {
       "*": "ask",
       "mcp_status": "allow",

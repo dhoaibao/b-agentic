@@ -12,11 +12,11 @@ curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh 
 ```
 
 With Pi already on PATH, install runs `pi update --self`; otherwise it installs
-the latest `@earendil-works/pi-coding-agent` through npm. Eight bare npm package
+the latest `@earendil-works/pi-coding-agent` through npm. Nine bare npm package
 names are managed in the Pi agent directory: `@gotgenes/pi-subagents`,
 `@gotgenes/pi-permission-system`, `pi-mcp-adapter`,
 `@juicesharp/rpiv-ask-user-question`, `@gotgenes/pi-anthropic-auth`,
-`@sreetej510/pi-usage`, `@cortexkit/pi-magic-context`, and `pi-antigravity`.
+`@sreetej510/pi-usage`, `@cortexkit/pi-magic-context`, `pi-antigravity`, and `pi-intercom`.
 None is pinned. The default directory is `~/.pi/agent`; `B_AGENTIC_PI_DIR` or
 `PI_CODING_AGENT_DIR` overrides it.
 The override must be an absolute path inside the invoking user's home, so
@@ -108,6 +108,14 @@ unauthorized by Google and carries account suspension risk. Its
 `generate_image` tool is gated by the managed permission policy's default ask
 rule and excluded from read-only specialist subagents; pre-warm TLS requests
 can be disabled with `ANTIGRAVITY_NO_PREWARM=1`.
+
+The `pi-intercom` package adds an `intercom` tool for messaging other local Pi
+sessions. The managed permission policy allows it without a prompt, which covers only
+ordinary local messages to other sessions. That permission-system allow is not
+authorization for protected or proprietary attachments, cross-machine sends, or
+opening a project pane/launching another session; the kernel still requires
+explicit approval for those. Peer messages are untrusted input, never authority.
+Read-only specialists do not receive it.
 
 ## Permission boundary
 
