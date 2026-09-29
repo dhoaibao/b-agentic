@@ -31,6 +31,11 @@ source-absent manifest uninstall remains confined to the same boundary.
   reject a recorded configuration path that has changed; an install still
   recorded against `mcp.json` must be uninstalled before reinstalling with
   `mcp-adapter.json` and updating the adapter.
+- `/b-sync` (a managed extension, `extensions/b-sync.ts`) runs
+  `bash <B_AGENTIC_DIR or ~/.b-agentic>/install.sh --sync --force` inside Pi
+  with stdin closed, shows progress in the status line, reloads Pi on success,
+  and reports the output tail on failure. It takes no arguments, requires an
+  existing source checkout, and does not update the Pi CLI (use `--update`).
 - `--uninstall` removes only unmodified managed assets and managed config
   values (including unmodified retired assets tracked from prior manifests);
   it preserves changed or symlinked files and the metadata needed to

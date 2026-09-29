@@ -15,6 +15,8 @@ AGENTS_DST="$PI_CONFIG_DIR/agents"
 AGENTS_SNAPSHOT_DST="$METADATA_DIR/agents"
 COMMANDS_DST="$PI_CONFIG_DIR/prompts"
 COMMANDS_SNAPSHOT_DST="$METADATA_DIR/prompts"
+EXTENSIONS_DST="$PI_CONFIG_DIR/extensions"
+EXTENSIONS_SNAPSHOT_DST="$METADATA_DIR/extensions"
 KERNEL_DST="$PI_CONFIG_DIR/AGENTS.md"
 KERNEL_SNAPSHOT_DST="$METADATA_DIR/AGENTS.md"
 REFERENCES_DST="$METADATA_DIR/references"
@@ -32,6 +34,7 @@ PI_PERMISSION_DST="$PI_CONFIG_DIR/extensions/pi-permission-system/config.json"
 AGENT_NAMES=(b-planner b-researcher b-debugger b-reviewer)
 INSTALL_AGENTS_ACTION=skip
 INSTALL_COMMANDS_ACTION=skip
+INSTALL_EXTENSIONS_ACTION=skip
 INSTALL_THEME_ACTION=skip
 PRESERVE_METADATA_DIR=0
 PI_CLI_INSTALL_STATUS=not-run
@@ -57,9 +60,9 @@ runtime_upgrade_cli() {
 }
 
 managed_file_set() {
-  local source_root="$1" destination_root="$2" snapshot_root="$3" label="$4"
+  local source_root="$1" destination_root="$2" snapshot_root="$3" label="$4" extension="${5:-md}"
   local src name dst snapshot action=skip state=active
-  for src in "$source_root"/*.md; do
+  for src in "$source_root"/*."$extension"; do
     [ -f "$src" ] || continue
     name="$(basename "$src")"
     dst="$destination_root/$name"
@@ -98,6 +101,10 @@ install_agents() {
 
 install_commands() {
   managed_file_set "$SOURCE_DIR/pi/prompts" "$COMMANDS_DST" "$COMMANDS_SNAPSHOT_DST" 'Pi prompt'
+}
+
+install_extensions() {
+  managed_file_set "$SOURCE_DIR/pi/extensions" "$EXTENSIONS_DST" "$EXTENSIONS_SNAPSHOT_DST" 'Pi extension' ts
 }
 
 install_theme() {
@@ -302,6 +309,8 @@ runtime_install_configs() {
     INSTALL_AGENTS_ACTION INSTALL_AGENTS_STATE INSTALL_AGENTS_BACKUP
   run_install_triplet_stage 'Syncing Pi prompts' install_commands skip none none \
     INSTALL_COMMANDS_ACTION INSTALL_COMMANDS_STATE INSTALL_COMMANDS_BACKUP
+  run_install_triplet_stage 'Syncing Pi extensions' install_extensions skip none none \
+    INSTALL_EXTENSIONS_ACTION INSTALL_EXTENSIONS_STATE INSTALL_EXTENSIONS_BACKUP
   run_install_triplet_stage 'Installing Dracula theme' install_theme skip none none \
     INSTALL_THEME_ACTION INSTALL_THEME_STATE INSTALL_THEME_BACKUP
   remember_theme_baseline
@@ -383,7 +392,7 @@ runtime_write_manifest() {
     PI_SETTINGS_DST="$PI_SETTINGS_DST" PI_SUBAGENTS_DST="$PI_SUBAGENTS_DST" PI_MCP_DST="$PI_MCP_DST" PI_PERMISSION_DST="$PI_PERMISSION_DST" \
     MAGIC_CONTEXT_DST="$MAGIC_CONTEXT_DST" MAGIC_CONTEXT_ACTION="$INSTALL_MAGIC_CONTEXT_ACTION" \
     MAGIC_CONTEXT_BACKUP="$INSTALL_MAGIC_CONTEXT_BACKUP" \
-    AGENTS_DST="$AGENTS_DST" COMMANDS_DST="$COMMANDS_DST" SKILLS_DST="$SKILLS_DST" \
+    AGENTS_DST="$AGENTS_DST" COMMANDS_DST="$COMMANDS_DST" EXTENSIONS_DST="$EXTENSIONS_DST" SKILLS_DST="$SKILLS_DST" \
     REFERENCES_DST="$REFERENCES_DST" TEMPLATES_DST="$TEMPLATES_DST" KERNEL_DST="$KERNEL_DST" \
     KERNEL_ACTION="$INSTALL_MEMORY_ACTION" KERNEL_BACKUP="$INSTALL_MEMORY_BACKUP" \
     SETTINGS_ACTION="$INSTALL_SETTINGS_ACTION" SETTINGS_BACKUP="$INSTALL_SETTINGS_BACKUP" \
@@ -392,6 +401,7 @@ runtime_write_manifest() {
     CLICKUP_STATE_RECORDED="$clickup_state_recorded" \
     PERMISSION_ACTION="$INSTALL_PERMISSION_ACTION" PERMISSION_BACKUP="$INSTALL_PERMISSION_BACKUP" \
     AGENTS_ACTION="$INSTALL_AGENTS_ACTION" COMMANDS_ACTION="$INSTALL_COMMANDS_ACTION" \
+    EXTENSIONS_ACTION="$INSTALL_EXTENSIONS_ACTION" \
     THEME_ACTION="$INSTALL_THEME_ACTION" \
     SOURCE_DIR="$SOURCE_DIR" \
     SKILLS="${MANAGED_SKILL_NAMES[*]}" AGENTS="${AGENT_NAMES[*]}" python3 - <<'PY'
@@ -409,6 +419,7 @@ def safe_name(name):
 
 
 root = Path(os.environ['COMMANDS_DST'])
+extensions_dst = Path(os.environ['EXTENSIONS_DST'])
 agents_dst = Path(os.environ['AGENTS_DST'])
 source_dir = Path(os.environ['SOURCE_DIR'])
 manifest_path = Path(os.environ['MANIFEST_DST'])
@@ -436,12 +447,23 @@ for prior_cmd in previous.get('commands', []):
     if safe_name(prior_cmd) and ((root / f'{prior_cmd}.md').exists() or (root / f'{prior_cmd}.md').is_symlink()):
         commands_set.add(prior_cmd)
 
+extensions_set = set()
+source_extensions = source_dir / 'pi' / 'extensions'
+if source_extensions.is_dir():
+    for p in source_extensions.glob('b-*.ts'):
+        if safe_name(p.stem):
+            extensions_set.add(p.stem)
+for prior_ext in previous.get('extensions', []):
+    if safe_name(prior_ext) and ((extensions_dst / f'{prior_ext}.ts').exists() or (extensions_dst / f'{prior_ext}.ts').is_symlink()):
+        extensions_set.add(prior_ext)
+
 manifest = {
     'suite': 'b-agentic', 'runtime': 'pi', 'installedAt': os.environ['TIMESTAMP'],
     'activationState': 'active', 'packageState': 'pending',
     'kernelAction': os.environ['KERNEL_ACTION'],
     'kernelPriorBackups': prior_backups,
     'agentsAction': os.environ['AGENTS_ACTION'], 'commandsAction': os.environ['COMMANDS_ACTION'],
+    'extensionsAction': os.environ['EXTENSIONS_ACTION'],
     'themeAction': os.environ['THEME_ACTION'],
     'settingsAction': os.environ['SETTINGS_ACTION'], 'subagentsAction': os.environ['SUBAGENTS_ACTION'],
     'mcpAction': os.environ['MCP_ACTION'],
@@ -453,6 +475,7 @@ manifest = {
         'mcp': os.environ['PI_MCP_DST'], 'permission': os.environ['PI_PERMISSION_DST'],
         'magicContext': os.environ['MAGIC_CONTEXT_DST'],
         'agents': os.environ['AGENTS_DST'], 'commands': os.environ['COMMANDS_DST'],
+        'extensions': os.environ['EXTENSIONS_DST'],
         'kernel': os.environ['KERNEL_DST'], 'skills': os.environ['SKILLS_DST'],
         'references': os.environ['REFERENCES_DST'],
         'capabilityContract': str(Path(os.environ['REFERENCES_DST']) / 'capabilities.yaml'),
@@ -460,6 +483,7 @@ manifest = {
     },
     'skills': os.environ['SKILLS'].split(), 'agents': sorted(agents_set),
     'commands': sorted(commands_set),
+    'extensions': sorted(extensions_set),
     'backups': {
         'kernel': os.environ['KERNEL_BACKUP'],
         'settings': os.environ['SETTINGS_BACKUP'], 'subagents': os.environ['SUBAGENTS_BACKUP'],
@@ -510,13 +534,13 @@ runtime_print_install_report() {
 }
 
 remove_managed_profiles() {
-  local root="$1" snapshots="$2" key="$3" label="$4" name path snapshot
+  local root="$1" snapshots="$2" key="$3" label="$4" extension="${5:-md}" name path snapshot
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     if ! managed_asset_name_is_safe "$name"; then
       warn "preserving $label with unsafe manifest name"; PRESERVE_METADATA_DIR=1; continue
     fi
-    path="$root/$name.md"; snapshot="$snapshots/$name.md"
+    path="$root/$name.$extension"; snapshot="$snapshots/$name.$extension"
     if [ -L "$path" ]; then
       warn "preserving symlinked $label: $path"; PRESERVE_METADATA_DIR=1
     elif [ -f "$path" ] && [ -f "$snapshot" ] && cmp -s "$path" "$snapshot"; then
@@ -550,6 +574,7 @@ runtime_uninstall_configs() {
   remove_managed_theme
   remove_managed_profiles "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" agents 'Pi specialist'
   remove_managed_profiles "$COMMANDS_DST" "$COMMANDS_SNAPSHOT_DST" commands 'Pi prompt'
+  remove_managed_profiles "$EXTENSIONS_DST" "$EXTENSIONS_SNAPSHOT_DST" extensions 'Pi extension' ts
   if remove_managed_packages; then
     remove_merged_config "$PI_SETTINGS_DST" "$TEMPLATES_DST/settings.base.json" settings settings settingsAction
   else

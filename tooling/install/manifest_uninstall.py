@@ -63,15 +63,15 @@ def manifest_path(paths: dict, key: str, fallback: Path, home: Path) -> Path:
     return path
 
 
-def remove_profiles(names: object, root: Path, snapshots: Path, label: str, dry_run: bool) -> bool:
+def remove_profiles(names: object, root: Path, snapshots: Path, label: str, dry_run: bool, suffix: str = ".md") -> bool:
     preserved = False
     for name in names if isinstance(names, list) else []:
         if not safe_name(name):
             warn(f"preserving {label} with unsafe manifest name")
             preserved = True
             continue
-        target = root / f"{name}.md"
-        snapshot = snapshots / f"{name}.md"
+        target = root / f"{name}{suffix}"
+        snapshot = snapshots / f"{name}{suffix}"
         if target.is_symlink():
             warn(f"preserving symlinked {label}: {target}")
             preserved = True
@@ -150,8 +150,14 @@ def main() -> int:
     skills = manifest_path(paths, "skills", config_dir / "skills", home)
     agents = manifest_path(paths, "agents", config_dir / "agents", home)
     commands = manifest_path(paths, "commands", config_dir / "prompts", home)
+    extensions = manifest_path(paths, "extensions", config_dir / "extensions", home)
     kernel = manifest_path(paths, "kernel", config_dir / "AGENTS.md", home)
-    snapshots = {"skills": metadata / "skills", "agents": metadata / "agents", "commands": metadata / "prompts"}
+    snapshots = {
+        "skills": metadata / "skills",
+        "agents": metadata / "agents",
+        "commands": metadata / "prompts",
+        "extensions": metadata / "extensions",
+    }
     preserved = False
 
     for name in data.get("skills", []):
@@ -197,6 +203,9 @@ def main() -> int:
 
     preserved |= remove_profiles(data.get("agents"), agents, snapshots["agents"], "Pi specialist", dry_run)
     preserved |= remove_profiles(data.get("commands"), commands, snapshots["commands"], "Pi prompt", dry_run)
+    preserved |= remove_profiles(
+        data.get("extensions"), extensions, snapshots["extensions"], "Pi extension", dry_run, ".ts"
+    )
 
     if data.get("themeAction") in {"write", "replace"}:
         license_file = metadata / "themes" / "LICENSE"

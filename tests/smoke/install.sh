@@ -207,6 +207,7 @@ if run_install "$sandbox" --runtime=pi >"$sandbox/invalid-arg.log" 2>&1; then
 fi
 assert_contains "$sandbox/invalid-arg.log" 'unknown argument: --runtime=pi'
 run_install "$sandbox" >"$sandbox/install.log" 2>&1
+assert_contains "$sandbox/install.log" '[16/16] Reconciling Pi extensions'
 
 agent="$sandbox/home/.pi/agent"
 metadata="$agent/b-agentic"
@@ -218,9 +219,11 @@ assert_file "$metadata/themes/LICENSE.snapshot"
 assert_file "$agent/skills/b-plan/SKILL.md"
 assert_file "$agent/agents/b-planner.md"
 assert_file "$agent/prompts/b-plan.md"
+assert_file "$agent/extensions/b-sync.ts"
+assert_file "$metadata/extensions/b-sync.ts"
 assert_file "$agent/extensions/pi-permission-system/config.json"
 assert_file "$metadata/install.json"
-assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and data['subagentsAction']=='merge' and data['paths']['subagents']=='$agent/subagents.json' and data['backups']['subagents']!='none' and len(data['agents'])==4 and len(data['skills'])==16 and len(data['commands'])==16"
+assert_json "$metadata/install.json" "data['runtime']=='pi' and data['themeAction']=='write' and data['subagentsAction']=='merge' and data['paths']['subagents']=='$agent/subagents.json' and data['backups']['subagents']!='none' and len(data['agents'])==4 and len(data['skills'])==16 and len(data['commands'])==16 and data['extensions']==['b-sync'] and data['paths']['extensions']=='$agent/extensions'"
 assert_json "$agent/subagents.json" "data=={'maxConcurrent':2,'excludedExtensionPackages':['npm:@cortexkit/pi-magic-context','npm:user-extension']}"
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True and data['embedding']['provider']=='local' and data['historian']['pi']['model']=='anthropic/claude-haiku-4-5'"
 assert_json "$agent/settings.json" "'npm:@cortexkit/pi-magic-context' in data['packages'] and 'npm:pi-antigravity' in data['packages'] and data['custom'] is True and data['theme']=='light' and data['packages'][0]=='npm:@gotgenes/pi-subagents' and 'npm:user-extension' in data['packages'] and data['compaction']=={'enabled': False}"
@@ -244,6 +247,7 @@ fi
 
 printf '\n' >>"$sandbox/source/references/capabilities.yaml"
 run_install "$sandbox" --sync >"$sandbox/sync.log" 2>&1
+assert_contains "$sandbox/sync.log" '[15/15] Reconciling Pi extensions'
 cmp "$sandbox/source/references/capabilities.yaml" "$metadata/references/capabilities.yaml"
 printf '\nmodified\n' >>"$agent/agents/b-planner.md"
 run_install "$sandbox" --sync >"$sandbox/modified-sync.log" 2>&1
@@ -260,6 +264,7 @@ PY
 run_install "$sandbox" --uninstall >"$sandbox/uninstall.log" 2>&1
 assert_no_path "$agent/skills/b-plan"
 assert_no_path "$agent/prompts/b-plan.md"
+assert_no_path "$agent/extensions/b-sync.ts"
 assert_file "$agent/agents/b-planner.md"
 assert_file "$metadata/install.json"
 assert_json "$sandbox/home/.config/cortexkit/magic-context.jsonc" "data=={'historian': {'pi': {'model': 'anthropic/claude-haiku-4-5'}}, 'custom': True}"
@@ -675,11 +680,16 @@ make_source "$mod_skill/source"
 make_bin "$mod_skill/bin"
 run_install "$mod_skill" >"$mod_skill/install.log" 2>&1
 printf '\nmodified\n' >>"$mod_skill/home/.pi/agent/skills/b-plan/SKILL.md"
+printf '\n// modified\n' >>"$mod_skill/home/.pi/agent/extensions/b-sync.ts"
 run_install "$mod_skill" --sync >"$mod_skill/sync.log" 2>&1
 assert_contains "$mod_skill/sync.log" 'preserving user-owned or modified skill'
+assert_contains "$mod_skill/sync.log" 'preserving modified or user-owned Pi extension'
+assert_contains "$mod_skill/home/.pi/agent/extensions/b-sync.ts" '// modified'
 assert_json "$mod_skill/home/.pi/agent/b-agentic/install.json" "'b-plan' in data['skills'] and 'b-plan' in data['commands']"
 run_install "$mod_skill" --uninstall >"$mod_skill/uninstall.log" 2>&1
 assert_contains "$mod_skill/uninstall.log" 'preserving modified skill'
+assert_contains "$mod_skill/uninstall.log" 'preserving modified Pi extension'
+assert_file "$mod_skill/home/.pi/agent/extensions/b-sync.ts"
 assert_file "$mod_skill/home/.pi/agent/skills/b-plan/SKILL.md"
 assert_no_path "$mod_skill/home/.pi/agent/prompts/b-plan.md"
 assert_file "$mod_skill/home/.pi/agent/b-agentic/install.json"
@@ -687,6 +697,7 @@ rm -rf "$mod_skill/source"
 HOME="$mod_skill/home" PATH="$mod_skill/bin:$PATH" B_AGENTIC_DIR="$mod_skill/missing" \
   bash "$ROOT_DIR/install.sh" --uninstall >"$mod_skill/manifest-uninstall.log" 2>&1
 assert_contains "$mod_skill/manifest-uninstall.log" 'preserving modified skill'
+assert_contains "$mod_skill/manifest-uninstall.log" 'preserving modified Pi extension'
 assert_file "$mod_skill/home/.pi/agent/skills/b-plan/SKILL.md"
 assert_file "$mod_skill/home/.pi/agent/b-agentic/install.json"
 
@@ -712,13 +723,17 @@ assert_no_path "$retired_skill/home/.pi/agent/b-agentic/install.json"
 (
 # A symlinked specialist remains user-owned and prevents manifest disposal.
 linked="$WORK_DIR/symlinked"
-mkdir -p "$linked/home/.pi/agent/agents" "$linked/user"
+mkdir -p "$linked/home/.pi/agent/agents" "$linked/home/.pi/agent/extensions" "$linked/user"
 make_source "$linked/source"
 make_bin "$linked/bin"
 printf '%s\n' 'user-owned agent' >"$linked/user/b-planner.md"
 ln -s "$linked/user/b-planner.md" "$linked/home/.pi/agent/agents/b-planner.md"
+printf '%s\n' '// user-owned extension' >"$linked/user/b-sync.ts"
+ln -s "$linked/user/b-sync.ts" "$linked/home/.pi/agent/extensions/b-sync.ts"
 run_install "$linked" >"$linked/install.log" 2>&1
 run_install "$linked" --uninstall >"$linked/uninstall.log" 2>&1
+[ -L "$linked/home/.pi/agent/extensions/b-sync.ts" ] || fail 'symlinked extension not preserved'
+assert_contains "$linked/user/b-sync.ts" 'user-owned extension'
 [ -L "$linked/home/.pi/agent/agents/b-planner.md" ] || fail 'symlinked agent not preserved'
 assert_file "$linked/home/.pi/agent/b-agentic/install.json"
 

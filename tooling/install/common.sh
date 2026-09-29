@@ -383,7 +383,7 @@ runtime_sync_configs() {
 }
 
 runtime_sync_common() {
-  set_install_stage_total 13
+  set_install_stage_total 15
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Syncing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
   remember_kernel_baseline
@@ -402,7 +402,7 @@ runtime_sync_common() {
 }
 
 runtime_install_common() {
-  set_install_stage_total 14
+  set_install_stage_total 16
   run_stage 'Preparing Pi CLI' runtime_upgrade_cli
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Installing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP

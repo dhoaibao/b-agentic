@@ -26,6 +26,9 @@ upgrades default to off unless `B_AGENTIC_CLICKUP_MCP=yes` is set. Later install
 and sync runs preserve the recorded choice; uninstall and reinstall to change it.
 See [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
+To refresh later without leaving Pi, run `/b-sync`: it pulls the installed source
+and runs `install.sh --sync --force`, then reloads Pi. It does not update the Pi CLI.
+
 ## How it works
 
 Each request uses one active skill rather than mixing planning, building,
