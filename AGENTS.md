@@ -11,7 +11,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 ### Architecture and change map
 
-- `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, and MCP policy; `pi/` holds native agents, prompts, configuration, runtime scripts, and validation; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, Pi integration, and installer smoke coverage.
+- `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, and MCP policy; `pi/` holds native agents, prompts, configuration, runtime scripts, and validation; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, and Pi integration coverage.
 - Change shared guidance in `references/`, native runtime behavior in `pi/`, installer behavior in `install.sh` or `tooling/install/`, and checks in `tooling/validate/` or `scripts/`. Use the [decision record](docs/decision_design.md) when a change crosses these boundaries.
 
 ### Canonical sources and change flows

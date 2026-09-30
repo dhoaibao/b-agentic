@@ -135,8 +135,8 @@ Evidence: [`install.sh`](../install.sh),
 
 Canonical sources regenerate before static validation. The suite checks
 routing, Pi assets, capability/MCP policy, decision traceability, and local
-readiness. Release validation adds sandboxed installer smoke. The offline Pi
-integration probe uses a deterministic stub model and local MCP fixture, with
+readiness. Release validation adds the offline Pi
+integration probe, which uses a deterministic stub model and local MCP fixture, with
 explicit limitations for live providers, UI approval, and production servers.
 Every candidate gets an inspected diff and applicable checks. Classify the
 final change against the task baseline. Independent read-only review is required
@@ -156,8 +156,7 @@ checks and a new review. Protected paths require permission before content is
 hashed.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
-[`tooling/validate/behavior.py`](../tooling/validate/behavior.py), and
-[`tests/smoke/install.sh`](../tests/smoke/install.sh).
+and [`tooling/validate/behavior.py`](../tooling/validate/behavior.py).
 
 ## Intentional non-goals
 

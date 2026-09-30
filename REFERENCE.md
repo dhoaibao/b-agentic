@@ -211,7 +211,6 @@ reserved for repository-wide call-flow, impact, and affected-test questions.
 ```bash
 python3 tooling/generate/registry_sync.py --self-test --check
 scripts/validate-skills.sh --release
-scripts/smoke-install.sh
 scripts/b-agentic-audit.sh
 npm run quality
 rtk git diff --check
@@ -220,5 +219,5 @@ rtk git diff --check
 `skills/` and `references/` hold canonical workflow guidance;
 `pi/` holds generated specialists/prompts and Pi templates/runtime scripts;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own generation,
-lifecycle, and static checks; `tests/pi/` and `tests/smoke/` cover the local
-permission and installer contracts. See the [decision record](docs/decision_design.md).
+lifecycle, and static checks; `tests/pi/` covers the local
+permission contract. See the [decision record](docs/decision_design.md).

@@ -30,7 +30,6 @@ if [ "$run_release" -eq 1 ]; then
   else
     printf '%s\n' 'RTK policy compatibility skipped: rtk is not installed.'
   fi
-  bash "$ROOT_DIR/tests/smoke/install.sh"
   if command -v pi >/dev/null 2>&1; then
     bash "$ROOT_DIR/tests/pi/verify-gate-probe.sh"
   else

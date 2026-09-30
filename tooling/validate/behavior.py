@@ -76,8 +76,6 @@ SHELL_POLICY_REGRESSION = {
         "Prefer modern shell tools when available",
         "Use `rtk` for every command family it supports",
     ),
-    # Runtime companions: tests/smoke/install.sh covers installer lifecycle,
-    # modern fallback availability, and scoped Git content reads.
 }
 
 # Regression: a mixed or stale peer could silently gain writer status, a
