@@ -522,6 +522,8 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         "todowrite": "allow",
         # Local session messaging via pi-intercom; auto-allowed by user decision.
         "intercom": "allow",
+        # Subagent runtime progress notice to its parent; parent treats it as untrusted input.
+        "notify_parent": "allow",
         "mcp": {"*": "ask", "mcp_status": "allow", "mcp_search": "allow", "mcp_describe": "allow"},
     }
     for server, record in policy["servers"].items():

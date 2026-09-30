@@ -54,6 +54,7 @@
     "ctx_reduce": "allow",
     "todowrite": "allow",
     "intercom": "allow",
+    "notify_parent": "allow",
     "mcp": {
       "*": "ask",
       "mcp_status": "allow",
