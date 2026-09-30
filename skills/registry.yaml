@@ -17,7 +17,7 @@
     },
     "b-reviewer": {
       "description": "Independently review a frozen change candidate or b-agentic conformance evidence.",
-      "model": "openai/gpt-6-sol#high"
+      "model": "openai/gpt-6.1-sol#high"
     }
   },
   "skills": [
