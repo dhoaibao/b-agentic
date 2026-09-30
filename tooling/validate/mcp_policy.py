@@ -87,6 +87,8 @@ def main() -> int:
         errors.append("intercom must not prompt")
     if permission.get("notify_parent") != "allow":
         errors.append("notify_parent must not prompt")
+    if permission.get("ask_parent") != "allow":
+        errors.append("ask_parent must not prompt")
     kernel = (ROOT / "references" / "kernel.template.md").read_text()
     for clause in ("`intercom` is auto-allowed", "untrusted input", "cross-machine sends", "launching sessions/panes"):
         if clause not in kernel:

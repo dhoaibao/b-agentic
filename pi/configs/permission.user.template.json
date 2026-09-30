@@ -55,6 +55,7 @@
     "todowrite": "allow",
     "intercom": "allow",
     "notify_parent": "allow",
+    "ask_parent": "allow",
     "mcp": {
       "*": "ask",
       "mcp_status": "allow",

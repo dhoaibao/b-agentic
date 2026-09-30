@@ -524,6 +524,8 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         "intercom": "allow",
         # Subagent runtime progress notice to its parent; parent treats it as untrusted input.
         "notify_parent": "allow",
+        # Subagent ask-back: records a question and ends the child turn; main answers via resume.
+        "ask_parent": "allow",
         "mcp": {"*": "ask", "mcp_status": "allow", "mcp_search": "allow", "mcp_describe": "allow"},
     }
     for server, record in policy["servers"].items():
