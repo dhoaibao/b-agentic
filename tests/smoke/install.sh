@@ -172,11 +172,14 @@ for removal in source manifest; do
   make_source "$interrupted_magic/source"
   make_bin "$interrupted_magic/bin"
   printf '%s\n' '{"custom":true}' >"$interrupted_magic/home/.config/cortexkit/magic-context.jsonc"
+  printf '%s\n' '{"custom":true,"theme":"light"}' >"$interrupted_magic/home/.pi/agent/settings.json"
   printf '%s\n' '{invalid json' >"$interrupted_magic/home/.pi/agent/mcp-adapter.json"
   if run_install "$interrupted_magic" >"$interrupted_magic/failed.log" 2>&1; then
     fail 'expected invalid MCP config to abort installation'
   fi
   assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
+  # Earlier merges are undone so the retry records the true original baseline.
+  assert_json "$interrupted_magic/home/.pi/agent/settings.json" "data=={'custom': True, 'theme': 'light'}"
   printf '%s\n' '{}' >"$interrupted_magic/home/.pi/agent/mcp-adapter.json"
   run_install "$interrupted_magic" >"$interrupted_magic/retry.log" 2>&1
   assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data['custom'] is True and data['enabled'] is True"
@@ -188,7 +191,71 @@ for removal in source manifest; do
     run_install "$interrupted_magic" --uninstall >"$interrupted_magic/uninstall.log" 2>&1
   fi
   assert_json "$interrupted_magic/home/.config/cortexkit/magic-context.jsonc" "data=={'custom': True}"
+  assert_json "$interrupted_magic/home/.pi/agent/settings.json" "data=={'custom': True, 'theme': 'light'}"
 done
+
+# A settings file created by an interrupted first install is removed, so the
+# retry records it as created by b-agentic and uninstall removes it again.
+interrupted_new="$WORK_DIR/interrupted-new-settings"
+mkdir -p "$interrupted_new/home/.pi/agent"
+make_source "$interrupted_new/source"
+make_bin "$interrupted_new/bin"
+printf '%s\n' '{invalid json' >"$interrupted_new/home/.pi/agent/mcp-adapter.json"
+if run_install "$interrupted_new" >"$interrupted_new/failed.log" 2>&1; then
+  fail 'expected invalid MCP config to abort installation'
+fi
+assert_no_path "$interrupted_new/home/.pi/agent/settings.json"
+printf '%s\n' '{}' >"$interrupted_new/home/.pi/agent/mcp-adapter.json"
+run_install "$interrupted_new" >"$interrupted_new/retry.log" 2>&1
+assert_file "$interrupted_new/home/.pi/agent/settings.json"
+run_install "$interrupted_new" --uninstall >"$interrupted_new/uninstall.log" 2>&1
+assert_no_path "$interrupted_new/home/.pi/agent/settings.json"
+
+# One failed restore must not stop the remaining earlier configs from being
+# restored, and the incomplete rollback is reported.
+partial="$WORK_DIR/partial-rollback"
+mkdir -p "$partial/home/.pi/agent"
+make_source "$partial/source"
+make_bin "$partial/bin"
+real_cp="$(command -v cp)"
+{
+  printf '%s\n' '#!/usr/bin/env bash' 'for last; do :; done'
+  # shellcheck disable=SC2016 # The generated shim must expand these at run time.
+  printf '%s\n' 'case "$last" in */subagents.json) exit 1 ;; esac'
+  printf 'exec %s "$@"\n' "$real_cp"
+} >"$partial/bin/cp"
+chmod +x "$partial/bin/cp"
+printf '%s\n' '{"custom":true}' >"$partial/home/.pi/agent/settings.json"
+printf '%s\n' '{"maxConcurrent":2}' >"$partial/home/.pi/agent/subagents.json"
+printf '%s\n' '{invalid json' >"$partial/home/.pi/agent/mcp-adapter.json"
+if run_install "$partial" >"$partial/failed.log" 2>&1; then
+  fail 'expected invalid MCP config to abort installation'
+fi
+assert_contains "$partial/failed.log" 'incomplete rollback'
+assert_json "$partial/home/.pi/agent/settings.json" "data=={'custom': True}"
+
+# Config parents that resolve outside HOME are never merged or cleaned through.
+config_escape="$WORK_DIR/config-parent-escape"
+mkdir -p "$config_escape/home/.pi/agent/extensions" "$config_escape/outside"
+make_source "$config_escape/source"
+make_bin "$config_escape/bin"
+printf '%s\n' '{"permission":{"bash":{"user-tool *":"allow"}}}' >"$config_escape/outside/config.json"
+cp "$config_escape/outside/config.json" "$config_escape/outside.before"
+ln -s "$config_escape/outside" "$config_escape/home/.pi/agent/extensions/pi-permission-system"
+if run_install "$config_escape" >"$config_escape/install.log" 2>&1; then
+  fail 'accepted permission config parent symlinked outside HOME'
+fi
+assert_contains "$config_escape/install.log" 'resolves outside HOME'
+cmp -s "$config_escape/outside/config.json" "$config_escape/outside.before" || fail 'install rewrote config through directory symlink outside HOME'
+rm "$config_escape/home/.pi/agent/extensions/pi-permission-system"
+run_install "$config_escape" >"$config_escape/install2.log" 2>&1
+mkdir -p "$config_escape/outside-ext"
+mv "$config_escape/home/.pi/agent/extensions"/* "$config_escape/outside-ext/"
+rmdir "$config_escape/home/.pi/agent/extensions"
+ln -s "$config_escape/outside-ext" "$config_escape/home/.pi/agent/extensions"
+cp "$config_escape/outside-ext/pi-permission-system/config.json" "$config_escape/outside-ext.before"
+run_install "$config_escape" --uninstall >"$config_escape/uninstall.log" 2>&1
+cmp -s "$config_escape/outside-ext/pi-permission-system/config.json" "$config_escape/outside-ext.before" || fail 'uninstall rewrote config through directory symlink outside HOME'
 ) & pids+=("$!")
 
 (
@@ -1037,6 +1104,38 @@ rm -rf "$override/source"
 HOME="$override/home" PATH="$override/bin:$PATH" B_AGENTIC_DIR="$override/missing" \
   B_AGENTIC_PI_DIR="$override/home/custom-agent" bash "$ROOT_DIR/install.sh" --uninstall >"$override/uninstall.log" 2>&1
 assert_no_path "$override/home/custom-agent/b-agentic/install.json"
+) & pids+=("$!")
+
+(
+# A managed asset directory symlinked outside HOME is never written or removed
+# through, on install, sync, or either uninstall path.
+escape="$WORK_DIR/dir-symlink-escape"
+mkdir -p "$escape/home/.pi/agent" "$escape/outside"
+make_source "$escape/source"
+make_bin "$escape/bin"
+ln -s "$escape/outside" "$escape/home/.pi/agent/agents"
+if run_install "$escape" >"$escape/install.log" 2>&1; then
+  fail 'accepted managed directory symlinked outside HOME'
+fi
+assert_contains "$escape/install.log" 'resolves outside HOME'
+[ -z "$(ls -A "$escape/outside")" ] || fail 'install wrote through directory symlink outside HOME'
+
+rm "$escape/home/.pi/agent/agents"
+run_install "$escape" >"$escape/install2.log" 2>&1
+mv "$escape/home/.pi/agent/agents"/* "$escape/outside/"
+rmdir "$escape/home/.pi/agent/agents"
+ln -s "$escape/outside" "$escape/home/.pi/agent/agents"
+run_install "$escape" --uninstall >"$escape/uninstall.log" 2>&1
+assert_contains "$escape/uninstall.log" 'resolves outside HOME'
+assert_file "$escape/outside/b-planner.md"
+assert_file "$escape/home/.pi/agent/b-agentic/install.json"
+rm -rf "$escape/source"
+if HOME="$escape/home" PATH="$escape/bin:$PATH" B_AGENTIC_DIR="$escape/missing" \
+  bash "$ROOT_DIR/install.sh" --uninstall >"$escape/uninstall2.log" 2>&1; then
+  fail 'source-absent uninstall accepted directory symlinked outside HOME'
+fi
+assert_contains "$escape/uninstall2.log" 'outside home'
+assert_file "$escape/outside/b-planner.md"
 ) & pids+=("$!")
 
 failed=0

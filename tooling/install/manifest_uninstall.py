@@ -54,17 +54,26 @@ def equal(left: Path, right: Path) -> bool:
         return False
 
 
-def manifest_path(paths: dict, key: str, fallback: Path, home: Path) -> Path:
+def manifest_path(paths: dict, key: str, fallback: Path, home: Path, leaf: bool = False) -> Path:
     candidate = paths.get(key)
     path = Path(candidate).expanduser() if isinstance(candidate, str) else fallback
     if not confined(path, home):
         warn(f"ignoring manifest {key} path outside home: {path}")
-        return fallback
+        path = fallback
+        # A symlinked leaf file is preserved by callers; only its ancestors must be safe.
+        if not confined(path.parent if leaf else path, home):
+            print(f"error: refusing unsafe {key} path resolving outside home: {path}", file=sys.stderr)
+            raise SystemExit(1)
     return path
 
 
-def remove_profiles(names: object, root: Path, snapshots: Path, label: str, dry_run: bool, suffix: str = ".md") -> bool:
+def remove_profiles(
+    names: object, root: Path, snapshots: Path, label: str, dry_run: bool, suffix: str = ".md", home: Path | None = None
+) -> bool:
     preserved = False
+    if home is not None and not confined(root, home):
+        warn(f"preserving {label}: directory resolves outside home: {root}")
+        return True
     for name in names if isinstance(names, list) else []:
         if not safe_name(name):
             warn(f"preserving {label} with unsafe manifest name")
@@ -151,7 +160,7 @@ def main() -> int:
     agents = manifest_path(paths, "agents", config_dir / "agents", home)
     commands = manifest_path(paths, "commands", config_dir / "prompts", home)
     extensions = manifest_path(paths, "extensions", config_dir / "extensions", home)
-    kernel = manifest_path(paths, "kernel", config_dir / "AGENTS.md", home)
+    kernel = manifest_path(paths, "kernel", config_dir / "AGENTS.md", home, leaf=True)
     snapshots = {
         "skills": metadata / "skills",
         "agents": metadata / "agents",
@@ -160,7 +169,11 @@ def main() -> int:
     }
     preserved = False
 
-    for name in data.get("skills", []):
+    skills_safe = confined(skills, home)
+    if not skills_safe:
+        warn(f"preserving skills: directory resolves outside home: {skills}")
+        preserved = True
+    for name in data.get("skills", []) if skills_safe else []:
         if not safe_name(name):
             warn("preserving skill with unsafe manifest name")
             preserved = True
@@ -201,10 +214,10 @@ def main() -> int:
             elif not dry_run:
                 kernel.unlink()
 
-    preserved |= remove_profiles(data.get("agents"), agents, snapshots["agents"], "Pi specialist", dry_run)
-    preserved |= remove_profiles(data.get("commands"), commands, snapshots["commands"], "Pi prompt", dry_run)
+    preserved |= remove_profiles(data.get("agents"), agents, snapshots["agents"], "Pi specialist", dry_run, home=home)
+    preserved |= remove_profiles(data.get("commands"), commands, snapshots["commands"], "Pi prompt", dry_run, home=home)
     preserved |= remove_profiles(
-        data.get("extensions"), extensions, snapshots["extensions"], "Pi extension", dry_run, ".ts"
+        data.get("extensions"), extensions, snapshots["extensions"], "Pi extension", dry_run, ".ts", home
     )
 
     if data.get("themeAction") in {"write", "replace"}:
@@ -257,7 +270,7 @@ def main() -> int:
                 warn("preserving Magic Context config: unsafe manifest path")
                 preserved = True
                 continue
-        config = manifest_path(paths, key, default, home)
+        config = manifest_path(paths, key, default, home, leaf=True)
         template = metadata / "templates" / template_name
         backup = backups.get(key)
         original = Path(backup).expanduser() if isinstance(backup, str) and backup not in {"", "none"} else None

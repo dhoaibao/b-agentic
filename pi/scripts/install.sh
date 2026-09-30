@@ -298,6 +298,53 @@ PY
   fi
 }
 
+CONFIG_ROLLBACK_ARMED=0
+CONFIG_ROLLBACK_PATHS=()
+CONFIG_ROLLBACK_ACTIONS=()
+CONFIG_ROLLBACK_BACKUPS=()
+
+arm_config_rollback() {
+  # A first install has no manifest to preserve pre-merge ownership baselines.
+  # Undo this run's merges on failure so a retry starts from the original state.
+  if dry_run_enabled || [ -e "$MANIFEST_DST" ] || [ -L "$MANIFEST_DST" ]; then return 0; fi
+  CONFIG_ROLLBACK_ARMED=1
+  trap restore_unrecorded_configs EXIT
+}
+
+track_config_rollback() {
+  [ "$CONFIG_ROLLBACK_ARMED" -eq 1 ] || return 0
+  case "$2" in
+    write|merge)
+      CONFIG_ROLLBACK_PATHS+=("$1"); CONFIG_ROLLBACK_ACTIONS+=("$2"); CONFIG_ROLLBACK_BACKUPS+=("$3")
+      ;;
+  esac
+}
+
+restore_unrecorded_configs() {
+  local index path action backup failed=0
+  [ "$CONFIG_ROLLBACK_ARMED" -eq 1 ] || return 0
+  CONFIG_ROLLBACK_ARMED=0
+  for ((index = ${#CONFIG_ROLLBACK_PATHS[@]} - 1; index >= 0; index--)); do
+    path="${CONFIG_ROLLBACK_PATHS[$index]}"
+    action="${CONFIG_ROLLBACK_ACTIONS[$index]}"
+    backup="${CONFIG_ROLLBACK_BACKUPS[$index]}"
+    if [ -L "$path" ]; then
+      warn "cannot restore symlinked config after failed install: $path"
+      failed=1
+    elif [ -f "$backup" ]; then
+      cp "$backup" "$path" || { warn "failed to restore config after failed install: $path"; failed=1; }
+    elif [ "$action" = write ]; then
+      rm -f "$path" || { warn "failed to remove config created by failed install: $path"; failed=1; }
+    else
+      warn "no backup to restore config after failed install: $path"
+      failed=1
+    fi
+  done
+  if [ "$failed" -ne 0 ]; then
+    warn "incomplete rollback: restore the listed configs from $BACKUPS_DIR before retrying"
+  fi
+}
+
 runtime_install_configs() {
   if [ "$OPERATION" != install ]; then
     case "$(manifest_action_value clickupMcpEnabled false)" in
@@ -305,6 +352,7 @@ runtime_install_configs() {
       *) CLICKUP_MCP_ENABLED=false ;;
     esac
   fi
+  arm_config_rollback
   run_install_triplet_stage 'Syncing Pi specialists' install_agents skip none none \
     INSTALL_AGENTS_ACTION INSTALL_AGENTS_STATE INSTALL_AGENTS_BACKUP
   run_install_triplet_stage 'Syncing Pi prompts' install_commands skip none none \
@@ -316,9 +364,11 @@ runtime_install_configs() {
   remember_theme_baseline
   run_install_triplet_stage 'Merging Pi settings' install_settings skip none none \
     INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_STATE INSTALL_SETTINGS_BACKUP
+  track_config_rollback "$PI_SETTINGS_DST" "$INSTALL_SETTINGS_ACTION" "$INSTALL_SETTINGS_BACKUP"
   remember_config_baseline settings "$PI_SETTINGS_DST" INSTALL_SETTINGS_ACTION INSTALL_SETTINGS_BACKUP
   run_install_triplet_stage 'Configuring Pi specialists' install_subagents skip none none \
     INSTALL_SUBAGENTS_ACTION INSTALL_SUBAGENTS_STATE INSTALL_SUBAGENTS_BACKUP
+  track_config_rollback "$PI_SUBAGENTS_DST" "$INSTALL_SUBAGENTS_ACTION" "$INSTALL_SUBAGENTS_BACKUP"
   remember_config_baseline subagents "$PI_SUBAGENTS_DST" INSTALL_SUBAGENTS_ACTION INSTALL_SUBAGENTS_BACKUP
   if ! dry_run_enabled && env SOURCE_DIR="$SOURCE_DIR" PI_SETTINGS_DST="$PI_SETTINGS_DST" python3 - <<'PY'
 import os, sys
@@ -333,9 +383,11 @@ PY
   fi
   run_install_triplet_stage 'Merging Pi MCP servers' install_mcp skip none none \
     INSTALL_MCP_ACTION INSTALL_MCP_STATE INSTALL_MCP_BACKUP
+  track_config_rollback "$PI_MCP_DST" "$INSTALL_MCP_ACTION" "$INSTALL_MCP_BACKUP"
   remember_config_baseline mcp "$PI_MCP_DST" INSTALL_MCP_ACTION INSTALL_MCP_BACKUP
   run_install_triplet_stage 'Merging Pi permission policy' install_permission skip none none \
     INSTALL_PERMISSION_ACTION INSTALL_PERMISSION_STATE INSTALL_PERMISSION_BACKUP
+  track_config_rollback "$PI_PERMISSION_DST" "$INSTALL_PERMISSION_ACTION" "$INSTALL_PERMISSION_BACKUP"
   remember_config_baseline permission "$PI_PERMISSION_DST" INSTALL_PERMISSION_ACTION INSTALL_PERMISSION_BACKUP
   # Keep this shared config last: later config merge failures must not leave it
   # changed before the ownership manifest is written.
@@ -404,7 +456,7 @@ runtime_write_manifest() {
     EXTENSIONS_ACTION="$INSTALL_EXTENSIONS_ACTION" \
     THEME_ACTION="$INSTALL_THEME_ACTION" \
     SOURCE_DIR="$SOURCE_DIR" \
-    SKILLS="${MANAGED_SKILL_NAMES[*]}" AGENTS="${AGENT_NAMES[*]}" python3 - <<'PY'
+    SKILLS="${MANAGED_SKILL_NAMES[*]}" AGENTS="${AGENT_NAMES[*]}" python3 - <<'PY' || return 1
 import json, os
 from pathlib import Path
 
@@ -506,6 +558,7 @@ finally:
     if os.path.exists(temp.name):
         os.unlink(temp.name)
 PY
+  CONFIG_ROLLBACK_ARMED=0
 }
 
 rollback_magic_context() {
@@ -535,6 +588,10 @@ runtime_print_install_report() {
 
 remove_managed_profiles() {
   local root="$1" snapshots="$2" key="$3" label="$4" extension="${5:-md}" name path snapshot
+  if ! path_confined_to_home "$root"; then
+    warn "preserving $label: directory resolves outside HOME: $root"; PRESERVE_METADATA_DIR=1
+    return 0
+  fi
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     if ! managed_asset_name_is_safe "$name"; then

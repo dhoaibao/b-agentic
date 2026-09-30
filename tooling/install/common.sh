@@ -5,7 +5,26 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exit 1
 fi
 
-ensure_dir() { run_cmd mkdir -p "$1"; }
+# True when the path, after resolving any existing symlinked ancestors, stays
+# under the invoking user's home. Guards managed writes and removals against
+# directory symlinks that redirect them outside HOME.
+path_confined_to_home() {
+  python3 - "$1" <<'PY'
+from pathlib import Path
+import sys
+home = Path.home().resolve()
+try:
+    ok = Path(sys.argv[1]).expanduser().resolve().is_relative_to(home)
+except (OSError, RuntimeError):
+    ok = False
+raise SystemExit(0 if ok else 1)
+PY
+}
+
+ensure_dir() {
+  path_confined_to_home "$1" || die "refusing managed path that resolves outside HOME: $1"
+  run_cmd mkdir -p "$1"
+}
 installer_summary_log() { log "$@"; }
 set_install_stage_total() { INSTALL_STAGE_CURRENT=0; INSTALL_STAGE_TOTAL="${1:-0}"; }
 
@@ -270,6 +289,7 @@ PY
 merge_json_file() {
   local src="$1" dst="$2" label="$3" backup_key="$4"
   [ ! -L "$dst" ] || die "preserving symlinked $label configuration: $dst"
+  path_confined_to_home "$(dirname "$dst")" || die "refusing $label configuration that resolves outside HOME: $dst"
   if [ ! -e "$dst" ]; then
     copy_file "$src" "$dst"
     printf 'write\nactive\nnone'
@@ -325,6 +345,11 @@ remove_merged_config() {
     return 0
   fi
   [ -f "$path" ] || return 0
+  if ! path_confined_to_home "$(dirname "$path")"; then
+    warn "preserving $label: directory resolves outside HOME: $path"
+    PRESERVE_METADATA_DIR=1
+    return 0
+  fi
   backup="$(manifest_backup_value "$backup_key" none)"
   if [ "$backup" = "none" ] && [ "$(manifest_action_value "$action_key" '')" = "write" ]; then
     original_arg=""
@@ -428,6 +453,11 @@ manifest_skill_names() {
 
 uninstall_installed_skills() {
   local name path snapshot
+  if ! path_confined_to_home "$SKILLS_DST"; then
+    warn "preserving skills: directory resolves outside HOME: $SKILLS_DST"
+    PRESERVE_METADATA_DIR=1
+    return 0
+  fi
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     if ! managed_asset_name_is_safe "$name"; then
