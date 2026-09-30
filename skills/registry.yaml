@@ -26,6 +26,7 @@
       "execution": {"mode": "subagent", "agent": "b-planner"},
       "phase": "Decide",
       "use": "Figure out what to do when scope or approach is fuzzy, then produce an execution-ready plan",
+      "argument_hint": "[goal or problem]",
       "routing": {
         "intent": "Clarify fuzzy work, compare approaches, decompose execution",
         "triggers": [
@@ -51,6 +52,7 @@
       "execution": {"mode": "subagent", "agent": "b-researcher"},
       "phase": "Decide",
       "use": "Fetch outside truth: docs, API facts, comparisons, or recent evidence",
+      "argument_hint": "[question or topic]",
       "routing": {
         "intent": "External docs, API facts, versions, comparisons",
         "triggers": [
@@ -71,6 +73,7 @@
       "execution": {"mode": "main"},
       "phase": "Decide",
       "use": "Create or refresh docs/DESIGN.md as a frontend design standard",
+      "argument_hint": "[description, image, or files]",
       "routing": {
         "intent": "Frontend design standard and docs/DESIGN.md authoring",
         "triggers": [
@@ -97,6 +100,7 @@
       "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Implement contextual frontend/UI code, styling, responsive behavior, interactions, visual refreshes, and landing pages",
+      "argument_hint": "[UI change]",
       "routing": {
         "intent": "Clearly scoped frontend/UI code implementation or visual refresh (pages, layouts, components, responsiveness, interactions)",
         "triggers": [
@@ -124,6 +128,7 @@
       "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Create validated, portable technical architecture and flow diagrams from explicit facts",
+      "argument_hint": "[diagram type and facts]",
       "routing": {
         "intent": "Create a technical architecture, system map, workflow, sequence, data-flow, or lifecycle diagram",
         "triggers": [
@@ -144,6 +149,7 @@
       "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Make the scoped non-UI change from an approved plan or a small direct request",
+      "argument_hint": "[approved plan or change]",
       "routing": {
         "intent": "Implement approved or clearly scoped non-UI work (general fallback)",
         "triggers": [
@@ -164,6 +170,7 @@
       "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Create and update ClickUp tasks with a consistent four-section description",
+      "argument_hint": "[task request]",
       "routing": {
         "intent": "Create and update ClickUp tasks using Context, Requirements, Acceptance Criteria, and Checklist",
         "triggers": [
@@ -206,6 +213,7 @@
       "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Rename, extract, move, inline, simplify, or delete behavior-preserving code",
+      "argument_hint": "<transform and target>",
       "routing": {
         "intent": "Mechanical rename, extract, move, inline, simplify, delete dead code",
         "triggers": [
@@ -230,6 +238,7 @@
       "handoff": ["repro command, observed output, expected behavior, and environment; state gaps rather than asking the child to run state-changing probes"],
       "phase": "Decide",
       "use": "Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code",
+      "argument_hint": "[repro command or error]",
       "routing": {
         "intent": "Runtime bug, error, \"not working\"",
         "triggers": [
@@ -253,6 +262,7 @@
       "execution": {"mode": "main"},
       "phase": "Validate",
       "use": "Write or fix unit, integration, contract, and simulated-DOM tests",
+      "argument_hint": "[test target or failure]",
       "routing": {
         "intent": "Unit/integration/component tests, coverage, failing tests",
         "triggers": [
@@ -276,6 +286,7 @@
       "execution": {"mode": "main"},
       "phase": "Validate",
       "use": "Collect real-browser, visual, screenshot, live UI, or e2e evidence",
+      "argument_hint": "[route and UI state]",
       "routing": {
         "intent": "Real-browser, visual, and e2e verification",
         "triggers": [
@@ -322,6 +333,7 @@
       "handoff": ["baseline, acceptance, check results, safe candidate paths and snapshot fingerprint; recheck the fingerprint after review"],
       "phase": "Validate",
       "use": "Review changed code",
+      "argument_hint": "[diff, commit range, or checkpoint]",
       "routing": {
         "intent": "Pre-PR changed-code review",
         "triggers": [
@@ -344,6 +356,7 @@
       "execution": {"mode": "main"},
       "phase": "Ship",
       "use": "Split working-tree changes into cohesive commits from an explicit user request",
+      "argument_hint": "[commit instructions]",
       "routing": {
         "intent": "Split and commit working-tree changes",
         "explicit_request": true
@@ -357,6 +370,7 @@
       "execution": {"mode": "main"},
       "phase": "Ship",
       "use": "Write commit-backed PR copy or review and rewrite supplied PR prose",
+      "argument_hint": "[commit count or PR prose]",
       "routing": {
         "intent": "Commit-backed PR summary or supplied PR-prose review/rewrite",
         "explicit_request": true

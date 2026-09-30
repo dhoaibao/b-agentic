@@ -95,9 +95,13 @@ See [Pi configuration layout](pi/configs/README.md).
 
 Pi loads the global `AGENTS.md` and discovers native `skills/b-*/SKILL.md`.
 The main session reads one skill before acting, or invokes a generated
-`/b-<name>` prompt template. `skills/registry.yaml` and `skills/*/prompt.md`
+`/b-<name>` prompt template, whose front matter carries the registry `use` as its
+description and an optional `argument_hint`. `skills/registry.yaml` and `skills/*/prompt.md`
 are canonical; `tooling/generate/registry_sync.py` generates the delivery
-assets. The four `@gotgenes/pi-subagents` specialist profiles are
+assets. Explicit-request skills (`b-commit`, `b-pr-summary`) carry
+`disable-model-invocation: true`, so Pi leaves them out of the automatic skill
+list; `/b-<name>` and `/skill:<name>` still load them, and their generated
+prompts name the installed `SKILL.md` path. The four `@gotgenes/pi-subagents` specialist profiles are
 `b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. Their tool lists
 omit edit/write, user questions, nested delegation, and mutating direct MCP
 tools. Their read-only behavior is instructed, not enforced by a child-specific

@@ -26,9 +26,13 @@ Evidence: [`install.sh`](../install.sh),
 ## Workflow and skill design
 
 The kernel selects one skill at a time. Pi discovers skill descriptors, and generated
-`/b-<name>` prompt templates supply an explicit route and registry-backed
+`/b-<name>` prompt templates (registry `use` as description, optional
+`argument_hint`) supply an explicit route and registry-backed
 parent evidence handoffs for audit, debug, and changed-code review. The main
 session reads the delegated skill and gathers that evidence before launch.
+Skills marked `routing.explicit_request` are generated with
+`disable-model-invocation: true` and stay out of Pi's automatic skill list; their
+`/b-<name>` prompt names the installed `SKILL.md` path.
 Worktree mutation, user interaction, verification, and reporting stay in the
 main session. b-agentic generates four named specialist profiles for the
 `@gotgenes/pi-subagents` extension to run. Each child reads its named skill,

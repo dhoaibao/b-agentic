@@ -4,6 +4,7 @@ description: >
   Analyze tracked, staged, and untracked working-tree changes; select
   cohesive commits after an explicit user request, then stage and create
   them on the current branch without a second approval prompt or pushing.
+disable-model-invocation: true
 metadata:
   phase: Ship
   execution_mode: main
