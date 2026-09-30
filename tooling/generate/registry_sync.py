@@ -33,6 +33,20 @@ EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-reviewer"}
 CAPABILITY_KINDS = {"mcp", "agent"}
+# Native tools registered by managed extensions; only the named agents may list them.
+EXTENSION_TOOLS = {"b_candidate_snapshot": "b-candidate-snapshot.ts"}
+EXTENSION_TOOL_AGENTS = {"b-reviewer"}
+# Likely-secret path gate; the snapshot extension mirrors everything after "*".
+PATH_RULES = {
+    "*": "allow",
+    "*.env": "deny",
+    "*.env.*": "deny",
+    "*.env.example": "allow",
+    "*.pem": "deny",
+    "*credentials.*": "deny",
+    "*secrets.*": "deny",
+}
+PI_EXTENSIONS_DIR = ROOT / "pi" / "extensions"
 ARGUMENT_HINT_MAX = 60
 ARGUMENT_HINT_TOKEN = r"(?:<[A-Za-z0-9 ,/|._-]+>|\[[A-Za-z0-9 ,/|._-]+\])"
 ARGUMENT_HINT_PATTERN = re.compile(rf"{ARGUMENT_HINT_TOKEN}(?: {ARGUMENT_HINT_TOKEN})*")
@@ -195,6 +209,12 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
         if name == "b-researcher":
             allowed_fields.add("conditional_tools")
             non_empty_string_list(agent.get("conditional_tools"), f"{label}.conditional_tools", errors)
+        if name in EXTENSION_TOOL_AGENTS:
+            allowed_fields.add("extension_tools")
+            non_empty_string_list(agent.get("extension_tools"), f"{label}.extension_tools", errors)
+            tools = agent.get("extension_tools")
+            if isinstance(tools, list) and (len(tools) != len(set(tools)) or not set(tools) <= set(EXTENSION_TOOLS)):
+                errors.append(f"{label}.extension_tools: expected unique names from {sorted(EXTENSION_TOOLS)}")
         if set(agent) != allowed_fields:
             errors.append(f"{label}: expected only {sorted(allowed_fields)}")
     if delegated_agents != MANAGED_SUBAGENT_NAMES:
@@ -229,6 +249,31 @@ def validate_agent_tools(agents: dict[str, dict[str, Any]], policy: dict[str, An
         for tool in tools:
             if tool not in conditional:
                 errors.append(f"agents.{name}.conditional_tools: {tool!r} is not a conditional-read tool")
+    return errors
+
+
+def validate_snapshot_extension() -> list[str]:
+    """Keep the snapshot extension, the permission policy, and the manual fallback in step."""
+    errors: list[str] = []
+    path = PI_EXTENSIONS_DIR / EXTENSION_TOOLS["b_candidate_snapshot"]
+    if not path.is_file():
+        return [f"{path.relative_to(ROOT)}: missing managed snapshot extension"]
+    text = path.read_text()
+    if 'name: "b_candidate_snapshot"' not in text:
+        errors.append(f"{path.relative_to(ROOT)}: must register b_candidate_snapshot")
+    flags_block = re.search(r"SNAPSHOT_DIFF_FLAGS = \[(.*?)\];", text, re.S)
+    flags = re.findall(r'"([^"]+)"', flags_block.group(1)) if flags_block else []
+    if not flags:
+        errors.append(f"{path.relative_to(ROOT)}: SNAPSHOT_DIFF_FLAGS not found")
+    review = (ROOT / "skills" / "b-review" / "prompt.md").read_text()
+    for variant in (f"git diff {' '.join(flags)} --cached -- .", f"git diff {' '.join(flags)} -- ."):
+        if flags and f"`{variant}`" not in review:
+            errors.append(f"skills/b-review/prompt.md: manual fallback must contain `{variant}`")
+    rules_block = re.search(r"PROTECTED_RULES[^=]*= \[(.*?)\n\];", text, re.S)
+    rules = re.findall(r'\["([^"]+)", "(allow|deny)"\]', rules_block.group(1)) if rules_block else []
+    policy_rules = [(pattern, action) for pattern, action in PATH_RULES.items() if pattern != "*"]
+    if rules != policy_rules:
+        errors.append(f"{path.relative_to(ROOT)}: PROTECTED_RULES must match the permission policy path rules")
     return errors
 
 
@@ -461,7 +506,7 @@ def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, A
         [
             "---",
             f"description: {json.dumps(agent['description'])}",
-            f"tools: {', '.join(['read', 'grep', 'find', 'ls', 'bash', *read_only_mcp, *agent.get('conditional_tools', [])])}",
+            f"tools: {', '.join(['read', 'grep', 'find', 'ls', 'bash', *read_only_mcp, *agent.get('conditional_tools', []), *agent.get('extension_tools', [])])}",
             f"model: {model}",
             f"thinking: {thinking}",
             "prompt_mode: replace",
@@ -484,15 +529,7 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
     # the adapter proxy remains ask-only so it cannot bypass direct-tool rules.
     permissions: dict[str, Any] = {
         "*": "ask",
-        "path": {
-            "*": "allow",
-            "*.env": "deny",
-            "*.env.*": "deny",
-            "*.env.example": "allow",
-            "*.pem": "deny",
-            "*credentials.*": "deny",
-            "*secrets.*": "deny",
-        },
+        "path": dict(PATH_RULES),
         "read": "allow",
         "grep": "allow",
         "find": "allow",
@@ -546,6 +583,8 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         "notify_parent": "allow",
         # Subagent ask-back: records a question and ends the child turn; main answers via resume.
         "ask_parent": "allow",
+        # Managed read-only extension tools; the extension never hashes, diffs, or returns protected content.
+        **dict.fromkeys(EXTENSION_TOOLS, "allow"),
         "mcp": {"*": "ask", "mcp_status": "allow", "mcp_search": "allow", "mcp_describe": "allow"},
     }
     for server, record in policy["servers"].items():
@@ -657,6 +696,15 @@ def validate_regressions(
     invalid_agent_tools["b-researcher"]["conditional_tools"].append("playwright_browser_click")
     if not validate_agent_tools(invalid_agent_tools, policy):
         errors.append("agent regression: mutating conditional tool must fail")
+    invalid_extension_tools = json.loads(json.dumps(agents))
+    invalid_extension_tools["b-planner"]["extension_tools"] = ["b_candidate_snapshot"]
+    if not validate_skills(skills, invalid_extension_tools):
+        errors.append("agent regression: extension tool on a non-reviewer agent must fail")
+    invalid_extension_tools = json.loads(json.dumps(agents))
+    invalid_extension_tools["b-reviewer"]["extension_tools"] = ["unknown_tool"]
+    if not validate_skills(skills, invalid_extension_tools):
+        errors.append("agent regression: unknown extension tool must fail")
+    errors.extend(validate_snapshot_extension())
     invalid_policy = json.loads(json.dumps(policy))
     first_server = next(iter(invalid_policy["servers"].values()))
     first_server["tools"]["bad"] = "missing"
@@ -675,6 +723,7 @@ def sync_outputs(check: bool) -> int:
         *validate_policy(policy),
         *validate_agent_tools(agents, policy),
         *validate_capabilities(capabilities, policy),
+        *validate_snapshot_extension(),
     ]
     if errors:
         print("\n".join(errors), file=sys.stderr)

@@ -24,7 +24,12 @@ const prose: Step = {
 };
 const check: Step = { name: "bash", arguments: { command: "echo checked" } };
 
+const snapshot: Step = { name: "b_candidate_snapshot", arguments: {} };
+
 const SCENARIOS: Record<string, Step[]> = {
+  // Used by tests/pi/snapshot-probe.sh.
+  "snap-once": [snapshot, "text"],
+  "snap-twice": [snapshot, snapshot, "text"],
   "gate-edit": [edit, "text"],
   "gate-edit-check": [edit, check, "text"],
   "gate-check-edit": [check, edit, "text"],

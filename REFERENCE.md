@@ -44,6 +44,29 @@ source-absent manifest uninstall remains confined to the same boundary.
   runs, and stays idle in read-only specialists because they lack `edit` and
   `write`. It uses Pi's `agent_before_settle` boundary; `tests/pi/verify-gate-probe.sh`
   covers it offline with a scripted model.
+- `b_candidate_snapshot` (a managed extension, `extensions/b-candidate-snapshot.ts`)
+  is a read-only tool that computes the kernel's frozen-candidate identity: HEAD,
+  SHA-256 of the staged and unstaged binary diffs, sorted untracked paths with
+  type and content digest, and one `fingerprint` to compare at each checkpoint.
+  It always covers the whole repository, whatever the cwd. Git runs as argv with
+  `GIT_OPTIONAL_LOCKS=0` and with inherited `GIT_*` controls dropped (pathspec
+  mode, external diff, lazy fetch). The tool refuses (an error, not a snapshot)
+  when a repository `filter.*.clean`/`process` command applies to any path,
+  because git would run it, and in a partial-clone (promisor) repository, where
+  git could fetch objects. Tracked and untracked paths matching the policy's
+  likely-secret rules, matched on repository-relative raw bytes, are listed but
+  never hashed, diffed, or returned: tracked ones are excluded from every
+  `git diff` by pathspec before any working-tree comparison. Git's own ignore-
+  and attribute-file processing still reads what `git status` would read; that
+  is a documented residual boundary, not exposure. Submodules are listed with their
+  index commit and never inspected. Either makes the result `complete: false`, as
+  does an unhashable untracked entry. A tracked protected path that is not valid
+  UTF-8 is refused because it cannot be excluded. Git-ignored files are excluded
+  (`ignored_included: false`). The generated policy allows the tool
+  by name and only `b-reviewer` lists it; `b-review` keeps a manual fallback
+  whose diff command `registry_sync.py --self-test` checks against the
+  extension. A tool fingerprint is never comparable with a hand-computed
+  identity. `tests/pi/snapshot-probe.sh` covers it offline.
 - The installer merges `"extensions": ["-builtin:mcp"]` into Pi settings so
   `pi-mcp-adapter` stays the only MCP owner: a stray `mcp.json` is not read by
   Pi's built-in MCP even if the adapter fails to load. Pi's built-in `codemode`

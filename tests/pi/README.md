@@ -26,3 +26,20 @@ and a scripted local model (`gate-stub-provider.ts`) with `pi -ne`. It needs no
 npm packages, credentials, or network. It checks that an edit followed by no
 shell command earns exactly one reminder and one extra model turn, while
 edit-then-shell, prose-only, and no-edit runs earn none.
+
+## Snapshot probe
+
+`bash tests/pi/snapshot-probe.sh` loads `pi/extensions/b-candidate-snapshot.ts`
+with the same scripted local model and throwaway git repositories. It needs
+only Pi, git, and jq. It checks that the tool digests equal the canonical
+manual `git diff` procedure, that repeated calls agree and an edit changes the
+fingerprint, that a subdirectory cwd does not narrow the candidate, that
+untracked files (including binary files and symlinks) are hashed from their
+bytes, that protected paths (same-size edits made unreadable, a literal `hex:`
+name, a protected parent directory, raw non-UTF-8 names) are listed
+without being hashed, diffed, or returned and mark the snapshot incomplete, that submodules are listed and
+never inspected, that an applicable clean filter (including one hidden behind an empty `filter=`
+value) is refused without running, that inherited `GIT_*_PATHSPECS` variables
+cannot disable the exclusions, that a partial clone is refused without fetching,
+that a repository directory name ending in whitespace resolves correctly and a non-UTF-8 root or working directory is refused,
+that `.git/index` is untouched, and that a non-repository fails. Set `SNAPSHOT_PROBE_KEEP=1` to keep the work directory.

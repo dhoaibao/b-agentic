@@ -7,7 +7,7 @@ argument-hint: "[diff, commit range, or checkpoint]"
 
 Before delegation, gather and pass this parent-owned evidence (or state what is unavailable):
 
-- baseline, acceptance, check results, safe candidate paths and snapshot fingerprint; recheck the fingerprint after review
+- baseline, acceptance, check results, safe candidate paths and snapshot fingerprint (from `b_candidate_snapshot` when available); recheck the fingerprint after review
 
 Delegate this bounded task to the `b-reviewer` agent with the `subagent` tool. Name the `b-review` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS
 

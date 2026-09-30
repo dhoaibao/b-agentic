@@ -157,10 +157,17 @@ unstaged binary-diff digests, and relevant untracked path/type/content digests.
 The reviewer checks that identity at the start and end, and main checks it on
 return; a changed snapshot needs fresh
 checks and a new review. Protected paths require permission before content is
-hashed.
+hashed. The read-only `b_candidate_snapshot` tool computes that identity for the
+whole repository as one fingerprint. It lists protected paths and submodules
+without hashing or diffing them and reports the result incomplete so the main
+session blocks; it refuses when a repository filter would run a program or the
+repository is a partial clone. `b-review` keeps
+a manual fallback, and the two methods are never compared with each other.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
-and [`tooling/validate/behavior.py`](../tooling/validate/behavior.py).
+[`tooling/validate/behavior.py`](../tooling/validate/behavior.py),
+[`pi/extensions/b-candidate-snapshot.ts`](../pi/extensions/b-candidate-snapshot.ts),
+and [`tests/pi/snapshot-probe.sh`](../tests/pi/snapshot-probe.sh).
 
 ## Intentional non-goals
 

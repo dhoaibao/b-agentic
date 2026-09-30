@@ -32,7 +32,8 @@ if [ "$run_release" -eq 1 ]; then
   fi
   if command -v pi >/dev/null 2>&1; then
     bash "$ROOT_DIR/tests/pi/verify-gate-probe.sh"
+    bash "$ROOT_DIR/tests/pi/snapshot-probe.sh"
   else
-    printf '%s\n' 'Verify-gate probe skipped: pi is not installed.'
+    printf '%s\n' 'Verify-gate and snapshot probes skipped: pi is not installed.'
   fi
 fi
