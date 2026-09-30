@@ -6,7 +6,8 @@ description: >
   options, choose a path, and write ordered steps. Unlike b-implement,
   b-plan does not change code. Routing signals: plan, decompose, approach,
   explore, not sure, figure out, "how should I", implementation plan,
-  clarify, requirements, scope.
+  clarify, requirements, scope. Delegated: runs only in the `b-planner`
+  subagent; the main session never executes it itself.
 metadata:
   phase: Decide
   execution_mode: subagent
@@ -18,6 +19,13 @@ metadata:
 # b-plan
 
 Turn an unclear goal into the smallest execution-ready plan. Do not implement.
+
+## Delegation boundary
+
+`b-plan` runs only in the `b-planner` subagent.
+
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `b-planner` and a bounded task naming `b-plan`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- `b-planner` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
 
 ## When to use
 

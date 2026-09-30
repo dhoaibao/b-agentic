@@ -6,7 +6,8 @@ description: >
   skill/kernel quality, and currentness/MCP compatibility, with evidence
   thresholds and approval-gated live probing. Routing signals: b-agentic
   audit, suite audit, maintainer audit, design-conformance audit,
-  decision-design drift.
+  decision-design drift. Delegated: runs only in the `b-reviewer`
+  subagent; the main session never executes it itself.
 metadata:
   phase: Validate
   execution_mode: subagent
@@ -38,6 +39,13 @@ Run a read-only, source-based b-agentic audit across four dimensions:
 
 This audit supplements deterministic checks; it does not mechanically prove all
 prose semantics and never substitutes for changed-code `b-review`.
+
+## Delegation boundary
+
+`b-agentic-audit` runs only in the `b-reviewer` subagent.
+
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `b-reviewer` and a bounded task naming `b-agentic-audit`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- `b-reviewer` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
 
 ## Mandatory origin freshness gate
 

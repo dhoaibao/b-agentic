@@ -260,6 +260,74 @@
         "Do not rerun implementation checks solely to commit"
       ],
       "avoid": ["Claim b-reviewer approval", "Create a new validation gate"]
+    },
+    {
+      "id": "main-session-no-self-exec-research",
+      "skill": "b-research",
+      "observed_failure": "The main session read the delegated SKILL.md and then performed the skill's work itself with its own tools, treating the request as a quick lookup.",
+      "intended_behavior": "Reading the delegated skill only prepares the handoff; after parent-owned evidence is gathered the main session calls the b-researcher subagent and evaluates its result.",
+      "prompt": "A user casually asks for information about a newly announced external product. Describe the first tool call after routing to b-research.",
+      "must": [
+        "After gathering necessary parent-owned evidence, delegate to the b-researcher subagent before performing any of the skill's execution steps",
+        "Gather only parent-owned evidence (for example status, freshness, candidate snapshot, or repro commands) in the main session",
+        "Report the gap and ask the user if the subagent is unavailable"
+      ],
+      "avoid": [
+        "Run the skill's own search, planning, or diagnosis steps with main-session tools",
+        "Treat the request as too small or quick to delegate",
+        "Fall back to self-execution after a subagent failure"
+      ]
+    },
+    {
+      "id": "main-session-no-self-exec-plan",
+      "skill": "b-plan",
+      "observed_failure": "The main session read the delegated SKILL.md and then performed the skill's work itself with its own tools, treating the request as a quick lookup.",
+      "intended_behavior": "Reading the delegated skill only prepares the handoff; after parent-owned evidence is gathered the main session calls the b-planner subagent and evaluates its result.",
+      "prompt": "A user asks for a short plan to add a small feature. Describe how the main session proceeds once b-plan is selected.",
+      "must": [
+        "After gathering necessary parent-owned evidence, delegate to the b-planner subagent before performing any of the skill's execution steps",
+        "Gather only parent-owned evidence (for example status, freshness, candidate snapshot, or repro commands) in the main session",
+        "Report the gap and ask the user if the subagent is unavailable"
+      ],
+      "avoid": [
+        "Run the skill's own search, planning, or diagnosis steps with main-session tools",
+        "Treat the request as too small or quick to delegate",
+        "Fall back to self-execution after a subagent failure"
+      ]
+    },
+    {
+      "id": "main-session-no-self-exec-debug",
+      "skill": "b-debug",
+      "observed_failure": "The main session read the delegated SKILL.md and then performed the skill's work itself with its own tools, treating the request as a quick lookup.",
+      "intended_behavior": "Reading the delegated skill only prepares the handoff; after parent-owned evidence is gathered the main session calls the b-debugger subagent and evaluates its result.",
+      "prompt": "A user pastes a short stack trace and asks why it fails. Describe how the main session proceeds once b-debug is selected.",
+      "must": [
+        "After gathering necessary parent-owned evidence, delegate to the b-debugger subagent before performing any of the skill's execution steps",
+        "Gather only parent-owned evidence (for example status, freshness, candidate snapshot, or repro commands) in the main session",
+        "Report the gap and ask the user if the subagent is unavailable"
+      ],
+      "avoid": [
+        "Run the skill's own search, planning, or diagnosis steps with main-session tools",
+        "Treat the request as too small or quick to delegate",
+        "Fall back to self-execution after a subagent failure"
+      ]
+    },
+    {
+      "id": "main-session-no-self-exec-review",
+      "skill": "b-review",
+      "observed_failure": "The main session read the delegated SKILL.md and then performed the skill's work itself with its own tools, treating the request as a quick lookup.",
+      "intended_behavior": "Reading the delegated skill only prepares the handoff; after parent-owned evidence is gathered the main session calls the b-reviewer subagent and evaluates its result.",
+      "prompt": "A user asks for a quick review of a small diff. Describe how the main session proceeds once b-review is selected: it reads the skill, freezes the candidate with b_candidate_snapshot and gathers status evidence, then delegates. Performing the review itself must fail; the audit skill shares the same agent.",
+      "must": [
+        "After gathering necessary parent-owned evidence, delegate to the b-reviewer subagent before performing any of the skill's execution steps",
+        "Gather only parent-owned evidence (for example status, freshness, candidate snapshot, or repro commands) in the main session",
+        "Report the gap and ask the user if the subagent is unavailable"
+      ],
+      "avoid": [
+        "Run the skill's own search, planning, or diagnosis steps with main-session tools",
+        "Treat the request as too small or quick to delegate",
+        "Fall back to self-execution after a subagent failure"
+      ]
     }
   ]
 }

@@ -10,7 +10,8 @@ description: >
   runtime behavior failures, not test-mechanic issues such as wrong
   assertions, mocks, or fixtures. Routing signals: bug, broken, stack
   trace, "not working", runtime error, regression, product regression,
-  product bug, diagnose.
+  product bug, diagnose. Delegated: runs only in the `b-debugger`
+  subagent; the main session never executes it itself.
 metadata:
   phase: Decide
   execution_mode: subagent
@@ -22,6 +23,13 @@ metadata:
 # b-debug
 
 Confirm the real cause of broken runtime behavior, then produce an evidence-backed handoff for the fix. Do not edit product code.
+
+## Delegation boundary
+
+`b-debug` runs only in the `b-debugger` subagent.
+
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `b-debugger` and a bounded task naming `b-debug`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- `b-debugger` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
 
 ## When to use
 

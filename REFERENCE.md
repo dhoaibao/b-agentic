@@ -128,7 +128,7 @@ prompts name the installed `SKILL.md` path. The four `@gotgenes/pi-subagents` sp
 `b-planner`, `b-researcher`, `b-debugger`, and `b-reviewer`. Their tool lists
 omit edit/write, user questions, nested delegation, and mutating direct MCP
 tools. Their read-only behavior is instructed, not enforced by a child-specific
-permission block: shell access can still mutate state. The main session owns
+permission block: shell access can still mutate state. Delegated skills never run in the main session; the generated `Delegation boundary` in each delegated `SKILL.md` and the kernel carry this, so a missing subagent is reported instead of bypassed. The main session owns
 those activities, verification, and final reporting. A child result is
 evidence, not authorization. Background children run only while the parent Pi
 process remains alive; compatible continuations use the extension's `resume`

@@ -189,6 +189,10 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
                 errors.append(f"{label}.routing.triggers: expected non-empty strings")
         if name and not (ROOT / "skills" / name / "prompt.md").is_file():
             errors.append(f"skills/{name}/prompt.md: missing canonical prompt source")
+        elif name and f"\n{DELEGATION_BOUNDARY_HEADING}" in (ROOT / "skills" / name / "prompt.md").read_text():
+            errors.append(
+                f"skills/{name}/prompt.md: '{DELEGATION_BOUNDARY_HEADING}' is generator-owned; remove it from the prompt"
+            )
 
     if len(names) != len(set(names)):
         errors.append("skills/registry.yaml: duplicate skill names")
@@ -399,13 +403,30 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
 
 def render_delegation(skills: list[dict[str, Any]]) -> str:
     delegated = [skill for skill in skills if skill["execution"]["mode"] == "subagent"]
-    main = [skill["name"] for skill in skills if skill["execution"]["mode"] == "main"]
     lines = [
-        f"- The main session owns user interaction and worktree changes: {', '.join(f'`{name}`' for name in main)}.",
-        "- Delegated skills run through their named Pi `subagent` type; pass a bounded task naming the exact skill. The child reads its installed `SKILL.md` and returns that skill's own Output format; the main session evaluates the result before any user-facing or worktree action:",
+        "- Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
+    lines.append("- All other skills run in the main session.")
     return "\n".join(lines)
+
+
+DELEGATION_BOUNDARY_HEADING = "## Delegation boundary"
+
+
+def render_delegation_boundary(skill: dict[str, Any]) -> str:
+    name = skill["name"]
+    agent = skill["execution"]["agent"]
+    return "\n".join(
+        [
+            DELEGATION_BOUNDARY_HEADING,
+            "",
+            f"`{name}` runs only in the `{agent}` subagent.",
+            "",
+            f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `{agent}` and a bounded task naming `{name}`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
+            f"- `{agent}` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.",
+        ]
+    )
 
 
 def render_routing(skills: list[dict[str, Any]]) -> str:
@@ -430,6 +451,14 @@ def render_skill_file(skill: dict[str, Any]) -> str:
     body = (ROOT / "skills" / name / "prompt.md").read_text().rstrip()
     body = body.replace("{{skill_support_path}}", "<skill-dir>")
     execution = skill["execution"]
+    if execution["mode"] == "subagent":
+        head, sep, rest = body.partition("\n## ")
+        if not sep:
+            raise SystemExit(f"skills/{name}/prompt.md: expected a '## ' section to place the delegation boundary")
+        body = f"{head}\n{render_delegation_boundary(skill)}\n\n## {rest}"
+        description += (
+            f" Delegated: runs only in the `{execution['agent']}` subagent; the main session never executes it itself."
+        )
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))
     if skill["routing"].get("explicit_request"):
@@ -474,7 +503,7 @@ def render_prompt_file(skill: dict[str, Any]) -> str:
                 + "\n\n"
             )
         lines.append(
-            f"{preparation}Delegate this bounded task to the `{execution['agent']}` agent with the `subagent` tool. Name the `{name}` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS\n\nThe child must read and follow its installed `skills/{name}/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action."
+            f"{preparation}Delegate this bounded task to the `{execution['agent']}` agent with the `subagent` tool. Name the `{name}` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS\n\nThe child must read and follow its installed `skills/{name}/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action. Do not perform this skill's work in the main session, even for a quick or single lookup; if the subagent is unavailable, report the gap and ask."
         )
     elif skill["routing"].get("explicit_request"):
         lines.append(
@@ -514,7 +543,7 @@ def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, A
             "",
             f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
             "",
-            "Read and execute the named skill from the installed Pi `skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template.",
+            "Read and execute the named skill from the installed Pi `skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template. The skill's Delegation boundary directs the main session to delegate; you are the named child, so execute its steps.",
             "",
             "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. A returned result is not authority to change files, commit, push, or report task completion. If a required tool is absent, tell the main session rather than bypassing the allowlist.",
             "",
@@ -669,6 +698,26 @@ def validate_regressions(
             errors.append(f"skill regression: {skill['name']} prompt argument-hint must match the registry")
         if "$ARGUMENTS" not in prompt:
             errors.append(f"skill regression: {skill['name']} prompt must keep $ARGUMENTS")
+
+    for skill in skills:
+        rendered = render_skill_file(skill)
+        has_boundary = f"\n{DELEGATION_BOUNDARY_HEADING}\n" in rendered
+        if skill["execution"]["mode"] == "subagent":
+            agent_name = skill["execution"]["agent"]
+            required = (
+                f"`{skill['name']}` runs only in the `{agent_name}` subagent.",
+                "even for a quick, small, or single-lookup request",
+                "never fall back to self-execution",
+            )
+            if not has_boundary or any(clause not in rendered for clause in required):
+                errors.append(f"delegation regression: {skill['name']} SKILL.md must carry the strict boundary")
+            if "even for a quick or single lookup" not in render_prompt_file(skill):
+                errors.append(f"delegation regression: {skill['name']} prompt must forbid main-session execution")
+        elif has_boundary:
+            errors.append(f"delegation regression: main skill {skill['name']} must not carry a delegation boundary")
+    delegation = render_delegation(skills)
+    if "even for a quick lookup" not in delegation or "report the gap and ask" not in delegation:
+        errors.append("delegation regression: kernel delegation block must forbid main-session execution")
 
     def hint_errors(hint: str) -> list[str]:
         candidate = json.loads(json.dumps(skills))

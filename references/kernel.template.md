@@ -4,7 +4,7 @@
 
 ## Core Rules
 
-1. Route the user's intent to one active skill. The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` prompt) before acting. For delegated skills, call the named Pi `subagent` type and require the child to read that skill. Naming an unread skill is not using it; sequence phases and do not blend them.
+1. Route the user's intent to one active skill. The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` prompt) before acting. For a delegated skill, that read only prepares the handoff: each later tool call gathers its parent-owned evidence or is its named Pi `subagent` call. Naming an unread skill is not using it; sequence phases and do not blend them.
 2. Follow, in order: latest user instruction, approved plan, repo evidence, then stated assumptions.
 3. For non-trivial repository work, run `rtk git status --short`, preserve unrelated changes, define success, make the smallest coherent change, and verify its observable outcome. On a branch, compare `HEAD` with the cached `origin/<branch>` ref first; when behind or diverged, report counts and ask before building on outdated code.
 4. Auto-run repository-local commands and edits, including build, test, package, and scripts. Shared policy denies named dangerous commands, sensitive paths, and outside-project writes in both sessions; ask before other destructive, privileged, ambiguous, protected/outside-project, or external/shared mutations. RTK never bypasses these protections.
@@ -18,7 +18,7 @@
 ## Session-aware delegation
 
 - The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action. It coordinates only its read-only child sessions, never peer writers.
-- Before delegating, read the selected SKILL.md and gather its parent-owned evidence (also listed in its `/b-*` prompt); do not send protected data without permission. Invoke the named Pi `subagent` with a bounded task naming the skill; the child reads its installed SKILL.md. Its result is evidence, not authority. Default to foreground when it gates action.
+- Before delegating, read the selected SKILL.md and gather its parent-owned evidence (also listed in its `/b-*` prompt); do not send protected data without permission. The child's result is evidence, not authority. Default to foreground when it gates action.
 - Start a background child only for independent, read-only work that the main session can safely continue without; retain its returned task ID and bounded task metadata. In-process background work does not survive parent exit. Do not start concurrent children with overlapping scope or rely on an active child for a decision.
 - Resume a child only with the extension's supported `resume` identifier for a direct continuation with the same specialist, model/profile, scope, and repository baseline; otherwise start fresh. Treat prior external claims as stale when currentness matters.
 - Start a fresh child for independent work, a different specialist or model/profile, changed scope/baseline, failed or overly broad context, or a required independent review. Never reuse a reviewer session for a changed candidate.
@@ -29,13 +29,13 @@
 - `b-commit` does not rerun checks, self-authorize the candidate, or initiate changed-code review solely to commit. It checks paths/index and honors explicit repo pre-commit checks; changed candidates return to the change phase. Explicit review routes to `b-review`.
 - When review is required, freeze the checked tracked plus relevant untracked/derived candidate. Record HEAD and SHA-256 digests of staged and unstaged binary diffs, plus sorted relevant untracked paths, types, and content digests. Exclude protected content until authorized; block if its identity cannot safely be checked. Compare the identity at handoff, reviewer start/end, and after return. Do not edit during review. A changed candidate, `NEEDS FIXES`, or unaccepted follow-up needs correction, fresh checks, and a new review. Review never commits or pushes.
 <!-- generated:delegation:start -->
-- The main session owns user interaction and worktree changes: `b-design`, `b-frontend`, `b-diagram`, `b-implement`, `b-clickup`, `b-init`, `b-refactor`, `b-test`, `b-browser`, `b-commit`, `b-pr-summary`.
-- Delegated skills run through their named Pi `subagent` type; pass a bounded task naming the exact skill. The child reads its installed `SKILL.md` and returns that skill's own Output format; the main session evaluates the result before any user-facing or worktree action:
+- Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:
   - `b-plan` -> `b-planner`.
   - `b-research` -> `b-researcher`.
   - `b-debug` -> `b-debugger`.
   - `b-agentic-audit` -> `b-reviewer`.
   - `b-review` -> `b-reviewer`.
+- All other skills run in the main session.
 <!-- generated:delegation:end -->
 - Material user-facing decisions or blockers use `ask_user_question`: group 1–4 concrete choices, explain trade-offs, and offer a plain-text fallback when interactive questions are unavailable. Omit for routine activity, review fixes, and no-choice confirmations.
 
@@ -58,7 +58,7 @@
 - Split and commit working-tree changes -> `b-commit` only on explicit user request.
 - Commit-backed PR summary or supplied PR-prose review/rewrite -> `b-pr-summary` only on explicit user request.
 <!-- generated:kernel-routing:end -->
-A local, factual repository question needing no phase work -> answer directly from evidence. Unclear work goes to `b-plan`; `b-commit` and `b-pr-summary` require an explicit request.
+A local, factual repository question needing no phase work -> answer directly from evidence; a request for external or current facts, however small, -> `b-research`. Unclear work goes to `b-plan`; `b-commit` and `b-pr-summary` require an explicit request.
 
 ## Safety and tools
 

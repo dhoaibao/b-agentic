@@ -7,4 +7,4 @@ argument-hint: "[goal or problem]"
 
 Delegate this bounded task to the `b-planner` agent with the `subagent` tool. Name the `b-plan` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS
 
-The child must read and follow its installed `skills/b-plan/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action.
+The child must read and follow its installed `skills/b-plan/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action. Do not perform this skill's work in the main session, even for a quick or single lookup; if the subagent is unavailable, report the gap and ask.

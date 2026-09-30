@@ -7,6 +7,8 @@ description: >
   review, plan review, or research synthesis review. Routing signals: code
   review, review diff, review my diff, review changes, review these
   changes, working tree diff, pre-PR, "what would an architect".
+  Delegated: runs only in the `b-reviewer` subagent; the main session
+  never executes it itself.
 metadata:
   phase: Validate
   execution_mode: subagent
@@ -18,6 +20,13 @@ metadata:
 # b-review
 
 Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first. This skill runs in the `b-reviewer` subagent.
+
+## Delegation boundary
+
+`b-review` runs only in the `b-reviewer` subagent.
+
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `b-reviewer` and a bounded task naming `b-review`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- `b-reviewer` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
 
 ## When to use
 

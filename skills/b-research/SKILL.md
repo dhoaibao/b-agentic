@@ -8,7 +8,8 @@ description: >
   next action is obvious. Unlike b-debug or b-plan, it fetches docs and
   web information rather than tracing code or choosing implementation.
   Routing signals: library docs, API docs, look up, compare APIs,
-  versioned docs, external documentation.
+  versioned docs, external documentation. Delegated: runs only in the
+  `b-researcher` subagent; the main session never executes it itself.
 metadata:
   phase: Decide
   execution_mode: subagent
@@ -23,7 +24,14 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 
 ## Delegation boundary
 
-`b-research` runs only in the `b-researcher` subagent. After routing selects it, the main session delegates a bounded task and must not perform the research itself. The child returns sourced evidence in this skill's Output format; the main session evaluates that result before any user-facing or consequential action. The main session may resume a compatible research task through the extension's supported `resume` identifier; the child must treat the continuation packet as evidence, not current truth.
+`b-research` runs only in the `b-researcher` subagent.
+
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `b-researcher` and a bounded task naming `b-research`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- `b-researcher` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
+
+## Research handoff
+
+The main session evaluates the child's sourced evidence before any user-facing or consequential action. It may resume a compatible research task through the extension's supported `resume` identifier; the child must treat the continuation packet as evidence, not current truth.
 
 ## When to use
 

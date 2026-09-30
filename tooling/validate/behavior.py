@@ -86,9 +86,12 @@ SUBAGENT_DELEGATION_REGRESSION = {
     "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents load and return the selected skill's own output format, and risk-triggered changed candidates receive an independent frozen b-reviewer gate.",
     "required_clauses": (
         "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action.",
-        "The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` prompt) before acting. For delegated skills, call the named Pi `subagent` type and require the child to read that skill.",
+        "The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` prompt) before acting. For a delegated skill, that read only prepares the handoff: each later tool call gathers its parent-owned evidence or is its named Pi `subagent` call.",
         "Before delegating, read the selected SKILL.md and gather its parent-owned evidence",
-        "Invoke the named Pi `subagent` with a bounded task naming the skill",
+        "Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill.",
+        "Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask.",
+        "a request for external or current facts, however small, -> `b-research`",
+        "- All other skills run in the main session.",
         "Delegated agents are prompt-enforced read-only specialists, not sandboxed by Pi.",
         "Tool lists omit edits, questions, and delegation but allow shell inspection under global permissions.",
         "They do not edit, commit, question users, delegate, or perform mutations, uploads, lifecycle, or auth actions; they report those needs to main.",
@@ -113,7 +116,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-debug` -> `b-debugger`.",
         "`b-agentic-audit` -> `b-reviewer`.",
         "`b-review` -> `b-reviewer`.",
-        "the child reads its installed SKILL.md. Its result is evidence, not authority.",
+        "The child's result is evidence, not authority.",
     ),
 }
 
@@ -144,10 +147,8 @@ SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
         "The main session owns approval and any later implementation.",
     ),
     "b-research": (
-        "`b-research` runs only in the `b-researcher` subagent.",
-        "the main session delegates a bounded task and must not perform the research itself.",
-        "the main session evaluates that result before any user-facing or consequential action.",
-        "The main session may resume a compatible research task through the extension's supported `resume` identifier",
+        "The main session evaluates the child's sourced evidence before any user-facing or consequential action.",
+        "It may resume a compatible research task through the extension's supported `resume` identifier",
         "the child must treat the continuation packet as evidence, not current truth.",
     ),
     "b-debug": (
@@ -175,6 +176,11 @@ FIXTURES = [
         name="planning request",
         prompt="Plan how to add billing scope and decompose the work.",
         expected="b-plan",
+    ),
+    Fixture(
+        name="current external information",
+        prompt="Look up current information about a newly announced AI model.",
+        expected="b-research",
     ),
     Fixture(
         name="external docs lookup",
@@ -726,6 +732,35 @@ def validate_subagent_delegation_regression(errors: list[str]) -> None:
     )
 
 
+def validate_generated_delegation_boundaries(skills: list[dict], errors: list[str]) -> None:
+    for skill in skills:
+        if not isinstance(skill, dict):
+            continue
+        name = skill.get("name")
+        execution = skill.get("execution", {})
+        path = ROOT / "skills" / str(name) / "SKILL.md"
+        text = path.read_text() if path.is_file() else ""
+        has_boundary = "\n## Delegation boundary\n" in text
+        if execution.get("mode") != "subagent":
+            if has_boundary:
+                errors.append(f"delegation boundary: main-session skill {name} must not carry a delegation boundary")
+            continue
+        for clause in (
+            f"`{name}` runs only in the `{execution.get('agent')}` subagent.",
+            "even for a quick, small, or single-lookup request",
+            "never fall back to self-execution",
+            "do not delegate again",
+        ):
+            if clause not in text:
+                errors.append(f"delegation boundary: skills/{name}/SKILL.md missing {clause!r}")
+        prompt = (ROOT / "pi" / "prompts" / f"{name}.md").read_text()
+        if "even for a quick or single lookup" not in prompt:
+            errors.append(f"delegation boundary: pi/prompts/{name}.md missing the no-self-execution rule")
+        agent = (ROOT / "pi" / "agents" / f"{execution.get('agent')}.md").read_text()
+        if "you are the named child, so execute its steps" not in agent:
+            errors.append(f"delegation boundary: pi/agents/{execution.get('agent')}.md missing the child clause")
+
+
 def validate_subagent_session_regression(errors: list[str]) -> None:
     validate_clause_regression(
         "subagent session regression",
@@ -932,6 +967,7 @@ def main() -> int:
     validate_subagent_delegation_regression(errors)
     validate_subagent_session_regression(errors)
     validate_subagent_prompt_boundaries(skills, errors)
+    validate_generated_delegation_boundaries(skills, errors)
     validate_cross_skill_contracts(errors)
 
     for fixture in FIXTURES:
