@@ -10,6 +10,7 @@
     "npm:pi-antigravity",
     "npm:pi-intercom"
   ],
+  "extensions": ["-builtin:mcp"],
   "theme": "dracula",
   "compaction": { "enabled": false },
   "enableSkillCommands": true

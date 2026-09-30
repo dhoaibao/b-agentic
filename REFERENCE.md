@@ -36,6 +36,21 @@ source-absent manifest uninstall remains confined to the same boundary.
   with stdin closed, shows progress in the status line, reloads Pi on success,
   and reports the output tail on failure. It takes no arguments, requires an
   existing source checkout, and does not update the Pi CLI (use `--update`).
+- `b-verify-gate` (a managed extension, `extensions/b-verify-gate.ts`) is an
+  advisory finish-time reminder. When the main session edited a non-prose file
+  after its last shell command and is about to finish, it appends one message
+  restating the verify/review rule and requests one extra model turn, at most
+  once per user prompt. It never blocks tool calls, skips aborted or failed
+  runs, and stays idle in read-only specialists because they lack `edit` and
+  `write`. It uses Pi's `agent_before_settle` boundary; `tests/pi/verify-gate-probe.sh`
+  covers it offline with a scripted model.
+- The installer merges `"extensions": ["-builtin:mcp"]` into Pi settings so
+  `pi-mcp-adapter` stays the only MCP owner: a stray `mcp.json` is not read by
+  Pi's built-in MCP even if the adapter fails to load. Pi's built-in `codemode`
+  and `tool_search` tools stay off (they are not in `defaultTools`); enable
+  codemode yourself with `"defaultTools": ["+codemode"]`. Nested codemode calls
+  still pass through the permission policy, but the `codemode` tool itself
+  falls under the `*` ask rule.
 - `--uninstall` removes only unmodified managed assets and managed config
   values (including unmodified retired assets tracked from prior manifests);
   it preserves changed or symlinked files and the metadata needed to

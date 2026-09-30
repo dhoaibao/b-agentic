@@ -148,6 +148,7 @@ validate_source_layout() {
   [ -f "$SOURCE_DIR/pi/themes/dracula.json" ] || die 'missing Dracula theme'
   [ -f "$SOURCE_DIR/pi/themes/LICENSE" ] || die 'missing Dracula theme license'
   [ -f "$SOURCE_DIR/pi/extensions/b-sync.ts" ] || die 'missing b-sync extension'
+  [ -f "$SOURCE_DIR/pi/extensions/b-verify-gate.ts" ] || die 'missing b-verify-gate extension'
   [ -f "$SOURCE_DIR/pi/scripts/install.sh" ] || die 'missing Pi runtime installer'
   [ -f "$SOURCE_DIR/tooling/install/common.sh" ] || die "missing installer core"
 }

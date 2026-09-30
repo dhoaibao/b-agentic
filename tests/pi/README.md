@@ -18,3 +18,11 @@ fixture policy, agent, and JSON event traces only under the ignored profile.
 Installed package declarations use bare `npm:` names. Re-running setup updates
 the installed extensions to their latest available releases. The probe does
 not establish live readiness for production MCP servers or real providers.
+
+## Verify-gate probe
+
+`bash tests/pi/verify-gate-probe.sh` loads only `pi/extensions/b-verify-gate.ts`
+and a scripted local model (`gate-stub-provider.ts`) with `pi -ne`. It needs no
+npm packages, credentials, or network. It checks that an edit followed by no
+shell command earns exactly one reminder and one extra model turn, while
+edit-then-shell, prose-only, and no-edit runs earn none.

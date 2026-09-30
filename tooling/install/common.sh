@@ -296,7 +296,7 @@ def merge(existing, recommended, path=()):
     if isinstance(existing, dict) and isinstance(recommended, dict):
         merged = dict(existing)
         for key, value in recommended.items():
-            if key in ('packages', 'excludedExtensionPackages') and isinstance(merged.get(key), list) and isinstance(value, list):
+            if key in ('packages', 'excludedExtensionPackages', 'extensions') and isinstance(merged.get(key), list) and isinstance(value, list):
                 merged[key] = value + [item for item in merged[key] if item not in value]
             else:
                 merged[key] = merge(merged[key], value, path + (key,)) if key in merged else value
