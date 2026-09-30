@@ -373,7 +373,7 @@ def render_skill_file(skill: dict[str, Any]) -> str:
     if triggers:
         description += f" Routing signals: {', '.join(triggers)}."
     body = (ROOT / "skills" / name / "prompt.md").read_text().rstrip()
-    body = body.replace("{{skill_support_path}}", f"~/.pi/agent/skills/{name}")
+    body = body.replace("{{skill_support_path}}", "<skill-dir>")
     execution = skill["execution"]
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))

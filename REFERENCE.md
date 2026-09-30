@@ -180,7 +180,8 @@ with their source rather than as additional subsystems.
 Firecrawl, Playwright, Mobbin, and shadcn through `pi-mcp-adapter`. Connections
 are lazy. Per-server `directTools` lists eagerly register the 47 base known
 allowed operations from `references/mcp_operations.yaml`; optional ClickUp adds
-two read tools, keeping the total below the adapter's 75-tool advisory threshold. Direct names use `<server>_<tool>`; other operations
+seven read tools (54 in total), keeping the total below the adapter's 75-tool
+advisory threshold. Direct names use `<server>_<tool>`; other operations
 remain available through the separately gated proxy, where calls ask for
 approval. The adapter's script/install tool surfaces are disabled. Credentials
 remain environment placeholders; the installer does not collect them. Sync adds
