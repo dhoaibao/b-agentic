@@ -6,6 +6,8 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 
 The main session evaluates the child's sourced evidence before any user-facing or consequential action. It may resume a compatible research task through the extension's supported `resume` identifier; the child must treat the continuation packet as evidence, not current truth.
 
+Size the call: pass a larger `max_turns` (e.g., 50) for multi-source synthesis or deep dives; the profile default suits quick and medium lookups. A turn-limit wrap-up is partial: state its gaps, then continue only the missing delta via `resume` or a fresh, narrower run.
+
 ## When to use
 
 - Library, framework, SDK, API, config, method signature, setup, migration, or capability questions.
