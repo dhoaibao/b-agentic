@@ -5,7 +5,6 @@
   "classes": {
     "read-only": {"policy": "Auto-allowed by tool name", "native_permission": "allow", "notes": "Observation-only MCP operation."},
     "conditional-read": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly argument-validated; MCP tool arguments are not pattern-matched."},
-    "conditional-local": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly repository-scoped; MCP tool arguments are not pattern-matched."},
     "local-upload": {"policy": "Approval required", "native_permission": "ask", "notes": "May read a local file for remote use."},
     "external-mutation": {"policy": "Approval required", "native_permission": "ask", "notes": "May mutate remote or browser state."},
     "monitor-lifecycle": {"policy": "Approval required", "native_permission": "ask", "notes": "Creates, changes, or runs a monitor."},

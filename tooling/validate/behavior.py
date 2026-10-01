@@ -95,6 +95,7 @@ SHELL_POLICY_REGRESSION = {
         "RTK never bypasses these protections",
         "Prefer modern shell tools when available",
         "Use `rtk` for every command family it supports",
+        "except rule 6 file I/O",
     ),
 }
 

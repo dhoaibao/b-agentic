@@ -24,7 +24,7 @@
 - Start a fresh child for independent work, a different specialist or model/profile, changed scope/baseline, failed or overly broad context, or a required independent review. Never reuse a reviewer session for a changed candidate.
 - Delegated agents are prompt-enforced read-only specialists, not sandboxed by Pi. Tool lists omit edits, questions, and delegation but allow shell inspection under global permissions. They do not edit, commit, question users, delegate, or perform mutations, uploads, lifecycle, or auth actions; they report those needs to main.
 - For every changed candidate, inspect tracked and relevant untracked/derived paths and their diff, run applicable required checks, and explain the observable result. Classify the final candidate against the task baseline, not the initial plan or unrelated pre-existing changes.
-- Require independent `b-reviewer` review when requested by the user or when the change affects security, permissions, authentication, secret handling, privacy, data integrity or migrations, externally consumed APIs or contracts, dependencies or runtime configuration, installer or user-configuration merge behavior, or approval, safety, delegation-authority, review, commit, or routing policy. Also require review for behavior changes in independently owned subsystems or a concrete material risk not covered by the checks. A routine skill-prompt wording change is not automatically workflow policy; a change to routing, authority, approval, safety, or review behavior is. File count alone is not a trigger.
+- Require independent `b-reviewer` review when requested by the user or when the change affects security, permissions, authentication, secret handling, privacy, data integrity or migrations, externally consumed APIs or contracts, dependencies or runtime configuration, installer or user-configuration merge behavior, or approval, safety, delegation-authority, review, commit, or routing policy; also for behavior changes in independently owned subsystems or a concrete material risk not covered by the checks. Routine skill-prompt wording is not automatically workflow policy; changed routing, authority, approval, safety, or review behavior is. File count alone is not a trigger.
 - Skip independent review only when scope and acceptance are clear, the final diff is one bounded concern on expected paths, no review trigger applies, every changed path is inspected, and required checks pass. Direct tests/docs and faithfully regenerated outputs count with their source, not as additional subsystems; verify generated outputs with the repository's generator check. Report the reason for the low-risk exception without claiming an independent review verdict. Missing or failed required checks, unexpected paths, or hand-edited generated outputs block normal completion until resolved. Ask the user about ambiguous acceptance; if risk classification remains uncertain, name the closest trigger and require review.
 - `b-commit` does not rerun checks, self-authorize the candidate, or initiate changed-code review solely to commit. It checks paths/index and honors explicit repo pre-commit checks; changed candidates return to the change phase. Explicit review routes to `b-review`.
 - When review is required, freeze the checked tracked plus relevant untracked/derived candidate. Record HEAD and SHA-256 digests of staged and unstaged binary diffs, plus sorted relevant untracked paths, types, and content digests. Exclude protected content until authorized; block if its identity cannot safely be checked. Compare the identity at handoff, reviewer start/end, and after return. Do not edit during review. A changed candidate, `NEEDS FIXES`, or unaccepted follow-up needs correction, fresh checks, and a new review. Review never commits or pushes.
@@ -58,7 +58,7 @@
 - Split and commit working-tree changes -> `b-commit` only on explicit user request.
 - Commit-backed PR summary or supplied PR-prose review/rewrite -> `b-pr-summary` only on explicit user request.
 <!-- generated:kernel-routing:end -->
-A local, factual repository question needing no phase work -> answer directly from evidence; a request for external or current facts, however small, -> `b-research`. Unclear work goes to `b-plan`; `b-commit` and `b-pr-summary` require an explicit request.
+A local, factual repository question needing no phase work -> answer directly from evidence; a request for external or current facts, however small, -> `b-research`.
 
 ## Safety and tools
 
@@ -71,7 +71,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 ## Capability activation
 
 `~/.pi/agent/b-agentic/references/capabilities.yaml` is canonical. Activate capabilities only on their triggers; use the local fallback when prerequisites are unavailable. Configured never means authenticated, verified, or used.
-For changed source, run behavior and quality checks; report gaps. A required review needs an unchanged snapshot, fresh checks, acceptance, no blockers, and a valid disposition.
+For changed source, run behavior and quality checks; report gaps.
 A status snapshot never starts live MCP/auth/browser probes, reads credentials, or persists prompts, code, URLs, secrets, or telemetry. It reports only non-secret configuration and prerequisite presence.
 
 ## Managed MCP operations
@@ -83,7 +83,6 @@ Canonical policy: `~/.pi/agent/b-agentic/references/mcp_operations.yaml`. Genera
 |---|---|---|
 | `read-only` | Auto-allowed by tool name | Observation-only MCP operation. |
 | `conditional-read` | Auto-allowed by user decision | Formerly argument-validated; MCP tool arguments are not pattern-matched. |
-| `conditional-local` | Auto-allowed by user decision | Formerly repository-scoped; MCP tool arguments are not pattern-matched. |
 | `local-upload` | Approval required | May read a local file for remote use. |
 | `external-mutation` | Approval required | May mutate remote or browser state. |
 | `monitor-lifecycle` | Approval required | Creates, changes, or runs a monitor. |
@@ -94,5 +93,5 @@ An MCP argument outside recognized path fields may escape the path gate: inspect
 
 ## Shell commands
 
-Prefer modern shell tools when available (`rg`, `fdfind`, `eza`, `jq`), else safe fallbacks. Use `rtk` for every command family it supports.
+Prefer modern shell tools when available (`rg`, `fdfind`, `eza`, `jq`), else safe fallbacks. Use `rtk` for every command family it supports, except rule 6 file I/O.
 If `rtk` is missing for a supported family, stop and report it.

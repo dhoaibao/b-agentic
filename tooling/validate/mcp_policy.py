@@ -14,7 +14,6 @@ OPTIONAL_SERVERS = {"clickup"}
 EXPECTED_CLASSES = {
     "read-only",
     "conditional-read",
-    "conditional-local",
     "local-upload",
     "external-mutation",
     "monitor-lifecycle",
