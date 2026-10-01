@@ -8,7 +8,8 @@
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
-      "model": "antigravity/gemini-3.8-flash#high",
+      "model": "hdwebsoft/deepseek-v4.1-flash#high",
+      "max_turns": 25,
       "conditional_tools": ["firecrawl_search", "firecrawl_scrape", "firecrawl_map", "firecrawl_extract"]
     },
     "b-debugger": {

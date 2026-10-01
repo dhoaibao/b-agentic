@@ -210,6 +210,11 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
         ensure_string(agent.get("description"), f"{label}.description", errors)
         ensure_string(agent.get("model"), f"{label}.model", errors)
         allowed_fields = {"description", "model"}
+        if "max_turns" in agent:
+            allowed_fields.add("max_turns")
+            turns = agent["max_turns"]
+            if isinstance(turns, bool) or not isinstance(turns, int) or turns < 1:
+                errors.append(f"{label}.max_turns: expected positive integer")
         if name == "b-researcher":
             allowed_fields.add("conditional_tools")
             non_empty_string_list(agent.get("conditional_tools"), f"{label}.conditional_tools", errors)
@@ -538,6 +543,7 @@ def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, A
             f"tools: {', '.join(['read', 'grep', 'find', 'ls', 'bash', *read_only_mcp, *agent.get('conditional_tools', []), *agent.get('extension_tools', [])])}",
             f"model: {model}",
             f"thinking: {thinking}",
+            *([f"max_turns: {agent['max_turns']}"] if "max_turns" in agent else []),
             "prompt_mode: replace",
             "---",
             "",
@@ -737,6 +743,11 @@ def validate_regressions(
     invalid_agents["b-planner"].pop("model")
     if not validate_skills(skills, invalid_agents):
         errors.append("agent regression: missing model must fail")
+    for bad_turns in (0, -1, True, "25"):
+        invalid_turns = json.loads(json.dumps(agents))
+        invalid_turns["b-researcher"]["max_turns"] = bad_turns
+        if not validate_skills(skills, invalid_turns):
+            errors.append(f"agent regression: invalid max_turns {bad_turns!r} must fail")
     invalid_capabilities = json.loads(json.dumps(capabilities))
     invalid_capabilities["capabilities"][0].pop("status_signal", None)
     if not validate_capabilities(invalid_capabilities, policy):
