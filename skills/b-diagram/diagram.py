@@ -42,9 +42,11 @@ def validate_document(document: object) -> list[str]:
     unknown = sorted(set(document) - TOP_LEVEL_KEYS)
     if unknown:
         errors.append(issue("$", f"unsupported properties: {', '.join(unknown)}"))
-    if document.get("version") != 1:
+    version = document.get("version")
+    if isinstance(version, bool) or version != 1:
         errors.append(issue("version", "must equal 1"))
-    if document.get("kind") not in ALLOWED_KINDS:
+    kind = document.get("kind")
+    if not isinstance(kind, str) or kind not in ALLOWED_KINDS:
         errors.append(issue("kind", f"must be one of {', '.join(sorted(ALLOWED_KINDS))}"))
     if not nonempty_string(document.get("title")):
         errors.append(issue("title", "must be a non-empty string"))
@@ -273,6 +275,10 @@ def self_test() -> int:
     if not any("unknown node id" in item for item in validate_document(malformed)):
         print("diagram self-test failed: dangling edge accepted")
         return 1
+    for field, bad in (("version", True), ("kind", []), ("kind", {})):
+        if not any(item.startswith(f"{field}:") for item in validate_document({**valid, field: bad})):
+            print(f"diagram self-test failed: invalid {field} {bad!r} accepted")
+            return 1
     with tempfile.TemporaryDirectory(prefix="b-diagram-") as directory:
         root = Path(directory)
         source = root / "source.json"
