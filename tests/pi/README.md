@@ -19,6 +19,11 @@ Installed package declarations use bare `npm:` names. Re-running setup updates
 the installed extensions to their latest available releases. The probe does
 not establish live readiness for production MCP servers or real providers.
 
+`tooling/validate/run.sh --release` runs this probe together with the verify-gate
+and snapshot probes. It skips them with a message when `pi` or the probe profile
+is absent, unless `B_AGENTIC_REQUIRE_PI_PROBES=1` (set in CI), which fails on a
+missing `pi` and runs `--setup` for a missing profile.
+
 ## Verify-gate probe
 
 `bash tests/pi/verify-gate-probe.sh` loads only `pi/extensions/b-verify-gate.ts`

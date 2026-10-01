@@ -30,10 +30,24 @@ if [ "$run_release" -eq 1 ]; then
   else
     printf '%s\n' 'RTK policy compatibility skipped: rtk is not installed.'
   fi
+  # B_AGENTIC_REQUIRE_PI_PROBES=1 (set in CI) turns a missing Pi CLI or probe
+  # profile into a failure instead of a skip.
+  require_pi="${B_AGENTIC_REQUIRE_PI_PROBES:-0}"
   if command -v pi >/dev/null 2>&1; then
     bash "$ROOT_DIR/tests/pi/verify-gate-probe.sh"
     bash "$ROOT_DIR/tests/pi/snapshot-probe.sh"
+    probe_profile="${PI_PROBE_DIR:-$ROOT_DIR/node_modules/.pi-migration-probe}"
+    if [ -f "$probe_profile/.pi/settings.json" ]; then
+      bash "$ROOT_DIR/tests/pi/permission-probe.sh"
+    elif [ "$require_pi" = 1 ]; then
+      bash "$ROOT_DIR/tests/pi/permission-probe.sh" --setup
+    else
+      printf '%s\n' 'Permission probe skipped: run tests/pi/permission-probe.sh --setup once.'
+    fi
+  elif [ "$require_pi" = 1 ]; then
+    printf '%s\n' 'Pi integration probes required but pi is not installed.' >&2
+    exit 1
   else
-    printf '%s\n' 'Verify-gate and snapshot probes skipped: pi is not installed.'
+    printf '%s\n' 'Pi integration probes skipped: pi is not installed.'
   fi
 fi

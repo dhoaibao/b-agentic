@@ -141,8 +141,10 @@ Evidence: [`install.sh`](../install.sh),
 Canonical sources regenerate before static validation. The suite checks
 routing, Pi assets, capability/MCP policy, decision traceability, and local
 readiness. Release validation adds the offline Pi
-integration probe, which uses a deterministic stub model and local MCP fixture, with
-explicit limitations for live providers, UI approval, and production servers.
+integration probes (verify-gate, snapshot, and permission/MCP), which use a
+deterministic stub model and local MCP fixture; CI sets
+`B_AGENTIC_REQUIRE_PI_PROBES=1` so a missing Pi CLI or probe profile fails
+instead of skipping, with explicit limitations for live providers, UI approval, and production servers.
 Every candidate gets an inspected diff and applicable checks. Classify the
 final change against the task baseline. Independent read-only review is required
 by request or for security/privacy/authority, data integrity, externally
