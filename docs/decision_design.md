@@ -71,6 +71,9 @@ The kernel additionally requires approval for other destructive, privileged,
 ambiguous, protected, and external/shared actions. Pi permission rules and
 adapter tool matching are not filesystem or process isolation. Shell indirection and
 MCP argument fields not recognized by the path gate remain residual risks.
+The kernel therefore directs file reads, including skill files and outside-project
+reads, and edits through native tools rather than shell I/O; this is
+instruction-level, and the permission policy is unchanged.
 An offline stub-provider integration probe tests representative parent/child
 allow/deny and direct/proxy MCP decisions. Interactive approval UI and real
 server/provider access are separate evidence, not inferred from static config.

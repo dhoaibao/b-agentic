@@ -61,6 +61,18 @@
       "prompt": "Use b-implement to edit a Markdown doc and a YAML config key at known paths.",
       "must": ["Use native read and edit directly"],
       "avoid": ["Calling codegraph_explore for prose or config files"]
+    },
+    {
+      "id": "native-file-tools-for-skill-and-config",
+      "prompt": "Load an installed SKILL.md from outside the project, then change one known key in a config file.",
+      "must": [
+        "Read SKILL.md with native read",
+        "Change the key with native edit"
+      ],
+      "avoid": [
+        "Reading with cat, sed, head, batcat, or rtk read",
+        "Editing with python, sed, or sd heredocs"
+      ]
     }
   ]
 }

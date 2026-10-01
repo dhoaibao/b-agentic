@@ -98,6 +98,24 @@ SHELL_POLICY_REGRESSION = {
     ),
 }
 
+# Regression: models read SKILL.md and outside-project files with shell
+# cat/sed (an external_directory prompt that native read avoids) and edited
+# files with python/sed heredocs, losing edit's exact-match failure and
+# path-based write gating.
+NATIVE_FILE_TOOL_REGRESSION = {
+    "observed_failure": (
+        "Models used shell cat/sed reads and python/sed heredoc edits instead of native read/edit/write."
+    ),
+    "intended_behavior": (
+        "Read files, including SKILL.md and outside-project paths, with native read; edit with native edit/write; "
+        "use shell only to run commands."
+    ),
+    "required_clauses": (
+        "including SKILL.md and outside-project reads",
+        "use shell to run commands, never ad-hoc file I/O via `cat`/`sed`/`head`/`batcat`/`rtk read`/`python`/`sd`",
+    ),
+}
+
 # Regression: a mixed or stale peer could silently gain writer status, a
 # risky implementation could stop before review, or review findings could
 # remain stranded instead of returning to the sole writer.
@@ -762,6 +780,18 @@ def validate_shell_policy_regression(errors: list[str]) -> None:
     )
 
 
+def validate_native_file_tool_regression(errors: list[str]) -> None:
+    validate_clause_regression(
+        "native file tool regression",
+        NATIVE_FILE_TOOL_REGRESSION,
+        errors,
+    )
+    # The modern-tools recommendation must not steer models toward shell readers/editors.
+    for line in routing_table_text().splitlines():
+        if line.startswith("Prefer modern shell tools") and ("`batcat`" in line or "`sd`" in line):
+            errors.append("native file tool regression: modern shell tools line recommends batcat or sd")
+
+
 def validate_subagent_delegation_regression(errors: list[str]) -> None:
     validate_clause_regression(
         "subagent delegation regression",
@@ -1018,6 +1048,7 @@ def main() -> int:
     validate_output_shape_regression(errors)
     validate_local_repository_qa_regression(errors)
     validate_shell_policy_regression(errors)
+    validate_native_file_tool_regression(errors)
     validate_subagent_delegation_regression(errors)
     validate_subagent_session_regression(errors)
     validate_subagent_prompt_boundaries(skills, errors)
