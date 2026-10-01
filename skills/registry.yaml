@@ -4,7 +4,7 @@
   "agents": {
     "b-planner": {
       "description": "Produce a read-only execution-ready plan for the main b-agentic session.",
-      "model": "anthropic/claude-opus-5-5#xhigh"
+      "model": "anthropic/claude-opus-5-5#high"
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
@@ -14,7 +14,7 @@
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
-      "model": "anthropic/claude-opus-5-5#xhigh"
+      "model": "anthropic/claude-sonnet-5-5#high"
     },
     "b-reviewer": {
       "description": "Independently review a frozen change candidate or b-agentic conformance evidence.",
