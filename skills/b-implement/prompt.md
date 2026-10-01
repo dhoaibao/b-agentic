@@ -17,12 +17,12 @@ Make the scoped non-UI change in the smallest coherent step after an approved pl
 
 ## Tool guidance
 
-- Use native file tools by default and native tools or local search for routine discovery. Select CodeGraph only when a repository-wide architecture, impact, or affected-test question is central. Use only context supplied in the current task rather than guessing.
+- Use native file tools by default and native tools or local search for routine discovery. Follow the kernel CodeGraph rule: before editing indexed code, get the target's callers, blast radius, and affected tests; use native tools for prose, config, and known-path local edits. Use only context supplied in the current task rather than guessing.
 
 ## Steps
 
 1. Resolve the approved plan or direct request, run `rtk git status --short`, and preserve unrelated changes.
-2. Before edits, consult applicable project standards, architecture boundaries, and relevant failure modes. State affected paths, invariants, observable success criteria, and relevant quality constraints. Use repository evidence; select CodeGraph only for a concrete central repository-wide question. If a material behavior or target is missing, use `ask_user_question` for the unresolved choice. Group related questions (up to four), but address independent blockers in priority order. Wait for the answer and re-evaluate. Route material external framework/API facts to targeted **b-research** rather than asking the user to supply documentation.
+2. Before edits, consult applicable project standards, architecture boundaries, and relevant failure modes. State affected paths, invariants, observable success criteria, and relevant quality constraints. Use repository evidence, including CodeGraph impact for indexed code symbols you will change. If a material behavior or target is missing, use `ask_user_question` for the unresolved choice. Group related questions (up to four), but address independent blockers in priority order. Wait for the answer and re-evaluate. Route material external framework/API facts to targeted **b-research** rather than asking the user to supply documentation.
 3. Ask the user directly only for material unresolved choices or blockers; do not delegate user decisions to a child.
 4. Make the smallest coherent edit with native tools, matching the target module's local style. Remove imports/helpers made unused by it, but retain unrelated pre-existing dead code.
 5. Run the narrowest useful verification. If an unambiguous in-scope defect causes failure, correct it and rerun until required verification passes. If failure reveals ambiguity, scope drift, or an unrelated issue, stop and ask or route rather than guessing. Inspect explicit non-protected changed paths.

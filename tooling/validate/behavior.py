@@ -41,10 +41,30 @@ KERNEL_CONSOLIDATION_REGRESSION = {
         "define success, make the smallest coherent change, and verify its observable outcome",
         "Auto-run repository-local commands and edits, including build, test, package, and scripts",
         "likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`)",
-        "Select CodeGraph when repository-wide architecture, dependency/call-flow, route-to-handler, impact, or affected-test analysis is central to the task",
+        "Use native `read`/`edit`/`write`/`find`/`grep` for edits, configs, docs, and unindexed code",
         "use the local fallback when prerequisites are unavailable.",
     ),
 }
+
+# Regression: CodeGraph was gated behind a "central and likely valuable" hedge,
+# so agents defaulted to grep/read loops even with a current index, and several
+# prompts allowed agents to initialize an absent index on their own.
+CODEGRAPH_USAGE_REGRESSION = {
+    "observed_failure": "Agents rarely used the CodeGraph index and some prompts let them initialize one.",
+    "intended_behavior": "In an indexed project, agents call codegraph_explore first for code-structure and pre-edit impact questions, handle staleness, and never run index lifecycle commands.",
+    "required_clauses": (
+        "With a CodeGraph index, call `codegraph_explore` first for code-structure, call-flow, and pre-edit impact questions",
+        "treat its source as read",
+        "On a staleness notice, re-read changed files",
+        "Never run CodeGraph init/index/sync/daemon/install",
+        "without an index, use native search and report the gap",
+    ),
+}
+
+CODEGRAPH_FORBIDDEN_PHRASES = (
+    "initialize an absent index",
+    "central and likely valuable",
+)
 
 # Regression: "Keep concise" constrained length but not shape, so responses
 # could bury the answer under preamble, narration, and closing pleasantries
@@ -702,6 +722,24 @@ def validate_kernel_consolidation_regression(errors: list[str]) -> None:
     )
 
 
+def validate_codegraph_usage_regression(errors: list[str]) -> None:
+    validate_clause_regression(
+        "codegraph usage regression",
+        CODEGRAPH_USAGE_REGRESSION,
+        errors,
+    )
+    paths = [ROOT / "references" / "kernel.template.md", *sorted((ROOT / "skills").glob("*/prompt.md"))]
+    for path in paths:
+        text = path.read_text().lower()
+        # Collapse line wraps so a phrase split across lines is still caught.
+        flat = " ".join(text.split())
+        for phrase in CODEGRAPH_FORBIDDEN_PHRASES:
+            if phrase in flat:
+                errors.append(
+                    f"codegraph usage regression: {path.relative_to(ROOT)} contains forbidden phrase {phrase!r}"
+                )
+
+
 def validate_output_shape_regression(errors: list[str]) -> None:
     validate_clause_regression(
         "output shape regression",
@@ -845,6 +883,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "When review is required, freeze and fingerprint the exact candidate",
                 "Compare the identity after it returns",
                 "Missing or failed required checks, unexpected paths, and hand-edited generated outputs block completion even without review",
+                "before editing indexed code, get the target's callers, blast radius, and affected tests",
             ),
         },
         "skills/b-clickup/prompt.md": {
@@ -898,6 +937,16 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "Return the structured disposition and findings to the main session",
                 "do not ask users questions, message peers, or implement a correction.",
                 "Corrections must return as a reverified, frozen candidate for another review.",
+                "In an indexed project, use `codegraph_explore` (read-only) on changed symbols to find callers or tests the candidate did not update",
+            ),
+        },
+        "skills/b-refactor/prompt.md": {
+            "required": ("Map the target's callers and dependents with CodeGraph when an index is available",),
+        },
+        "skills/b-test/prompt.md": {
+            "required": (
+                "ask an available CodeGraph index for changed-symbol/file impact and affected tests",
+                "Do not initialize an index.",
             ),
         },
         "skills/b-debug/prompt.md": {
@@ -961,6 +1010,7 @@ def main() -> int:
 
     validate_runtime_contract(skills, errors)
     validate_kernel_consolidation_regression(errors)
+    validate_codegraph_usage_regression(errors)
     validate_output_shape_regression(errors)
     validate_local_repository_qa_regression(errors)
     validate_shell_policy_regression(errors)

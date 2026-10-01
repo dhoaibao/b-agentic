@@ -41,12 +41,12 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 
 ## Tool guidance
 
-- Use native `read` and local search for routine evidence. Select CodeGraph only for a concrete repository-wide architecture, impact, or affected-test question. Use only planning context supplied in the current task; report missing history rather than guessing.
+- Use native `read` and local search for routine evidence. Per the kernel CodeGraph rule, use it for affected symbols, callers, and tests in indexed code. Use only planning context supplied in the current task; report missing history rather than guessing.
 
 ## Steps
 
 1. State the interpreted goal, constraints, non-goals, and success criteria.
-2. Inspect only the local evidence needed to avoid guessing. Select CodeGraph only for a concrete central repository-wide question; use an available index or report an absent-index fallback gap to the main session.
+2. Inspect only the local evidence needed to avoid guessing. Use CodeGraph for affected symbols, callers, and tests when an index is available; otherwise report the fallback gap to the main session.
 3. For non-trivial or risky work, compare viable paths and relevant quality dimensions, including the simpler option, then recommend the smallest safe one with evidence-backed rationale and accepted trade-offs. Keep small obvious tasks free of forced comparison or research.
 4. Specify ordered implementation steps, affected paths/symbols, invariants, and `Done when` verification that proves observable behavior.
 5. For a material user-facing decision, state 2–4 concrete options and their trade-offs for the main session to resolve with the user. Do not invoke `ask_user_question` or claim approval.

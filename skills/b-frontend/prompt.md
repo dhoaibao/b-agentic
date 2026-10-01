@@ -18,6 +18,7 @@ Implement clearly scoped frontend/UI code, visual refreshes, landing pages, and 
 ## Tool guidance
 
 - Use native repository reads and edits plus the existing project commands. Inspect the package manifest and relevant lockfile before adding imports; do not assume React, Tailwind, GSAP, an icon library, or any other framework/library.
+- Per the kernel CodeGraph rule, before changing a shared component, hook, or token in an indexed project, use `codegraph_explore` to find its consumers; use native tools for styles, markup, and known-path local edits.
 - Use the repository's existing tokens, components, assets, content, and `docs/DESIGN.md` when present as the visual authority. Do not generate or fetch external assets as a prerequisite; use real repo assets/data only.
 - `shadcn_*` - optional native registry lookup, only when the project already has a shadcn stack (`components.json` present). Use read-only tools one at a time to find real registry components and usage before hand-rolling. The MCP never installs anything; adding a component goes through the project's package runner in shell with manifest review.
 

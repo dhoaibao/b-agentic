@@ -17,14 +17,14 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 ## Tool guidance
 
 - `bash` - `rtk git status --short`, checks, and modern discovery routed through `rtk` whenever supported.
-- `codegraph` - select when a concrete repository-wide impact or dependency-structure question is central to the transform and likely valuable; use an available index for that question and initialize an absent index only for that qualifying question.
+- `codegraph` - per the kernel CodeGraph rule, map the target's callers and dependents in an indexed project; report an absent index as a gap and never initialize one.
 - `read`/`edit` - routine file work, prose, comments, and config keys. Prefer native edits.
 
 ## Steps
 
 1. Lock the exact target and state the behavior that must remain unchanged.
 2. Use read for relevant repo context only when it materially affects the transform.
-3. Select CodeGraph when a concrete repository-wide impact question is central to the transform and likely valuable; use an available index and map that impact. Initialize an absent index only for that qualifying question. Use native search for routine discovery and bash with `rg`/`fdfind` for exports, routes, config keys, docs, and generated consumers.
+3. Map the target's callers and dependents with CodeGraph when an index is available; otherwise report the gap. Use native search for routine discovery and bash with `rg`/`fdfind` for exports, routes, config keys, docs, and generated consumers.
 4. When practical, run the narrowest risk-appropriate check to establish a passing behavioral baseline.
 5. Apply the smallest matching transform via native `edit`.
 6. Re-check references with native search and rerun the baseline check or equivalent narrow verification.

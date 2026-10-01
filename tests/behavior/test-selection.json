@@ -23,7 +23,8 @@
       ],
       "avoid": [
         "Inventing CodeGraph results",
-        "Claiming full-suite coverage from a partial run"
+        "Claiming full-suite coverage from a partial run",
+        "Running codegraph init or index"
       ]
     }
   ]

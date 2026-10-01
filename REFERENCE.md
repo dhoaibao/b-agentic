@@ -231,7 +231,9 @@ environment-variable presence only. It never reads credential values, starts
 servers, authenticates, or navigates a browser. Configured does not mean
 connected or usable. `scripts/skill-doctor.sh` checks installed skill payloads.
 RTK remains a prerequisite for supported shell command families; CodeGraph is
-reserved for repository-wide call-flow, impact, and affected-test questions.
+the first stop for code-structure, call-flow, and pre-edit impact questions in
+an indexed project; agents never run its init, index, sync, daemon, or install
+commands, and fall back to native search with a reported gap.
 
 ## Verification and repository map
 
