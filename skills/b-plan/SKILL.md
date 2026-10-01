@@ -41,7 +41,7 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 
 ## Tool guidance
 
-- Use native `read` and local search for routine evidence. Per the kernel CodeGraph rule, use it for affected symbols, callers, and tests in indexed code. Use only planning context supplied in the current task; report missing history rather than guessing.
+- Use native `read` and local search for routine evidence. Per the kernel CodeGraph rule, use it for affected symbols, callers, and tests in indexed code. When one versioned external library/API fact decides between viable options, one Context7 lookup (resolve once, query once) using only public library names and symbols is permitted; otherwise list it as an open **b-research** item. Use only planning context supplied in the current task; report missing history rather than guessing.
 
 ## Steps
 

@@ -914,7 +914,10 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             ),
         },
         "skills/b-plan/prompt.md": {
-            "required": ("include applicable checks and the kernel's risk classification",),
+            "required": (
+                "include applicable checks and the kernel's risk classification",
+                "otherwise list it as an open **b-research** item",
+            ),
         },
         "skills/b-pr-summary/prompt.md": {
             "required": (
@@ -951,6 +954,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "skills/b-debug/prompt.md": {
             "required": (
+                "Never send repository paths, code, private stack frames, internal URLs, or secrets",
                 "When the cause is confirmed, produce a diagnosis handoff",
                 "For an unconfirmed cause or bug:",
                 "Mark root cause and causal mechanism unconfirmed",

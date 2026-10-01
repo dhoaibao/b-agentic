@@ -49,6 +49,7 @@ Confirm the real cause of broken runtime behavior, then produce an evidence-back
 - Native MCP tools - use only named read-only tools permitted to this subagent; report an unavailable or denied evidence gap to the main session.
 - `codegraph` - per the kernel CodeGraph rule, trace entry-to-failure call paths in an indexed project; report an absent-index gap to the main session.
 - `context7` - versioned dependency/API behavior only when a library suspect remains after local evidence.
+- `firecrawl_developer_search` - upstream issue/PR history for a named dependency suspect remaining after local evidence; limit ≤5; query only the public package name, version, and public error text. Never send repository paths, code, private stack frames, internal URLs, or secrets; report that gap instead.
 - Use only the reproduction and diagnosis evidence supplied in the current task; report missing historical context rather than assuming it.
 
 ## Steps
@@ -56,7 +57,7 @@ Confirm the real cause of broken runtime behavior, then produce an evidence-back
 1. Establish a feedback loop from the main session's supplied failing test, CLI reproduction, HTTP/browser trace, replay, diagnostic output, or baseline measurement. The read-only child may run read-only diagnostic commands but does not create mutating probes.
 2. Capture exact symptom, expected versus actual behavior, repro rate, determinism, and environment. Use read for repository context only when it materially affects the diagnosis.
 3. Rank suspects from stack traces, diagnostics, recent changes, config, data shape, call paths, and the feedback loop.
-4. Trace the call path from entry to failure with CodeGraph when an index is available; otherwise report the gap to the main session. Use Context7 only for versioned dependency suspects.
+4. Trace the call path from entry to failure with CodeGraph when an index is available; otherwise report the gap to the main session. Use Context7 only for versioned dependency suspects, and `firecrawl_developer_search` only for that suspect's upstream issue history.
 5. Confirm the root cause before handing it off. If the supplied evidence cannot prove it, report the exact additional reproduction or diagnostic artifact the main session must collect rather than creating a probe.
 6. When the cause is confirmed, produce a diagnosis handoff that names the next skill: **b-frontend** for a UI fix, **b-implement** for a clear non-UI fix, **b-test** for a test-only correction, or **b-plan** when scope remains unclear. Include the exact runnable repro command, the observable that must flip, and the confirmed causal mechanism. When it is unconfirmed, report the evidence gap and exact artifact needed instead of a confirmed diagnosis handoff.
 7. Stop without editing product code. For performance work, include the baseline measurement in the handoff; the main session changes product code and reruns the same measurement.
