@@ -32,6 +32,20 @@ npm packages, credentials, or network. It checks that an edit followed by no
 shell command earns exactly one reminder and one extra model turn, while
 edit-then-shell, prose-only, and no-edit runs earn none.
 
+## Input-image-preview probe
+
+`bash tests/pi/input-image-preview-probe.sh` loads `pi/extensions/b-input-image-preview.ts`
+with the same scripted local model and `pi -ne`. It needs only Pi and jq: no npm
+packages, credentials, or network. A test-only extension
+(`input-image-preview-cases.ts`) runs unit cases at session start: path
+extraction, clipboard-path labels, the recent-preview list behind `/image`, its
+argument parsing, popup-slot ownership including closing an open popup on
+shutdown, and the 20 MB read cap. The probe requires a minimum case
+count so a partial run cannot pass. It then checks that a non-TUI run loads
+without an error, leaves the prompt unchanged, and does not claim `/image`.
+Thumbnails, the popup, and mouse handling need a real terminal and are not
+covered.
+
 ## Snapshot probe
 
 `bash tests/pi/snapshot-probe.sh` loads `pi/extensions/b-candidate-snapshot.ts`

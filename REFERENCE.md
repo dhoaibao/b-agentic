@@ -67,6 +67,34 @@ source-absent manifest uninstall remains confined to the same boundary.
   whose diff command `registry_sync.py --self-test` checks against the
   extension. A tool fingerprint is never comparable with a hand-computed
   identity. `tests/pi/snapshot-probe.sh` covers it offline.
+- `b-input-image-preview` (a managed extension, `extensions/b-input-image-preview.ts`)
+  is an interactive-only, display-only convenience for image paths in the input
+  editor. It never replaces the editor or changes its text, history, or what is
+  submitted: Pi still inserts and sends only the path text and never attaches the
+  image. It draws a framed thumbnail above the editor for each existing image path
+  found in the input (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`; at most four, each
+  read through a single handle capped at 20 MB). Paths resolve against the working
+  directory but are not confined to it: an absolute or `~/` path is read locally by
+  the preview, which uploads nothing; the path text you submit still reaches the
+  model as before. The path text, including Pi's long temporary
+  `pi-clipboard-<uuid>` path for a Ctrl+V clipboard image, stays visible in the
+  input; previews label such files `Image n` by position. Clicking a thumbnail
+  (fullscreen `tuiMode` routes mouse events) or running `/image [n]` opens a
+  centered popup; `Esc`, `Enter`, `Space`, `q`, or a click closes it. `/image`
+  opens the n-th image (default the first) of the most recent non-empty preview,
+  because submitting the command clears the input; the number must be a whole
+  positive integer. The list holds the candidate paths found in the input, not
+  only those that rendered, and never image data, until the extension reloads or
+  the process exits. If the session is replaced or shut down while a popup is
+  open, the popup is closed and `/image` returns. It uses Kitty graphics where pi-tui detects them and
+  falls back to a text label otherwise. Outside the TUI (print, JSON, RPC) and
+  with `PI_INPUT_IMAGE_PREVIEW=off` it registers nothing, including `/image`, so
+  those prompts pass through untouched. A user-owned copy of the same widget or
+  `/image` command in `~/.pi/agent/extensions/` is preserved by the installer and
+  collides with it; remove the duplicate. `tests/pi/input-image-preview-probe.sh`
+  covers path extraction, labels, the recent list, popup ownership, the size cap,
+  load, and non-TUI pass-through offline; rendering, the popup, and mouse handling
+  need a real terminal and are not automated.
 - The installer merges `"extensions": ["-builtin:mcp"]` into Pi settings so
   `pi-mcp-adapter` stays the only MCP owner: a stray `mcp.json` is not read by
   Pi's built-in MCP even if the adapter fails to load. Pi's built-in `codemode`

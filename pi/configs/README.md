@@ -16,7 +16,7 @@
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |
 | `../agents/b-*.md` | `agents/b-*.md` | Four generated specialist profiles (tool allowlists; global permission policy applies, no per-agent block) |
 | `../prompts/b-*.md` | `prompts/b-*.md` | Sixteen generated explicit `/b-*` routes |
-| `../extensions/b-*.ts` | `extensions/b-*.ts` | Managed Pi extensions; `b-sync.ts` provides `/b-sync` (source pull + `install.sh --sync --force`, then reload); `b-verify-gate.ts` adds an advisory one-shot finish-time verify reminder; `b-candidate-snapshot.ts` adds the read-only `b_candidate_snapshot` review-candidate fingerprint tool |
+| `../extensions/b-*.ts` | `extensions/b-*.ts` | Managed Pi extensions; `b-sync.ts` provides `/b-sync` (source pull + `install.sh --sync --force`, then reload); `b-verify-gate.ts` adds an advisory one-shot finish-time verify reminder; `b-candidate-snapshot.ts` adds the read-only `b_candidate_snapshot` review-candidate fingerprint tool; `b-input-image-preview.ts` previews image paths in the input above the editor and in a popup (display-only, never touches the editor or submitted text; opt out with `PI_INPUT_IMAGE_PREVIEW=off`) |
 
 `install.sh` merges without replacing user-owned keys, snapshots the managed
 assets, backs up existing configs, and records ownership in
