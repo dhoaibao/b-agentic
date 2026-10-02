@@ -102,6 +102,12 @@ source-absent manifest uninstall remains confined to the same boundary.
   codemode yourself with `"defaultTools": ["+codemode"]`. Nested codemode calls
   still pass through the permission policy, but the `codemode` tool itself
   falls under the `*` ask rule.
+- Install and `--sync` remove managed skills, prompts, specialists, and
+  extensions that the previous manifest tracked but the source no longer
+  ships (for example after a rename), together with their snapshots, when
+  they are unmodified. Modified or symlinked files are kept, warned about on
+  every run, and stay tracked so `--uninstall` still evaluates them.
+  Retired config values and packages are not pruned.
 - `--uninstall` removes only unmodified managed assets and managed config
   values (including unmodified retired assets tracked from prior manifests);
   it preserves changed or symlinked files and the metadata needed to

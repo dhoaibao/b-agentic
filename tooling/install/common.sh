@@ -132,6 +132,25 @@ sys.exit(0 if same(Path(sys.argv[1]), Path(sys.argv[2])) else 1)
 PY
 }
 
+# Remove one managed skill directory when it is an unmodified copy of its
+# snapshot. Returns 0 when removed or already absent, 1 when preserved (warned).
+remove_unmodified_skill() {
+  local name="$1" path="$SKILLS_DST/$1" snapshot="$SKILLS_SNAPSHOT_DST/$1"
+  if [ -L "$path" ]; then
+    warn "preserving symlinked skill: $path"
+    return 1
+  elif [ -d "$path" ] && [ -d "$snapshot" ] && skill_dir_matches_snapshot "$path" "$snapshot"; then
+    if ! run_cmd rm -rf "$path"; then
+      warn "failed to remove skill: $path"
+      return 1
+    fi
+  elif [ -e "$path" ]; then
+    warn "preserving modified skill: $path"
+    return 1
+  fi
+  return 0
+}
+
 install_skills() {
   local name src dst snapshot
   INSTALL_SKILL_NAMES=()
@@ -164,7 +183,15 @@ install_skills() {
       continue
     fi
     prior_path="$SKILLS_DST/$prior_name"
-    if [ -e "$prior_path" ] || [ -L "$prior_path" ]; then
+    # Retired skill (tracked before, no longer shipped): remove it with its
+    # snapshot when unmodified; otherwise keep tracking it so uninstall still
+    # evaluates it.
+    if ! path_confined_to_home "$SKILLS_DST" || ! path_confined_to_home "$SKILLS_SNAPSHOT_DST"; then
+      warn "preserving retired skill: directory resolves outside HOME: $prior_path"
+      { [ -e "$prior_path" ] || [ -L "$prior_path" ]; } && MANAGED_SKILL_NAMES+=("$prior_name")
+    elif remove_unmodified_skill "$prior_name"; then
+      run_cmd rm -rf "$SKILLS_SNAPSHOT_DST/$prior_name"
+    else
       MANAGED_SKILL_NAMES+=("$prior_name")
     fi
   done < <(manifest_array_values skills 2>/dev/null || true)
@@ -416,13 +443,14 @@ runtime_sync_configs() {
 }
 
 runtime_sync_common() {
-  set_install_stage_total 15
+  set_install_stage_total 16
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Syncing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
   remember_kernel_baseline
   run_stage 'Syncing references and templates' install_references_and_templates
   run_stage 'Refreshing uninstall helper' install_uninstall_helper
   runtime_sync_configs
+  run_stage 'Pruning retired Pi assets' prune_retired_assets
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
@@ -435,7 +463,7 @@ runtime_sync_common() {
 }
 
 runtime_install_common() {
-  set_install_stage_total 16
+  set_install_stage_total 17
   run_stage 'Preparing Pi CLI' runtime_upgrade_cli
   run_stage 'Syncing skills' install_skills
   run_install_triplet_stage 'Installing kernel' install_kernel preserve pending none INSTALL_MEMORY_ACTION INSTALL_ACTIVATION_STATE INSTALL_MEMORY_BACKUP
@@ -443,6 +471,7 @@ runtime_install_common() {
   run_stage 'Syncing references and templates' install_references_and_templates
   run_stage 'Installing uninstall helper' install_uninstall_helper
   runtime_install_configs
+  run_stage 'Pruning retired Pi assets' prune_retired_assets
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
   PRIOR_PACKAGE_STATE="$(manifest_action_value packageState pending)"
   # shellcheck disable=SC2034 # Consumed by the sourced Pi runtime installer.
@@ -460,7 +489,7 @@ manifest_skill_names() {
 }
 
 uninstall_installed_skills() {
-  local name path snapshot
+  local name
   if ! path_confined_to_home "$SKILLS_DST"; then
     warn "preserving skills: directory resolves outside HOME: $SKILLS_DST"
     PRESERVE_METADATA_DIR=1
@@ -473,17 +502,7 @@ uninstall_installed_skills() {
       PRESERVE_METADATA_DIR=1
       continue
     fi
-    path="$SKILLS_DST/$name"
-    snapshot="$SKILLS_SNAPSHOT_DST/$name"
-    if [ -L "$path" ]; then
-      warn "preserving symlinked skill: $path"
-      PRESERVE_METADATA_DIR=1
-    elif [ -d "$path" ] && [ -d "$snapshot" ] && skill_dir_matches_snapshot "$path" "$snapshot"; then
-      run_cmd rm -rf "$path"
-    elif [ -e "$path" ]; then
-      warn "preserving modified skill: $path"
-      PRESERVE_METADATA_DIR=1
-    fi
+    remove_unmodified_skill "$name" || PRESERVE_METADATA_DIR=1
   done < <(manifest_skill_names)
 }
 

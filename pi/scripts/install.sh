@@ -484,7 +484,10 @@ new_backup = os.environ['KERNEL_BACKUP']
 if old_backup not in ('none', new_backup) and old_backup not in prior_backups:
     prior_backups.append(old_backup)
 
-agents_set = set(os.environ['AGENTS'].split())
+agents_set = {
+    name for name in os.environ['AGENTS'].split()
+    if (source_dir / 'pi' / 'agents' / f'{name}.md').is_file()
+}
 for prior_agent in previous.get('agents', []):
     if safe_name(prior_agent) and ((agents_dst / f'{prior_agent}.md').exists() or (agents_dst / f'{prior_agent}.md').is_symlink()):
         agents_set.add(prior_agent)
@@ -586,8 +589,28 @@ runtime_print_install_report() {
   installer_summary_log '  - Start a new Pi session and invoke /b-plan or another explicit /b-* prompt.'
 }
 
+# Remove one managed profile file when it is an unmodified copy of its
+# snapshot. Returns 0 when removed or already absent, 1 when preserved (warned).
+remove_unmodified_profile() {
+  local root="$1" snapshots="$2" name="$3" label="$4" extension="$5" path snapshot
+  path="$root/$name.$extension"; snapshot="$snapshots/$name.$extension"
+  if [ -L "$path" ]; then
+    warn "preserving symlinked $label: $path"
+    return 1
+  elif [ -f "$path" ] && [ -f "$snapshot" ] && cmp -s "$path" "$snapshot"; then
+    if ! run_cmd rm -f "$path"; then
+      warn "failed to remove $label: $path"
+      return 1
+    fi
+  elif [ -e "$path" ]; then
+    warn "preserving modified $label: $path"
+    return 1
+  fi
+  return 0
+}
+
 remove_managed_profiles() {
-  local root="$1" snapshots="$2" key="$3" label="$4" extension="${5:-md}" name path snapshot
+  local root="$1" snapshots="$2" key="$3" label="$4" extension="${5:-md}" name
   if ! path_confined_to_home "$root"; then
     warn "preserving $label: directory resolves outside HOME: $root"; PRESERVE_METADATA_DIR=1
     return 0
@@ -597,15 +620,36 @@ remove_managed_profiles() {
     if ! managed_asset_name_is_safe "$name"; then
       warn "preserving $label with unsafe manifest name"; PRESERVE_METADATA_DIR=1; continue
     fi
-    path="$root/$name.$extension"; snapshot="$snapshots/$name.$extension"
-    if [ -L "$path" ]; then
-      warn "preserving symlinked $label: $path"; PRESERVE_METADATA_DIR=1
-    elif [ -f "$path" ] && [ -f "$snapshot" ] && cmp -s "$path" "$snapshot"; then
-      run_cmd rm -f "$path"
-    elif [ -e "$path" ]; then
-      warn "preserving modified $label: $path"; PRESERVE_METADATA_DIR=1
-    fi
+    remove_unmodified_profile "$root" "$snapshots" "$name" "$label" "$extension" || PRESERVE_METADATA_DIR=1
   done < <(manifest_array_values "$key")
+}
+
+# Remove profiles the previous manifest tracked but the current source no longer
+# ships, together with their snapshots. Modified or symlinked files are kept and
+# stay tracked (the manifest writer carries forward names whose path remains).
+prune_retired_profiles() {
+  local root="$1" snapshots="$2" key="$3" label="$4" extension="$5" source_root="$6" name
+  if ! path_confined_to_home "$root" || ! path_confined_to_home "$snapshots"; then
+    warn "preserving retired $label: directory resolves outside HOME: $root"
+    return 0
+  fi
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if ! managed_asset_name_is_safe "$name"; then
+      warn "preserving retired $label with unsafe manifest name"
+      continue
+    fi
+    [ -f "$source_root/$name.$extension" ] && continue
+    if remove_unmodified_profile "$root" "$snapshots" "$name" "retired $label" "$extension"; then
+      run_cmd rm -f "$snapshots/$name.$extension"
+    fi
+  done < <(manifest_array_values "$key" 2>/dev/null || true)
+}
+
+prune_retired_assets() {
+  prune_retired_profiles "$AGENTS_DST" "$AGENTS_SNAPSHOT_DST" agents 'Pi specialist' md "$SOURCE_DIR/pi/agents"
+  prune_retired_profiles "$COMMANDS_DST" "$COMMANDS_SNAPSHOT_DST" commands 'Pi prompt' md "$SOURCE_DIR/pi/prompts"
+  prune_retired_profiles "$EXTENSIONS_DST" "$EXTENSIONS_SNAPSHOT_DST" extensions 'Pi extension' ts "$SOURCE_DIR/pi/extensions"
 }
 
 remove_managed_theme() {

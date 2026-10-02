@@ -131,7 +131,9 @@ union with existing user entries. Existing JSONC is backed up before a JSON
 rewrite. A recorded legacy MCP config path blocks install, sync, and update
 before Pi or its extensions are updated; uninstall and reinstall switch the
 managed destination to the adapter config file; user-owned entries must be
-copied manually. Uninstall removes only owned unmodified assets and values;
+copied manually. Install and sync prune retired managed skills, prompts,
+specialists, and extensions only when unmodified, not symlinked, and
+tracked by the previous manifest; changed files are kept and stay tracked. Uninstall removes only owned unmodified assets and values;
 symlinks or changed files retain metadata for a safe retry.
 
 Evidence: [`install.sh`](../install.sh),
