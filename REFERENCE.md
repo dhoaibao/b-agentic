@@ -27,7 +27,9 @@ source-absent manifest uninstall remains confined to the same boundary.
   without updating Pi. Install and sync use `pi list` to install missing extensions
   and `pi update --extensions` when any managed extension is already installed.
   This updates all configured packages, including user-owned extensions;
-  `--update` updates Pi and installed extensions. Install, sync, and update
+  `--update` updates Pi and installed extensions. `--sync` refuses to run on a
+  Pi older than the required minimum (1.0.0) before changing anything; run
+  `--update` first. Install, sync, and update
   reject a recorded configuration path that has changed; an install still
   recorded against `mcp.json` must be uninstalled before reinstalling with
   `mcp-adapter.json` and updating the adapter.

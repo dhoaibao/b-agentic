@@ -230,6 +230,24 @@ prepare_source() {
   validate_source_layout
 }
 
+# --sync never upgrades Pi but reconciles unpinned extensions, so refuse a host older than
+# the minimum the managed extensions require (@gotgenes/pi-permission-system 37 needs Pi >=1.0.0).
+# Runs before prepare_source so a rejected sync never fetches or checks out source.
+PI_MIN_VERSION=1.0.0
+preflight_pi_host() {
+  local raw version
+  command -v pi >/dev/null 2>&1 || return 0
+  raw="$(pi --version 2>/dev/null || true)"
+  version="$(printf '%s\n' "$raw" | grep -Eo '[0-9]+(\.[0-9]+){1,2}' | head -n1 || true)"
+  if [ -z "$version" ]; then
+    warn "could not determine Pi version; skipping host compatibility check (requires >= $PI_MIN_VERSION)"
+    return 0
+  fi
+  if [ "$(printf '%s\n%s\n' "$PI_MIN_VERSION" "$version" | sort -V | head -n1)" != "$PI_MIN_VERSION" ]; then
+    die "Pi $version is older than the required $PI_MIN_VERSION; run install.sh --update to upgrade Pi and extensions first"
+  fi
+}
+
 manifest_only_uninstall() {
   local config_dir="${B_AGENTIC_PI_DIR:-${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}}"
   local manifest="$config_dir/b-agentic/install.json"
@@ -279,6 +297,7 @@ main() {
   validate_pi_config_dir
   if manifest_only_uninstall; then return 0; fi
   command -v git >/dev/null 2>&1 || die 'git is required to prepare b-agentic source'
+  if [ "$OPERATION" = sync ] && ! uninstall_enabled; then preflight_pi_host; fi
   prepare_source
   load_runtime
   if uninstall_enabled; then

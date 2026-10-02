@@ -31,6 +31,17 @@ make_bin() {
   chmod +x "$1/pi"
 }
 
+# make_versioned_pi <sandbox> <version>: Pi stub reporting <version> and logging other calls.
+make_versioned_pi() {
+  cat >"$1/bin/pi" <<'STUB'
+#!/usr/bin/env bash
+if [ "${1:-}" = --version ]; then echo "$PI_STUB_VERSION"; exit 0; fi
+echo "$*" >>"$PI_STUB_LOG"
+exit 0
+STUB
+  sed -i "2i PI_STUB_VERSION=$2; PI_STUB_LOG=$1/pi-calls.log" "$1/bin/pi"
+}
+
 add_retirable() {
   local source="$1"
   mkdir -p "$source/skills/b-old"
@@ -217,5 +228,31 @@ if [ "$(id -u)" -ne 0 ]; then
   assert_contains "$case7/failed-removal.log" 'failed to remove skill'
   assert_json "$agent/b-agentic/install.json" "'b-old' in data['skills'] and 'b-old' in data['commands']"
 fi
+
+# 12. --sync on a Pi older than the extensions require fails before changing
+#     assets or touching packages, and points at --update.
+case8="$(new_case old-host)"
+agent="$case8/home/.pi/agent"
+install_then_retire "$case8"
+make_versioned_pi "$case8" 0.9.0
+if run_install "$case8" --sync >"$case8/old-host.log" 2>&1; then fail 'sync on old Pi must fail'; fi
+assert_contains "$case8/old-host.log" '--update'
+assert_file "$agent/skills/b-old/SKILL.md"
+assert_file "$agent/prompts/b-old.md"
+assert_no_path "$case8/pi-calls.log"
+# The gate also runs before source preparation: forced or ref'd sync on a
+# git-backed source must not fetch, pull, or check out.
+mkdir -p "$case8/source/.git"
+printf '#!/usr/bin/env bash\necho "$*" >>"%s/git-calls.log"\nexit 1\n' "$case8" >"$case8/bin/git"
+chmod +x "$case8/bin/git"
+for flags in --force --ref=main; do
+  if run_install "$case8" --sync "$flags" >"$case8/old-host-git.log" 2>&1; then fail "sync $flags on old Pi must fail"; fi
+  assert_contains "$case8/old-host-git.log" '--update'
+  assert_no_path "$case8/git-calls.log"
+done
+rm -rf "$case8/source/.git" "$case8/bin/git"
+make_versioned_pi "$case8" 1.0.0
+sync "$case8" supported-host
+assert_no_path "$agent/skills/b-old"
 
 printf 'Retired-asset pruning checks passed.\n'
