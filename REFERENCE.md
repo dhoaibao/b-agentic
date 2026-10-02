@@ -256,7 +256,7 @@ lists; `/reload` or a restart is needed to pick up changes.
 | ClickUp      | optional install opt-in, `npx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
 
 Excalidraw is a hosted MCP Apps server (`https://mcp.excalidraw.com`) used only
-by `b-diagram`. `read_me` is a direct read-only tool; `create_view` is
+by `b-excalidraw`. `read_me` is a direct read-only tool; `create_view` is
 classified `external-mutation`, so it asks on every call and sends the diagram
 text to the hosted endpoint. Its widget opens in the system browser (or Glimpse
 on macOS), never in the TUI, and `MCP_UI_VIEWER=none` suppresses it. The

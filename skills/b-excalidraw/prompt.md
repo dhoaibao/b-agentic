@@ -1,4 +1,4 @@
-# b-diagram
+# b-excalidraw
 
 Draw a technical diagram in Excalidraw through the Excalidraw MCP from explicit user or repository facts. Do not infer topology, ownership, runtime behavior, impact, or merge safety, and never produce an HTML or SVG artifact.
 

@@ -126,7 +126,7 @@
       }
     },
     {
-      "name": "b-diagram",
+      "name": "b-excalidraw",
       "execution": {"mode": "main"},
       "phase": "Build",
       "use": "Draw technical architecture and flow diagrams in Excalidraw from explicit facts",

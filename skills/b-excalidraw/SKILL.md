@@ -1,5 +1,5 @@
 ---
-name: b-diagram
+name: b-excalidraw
 description: >
   Draw architecture, workflow, sequence, data-flow, and lifecycle diagrams
   in Excalidraw through the Excalidraw MCP from explicit facts, without
@@ -12,9 +12,9 @@ metadata:
   execution_mode: main
 ---
 
-<!-- Generated from skills/registry.yaml and skills/b-diagram/prompt.md. Edit those sources, not this file. -->
+<!-- Generated from skills/registry.yaml and skills/b-excalidraw/prompt.md. Edit those sources, not this file. -->
 
-# b-diagram
+# b-excalidraw
 
 Draw a technical diagram in Excalidraw through the Excalidraw MCP from explicit user or repository facts. Do not infer topology, ownership, runtime behavior, impact, or merge safety, and never produce an HTML or SVG artifact.
 

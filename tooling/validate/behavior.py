@@ -241,13 +241,13 @@ FIXTURES = [
     Fixture(
         name="technical diagram artifact",
         prompt="Create an architecture diagram with the service boundaries and primary request path.",
-        expected="b-diagram",
+        expected="b-excalidraw",
         not_expected=("b-frontend", "b-browser", "b-plan"),
     ),
     Fixture(
         name="excalidraw diagram",
         prompt="Draw an Excalidraw diagram of the checkout request flow using the services and calls I list below.",
-        expected="b-diagram",
+        expected="b-excalidraw",
         not_expected=("b-frontend", "b-browser", "b-plan"),
     ),
     Fixture(
@@ -260,7 +260,7 @@ FIXTURES = [
         name="generic UI work stays frontend",
         prompt="Implement frontend implementation and component styling for a responsive dashboard system map panel.",
         expected="b-frontend",
-        not_expected=("b-diagram", "b-implement"),
+        not_expected=("b-excalidraw", "b-implement"),
     ),
     Fixture(
         name="confirmed UI defect stays debug",
