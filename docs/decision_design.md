@@ -91,7 +91,7 @@ Excalidraw) are `direct` and register their allowed operations eagerly. The larg
 (Brave Search, Firecrawl, Playwright, Mobbin, shadcn, ClickUp) use `directTools: "search"`:
 the adapter registers them inactive, and `mcp({search})` activates matches under the same
 native names, so no permission rule changes and the ~19K estimated prompt tokens per turn
-(unmeasured, from `mcp-cache.json` character counts) are not spent. Pi's built-in MCP,
+(unmeasured, from the MCP metadata cache character counts) are not spent. Pi's built-in MCP,
 `tool_search`, and codemode stay unused: the adapter keeps lazy lifecycle and MCP UI, and
 codemode's nested-call gating was not proven. Other operations remain available through the
 separately gated proxy, which asks for calls. Specialists name their tools in `tools:`,
