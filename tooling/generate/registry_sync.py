@@ -31,6 +31,7 @@ KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
+MCP_EXPOSURES = {"direct", "search"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-reviewer"}
 CAPABILITY_KINDS = {"mcp", "agent"}
 # Native tools registered by managed extensions; only the named agents may list them.
@@ -317,6 +318,8 @@ def validate_policy(policy: dict[str, Any]) -> list[str]:
         if not isinstance(tools, dict) or not tools:
             errors.append(f"servers.{server}.tools: expected non-empty object")
             continue
+        if record.get("exposure") not in MCP_EXPOSURES:
+            errors.append(f"servers.{server}.exposure: expected one of {sorted(MCP_EXPOSURES)}")
         for tool, class_name in tools.items():
             name = native_tool_name(server, str(tool))
             if name in seen_tools:
@@ -403,6 +406,11 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
     rows = ["| Class | Policy | Scope |", "|---|---|---|"]
     for name, meta in policy["classes"].items():
         rows.append(f"| `{name}` | {meta['policy']} | {meta['notes']} |")
+    search_servers = [server for server, record in policy["servers"].items() if record["exposure"] == "search"]
+    rows.append("")
+    rows.append(
+        f'Search-exposed servers ({", ".join(search_servers)}) start inactive in main: call `mcp({{search:"<terms>"}})` (auto-allowed), then the activated `<server>_<tool>` next turn; never `mcp({{tool}})` for reads. Specialists call their listed tools directly.'
+    )
     return "\n".join(rows)
 
 
@@ -765,6 +773,10 @@ def validate_regressions(
     if not validate_skills(skills, invalid_extension_tools):
         errors.append("agent regression: unknown extension tool must fail")
     errors.extend(validate_snapshot_extension())
+    invalid_exposure = json.loads(json.dumps(policy))
+    next(iter(invalid_exposure["servers"].values()))["exposure"] = "eager"
+    if not validate_policy(invalid_exposure):
+        errors.append("MCP policy regression: unknown exposure must fail")
     invalid_policy = json.loads(json.dumps(policy))
     first_server = next(iter(invalid_policy["servers"].values()))
     first_server["tools"]["bad"] = "missing"

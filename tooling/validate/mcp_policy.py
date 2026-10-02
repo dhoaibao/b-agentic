@@ -68,6 +68,12 @@ def main() -> int:
             errors.append(f"{agent} must expose the actual CodeGraph direct tool")
         if "\npermission:\n" in profile:
             errors.append(f"{agent} must inherit global permission policy")
+    for agent in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
+        profile = (ROOT / "pi" / "agents" / f"{agent}.md").read_text()
+        profile_tools = profile.split("tools: ", 1)[1].split("\n", 1)[0].split(", ")
+        # An allowlisted search-exposed tool is already active in a child, so no specialist needs the proxy.
+        if "mcp" in profile_tools:
+            errors.append(f"{agent} must not receive the mcp proxy")
     research_profile = (ROOT / "pi" / "agents" / "b-researcher.md").read_text()
     research_tools = research_profile.split("tools: ", 1)[1].split("\n", 1)[0].split(", ")
     required_research_tools = {"firecrawl_search", "firecrawl_scrape", "firecrawl_map", "firecrawl_extract"}
@@ -140,6 +146,16 @@ def main() -> int:
     eager_count = 0
     for server, record in servers.items():
         configured = configured_servers.get(server, {}).get("directTools")
+        if not isinstance(configured_servers.get(server, {}).get("description"), str):
+            errors.append(f"{server} must carry a description for search and grouping")
+        exposure = record.get("exposure")
+        if exposure == "search":
+            if configured != "search":
+                errors.append(f'{server} has search exposure but its directTools is not "search"')
+            continue
+        if exposure != "direct":
+            errors.append(f"{server} must declare exposure direct or search")
+            continue
         allowed = {
             tool
             for tool, classification in record.get("tools", {}).items()

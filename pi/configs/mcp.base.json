@@ -7,6 +7,7 @@
   },
   "mcpServers": {
     "codegraph": {
+      "description": "Code index: symbols, call flow, and impact for the indexed repository.",
       "command": "codegraph",
       "args": ["serve", "--mcp"],
       "directTools": ["codegraph_explore"],
@@ -14,90 +15,52 @@
       "lifecycle": "lazy"
     },
     "context7": {
+      "description": "Versioned library and framework documentation lookup.",
       "url": "https://mcp.context7.com/mcp",
       "headers": { "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}" },
       "directTools": ["resolve-library-id", "query-docs"],
       "lifecycle": "lazy"
     },
     "brave_search": {
+      "description": "Web, news, video, image, local and place search plus LLM-ready page context.",
       "command": "bunx",
       "args": ["@brave/brave-search-mcp-server", "--transport", "stdio"],
-      "directTools": [
-        "brave_web_search",
-        "brave_local_search",
-        "brave_video_search",
-        "brave_image_search",
-        "brave_news_search",
-        "brave_summarizer",
-        "brave_llm_context",
-        "brave_place_search"
-      ],
+      "directTools": "search",
       "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" },
       "lifecycle": "lazy"
     },
     "firecrawl": {
+      "description": "Web scrape/map/extract, developer search, and research papers; mutating crawl, agent and monitor tools ask first.",
       "command": "bunx",
       "args": ["firecrawl-mcp"],
-      "directTools": [
-        "firecrawl_search",
-        "firecrawl_developer_search",
-        "firecrawl_scrape",
-        "firecrawl_map",
-        "firecrawl_extract",
-        "firecrawl_agent_status",
-        "firecrawl_check_crawl_status",
-        "firecrawl_find_tools",
-        "firecrawl_credit_usage",
-        "firecrawl_research_search_papers",
-        "firecrawl_research_search_github",
-        "firecrawl_research_inspect_paper",
-        "firecrawl_research_read_paper",
-        "firecrawl_research_related_papers"
-      ],
+      "directTools": "search",
       "env": { "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}" },
       "lifecycle": "lazy"
     },
     "playwright": {
+      "description": "Headless browser snapshots, console/network evidence, and page verification; navigation and input tools ask first.",
       "command": "bunx",
       "args": ["@playwright/mcp", "--isolated", "--headless", "--caps=testing"],
-      "directTools": [
-        "browser_snapshot",
-        "browser_find",
-        "browser_console_messages",
-        "browser_network_requests",
-        "browser_network_request",
-        "browser_wait_for",
-        "browser_tabs",
-        "browser_generate_locator",
-        "browser_verify_element_visible",
-        "browser_verify_list_visible",
-        "browser_verify_text_visible",
-        "browser_verify_value"
-      ],
+      "directTools": "search",
       "lifecycle": "lazy"
     },
     "mobbin": {
+      "description": "Mobbin UI reference search for screens, flows, and website sections.",
       "url": "https://api.mobbin.com/mcp",
-      "directTools": ["search_screens", "search_flows", "search_sections"],
+      "directTools": "search",
       "lifecycle": "lazy"
     },
     "excalidraw": {
+      "description": "Excalidraw diagram format reference and drawing.",
       "url": "https://mcp.excalidraw.com",
       "directTools": ["read_me"],
       "lifecycle": "lazy"
     },
     "shadcn": {
+      "description": "shadcn/ui registry search, component examples, and install commands.",
       "command": "bunx",
       "args": ["shadcn@latest", "mcp"],
-      "directTools": [
-        "get_project_registries",
-        "list_items_in_registries",
-        "search_items_in_registries",
-        "get_item_examples_from_registries",
-        "view_items_in_registries",
-        "get_add_command_for_items",
-        "get_audit_checklist"
-      ],
+      "directTools": "search",
       "lifecycle": "lazy"
     }
   }

@@ -200,7 +200,11 @@ try:
     expected = optional['mcpServers']['clickup']
 except (OSError, ValueError, KeyError, TypeError, AttributeError):
     raise SystemExit(2)
-if existing is not None and existing != expected:
+# directTools and description are b-agentic-owned exposure metadata that changed
+# across releases; they do not make an otherwise identical entry foreign.
+ignored = ('directTools', 'description')
+strip = lambda entry: {k: v for k, v in entry.items() if k not in ignored} if isinstance(entry, dict) else entry
+if existing is not None and strip(existing) != strip(expected):
     print('error: a different ClickUp MCP entry already exists; preserving user configuration. Rename that entry or rerun with B_AGENTIC_CLICKUP_MCP=no.', file=sys.stderr)
     raise SystemExit(1)
 PY
@@ -229,14 +233,52 @@ servers['clickup'] = clickup
 base_path.write_text(json.dumps(base, indent=2) + '\n')
 PY
 }
+# One-shot migration to search exposure, tracked per server in the manifest
+# (mcpExposureMigratedServers) so an optional server enabled later is migrated too.
+# Prints the JSON key paths of every template server (base plus the optional ClickUp
+# template, when given) whose directTools is "search" and that is not yet recorded;
+# empty when nothing is pending or no MCP configuration exists yet (a new file is the
+# template). Stage functions run in a subshell, so callers pass the covered servers via
+# MCP_SEARCH_SERVERS_COVERED and the manifest writer recomputes them from the prepared template.
+mcp_search_servers() {
+  python3 - "$@" <<'PY'
+import json, sys
+from pathlib import Path
+names = []
+for template in sys.argv[1:]:
+    servers = json.loads(Path(template).read_text()).get('mcpServers', {})
+    names += [name for name, entry in servers.items() if isinstance(entry, dict) and entry.get('directTools') == 'search']
+print(' '.join(names))
+PY
+}
+mcp_exposure_migration_paths() {
+  [ -f "$PI_MCP_DST" ] || return 0
+  local recorded name paths=""
+  recorded=" $(manifest_array_values mcpExposureMigratedServers 2>/dev/null | tr '\n' ' ') "
+  for name in $MCP_SEARCH_SERVERS_COVERED; do
+    case "$recorded" in *" $name "*) continue ;; esac
+    paths="${paths:+$paths,}[\"mcpServers\",\"$name\",\"directTools\"]"
+  done
+  [ -z "$paths" ] || printf '[%s]' "$paths"
+}
 install_mcp() {
+  local paths
   if dry_run_enabled; then
     [ "$CLICKUP_MCP_ENABLED" != true ] || printf '%s\n' '[dry-run] would merge the optional ClickUp MCP server' >&2
+    if [ "$CLICKUP_MCP_ENABLED" = true ]; then
+      MCP_SEARCH_SERVERS_COVERED="$(mcp_search_servers "$TEMPLATES_SRC/mcp.base.json" "$TEMPLATES_SRC/mcp.clickup.json")"
+    else
+      MCP_SEARCH_SERVERS_COVERED="$(mcp_search_servers "$TEMPLATES_SRC/mcp.base.json")"
+    fi
+    paths="$(mcp_exposure_migration_paths)"
+    [ -z "$paths" ] || printf '[dry-run] would migrate MCP servers to directTools "search": %s\n' "$paths" >&2
     merge_json_file "$TEMPLATES_SRC/mcp.base.json" "$PI_MCP_DST" mcp mcp
     return 0
   fi
   prepare_mcp_template
-  merge_json_file "$TEMPLATES_DST/mcp.base.json" "$PI_MCP_DST" mcp mcp
+  MCP_SEARCH_SERVERS_COVERED="$(mcp_search_servers "$TEMPLATES_DST/mcp.base.json")"
+  paths="$(mcp_exposure_migration_paths)"
+  MERGE_FORCE_PATHS="$paths" merge_json_file "$TEMPLATES_DST/mcp.base.json" "$PI_MCP_DST" mcp mcp
 }
 install_permission() {
   merge_json_file "$TEMPLATES_SRC/permission.user.template.json" "$PI_PERMISSION_DST" permission permission
@@ -449,6 +491,7 @@ runtime_write_manifest() {
     KERNEL_ACTION="$INSTALL_MEMORY_ACTION" KERNEL_BACKUP="$INSTALL_MEMORY_BACKUP" \
     SETTINGS_ACTION="$INSTALL_SETTINGS_ACTION" SETTINGS_BACKUP="$INSTALL_SETTINGS_BACKUP" \
     SUBAGENTS_ACTION="$INSTALL_SUBAGENTS_ACTION" SUBAGENTS_BACKUP="$INSTALL_SUBAGENTS_BACKUP" \
+    MCP_SEARCH_SERVERS_COVERED="$(mcp_search_servers "$TEMPLATES_DST/mcp.base.json")" \
     MCP_ACTION="$INSTALL_MCP_ACTION" MCP_BACKUP="$INSTALL_MCP_BACKUP" CLICKUP_MCP_ENABLED="$CLICKUP_MCP_ENABLED" \
     CLICKUP_STATE_RECORDED="$clickup_state_recorded" \
     PERMISSION_ACTION="$INSTALL_PERMISSION_ACTION" PERMISSION_BACKUP="$INSTALL_PERMISSION_BACKUP" \
@@ -547,6 +590,11 @@ manifest = {
         'permission': os.environ['PERMISSION_BACKUP'],
     },
 }
+# Any run that reaches the manifest has applied (or had no use for) the search-exposure
+# migration for the servers it covered; servers enabled later are still pending.
+migrated = {n for n in previous.get('mcpExposureMigratedServers', []) if isinstance(n, str)}
+migrated |= set(os.environ.get('MCP_SEARCH_SERVERS_COVERED', '').split())
+manifest['mcpExposureMigratedServers'] = sorted(migrated)
 if os.environ['CLICKUP_STATE_RECORDED'] == 'true':
     manifest['clickupMcpEnabled'] = os.environ['CLICKUP_MCP_ENABLED'] == 'true'
 if previous.get('packageState') == 'partial' and previous.get('failedPackage'):

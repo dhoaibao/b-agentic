@@ -329,7 +329,7 @@ merge_json_file() {
   fi
   local tmp backup
   tmp="$(mktemp "${TMPDIR:-/tmp}/b-agentic-${label}.XXXXXX")"
-  if ! env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
+  if ! env JSON_SRC="$src" JSON_DST="$dst" JSON_TMP="$tmp" JSON_FORCE_PATHS="${MERGE_FORCE_PATHS:-}" SOURCE_DIR="$SOURCE_DIR" python3 - <<'PY'
 import json, os, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(os.environ['SOURCE_DIR']) / 'tooling' / 'install'))
@@ -361,6 +361,18 @@ def merge(existing, recommended, path=()):
         return existing
     return existing
 merged = merge(current, incoming)
+# One-shot migration: named key paths take the incoming value even where the
+# user already holds one (the previous file is backed up before it is replaced).
+for force_path in json.loads(os.environ.get('JSON_FORCE_PATHS') or '[]'):
+    want, node = incoming, merged
+    for key in force_path[:-1]:
+        want = want.get(key) if isinstance(want, dict) else None
+        node = node.get(key) if isinstance(node, dict) else None
+    if not isinstance(want, dict) or not isinstance(node, dict) or force_path[-1] not in want or force_path[-1] not in node:
+        continue
+    if node[force_path[-1]] != want[force_path[-1]]:
+        print(f"warning: migrating {'.'.join(force_path)} to {json.dumps(want[force_path[-1]])}", file=sys.stderr)
+        node[force_path[-1]] = want[force_path[-1]]
 tmp.write_text(json.dumps(merged, indent=2) + '\n')
 PY
   then
@@ -368,6 +380,7 @@ PY
     die "failed to merge $label configuration: $dst"
   fi
   backup="$(backup_file "$dst")"
+  [ -z "${MERGE_FORCE_PATHS:-}" ] || warn "previous $label configuration saved to ${backup:-none}"
   run_cmd mv "$tmp" "$dst"
   printf 'merge\nactive\n%s' "${backup:-none}"
 }

@@ -10,6 +10,12 @@ trap 'rm -f "$PI_PROBE_OUTSIDE_FILE"' EXIT
 export PI_CODING_AGENT_DIR="$probe/home" PI_OFFLINE=1 PI_SKIP_VERSION_CHECK=1 PI_TELEMETRY=0
 
 cd "$probe"
+# The adapter also reads <agentDir>/mcp.json and project-level mcp.json files, which would
+# mask the exposure under test. These are probe-owned, so clear them; warn about shared ones.
+rm -f "$probe/home/mcp.json" "$probe/.pi/mcp.json" "$probe/.mcp.json"
+for shared in "$HOME/.config/mcp/mcp.json" "$HOME/.agents/mcp.json" "$HOME/.agents/mcp/mcp.json"; do
+  [[ ! -e "$shared" ]] || echo "warning: $shared may override the probe MCP exposure" >&2
+done
 if [[ "${1:-}" == --setup ]]; then
   # Each source is unpinned; Pi installs the newest release available at setup time.
   for source in \
@@ -128,6 +134,80 @@ run_case mcp-proxy-lookup allow deny mcp-lookup "Denied by policy: 'mcp' for tar
 run_case mcp-direct allow deny direct "requires approval"
 run_case mcp-direct-allow allow deny direct-allow "server-called:lookup"
 run_case protected-path allow deny path "Denied by policy"
+
+# Search exposure: tools of a directTools:"search" server start inactive and are
+# activated by mcp({search}), which the template allows, under the same native names.
+cat >"$probe/home/mcp-adapter.json" <<JSON
+{"mcpServers":{"fake":{"command":"node","args":["$root/tests/pi/fake-mcp-server.mjs"],"directTools":"search","exposeResources":false}},"settings":{"toolPrefix":"server","allowInstall":false}}
+JSON
+python3 - "$root/pi/configs/permission.user.template.json" \
+  "$probe/home/extensions/pi-permission-system/config.json" <<'PY'
+import json, sys
+from pathlib import Path
+config = json.loads(Path(sys.argv[1]).read_text())
+# Keep the template's own mcp map (it allows mcp_search); only classify the fixture lookup.
+config['permission']['fake_lookup'] = 'allow'
+config['permission']['bash']['echo permission-probe'] = 'allow'
+Path(sys.argv[2]).write_text(json.dumps(config))
+PY
+write_agent() {
+  cat >"$probe/home/agents/$1.md" <<MD
+---
+description: Probe search-exposure specialist
+tools: $2
+model: stub/stub-1
+---
+
+Report the observed tool result.
+MD
+}
+write_agent probe-lookup-only 'read, fake_lookup'
+write_agent probe-lookup-erase 'read, fake_lookup, fake_erase'
+search_case() {
+  local name=$1 prompt=$2 expected
+  shift 2
+  pi -a -e "$root/tests/pi/stub-provider.ts" --model stub/stub-1 \
+    --mode json --no-session "$prompt" >"$probe/$name.jsonl"
+  for expected in "$@"; do
+    if ! jq -r 'select(.type == "tool_execution_end") | .result.content[]? | select(.type == "text") | .text' \
+      "$probe/$name.jsonl" | grep -Fq "$expected"; then
+      echo "Pi permission probe failed: $name (expected $expected)" >&2
+      exit 1
+    fi
+  done
+  echo "Pi permission probe passed: $name"
+}
+no_server_call() {
+  if grep -Fq "server-called:$2" "$probe/$1.jsonl"; then
+    echo "Pi permission probe failed: $1 reached the MCP server ($2)" >&2
+    exit 1
+  fi
+}
+# S1: an inactive search-exposed tool is not callable before activation.
+search_case search-inactive direct-allow "Tool fake_lookup not found"
+no_server_call search-inactive lookup
+# S2: mcp({search}) activates it without a prompt; the next turn calls it.
+search_case search-lookup search-lookup "Activated as direct tools: fake_lookup" "server-called:lookup"
+jq -e -s '[.[] | select(.type == "tool_execution_end" and (.toolName == "mcp" or .toolName == "fake_lookup"))] | length == 2 and all(.isError == false)' \
+  "$probe/search-lookup.jsonl" >/dev/null
+# S3: an unclassified tool stays approval-gated after activation.
+search_case search-erase search-erase "requires approval"
+jq -e 'select(.type == "tool_execution_end" and .toolName == "fake_erase" and .isError == true)' \
+  "$probe/search-erase.jsonl" >/dev/null
+no_server_call search-erase erase
+# S4: a specialist uses an allowlisted search-exposed tool directly; no activation or proxy.
+search_case search-child-direct "child@probe-lookup-only:direct-allow" "server-called:lookup"
+# S5: the specialist allowlist excludes the proxy, so it cannot reach other tools through it.
+search_case search-child-no-proxy "child@probe-lookup-only:search-proxy-erase" "Tool mcp not found"
+no_server_call search-child-no-proxy erase
+# S6: a tool outside the allowlist stays unavailable to the specialist.
+search_case search-child-bounds "child@probe-lookup-only:direct-erase" "Tool fake_erase not found"
+no_server_call search-child-bounds erase
+# S7: an allowlisted but unclassified tool is still approval-gated, and a child has no prompt.
+search_case search-child-gate "child@probe-lookup-erase:direct-erase" "no interactive UI is available"
+no_server_call search-child-gate erase
+# S8: a specialist's use of its allowlisted tool does not activate it for the parent.
+search_case search-child-leak leak-check "Tool fake_lookup not found"
 
 # A denied bash result contains the command text in its rule description. Check
 # the tool's error flag as well as its output so denial cannot pass as success.

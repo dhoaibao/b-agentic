@@ -10,6 +10,42 @@ import {
 } from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+// Multi-step scripted prompts: the call at index N runs after N tool results.
+// `search-*` exercise pi-mcp-adapter search exposure: an inactive tool is
+// activated by mcp({search}) and only callable on a later turn.
+function scriptedCall(prompt: string, step: number) {
+  const call = (name: string, args: Record<string, unknown>) => ({
+    type: "toolCall" as const,
+    id: `probe-${step + 1}`,
+    name,
+    arguments: args,
+  });
+  const spawn = (agent: string, childPrompt: string) =>
+    call("subagent", {
+      subagent_type: agent,
+      prompt: childPrompt,
+      description: "Probe search exposure",
+    });
+  const scripts: Record<string, Array<ReturnType<typeof call>>> = {
+    "search-lookup": [
+      call("mcp", { search: "lookup" }),
+      call("fake_lookup", {}),
+    ],
+    "search-erase": [call("mcp", { search: "erase" }), call("fake_erase", {})],
+    "search-proxy-erase": [
+      call("mcp", { tool: "fake_erase", server: "fake", args: {} }),
+    ],
+    "direct-erase": [call("fake_erase", {})],
+    "leak-check": [
+      spawn("probe-lookup-only", "direct-allow"),
+      call("fake_lookup", {}),
+    ],
+  };
+  const named = /^child@([a-z-]+):(.+)$/.exec(prompt);
+  if (named && step === 0) return spawn(named[1], named[2]);
+  return scripts[prompt]?.[step];
+}
+
 function streamStub(
   model: Model<Api>,
   context: TranscriptContext,
@@ -40,7 +76,15 @@ function streamStub(
       (entry) => entry.role === "toolResult",
     );
     const result = results.at(-1);
+    const request = context.messages.find((entry) => entry.role === "user");
+    const scriptedPrompt =
+      request?.content
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join(" ") ?? "";
+    const scripted = scriptedCall(scriptedPrompt, results.length);
     if (
+      scripted ||
       !result ||
       (context.messages.some(
         (entry) =>
@@ -51,14 +95,10 @@ function streamStub(
       ) &&
         results.length === 1)
     ) {
-      const request = context.messages.find((entry) => entry.role === "user");
-      const prompt =
-        request?.content
-          .filter((part) => part.type === "text")
-          .map((part) => part.text)
-          .join(" ") ?? "";
+      const prompt = scriptedPrompt;
       const toolCall =
-        prompt === "direct-allow"
+        scripted ??
+        (prompt === "direct-allow"
           ? {
               type: "toolCall" as const,
               id: "probe-1",
@@ -162,7 +202,7 @@ function streamStub(
                                           ? "cat ./missing-for-probe.env"
                                           : "echo permission-probe",
                         },
-                      };
+                      });
       message.content.push(toolCall);
       stream.push({
         type: "toolcall_start",

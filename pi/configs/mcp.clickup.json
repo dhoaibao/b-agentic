@@ -1,21 +1,14 @@
 {
   "mcpServers": {
     "clickup": {
+      "description": "ClickUp tasks, documents, and time entries; writes ask first.",
       "command": "npx",
       "args": ["-y", "@hauptsache.net/clickup-mcp@1.9.0"],
       "env": {
         "CLICKUP_API_KEY": "${CLICKUP_API_KEY}",
         "CLICKUP_TEAM_ID": "${CLICKUP_TEAM_ID}"
       },
-      "directTools": [
-        "getTaskById",
-        "searchTasks",
-        "readDocument",
-        "getListInfo",
-        "searchSpaces",
-        "getTimeEntries",
-        "read_space_clickup_space_txt"
-      ],
+      "directTools": "search",
       "lifecycle": "lazy"
     }
   }

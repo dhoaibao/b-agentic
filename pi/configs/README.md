@@ -10,7 +10,7 @@
 | `settings.base.json` | `settings.json` | Pi, nine unpinned packages, `-builtin:mcp` (the adapter owns MCP), native compaction off by default, and Dracula only when no theme is selected |
 | `subagents.base.json` | `subagents.json` | `pi-subagents` excludes Magic Context from children; existing user exclusions are retained |
 | `magic-context.base.json` | `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`) | Shared CortexKit defaults: enabled with local embeddings; historian falls back to the live Pi model |
-| `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; eight lazy servers with policy-aligned direct-tool lists, no stored credentials |
+| `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; eight lazy servers (three with fixed direct-tool lists, five search-exposed), no stored credentials |
 | `mcp.clickup.json` | `mcp-adapter.json` | Optional ClickUp stdio server (`@1.9.0`), added only after install opt-in; uses environment references for its personal API token and team ID |
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |
@@ -25,7 +25,16 @@ when no choice is recorded; non-interactive first installs or upgrades leave it
 out unless `B_AGENTIC_CLICKUP_MCP=yes` is set. Later install and sync runs
 preserve the recorded choice; uninstall and reinstall to change it. The MCP
 template adds missing per-server
-direct-tool lists; existing user-owned lists remain unchanged. Existing `mcp.json` files are
+`directTools` values. Brave Search, Firecrawl, Playwright, Mobbin, shadcn, and the
+optional ClickUp server use `directTools: "search"`: their tools start inactive, so
+they cost no prompt tokens, and `mcp({search})` activates matches under the same
+`<server>_<tool>` names (about 19K estimated tokens per turn saved; unmeasured).
+CodeGraph, Context7, and Excalidraw keep short fixed lists. The installer applies
+this to an existing install once: it replaces those servers' `directTools` even when
+you customised them, saves the previous file under `b-agentic/backups/`, and records
+the migrated servers in the manifest (`mcpExposureMigratedServers`), so later syncs keep any list you restore while an optional server enabled later is still migrated.
+Specialists list the tools they need by name, which makes those tools active for
+them without searching. Existing `mcp.json` files are
 left untouched; the installer does not migrate them to `mcp-adapter.json`.
 For an existing b-agentic install recorded against `mcp.json`, install,
 `--sync`, and `--update` refuse to proceed. Uninstall first, then install again;

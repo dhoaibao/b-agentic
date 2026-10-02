@@ -85,10 +85,20 @@ Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.
 ## MCP and external-evidence design
 
 Eight base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
-ClickUp is added only after install opt-in. Per-server direct-tool lists eagerly
-register only operations allowed by `references/mcp_operations.yaml`; other
-operations remain available through the separately gated proxy, which asks for calls. This keeps
-the eager set below the adapter's advisory threshold without disabling tools.
+ClickUp is added only after install opt-in. Each server declares an `exposure` in
+`references/mcp_operations.yaml`. Small, frequently used servers (CodeGraph, Context7,
+Excalidraw) are `direct` and register their allowed operations eagerly. The large ones
+(Brave Search, Firecrawl, Playwright, Mobbin, shadcn, ClickUp) use `directTools: "search"`:
+the adapter registers them inactive, and `mcp({search})` activates matches under the same
+native names, so no permission rule changes and the ~19K estimated prompt tokens per turn
+(unmeasured, from `mcp-cache.json` character counts) are not spent. Pi's built-in MCP,
+`tool_search`, and codemode stay unused: the adapter keeps lazy lifecycle and MCP UI, and
+codemode's nested-call gating was not proven. Other operations remain available through the
+separately gated proxy, which asks for calls. Specialists name their tools in `tools:`,
+which activates them for the child without the proxy, so no specialist gains the `mcp` proxy
+and the observation-only boundary is unchanged. Considered and rejected: adding `mcp` to
+specialist allowlists (probes showed it is unnecessary and widens the surface).
+Existing installs migrate once, by explicit user choice that overrides customised lists.
 Script mode and model-driven installs are disabled. The policy classifies known
 tools; allowed direct names avoid proxy approval, while consequential and
 unknown operations ask. The adapter does not make configuration a live server

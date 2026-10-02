@@ -241,15 +241,22 @@ with their source rather than as additional subsystems.
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
 Firecrawl, Playwright, Mobbin, Excalidraw, and shadcn through `pi-mcp-adapter`. Connections
-are lazy. Per-server `directTools` lists eagerly register the 48 base known
-allowed operations from `references/mcp_operations.yaml`; optional ClickUp adds
-seven read tools (55 in total), keeping the total below the adapter's 75-tool
-advisory threshold. Direct names use `<server>_<tool>`; other operations
-remain available through the separately gated proxy, where calls ask for
-approval. The adapter's script/install tool surfaces are disabled. Credentials
+are lazy. Each server declares `exposure` in `references/mcp_operations.yaml`.
+CodeGraph, Context7, and Excalidraw are `direct`: their short allowed lists are
+registered eagerly. Brave Search, Firecrawl, Playwright, Mobbin, shadcn, and the optional
+ClickUp server are `search`: `directTools: "search"` registers their tools inactive, so
+they add no prompt tokens until `mcp({search})` activates matches for the next turn.
+Names stay `<server>_<tool>`, so the per-tool permission rules and the `<server>_*` ask
+wildcard apply unchanged; `mcp_search` is allowed, other proxy calls ask. An agent's
+`tools:` allowlist makes a listed search-exposed tool active for that specialist, so
+specialists never need the `mcp` proxy (probes S4 to S8). The adapter also reads
+`<agent dir>/mcp.json` and `.pi/mcp.json`; the permission probe clears them so they
+cannot mask the exposure under test. The installer migrates existing installs once; see
+`pi/configs/README.md`. The adapter's script/install tool surfaces are disabled. Credentials
 remain environment placeholders; the installer does not collect them. Sync adds
-missing per-server lists to existing configurations but preserves user-edited
-lists; `/reload` or a restart is needed to pick up changes.
+missing per-server values to existing configurations and preserves user-edited
+lists, except that the one-shot search-exposure migration replaces the `directTools`
+of the search-exposed servers once; `/reload` or a restart is needed to pick up changes.
 
 | MCP          | Local prerequisite                                                   |
 | ------------ | -------------------------------------------------------------------- |
