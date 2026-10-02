@@ -22,10 +22,12 @@ python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/session_readiness.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/browser_evidence.py" --self-test
 bash "$ROOT_DIR/pi/scripts/validate.sh"
-bash "$ROOT_DIR/tests/install/prune-retired.sh"
-bash "$ROOT_DIR/tests/install/mcp-search-migration.sh"
 
 if [ "$run_release" -eq 1 ]; then
+  # Installer sandbox tests run many full installs (about three minutes), so they
+  # gate release and CI rather than every edit.
+  bash "$ROOT_DIR/tests/install/prune-retired.sh"
+  bash "$ROOT_DIR/tests/install/mcp-search-migration.sh"
   if command -v rtk >/dev/null 2>&1; then
     python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else

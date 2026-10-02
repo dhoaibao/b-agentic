@@ -299,6 +299,11 @@ npm run quality
 rtk git diff --check
 ```
 
+Plain `scripts/validate-skills.sh` runs the fast generator, policy, and runtime
+checks. `--release` (CI) adds the installer sandbox tests
+(`tests/install/*.sh`, about three minutes) and the Pi integration probes,
+including `tests/pi/permission-probe.sh`.
+
 `skills/` and `references/` hold canonical workflow guidance;
 `pi/` holds generated specialists/prompts and Pi templates/runtime scripts;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own generation,
