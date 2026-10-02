@@ -33,13 +33,14 @@ make_bin() {
 
 # make_versioned_pi <sandbox> <version>: Pi stub reporting <version> and logging other calls.
 make_versioned_pi() {
-  cat >"$1/bin/pi" <<'STUB'
-#!/usr/bin/env bash
+  {
+    printf '#!/usr/bin/env bash\nPI_STUB_VERSION=%s; PI_STUB_LOG=%s/pi-calls.log\n' "$2" "$1"
+    cat <<'STUB'
 if [ "${1:-}" = --version ]; then echo "$PI_STUB_VERSION"; exit 0; fi
 echo "$*" >>"$PI_STUB_LOG"
 exit 0
 STUB
-  sed -i "2i PI_STUB_VERSION=$2; PI_STUB_LOG=$1/pi-calls.log" "$1/bin/pi"
+  } >"$1/bin/pi"
 }
 
 add_retirable() {
