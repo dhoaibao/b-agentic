@@ -312,10 +312,18 @@ incoming = json.loads(src.read_text())
 current = loads(dst.read_text())
 if not isinstance(incoming, dict) or not isinstance(current, dict):
     raise SystemExit('configuration roots must be objects')
+transport_keys = ('url', 'command', 'args', 'socket', 'cwd', 'headers', 'env')
 def merge(existing, recommended, path=()):
     if isinstance(existing, dict) and isinstance(recommended, dict):
         merged = dict(existing)
+        # A user-owned MCP server entry keeps its own transport: never mix the
+        # template's url/command/socket settings into it.
+        user_transport = len(path) == 2 and path[0] == 'mcpServers' and any(k in existing for k in ('url', 'command', 'socket'))
         for key, value in recommended.items():
+            if user_transport and key in transport_keys:
+                if key in ('url', 'command', 'socket'):
+                    print(f'warning: preserving user transport for MCP server {path[1]}', file=sys.stderr)
+                continue
             if key in ('packages', 'excludedExtensionPackages', 'extensions') and isinstance(merged.get(key), list) and isinstance(value, list):
                 merged[key] = value + [item for item in merged[key] if item not in value]
             else:

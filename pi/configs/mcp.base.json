@@ -81,6 +81,11 @@
       "directTools": ["search_screens", "search_flows", "search_sections"],
       "lifecycle": "lazy"
     },
+    "excalidraw": {
+      "url": "https://mcp.excalidraw.com",
+      "directTools": ["read_me"],
+      "lifecycle": "lazy"
+    },
     "shadcn": {
       "command": "bunx",
       "args": ["shadcn@latest", "mcp"],

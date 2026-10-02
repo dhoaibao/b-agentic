@@ -9,7 +9,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-EXPECTED_SERVERS = {"codegraph", "context7", "brave_search", "firecrawl", "playwright", "mobbin", "shadcn", "clickup"}
+EXPECTED_SERVERS = {
+    "codegraph",
+    "context7",
+    "brave_search",
+    "firecrawl",
+    "playwright",
+    "mobbin",
+    "excalidraw",
+    "shadcn",
+    "clickup",
+}
 OPTIONAL_SERVERS = {"clickup"}
 EXPECTED_CLASSES = {
     "read-only",

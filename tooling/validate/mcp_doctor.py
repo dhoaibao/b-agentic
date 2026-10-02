@@ -12,7 +12,17 @@ from pathlib import Path
 
 from session_readiness import check_session_tools
 
-SERVERS = ("codegraph", "context7", "brave_search", "firecrawl", "playwright", "mobbin", "shadcn", "clickup")
+SERVERS = (
+    "codegraph",
+    "context7",
+    "brave_search",
+    "firecrawl",
+    "playwright",
+    "mobbin",
+    "excalidraw",
+    "shadcn",
+    "clickup",
+)
 OPTIONAL_SERVERS = {"clickup"}
 CREDENTIALS = {
     "context7": ("CONTEXT7_API_KEY",),

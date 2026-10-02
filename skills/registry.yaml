@@ -129,7 +129,7 @@
       "name": "b-diagram",
       "execution": {"mode": "main"},
       "phase": "Build",
-      "use": "Create validated, portable technical architecture and flow diagrams from explicit facts",
+      "use": "Draw technical architecture and flow diagrams in Excalidraw from explicit facts",
       "argument_hint": "[diagram type and facts]",
       "routing": {
         "intent": "Create a technical architecture, system map, workflow, sequence, data-flow, or lifecycle diagram",
@@ -139,11 +139,12 @@
           "workflow diagram",
           "sequence diagram",
           "data-flow diagram",
-          "lifecycle diagram"
+          "lifecycle diagram",
+          "Excalidraw diagram"
         ]
       },
       "prompt": {
-        "description": "Create validated, portable architecture, workflow, sequence, data-flow, and lifecycle diagrams from explicit facts. Produces versioned JSON source and self-contained HTML/SVG without inferring topology, ownership, runtime behavior, impact, or merge safety."
+        "description": "Draw architecture, workflow, sequence, data-flow, and lifecycle diagrams in Excalidraw through the Excalidraw MCP from explicit facts, without inferring topology, ownership, runtime behavior, impact, or merge safety. Never produces HTML or SVG."
       }
     },
     {

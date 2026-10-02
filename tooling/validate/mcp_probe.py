@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pi MCP inventory policy note.
 
-The Pi adapter's base configuration lists seven lazy servers and offers an
+The Pi adapter's base configuration lists eight lazy servers and offers an
 optional ClickUp server. This validator never starts a server, opens a browser,
 authenticates, or tests live tool use.
 """

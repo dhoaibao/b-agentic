@@ -1,5 +1,5 @@
 ---
-description: "Create validated, portable technical architecture and flow diagrams from explicit facts"
+description: "Draw technical architecture and flow diagrams in Excalidraw from explicit facts"
 argument-hint: "[diagram type and facts]"
 ---
 

@@ -52,6 +52,12 @@
       "forbidden_skills": ["b-plan", "b-frontend", "b-browser"]
     },
     {
+      "id": "excalidraw-diagram",
+      "prompt": "Draw an Excalidraw diagram of the checkout request flow using the services and calls I list below.",
+      "expected_skill": "b-diagram",
+      "forbidden_skills": ["b-plan", "b-frontend", "b-browser"]
+    },
+    {
       "id": "initialize-agent-docs",
       "prompt": "Initialize this repository's agent instruction docs with a canonical AGENTS.md and a minimal CLAUDE.md shim.",
       "expected_skill": "b-init",

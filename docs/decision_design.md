@@ -84,7 +84,7 @@ Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.
 
 ## MCP and external-evidence design
 
-Seven base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
+Eight base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
 ClickUp is added only after install opt-in. Per-server direct-tool lists eagerly
 register only operations allowed by `references/mcp_operations.yaml`; other
 operations remain available through the separately gated proxy, which asks for calls. This keeps

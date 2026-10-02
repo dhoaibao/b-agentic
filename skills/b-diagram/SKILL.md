@@ -1,12 +1,12 @@
 ---
 name: b-diagram
 description: >
-  Create validated, portable architecture, workflow, sequence, data-flow,
-  and lifecycle diagrams from explicit facts. Produces versioned JSON
-  source and self-contained HTML/SVG without inferring topology,
-  ownership, runtime behavior, impact, or merge safety. Routing signals:
-  architecture diagram, system map, workflow diagram, sequence diagram,
-  data-flow diagram, lifecycle diagram.
+  Draw architecture, workflow, sequence, data-flow, and lifecycle diagrams
+  in Excalidraw through the Excalidraw MCP from explicit facts, without
+  inferring topology, ownership, runtime behavior, impact, or merge
+  safety. Never produces HTML or SVG. Routing signals: architecture
+  diagram, system map, workflow diagram, sequence diagram, data-flow
+  diagram, lifecycle diagram, Excalidraw diagram.
 metadata:
   phase: Build
   execution_mode: main
@@ -16,11 +16,11 @@ metadata:
 
 # b-diagram
 
-Create a validated, portable technical diagram artifact from explicit user or repository facts. Produce versioned JSON source and a self-contained HTML file with inline SVG; do not infer topology, ownership, runtime behavior, impact, or merge safety.
+Draw a technical diagram in Excalidraw through the Excalidraw MCP from explicit user or repository facts. Do not infer topology, ownership, runtime behavior, impact, or merge safety, and never produce an HTML or SVG artifact.
 
 ## When to use
 
-- The user explicitly requests an architecture, system map, workflow, sequence, data-flow, or lifecycle diagram.
+- The user explicitly requests an architecture, system map, workflow, sequence, data-flow, or lifecycle diagram, or asks for an Excalidraw diagram.
 - The user needs a reviewable technical communication artifact, not merely an explanation.
 
 ## When NOT to use
@@ -29,38 +29,49 @@ Create a validated, portable technical diagram artifact from explicit user or re
 - The user wants frontend/UI code or visual refresh work -> use **b-frontend**.
 - The user wants reusable frontend design guidance -> use **b-design**.
 - The user wants real-browser evidence or a visual assessment -> use **b-browser**.
-- The user needs external facts -> use **b-research** before authoring the source.
+- The user needs external facts -> use **b-research** before authoring the diagram.
 
 ## Tool guidance
 
 - Use `read` and local discovery for the smallest relevant repository evidence. Select CodeGraph only when a concrete repository-wide architecture, dependency, or call-flow question is central.
-- `<skill-dir>` stands for the absolute directory containing this loaded `SKILL.md`; substitute it before running any command, so custom Pi agent directories work.
-- Use the bundled `<skill-dir>/diagram.py` with Python 3. Its `validate` command never writes; its `deliver` command atomically replaces only the named HTML target after validation succeeds.
+- `excalidraw_read_me` is a direct read-only tool: call it once per session before the first draw and follow its element syntax.
+- `excalidraw_create_view` draws the diagram. It is approval-gated, so call it through the MCP proxy: `mcp({ tool: "excalidraw_create_view", args: { elements: "<JSON array as a string>" } })`. The array is limited to 5 MB.
+- The widget opens in the system browser or a native window, not in the terminal. The widget's own tools (export, share link, checkpoints) are not model tools: never call them.
+- Use native `write` only for a user-approved source path.
 - Do not fetch URLs or inspect live systems from diagram evidence references.
 
 ## Steps
 
-1. Confirm the diagram kind, audience, target path, and source facts. Ask one focused question if any is material and unresolved.
+1. Confirm the diagram kind, audience, source facts, and whether to save the elements source (and where). Ask one focused question if any is material and unresolved.
 2. Establish the bounded fact set. For repository-based diagrams, distinguish observed source facts from user-provided assumptions; preserve exact paths or symbols only when they are safe to disclose.
-3. Create a version-1 JSON source conforming to `<skill-dir>/schema.json`: stable node and edge IDs, labels, explicit edge endpoints, and optional evidence IDs. Cite evidence only as supplied metadata; never claim it was verified unless it was actually read.
-4. Run `python3 <skill-dir>/diagram.py validate <source.json>`. Repair only the reported local source defects.
-5. Run `python3 <skill-dir>/diagram.py deliver <source.json> <target.html>` only for the user-approved target. This writes one portable HTML/SVG artifact with no external assets.
-6. Inspect the source and artifact paths, report the exact validation result, and state what the diagram does not establish. Route browser-based visual proof separately to **b-browser** when requested.
+3. Privacy: with the managed remote endpoint, each `excalidraw_create_view` call sends the diagram text to the Excalidraw MCP host, which may retain it as a checkpoint. Tell the user this before drawing from repository-derived or proprietary content; the call's approval prompt is the explicit approval. Never include secrets, customer data, or internal URLs.
+4. Call `excalidraw_read_me` unless it was already called in this session.
+5. Author the elements array from the fact set only:
+   - One labelled shape per fact node: rectangle by default, ellipse for an external actor or start/end, diamond for a decision.
+   - One arrow per fact edge, bound to existing element ids at both ends, with an optional label.
+   - Show a boundary as a background rectangle plus a text label, since frames are not supported.
+   - Lay out in one direction with consistent spacing. Start with a `cameraUpdate` at a 4:3 size that frames the whole diagram.
+   - Keep each view small (about 20 nodes or fewer); split larger systems into separate views rather than shrinking text.
+   - No images or freehand drawing, and no invented relationships, traffic, deployment placement, owners, risk, or causal impact.
+6. Call `excalidraw_create_view`. Repair only the errors it reports. To refine, call it again with `restoreCheckpoint` and `delete` entries rather than redrawing everything.
+7. If the user approved saving the source, write the exact elements array to the approved path (suggested name `<name>.excalidraw-elements.json`). Do not use the `.excalidraw` extension: the array uses `label` and pseudo-elements, so it is not a scene file. Tell the user that `.excalidraw`, PNG, and SVG files come from the widget's export, and that a share link uploads the diagram to excalidraw.com, which is their decision.
+8. If the Excalidraw MCP is unconfigured, fails, or is denied, say "Excalidraw MCP unavailable" once and stop. Offer only to save the elements source; never fall back to HTML or SVG. If no viewer window opens (headless session or `MCP_UI_VIEWER=none`), report that nothing was displayed and give the adapter's URL notice.
+9. Report the result and state what the diagram does not establish. Route browser-based visual proof to **b-browser** when requested.
 
 ## Content rules
 
 - Use only authored nodes and edges. Do not invent relationships, traffic, deployment placement, owners, risk, or causal impact.
 - Keep diagrams sparse: include the primary path and necessary boundaries; put supporting detail in labels rather than multiplying edges.
 - Evidence references are citations, not live links to inspect, not authorization to disclose protected content, and not proof of runtime behavior.
-- Preserve existing diagram source and artifact conventions when a repository already has them.
-- Do not add themes, animation, export formats, external libraries, live viewers, or hosted sharing unless separately approved.
+- Preserve existing diagram source conventions when a repository already has them.
+- Do not add external libraries, hosted sharing, or export formats unless separately approved.
 
 ## Output format
 
-Report source path, artifact path, diagram kind, validation result, facts represented, and explicit limits or assumptions.
+Report diagram kind, facts represented, the `excalidraw_create_view` result (success, error, or checkpoint id), whether a viewer window was expected, the saved source path or "not persisted", and explicit limits or assumptions.
 
 ## Rules
 
-- Do not deliver an invalid source or overwrite a target until validation passes.
-- Do not claim the rendered artifact is browser-verified, visually approved, or a complete representation of a system.
-- Do not write outside the user-approved target path or introduce dependencies to render a diagram.
+- You never see the rendered image: do not claim the diagram is visually correct, browser-verified, visually approved, or a complete representation of a system.
+- Do not send diagram content to the MCP without the privacy notice in step 3.
+- Do not write outside the user-approved path or introduce dependencies.

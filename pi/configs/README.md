@@ -10,7 +10,7 @@
 | `settings.base.json` | `settings.json` | Pi, nine unpinned packages, `-builtin:mcp` (the adapter owns MCP), native compaction off by default, and Dracula only when no theme is selected |
 | `subagents.base.json` | `subagents.json` | `pi-subagents` excludes Magic Context from children; existing user exclusions are retained |
 | `magic-context.base.json` | `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`) | Shared CortexKit defaults: enabled with local embeddings; historian falls back to the live Pi model |
-| `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; seven lazy servers with policy-aligned direct-tool lists, no stored credentials |
+| `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; eight lazy servers with policy-aligned direct-tool lists, no stored credentials |
 | `mcp.clickup.json` | `mcp-adapter.json` | Optional ClickUp stdio server (`@1.9.0`), added only after install opt-in; uses environment references for its personal API token and team ID |
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |

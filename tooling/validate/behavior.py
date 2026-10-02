@@ -245,6 +245,12 @@ FIXTURES = [
         not_expected=("b-frontend", "b-browser", "b-plan"),
     ),
     Fixture(
+        name="excalidraw diagram",
+        prompt="Draw an Excalidraw diagram of the checkout request flow using the services and calls I list below.",
+        expected="b-diagram",
+        not_expected=("b-frontend", "b-browser", "b-plan"),
+    ),
+    Fixture(
         name="initialize repository guidance",
         prompt="Initialize this repository's AGENTS.md and CLAUDE.md agent instruction docs.",
         expected="b-init",

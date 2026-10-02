@@ -54,7 +54,7 @@ compatible child through its supported task identifier.
 | `b-research` | Decide | Fetch outside truth: docs, API facts, comparisons, or recent evidence |
 | `b-design` | Decide | Create or refresh docs/DESIGN.md as a frontend design standard |
 | `b-frontend` | Build | Implement contextual frontend/UI code, styling, responsive behavior, interactions, visual refreshes, and landing pages |
-| `b-diagram` | Build | Create validated, portable technical architecture and flow diagrams from explicit facts |
+| `b-diagram` | Build | Draw technical architecture and flow diagrams in Excalidraw from explicit facts |
 | `b-implement` | Build | Make the scoped non-UI change from an approved plan or a small direct request |
 | `b-clickup` | Build | Create and update ClickUp tasks with a consistent four-section description |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |

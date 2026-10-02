@@ -232,10 +232,10 @@ with their source rather than as additional subsystems.
 ## MCP and readiness
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Mobbin, and shadcn through `pi-mcp-adapter`. Connections
-are lazy. Per-server `directTools` lists eagerly register the 47 base known
+Firecrawl, Playwright, Mobbin, Excalidraw, and shadcn through `pi-mcp-adapter`. Connections
+are lazy. Per-server `directTools` lists eagerly register the 48 base known
 allowed operations from `references/mcp_operations.yaml`; optional ClickUp adds
-seven read tools (54 in total), keeping the total below the adapter's 75-tool
+seven read tools (55 in total), keeping the total below the adapter's 75-tool
 advisory threshold. Direct names use `<server>_<tool>`; other operations
 remain available through the separately gated proxy, where calls ask for
 approval. The adapter's script/install tool surfaces are disabled. Credentials
@@ -251,8 +251,19 @@ lists; `/reload` or a restart is needed to pick up changes.
 | Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                          |
 | Playwright   | `bunx` (isolated/headless testing)                                   |
 | Mobbin       | approved OAuth/account when requested                                |
+| Excalidraw   | approved `create_view` calls, MCP UI viewer                          |
 | shadcn       | `bunx`, project `components.json`                                    |
 | ClickUp      | optional install opt-in, `npx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
+
+Excalidraw is a hosted MCP Apps server (`https://mcp.excalidraw.com`) used only
+by `b-diagram`. `read_me` is a direct read-only tool; `create_view` is
+classified `external-mutation`, so it asks on every call and sends the diagram
+text to the hosted endpoint. Its widget opens in the system browser (or Glimpse
+on macOS), never in the TUI, and `MCP_UI_VIEWER=none` suppresses it. The
+widget-only tools (export, share link, checkpoints) are hidden from the model
+and governed by the adapter's own consent gate, not by this permission policy.
+To keep diagram data local, replace the entry with a user-owned local stdio
+build of `excalidraw/excalidraw-mcp`.
 
 `scripts/mcp-doctor.sh --allow-degraded` reports local launcher/config and
 environment-variable presence only. It never reads credential values, starts
