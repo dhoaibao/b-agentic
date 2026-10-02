@@ -919,6 +919,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "Direct tests/docs and faithfully regenerated outputs count with their source",
                 "When review is required, freeze and fingerprint the exact candidate",
                 "Compare the identity after it returns",
+                "if it reports `complete: false`, block rather than fall back to manual hashing",
                 "Missing or failed required checks, unexpected paths, and hand-edited generated outputs block completion even without review",
                 "before editing indexed code, get the target's callers, blast radius, and affected tests",
             ),
