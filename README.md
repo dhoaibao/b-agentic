@@ -38,12 +38,7 @@ research, diagnosis, and changed-code review through native read-only
 subagents, using background work only when it is independent and resuming a
 compatible child through its supported task identifier.
 
-| Phase | Skills | Purpose |
-|---|---|---|
-| **Decide** | `b-plan`, `b-research`, `b-design`, `b-debug` | Resolve ambiguity, gather external facts, diagnose runtime causes, or define a frontend standard. |
-| **Build** | `b-frontend`, `b-diagram`, `b-implement`, `b-clickup`, `b-init`, `b-refactor` | Make the smallest approved change. |
-| **Validate** | `b-test`, `b-browser`, `b-agentic-audit`, `b-review` | Confirm tests, browser evidence, repository conformance, and changed-code quality. |
-| **Ship** | `b-commit`, `b-pr-summary` | Create explicitly requested local commits or write PR copy from local history. |
+![b-agentic overview: a user request enters the always-loaded kernel in the main Pi session, which routes it to one skill in the Decide, Build, Validate, or Ship phase and delegates bounded work to native read-only subagents.](assets/b-agentic-overview.png)
 
 ## Skills
 
