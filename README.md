@@ -38,7 +38,7 @@ research, diagnosis, and changed-code review through native read-only
 subagents, using background work only when it is independent and resuming a
 compatible child through its supported task identifier.
 
-![b-agentic overview: a user request enters the always-loaded kernel in the main Pi session, which routes it to one skill in the Decide, Build, Validate, or Ship phase and delegates bounded work to native read-only subagents.](assets/b-agentic-overview.png)
+![b-agentic overview: a user request enters the always-loaded kernel in the main Pi session, which routes it to one skill in the Decide, Build, Validate, or Ship phase and delegates bounded work to native read-only subagents. Built-in guardrails cover frozen review candidates, default-safe permissions, lazy managed MCP servers, and Pi extensions.](assets/b-agentic-overview.png)
 
 ## Skills
 
