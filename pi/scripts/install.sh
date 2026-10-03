@@ -42,12 +42,13 @@ INSTALL_MISSING_TOOLS=()
 
 runtime_upgrade_cli() {
   if ! command -v pi >/dev/null 2>&1; then
-    command -v npm >/dev/null 2>&1 || die 'npm is required to install Pi'
     if dry_run_enabled; then
       PI_CLI_INSTALL_STATUS=planned
-      printf '[dry-run] npm install -g @earendil-works/pi-coding-agent\n' >&2
+      run_remote_installer https://pi.dev/install.sh sh
     else
-      npm install -g @earendil-works/pi-coding-agent || die 'Pi CLI installation failed'
+      PI_CODING_AGENT_DIR="$PI_CONFIG_DIR" run_remote_installer https://pi.dev/install.sh sh || die 'Pi CLI installation failed'
+      refresh_tool_path
+      command -v pi >/dev/null 2>&1 || die 'Pi CLI installed but not on PATH; add its bin directory to PATH and rerun'
       PI_CLI_INSTALL_STATUS=installed
     fi
   elif dry_run_enabled; then
@@ -204,6 +205,9 @@ except (OSError, ValueError, KeyError, TypeError, AttributeError):
 # across releases; they do not make an otherwise identical entry foreign.
 ignored = ('directTools', 'description')
 strip = lambda entry: {k: v for k, v in entry.items() if k not in ignored} if isinstance(entry, dict) else entry
+# The earlier managed npx launcher is b-agentic-owned; the merge migrates it to bunx.
+if isinstance(existing, dict) and existing.get('command') == 'npx' and existing.get('args') == ['-y', '@hauptsache.net/clickup-mcp@1.9.0']:
+    existing = {**existing, 'command': expected['command'], 'args': expected['args']}
 if existing is not None and strip(existing) != strip(expected):
     print('error: a different ClickUp MCP entry already exists; preserving user configuration. Rename that entry or rerun with B_AGENTIC_CLICKUP_MCP=no.', file=sys.stderr)
     raise SystemExit(1)
@@ -634,6 +638,15 @@ runtime_print_install_report() {
   fi
   installer_summary_log "Manifest: $MANIFEST_DST"
   step 'Next steps:'
+  if [ "${#INSTALL_MISSING_TOOLS[@]}" -gt 0 ]; then
+    installer_summary_log "  - Install missing tools to enable the affected workflows: ${INSTALL_MISSING_TOOLS[*]}"
+  fi
+  if [ "${#PATH_ADDED_DIRS[@]}" -gt 0 ]; then
+    local dir
+    for dir in "${PATH_ADDED_DIRS[@]}"; do
+      installer_summary_log "  - Ensure your shell profile puts $dir on PATH: export PATH=\"$dir:\$PATH\""
+    done
+  fi
   installer_summary_log '  - Start a new Pi session and invoke /b-plan or another explicit /b-* prompt.'
 }
 

@@ -21,6 +21,36 @@ raise SystemExit(0 if ok else 1)
 PY
 }
 
+# Official installers for Pi and the runtime tools write to user-level bin
+# directories that a child process cannot add to the calling shell's PATH.
+# Directories added here were absent from the user's shell PATH; the install
+# summary tells the user to persist them, since vendors skip their own prompts
+# once this process PATH already contains the directory.
+PATH_ADDED_DIRS=()
+refresh_tool_path() {
+  local dir
+  for dir in "$HOME/.local/bin" "$HOME/.bun/bin" "${PI_CONFIG_DIR:-$HOME/.pi/agent}/bin"; do
+    [ -d "$dir" ] || continue
+    case ":$PATH:" in *":$dir:"*) continue ;; esac
+    PATH="$dir:$PATH"
+    PATH_ADDED_DIRS+=("$dir")
+  done
+  export PATH
+}
+
+# run_remote_installer URL SHELL: run a vendor-documented `curl | shell` installer.
+# Output goes through cat so a vendor installer cannot detect a terminal on stdout
+# and exec an interactive session (Pi offers "Start pi now?") that would abort this install.
+run_remote_installer() {
+  local url="$1" shell_cmd="$2"
+  if dry_run_enabled; then
+    printf '[dry-run] curl -fsSL %s | %s\n' "$url" "$shell_cmd" >&2
+    return 0
+  fi
+  command -v curl >/dev/null 2>&1 || { warn 'curl is required to run remote installers'; return 1; }
+  ( set -o pipefail; curl -fsSL "$url" | "$shell_cmd" | cat )
+}
+
 ensure_dir() {
   path_confined_to_home "$1" || die "refusing managed path that resolves outside HOME: $1"
   run_cmd mkdir -p "$1"
@@ -340,8 +370,16 @@ current = loads(dst.read_text())
 if not isinstance(incoming, dict) or not isinstance(current, dict):
     raise SystemExit('configuration roots must be objects')
 transport_keys = ('url', 'command', 'args', 'socket', 'cwd', 'headers', 'env')
+# Exact earlier b-agentic transports that are safe to replace; any other
+# command or args on these servers is user-owned and preserved.
+LEGACY_TRANSPORTS = {'clickup': {'command': 'npx', 'args': ['-y', '@hauptsache.net/clickup-mcp@1.9.0']}}
 def merge(existing, recommended, path=()):
     if isinstance(existing, dict) and isinstance(recommended, dict):
+        if len(path) == 2 and path[0] == 'mcpServers' and path[1] in LEGACY_TRANSPORTS:
+            legacy = LEGACY_TRANSPORTS[path[1]]
+            if all(existing.get(k) == v for k, v in legacy.items()):
+                print(f'warning: migrating MCP server {path[1]} launcher from {legacy["command"]} to {recommended.get("command")}', file=sys.stderr)
+                existing = {k: v for k, v in existing.items() if k not in legacy}
         merged = dict(existing)
         # A user-owned MCP server entry keeps its own transport: never mix the
         # template's url/command/socket settings into it.

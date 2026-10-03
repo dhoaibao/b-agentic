@@ -127,8 +127,9 @@ Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 
 ## Installation, configuration, and lifecycle
 
-Existing Pi is updated with `pi update --self`; first install uses the latest
-unversioned npm package. Nine extensions are installed with bare npm names and
+Existing Pi is updated with `pi update --self`; first install runs the official
+`https://pi.dev/install.sh` installer. Install also runs the official installers
+for any missing `bun`, `rtk`, and `codegraph`; failures warn rather than abort. Nine extensions are installed with bare npm names and
 updated through `pi update --extensions`. Bootstrap repository/ref inputs are
 constrained before Git. Installer sync copies the kernel, skills, specialists,
 prompts, references, and templates; it merges settings, specialist exclusions,

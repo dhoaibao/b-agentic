@@ -272,13 +272,40 @@ if not path.is_absolute() or path.resolve() == home or not path.resolve().is_rel
 PY
 }
 
+# Vendor-documented installers for the runtime tools b-agentic relies on.
+runtime_tool_installer() {
+  case "$1" in
+    bun) printf '%s %s' https://bun.com/install bash ;;
+    rtk) printf '%s %s' https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh sh ;;
+    codegraph) printf '%s %s' https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh sh ;;
+  esac
+}
+
 install_optional_runtime_tools() {
-  command -v rtk >/dev/null 2>&1 || INSTALL_MISSING_TOOLS+=('rtk')
-  command -v codegraph >/dev/null 2>&1 || INSTALL_MISSING_TOOLS+=('codegraph')
-  command -v bunx >/dev/null 2>&1 || INSTALL_MISSING_TOOLS+=('bunx')
-  # Install reports these in its Next steps block; other operations have no
-  # summary, so surface them as a warning there.
-  if [ "$OPERATION" != install ] && [ "${#INSTALL_MISSING_TOOLS[@]}" -gt 0 ]; then
+  local tool url shell_cmd missing=()
+  # Only install adds vendor bin directories to PATH: sync and update must keep
+  # operating on the Pi that preflight_pi_host checked on the incoming PATH.
+  [ "$OPERATION" != install ] || refresh_tool_path
+  for tool in bun rtk codegraph; do
+    command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+  done
+  INSTALL_MISSING_TOOLS=(${missing[@]+"${missing[@]}"})
+  if [ "$OPERATION" = install ] && [ "${#missing[@]}" -gt 0 ]; then
+    step "Installing missing tools: ${missing[*]}"
+    INSTALL_MISSING_TOOLS=()
+    for tool in "${missing[@]}"; do
+      read -r url shell_cmd <<<"$(runtime_tool_installer "$tool")"
+      if run_remote_installer "$url" "$shell_cmd"; then
+        refresh_tool_path
+        dry_run_enabled || command -v "$tool" >/dev/null 2>&1 || INSTALL_MISSING_TOOLS+=("$tool")
+      else
+        INSTALL_MISSING_TOOLS+=("$tool")
+      fi
+    done
+    [ "${#INSTALL_MISSING_TOOLS[@]}" -eq 0 ] || warn "could not install: ${INSTALL_MISSING_TOOLS[*]}; install them to enable the affected workflows."
+  elif [ "$OPERATION" != install ] && [ "${#INSTALL_MISSING_TOOLS[@]}" -gt 0 ]; then
+    # Install reports missing tools in its Next steps block; other operations
+    # have no summary, so surface them as a warning.
     warn "optional tools not found: ${INSTALL_MISSING_TOOLS[*]}; install them to enable the affected workflows."
   fi
 }

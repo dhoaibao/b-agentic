@@ -11,8 +11,13 @@ permission boundary, MCP configuration, and validation.
 curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 ```
 
-With Pi already on PATH, install runs `pi update --self`; otherwise it installs
-the latest `@earendil-works/pi-coding-agent` through npm. Nine bare npm package
+With Pi already on PATH, install runs `pi update --self`; otherwise it runs the
+official `curl -fsSL https://pi.dev/install.sh | sh` installer. Install also
+installs any missing `bun`, `rtk`, and `codegraph` with their official
+`curl | bash`/`curl | sh` installers (`https://bun.com/install`, the `rtk-ai/rtk`
+and `colbymchenry/codegraph` `install.sh` scripts); a failed tool install warns
+and is listed in the install summary. `--dry-run` prints these commands without
+running them; `--sync` and `--update` only warn about missing tools. Nine bare npm package
 names are managed in the Pi agent directory: `@gotgenes/pi-subagents`,
 `@gotgenes/pi-permission-system`, `pi-mcp-adapter`,
 `@juicesharp/rpiv-ask-user-question`, `@gotgenes/pi-anthropic-auth`,
@@ -263,18 +268,18 @@ missing per-server values to existing configurations and preserves user-edited
 lists, except that the one-shot search-exposure migration replaces the `directTools`
 of the search-exposed servers once; `/reload` or a restart is needed to pick up changes.
 
-| MCP          | Local prerequisite                                                   |
-| ------------ | -------------------------------------------------------------------- |
-| CodeGraph    | `codegraph` and an index for graph questions                         |
-| Context7     | `CONTEXT7_API_KEY`                                                   |
-| Brave Search | `bunx`, `BRAVE_API_KEY`                                              |
-| Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                          |
-| Playwright   | `bunx` (isolated/headless testing)                                   |
-| Mobbin       | approved OAuth/account when requested                                |
-| Excalidraw   | approved `create_view` calls, MCP UI viewer                          |
-| draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)   |
-| shadcn       | `bunx`, project `components.json`                                    |
-| ClickUp      | optional install opt-in, `npx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
+| MCP          | Local prerequisite                                                    |
+| ------------ | --------------------------------------------------------------------- |
+| CodeGraph    | `codegraph` and an index for graph questions                          |
+| Context7     | `CONTEXT7_API_KEY`                                                    |
+| Brave Search | `bunx`, `BRAVE_API_KEY`                                               |
+| Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                           |
+| Playwright   | `bunx` (isolated/headless testing)                                    |
+| Mobbin       | approved OAuth/account when requested                                 |
+| Excalidraw   | approved `create_view` calls, MCP UI viewer                           |
+| draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)    |
+| shadcn       | `bunx`, project `components.json`                                     |
+| ClickUp      | optional install opt-in, `bunx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
 
 Excalidraw is a hosted MCP Apps server (`https://mcp.excalidraw.com`) used only
 by `b-excalidraw`. `read_me` is a direct read-only tool; `create_view` is

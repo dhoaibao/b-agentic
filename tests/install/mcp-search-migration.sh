@@ -32,6 +32,11 @@ new_case() {
   done
   printf '#!/usr/bin/env bash\nexit 0\n' >"$sandbox/bin/pi"
   chmod +x "$sandbox/bin/pi"
+  # Stub runtime tools so the sandbox never runs the vendor installers.
+  for tool in bun rtk codegraph; do
+    printf '#!/usr/bin/env bash\nexit 0\n' >"$sandbox/bin/$tool"
+    chmod +x "$sandbox/bin/$tool"
+  done
   mkdir -p "$sandbox/home/.pi/agent"
   printf '%s' "$sandbox"
 }
@@ -219,6 +224,41 @@ path.write_text(json.dumps(data, indent=2) + '\n')
 PY
 install_ok "$case8" yes --sync
 assert_json "$agent/mcp-adapter.json" "data['mcpServers']['clickup']['directTools'] == ['clickup_getTaskById']"
+
+# M9. The earlier managed ClickUp npx launcher migrates to bunx with or without a
+#     recorded opt-in; a customised launcher is preserved.
+seed_clickup_entry() {
+  python3 - "$ROOT_DIR/pi/configs/mcp.clickup.json" "$1" "$2" <<'PY'
+import json, sys
+from pathlib import Path
+clickup = json.loads(Path(sys.argv[1]).read_text())['mcpServers']['clickup']
+clickup = {k: v for k, v in clickup.items() if k != 'description'}
+if sys.argv[3] == 'legacy':
+    clickup['command'], clickup['args'] = 'npx', ['-y', '@hauptsache.net/clickup-mcp@1.9.0']
+else:
+    clickup['command'], clickup['args'] = 'my-clickup', ['--x']
+Path(sys.argv[2]).write_text(json.dumps({'mcpServers': {'clickup': clickup}}, indent=2) + '\n')
+PY
+}
+bunx_ok="data['mcpServers']['clickup']['command'] == 'bunx' and data['mcpServers']['clickup']['args'] == ['@hauptsache.net/clickup-mcp@1.9.0']"
+case9="$(new_case clickup-legacy-new-opt-in)"
+agent="$case9/home/.pi/agent"
+seed_clickup_entry "$agent/mcp-adapter.json" legacy
+install_ok "$case9" yes
+assert_json "$agent/mcp-adapter.json" "$bunx_ok"
+assert_contains "$case9/last.log" 'launcher from npx to bunx'
+case9b="$(new_case clickup-legacy-recorded)"
+agent="$case9b/home/.pi/agent"
+install_ok "$case9b" yes
+seed_clickup_entry "$agent/mcp-adapter.json" legacy
+install_ok "$case9b" yes --sync
+assert_json "$agent/mcp-adapter.json" "$bunx_ok"
+case9c="$(new_case clickup-custom-launcher)"
+agent="$case9c/home/.pi/agent"
+install_ok "$case9c" yes
+seed_clickup_entry "$agent/mcp-adapter.json" custom
+install_ok "$case9c" yes --sync
+assert_json "$agent/mcp-adapter.json" "data['mcpServers']['clickup']['command'] == 'my-clickup' and data['mcpServers']['clickup']['args'] == ['--x']"
 
 # M7. Uninstall removes the servers b-agentic added and keeps the user's own.
 case7="$(new_case uninstall)"

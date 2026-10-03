@@ -11,7 +11,7 @@
 | `subagents.base.json` | `subagents.json` | `pi-subagents` excludes Magic Context from children; existing user exclusions are retained |
 | `magic-context.base.json` | `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`) | Shared CortexKit defaults: enabled with local embeddings; historian falls back to the live Pi model |
 | `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; nine lazy servers (four with fixed direct-tool lists, five search-exposed), no stored credentials |
-| `mcp.clickup.json` | `mcp-adapter.json` | Optional ClickUp stdio server (`@1.9.0`), added only after install opt-in; uses environment references for its personal API token and team ID |
+| `mcp.clickup.json` | `mcp-adapter.json` | Optional ClickUp stdio server (`bunx`, `@1.9.0`), added only after install opt-in; uses environment references for its personal API token and team ID |
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |
 | `../agents/b-*.md` | `agents/b-*.md` | Four generated specialist profiles (tool allowlists; global permission policy applies, no per-agent block) |

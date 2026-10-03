@@ -67,6 +67,11 @@ new_case() {
     cp -R "$ROOT_DIR/$directory" "$sandbox/source/"
   done
   make_bin "$sandbox/bin"
+  # Stub runtime tools so the sandbox never runs the vendor installers.
+  for tool in bun rtk codegraph; do
+    printf '#!/usr/bin/env bash\nexit 0\n' >"$sandbox/bin/$tool"
+    chmod +x "$sandbox/bin/$tool"
+  done
   add_retirable "$sandbox/source"
   printf '%s' "$sandbox"
 }

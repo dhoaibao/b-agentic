@@ -28,6 +28,7 @@ if [ "$run_release" -eq 1 ]; then
   # gate release and CI rather than every edit.
   bash "$ROOT_DIR/tests/install/prune-retired.sh"
   bash "$ROOT_DIR/tests/install/mcp-search-migration.sh"
+  bash "$ROOT_DIR/tests/install/runtime-tools.sh"
   if command -v rtk >/dev/null 2>&1; then
     python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else
