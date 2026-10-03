@@ -94,4 +94,32 @@ run_install "$case4" --sync >"$case4/log" 2>&1 || true
 assert_not_contains "$case4/log" 'older than the required'
 [ ! -s "$case4/curl.log" ] || fail 'sync with a hidden Pi ran a vendor installer'
 
+# R5. With every tool present, install and --update upgrade them: bun and codegraph
+#     through their own command, rtk through its official installer; sync does not.
+case5="$(new_case upgrade)"
+mkdir -p "$case5/home/.pi/agent"
+for tool in bun codegraph rtk pi; do
+  # shellcheck disable=SC2016 # The stub expands these when it runs, not now.
+  printf '#!/usr/bin/env bash\necho "%s $*" >>"$TOOL_LOG"\n[ "$1" = --version ] && echo 1.0.0\nexit 0\n' "$tool" >"$case5/bin/$tool"
+  chmod +x "$case5/bin/$tool"
+done
+upgrade_run() {
+  TOOL_LOG="$case5/tools.log" run_install "$case5" "$@" >"$case5/log" 2>&1 || { cat "$case5/log" >&2; fail "install $* failed"; }
+}
+: >"$case5/tools.log"
+upgrade_run --update
+assert_contains "$case5/tools.log" 'bun upgrade'
+assert_contains "$case5/tools.log" 'codegraph upgrade'
+assert_contains "$case5/curl.log" rtk-ai/rtk
+assert_not_contains "$case5/curl.log" bun.com
+: >"$case5/tools.log"; : >"$case5/curl.log"
+upgrade_run --sync
+[ ! -s "$case5/curl.log" ] || fail 'sync ran a vendor installer'
+assert_not_contains "$case5/tools.log" 'upgrade'
+: >"$case5/tools.log"; : >"$case5/curl.log"
+upgrade_run
+assert_contains "$case5/tools.log" 'bun upgrade'
+assert_contains "$case5/tools.log" 'codegraph upgrade'
+assert_contains "$case5/curl.log" rtk-ai/rtk
+
 printf 'Runtime tool installer checks passed.\n'

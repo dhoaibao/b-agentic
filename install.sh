@@ -281,13 +281,27 @@ runtime_tool_installer() {
   esac
 }
 
+# Upgrade an already installed runtime tool: bun and codegraph use their own
+# upgrade command; rtk has none, so rerun its official installer.
+upgrade_runtime_tool() {
+  local tool="$1" url shell_cmd
+  case "$tool" in
+    bun) run_cmd bun upgrade ;;
+    codegraph) run_cmd codegraph upgrade ;;
+    rtk)
+      read -r url shell_cmd <<<"$(runtime_tool_installer rtk)"
+      run_remote_installer "$url" "$shell_cmd"
+      ;;
+  esac
+}
+
 install_optional_runtime_tools() {
-  local tool url shell_cmd missing=()
+  local tool url shell_cmd missing=() present=() failed=()
   # Only install adds vendor bin directories to PATH: sync and update must keep
   # operating on the Pi that preflight_pi_host checked on the incoming PATH.
   [ "$OPERATION" != install ] || refresh_tool_path
   for tool in bun rtk codegraph; do
-    command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+    if command -v "$tool" >/dev/null 2>&1; then present+=("$tool"); else missing+=("$tool"); fi
   done
   INSTALL_MISSING_TOOLS=(${missing[@]+"${missing[@]}"})
   if [ "$OPERATION" = install ] && [ "${#missing[@]}" -gt 0 ]; then
@@ -307,6 +321,14 @@ install_optional_runtime_tools() {
     # Install reports missing tools in its Next steps block; other operations
     # have no summary, so surface them as a warning.
     warn "optional tools not found: ${INSTALL_MISSING_TOOLS[*]}; install them to enable the affected workflows."
+  fi
+  # Reinstall and --update also upgrade the tools that were already present.
+  if [ "$OPERATION" != sync ] && [ "${#present[@]}" -gt 0 ]; then
+    step "Upgrading installed tools: ${present[*]}"
+    for tool in "${present[@]}"; do
+      upgrade_runtime_tool "$tool" || failed+=("$tool")
+    done
+    [ "${#failed[@]}" -eq 0 ] || warn "could not upgrade: ${failed[*]}; continuing with the installed versions."
   fi
 }
 

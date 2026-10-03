@@ -17,7 +17,10 @@ installs any missing `bun`, `rtk`, and `codegraph` with their official
 `curl | bash`/`curl | sh` installers (`https://bun.com/install`, the `rtk-ai/rtk`
 and `colbymchenry/codegraph` `install.sh` scripts); a failed tool install warns
 and is listed in the install summary. `--dry-run` prints these commands without
-running them; `--sync` and `--update` only warn about missing tools. Nine bare npm package
+running them; `--sync` and `--update` only warn about missing tools. A rerun of
+install and `--update` also upgrade tools that are already present: `bun upgrade`,
+`codegraph upgrade`, and the `rtk` installer again (it has no upgrade command);
+a failed upgrade warns and continues, and `--sync` upgrades nothing. Nine bare npm package
 names are managed in the Pi agent directory: `@gotgenes/pi-subagents`,
 `@gotgenes/pi-permission-system`, `pi-mcp-adapter`,
 `@juicesharp/rpiv-ask-user-question`, `@gotgenes/pi-anthropic-auth`,

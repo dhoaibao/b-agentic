@@ -129,7 +129,9 @@ Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
 
 Existing Pi is updated with `pi update --self`; first install runs the official
 `https://pi.dev/install.sh` installer. Install also runs the official installers
-for any missing `bun`, `rtk`, and `codegraph`; failures warn rather than abort. Nine extensions are installed with bare npm names and
+for any missing `bun`, `rtk`, and `codegraph`; failures warn rather than abort.
+A rerun and `--update` upgrade present tools (`bun upgrade`, `codegraph upgrade`, and
+the `rtk` installer again); `--sync` upgrades none. Nine extensions are installed with bare npm names and
 updated through `pi update --extensions`. Bootstrap repository/ref inputs are
 constrained before Git. Installer sync copies the kernel, skills, specialists,
 prompts, references, and templates; it merges settings, specialist exclusions,
