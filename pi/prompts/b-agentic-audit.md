@@ -11,6 +11,6 @@ Then, before delegation, gather and pass this parent-owned evidence (or state wh
 - after approved origin fetch, branch/upstream and HEAD ahead/behind counts (both zero required)
 - status and scripts/b-agentic-audit.sh output; installed versions and approved live-probe results when available
 
-Delegate this bounded task to the `b-reviewer` agent with the `subagent` tool. Name the `b-agentic-audit` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS
+Before delegating, confirm the effective `b-reviewer.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value is an explicit non-empty list containing neither `edit` nor `write` (a missing, blank, or null `tools` grants them); an unsafe or missing profile, or an unknown agent type or `general-purpose` fallback note, means unavailable (discard that result). Delegate this bounded task to the `b-reviewer` agent with the `subagent` tool. Name the `b-agentic-audit` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS
 
 The child must read and follow its installed `skills/b-agentic-audit/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action. Do not perform this skill's work in the main session, even for a quick or single lookup; if the subagent is unavailable, report the gap and ask.

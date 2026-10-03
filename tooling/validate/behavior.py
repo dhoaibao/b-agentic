@@ -129,7 +129,8 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "Before delegating, read the selected SKILL.md and gather its parent-owned evidence",
         "Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill.",
         "Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask.",
-        "a request for external or current facts, however small, -> `b-research`",
+        "A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable.",
+        "a user request for external or current facts, however small, -> `b-research`",
         "- All other skills run in the main session.",
         "Delegated agents are prompt-enforced read-only specialists, not sandboxed by Pi.",
         "Tool lists omit edits, questions, and delegation but allow shell inspection under global permissions.",
@@ -855,10 +856,21 @@ def validate_generated_delegation_boundaries(skills: list[dict], errors: list[st
             "even for a quick, small, or single-lookup request",
             "never fall back to self-execution",
             "do not delegate again",
+            "`general-purpose` fallback",
+            "explicit non-empty list containing neither `edit` nor `write` (a missing, blank, or null `tools` grants them)",
+            "project `.pi/agents/` over the Pi agent directory",
+            "discard that result",
         ):
             if clause not in text:
                 errors.append(f"delegation boundary: skills/{name}/SKILL.md missing {clause!r}")
         prompt = (ROOT / "pi" / "prompts" / f"{name}.md").read_text()
+        if (
+            "explicit non-empty list containing neither `edit` nor `write`" not in prompt
+            or "project `.pi/agents/` over" not in prompt
+            or "discard that result" not in prompt
+            or "`general-purpose` fallback" not in prompt
+        ):
+            errors.append(f"delegation boundary: pi/prompts/{name}.md missing the unknown-agent fallback rule")
         if "even for a quick or single lookup" not in prompt:
             errors.append(f"delegation boundary: pi/prompts/{name}.md missing the no-self-execution rule")
         prepare = f"First read the installed `skills/{name}/SKILL.md` in the main session only to prepare this handoff"
@@ -1021,6 +1033,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "ask an available CodeGraph index for changed-symbol/file impact and affected tests",
                 "Do not initialize an index.",
+                "one bounded lookup (resolve once, query once) inside this skill",
             ),
         },
         "skills/b-debug/prompt.md": {

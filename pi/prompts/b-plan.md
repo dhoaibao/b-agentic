@@ -7,6 +7,6 @@ argument-hint: "[goal or problem]"
 
 First read the installed `skills/b-plan/SKILL.md` in the main session only to prepare this handoff; do not run its steps there.
 
-Delegate this bounded task to the `b-planner` agent with the `subagent` tool. Name the `b-plan` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS
+Before delegating, confirm the effective `b-planner.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value is an explicit non-empty list containing neither `edit` nor `write` (a missing, blank, or null `tools` grants them); an unsafe or missing profile, or an unknown agent type or `general-purpose` fallback note, means unavailable (discard that result). Delegate this bounded task to the `b-planner` agent with the `subagent` tool. Name the `b-plan` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS
 
 The child must read and follow its installed `skills/b-plan/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action. Do not perform this skill's work in the main session, even for a quick or single lookup; if the subagent is unavailable, report the gap and ask.

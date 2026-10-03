@@ -417,7 +417,7 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
 def render_delegation(skills: list[dict[str, Any]]) -> str:
     delegated = [skill for skill in skills if skill["execution"]["mode"] == "subagent"]
     lines = [
-        "- Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:",
+        "- Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
     lines.append("- All other skills run in the main session.")
@@ -436,7 +436,7 @@ def render_delegation_boundary(skill: dict[str, Any]) -> str:
             "",
             f"`{name}` runs only in the `{agent}` subagent.",
             "",
-            f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `{agent}` and a bounded task naming `{name}`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
+            f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `{agent}.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value is an explicit non-empty list containing neither `edit` nor `write` (a missing, blank, or null `tools` grants them), then call `subagent` with agent `{agent}` and a bounded task naming `{name}`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
             f"- `{agent}` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.",
         ]
     )
@@ -516,7 +516,7 @@ def render_prompt_file(skill: dict[str, Any]) -> str:
                 + "\n\n"
             )
         lines.append(
-            f"{preparation}Delegate this bounded task to the `{execution['agent']}` agent with the `subagent` tool. Name the `{name}` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS\n\nThe child must read and follow its installed `skills/{name}/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action. Do not perform this skill's work in the main session, even for a quick or single lookup; if the subagent is unavailable, report the gap and ask."
+            f"{preparation}Before delegating, confirm the effective `{execution['agent']}.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value is an explicit non-empty list containing neither `edit` nor `write` (a missing, blank, or null `tools` grants them); an unsafe or missing profile, or an unknown agent type or `general-purpose` fallback note, means unavailable (discard that result). Delegate this bounded task to the `{execution['agent']}` agent with the `subagent` tool. Name the `{name}` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS\n\nThe child must read and follow its installed `skills/{name}/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action. Do not perform this skill's work in the main session, even for a quick or single lookup; if the subagent is unavailable, report the gap and ask."
         )
     elif skill["routing"].get("explicit_request"):
         lines.append(

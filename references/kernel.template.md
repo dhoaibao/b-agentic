@@ -29,7 +29,7 @@
 - `b-commit` does not rerun checks, self-authorize the candidate, or initiate changed-code review solely to commit. It checks paths/index and honors explicit repo pre-commit checks; changed candidates return to the change phase. Explicit review routes to `b-review`.
 - When review is required, freeze the checked tracked plus relevant untracked/derived candidate. Record HEAD and SHA-256 digests of staged and unstaged binary diffs, plus sorted relevant untracked paths, types, and content digests. Exclude protected content until authorized; block if its identity cannot safely be checked. Compare the identity at handoff, reviewer start/end, and after return. Do not edit during review. A changed candidate, `NEEDS FIXES`, or unaccepted follow-up needs correction, fresh checks, and a new review. Review never commits or pushes.
 <!-- generated:delegation:start -->
-- Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:
+- Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:
   - `b-plan` -> `b-planner`.
   - `b-research` -> `b-researcher`.
   - `b-debug` -> `b-debugger`.
@@ -59,7 +59,7 @@
 - Split and commit working-tree changes -> `b-commit` only on explicit user request.
 - Commit-backed PR summary or supplied PR-prose review/rewrite -> `b-pr-summary` only on explicit user request.
 <!-- generated:kernel-routing:end -->
-A local, factual repository question needing no phase work -> answer directly from evidence; a request for external or current facts, however small, -> `b-research`.
+A local, factual repository question needing no phase work -> answer directly from evidence; a user request for external or current facts, however small, -> `b-research`.
 
 ## Safety and tools
 

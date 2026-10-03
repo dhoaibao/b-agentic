@@ -26,7 +26,7 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 
 `b-research` runs only in the `b-researcher` subagent.
 
-- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence, then call `subagent` with agent `b-researcher` and a bounded task naming `b-research`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `b-researcher.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value is an explicit non-empty list containing neither `edit` nor `write` (a missing, blank, or null `tools` grants them), then call `subagent` with agent `b-researcher` and a bounded task naming `b-research`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
 - `b-researcher` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
 
 ## Research handoff
