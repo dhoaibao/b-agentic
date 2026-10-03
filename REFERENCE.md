@@ -291,9 +291,10 @@ by `b-drawio`, and owns formal or editable diagrams (official icons, ER/UML,
 sequence, dense or multi-page flowcharts, `.drawio` files); `b-excalidraw` keeps
 conceptual, whiteboard, and chat-sized sketches. `search_shapes` is the only direct
 read-only tool. `open_drawio_xml`, `open_drawio_csv`, and `open_drawio_mermaid` are
-`external-mutation`: each asks, then opens the draw.io web editor in the default
-browser with the diagram in the URL fragment (the tool result always includes the
-URL, so headless sessions still get it). `set_page` is `local-mutation` and the skill
+`external-mutation`: each asks, then attempts to open the draw.io web editor in the default
+browser with the diagram in the URL fragment. The launch is asynchronous and its
+failures are not reported, so success is unconfirmed; the tool result always includes
+the URL, so headless sessions still get it. `set_page` is `local-mutation` and the skill
 never calls it; `.drawio` files are written with native tools. `list_pages` and
 `get_page` are deliberately unclassified, so they ask through the proxy, because the
 server accepts any `.drawio` or `.xml` path. The managed entry sets
@@ -301,7 +302,14 @@ server accepts any `.drawio` or `.xml` path. The managed entry sets
 `icons.diagrams.net`; the first search still downloads the shape index from a CDN,
 and `postLayout`/`routing` options fetch layout scripts. Remove that variable or
 point `DRAWIO_BASE_URL` at a self-hosted editor in a user-owned entry if needed.
-Bump the pin deliberately when updating.
+The pin freezes only the top-level package version: `@drawio/mcp@1.6.3` declares ranged
+dependencies (`@modelcontextprotocol/sdk ^1.27.1`, `pako ^2.1.0`), and its best-effort `postinstall`
+downloads `libavoid-routing.js` from `viewer.diagrams.net` into the user cache (it never
+fails the install, and `--ignore-scripts` skips it). The server also reads and writes
+`~/.cache/drawio-mcp/` for the shape index and layout scripts, and those CDN inputs
+are mutable. The package runs unsandboxed with the user's permissions; upstream
+documents `npx`, while `bunx` is only verified to start it. Bump the pin deliberately
+when updating.
 
 `scripts/mcp-doctor.sh --allow-degraded` reports local launcher/config and
 environment-variable presence only. It never reads credential values, starts
