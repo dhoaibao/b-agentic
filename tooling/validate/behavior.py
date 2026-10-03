@@ -251,6 +251,36 @@ FIXTURES = [
         not_expected=("b-frontend", "b-browser", "b-plan"),
     ),
     Fixture(
+        name="draw.io cloud topology",
+        prompt="Create a draw.io diagram of the AWS VPC network topology with official icons.",
+        expected="b-drawio",
+        not_expected=("b-excalidraw", "b-frontend", "b-plan"),
+    ),
+    Fixture(
+        name="drawio ER diagram file",
+        prompt="Draw an ER diagram of the orders schema as a .drawio file under docs/.",
+        expected="b-drawio",
+        not_expected=("b-excalidraw", "b-implement"),
+    ),
+    Fixture(
+        name="update existing drawio file",
+        prompt="Update the .drawio file docs/architecture.drawio to add the cache tier.",
+        expected="b-drawio",
+        not_expected=("b-implement", "b-frontend"),
+    ),
+    Fixture(
+        name="whiteboard sketch stays excalidraw",
+        prompt="Make a whiteboard sketch for a brainstorm diagram of the onboarding idea.",
+        expected="b-excalidraw",
+        not_expected=("b-drawio", "b-plan"),
+    ),
+    Fixture(
+        name="drawio embed stays frontend",
+        prompt="Implement frontend implementation of a draw.io embed component with responsive layout in the React dashboard.",
+        expected="b-frontend",
+        not_expected=("b-drawio", "b-excalidraw", "b-implement"),
+    ),
+    Fixture(
         name="initialize repository guidance",
         prompt="Initialize this repository's AGENTS.md and CLAUDE.md agent instruction docs.",
         expected="b-init",

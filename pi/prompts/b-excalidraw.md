@@ -1,5 +1,5 @@
 ---
-description: "Draw technical architecture and flow diagrams in Excalidraw from explicit facts"
+description: "Sketch conceptual, whiteboard, and explanatory diagrams in Excalidraw from explicit facts"
 argument-hint: "[diagram type and facts]"
 ---
 

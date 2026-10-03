@@ -245,9 +245,9 @@ with their source rather than as additional subsystems.
 ## MCP and readiness
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Mobbin, Excalidraw, and shadcn through `pi-mcp-adapter`. Connections
+Firecrawl, Playwright, Mobbin, Excalidraw, draw.io, and shadcn through `pi-mcp-adapter`. Connections
 are lazy. Each server declares `exposure` in `references/mcp_operations.yaml`.
-CodeGraph, Context7, and Excalidraw are `direct`: their short allowed lists are
+CodeGraph, Context7, Excalidraw, and draw.io are `direct`: their short allowed lists are
 registered eagerly. Brave Search, Firecrawl, Playwright, Mobbin, shadcn, and the optional
 ClickUp server are `search`: `directTools: "search"` registers their tools inactive, so
 they add no prompt tokens until `mcp({search})` activates matches for the next turn.
@@ -272,6 +272,7 @@ of the search-exposed servers once; `/reload` or a restart is needed to pick up 
 | Playwright   | `bunx` (isolated/headless testing)                                   |
 | Mobbin       | approved OAuth/account when requested                                |
 | Excalidraw   | approved `create_view` calls, MCP UI viewer                          |
+| draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)   |
 | shadcn       | `bunx`, project `components.json`                                    |
 | ClickUp      | optional install opt-in, `npx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
 
@@ -284,6 +285,23 @@ widget-only tools (export, share link, checkpoints) are hidden from the model
 and governed by the adapter's own consent gate, not by this permission policy.
 To keep diagram data local, replace the entry with a user-owned local stdio
 build of `excalidraw/excalidraw-mcp`.
+
+draw.io runs as a local stdio server (`bunx @drawio/mcp@1.6.3`, pinned) used only
+by `b-drawio`, and owns formal or editable diagrams (official icons, ER/UML,
+sequence, dense or multi-page flowcharts, `.drawio` files); `b-excalidraw` keeps
+conceptual, whiteboard, and chat-sized sketches. `search_shapes` is the only direct
+read-only tool. `open_drawio_xml`, `open_drawio_csv`, and `open_drawio_mermaid` are
+`external-mutation`: each asks, then opens the draw.io web editor in the default
+browser with the diagram in the URL fragment (the tool result always includes the
+URL, so headless sessions still get it). `set_page` is `local-mutation` and the skill
+never calls it; `.drawio` files are written with native tools. `list_pages` and
+`get_page` are deliberately unclassified, so they ask through the proxy, because the
+server accepts any `.drawio` or `.xml` path. The managed entry sets
+`DRAWIO_ICON_SERVICE_URL=off`, so shape search sends no query text to
+`icons.diagrams.net`; the first search still downloads the shape index from a CDN,
+and `postLayout`/`routing` options fetch layout scripts. Remove that variable or
+point `DRAWIO_BASE_URL` at a self-hosted editor in a user-owned entry if needed.
+Bump the pin deliberately when updating.
 
 `scripts/mcp-doctor.sh --allow-degraded` reports local launcher/config and
 environment-variable presence only. It never reads credential values, starts

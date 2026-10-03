@@ -17,6 +17,7 @@ EXPECTED_SERVERS = {
     "playwright",
     "mobbin",
     "excalidraw",
+    "drawio",
     "shadcn",
     "clickup",
 }
@@ -87,6 +88,20 @@ def main() -> int:
     for name in ("firecrawl_crawl", "playwright_browser_click"):
         if permission.get(name) != "ask":
             errors.append(f"{name} must ask before mutation")
+    for name in (
+        "drawio_open_drawio_xml",
+        "drawio_open_drawio_csv",
+        "drawio_open_drawio_mermaid",
+        "drawio_set_page",
+        "drawio_get_page",
+        "drawio_list_pages",
+    ):
+        if permission.get(name, permission.get("drawio_*")) != "ask":
+            errors.append(f"{name} must ask before browser, file, or unclassified operations")
+    if permission.get("drawio_search_shapes") != "allow":
+        errors.append("read-only draw.io shape search must be allowed")
+    if "drawio_get_page" in permission or "drawio_list_pages" in permission:
+        errors.append("draw.io page-read tools must stay unclassified so the wildcard ask applies")
     if permission.get("context7_resolve-library-id") != "allow":
         errors.append("read-only context7 lookup must be allowed")
     if permission.get("mcp", {}).get("*") != "ask":

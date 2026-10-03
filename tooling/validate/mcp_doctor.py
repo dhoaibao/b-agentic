@@ -20,6 +20,7 @@ SERVERS = (
     "playwright",
     "mobbin",
     "excalidraw",
+    "drawio",
     "shadcn",
     "clickup",
 )

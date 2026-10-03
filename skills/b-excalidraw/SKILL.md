@@ -1,12 +1,14 @@
 ---
 name: b-excalidraw
 description: >
-  Draw architecture, workflow, sequence, data-flow, and lifecycle diagrams
-  in Excalidraw through the Excalidraw MCP from explicit facts, without
-  inferring topology, ownership, runtime behavior, impact, or merge
-  safety. Never produces HTML or SVG. Routing signals: architecture
-  diagram, system map, workflow diagram, sequence diagram, data-flow
-  diagram, lifecycle diagram, Excalidraw diagram.
+  Sketch conceptual, whiteboard, and explanatory architecture, workflow,
+  data-flow, and lifecycle diagrams in Excalidraw through the Excalidraw
+  MCP from explicit facts, without inferring topology, ownership, runtime
+  behavior, impact, or merge safety. Formal, icon-based, ER/UML, sequence,
+  or editable .drawio diagrams belong to b-drawio. Never produces HTML or
+  SVG. Routing signals: architecture diagram, system map, workflow
+  diagram, data-flow diagram, lifecycle diagram, whiteboard sketch,
+  brainstorm diagram, Excalidraw diagram.
 metadata:
   phase: Build
   execution_mode: main
@@ -16,15 +18,17 @@ metadata:
 
 # b-excalidraw
 
-Draw a technical diagram in Excalidraw through the Excalidraw MCP from explicit user or repository facts. Do not infer topology, ownership, runtime behavior, impact, or merge safety, and never produce an HTML or SVG artifact.
+Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw through the Excalidraw MCP from explicit user or repository facts. Do not infer topology, ownership, runtime behavior, impact, or merge safety, and never produce an HTML or SVG artifact.
 
 ## When to use
 
-- The user explicitly requests an architecture, system map, workflow, sequence, data-flow, or lifecycle diagram, or asks for an Excalidraw diagram.
-- The user needs a reviewable technical communication artifact, not merely an explanation.
+- The user asks for an Excalidraw diagram, a whiteboard sketch, a brainstorm diagram, or a conceptual architecture, system map, workflow, data-flow, or lifecycle diagram.
+- The diagram explains an idea in chat and stays small (about 6 steps or about 20 nodes or fewer), with no need for official icons or later editing as a repository file.
 
 ## When NOT to use
 
+- A formal or editable diagram (official cloud or network icons, ER or UML models, sequence diagrams, dense or multi-page flowcharts, or a `.drawio` file) -> use **b-drawio**.
+- Format is unstated and matters: ask one focused question. If it cannot be asked, an explanation goes to **b-excalidraw** and a repository artifact or formal specification goes to **b-drawio**.
 - Diagram scope, facts, or intended audience are materially unclear -> use **b-plan**.
 - The user wants frontend/UI code or visual refresh work -> use **b-frontend**.
 - The user wants reusable frontend design guidance -> use **b-design**.

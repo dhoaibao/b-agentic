@@ -72,7 +72,7 @@ PY
 }
 
 search_ok='all(data["mcpServers"][n]["directTools"] == "search" for n in ["brave_search", "firecrawl", "playwright", "mobbin", "shadcn"])'
-direct_ok='isinstance(data["mcpServers"]["context7"]["directTools"], list) and isinstance(data["mcpServers"]["excalidraw"]["directTools"], list)'
+direct_ok='isinstance(data["mcpServers"]["context7"]["directTools"], list) and isinstance(data["mcpServers"]["excalidraw"]["directTools"], list) and isinstance(data["mcpServers"]["drawio"]["directTools"], list)'
 
 # M1. A fresh install ships search exposure, descriptions, and records the migration.
 case1="$(new_case fresh)"

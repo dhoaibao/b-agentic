@@ -47,9 +47,33 @@
     },
     {
       "id": "technical-diagram-artifact",
-      "prompt": "Create a versioned architecture diagram that maps the service boundaries and request flow from explicit repository facts.",
+      "prompt": "Create a versioned architecture diagram as a .drawio file that maps the service boundaries and request flow from explicit repository facts.",
+      "expected_skill": "b-drawio",
+      "forbidden_skills": ["b-excalidraw", "b-plan", "b-frontend", "b-browser"]
+    },
+    {
+      "id": "drawio-cloud-topology",
+      "prompt": "Create a draw.io diagram of the AWS VPC network topology with official icons.",
+      "expected_skill": "b-drawio",
+      "forbidden_skills": ["b-excalidraw", "b-frontend", "b-plan"]
+    },
+    {
+      "id": "drawio-update-existing-file",
+      "prompt": "Update the .drawio file docs/architecture.drawio to add the cache tier.",
+      "expected_skill": "b-drawio",
+      "forbidden_skills": ["b-implement", "b-frontend"]
+    },
+    {
+      "id": "excalidraw-whiteboard-sketch",
+      "prompt": "Make a whiteboard sketch for a brainstorm diagram of the onboarding idea.",
       "expected_skill": "b-excalidraw",
-      "forbidden_skills": ["b-plan", "b-frontend", "b-browser"]
+      "forbidden_skills": ["b-drawio", "b-plan"]
+    },
+    {
+      "id": "drawio-embed-stays-frontend",
+      "prompt": "Implement a draw.io embed component in the React dashboard with responsive layout and verify it.",
+      "expected_skill": "b-frontend",
+      "forbidden_skills": ["b-drawio", "b-excalidraw", "b-implement"]
     },
     {
       "id": "excalidraw-diagram",

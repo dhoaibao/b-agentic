@@ -129,22 +129,47 @@
       "name": "b-excalidraw",
       "execution": {"mode": "main"},
       "phase": "Build",
-      "use": "Draw technical architecture and flow diagrams in Excalidraw from explicit facts",
+      "use": "Sketch conceptual, whiteboard, and explanatory diagrams in Excalidraw from explicit facts",
       "argument_hint": "[diagram type and facts]",
       "routing": {
-        "intent": "Create a technical architecture, system map, workflow, sequence, data-flow, or lifecycle diagram",
+        "intent": "Sketch a conceptual, whiteboard, or explanatory diagram",
         "triggers": [
           "architecture diagram",
           "system map",
           "workflow diagram",
-          "sequence diagram",
           "data-flow diagram",
           "lifecycle diagram",
+          "whiteboard sketch",
+          "brainstorm diagram",
           "Excalidraw diagram"
         ]
       },
       "prompt": {
-        "description": "Draw architecture, workflow, sequence, data-flow, and lifecycle diagrams in Excalidraw through the Excalidraw MCP from explicit facts, without inferring topology, ownership, runtime behavior, impact, or merge safety. Never produces HTML or SVG."
+        "description": "Sketch conceptual, whiteboard, and explanatory architecture, workflow, data-flow, and lifecycle diagrams in Excalidraw through the Excalidraw MCP from explicit facts, without inferring topology, ownership, runtime behavior, impact, or merge safety. Formal, icon-based, ER/UML, sequence, or editable .drawio diagrams belong to b-drawio. Never produces HTML or SVG."
+      }
+    },
+    {
+      "name": "b-drawio",
+      "execution": {"mode": "main"},
+      "phase": "Build",
+      "use": "Draw formal or editable technical diagrams in draw.io from explicit facts",
+      "argument_hint": "[diagram type, facts, and .drawio path]",
+      "routing": {
+        "intent": "Formal or editable draw.io diagram (cloud/network icons, ER/UML, sequence, .drawio files)",
+        "triggers": [
+          "draw.io diagram",
+          "drawio",
+          ".drawio file",
+          "network topology diagram",
+          "cloud architecture diagram",
+          "ER diagram",
+          "UML diagram",
+          "class diagram",
+          "sequence diagram"
+        ]
+      },
+      "prompt": {
+        "description": "Draw formal or editable technical diagrams in draw.io from explicit facts, such as cloud or network topology with official icons, ER and UML models, sequence diagrams, dense or multi-page flowcharts, and repository .drawio files, without inferring topology, ownership, runtime behavior, impact, or merge safety. Conceptual whiteboard sketches belong to b-excalidraw. Never produces HTML or SVG."
       }
     },
     {

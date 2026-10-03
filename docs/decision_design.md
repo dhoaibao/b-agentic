@@ -84,10 +84,10 @@ Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.
 
 ## MCP and external-evidence design
 
-Eight base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
+Nine base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
 ClickUp is added only after install opt-in. Each server declares an `exposure` in
 `references/mcp_operations.yaml`. Small, frequently used servers (CodeGraph, Context7,
-Excalidraw) are `direct` and register their allowed operations eagerly. The large ones
+Excalidraw, draw.io) are `direct` and register their allowed operations eagerly. The large ones
 (Brave Search, Firecrawl, Playwright, Mobbin, shadcn, ClickUp) use `directTools: "search"`:
 the adapter registers them inactive, and `mcp({search})` activates matches under the same
 native names, so no permission rule changes and the ~19K estimated prompt tokens per turn

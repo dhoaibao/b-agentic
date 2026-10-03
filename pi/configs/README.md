@@ -10,12 +10,12 @@
 | `settings.base.json` | `settings.json` | Pi, nine unpinned packages, `-builtin:mcp` (the adapter owns MCP), native compaction off by default, and Dracula only when no theme is selected |
 | `subagents.base.json` | `subagents.json` | `pi-subagents` excludes Magic Context from children; existing user exclusions are retained |
 | `magic-context.base.json` | `~/.config/cortexkit/magic-context.jsonc` (or `$XDG_CONFIG_HOME/cortexkit/`) | Shared CortexKit defaults: enabled with local embeddings; historian falls back to the live Pi model |
-| `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; eight lazy servers (three with fixed direct-tool lists, five search-exposed), no stored credentials |
+| `mcp.base.json` | `mcp-adapter.json` | `pi-mcp-adapter`; nine lazy servers (four with fixed direct-tool lists, five search-exposed), no stored credentials |
 | `mcp.clickup.json` | `mcp-adapter.json` | Optional ClickUp stdio server (`@1.9.0`), added only after install opt-in; uses environment references for its personal API token and team ID |
 | `permission.user.template.json` | `extensions/pi-permission-system/config.json` | `@gotgenes/pi-permission-system`; known tool and path policy |
 | `../themes/dracula.json` | `themes/dracula.json` | Bundled [Dracula theme](https://draculatheme.com/pi-coding-agent); checked-in MIT license in `../themes/LICENSE` |
 | `../agents/b-*.md` | `agents/b-*.md` | Four generated specialist profiles (tool allowlists; global permission policy applies, no per-agent block) |
-| `../prompts/b-*.md` | `prompts/b-*.md` | Sixteen generated explicit `/b-*` routes |
+| `../prompts/b-*.md` | `prompts/b-*.md` | Seventeen generated explicit `/b-*` routes |
 | `../extensions/b-*.ts` | `extensions/b-*.ts` | Managed Pi extensions; `b-sync.ts` provides `/b-sync` (source pull + `install.sh --sync --force`, then reload); `b-verify-gate.ts` adds an advisory one-shot finish-time verify reminder; `b-candidate-snapshot.ts` adds the read-only `b_candidate_snapshot` review-candidate fingerprint tool; `b-input-image-preview.ts` previews image paths in the input above the editor and in a popup (display-only, never touches the editor or submitted text; opt out with `PI_INPUT_IMAGE_PREVIEW=off`) |
 
 `install.sh` merges without replacing user-owned keys, snapshots the managed
@@ -29,7 +29,7 @@ template adds missing per-server
 optional ClickUp server use `directTools: "search"`: their tools start inactive, so
 they cost no prompt tokens, and `mcp({search})` activates matches under the same
 `<server>_<tool>` names (about 19K estimated tokens per turn saved; unmeasured).
-CodeGraph, Context7, and Excalidraw keep short fixed lists. The installer applies
+CodeGraph, Context7, Excalidraw, and draw.io keep short fixed lists. The installer applies
 this to an existing install once: it replaces those servers' `directTools` even when
 you customised them, saves the previous file under `b-agentic/backups/`, and records
 the migrated servers in the manifest (`mcpExposureMigratedServers`), so later syncs keep any list you restore while an optional server enabled later is still migrated.

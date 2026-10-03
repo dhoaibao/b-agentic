@@ -45,7 +45,8 @@
 - External docs, API facts, versions, comparisons -> `b-research`.
 - Frontend design standard and docs/DESIGN.md authoring -> `b-design`.
 - Clearly scoped frontend/UI code implementation or visual refresh (pages, layouts, components, responsiveness, interactions) -> `b-frontend`.
-- Create a technical architecture, system map, workflow, sequence, data-flow, or lifecycle diagram -> `b-excalidraw`.
+- Sketch a conceptual, whiteboard, or explanatory diagram -> `b-excalidraw`.
+- Formal or editable draw.io diagram (cloud/network icons, ER/UML, sequence, .drawio files) -> `b-drawio`.
 - Implement approved or clearly scoped non-UI work (general fallback) -> `b-implement`.
 - Create and update ClickUp tasks using Context, Requirements, Acceptance Criteria, and Checklist -> `b-clickup`.
 - Initialize repo-local agent instruction files -> `b-init`.

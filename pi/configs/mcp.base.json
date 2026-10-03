@@ -56,6 +56,14 @@
       "directTools": ["read_me"],
       "lifecycle": "lazy"
     },
+    "drawio": {
+      "description": "draw.io shape search and editable diagram drawing (formal and .drawio diagrams).",
+      "command": "bunx",
+      "args": ["@drawio/mcp@1.6.3"],
+      "directTools": ["search_shapes"],
+      "env": { "DRAWIO_ICON_SERVICE_URL": "off" },
+      "lifecycle": "lazy"
+    },
     "shadcn": {
       "description": "shadcn/ui registry search, component examples, and install commands.",
       "command": "bunx",
