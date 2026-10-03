@@ -857,7 +857,7 @@ def validate_generated_delegation_boundaries(skills: list[dict], errors: list[st
             "never fall back to self-execution",
             "do not delegate again",
             "`general-purpose` fallback",
-            "explicit non-empty list containing neither `edit` nor `write` (a missing, blank, or null `tools` grants them)",
+            "is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains neither `edit` nor `write` (a missing, blank, or null `tools` grants them)",
             "project `.pi/agents/` over the Pi agent directory",
             "discard that result",
         ):
@@ -865,7 +865,8 @@ def validate_generated_delegation_boundaries(skills: list[dict], errors: list[st
                 errors.append(f"delegation boundary: skills/{name}/SKILL.md missing {clause!r}")
         prompt = (ROOT / "pi" / "prompts" / f"{name}.md").read_text()
         if (
-            "explicit non-empty list containing neither `edit` nor `write`" not in prompt
+            "is readable and its parsed frontmatter `tools` value, normalized to a list" not in prompt
+            or "is explicit, non-empty, and contains neither `edit` nor `write`" not in prompt
             or "project `.pi/agents/` over" not in prompt
             or "discard that result" not in prompt
             or "`general-purpose` fallback" not in prompt
