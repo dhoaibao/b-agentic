@@ -3,6 +3,7 @@
 // labels, the recent-preview list behind /image, popup-slot ownership, bounded file read) and
 // writes one JSON result per case to $PROBE_OUT. Rendering, the popup, and mouse input need a
 // terminal and are not covered.
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -190,6 +191,33 @@ export default function (pi: ExtensionAPI) {
     check("load missing", await loadImage(path.join(work, "nope.png")), null);
     check("load by content not name", await loadImage(notImage), null);
     check("load directory", await loadImage(work), null);
+
+    // A FIFO with no writer must be rejected without blocking, and a later valid load must still work.
+    const fifo = path.join(work, "pipe.png");
+    let fifoMade = true;
+    try {
+      execFileSync("mkfifo", [fifo]);
+    } catch {
+      fifoMade = false;
+    }
+    if (fifoMade) {
+      const timedOut = Symbol("timeout");
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const raced = await Promise.race([
+        loadImage(fifo),
+        new Promise<symbol>((resolve) => {
+          timer = setTimeout(() => resolve(timedOut), 3000);
+        }),
+      ]);
+      if (timer) clearTimeout(timer);
+      check(
+        "load fifo without writer",
+        raced === timedOut ? "timeout" : raced,
+        null,
+      );
+      const again = await loadImage(small);
+      check("load after fifo", again ? again.mime : null, "image/png");
+    }
 
     // The probe script requires a minimum count: an empty or partial run must not pass.
     results._count = Object.keys(results).length;

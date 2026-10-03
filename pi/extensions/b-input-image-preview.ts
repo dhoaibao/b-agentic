@@ -18,6 +18,7 @@
 //   extension registers nothing (no widget or command).
 //
 // Set PI_INPUT_IMAGE_PREVIEW=off to disable it without removing the file.
+import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -203,9 +204,15 @@ interface Loaded {
   meta: string;
 }
 
-/** Read at most MAX_BYTES from one open handle, so a file that grows or is swapped cannot bypass the cap. */
+/**
+ * Read at most MAX_BYTES from one open handle, so a file that grows or is swapped cannot bypass the cap.
+ * O_NONBLOCK keeps the open from waiting on a FIFO with no writer; isFile() then rejects it.
+ */
 async function readBounded(file: string): Promise<Buffer | null> {
-  const handle = await open(file, "r");
+  const handle = await open(
+    file,
+    constants.O_RDONLY | (constants.O_NONBLOCK ?? 0),
+  );
   try {
     const info = await handle.stat();
     if (!info.isFile() || info.size === 0 || info.size > MAX_BYTES) return null;
