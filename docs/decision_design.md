@@ -98,7 +98,8 @@ separately gated proxy, which asks for calls. Specialists name their tools in `t
 which activates them for the child without the proxy, so no specialist gains the `mcp` proxy
 and the observation-only boundary is unchanged. Considered and rejected: adding `mcp` to
 specialist allowlists (probes showed it is unnecessary and widens the surface).
-Existing installs migrate once, by explicit user choice that overrides customised lists.
+Existing installs migrate automatically, once per server, with no prompt: the installer replaces
+those servers' customised `directTools` and saves the previous file under `b-agentic/backups/`.
 Script mode and model-driven installs are disabled. The policy classifies known
 tools; allowed direct names avoid proxy approval, while consequential and
 unknown operations ask. The adapter does not make configuration a live server
