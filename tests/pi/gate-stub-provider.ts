@@ -25,11 +25,26 @@ const prose: Step = {
 const check: Step = { name: "bash", arguments: { command: "echo checked" } };
 
 const snapshot: Step = { name: "b_candidate_snapshot", arguments: {} };
+const snapshotIgnored = (...paths: string[]): Step => ({
+  name: "b_candidate_snapshot",
+  arguments: { include_ignored: paths },
+});
 
 const SCENARIOS: Record<string, Step[]> = {
   // Used by tests/pi/snapshot-probe.sh.
   "snap-once": [snapshot, "text"],
   "snap-twice": [snapshot, snapshot, "text"],
+  "snap-ignored": [snapshot, snapshotIgnored("dist"), "text"],
+  "snap-ignored-glob": [snapshotIgnored("d*"), "text"],
+  "snap-ignored-missing": [snapshotIgnored("nope"), "text"],
+  "snap-ignored-outside": [snapshotIgnored("../escape"), "text"],
+  // The probe exports the absolute path of an ignored file inside its fixture.
+  "snap-ignored-absolute": [
+    snapshotIgnored(process.env.SNAPSHOT_PROBE_ABSOLUTE ?? "/missing"),
+    "text",
+  ],
+  "snap-ignored-surrogate": [snapshotIgnored("dist/\ud800.js"), "text"],
+  "snap-ignored-secret": [snapshotIgnored(".env"), "text"],
   "gate-edit": [edit, "text"],
   "gate-edit-check": [edit, check, "text"],
   "gate-check-edit": [check, edit, "text"],

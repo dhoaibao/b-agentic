@@ -63,8 +63,13 @@ source-absent manifest uninstall remains confined to the same boundary.
   is a documented residual boundary, not exposure. Submodules are listed with their
   index commit and never inspected. Either makes the result `complete: false`, as
   does an unhashable untracked entry. A tracked protected path that is not valid
-  UTF-8 is refused because it cannot be excluded. Git-ignored files are excluded
-  (`ignored_included: false`). The generated policy allows the tool
+  UTF-8 is refused because it cannot be excluded. Git-ignored files are excluded unless
+  named in the optional `include_ignored` parameter (repository-relative ignored
+  files or directories, literal not glob, at most 50 paths and 2000 files); named
+  files are hashed like untracked ones and listed under `ignored`, an unmatched, absolute,
+  lone-surrogate, or outside-repository path is refused, and `ignored_included` reports whether any
+  were named. A relevant ignored or derived artifact that is not named is not
+  covered, so the workflow names it at every checkpoint or blocks. The generated policy allows the tool
   by name and only `b-reviewer` lists it; `b-review` keeps a manual fallback
   whose diff command `registry_sync.py --self-test` checks against the
   extension. A tool fingerprint is never comparable with a hand-computed

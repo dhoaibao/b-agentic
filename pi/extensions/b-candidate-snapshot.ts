@@ -2,7 +2,9 @@
 // frozen-review-candidate identity so the model does not hash it by hand.
 //
 // Identity = HEAD, SHA-256 of the staged and unstaged binary diffs, and the
-// sorted relevant untracked paths with type and content digest. Paths that
+// sorted relevant untracked paths with type and content digest. Git-ignored
+// files are excluded unless the caller names them in `include_ignored`; they
+// are then hashed like untracked files. Paths that
 // match the likely-secret patterns are listed by path only and never hashed or diffed; any
 // such path, or any entry that cannot be hashed, makes the snapshot incomplete
 // so the kernel's "block if its identity cannot safely be checked" applies.
@@ -26,7 +28,7 @@ import { lstat, readlink } from "node:fs/promises";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-export const SNAPSHOT_SCHEMA = "b-candidate-snapshot/2";
+export const SNAPSHOT_SCHEMA = "b-candidate-snapshot/3";
 export const SNAPSHOT_DIFF_FLAGS = [
   "--no-ext-diff",
   "--no-textconv",
@@ -60,6 +62,9 @@ const KEPT_GIT_ENV = new Set([
 const TEXT_UNTRACKED_LIMIT = 40;
 // Every excluded path becomes one git argument; refuse rather than hit ARG_MAX.
 const MAX_EXCLUDED_PATHS = 400;
+// Explicitly included ignored files are hashed one by one; refuse a runaway tree.
+const MAX_IGNORED_FILES = 2000;
+const MAX_IGNORED_SPECS = 50;
 
 type Entry = {
   raw: Buffer;
@@ -465,7 +470,72 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export async function computeSnapshot(cwd: string, signal?: AbortSignal) {
+// Expand each caller-named repository-relative path to the git-ignored files
+// beneath it. A literal pathspec keeps globs inert, git itself rejects paths
+// outside the repository, and a path that names no ignored file is refused so a
+// typo cannot silently leave a relevant artifact uncovered.
+async function listIgnored(
+  top: string,
+  specs: string[],
+  signal: AbortSignal | undefined,
+): Promise<Buffer[]> {
+  if (specs.length > MAX_IGNORED_SPECS) {
+    throw new Error(
+      `snapshot refused: ${specs.length} include_ignored paths exceed the ${MAX_IGNORED_SPECS}-path limit`,
+    );
+  }
+  const raws: Buffer[] = [];
+  for (const spec of specs) {
+    // A lone surrogate is sent to git as U+FFFD, which could name a different
+    // file; require an exact UTF-8 round trip. Absolute paths are refused so the
+    // repository-relative contract does not depend on git's normalization.
+    if (
+      spec === "" ||
+      spec.includes("\0") ||
+      spec.includes("\uFFFD") ||
+      spec.startsWith("/") ||
+      Buffer.from(spec, "utf8").toString("utf8") !== spec
+    ) {
+      throw new Error(
+        "snapshot refused: include_ignored paths must be non-empty, repository-relative, valid UTF-8 strings",
+      );
+    }
+    const listed = splitZ(
+      await gitOk(
+        top,
+        [
+          "ls-files",
+          "--others",
+          "--ignored",
+          "--exclude-standard",
+          "-z",
+          "--full-name",
+          "--",
+          `:(literal)${spec}`,
+        ],
+        signal,
+      ),
+    );
+    if (listed.length === 0) {
+      throw new Error(
+        `snapshot refused: include_ignored path '${spec}' matches no git-ignored file; name a repository-relative ignored file or directory`,
+      );
+    }
+    raws.push(...listed);
+    if (raws.length > MAX_IGNORED_FILES) {
+      throw new Error(
+        `snapshot refused: include_ignored covers more than ${MAX_IGNORED_FILES} files; name a narrower path`,
+      );
+    }
+  }
+  return raws;
+}
+
+export async function computeSnapshot(
+  cwd: string,
+  signal?: AbortSignal,
+  includeIgnored: string[] = [],
+) {
   // Always the whole repository, from its top, so a subdirectory cwd can
   // neither narrow the candidate nor hide a protected parent directory.
   // Node decodes a non-UTF-8 working directory lossily to U+FFFD, which can
@@ -534,8 +604,11 @@ export async function computeSnapshot(cwd: string, signal?: AbortSignal) {
     ),
   );
 
+  const ignoredRaws = await listIgnored(top, includeIgnored, signal);
+
   const tracked = sortedEntries([...trackedRaws, ...stagedRaws]);
   const untrackedNames = sortedEntries(untrackedRaws);
+  const ignoredNames = sortedEntries(ignoredRaws);
 
   const protectedByPath = new Map<string, { item: Entry; where: string[] }>();
   const markProtected = (items: Entry[], where: string) => {
@@ -549,6 +622,7 @@ export async function computeSnapshot(cwd: string, signal?: AbortSignal) {
   };
   markProtected(tracked, "tracked");
   markProtected(untrackedNames, "untracked");
+  markProtected(ignoredNames, "ignored");
   const protectedPaths: Protected[] = [...protectedByPath.values()].map(
     ({ item, where }) => ({
       path: item.label,
@@ -586,6 +660,7 @@ export async function computeSnapshot(cwd: string, signal?: AbortSignal) {
       (item) => !gitlinks.has(item.raw.toString("hex")),
     ),
     ...hashable(untrackedNames),
+    ...hashable(ignoredNames),
   ];
   await assertNoExecutableFilters(top, checked, signal);
 
@@ -601,10 +676,17 @@ export async function computeSnapshot(cwd: string, signal?: AbortSignal) {
     untracked.push(await describeUntracked(top, item, signal));
   }
 
-  const unhashed = untracked.filter((item) => item.sha256 === null);
+  const ignored: Untracked[] = [];
+  for (const item of hashable(ignoredNames)) {
+    ignored.push(await describeUntracked(top, item, signal));
+  }
+
+  const unhashed = [...untracked, ...ignored].filter(
+    (item) => item.sha256 === null,
+  );
   const nonUtf8 = [
     ...new Set(
-      [...changed, ...tracked, ...untrackedNames]
+      [...changed, ...tracked, ...untrackedNames, ...ignoredNames]
         .map((item) => item.hex)
         .filter((hex): hex is string => hex !== null),
     ),
@@ -617,10 +699,12 @@ export async function computeSnapshot(cwd: string, signal?: AbortSignal) {
     unstaged_diff_sha256: unstagedDigest,
     changed_paths: changed.map((item) => item.label),
     untracked,
+    ignored,
     protected: protectedPaths,
     submodules,
     nonutf8_paths_hex: nonUtf8,
-    ignored_included: false,
+    // True when the caller named ignored paths; only those are covered.
+    ignored_included: includeIgnored.length > 0,
     complete:
       protectedPaths.length === 0 &&
       submodules.length === 0 &&
@@ -637,7 +721,7 @@ type Snapshot = Awaited<ReturnType<typeof computeSnapshot>>;
 function summarize(snapshot: Snapshot): string {
   const lines = [
     `fingerprint: ${snapshot.fingerprint}`,
-    `schema: ${snapshot.schema}; scope: ${snapshot.scope}; complete: ${snapshot.complete}; ignored_included: false`,
+    `schema: ${snapshot.schema}; scope: ${snapshot.scope}; complete: ${snapshot.complete}; ignored_included: ${snapshot.ignored_included}${snapshot.ignored_included ? " (only the named ignored paths)" : " (git-ignored files are NOT covered)"}`,
     `head: ${snapshot.head ?? "(no commits)"}`,
     `staged_diff_sha256: ${snapshot.staged_diff_sha256}`,
     `unstaged_diff_sha256: ${snapshot.unstaged_diff_sha256}`,
@@ -654,6 +738,22 @@ function summarize(snapshot: Snapshot): string {
     lines.push(
       `  ... ${snapshot.untracked.length - TEXT_UNTRACKED_LIMIT} more; all entries are in structuredContent`,
     );
+  }
+  if (snapshot.ignored_included) {
+    lines.push(
+      `ignored (${snapshot.ignored.length}):`,
+      ...snapshot.ignored
+        .slice(0, TEXT_UNTRACKED_LIMIT)
+        .map(
+          (item) =>
+            `  ${item.type} ${item.path} ${item.sha256 ?? `UNHASHED (${item.reason})`}`,
+        ),
+    );
+    if (snapshot.ignored.length > TEXT_UNTRACKED_LIMIT) {
+      lines.push(
+        `  ... ${snapshot.ignored.length - TEXT_UNTRACKED_LIMIT} more; all entries are in structuredContent`,
+      );
+    }
   }
   if (snapshot.protected.length > 0) {
     lines.push(
@@ -686,19 +786,36 @@ function summarize(snapshot: Snapshot): string {
 }
 
 const PATH_PROPERTIES = { path: Type.String() };
+const FILE_ENTRY = Type.Object({
+  ...PATH_PROPERTIES,
+  path_hex: Type.Union([Type.String(), Type.Null()]),
+  type: Type.String(),
+  mode: Type.Union([Type.String(), Type.Null()]),
+  size: Type.Union([Type.Number(), Type.Null()]),
+  sha256: Type.Union([Type.String(), Type.Null()]),
+  reason: Type.Optional(Type.String()),
+});
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "b_candidate_snapshot",
     label: "Candidate snapshot",
     description:
-      "Compute the frozen review-candidate identity for the current git repository: HEAD, SHA-256 of the staged and unstaged binary diffs, sorted untracked paths with type and content digest, and one `fingerprint`. Read-only. Always covers the whole repository. Protected (likely-secret) paths and submodules are listed but never hashed, diffed, or returned, and make the snapshot incomplete. Ignored files are not included. Refuses, with an error, when a repository clean/process filter would run.",
+      "Compute the frozen review-candidate identity for the current git repository: HEAD, SHA-256 of the staged and unstaged binary diffs, sorted untracked paths with type and content digest, and one `fingerprint`. Read-only. Always covers the whole repository. Protected (likely-secret) paths and submodules are listed but never hashed, diffed, or returned, and make the snapshot incomplete. Git-ignored files are NOT covered unless named in `include_ignored` (repository-relative ignored files or directories, hashed like untracked files); a relevant ignored or derived artifact that is not named leaves the fingerprint unable to prove an unchanged candidate. Refuses, with an error, when a repository clean/process filter would run.",
     promptSnippet:
       "Compute the review-candidate fingerprint (read-only git identity) for freeze/recheck",
     promptGuidelines: [
-      "Use b_candidate_snapshot to freeze and recheck a review candidate instead of hashing diffs by hand, and compare only its `fingerprint` values. If complete is false, block rather than claim an unchanged candidate.",
+      "Use b_candidate_snapshot to freeze and recheck a review candidate instead of hashing diffs by hand, and compare only its `fingerprint` values. If complete is false, block rather than claim an unchanged candidate. Name every relevant git-ignored or derived artifact in include_ignored at every checkpoint, or block the fingerprint-based review handoff and report the uncovered paths.",
     ],
-    parameters: Type.Object({}),
+    parameters: Type.Object({
+      include_ignored: Type.Optional(
+        Type.Array(Type.String(), {
+          maxItems: MAX_IGNORED_SPECS,
+          description:
+            "Repository-relative git-ignored files or directories (for example a relevant build output) to hash into the candidate identity. Each must match at least one ignored file.",
+        }),
+      ),
+    }),
     outputSchema: Type.Object({
       schema: Type.String(),
       scope: Type.String(),
@@ -706,17 +823,8 @@ export default function (pi: ExtensionAPI) {
       staged_diff_sha256: Type.String(),
       unstaged_diff_sha256: Type.String(),
       changed_paths: Type.Array(Type.String()),
-      untracked: Type.Array(
-        Type.Object({
-          ...PATH_PROPERTIES,
-          path_hex: Type.Union([Type.String(), Type.Null()]),
-          type: Type.String(),
-          mode: Type.Union([Type.String(), Type.Null()]),
-          size: Type.Union([Type.Number(), Type.Null()]),
-          sha256: Type.Union([Type.String(), Type.Null()]),
-          reason: Type.Optional(Type.String()),
-        }),
-      ),
+      untracked: Type.Array(FILE_ENTRY),
+      ignored: Type.Array(FILE_ENTRY),
       protected: Type.Array(
         Type.Object({
           ...PATH_PROPERTIES,
@@ -745,8 +853,12 @@ export default function (pi: ExtensionAPI) {
       openWorldHint: false,
     },
     executionMode: "sequential",
-    async execute(_toolCallId, _params, signal, _onUpdate, ctx) {
-      const snapshot = await computeSnapshot(ctx.cwd, signal);
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const snapshot = await computeSnapshot(
+        ctx.cwd,
+        signal,
+        params.include_ignored ?? [],
+      );
       return {
         content: [{ type: "text", text: summarize(snapshot) }],
         structuredContent: snapshot,

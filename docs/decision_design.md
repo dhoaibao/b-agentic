@@ -178,7 +178,8 @@ checks and a new review. Protected paths require permission before content is
 hashed. The read-only `b_candidate_snapshot` tool computes that identity for the
 whole repository as one fingerprint. It lists protected paths and submodules
 without hashing or diffing them and reports the result incomplete so the main
-session blocks; it refuses when a repository filter would run a program or the
+session blocks. It excludes git-ignored files unless the caller names them in `include_ignored`,
+and the review handoff must name every relevant ignored or derived artifact or block; it refuses when a repository filter would run a program or the
 repository is a partial clone. `b-review` keeps
 a manual fallback, and the two methods are never compared with each other.
 

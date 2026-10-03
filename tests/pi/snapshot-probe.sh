@@ -63,7 +63,8 @@ run "$clean" snap-twice "$work/clean.jsonl"
 first=$(snapshots "$work/clean.jsonl" | sed -n 1p)
 [ "$first" = "$(snapshots "$work/clean.jsonl" | sed -n 2p)" ] || fail "repeated calls disagree"
 [ "$(jq -r .complete <<<"$first")" = true ] || fail "clean candidate should be complete"
-[ "$(jq -r .ignored_included <<<"$first")" = false ] || fail "ignored files must be excluded"
+[ "$(jq -r .ignored_included <<<"$first")" = false ] || fail "ignored files must be excluded by default"
+[ "$(jq -r '.ignored | length' <<<"$first")" = 0 ] || fail "no ignored files may be listed by default"
 [ "$(jq -r .head <<<"$first")" = "$(git -C "$clean" rev-parse HEAD)" ] || fail "head mismatch"
 
 want_staged=$(git -C "$clean" diff "${flags[@]}" --cached -- . | sha256sum | cut -d' ' -f1)
@@ -87,6 +88,55 @@ printf 'more\n' >>"$clean/new.txt"
 run "$clean" snap-once "$work/changed.jsonl"
 [ "$(snapshots "$work/changed.jsonl" | jq -r .fingerprint)" != "$fingerprint" ] || fail "edit did not change fingerprint"
 echo "snapshot probe passed: clean"
+
+# --- ignored artifacts: excluded by default, covered only when named ----------
+ign="$work/ign"
+make_repo "$ign"
+printf 'dist/\n.env\n' >"$ign/.gitignore"
+git -C "$ign" add .gitignore
+git -C "$ign" commit -qm ignore
+mkdir -p "$ign/dist/sub"
+printf 'out1\n' >"$ign/dist/out.js"
+printf 'deep\n' >"$ign/dist/sub/deep.js"
+printf 'TOPSECRET=1\n' >"$ign/.env"
+run "$ign" snap-ignored "$work/ign.jsonl"
+[ "$(snapshots "$work/ign.jsonl" | wc -l | tr -d ' ')" = 2 ] || fail "expected two ignored-scenario results"
+plain=$(snapshots "$work/ign.jsonl" | sed -n 1p)
+named=$(snapshots "$work/ign.jsonl" | sed -n 2p)
+[ "$(jq -r .ignored_included <<<"$plain")" = false ] || fail "default call must report ignored files uncovered"
+[ "$(jq -r .ignored_included <<<"$named")" = true ] || fail "named call must report ignored coverage"
+[ "$(jq -r .complete <<<"$named")" = true ] || fail "named ignored artifacts should leave a complete snapshot"
+[ "$(jq -r '[.ignored[].path] | join(",")' <<<"$named")" = "dist/out.js,dist/sub/deep.js" ] || fail "ignored paths wrong: $(jq -c '[.ignored[].path]' <<<"$named")"
+[ "$(jq -r '.ignored[] | select(.path == "dist/out.js") | .sha256' <<<"$named")" = "$(sha256sum "$ign/dist/out.js" | cut -d' ' -f1)" ] || fail "ignored digest wrong"
+[ "$(jq -r '[.untracked[].path] | join(",")' <<<"$named")" = "" ] || fail "ignored files leaked into untracked"
+[ "$(jq -r .fingerprint <<<"$plain")" != "$(jq -r .fingerprint <<<"$named")" ] || fail "naming ignored paths did not change the fingerprint"
+named_fp=$(jq -r .fingerprint <<<"$named")
+printf 'out2\n' >"$ign/dist/out.js"
+run "$ign" snap-ignored "$work/ign2.jsonl"
+[ "$(snapshots "$work/ign2.jsonl" | sed -n 1p | jq -r .fingerprint)" = "$(jq -r .fingerprint <<<"$plain")" ] || fail "default fingerprint must not see an ignored edit"
+[ "$(snapshots "$work/ign2.jsonl" | sed -n 2p | jq -r .fingerprint)" != "$named_fp" ] || fail "ignored edit did not change the named fingerprint"
+run "$ign" snap-ignored-glob "$work/ign-glob.jsonl"
+[ "$(is_error "$work/ign-glob.jsonl")" = true ] || fail "a glob must not expand include_ignored"
+run "$ign" snap-ignored-missing "$work/ign-missing.jsonl"
+[ "$(is_error "$work/ign-missing.jsonl")" = true ] || fail "an include_ignored path with no ignored file must be refused"
+run "$ign" snap-ignored-outside "$work/ign-outside.jsonl"
+[ "$(is_error "$work/ign-outside.jsonl")" = true ] || fail "an include_ignored path outside the repository must be refused"
+SNAPSHOT_PROBE_ABSOLUTE="$ign/dist/out.js" run "$ign" snap-ignored-absolute "$work/ign-abs.jsonl"
+[ "$(is_error "$work/ign-abs.jsonl")" = true ] || fail "an absolute include_ignored path must be refused"
+# A replacement-character sibling must not satisfy a lone-surrogate lookalike.
+printf 'sibling\n' >"$ign/dist/$(printf '\357\277\275').js"
+run "$ign" snap-ignored-surrogate "$work/ign-surrogate.jsonl"
+# jq cannot parse a lone-surrogate escape, so inspect the raw event line.
+grep '"type":"tool_execution_end"' "$work/ign-surrogate.jsonl" | grep -F '"toolName":"b_candidate_snapshot"' | grep -Fq '"isError":true' \
+  || fail "a lone surrogate selected a U+FFFD sibling"
+rm -f "$ign/dist/$(printf '\357\277\275').js"
+run "$ign" snap-ignored-secret "$work/ign-secret.jsonl"
+[ "$(is_error "$work/ign-secret.jsonl")" = false ] || fail "an ignored protected path must return an incomplete snapshot"
+secret=$(snapshots "$work/ign-secret.jsonl")
+[ "$(jq -r .complete <<<"$secret")" = false ] || fail "an ignored protected path must be incomplete"
+[ "$(jq -r '[.protected[] | select(.where | index("ignored"))] | length' <<<"$secret")" = 1 ] || fail "ignored protected path not listed"
+grep -Fq TOPSECRET "$work/ign-secret.jsonl" && fail "ignored protected content reached the output"
+echo "snapshot probe passed: ignored"
 
 # --- protected paths: listed, never compared or read ---------------------------
 guarded="$work/guarded"

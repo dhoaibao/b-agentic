@@ -54,7 +54,7 @@ only Pi, git, and jq. It checks that the tool digests equal the canonical
 manual `git diff` procedure, that repeated calls agree and an edit changes the
 fingerprint, that a subdirectory cwd does not narrow the candidate, that
 untracked files (including binary files and symlinks) are hashed from their
-bytes, that protected paths (same-size edits made unreadable, a literal `hex:`
+bytes, that git-ignored files are excluded unless named in `include_ignored` (then hashed, fingerprinted, and refused for globs, unmatched, absolute, lone-surrogate, or outside paths, with ignored secrets listed but never hashed), that protected paths (same-size edits made unreadable, a literal `hex:`
 name, a protected parent directory, raw non-UTF-8 names) are listed
 without being hashed, diffed, or returned and mark the snapshot incomplete, that submodules are listed and
 never inspected, that an applicable clean filter (including one hidden behind an empty `filter=`

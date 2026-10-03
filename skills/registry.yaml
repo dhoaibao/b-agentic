@@ -333,7 +333,7 @@
     {
       "name": "b-review",
       "execution": {"mode": "subagent", "agent": "b-reviewer"},
-      "handoff": ["baseline, acceptance, check results, safe candidate paths and snapshot fingerprint (from `b_candidate_snapshot` when available); recheck the fingerprint after review"],
+      "handoff": ["baseline, acceptance, check results, safe candidate paths and snapshot fingerprint and any `include_ignored` paths (from `b_candidate_snapshot` when available); recheck the fingerprint after review"],
       "phase": "Validate",
       "use": "Review changed code",
       "argument_hint": "[diff, commit range, or checkpoint]",
