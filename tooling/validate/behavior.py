@@ -831,6 +831,9 @@ def validate_generated_delegation_boundaries(skills: list[dict], errors: list[st
         prompt = (ROOT / "pi" / "prompts" / f"{name}.md").read_text()
         if "even for a quick or single lookup" not in prompt:
             errors.append(f"delegation boundary: pi/prompts/{name}.md missing the no-self-execution rule")
+        prepare = f"First read the installed `skills/{name}/SKILL.md` in the main session only to prepare this handoff"
+        if prepare not in prompt:
+            errors.append(f"delegation boundary: pi/prompts/{name}.md missing the main-session handoff read")
         agent = (ROOT / "pi" / "agents" / f"{execution.get('agent')}.md").read_text()
         if "you are the named child, so execute its steps" not in agent:
             errors.append(f"delegation boundary: pi/agents/{execution.get('agent')}.md missing the child clause")
