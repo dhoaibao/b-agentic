@@ -387,7 +387,7 @@ async function assertNoExecutableFilters(
     const value = fields[index + 2].toString("utf8");
     if (drivers.has(value)) {
       throw new Error(
-        `snapshot refused: repository filter '${value}' has a clean/process command that git diff would run; use the manual procedure if you accept that`,
+        `snapshot refused: repository filter '${value}' has a clean/process command that git diff would run; the manual procedure would run it too, so block the review`,
       );
     }
   }

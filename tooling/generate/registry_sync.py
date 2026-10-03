@@ -773,6 +773,13 @@ def validate_regressions(
     if not validate_skills(skills, invalid_extension_tools):
         errors.append("agent regression: unknown extension tool must fail")
     errors.extend(validate_snapshot_extension())
+    # Playwright's browser_find accepts a `filename` that writes results to disk, so it must
+    # never be classed read-only (which auto-exposes it to every specialist profile).
+    if policy["servers"]["playwright"]["tools"]["browser_find"] == "read-only":
+        errors.append("MCP policy regression: file-writing browser_find must not be read-only")
+    for agent_name, agent in agents.items():
+        if "playwright_browser_find" in agent.get("conditional_tools", []):
+            errors.append(f"agents.{agent_name}: file-writing playwright_browser_find must not be a specialist tool")
     invalid_exposure = json.loads(json.dumps(policy))
     next(iter(invalid_exposure["servers"].values()))["exposure"] = "eager"
     if not validate_policy(invalid_exposure):
