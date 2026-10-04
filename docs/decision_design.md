@@ -210,7 +210,17 @@ display-free, environment-gated integration: it only forwards "Pi is waiting on
 you" from the ask and permission prompt events to Herdr (a `herdr:blocked` pair
 and one throttled toast with a privacy-safe label), is a complete no-op outside
 Herdr and the root TUI session, and never changes a prompt, a permission
-decision, or Herdr's own managed files. It does not promise detached background work, authenticated MCP readiness from
+decision, or Herdr's own managed files. The third, `b-openai-fast-mode`, is an
+opt-in, billing-affecting provider tweak: off by default, it adds an interactive
+`/openai-fastmode` On/Off picker, a `/openai-fastmode:status` command, and a
+footer indicator, and while on it sets `service_tier: "priority"` only on
+OpenAI Responses requests for models in a supported list. Every other provider,
+model, and request passes through unchanged. The choice persists in the
+user-owned `<agentDir>/openai-fast-mode.json`, which the installer never
+overwrites; `PI_OPENAI_FAST_MODE=off` disables it. Fast mode costs more (about 2x
+API price), and a gateway can strip the tier, so it promises neither the
+billing tier nor entitlement, and context-compaction requests may run at
+standard speed. It does not promise detached background work, authenticated MCP readiness from
 configuration, or unbounded orchestration. Magic Context owns Pi context
 management; `rpiv-todo` is not installed.
 
@@ -220,4 +230,6 @@ Evidence: [`README.md`](../README.md),
 [`pi/extensions/b-input-image-preview.ts`](../pi/extensions/b-input-image-preview.ts),
 [`tests/pi/input-image-preview-probe.sh`](../tests/pi/input-image-preview-probe.sh),
 [`pi/extensions/b-herdr-notify.ts`](../pi/extensions/b-herdr-notify.ts),
-and [`tests/pi/herdr-notify-probe.sh`](../tests/pi/herdr-notify-probe.sh).
+[`tests/pi/herdr-notify-probe.sh`](../tests/pi/herdr-notify-probe.sh),
+[`pi/extensions/b-openai-fast-mode.ts`](../pi/extensions/b-openai-fast-mode.ts),
+and [`tests/pi/openai-fast-mode-probe.sh`](../tests/pi/openai-fast-mode-probe.sh).
