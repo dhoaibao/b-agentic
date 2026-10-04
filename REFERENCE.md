@@ -110,6 +110,30 @@ source-absent manifest uninstall remains confined to the same boundary.
   covers path extraction, labels, the recent list, popup ownership, the size cap,
   load, and non-TUI pass-through offline; rendering, the popup, and mouse handling
   need a real terminal and are not automated.
+- `b-herdr-notify` (a managed extension, `extensions/b-herdr-notify.ts`) tells
+  Herdr when Pi is waiting on you. It listens to `rpiv:ask-user:blocked`
+  (`ask_user_question`) and `permissions:ui_prompt` / `permissions:decision`
+  (permission asks, joined by `requestId`), aggregates every open prompt into one
+  blocked period, and for each period emits one balanced `herdr:blocked`
+  `{active}` pair (the event Herdr's own managed `herdr-agent-state.ts` already
+  handles; that file is never edited, and a pair is always closed, at the latest on
+  session shutdown) and runs `herdr notification show --sound request`
+  fire-and-forget, throttled to one toast per five seconds. The toast shows only a
+  fixed title and, for a permission ask, the tool surface name (for example
+  `Permission needed: bash`); commands, paths, question text, and agent names never
+  leave Pi. It registers nothing unless Herdr is in use (`HERDR_ENV=1` with
+  `HERDR_SOCKET_PATH` and `HERDR_PANE_ID`) and subscribes to prompt events only once
+  a root interactive TUI session starts, so it is a complete no-op for anyone not
+  using Herdr, in print, JSON, and RPC runs, and in non-Herdr terminals; a missing
+  `herdr` binary (the toast is skipped, while the `herdr:blocked` pair still
+  reaches Herdr's own socket integration) or any spawn or payload error is ignored
+  silently. It depends on neither listened-to
+  extension being installed. Set `PI_HERDR_NOTIFY=off` to disable it. rpiv also
+  rings the terminal bell and permission-system has an opt-in
+  `promptNotifications` setting, so enabling both may sound twice.
+  `tests/pi/herdr-notify-probe.sh` covers the gate, the balanced aggregate,
+  throttle, privacy, wiring, a missing binary, and non-TUI inertness offline; the
+  real toast, sound, and pane state need a running Herdr and are not automated.
 - The installer merges `"extensions": ["-builtin:mcp"]` into Pi settings so
   `pi-mcp-adapter` stays the only MCP owner: a stray `mcp.json` is not read by
   Pi's built-in MCP even if the adapter fails to load. Pi's built-in `codemode`

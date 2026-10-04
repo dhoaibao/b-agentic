@@ -19,8 +19,8 @@ Installed package declarations use bare `npm:` names. Re-running setup updates
 the installed extensions to their latest available releases. The probe does
 not establish live readiness for production MCP servers or real providers.
 
-`tooling/validate/run.sh --release` runs this probe together with the verify-gate
-and snapshot probes. It skips them with a message when `pi` or the probe profile
+`tooling/validate/run.sh --release` runs this probe together with the verify-gate,
+snapshot, input-image-preview, and herdr-notify probes. It skips them with a message when `pi` or the probe profile
 is absent, unless `B_AGENTIC_REQUIRE_PI_PROBES=1` (set in CI), which fails on a
 missing `pi` and runs `--setup` for a missing profile.
 
@@ -45,6 +45,22 @@ count so a partial run cannot pass. It then checks that a non-TUI run loads
 without an error, leaves the prompt unchanged, and does not claim `/image`.
 Thumbnails, the popup, and mouse handling need a real terminal and are not
 covered.
+
+## Herdr-notify probe
+
+`bash tests/pi/herdr-notify-probe.sh` loads `pi/extensions/b-herdr-notify.ts`
+with the same scripted local model and `pi -ne`. It needs only Pi and jq: no
+npm packages, credentials, or network, and it removes any Herdr variables so it
+is safe to run inside Herdr. A test-only extension (`herdr-notify-cases.ts`)
+runs unit and wiring cases at session start: the Herdr environment gate and
+`PI_HERDR_NOTIFY=off`, the balanced `herdr:blocked` aggregate for asks and
+permission prompts, the toast throttle, privacy of the toast text, malformed
+payloads, shutdown while blocked, a missing `herdr` binary, and the exact argv
+sent to a fake `herdr`. The probe requires a minimum case count so a partial run
+cannot pass. It then checks that a run outside Herdr, and a non-TUI run with
+Herdr variables set, load without an error, leave the prompt and reply unchanged,
+and never call the `herdr` binary. The real toast, the sound, and the pane
+state need a running Herdr and are not covered.
 
 ## Snapshot probe
 
