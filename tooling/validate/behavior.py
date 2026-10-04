@@ -190,6 +190,9 @@ SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
         "The main session evaluates the child's sourced evidence before any user-facing or consequential action.",
         "It may resume a compatible research task through the extension's supported `resume` identifier",
         "the child must treat the continuation packet as evidence, not current truth.",
+        "treat it as probable turn-cap exhaustion, not a network error",
+        "report its gaps and ask the user before continuing only the missing delta",
+        "never resume or rerun on your own",
     ),
     "b-debug": (
         "report the exact additional reproduction or diagnostic artifact the main session must collect",

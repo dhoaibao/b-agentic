@@ -6,7 +6,9 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 
 The main session evaluates the child's sourced evidence before any user-facing or consequential action. It may resume a compatible research task through the extension's supported `resume` identifier; the child must treat the continuation packet as evidence, not current truth.
 
-Size the call: pass a larger `max_turns` (e.g., 50) for multi-source synthesis or deep dives; the profile default suits quick and medium lookups. A turn-limit wrap-up is partial: state its gaps, then continue only the missing delta via `resume` or a fresh, narrower run.
+Scope the handoff to the user's external-knowledge question only; do not have the child read local or Pi/extension internal source unless the user asked (code tracing belongs to **b-debug** or **b-plan**). The profile sets no turn cap; pass `max_turns` only to bound a call (e.g., 50 for multi-source synthesis or deep dives). A turn-limit wrap-up is partial: report its gaps and ask the user before continuing only the missing delta via `resume` or a fresh, narrower run; never resume or rerun on your own.
+
+If a child fails with `Agent failed: This operation was aborted` after many tool turns, treat it as probable turn-cap exhaustion, not a network error: report the Agent ID, transcript path from the result, and turns used, then ask the user whether to narrow the scope, raise `max_turns`, or `resume` only to finalize.
 
 ## When to use
 

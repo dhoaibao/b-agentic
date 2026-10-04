@@ -65,6 +65,7 @@ def main() -> int:
             "tools: read, grep, find, ls, bash",
             "Remain read-only.",
             "Do not edit, write, commit, stage",
+            "If the harness warns about your turn budget",
         ):
             if marker not in body:
                 errors.append(f"{path.relative_to(ROOT)}: missing {marker!r}")
