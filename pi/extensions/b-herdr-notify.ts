@@ -148,7 +148,7 @@ export function execHerdr(
   try {
     execFile(
       "herdr",
-      ["notification", "show", title, `--body=${body}`, "--sound", "request"],
+      ["notification", "show", title, "--body", body, "--sound", "request"],
       {
         env: env as NodeJS.ProcessEnv,
         timeout: 3000,
