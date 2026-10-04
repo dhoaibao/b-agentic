@@ -51,6 +51,7 @@ Report implemented behavior, changed paths, exact checks and outcomes, acceptanc
 - Stay within the approved or clearly scoped request; stop and ask the user about a material blocker or scope change before editing further.
 - Prefer repository evidence over aesthetic defaults and do not add speculative abstractions, compatibility paths, or dependencies.
 - Reject recognizable generic AI defaults such as unmotivated gradients, repeated centered heroes, three equal feature cards, or indiscriminate glass surfaces unless the brief or evidence explicitly calls for them; do not replace them with another fixed aesthetic.
+- Also treat these concrete defects as defaults to justify, not bans: nested cards, zero-offset colored glow halos, hairline border plus wide diffuse shadow, animating layout properties (width/height/margin) instead of transform/opacity, functional text under ~11px, body measure well over ~75ch, and interactive targets under 44px. Repository evidence or the brief overrides them.
 - Use real repo assets/data only. Do not make image generation or external asset fetching a task requirement.
 - The design direction is contextual guidance, not a mandate for a particular font, icon library, dark mode, image-generation workflow, or heavy motion.
 - Do not claim browser, screenshot, e2e, or visual proof from code inspection or non-browser checks; route it to **b-browser**.
