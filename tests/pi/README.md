@@ -69,8 +69,9 @@ with the same scripted local model and `pi -ne`. It needs only Pi and jq: no npm
 packages, credentials, or network, and it uses an isolated agent directory. A
 test-only extension (`openai-fast-mode-cases.ts`) runs unit and wiring cases at
 session start: config parsing and fallbacks, model and API eligibility, payload
-injection without mutating the original, the `/fast` command and its persistence,
-a custom model list, and a corrupt config file. The probe requires a minimum case
+injection without mutating the original, the `/openai-fastmode` picker, `/openai-fastmode:status`, and
+footer indicator (including model switches and non-UI sessions), persistence, a
+custom model list, a failed save, and a corrupt config file. The probe requires a minimum case
 count, then checks that the reply is unchanged with the extension loaded and with
 `PI_OPENAI_FAST_MODE=off`. Real OpenAI requests and gateway behavior are not
 covered.

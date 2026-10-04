@@ -135,8 +135,15 @@ source-absent manifest uninstall remains confined to the same boundary.
   throttle, privacy, wiring, a missing binary, and non-TUI inertness offline; the
   real toast, sound, and pane state need a running Herdr and are not automated.
 - `b-openai-fast-mode` (a managed extension, `extensions/b-openai-fast-mode.ts`)
-  is an opt-in OpenAI Fast mode. `/fast on|off|status` (bare `/fast` toggles)
-  stores the choice in `<agentDir>/openai-fast-mode.json`, a user-owned file the
+  is an opt-in OpenAI Fast mode. `/openai-fastmode` opens an On/Off picker (no arguments to
+  type; it needs an interactive session) and `/openai-fastmode:status` reports the state,
+  the selected model, eligibility, and requests injected this session. While an
+  `openai-responses` or `openai-codex-responses` model is selected, the footer
+  shows `⚡ Fast: on`, `Fast: off`, or `Fast: n/a` (an OpenAI model outside the
+  supported list); other providers show nothing. The state is read from the file at
+  session start and after each picker choice, so an edit made outside Pi (and the
+  footer) updates on the next session, not mid-session. The choice persists in
+  `<agentDir>/openai-fast-mode.json`, a user-owned file the
   installer never overwrites, and it is off by default. While on, a
   `before_provider_request` hook adds `service_tier: "priority"` only to
   `openai-responses` and `openai-codex-responses` requests whose model id is in

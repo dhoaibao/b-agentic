@@ -1,7 +1,10 @@
 // b-agentic OpenAI Fast mode: opt-in `service_tier: "priority"` for OpenAI Responses
 // requests, limited to models known to support it.
 //
-// - Commands: `/fast`, `/fast on`, `/fast off`, `/fast status`.
+// - Commands: `/openai-fastmode` opens an On/Off picker (no typing arguments) and `/openai-fastmode:status`
+//   shows the state. Under an OpenAI Responses model the footer shows the state too.
+//   The state is read from the file at session start and after each picker choice; an
+//   edit made outside Pi takes effect on the next session, not mid-session.
 // - Off by default. The on/off choice persists in `<agentDir>/openai-fast-mode.json`
 //   (user-owned, never overwritten by the installer):
 //     { "active": false, "models": ["gpt-6.1-sol"] }
@@ -19,7 +22,10 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 
 export const TIER = "priority";
 export const FAST_APIS: ReadonlySet<string> = new Set([
@@ -86,6 +92,38 @@ export function withTier(
   return { ...body, service_tier: TIER };
 }
 
+export const STATUS_KEY = "b-openai-fast-mode";
+
+type ModelLike = { api: string; id: string; provider?: string } | undefined;
+
+/**
+ * Footer text, shown only while an OpenAI Responses model is selected: on/off for a
+ * supported model, "n/a" for an OpenAI model outside the supported list.
+ */
+export function footerStatus(
+  model: ModelLike,
+  config: FastConfig,
+): string | undefined {
+  if (!model || !FAST_APIS.has(model.api)) return undefined;
+  if (!isEligible(model, config)) return "Fast: n/a";
+  return config.active ? "⚡ Fast: on" : "Fast: off";
+}
+
+export function statusReport(
+  model: ModelLike,
+  config: FastConfig,
+  injected: number,
+): string {
+  return [
+    `OpenAI Fast mode: ${config.active ? "ON" : "OFF"} (tier ${TIER})`,
+    `Model: ${model ? `${model.provider ?? "?"}/${model.id} (${model.api})` : "none"}`,
+    `Eligible: ${isEligible(model, config) ? "yes" : "no"}`,
+    `Requests injected this session: ${injected}`,
+    `Supported: ${config.models.join(", ")}`,
+    "Note: the provider must honor service_tier; check the footer cost or the response tier.",
+  ].join("\n");
+}
+
 function configPath(): string {
   return join(getAgentDir(), "openai-fast-mode.json");
 }
@@ -111,9 +149,19 @@ export default function (pi: ExtensionAPI) {
   let config = load();
   let injected = 0;
 
-  pi.on("session_start", () => {
+  const refresh = (ctx: ExtensionContext, model: ModelLike) => {
+    if (!ctx.hasUI) return;
+    ctx.ui.setStatus(STATUS_KEY, footerStatus(model, config));
+  };
+
+  pi.on("session_start", (_event, ctx) => {
     config = load();
     injected = 0;
+    refresh(ctx, ctx.model);
+  });
+
+  pi.on("model_select", (event, ctx) => {
+    refresh(ctx, event.model);
   });
 
   pi.on("before_provider_request", (event, ctx) => {
@@ -124,43 +172,46 @@ export default function (pi: ExtensionAPI) {
     return next;
   });
 
-  pi.registerCommand("fast", {
-    description: "Toggle OpenAI Fast mode (/fast [on|off|status])",
-    handler: async (args, ctx) => {
-      const arg = args.trim().toLowerCase();
-      if (arg && arg !== "on" && arg !== "off" && arg !== "status") {
-        ctx.ui.notify("Usage: /fast [on|off|status]", "warning");
+  pi.registerCommand("openai-fastmode", {
+    description: "Choose OpenAI Fast mode on or off",
+    handler: async (_args, ctx) => {
+      if (!ctx.hasUI) {
+        ctx.ui.notify(
+          "/openai-fastmode needs an interactive session; use /openai-fastmode:status.",
+          "warning",
+        );
         return;
       }
-      if (arg !== "status") {
-        // Publish the new state only after it is persisted, so a failed save never
-        // leaves the in-memory state (and billing) differing from the file.
-        const next: FastConfig = {
-          ...load(),
-          active: arg ? arg === "on" : !config.active,
-        };
-        try {
-          save(next);
-        } catch (error) {
-          ctx.ui.notify(
-            `Could not save ${configPath()}; Fast mode unchanged (${config.active ? "ON" : "OFF"}): ${String(error)}`,
-            "error",
-          );
-          return;
-        }
-        config = next;
-      }
-      const model = ctx.model;
-      ctx.ui.notify(
-        [
-          `OpenAI Fast mode: ${config.active ? "ON" : "OFF"} (tier ${TIER})`,
-          `Model: ${model ? `${model.provider}/${model.id} (${model.api})` : "none"}`,
-          `Eligible: ${isEligible(model, config) ? "yes" : "no"}`,
-          `Requests injected this session: ${injected}`,
-          `Supported: ${config.models.join(", ")}`,
-        ].join("\n"),
-        "info",
+      const current = load().active;
+      const choice = await ctx.ui.select(
+        `OpenAI Fast mode (currently ${current ? "ON" : "OFF"}, costs more)`,
+        ["On", "Off"],
       );
+      if (choice !== "On" && choice !== "Off") return;
+      // Publish the new state only after it is persisted, so a failed save never
+      // leaves the in-memory state (and billing) differing from the file.
+      const next: FastConfig = { ...load(), active: choice === "On" };
+      try {
+        save(next);
+      } catch (error) {
+        ctx.ui.notify(
+          `Could not save ${configPath()}; Fast mode unchanged (${config.active ? "ON" : "OFF"}): ${String(error)}`,
+          "error",
+        );
+        return;
+      }
+      config = next;
+      refresh(ctx, ctx.model);
+      ctx.ui.notify(statusReport(ctx.model, config, injected), "info");
+    },
+  });
+
+  pi.registerCommand("openai-fastmode:status", {
+    description: "Show OpenAI Fast mode status",
+    handler: async (_args, ctx) => {
+      // Read-only: reports the in-memory state; it never reloads the file.
+      refresh(ctx, ctx.model);
+      ctx.ui.notify(statusReport(ctx.model, config, injected), "info");
     },
   });
 }

@@ -7,8 +7,11 @@ import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import fastMode, {
   DEFAULT_MODELS,
+  footerStatus,
   isEligible,
   parseConfig,
+  STATUS_KEY,
+  statusReport,
   TIER,
   withTier,
 } from "../../pi/extensions/b-openai-fast-mode.ts";
@@ -122,60 +125,152 @@ export default function (pi: ExtensionAPI) {
     check("tier string", withTier("x", cfg), undefined);
     check("tier value", TIER, "priority");
 
+    // Pure status helpers.
+    const solModel = {
+      provider: "openai",
+      id: "gpt-6.1-sol",
+      api: "openai-responses",
+    };
+    const miniModel = {
+      provider: "openai",
+      id: "gpt-5.4-mini",
+      api: "openai-responses",
+    };
+    const claude = {
+      provider: "anthropic",
+      id: "claude-opus-5-5",
+      api: "anthropic-messages",
+    };
+    const on = { ...cfg, active: true };
+    check("footer off", footerStatus(solModel, cfg), "Fast: off");
+    check("footer on", footerStatus(solModel, on), "⚡ Fast: on");
+    check(
+      "footer unsupported openai",
+      footerStatus(miniModel, on),
+      "Fast: n/a",
+    );
+    check("footer non-openai hidden", footerStatus(claude, on), undefined);
+    check("footer no model hidden", footerStatus(undefined, on), undefined);
+    check(
+      "report on",
+      /ON/.test(statusReport(solModel, on, 3)) &&
+        /injected this session: 3/.test(statusReport(solModel, on, 3)),
+      true,
+    );
+    check(
+      "report eligible",
+      /Eligible: yes/.test(statusReport(solModel, on, 0)),
+      true,
+    );
+    check(
+      "report not eligible",
+      /Eligible: no/.test(statusReport(miniModel, on, 0)),
+      true,
+    );
+    check(
+      "report no model",
+      /Model: none/.test(statusReport(undefined, cfg, 0)),
+      true,
+    );
+
     // Wiring through a fake Pi API, with the config file isolated by PI_CODING_AGENT_DIR.
     const notes: string[] = [];
-    const cmdCtx = (model: unknown) => ({
+    const statuses: Record<string, string | undefined> = {};
+    const prompts: string[] = [];
+    let choice: string | undefined;
+    const makeCtx = (model: unknown, hasUI = true) => ({
       model,
-      ui: { notify: (message: string) => notes.push(message) },
+      hasUI,
+      ui: {
+        notify: (message: string) => notes.push(message),
+        setStatus: (key: string, text: string | undefined) => {
+          statuses[key] = text;
+        },
+        select: async (title: string, options: string[]) => {
+          prompts.push(`${title}|${options.join(",")}`);
+          return choice;
+        },
+      },
     });
     const sol = {
       provider: "openai",
       id: "gpt-6.1-sol",
       api: "openai-responses",
     };
-    const miniPayload = { model: "gpt-5.4-mini", input: [] };
     const mini = {
       provider: "openai",
       id: "gpt-5.4-mini",
       api: "openai-responses",
     };
+    const miniPayload = { model: "gpt-5.4-mini", input: [] };
     const { events, commands } = wire();
-    check("wiring registers /fast", Object.keys(commands), ["fast"]);
+    check("wiring registers commands", Object.keys(commands).sort(), [
+      "openai-fastmode",
+      "openai-fastmode:status",
+    ]);
     check("wiring hooks", Object.keys(events).sort(), [
       "before_provider_request",
+      "model_select",
       "session_start",
     ]);
 
     const request = events.before_provider_request;
-    check("off by default", request({ payload }, { model: sol }), undefined);
+    events.session_start({}, makeCtx(sol));
+    check("start footer off", statuses[STATUS_KEY], "Fast: off");
+    check("off by default", request({ payload }, makeCtx(sol)), undefined);
 
-    await commands.fast.handler("on", cmdCtx(sol));
+    // Picker: cancel changes nothing; On persists and shows the footer.
+    choice = undefined;
+    await commands["openai-fastmode"].handler("", makeCtx(sol));
+    check("cancel keeps off", request({ payload }, makeCtx(sol)), undefined);
+    check(
+      "picker title and options",
+      prompts.at(-1),
+      "OpenAI Fast mode (currently OFF, costs more)|On,Off",
+    );
+    choice = "On";
+    await commands["openai-fastmode"].handler("ignored args", makeCtx(sol));
     check(
       "on persisted",
       JSON.parse(readFileSync(configFile, "utf8")).active,
       true,
     );
-    check("on injects", request({ payload }, { model: sol }), {
+    check("on footer", statuses[STATUS_KEY], "⚡ Fast: on");
+    check("on notifies status", /ON/.test(notes.at(-1) ?? ""), true);
+    check("on injects", request({ payload }, makeCtx(sol)), {
       ...payload,
       service_tier: TIER,
     });
-    check("on skips mini", request({ payload }, { model: mini }), undefined);
+    check("on skips mini", request({ payload }, makeCtx(mini)), undefined);
     check(
       "on skips redirected payload model",
-      request({ payload: miniPayload }, { model: sol }),
+      request({ payload: miniPayload }, makeCtx(sol)),
       undefined,
     );
     check(
       "on skips no model",
-      request({ payload }, { model: undefined }),
+      request({ payload }, makeCtx(undefined)),
       undefined,
     );
     check(
       "on skips bad payload",
-      request({ payload: null }, { model: sol }),
+      request({ payload: null }, makeCtx(sol)),
       undefined,
     );
-    await commands.fast.handler("status", cmdCtx(sol));
+
+    // Model switches update the footer.
+    events.model_select({ model: mini }, makeCtx(mini));
+    check("footer n/a on mini", statuses[STATUS_KEY], "Fast: n/a");
+    events.model_select(
+      { model: { provider: "anthropic", id: "x", api: "anthropic-messages" } },
+      makeCtx(sol),
+    );
+    check("footer cleared off OpenAI", statuses[STATUS_KEY], undefined);
+    events.model_select({ model: sol }, makeCtx(sol));
+    check("footer back on", statuses[STATUS_KEY], "⚡ Fast: on");
+
+    // /openai-fastmode:status is read-only and reports counts.
+    await commands["openai-fastmode:status"].handler("", makeCtx(sol));
     const status = notes.at(-1) ?? "";
     check(
       "status reports",
@@ -189,25 +284,64 @@ export default function (pi: ExtensionAPI) {
       true,
     );
 
-    await commands.fast.handler("", cmdCtx(sol));
+    // Status never reloads the file: an outside edit does not change the live state.
+    writeFileSync(configFile, JSON.stringify({ active: false }));
+    await commands["openai-fastmode:status"].handler("", makeCtx(sol));
+    check("status keeps live state", /ON/.test(notes.at(-1) ?? ""), true);
+    check("status keeps injecting", request({ payload }, makeCtx(sol)), {
+      ...payload,
+      service_tier: TIER,
+    });
     check(
-      "toggle off",
+      "status leaves file alone",
       JSON.parse(readFileSync(configFile, "utf8")).active,
       false,
     );
+    writeFileSync(configFile, JSON.stringify({ active: true }));
+    // Without a UI, model switches do not touch the footer.
+    statuses[STATUS_KEY] = "sentinel";
+    events.model_select({ model: mini }, makeCtx(mini, false));
+    check("model_select no UI untouched", statuses[STATUS_KEY], "sentinel");
+    statuses[STATUS_KEY] = "⚡ Fast: on";
+
+    // Picker Off persists; the picker reflects the current state.
+    choice = "Off";
+    await commands["openai-fastmode"].handler("", makeCtx(sol));
     check(
-      "off injects nothing",
-      request({ payload }, { model: sol }),
-      undefined,
+      "picker shows current ON",
+      prompts.at(-1)?.includes("currently ON"),
+      true,
+    );
+    check(
+      "off persisted",
+      JSON.parse(readFileSync(configFile, "utf8")).active,
+      false,
+    );
+    check("off footer", statuses[STATUS_KEY], "Fast: off");
+    check("off injects nothing", request({ payload }, makeCtx(sol)), undefined);
+
+    // An unexpected picker value changes nothing.
+    choice = "Maybe";
+    await commands["openai-fastmode"].handler("", makeCtx(sol));
+    check(
+      "bogus choice keeps state",
+      JSON.parse(readFileSync(configFile, "utf8")).active,
+      false,
     );
 
-    await commands.fast.handler("bogus", cmdCtx(sol));
-    check("usage message", /Usage/.test(notes.at(-1) ?? ""), true);
+    // Without a UI the picker is not shown and nothing changes.
+    const promptCount = prompts.length;
+    choice = "On";
+    await commands["openai-fastmode"].handler("", makeCtx(sol, false));
+    check("no UI no picker", prompts.length, promptCount);
     check(
-      "bogus keeps state",
+      "no UI keeps state",
       JSON.parse(readFileSync(configFile, "utf8")).active,
       false,
     );
+    check("no UI explains", /interactive/.test(notes.at(-1) ?? ""), true);
+    events.session_start({}, makeCtx(sol, false));
+    check("no UI footer untouched", statuses[STATUS_KEY], "Fast: off");
 
     // Persisted custom model list survives a toggle and a restart.
     writeFileSync(
@@ -215,26 +349,28 @@ export default function (pi: ExtensionAPI) {
       JSON.stringify({ active: true, models: ["gpt-5.4-mini"] }),
     );
     const second = wire();
-    second.events.session_start({}, {});
+    second.events.session_start({}, makeCtx(mini));
+    check("custom list footer", statuses[STATUS_KEY], "⚡ Fast: on");
     check(
       "custom list used",
       second.events.before_provider_request(
         { payload: miniPayload },
-        { model: mini },
+        makeCtx(mini),
       ),
       { ...miniPayload, service_tier: TIER },
     );
     check(
       "custom list rejects other payload model",
-      second.events.before_provider_request({ payload }, { model: mini }),
+      second.events.before_provider_request({ payload }, makeCtx(mini)),
       undefined,
     );
     check(
       "custom list excludes default",
-      second.events.before_provider_request({ payload }, { model: sol }),
+      second.events.before_provider_request({ payload }, makeCtx(sol)),
       undefined,
     );
-    await second.commands.fast.handler("off", cmdCtx(mini));
+    choice = "Off";
+    await second.commands["openai-fastmode"].handler("", makeCtx(mini));
     check(
       "toggle keeps models",
       JSON.parse(readFileSync(configFile, "utf8")).models,
@@ -245,7 +381,8 @@ export default function (pi: ExtensionAPI) {
     rmSync(configFile, { force: true });
     mkdirSync(configFile);
     const failing = wire();
-    await failing.commands.fast.handler("on", cmdCtx(sol));
+    choice = "On";
+    await failing.commands["openai-fastmode"].handler("", makeCtx(sol));
     check(
       "save failure notified",
       /Could not save/.test(notes.at(-1) ?? ""),
@@ -258,7 +395,7 @@ export default function (pi: ExtensionAPI) {
     );
     check(
       "save failure does not inject",
-      failing.events.before_provider_request({ payload }, { model: sol }),
+      failing.events.before_provider_request({ payload }, makeCtx(sol)),
       undefined,
     );
     rmSync(configFile, { recursive: true, force: true });
@@ -268,7 +405,7 @@ export default function (pi: ExtensionAPI) {
     const third = wire();
     check(
       "corrupt file is off",
-      third.events.before_provider_request({ payload }, { model: sol }),
+      third.events.before_provider_request({ payload }, makeCtx(sol)),
       undefined,
     );
 

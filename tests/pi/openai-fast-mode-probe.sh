@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Exercise pi/extensions/b-openai-fast-mode.ts offline against a scripted local model.
 # A test-only extension (tests/pi/openai-fast-mode-cases.ts) runs unit and wiring cases
-# at session start: config parsing, model/API eligibility, payload injection, the /fast
+# at session start: config parsing, model/API eligibility, payload injection, the /openai-fastmode
 # command, and persistence in an isolated agent directory. A second run with
 # PI_OPENAI_FAST_MODE=off confirms the extension is inert and the reply is unchanged.
 # Real OpenAI requests and gateway behavior are not covered.
@@ -43,7 +43,7 @@ if [ ! -s "$work/cases.json" ]; then
   exit 1
 fi
 # The cases file records its own size; require a minimum so a partial run cannot pass.
-min_cases=44
+min_cases=70
 count=$(jq -r '._count // 0' "$work/cases.json")
 if [ "$count" -lt "$min_cases" ]; then
   echo "openai-fast-mode probe failed: only $count cases ran, expected at least $min_cases" >&2
