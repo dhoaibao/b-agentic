@@ -151,7 +151,13 @@ export default function (pi: ExtensionAPI) {
 
   const refresh = (ctx: ExtensionContext, model: ModelLike) => {
     if (!ctx.hasUI) return;
-    ctx.ui.setStatus(STATUS_KEY, footerStatus(model, config));
+    const text = footerStatus(model, config);
+    // Red while Fast mode is actually on (it costs more); other states keep the default style.
+    const on = text !== undefined && config.active && isEligible(model, config);
+    ctx.ui.setStatus(
+      STATUS_KEY,
+      text !== undefined && on ? ctx.ui.theme.fg("error", text) : text,
+    );
   };
 
   pi.on("session_start", (_event, ctx) => {

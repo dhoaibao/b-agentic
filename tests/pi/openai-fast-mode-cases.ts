@@ -182,6 +182,7 @@ export default function (pi: ExtensionAPI) {
       model,
       hasUI,
       ui: {
+        theme: { fg: (color: string, text: string) => `<${color}>${text}` },
         notify: (message: string) => notes.push(message),
         setStatus: (key: string, text: string | undefined) => {
           statuses[key] = text;
@@ -235,7 +236,7 @@ export default function (pi: ExtensionAPI) {
       JSON.parse(readFileSync(configFile, "utf8")).active,
       true,
     );
-    check("on footer", statuses[STATUS_KEY], "⚡ Fast: on");
+    check("on footer is red", statuses[STATUS_KEY], "<error>⚡ Fast: on");
     check("on notifies status", /ON/.test(notes.at(-1) ?? ""), true);
     check("on injects", request({ payload }, makeCtx(sol)), {
       ...payload,
@@ -267,7 +268,7 @@ export default function (pi: ExtensionAPI) {
     );
     check("footer cleared off OpenAI", statuses[STATUS_KEY], undefined);
     events.model_select({ model: sol }, makeCtx(sol));
-    check("footer back on", statuses[STATUS_KEY], "⚡ Fast: on");
+    check("footer back on", statuses[STATUS_KEY], "<error>⚡ Fast: on");
 
     // /openai-fastmode:status is read-only and reports counts.
     await commands["openai-fastmode:status"].handler("", makeCtx(sol));
@@ -350,7 +351,7 @@ export default function (pi: ExtensionAPI) {
     );
     const second = wire();
     second.events.session_start({}, makeCtx(mini));
-    check("custom list footer", statuses[STATUS_KEY], "⚡ Fast: on");
+    check("custom list footer", statuses[STATUS_KEY], "<error>⚡ Fast: on");
     check(
       "custom list used",
       second.events.before_provider_request(
