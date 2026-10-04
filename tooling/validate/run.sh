@@ -42,6 +42,7 @@ if [ "$run_release" -eq 1 ]; then
     bash "$ROOT_DIR/tests/pi/snapshot-probe.sh"
     bash "$ROOT_DIR/tests/pi/input-image-preview-probe.sh"
     bash "$ROOT_DIR/tests/pi/herdr-notify-probe.sh"
+    bash "$ROOT_DIR/tests/pi/openai-fast-mode-probe.sh"
     probe_profile="${PI_PROBE_DIR:-$ROOT_DIR/node_modules/.pi-migration-probe}"
     if [ -f "$probe_profile/.pi/settings.json" ]; then
       bash "$ROOT_DIR/tests/pi/permission-probe.sh"
