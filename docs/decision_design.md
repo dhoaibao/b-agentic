@@ -89,11 +89,13 @@ ClickUp is added only after install opt-in. Each server declares an `exposure` i
 `references/mcp_operations.yaml`. Small, frequently used servers (CodeGraph, Context7,
 Excalidraw, draw.io) are `direct` and register their allowed operations eagerly. The large ones
 (Brave Search, Firecrawl, Playwright, Mobbin, shadcn, ClickUp) use `directTools: "search"`:
-the adapter registers them inactive, and `mcp({search})` activates matches under the same
-native names, so no permission rule changes and the ~19K estimated prompt tokens per turn
-(unmeasured, from the MCP metadata cache character counts) are not spent. Pi's built-in MCP,
-`tool_search`, and codemode stay unused: the adapter keeps lazy lifecycle and MCP UI, and
-codemode's nested-call gating was not proven. Other operations remain available through the
+the adapter registers them inactive (on Pi 0.99+ as Pi deferred tools), and `mcp({search})`
+activates matches under the same native names, so no permission rule changes and the ~19K
+estimated prompt tokens per turn (unmeasured, from the MCP metadata cache character counts)
+are not spent. Pi's built-in MCP, its `tool_search` tool, and codemode stay unused: the adapter
+keeps lazy lifecycle (Pi 1.0.2's built-in MCP connects every enabled server at session start,
+in each specialist child too, and has no approval-gated proxy) and MCP UI, and codemode's
+nested-call gating was not proven. Other operations remain available through the
 separately gated proxy, which asks for calls. Specialists name their tools in `tools:`,
 which activates them for the child without the proxy, so no specialist gains the `mcp` proxy
 and the observation-only boundary is unchanged. Considered and rejected: adding `mcp` to
