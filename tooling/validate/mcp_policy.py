@@ -16,6 +16,7 @@ EXPECTED_SERVERS = {
     "firecrawl",
     "playwright",
     "mobbin",
+    "notion",
     "excalidraw",
     "drawio",
     "shadcn",
@@ -88,6 +89,22 @@ def main() -> int:
     for name in ("firecrawl_crawl", "playwright_browser_click"):
         if permission.get(name) != "ask":
             errors.append(f"{name} must ask before mutation")
+    for name in (
+        "notion_notion-create-pages",
+        "notion_notion-update-page",
+        "notion_notion-create-file-upload",
+        "notion_notion-spawn-session",
+    ):
+        if permission.get(name) != "ask":
+            errors.append(f"{name} must ask before mutating a Notion workspace")
+    if permission.get("notion_*") != "ask":
+        errors.append("unclassified Notion tools must ask")
+    if permission.get("notion_notion-search") != "allow":
+        errors.append("Notion reads must be allowed in the main session")
+    for agent in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
+        agent_tools = (ROOT / "pi" / "agents" / f"{agent}.md").read_text().split("tools: ", 1)[1].split("\n", 1)[0]
+        if "notion_" in agent_tools:
+            errors.append(f"{agent} must not receive private Notion workspace tools")
     for name in (
         "drawio_open_drawio_xml",
         "drawio_open_drawio_csv",

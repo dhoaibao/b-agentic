@@ -84,11 +84,11 @@ Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.
 
 ## MCP and external-evidence design
 
-Nine base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
+Ten base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
 ClickUp is added only after install opt-in. Each server declares an `exposure` in
 `references/mcp_operations.yaml`. Small, frequently used servers (CodeGraph, Context7,
 Excalidraw, draw.io) are `direct` and register their allowed operations eagerly. The large ones
-(Brave Search, Firecrawl, Playwright, Mobbin, shadcn, ClickUp) use `directTools: "search"`:
+(Brave Search, Firecrawl, Playwright, Mobbin, Notion, shadcn, ClickUp) use `directTools: "search"`:
 the adapter registers them inactive (on Pi 0.99+ as Pi deferred tools), and `mcp({search})`
 activates matches under the same native names, so no permission rule changes and the ~19K
 estimated prompt tokens per turn (unmeasured, from the MCP metadata cache character counts)
@@ -100,6 +100,10 @@ separately gated proxy, which asks for calls. Specialists name their tools in `t
 which activates them for the child without the proxy, so no specialist gains the `mcp` proxy
 and the observation-only boundary is unchanged. Considered and rejected: adding `mcp` to
 specialist allowlists (probes showed it is unnecessary and widens the surface).
+Notion reads are `conditional-read`, not `read-only`, because every `read-only` tool is
+granted to all four specialists: a private workspace must not reach children that may run on
+another model provider (same rule as ClickUp). Notion has no skill; the capability entry and
+the approval-gated writes suffice.
 Existing installs migrate automatically, once per server, with no prompt: the installer replaces
 those servers' customised `directTools` and saves the previous file under `b-agentic/backups/`.
 Script mode and model-driven installs are disabled. The policy classifies known

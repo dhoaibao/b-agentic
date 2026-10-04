@@ -26,7 +26,7 @@ assert json.loads((root / 'pi/configs/magic-context.base.json').read_text()) == 
 }
 assert all(name.startswith('npm:') and not name.rsplit('/', 1)[-1].count('@') for name in settings['packages'])
 assert settings['compaction']['enabled'] is False
-assert len(mcp['mcpServers']) == 9
+assert len(mcp['mcpServers']) == 10
 assert mcp['settings']['scriptMode'] is False
 assert mcp['settings']['allowInstall'] is False
 assert mcp['settings']['directTools'] is True

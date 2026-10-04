@@ -50,6 +50,12 @@
       "directTools": "search",
       "lifecycle": "lazy"
     },
+    "notion": {
+      "description": "Notion workspace search, fetch, and page/database edits; writes ask first.",
+      "url": "https://mcp.notion.com/mcp",
+      "directTools": "search",
+      "lifecycle": "lazy"
+    },
     "excalidraw": {
       "description": "Excalidraw diagram format reference and drawing.",
       "url": "https://mcp.excalidraw.com",

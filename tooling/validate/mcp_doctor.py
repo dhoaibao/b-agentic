@@ -19,6 +19,7 @@ SERVERS = (
     "firecrawl",
     "playwright",
     "mobbin",
+    "notion",
     "excalidraw",
     "drawio",
     "shadcn",

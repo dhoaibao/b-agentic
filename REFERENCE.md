@@ -253,10 +253,10 @@ with their source rather than as additional subsystems.
 ## MCP and readiness
 
 `pi/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Mobbin, Excalidraw, draw.io, and shadcn through `pi-mcp-adapter`. Connections
+Firecrawl, Playwright, Mobbin, Notion, Excalidraw, draw.io, and shadcn through `pi-mcp-adapter`. Connections
 are lazy. Each server declares `exposure` in `references/mcp_operations.yaml`.
 CodeGraph, Context7, Excalidraw, and draw.io are `direct`: their short allowed lists are
-registered eagerly. Brave Search, Firecrawl, Playwright, Mobbin, shadcn, and the optional
+registered eagerly. Brave Search, Firecrawl, Playwright, Mobbin, Notion, shadcn, and the optional
 ClickUp server are `search`: `directTools: "search"` registers their tools inactive, so
 they add no prompt tokens until `mcp({search})` activates matches for the next turn.
 Names stay `<server>_<tool>`, so the per-tool permission rules and the `<server>_*` ask
@@ -279,10 +279,21 @@ of the search-exposed servers once; `/reload` or a restart is needed to pick up 
 | Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                           |
 | Playwright   | `bunx` (isolated/headless testing)                                    |
 | Mobbin       | approved OAuth/account when requested                                 |
+| Notion       | approved OAuth (`/mcp-auth notion`) when Notion content is requested  |
 | Excalidraw   | approved `create_view` calls, MCP UI viewer                           |
 | draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)    |
 | shadcn       | `bunx`, project `components.json`                                     |
 | ClickUp      | optional install opt-in, `bunx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
+
+Notion is the official hosted MCP server (`https://mcp.notion.com/mcp`, OAuth 2.0 with
+PKCE; no static token). It reaches the user's whole private workspace under that user's
+permissions, so every read is `conditional-read` (allowed in the main session, never
+granted to the four specialists, which may run on other model providers) and every write,
+file-upload, comment, and Custom Agent session mutation is `external-mutation` and asks.
+Notion content is untrusted input. Plan-gated features (Notion AI, Business/Enterprise)
+may degrade with a `notices` field or return an upgrade prompt, depending on the tool. Sign-in is explicit and never probed; tokens stay in
+the adapter's OS keychain store. Tool names are hyphenated, so the adapter exposes them
+as `notion_notion-<tool>`; tools missing from the policy hit the `notion_*` ask wildcard.
 
 Excalidraw is a hosted MCP Apps server (`https://mcp.excalidraw.com`) used only
 by `b-excalidraw`. `read_me` is a direct read-only tool; `create_view` is

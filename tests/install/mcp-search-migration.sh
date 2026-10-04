@@ -76,7 +76,7 @@ Path(sys.argv[2]).write_text(json.dumps(config, indent=2) + '\n')
 PY
 }
 
-search_ok='all(data["mcpServers"][n]["directTools"] == "search" for n in ["brave_search", "firecrawl", "playwright", "mobbin", "shadcn"])'
+search_ok='all(data["mcpServers"][n]["directTools"] == "search" for n in ["brave_search", "firecrawl", "playwright", "mobbin", "notion", "shadcn"])'
 direct_ok='isinstance(data["mcpServers"]["context7"]["directTools"], list) and isinstance(data["mcpServers"]["excalidraw"]["directTools"], list) and isinstance(data["mcpServers"]["drawio"]["directTools"], list)'
 
 # M1. A fresh install ships search exposure, descriptions, and records the migration.
@@ -85,7 +85,7 @@ agent="$case1/home/.pi/agent"
 install_ok "$case1" no
 assert_json "$agent/mcp-adapter.json" "$search_ok and $direct_ok and 'clickup' not in data['mcpServers']"
 assert_json "$agent/mcp-adapter.json" "all(isinstance(s.get('description'), str) for s in data['mcpServers'].values())"
-assert_json "$agent/b-agentic/install.json" "data['mcpExposureMigratedServers'] == ['brave_search', 'firecrawl', 'mobbin', 'playwright', 'shadcn']"
+assert_json "$agent/b-agentic/install.json" "data['mcpExposureMigratedServers'] == ['brave_search', 'firecrawl', 'mobbin', 'notion', 'playwright', 'shadcn']"
 
 # M2. An upgrade moves the managed large servers to search once, keeps customised
 #     direct servers and unmanaged servers, and backs up the previous file.
@@ -109,7 +109,7 @@ assert_contains "$case2/last.log" 'migrating mcpServers.brave_search.directTools
 assert_contains "$case2/last.log" 'previous mcp configuration saved to'
 backup="$(find "$agent/b-agentic/backups" -name "mcp-adapter.json.bak-*" -print -quit)"
 cmp -s "$backup" "$case2/previous.json" || fail 'backup does not hold the previous configuration'
-assert_json "$agent/b-agentic/install.json" "data['mcpExposureMigratedServers'] == ['brave_search', 'firecrawl', 'mobbin', 'playwright', 'shadcn']"
+assert_json "$agent/b-agentic/install.json" "data['mcpExposureMigratedServers'] == ['brave_search', 'firecrawl', 'mobbin', 'notion', 'playwright', 'shadcn']"
 
 # M3. Syncing again is idempotent, and a list the user restores afterwards is kept.
 cp "$agent/mcp-adapter.json" "$case2/after-first.json"

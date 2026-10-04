@@ -5,7 +5,7 @@ and a local stdio MCP server. No model credentials or external MCP connections
 are needed. It exercises main-session decisions, read-only specialist tool
 visibility and policy, protected paths, MCP proxy denial, and dynamically
 registered direct MCP tools. The probe does not test interactive approval UI,
-real providers, or the nine production MCP servers.
+real providers, or the ten production MCP servers.
 
 Run `bash tests/pi/permission-probe.sh --setup` to install the six unpinned
 extension packages into the ignored `node_modules/.pi-migration-probe` profile

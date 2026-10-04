@@ -90,7 +90,7 @@ Canonical policy: `~/.pi/agent/b-agentic/references/mcp_operations.yaml`. Genera
 | `local-mutation` | Approval required | May create a local artifact. |
 | `auth` | Approval required | May start or change authentication. |
 
-Search-exposed servers (brave_search, firecrawl, playwright, mobbin, shadcn, clickup) start inactive in main: call `mcp({search:"<terms>"})` (auto-allowed), then the activated `<server>_<tool>` next turn; never `mcp({tool})` for reads. Specialists call their listed tools directly.
+Search-exposed servers (brave_search, firecrawl, playwright, mobbin, notion, shadcn, clickup) start inactive in main: call `mcp({search:"<terms>"})` (auto-allowed), then the activated `<server>_<tool>` next turn; never `mcp({tool})` for reads. Specialists call their listed tools directly.
 <!-- generated:mcp-operations:end -->
 An MCP argument outside recognized path fields may escape the path gate: inspect the request and seek approval when its effects are uncertain.
 
