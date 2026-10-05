@@ -8,6 +8,12 @@
 #   ~/.b-agentic/install.sh --uninstall
 
 set -euo pipefail
+
+# Stage failure propagation needs inherit_errexit (Bash 4.4+); stock macOS ships 3.2.
+if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
+  echo "error: Bash 4.4 or newer is required (found $BASH_VERSION); on macOS run 'brew install bash' and re-run with it" >&2
+  exit 1
+fi
 # shellcheck disable=SC2034 # Variables are consumed by the sourced runtime installer.
 
 REPO_URL="${B_AGENTIC_REPO:-https://github.com/dhoaibao/b-agentic.git}"

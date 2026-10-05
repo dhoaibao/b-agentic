@@ -14,6 +14,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install Bash 4.4+ on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install bash
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
