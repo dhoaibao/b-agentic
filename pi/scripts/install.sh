@@ -258,7 +258,7 @@ PY
 mcp_exposure_migration_paths() {
   [ -f "$PI_MCP_DST" ] || return 0
   local recorded name paths=""
-  recorded=" $(manifest_array_values mcpExposureMigratedServers 2>/dev/null | tr '\n' ' ') "
+  recorded=" $({ manifest_array_values mcpExposureMigratedServers 2>/dev/null || true; } | tr '\n' ' ') "
   for name in $MCP_SEARCH_SERVERS_COVERED; do
     case "$recorded" in *" $name "*) continue ;; esac
     paths="${paths:+$paths,}[\"mcpServers\",\"$name\",\"directTools\"]"

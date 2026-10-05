@@ -22,6 +22,7 @@ python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/session_readiness.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/browser_evidence.py" --self-test
 bash "$ROOT_DIR/pi/scripts/validate.sh"
+bash "$ROOT_DIR/tests/install/stage-failure.sh"
 
 if [ "$run_release" -eq 1 ]; then
   # Installer sandbox tests run many full installs (about three minutes), so they

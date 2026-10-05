@@ -67,11 +67,19 @@ run_stage() {
 }
 
 capture_output_stage() {
-  local label="$1" output_var="$2" captured
+  local label="$1" output_var="$2" captured rc=0 had_errexit=0
   shift 2
   INSTALL_STAGE_CURRENT=$((INSTALL_STAGE_CURRENT + 1))
   step "[$INSTALL_STAGE_CURRENT/${INSTALL_STAGE_TOTAL:-?}] $label"
-  captured="$("$@")" || return $?
+  # Never test the substitution with `||`/`if`: Bash would then ignore errexit
+  # inside the stage, so a failed write would still print its success triplet.
+  case "$-" in *e*) had_errexit=1 ;; esac
+  set +e
+  # inherit_errexit (Bash 4.4+) is required so nested substitutions fail closed.
+  captured="$(shopt -s inherit_errexit 2>/dev/null || { echo 'error: Bash 4.4 or newer is required (inherit_errexit)' >&2; exit 1; }; set -e; "$@")"
+  rc=$?
+  [ "$had_errexit" -eq 0 ] || set -e
+  [ "$rc" -eq 0 ] || return "$rc"
   printf -v "$output_var" '%s' "$captured"
 }
 
