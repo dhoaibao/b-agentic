@@ -9,7 +9,7 @@ First read the installed `skills/b-review/SKILL.md` in the main session only to 
 
 Then, before delegation, gather and pass this parent-owned evidence (or state what is unavailable):
 
-- baseline, acceptance, check results, safe candidate paths and snapshot fingerprint and any `include_ignored` paths (from `b_candidate_snapshot` when available); recheck the fingerprint after review
+- baseline, acceptance, check results, safe candidate paths and snapshot fingerprint and any `include_ignored` paths (from `b_candidate_snapshot` when available); for a re-review also prior finding IDs, dispositions, correction paths, and sibling-sweep scope plus regression-check results; recheck the fingerprint after review
 
 Before delegating, confirm the effective `b-reviewer.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains neither `edit` nor `write` (a missing, blank, or null `tools` grants them); an unsafe or missing profile, or an unknown agent type or `general-purpose` fallback note, means unavailable (discard that result). Delegate this bounded task to the `b-reviewer` agent with the `subagent` tool. Name the `b-review` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS
 

@@ -135,12 +135,65 @@
         "Main session compares identity after return",
         "b-reviewer is read-only",
         "Do not edit while review runs",
-        "Fresh verification and review after corrections"
+        "Fresh verification and delta re-review with prior findings after corrections"
       ],
       "avoid": [
         "Review a moving snapshot",
         "Reviewer applies the fix",
         "Commit automatically"
+      ]
+    },
+    {
+      "id": "review-follow-ups-do-not-loop",
+      "skill": "b-review",
+      "observed_failure": "Review looped for many rounds because every nit or deferred follow-up forced another fresh review.",
+      "intended_behavior": "Only an evidenced blocker yields NEEDS FIXES; other findings are follow-ups that main dispositions without forcing a new review, and a re-review checks prior blockers and the correction delta.",
+      "prompt": "b-reviewer finds one maintainability nit and one speculative edge case in a frozen candidate with passing checks and no safety-class issue. Describe the verdict and what main does next.",
+      "must": [
+        "Classify both findings as follow-ups, not blockers",
+        "Return READY WITH FOLLOW-UPS",
+        "Main records each follow-up as fixed, deferred, or rejected with a reason",
+        "No new review for deferred or rejected follow-ups"
+      ],
+      "avoid": [
+        "Return NEEDS FIXES without an evidenced blocker",
+        "Force another review for a deferred follow-up"
+      ]
+    },
+    {
+      "id": "review-fix-covers-whole-class",
+      "skill": "b-implement",
+      "observed_failure": "Each correction patched only the cited instance, leaving sibling locations inconsistent, so the next review found new findings.",
+      "intended_behavior": "Main fixes a NEEDS FIXES blocker as a whole defect class: batches blockers, sweeps every sibling location, keeps a minimal diff, self-checks, and reports the sweep in the re-review handoff.",
+      "prompt": "b-reviewer returned NEEDS FIXES with two blockers, each citing one file, and the same defect class also exists in a generated file, a validator clause, and docs. Describe how main corrects and re-submits.",
+      "must": [
+        "Fix both blockers as one batch",
+        "Sweep sibling locations across canonical source, generated outputs, validators, fixtures, and docs",
+        "Keep the diff limited to the finding's paths and record other ideas as follow-ups",
+        "Run each finding's regression check and the repository checks before re-review",
+        "Include the sweep scope and check results in the re-review handoff"
+      ],
+      "avoid": [
+        "Patch only the cited instance",
+        "Send a re-review without self-check results",
+        "Bundle unrelated cleanups into the correction"
+      ]
+    },
+    {
+      "id": "review-round-cap-escalates",
+      "skill": "b-implement",
+      "observed_failure": "The review loop ran 6-7 rounds without converging and without user input.",
+      "intended_behavior": "After 3 consecutive NEEDS FIXES rounds, main stops and asks the user instead of starting another round.",
+      "prompt": "b-reviewer has returned NEEDS FIXES three times in a row for one task. Describe what main does next.",
+      "must": [
+        "Stop instead of starting another review",
+        "Ask the user via ask_user_question",
+        "Offer one more round, narrow or split scope, abandon, or accepting remaining risk only for non-safety blockers"
+      ],
+      "avoid": [
+        "Start another round silently",
+        "Waive a blocker without the user",
+        "Declare ready with an unresolved security blocker or failed required check"
       ]
     },
     {

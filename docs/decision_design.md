@@ -184,7 +184,16 @@ ambiguous acceptance goes to the user. Review records HEAD, staged and
 unstaged binary-diff digests, and relevant untracked path/type/content digests.
 The reviewer checks that identity at the start and end, and main checks it on
 return; a changed snapshot needs fresh
-checks and a new review. Protected paths require permission before content is
+checks and a new review. To keep the loop convergent, `NEEDS FIXES` requires an
+evidenced blocker (acceptance, correctness, security/data/contract, check,
+snapshot, path, or generated-output class); other findings are follow-ups that
+main dispositions as fixed, deferred, or rejected; only a fix that changes the candidate forces a new review.
+Reviewers list every same-class location of a blocker in one pass. Main fixes
+blockers as a batch, one whole defect class at a time: sibling sweep, minimal
+diff, regression and repository checks. A re-review is a fresh reviewer that gets
+prior finding IDs, dispositions, correction paths, and the sweep/check results
+and checks earlier blockers plus the delta. After 3 consecutive
+`NEEDS FIXES` rounds, main asks the user. Protected paths require permission before content is
 hashed. The read-only `b_candidate_snapshot` tool computes that identity for the
 whole repository as one fingerprint. It lists protected paths and submodules
 without hashing or diffing them and reports the result incomplete so the main
