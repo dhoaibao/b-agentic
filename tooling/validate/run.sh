@@ -25,11 +25,28 @@ bash "$ROOT_DIR/pi/scripts/validate.sh"
 bash "$ROOT_DIR/tests/install/stage-failure.sh"
 
 if [ "$run_release" -eq 1 ]; then
-  # Installer sandbox tests run many full installs (about three minutes), so they
-  # gate release and CI rather than every edit.
-  bash "$ROOT_DIR/tests/install/prune-retired.sh"
-  bash "$ROOT_DIR/tests/install/mcp-search-migration.sh"
-  bash "$ROOT_DIR/tests/install/runtime-tools.sh"
+  # Installer sandbox tests run many full installs, so they gate release and CI
+  # rather than every edit. Each suite owns a private mktemp sandbox and HOME, so
+  # they run in parallel; output is buffered and shown only for a failed suite.
+  install_log_dir="$(mktemp -d "${TMPDIR:-/tmp}/b-agentic-install-tests.XXXXXX")"
+  trap 'rm -rf "$install_log_dir"' EXIT
+  install_suites=(prune-retired mcp-search-migration runtime-tools)
+  install_pids=()
+  for suite in "${install_suites[@]}"; do
+    bash "$ROOT_DIR/tests/install/$suite.sh" >"$install_log_dir/$suite.log" 2>&1 &
+    install_pids+=("$!")
+  done
+  install_failed=0
+  for index in "${!install_suites[@]}"; do
+    if wait "${install_pids[$index]}"; then
+      tail -n 1 "$install_log_dir/${install_suites[$index]}.log"
+    else
+      install_failed=1
+      printf 'Installer suite failed: %s\n' "${install_suites[$index]}" >&2
+      cat "$install_log_dir/${install_suites[$index]}.log" >&2
+    fi
+  done
+  [ "$install_failed" -eq 0 ] || exit 1
   if command -v rtk >/dev/null 2>&1; then
     python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else

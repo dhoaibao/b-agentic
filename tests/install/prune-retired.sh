@@ -72,6 +72,10 @@ new_case() {
     printf '#!/usr/bin/env bash\nexit 0\n' >"$sandbox/bin/$tool"
     chmod +x "$sandbox/bin/$tool"
   done
+  # Present tools are upgraded on reinstall (rtk reruns its vendor installer).
+  # Fail curl instantly so the suite stays offline, fast, and deterministic.
+  printf '#!/usr/bin/env bash\nexit 22\n' >"$sandbox/bin/curl"
+  chmod +x "$sandbox/bin/curl"
   add_retirable "$sandbox/source"
   printf '%s' "$sandbox"
 }
