@@ -4,8 +4,8 @@
 
 This reference defines the single supported runtime, Claude Code, with Codex as
 the independent reviewer. It covers installation, the permission boundary, the
-review gate, MCP configuration, and validation. The earlier Pi runtime is
-frozen at the `pi-final` tag and is not maintained here.
+review gate, MCP configuration, and validation. The earlier Pi runtime was
+removed (last commit `ac38e4a`) and is not maintained here.
 
 ## Install and lifecycle
 

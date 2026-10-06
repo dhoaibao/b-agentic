@@ -6,8 +6,9 @@ b-agentic supports one runtime, Claude Code. It ships an always-loaded kernel,
 canonical skills, named read-only specialists, managed MCP configuration,
 hooks and small CLIs, and a merge-safe installer. Codex, through the
 `openai/codex-plugin-cc` plugin, is the independent changed-code reviewer. The
-earlier Pi runtime is frozen at the `pi-final` tag; its installed copy keeps
-working, but nothing in this repository generates, installs, or tests it.
+earlier Pi runtime was removed from this repository (its last commit is
+`ac38e4a`); an already installed copy keeps working, but nothing here generates,
+installs, or tests it.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and

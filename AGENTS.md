@@ -18,7 +18,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 ### Canonical sources and change flows
 
 - `skills/registry.yaml` owns skill metadata, routing, phase, execution ownership, and specialist-agent profiles; each `skills/*/prompt.md` owns its canonical skill body. `tooling/generate/registry_sync.py` renders `SKILL.md` files, agents, the settings template, and delivery blocks, so edit sources and regenerate rather than hand-editing output.
-- `references/kernel.template.md`, `references/mcp_operations.yaml`, and `references/capabilities.yaml` own runtime guidance and capability policy. The installer consumes generated output; the [operational reference](REFERENCE.md) documents the installed boundary. The earlier Pi runtime is frozen at the `pi-final` tag.
+- `references/kernel.template.md`, `references/mcp_operations.yaml`, and `references/capabilities.yaml` own runtime guidance and capability policy. The installer consumes generated output; the [operational reference](REFERENCE.md) documents the installed boundary. The earlier Pi runtime was removed from this repository (last commit `ac38e4a`).
 
 ### Project constraints and boundaries
 
