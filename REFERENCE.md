@@ -148,7 +148,7 @@ documentation and are not exercised live by this repository's checks.
 
 `claude/configs/settings.template.json` is generated from
 `references/mcp_operations.yaml`. It allows repository-local tools and named
-read-only MCP tools, asks before classified mutations, uploads, lifecycle, and
+read-only and conditional-read MCP tools, asks before classified mutations, uploads, lifecycle, and
 auth tools, and denies the named dangerous commands (`git push`, `git pull`,
 `git reset --hard`, `git clean -f`, `git branch -D`, `rm -rf`, `sudo`, `doas`,
 `docker system prune`, bare shells, and `bash -s`/`sh -s`, each also under an

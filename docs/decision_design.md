@@ -105,9 +105,19 @@ Hook matching the plugin's Bash invocation, deny-rule syntax, and exit-code
 behavior follow Claude Code's documented contracts but were not exercised
 against a live session; the offline hook probe covers only the scripts.
 
+The `b-verify-gate` hook is an advisory, one-shot reminder, not a boundary: a
+PostToolUse hook tracks non-prose edits made after the last shell command, and
+the Stop hook blocks the first stop once (exit 2) with the verify and review
+rule, never repeating in the same continuation. It fails open on malformed input
+or unusable state. Its per-session state lives in a user-owned `0700` directory
+under `~/.claude/b-agentic/` (override `B_AGENTIC_GATE_DIR`, separate from the
+Codex approval store's `B_AGENTIC_STATE_DIR`), and state files are opened
+without following symlinks.
+
 Evidence: [`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py),
 [`claude/bin/b-codex-review.mjs`](../claude/bin/b-codex-review.mjs),
 [`claude/hooks/b-codex-guard.mjs`](../claude/hooks/b-codex-guard.mjs),
+[`claude/hooks/b-verify-gate.mjs`](../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-path-guard.mjs`](../claude/hooks/b-path-guard.mjs), and
 [`tests/hooks/hooks-probe.sh`](../tests/hooks/hooks-probe.sh).
 

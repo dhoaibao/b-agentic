@@ -34,7 +34,7 @@ KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor"}
-AGENT_MODELS = {"opus", "sonnet", "haiku", "inherit"}
+AGENT_MODELS = {"opus", "sonnet"}
 CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
 # Tools a read-only specialist must never receive, whatever the registry says.
 EDITING_TOOLS = ("Edit", "Write", "NotebookEdit")
@@ -436,7 +436,7 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
         rows.append(f"| `{name}` | {meta['policy']} | {meta['notes']} |")
     rows.append("")
     rows.append(
-        "Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the read-only tools their profile lists."
+        "Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the tools their profile lists; no hook or deny rule inspects MCP arguments."
     )
     return "\n".join(rows)
 
