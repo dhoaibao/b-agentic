@@ -11,13 +11,18 @@
 // JSON; exit 2 with a stderr reason blocks the stop, any other exit lets it
 // finish. It fails open on malformed input and unreadable state.
 import {
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   realpathSync,
   rmSync,
-  writeFileSync,
+  writeSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -35,24 +40,67 @@ export const REMINDER = [
 
 function stateFile(sessionId) {
   const dir =
-    process.env.B_AGENTIC_STATE_DIR || join(tmpdir(), "b-agentic-verify-gate");
+    process.env.B_AGENTIC_GATE_DIR ||
+    join(homedir(), ".claude", "b-agentic", "verify-gate");
   return join(dir, `${String(sessionId).replace(/[^A-Za-z0-9_-]/g, "_")}.json`);
 }
 
-function readState(file) {
+// The state directory must be a real directory owned by the current user with
+// no group/other access, and state files are opened without following symlinks
+// and only when regular, so another local user cannot redirect, tamper with, or
+// block on the state. Anything else disables the gate (fail open).
+const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
+
+function privateDir(dir, create) {
   try {
-    return JSON.parse(readFileSync(file, "utf8"));
+    if (create) mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const info = lstatSync(dir);
+    if (!info.isDirectory()) return false;
+    if (typeof process.getuid === "function") {
+      if (info.uid !== process.getuid() || (info.mode & 0o077) !== 0) {
+        return false;
+      }
+    }
+    return true;
   } catch {
-    return { dirty: false, reminded: false };
+    return false;
+  }
+}
+
+function readState(file) {
+  const fallback = { dirty: false, reminded: false };
+  let fd;
+  try {
+    if (!privateDir(join(file, ".."), false)) return fallback;
+    fd = openSync(file, constants.O_RDONLY | NOFOLLOW | constants.O_NONBLOCK);
+    if (!fstatSync(fd).isFile()) return fallback;
+    return JSON.parse(readFileSync(fd, "utf8"));
+  } catch {
+    return fallback;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
 function writeState(file, state) {
+  let fd;
   try {
-    mkdirSync(join(file, ".."), { recursive: true });
-    writeFileSync(file, JSON.stringify(state));
+    if (!privateDir(join(file, ".."), true)) return;
+    fd = openSync(
+      file,
+      constants.O_WRONLY |
+        constants.O_CREAT |
+        constants.O_TRUNC |
+        NOFOLLOW |
+        constants.O_NONBLOCK,
+      0o600,
+    );
+    if (!fstatSync(fd).isFile()) return;
+    writeSync(fd, JSON.stringify(state));
   } catch {
-    // Advisory only: an unwritable state directory disables the gate.
+    // Advisory only: an unusable state directory disables the gate.
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 

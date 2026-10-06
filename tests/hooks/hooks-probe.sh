@@ -16,6 +16,7 @@ trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
 export B_AGENTIC_STATE_DIR="$work/state"
+export B_AGENTIC_GATE_DIR="$work/gate"
 
 fail() { echo "hooks probe failed: $*" >&2; exit 1; }
 
@@ -84,6 +85,24 @@ run "$verifygate" "$(vg Stop s6)"; expect 0 "state is cleared after the continua
 run "$verifygate" "$(vg PostToolUse s7 Edit /repo/src/a.ts)"; expect 0 "edit in s7"
 run "$verifygate" "$(vg Stop s8)"; expect 0 "another session is unaffected"
 run "$verifygate" 'not json'; expect 0 "malformed input must fail open"
+# a symlinked state file must not be followed.
+if [ "$(uname -s)" != MINGW ]; then
+  victim="$work/victim"; printf keep >"$victim"
+  ln -s "$victim" "$work/gate/s9.json"
+  run "$verifygate" "$(vg PostToolUse s9 Edit /repo/src/a.ts)"; expect 0 "symlinked state must fail open"
+  [ "$(cat "$victim")" = keep ] || fail "verify-gate followed a symlinked state file"
+  rm -f "$work/gate/s9.json"
+  # a non-regular state file must not block the hook.
+  mkfifo "$work/gate/s10.json"
+  run "$verifygate" "$(vg Stop s10)"; expect 0 "FIFO state must fail open without blocking"
+  rm -f "$work/gate/s10.json"
+  # a group/other-accessible state directory disables the gate.
+  chmod 755 "$work/gate"
+  run "$verifygate" "$(vg PostToolUse s11 Edit /repo/src/a.ts)"; expect 0 "permissive dir"
+  run "$verifygate" "$(vg Stop s11)"; expect 0 "permissive state dir must fail open"
+  [ ! -e "$work/gate/s11.json" ] || fail "verify-gate wrote into a permissive directory"
+  chmod 700 "$work/gate"
+fi
 echo "hooks probe passed: verify-gate"
 
 # --- codex guard ---------------------------------------------------------------
