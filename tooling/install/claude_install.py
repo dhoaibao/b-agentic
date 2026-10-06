@@ -456,8 +456,15 @@ class Installer:
         permissions = settings.setdefault("permissions", {})
         for kind in ("allow", "ask", "deny"):
             existing = permissions.setdefault(kind, [])
-            added = list(previous.get("permissions", {}).get(kind, []))
-            for rule in template["permissions"][kind]:
+            wanted = template["permissions"][kind]
+            recorded = previous.get("permissions", {}).get(kind, [])
+            # A rule an earlier version added and this version no longer ships is retired,
+            # but only if the manifest says it was ours.
+            for rule in (rule for rule in recorded if rule not in wanted):
+                while rule in existing:
+                    existing.remove(rule)
+            added = [rule for rule in recorded if rule in wanted]
+            for rule in wanted:
                 if rule not in existing:
                     existing.append(rule)
                     added.append(rule)

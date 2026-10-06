@@ -126,7 +126,7 @@ def main() -> int:
     ):
         if pattern not in deny:
             errors.append(f"dangerous command must be denied: {pattern}")
-    for tool in ("Read", "Edit", "Write"):
+    for tool in ("Read", "Edit"):
         for glob in ("**/.env", "**/.env.local", "**/*.pem", "**/*credentials.*", "**/*secrets.*"):
             if f"{tool}({glob})" not in deny:
                 errors.append(f"protected path must be denied: {tool}({glob})")

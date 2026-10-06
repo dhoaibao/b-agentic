@@ -62,8 +62,9 @@ The generated settings template allows repository-local tools and named
 read-only MCP tools, asks before classified mutations, uploads, lifecycle, and
 auth tools, and denies named dangerous commands (`git push`, `git pull`,
 `git reset --hard`, `git clean -f`, `git branch -D`, `rm -rf`, privilege
-escalation, bare shells) plus unambiguous secret files. Claude Code deny rules
-cannot carve out `.env.example`, so the `b-path-guard` PreToolUse hook enforces
+escalation, bare shells) plus unambiguous secret files through `Read(path)` and `Edit(path)` rules
+(Claude Code warns about and ignores `Write(path)` rules; an `Edit` rule
+covers every built-in file-editing tool). Claude Code deny rules cannot carve out `.env.example`, so the `b-path-guard` PreToolUse hook enforces
 the exact path rules (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`,
 `*secrets.*`, with `*.env.example` allowed) for the file tools, including the glob or pattern a search tool is given. It
 checks the names a call carries, not the files a directory search would visit.

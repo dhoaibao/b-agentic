@@ -632,6 +632,20 @@ for leaf in CLAUDE.md settings.json claude.json; do
 done
 echo "install probe passed: pending-aliases"
 
+# --- a rule an earlier version shipped and this version retired is removed only if it was ours -----------
+home=$(fresh_home retired-rule)
+claude="$home/.claude"
+run "$home"; expect_ok "install before retiring a rule"
+jq '.permissions.deny += ["Write(**/.env)", "Write(**/mine)"]' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+jq '.settings.permissions.deny += ["Write(**/.env)"]' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
+run "$home"; expect_ok "reinstall retiring a recorded rule"
+[ "$(jq -r '.permissions.deny | index("Write(**/.env)")' "$claude/settings.json")" = null ] || fail "a retired recorded rule was kept"
+[ "$(jq -r '.permissions.deny | index("Write(**/mine)") != null' "$claude/settings.json")" = true ] || fail "a user rule that was never recorded was removed"
+[ "$(jq -r '.settings.permissions.deny | index("Write(**/.env)")' "$claude/b-agentic/install.json")" = null ] || fail "the retired rule is still recorded as owned"
+[ "$(jq -r '.permissions.deny | index("Read(**/.env)") != null' "$claude/settings.json")" = true ] || fail "a current rule went missing"
+[ "$(jq -r '[.permissions.deny[] | select(startswith("Write("))] | length' "$root/claude/configs/settings.template.json")" = 0 ] || fail "the template must not ship Write(path) rules"
+echo "install probe passed: retired-rules"
+
 # --- bootstrap: dry-run mutates nothing, clones stay out of ~/.pi --------------------------------
 home=$(fresh_home bootstrap)
 run "$home" --dry-run --ref='bad ref'; expect_refused "invalid ref"

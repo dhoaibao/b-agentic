@@ -208,13 +208,7 @@
       "Edit(**/.env.*.local)",
       "Edit(**/*.pem)",
       "Edit(**/*credentials.*)",
-      "Edit(**/*secrets.*)",
-      "Write(**/.env)",
-      "Write(**/.env.local)",
-      "Write(**/.env.*.local)",
-      "Write(**/*.pem)",
-      "Write(**/*credentials.*)",
-      "Write(**/*secrets.*)"
+      "Edit(**/*secrets.*)"
     ]
   },
   "hooks": {

@@ -635,7 +635,8 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         for prefix in ("", "rtk "):
             deny.extend([f"Bash({prefix}{command})", f"Bash({prefix}{command} *)"])
     deny.extend(f"Bash({command})" for command in DENIED_BARE_COMMANDS)
-    for tool in ("Read", "Edit", "Write"):
+    # Claude Code warns about and ignores Write(path) rules: Edit(path) rules cover every file-editing tool.
+    for tool in ("Read", "Edit"):
         deny.extend(f"{tool}({glob})" for glob in DENY_READ_GLOBS)
     for server, record in policy["servers"].items():
         for tool, class_name in record["tools"].items():
