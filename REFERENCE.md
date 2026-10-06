@@ -68,8 +68,8 @@ The main session reads one skill before acting or invokes `/b-<name>`.
 `skills/registry.yaml` and `skills/*/prompt.md` are canonical;
 `tooling/generate/registry_sync.py` generates `SKILL.md`, `claude/agents/*.md`,
 the kernel's generated blocks, and `claude/configs/settings.template.json`.
-Explicit-request skills (`b-commit`, `b-pr-summary`) carry
-`disable-model-invocation: true`.
+Explicit-request skills (`b-commit`, `b-pr-summary`) route only on explicit
+user request and stay model-invocable.
 
 The four specialists are `b-planner`, `b-researcher`, `b-debugger`, and
 `b-auditor`. Their tool lists omit `Edit`, `Write`, `NotebookEdit`, and nested

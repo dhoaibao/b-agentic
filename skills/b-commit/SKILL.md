@@ -5,7 +5,6 @@ description: >
   cohesive commits after an explicit user request, then stage and create
   them on the current branch without a second approval prompt or pushing.
 argument-hint: "[commit instructions]"
-disable-model-invocation: true
 metadata:
   phase: Ship
   execution_mode: main

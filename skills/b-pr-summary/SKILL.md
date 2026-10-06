@@ -6,7 +6,6 @@ description: >
   or rewrite supplied PR copy, titles, and descriptions for clarity and
   supported claims, without a changed-code review gate.
 argument-hint: "[commit count or PR prose]"
-disable-model-invocation: true
 metadata:
   phase: Ship
   execution_mode: main

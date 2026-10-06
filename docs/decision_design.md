@@ -35,7 +35,8 @@ Evidence: [`install.sh`](../install.sh),
 
 The kernel selects one skill at a time. Claude Code discovers skill
 descriptors and runs a skill as `/b-<name>`. Skills marked
-`routing.explicit_request` are generated with `disable-model-invocation: true`.
+`routing.explicit_request` route only on an explicit user request but stay
+model-invocable (no `disable-model-invocation`).
 Worktree mutation, user interaction, verification, and reporting stay in the
 main session. b-agentic generates four named read-only specialists for the
 `Agent` tool: `b-planner`, `b-researcher`, `b-debugger`, and `b-auditor`. Each

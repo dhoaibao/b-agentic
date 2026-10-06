@@ -514,9 +514,6 @@ def render_skill_file(skill: dict[str, Any]) -> str:
     lines.extend(fold_yaml("description", description))
     if skill.get("argument_hint"):
         lines.append(f"argument-hint: {json.dumps(skill['argument_hint'], ensure_ascii=False)}")
-    if skill["routing"].get("explicit_request"):
-        # Explicit-request skills stay out of Claude's automatic skill matching; /<name> still loads them.
-        lines.append("disable-model-invocation: true")
     lines.extend(
         [
             "metadata:",
@@ -709,10 +706,8 @@ def validate_regressions(
             if any(item not in rendered for item in skill["handoff"]):
                 errors.append(f"skill regression: {skill['name']} handoff missing from generated skill")
     for skill in skills:
-        explicit = bool(skill["routing"].get("explicit_request"))
-        flagged = "\ndisable-model-invocation: true\n" in render_skill_file(skill)
-        if flagged != explicit:
-            errors.append(f"skill regression: {skill['name']} disable-model-invocation must match explicit_request")
+        if "\ndisable-model-invocation:" in render_skill_file(skill):
+            errors.append(f"skill regression: {skill['name']} must not set disable-model-invocation")
         hint = skill.get("argument_hint")
         if bool(hint) != (f"\nargument-hint: {json.dumps(hint, ensure_ascii=False)}\n" in render_skill_file(skill)):
             errors.append(f"skill regression: {skill['name']} argument-hint must match the registry")

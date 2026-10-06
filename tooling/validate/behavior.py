@@ -742,9 +742,8 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
             errors.append(f"references/kernel.template.md: missing routing intent for {name}")
         raw_skill_text = (ROOT / "skills" / name / "SKILL.md").read_text()
         front_matter = raw_skill_text.split("\n---\n", 1)[0]
-        hidden = "\ndisable-model-invocation: true" in front_matter
-        if hidden != (routing.get("explicit_request") is True):
-            errors.append(f"skills/{name}/SKILL.md: disable-model-invocation must match routing.explicit_request")
+        if "\ndisable-model-invocation:" in front_matter:
+            errors.append(f"skills/{name}/SKILL.md: must not set disable-model-invocation")
         if routing.get("explicit_request") is True:
             if f"`{name}` only on explicit user request" not in text:
                 errors.append(f"references/kernel.template.md: missing explicit-request routing rule for {name}")
