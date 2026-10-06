@@ -134,28 +134,6 @@ source-absent manifest uninstall remains confined to the same boundary.
   `tests/pi/herdr-notify-probe.sh` covers the gate, the balanced aggregate,
   throttle, privacy, wiring, a missing binary, and non-TUI inertness offline; the
   real toast, sound, and pane state need a running Herdr and are not automated.
-- `b-openai-fast-mode` (a managed extension, `extensions/b-openai-fast-mode.ts`)
-  is an opt-in OpenAI Fast mode. `/openai-fastmode` opens an On/Off picker (no arguments to
-  type; it needs an interactive session) and `/openai-fastmode:status` reports the state,
-  the selected model, eligibility, and requests injected this session. While an
-  `openai-responses` or `openai-codex-responses` model is selected, the footer
-  shows `⚡ Fast: on`, `Fast: off`, or `Fast: n/a` (an OpenAI model outside the
-  supported list); other providers show nothing. The state is read from the file at
-  session start and after each picker choice, so an edit made outside Pi (and the
-  footer) updates on the next session, not mid-session. The choice persists in
-  `<agentDir>/openai-fast-mode.json`, a user-owned file the
-  installer never overwrites, and it is off by default. While on, a
-  `before_provider_request` hook adds `service_tier: "priority"` only to
-  `openai-responses` and `openai-codex-responses` requests whose model id is in
-  the supported list (`gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`,
-  `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`); a `models` array in
-  that file replaces the list. Every other provider, model, and request is
-  unchanged. Fast mode costs more (about 2x API price, 2.5x ChatGPT-plan limits),
-  Pi applies the multiplier from the response `service_tier`, a gateway may strip
-  the field, and compaction requests may run at standard speed. Set
-  `PI_OPENAI_FAST_MODE=off` to disable it. `tests/pi/openai-fast-mode-probe.sh`
-  covers config parsing, eligibility, payload injection, the command, and
-  persistence offline; real OpenAI and gateway behavior are not automated.
 - The installer merges `"extensions": ["-builtin:mcp"]` into Pi settings so
   `pi-mcp-adapter` stays the only MCP owner: a stray `mcp.json` is not read by
   Pi's built-in MCP even if the adapter fails to load. Pi's built-in `codemode`

@@ -20,7 +20,7 @@ the installed extensions to their latest available releases. The probe does
 not establish live readiness for production MCP servers or real providers.
 
 `tooling/validate/run.sh --release` runs this probe together with the verify-gate,
-snapshot, input-image-preview, herdr-notify, and openai-fast-mode probes. It skips them with a message when `pi` or the probe profile
+snapshot, input-image-preview, and herdr-notify probes. It skips them with a message when `pi` or the probe profile
 is absent, unless `B_AGENTIC_REQUIRE_PI_PROBES=1` (set in CI), which fails on a
 missing `pi` and runs `--setup` for a missing profile.
 
@@ -61,20 +61,6 @@ cannot pass. It then checks that a run outside Herdr, and a non-TUI run with
 Herdr variables set, load without an error, leave the prompt and reply unchanged,
 and never call the `herdr` binary. The real toast, the sound, and the pane
 state need a running Herdr and are not covered.
-
-## OpenAI fast-mode probe
-
-`bash tests/pi/openai-fast-mode-probe.sh` loads `pi/extensions/b-openai-fast-mode.ts`
-with the same scripted local model and `pi -ne`. It needs only Pi and jq: no npm
-packages, credentials, or network, and it uses an isolated agent directory. A
-test-only extension (`openai-fast-mode-cases.ts`) runs unit and wiring cases at
-session start: config parsing and fallbacks, model and API eligibility, payload
-injection without mutating the original, the `/openai-fastmode` picker, `/openai-fastmode:status`, and
-footer indicator (including model switches and non-UI sessions), persistence, a
-custom model list, a failed save, and a corrupt config file. The probe requires a minimum case
-count, then checks that the reply is unchanged with the extension loaded and with
-`PI_OPENAI_FAST_MODE=off`. Real OpenAI requests and gateway behavior are not
-covered.
 
 ## Snapshot probe
 
