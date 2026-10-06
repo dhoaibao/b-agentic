@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render native Pi delivery assets from b-agentic's canonical sources."""
+"""Render Claude Code delivery assets from b-agentic's canonical sources."""
 
 from __future__ import annotations
 
@@ -16,9 +16,11 @@ SKILL_REGISTRY_PATH = ROOT / "skills" / "registry.yaml"
 KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
 MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 CAPABILITIES_PATH = ROOT / "references" / "capabilities.yaml"
-PI_CONFIGS_DIR = ROOT / "pi" / "configs"
-PI_PROMPTS_DIR = ROOT / "pi" / "prompts"
-PI_AGENTS_DIR = ROOT / "pi" / "agents"
+CLAUDE_DIR = ROOT / "claude"
+CLAUDE_AGENTS_DIR = CLAUDE_DIR / "agents"
+CLAUDE_CONFIGS_DIR = CLAUDE_DIR / "configs"
+SETTINGS_TEMPLATE_PATH = CLAUDE_CONFIGS_DIR / "settings.template.json"
+SNAPSHOT_CLI_PATH = CLAUDE_DIR / "bin" / "b-candidate-snapshot.mjs"
 
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
@@ -31,13 +33,12 @@ KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
-MCP_EXPOSURES = {"direct", "search"}
-MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-reviewer"}
-CAPABILITY_KINDS = {"mcp", "agent"}
-# Native tools registered by managed extensions; only the named agents may list them.
-EXTENSION_TOOLS = {"b_candidate_snapshot": "b-candidate-snapshot.ts"}
-EXTENSION_TOOL_AGENTS = {"b-reviewer"}
-# Likely-secret path gate; the snapshot extension mirrors everything after "*".
+MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor"}
+AGENT_MODELS = {"opus", "sonnet", "haiku", "inherit"}
+CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
+# Tools a read-only specialist must never receive, whatever the registry says.
+EDITING_TOOLS = ("Edit", "Write", "NotebookEdit")
+# Likely-secret path gate; the snapshot CLI mirrors everything after "*".
 PATH_RULES = {
     "*": "allow",
     "*.env": "deny",
@@ -47,10 +48,36 @@ PATH_RULES = {
     "*credentials.*": "deny",
     "*secrets.*": "deny",
 }
-PI_EXTENSIONS_DIR = ROOT / "pi" / "extensions"
+# Claude Code permission deny rules cannot carve out `.env.example`, so the
+# settings layer denies only unambiguous secret files; the path-guard hook
+# enforces PATH_RULES exactly.
+DENY_READ_GLOBS = (
+    "**/.env",
+    "**/.env.local",
+    "**/.env.*.local",
+    "**/*.pem",
+    "**/*credentials.*",
+    "**/*secrets.*",
+)
+DENIED_COMMANDS = (
+    "git push",
+    "git pull",
+    "git reset --hard",
+    "git clean -f",
+    "git branch -D",
+    "rm -rf",
+    "sudo",
+    "doas",
+    "docker system prune",
+    "bash -s",
+    "sh -s",
+)
+DENIED_BARE_COMMANDS = ("bash", "sh")
+ALLOWED_TOOLS = ("Read", "Glob", "Grep", "Edit", "Write", "Bash", "Agent", "Task", "Skill", "AskUserQuestion")
 ARGUMENT_HINT_MAX = 60
 ARGUMENT_HINT_TOKEN = r"(?:<[A-Za-z0-9 ,/|._-]+>|\[[A-Za-z0-9 ,/|._-]+\])"
 ARGUMENT_HINT_PATTERN = re.compile(rf"{ARGUMENT_HINT_TOKEN}(?: {ARGUMENT_HINT_TOKEN})*")
+MCP_TOOL_PATTERN = re.compile(r"mcp__([a-z][a-z0-9_]*)__([A-Za-z0-9_.-]+)")
 
 
 def load_json_subset_yaml(path: Path) -> dict[str, Any]:
@@ -101,13 +128,18 @@ def load_capabilities() -> dict[str, Any]:
     return load_json_subset_yaml(CAPABILITIES_PATH)
 
 
+def mcp_tool_name(server: str, tool: str) -> str:
+    """Claude Code's name for an MCP tool: mcp__<server>__<tool>."""
+    return f"mcp__{server}__{tool}"
+
+
 def validate_kernel_template(errors: list[str]) -> None:
     if not KERNEL_TEMPLATE_PATH.is_file():
-        errors.append(f"{KERNEL_TEMPLATE_PATH}: missing Pi kernel template")
+        errors.append(f"{KERNEL_TEMPLATE_PATH}: missing Claude Code kernel template")
         return
     text = KERNEL_TEMPLATE_PATH.read_text()
     for marker in (
-        "Pi Workflow Kernel",
+        "Claude Code Workflow Kernel",
         "<!-- b-agentic-managed -->",
         KERNEL_ROUTING_START,
         KERNEL_DELEGATION_START,
@@ -209,7 +241,9 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
             errors.append(f"{label}: expected object")
             continue
         ensure_string(agent.get("description"), f"{label}.description", errors)
-        ensure_string(agent.get("model"), f"{label}.model", errors)
+        model = ensure_string(agent.get("model"), f"{label}.model", errors)
+        if model and model not in AGENT_MODELS:
+            errors.append(f"{label}.model: expected one of {sorted(AGENT_MODELS)}")
         allowed_fields = {"description", "model"}
         if "max_turns" in agent:
             allowed_fields.add("max_turns")
@@ -219,12 +253,6 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
         if name == "b-researcher":
             allowed_fields.add("conditional_tools")
             non_empty_string_list(agent.get("conditional_tools"), f"{label}.conditional_tools", errors)
-        if name in EXTENSION_TOOL_AGENTS:
-            allowed_fields.add("extension_tools")
-            non_empty_string_list(agent.get("extension_tools"), f"{label}.extension_tools", errors)
-            tools = agent.get("extension_tools")
-            if isinstance(tools, list) and (len(tools) != len(set(tools)) or not set(tools) <= set(EXTENSION_TOOLS)):
-                errors.append(f"{label}.extension_tools: expected unique names from {sorted(EXTENSION_TOOLS)}")
         if set(agent) != allowed_fields:
             errors.append(f"{label}: expected only {sorted(allowed_fields)}")
     if delegated_agents != MANAGED_SUBAGENT_NAMES:
@@ -232,16 +260,9 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
     return errors
 
 
-def native_tool_name(server: str, tool: str) -> str:
-    # Match pi-mcp-adapter: do not prefix tools that already start with server_.
-    name = tool.replace(".", "_")
-    prefix = f"{server}_"
-    return name if name.startswith(prefix) and len(name) > len(prefix) else f"{prefix}{name}"
-
-
 def validate_agent_tools(agents: dict[str, dict[str, Any]], policy: dict[str, Any]) -> list[str]:
     conditional = {
-        native_tool_name(server, tool)
+        mcp_tool_name(server, tool)
         for server, record in policy["servers"].items()
         for tool, classification in record["tools"].items()
         if classification == "conditional-read"
@@ -262,19 +283,19 @@ def validate_agent_tools(agents: dict[str, dict[str, Any]], policy: dict[str, An
     return errors
 
 
-def validate_snapshot_extension() -> list[str]:
-    """Keep the snapshot extension, the permission policy, and the manual fallback in step."""
+def validate_snapshot_cli() -> list[str]:
+    """Keep the snapshot CLI, the path rules, and the manual fallback in step."""
     errors: list[str] = []
-    path = PI_EXTENSIONS_DIR / EXTENSION_TOOLS["b_candidate_snapshot"]
-    if not path.is_file():
-        return [f"{path.relative_to(ROOT)}: missing managed snapshot extension"]
-    text = path.read_text()
-    if 'name: "b_candidate_snapshot"' not in text:
-        errors.append(f"{path.relative_to(ROOT)}: must register b_candidate_snapshot")
+    label = SNAPSHOT_CLI_PATH.relative_to(ROOT)
+    if not SNAPSHOT_CLI_PATH.is_file():
+        return [f"{label}: missing managed snapshot CLI"]
+    text = SNAPSHOT_CLI_PATH.read_text()
+    if 'SNAPSHOT_SCHEMA = "b-candidate-snapshot/3"' not in text:
+        errors.append(f"{label}: snapshot schema must stay b-candidate-snapshot/3")
     flags_block = re.search(r"SNAPSHOT_DIFF_FLAGS = \[(.*?)\];", text, re.S)
     flags = re.findall(r'"([^"]+)"', flags_block.group(1)) if flags_block else []
     if not flags:
-        errors.append(f"{path.relative_to(ROOT)}: SNAPSHOT_DIFF_FLAGS not found")
+        errors.append(f"{label}: SNAPSHOT_DIFF_FLAGS not found")
     review = (ROOT / "skills" / "b-review" / "prompt.md").read_text()
     for variant in (f"git diff {' '.join(flags)} --cached -- .", f"git diff {' '.join(flags)} -- ."):
         if flags and f"`{variant}`" not in review:
@@ -283,7 +304,7 @@ def validate_snapshot_extension() -> list[str]:
     rules = re.findall(r'\["([^"]+)", "(allow|deny)"\]', rules_block.group(1)) if rules_block else []
     policy_rules = [(pattern, action) for pattern, action in PATH_RULES.items() if pattern != "*"]
     if rules != policy_rules:
-        errors.append(f"{path.relative_to(ROOT)}: PROTECTED_RULES must match the permission policy path rules")
+        errors.append(f"{label}: PROTECTED_RULES must match the generated path rules")
     return errors
 
 
@@ -312,18 +333,21 @@ def validate_policy(policy: dict[str, Any]) -> list[str]:
     seen_tools: set[str] = set()
     for server, record in servers.items():
         if not isinstance(server, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", server):
-            errors.append(f"servers.{server}: server name must use Pi MCP-safe spelling")
+            errors.append(f"servers.{server}: server name must be lowercase letters, digits, and underscores")
             continue
         tools = record.get("tools") if isinstance(record, dict) else None
         if not isinstance(tools, dict) or not tools:
             errors.append(f"servers.{server}.tools: expected non-empty object")
             continue
-        if record.get("exposure") not in MCP_EXPOSURES:
-            errors.append(f"servers.{server}.exposure: expected one of {sorted(MCP_EXPOSURES)}")
+        if set(record) != {"tools"}:
+            errors.append(f"servers.{server}: expected only a tools object")
         for tool, class_name in tools.items():
-            name = native_tool_name(server, str(tool))
+            if not re.fullmatch(r"[A-Za-z0-9_.-]+", str(tool)):
+                errors.append(f"servers.{server}.tools.{tool}: invalid tool name")
+                continue
+            name = mcp_tool_name(server, str(tool))
             if name in seen_tools:
-                errors.append(f"{MCP_OPERATIONS_PATH}: duplicate native tool name {name!r}")
+                errors.append(f"{MCP_OPERATIONS_PATH}: duplicate tool name {name!r}")
             seen_tools.add(name)
             if class_name not in classes:
                 errors.append(f"servers.{server}.tools.{tool}: unknown class {class_name!r}")
@@ -386,8 +410,12 @@ def validate_capabilities(contract: dict[str, Any], policy: dict[str, Any]) -> l
             else:
                 agent_names.update(names)
                 source_dir = agent.get("source")
-                if source_dir != str(PI_AGENTS_DIR.relative_to(ROOT)):
-                    errors.append(f"{label}.agent.source: expected generated Pi agent directory")
+                if source_dir != str(CLAUDE_AGENTS_DIR.relative_to(ROOT)):
+                    errors.append(f"{label}.agent.source: expected generated Claude Code agent directory")
+        if kind == "plugin" and (
+            not isinstance(probe, dict) or not isinstance(probe.get("plugin"), str) or not probe["plugin"]
+        ):
+            errors.append(f"{label}.probe.plugin: expected plugin identifier")
     policy_servers = set((policy.get("servers") or {}).keys())
     if mcp_servers != policy_servers:
         errors.append(f"{CAPABILITIES_PATH}: MCP server set differs from policy")
@@ -406,10 +434,9 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
     rows = ["| Class | Policy | Scope |", "|---|---|---|"]
     for name, meta in policy["classes"].items():
         rows.append(f"| `{name}` | {meta['policy']} | {meta['notes']} |")
-    search_servers = [server for server, record in policy["servers"].items() if record["exposure"] == "search"]
     rows.append("")
     rows.append(
-        f'Search-exposed servers ({", ".join(search_servers)}) start inactive in main: call `mcp({{search:"<terms>"}})` (auto-allowed), then the activated `<server>_<tool>` next turn; never `mcp({{tool}})` for reads. Specialists call their listed tools directly.'
+        "Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the read-only tools their profile lists."
     )
     return "\n".join(rows)
 
@@ -417,7 +444,7 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
 def render_delegation(skills: list[dict[str, Any]]) -> str:
     delegated = [skill for skill in skills if skill["execution"]["mode"] == "subagent"]
     lines = [
-        "- Delegated skills run only in their named Pi `subagent` type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:",
+        "- Delegated skills run only in their named `Agent` subagent type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
     lines.append("- All other skills run in the main session.")
@@ -430,16 +457,27 @@ DELEGATION_BOUNDARY_HEADING = "## Delegation boundary"
 def render_delegation_boundary(skill: dict[str, Any]) -> str:
     name = skill["name"]
     agent = skill["execution"]["agent"]
-    return "\n".join(
-        [
-            DELEGATION_BOUNDARY_HEADING,
-            "",
-            f"`{name}` runs only in the `{agent}` subagent.",
-            "",
-            f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `{agent}.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains neither `edit` nor `write` (a missing, blank, or null `tools` grants them), then call `subagent` with agent `{agent}` and a bounded task naming `{name}`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
-            f"- `{agent}` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.",
-        ]
-    )
+    editing = ", ".join(f"`{tool}`" for tool in EDITING_TOOLS)
+    lines = [
+        DELEGATION_BOUNDARY_HEADING,
+        "",
+        f"`{name}` runs only in the `{agent}` subagent.",
+        "",
+        f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
+        f"- `{agent}` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.",
+    ]
+    handoff = skill.get("handoff", [])
+    if handoff:
+        lines.extend(
+            [
+                "",
+                "Parent-owned evidence to gather and pass to the child (or state what is unavailable):",
+                "",
+                *[f"- {item}" for item in handoff],
+            ]
+        )
+    lines.extend(["", "User arguments for the bounded task: $ARGUMENTS"])
+    return "\n".join(lines)
 
 
 def render_routing(skills: list[dict[str, Any]]) -> str:
@@ -474,8 +512,10 @@ def render_skill_file(skill: dict[str, Any]) -> str:
         )
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))
+    if skill.get("argument_hint"):
+        lines.append(f"argument-hint: {json.dumps(skill['argument_hint'], ensure_ascii=False)}")
     if skill["routing"].get("explicit_request"):
-        # Explicit-request skills stay out of Pi's automatic skill list; /skill:<name> and /<name> still load them.
+        # Explicit-request skills stay out of Claude's automatic skill matching; /<name> still loads them.
         lines.append("disable-model-invocation: true")
     lines.extend(
         [
@@ -499,71 +539,48 @@ def render_skill_file(skill: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_prompt_file(skill: dict[str, Any]) -> str:
-    name = skill["name"]
-    execution = skill["execution"]
-    lines = ["---", f"description: {json.dumps(skill['use'], ensure_ascii=False)}"]
-    if skill.get("argument_hint"):
-        lines.append(f"argument-hint: {json.dumps(skill['argument_hint'], ensure_ascii=False)}")
-    lines.extend(["---", "", "<!-- Generated from skills/registry.yaml. Do not edit this file. -->", ""])
-    if execution["mode"] == "subagent":
-        handoff = skill.get("handoff", [])
-        preparation = f"First read the installed `skills/{name}/SKILL.md` in the main session only to prepare this handoff; do not run its steps there.\n\n"
-        if handoff:
-            preparation += (
-                "Then, before delegation, gather and pass this parent-owned evidence (or state what is unavailable):\n\n"
-                + "\n".join(f"- {item}" for item in handoff)
-                + "\n\n"
-            )
-        lines.append(
-            f"{preparation}Before delegating, confirm the effective `{execution['agent']}.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains neither `edit` nor `write` (a missing, blank, or null `tools` grants them); an unsafe or missing profile, or an unknown agent type or `general-purpose` fallback note, means unavailable (discard that result). Delegate this bounded task to the `{execution['agent']}` agent with the `subagent` tool. Name the `{name}` skill explicitly in the child prompt and pass these user arguments: $ARGUMENTS\n\nThe child must read and follow its installed `skills/{name}/SKILL.md`, return that skill's Output format, and stay read-only. Evaluate its result in the main session before taking action. Do not perform this skill's work in the main session, even for a quick or single lookup; if the subagent is unavailable, report the gap and ask."
-        )
-    elif skill["routing"].get("explicit_request"):
-        lines.append(
-            f"Read and follow the installed `skills/{name}/SKILL.md` (in the Pi agent directory, default `~/.pi/agent/skills/{name}/SKILL.md`; this skill is hidden from the automatic skill list) before acting on: $ARGUMENTS"
-        )
-    else:
-        lines.append(f"Read and follow the installed `skills/{name}/SKILL.md` before acting on: $ARGUMENTS")
-    lines.append("")
-    return "\n".join(lines)
-
-
 TURN_BUDGET_NOTICE = (
     "If the harness warns about your turn budget, make no further tool calls: return the skill's Output format "
     "now with partial findings, explicit gaps, and the narrowest next step for the main session."
 )
 
 
-def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, Any]]) -> str:
+def read_only_mcp_tools(policy: dict[str, Any]) -> list[str]:
+    return [
+        mcp_tool_name(server, tool)
+        for server, record in policy["servers"].items()
+        for tool, class_name in record["tools"].items()
+        if class_name == "read-only"
+    ]
+
+
+def agent_tool_list(agent: dict[str, Any], policy: dict[str, Any]) -> list[str]:
+    return ["Read", "Grep", "Glob", "Bash", *read_only_mcp_tools(policy), *agent.get("conditional_tools", [])]
+
+
+def render_agent_file(
+    name: str, agent: dict[str, Any], skills: list[dict[str, Any]], policy: dict[str, Any] | None = None
+) -> str:
+    policy = policy if policy is not None else load_policy()
     bound_skills = [
         skill["name"]
         for skill in skills
         if skill["execution"]["mode"] == "subagent" and skill["execution"]["agent"] == name
     ]
     skill_list = " or ".join(f"`{skill}`" for skill in bound_skills)
-    model, sep, thinking = agent["model"].partition("#")
-    if not sep or thinking not in {"off", "minimal", "low", "medium", "high", "xhigh", "max"}:
-        raise SystemExit(f"agents.{name}.model: expected provider/model#thinking")
-    read_only_mcp = [
-        native_tool_name(server, tool)
-        for server, record in load_policy()["servers"].items()
-        for tool, class_name in record["tools"].items()
-        if class_name == "read-only"
-    ]
     return "\n".join(
         [
             "---",
+            f"name: {name}",
             f"description: {json.dumps(agent['description'])}",
-            f"tools: {', '.join(['read', 'grep', 'find', 'ls', 'bash', *read_only_mcp, *agent.get('conditional_tools', []), *agent.get('extension_tools', [])])}",
-            f"model: {model}",
-            f"thinking: {thinking}",
-            *([f"max_turns: {agent['max_turns']}"] if "max_turns" in agent else []),
-            "prompt_mode: replace",
+            f"tools: {', '.join(agent_tool_list(agent, policy))}",
+            f"model: {agent['model']}",
+            *([f"maxTurns: {agent['max_turns']}"] if "max_turns" in agent else []),
             "---",
             "",
             f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
             "",
-            "Read and execute the named skill from the installed Pi `skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template. The skill's Delegation boundary directs the main session to delegate; you are the named child, so execute its steps.",
+            "Read and execute the named skill from the installed `~/.claude/skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template. The skill's Delegation boundary directs the main session to delegate; you are the named child, so execute its steps.",
             "",
             "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. A returned result is not authority to change files, commit, push, or report task completion. If a required tool is absent, tell the main session rather than bypassing the allowlist.",
             "",
@@ -575,74 +592,62 @@ def render_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, A
     )
 
 
-def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
-    # Unknown tools ask. The path gate also applies to recognized MCP arguments;
-    # the adapter proxy remains ask-only so it cannot bypass direct-tool rules.
-    permissions: dict[str, Any] = {
-        "*": "ask",
-        "path": dict(PATH_RULES),
-        "read": "allow",
-        "grep": "allow",
-        "find": "allow",
-        "ls": "allow",
-        "write": "allow",
-        "edit": "allow",
-        "bash": {
-            "*": "allow",
-            "git push*": "deny",
-            "rtk git push*": "deny",
-            "git pull*": "deny",
-            "rtk git pull*": "deny",
-            "git reset --hard*": "deny",
-            "rtk git reset --hard*": "deny",
-            "git clean -f*": "deny",
-            "rtk git clean -f*": "deny",
-            "git branch -D*": "deny",
-            "rtk git branch -D*": "deny",
-            "rm -rf *": "deny",
-            "sudo *": "deny",
-            "doas *": "deny",
-            "docker system prune*": "deny",
-            # New keys follow legacy ask rules on an existing merged install.
-            "sudo*": "deny",
-            "docker system prun*": "deny",
-            # The shell gate matches pipeline commands individually, not pipe text.
-            "bash": "deny",
-            "sh": "deny",
-            "bash -s*": "deny",
-            "sh -s*": "deny",
-        },
-        "external_directory": "ask",
-        "external_directory_write": "deny",
-        # Invoking a skill only loads instructions; its subsequent tool calls
-        # still pass through their own permission and path gates.
-        "skill": "allow",
-        "subagent": "allow",
-        "ask_question": "deny",
-        "ask_user_question": "allow",
-        # Explicitly allow the requested Magic Context tools, including memory
-        # writes; unknown future tools still inherit the global ask rule.
-        "ctx_search": "allow",
-        "ctx_expand": "allow",
-        "ctx_memory": "allow",
-        "ctx_note": "allow",
-        "ctx_reduce": "allow",
-        "todowrite": "allow",
-        # Local session messaging via pi-intercom; auto-allowed by user decision.
-        "intercom": "allow",
-        # Subagent runtime progress notice to its parent; parent treats it as untrusted input.
-        "notify_parent": "allow",
-        # Subagent ask-back: records a question and ends the child turn; main answers via resume.
-        "ask_parent": "allow",
-        # Managed read-only extension tools; the extension never hashes, diffs, or returns protected content.
-        **dict.fromkeys(EXTENSION_TOOLS, "allow"),
-        "mcp": {"*": "ask", "mcp_status": "allow", "mcp_search": "allow", "mcp_describe": "allow"},
+HOOK_DIR = '"$HOME/.claude/b-agentic/hooks'
+
+
+def hook_command(script: str) -> str:
+    return f'node {HOOK_DIR}/{script}"'
+
+
+def render_hooks() -> dict[str, Any]:
+    """Hook entries merged into the user's settings.json, keyed by exact command."""
+    return {
+        "PreToolUse": [
+            {
+                "matcher": "Read|Edit|Write|NotebookEdit|Grep|Glob",
+                "hooks": [{"type": "command", "command": hook_command("b-path-guard.mjs")}],
+            },
+            {
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": hook_command("b-codex-guard.mjs")}],
+            },
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "Edit|Write|NotebookEdit|Bash",
+                "hooks": [{"type": "command", "command": hook_command("b-verify-gate.mjs")}],
+            }
+        ],
+        "Stop": [{"hooks": [{"type": "command", "command": hook_command("b-verify-gate.mjs")}]}],
     }
+
+
+def render_settings(policy: dict[str, Any]) -> dict[str, Any]:
+    return {**render_permissions(policy), "hooks": render_hooks()}
+
+
+def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
+    """Permission rules merged into the user's Claude Code settings.json."""
+    allow = list(ALLOWED_TOOLS)
+    ask: list[str] = []
+    deny: list[str] = []
+    for command in DENIED_COMMANDS:
+        for prefix in ("", "rtk "):
+            deny.extend([f"Bash({prefix}{command})", f"Bash({prefix}{command} *)"])
+    deny.extend(f"Bash({command})" for command in DENIED_BARE_COMMANDS)
+    for tool in ("Read", "Edit", "Write"):
+        deny.extend(f"{tool}({glob})" for glob in DENY_READ_GLOBS)
     for server, record in policy["servers"].items():
-        permissions[f"{server}_*"] = "ask"
         for tool, class_name in record["tools"].items():
-            permissions[native_tool_name(server, tool)] = policy["classes"][class_name]["native_permission"]
-    return {"permissionReviewLog": False, "yoloMode": False, "permission": permissions}
+            permission = policy["classes"][class_name]["native_permission"]
+            name = mcp_tool_name(server, tool)
+            if permission == "allow":
+                allow.append(name)
+            elif permission == "ask":
+                ask.append(name)
+            else:
+                deny.append(name)
+    return {"permissions": {"allow": allow, "ask": ask, "deny": deny}}
 
 
 def replace_block(text: str, start: str, end: str, body: str) -> str:
@@ -667,13 +672,12 @@ def render_outputs(
             readme.read_text(), README_SKILLS_START, README_SKILLS_END, render_readme_skills_table(skills)
         ),
         KERNEL_TEMPLATE_PATH: kernel,
-        PI_CONFIGS_DIR / "permission.user.template.json": json.dumps(render_permissions(policy), indent=2) + "\n",
+        SETTINGS_TEMPLATE_PATH: json.dumps(render_settings(policy), indent=2) + "\n",
     }
     for skill in skills:
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
-        outputs[PI_PROMPTS_DIR / f"{skill['name']}.md"] = render_prompt_file(skill)
     for name, agent in agents.items():
-        outputs[PI_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills)
+        outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills, policy)
     return outputs
 
 
@@ -693,34 +697,24 @@ def validate_regressions(
     if not any("handoff: only subagent skills" in error for error in validate_skills(invalid_handoff, agents)):
         errors.append("skill regression: main skill cannot declare subagent handoff")
     invalid_handoff = json.loads(json.dumps(skills))
-    invalid_handoff[0]["handoff"] = []
+    next(skill for skill in invalid_handoff if skill["execution"]["mode"] == "subagent")["handoff"] = []
     if not any(
         "handoff: expected a non-empty string array" in error for error in validate_skills(invalid_handoff, agents)
     ):
         errors.append("skill regression: empty handoff must fail")
     for skill in skills:
         if skill.get("handoff"):
-            prompt = render_prompt_file(skill)
-            if any(item not in prompt for item in skill["handoff"]):
-                errors.append(f"skill regression: {skill['name']} handoff missing from generated prompt")
+            rendered = render_skill_file(skill)
+            if any(item not in rendered for item in skill["handoff"]):
+                errors.append(f"skill regression: {skill['name']} handoff missing from generated skill")
     for skill in skills:
         explicit = bool(skill["routing"].get("explicit_request"))
         flagged = "\ndisable-model-invocation: true\n" in render_skill_file(skill)
         if flagged != explicit:
             errors.append(f"skill regression: {skill['name']} disable-model-invocation must match explicit_request")
-        if explicit and f"~/.pi/agent/skills/{skill['name']}/SKILL.md" not in render_prompt_file(skill):
-            errors.append(f"skill regression: {skill['name']} prompt must name the hidden skill path")
-    for skill in skills:
-        prompt = render_prompt_file(skill)
-        head = prompt.split("\n---\n", 1)[0].splitlines() if prompt.startswith("---\n") else []
-        fields = {line.split(": ", 1)[0]: json.loads(line.split(": ", 1)[1]) for line in head[1:] if ": " in line}
-        if fields.get("description") != skill["use"]:
-            errors.append(f"skill regression: {skill['name']} prompt front matter must carry the registry use")
-        if fields.get("argument-hint") != skill.get("argument_hint") or set(fields) - {"description", "argument-hint"}:
-            errors.append(f"skill regression: {skill['name']} prompt argument-hint must match the registry")
-        if "$ARGUMENTS" not in prompt:
-            errors.append(f"skill regression: {skill['name']} prompt must keep $ARGUMENTS")
-
+        hint = skill.get("argument_hint")
+        if bool(hint) != (f"\nargument-hint: {json.dumps(hint, ensure_ascii=False)}\n" in render_skill_file(skill)):
+            errors.append(f"skill regression: {skill['name']} argument-hint must match the registry")
     for skill in skills:
         rendered = render_skill_file(skill)
         has_boundary = f"\n{DELEGATION_BOUNDARY_HEADING}\n" in rendered
@@ -730,11 +724,10 @@ def validate_regressions(
                 f"`{skill['name']}` runs only in the `{agent_name}` subagent.",
                 "even for a quick, small, or single-lookup request",
                 "never fall back to self-execution",
+                "$ARGUMENTS",
             )
             if not has_boundary or any(clause not in rendered for clause in required):
                 errors.append(f"delegation regression: {skill['name']} SKILL.md must carry the strict boundary")
-            if "even for a quick or single lookup" not in render_prompt_file(skill):
-                errors.append(f"delegation regression: {skill['name']} prompt must forbid main-session execution")
         elif has_boundary:
             errors.append(f"delegation regression: main skill {skill['name']} must not carry a delegation boundary")
     delegation = render_delegation(skills)
@@ -759,9 +752,19 @@ def validate_regressions(
     invalid_agents["b-planner"].pop("model")
     if not validate_skills(skills, invalid_agents):
         errors.append("agent regression: missing model must fail")
+    invalid_agents = json.loads(json.dumps(agents))
+    invalid_agents["b-planner"]["model"] = "gpt-9"
+    if not validate_skills(skills, invalid_agents):
+        errors.append("agent regression: unknown model alias must fail")
     for name, agent in agents.items():
-        if TURN_BUDGET_NOTICE not in render_agent_file(name, agent, skills):
+        rendered = render_agent_file(name, agent, skills, policy)
+        if TURN_BUDGET_NOTICE not in rendered:
             errors.append(f"agent regression: {name} profile must carry the turn-budget wrap-up notice")
+        tools = agent_tool_list(agent, policy)
+        if any(tool in tools for tool in EDITING_TOOLS) or "Agent" in tools or "Task" in tools:
+            errors.append(f"agent regression: {name} profile must stay read-only and non-delegating")
+        if any(tool.startswith("mcp__notion__") for tool in tools):
+            errors.append(f"agent regression: {name} must not receive private Notion workspace tools")
     for bad_turns in (0, -1, True, "25"):
         invalid_turns = json.loads(json.dumps(agents))
         invalid_turns["b-researcher"]["max_turns"] = bad_turns
@@ -772,34 +775,26 @@ def validate_regressions(
     if not validate_capabilities(invalid_capabilities, policy):
         errors.append("capability regression: missing status signal must fail")
     invalid_agent_tools = json.loads(json.dumps(agents))
-    invalid_agent_tools["b-researcher"]["conditional_tools"].append("playwright_browser_click")
+    invalid_agent_tools["b-researcher"]["conditional_tools"].append("mcp__playwright__browser_click")
     if not validate_agent_tools(invalid_agent_tools, policy):
         errors.append("agent regression: mutating conditional tool must fail")
-    invalid_extension_tools = json.loads(json.dumps(agents))
-    invalid_extension_tools["b-planner"]["extension_tools"] = ["b_candidate_snapshot"]
-    if not validate_skills(skills, invalid_extension_tools):
-        errors.append("agent regression: extension tool on a non-reviewer agent must fail")
-    invalid_extension_tools = json.loads(json.dumps(agents))
-    invalid_extension_tools["b-reviewer"]["extension_tools"] = ["unknown_tool"]
-    if not validate_skills(skills, invalid_extension_tools):
-        errors.append("agent regression: unknown extension tool must fail")
-    errors.extend(validate_snapshot_extension())
+    errors.extend(validate_snapshot_cli())
     # Playwright's browser_find accepts a `filename` that writes results to disk, so it must
     # never be classed read-only (which auto-exposes it to every specialist profile).
     if policy["servers"]["playwright"]["tools"]["browser_find"] == "read-only":
         errors.append("MCP policy regression: file-writing browser_find must not be read-only")
     for agent_name, agent in agents.items():
-        if "playwright_browser_find" in agent.get("conditional_tools", []):
-            errors.append(f"agents.{agent_name}: file-writing playwright_browser_find must not be a specialist tool")
-    invalid_exposure = json.loads(json.dumps(policy))
-    next(iter(invalid_exposure["servers"].values()))["exposure"] = "eager"
-    if not validate_policy(invalid_exposure):
-        errors.append("MCP policy regression: unknown exposure must fail")
+        if "mcp__playwright__browser_find" in agent.get("conditional_tools", []):
+            errors.append(f"agents.{agent_name}: file-writing browser_find must not be a specialist tool")
     invalid_policy = json.loads(json.dumps(policy))
     first_server = next(iter(invalid_policy["servers"].values()))
     first_server["tools"]["bad"] = "missing"
     if not validate_policy(invalid_policy):
         errors.append("MCP policy regression: unknown class must fail")
+    invalid_policy = json.loads(json.dumps(policy))
+    next(iter(invalid_policy["servers"].values()))["exposure"] = "eager"
+    if not validate_policy(invalid_policy):
+        errors.append("MCP policy regression: retired exposure field must fail")
     return errors
 
 
@@ -813,7 +808,7 @@ def sync_outputs(check: bool) -> int:
         *validate_policy(policy),
         *validate_agent_tools(agents, policy),
         *validate_capabilities(capabilities, policy),
-        *validate_snapshot_extension(),
+        *validate_snapshot_cli(),
     ]
     if errors:
         print("\n".join(errors), file=sys.stderr)
@@ -827,12 +822,12 @@ def sync_outputs(check: bool) -> int:
         for path in stale:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(outputs[path])
-        print("Generated Pi delivery assets refreshed.")
+        print("Generated Claude Code delivery assets refreshed.")
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Render native Pi assets from canonical b-agentic sources.")
+    parser = argparse.ArgumentParser(description="Render Claude Code assets from canonical b-agentic sources.")
     parser.add_argument("--check", action="store_true", help="fail when generated outputs are stale")
     parser.add_argument("--self-test", action="store_true", help="verify invalid canonical contracts fail validation")
     args = parser.parse_args()

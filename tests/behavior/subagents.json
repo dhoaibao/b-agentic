@@ -90,11 +90,11 @@
       "id": "background-child-is-independent",
       "skill": "b-research",
       "observed_failure": "The main session started background work whose result gated a decision, or let concurrent child scopes overlap.",
-      "intended_behavior": "The main session starts a background child only for independent read-only research, retains its returned task ID and bounded task metadata, and does not rely on an active child for a decision.",
+      "intended_behavior": "The main session starts a background child only for independent read-only research, retains its returned agent ID and bounded task metadata, and does not rely on an active child for a decision.",
       "prompt": "Research two unrelated public API facts while implementing a local change whose next step does not depend on either answer. State whether background delegation is allowed, what the main session retains, and when it evaluates the result.",
       "must": [
         "Independent read-only work",
-        "Retain the returned task ID",
+        "Retain the returned agent ID",
         "Main session evaluates returned evidence",
         "No overlapping child scope"
       ],
@@ -108,38 +108,37 @@
       "id": "continuation-reuses-compatible-child",
       "skill": "b-research",
       "observed_failure": "The main session either discarded a compatible research thread or reused a mismatched child without refreshing stale claims.",
-      "intended_behavior": "The main session continues a completed b-researcher with the extension's supported `resume` identifier only for a direct compatible follow-up, passes the delta question and prior evidence limits, and refreshes currentness-sensitive claims.",
+      "intended_behavior": "The main session continues a completed b-researcher with the harness's supported resume identifier only for a direct compatible follow-up, passes the delta question and prior evidence limits, and refreshes currentness-sensitive claims.",
       "prompt": "Continue a completed b-researcher thread to check a newly released version of the same library. State the compatibility checks, the continuation packet, and what must be refreshed.",
       "must": [
-        "Use the extension's supported `resume` identifier",
+        "Use the harness's supported resume identifier",
         "Same specialist and compatible model/profile",
         "Same scope and repository baseline",
         "Delta question and prior evidence limits",
         "Refresh version- or currentness-sensitive claims"
       ],
       "avoid": [
-        "Reuse a reviewer session",
+        "Reuse a child for a changed candidate",
         "Assume prior sources are current",
         "Reuse an active or mismatched child"
       ]
     },
     {
-      "id": "reviewer-freezes-candidate",
+      "id": "review-freezes-candidate",
       "skill": "b-review",
       "observed_failure": "Review covered a moving candidate or made corrections itself.",
-      "intended_behavior": "The main session fingerprints the exact candidate after required checks, b-reviewer recomputes its identity at the start and end read-only, and corrections get fresh verification and a new review.",
+      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), runs the Codex gate through the b-codex-review wrapper read-only in the foreground, checks the wrapper's f0 and unchanged result and recomputes the fingerprint (F1) afterward, and corrections get fresh verification and a new review.",
       "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant untracked generated file. Describe the review handoff, how its identity is checked, and what happens after NEEDS FIXES.",
       "must": [
-        "Freeze and fingerprint the exact tracked and relevant untracked candidate",
-        "b-reviewer recomputes identity at the start and end",
-        "Main session compares identity after return",
-        "b-reviewer is read-only",
+        "Freeze and fingerprint the exact tracked and relevant untracked candidate as F0",
+        "Run the gate with `b-codex-review.mjs --scope working-tree` in the foreground, never in the background and never by calling the plugin directly",
+        "Check the wrapper's f0 against F0 and its unchanged result, recompute the fingerprint as F1, and void the review when it differs",
         "Do not edit while review runs",
-        "Fresh verification and delta re-review with prior findings after corrections"
+        "Fresh verification and a fresh Codex round with prior findings after corrections"
       ],
       "avoid": [
         "Review a moving snapshot",
-        "Reviewer applies the fix",
+        "Codex applies the fix",
         "Commit automatically"
       ]
     },
@@ -148,7 +147,7 @@
       "skill": "b-review",
       "observed_failure": "Review looped for many rounds because every nit or deferred follow-up forced another fresh review.",
       "intended_behavior": "Only an evidenced blocker yields NEEDS FIXES; other findings are follow-ups that main dispositions without forcing a new review, and a re-review checks prior blockers and the correction delta.",
-      "prompt": "b-reviewer finds one maintainability nit and one speculative edge case in a frozen candidate with passing checks and no safety-class issue. Describe the verdict and what main does next.",
+      "prompt": "Codex finds one maintainability nit and one speculative edge case in a frozen candidate with passing checks and no safety-class issue. Describe the verdict and what main does next.",
       "must": [
         "Classify both findings as follow-ups, not blockers",
         "Return READY WITH FOLLOW-UPS",
@@ -165,13 +164,13 @@
       "skill": "b-implement",
       "observed_failure": "Each correction patched only the cited instance, leaving sibling locations inconsistent, so the next review found new findings.",
       "intended_behavior": "Main fixes a NEEDS FIXES blocker as a whole defect class: batches blockers, sweeps every sibling location, keeps a minimal diff, self-checks, and reports the sweep in the re-review handoff.",
-      "prompt": "b-reviewer returned NEEDS FIXES with two blockers, each citing one file, and the same defect class also exists in a generated file, a validator clause, and docs. Describe how main corrects and re-submits.",
+      "prompt": "The b-review gate returned NEEDS FIXES with two blockers, each citing one file, and the same defect class also exists in a generated file, a validator clause, and docs. Describe how main corrects and re-submits.",
       "must": [
         "Fix both blockers as one batch",
         "Sweep sibling locations across canonical source, generated outputs, validators, fixtures, and docs",
         "Keep the diff limited to the finding's paths and record other ideas as follow-ups",
         "Run each finding's regression check and the repository checks before re-review",
-        "Include the sweep scope and check results in the re-review handoff"
+        "Include the sweep scope and check results in the re-review focus text"
       ],
       "avoid": [
         "Patch only the cited instance",
@@ -184,10 +183,10 @@
       "skill": "b-implement",
       "observed_failure": "The review loop ran 6-7 rounds without converging and without user input.",
       "intended_behavior": "After 3 consecutive NEEDS FIXES rounds, main stops and asks the user instead of starting another round.",
-      "prompt": "b-reviewer has returned NEEDS FIXES three times in a row for one task. Describe what main does next.",
+      "prompt": "The b-review gate has returned NEEDS FIXES three times in a row for one task. Describe what main does next.",
       "must": [
         "Stop instead of starting another review",
-        "Ask the user via ask_user_question",
+        "Ask the user via AskUserQuestion",
         "Offer one more round, narrow or split scope, abandon, or accepting remaining risk only for non-safety blockers"
       ],
       "avoid": [
@@ -200,11 +199,11 @@
       "id": "explicit-pre-commit-review",
       "skill": "b-review",
       "observed_failure": "An explicit request to review changes before committing was treated as authorization to stage and commit.",
-      "intended_behavior": "An explicit pre-commit review request routes to b-review separately; b-reviewer remains read-only and does not approve or perform staging.",
+      "intended_behavior": "An explicit pre-commit review request routes to b-review separately; the Codex gate is read-only and does not approve or perform staging.",
       "prompt": "The user asks to review changed code before committing. Describe the read-only b-review handoff and whether this request itself authorizes a commit.",
       "must": [
         "Review the frozen changed-code candidate read-only",
-        "Return findings to the main session",
+        "Report findings and the verdict to the user",
         "Do not stage or commit without a separate explicit commit request"
       ],
       "avoid": ["Stage or edit files", "Treat review as commit authorization"]
@@ -213,7 +212,7 @@
       "id": "audit-returns-freshness-blocker",
       "skill": "b-agentic-audit",
       "observed_failure": "The audit child notified the user directly or ran write-capable commands despite a missing origin-freshness handoff.",
-      "intended_behavior": "b-reviewer runs b-agentic-audit read-only, returns the exact blocked message to the main session when freshness evidence is missing, and does not inspect further audit sources.",
+      "intended_behavior": "b-auditor runs b-agentic-audit read-only, returns the exact blocked message to the main session when freshness evidence is missing, and does not inspect further audit sources.",
       "prompt": "Run the b-agentic audit without supplied origin-freshness evidence. State the child response, recipient, and whether it may inspect sources or run a mutating command.",
       "must": [
         "Return the blocking message to the main session",
@@ -230,7 +229,7 @@
       "id": "no-change-prose-skips-review",
       "skill": "b-pr-summary",
       "observed_failure": "Editorial PR-prose review invoked a changed-code gate.",
-      "intended_behavior": "A no-change PR-prose task does not require b-reviewer changed-code review.",
+      "intended_behavior": "A no-change PR-prose task does not require independent b-review changed-code review.",
       "prompt": "Review supplied PR prose only; no files or commits change. State whether a changed-code review is needed and how unsupported verification claims are handled.",
       "must": ["No changed-code review", "Do not invent verification evidence"],
       "avoid": ["Freeze a code candidate", "Issue a changed-code verdict"]
@@ -245,7 +244,7 @@
         "Preserve the pre-existing staged set as one group",
         "Inspect exact paths, index, and messages",
         "Confirm selected paths and index are unchanged before staging",
-        "Do not rerun checks or b-reviewer solely for committing"
+        "Do not rerun checks or b-review solely for committing"
       ],
       "avoid": ["Repeat implementation validation", "Push automatically"]
     },
@@ -258,7 +257,7 @@
       "must": [
         "Confirm selected paths and index are unchanged",
         "Do not rerun required checks solely to commit",
-        "Do not require another b-reviewer run for committing",
+        "Do not require another b-review run for committing",
         "Stage only selected paths"
       ],
       "avoid": [
@@ -312,7 +311,7 @@
         "Report that verification evidence is unavailable",
         "Do not rerun implementation checks solely to commit"
       ],
-      "avoid": ["Claim b-reviewer approval", "Create a new validation gate"]
+      "avoid": ["Claim b-review approval", "Create a new validation gate"]
     },
     {
       "id": "main-session-no-self-exec-research",
@@ -366,20 +365,20 @@
       ]
     },
     {
-      "id": "main-session-no-self-exec-review",
+      "id": "main-session-no-self-review",
       "skill": "b-review",
-      "observed_failure": "The main session read the delegated SKILL.md and then performed the skill's work itself with its own tools, treating the request as a quick lookup.",
-      "intended_behavior": "Reading the delegated skill only prepares the handoff; after parent-owned evidence is gathered the main session calls the b-reviewer subagent and evaluates its result.",
-      "prompt": "A user asks for a quick review of a small diff. Describe how the main session proceeds once b-review is selected: it reads the skill, freezes the candidate with b_candidate_snapshot and gathers status evidence, then delegates. Performing the review itself must fail; the audit skill shares the same agent.",
+      "observed_failure": "The main session reviewed its own candidate and presented that as the independent gate, or ran the Codex review in the background while still editing.",
+      "intended_behavior": "b-review runs in the main session but never replaces the Codex gate with a self-review: when the plugin, login, or approval is missing it reports the gap and asks.",
+      "prompt": "A user asks for a quick review of a small diff, but the Codex plugin is not installed. Describe how the main session proceeds once b-review is selected.",
       "must": [
-        "After gathering necessary parent-owned evidence, delegate to the b-reviewer subagent before performing any of the skill's execution steps",
-        "Gather only parent-owned evidence (for example status, freshness, candidate snapshot, or repro commands) in the main session",
-        "Report the gap and ask the user if the subagent is unavailable"
+        "Freeze the candidate and run the secret and approval preflight",
+        "Report the missing plugin as a gap and ask the user",
+        "Do not issue a verdict without a valid Codex review"
       ],
       "avoid": [
-        "Run the skill's own search, planning, or diagnosis steps with main-session tools",
-        "Treat the request as too small or quick to delegate",
-        "Fall back to self-execution after a subagent failure"
+        "Review the diff with main-session tools instead",
+        "Treat the request as too small for the independent gate",
+        "Issue READY FOR PR from a self-review"
       ]
     }
   ]

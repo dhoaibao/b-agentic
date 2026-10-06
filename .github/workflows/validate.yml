@@ -32,11 +32,7 @@ jobs:
         run: npm ci --no-fund --no-audit
       - name: Run repository quality checks
         run: npm run quality
-      - name: Install Pi CLI for integration probes
-        run: npm install -g @earendil-works/pi-coding-agent
-      - name: Run native Pi validation suite
-        env:
-          B_AGENTIC_REQUIRE_PI_PROBES: "1"
+      - name: Run Claude Code validation suite
         run: bash scripts/validate-skills.sh --release
       - name: Run structural suite audit
         run: bash scripts/b-agentic-audit.sh --skip-preflight

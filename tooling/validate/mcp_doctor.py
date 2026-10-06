@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report Pi MCP configuration and local prerequisites without connecting to servers."""
+"""Report Claude Code MCP configuration and local prerequisites without connecting to servers."""
 
 from __future__ import annotations
 
@@ -35,12 +35,13 @@ CREDENTIALS = {
 
 
 def configured_path(home: str | None, config: str | None) -> Path:
+    """User-scope MCP servers live in .claude.json (inside CLAUDE_CONFIG_DIR when it is set)."""
     if config:
         return Path(config).expanduser()
-    if home:
-        return Path(home).expanduser() / ".pi" / "agent" / "mcp-adapter.json"
-    explicit = os.environ.get("B_AGENTIC_PI_DIR") or os.environ.get("PI_CODING_AGENT_DIR")
-    return (Path(explicit).expanduser() if explicit else Path.home() / ".pi" / "agent") / "mcp-adapter.json"
+    explicit = os.environ.get("B_AGENTIC_CLAUDE_DIR") or os.environ.get("CLAUDE_CONFIG_DIR")
+    if explicit:
+        return Path(explicit).expanduser() / ".claude.json"
+    return (Path(home).expanduser() if home else Path.home()) / ".claude.json"
 
 
 def status(server: str, entry: object) -> str:
@@ -65,8 +66,8 @@ def status(server: str, entry: object) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--home", help="Inspect this home's default Pi agent directory.")
-    parser.add_argument("--config", help="Inspect this explicit Pi MCP config file.")
+    parser.add_argument("--home", help="Inspect this home's default Claude Code MCP configuration.")
+    parser.add_argument("--config", help="Inspect this explicit Claude Code MCP config file.")
     parser.add_argument("--session-tools", action="store_true")
     parser.add_argument("--allow-degraded", action="store_true")
     args = parser.parse_args()
@@ -77,7 +78,7 @@ def main() -> int:
 
     config_path = configured_path(args.home, args.config)
     if not config_path.exists():
-        print(f"runtime: Pi\nconfig: {config_path}\nstatus: missing Pi MCP config")
+        print(f"runtime: Claude Code\nconfig: {config_path}\nstatus: missing Claude Code MCP config")
         return 0 if args.allow_degraded else 1
     try:
         config = json.loads(config_path.read_text())
@@ -85,12 +86,12 @@ def main() -> int:
         if not isinstance(servers, dict):
             raise ValueError("mcpServers must be an object")
     except (OSError, ValueError, AttributeError) as exc:
-        print(f"runtime: Pi\nconfig: {config_path}\nstatus: invalid config: {exc}", file=sys.stderr)
+        print(f"runtime: Claude Code\nconfig: {config_path}\nstatus: invalid config: {exc}", file=sys.stderr)
         return 1
 
-    print(f"runtime: Pi\nconfig: {config_path}\nstartup-check: not attempted; no MCP or browser connections")
-    blocked = shutil.which("pi") is None
-    print("pi: " + ("configured: CLI found" if not blocked else "blocked: Pi CLI not found"))
+    print(f"runtime: Claude Code\nconfig: {config_path}\nstartup-check: not attempted; no MCP or browser connections")
+    blocked = shutil.which("claude") is None
+    print("claude: " + ("configured: CLI found" if not blocked else "blocked: Claude Code CLI not found"))
     for server in SERVERS:
         detail = status(server, servers.get(server))
         print(f"{server}: {detail}")

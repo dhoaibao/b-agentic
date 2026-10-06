@@ -1,44 +1,47 @@
 # b-agentic
 
-**A slim personal workflow kernel for native Pi.**
+**A slim personal workflow kernel for Claude Code, with Codex as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
-installs an always-loaded Pi kernel, native skills and prompt templates,
-read-only specialist agents, and managed MCP configuration.
+installs an always-loaded Claude Code kernel, skills that double as `/b-*`
+commands, read-only specialist agents, safety hooks, and managed MCP
+configuration. Changed-code review runs through Codex with the
+[`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin.
 
-- [Operational reference](REFERENCE.md) — install, lifecycle, safety, MCP, and validation.
-- [Pi configuration layout](pi/configs/README.md) — managed paths and ownership boundaries.
+- [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
+- [Configuration layout](claude/configs/README.md) — managed paths and ownership boundaries.
 - [Project guidance](AGENTS.md) and [decision design](docs/decision_design.md).
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
+git clone https://github.com/dhoaibao/b-agentic.git
+cd b-agentic
+./install.sh
 ```
 
-The installer installs or updates Pi to the latest available release, installs any missing `bun`, `rtk`, and `codegraph` with their official installers, installs nine unpinned
-extensions (including [Magic Context](https://github.com/cortexkit/magic-context)), installs the [Dracula theme](https://draculatheme.com/pi-coding-agent)
-and selects it when no theme is already chosen, writes managed assets under
-`~/.pi/agent`, and preserves unrelated configuration. An interactive install
-asks once when no ClickUp choice is recorded; non-interactive first installs or
-upgrades default to off unless `B_AGENTIC_CLICKUP_MCP=yes` is set. Later install
-and sync runs preserve the recorded choice; uninstall and reinstall to change it.
-See [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
-
-To refresh later without leaving Pi, run `/b-sync`: it pulls the installed source
-and runs `install.sh --sync --force`, then reloads Pi. It does not update the Pi CLI.
+The installer copies skills, agents, hooks, and CLIs under `~/.claude`, adds the
+kernel to `~/.claude/CLAUDE.md` as a marked block, merges permission rules and
+hooks into `settings.json` and MCP servers into `~/.claude.json`, and preserves
+everything else. It never runs vendor installers, never installs the Codex
+plugin for you, and never writes under `~/.pi`. Piped installs
+(`curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash`)
+clone to `~/.b-agentic-claude`. After installing, restart Claude Code and run the
+printed plugin commands to enable the review gate. See [REFERENCE.md](REFERENCE.md)
+for flags and lifecycle behavior.
 
 ## How it works
 
 Each request uses one active skill rather than mixing planning, building,
-validation, and shipping. The main Pi session owns user interaction,
+validation, and shipping. The main Claude Code session owns user interaction,
 decisions, verification, and mutations. It delegates bounded planning,
-research, diagnosis, and changed-code review through native read-only
-subagents, using background work only when it is independent and resuming a
-compatible child through its supported task identifier.
-
-![b-agentic overview: a user request enters the always-loaded kernel in the main Pi session, which routes it to one skill in the Decide, Build, Validate, or Ship phase and delegates bounded work to native read-only subagents. Built-in guardrails cover frozen review candidates, default-safe permissions, lazy managed MCP servers, and Pi extensions.](assets/b-agentic-overview.png)
+research, diagnosis, and repository audits to read-only subagents. A change that
+touches security, permissions, contracts, configuration, or workflow policy is
+frozen as a fingerprinted candidate and reviewed by Codex in the foreground,
+after a guard confirms that no tracked or untracked likely-secret file would be
+sent and that you approved sending the repository. Secret files that are
+git-ignored stay readable by Codex, an accepted residual risk.
 
 ## Skills
 
@@ -64,12 +67,11 @@ compatible child through its supported task identifier.
 | `b-pr-summary` | Ship | Write commit-backed PR copy or review and rewrite supplied PR prose |
 <!-- generated:skills-table:end -->
 
-Pi discovers the installed `SKILL.md` files. For an explicit route, use
-generated prompt templates such as `/b-plan`, `/b-research`, `/b-implement`,
-`/b-test`, and `/b-review`.
+Claude Code discovers the installed `SKILL.md` files, and each is also a command:
+`/b-plan`, `/b-research`, `/b-implement`, `/b-test`, `/b-review`, and so on.
 
 ## Learn more
 
-- [Operational reference](REFERENCE.md) — lifecycle, native permissions, MCP, and verification.
-- [Pi configuration layout](pi/configs/README.md) — installed paths and ownership boundaries.
+- [Operational reference](REFERENCE.md) — lifecycle, permissions, review gate, MCP, and verification.
+- [Configuration layout](claude/configs/README.md) — installed paths and ownership boundaries.
 - [Decision design](docs/decision_design.md) — evidence-backed architecture decisions.

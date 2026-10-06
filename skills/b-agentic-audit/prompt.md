@@ -6,7 +6,7 @@ Run a read-only, source-based b-agentic audit across four dimensions:
    record with canonical sources, generated assets, workflow, safety, install,
    tooling, and verification behavior; report actual source, safety, or semantic
    drift.
-2. **Whole-project and first-party-extension health** — inspect for concrete
+2. **Whole-project and first-party hook and CLI health** — inspect for concrete
    defects, integration gaps, harmful duplication, maintainability friction, and
    performance candidates. Performance evidence threshold: measured hotspot or explicit algorithmic, safety, or complexity evidence. Never infer a problem from file size or export count alone.
 3. **Canonical skill/kernel quality** — assess skill boundaries, evidence
@@ -88,7 +88,7 @@ supply its completed origin-freshness evidence:
    passing script as evidence for those checks only; report it as missing when it
    was not supplied.
 4. Perform the source-based comparison for conformance and health: read cited
-   canonical sources, inspect first-party extensions and integration seams, and
+   canonical sources, inspect first-party hooks, CLIs, and integration seams, and
    report concrete defects, gaps, duplication, maintainability friction, and
    measured or explicitly evidenced performance candidates. Do not turn broad
    suspicion into a finding.

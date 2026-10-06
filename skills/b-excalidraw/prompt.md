@@ -20,8 +20,8 @@ Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw 
 ## Tool guidance
 
 - Use `read` and local discovery for the smallest relevant repository evidence. Select CodeGraph only when a concrete repository-wide architecture, dependency, or call-flow question is central.
-- `excalidraw_read_me` is a direct read-only tool: call it once per session before the first draw and follow its element syntax.
-- `excalidraw_create_view` draws the diagram. It is approval-gated, so call it through the MCP proxy: `mcp({ tool: "excalidraw_create_view", args: { elements: "<JSON array as a string>" } })`. The array is limited to 5 MB.
+- `mcp__excalidraw__read_me` is a direct read-only tool: call it once per session before the first draw and follow its element syntax.
+- `mcp__excalidraw__create_view` draws the diagram. Set `elements` to the JSON array as a string; Claude Code asks for approval before it runs. The array is limited to 5 MB.
 - The widget opens in the system browser or a native window, not in the terminal. The widget's own tools (export, share link, checkpoints) are not model tools: never call them.
 - Use native `write` only for a user-approved source path.
 - Do not fetch URLs or inspect live systems from diagram evidence references.
@@ -30,8 +30,8 @@ Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw 
 
 1. Confirm the diagram kind, audience, source facts, and whether to save the elements source (and where). Ask one focused question if any is material and unresolved.
 2. Establish the bounded fact set. For repository-based diagrams, distinguish observed source facts from user-provided assumptions; preserve exact paths or symbols only when they are safe to disclose.
-3. Privacy: with the managed remote endpoint, each `excalidraw_create_view` call sends the diagram text to the Excalidraw MCP host, which may retain it as a checkpoint. Tell the user this before drawing from repository-derived or proprietary content; the call's approval prompt is the explicit approval. Never include secrets, customer data, or internal URLs.
-4. Call `excalidraw_read_me` unless it was already called in this session.
+3. Privacy: with the managed remote endpoint, each `mcp__excalidraw__create_view` call sends the diagram text to the Excalidraw MCP host, which may retain it as a checkpoint. Tell the user this before drawing from repository-derived or proprietary content; the call's approval prompt is the explicit approval. Never include secrets, customer data, or internal URLs.
+4. Call `mcp__excalidraw__read_me` unless it was already called in this session.
 5. Author the elements array from the fact set only:
    - One labelled shape per fact node: rectangle by default, ellipse for an external actor or start/end, diamond for a decision.
    - One arrow per fact edge, bound to existing element ids at both ends, with an optional label.
@@ -39,9 +39,9 @@ Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw 
    - Lay out in one direction with consistent spacing. Start with a `cameraUpdate` at a 4:3 size that frames the whole diagram.
    - Keep each view small (about 20 nodes or fewer); split larger systems into separate views rather than shrinking text.
    - No images or freehand drawing, and no invented relationships, traffic, deployment placement, owners, risk, or causal impact.
-6. Call `excalidraw_create_view`. Repair only the errors it reports. To refine, call it again with `restoreCheckpoint` and `delete` entries rather than redrawing everything.
+6. Call `mcp__excalidraw__create_view`. Repair only the errors it reports. To refine, call it again with `restoreCheckpoint` and `delete` entries rather than redrawing everything.
 7. If the user approved saving the source, write the exact elements array to the approved path (suggested name `<name>.excalidraw-elements.json`). Do not use the `.excalidraw` extension: the array uses `label` and pseudo-elements, so it is not a scene file. Tell the user that `.excalidraw`, PNG, and SVG files come from the widget's export, and that a share link uploads the diagram to excalidraw.com, which is their decision.
-8. If the Excalidraw MCP is unconfigured, fails, or is denied, say "Excalidraw MCP unavailable" once and stop. Offer only to save the elements source; never fall back to HTML or SVG. If no viewer window opens (headless session or `MCP_UI_VIEWER=none`), report that nothing was displayed and give the adapter's URL notice.
+8. If the Excalidraw MCP is unconfigured, fails, or is denied, say "Excalidraw MCP unavailable" once and stop. Offer only to save the elements source; never fall back to HTML or SVG. If no viewer window opens (headless session or `MCP_UI_VIEWER=none`), report that nothing was displayed and give the tool's URL notice.
 9. Report the result and state what the diagram does not establish. Route browser-based visual proof to **b-browser** when requested.
 
 ## Content rules
@@ -54,7 +54,7 @@ Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw 
 
 ## Output format
 
-Report diagram kind, facts represented, the `excalidraw_create_view` result (success, error, or checkpoint id), whether a viewer window was expected, the saved source path or "not persisted", and explicit limits or assumptions.
+Report diagram kind, facts represented, the `mcp__excalidraw__create_view` result (success, error, or checkpoint id), whether a viewer window was expected, the saved source path or "not persisted", and explicit limits or assumptions.
 
 ## Rules
 

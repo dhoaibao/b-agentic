@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "b-agentic skill-boundary audit scenarios",
-  "description": "Human-scored Pi native skill-selection scenarios.",
+  "description": "Human-scored Claude Code skill-selection scenarios.",
   "scenarios": [
     {
       "id": "clickup-task-creation",
@@ -160,7 +160,7 @@
     },
     {
       "id": "b-agentic-full-currentness-audit",
-      "prompt": "Run a full b-agentic audit covering source and design conformance, whole-project and first-party-extension health, canonical skill/kernel quality, and currentness/MCP compatibility; keep it read-only and report unavailable live evidence.",
+      "prompt": "Run a full b-agentic audit covering source and design conformance, whole-project and first-party hook and CLI health, canonical skill/kernel quality, and currentness/MCP compatibility; keep it read-only and report unavailable live evidence.",
       "expected_skill": "b-agentic-audit",
       "forbidden_skills": ["b-review", "b-implement", "b-research"]
     },

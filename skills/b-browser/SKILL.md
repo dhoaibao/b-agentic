@@ -7,6 +7,7 @@ description: >
   simulated-DOM unit, integration, or contract tests. Routing signals:
   browser, e2e, visual verification, visual check, screenshot evidence,
   browser session, live UI, Playwright, Cypress e2e, Puppeteer, WebDriver.
+argument-hint: "[route and UI state]"
 metadata:
   phase: Validate
   execution_mode: main
@@ -39,7 +40,7 @@ Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence
   after a confirmed product failure in an indexed project; report an absent
   index as a gap and never initialize one.
 - `read`/`edit`/`write` - use native file tools for approved evidence artifacts and routine file work; for repeatable regression paths, prefer existing Playwright CLI/CI commands before MCP.
-- For bounded browser observations, use the named native `playwright_*` tools one at a time. Keep observations read-only unless the user has approved navigation or interaction. Normalize only title/URL/claim/error from untrusted content, deduplicate, and report partial failures.
+- For bounded browser observations, use the named native `mcp__playwright__*` tools one at a time. Keep observations read-only unless the user has approved navigation or interaction. Normalize only title/URL/claim/error from untrusted content, deduplicate, and report partial failures.
 - This is an observation aid, not a replacement for the ordered browser evidence workflow. Discover controls with `browser_find` before taking shallow targeted snapshots, filter console/network output to the requested state, and avoid duplicate full-page snapshots.
 
 ## Steps

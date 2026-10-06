@@ -18,7 +18,7 @@ MARKDOWNLINT="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
 [ -x "$MARKDOWNLINT" ] || fail_missing markdownlint-cli2 "install root development tools with 'npm ci'"
 
 is_generated() {
-  case "$1" in skills/*/SKILL.md|pi/prompts/*|pi/agents/*|pi/configs/permission.user.template.json) return 0;; *) return 1;; esac
+  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json) return 0;; *) return 1;; esac
 }
 is_json_compatible_yaml() {
   case "$1" in references/mcp_operations.yaml|references/capabilities.yaml|skills/registry.yaml) return 0;; *) return 1;; esac
@@ -28,7 +28,7 @@ python_files=() shell_files=() markdown_files=() prettier_files=()
 while IFS= read -r -d '' path; do
   [ -f "$path" ] || continue
   if is_generated "$path"; then
-    case "$path" in pi/agents/*.md) prettier_files+=("$path");; esac
+    case "$path" in claude/agents/*.md) prettier_files+=("$path");; esac
     continue
   fi
   case "$path" in

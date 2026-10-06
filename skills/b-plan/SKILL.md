@@ -8,6 +8,7 @@ description: >
   explore, not sure, figure out, "how should I", implementation plan,
   clarify, requirements, scope. Delegated: runs only in the `b-planner`
   subagent; the main session never executes it itself.
+argument-hint: "[goal or problem]"
 metadata:
   phase: Decide
   execution_mode: subagent
@@ -24,8 +25,10 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 
 `b-plan` runs only in the `b-planner` subagent.
 
-- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `b-planner.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains neither `edit` nor `write` (a missing, blank, or null `tools` grants them), then call `subagent` with agent `b-planner` and a bounded task naming `b-plan`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `b-planner.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of `Edit`, `Write`, `NotebookEdit` (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `b-planner` and a bounded task naming `b-plan`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
 - `b-planner` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
+
+User arguments for the bounded task: $ARGUMENTS
 
 ## When to use
 
@@ -49,9 +52,9 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 2. Inspect only the local evidence needed to avoid guessing. Use CodeGraph for affected symbols, callers, and tests when an index is available; otherwise report the fallback gap to the main session.
 3. For non-trivial or risky work, compare viable paths and relevant quality dimensions, including the simpler option, then recommend the smallest safe one with evidence-backed rationale and accepted trade-offs. Keep small obvious tasks free of forced comparison or research.
 4. Specify ordered implementation steps, affected paths/symbols, invariants, and `Done when` verification that proves observable behavior.
-5. For a material user-facing decision, state 2–4 concrete options and their trade-offs for the main session to resolve with the user. Do not invoke `ask_user_question` or claim approval.
+5. For a material user-facing decision, state 2–4 concrete options and their trade-offs for the main session to resolve with the user. Do not invoke `AskUserQuestion` or claim approval.
 6. Return the plan to the main session with scope, acceptance, affected paths, invariants, verification, risks, and open items. The main session owns approval and any later implementation.
-7. For changed work, include applicable checks and the kernel's risk classification of the final candidate: a bounded, verified low-risk change may finish without independent review, with direct tests/docs and faithfully regenerated outputs counted with their source; a triggered change must freeze the exact tracked plus relevant untracked/derived snapshot after fresh checks and obtain independent **b-reviewer** review. This is not authorization to commit or push.
+7. For changed work, include applicable checks and the kernel's risk classification of the final candidate: a bounded, verified low-risk change may finish without independent review, with direct tests/docs and faithfully regenerated outputs counted with their source; a triggered change must freeze the exact tracked plus relevant untracked/derived snapshot after fresh checks and obtain independent **b-review** review. This is not authorization to commit or push.
 
 ## Output format
 

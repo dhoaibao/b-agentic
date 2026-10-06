@@ -2,16 +2,16 @@
 name: b-agentic-audit
 description: >
   Four-dimension read-only b-agentic audit covering source/design
-  conformance, whole-project and first-party-extension health, canonical
-  skill/kernel quality, and currentness/MCP compatibility, with evidence
-  thresholds and approval-gated live probing. Routing signals: b-agentic
-  audit, suite audit, maintainer audit, design-conformance audit,
-  decision-design drift. Delegated: runs only in the `b-reviewer`
+  conformance, whole-project and first-party hook and CLI health,
+  canonical skill/kernel quality, and currentness/MCP compatibility, with
+  evidence thresholds and approval-gated live probing. Routing signals:
+  b-agentic audit, suite audit, maintainer audit, design-conformance
+  audit, decision-design drift. Delegated: runs only in the `b-auditor`
   subagent; the main session never executes it itself.
 metadata:
   phase: Validate
   execution_mode: subagent
-  agent: b-reviewer
+  agent: b-auditor
 ---
 
 <!-- Generated from skills/registry.yaml and skills/b-agentic-audit/prompt.md. Edit those sources, not this file. -->
@@ -24,7 +24,7 @@ Run a read-only, source-based b-agentic audit across four dimensions:
    record with canonical sources, generated assets, workflow, safety, install,
    tooling, and verification behavior; report actual source, safety, or semantic
    drift.
-2. **Whole-project and first-party-extension health** — inspect for concrete
+2. **Whole-project and first-party hook and CLI health** — inspect for concrete
    defects, integration gaps, harmful duplication, maintainability friction, and
    performance candidates. Performance evidence threshold: measured hotspot or explicit algorithmic, safety, or complexity evidence. Never infer a problem from file size or export count alone.
 3. **Canonical skill/kernel quality** — assess skill boundaries, evidence
@@ -42,10 +42,17 @@ prose semantics and never substitutes for changed-code `b-review`.
 
 ## Delegation boundary
 
-`b-agentic-audit` runs only in the `b-reviewer` subagent.
+`b-agentic-audit` runs only in the `b-auditor` subagent.
 
-- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `b-reviewer.md` (project `.pi/agents/` over the Pi agent directory's `agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains neither `edit` nor `write` (a missing, blank, or null `tools` grants them), then call `subagent` with agent `b-reviewer` and a bounded task naming `b-agentic-audit`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
-- `b-reviewer` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
+- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `b-auditor.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of `Edit`, `Write`, `NotebookEdit` (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `b-auditor` and a bounded task naming `b-agentic-audit`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- `b-auditor` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
+
+Parent-owned evidence to gather and pass to the child (or state what is unavailable):
+
+- after approved origin fetch, branch/upstream and HEAD ahead/behind counts (both zero required)
+- status and scripts/b-agentic-audit.sh output; installed versions and approved live-probe results when available
+
+User arguments for the bounded task: $ARGUMENTS
 
 ## Mandatory origin freshness gate
 
@@ -113,7 +120,7 @@ supply its completed origin-freshness evidence:
    passing script as evidence for those checks only; report it as missing when it
    was not supplied.
 4. Perform the source-based comparison for conformance and health: read cited
-   canonical sources, inspect first-party extensions and integration seams, and
+   canonical sources, inspect first-party hooks, CLIs, and integration seams, and
    report concrete defects, gaps, duplication, maintainability friction, and
    measured or explicitly evidenced performance candidates. Do not turn broad
    suspicion into a finding.

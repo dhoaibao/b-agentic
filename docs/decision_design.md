@@ -2,232 +2,225 @@
 
 ## Scope and evidence
 
-b-agentic supports one runtime, native Pi. It ships an always-loaded kernel,
-canonical skills, named read-only specialists, managed MCP configuration, and a
-merge-safe installer.
+b-agentic supports one runtime, Claude Code. It ships an always-loaded kernel,
+canonical skills, named read-only specialists, managed MCP configuration,
+hooks and small CLIs, and a merge-safe installer. Codex, through the
+`openai/codex-plugin-cc` plugin, is the independent changed-code reviewer. The
+earlier Pi runtime is frozen at the `pi-final` tag; its installed copy keeps
+working, but nothing in this repository generates, installs, or tests it.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
-[`pi/configs/settings.base.json`](../pi/configs/settings.base.json).
+[`claude/configs/settings.template.json`](../claude/configs/settings.template.json).
 
 ## Product boundary and architecture
 
-Global assets install under Pi's agent directory (`~/.pi/agent` by default);
-project guidance remains in repository `AGENTS.md`. Canonical policy and skill
-sources live in `references/` and `skills/`; the registry generator renders Pi
-prompt templates, subagent profiles, skill descriptors, and permission policy.
-The installer owns only its recorded assets, snapshots, backup files, and
-merged configuration entries.
+Global assets install under `~/.claude` only: the managed hooks, agents, and
+instructions refer to that path, so the installer refuses a different
+`CLAUDE_CONFIG_DIR`. Project guidance remains in repository
+`AGENTS.md` and `CLAUDE.md`. Canonical policy and skill sources live in
+`references/` and `skills/`; the registry generator renders each skill file
+(a skill is also its `/b-<name>` command), the four specialist profiles, the
+kernel's generated blocks, and the settings template (permissions and hooks).
+Skills install as bare `~/.claude/skills/b-*`, not as a namespaced plugin.
+The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The installer owns
+only what its manifest records, and never writes under `~/.pi`.
 
 Evidence: [`install.sh`](../install.sh),
-[`pi/scripts/install.sh`](../pi/scripts/install.sh), and
+[`tooling/install/claude_install.py`](../tooling/install/claude_install.py), and
 [`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py).
 
 ## Workflow and skill design
 
-The kernel selects one skill at a time. Pi discovers skill descriptors, and generated
-`/b-<name>` prompt templates (registry `use` as description, optional
-`argument_hint`) supply an explicit route and registry-backed
-parent evidence handoffs for audit, debug, and changed-code review. The main
-session reads the delegated skill and gathers that evidence before launch.
-Skills marked `routing.explicit_request` are generated with
-`disable-model-invocation: true` and stay out of Pi's automatic skill list; their
-`/b-<name>` prompt names the installed skill file path.
+The kernel selects one skill at a time. Claude Code discovers skill
+descriptors and runs a skill as `/b-<name>`. Skills marked
+`routing.explicit_request` are generated with `disable-model-invocation: true`.
 Worktree mutation, user interaction, verification, and reporting stay in the
-main session. b-agentic generates four named specialist profiles for the
-`@gotgenes/pi-subagents` extension to run. Each child reads its named skill,
-uses a tool list without edit/write, user questions, or nested delegation, and returns the skill's own output format. Read-only shell behavior
-is instructed rather than enforced by a child-specific permission policy; parent-messaging tools (`ask_parent`, `notify_parent`) may be provided by the subagent runtime.
-Delegated skills never run in the main session, including for quick lookups: the generator writes a `Delegation boundary` into each delegated skill file, and the kernel repeats the rule. An unavailable subagent is reported, not replaced by self-execution. This is instruction-level enforcement; the shared permission policy is unchanged.
-Foreground is default; background work is independent and read-only,
-in-process, and lost when its parent ends. Compatible continuation requires the supported `resume`
-identifier; different scope/baseline and an independent reviewer use a fresh
-child. The registry retains explicit provider/model and thinking choices, but
-an unavailable agent-profile model can silently fall back to the parent model.
+main session. b-agentic generates four named read-only specialists for the
+`Agent` tool: `b-planner`, `b-researcher`, `b-debugger`, and `b-auditor`. Each
+child reads its named skill, has a tool allowlist without `Edit`, `Write`,
+`NotebookEdit`, or nested delegation, and returns the skill's own output
+format. Read-only shell behavior is instructed, not enforced by a child-specific
+permission policy.
+Delegated skills never run in the main session, including for quick lookups:
+the generator writes a `Delegation boundary` (with the parent-owned evidence
+handoff and `$ARGUMENTS`) into each delegated skill file, and the kernel repeats
+the rule. An unavailable subagent is reported, not replaced by self-execution.
+Foreground is default; background work is independent and read-only. `b-review`
+is a main-session skill: it freezes the candidate, runs the Codex gate, and
+classifies the result. Specialists run on Anthropic models only (`opus` or
+`sonnet`), so the earlier Gemini research model is gone.
 
 Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
 [`skills/registry.yaml`](../skills/registry.yaml), and
-[`pi/agents/b-reviewer.md`](../pi/agents/b-reviewer.md).
+[`claude/agents/b-researcher.md`](../claude/agents/b-researcher.md).
 
 ## Safety and approval design
 
-`@gotgenes/pi-permission-system` gates main and child tools. The generated
-global policy allows ordinary repository-local edits and skill invocation, denies
-protected path patterns, named dangerous commands, and outside-project writes,
-and asks before outside-project reads, unknown MCP tools, proxy tool calls, and
-consequential actions.
-Known read-only direct MCP operations are allowed by exact tool name; proxy
-calls still ask because its targets cannot securely bind the tool to its server.
-Invoking a skill never bypasses tool and path gates for its subsequent work.
-Specialist profiles expose read and shell tools plus named observation-only
-direct MCP tools; `b-researcher` additionally exposes three bounded public
-Firecrawl search/scrape tools classified `conditional-read`. They have no
-per-agent permission block; nested delegation and user questions are not on
-their tool lists. The global Pi permission policy still applies to their calls. A shell can mutate files inside the repo or
-invoke external services, so the read-only specialist boundary now depends on
-instructions, not enforcement by a child-specific command allowlist. The shared
-permission policy's named denials are not a process sandbox.
-The kernel additionally requires approval for other destructive, privileged,
-ambiguous, protected, and external/shared actions. Pi permission rules and
-adapter tool matching are not filesystem or process isolation. Shell indirection and
-MCP argument fields not recognized by the path gate remain residual risks.
-The kernel therefore directs file reads, including skill files and outside-project
-reads, and edits through native tools rather than shell I/O; this is
-instruction-level, and the permission policy is unchanged.
-An offline stub-provider integration probe tests representative parent/child
-allow/deny and direct/proxy MCP decisions. Interactive approval UI and real
-server/provider access are separate evidence, not inferred from static config.
+The generated settings template allows repository-local tools and named
+read-only MCP tools, asks before classified mutations, uploads, lifecycle, and
+auth tools, and denies named dangerous commands (`git push`, `git pull`,
+`git reset --hard`, `git clean -f`, `git branch -D`, `rm -rf`, privilege
+escalation, bare shells) plus unambiguous secret files. Claude Code deny rules
+cannot carve out `.env.example`, so the `b-path-guard` PreToolUse hook enforces
+the exact path rules (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`,
+`*secrets.*`, with `*.env.example` allowed) for the file tools, including the glob or pattern a search tool is given. It
+checks the names a call carries, not the files a directory search would visit.
+Unlike the
+earlier policy, Claude Code prompts for outside-project writes rather than
+denying them. Permission rules are not filesystem or process isolation; shell
+indirection and MCP arguments the rules cannot see remain residual risks.
+Sending a repository to Codex discloses it to OpenAI, and Codex's read-only
+sandbox can read every workspace file; Codex has no ignore mechanism. The
+`b-review` therefore runs the gate through one wrapper, `b-codex-review`, whose
+checks are code rather than model discipline or shell parsing. The wrapper
+refuses unless no likely-secret path is tracked, staged, or
+untracked-and-not-ignored, no submodule or embedded repository hides paths from
+the name scan, and the user approved sending that repository (a standing,
+per-repository approval stored in `~/.claude/b-agentic`). It requires exactly one
+explicit target (`--scope working-tree` or `--base <ref>`), refuses an incomplete
+snapshot, freezes the candidate before (`f0`) and after (`f1`) the review and
+voids it when they differ, and spawns the plugin script with an argument vector
+(no shell, so the focus text is one literal argument), always in the foreground
+and from the repository root. Ignored secret files remain an accepted residual
+risk.
+The `b-codex-guard` Bash hook is a tripwire for accidental direct calls to the
+plugin script, not the boundary: a model or user that deliberately obfuscates the
+script name (ANSI-C quoting, brace or glob expansion, names built at run time)
+is outside what any hook-side shell parser can promise, and that is documented
+rather than chased. For plain spellings it refuses a direct review, `task`, or
+other disclosing subcommand unless the repository passes the same checks and the
+call has the supported form `node <path>/codex-companion.mjs <subcommand>
+[args]`; it joins quotes, escapes, and backslash-newline continuations first,
+and refuses wrappers, neighbouring commands, expansions, subshells, comments
+hiding options, unsafe redirections, and unreadable input that names the script.
+Mentioning the script name in an unrelated command (a commit message, a search)
+is refused too; use the Grep tool for that.
+The plugin's own Stop-hook review gate stays disabled: it reviews the last answer,
+not the frozen candidate, and can loop.
+Hook matching the plugin's Bash invocation, deny-rule syntax, and exit-code
+behavior follow Claude Code's documented contracts but were not exercised
+against a live session; the offline hook probe covers only the scripts.
 
-Evidence: [`pi/configs/permission.user.template.json`](../pi/configs/permission.user.template.json),
-[`pi/agents/b-researcher.md`](../pi/agents/b-researcher.md), and
-[`tests/pi/permission-probe.sh`](../tests/pi/permission-probe.sh).
+Evidence: [`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py),
+[`claude/bin/b-codex-review.mjs`](../claude/bin/b-codex-review.mjs),
+[`claude/hooks/b-codex-guard.mjs`](../claude/hooks/b-codex-guard.mjs),
+[`claude/hooks/b-path-guard.mjs`](../claude/hooks/b-path-guard.mjs), and
+[`tests/hooks/hooks-probe.sh`](../tests/hooks/hooks-probe.sh).
 
 ## MCP and external-evidence design
 
-Ten base servers use `pi-mcp-adapter`'s lazy `mcpServers` config; optional
-ClickUp is added only after install opt-in. Each server declares an `exposure` in
-`references/mcp_operations.yaml`. Small, frequently used servers (CodeGraph, Context7,
-Excalidraw, draw.io) are `direct` and register their allowed operations eagerly. The large ones
-(Brave Search, Firecrawl, Playwright, Mobbin, Notion, shadcn, ClickUp) use `directTools: "search"`:
-the adapter registers them inactive (on Pi 0.99+ as Pi deferred tools), and `mcp({search})`
-activates matches under the same native names, so no permission rule changes and the ~19K
-estimated prompt tokens per turn (unmeasured, from the MCP metadata cache character counts)
-are not spent. Pi's built-in MCP, its `tool_search` tool, and codemode stay unused: the adapter
-keeps lazy lifecycle (Pi 1.0.2's built-in MCP connects every enabled server at session start,
-in each specialist child too, and has no approval-gated proxy) and MCP UI, and codemode's
-nested-call gating was not proven. Other operations remain available through the
-separately gated proxy, which asks for calls. Specialists name their tools in `tools:`,
-which activates them for the child without the proxy, so no specialist gains the `mcp` proxy
-and the observation-only boundary is unchanged. Considered and rejected: adding `mcp` to
-specialist allowlists (probes showed it is unnecessary and widens the surface).
-Notion reads are `conditional-read`, not `read-only`, because every `read-only` tool is
-granted to all four specialists: a private workspace must not reach children that may run on
-another model provider (same rule as ClickUp). Notion has no skill; the capability entry and
-the approval-gated writes suffice.
-Existing installs migrate automatically, once per server, with no prompt: the installer replaces
-those servers' customised `directTools` and saves the previous file under `b-agentic/backups/`.
-Script mode and model-driven installs are disabled. The policy classifies known
-tools; allowed direct names avoid proxy approval, while consequential and
-unknown operations ask. The adapter does not make configuration a live server
-or authentication proof. `mcp-doctor` checks only local configuration, launcher,
-and variable presence; it starts no MCP or browser sessions. Magic Context
-provides context management and durable memory in the main session, with Pi
-native compaction disabled for new settings. The installer excludes Magic Context from specialist children to prevent full main-session
-context guidance without its tools; children have no compaction under the new
-settings default and should be kept bounded. Project-level pi-subagents
-exclusions can override the global list; existing user preferences are preserved.
-Provider usage, Anthropic OAuth request shaping, and Antigravity model
-routing are user-requested optional capabilities of the nine managed
-extensions, not login or entitlements. The intended `b-researcher` model is
-Antigravity Gemini, which needs `/login antigravity`. Without access,
-`pi-subagents` 21.7.7 silently uses the parent session's model instead.
-Antigravity OAuth login remains at the user's discretion and risk;
-third-party Antigravity OAuth clients carry Google account suspension risks.
-Its registered `generate_image` tool is gated by the default ask policy in the
-main session and excluded from read-only specialists.
+Ten base servers are configured in Claude Code's standard `mcpServers` shape;
+optional ClickUp is added only after install opt-in. `references/mcp_operations.yaml`
+classifies every known tool, and each class maps to an allow or ask rule on
+`mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
+The retired adapter's lazy and search-exposed modes are gone: Claude Code's
+built-in tool search defers large tool sets. Notion reads are `conditional-read`,
+not `read-only`, because every `read-only` tool is granted to all four
+specialists and a private workspace must not reach children. Specialists name
+their tools in `tools:`; `b-researcher` additionally lists three bounded public
+Firecrawl tools classified `conditional-read`. Credentials stay environment
+references (`${VAR}`), never stored values. Expansion of those references in
+the user-scope MCP file is a documented Claude Code behavior that was not
+exercised live. `mcp-doctor` checks only local configuration, launcher, and
+variable presence and starts no MCP or browser sessions.
 
 Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
-[`pi/configs/mcp.base.json`](../pi/configs/mcp.base.json),
-[`pi/configs/subagents.base.json`](../pi/configs/subagents.base.json), and
+[`claude/configs/mcp.base.json`](../claude/configs/mcp.base.json), and
 [`tooling/validate/mcp_doctor.py`](../tooling/validate/mcp_doctor.py).
 
 ## Installation, configuration, and lifecycle
 
-Existing Pi is updated with `pi update --self`; first install runs the official
-`https://pi.dev/install.sh` installer. Install also runs the official installers
-for any missing `bun`, `rtk`, and `codegraph`; failures warn rather than abort.
-A rerun and `--update` upgrade present tools (`bun upgrade`, `codegraph upgrade`, and
-the `rtk` installer again); `--sync` upgrades none. Nine extensions are installed with bare npm names and
-updated through `pi update --extensions`. Bootstrap repository/ref inputs are
-constrained before Git. Installer sync copies the kernel, skills, specialists,
-prompts, references, and templates; it merges settings, specialist exclusions,
-shared CortexKit config, MCP, and permission JSON while preserving unrelated
-values and ordered user arrays. An interactive install asks once when no
-ClickUp choice is recorded; non-interactive first installs or upgrades opt out
-unless `B_AGENTIC_CLICKUP_MCP=yes` is set. Later install and sync runs preserve
-the recorded choice; uninstall and reinstall to change it. Managed package and
-specialist-exclusion lists
-union with existing user entries. Existing JSONC is backed up before a JSON
-rewrite. A recorded legacy MCP config path blocks install, sync, and update
-before Pi or its extensions are updated; uninstall and reinstall switch the
-managed destination to the adapter config file; user-owned entries must be
-copied manually. Install and sync prune retired managed skills, prompts,
-specialists, and extensions only when unmodified, not symlinked, and
-tracked by the previous manifest; changed files are kept and stay tracked. Uninstall removes only owned unmodified assets and values;
-symlinks or changed files retain metadata for a safe retry.
+`install.sh` installs from the checkout that contains it, or clones to
+`~/.b-agentic-claude` when piped (never `~/.b-agentic`, which keeps serving the
+frozen Pi installer). It never runs vendor installers: missing `rtk`,
+`codegraph`, `bunx`, `claude`, and `codex` are reported, and the Codex plugin
+commands are printed for the user to run. The installer copies skills, agents,
+hooks, CLIs, and references; replaces the kernel block in the user `CLAUDE.md`; merges
+permission rules and hook entries into the user settings file and servers into
+the user MCP file; and records everything in an install manifest. It parses
+every user JSON file before the first write, backs up each file it changes,
+keeps files the user modified or that it did not install, refuses a symlinked
+managed directory or manifest, writes through (never replaces) a symlinked
+config file, and is idempotent. Uninstall removes only recorded, unmodified
+assets and entries. The MCP file is `~/.claude.json`; Claude Code rewrites it,
+so restart Claude Code after an install. The installer plans every change in
+memory and refuses on a structural problem (a malformed or wrongly shaped user
+file, duplicate or reversed kernel markers, a symlinked managed directory)
+before the first write. That preflight covers every destination the run may
+touch, including the backups directory, the manifest, and each managed ancestor
+directory, and refuses a symlink or a non-directory in the way. It then records
+its intent in the manifest as a `pending` section that sits beside the last
+committed ownership, so an interrupted run can be finished by a retry or removed
+by an uninstall: both recognize the old and the new state, never arbitrary
+modified content. Ownership is never inferred from content: a file, hook,
+server, or kernel block identical to the managed one is only ours when a
+previous run recorded it, and a modified kernel block or hook is kept. The bootstrap script
+honors `--dry-run` before cloning or fetching, runs git with its destination
+overrides (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR`, and similar) cleared,
+and refuses to clone or update when the real worktree, git directory, or common
+directory is the home directory or lies under `~/.pi`, resolving symlinks.
 
 Evidence: [`install.sh`](../install.sh),
-[`pi/scripts/install.sh`](../pi/scripts/install.sh),
-[`tooling/install/common.sh`](../tooling/install/common.sh), and
-[`tooling/install/manifest_uninstall.py`](../tooling/install/manifest_uninstall.py).
+[`tooling/install/claude_install.py`](../tooling/install/claude_install.py), and
+[`tests/install/claude-install-probe.sh`](../tests/install/claude-install-probe.sh).
 
 ## Verification and change discipline
 
 Canonical sources regenerate before static validation. The suite checks
-routing, Pi assets, capability/MCP policy, decision traceability, and local
-readiness. Release validation adds the offline Pi
-integration probes (verify-gate, snapshot, input-image-preview, herdr-notify, and permission/MCP), which use a
-deterministic stub model and local MCP fixture; CI sets
-`B_AGENTIC_REQUIRE_PI_PROBES=1` so a missing Pi CLI or probe profile fails
-instead of skipping, with explicit limitations for live providers, UI approval, and production servers.
+routing, generated assets, capability and MCP policy, decision traceability,
+the hooks and verdict mapper, and the snapshot CLI. Release validation adds the
+sandbox installer probe. None of it needs Claude Code, Codex, credentials, or a
+network; live provider behavior, approval prompts, and the plugin are separate
+evidence, not inferred from static checks.
 Every candidate gets an inspected diff and applicable checks. Classify the
-final change against the task baseline. Independent read-only review is required
-by request or for security/privacy/authority, data integrity, externally
-consumed contracts, dependencies/runtime configuration, installer or user-config
-merge behavior, approval/safety/delegation/review/commit/routing policy,
-behavior across independently owned subsystems, or a concrete risk checks do
-not cover. Routine skill-prompt wording is not automatically policy. Direct
-tests/docs and faithfully regenerated outputs count with their source, not as
-extra subsystems. A bounded, clear, verified low-risk change may skip review
-with its reason reported. Failed checks or unexpected paths block completion;
-ambiguous acceptance goes to the user. Review records HEAD, staged and
-unstaged binary-diff digests, and relevant untracked path/type/content digests.
-The reviewer checks that identity at the start and end, and main checks it on
-return; a changed snapshot needs fresh
-checks and a new review. To keep the loop convergent, `NEEDS FIXES` requires an
+final change against the task baseline. Independent review is required by
+request or for security/privacy/authority, data integrity, externally consumed
+contracts, dependencies/runtime configuration, installer or user-config merge
+behavior, approval/safety/delegation/review/commit/routing policy, behavior
+across independently owned subsystems, or a concrete risk checks do not cover.
+Routine skill-prompt wording is not automatically policy. Direct tests/docs and
+faithfully regenerated outputs count with their source. A bounded, clear,
+verified low-risk change may skip review with its reason reported. Failed
+checks or unexpected paths block completion; ambiguous acceptance goes to the
+user.
+The gate is the plugin's adversarial review, run by `b-codex-review` in the
+foreground while nothing edits. The focus text carries acceptance, triggers,
+and, for a re-review, prior finding IDs, dispositions, and sweep and check
+results; the plugin's threads are ephemeral, so every round is fresh. Main
+records the candidate fingerprint at the freeze, requires the wrapper's `f0` to
+equal it, and recomputes it after the wrapper returns; any difference voids the
+review. `b-codex-verdict` maps the plugin's verdict and
+severities to a provisional result: `critical` and `high` findings are
+provisional blockers unless disproved with evidence, `medium` and `low` are
+follow-ups unless they fall in a blocker class, and `needs-attention` without
+findings is void. Main owns the final verdict. `NEEDS FIXES` requires an
 evidenced blocker (acceptance, correctness, security/data/contract, check,
-snapshot, path, or generated-output class); other findings are follow-ups that
-main dispositions as fixed, deferred, or rejected; only a fix that changes the candidate forces a new review.
-Reviewers list every same-class location of a blocker in one pass. Main fixes
-blockers as a batch, one whole defect class at a time: sibling sweep, minimal
-diff, regression and repository checks. A re-review is a fresh reviewer that gets
-prior finding IDs, dispositions, correction paths, and the sweep/check results
-and checks earlier blockers plus the delta. After 3 consecutive
-`NEEDS FIXES` rounds, main asks the user. Protected paths require permission before content is
-hashed. The read-only `b_candidate_snapshot` tool computes that identity for the
-whole repository as one fingerprint. It lists protected paths and submodules
-without hashing or diffing them and reports the result incomplete so the main
-session blocks. It excludes git-ignored files unless the caller names them in `include_ignored`,
-and the review handoff must name every relevant ignored or derived artifact or block; it refuses when a repository filter would run a program or the
-repository is a partial clone. `b-review` keeps
-a manual fallback, and the two methods are never compared with each other.
+snapshot, path, or generated-output class); main fixes blockers as a batch, one
+whole defect class at a time, and after 3 consecutive `NEEDS FIXES` rounds asks
+the user. Protected paths require permission before content is hashed. The
+read-only `b-candidate-snapshot` CLI computes the identity for the whole
+repository as one fingerprint, lists protected paths and submodules without
+hashing or diffing them, excludes git-ignored files unless named with
+`--include-ignored`, and refuses when a repository filter would run a program or
+the repository is a partial clone. `b-review` keeps a manual fallback, and the
+two methods are never compared with each other.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 [`tooling/validate/behavior.py`](../tooling/validate/behavior.py),
-[`pi/extensions/b-candidate-snapshot.ts`](../pi/extensions/b-candidate-snapshot.ts),
-and [`tests/pi/snapshot-probe.sh`](../tests/pi/snapshot-probe.sh).
+[`claude/bin/b-candidate-snapshot.mjs`](../claude/bin/b-candidate-snapshot.mjs),
+and [`claude/bin/b-codex-verdict.mjs`](../claude/bin/b-codex-verdict.mjs).
 
 ## Intentional non-goals
 
 b-agentic does not maintain a second runtime, custom permission engine,
-argument-aware MCP gate, or persistent subagent store. Its bundled TUI
-extension, `b-input-image-preview`, is a display-only widget and popup that
-never touches the editor or what is submitted and is inert outside the TUI; it
-is not a UI framework, and further TUI
-extensions need a new decision here. The second, `b-herdr-notify`, is a
-display-free, environment-gated integration: it only forwards "Pi is waiting on
-you" from the ask and permission prompt events to Herdr (a `herdr:blocked` pair
-and one throttled toast with a privacy-safe label), is a complete no-op outside
-Herdr and the root TUI session, and never changes a prompt, a permission
-decision, or Herdr's own managed files. The repository does not promise
-detached background work, authenticated MCP readiness from configuration, or
-unbounded orchestration. Magic Context owns Pi context management; `rpiv-todo`
-is not installed.
+argument-aware MCP gate, or persistent subagent store. It does not ship themes,
+TUI widgets, notifications, a self-updating command, or third-party extension
+management; Claude Code's own `AskUserQuestion`, todo list, and compaction cover
+what those extensions did. The repository does not promise detached background
+work, authenticated MCP or Codex readiness from configuration, containment of
+Codex's read access, or unbounded orchestration.
 
 Evidence: [`README.md`](../README.md),
-[`REFERENCE.md`](../REFERENCE.md),
-[`pi/configs/README.md`](../pi/configs/README.md),
-[`pi/extensions/b-input-image-preview.ts`](../pi/extensions/b-input-image-preview.ts),
-[`tests/pi/input-image-preview-probe.sh`](../tests/pi/input-image-preview-probe.sh),
-[`pi/extensions/b-herdr-notify.ts`](../pi/extensions/b-herdr-notify.ts),
-and [`tests/pi/herdr-notify-probe.sh`](../tests/pi/herdr-notify-probe.sh).
+[`REFERENCE.md`](../REFERENCE.md), and
+[`claude/configs/README.md`](../claude/configs/README.md).

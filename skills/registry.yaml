@@ -4,21 +4,20 @@
   "agents": {
     "b-planner": {
       "description": "Produce a read-only execution-ready plan for the main b-agentic session.",
-      "model": "anthropic/claude-opus-5-5#high"
+      "model": "opus"
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
-      "model": "antigravity/gemini-3.8-flash#high",
-      "conditional_tools": ["firecrawl_search", "firecrawl_scrape", "firecrawl_map"]
+      "model": "sonnet",
+      "conditional_tools": ["mcp__firecrawl__firecrawl_search", "mcp__firecrawl__firecrawl_scrape", "mcp__firecrawl__firecrawl_map"]
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
-      "model": "anthropic/claude-sonnet-5-5#high"
+      "model": "sonnet"
     },
-    "b-reviewer": {
-      "description": "Independently review a frozen change candidate or b-agentic conformance evidence.",
-      "model": "openai/gpt-6.1-sol#high",
-      "extension_tools": ["b_candidate_snapshot"]
+    "b-auditor": {
+      "description": "Audit b-agentic repository and design conformance read-only for the main session.",
+      "model": "opus"
     }
   },
   "skills": [
@@ -336,7 +335,7 @@
     },
     {
       "name": "b-agentic-audit",
-      "execution": {"mode": "subagent", "agent": "b-reviewer"},
+      "execution": {"mode": "subagent", "agent": "b-auditor"},
       "handoff": ["after approved origin fetch, branch/upstream and HEAD ahead/behind counts (both zero required)", "status and scripts/b-agentic-audit.sh output; installed versions and approved live-probe results when available"],
       "phase": "Validate",
       "use": "Audit b-agentic repository conformance, health, skill/kernel quality, and currentness",
@@ -351,13 +350,12 @@
         ]
       },
       "prompt": {
-        "description": "Four-dimension read-only b-agentic audit covering source/design conformance, whole-project and first-party-extension health, canonical skill/kernel quality, and currentness/MCP compatibility, with evidence thresholds and approval-gated live probing."
+        "description": "Four-dimension read-only b-agentic audit covering source/design conformance, whole-project and first-party hook and CLI health, canonical skill/kernel quality, and currentness/MCP compatibility, with evidence thresholds and approval-gated live probing."
       }
     },
     {
       "name": "b-review",
-      "execution": {"mode": "subagent", "agent": "b-reviewer"},
-      "handoff": ["baseline, acceptance, check results, safe candidate paths and snapshot fingerprint and any `include_ignored` paths (from `b_candidate_snapshot` when available); for a re-review also prior finding IDs, dispositions, correction paths, and sibling-sweep scope plus regression-check results; recheck the fingerprint after review"],
+      "execution": {"mode": "main"},
       "phase": "Validate",
       "use": "Review changed code",
       "argument_hint": "[diff, commit range, or checkpoint]",

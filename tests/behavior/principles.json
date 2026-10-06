@@ -220,7 +220,7 @@
         "Report that independent review was skipped"
       ],
       "avoid": [
-        "Request b-reviewer for this low-risk change",
+        "Request the b-review gate for this low-risk change",
         "Claim a READY FOR PR reviewer verdict"
       ]
     },
@@ -233,7 +233,7 @@
       "must": [
         "Classify the changes and user request as review triggers",
         "Freeze the exact candidate after fresh required checks",
-        "Request read-only b-reviewer review before normal completion",
+        "Request the read-only b-review gate before normal completion",
         "Do not edit while review runs"
       ],
       "avoid": [
@@ -263,11 +263,11 @@
       "principle": "goal-driven-execution",
       "observed_failure": "Regenerating a skill made one small change appear to span multiple subsystems.",
       "intended_behavior": "Faithfully regenerated outputs and direct tests/docs count with their source after generator checks pass; they do not independently trigger review.",
-      "prompt": "Use b-implement. Correct a typo in one skill prompt, regenerate its SKILL.md and Pi command, and run the generator check and required checks successfully. The final diff is limited to the expected paths, acceptance is clear, and no routing, authority, approval, safety, or review behavior changes. State whether b-reviewer is needed.",
+      "prompt": "Use b-implement. Correct a typo in one skill prompt, regenerate its SKILL.md, and run the generator check and required checks successfully. The final diff is limited to the expected paths, acceptance is clear, and no routing, authority, approval, safety, or review behavior changes. State whether the b-review gate is needed.",
       "must": [
         "Inspect the source and generated paths",
         "Treat faithful generated output as the same concern",
-        "Finish without b-reviewer and report why review was skipped"
+        "Finish without the b-review gate and report why review was skipped"
       ],
       "avoid": [
         "Treat generated paths or file count alone as multiple subsystems",
@@ -279,7 +279,7 @@
       "principle": "goal-driven-execution",
       "observed_failure": "A global skill demanded a generator check even when the project has no generator and the candidate has no generated outputs.",
       "intended_behavior": "Generator checks apply only when the candidate includes regenerated outputs; ordinary bounded changes need their applicable required checks, not a nonexistent generator check.",
-      "prompt": "Use b-implement in a project with no generator. Make one bounded documentation correction; the final diff contains no generated output and all applicable required checks pass. Is a generator check necessary to skip b-reviewer?",
+      "prompt": "Use b-implement in a project with no generator. Make one bounded documentation correction; the final diff contains no generated output and all applicable required checks pass. Is a generator check necessary to skip the b-review gate?",
       "must": [
         "Inspect the final diff and run applicable required checks",
         "Do not demand a generator check without regenerated outputs",
@@ -298,7 +298,7 @@
       "prompt": "Use b-implement. A one-line skill-prompt edit now permits a delegated child to approve a protected action. Its SKILL.md is faithfully regenerated and every required check passes. Is the low-risk review exception available?",
       "must": [
         "Classify the authority change as a review trigger",
-        "Freeze the checked candidate and request b-reviewer before normal completion"
+        "Freeze the checked candidate and run the b-review gate before normal completion"
       ],
       "avoid": [
         "Skip review because the edit is one line",
@@ -323,7 +323,7 @@
       "principle": "goal-driven-execution",
       "skill": "b-review",
       "observed_failure": "The b-review prompt said not to edit files but did not make the review phase's read-only boundary explicit enough to prevent directly fixing findings.",
-      "intended_behavior": "b-reviewer reports findings to the main session without changing project files or the working tree; the main session chooses the next implementation skill.",
+      "intended_behavior": "the b-review gate reports findings without changing project files or the working tree; the main session chooses the next implementation skill.",
       "prompt": "Use b-review. The main session froze a changed candidate. Review the working-tree diff, report any findings to the main session, and do not edit files. If you identify an obvious one-line fix, state the minimal correction; do not apply the fix.",
       "must": [
         "Keep the review read-only",

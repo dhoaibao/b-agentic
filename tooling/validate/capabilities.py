@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the slim native Pi capability registry and rendered policy."""
+"""Validate the slim Claude Code capability registry and rendered settings."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ sys.path.insert(0, str(ROOT))
 
 def main() -> int:
     from tooling.generate.registry_sync import (
-        PI_CONFIGS_DIR,
+        SETTINGS_TEMPLATE_PATH,
         load_capabilities,
         load_policy,
-        render_permissions,
+        render_settings,
         validate_capabilities,
     )
 
@@ -28,22 +28,22 @@ def main() -> int:
     errors = validate_capabilities(capabilities, policy)
     import json
 
-    template = PI_CONFIGS_DIR / "permission.user.template.json"
-    expected = json.dumps(render_permissions(policy), indent=2) + "\n"
+    template = SETTINGS_TEMPLATE_PATH
+    expected = json.dumps(render_settings(policy), indent=2) + "\n"
     if not template.exists():
-        errors.append(f"{template}: missing generated Pi permission template")
+        errors.append(f"{template}: missing generated settings template")
     elif template.read_text() != expected:
-        errors.append(f"{template}: generated Pi permission template is out of date")
+        errors.append(f"{template}: generated settings template is out of date")
     if args.self_test:
         ids = [item.get("id") for item in capabilities.get("capabilities", [])]
         if len(ids) != len(set(ids)):
             errors.append("capability registry contains duplicate IDs")
-        if any(item.get("kind") not in {"mcp", "agent"} for item in capabilities.get("capabilities", [])):
-            errors.append("capability registry contains a retired non-native kind")
+        if any(item.get("kind") not in {"mcp", "agent", "plugin"} for item in capabilities.get("capabilities", [])):
+            errors.append("capability registry contains an unsupported kind")
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Native Pi capability contract validation passed.")
+    print("Claude Code capability contract validation passed.")
     return 0
 
 

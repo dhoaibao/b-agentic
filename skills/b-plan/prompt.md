@@ -24,9 +24,9 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 2. Inspect only the local evidence needed to avoid guessing. Use CodeGraph for affected symbols, callers, and tests when an index is available; otherwise report the fallback gap to the main session.
 3. For non-trivial or risky work, compare viable paths and relevant quality dimensions, including the simpler option, then recommend the smallest safe one with evidence-backed rationale and accepted trade-offs. Keep small obvious tasks free of forced comparison or research.
 4. Specify ordered implementation steps, affected paths/symbols, invariants, and `Done when` verification that proves observable behavior.
-5. For a material user-facing decision, state 2–4 concrete options and their trade-offs for the main session to resolve with the user. Do not invoke `ask_user_question` or claim approval.
+5. For a material user-facing decision, state 2–4 concrete options and their trade-offs for the main session to resolve with the user. Do not invoke `AskUserQuestion` or claim approval.
 6. Return the plan to the main session with scope, acceptance, affected paths, invariants, verification, risks, and open items. The main session owns approval and any later implementation.
-7. For changed work, include applicable checks and the kernel's risk classification of the final candidate: a bounded, verified low-risk change may finish without independent review, with direct tests/docs and faithfully regenerated outputs counted with their source; a triggered change must freeze the exact tracked plus relevant untracked/derived snapshot after fresh checks and obtain independent **b-reviewer** review. This is not authorization to commit or push.
+7. For changed work, include applicable checks and the kernel's risk classification of the final candidate: a bounded, verified low-risk change may finish without independent review, with direct tests/docs and faithfully regenerated outputs counted with their source; a triggered change must freeze the exact tracked plus relevant untracked/derived snapshot after fresh checks and obtain independent **b-review** review. This is not authorization to commit or push.
 
 ## Output format
 

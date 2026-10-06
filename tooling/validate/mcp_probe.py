@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Pi MCP inventory policy note.
+"""Claude Code MCP inventory policy note.
 
-The Pi adapter's base configuration lists ten lazy servers and offers an
+The base MCP configuration lists ten servers and offers an
 optional ClickUp server. This validator never starts a server, opens a browser,
 authenticates, or tests live tool use.
 """
@@ -16,9 +16,9 @@ def main() -> int:
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
-        print("Pi MCP probe boundary self-test passed.")
+        print("MCP probe boundary self-test passed.")
     else:
-        print("Pi MCP connections are not probed by static validation.")
+        print("MCP connections are not probed by static validation.")
     return 0
 
 

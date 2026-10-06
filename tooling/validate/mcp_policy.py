@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Regression checks for Pi permission-system and MCP adapter policy rendering."""
+"""Regression checks for the rendered Claude Code settings and MCP policy."""
 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -32,10 +33,23 @@ EXPECTED_CLASSES = {
     "local-mutation",
     "auth",
 }
+AGENTS = ("b-planner", "b-researcher", "b-debugger", "b-auditor")
+ENV_REFERENCE = re.compile(r"^\$\{[A-Z][A-Z0-9_]*\}$")
+
+
+def agent_tools(agent: str) -> list[str]:
+    profile = (ROOT / "claude" / "agents" / f"{agent}.md").read_text()
+    line = next(item for item in profile.splitlines() if item.startswith("tools: "))
+    return [tool.strip() for tool in line.removeprefix("tools: ").split(",") if tool.strip()]
 
 
 def main() -> int:
-    from tooling.generate.registry_sync import load_policy, native_tool_name, render_permissions
+    from tooling.generate.registry_sync import (
+        SETTINGS_TEMPLATE_PATH,
+        load_policy,
+        mcp_tool_name,
+        render_settings,
+    )
 
     errors: list[str] = []
     policy = load_policy()
@@ -44,167 +58,148 @@ def main() -> int:
     servers = policy.get("servers", {})
     if set(servers) != EXPECTED_SERVERS:
         errors.append("MCP policy server set differs from the supported set")
-    template = ROOT / "pi" / "configs" / "permission.user.template.json"
-    rendered = render_permissions(policy)
-    if not template.exists() or template.read_text() != json.dumps(rendered, indent=2) + "\n":
-        errors.append("Pi permission policy is missing or out of date")
-    permission = rendered["permission"]
+    rendered = render_settings(policy)
+    if (
+        not SETTINGS_TEMPLATE_PATH.exists()
+        or SETTINGS_TEMPLATE_PATH.read_text() != json.dumps(rendered, indent=2) + "\n"
+    ):
+        errors.append("Claude Code settings template is missing or out of date")
+    permissions = rendered["permissions"]
+    allow, ask, deny = set(permissions["allow"]), set(permissions["ask"]), set(permissions["deny"])
     for server, record in servers.items():
-        if permission.get(f"{server}_*") != "ask":
-            errors.append(f"unknown direct tools on {server} must ask")
         for tool, classification in record.get("tools", {}).items():
+            name = mcp_tool_name(server, tool)
             expected = policy["classes"][classification]["native_permission"]
-            if permission.get(native_tool_name(server, tool)) != expected:
+            actual = "allow" if name in allow else "ask" if name in ask else "deny" if name in deny else None
+            if actual != expected:
                 errors.append(f"{server}:{tool} differs from canonical policy")
-    if native_tool_name("codegraph", "codegraph_explore") != "codegraph_explore":
-        errors.append("adapter-prefixed CodeGraph tool must not be double-prefixed")
-    if permission.get("codegraph_explore") != "allow":
-        errors.append("CodeGraph explore must be allowed under its actual Pi tool name")
-    if permission.get("firecrawl_search") != "allow":
-        errors.append("adapter-prefixed Firecrawl search must be allowed")
-    if "codegraph_codegraph_explore" in permission or "firecrawl_firecrawl_search" in permission:
-        errors.append("doubled adapter tool names must not appear in permission policy")
-    for agent in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
-        profile = (ROOT / "pi" / "agents" / f"{agent}.md").read_text()
-        if "bash, codegraph_explore," not in profile or "codegraph_codegraph_explore" in profile:
-            errors.append(f"{agent} must expose the actual CodeGraph direct tool")
-        if "\npermission:\n" in profile:
-            errors.append(f"{agent} must inherit global permission policy")
-    for agent in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
-        profile = (ROOT / "pi" / "agents" / f"{agent}.md").read_text()
-        profile_tools = profile.split("tools: ", 1)[1].split("\n", 1)[0].split(", ")
-        # An allowlisted search-exposed tool is already active in a child, so no specialist needs the proxy.
-        if "mcp" in profile_tools:
-            errors.append(f"{agent} must not receive the mcp proxy")
-    research_profile = (ROOT / "pi" / "agents" / "b-researcher.md").read_text()
-    research_tools = research_profile.split("tools: ", 1)[1].split("\n", 1)[0].split(", ")
-    required_research_tools = {"firecrawl_search", "firecrawl_scrape", "firecrawl_map"}
-    if not required_research_tools.issubset(research_tools):
-        errors.append("b-researcher must expose the Firecrawl search and bounded extraction tools")
-    for name in ("b-planner", "b-debugger", "b-reviewer"):
-        profile = (ROOT / "pi" / "agents" / f"{name}.md").read_text()
-        profile_tools = profile.split("tools: ", 1)[1].split("\n", 1)[0].split(", ")
-        if required_research_tools.intersection(profile_tools):
-            errors.append(f"{name} must not inherit researcher-only Firecrawl tools")
-    for name in ("firecrawl_crawl", "playwright_browser_click"):
-        if permission.get(name) != "ask":
+    for name in (
+        "mcp__codegraph__codegraph_explore",
+        "mcp__firecrawl__firecrawl_search",
+        "mcp__context7__resolve-library-id",
+        "mcp__notion__notion-search",
+        "mcp__drawio__search_shapes",
+    ):
+        if name not in allow:
+            errors.append(f"read tool must be allowed: {name}")
+    if any("codegraph_codegraph" in name or "firecrawl_firecrawl_firecrawl" in name for name in allow | ask):
+        errors.append("doubled tool names must not appear in permission rules")
+    for name in (
+        "mcp__firecrawl__firecrawl_crawl",
+        "mcp__playwright__browser_click",
+        "mcp__playwright__browser_navigate",
+        "mcp__notion__notion-create-pages",
+        "mcp__notion__notion-update-page",
+        "mcp__notion__notion-create-file-upload",
+        "mcp__notion__notion-spawn-session",
+        "mcp__drawio__open_drawio_xml",
+        "mcp__drawio__open_drawio_csv",
+        "mcp__drawio__open_drawio_mermaid",
+        "mcp__excalidraw__create_view",
+        "mcp__clickup__createTask",
+        "mcp__clickup__updateTask",
+    ):
+        if name not in ask:
             errors.append(f"{name} must ask before mutation")
-    for name in (
-        "notion_notion-create-pages",
-        "notion_notion-update-page",
-        "notion_notion-create-file-upload",
-        "notion_notion-spawn-session",
+    for name in ("mcp__drawio__get_page", "mcp__drawio__list_pages"):
+        if name in allow:
+            errors.append(f"{name} is unclassified and must keep the runtime approval prompt")
+    for tool in ("Read", "Glob", "Grep", "Edit", "Write", "Bash"):
+        if tool not in allow:
+            errors.append(f"repository-local tool must not prompt: {tool}")
+    for pattern in (
+        "Bash(git push)",
+        "Bash(git push *)",
+        "Bash(rtk git push *)",
+        "Bash(git pull *)",
+        "Bash(git reset --hard *)",
+        "Bash(git clean -f *)",
+        "Bash(git branch -D *)",
+        "Bash(rm -rf *)",
+        "Bash(sudo *)",
+        "Bash(doas *)",
+        "Bash(docker system prune *)",
+        "Bash(bash)",
+        "Bash(sh)",
+        "Bash(bash -s *)",
+        "Bash(sh -s *)",
     ):
-        if permission.get(name) != "ask":
-            errors.append(f"{name} must ask before mutating a Notion workspace")
-    if permission.get("notion_*") != "ask":
-        errors.append("unclassified Notion tools must ask")
-    if permission.get("notion_notion-search") != "allow":
-        errors.append("Notion reads must be allowed in the main session")
-    for agent in ("b-planner", "b-researcher", "b-debugger", "b-reviewer"):
-        agent_tools = (ROOT / "pi" / "agents" / f"{agent}.md").read_text().split("tools: ", 1)[1].split("\n", 1)[0]
-        if "notion_" in agent_tools:
+        if pattern not in deny:
+            errors.append(f"dangerous command must be denied: {pattern}")
+    for tool in ("Read", "Edit", "Write"):
+        for glob in ("**/.env", "**/.env.local", "**/*.pem", "**/*credentials.*", "**/*secrets.*"):
+            if f"{tool}({glob})" not in deny:
+                errors.append(f"protected path must be denied: {tool}({glob})")
+    if "Read(**/.env.example)" in deny or any(".env.example" in rule for rule in deny):
+        errors.append(".env.example must stay readable; the path guard hook owns exact path rules")
+    if any(rule.startswith("Bash(") and rule.endswith(":*)") for rule in allow | ask | deny):
+        errors.append("Bash rules must use the space-star form, not the legacy :* prefix form")
+    if any("(" in rule and rule.startswith("mcp__") for rule in allow | ask | deny):
+        errors.append("MCP rules must not carry argument patterns")
+    hooks = rendered["hooks"]
+    commands = [hook["command"] for entries in hooks.values() for entry in entries for hook in entry["hooks"]]
+    if len(commands) != len(set(commands)) and not (
+        hooks["PostToolUse"][0]["hooks"][0]["command"] == hooks["Stop"][0]["hooks"][0]["command"]
+    ):
+        errors.append("hook commands must be unique per script, except the verify gate shared by PostToolUse and Stop")
+    if hooks["PreToolUse"][0]["matcher"] != "Read|Edit|Write|NotebookEdit|Grep|Glob":
+        errors.append("path guard must cover every file tool")
+    if hooks["PreToolUse"][1]["matcher"] != "Bash":
+        errors.append("Codex guard must watch Bash")
+    for entries in hooks.values():
+        for entry in entries:
+            for hook in entry["hooks"]:
+                if hook.get("type") != "command" or not hook["command"].startswith(
+                    'node "$HOME/.claude/b-agentic/hooks/'
+                ):
+                    errors.append(f"hook must run a managed script with node: {hook}")
+
+    research_tools = {
+        "mcp__firecrawl__firecrawl_search",
+        "mcp__firecrawl__firecrawl_scrape",
+        "mcp__firecrawl__firecrawl_map",
+    }
+    for agent in AGENTS:
+        tools = agent_tools(agent)
+        if "mcp__codegraph__codegraph_explore" not in tools:
+            errors.append(f"{agent} must expose the CodeGraph explore tool")
+        if any(tool.startswith("mcp__notion__") for tool in tools):
             errors.append(f"{agent} must not receive private Notion workspace tools")
-    for name in (
-        "drawio_open_drawio_xml",
-        "drawio_open_drawio_csv",
-        "drawio_open_drawio_mermaid",
-        "drawio_set_page",
-        "drawio_get_page",
-        "drawio_list_pages",
-    ):
-        if permission.get(name, permission.get("drawio_*")) != "ask":
-            errors.append(f"{name} must ask before browser, file, or unclassified operations")
-    if permission.get("drawio_search_shapes") != "allow":
-        errors.append("read-only draw.io shape search must be allowed")
-    if "drawio_get_page" in permission or "drawio_list_pages" in permission:
-        errors.append("draw.io page-read tools must stay unclassified so the wildcard ask applies")
-    if permission.get("context7_resolve-library-id") != "allow":
-        errors.append("read-only context7 lookup must be allowed")
-    if permission.get("mcp", {}).get("*") != "ask":
-        errors.append("MCP proxy must ask for unknown operations")
-    if set(permission.get("mcp", {})) != {"*", "mcp_status", "mcp_search", "mcp_describe"}:
-        errors.append("MCP proxy must not gain tool allows that can cross server boundaries")
-    if permission.get("skill") != "allow":
-        errors.append("skill invocation must not prompt; tool and path gates remain active")
-    for name in ("ctx_search", "ctx_expand", "ctx_memory", "ctx_note", "ctx_reduce", "todowrite"):
-        if permission.get(name) != "allow":
-            errors.append(f"Magic Context tool must not prompt: {name}")
-    if permission.get("intercom") != "allow":
-        errors.append("intercom must not prompt")
-    if permission.get("notify_parent") != "allow":
-        errors.append("notify_parent must not prompt")
-    if permission.get("ask_parent") != "allow":
-        errors.append("ask_parent must not prompt")
-    kernel = (ROOT / "references" / "kernel.template.md").read_text()
-    for clause in ("`intercom` is auto-allowed", "untrusted input", "cross-machine sends", "launching sessions/panes"):
-        if clause not in kernel:
-            errors.append(f"kernel intercom boundary missing: {clause}")
-    if permission.get("*") != "ask" or "ctx_*" in permission:
-        errors.append("unknown extension tools must still ask")
-    if permission.get("path", {}).get("*.env") != "deny":
-        errors.append("protected paths must be denied")
-    if permission.get("external_directory_write") != "deny":
-        errors.append("outside-repository writes must be denied")
-    if permission.get("external_directory") != "ask":
-        errors.append("outside-repository reads must still ask")
-    for command in (
-        "sudo *",
-        "sudo*",
-        "doas *",
-        "docker system prune*",
-        "docker system prun*",
-        "rm -rf *",
-        "bash",
-        "sh",
-        "bash -s*",
-        "sh -s*",
-    ):
-        if permission.get("bash", {}).get(command) != "deny":
-            errors.append(f"dangerous command must be denied: {command}")
-    if rendered.get("permissionReviewLog") is not False or rendered.get("yoloMode") is not False:
-        errors.append("permission review logging and yolo mode must be disabled")
-    mcp = json.loads((ROOT / "pi" / "configs" / "mcp.base.json").read_text())
-    optional_mcp = json.loads((ROOT / "pi" / "configs" / "mcp.clickup.json").read_text())
-    configured_servers = dict(mcp.get("mcpServers", {}))
-    configured_servers.update(optional_mcp.get("mcpServers", {}))
+        if any(tool in ask or tool in deny for tool in tools if tool.startswith("mcp__")):
+            errors.append(f"{agent} must not list a tool that asks or is denied")
+        if agent == "b-researcher":
+            if not research_tools.issubset(tools):
+                errors.append("b-researcher must expose the Firecrawl search and bounded extraction tools")
+        elif research_tools.intersection(tools):
+            errors.append(f"{agent} must not inherit researcher-only Firecrawl tools")
+
+    mcp = json.loads((ROOT / "claude" / "configs" / "mcp.base.json").read_text())
+    optional_mcp = json.loads((ROOT / "claude" / "configs" / "mcp.clickup.json").read_text())
     if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - OPTIONAL_SERVERS:
-        errors.append("Pi base MCP config must configure all required servers only")
+        errors.append("Claude Code base MCP config must configure all required servers only")
     if set(optional_mcp.get("mcpServers", {})) != OPTIONAL_SERVERS:
-        errors.append("Pi optional MCP config must configure each optional server exactly once")
-    settings = mcp.get("settings", {})
-    if settings.get("directTools") is not True or settings.get("scriptMode") is not False:
-        errors.append("direct tools must be enabled and MCP script mode disabled")
-    eager_count = 0
-    for server, record in servers.items():
-        configured = configured_servers.get(server, {}).get("directTools")
-        if not isinstance(configured_servers.get(server, {}).get("description"), str):
-            errors.append(f"{server} must carry a description for search and grouping")
-        exposure = record.get("exposure")
-        if exposure == "search":
-            if configured != "search":
-                errors.append(f'{server} has search exposure but its directTools is not "search"')
-            continue
-        if exposure != "direct":
-            errors.append(f"{server} must declare exposure direct or search")
-            continue
-        allowed = {
-            tool
-            for tool, classification in record.get("tools", {}).items()
-            if policy["classes"][classification]["native_permission"] == "allow"
-        }
-        if not isinstance(configured, list) or any(not isinstance(tool, str) for tool in configured):
-            errors.append(f"{server} must list allowed direct tools")
-            continue
-        if len(configured) != len(set(configured)) or set(configured) != allowed:
-            errors.append(f"{server} direct tools differ from allowed MCP operations")
-        eager_count += len(configured)
-    if eager_count >= 75:
-        errors.append("configured direct tools meet the adapter's 75-tool advisory threshold")
+        errors.append("Claude Code optional MCP config must configure each optional server exactly once")
+    for server, entry in {**mcp.get("mcpServers", {}), **optional_mcp.get("mcpServers", {})}.items():
+        kind = entry.get("type")
+        if kind == "http":
+            if not str(entry.get("url", "")).startswith("https://"):
+                errors.append(f"{server} must use an https URL")
+        elif kind == "stdio":
+            if not isinstance(entry.get("command"), str) or not isinstance(entry.get("args"), list):
+                errors.append(f"{server} stdio entry needs a command and args")
+        else:
+            errors.append(f"{server} must declare type http or stdio")
+        for field in ("env", "headers"):
+            for key, value in entry.get(field, {}).items():
+                if key.endswith(("_KEY", "_TOKEN", "_ID")) and not ENV_REFERENCE.fullmatch(str(value)):
+                    errors.append(f"{server}.{field}.{key} must reference an environment variable, not store a value")
+        retired = {"directTools", "lifecycle", "description"} & set(entry)
+        if retired:
+            errors.append(f"{server} carries retired adapter fields: {sorted(retired)}")
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Pi MCP operation policy regression passed.")
+    print("Claude Code MCP operation policy regression passed.")
     return 0
 
 

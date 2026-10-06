@@ -4,6 +4,7 @@ description: >
   Analyze tracked, staged, and untracked working-tree changes; select
   cohesive commits after an explicit user request, then stage and create
   them on the current branch without a second approval prompt or pushing.
+argument-hint: "[commit instructions]"
 disable-model-invocation: true
 metadata:
   phase: Ship
@@ -34,7 +35,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Commit boundary
 
-The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Inspect the tracked and relevant untracked/derived candidate, preserve any user-curated index, and assign exact paths and messages before staging. Do not rerun implementation checks or independently revalidate or self-authorize an unchanged candidate solely to commit it. Run only checks explicitly required by repository rules at commit time; do not use `b-commit` to fill in missing change-phase verification. If verification evidence is unavailable, report that gap without inventing results. Do not invoke **b-reviewer** or require a prior review disposition solely to stage or commit, even for multiple groups or a pre-existing staged set.
+The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Inspect the tracked and relevant untracked/derived candidate, preserve any user-curated index, and assign exact paths and messages before staging. Do not rerun implementation checks or independently revalidate or self-authorize an unchanged candidate solely to commit it. Run only checks explicitly required by repository rules at commit time; do not use `b-commit` to fill in missing change-phase verification. If verification evidence is unavailable, report that gap without inventing results. Do not invoke **b-review** or require a prior review disposition solely to stage or commit, even for multiple groups or a pre-existing staged set.
 
 - Before staging, confirm the selected paths and index still match the inspected candidate. If the candidate changes—including relevant untracked content or repository preparation—pause rather than commit under an obsolete plan; return it to the change-producing phase for verification and any applicable review. The original commit request remains authorization to resume once the changed candidate is verified and the plan is reconfirmed. Unexpected paths, unresolved findings, or uncertain path assignment block committing. Never regroup silently or push.
 
