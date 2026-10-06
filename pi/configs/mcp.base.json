@@ -30,7 +30,7 @@
       "lifecycle": "lazy"
     },
     "firecrawl": {
-      "description": "Web scrape/map/extract, developer search, and research papers; mutating crawl, agent and monitor tools ask first.",
+      "description": "Web scrape/map, developer search, and research papers; mutating crawl, agent and monitor tools ask first.",
       "command": "bunx",
       "args": ["firecrawl-mcp"],
       "directTools": "search",

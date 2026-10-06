@@ -9,7 +9,7 @@
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
       "model": "antigravity/gemini-3.8-flash#high",
-      "conditional_tools": ["firecrawl_search", "firecrawl_scrape", "firecrawl_map", "firecrawl_extract"]
+      "conditional_tools": ["firecrawl_search", "firecrawl_scrape", "firecrawl_map"]
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",

@@ -60,8 +60,8 @@ Known read-only direct MCP operations are allowed by exact tool name; proxy
 calls still ask because its targets cannot securely bind the tool to its server.
 Invoking a skill never bypasses tool and path gates for its subsequent work.
 Specialist profiles expose read and shell tools plus named observation-only
-direct MCP tools; `b-researcher` additionally exposes four bounded public
-Firecrawl search/extraction tools classified `conditional-read`. They have no
+direct MCP tools; `b-researcher` additionally exposes three bounded public
+Firecrawl search/scrape tools classified `conditional-read`. They have no
 per-agent permission block; nested delegation and user questions are not on
 their tool lists. The global Pi permission policy still applies to their calls. A shell can mutate files inside the repo or
 invoke external services, so the read-only specialist boundary now depends on

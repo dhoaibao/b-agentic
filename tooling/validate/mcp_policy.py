@@ -78,7 +78,7 @@ def main() -> int:
             errors.append(f"{agent} must not receive the mcp proxy")
     research_profile = (ROOT / "pi" / "agents" / "b-researcher.md").read_text()
     research_tools = research_profile.split("tools: ", 1)[1].split("\n", 1)[0].split(", ")
-    required_research_tools = {"firecrawl_search", "firecrawl_scrape", "firecrawl_map", "firecrawl_extract"}
+    required_research_tools = {"firecrawl_search", "firecrawl_scrape", "firecrawl_map"}
     if not required_research_tools.issubset(research_tools):
         errors.append("b-researcher must expose the Firecrawl search and bounded extraction tools")
     for name in ("b-planner", "b-debugger", "b-reviewer"):
