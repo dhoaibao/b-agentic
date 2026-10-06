@@ -365,13 +365,20 @@ FAKE_MODE=ignore-term wrap "$wrepo" --scope working-tree --timeout-minutes 0.02 
 [ "$SECONDS" -lt 15 ] || fail "a SIGTERM-ignoring child blocked the wrapper ($SECONDS s)"
 # a companion that exits while a descendant keeps the pipes open must not hang the wrapper
 export FAKE_PIDFILE="$work/holder.pid"
+# stock macOS has no GNU timeout; the alarm survives exec and bounds the command the same way
+bounded() { # bounded <seconds> <command...>
+  if command -v timeout >/dev/null 2>&1; then timeout "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
+  else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
+  fi
+}
 holder_case() { # holder_case <mode> <expect> <message> [extra wrapper args...]
   local mode=$1 want=$2 message=$3
   shift 3
   : >"$FAKE_PIDFILE"
   SECONDS=0
   rc=0
-  wout=$(cd "$wrepo" && FAKE_MODE="$mode" B_AGENTIC_CODEX_COMPANION="$fake" timeout 40 node "$wrapper" --scope working-tree --kill-grace-seconds 1 "$@" 2>"$work/wstderr") || rc=$?
+  wout=$(cd "$wrepo" && FAKE_MODE="$mode" B_AGENTIC_CODEX_COMPANION="$fake" bounded 40 node "$wrapper" --scope working-tree --kill-grace-seconds 1 "$@" 2>"$work/wstderr") || rc=$?
   err=$(cat "$work/wstderr")
   [ -s "$FAKE_PIDFILE" ] && kill -9 "$(cat "$FAKE_PIDFILE")" 2>/dev/null || true
   [ "$rc" = "$want" ] || fail "$message (exit $rc, expected $want after ${SECONDS}s: $err)"
