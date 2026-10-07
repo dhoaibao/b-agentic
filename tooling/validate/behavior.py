@@ -944,6 +944,10 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "Message-only and staged PR-copy requests never reach this preparation step",
                 "Before staging, confirm the selected paths and index are unchanged",
                 "a changed candidate returns to the change-producing phase rather than receiving commit-time validation",
+                "The single branch-target question chooses a destination and is not a second approval prompt",
+                "never for message-only or staged PR-copy requests",
+                "Derive the new name from the first group in the plan",
+                "If the user declines or does not answer, stop without staging",
             ),
         },
         "skills/b-implement/prompt.md": {
@@ -1083,9 +1087,10 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         for clause in (
             "6. Block if a group mixes unrelated concerns",
             "Read applicable repository commit rules",
-            "9. Apply the commit boundary above",
+            "9. Choose the destination branch",
+            "10. Apply the commit boundary above",
             "Stage only the selected paths",
-            "10. Reinspect each staged group",
+            "11. Reinspect each staged group",
         )
     ]
     if -1 in sequence or sequence != sorted(sequence):

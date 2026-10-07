@@ -4,7 +4,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## When to use
 
-- The user wants working-tree changes split, staged, and committed on the current branch.
+- The user wants working-tree changes split, staged, and committed on the current branch or on a new branch.
 - The user wants a commit message only for one cohesive staged change.
 - The user wants PR copy for staged changes and needs a clear next step.
 
@@ -20,7 +20,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Commit boundary
 
-The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. Do not ask for a second approval prompt. Inspect the tracked and relevant untracked/derived candidate, preserve any user-curated index, and assign exact paths and messages before staging. Do not rerun implementation checks or independently revalidate or self-authorize an unchanged candidate solely to commit it. Run only checks explicitly required by repository rules at commit time; do not use `b-commit` to fill in missing change-phase verification. If verification evidence is unavailable, report that gap without inventing results. Do not invoke **b-review** or require a prior review disposition solely to stage or commit, even for multiple groups or a pre-existing staged set.
+The main session owns `b-commit`. An explicit user request to commit authorizes the smallest confident cohesive plan. The single branch-target question chooses a destination and is not a second approval prompt; ask it at most once, before staging, and never for message-only or staged PR-copy requests. Inspect the tracked and relevant untracked/derived candidate, preserve any user-curated index, and assign exact paths and messages before staging. Do not rerun implementation checks or independently revalidate or self-authorize an unchanged candidate solely to commit it. Run only checks explicitly required by repository rules at commit time; do not use `b-commit` to fill in missing change-phase verification. If verification evidence is unavailable, report that gap without inventing results. Do not invoke **b-review** or require a prior review disposition solely to stage or commit, even for multiple groups or a pre-existing staged set.
 
 - Before staging, confirm the selected paths and index still match the inspected candidate. If the candidate changes—including relevant untracked content or repository preparation—pause rather than commit under an obsolete plan; return it to the change-producing phase for verification and any applicable review. The original commit request remains authorization to resume once the changed candidate is verified and the plan is reconfirmed. Unexpected paths, unresolved findings, or uncertain path assignment block committing. Never regroup silently or push.
 
@@ -33,10 +33,11 @@ The main session owns `b-commit`. An explicit user request to commit authorizes 
 5. Select the smallest set of cohesive commit groups. Treat a pre-existing staged set as user-curated: preserve it as one group and do not reset or reorganize it.
 6. Block if a group mixes unrelated concerns, a protected file needs permission, or a file cannot be assigned confidently. Read applicable repository commit rules and perform required preparation only for this user-authorized commit. If preparation changes the candidate, pause for change-phase verification rather than run a second validation gate inside `b-commit`; do not silently add prepared files to a user-curated staged group. Run any repository-mandated commit-time checks on the final candidate; a failed mandated check blocks committing and must be reported. Message-only and staged PR-copy requests never reach this preparation step.
 7. For each group, choose the narrowest accurate type: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`; write an imperative subject of at most 50 characters that starts with a lowercase letter (`docs: adopt native API shapes`, never `docs: Adopt native API shapes`) and has no trailing punctuation. The message is the subject line only: no body, description, bullets, footers, or trailers (including `Co-authored-by`).
-8. Record the groups, exact file paths, and commit messages in the execution response, then continue without a second approval prompt; the explicit user commit request is sufficient authorization. If the request did not explicitly authorize committing, stop.
-9. Apply the commit boundary above to the complete candidate and plan. Before staging, confirm the selected paths and index are unchanged. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
-10. Reinspect each staged group immediately before committing with a targeted non-protected-path diff. Create its commit with a single `-m "<type>: <subject>"` and no other `-m`, `-F`, or editor body on the current branch, then continue to the next approved group. Stop on the first Git error; do not amend, reset, push, or retry by changing history.
-11. Report commit hashes, messages, remaining changes, and any blockers. Recommend `b-pr-summary <commit-count>` for PR copy.
+8. Record the groups, exact file paths, and commit messages in the execution response; the explicit user commit request is sufficient authorization for them. If the request did not explicitly authorize committing, stop.
+9. Choose the destination branch with one `AskUserQuestion` before any staging, offering "Commit on current branch `<cur>`" or "Create `<type>/<kebab>` from `<cur>`" with the proposed name shown. Resolve a detached HEAD first: it always needs a new branch, so offer only the new-branch option even when the request says "on this branch", and never stage or commit while detached. Otherwise skip the question when the request already states the target (for example "on this branch", "new branch", or a branch name). If the user declines or does not answer, stop without staging. Derive the new name from the first group in the plan: its commit type, then its subject in kebab case (lowercase, each run of characters outside `[a-z0-9]` becomes one `-`, trimmed, at most about 50 characters cut at a word boundary). Validate it with `git check-ref-format --branch`, and append `-2`, `-3`, and so on while `refs/heads/<name>` or the cached `refs/remotes/origin/<name>` exists. Create it with `rtk git switch -c <name>` and, when not detached, record the parent with `git config branch.<name>.b-agentic-parent <cur>`; the index and working tree carry over. If `switch` fails, stop with nothing staged. Every group is committed on that one branch.
+10. Apply the commit boundary above to the complete candidate and plan. Before staging, confirm the selected paths and index are unchanged, including after any branch switch. Stage only the selected paths for each unstaged group; do not use broad staging commands that can capture unrelated files.
+11. Reinspect each staged group immediately before committing with a targeted non-protected-path diff. Create its commit with a single `-m "<type>: <subject>"` and no other `-m`, `-F`, or editor body on the chosen branch, then continue to the next approved group. Stop on the first Git error; do not amend, reset, push, or retry by changing history.
+12. Report the branch, commit hashes, messages, remaining changes, and any blockers. Recommend `b-pr-summary <commit-count>` for PR copy.
 
 ## Output format
 
@@ -47,7 +48,7 @@ Commit plan:
 1. <type>: <subject>
    Files: <paths>
 
-The explicit user commit request authorizes execution; no second approval prompt is required.
+The explicit user commit request authorizes execution; the branch question only picks the destination.
 ```
 
 For a message-only request:
@@ -60,6 +61,8 @@ Commit message:
 After completion:
 
 ```markdown
+Branch: <name> (current|new)
+
 Created commits:
 - <short-hash> <type>: <subject>
 
@@ -77,6 +80,6 @@ BLOCKED: commit staged changes before generating PR copy
 
 - Preserve unrelated worktree changes and the user-curated index.
 - Evidence-only, subject-only messages: never add a commit body or description; do not invent behavior, verification, or impact.
-- Require an explicit user commit request, but do not ask for a second approval after it; do not push or create a PR.
+- Require an explicit user commit request and ask only the single branch-target question after it; do not push or create a PR.
 - Commit only the inspected candidate and selected paths; a changed candidate returns to the change-producing phase rather than receiving commit-time validation.
 - Never use `git add -A`, `git add .`, `git commit --amend`, reset, or history-rewriting commands.

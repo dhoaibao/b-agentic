@@ -314,6 +314,43 @@
       "avoid": ["Claim b-review approval", "Create a new validation gate"]
     },
     {
+      "id": "commit-asks-branch-once",
+      "skill": "b-commit",
+      "observed_failure": "b-commit committed on whatever branch was checked out without letting the user choose, or asked the branch question repeatedly or for message-only requests.",
+      "intended_behavior": "After an explicit commit request, b-commit asks one branch-target question before staging, offering the current branch or a new <type>/<kebab> branch named from the first group; every group lands on that one branch, and message-only requests never ask.",
+      "prompt": "A user explicitly asks to commit their changes without naming a branch; main happens to be checked out. The plan has two cohesive groups: 'feat: add docs index' first and 'test: cover docs index' second. Explain when b-commit asks about the branch, what it offers, and where the commits land. Then explain what happens for a message-only request.",
+      "must": [
+        "Ask one AskUserQuestion before any staging, offering the current branch or a new branch",
+        "Name the new branch from the first group, such as feat/add-docs-index",
+        "Commit every group on the single chosen branch",
+        "Stop without staging if the user declines or does not answer",
+        "Do not ask the branch question for a message-only request"
+      ],
+      "avoid": [
+        "Ask the branch question more than once",
+        "Create one branch per group",
+        "Push the branch",
+        "Treat the branch question as a second approval of the plan"
+      ]
+    },
+    {
+      "id": "commit-explicit-target-and-detached-head",
+      "skill": "b-commit",
+      "observed_failure": "b-commit asked an unnecessary branch question when the user already named the target, or committed on a detached HEAD where the commits are easy to lose.",
+      "intended_behavior": "When the request names the target branch, b-commit skips the question and commits there; on a detached HEAD it always requires a new branch before staging, even if the request says to commit on the current branch.",
+      "prompt": "Case 1: a user explicitly asks to commit their changes on the current branch, which is feat/docs-index. Case 2: a user explicitly asks to commit on this branch, but HEAD is detached. Explain what b-commit does in each case.",
+      "must": [
+        "Skip the branch question in case 1 and commit on the stated branch",
+        "In case 2, offer only the new-branch option and create the branch before staging",
+        "Never stage or commit while HEAD is detached"
+      ],
+      "avoid": [
+        "Ask the branch question in case 1",
+        "Commit on the detached HEAD in case 2",
+        "Push the branch"
+      ]
+    },
+    {
       "id": "main-session-no-self-exec-research",
       "skill": "b-research",
       "observed_failure": "The main session read the delegated SKILL.md and then performed the skill's work itself with its own tools, treating the request as a quick lookup.",
