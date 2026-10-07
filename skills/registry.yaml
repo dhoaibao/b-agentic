@@ -231,7 +231,7 @@
         ]
       },
       "prompt": {
-        "description": "Initialize or refresh repo-local agent instruction docs: canonical AGENTS.md plus a minimal CLAUDE.md shim that routes readers to AGENTS.md. Grounds the docs in repo evidence, preserves user-owned content, and keeps the output slim. Also establishes a docs/README.md index that defines where agent-authored docs go, how they are named, and minimal templates."
+        "description": "Initialize or refresh repo-local agent instruction docs: canonical AGENTS.md plus a minimal CLAUDE.md shim that routes readers to AGENTS.md. Grounds the docs in repo evidence, preserves user-owned content, and keeps the output slim. Also establishes a docs/ structure: a docs/README.md index plus a README in each docs folder that define where agent-authored docs go, how they are named, and minimal templates."
       }
     },
     {

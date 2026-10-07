@@ -17,7 +17,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 ### Documentation
 
-- Create and update project docs by the folder roles, naming, and templates in [docs/README.md](docs/README.md); search for an existing doc first.
+- Create and update project docs by the roles in [docs/README.md](docs/README.md) and the naming and templates in each docs folder's README; search for an existing doc first.
 
 ### Canonical sources and change flows
 

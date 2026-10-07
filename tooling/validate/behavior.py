@@ -1028,8 +1028,9 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "skills/b-init/prompt.md": {
             "required": (
-                "Create or refresh only `docs/README.md`",
-                "create a subfolder only when its first doc is written",
+                "Create or refresh `docs/README.md` and one `README.md` in each of",
+                "creating the five folders even when they hold no other doc",
+                "add no `.gitkeep` or other placeholder",
                 "`ADR-NNN-<kebab-title>.md`",
                 "a `Source` URL and a `Retrieved` date",
                 "search for an existing doc and update it in place",

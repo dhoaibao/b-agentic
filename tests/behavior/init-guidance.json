@@ -100,18 +100,20 @@
     {
       "id": "docs-index-establishment",
       "skill": "b-init",
-      "observed_failure": "b-init could leave agents without a rule for where project docs belong, or create empty doc folders and copy the docs rules into AGENTS.md.",
-      "intended_behavior": "Create only docs/README.md with the folder roles, placement rule, naming, two rules, and minimal templates between managed markers, and point to it from one nested heading in AGENTS.md.",
-      "prompt": "Use b-init for a repository root that has no docs/ directory. Inventory evidence finds package.json with scripts test and lint, a README.md, and an existing AGENTS.md with a three-section managed block. Describe the changes, including the docs index and the AGENTS.md update; do not edit files.",
+      "observed_failure": "b-init could leave agents without a rule for where project docs belong, track empty folders with placeholder files, or copy the docs rules into AGENTS.md.",
+      "intended_behavior": "Create docs/README.md plus a short README in each of the five docs folders, each between managed markers, with roles and placement in the index and naming, template, and rules in the folder README, and point to the index from one nested heading in AGENTS.md.",
+      "prompt": "Use b-init for a repository root that has no docs/ directory. Inventory evidence finds package.json with scripts test and lint, a README.md, and an existing AGENTS.md with a three-section managed block. Describe the changes, including the docs structure and the AGENTS.md update; do not edit files.",
       "must": [
-        "Create only docs/README.md and place its generated content between the b-init managed markers",
-        "State the five folder roles: references, runbooks, decisions, architecture, specs",
-        "Include a where-does-this-doc-go rule, the naming rules, the update-in-place and references Source/Retrieved rules, and minimal per-type templates",
+        "Create docs/README.md and one README.md in each of references, runbooks, decisions, architecture, and specs, even though the folders hold no other doc",
+        "Place the generated content of each README between the b-init managed markers",
+        "State the five folder roles and a where-does-this-doc-go rule in docs/README.md",
+        "Put each folder's naming, minimal template, and rules in that folder's README, including the Source/Retrieved rule for references and the ADR-NNN naming for decisions",
         "Add one short nested heading under Project Operating Guide that points to docs/README.md",
         "Keep exactly three top-level sections in the AGENTS.md managed block"
       ],
       "avoid": [
-        "Create empty docs subfolders or placeholder files",
+        "Add .gitkeep or other placeholder files",
+        "Repeat folder naming and templates in docs/README.md",
         "Copy the docs folder roles, naming, or templates into AGENTS.md",
         "Add a fourth top-level section to AGENTS.md",
         "Move or rename docs/DESIGN.md"
