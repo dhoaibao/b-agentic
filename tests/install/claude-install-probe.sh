@@ -74,7 +74,12 @@ done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
 grep -Fq '<!-- b-agentic:start -->' "$claude/CLAUDE.md" || fail "kernel block missing"
 grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text missing"
-[ "$(jq -r '.permissions.deny | index("Bash(git push *)") != null' "$claude/settings.json")" = true ] || fail "deny rule missing"
+[ "$(jq -r '.permissions.deny | index("Bash(git pull *)") != null' "$claude/settings.json")" = true ] || fail "deny rule missing"
+[ "$(jq -r '.permissions.deny | index("Bash(git push *)") == null' "$claude/settings.json")" = true ] || fail "plain git push must not be denied"
+[ "$(jq -r '.permissions.ask | index("Bash(git push *)") != null' "$claude/settings.json")" = true ] || fail "git push ask rule missing"
+[ "$(jq -r '.permissions.ask | index("Bash(gh pr create *)") != null' "$claude/settings.json")" = true ] || fail "gh pr create ask rule missing"
+[ "$(jq -r '.permissions.deny | index("Bash(git push * --force*)") != null' "$claude/settings.json")" = true ] || fail "force push deny rule missing"
+[ "$(jq -r '.permissions.deny | index("Bash(gh pr merge *)") != null' "$claude/settings.json")" = true ] || fail "gh pr merge deny rule missing"
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
 [ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
@@ -402,6 +407,20 @@ run "$home" --force; expect_ok "second install for backups"
 [ "$(find "$claude/b-agentic/backups" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" -ge 1 ] || fail "no backup directory"
 find "$claude/b-agentic/backups" -type f -name '*settings.json' | grep -q . || fail "settings backup missing"
 echo "install probe passed: backups"
+
+# --- an upgrade retires the old managed push deny and keeps a user-owned one ---------------------------
+home=$(fresh_home push-rule-upgrade)
+claude="$home/.claude"
+run "$home"; expect_ok "install before the push-rule upgrade"
+# Simulate the previous release: a managed deny on plain pushes recorded in the manifest, and no ask rule.
+jq '.permissions.deny += ["Bash(git push *)"] | .permissions.ask -= ["Bash(git push *)"]' "$claude/settings.json" >"$work/old-settings.json" && mv "$work/old-settings.json" "$claude/settings.json"
+jq '.settings.permissions.deny += ["Bash(git push *)"] | .settings.permissions.ask -= ["Bash(git push *)"]' "$claude/b-agentic/install.json" >"$work/old-manifest.json" && mv "$work/old-manifest.json" "$claude/b-agentic/install.json"
+jq '.permissions.deny += ["Bash(git push origin feature)"]' "$claude/settings.json" >"$work/user-settings.json" && mv "$work/user-settings.json" "$claude/settings.json"
+run "$home" --force; expect_ok "upgrade over the old push deny"
+[ "$(jq -r '.permissions.deny | index("Bash(git push *)") == null' "$claude/settings.json")" = true ] || fail "the old managed push deny survived the upgrade"
+[ "$(jq -r '.permissions.ask | index("Bash(git push *)") != null' "$claude/settings.json")" = true ] || fail "the push ask rule was not added on upgrade"
+[ "$(jq -r '.permissions.deny | index("Bash(git push origin feature)") != null' "$claude/settings.json")" = true ] || fail "the upgrade removed a user-owned deny rule"
+echo "install probe passed: push-rule-upgrade"
 
 # --- identical unmanaged kernel content is not ownership -------------------------------------------
 home=$(fresh_home kernel-source)

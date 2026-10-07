@@ -63,7 +63,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 
 ## Safety and tools
 
-- Preserve unrelated changes; never autonomously run `git push`, `git pull`, `git reset --hard`, `git clean -f`, or `git branch -D`.
+- Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, or default-branch push. Plain `git push` and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
 - Never read, expose, or commit likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
 - Claude Code exposes MCP tools as `mcp__<server>__<tool>`. Generated permission rules allow named read-only and conditional-read tools, deny protected paths and dangerous commands, and ask before classified mutations; unclassified tools require approval. No hook or deny rule inspects MCP arguments: inspect any MCP request carrying a path, URL, or private content before calling it.

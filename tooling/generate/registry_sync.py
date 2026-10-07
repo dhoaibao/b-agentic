@@ -59,8 +59,41 @@ DENY_READ_GLOBS = (
     "**/*credentials.*",
     "**/*secrets.*",
 )
-DENIED_COMMANDS = (
+# Plain pushes and PR creation ask each time; the patterns below stay denied.
+# Claude Code evaluates deny before ask before allow, so the denies carve
+# exceptions out of the ask rules. `*` matches any characters, so every flag and
+# protected-branch pattern is anchored on argument boundaries (a leading space,
+# or the start of the arguments) to keep names such as `feature-f` or
+# `main-fix` pushable. The `git * push` and `gh * pr create` ask forms catch
+# global options such as `git -C <dir> push`; those forms are asked about but not
+# pattern-denied. `:branch` delete refspecs (a trailing `:*` is the legacy prefix
+# form) and default branches not named main or master also stay at the ask prompt.
+ASKED_COMMANDS = (
     "git push",
+    "git * push",
+    "gh pr create",
+    "gh * pr create",
+)
+PROTECTED_BRANCHES = ("main", "master")
+
+
+def push_deny_patterns() -> tuple[str, ...]:
+    patterns = ["git push", "git push origin"]
+    for flag in ("-f", "-d"):
+        patterns += [f"git push {flag}", f"git push {flag} *", f"git push * {flag}", f"git push * {flag} *"]
+    for flag in ("--force*", "--delete*", "--mirror*", "--all*", "--branches*", "--prune*", "+*"):
+        patterns += [f"git push {flag}", f"git push * {flag}"]
+    for branch in PROTECTED_BRANCHES:
+        for target in (f"* {branch}", f"*:{branch}", f"*refs/heads/{branch}"):
+            patterns += [f"git push {target}", f"git push {target} *"]
+    for command in ("gh pr merge", "gh repo delete"):
+        gh_global = command.replace("gh ", "gh * ", 1)
+        patterns += [command, f"{command} *", gh_global, f"{gh_global} *"]
+    return tuple(patterns)
+
+
+DENIED_PUSH_PATTERNS = push_deny_patterns()
+DENIED_COMMANDS = (
     "git pull",
     "git reset --hard",
     "git clean -f",
@@ -627,6 +660,12 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
     for command in DENIED_COMMANDS:
         for prefix in ("", "rtk "):
             deny.extend([f"Bash({prefix}{command})", f"Bash({prefix}{command} *)"])
+    for pattern in DENIED_PUSH_PATTERNS:
+        for prefix in ("", "rtk "):
+            deny.append(f"Bash({prefix}{pattern})")
+    for command in ASKED_COMMANDS:
+        for prefix in ("", "rtk "):
+            ask.extend([f"Bash({prefix}{command})", f"Bash({prefix}{command} *)"])
     deny.extend(f"Bash({command})" for command in DENIED_BARE_COMMANDS)
     # Claude Code warns about and ignores Write(path) rules: Edit(path) rules cover every file-editing tool.
     for tool in ("Read", "Edit"):

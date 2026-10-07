@@ -37,6 +37,73 @@ AGENTS = ("b-planner", "b-researcher", "b-debugger", "b-auditor")
 ENV_REFERENCE = re.compile(r"^\$\{[A-Z][A-Z0-9_]*\}$")
 
 
+PUSH_DECISIONS = {
+    "git push -u origin feat/docs-index": "ask",
+    "git push origin feature-f": "ask",
+    "git push origin feature-d": "ask",
+    "git push origin refs/heads/main-fix": "ask",
+    "git push origin feat/mainline": "ask",
+    "git push -u origin master-plan": "ask",
+    "git push origin feat/c++": "ask",
+    "git -C . push origin feat/x": "ask",
+    "git --no-pager push origin feat/x": "ask",
+    "gh pr create --draft --base main --head feat/x": "ask",
+    "gh -R owner/repo pr create --draft": "ask",
+    "git push": "deny",
+    "git push origin": "deny",
+    "git push --force origin feat/x": "deny",
+    "git push origin feat/x --force-with-lease": "deny",
+    "git push -f origin feat/x": "deny",
+    "git push origin feat/x -f": "deny",
+    "git push origin --delete feat/x": "deny",
+    "git push -d origin feat/x": "deny",
+    "git push origin +feat/x": "deny",
+    "git push --mirror origin": "deny",
+    "git push origin --all": "deny",
+    "git push --all origin": "deny",
+    "git push origin --branches": "deny",
+    "git push --branches origin": "deny",
+    "git push origin --prune": "deny",
+    "git push origin main": "deny",
+    "git push -u origin master": "deny",
+    "git push origin main feat/x": "deny",
+    "git push origin HEAD:master feat/x": "deny",
+    "git push origin HEAD:refs/heads/main": "deny",
+    "git push origin feat/x:main": "deny",
+    "gh pr merge 12": "deny",
+    "gh -R a/b pr merge 12": "deny",
+    "gh repo delete a/b --yes": "deny",
+}
+
+
+def bash_patterns(rules: set[str]) -> list[str]:
+    return [rule[5:-1] for rule in rules if rule.startswith("Bash(") and rule.endswith(")")]
+
+
+def glob_matches(pattern: str, command: str) -> bool:
+    """Approximate Claude Code's Bash glob: `*` spans any characters; a trailing ` *` also matches the bare command."""
+    regex = "^" + ".*".join(re.escape(part) for part in pattern.split("*")) + "$"
+    return bool(re.match(regex, command)) or (pattern.endswith(" *") and command == pattern[:-2])
+
+
+def push_decision_errors(allow: set[str], ask: set[str], deny: set[str]) -> list[str]:
+    """Check concrete push and PR commands against the rendered rules in deny, ask, allow order."""
+    errors: list[str] = []
+    deny_patterns, ask_patterns = bash_patterns(deny), bash_patterns(ask)
+    for command, expected in PUSH_DECISIONS.items():
+        for prefix in ("", "rtk "):
+            full = prefix + command
+            if any(glob_matches(pattern, full) for pattern in deny_patterns):
+                actual = "deny"
+            elif any(glob_matches(pattern, full) for pattern in ask_patterns):
+                actual = "ask"
+            else:
+                actual = "allow" if "Bash" in allow else "unmatched"
+            if actual != expected:
+                errors.append(f"push policy: {full!r} resolves to {actual}, expected {expected}")
+    return errors
+
+
 def agent_tools(agent: str) -> list[str]:
     profile = (ROOT / "claude" / "agents" / f"{agent}.md").read_text()
     line = next(item for item in profile.splitlines() if item.startswith("tools: "))
@@ -101,6 +168,18 @@ def main() -> int:
     ):
         if name not in ask:
             errors.append(f"{name} must ask before mutation")
+    for pattern in (
+        "Bash(git push *)",
+        "Bash(rtk git push *)",
+        "Bash(gh pr create)",
+        "Bash(gh pr create *)",
+        "Bash(rtk gh pr create *)",
+    ):
+        if pattern not in ask:
+            errors.append(f"push and PR creation must ask before running: {pattern}")
+        if pattern in deny:
+            errors.append(f"push and PR creation must not be blanket-denied: {pattern}")
+    errors.extend(push_decision_errors(allow, ask, deny))
     for name in ("mcp__drawio__get_page", "mcp__drawio__list_pages"):
         if name in allow:
             errors.append(f"{name} is unclassified and must keep the runtime approval prompt")
@@ -109,8 +188,9 @@ def main() -> int:
             errors.append(f"repository-local tool must not prompt: {tool}")
     for pattern in (
         "Bash(git push)",
-        "Bash(git push *)",
-        "Bash(rtk git push *)",
+        "Bash(rtk git push)",
+        "Bash(gh pr merge *)",
+        "Bash(gh repo delete *)",
         "Bash(git pull *)",
         "Bash(git reset --hard *)",
         "Bash(git clean -f *)",

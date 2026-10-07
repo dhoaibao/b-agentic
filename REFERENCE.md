@@ -149,10 +149,15 @@ documentation and are not exercised live by this repository's checks.
 `claude/configs/settings.template.json` is generated from
 `references/mcp_operations.yaml`. It allows repository-local tools and named
 read-only and conditional-read MCP tools, asks before classified mutations, uploads, lifecycle, and
-auth tools, and denies the named dangerous commands (`git push`, `git pull`,
-`git reset --hard`, `git clean -f`, `git branch -D`, `rm -rf`, `sudo`, `doas`,
-`docker system prune`, bare shells, and `bash -s`/`sh -s`, each also under an
-`rtk` prefix where relevant) and unambiguous secret files. The
+auth tools, asks before a plain `git push` or `gh pr create`, and denies the
+named dangerous commands (`git pull`, `git reset --hard`, `git clean -f`,
+`git branch -D`, `rm -rf`, `sudo`, `doas`, `docker system prune`, bare shells,
+`bash -s`/`sh -s`, `gh pr merge`, `gh repo delete`, and force, delete, mirror,
+all/branches, prune, and `main` or `master` pushes, each also under an `rtk` prefix where
+relevant) and unambiguous secret files. Global-option forms such as `git -C <dir> push`
+(which also asks for `git stash push`) and combined short flags such as `-uf`
+are asked about but not pattern-denied; `:branch` delete refspecs and default
+branches not named `main` or `master` also stay at the ask prompt. The
 `b-path-guard` hook applies the exact path rules to the file tools (including the
 `*.env.example` allowance that deny rules cannot express). Hooks:
 `b-path-guard` and `b-codex-guard` run before tools; `b-verify-gate` tracks
