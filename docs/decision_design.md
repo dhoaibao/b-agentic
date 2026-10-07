@@ -216,8 +216,8 @@ read-only `b-candidate-snapshot` CLI computes the identity for the whole
 repository as one fingerprint, lists protected paths and submodules without
 hashing or diffing them, excludes git-ignored files unless named with
 `--include-ignored`, and refuses when a repository filter would run a program or
-the repository is a partial clone. `b-review` keeps a manual fallback, and the
-two methods are never compared with each other.
+the repository is a partial clone. Without the CLI the wrapper cannot run, so
+`b-review` blocks instead of hand-hashing.
 
 Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
 [`tooling/validate/behavior.py`](../tooling/validate/behavior.py),

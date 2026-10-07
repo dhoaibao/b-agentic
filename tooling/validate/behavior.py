@@ -1009,6 +1009,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "This skill runs in the main session; Codex is the independent reviewer.",
                 "Never replace the Codex gate with a self-review.",
                 "Freeze the candidate with the snapshot CLI and record its `fingerprint` as F0",
+                "If the CLI is unavailable, the wrapper cannot run either: block the review (no verdict) and report the gap.",
                 "Run the gate with the wrapper, in the foreground and from the repository: `node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round <n> --focus-file <path>`",
                 "do not call the plugin's script or `/codex:*` commands directly for a gate review, and never use `--background`",
                 "Its `f0` must equal the fingerprint recorded at step 1, and `unchanged` must be `true`; otherwise the review is void",

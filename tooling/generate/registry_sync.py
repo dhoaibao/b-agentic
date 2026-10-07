@@ -284,7 +284,7 @@ def validate_agent_tools(agents: dict[str, dict[str, Any]], policy: dict[str, An
 
 
 def validate_snapshot_cli() -> list[str]:
-    """Keep the snapshot CLI, the path rules, and the manual fallback in step."""
+    """Keep the snapshot CLI and the path rules in step."""
     errors: list[str] = []
     label = SNAPSHOT_CLI_PATH.relative_to(ROOT)
     if not SNAPSHOT_CLI_PATH.is_file():
@@ -296,10 +296,6 @@ def validate_snapshot_cli() -> list[str]:
     flags = re.findall(r'"([^"]+)"', flags_block.group(1)) if flags_block else []
     if not flags:
         errors.append(f"{label}: SNAPSHOT_DIFF_FLAGS not found")
-    review = (ROOT / "skills" / "b-review" / "prompt.md").read_text()
-    for variant in (f"git diff {' '.join(flags)} --cached -- .", f"git diff {' '.join(flags)} -- ."):
-        if flags and f"`{variant}`" not in review:
-            errors.append(f"skills/b-review/prompt.md: manual fallback must contain `{variant}`")
     rules_block = re.search(r"PROTECTED_RULES[^=]*= \[(.*?)\n\];", text, re.S)
     rules = re.findall(r'\["([^"]+)", "(allow|deny)"\]', rules_block.group(1)) if rules_block else []
     policy_rules = [(pattern, action) for pattern, action in PATH_RULES.items() if pattern != "*"]
