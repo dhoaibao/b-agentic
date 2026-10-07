@@ -187,7 +187,7 @@ async function gitOk(cwd, args, signal, input) {
 function excludeSpecs(excluded) {
   if (excluded.length > MAX_EXCLUDED_PATHS) {
     throw new Error(
-      `snapshot refused: ${excluded.length} protected or submodule paths exceed the ${MAX_EXCLUDED_PATHS}-path limit; use the manual procedure`,
+      `snapshot refused: ${excluded.length} protected or submodule paths exceed the ${MAX_EXCLUDED_PATHS}-path limit; block the review and report the gap`,
     );
   }
   return excluded.map((item) => {
@@ -311,7 +311,7 @@ async function assertNoExecutableFilters(cwd, paths, signal) {
     const value = fields[index + 2].toString("utf8");
     if (drivers.has(value)) {
       throw new Error(
-        `snapshot refused: repository filter '${value}' has a clean/process command that git diff would run; the manual procedure would run it too, so block the review`,
+        `snapshot refused: repository filter '${value}' has a clean/process command that git diff would run; block the review`,
       );
     }
   }
