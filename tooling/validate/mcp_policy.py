@@ -39,6 +39,9 @@ ENV_REFERENCE = re.compile(r"^\$\{[A-Z][A-Z0-9_]*\}$")
 
 PUSH_DECISIONS = {
     "git push -u origin feat/docs-index": "ask",
+    "git push -u origin refs/heads/feat/x:refs/heads/feat/x": "ask",
+    "git push origin refs/heads/feat/mainline:refs/heads/feat/mainline": "ask",
+    "gh pr create -R owner/repo --draft --base main --head feat/x --title t --body-file -": "ask",
     "git push origin feature-f": "ask",
     "git push origin feature-d": "ask",
     "git push origin refs/heads/main-fix": "ask",

@@ -26,7 +26,6 @@ Run the independent changed-code gate on a frozen candidate: Codex reviews it th
 
 ## When NOT to use
 
-- PR title/description prose review or rewriting without changed-code review -> **b-pr-summary**.
 - A b-agentic repository/design-conformance audit -> **b-agentic-audit**.
 - Root-cause diagnosis -> **b-debug**.
 - Writing or fixing tests -> **b-test**.

@@ -422,6 +422,30 @@ run "$home" --force; expect_ok "upgrade over the old push deny"
 [ "$(jq -r '.permissions.deny | index("Bash(git push origin feature)") != null' "$claude/settings.json")" = true ] || fail "the upgrade removed a user-owned deny rule"
 echo "install probe passed: push-rule-upgrade"
 
+# --- an upgrade retires the renamed skill: removed when unmodified, kept with a warning when edited ---
+home=$(fresh_home skill-rename)
+claude="$home/.claude"
+run "$home"; expect_ok "install before the skill rename"
+[ -f "$claude/skills/b-pr/SKILL.md" ] || fail "b-pr skill not installed"
+[ ! -e "$claude/skills/b-pr-summary" ] || fail "retired b-pr-summary installed"
+# Simulate the previous release: b-pr-summary installed and recorded in the manifest.
+mkdir -p "$claude/skills/b-pr-summary"
+printf 'old skill\n' >"$claude/skills/b-pr-summary/SKILL.md"
+digest=$(sha256sum "$claude/skills/b-pr-summary/SKILL.md" | cut -d' ' -f1)
+jq --arg d "$digest" '.files["skills/b-pr-summary/SKILL.md"] = $d' "$claude/b-agentic/install.json" >"$work/old-manifest.json" && mv "$work/old-manifest.json" "$claude/b-agentic/install.json"
+run "$home" --force; expect_ok "upgrade over the retired b-pr-summary skill"
+[ ! -e "$claude/skills/b-pr-summary" ] || fail "the unmodified retired skill was not removed"
+[ -f "$claude/skills/b-pr/SKILL.md" ] || fail "the renamed skill disappeared"
+# An edited retired copy is user-owned: keep it and warn.
+mkdir -p "$claude/skills/b-pr-summary"
+printf 'old skill\n' >"$claude/skills/b-pr-summary/SKILL.md"
+jq --arg d "$digest" '.files["skills/b-pr-summary/SKILL.md"] = $d' "$claude/b-agentic/install.json" >"$work/old-manifest.json" && mv "$work/old-manifest.json" "$claude/b-agentic/install.json"
+printf 'my own edit\n' >"$claude/skills/b-pr-summary/SKILL.md"
+run "$home" --force; expect_ok "upgrade over an edited retired skill"
+[ -f "$claude/skills/b-pr-summary/SKILL.md" ] || fail "an edited retired skill was removed"
+grep -Fq 'modified since install' <<<"$err" || fail "no warning for the kept edited retired skill: $err"
+echo "install probe passed: skill-rename"
+
 # --- identical unmanaged kernel content is not ownership -------------------------------------------
 home=$(fresh_home kernel-source)
 run "$home"; expect_ok "install to capture the kernel block"

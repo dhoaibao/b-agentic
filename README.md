@@ -64,7 +64,7 @@ git-ignored stay readable by Codex, an accepted residual risk.
 | `b-agentic-audit` | Validate | Audit b-agentic repository conformance, health, skill/kernel quality, and currentness |
 | `b-review` | Validate | Review changed code |
 | `b-commit` | Ship | Split working-tree changes into cohesive commits from an explicit user request |
-| `b-pr-summary` | Ship | Write commit-backed PR copy or review and rewrite supplied PR prose |
+| `b-pr` | Ship | Push the current branch and open a draft PR from its commits |
 <!-- generated:skills-table:end -->
 
 Claude Code discovers the installed `SKILL.md` files, and each is also a command:

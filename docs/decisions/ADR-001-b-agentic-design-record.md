@@ -83,7 +83,9 @@ covers every built-in file-editing tool). Claude Code deny rules cannot carve ou
 the exact path rules (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`,
 `*secrets.*`, with `*.env.example` allowed) for the file tools, including the glob a search tool is given (Glob's `pattern`, not Grep's content regex). It
 checks the names a call carries, not the files a directory search would visit.
-Unlike the
+`b-pr` is the only skill that pushes: on an explicit request it pushes the
+current non-default branch with an explicit `origin <branch>` destination and
+opens a draft PR, and it never forces, pulls, rebases, or merges. Unlike the
 earlier policy, Claude Code prompts for outside-project writes rather than
 denying them. Permission rules are not filesystem or process isolation; shell
 indirection and MCP arguments the rules cannot see remain residual risks.

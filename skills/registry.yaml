@@ -391,17 +391,17 @@
       }
     },
     {
-      "name": "b-pr-summary",
+      "name": "b-pr",
       "execution": {"mode": "main"},
       "phase": "Ship",
-      "use": "Write commit-backed PR copy or review and rewrite supplied PR prose",
-      "argument_hint": "[commit count or PR prose]",
+      "use": "Push the current branch and open a draft PR from its commits",
+      "argument_hint": "[base branch]",
       "routing": {
-        "intent": "Commit-backed PR summary or supplied PR-prose review/rewrite",
+        "intent": "Push the current branch and open a draft PR",
         "explicit_request": true
       },
       "prompt": {
-        "description": "Write an evidence-backed PR title and description from a specified count of latest local commits or commits ahead of cached origin. Also review or rewrite supplied PR copy, titles, and descriptions for clarity and supported claims, without a changed-code review gate."
+        "description": "Push the current branch to origin and create a draft GitHub PR from its commits with git and gh, after an explicit user request. Writes the title and description from commit evidence, asks for the base branch when it is ambiguous, and reports only the pushed branch and the PR URL."
       }
     }
   ]

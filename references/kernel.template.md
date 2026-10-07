@@ -57,7 +57,7 @@
 - b-agentic repository and design-conformance audit -> `b-agentic-audit`.
 - Pre-PR changed-code review -> `b-review`.
 - Split and commit working-tree changes -> `b-commit` only on explicit user request.
-- Commit-backed PR summary or supplied PR-prose review/rewrite -> `b-pr-summary` only on explicit user request.
+- Push the current branch and open a draft PR -> `b-pr` only on explicit user request.
 <!-- generated:kernel-routing:end -->
 A local, factual repository question needing no phase work -> answer directly from evidence; a user request for external or current facts, however small, -> `b-research`.
 

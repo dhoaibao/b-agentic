@@ -226,13 +226,39 @@
       ]
     },
     {
-      "id": "no-change-prose-skips-review",
-      "skill": "b-pr-summary",
-      "observed_failure": "Editorial PR-prose review invoked a changed-code gate.",
-      "intended_behavior": "A no-change PR-prose task does not require independent b-review changed-code review.",
-      "prompt": "Review supplied PR prose only; no files or commits change. State whether a changed-code review is needed and how unsupported verification claims are handled.",
-      "must": ["No changed-code review", "Do not invent verification evidence"],
-      "avoid": ["Freeze a code candidate", "Issue a changed-code verdict"]
+      "id": "pr-never-force-pushes",
+      "skill": "b-pr",
+      "observed_failure": "A PR flow resolved a behind or diverged branch by forcing, pulling, or rebasing, or pushed the default branch.",
+      "intended_behavior": "b-pr blocks when the branch is behind or diverged from its cached origin ref or is the default branch, and after a failure never retries by rewriting history.",
+      "prompt": "A user asks b-pr to open a PR. The cached origin/feat/x ref shows 2 commits behind and 1 ahead. Separately, a push fails with a non-fast-forward error. Explain what b-pr does in each case.",
+      "must": [
+        "Block with the behind or diverged counts and make no push",
+        "Report git's reason after the failed push and stop",
+        "Never force, pull, rebase, amend, or reset to recover",
+        "Never delete the remote branch"
+      ],
+      "avoid": [
+        "Run git push --force or --force-with-lease",
+        "Pull or rebase the branch",
+        "Push the default branch"
+      ]
+    },
+    {
+      "id": "pr-asks-base-and-reports-only-result",
+      "skill": "b-pr",
+      "observed_failure": "b-pr silently picked a base branch or echoed the generated PR copy into the chat.",
+      "intended_behavior": "b-pr asks whether the base is the default branch or the branch the current branch was created from when they differ, creates a draft PR, and outputs only the pushed branch and the PR URL.",
+      "prompt": "The current branch feat/x was created from release/1.2 while the default branch is main, and both exist on origin. The user asks b-pr to open a PR. Describe the base decision, the PR state, and the final output.",
+      "must": [
+        "Ask once whether the base is main or release/1.2",
+        "Create the PR as a draft",
+        "Output only the pushed branch and the PR URL"
+      ],
+      "avoid": [
+        "Guess the base from the nearest-looking branch",
+        "Show the generated PR title and description in the chat",
+        "Mark the PR ready or merge it"
+      ]
     },
     {
       "id": "complex-commit-preserves-index",
