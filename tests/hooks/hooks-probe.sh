@@ -43,6 +43,8 @@ run "$pathguard" "$(pg Grep path /repo/.env)"; expect 2 "Grep on .env must be bl
 run "$pathguard" "$(pg NotebookEdit notebook_path /repo/secrets.ipynb)"; expect 2 "notebook secrets must be blocked"
 run "$pathguard" "$(pg Grep glob '**/.env.production')"; expect 2 "a Grep glob naming .env.production must be blocked"
 run "$pathguard" "$(pg Glob pattern '**/*.pem')"; expect 2 "a Glob pattern naming pem files must be blocked"
+run "$pathguard" "$(pg Grep pattern 'process.env.NODE_ENV')"; expect 0 "a Grep content regex must not be treated as a path"
+run "$pathguard" "$(pg Grep pattern 'foo.pem')"; expect 0 "a Grep regex mentioning .pem must pass"
 run "$pathguard" "$(pg Grep glob '**/*.ts')"; expect 0 "an ordinary glob must pass"
 run "$pathguard" "$(pg Grep glob '**/.env.example')"; expect 0 "a glob naming .env.example must pass"
 run "$pathguard" "$(pg Read file_path /repo/.env.example)"; expect 0 ".env.example is explicitly allowed"

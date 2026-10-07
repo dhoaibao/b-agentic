@@ -67,7 +67,7 @@ escalation, bare shells) plus unambiguous secret files through `Read(path)` and 
 (Claude Code warns about and ignores `Write(path)` rules; an `Edit` rule
 covers every built-in file-editing tool). Claude Code deny rules cannot carve out `.env.example`, so the `b-path-guard` PreToolUse hook enforces
 the exact path rules (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`,
-`*secrets.*`, with `*.env.example` allowed) for the file tools, including the glob or pattern a search tool is given. It
+`*secrets.*`, with `*.env.example` allowed) for the file tools, including the glob a search tool is given (Glob's `pattern`, not Grep's content regex). It
 checks the names a call carries, not the files a directory search would visit.
 Unlike the
 earlier policy, Claude Code prompts for outside-project writes rather than
