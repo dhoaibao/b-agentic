@@ -11,7 +11,7 @@ configuration. Changed-code review runs through Codex with the
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md) and [decision design](docs/decision_design.md).
+- [Project guidance](AGENTS.md) and [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).
 
 ## Install
 
@@ -74,4 +74,4 @@ Claude Code discovers the installed `SKILL.md` files, and each is also a command
 
 - [Operational reference](REFERENCE.md) — lifecycle, permissions, review gate, MCP, and verification.
 - [Configuration layout](claude/configs/README.md) — installed paths and ownership boundaries.
-- [Decision design](docs/decision_design.md) — evidence-backed architecture decisions.
+- [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) — evidence-backed architecture decisions.

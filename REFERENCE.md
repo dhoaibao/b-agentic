@@ -226,4 +226,4 @@ needs Claude Code, Codex, credentials, or a network.
 generated specialists and settings plus the hooks, CLIs, and MCP templates;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
-snapshots, and the installer. See the [decision record](docs/decision_design.md).
+snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).

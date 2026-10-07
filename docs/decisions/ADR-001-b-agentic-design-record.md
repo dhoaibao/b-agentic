@@ -1,6 +1,13 @@
-# Decision design
+# ADR-001: b-agentic design record
 
-## Scope and evidence
+- Status: Accepted
+- Date: 2026-08-11
+- Supersedes: none
+
+Refinements update this record in place. A reversed decision gets a new ADR
+with `Supersedes: ADR-001`, and the superseded area is noted here.
+
+## Context
 
 b-agentic supports one runtime, Claude Code. It ships an always-loaded kernel,
 canonical skills, named read-only specialists, managed MCP configuration,
@@ -10,11 +17,16 @@ earlier Pi runtime was removed from this repository (its last commit is
 `ac38e4a`); an already installed copy keeps working, but nothing here generates,
 installs, or tests it.
 
-Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
-[`skills/registry.yaml`](../skills/registry.yaml), and
-[`claude/configs/settings.template.json`](../claude/configs/settings.template.json).
+Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
+[`skills/registry.yaml`](../../skills/registry.yaml), and
+[`claude/configs/settings.template.json`](../../claude/configs/settings.template.json).
 
-## Product boundary and architecture
+## Decision
+
+Each area below states what was decided and the evidence that backs it; accepted
+residual risks are recorded with the area they belong to.
+
+### Product boundary and architecture
 
 Global assets install under `~/.claude` only: the managed hooks, agents, and
 instructions refer to that path, so the installer refuses a different
@@ -27,11 +39,11 @@ Skills install as bare `~/.claude/skills/b-*`, not as a namespaced plugin.
 The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The installer owns
 only what its manifest records, and never writes under `~/.pi`.
 
-Evidence: [`install.sh`](../install.sh),
-[`tooling/install/claude_install.py`](../tooling/install/claude_install.py), and
-[`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py).
+Evidence: [`install.sh`](../../install.sh),
+[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py), and
+[`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py).
 
-## Workflow and skill design
+### Workflow and skill design
 
 The kernel selects one skill at a time. Claude Code discovers skill
 descriptors and runs a skill as `/b-<name>`. Skills marked
@@ -53,11 +65,11 @@ is a main-session skill: it freezes the candidate, runs the Codex gate, and
 classifies the result. Specialists run on Anthropic models only (`opus` or
 `sonnet`), so the earlier Gemini research model is gone.
 
-Evidence: [`references/kernel.template.md`](../references/kernel.template.md),
-[`skills/registry.yaml`](../skills/registry.yaml), and
-[`claude/agents/b-researcher.md`](../claude/agents/b-researcher.md).
+Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
+[`skills/registry.yaml`](../../skills/registry.yaml), and
+[`claude/agents/b-researcher.md`](../../claude/agents/b-researcher.md).
 
-## Safety and approval design
+### Safety and approval design
 
 The generated settings template allows repository-local tools and named
 read-only MCP tools, asks before classified mutations, uploads, lifecycle, and
@@ -114,14 +126,14 @@ under `~/.claude/b-agentic/` (override `B_AGENTIC_GATE_DIR`, separate from the
 Codex approval store's `B_AGENTIC_STATE_DIR`), and state files are opened
 without following symlinks.
 
-Evidence: [`tooling/generate/registry_sync.py`](../tooling/generate/registry_sync.py),
-[`claude/bin/b-codex-review.mjs`](../claude/bin/b-codex-review.mjs),
-[`claude/hooks/b-codex-guard.mjs`](../claude/hooks/b-codex-guard.mjs),
-[`claude/hooks/b-verify-gate.mjs`](../claude/hooks/b-verify-gate.mjs),
-[`claude/hooks/b-path-guard.mjs`](../claude/hooks/b-path-guard.mjs), and
-[`tests/hooks/hooks-probe.sh`](../tests/hooks/hooks-probe.sh).
+Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
+[`claude/bin/b-codex-review.mjs`](../../claude/bin/b-codex-review.mjs),
+[`claude/hooks/b-codex-guard.mjs`](../../claude/hooks/b-codex-guard.mjs),
+[`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
+[`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs), and
+[`tests/hooks/hooks-probe.sh`](../../tests/hooks/hooks-probe.sh).
 
-## MCP and external-evidence design
+### MCP and external-evidence design
 
 Ten base servers are configured in Claude Code's standard `mcpServers` shape;
 optional ClickUp is added only after install opt-in. `references/mcp_operations.yaml`
@@ -138,11 +150,11 @@ the user-scope MCP file is a documented Claude Code behavior that was not
 exercised live. `mcp-doctor` checks only local configuration, launcher, and
 variable presence and starts no MCP or browser sessions.
 
-Evidence: [`references/mcp_operations.yaml`](../references/mcp_operations.yaml),
-[`claude/configs/mcp.base.json`](../claude/configs/mcp.base.json), and
-[`tooling/validate/mcp_doctor.py`](../tooling/validate/mcp_doctor.py).
+Evidence: [`references/mcp_operations.yaml`](../../references/mcp_operations.yaml),
+[`claude/configs/mcp.base.json`](../../claude/configs/mcp.base.json), and
+[`tooling/validate/mcp_doctor.py`](../../tooling/validate/mcp_doctor.py).
 
-## Installation, configuration, and lifecycle
+### Installation, configuration, and lifecycle
 
 `install.sh` installs from the checkout that contains it, or clones to
 `~/.b-agentic-claude` when piped (never `~/.b-agentic`, which keeps serving the
@@ -174,11 +186,11 @@ overrides (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR`, and similar) cleared,
 and refuses to clone or update when the real worktree, git directory, or common
 directory is the home directory or lies under `~/.pi`, resolving symlinks.
 
-Evidence: [`install.sh`](../install.sh),
-[`tooling/install/claude_install.py`](../tooling/install/claude_install.py), and
-[`tests/install/claude-install-probe.sh`](../tests/install/claude-install-probe.sh).
+Evidence: [`install.sh`](../../install.sh),
+[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py), and
+[`tests/install/claude-install-probe.sh`](../../tests/install/claude-install-probe.sh).
 
-## Verification and change discipline
+### Verification and change discipline
 
 Canonical sources regenerate before static validation. The suite checks
 routing, generated assets, capability and MCP policy, decision traceability,
@@ -219,12 +231,15 @@ hashing or diffing them, excludes git-ignored files unless named with
 the repository is a partial clone. Without the CLI the wrapper cannot run, so
 `b-review` blocks instead of hand-hashing.
 
-Evidence: [`scripts/validate-skills.sh`](../scripts/validate-skills.sh),
-[`tooling/validate/behavior.py`](../tooling/validate/behavior.py),
-[`claude/bin/b-candidate-snapshot.mjs`](../claude/bin/b-candidate-snapshot.mjs),
-and [`claude/bin/b-codex-verdict.mjs`](../claude/bin/b-codex-verdict.mjs).
+Evidence: [`scripts/validate-skills.sh`](../../scripts/validate-skills.sh),
+[`tooling/validate/behavior.py`](../../tooling/validate/behavior.py),
+[`claude/bin/b-candidate-snapshot.mjs`](../../claude/bin/b-candidate-snapshot.mjs),
+and [`claude/bin/b-codex-verdict.mjs`](../../claude/bin/b-codex-verdict.mjs).
 
-## Intentional non-goals
+## Consequences
+
+Accepted residual risks are recorded with each decision above. The intentional
+non-goals follow.
 
 b-agentic does not maintain a second runtime, custom permission engine,
 argument-aware MCP gate, or persistent subagent store. It does not ship themes,
@@ -234,6 +249,6 @@ what those extensions did. The repository does not promise detached background
 work, authenticated MCP or Codex readiness from configuration, containment of
 Codex's read access, or unbounded orchestration.
 
-Evidence: [`README.md`](../README.md),
-[`REFERENCE.md`](../REFERENCE.md), and
-[`claude/configs/README.md`](../claude/configs/README.md).
+Evidence: [`README.md`](../../README.md),
+[`REFERENCE.md`](../../REFERENCE.md), and
+[`claude/configs/README.md`](../../claude/configs/README.md).

@@ -13,7 +13,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 ### Architecture and change map
 
 - `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, and MCP policy; `claude/` holds generated agents and settings plus the hooks, CLIs, and MCP templates; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, hook, snapshot, and installer coverage.
-- Change shared guidance in `references/`, runtime hooks and CLIs in `claude/`, installer behavior in `install.sh` or `tooling/install/`, and checks in `tooling/validate/` or `scripts/`. Use the [decision record](docs/decision_design.md) when a change crosses these boundaries.
+- Change shared guidance in `references/`, runtime hooks and CLIs in `claude/`, installer behavior in `install.sh` or `tooling/install/`, and checks in `tooling/validate/` or `scripts/`. Use the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) when a change crosses these boundaries.
 
 ### Canonical sources and change flows
 
@@ -22,7 +22,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 ### Project constraints and boundaries
 
-- Keep this supplement slim, strong, and usable: retain evidence-backed orientation, ownership, boundaries, and required flows, and link to deeper docs instead of copying setup, release, readiness, or diagnostic catalogs. This is the repository's b-init output quality standard; see [decision design](docs/decision_design.md).
+- Keep this supplement slim, strong, and usable: retain evidence-backed orientation, ownership, boundaries, and required flows, and link to deeper docs instead of copying setup, release, readiness, or diagnostic catalogs. This is the repository's b-init output quality standard; see [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).
 - `skills/registry.yaml`, `references/mcp_operations.yaml`, and `references/capabilities.yaml` use the JSON-compatible YAML subset consumed by generators and validators. Do not treat generated assets as canonical sources.
 - Installer and configuration changes cross a user-owned boundary: `tooling/install/` merges user configuration and preserves unrelated content, never writes under `~/.pi`, and templates do not prove live MCP or Codex readiness. See the [configuration layout](claude/configs/README.md) and the [operational reference](REFERENCE.md).
 - No database or migration files, infrastructure/deployment manifests, or external-service client source beyond installer/MCP integration is present. Do not invent conventions for absent surfaces; reassess when evidence appears.

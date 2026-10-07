@@ -98,7 +98,7 @@ supply its completed origin-freshness evidence:
   Inspect the main session's supplied freshness, status, audit-script, and
   narrow-check evidence; state an explicit evidence gap when a required check
   cannot be run read-only.
-- `read` - inspect `docs/decision_design.md` and the canonical source files it
+- `read` - inspect `docs/decisions/ADR-001-b-agentic-design-record.md` and the canonical source files it
   cites; prefer sources over generated assets when comparing behavior.
 - `context7` or bounded primary upstream documentation/release metadata - verify
   versioned package/API currentness only when needed; do not upload local files,
