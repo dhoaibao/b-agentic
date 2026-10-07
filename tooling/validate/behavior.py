@@ -1026,6 +1026,18 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "In an indexed project, use `codegraph_explore` (read-only) on changed symbols to find callers or tests the candidate did not update",
             ),
         },
+        "skills/b-init/prompt.md": {
+            "required": (
+                "Create or refresh only `docs/README.md`",
+                "create a subfolder only when its first doc is written",
+                "`ADR-NNN-<kebab-title>.md`",
+                "a `Source` URL and a `Retrieved` date",
+                "search for an existing doc and update it in place",
+                "do not copy its folder roles, naming, or templates into `AGENTS.md`",
+                "`docs/DESIGN.md` stays at the docs root",
+                "Never move, rename, or delete existing docs",
+            ),
+        },
         "skills/b-refactor/prompt.md": {
             "required": ("Map the target's callers and dependents with CodeGraph when an index is available",),
         },

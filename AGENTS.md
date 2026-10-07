@@ -15,6 +15,10 @@ overview](README.md) and [operational reference](REFERENCE.md).
 - `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, and MCP policy; `claude/` holds generated agents and settings plus the hooks, CLIs, and MCP templates; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, hook, snapshot, and installer coverage.
 - Change shared guidance in `references/`, runtime hooks and CLIs in `claude/`, installer behavior in `install.sh` or `tooling/install/`, and checks in `tooling/validate/` or `scripts/`. Use the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) when a change crosses these boundaries.
 
+### Documentation
+
+- Create and update project docs by the folder roles, naming, and templates in [docs/README.md](docs/README.md); search for an existing doc first.
+
 ### Canonical sources and change flows
 
 - `skills/registry.yaml` owns skill metadata, routing, phase, execution ownership, and specialist-agent profiles; each `skills/*/prompt.md` owns its canonical skill body. `tooling/generate/registry_sync.py` renders `SKILL.md` files, agents, the settings template, and delivery blocks, so edit sources and regenerate rather than hand-editing output.

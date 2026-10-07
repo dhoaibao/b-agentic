@@ -96,6 +96,44 @@
         "Invent project facts or verification commands",
         "Discard the identified deployment rule"
       ]
+    },
+    {
+      "id": "docs-index-establishment",
+      "skill": "b-init",
+      "observed_failure": "b-init could leave agents without a rule for where project docs belong, or create empty doc folders and copy the docs rules into AGENTS.md.",
+      "intended_behavior": "Create only docs/README.md with the folder roles, placement rule, naming, two rules, and minimal templates between managed markers, and point to it from one nested heading in AGENTS.md.",
+      "prompt": "Use b-init for a repository root that has no docs/ directory. Inventory evidence finds package.json with scripts test and lint, a README.md, and an existing AGENTS.md with a three-section managed block. Describe the changes, including the docs index and the AGENTS.md update; do not edit files.",
+      "must": [
+        "Create only docs/README.md and place its generated content between the b-init managed markers",
+        "State the five folder roles: references, runbooks, decisions, architecture, specs",
+        "Include a where-does-this-doc-go rule, the naming rules, the update-in-place and references Source/Retrieved rules, and minimal per-type templates",
+        "Add one short nested heading under Project Operating Guide that points to docs/README.md",
+        "Keep exactly three top-level sections in the AGENTS.md managed block"
+      ],
+      "avoid": [
+        "Create empty docs subfolders or placeholder files",
+        "Copy the docs folder roles, naming, or templates into AGENTS.md",
+        "Add a fourth top-level section to AGENTS.md",
+        "Move or rename docs/DESIGN.md"
+      ]
+    },
+    {
+      "id": "existing-docs-reconcile",
+      "skill": "b-init",
+      "observed_failure": "b-init could overwrite a user-owned docs/README.md or silently move existing docs to match the new convention.",
+      "intended_behavior": "Treat an unmarked docs/README.md as user-owned, offer preserve, explicit replace, or stop, and report non-conforming existing docs as a gap or a separate move choice.",
+      "prompt": "Use b-init for a repository root where docs/README.md exists without b-init managed markers and contains hand-written notes, and docs/setup_2024.md exists beside it. Describe how the docs index is handled; do not edit files.",
+      "must": [
+        "Treat the unmarked docs/README.md as user-owned",
+        "Offer preserve, explicit replace, and stop choices before editing",
+        "Report docs/setup_2024.md as a focused gap or offer moving it as a separate explicit choice",
+        "Leave the existing content unchanged until the choice is resolved"
+      ],
+      "avoid": [
+        "Overwrite the hand-written docs/README.md",
+        "Rename or move docs/setup_2024.md without an explicit choice",
+        "Delete existing docs to match the convention"
+      ]
     }
   ]
 }
