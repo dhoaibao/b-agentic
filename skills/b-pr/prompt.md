@@ -48,7 +48,7 @@ Preflight is read-only except the account switch in step 5. Stop at the first fa
 Write it from evidence and do not show it in the chat.
 
 1. Enumerate `origin/<base>..HEAD` with metadata-only `rtk git log` and `rtk git diff --name-only`. Classify protected paths before any content read, inspect diffs only for non-protected paths with `rtk git show <commit> -- <paths>` or a targeted range diff, and state that protected paths were excluded without exposing their contents.
-2. Write a title of at most 72 characters for the combined change, not a single commit message. Write the description as one overview, grouped key changes, verification only when the commits or user context establish it (otherwise `Not established from available evidence.`), and risks or follow-up only when evidence supports them.
+2. Write the title in the b-commit message format for the combined change: `<type>: <subject>` with the narrowest accurate type from `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, or `style`, and an imperative subject of at most 50 characters that starts with a lowercase letter and has no trailing punctuation. When the commits share one type, reuse it; otherwise choose the type that best fits the whole change. Write the description as one overview, grouped key changes, verification only when the commits or user context establish it (otherwise `Not established from available evidence.`), and risks or follow-up only when evidence supports them.
 
 ### Ship
 
