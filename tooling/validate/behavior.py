@@ -147,7 +147,6 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "Missing or failed required checks, unexpected paths, or hand-edited generated outputs block normal completion",
         "Ask the user about ambiguous acceptance; if risk classification remains uncertain, name the closest trigger and require review.",
         "When review is required, freeze the checked tracked plus relevant untracked/derived candidate",
-        "Record HEAD and SHA-256 digests of staged and unstaged binary diffs, plus sorted relevant untracked paths, types, and content digests.",
         "Compare the identity at handoff, reviewer start/end, and after return.",
         "A changed candidate needs fresh checks and a new review.",
         "`NEEDS FIXES` requires an evidenced blocker (see `b-review`) listing all same-class locations",
@@ -1056,6 +1055,10 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "External transmission of private or proprietary material needs that explicit approval.",
                 "Review does not authorize staging or committing; `b-commit` separately inspects the exact staged paths and commit plan without repeating validation",
                 "`NEEDS FIXES` requires at least one blocker",
+                "HEAD, SHA-256 digests of staged and unstaged binary diffs, and sorted relevant untracked paths, types, and content digests",
+                "block when protected content's identity cannot safely be checked",
+                "Main fixes blockers as a batch, sweeping the whole defect class",
+                "reports each follow-up as fixed, deferred, or rejected with a reason; deferred or rejected follow-ups need no new review",
                 "Be exhaustive for blockers in one pass: for each, sweep every location of the same defect class",
                 "For a re-review, start a fresh Codex round whose focus carries prior finding IDs, dispositions, correction paths, and sweep and regression-check results",
                 "After 3 consecutive `NEEDS FIXES` rounds, stop and ask the user.",
@@ -1109,10 +1112,9 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             if clause not in text:
                 errors.append(f"cross-skill contract: {path} missing {clause!r}")
     commit = (ROOT / "skills/b-commit/prompt.md").read_text()
-    kernel = (ROOT / "references/kernel.template.md").read_text()
     if (
         "`b-commit` does not rerun checks, self-authorize the candidate, or initiate changed-code review solely to commit"
-        not in kernel
+        not in commit
     ):
         errors.append("cross-skill contract: commit must not repeat validation or changed-code review")
     sequence = [

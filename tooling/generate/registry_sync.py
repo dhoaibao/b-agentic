@@ -22,6 +22,8 @@ CLAUDE_CONFIGS_DIR = CLAUDE_DIR / "configs"
 SETTINGS_TEMPLATE_PATH = CLAUDE_CONFIGS_DIR / "settings.template.json"
 SNAPSHOT_CLI_PATH = CLAUDE_DIR / "bin" / "b-candidate-snapshot.mjs"
 
+MAX_KERNEL_BYTES = 11_800
+MAX_KERNEL_LINES = 100
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
 MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
@@ -282,10 +284,10 @@ def validate_kernel_template(errors: list[str]) -> None:
     ):
         if marker not in text:
             errors.append(f"{KERNEL_TEMPLATE_PATH}: missing {marker!r}")
-    if len(text.encode()) > 12_800:
-        errors.append(f"{KERNEL_TEMPLATE_PATH}: exceeds 12,800 byte kernel budget")
-    if len(text.splitlines()) > 120:
-        errors.append(f"{KERNEL_TEMPLATE_PATH}: exceeds 120 line kernel budget")
+    if len(text.encode()) > MAX_KERNEL_BYTES:
+        errors.append(f"{KERNEL_TEMPLATE_PATH}: exceeds {MAX_KERNEL_BYTES:,} byte kernel budget")
+    if len(text.splitlines()) > MAX_KERNEL_LINES:
+        errors.append(f"{KERNEL_TEMPLATE_PATH}: exceeds {MAX_KERNEL_LINES} line kernel budget")
 
 
 def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]]) -> list[str]:
@@ -563,20 +565,20 @@ def render_readme_skills_table(skills: list[dict[str, Any]]) -> str:
 
 
 def render_mcp_operations_table(policy: dict[str, Any]) -> str:
-    rows = ["| Class | Policy | Scope |", "|---|---|---|"]
+    groups: dict[str, list[str]] = {}
     for name, meta in policy["classes"].items():
-        rows.append(f"| `{name}` | {meta['policy']} | {meta['notes']} |")
-    rows.append("")
-    rows.append(
-        "Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the tools their profile lists; only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images)."
+        groups.setdefault(meta["policy"], []).append(f"`{name}`")
+    lines = [f"- {label}: {', '.join(names)}." for label, names in groups.items()]
+    lines.append(
+        "- Unclassified MCP tools keep Claude Code's approval prompt; `trusted-mutation` runs in the main session only."
     )
-    return "\n".join(rows)
+    return "\n".join(lines)
 
 
 def render_delegation(skills: list[dict[str, Any]]) -> str:
     delegated = [skill for skill in skills if skill["execution"]["mode"] == "subagent"]
     lines = [
-        "- Delegated skills run only in their named `Agent` subagent type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable. The child reads its `SKILL.md` and returns that skill's own Output format; main evaluates it before any user-facing or worktree action:",
+        "- Delegated skills run only in their named `Agent` subagent type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable. Skill -> agent:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
     lines.append("- All other skills run in the main session.")
