@@ -83,6 +83,7 @@ Canonical policy: `~/.claude/b-agentic/references/mcp_operations.yaml`. Generate
 |---|---|---|
 | `read-only` | Auto-allowed by tool name | Observation-only MCP operation. |
 | `conditional-read` | Auto-allowed by user decision | Formerly argument-validated; MCP tool arguments are not pattern-matched. |
+| `trusted-mutation` | Auto-allowed by user decision | Remote mutation the user chose to run without a prompt; main session only. |
 | `local-upload` | Approval required | May read a local file for remote use. |
 | `external-mutation` | Approval required | May mutate remote or browser state. |
 | `monitor-lifecycle` | Approval required | Creates, changes, or runs a monitor. |

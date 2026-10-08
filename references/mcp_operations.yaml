@@ -5,6 +5,7 @@
   "classes": {
     "read-only": {"policy": "Auto-allowed by tool name", "native_permission": "allow", "notes": "Observation-only MCP operation."},
     "conditional-read": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly argument-validated; MCP tool arguments are not pattern-matched."},
+    "trusted-mutation": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Remote mutation the user chose to run without a prompt; main session only."},
     "local-upload": {"policy": "Approval required", "native_permission": "ask", "notes": "May read a local file for remote use."},
     "external-mutation": {"policy": "Approval required", "native_permission": "ask", "notes": "May mutate remote or browser state."},
     "monitor-lifecycle": {"policy": "Approval required", "native_permission": "ask", "notes": "Creates, changes, or runs a monitor."},
@@ -22,7 +23,7 @@
     "excalidraw": {"tools": {"read_me": "read-only", "create_view": "external-mutation"}},
     "drawio": {"tools": {"search_shapes": "read-only", "open_drawio_xml": "external-mutation", "open_drawio_csv": "external-mutation", "open_drawio_mermaid": "external-mutation", "set_page": "local-mutation"}},
     "shadcn": {"tools": {"get_project_registries": "read-only", "list_items_in_registries": "read-only", "search_items_in_registries": "read-only", "get_item_examples_from_registries": "read-only", "view_items_in_registries": "read-only", "get_add_command_for_items": "read-only", "get_audit_checklist": "read-only"}},
-    "clickup": {"tools": {"getTaskById": "conditional-read", "searchTasks": "conditional-read", "readDocument": "conditional-read", "getListInfo": "conditional-read", "searchSpaces": "conditional-read", "getTimeEntries": "conditional-read", "read_space_clickup_space_txt": "conditional-read", "updateTask": "external-mutation", "addComment": "external-mutation", "editComment": "external-mutation", "createTask": "external-mutation", "updateListInfo": "external-mutation", "createTimeEntry": "external-mutation", "updateDocumentPage": "external-mutation", "createDocumentOrPage": "external-mutation"}}
+    "clickup": {"tools": {"getTaskById": "conditional-read", "searchTasks": "conditional-read", "readDocument": "conditional-read", "getListInfo": "conditional-read", "searchSpaces": "conditional-read", "getTimeEntries": "conditional-read", "read_space_clickup_space_txt": "conditional-read", "updateTask": "trusted-mutation", "addComment": "external-mutation", "editComment": "external-mutation", "createTask": "trusted-mutation", "updateListInfo": "external-mutation", "createTimeEntry": "external-mutation", "updateDocumentPage": "external-mutation", "createDocumentOrPage": "external-mutation"}}
   },
   "runtime_enforcement": {
     "claude": "Generated permissions.allow and permissions.ask rules address each classified tool as mcp__<server>__<tool>; deny rules still override them, but the path-guard hook matches only file tools. Unclassified MCP tools keep Claude Code's default approval prompt. No hook or deny rule inspects MCP arguments."

@@ -988,7 +988,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "uses `task_id` to identify the task",
                 "explicitly pass `assignees: []`",
                 "cannot remove or replace existing assignees",
-                "Claude Code asks for approval before the write",
+                "`mcp__clickup__createTask` and `mcp__clickup__updateTask` are pre-approved",
                 "local paths may be read and uploaded",
                 "non-ClickUp HTTP(S) image URLs may be fetched and uploaded",
                 "In scope:",

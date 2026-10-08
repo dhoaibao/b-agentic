@@ -27,6 +27,7 @@ OPTIONAL_SERVERS = {"clickup"}
 EXPECTED_CLASSES = {
     "read-only",
     "conditional-read",
+    "trusted-mutation",
     "local-upload",
     "external-mutation",
     "monitor-lifecycle",
@@ -166,11 +167,12 @@ def main() -> int:
         "mcp__drawio__open_drawio_csv",
         "mcp__drawio__open_drawio_mermaid",
         "mcp__excalidraw__create_view",
-        "mcp__clickup__createTask",
-        "mcp__clickup__updateTask",
     ):
         if name not in ask:
             errors.append(f"{name} must ask before mutation")
+    for name in ("mcp__clickup__createTask", "mcp__clickup__updateTask"):
+        if name not in allow:
+            errors.append(f"{name} is a trusted mutation and must be allowed")
     for pattern in (
         "Bash(git push *)",
         "Bash(rtk git push *)",

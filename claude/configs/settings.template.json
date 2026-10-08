@@ -84,7 +84,9 @@
       "mcp__clickup__getListInfo",
       "mcp__clickup__searchSpaces",
       "mcp__clickup__getTimeEntries",
-      "mcp__clickup__read_space_clickup_space_txt"
+      "mcp__clickup__read_space_clickup_space_txt",
+      "mcp__clickup__updateTask",
+      "mcp__clickup__createTask"
     ],
     "ask": [
       "Bash(git push)",
@@ -157,10 +159,8 @@
       "mcp__drawio__open_drawio_csv",
       "mcp__drawio__open_drawio_mermaid",
       "mcp__drawio__set_page",
-      "mcp__clickup__updateTask",
       "mcp__clickup__addComment",
       "mcp__clickup__editComment",
-      "mcp__clickup__createTask",
       "mcp__clickup__updateListInfo",
       "mcp__clickup__createTimeEntry",
       "mcp__clickup__updateDocumentPage",
