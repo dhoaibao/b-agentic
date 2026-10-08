@@ -1034,8 +1034,8 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "references/capabilities.yaml": {
             "required": (
-                "all upstream write-mode actions, including task creation and updates",
-                "All write-mode tools, including task creation and updates, are approval-gated.",
+                "task creation and updates are pre-approved and run without a prompt",
+                "Task creation and updates are pre-approved apart from the guard's image-reference ask; all other write-mode tools are approval-gated.",
             ),
         },
         "skills/b-plan/prompt.md": {
