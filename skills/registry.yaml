@@ -8,7 +8,7 @@
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
-      "model": "sonnet",
+      "model": "haiku",
       "conditional_tools": ["mcp__firecrawl__firecrawl_search", "mcp__firecrawl__firecrawl_scrape", "mcp__firecrawl__firecrawl_map"]
     },
     "b-debugger": {

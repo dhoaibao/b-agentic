@@ -34,7 +34,7 @@ KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor"}
-AGENT_MODELS = {"opus", "sonnet"}
+AGENT_MODELS = {"opus", "sonnet", "haiku"}
 CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
 # Tools a read-only specialist must never receive, whatever the registry says.
 EDITING_TOOLS = ("Edit", "Write", "NotebookEdit")

@@ -62,8 +62,8 @@ handoff and `$ARGUMENTS`) into each delegated skill file, and the kernel repeats
 the rule. An unavailable subagent is reported, not replaced by self-execution.
 Foreground is default; background work is independent and read-only. `b-review`
 is a main-session skill: it freezes the candidate, runs the Codex gate, and
-classifies the result. Specialists run on Anthropic models only (`opus` or
-`sonnet`), so the earlier Gemini research model is gone.
+classifies the result. Specialists run on Anthropic models only (`opus`,
+`sonnet`, or `haiku`), so the earlier Gemini research model is gone.
 
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
 [`skills/registry.yaml`](../../skills/registry.yaml), and
