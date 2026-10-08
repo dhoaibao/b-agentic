@@ -1014,10 +1014,17 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "skills/b-pr/prompt.md": {
             "required": (
-                "Preflight is read-only. Stop at the first failed check",
+                "Preflight is read-only except the account switch in step 5. Stop at the first failed check",
                 "Compare the cached `origin/<branch>` ref without fetching",
                 "never force, pull, or rebase",
                 "Never run `gh auth login`",
+                "Select the account for `<repo>`",
+                "BLOCKED: no gh account on <host> can push to <repo>",
+                "Switch back to `<orig>` when step 5 changed the active account",
+                "Never print a token or run `gh auth status --show-token`",
+                "BLOCKED: gh environment token cannot push to <repo>",
+                "credential.helper=!gh auth git-credential",
+                "`ssh -G <url-host>`",
                 "Never guess a base from the nearest-looking branch",
                 "Push with a fully qualified refspec so no `remote.origin.push` mapping can change the destination",
                 "Never run a bare `git push` and never push the default branch",

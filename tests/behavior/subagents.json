@@ -244,6 +244,27 @@
       ]
     },
     {
+      "id": "pr-selects-matching-gh-account",
+      "skill": "b-pr",
+      "observed_failure": "b-pr created a PR with a logged-in gh account that has no access to the repository, or blocked instead of using another logged-in account.",
+      "intended_behavior": "b-pr switches between already logged-in gh accounts to one that can push to the origin repository, then restores the originally active account.",
+      "prompt": "gh is logged in to github.com as alice (active) and bob. origin is github.com/bob/app, and alice has no access to it. The user asks b-pr to open a PR. Describe the account handling.",
+      "must": [
+        "Try the account whose login equals the repository owner first and switch to bob with gh auth switch",
+        "Confirm viewerPermission is ADMIN, MAINTAIN, or WRITE before continuing",
+        "Switch back to alice after the PR is created or the flow fails",
+        "Block with no gh account can push to the repository when no account qualifies",
+        "Skip switching and check only the token when GH_TOKEN or GITHUB_TOKEN is set",
+        "Push an HTTPS origin with the command-scoped gh credential helper and keep the SSH identity for an SSH origin",
+        "Resolve an SSH config alias host with ssh -G before building the repository argument"
+      ],
+      "avoid": [
+        "Run gh auth login",
+        "Print or read a token",
+        "Leave the active account changed"
+      ]
+    },
+    {
       "id": "pr-asks-base-and-reports-only-result",
       "skill": "b-pr",
       "observed_failure": "b-pr silently picked a base branch or echoed the generated PR copy into the chat.",
