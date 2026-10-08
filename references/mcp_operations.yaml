@@ -26,6 +26,6 @@
     "clickup": {"tools": {"getTaskById": "conditional-read", "searchTasks": "conditional-read", "readDocument": "conditional-read", "getListInfo": "conditional-read", "searchSpaces": "conditional-read", "getTimeEntries": "conditional-read", "read_space_clickup_space_txt": "conditional-read", "updateTask": "trusted-mutation", "addComment": "external-mutation", "editComment": "external-mutation", "createTask": "trusted-mutation", "updateListInfo": "external-mutation", "createTimeEntry": "external-mutation", "updateDocumentPage": "external-mutation", "createDocumentOrPage": "external-mutation"}}
   },
   "runtime_enforcement": {
-    "claude": "Generated permissions.allow and permissions.ask rules address each classified tool as mcp__<server>__<tool>; deny rules still override them, but the path-guard hook matches only file tools. Unclassified MCP tools keep Claude Code's default approval prompt. No hook or deny rule inspects MCP arguments."
+    "claude": "Generated permissions.allow and permissions.ask rules address each classified tool as mcp__<server>__<tool>; deny rules still override them, but the path-guard hook matches only file tools and b-clickup-guard only ClickUp createTask and updateTask. Unclassified MCP tools keep Claude Code's default approval prompt. Only the b-clickup-guard hook inspects MCP arguments (ClickUp task images)."
   }
 }

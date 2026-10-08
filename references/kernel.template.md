@@ -66,7 +66,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 - Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, or default-branch push. Plain `git push` and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
 - Never read, expose, or commit likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit permission.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
-- Claude Code exposes MCP tools as `mcp__<server>__<tool>`. Generated permission rules allow named read-only and conditional-read tools, deny protected paths and dangerous commands, and ask before classified mutations; unclassified tools require approval. No hook or deny rule inspects MCP arguments: inspect any MCP request carrying a path, URL, or private content before calling it.
+- Claude Code exposes MCP tools as `mcp__<server>__<tool>`. Generated permission rules follow the Managed MCP operations table below; unclassified tools require approval. Only the ClickUp guard inspects MCP arguments: inspect any MCP request carrying a path, URL, or private content before calling it.
 
 ## Capability activation
 
@@ -76,7 +76,7 @@ A status snapshot never starts live MCP/auth/browser probes, reads credentials, 
 
 ## Managed MCP operations
 
-Canonical policy: `~/.claude/b-agentic/references/mcp_operations.yaml`. Generated settings allow named read-only and conditional-read tools, deny protected paths, and ask before classified mutations, upload, lifecycle, or auth tools.
+Canonical policy: `~/.claude/b-agentic/references/mcp_operations.yaml`. Generated settings allow read-only, conditional-read, and trusted-mutation tools, deny protected paths, and ask before other classified mutation, upload, lifecycle, or auth tools.
 
 <!-- generated:mcp-operations:start -->
 | Class | Policy | Scope |
@@ -90,7 +90,7 @@ Canonical policy: `~/.claude/b-agentic/references/mcp_operations.yaml`. Generate
 | `local-mutation` | Approval required | May create a local artifact. |
 | `auth` | Approval required | May start or change authentication. |
 
-Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the tools their profile lists; no hook or deny rule inspects MCP arguments.
+Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the tools their profile lists; only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images).
 <!-- generated:mcp-operations:end -->
 No path gate covers MCP arguments: inspect the request and seek approval when its effects are uncertain.
 

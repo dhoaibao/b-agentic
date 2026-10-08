@@ -11,7 +11,7 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; ten servers, no stored credentials (`${VAR}` references) |
 | `mcp.clickup.json` | same file | Optional ClickUp stdio server (`bunx`, pinned), added only after install opt-in |
 | `agents/b-*.md` | `agents/b-*.md` | Four generated read-only specialist profiles (tool allowlists, no editing tools) |
-| `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-codex-guard`, `b-verify-gate` |
+| `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-codex-guard`, `b-clickup-guard`, `b-verify-gate` |
 | `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot`, `b-codex-review` (the enforced gate), `b-codex-verdict` |
 | `../../skills/*/SKILL.md` | `skills/b-*/SKILL.md` | Generated skills, also the `/b-*` commands |
 | `../../references/kernel.template.md` | block in `CLAUDE.md` | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` |

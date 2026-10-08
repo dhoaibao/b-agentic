@@ -148,24 +148,34 @@ documentation and are not exercised live by this repository's checks.
 
 `claude/configs/settings.template.json` is generated from
 `references/mcp_operations.yaml`. It allows repository-local tools and named
-read-only, conditional-read, and trusted-mutation MCP tools, asks before classified mutations, uploads, lifecycle, and
-auth tools, asks before a plain `git push` or `gh pr create`, and denies the
+read-only, conditional-read, and trusted-mutation MCP tools, asks before other classified mutations, uploads, lifecycle, and
+auth tools, asks before a plain `git push` and before `gh` commands that change reversible
+GitHub state (`gh pr create`/`close`/`edit`, `gh auth switch`, `gh release create`/`upload`/`edit`,
+`gh repo create`/`fork`, `gh issue close`/`edit`, `gh workflow run`, and `gh api` with a body or method
+flag such as `-f` or `-X`), and denies the
 named dangerous commands (`git pull`, `git reset --hard`, `git clean -f`,
 `git branch -D`, `rm -rf`, `sudo`, `doas`, `docker system prune`, bare shells,
-`bash -s`/`sh -s`, `gh pr merge`, `gh repo delete`, and force, delete, mirror,
+`bash -s`/`sh -s`, destructive, credential, or code-installing `gh` commands (`gh pr merge`,
+`gh repo delete`/`archive`/`rename`/`edit`, `gh release delete`, `gh extension install`,
+`gh alias set`, `gh secret`/`ssh-key`/`gpg-key` changes, `gh auth login`/`logout`/`token`/`refresh`,
+`gh auth status --show-token`, and `gh api` with `-X` or `--method` `DELETE`, `PUT`, or `PATCH`), and force, delete, mirror,
 all/branches, prune, and `main` or `master` pushes, each also under an `rtk` prefix where
 relevant) and unambiguous secret files. Global-option forms such as `git -C <dir> push`
 (which also asks for `git stash push`) and combined short flags such as `-uf`
-are asked about but not pattern-denied; `:branch` delete refspecs and default
+are asked about but not pattern-denied, except `git -c <key=value> push` (the form
+`b-pr` uses over HTTPS), whose force and `main` or `master` pushes are denied; `:branch` delete refspecs and default
 branches not named `main` or `master` also stay at the ask prompt. The
 `b-path-guard` hook applies the exact path rules to the file tools (including the
 `*.env.example` allowance that deny rules cannot express). Hooks:
-`b-path-guard` and `b-codex-guard` run before tools; `b-verify-gate` tracks
+`b-path-guard`, `b-codex-guard`, and `b-clickup-guard` run before tools (`b-clickup-guard` asks before an
+auto-approved ClickUp `createTask` or `updateTask` whose markdown references an image other than an
+existing ClickUp attachment URL, since the MCP uploads local and downloaded images); `b-verify-gate` tracks
 edits and, when the main session edited a non-prose file after its last shell
 command, blocks the first stop once with the verify and review reminder.
 Claude Code prompts for outside-project writes instead of denying them. These
 rules are not a process or filesystem sandbox; shell indirection and MCP
-arguments they cannot see remain residual risks. The kernel additionally
+arguments they cannot see remain residual risks (only `b-clickup-guard` inspects
+ClickUp task arguments). The kernel additionally
 requires approval for other destructive, privileged, ambiguous, protected, or
 external/shared actions.
 
