@@ -30,7 +30,7 @@ Push the current branch to `origin` and create a draft GitHub PR from its commit
 
 ## Tool guidance
 
-- `bash` - `rtk git` for local reads and the push, `gh` for GitHub reads, PR creation, and switching between already logged-in accounts. The harness asks before `git push` and `gh pr create`; force, delete, mirror, all-branch, and default-branch pushes, `gh pr merge`, and `gh repo delete` are denied.
+- `bash` - `rtk git` for local reads and the push, `gh` for GitHub reads, PR creation, and switching between already logged-in accounts. The harness asks before `git push`, `gh pr create`, and `gh auth switch`; force, delete, mirror, all-branch, and default-branch pushes, `gh pr merge`, `gh repo delete`, `gh auth login`/`logout`/`token`/`refresh`, and other destructive or credential-changing `gh` commands are denied. The HTTPS `git -c ... push` form is denied only for force and default-branch pushes; its other forbidden pushes are caught by the prompt rules and the ask prompt alone.
 - `AskUserQuestion` - choose the base branch when it is ambiguous.
 
 ## Steps

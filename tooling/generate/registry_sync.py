@@ -59,22 +59,123 @@ DENY_READ_GLOBS = (
     "**/*credentials.*",
     "**/*secrets.*",
 )
-# Plain pushes and PR creation ask each time; the patterns below stay denied.
+# Plain pushes, PR creation, and `gh auth switch` ask each time; the patterns below stay denied.
 # Claude Code evaluates deny before ask before allow, so the denies carve
 # exceptions out of the ask rules. `*` matches any characters, so every flag and
 # protected-branch pattern is anchored on argument boundaries (a leading space,
 # or the start of the arguments) to keep names such as `feature-f` or
 # `main-fix` pushable. The `git * push` and `gh * pr create` ask forms catch
 # global options such as `git -C <dir> push`; those forms are asked about but not
-# pattern-denied. `:branch` delete refspecs (a trailing `:*` is the legacy prefix
-# form) and default branches not named main or master also stay at the ask prompt.
+# pattern-denied, except the `git -c <key=value> push` form b-pr uses for HTTPS,
+# where force and main or master pushes are denied too. `:branch` delete refspecs
+# (a trailing `:*` is the legacy prefix form) and default branches not named main
+# or master also stay at the ask prompt.
+# Other `gh` commands that change GitHub state are grouped below: the destructive,
+# credential, and code-execution ones are denied, the reversible ones ask, and read
+# commands (`gh pr view`, a plain `gh api <path>`) stay allowed. Each command also gets
+# its `gh * <group> <verb>` global-option form (for example `gh -R o/r release delete`).
+DENIED_GH_COMMANDS = (
+    "gh pr merge",
+    "gh repo delete",
+    "gh repo archive",
+    "gh repo rename",
+    "gh repo edit",
+    "gh repo deploy-key add",
+    "gh repo deploy-key delete",
+    "gh release delete",
+    "gh release delete-asset",
+    "gh extension install",
+    "gh alias set",
+    "gh alias import",
+    "gh secret set",
+    "gh secret delete",
+    "gh ssh-key add",
+    "gh ssh-key delete",
+    "gh gpg-key add",
+    "gh gpg-key delete",
+    "gh auth login",
+    "gh auth logout",
+    "gh auth token",
+    "gh auth refresh",
+)
+ASKED_GH_COMMANDS = (
+    "gh pr create",
+    "gh pr close",
+    "gh pr edit",
+    "gh auth switch",
+    "gh release create",
+    "gh release upload",
+    "gh release edit",
+    "gh variable set",
+    "gh variable delete",
+    "gh repo create",
+    "gh repo fork",
+    "gh gist create",
+    "gh gist delete",
+    "gh issue close",
+    "gh issue delete",
+    "gh issue edit",
+    "gh workflow run",
+    "gh workflow disable",
+    "gh run delete",
+    "gh cache delete",
+    "gh label delete",
+    "gh codespace delete",
+)
+# `gh api` mutates through a method or request-body flag; a plain `gh api <path>` read stays allowed.
+GH_API_DENIED_METHODS = ("DELETE", "PUT", "PATCH")
+GH_API_ASKED_FLAGS = ("-f", "-F", "--field", "--raw-field", "--input", "-X", "--method")
+
+
+def gh_forms(command: str) -> tuple[str, str]:
+    """A `gh` command and its global-option form, such as `gh -R o/r pr merge`."""
+    return command, command.replace("gh ", "gh * ", 1)
+
+
 ASKED_COMMANDS = (
     "git push",
     "git * push",
-    "gh pr create",
-    "gh * pr create",
+    *(form for command in ASKED_GH_COMMANDS for form in gh_forms(command)),
 )
 PROTECTED_BRANCHES = ("main", "master")
+
+
+def c_push_deny_patterns() -> list[str]:
+    """Force and protected-branch denies for `git -c <key=value> push`, the form b-pr uses for HTTPS."""
+    head = "git -c * push"
+    patterns = []
+    for flag in ("-f", "--force*", "+*"):
+        patterns += [f"{head} {flag}", f"{head} * {flag}"]
+    patterns += [f"{head} -f *", f"{head} * -f *"]
+    for branch in PROTECTED_BRANCHES:
+        for target in (f"* {branch}", f"*:{branch}", f"*refs/heads/{branch}"):
+            patterns += [f"{head} {target}", f"{head} {target} *"]
+    return patterns
+
+
+def gh_flag_deny_patterns() -> list[str]:
+    """Denies for `gh auth status` printing a token and `gh api` with a mutating method."""
+    patterns = []
+    for base in gh_forms("gh auth status"):
+        patterns += [f"{base} *--show-token*"]
+        patterns += [f"{base} -t", f"{base} -t *", f"{base} * -t", f"{base} * -t *"]
+    # The method value must directly follow the flag (`-X DELETE`, `-XDELETE`, `-X=DELETE`,
+    # `--method DELETE`, `--method=DELETE`), so a method word in an endpoint or field stays allowed.
+    flag_forms = ("-X ", "-X", "-X=", "--method ", "--method=")
+    for base in gh_forms("gh api"):
+        for form in flag_forms:
+            for method in GH_API_DENIED_METHODS:
+                patterns += [f"{base} *{form}{method}*", f"{base} *{form}{method.lower()}*"]
+    return patterns
+
+
+def gh_api_ask_patterns() -> list[str]:
+    """Asks for `gh api` calls that send a request body or choose a method."""
+    patterns = []
+    for base in gh_forms("gh api"):
+        for flag in GH_API_ASKED_FLAGS:
+            patterns += [f"{base} {flag}*", f"{base} * {flag}*"]
+    return patterns
 
 
 def push_deny_patterns() -> tuple[str, ...]:
@@ -86,9 +187,11 @@ def push_deny_patterns() -> tuple[str, ...]:
     for branch in PROTECTED_BRANCHES:
         for target in (f"* {branch}", f"*:{branch}", f"*refs/heads/{branch}"):
             patterns += [f"git push {target}", f"git push {target} *"]
-    for command in ("gh pr merge", "gh repo delete"):
-        gh_global = command.replace("gh ", "gh * ", 1)
-        patterns += [command, f"{command} *", gh_global, f"{gh_global} *"]
+    patterns += c_push_deny_patterns()
+    for command in DENIED_GH_COMMANDS:
+        for form in gh_forms(command):
+            patterns += [form, f"{form} *"]
+    patterns += gh_flag_deny_patterns()
     return tuple(patterns)
 
 
@@ -465,7 +568,7 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
         rows.append(f"| `{name}` | {meta['policy']} | {meta['notes']} |")
     rows.append("")
     rows.append(
-        "Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the tools their profile lists; no hook or deny rule inspects MCP arguments."
+        "Unclassified MCP tools keep Claude Code's approval prompt. Specialists call only the tools their profile lists; only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images)."
     )
     return "\n".join(rows)
 
@@ -637,6 +740,10 @@ def render_hooks() -> dict[str, Any]:
                 "matcher": "Bash",
                 "hooks": [{"type": "command", "command": hook_command("b-codex-guard.mjs")}],
             },
+            {
+                "matcher": "mcp__clickup__createTask|mcp__clickup__updateTask",
+                "hooks": [{"type": "command", "command": hook_command("b-clickup-guard.mjs")}],
+            },
         ],
         "PostToolUse": [
             {
@@ -666,6 +773,9 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
     for command in ASKED_COMMANDS:
         for prefix in ("", "rtk "):
             ask.extend([f"Bash({prefix}{command})", f"Bash({prefix}{command} *)"])
+    for pattern in gh_api_ask_patterns():
+        for prefix in ("", "rtk "):
+            ask.append(f"Bash({prefix}{pattern})")
     deny.extend(f"Bash({command})" for command in DENIED_BARE_COMMANDS)
     # Claude Code warns about and ignores Write(path) rules: Edit(path) rules cover every file-editing tool.
     for tool in ("Read", "Edit"):

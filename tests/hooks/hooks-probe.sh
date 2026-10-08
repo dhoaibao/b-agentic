@@ -9,6 +9,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 pathguard="$root/claude/hooks/b-path-guard.mjs"
 verifygate="$root/claude/hooks/b-verify-gate.mjs"
 codexguard="$root/claude/hooks/b-codex-guard.mjs"
+clickupguard="$root/claude/hooks/b-clickup-guard.mjs"
 verdict="$root/claude/bin/b-codex-verdict.mjs"
 wrapper="$root/claude/bin/b-codex-review.mjs"
 work=$(mktemp -d)
@@ -53,6 +54,52 @@ run "$pathguard" '{"tool_name":"Bash","tool_input":{"command":"ls"}}'; expect 0 
 run "$pathguard" 'not json'; expect 0 "malformed input must fail open"
 run "$pathguard" ''; expect 0 "empty input must fail open"
 echo "hooks probe passed: path-guard"
+
+# --- clickup guard -------------------------------------------------------------
+# It answers on stdout (an "ask" decision) and always exits 0, so capture stdout here.
+cg() { jq -cn --arg tool "$1" --arg key "$2" --arg text "$3" '{tool_name: $tool, tool_input: {list_id: "1", name: "t", ($key): $text}}'; }
+cg_out() {
+  rc=0
+  out=$(printf '%s' "$1" | node "$clickupguard" 2>/dev/null) || rc=$?
+  expect 0 "clickup guard must always exit 0"
+}
+cg_asks() {
+  cg_out "$(cg mcp__clickup__createTask "$2" "$1")"
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$out")" = ask ] || fail "clickup guard must ask for: $1"
+}
+cg_passes() {
+  cg_out "$(cg "${3:-mcp__clickup__createTask}" "${2:-description}" "$1")"
+  [ -z "$out" ] || fail "clickup guard must stay silent for: $1"
+}
+cg_asks '![shot](/home/u/screenshot.png)' description
+cg_asks 'see ![](/etc/hosts) here' description
+cg_asks '![x](data:image/png;base64,AAAA)' description
+cg_asks '![x](https://example.com/a.png "title")' description
+cg_asks '![x](<https://example.com/a b.png>)' append_description
+cg_asks '![x][r]
+
+[r]: /home/u/secret.png' description
+cg_asks '![x][missing]' description
+cg_asks '<img src="/home/u/a.png" alt="x">' description
+cg_asks '![x](https://evil.example/.clickup-attachments.com/a.png)' description
+cg_asks '![x](http://t1.clickup-attachments.com/a.png)' description
+cg_asks '![ok](https://t1.clickup-attachments.com/a.png) ![bad](/home/u/a.png)' description
+cg_out "$(cg mcp__clickup__updateTask description '![x](/home/u/a.png)')"
+[ "$(jq -r '.hookSpecificOutput.hookEventName' <<<"$out")" = PreToolUse ] || fail "clickup guard output must name PreToolUse"
+grep -Fq '/home/u/a.png' <<<"$out" || fail "clickup guard must name the image it asks about"
+cg_passes '![ok](https://t1.clickup-attachments.com/a.png)'
+cg_passes '![ok](https://a.b.clickup-attachments.com/x/y.png?z=1)'
+cg_passes 'Plain text with [a link](https://example.com) and no image.'
+cg_passes 'Use the Windows! [Settings] menu (see docs).'
+cg_passes '' description
+cg_passes '![x](/home/u/a.png)' title
+cg_out '{"tool_name":"mcp__clickup__createTask","tool_input":{"description":42}}'
+[ -z "$out" ] || fail "clickup guard must ignore a non-string description"
+cg_out 'not json'
+[ -z "$out" ] || fail "clickup guard must fail open on malformed input"
+cg_out ''
+[ -z "$out" ] || fail "clickup guard must fail open on empty input"
+echo "hooks probe passed: clickup-guard"
 
 # --- verify gate ---------------------------------------------------------------
 vg() {

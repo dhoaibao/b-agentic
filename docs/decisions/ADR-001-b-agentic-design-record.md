@@ -72,10 +72,13 @@ Evidence: [`references/kernel.template.md`](../../references/kernel.template.md)
 ### Safety and approval design
 
 The generated settings template allows repository-local tools and named
-read-only MCP tools, asks before classified mutations, uploads, lifecycle, and
-auth tools, asks before a plain `git push` or `gh pr create`, and denies named
-dangerous commands (`git pull`, `git reset --hard`, `git clean -f`,
-`git branch -D`, `rm -rf`, `gh pr merge`, `gh repo delete`, force, delete,
+read-only, conditional-read, and trusted-mutation MCP tools, asks before other
+classified mutations, uploads, lifecycle, and auth tools, asks before a plain `git push` and before `gh` commands that change reversible GitHub
+state (`gh pr create`, `gh auth switch`, `gh release create`, `gh api` with a body or method flag),
+and denies named dangerous commands (`git pull`, `git reset --hard`, `git clean -f`,
+`git branch -D`, `rm -rf`, destructive, credential, or code-installing `gh` commands such as
+`gh pr merge`, `gh repo delete`/`archive`/`edit`, `gh release delete`, `gh extension install`,
+`gh alias set`, `gh auth login`/`token`, and `gh api` with a `DELETE`, `PUT`, or `PATCH` method, force, delete,
 mirror, all/branches, prune, and `main` or `master` pushes, privilege escalation, bare
 shells) plus unambiguous secret files through `Read(path)` and `Edit(path)` rules
 (Claude Code warns about and ignores `Write(path)` rules; an `Edit` rule
@@ -85,10 +88,18 @@ the exact path rules (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`,
 checks the names a call carries, not the files a directory search would visit.
 `b-pr` is the only skill that pushes: on an explicit request it pushes the
 current non-default branch with an explicit `origin <branch>` destination and
-opens a draft PR, and it never forces, pulls, rebases, or merges. Unlike the
+opens a draft PR, and it never forces, pulls, rebases, or merges. To push as an
+account that can write to the repository it may run `gh auth switch` between
+accounts already logged in, which changes `gh`'s global active account until it
+restores the original; each switch asks, and an interrupted run can leave the
+switched account active, an accepted residual risk. Its HTTPS push
+runs as `git -c ... push`, which the deny rules match only for force and `main` or
+`master` pushes; delete, mirror, all-branch, and prune forms there stay at the ask
+prompt as an accepted residual risk. Unlike the
 earlier policy, Claude Code prompts for outside-project writes rather than
 denying them. Permission rules are not filesystem or process isolation; shell
-indirection and MCP arguments the rules cannot see remain residual risks.
+indirection and MCP arguments the rules cannot see remain residual risks, except
+the ClickUp task images that `b-clickup-guard` checks.
 Sending a repository to Codex discloses it to OpenAI, and Codex's read-only
 sandbox can read every workspace file; Codex has no ignore mechanism. The
 `b-review` therefore runs the gate through one wrapper, `b-codex-review`, whose
@@ -134,7 +145,8 @@ Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_
 [`claude/bin/b-codex-review.mjs`](../../claude/bin/b-codex-review.mjs),
 [`claude/hooks/b-codex-guard.mjs`](../../claude/hooks/b-codex-guard.mjs),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
-[`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs), and
+[`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
+[`claude/hooks/b-clickup-guard.mjs`](../../claude/hooks/b-clickup-guard.mjs), and
 [`tests/hooks/hooks-probe.sh`](../../tests/hooks/hooks-probe.sh).
 
 ### MCP and external-evidence design
@@ -153,6 +165,21 @@ references (`${VAR}`), never stored values. Expansion of those references in
 the user-scope MCP file is a documented Claude Code behavior that was not
 exercised live. `mcp-doctor` checks only local configuration, launcher, and
 variable presence and starts no MCP or browser sessions.
+
+MCP tools fall into eight classes in `references/mcp_operations.yaml`: `read-only`
+and `conditional-read` (allowed), `trusted-mutation` (allowed by the user's
+decision, main session only), and `local-upload`, `external-mutation`,
+`monitor-lifecycle`, `local-mutation`, and `auth` (ask). ClickUp `createTask` and
+`updateTask` are the `trusted-mutation` tools, run without a prompt by the user's
+decision. The ClickUp MCP reads and uploads a local image path or
+`data:` URI and downloads and re-uploads an external image URL named in task
+markdown, and no permission rule sees MCP arguments. The `b-clickup-guard`
+PreToolUse hook therefore asks whenever `description` or `append_description`
+references an image other than an existing `*.clickup-attachments.com` HTTPS URL.
+It matches markdown, reference-style, and `<img>` spellings by pattern, so an
+unusual spelling can escape it, and it fails open on malformed input. That a hook
+`ask` overrides the `allow` rule was not exercised live, and the `b-clickup`
+prompt rule against unapproved image references remains the second layer.
 
 Evidence: [`references/mcp_operations.yaml`](../../references/mcp_operations.yaml),
 [`claude/configs/mcp.base.json`](../../claude/configs/mcp.base.json), and

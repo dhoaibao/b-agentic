@@ -68,7 +68,7 @@ run "$home"; expect_ok "fresh install"
 claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
 [ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 4 ] || fail "agent count"
-for file in bin/b-candidate-snapshot.mjs bin/b-codex-verdict.mjs bin/b-codex-review.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs bin/b-codex-verdict.mjs bin/b-codex-review.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
@@ -82,7 +82,7 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.deny | index("Bash(gh pr merge *)") != null' "$claude/settings.json")" = true ] || fail "gh pr merge deny rule missing"
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
-[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
+[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 3 ] || fail "PreToolUse hooks missing"
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 10 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must be opt-in"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
