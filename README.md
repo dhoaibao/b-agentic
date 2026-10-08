@@ -56,6 +56,7 @@ git-ignored stay readable by Codex, an accepted residual risk.
 | `b-drawio` | Build | Draw formal or editable technical diagrams in draw.io from explicit facts |
 | `b-implement` | Build | Make the scoped non-UI change from an approved plan or a small direct request |
 | `b-clickup` | Build | Create and update ClickUp tasks with a consistent four-section description |
+| `b-datagrip` | Build | Inspect and query DataGrip databases safely through the DataGrip MCP |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
 | `b-debug` | Decide | Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code |

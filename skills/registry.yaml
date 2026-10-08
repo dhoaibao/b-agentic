@@ -214,6 +214,28 @@
       }
     },
     {
+      "name": "b-datagrip",
+      "execution": {"mode": "main"},
+      "phase": "Build",
+      "use": "Inspect and query DataGrip databases safely through the DataGrip MCP",
+      "argument_hint": "[connection and question]",
+      "routing": {
+        "intent": "Inspect or query DataGrip-configured databases through the DataGrip MCP",
+        "triggers": [
+          "DataGrip",
+          "DataGrip connection",
+          "query the database",
+          "inspect database schema",
+          "preview table data",
+          "list database tables",
+          "run SQL in DataGrip"
+        ]
+      },
+      "prompt": {
+        "description": "Inspect and query DataGrip-configured databases through the DataGrip MCP with read-only SQL by default, explicit row limits, named-connection confirmation for remote databases, and approval before any write, DDL, or connection change. Use for schema inspection, table previews, and ad-hoc SQL; unlike b-implement and b-debug, it does not edit application code or diagnose runtime failures."
+      }
+    },
+    {
       "name": "b-init",
       "execution": {"mode": "main"},
       "phase": "Build",

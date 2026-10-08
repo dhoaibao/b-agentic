@@ -47,6 +47,7 @@
 - Formal or editable draw.io diagram (cloud/network icons, ER/UML, sequence, .drawio files) -> `b-drawio`.
 - Implement approved or clearly scoped non-UI work (general fallback) -> `b-implement`.
 - Create and update ClickUp tasks using Context, Requirements, Acceptance Criteria, and Checklist -> `b-clickup`.
+- Inspect or query DataGrip-configured databases through the DataGrip MCP -> `b-datagrip`.
 - Initialize repo-local agent instruction files -> `b-init`.
 - Mechanical rename, extract, move, inline, simplify, delete dead code -> `b-refactor`.
 - Runtime bug, error, "not working" -> `b-debug`.
@@ -78,7 +79,7 @@ Canonical policy and per-class notes: `~/.claude/b-agentic/references/mcp_operat
 <!-- generated:mcp-operations:start -->
 - Auto-allowed by tool name: `read-only`.
 - Auto-allowed by user decision: `conditional-read`, `trusted-mutation`.
-- Approval required: `local-upload`, `external-mutation`, `monitor-lifecycle`, `local-mutation`, `auth`.
+- Approval required: `local-upload`, `private-read`, `external-mutation`, `monitor-lifecycle`, `local-mutation`, `auth`.
 - Unclassified MCP tools keep Claude Code's approval prompt; `trusted-mutation` runs in the main session only.
 <!-- generated:mcp-operations:end -->
 

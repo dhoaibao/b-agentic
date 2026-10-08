@@ -148,7 +148,7 @@ documentation and are not exercised live by this repository's checks.
 
 `claude/configs/settings.template.json` is generated from
 `references/mcp_operations.yaml`. It allows repository-local tools and named
-read-only, conditional-read, and trusted-mutation MCP tools, asks before other classified mutations, uploads, lifecycle, and
+read-only, conditional-read, and trusted-mutation MCP tools, asks before private-data reads, other classified mutations, uploads, lifecycle, and
 auth tools, asks before a plain `git push` and before `gh` commands that change reversible
 GitHub state (`gh pr create`/`close`/`edit`, `gh auth switch`, `gh release create`/`upload`/`edit`,
 `gh repo create`/`fork`, `gh issue close`/`edit`, `gh workflow run`, and `gh api` with a body or method
@@ -200,6 +200,7 @@ collects none.
 | draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)    |
 | shadcn       | `bunx`, project `components.json`                                     |
 | ClickUp      | optional install opt-in, `bunx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
+| DataGrip     | IDE-managed: DataGrip with MCP Server enabled; no b-agentic template  |
 
 Notion is the official hosted server and reaches the user's whole private
 workspace, so every read is `conditional-read` (allowed in the main session,
@@ -210,6 +211,17 @@ text to a hosted endpoint or open the draw.io web editor. draw.io runs
 the top-level package, and the package runs unsandboxed with your permissions.
 `list_pages` and `get_page` are deliberately unclassified so they keep the
 approval prompt.
+
+DataGrip's built-in MCP server is enabled in the IDE (Settings | Tools | MCP
+Server, then Auto-Configure for Claude Code), so b-agentic ships only its
+permission rules. Schema metadata tools are `conditional-read`; tools that
+return rows or query history are `private-read` and ask; `execute_sql_query`,
+`cancel_sql_query`, and connection create or edit ask. The `b-datagrip` skill
+runs in the main session, keeps SQL read-only and row-limited by default,
+confirms before a first read on a non-local connection, and asks before any
+write. The server enforces no read-only mode, so use a read-only database user
+for sensitive connections; other `mcp__datagrip__*` tools stay unclassified and
+keep the approval prompt.
 
 `scripts/mcp-doctor.sh --allow-degraded` reports local launcher, configuration,
 and environment-variable presence only. It never reads credential values, starts

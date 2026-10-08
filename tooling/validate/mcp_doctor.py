@@ -24,8 +24,9 @@ SERVERS = (
     "drawio",
     "shadcn",
     "clickup",
+    "datagrip",
 )
-OPTIONAL_SERVERS = {"clickup"}
+OPTIONAL_SERVERS = {"clickup", "datagrip"}
 CREDENTIALS = {
     "context7": ("CONTEXT7_API_KEY",),
     "brave_search": ("BRAVE_API_KEY",),

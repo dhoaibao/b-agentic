@@ -166,10 +166,10 @@ the user-scope MCP file is a documented Claude Code behavior that was not
 exercised live. `mcp-doctor` checks only local configuration, launcher, and
 variable presence and starts no MCP or browser sessions.
 
-MCP tools fall into eight classes in `references/mcp_operations.yaml`: `read-only`
+MCP tools fall into nine classes in `references/mcp_operations.yaml`: `read-only`
 and `conditional-read` (allowed), `trusted-mutation` (allowed by the user's
-decision, main session only), and `local-upload`, `external-mutation`,
-`monitor-lifecycle`, `local-mutation`, and `auth` (ask). ClickUp `createTask` and
+decision, main session only), and `local-upload`, `private-read`,
+`external-mutation`, `monitor-lifecycle`, `local-mutation`, and `auth` (ask). ClickUp `createTask` and
 `updateTask` are the `trusted-mutation` tools, run without a prompt by the user's
 decision. The ClickUp MCP reads and uploads a local image path or
 `data:` URI and downloads and re-uploads an external image URL named in task
@@ -180,6 +180,21 @@ It matches markdown, reference-style, and `<img>` spellings by pattern, so an
 unusual spelling can escape it, and it fails open on malformed input. That a hook
 `ask` overrides the `allow` rule was not exercised live, and the `b-clickup`
 prompt rule against unapproved image references remains the second layer.
+
+The DataGrip MCP server is IDE-managed: the user enables it in DataGrip and
+Claude Code connects to it, so b-agentic ships no template and `mcp_doctor`
+treats it as optional. It is never `read-only`, because that class feeds every
+specialist profile and database metadata and rows must stay in the main session.
+Schema metadata tools are `conditional-read`. Tools that return rows or query
+history are `private-read` (ask), SQL execution and cancel are
+`external-mutation`, and connection create and edit are `auth`. Permission rules
+cannot tell a `SELECT` from a write, so every `execute_sql_query` call asks and
+the `b-datagrip` prompt carries the read-only, row-limit, single-statement, and
+remote-connection guardrails. No hook inspects the SQL: a pattern match cannot
+classify data-modifying CTEs, side-effecting functions, or Redis commands, and
+hooks fail open. The server enforces no read-only mode, so a read-only database
+user remains the hard control. Neither the approval prompt for DataGrip tools nor
+DataGrip's `projectPath` handling is exercised by this repository's checks.
 
 Evidence: [`references/mcp_operations.yaml`](../../references/mcp_operations.yaml),
 [`claude/configs/mcp.base.json`](../../claude/configs/mcp.base.json), and

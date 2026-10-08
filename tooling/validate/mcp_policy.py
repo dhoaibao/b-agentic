@@ -22,13 +22,16 @@ EXPECTED_SERVERS = {
     "drawio",
     "shadcn",
     "clickup",
+    "datagrip",
 }
 OPTIONAL_SERVERS = {"clickup"}
+IDE_MANAGED_SERVERS = {"datagrip"}
 EXPECTED_CLASSES = {
     "read-only",
     "conditional-read",
     "trusted-mutation",
     "local-upload",
+    "private-read",
     "external-mutation",
     "monitor-lifecycle",
     "local-mutation",
@@ -249,6 +252,19 @@ def main() -> int:
     for name in ("mcp__clickup__createTask", "mcp__clickup__updateTask"):
         if name not in allow:
             errors.append(f"{name} is a trusted mutation and must be allowed")
+    for name in (
+        "mcp__datagrip__preview_table_data",
+        "mcp__datagrip__fetch_query_result",
+        "mcp__datagrip__list_recent_sql_queries",
+        "mcp__datagrip__execute_sql_query",
+        "mcp__datagrip__cancel_sql_query",
+        "mcp__datagrip__create_database_connection",
+        "mcp__datagrip__edit_database_connection",
+    ):
+        if name not in ask:
+            errors.append(f"{name} returns database rows or changes database state and must ask")
+    if "mcp__datagrip__execute_tool" in allow or "mcp__datagrip__execute_tool" in ask:
+        errors.append("mcp__datagrip__execute_tool is unclassified and must keep the runtime approval prompt")
     for pattern in (
         "Bash(git push *)",
         "Bash(rtk git push *)",
@@ -332,6 +348,8 @@ def main() -> int:
             errors.append(f"{agent} must expose the CodeGraph explore tool")
         if any(tool.startswith("mcp__notion__") for tool in tools):
             errors.append(f"{agent} must not receive private Notion workspace tools")
+        if any(tool.startswith("mcp__datagrip__") for tool in tools):
+            errors.append(f"{agent} must not receive private DataGrip database tools")
         if any(tool in ask or tool in deny for tool in tools if tool.startswith("mcp__")):
             errors.append(f"{agent} must not list a tool that asks or is denied")
         if agent == "b-researcher":
@@ -342,7 +360,7 @@ def main() -> int:
 
     mcp = json.loads((ROOT / "claude" / "configs" / "mcp.base.json").read_text())
     optional_mcp = json.loads((ROOT / "claude" / "configs" / "mcp.clickup.json").read_text())
-    if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - OPTIONAL_SERVERS:
+    if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - OPTIONAL_SERVERS - IDE_MANAGED_SERVERS:
         errors.append("Claude Code base MCP config must configure all required servers only")
     if set(optional_mcp.get("mcpServers", {})) != OPTIONAL_SERVERS:
         errors.append("Claude Code optional MCP config must configure each optional server exactly once")

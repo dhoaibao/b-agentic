@@ -86,7 +86,14 @@
       "mcp__clickup__getTimeEntries",
       "mcp__clickup__read_space_clickup_space_txt",
       "mcp__clickup__updateTask",
-      "mcp__clickup__createTask"
+      "mcp__clickup__createTask",
+      "mcp__datagrip__list_database_connections",
+      "mcp__datagrip__list_database_schemas",
+      "mcp__datagrip__list_schema_object_kinds",
+      "mcp__datagrip__list_schema_objects",
+      "mcp__datagrip__get_database_object_description",
+      "mcp__datagrip__introspect_schema",
+      "mcp__datagrip__test_database_connection"
     ],
     "ask": [
       "Bash(git push)",
@@ -388,7 +395,14 @@
       "mcp__clickup__updateListInfo",
       "mcp__clickup__createTimeEntry",
       "mcp__clickup__updateDocumentPage",
-      "mcp__clickup__createDocumentOrPage"
+      "mcp__clickup__createDocumentOrPage",
+      "mcp__datagrip__preview_table_data",
+      "mcp__datagrip__fetch_query_result",
+      "mcp__datagrip__list_recent_sql_queries",
+      "mcp__datagrip__execute_sql_query",
+      "mcp__datagrip__cancel_sql_query",
+      "mcp__datagrip__create_database_connection",
+      "mcp__datagrip__edit_database_connection"
     ],
     "deny": [
       "Bash(git pull)",

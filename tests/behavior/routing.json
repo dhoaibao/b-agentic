@@ -16,6 +16,18 @@
       "forbidden_skills": ["b-implement", "b-plan"]
     },
     {
+      "id": "datagrip-schema-inspection",
+      "prompt": "Inspect the database schema of my DataGrip connection and list its tables.",
+      "expected_skill": "b-datagrip",
+      "forbidden_skills": ["b-implement", "b-debug"]
+    },
+    {
+      "id": "datagrip-sql-query",
+      "prompt": "Run SQL in DataGrip to preview table data from the orders table.",
+      "expected_skill": "b-datagrip",
+      "forbidden_skills": ["b-implement", "b-debug"]
+    },
+    {
       "id": "plan-vs-implement",
       "prompt": "The desired billing behavior is ambiguous. Decide which b-agentic skill should handle clarifying scope before any code changes.",
       "expected_skill": "b-plan",
