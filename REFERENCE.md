@@ -149,7 +149,7 @@ documentation and are not exercised live by this repository's checks.
 `claude/configs/settings.template.json` is generated from
 `references/mcp_operations.yaml`. It allows repository-local tools and named
 read-only, conditional-read, and trusted-mutation MCP tools, asks before private-data reads, other classified mutations, uploads, lifecycle, and
-auth tools, asks before a plain `git push` and before `gh` commands that change reversible
+auth tools, asks before a `git push` that names its remote and branch and before `gh` commands that change reversible
 GitHub state (`gh pr create`/`close`/`edit`, `gh auth switch`, `gh release create`/`upload`/`edit`,
 `gh repo create`/`fork`, `gh issue close`/`edit`, `gh workflow run`, and `gh api` with a body or method
 flag such as `-f` or `-X`), and denies the
@@ -159,7 +159,7 @@ named dangerous commands (`git pull`, `git reset --hard`, `git clean -f`,
 `gh repo delete`/`archive`/`rename`/`edit`, `gh release delete`, `gh extension install`,
 `gh alias set`, `gh secret`/`ssh-key`/`gpg-key` changes, `gh auth login`/`logout`/`token`/`refresh`,
 `gh auth status --show-token`, and `gh api` with `-X` or `--method` `DELETE`, `PUT`, or `PATCH`), and force, delete, mirror,
-all/branches, prune, and `main` or `master` pushes, each also under an `rtk` prefix where
+all/branches, prune, `main` or `master`, and destination-less (`git push`, `git push origin`) pushes, each also under an `rtk` prefix where
 relevant) and unambiguous secret files. Global-option forms such as `git -C <dir> push`
 (which also asks for `git stash push`) and combined short flags such as `-uf`
 are asked about but not pattern-denied, except `git -c <key=value> push` (the form

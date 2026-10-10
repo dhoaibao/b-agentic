@@ -62,7 +62,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 
 ## Safety and tools
 
-- Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, or default-branch push. Plain `git push` and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
+- Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, default-branch, or destination-less (`git push`, `git push origin`) push. A `git push` naming its remote and branch and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
 - Claude Code exposes MCP tools as `mcp__<server>__<tool>`; generated permission rules follow Managed MCP operations below. Only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images): inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain. Specialists call only the tools their profile lists.
 

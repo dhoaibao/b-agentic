@@ -73,13 +73,13 @@ Evidence: [`references/kernel.template.md`](../../references/kernel.template.md)
 
 The generated settings template allows repository-local tools and named
 read-only, conditional-read, and trusted-mutation MCP tools, asks before other
-classified mutations, uploads, lifecycle, and auth tools, asks before a plain `git push` and before `gh` commands that change reversible GitHub
+classified mutations, uploads, lifecycle, and auth tools, asks before a `git push` that names its remote and branch and before `gh` commands that change reversible GitHub
 state (`gh pr create`, `gh auth switch`, `gh release create`, `gh api` with a body or method flag),
 and denies named dangerous commands (`git pull`, `git reset --hard`, `git clean -f`,
 `git branch -D`, `rm -rf`, destructive, credential, or code-installing `gh` commands such as
 `gh pr merge`, `gh repo delete`/`archive`/`edit`, `gh release delete`, `gh extension install`,
 `gh alias set`, `gh auth login`/`token`, and `gh api` with a `DELETE`, `PUT`, or `PATCH` method, force, delete,
-mirror, all/branches, prune, and `main` or `master` pushes, privilege escalation, bare
+mirror, all/branches, prune, `main` or `master`, and destination-less (`git push`, `git push origin`) pushes, privilege escalation, bare
 shells) plus unambiguous secret files through `Read(path)` and `Edit(path)` rules
 (Claude Code warns about and ignores `Write(path)` rules; an `Edit` rule
 covers every built-in file-editing tool). Claude Code deny rules cannot carve out `.env.example`, so the `b-path-guard` PreToolUse hook enforces

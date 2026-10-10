@@ -61,7 +61,8 @@ DENY_READ_GLOBS = (
     "**/*credentials.*",
     "**/*secrets.*",
 )
-# Plain pushes, PR creation, and `gh auth switch` ask each time; the patterns below stay denied.
+# Pushes that name a destination, PR creation, and `gh auth switch` ask each time; the patterns
+# below stay denied, including the destination-less `git push` and `git push origin`.
 # Claude Code evaluates deny before ask before allow, so the denies carve
 # exceptions out of the ask rules. `*` matches any characters, so every flag and
 # protected-branch pattern is anchored on argument boundaries (a leading space,
