@@ -6,7 +6,7 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 
 The main session evaluates the child's sourced evidence before any user-facing or consequential action. It may resume a compatible research task through the harness's supported resume identifier; the child must treat the continuation packet as evidence, not current truth.
 
-Scope the handoff to the user's external-knowledge question only; do not have the child read local or harness-internal source unless the user asked (code tracing belongs to **b-debug** or **b-plan**). The profile sets no turn cap; bound a call in the task text only when needed (for example, about 50 tool calls for multi-source synthesis or deep dives). A turn-limit wrap-up is partial: report its gaps and ask the user before continuing only the missing delta by resuming or with a fresh, narrower run; never resume or rerun on your own.
+Scope the handoff to the user's external-knowledge question only; do not have the child read local or harness-internal source unless the user asked (code tracing belongs to **b-debug** or **b-plan**); a named lockfile or manifest for version pins is the one exception. The profile sets no turn cap; bound a call in the task text only when needed (for example, about 50 tool calls for multi-source synthesis or deep dives). A turn-limit wrap-up is partial: report its gaps and ask the user before continuing only the missing delta by resuming or with a fresh, narrower run; never resume or rerun on your own.
 
 If a child ends abruptly with an abort or tool-use-limit error after many tool turns, treat it as probable turn-cap exhaustion, not a network error: report the agent ID, any transcript path in the result, and turns used, then ask the user whether to narrow the scope, raise the bound, or resume only to finalize.
 
@@ -33,7 +33,7 @@ If a child ends abruptly with an abort or tool-use-limit error after many tool t
 ## Steps
 
 1. Classify the question and required source quality.
-2. Pin version from resolved lockfiles (e.g., package-lock.json, poetry.lock, Cargo.lock, pnpm-lock.yaml) or go.mod when API details matter. Use manifests (e.g., package.json, pyproject.toml) only as a fallback, and state the uncertainty when versions are not pinned.
+2. Use the version pins the handoff supplies when API details matter. If none were supplied, read only the named lockfile (e.g., package-lock.json, poetry.lock, Cargo.lock, pnpm-lock.yaml) or go.mod, with manifests (e.g., package.json, pyproject.toml) as a fallback, and state the uncertainty when versions are not pinned.
 3. Use Context7 first for versioned library/framework APIs when suitable.
 4. For structured records, filterable listings, transcripts, or data APIs, use `mcp__firecrawl__firecrawl_find_tools` before generic web discovery. Inspect a matching tool's contract before use; report terms, availability, or approval requirements to the main session rather than accepting terms or executing a gated provider.
 5. Use Firecrawl search first for public web discovery and current sources when library docs alone do not answer the question. Set an explicit result limit of at most 5.

@@ -30,13 +30,17 @@ Fetch outside truth at the lightest reliable depth, with sourced evidence and a 
 - Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `b-researcher.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of `Edit`, `Write`, `NotebookEdit` (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `b-researcher` and a bounded task naming `b-research`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
 - `b-researcher` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
 
+Parent-owned evidence to gather and pass to the child (or state what is unavailable):
+
+- the external question and as-of date; library/runtime version pins the main session resolved from lockfiles or manifests, or the named lockfile to read when none is resolved; no local source, repository content, or private data
+
 User arguments for the bounded task: $ARGUMENTS
 
 ## Research handoff
 
 The main session evaluates the child's sourced evidence before any user-facing or consequential action. It may resume a compatible research task through the harness's supported resume identifier; the child must treat the continuation packet as evidence, not current truth.
 
-Scope the handoff to the user's external-knowledge question only; do not have the child read local or harness-internal source unless the user asked (code tracing belongs to **b-debug** or **b-plan**). The profile sets no turn cap; bound a call in the task text only when needed (for example, about 50 tool calls for multi-source synthesis or deep dives). A turn-limit wrap-up is partial: report its gaps and ask the user before continuing only the missing delta by resuming or with a fresh, narrower run; never resume or rerun on your own.
+Scope the handoff to the user's external-knowledge question only; do not have the child read local or harness-internal source unless the user asked (code tracing belongs to **b-debug** or **b-plan**); a named lockfile or manifest for version pins is the one exception. The profile sets no turn cap; bound a call in the task text only when needed (for example, about 50 tool calls for multi-source synthesis or deep dives). A turn-limit wrap-up is partial: report its gaps and ask the user before continuing only the missing delta by resuming or with a fresh, narrower run; never resume or rerun on your own.
 
 If a child ends abruptly with an abort or tool-use-limit error after many tool turns, treat it as probable turn-cap exhaustion, not a network error: report the agent ID, any transcript path in the result, and turns used, then ask the user whether to narrow the scope, raise the bound, or resume only to finalize.
 
@@ -63,7 +67,7 @@ If a child ends abruptly with an abort or tool-use-limit error after many tool t
 ## Steps
 
 1. Classify the question and required source quality.
-2. Pin version from resolved lockfiles (e.g., package-lock.json, poetry.lock, Cargo.lock, pnpm-lock.yaml) or go.mod when API details matter. Use manifests (e.g., package.json, pyproject.toml) only as a fallback, and state the uncertainty when versions are not pinned.
+2. Use the version pins the handoff supplies when API details matter. If none were supplied, read only the named lockfile (e.g., package-lock.json, poetry.lock, Cargo.lock, pnpm-lock.yaml) or go.mod, with manifests (e.g., package.json, pyproject.toml) as a fallback, and state the uncertainty when versions are not pinned.
 3. Use Context7 first for versioned library/framework APIs when suitable.
 4. For structured records, filterable listings, transcripts, or data APIs, use `mcp__firecrawl__firecrawl_find_tools` before generic web discovery. Inspect a matching tool's contract before use; report terms, availability, or approval requirements to the main session rather than accepting terms or executing a gated provider.
 5. Use Firecrawl search first for public web discovery and current sources when library docs alone do not answer the question. Set an explicit result limit of at most 5.

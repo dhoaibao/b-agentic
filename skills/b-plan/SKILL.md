@@ -28,6 +28,10 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 - Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `b-planner.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of `Edit`, `Write`, `NotebookEdit` (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `b-planner` and a bounded task naming `b-plan`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
 - `b-planner` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.
 
+Parent-owned evidence to gather and pass to the child (or state what is unavailable):
+
+- goal, constraints, non-goals, known decisions and prior findings; branch, HEAD, ahead/behind, and git status baseline; state gaps rather than asking the child to guess history
+
 User arguments for the bounded task: $ARGUMENTS
 
 ## When to use

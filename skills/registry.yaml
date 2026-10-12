@@ -24,6 +24,7 @@
     {
       "name": "b-plan",
       "execution": {"mode": "subagent", "agent": "b-planner"},
+      "handoff": ["goal, constraints, non-goals, known decisions and prior findings; branch, HEAD, ahead/behind, and git status baseline; state gaps rather than asking the child to guess history"],
       "phase": "Decide",
       "use": "Figure out what to do when scope or approach is fuzzy, then produce an execution-ready plan",
       "argument_hint": "[goal or problem]",
@@ -50,6 +51,7 @@
     {
       "name": "b-research",
       "execution": {"mode": "subagent", "agent": "b-researcher"},
+      "handoff": ["the external question and as-of date; library/runtime version pins the main session resolved from lockfiles or manifests, or the named lockfile to read when none is resolved; no local source, repository content, or private data"],
       "phase": "Decide",
       "use": "Fetch outside truth: docs, API facts, comparisons, or recent evidence",
       "argument_hint": "[question or topic]",
@@ -380,7 +382,7 @@
       "execution": {"mode": "main"},
       "phase": "Validate",
       "use": "Review changed code",
-      "argument_hint": "[diff, commit range, or checkpoint]",
+      "argument_hint": "[working tree or changes since a base ref]",
       "routing": {
         "intent": "Pre-PR changed-code review",
         "triggers": [
@@ -395,7 +397,7 @@
         ]
       },
       "prompt": {
-        "description": "Pre-PR changed-code review for architect-style reads of a diff, commit range, or checkpoint after implementation. Do NOT invoke for PR-prose review, b-agentic repository or design-conformance audits, UI/design review, plan review, or research synthesis review."
+        "description": "Pre-PR changed-code review for architect-style reads of working-tree changes or changes since a base ref after implementation. Do NOT invoke for PR-prose review, b-agentic repository or design-conformance audits, UI/design review, plan review, or research synthesis review."
       }
     },
     {
