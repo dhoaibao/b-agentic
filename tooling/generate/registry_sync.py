@@ -905,8 +905,8 @@ def validate_regressions(
         if TURN_BUDGET_NOTICE not in rendered:
             errors.append(f"agent regression: {name} profile must carry the turn-budget wrap-up notice")
         tools = agent_tool_list(agent, policy)
-        if any(tool in tools for tool in EDITING_TOOLS) or "Agent" in tools or "Task" in tools:
-            errors.append(f"agent regression: {name} profile must stay read-only and non-delegating")
+        if any(tool in tools for tool in EDITING_TOOLS) or {"Agent", "Task", "AskUserQuestion"} & set(tools):
+            errors.append(f"agent regression: {name} profile must stay read-only, non-delegating, and non-interactive")
         if any(tool.startswith("mcp__notion__") for tool in tools):
             errors.append(f"agent regression: {name} must not receive private Notion workspace tools")
     for bad_turns in (0, -1, True, "25"):

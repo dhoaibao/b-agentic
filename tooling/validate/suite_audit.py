@@ -12,8 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MAX_KERNEL_LINES = 100
-MAX_KERNEL_BYTES = 11_800
+sys.path.insert(0, str(ROOT))
 
 
 def run_cmd(cmd: list[str], label: str) -> bool:
@@ -40,6 +39,8 @@ def skill_names() -> list[str]:
 
 
 def audit_slimness(errors: list[str]) -> None:
+    from tooling.generate.registry_sync import MAX_KERNEL_BYTES, MAX_KERNEL_LINES
+
     kernel = ROOT / "references" / "kernel.template.md"
     text = kernel.read_text()
     lines = len(text.splitlines())
