@@ -280,6 +280,35 @@ run "$codexguard" "$(cg "$other" "git -c 'alias.scan=!node /p/codex-companion.mj
 ( cd "$repo" && node "$codexguard" --revoke >/dev/null )
 run "$codexguard" "$(cg "$repo" "$review")"; expect 2 "a revoked repository must be refused"
 ( cd "$repo" && node "$codexguard" --bogus 2>/dev/null ) && fail "an unknown argument must fail" || true
+
+# The approval itself is a tripwire: a command that records, redirects, or rewrites it
+# answers on stdout with an "ask" decision and exits 0; unrelated commands stay silent.
+ag_out() { out=$(printf '%s' "$1" | node "$codexguard") || fail "the approval tripwire must exit 0"; }
+ag_asks() {
+  ag_out "$(cg "$repo" "$1")"
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$out")" = ask ] || fail "codex guard must ask for: $1"
+}
+ag_silent() {
+  ag_out "$(cg "$repo" "$1")"
+  [ -z "$out" ] || fail "codex guard must stay silent for: $1 ($out)"
+}
+ag_asks 'node "$HOME/.claude/b-agentic/hooks/b-codex-guard.mjs" --approve'
+ag_asks 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
+ag_asks 'rtk node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
+ag_asks 'cd /repo && node ./b-codex-guard.mjs --approve'
+ag_asks 'node ~/.claude/b-agentic/hooks/b-codex-""guard.mjs --approve'
+ag_asks $'node ~/.claude/b-agentic/hooks/b-codex-gu\\\nard.mjs --approve'
+ag_asks "sh -c 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'"
+ag_asks 'B_AGENTIC_STATE_DIR=/tmp/x node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
+ag_asks 'export B_AGENTIC_STATE_DIR=/tmp/x; node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
+ag_asks "echo '[\"/repo\"]' > ~/.claude/b-agentic/codex-approved-repos.json"
+ag_silent 'ls -la'
+ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check'
+ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --revoke'
+ag_silent 'node /p/codex-companion.mjs status'
+ag_silent 'rg -n B_AGENTIC_STATE_DIR claude/hooks'
+# A refused companion call is still refused, not downgraded to a prompt.
+cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope working-tree x && node ~/b-codex-guard.mjs --approve' "a refused companion call must stay refused"
 echo "hooks probe passed: codex-guard"
 
 # --- verdict mapper --------------------------------------------------------------

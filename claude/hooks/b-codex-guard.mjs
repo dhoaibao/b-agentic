@@ -11,7 +11,9 @@
 //
 // Modes:
 //   (no args)          PreToolUse hook: stdin JSON, exit 2 with a stderr reason
-//                      blocks a Bash call that runs the plugin's companion script.
+//                      blocks a Bash call that runs the plugin's companion script;
+//                      a Bash call that records or redirects the approval gets a
+//                      native `ask` prompt instead (a tripwire, not a boundary).
 //   --check            Evaluate the current repository; JSON on stdout, exit 0
 //                      when allowed and 3 when refused.
 //   --approve/--revoke Record or remove the standing approval for the current
@@ -187,6 +189,21 @@ const joinedText = (text) =>
   text.replace(/\\\r?\n/g, "").replace(/['"\\$`{}]/g, "");
 export const mentionsCompanion = (text) =>
   joinedText(text).includes(COMPANION_NAME);
+// The approval is a user decision, but it is recorded by a plain shell command
+// and read in-process by the review wrapper. A command that records it, points
+// the store elsewhere for the wrapper, or writes the store file is therefore put
+// to the user as a native prompt. The match is on the joined text, so quoting,
+// continuations, wrappers, and interpreters do not hide it; names built at run
+// time still can (a documented residual risk).
+export const approvalTouch = (command) => {
+  const text = joinedText(command);
+  return (
+    (text.includes("b-codex-guard") && text.includes("--approve")) ||
+    text.includes("codex-approved-repos.json") ||
+    (text.includes("B_AGENTIC_STATE_DIR") &&
+      /b-codex-(guard|review)|codex-companion/.test(text))
+  );
+};
 const redirectAllowed = ({ op, target }) =>
   target === "/dev/null" ||
   // `2>&1` and `>&-` duplicate or close a descriptor; `>&word` is a file.
@@ -358,7 +375,20 @@ async function hook() {
   const guarded =
     found.refusal !== null ||
     found.invocations.some((item) => !NON_DISCLOSING.has(item.subcommand));
-  if (!guarded) return 0;
+  if (!guarded) {
+    if (!approvalTouch(command)) return 0;
+    process.stdout.write(
+      `${JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "ask",
+          permissionDecisionReason:
+            "b-agentic Codex guard: this command records, redirects, or rewrites the standing approval to send this repository to Codex (OpenAI). Approve only if you said yes to that disclosure.",
+        },
+      })}\n`,
+    );
+    return 0;
+  }
   const result = await evaluate({ command, cwd: event.cwd || process.cwd() });
   if (result.ok) return 0;
   return refuse(

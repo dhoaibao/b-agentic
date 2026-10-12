@@ -103,7 +103,8 @@ the ClickUp task images that `b-clickup-guard` checks.
 Sending a repository to Codex discloses it to OpenAI, and Codex's read-only
 sandbox can read every workspace file; Codex has no ignore mechanism. The
 `b-review` therefore runs the gate through one wrapper, `b-codex-review`, whose
-checks are code rather than model discipline or shell parsing. The wrapper
+checks are code rather than model discipline or shell parsing (the approval they
+read is covered below). The wrapper
 refuses unless no likely-secret path is tracked, staged, or
 untracked-and-not-ignored, no submodule or embedded repository hides paths from
 the name scan, and the user approved sending that repository (a standing,
@@ -126,6 +127,16 @@ and refuses wrappers, neighbouring commands, expansions, subshells, comments
 hiding options, unsafe redirections, and unreadable input that names the script.
 Mentioning the script name in an unrelated command (a commit message, a search)
 is refused too; use the Grep tool for that.
+The approval is the one input of those checks that a model could still record:
+`b-codex-guard --approve` is a plain shell command and the wrapper reads the
+store in-process, where no Bash hook sees it. The same hook therefore puts any
+Bash command that records the approval, sets `B_AGENTIC_STATE_DIR` for the guard,
+wrapper, or plugin, or names the approval store file under `~/.claude/b-agentic`
+to the user as a native `ask` prompt, on top of the `AskUserQuestion` that `b-review`
+issues first. This is a tripwire, not a boundary: names built at run time,
+another interpreter or a script writing the store, and an exported override
+still reach it. Closing that would need the approval kept where the model cannot
+write; that is not done and is an accepted residual risk.
 The plugin's own Stop-hook review gate stays disabled: it reviews the last answer,
 not the frozen candidate, and can loop.
 Hook matching the plugin's Bash invocation, deny-rule syntax, and exit-code

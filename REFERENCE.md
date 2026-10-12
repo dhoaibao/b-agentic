@@ -108,10 +108,14 @@ The gate sequence is:
    when a likely-secret path is tracked, staged, or untracked-and-not-ignored,
    when a submodule or embedded repository hides paths, or when the repository
    has no standing approval. Approve once per repository with `--approve` after
-   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it.
+   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. The
+   guard hook asks for a native confirmation of any Bash command that records
+   the approval, points `B_AGENTIC_STATE_DIR` at another store, or writes
+   `codex-approved-repos.json` (a tripwire, not a boundary).
 3. Run the gate with the wrapper, from the repository, with nothing editing:
    `node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round
-<n> --focus-file <path>` (or `--base <ref>`; `--kind native` for the plugin's
+<n> --focus-file <path>` (or `--base <ref>` instead of `--scope working-tree`
+   for committed changes since that ref; `--kind native` for the plugin's
    focus-less review; `--include-ignored <path>` as at step 1). The wrapper
    reruns the secret and approval gate, freezes the candidate (`f0`), finds the
    plugin's `codex-companion.mjs` under `~/.claude/plugins` (or
