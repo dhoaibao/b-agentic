@@ -27,7 +27,7 @@ BANNER_FONT = {
     "I": ("█████", "  █  ", "  █  ", "  █  ", "█████"),
     "C": (" ████", "█    ", "█    ", "█    ", " ████"),
 }
-BANNER_SHADES = (252, 249, 246, 243, 240)
+BANNER_SHADES = (153, 117, 75, 69, 33)
 UNICODE_GLYPHS = {
     "step": "◇",
     "done": "●",
@@ -52,7 +52,7 @@ ASCII_GLYPHS = {
     "h": "-",
     "v": "|",
 }
-COLORS = {"cyan": "36", "green": "32", "yellow": "33", "dim": "2", "bold": "1", "blue": "34"}
+COLORS = {"cyan": "36", "green": "32", "yellow": "33", "dim": "2", "bold": "1", "blue": "34", "bright_blue": "94"}
 
 
 def visible_len(text: str) -> int:
@@ -114,7 +114,7 @@ class Ui:
                 line = line.replace("█", "#")
             self.emit(line)
         self.emit()
-        self.emit(f"{self.style(self.glyph['top'], 'blue')}  {self.style(' b-agentic ', 'cyan', 'bold')}")
+        self.emit(f"{self.style(self.glyph['top'], 'blue')}  {self.style(' b-agentic ', 'bright_blue', 'bold')}")
 
     def step(self, title: str, detail: str | None = None, *, bold: bool = False, done: bool = False) -> None:
         if not self.fancy:
