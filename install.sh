@@ -2,7 +2,7 @@
 # install.sh - bootstrap, refresh, or remove the Claude Code b-agentic setup.
 #
 # Usage:
-#   ./install.sh [--dry-run] [--force] [--with-clickup]   install or sync from this checkout
+#   ./install.sh [--dry-run] [--force] [--with-clickup] [-y]   install or sync from this checkout
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
@@ -11,6 +11,8 @@
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
 # runs vendor installers and never writes under ~/.pi; only ~/.claude is supported.
+# On a terminal the installer shows a banner and asks before writing (via /dev/tty, so
+# it works when piped); -y/--yes, --dry-run, or no terminal keeps the plain output.
 
 set -euo pipefail
 
@@ -30,7 +32,7 @@ while [ "$#" -gt 0 ]; do
     --update) UPDATE=1 ;;
     --dry-run) DRY_RUN=1; PASSTHROUGH+=("$1") ;;
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
-    --force|--with-clickup|--without-clickup) PASSTHROUGH+=("$1") ;;
+    --force|--with-clickup|--without-clickup|-y|--yes) PASSTHROUGH+=("$1") ;;
     --ref=*) REF="${1#--ref=}"; [ -n "$REF" ] || die 'invalid empty --ref' ;;
     *) die "unknown argument: $1" ;;
   esac

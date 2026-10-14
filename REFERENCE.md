@@ -20,6 +20,13 @@ the frozen Pi installer. The script never runs vendor installers and never
 writes under `~/.pi`.
 
 - `--dry-run` prints the plan and changes nothing.
+- On a terminal the installer shows a banner, a summary box, and asks before
+  writing (and whether to add the optional ClickUp MCP server on a first
+  install). Questions are read from `/dev/tty`, so they work when piped. `-y` /
+  `--yes`, `--dry-run`, `--uninstall`, or a non-terminal stdout keep plain output
+  and the defaults; `NO_COLOR` disables color. Answering No leaves `~/.claude`
+  and `~/.claude.json` untouched; a piped run has already cloned or updated the
+  source checkout by then, because the summary needs it.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.

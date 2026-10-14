@@ -753,3 +753,76 @@ out=$(cat "$root/install.sh" | env -u CLAUDE_CONFIG_DIR HOME="$home" B_AGENTIC_R
 [ "$rc" = 1 ] || fail "an update whose .git lives under ~/.pi must be refused (exit $rc)"
 [ "$pi_before" = "$(tree "$home/.pi")" ] || fail "a refused update touched the Pi tree"
 echo "install probe passed: bootstrap-git"
+
+# --- terminal UI: banner and confirm on a pty, reading answers from /dev/tty, stdin piped ----------------
+cat >"$work/pty-run.py" <<'PY'
+import os, pty, select, subprocess, sys, time
+
+home, *answers = sys.argv[1:]
+env = {k: v for k, v in os.environ.items() if k not in {"NO_COLOR", "CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR", "B_AGENTIC_CLICKUP_MCP"}}
+env.update(HOME=home, TERM="xterm-256color")
+pid, fd = pty.fork()
+if pid == 0:
+    keep = {k: os.environ[k] for k in ("PROBE_ROOT", "PROBE_CMD", "B_AGENTIC_REPO", "B_AGENTIC_DIR") if k in os.environ}
+    os.execvpe("bash", ["bash", "-c", os.environ["PROBE_CMD"]], {**env, **keep})
+buf, last = b"", time.time()
+while time.time() - last < 20:
+    ready, _, _ = select.select([fd], [], [], 0.3)
+    if ready:
+        try:
+            chunk = os.read(fd, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        buf, last = buf + chunk, time.time()
+    elif answers and time.time() - last > 0.5:
+        answer = answers.pop(0)
+        if answer.startswith("!"):  # a shell command run while the prompt is open
+            subprocess.run(answer[1:], shell=True, env=env, check=True)
+        else:
+            os.write(fd, (answer + "\n").encode())
+        last = time.time()
+    elif not answers and time.time() - last > 3:
+        break
+os.waitpid(pid, 0)
+sys.stdout.write(buf.decode(errors="replace"))
+PY
+# shellcheck disable=SC2016 # expanded by the child shell, which gets PROBE_ROOT in its environment
+piped_install='echo ignored | bash "$PROBE_ROOT/install.sh"'
+# shellcheck disable=SC2016
+piped_bootstrap='cat "$PROBE_ROOT/install.sh" | bash -s'
+# tui_run <home> <command> [answers...]: the command on a pty with the answers typed in order.
+tui_run() {
+  local home=$1 command=$2
+  shift 2
+  PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
+}
+home=$(fresh_home tui)
+tui_out=$(tui_run "$home" "$piped_install" n n)
+grep -Fq 'Installation Summary' <<<"$tui_out" || fail "TUI summary box missing: $tui_out"
+grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "TUI confirm missing: $tui_out"
+[ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining the confirm must change nothing"
+tui_out=$(tui_run "$home" "$piped_install" n y)
+grep -Fq 'Installed' <<<"$tui_out" || fail "TUI installed box missing: $tui_out"
+[ -f "$home/.claude/b-agentic/install.json" ] || fail "accepting the confirm must install"
+[ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp stays off when declined"
+# Excluded modes keep the plain output even on a terminal (no banner, no boxes, no questions).
+for mode in --dry-run --yes --uninstall; do
+  tui_out=$(tui_run "$home" "$piped_install $mode")
+  if grep -Fq '█' <<<"$tui_out" || grep -Fq 'Installation Summary' <<<"$tui_out"; then fail "$mode must keep plain output: $tui_out"; fi
+  grep -Fq 'b-agentic ' <<<"$tui_out" || fail "$mode printed no summary: $tui_out"
+done
+# Declining a piped bootstrap leaves the Claude configuration untouched.
+home=$(fresh_home tui-bootstrap)
+tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n n)
+grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "bootstrap confirm missing: $tui_out"
+[ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining a bootstrap must leave ~/.claude untouched"
+# A destination alias created while the confirm is open is refused before any write.
+home=$(fresh_home tui-alias)
+# shellcheck disable=SC2016 # expanded by the harness shell, whose HOME is the sandbox
+alias_cmd='!mkdir -p "$HOME/.claude" && ln -s "$HOME/.claude/settings.json" "$HOME/.claude.json"'
+tui_out=$(tui_run "$home" "$piped_install" n "$alias_cmd" y)
+grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
+[ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] && [ ! -e "$home/.claude/settings.json" ] || fail "a refused alias must leave ~/.claude untouched"
+echo "install probe passed: tui"

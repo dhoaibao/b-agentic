@@ -34,6 +34,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from claude_install_ui import Ui
+
 ROOT = Path(__file__).resolve().parents[2]
 KERNEL_BLOCK_START = "<!-- b-agentic:start -->"
 KERNEL_BLOCK_END = "<!-- b-agentic:end -->"
@@ -192,8 +194,9 @@ def merge_unique(*groups: list[Any]) -> list[Any]:
 
 
 class Installer:
-    def __init__(self, source: Path, dry_run: bool, force: bool, clickup: bool | None) -> None:
+    def __init__(self, source: Path, dry_run: bool, force: bool, clickup: bool | None, ui: Ui | None = None) -> None:
         self.source = source
+        self.ui = ui if ui is not None else Ui(enabled=False)
         self.claude_dir = resolve_claude_dir()
         self.assets_dir = self.claude_dir / "b-agentic"
         self.manifest_path = self.assets_dir / "install.json"
@@ -215,6 +218,41 @@ class Installer:
 
     def warn(self, text: str) -> None:
         self.warnings.append(text)
+
+    @staticmethod
+    def display_text(text: str) -> str:
+        return text.replace(str(home_dir()), "~")
+
+    def display(self, path: Path | str) -> str:
+        text = str(path)
+        home = str(home_dir())
+        return "~" + text[len(home) :] if text == home or text.startswith(home + os.sep) else text
+
+    def plan_summary(
+        self,
+        files: dict[str, Any],
+        kernel: dict[str, Any],
+        settings: dict[str, Any],
+        mcp: dict[str, Any],
+        clickup: bool,
+    ) -> list[str]:
+        def verb(text: Any, changed: str) -> str:
+            return changed if text is not None else "unchanged"
+
+        file_parts = [f"{len(files['writes'])} to write", f"{self.counts['unchanged']} unchanged"]
+        if files["removals"]:
+            file_parts.append(f"{len(files['removals'])} to remove")
+        if self.counts["kept"]:
+            file_parts.append(f"{self.counts['kept']} kept")
+        return [
+            self.ui.style(self.display(self.claude_dir), "cyan"),
+            f"  {self.ui.style('files', 'green')}: {', '.join(file_parts)}",
+            f"  {self.ui.style('kernel', 'green')}: CLAUDE.md block "
+            f"{verb(kernel['text'], 'updated' if kernel['existed'] else 'written')}",
+            f"  {self.ui.style('settings', 'green')}: settings.json {verb(settings['text'], 'merged')}",
+            f"  {self.ui.style('mcp', 'green')}: {self.display(self.mcp_path)} {verb(mcp['text'], 'merged')}"
+            f" (ClickUp {'on' if clickup else 'off'})",
+        ]
 
     # -- destinations -------------------------------------------------------------
     def managed_path(self, relative: str) -> Path:
@@ -368,6 +406,16 @@ class Installer:
         )
 
     # -- planning -----------------------------------------------------------------
+    def plan_all(self, previous: dict[str, Any], clickup: bool) -> tuple[dict[str, Any], ...]:
+        self.counts = {name: 0 for name in self.counts}
+        self.warnings.clear()
+        return (
+            self.plan_files(previous),
+            self.plan_kernel(previous),
+            self.plan_settings(previous.get("settings", {})),
+            self.plan_mcp(clickup, previous),
+        )
+
     def plan_files(self, manifest: dict[str, Any]) -> dict[str, Any]:
         recorded: dict[str, str] = {}
         writes: list[tuple[Path, bytes, bool]] = []
@@ -541,22 +589,43 @@ class Installer:
         }
 
     # -- operations -----------------------------------------------------------
-    def install(self) -> None:
+    def validate_destinations(self) -> tuple[dict[str, Any], list[str]]:
+        """Preflight the destinations and read the manifest; repeated after a prompt, so a change
+        made while it was open (an alias, a symlink) is refused rather than planned around."""
         self.preflight()
         previous = self.read_manifest()
+        payload = list(self.payload())
         self.check_aliases(
             merge_unique(
-                list(self.payload()),
+                payload,
                 list(previous.get("files", {})),
                 list(previous.get("pending", {}).get("files", {})),
             )
         )
+        return previous, payload
+
+    def install(self) -> None:
+        previous, payload = self.validate_destinations()
+        skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
+        agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
+        self.ui.step(f"Source: {self.display(self.source)}")
+        self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
+        if self.clickup_choice is None and "clickup" not in previous and self.ui.interactive:
+            self.clickup_choice = self.ui.confirm("Add the optional ClickUp MCP server?", default=False)
         clickup = self.clickup_choice if self.clickup_choice is not None else bool(previous.get("clickup", False))
         # Plan everything first: any structural refusal happens before the first write.
-        files = self.plan_files(previous)
-        kernel = self.plan_kernel(previous)
-        settings = self.plan_settings(previous.get("settings", {}))
-        mcp = self.plan_mcp(clickup, previous)
+        files, kernel, settings, mcp = self.plan_all(previous, clickup)
+        if self.ui.fancy:
+            self.ui.box("Installation Summary", self.plan_summary(files, kernel, settings, mcp, clickup))
+            if self.ui.interactive:
+                if not self.ui.confirm("Proceed with installation?", default=True):
+                    raise InstallError(
+                        f"installation cancelled; nothing under {self.claude_dir} or {self.mcp_path} was changed"
+                    )
+                # The prompt may stay open for minutes: plan again from the files as they are now, so
+                # edits made meanwhile are merged rather than overwritten by the earlier snapshot.
+                previous, _ = self.validate_destinations()
+                files, kernel, settings, mcp = self.plan_all(previous, clickup)
         final = {
             "schema": MANIFEST_SCHEMA,
             "target": "claude",
@@ -766,7 +835,27 @@ class Installer:
             )
         return lines
 
+    def report_fancy(self, operation: str) -> None:
+        verb = "Uninstalled" if operation == "uninstall" else "Installed"
+        summary = ", ".join(f"{count} {name}" for name, count in self.counts.items() if count)
+        label = "[dry-run] " if self.dry_run else ""
+        ok = self.ui.glyph["ok"]
+        self.ui.step(f"{label}{'Uninstall' if operation == 'uninstall' else 'Installation'} complete", done=True)
+        lines = [f"{self.ui.style(ok, 'green')} {self.display(self.claude_dir)}", f"  {summary or 'no changes'}"]
+        lines += [f"  {self.display_text(message)}" for message in self.messages]
+        self.ui.box(f"{label}{verb}", lines, tone="green")
+        if self.warnings:
+            self.ui.box(
+                "Warnings", [f"{self.ui.style('!', 'yellow')} {warning}" for warning in self.warnings], tone="yellow"
+            )
+        if operation != "uninstall" and not self.dry_run:
+            self.ui.box("Next steps", [line[2:] if line.startswith("  ") else line for line in self.next_steps()[1:]])
+        self.ui.emit()
+
     def report(self, operation: str) -> None:
+        if self.ui.fancy:
+            self.report_fancy(operation)
+            return
         for message in self.messages:
             print(message)
         for warning in self.warnings:
@@ -792,6 +881,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--uninstall", action="store_true", help="remove what the manifest recorded")
     parser.add_argument("--dry-run", action="store_true", help="print the plan and change nothing")
     parser.add_argument("--force", action="store_true", help="replace modified or unmanaged files after a backup")
+    parser.add_argument("-y", "--yes", action="store_true", help="skip interactive questions and use defaults")
     parser.add_argument("--source", default=str(ROOT), help="b-agentic source checkout (default: this repository)")
     clickup = parser.add_mutually_exclusive_group()
     clickup.add_argument("--with-clickup", action="store_true", help="add the optional ClickUp MCP server")
@@ -804,13 +894,18 @@ def main(argv: list[str] | None = None) -> int:
         choice = True if args.with_clickup else False if args.without_clickup else None
         if choice is None and os.environ.get("B_AGENTIC_CLICKUP_MCP", "").lower() in {"y", "yes", "true", "1"}:
             choice = True
-        installer = Installer(source, args.dry_run, args.force, choice)
-        if args.uninstall:
-            installer.uninstall()
-            installer.report("uninstall")
-        else:
-            installer.install()
-            installer.report(f"install ({source_revision(source) or 'unversioned source'})")
+        ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
+        ui.banner()
+        installer = Installer(source, args.dry_run, args.force, choice, ui)
+        try:
+            if args.uninstall:
+                installer.uninstall()
+                installer.report("uninstall")
+            else:
+                installer.install()
+                installer.report(f"install ({source_revision(source) or 'unversioned source'})")
+        finally:
+            ui.close()
     except InstallError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
