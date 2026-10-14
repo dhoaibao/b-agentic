@@ -608,6 +608,12 @@ class Installer:
         previous, payload = self.validate_destinations()
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
+        notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
+        for note in notes:
+            if self.ui.fancy:
+                self.ui.step(self.display_text(note))
+            else:
+                print(note)
         self.ui.step(f"Source: {self.display(self.source)}")
         self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
         if self.clickup_choice is None and "clickup" not in previous and self.ui.interactive:

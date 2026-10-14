@@ -22,22 +22,40 @@ REF="${B_AGENTIC_REF:-}"
 UPDATE=0
 DRY_RUN=0
 UNINSTALL=0
+YES=0
+NOTES=""
 PASSTHROUGH=()
 
-die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+die() {
+  [ -z "$NOTES" ] || printf '%s\n' "$NOTES"
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
 log() { printf '%s\n' "$*"; }
+# note <text>: a progress line. When the installer will draw its terminal UI it takes the notes over
+# (B_AGENTIC_NOTES) and shows them as steps under its banner; otherwise they print immediately.
+note() {
+  if [ "$FANCY" -eq 1 ]; then NOTES="${NOTES:+$NOTES$'\n'}$*"; else log "$*"; fi
+}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --update) UPDATE=1 ;;
     --dry-run) DRY_RUN=1; PASSTHROUGH+=("$1") ;;
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
-    --force|--with-clickup|--without-clickup|-y|--yes) PASSTHROUGH+=("$1") ;;
+    -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
+    --force|--with-clickup|--without-clickup) PASSTHROUGH+=("$1") ;;
     --ref=*) REF="${1#--ref=}"; [ -n "$REF" ] || die 'invalid empty --ref' ;;
     *) die "unknown argument: $1" ;;
   esac
   shift
 done
+
+# Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
+FANCY=0
+if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ "$DRY_RUN" -eq 0 ] && [ "$UNINSTALL" -eq 0 ] && [ "$YES" -eq 0 ]; then
+  FANCY=1
+fi
 
 if [ -n "$REF" ] && ! [[ "$REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; then
   die 'invalid --ref or B_AGENTIC_REF; use a tag, branch, or commit-like name'
@@ -101,7 +119,7 @@ else
     if [ "$DRY_RUN" -eq 1 ] || [ "$UNINSTALL" -eq 1 ]; then
       die "no b-agentic source checkout at $SOURCE_DIR; --dry-run and --uninstall do not clone"
     fi
-    log "Cloning source: $REPO_URL -> $SOURCE_DIR"
+    note "Cloning source: $REPO_URL -> $SOURCE_DIR"
     mkdir -p "$(dirname "$SOURCE_DIR")"
     sgit clone --quiet -- "$REPO_URL" "$SOURCE_DIR"
     verify_checkout "$SOURCE_DIR"
@@ -118,7 +136,7 @@ if [ -e "$SOURCE_DIR/.git" ] && [ "$UNINSTALL" -eq 0 ]; then
     if [ "$DRY_RUN" -eq 1 ]; then
       log "[dry-run] would update the source checkout: $SOURCE_DIR${REF:+ to $REF}"
     else
-      log "Updating source: $SOURCE_DIR"
+      note "Updating source: $SOURCE_DIR"
       verify_checkout "$SOURCE_DIR"
       sgit -C "$SOURCE_DIR" fetch --quiet --tags --prune
       if [ -n "$REF" ]; then
@@ -132,4 +150,5 @@ if [ -e "$SOURCE_DIR/.git" ] && [ "$UNINSTALL" -eq 0 ]; then
   fi
 fi
 
+export B_AGENTIC_NOTES="$NOTES"
 exec python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}

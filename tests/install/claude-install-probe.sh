@@ -825,4 +825,12 @@ alias_cmd='!mkdir -p "$HOME/.claude" && ln -s "$HOME/.claude/settings.json" "$HO
 tui_out=$(tui_run "$home" "$piped_install" n "$alias_cmd" y)
 grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] && [ ! -e "$home/.claude/settings.json" ] || fail "a refused alias must leave ~/.claude untouched"
+# The bootstrap's clone/update lines are shown as steps under the banner, not printed before it.
+home=$(fresh_home tui-notes)
+for expected in 'Cloning source' 'Updating source'; do
+  tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n n)
+  line=$(grep -nF "$expected" <<<"$tui_out" | head -1 | cut -d: -f1)
+  banner=$(grep -nF '█' <<<"$tui_out" | head -1 | cut -d: -f1)
+  [ -n "$line" ] && [ -n "$banner" ] && [ "$banner" -lt "$line" ] || fail "'$expected' must appear after the banner: $tui_out"
+done
 echo "install probe passed: tui"
