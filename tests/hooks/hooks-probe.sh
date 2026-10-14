@@ -103,8 +103,8 @@ echo "hooks probe passed: clickup-guard"
 
 # --- verify gate ---------------------------------------------------------------
 vg() {
-  jq -cn --arg event "$1" --arg session "$2" --arg tool "${3:-}" --arg path "${4:-}" --argjson active "${5:-false}" \
-    '{hook_event_name: $event, session_id: $session, tool_name: $tool, tool_input: {file_path: $path}, stop_hook_active: $active}'
+  jq -cn --arg event "$1" --arg session "$2" --arg tool "${3:-}" --arg path "${4:-}" --argjson active "${5:-false}" --arg command "${6:-}" \
+    '{hook_event_name: $event, session_id: $session, tool_name: $tool, tool_input: ({file_path: $path} + (if $command == "" then {} else {command: $command} end)), stop_hook_active: $active}'
 }
 # edit then stop: one reminder, then the continuation finishes.
 run "$verifygate" "$(vg PostToolUse s1 Edit /repo/src/a.ts)"; expect 0 "PostToolUse never blocks"
@@ -124,6 +124,49 @@ run "$verifygate" "$(vg PostToolUse s4 Edit /repo/README.md)"; expect 0 "prose e
 run "$verifygate" "$(vg Stop s4)"; expect 0 "prose edit must not remind"
 # nothing edited, nothing to remind.
 run "$verifygate" "$(vg Stop s5)"; expect 0 "no edits must not remind"
+# read-only searches and listings are not check attempts; anything else still is.
+run "$verifygate" "$(vg PostToolUse s20 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$(vg PostToolUse s20 Bash '' false "rtk rg -n 'a|b' src | head -5")"; expect 0 "search"
+run "$verifygate" "$(vg PostToolUse s20 Bash '' false 'git status --short && ls src')"; expect 0 "listing"
+run "$verifygate" "$(vg Stop s20)"; expect 2 "searches after an edit must not clear the reminder"
+run "$verifygate" "$(vg PostToolUse s21 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$(vg PostToolUse s21 Bash '' false 'rg -n x src && npm test')"; expect 0 "search plus test"
+run "$verifygate" "$(vg Stop s21)"; expect 0 "a compound command that runs a check must clear the reminder"
+run "$verifygate" "$(vg PostToolUse s22 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$(vg PostToolUse s22 Bash '' false 'find . -name x -exec node {} ;')"; expect 0 "find exec"
+run "$verifygate" "$(vg Stop s22)"; expect 0 "find -exec must count as a check attempt"
+run "$verifygate" "$(vg PostToolUse s23 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$(vg PostToolUse s23 Bash '' false 'cat src/a.ts > /tmp/x')"; expect 0 "redirect"
+run "$verifygate" "$(vg Stop s23)"; expect 0 "a redirecting command must count as a check attempt"
+# classifier regressions: quoted or escaped arguments are data, executing options are not.
+gate_case() { # session, exit code at Stop (2 = still dirty), command, description
+  run "$verifygate" "$(vg PostToolUse "$1" Edit /repo/src/a.ts)"; expect 0 "edit"
+  run "$verifygate" "$(vg PostToolUse "$1" Bash '' false "$3")"; expect 0 "shell"
+  run "$verifygate" "$(vg Stop "$1")"; expect "$2" "$4"
+}
+gate_case s24 2 'rg foo\|bar src' "an escaped pipe is an argument, not a pipeline"
+gate_case s25 2 $'rg -F \'$(name)\' src' "a single-quoted substitution is data"
+gate_case s26 2 'git -C . status --short' "git -C with a read subcommand is inspection"
+gate_case s27 0 'fdfind . -x npm test' "fd -x executes a command"
+gate_case s28 0 "find . '-exec' node {} +" "a quoted -exec still executes"
+gate_case s29 0 'rg foo > /dev/null' "a redirect to /dev/null is still a redirect"
+gate_case s30 0 'rg --pre ./filter foo src' "rg --pre executes a command"
+gate_case s31 0 'git -c core.pager=./x log' "git -c can run a command"
+gate_case s32 0 'FOO=1 rg foo src' "an environment assignment prefix is not interpreted"
+gate_case s33 0 'tree -o /tmp/listing.txt .' "tree can write a file, so it is not inspection"
+gate_case s34 0 'file -C -m custom.magic' "file -C compiles a magic file, so it is not inspection"
+gate_case s35 0 'find . -maxdepth 0 "$ACTION" echo {} +' "a double-quoted expansion is ambiguous"
+gate_case s36 0 $'find . "-ex\\\nec" echo {} +' "a backslash-newline inside double quotes is removed"
+gate_case s37 2 'rg "a|b" "src dir"' "a double-quoted pattern and path are data"
+gate_case s38 0 'find . -maxdepth 0 -exe{c..c} echo {} +' "brace expansion can build -exec"
+gate_case s39 0 'git diff --out{put,put}=/tmp/result' "brace expansion can build --output"
+gate_case s40 0 'find . -exe? echo {} +' "a glob in an option word is ambiguous"
+gate_case s41 2 'echo {} src' "a literal {} is data"
+gate_case s42 0 'find . ?exec echo {} +' "a leading ? could expand to -exec"
+gate_case s43 0 'find . [a-]exec echo {} +' "a leading bracket class could expand to -exec"
+gate_case s44 0 'rg foo *' "a bare * could expand to an option file name for rg"
+gate_case s45 2 'ls *.mjs && cat src/*.md' "leading globs are fine for tools without executing options"
+gate_case s46 2 'rg foo src/*.mjs' "a fixed-prefix glob is fine"
 # editing again during the continuation earns no second reminder.
 run "$verifygate" "$(vg PostToolUse s6 Edit /repo/src/a.ts)"; expect 0 "edit"
 run "$verifygate" "$(vg Stop s6)"; expect 2 "first stop reminds"
@@ -223,7 +266,7 @@ cmd_expect 0 'node /p/codex-companion.mjs review --wait --scope working-tree 2>&
 cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope working-tree && echo done' "a neighbouring command must be refused (default-deny)"
 cmd_expect 0 'rg -n codex-companion claude/hooks' "mentioning the plugin name in a search is not an invocation"
 cmd_expect 2 'git commit -m "document codex-companion.mjs handling"' "a command that carries the script name without being the plugin command is refused (default-deny)"
-cmd_expect 2 'rg -n codex-companion.mjs claude/hooks' "a search naming the script is refused; use the Grep tool instead"
+cmd_expect 2 'rg -n codex-companion.mjs claude/hooks' "a search naming the script is refused; use Read or a Grep tool call instead"
 cmd_expect 0 'node /p/codex-companion.mjs review --wait --scope working-tree # focus note' "a trailing comment after valid flags is fine"
 # Literal-name spellings that earlier slipped through: line continuations and interpreters or
 # wrappers that carry the full script name inside one argument.

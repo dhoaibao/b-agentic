@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // b-agentic verify gate: an advisory, one-shot reminder at the end of a turn.
 //
-// When the main session edited files after its last shell command and is about
+// When the main session edited files after its last non-inspection shell
+// command (read-only searches and listings do not count) and is about
 // to stop, block the stop once with a short message restating the kernel's
 // verify/review rule. It never blocks a tool call and never repeats within one
 // session turn.
@@ -37,6 +38,156 @@ export const REMINDER = [
   "and run the independent b-review gate; otherwise state the low-risk exception.",
   "If the work is already verified, or there is nothing to verify, say so in one line and finish.",
 ].join(" ");
+
+// Read-only searches and listings are not check attempts. Native builds run
+// content and name searches through Bash, so counting them would silence the
+// reminder after every edit. Anything ambiguous counts as a check, as before.
+const INSPECTION = new Set([
+  "rg",
+  "grep",
+  "egrep",
+  "fgrep",
+  "ugrep",
+  "bfs",
+  "fd",
+  "fdfind",
+  "find",
+  "ls",
+  "eza",
+  "cat",
+  "head",
+  "tail",
+  "wc",
+  "jq",
+  "pwd",
+  "echo",
+  "stat",
+  "diff",
+]);
+const GIT_READS = new Set([
+  "status",
+  "diff",
+  "log",
+  "show",
+  "ls-files",
+  "rev-parse",
+]);
+
+// Options that run another command or write a file, wherever they appear.
+const EXECUTING =
+  /^(-(exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls)|--(pre|filter|pager|hostname-bin|exec|exec-batch|output|ext-diff|textconv)(=.*)?)$/;
+// A cluster of fd/fdfind short options that includes -x or -X.
+const FD_EXEC = /^-[A-Za-z0-9]*[xX]/;
+
+// Splits a command into simple commands of decoded words (quotes and escapes
+// resolved), or returns null when it holds anything this hook does not
+// interpret: redirection, expansion, substitution, or a subshell.
+function simpleCommands(command) {
+  const commands = [];
+  let words = [];
+  let word = null;
+  // A word that starts with an unquoted glob character could expand to an
+  // option name; tracked per simple command.
+  let wild = false;
+  const endWord = () => {
+    if (word !== null) words.push(word);
+    word = null;
+  };
+  const endCommand = () => {
+    endWord();
+    if (words.length > 0) commands.push({ words, wild });
+    words = [];
+    wild = false;
+  };
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    if (c === "'") {
+      const end = command.indexOf("'", i + 1);
+      if (end < 0) return null;
+      word = (word ?? "") + command.slice(i + 1, end);
+      i = end;
+    } else if (c === '"') {
+      let text = "";
+      let j = i + 1;
+      for (; j < command.length && command[j] !== '"'; j++) {
+        if (command[j] === "`" || command[j] === "$") return null;
+        if (command[j] === "\\") {
+          j += 1;
+          if (j >= command.length) return null;
+          if (command[j] === "\n") continue;
+          if (!'$`"\\'.includes(command[j])) text += "\\";
+        }
+        text += command[j];
+      }
+      if (j >= command.length) return null;
+      word = (word ?? "") + text;
+      i = j;
+    } else if (c === "\\") {
+      if (i + 1 >= command.length) return null;
+      i += 1;
+      if (command[i] !== "\n") word = (word ?? "") + command[i];
+    } else if (c === " " || c === "\t") {
+      endWord();
+    } else if (c === "\n" || c === ";" || c === "|" || c === "&") {
+      endCommand();
+    } else if ("<>`$()".includes(c)) {
+      return null;
+    } else if (c === "{") {
+      // Brace expansion can build an option name; a literal `{}` is fine.
+      if (command[i + 1] !== "}") return null;
+      word = (word ?? "") + "{}";
+      i += 1;
+    } else if ("*?[".includes(c)) {
+      // A glob could expand to an option name.
+      if ((word ?? "").startsWith("-")) return null;
+      if ((word ?? "") === "") wild = true;
+      word = (word ?? "") + c;
+    } else {
+      word = (word ?? "") + c;
+    }
+  }
+  endCommand();
+  return commands;
+}
+
+// Tools whose options can run a command or write a file.
+const OPTION_EXECUTORS = new Set([
+  "rg",
+  "ugrep",
+  "bfs",
+  "fd",
+  "fdfind",
+  "find",
+  "git",
+]);
+
+function inspectionWords({ words, wild }) {
+  const rest = words[0] === "rtk" ? words.slice(1) : words;
+  const [name, ...args] = rest;
+  if (wild && OPTION_EXECUTORS.has(name)) return false;
+  if (args.some((arg) => EXECUTING.test(arg))) return false;
+  if (name === "git") {
+    let i = 0;
+    for (;;) {
+      if (args[i] === "--no-pager" || args[i] === "--no-optional-locks") i += 1;
+      else if (args[i] === "-C" && args.length > i + 1) i += 2;
+      else break;
+    }
+    return GIT_READS.has(args[i]);
+  }
+  if (name === "fd" || name === "fdfind") {
+    if (args.some((arg) => FD_EXEC.test(arg))) return false;
+  }
+  return INSPECTION.has(name);
+}
+
+export function isInspection(command) {
+  if (typeof command !== "string") return false;
+  const commands = simpleCommands(command);
+  return (
+    commands !== null && commands.length > 0 && commands.every(inspectionWords)
+  );
+}
 
 function stateFile(sessionId) {
   const dir =
@@ -109,8 +260,11 @@ export function handle(event) {
   const state = readState(file);
   if (event.hook_event_name === "PostToolUse") {
     if (event.tool_name === "Bash") {
-      // Any shell command counts as a check attempt, pass or fail.
-      writeState(file, { ...state, dirty: false });
+      // A shell command counts as a check attempt, pass or fail, unless it is
+      // plain read-only inspection.
+      if (!isInspection(event.tool_input?.command)) {
+        writeState(file, { ...state, dirty: false });
+      }
     } else if (["Edit", "Write", "NotebookEdit"].includes(event.tool_name)) {
       const path =
         event.tool_input?.file_path ?? event.tool_input?.notebook_path;

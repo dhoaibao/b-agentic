@@ -174,7 +174,7 @@ branches not named `main` or `master` also stay at the ask prompt. The
 `b-path-guard`, `b-codex-guard`, and `b-clickup-guard` run before tools (`b-clickup-guard` asks before an
 auto-approved ClickUp `createTask` or `updateTask` whose markdown references an image other than an
 existing ClickUp attachment URL, since the MCP uploads local and downloaded images); `b-verify-gate` tracks
-edits and, when the main session edited a non-prose file after its last shell
+edits and, when the main session edited a non-prose file after its last non-inspection shell
 command, blocks the first stop once with the verify and review reminder.
 Claude Code prompts for outside-project writes instead of denying them. These
 rules are not a process or filesystem sandbox; shell indirection and MCP

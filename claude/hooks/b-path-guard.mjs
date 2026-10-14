@@ -16,6 +16,8 @@ import { isProtected } from "../bin/b-candidate-snapshot.mjs";
 const PATH_KEYS = ["file_path", "notebook_path", "path"];
 // Search tools take a glob that can name a secret file directly. `pattern` is a
 // path glob only for Glob; for Grep it is a content regex, so it is not checked.
+// Native Linux/macOS builds run searches through Bash instead, which this hook
+// does not see.
 const asRaw = (value) => Buffer.from(value, "utf8").toString("latin1");
 
 export function blockedPaths(toolInput, toolName) {

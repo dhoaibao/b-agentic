@@ -86,6 +86,10 @@ covers every built-in file-editing tool). Claude Code deny rules cannot carve ou
 the exact path rules (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`,
 `*secrets.*`, with `*.env.example` allowed) for the file tools, including the glob a search tool is given (Glob's `pattern`, not Grep's content regex). It
 checks the names a call carries, not the files a directory search would visit.
+Native Linux and macOS Claude Code builds replace `Glob` and `Grep` with `bfs` and
+`ugrep` behind Bash, so there the hook never sees a search; those searches rely on
+the kernel's secret-file rule and the Claude Code deny rules, which is an accepted
+residual risk (`--tools Grep Glob` restores the dedicated tools).
 `b-pr` is the only skill that pushes: on an explicit request it pushes the
 current non-default branch with an explicit `origin <branch>` destination and
 opens a draft PR, and it never forces, pulls, rebases, or merges. To push as an
@@ -126,7 +130,7 @@ call has the supported form `node <path>/codex-companion.mjs <subcommand>
 and refuses wrappers, neighbouring commands, expansions, subshells, comments
 hiding options, unsafe redirections, and unreadable input that names the script.
 Mentioning the script name in an unrelated command (a commit message, a search)
-is refused too; use the Grep tool for that.
+is refused too; use the `Grep` tool where the build has it, or `Read` the file.
 The approval is the one input of those checks that a model could still record:
 `b-codex-guard --approve` is a plain shell command and the wrapper reads the
 store in-process, where no Bash hook sees it. The same hook therefore puts any
@@ -144,7 +148,9 @@ behavior follow Claude Code's documented contracts but were not exercised
 against a live session; the offline hook probe covers only the scripts.
 
 The `b-verify-gate` hook is an advisory, one-shot reminder, not a boundary: a
-PostToolUse hook tracks non-prose edits made after the last shell command, and
+PostToolUse hook tracks non-prose edits made after the last shell command that is
+not plain read-only inspection (searches, listings, `git status`/`diff`/`log`; an
+ambiguous command still counts as a check), and
 the Stop hook blocks the first stop once (exit 2) with the verify and review
 rule, never repeating in the same continuation. It fails open on malformed input
 or unusable state. Its per-session state lives in a user-owned `0700` directory

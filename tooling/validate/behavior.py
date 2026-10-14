@@ -41,7 +41,7 @@ KERNEL_CONSOLIDATION_REGRESSION = {
         "define success, make the smallest coherent change, and verify its observable outcome",
         "Auto-run repository-local commands and edits, including build, test, package, and scripts",
         "likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`)",
-        "Use native `Read`/`Edit`/`Write`/`Glob`/`Grep` for edits, configs, docs, and unindexed code",
+        "Use native `Read`/`Edit`/`Write` (plus `Glob`/`Grep` where the build has them, else `rg`/`fdfind`) for edits, configs, docs, and unindexed code",
         "use the local fallback when prerequisites are unavailable.",
     ),
 }
