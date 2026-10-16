@@ -5,7 +5,8 @@
 // command (read-only searches and listings do not count) and is about
 // to stop, block the stop once with a short message restating the kernel's
 // verify/review rule. It never blocks a tool call and never repeats within one
-// session turn.
+// session turn. Subagents share the session, so their shell commands (which
+// carry an agent_id) never count as the main session's check.
 //
 // Wired as a PostToolUse hook (Edit|Write|NotebookEdit|Bash) that tracks the
 // state and a Stop hook that emits the reminder. Contract: stdin is the hook
@@ -31,7 +32,7 @@ import { pathToFileURL } from "node:url";
 const PROSE_PATH = /\.(md|mdx|txt|rst)$/i;
 
 export const REMINDER = [
-  "b-agentic verify gate: files were edited after the last shell command in this run.",
+  "b-agentic verify gate: files were edited after the last non-inspection shell command in this run.",
   "Before finishing, run the applicable checks and inspect the changed paths and diff.",
   "If the change touches a kernel review trigger (security, permissions, contracts,",
   "dependencies, installer or config merge, workflow policy), freeze the checked candidate",
@@ -260,9 +261,9 @@ export function handle(event) {
   const state = readState(file);
   if (event.hook_event_name === "PostToolUse") {
     if (event.tool_name === "Bash") {
-      // A shell command counts as a check attempt, pass or fail, unless it is
-      // plain read-only inspection.
-      if (!isInspection(event.tool_input?.command)) {
+      // A main-session shell command counts as a check attempt, pass or fail,
+      // unless it is plain read-only inspection.
+      if (!event.agent_id && !isInspection(event.tool_input?.command)) {
         writeState(file, { ...state, dirty: false });
       }
     } else if (["Edit", "Write", "NotebookEdit"].includes(event.tool_name)) {

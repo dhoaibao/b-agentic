@@ -167,6 +167,11 @@ gate_case s43 0 'find . [a-]exec echo {} +' "a leading bracket class could expan
 gate_case s44 0 'rg foo *' "a bare * could expand to an option file name for rg"
 gate_case s45 2 'ls *.mjs && cat src/*.md' "leading globs are fine for tools without executing options"
 gate_case s46 2 'rg foo src/*.mjs' "a fixed-prefix glob is fine"
+# a subagent's shell command (it carries agent_id) is not the main session's check.
+sub=$(vg PostToolUse s47 Bash '' false 'npm test' | jq -c '. + {agent_id: "a1", agent_type: "b-debugger"}')
+run "$verifygate" "$(vg PostToolUse s47 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$sub"; expect 0 "subagent shell"
+run "$verifygate" "$(vg Stop s47)"; expect 2 "a subagent shell command must not clear the main session's reminder"
 # editing again during the continuation earns no second reminder.
 run "$verifygate" "$(vg PostToolUse s6 Edit /repo/src/a.ts)"; expect 0 "edit"
 run "$verifygate" "$(vg Stop s6)"; expect 2 "first stop reminds"

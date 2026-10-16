@@ -150,7 +150,8 @@ against a live session; the offline hook probe covers only the scripts.
 The `b-verify-gate` hook is an advisory, one-shot reminder, not a boundary: a
 PostToolUse hook tracks non-prose edits made after the last shell command that is
 not plain read-only inspection (searches, listings, `git status`/`diff`/`log`; an
-ambiguous command still counts as a check), and
+ambiguous command still counts as a check; a subagent's command, which carries
+an `agent_id`, never does), and
 the Stop hook blocks the first stop once (exit 2) with the verify and review
 rule, never repeating in the same continuation. It fails open on malformed input
 or unusable state. Its per-session state lives in a user-owned `0700` directory
