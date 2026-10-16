@@ -901,7 +901,7 @@ def main(argv: list[str] | None = None) -> int:
         if choice is None and os.environ.get("B_AGENTIC_CLICKUP_MCP", "").lower() in {"y", "yes", "true", "1"}:
             choice = True
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
-        ui.banner()
+        ui.header()
         installer = Installer(source, args.dry_run, args.force, choice, ui)
         try:
             if args.uninstall:

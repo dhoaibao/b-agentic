@@ -20,7 +20,7 @@ the frozen Pi installer. The script never runs vendor installers and never
 writes under `~/.pi`.
 
 - `--dry-run` prints the plan and changes nothing.
-- On a terminal the installer shows a banner, a summary box, and asks before
+- On a terminal the installer shows a step timeline, a summary box, and asks before
   writing (and whether to add the optional ClickUp MCP server on a first
   install). Questions are read from `/dev/tty`, so they work when piped. `-y` /
   `--yes`, `--dry-run`, `--uninstall`, or a non-terminal stdout keep plain output

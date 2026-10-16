@@ -11,7 +11,7 @@
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
 # runs vendor installers and never writes under ~/.pi; only ~/.claude is supported.
-# On a terminal the installer shows a banner and asks before writing (via /dev/tty, so
+# On a terminal the installer shows a step timeline and asks before writing (via /dev/tty, so
 # it works when piped); -y/--yes, --dry-run, or no terminal keeps the plain output.
 
 set -euo pipefail
@@ -33,7 +33,7 @@ die() {
 }
 log() { printf '%s\n' "$*"; }
 # note <text>: a progress line. When the installer will draw its terminal UI it takes the notes over
-# (B_AGENTIC_NOTES) and shows them as steps under its banner; otherwise they print immediately.
+# (B_AGENTIC_NOTES) and shows them as steps under its header; otherwise they print immediately.
 note() {
   if [ "$FANCY" -eq 1 ]; then NOTES="${NOTES:+$NOTES$'\n'}$*"; else log "$*"; fi
 }

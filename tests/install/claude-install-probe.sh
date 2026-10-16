@@ -754,7 +754,7 @@ out=$(cat "$root/install.sh" | env -u CLAUDE_CONFIG_DIR HOME="$home" B_AGENTIC_R
 [ "$pi_before" = "$(tree "$home/.pi")" ] || fail "a refused update touched the Pi tree"
 echo "install probe passed: bootstrap-git"
 
-# --- terminal UI: banner and confirm on a pty, reading answers from /dev/tty, stdin piped ----------------
+# --- terminal UI: header and confirm on a pty, reading answers from /dev/tty, stdin piped ----------------
 cat >"$work/pty-run.py" <<'PY'
 import os, pty, select, subprocess, sys, time
 
@@ -801,16 +801,18 @@ tui_run() {
 home=$(fresh_home tui)
 tui_out=$(tui_run "$home" "$piped_install" n n)
 grep -Fq 'Installation Summary' <<<"$tui_out" || fail "TUI summary box missing: $tui_out"
+grep -Fq '┌' <<<"$tui_out" || fail "TUI header missing: $tui_out"
+if grep -Fq '█' <<<"$tui_out"; then fail "the block-letter logo must not be drawn: $tui_out"; fi
 grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "TUI confirm missing: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining the confirm must change nothing"
 tui_out=$(tui_run "$home" "$piped_install" n y)
 grep -Fq 'Installed' <<<"$tui_out" || fail "TUI installed box missing: $tui_out"
 [ -f "$home/.claude/b-agentic/install.json" ] || fail "accepting the confirm must install"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp stays off when declined"
-# Excluded modes keep the plain output even on a terminal (no banner, no boxes, no questions).
+# Excluded modes keep the plain output even on a terminal (no header, no boxes, no questions).
 for mode in --dry-run --yes --uninstall; do
   tui_out=$(tui_run "$home" "$piped_install $mode")
-  if grep -Fq '█' <<<"$tui_out" || grep -Fq 'Installation Summary' <<<"$tui_out"; then fail "$mode must keep plain output: $tui_out"; fi
+  if grep -Fq '┌' <<<"$tui_out" || grep -Fq 'Installation Summary' <<<"$tui_out"; then fail "$mode must keep plain output: $tui_out"; fi
   grep -Fq 'b-agentic ' <<<"$tui_out" || fail "$mode printed no summary: $tui_out"
 done
 # Declining a piped bootstrap leaves the Claude configuration untouched.
@@ -825,12 +827,12 @@ alias_cmd='!mkdir -p "$HOME/.claude" && ln -s "$HOME/.claude/settings.json" "$HO
 tui_out=$(tui_run "$home" "$piped_install" n "$alias_cmd" y)
 grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] && [ ! -e "$home/.claude/settings.json" ] || fail "a refused alias must leave ~/.claude untouched"
-# The bootstrap's clone/update lines are shown as steps under the banner, not printed before it.
+# The bootstrap's clone/update lines are shown as steps under the header, not printed before it.
 home=$(fresh_home tui-notes)
 for expected in 'Cloning source' 'Updating source'; do
   tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n n)
   line=$(grep -nF "$expected" <<<"$tui_out" | head -1 | cut -d: -f1)
-  banner=$(grep -nF '█' <<<"$tui_out" | head -1 | cut -d: -f1)
-  [ -n "$line" ] && [ -n "$banner" ] && [ "$banner" -lt "$line" ] || fail "'$expected' must appear after the banner: $tui_out"
+  header=$(grep -nF '┌' <<<"$tui_out" | head -1 | cut -d: -f1)
+  [ -n "$line" ] && [ -n "$header" ] && [ "$header" -lt "$line" ] || fail "'$expected' must appear after the header: $tui_out"
 done
 echo "install probe passed: tui"

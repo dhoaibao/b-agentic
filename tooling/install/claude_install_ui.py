@@ -1,4 +1,4 @@
-"""Terminal presentation for the b-agentic installer: banner, timeline steps, boxes, and one confirm.
+"""Terminal presentation for the b-agentic installer: header, timeline steps, boxes, and one confirm.
 
 Standard library only. Rendering is enabled only when stdout is a terminal that is not `TERM=dumb`;
 otherwise every method is a no-op and the installer keeps its plain, line-oriented output. Colors
@@ -16,18 +16,6 @@ import textwrap
 from typing import IO
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-BANNER_FONT = {
-    "B": ("████ ", "█   █", "████ ", "█   █", "████ "),
-    "A": (" ███ ", "█   █", "█████", "█   █", "█   █"),
-    "-": ("     ", "     ", "█████", "     ", "     "),
-    "G": (" ████", "█    ", "█  ██", "█   █", " ████"),
-    "E": ("█████", "█    ", "████ ", "█    ", "█████"),
-    "N": ("█   █", "██  █", "█ █ █", "█  ██", "█   █"),
-    "T": ("█████", "  █  ", "  █  ", "  █  ", "  █  "),
-    "I": ("█████", "  █  ", "  █  ", "  █  ", "█████"),
-    "C": (" ████", "█    ", "█    ", "█    ", " ████"),
-}
-BANNER_SHADES = (153, 117, 75, 69, 33)
 UNICODE_GLYPHS = {
     "step": "◇",
     "done": "●",
@@ -103,16 +91,9 @@ class Ui:
         return self.style(self.glyph["bar"], "blue")
 
     # -- layout -----------------------------------------------------------------------
-    def banner(self, text: str = "B-AGENTIC") -> None:
-        if not self.fancy or not all(ch in BANNER_FONT for ch in text):
+    def header(self) -> None:
+        if not self.fancy:
             return
-        for row in range(5):
-            line = " ".join(BANNER_FONT[ch][row] for ch in text).rstrip()
-            if self.color and self.glyph is UNICODE_GLYPHS:
-                line = f"\x1b[38;5;{BANNER_SHADES[row]}m{line}\x1b[0m"
-            elif self.glyph is ASCII_GLYPHS:
-                line = line.replace("█", "#")
-            self.emit(line)
         self.emit()
         self.emit(f"{self.style(self.glyph['top'], 'blue')}  {self.style(' b-agentic ', 'bright_blue', 'bold')}")
 
