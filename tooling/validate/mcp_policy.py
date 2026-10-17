@@ -238,6 +238,7 @@ def main() -> int:
         "mcp__firecrawl__firecrawl_crawl",
         "mcp__playwright__browser_click",
         "mcp__playwright__browser_navigate",
+        "mcp__playwright__browser_tabs",
         "mcp__notion__notion-create-pages",
         "mcp__notion__notion-update-page",
         "mcp__notion__notion-create-file-upload",

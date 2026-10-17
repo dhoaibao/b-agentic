@@ -183,6 +183,11 @@ references (`${VAR}`), never stored values. Expansion of those references in
 the user-scope MCP file is a documented Claude Code behavior that was not
 exercised live. `mcp-doctor` checks only local configuration, launcher, and
 variable presence and starts no MCP or browser sessions.
+Playwright `browser_tabs` is `external-mutation` because its `new` action
+navigates to any URL. The auto-allowed Playwright reads accept a `filename`
+that the MCP writes inside the workspace, which no permission rule or hook
+sees; b-browser forbids that argument, and the prompt-only enforcement is an
+accepted residual risk.
 
 MCP tools fall into nine classes in `references/mcp_operations.yaml`: `read-only`
 and `conditional-read` (allowed), `trusted-mutation` (allowed by the user's

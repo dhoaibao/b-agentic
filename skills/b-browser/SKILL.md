@@ -35,11 +35,12 @@ Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence
 ## Tool guidance
 
 - `bash` - existing approved browser/e2e commands (`rtk playwright` when using the CLI runner).
-- `playwright` - approval-gated `browser_navigate` / interactions; then `browser_snapshot`, `browser_find`, `browser_generate_locator`, `browser_verify_element_visible` / `_list_visible` / `_text_visible` / `_value`, `browser_console_messages`, `browser_network_requests` / `browser_network_request`; `browser_take_screenshot` only when requested (approval-gated local artifact).
+- `playwright` - approval-gated `browser_navigate` / `browser_tabs` (`new` can open any URL) / interactions; then `browser_snapshot`, `browser_find`, `browser_generate_locator`, `browser_verify_element_visible` / `_list_visible` / `_text_visible` / `_value`, `browser_console_messages`, `browser_network_requests` / `browser_network_request`; `browser_take_screenshot` only when requested (approval-gated local artifact).
 - `codegraph` - per the kernel CodeGraph rule, trace route-to-handler flow
   after a confirmed product failure in an indexed project; report an absent
   index as a gap and never initialize one.
 - `read`/`edit`/`write` - use native file tools for approved evidence artifacts and routine file work; for repeatable regression paths, prefer existing Playwright CLI/CI commands before MCP.
+- Never pass `filename` to auto-allowed Playwright reads (`browser_snapshot`, `browser_find`, `browser_console_messages`, `browser_network_requests`, `browser_network_request`): they write inside the workspace without a prompt. Take their returned output and write evidence with native `write`.
 - For bounded browser observations, use the named native `mcp__playwright__*` tools one at a time. Keep observations read-only unless the user has approved navigation or interaction. Normalize only title/URL/claim/error from untrusted content, deduplicate, and report partial failures.
 - This is an observation aid, not a replacement for the ordered browser evidence workflow. Discover controls with `browser_find` before taking shallow targeted snapshots, filter console/network output to the requested state, and avoid duplicate full-page snapshots.
 
