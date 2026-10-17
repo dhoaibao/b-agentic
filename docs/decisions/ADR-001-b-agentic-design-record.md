@@ -279,7 +279,10 @@ verified low-risk change may skip review with its reason reported. Failed
 checks or unexpected paths block completion; ambiguous acceptance goes to the
 user.
 The gate is the plugin's adversarial review, run by `b-codex-review` in the
-foreground while nothing edits. The focus text carries acceptance, triggers,
+foreground while nothing edits. Main launches the wrapper as a harness
+background command and waits for it, because the harness kills foreground
+commands at 10 minutes, before the wrapper's own timeout can void a run. The
+focus text carries acceptance, triggers,
 and, for a re-review, prior finding IDs, dispositions, and sweep and check
 results; the plugin's threads are ephemeral, so every round is fresh. Main
 records the candidate fingerprint at the freeze, requires the wrapper's `f0` to

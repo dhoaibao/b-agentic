@@ -127,11 +127,11 @@
       "id": "review-freezes-candidate",
       "skill": "b-review",
       "observed_failure": "Review covered a moving candidate or made corrections itself.",
-      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), runs the Codex gate through the b-codex-review wrapper read-only in the foreground, checks the wrapper's f0 and unchanged result and recomputes the fingerprint (F1) afterward, and corrections get fresh verification and a new review.",
+      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), runs the Codex gate through the b-codex-review wrapper read-only as a harness background command it waits on, checks the wrapper's f0 and unchanged result and recomputes the fingerprint (F1) afterward, and corrections get fresh verification and a new review.",
       "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant untracked generated file. Describe the review handoff, how its identity is checked, and what happens after NEEDS FIXES.",
       "must": [
         "Freeze and fingerprint the exact tracked and relevant untracked candidate as F0",
-        "Run the gate with `b-codex-review.mjs --scope working-tree` in the foreground, never in the background and never by calling the plugin directly",
+        "Run the gate with `b-codex-review.mjs --scope working-tree` as a harness background command, wait for its completion notification before acting, and never pass the plugin's `--background` or call the plugin directly",
         "Check the wrapper's f0 against F0 and its unchanged result, recompute the fingerprint as F1, and void the review when it differs",
         "Do not edit while review runs",
         "Fresh verification and a fresh Codex round with prior findings after corrections"

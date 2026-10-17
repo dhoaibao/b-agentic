@@ -137,7 +137,10 @@ The gate sequence is:
    the 8 MB output cap, or the result was unmappable or finding-less. Exit 2 is a
    refusal or failure, including an incomplete snapshot before the plugin runs
    and a non-zero plugin exit. A run that was cut short is never mapped, whatever
-   status it exited with.
+   status it exited with. Claude Code kills a foreground Bash command after at
+   most 10 minutes, so main launches the wrapper as a background command
+   (`run_in_background`) and waits for its completion notification, editing
+   nothing; the wrapper's own timeout then decides a long run.
 4. Main checks that `f0` equals the step-1 fingerprint and `unchanged` is true,
    and recomputes the fingerprint itself; a difference voids the review.
 5. `mapped` carries finding IDs `R<round>-<n>` and a provisional verdict (the
