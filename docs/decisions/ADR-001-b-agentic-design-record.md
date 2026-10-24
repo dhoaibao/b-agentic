@@ -7,6 +7,11 @@
 Refinements update this record in place. A reversed decision gets a new ADR
 with `Supersedes: ADR-001`, and the superseded area is noted here.
 
+Proposed supersession by [ADR-002](ADR-002-dual-runtime-support.md): the
+single-runtime statement in Context, the `~/.claude`-only boundary under
+"Product boundary and architecture", and the second-runtime non-goal under
+Consequences.
+
 ## Context
 
 b-agentic supports one runtime, Claude Code. It ships an always-loaded kernel,

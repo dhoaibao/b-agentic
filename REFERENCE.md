@@ -2,10 +2,12 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the single supported runtime, Claude Code, with Codex as
-the independent reviewer. It covers installation, the permission boundary, the
-review gate, MCP configuration, and validation. The earlier Pi runtime was
-removed (last commit `ac38e4a`) and is not maintained here.
+This reference defines the two supported runtimes, Claude Code and OpenCode,
+with Codex as the independent reviewer ([ADR-002](docs/decisions/ADR-002-dual-runtime-support.md)).
+It covers installation, the permission boundary, the review gate, MCP
+configuration, and validation; the OpenCode differences are in
+[OpenCode runtime](#opencode-runtime). The earlier Pi runtime was removed (last
+commit `ac38e4a`) and is not maintained here.
 
 ## Install and lifecycle
 
@@ -36,8 +38,10 @@ writes under `~/.pi`.
   `~/.claude/b-agentic/backups`.
 - `--with-clickup` / `--without-clickup` (or `B_AGENTIC_CLICKUP_MCP=yes`) select
   the optional ClickUp MCP server. The choice is recorded and preserved.
-- Only `~/.claude` is supported. A different `CLAUDE_CONFIG_DIR` is refused
-  because the managed hooks, agents, and instructions refer to that path.
+- `--runtime=claude|opencode|both` selects the runtime (default `claude`). Each
+  runtime's install and uninstall leave the other untouched.
+- Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
+  is refused because the managed hooks, agents, and instructions refer to that path.
 
 What it manages, all recorded in `~/.claude/b-agentic/install.json`:
 
@@ -67,6 +71,66 @@ git directory is under `~/.pi`. Claude Code rewrites `~/.claude.json` while it
 runs, so restart it after an install. The installer reports missing tools (`rtk`,
 `codegraph`, `bunx`, `claude`, `codex`) and prints, but never runs, the Codex
 plugin commands.
+
+## OpenCode runtime
+
+`./install.sh --runtime=opencode` (or `both`) installs the same canonical skills,
+specialists, and safety checks for OpenCode v2, rendered from the same sources
+through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
+`~/.config/opencode` is supported; a different `XDG_CONFIG_HOME` or
+`OPENCODE_CONFIG_DIR` is refused. Everything is recorded in
+`~/.config/opencode/b-agentic/install.json`.
+
+| Asset            | Installed path                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| Skills           | `skills/b-*/SKILL.md` (skills are not slash commands in OpenCode)                     |
+| Specialists      | `agents/b-*.md` (`mode: subagent`, read-only `permissions`)                           |
+| Safety plugin    | `plugins/b-agentic.js`, importing the hooks installed beside it                       |
+| Hooks and CLIs   | `b-agentic/hooks/*.mjs`, `b-agentic/bin/*.mjs` (shared with Claude Code)              |
+| Kernel           | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md`  |
+| Permissions, MCP | rules appended to `permissions`, servers added under `mcp.servers` in `opencode.json` |
+
+- **Permissions.** OpenCode applies the last matching rule, so the managed rules
+  are always the final block of `permissions`; your earlier rules are preserved
+  in order, and a re-run moves the managed block back to the end. Each managed MCP
+  server asks by default (`<server>_*`), then its classified tools follow, so an
+  unclassified tool of a managed server still prompts. ClickUp's trusted
+  mutations ask on OpenCode because the image-reference guard cannot prompt there.
+  `opencode.jsonc` (comments) and the v1 `permission` map are refused before any
+  write.
+- **Specialists** deny `edit`, `subagent`, and `question` and keep only their
+  allowlisted MCP tools; unlike Claude Code this is enforced by the runtime.
+- **Skills load once.** `~/.config/opencode/skills` outranks the Claude-compatible
+  `~/.claude/skills` for the same skill ID, so a machine with both installs does
+  not load two copies. OpenCode v2 does not read `CLAUDE.md`.
+- **Codex review gate** reuses the `openai/codex-plugin-cc` companion found under
+  `~/.claude/plugins`, so Codex review on OpenCode needs that plugin installed
+  from Claude Code; without it `b-review` reports the gate unavailable and asks.
+  The standing per-repository approval is stored beside the installed hooks
+  (`~/.config/opencode/b-agentic/codex-approved-repos.json`). Approval-store
+  commands ask through shell rules instead of a hook.
+- **Retired install.** A manifest from the removed OpenCode runtime is refused
+  unless `--migrate-legacy` is passed, which backs up and removes only the paths
+  that manifest names (`skills`, `agents`, `commands`, the whole-file `AGENTS.md`)
+  and keeps your `opencode.json` content. It validates the whole replacement
+  install before deleting anything and requires `opencode.json` and `AGENTS.md`
+  to be regular files (not symlinks) while it runs.
+
+Known differences from Claude Code, accepted in ADR-002:
+
+| Claude Code feature             | OpenCode                                                                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Verify gate (blocks first stop) | Not ported: OpenCode has no documented way to block a session from stopping                          |
+| ClickUp image-reference prompt  | Replaced by asking on every ClickUp create or update                                                 |
+| Approval-store tripwire prompt  | Shell `ask` rules (`*b-codex-guard.mjs* --approve*`, the approvals file, `B_AGENTIC_STATE_DIR`)      |
+| Path guard on `Grep`/`Glob`     | Native `read`/`edit` secret denies plus the plugin; `grep`/`glob` resources are not matched natively |
+| Hook `exit 2` block             | Plugin throws from `tool.execute.before`; whether a plain throw blocks is unconfirmed on v2.1.4      |
+
+Verified against the OpenCode v2 docs and the locally installed v2.1.4 binary;
+no live OpenCode session has been run by this repository's checks. Before relying
+on the plugin or the permission translation, confirm in a real session that a
+`.env` read is refused, a plugin throw blocks a shell call, and the model-facing
+tool name for a shell command is `shell` or `bash` (the plugin accepts both).
 
 ## Kernel and skills
 

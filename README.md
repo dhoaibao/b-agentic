@@ -1,17 +1,17 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code, with Codex as the independent reviewer.**
+**A slim personal workflow kernel for Claude Code and OpenCode, with Codex as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
-installs an always-loaded Claude Code kernel, skills that double as `/b-*`
-commands, read-only specialist agents, safety hooks, and managed MCP
-configuration. Changed-code review runs through Codex with the
+installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
+read-only specialist agents, safety hooks, and managed MCP configuration, for
+Claude Code and OpenCode side by side. Changed-code review runs through Codex with the
 [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
-- [Configuration layout](claude/configs/README.md) — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md) and [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).
+- [Configuration layout](claude/configs/README.md) and [OpenCode layout](opencode/configs/README.md) — managed paths and ownership boundaries.
+- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-002 dual-runtime support](docs/decisions/ADR-002-dual-runtime-support.md).
 
 ## Install
 
@@ -30,6 +30,10 @@ plugin for you, and never writes under `~/.pi`. Piped installs
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code and run the
 printed plugin commands to enable the review gate. See [REFERENCE.md](REFERENCE.md)
 for flags and lifecycle behavior.
+
+`./install.sh` installs Claude Code by default. Pass `--runtime=opencode` to
+install into `~/.config/opencode` instead, or `--runtime=both` for each; every
+runtime's install and uninstall leave the other untouched.
 
 ## How it works
 
