@@ -14,6 +14,7 @@ never the generated files. `opencode/plugins/b-agentic.js` is hand-written.
 | `kernel.md`                                      | block in `AGENTS.md`                          | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->`                  |
 | `../agents/b-*.md`                               | `agents/b-*.md`                               | Four read-only specialist profiles enforced by `permissions`                                       |
 | `../skills/*/SKILL.md`                           | `skills/b-*/SKILL.md`                         | Skills rendered for OpenCode (no argument hint, no `$ARGUMENTS`)                                   |
+| `../references/*.yaml`                           | `b-agentic/references/`                       | Generated capability and effective MCP policy references, including OpenCode approval rules        |
 | `../plugins/b-agentic.js`                        | `plugins/b-agentic.js`                        | Safety plugin: path guard and Codex review guard                                                   |
 | `../../claude/hooks/*.mjs`, `../../claude/bin/*.mjs` | `b-agentic/hooks/`, `b-agentic/bin/`      | Runtime-neutral Node scripts shared with Claude Code                                               |
 

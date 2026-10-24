@@ -35,6 +35,38 @@
       "mcp_tool_format": "{server}_{tool}",
       "glossary": [
         [
+          " (or invokes its `/b-<name>` command)",
+          " (or loads it with the `skill` tool)"
+        ],
+        [
+          "Recommend `/b-pr`",
+          "Recommend the `b-pr` skill"
+        ],
+        [
+          "Only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images)",
+          "The ClickUp image hook is not ported; every create or update asks"
+        ],
+        [
+          "The tool is pre-approved and runs without a prompt, so confirm the title, list, and duplicate check first.",
+          "Every call requires approval; confirm the title, list, and duplicate check before requesting it."
+        ],
+        [
+          "it is pre-approved and runs without a prompt, so apply only the requested changes.",
+          "every call requires approval, and only the requested changes may be applied."
+        ],
+        [
+          "are pre-approved, except that the `b-clickup-guard` hook asks when a description references an image other than an existing ClickUp attachment URL.",
+          "require approval on every call; the ClickUp image-reference hook is not ported to OpenCode."
+        ],
+        [
+          "task creation and updates are pre-approved and run without a prompt (the guard asks only when a description references an image)",
+          "task creation and updates require approval on every call (the image-reference hook is not ported)"
+        ],
+        [
+          "Task creation and updates are pre-approved apart from the guard's image-reference ask",
+          "Task creation and updates require approval on every call"
+        ],
+        [
           "~/.claude/b-agentic",
           "~/.config/opencode/b-agentic"
         ],

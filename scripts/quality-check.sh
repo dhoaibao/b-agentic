@@ -18,7 +18,7 @@ MARKDOWNLINT="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
 [ -x "$MARKDOWNLINT" ] || fail_missing markdownlint-cli2 "install root development tools with 'npm ci'"
 
 is_generated() {
-  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json|opencode/skills/*/SKILL.md|opencode/agents/*|opencode/configs/kernel.md|opencode/configs/opencode.*.json) return 0;; *) return 1;; esac
+  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json|opencode/skills/*/SKILL.md|opencode/agents/*|opencode/configs/kernel.md|opencode/configs/opencode.*.json|opencode/references/*.yaml) return 0;; *) return 1;; esac
 }
 is_json_compatible_yaml() {
   case "$1" in references/mcp_operations.yaml|references/capabilities.yaml|references/runtimes.yaml|skills/registry.yaml) return 0;; *) return 1;; esac

@@ -78,6 +78,22 @@ grep -Fq 'OpenCode Workflow Kernel' "$oc/AGENTS.md" || fail "kernel is not the O
 [ "$(jq '.mcp.servers | length' "$oc/opencode.json")" = "$servers_expected" ] || fail "MCP server count"
 [ "$(jq -r '.mcp.servers.clickup // "none"' "$oc/opencode.json")" = none ] || fail "ClickUp must be opt-in"
 if grep -Rqs 'mcp__\|AskUserQuestion' "$oc/skills" "$oc/agents" "$oc/AGENTS.md"; then fail "Claude-only wording leaked into the install"; fi
+for profile in "$root"/opencode/agents/*.md; do
+  cmp -s "$profile" "$oc/agents/$(basename "$profile")" || fail "installed specialist differs from generated profile"
+done
+for name in capabilities.yaml mcp_operations.yaml; do
+  cmp -s "$root/opencode/references/$name" "$oc/b-agentic/references/$name" || fail "reference must use the OpenCode rendering: $name"
+done
+policy="$oc/b-agentic/references/mcp_operations.yaml"
+[ "$(jq -r '.classes["trusted-mutation"].native_permission' "$policy")" = ask ] || fail "installed policy must ask for trusted mutations"
+[ "$(jq -r '.classes["conditional-read"].native_permission' "$policy")" = allow ] || fail "conditional reads must stay allowed"
+[ "$(jq -r '.runtime_enforcement | keys | join(",")' "$policy")" = opencode ] || fail "installed policy must describe OpenCode enforcement only"
+if grep -Eq "pre-approved|without a prompt|\`b-clickup-guard\` hook" "$oc/AGENTS.md" "$oc/skills/b-clickup/SKILL.md" "$oc/b-agentic/references/capabilities.yaml"; then
+  fail "installed guidance must not promise unprompted task changes or Claude-only safeguards"
+fi
+grep -Fq 'require approval on every call' "$oc/skills/b-clickup/SKILL.md" || fail "ClickUp skill must require approval"
+if grep -Eq "\`/b-([a-z][a-z0-9-]*|<name>)\`" "$oc/AGENTS.md" "$oc/skills/b-commit/SKILL.md"; then fail "OpenCode must not recommend skill slash commands"; fi
+jq -e '.capabilities[] | select(.id == "plugin.codex-review") | .prerequisites | index("openai/codex-plugin-cc plugin installed in Claude Code") != null' "$oc/b-agentic/references/capabilities.yaml" >/dev/null || fail "Codex must retain its actual Claude plugin prerequisite"
 
 # --- the doctors read the OpenCode install without connecting to anything -------------------------------
 doctor=$(python3 "$root/tooling/validate/skill_doctor.py" --runtime opencode --home "$home") || fail "skill doctor must pass on a fresh install: $doctor"

@@ -250,7 +250,7 @@ class Installer:
             for path in sorted((self.source / "claude" / folder).glob("*.mjs")):
                 files[f"b-agentic/{folder}/{path.name}"] = path.read_bytes()
         for name in ("capabilities.yaml", "mcp_operations.yaml"):
-            files[f"b-agentic/references/{name}"] = (self.source / "references" / name).read_bytes()
+            files[f"b-agentic/references/{name}"] = (self.source / "opencode" / "references" / name).read_bytes()
         files["b-agentic/references/kernel.md"] = (self.source / "opencode" / "configs" / "kernel.md").read_bytes()
         return files
 

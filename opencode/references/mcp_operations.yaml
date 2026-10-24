@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "format": "json-subset-of-yaml",
+  "description": "MCP operation classification for OpenCode. Tools use <server>_<tool>; unclassified managed-server tools ask in the main session.",
+  "classes": {
+    "read-only": {
+      "policy": "Auto-allowed by tool name",
+      "native_permission": "allow",
+      "notes": "Observation-only MCP operation."
+    },
+    "conditional-read": {
+      "policy": "Auto-allowed by user decision",
+      "native_permission": "allow",
+      "notes": "Formerly argument-validated; MCP tool arguments are not pattern-matched."
+    },
+    "trusted-mutation": {
+      "policy": "Approval required",
+      "native_permission": "ask",
+      "notes": "Requires approval on every call; main session only. The ClickUp image-reference hook is not ported."
+    },
+    "local-upload": {
+      "policy": "Approval required",
+      "native_permission": "ask",
+      "notes": "May read a local file for remote use."
+    },
+    "private-read": {
+      "policy": "Approval required",
+      "native_permission": "ask",
+      "notes": "Returns private data such as database rows or query history; main session only."
+    },
+    "external-mutation": {
+      "policy": "Approval required",
+      "native_permission": "ask",
+      "notes": "May mutate remote or browser state."
+    },
+    "monitor-lifecycle": {
+      "policy": "Approval required",
+      "native_permission": "ask",
+      "notes": "Creates, changes, or runs a monitor."
+    },
+    "local-mutation": {
+      "policy": "Approval required",
+      "native_permission": "ask",
+      "notes": "May create a local artifact."
+    },
+    "auth": {
+      "policy": "Approval required",
+      "native_permission": "ask",
+      "notes": "May start or change authentication."
+    }
+  },
+  "servers": {
+    "codegraph": {
+      "tools": {
+        "codegraph_explore": "read-only"
+      }
+    },
+    "context7": {
+      "tools": {
+        "resolve-library-id": "read-only",
+        "query-docs": "read-only"
+      }
+    },
+    "brave_search": {
+      "tools": {
+        "brave_web_search": "read-only",
+        "brave_local_search": "read-only",
+        "brave_video_search": "read-only",
+        "brave_image_search": "read-only",
+        "brave_news_search": "read-only",
+        "brave_summarizer": "read-only",
+        "brave_llm_context": "read-only",
+        "brave_place_search": "read-only"
+      }
+    },
+    "firecrawl": {
+      "tools": {
+        "firecrawl_search": "conditional-read",
+        "firecrawl_developer_search": "read-only",
+        "firecrawl_scrape": "conditional-read",
+        "firecrawl_map": "conditional-read",
+        "firecrawl_agent_status": "read-only",
+        "firecrawl_check_crawl_status": "read-only",
+        "firecrawl_find_tools": "read-only",
+        "firecrawl_credit_usage": "read-only",
+        "firecrawl_interact_stop": "external-mutation",
+        "firecrawl_research_search_papers": "read-only",
+        "firecrawl_research_inspect_paper": "read-only",
+        "firecrawl_research_read_paper": "read-only",
+        "firecrawl_research_related_papers": "read-only",
+        "firecrawl_parse": "local-upload",
+        "firecrawl_agent": "external-mutation",
+        "firecrawl_crawl": "external-mutation",
+        "firecrawl_interact": "external-mutation",
+        "firecrawl_search_feedback": "external-mutation",
+        "firecrawl_feedback": "external-mutation",
+        "firecrawl_monitor_create": "monitor-lifecycle",
+        "firecrawl_monitor_update": "monitor-lifecycle",
+        "firecrawl_monitor_delete": "monitor-lifecycle",
+        "firecrawl_monitor_get": "monitor-lifecycle",
+        "firecrawl_monitor_list": "monitor-lifecycle",
+        "firecrawl_monitor_run": "monitor-lifecycle",
+        "firecrawl_monitor_check": "monitor-lifecycle",
+        "firecrawl_monitor_checks": "monitor-lifecycle"
+      }
+    },
+    "playwright": {
+      "tools": {
+        "browser_snapshot": "conditional-read",
+        "browser_find": "conditional-read",
+        "browser_take_screenshot": "local-mutation",
+        "browser_console_messages": "conditional-read",
+        "browser_network_requests": "conditional-read",
+        "browser_network_request": "conditional-read",
+        "browser_wait_for": "read-only",
+        "browser_navigate": "external-mutation",
+        "browser_navigate_back": "external-mutation",
+        "browser_resize": "external-mutation",
+        "browser_emulate_media": "external-mutation",
+        "browser_hover": "external-mutation",
+        "browser_close": "external-mutation",
+        "browser_tabs": "external-mutation",
+        "browser_click": "external-mutation",
+        "browser_type": "external-mutation",
+        "browser_fill_form": "external-mutation",
+        "browser_press_key": "external-mutation",
+        "browser_select_option": "external-mutation",
+        "browser_file_upload": "external-mutation",
+        "browser_drop": "external-mutation",
+        "browser_drag": "external-mutation",
+        "browser_evaluate": "external-mutation",
+        "browser_run_code_unsafe": "external-mutation",
+        "browser_handle_dialog": "external-mutation",
+        "browser_generate_locator": "read-only",
+        "browser_verify_element_visible": "conditional-read",
+        "browser_verify_list_visible": "conditional-read",
+        "browser_verify_text_visible": "conditional-read",
+        "browser_verify_value": "conditional-read"
+      }
+    },
+    "mobbin": {
+      "tools": {
+        "search_screens": "read-only",
+        "search_flows": "read-only",
+        "search_sections": "read-only"
+      }
+    },
+    "notion": {
+      "tools": {
+        "notion-search": "conditional-read",
+        "notion-ai-search": "conditional-read",
+        "notion-fetch": "conditional-read",
+        "notion-query-data-sources": "conditional-read",
+        "notion-query-meeting-notes": "conditional-read",
+        "notion-get-comments": "conditional-read",
+        "notion-get-teams": "conditional-read",
+        "notion-get-users": "conditional-read",
+        "notion-get-async-task": "conditional-read",
+        "notion-get-tool-access": "conditional-read",
+        "notion-download-attachment": "conditional-read",
+        "notion-download-skill": "conditional-read",
+        "notion-list-agents": "conditional-read",
+        "notion-search-agents": "conditional-read",
+        "notion-query-sessions": "conditional-read",
+        "notion-search-sessions": "conditional-read",
+        "notion-get-session-status": "conditional-read",
+        "notion-wait-session": "conditional-read",
+        "notion-list-session-events": "conditional-read",
+        "notion-read-session-event": "conditional-read",
+        "notion-create-pages": "external-mutation",
+        "notion-update-page": "external-mutation",
+        "notion-duplicate-page": "external-mutation",
+        "notion-move-pages": "external-mutation",
+        "notion-create-folder": "external-mutation",
+        "notion-create-database": "external-mutation",
+        "notion-update-data-source": "external-mutation",
+        "notion-create-view": "external-mutation",
+        "notion-update-view": "external-mutation",
+        "notion-create-comment": "external-mutation",
+        "notion-convert-page-to-skill": "external-mutation",
+        "notion-create-file-upload": "external-mutation",
+        "notion-create-attachment": "external-mutation",
+        "notion-spawn-session": "external-mutation",
+        "notion-stop-session": "external-mutation",
+        "notion-send-message-to-session": "external-mutation"
+      }
+    },
+    "excalidraw": {
+      "tools": {
+        "read_me": "read-only",
+        "create_view": "external-mutation"
+      }
+    },
+    "drawio": {
+      "tools": {
+        "search_shapes": "read-only",
+        "open_drawio_xml": "external-mutation",
+        "open_drawio_csv": "external-mutation",
+        "open_drawio_mermaid": "external-mutation",
+        "set_page": "local-mutation"
+      }
+    },
+    "shadcn": {
+      "tools": {
+        "get_project_registries": "read-only",
+        "list_items_in_registries": "read-only",
+        "search_items_in_registries": "read-only",
+        "get_item_examples_from_registries": "read-only",
+        "view_items_in_registries": "read-only",
+        "get_add_command_for_items": "read-only",
+        "get_audit_checklist": "read-only"
+      }
+    },
+    "clickup": {
+      "tools": {
+        "getTaskById": "conditional-read",
+        "searchTasks": "conditional-read",
+        "readDocument": "conditional-read",
+        "getListInfo": "conditional-read",
+        "searchSpaces": "conditional-read",
+        "getTimeEntries": "conditional-read",
+        "read_space_clickup_space_txt": "conditional-read",
+        "updateTask": "trusted-mutation",
+        "addComment": "external-mutation",
+        "editComment": "external-mutation",
+        "createTask": "trusted-mutation",
+        "updateListInfo": "external-mutation",
+        "createTimeEntry": "external-mutation",
+        "updateDocumentPage": "external-mutation",
+        "createDocumentOrPage": "external-mutation"
+      }
+    },
+    "datagrip": {
+      "tools": {
+        "list_database_connections": "conditional-read",
+        "list_database_schemas": "conditional-read",
+        "list_schema_object_kinds": "conditional-read",
+        "list_schema_objects": "conditional-read",
+        "get_database_object_description": "conditional-read",
+        "introspect_schema": "conditional-read",
+        "test_database_connection": "conditional-read",
+        "preview_table_data": "private-read",
+        "fetch_query_result": "private-read",
+        "list_recent_sql_queries": "private-read",
+        "execute_sql_query": "external-mutation",
+        "cancel_sql_query": "external-mutation",
+        "create_database_connection": "auth",
+        "edit_database_connection": "auth"
+      }
+    }
+  },
+  "runtime_enforcement": {
+    "opencode": "Generated ordered permissions address each classified tool as <server>_<tool>; the last matching rule wins. Managed servers ask by default in the main session; specialists deny unlisted tools on every managed server. ClickUp createTask and updateTask require approval on every call because the image-reference hook is not ported. Inspect MCP arguments before calling; file-tool path protection does not inspect MCP arguments. The datagrip server is IDE-managed with no template; every execute_sql_query call asks and the b-datagrip skill carries the SQL guardrails. Live runtime enforcement remains unverified."
+  }
+}

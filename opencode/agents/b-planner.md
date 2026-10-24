@@ -11,6 +11,48 @@ permissions:
   - action: "question"
     resource: "*"
     effect: deny
+  - action: "codegraph_*"
+    resource: "*"
+    effect: deny
+  - action: "codegraph_codegraph_explore"
+    resource: "*"
+    effect: allow
+  - action: "context7_*"
+    resource: "*"
+    effect: deny
+  - action: "context7_resolve-library-id"
+    resource: "*"
+    effect: allow
+  - action: "context7_query-docs"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_*"
+    resource: "*"
+    effect: deny
+  - action: "brave_search_brave_web_search"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_brave_local_search"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_brave_video_search"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_brave_image_search"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_brave_news_search"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_brave_summarizer"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_brave_llm_context"
+    resource: "*"
+    effect: allow
+  - action: "brave_search_brave_place_search"
+    resource: "*"
+    effect: allow
   - action: "firecrawl_*"
     resource: "*"
     effect: deny
@@ -50,6 +92,18 @@ permissions:
   - action: "playwright_browser_generate_locator"
     resource: "*"
     effect: allow
+  - action: "mobbin_*"
+    resource: "*"
+    effect: deny
+  - action: "mobbin_search_screens"
+    resource: "*"
+    effect: allow
+  - action: "mobbin_search_flows"
+    resource: "*"
+    effect: allow
+  - action: "mobbin_search_sections"
+    resource: "*"
+    effect: allow
   - action: "notion_*"
     resource: "*"
     effect: deny
@@ -63,6 +117,30 @@ permissions:
     resource: "*"
     effect: deny
   - action: "drawio_search_shapes"
+    resource: "*"
+    effect: allow
+  - action: "shadcn_*"
+    resource: "*"
+    effect: deny
+  - action: "shadcn_get_project_registries"
+    resource: "*"
+    effect: allow
+  - action: "shadcn_list_items_in_registries"
+    resource: "*"
+    effect: allow
+  - action: "shadcn_search_items_in_registries"
+    resource: "*"
+    effect: allow
+  - action: "shadcn_get_item_examples_from_registries"
+    resource: "*"
+    effect: allow
+  - action: "shadcn_view_items_in_registries"
+    resource: "*"
+    effect: allow
+  - action: "shadcn_get_add_command_for_items"
+    resource: "*"
+    effect: allow
+  - action: "shadcn_get_audit_checklist"
     resource: "*"
     effect: allow
   - action: "clickup_*"

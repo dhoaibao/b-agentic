@@ -4,7 +4,7 @@
 
 ## Core Rules
 
-1. Route the user's intent to one active skill. The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` command) before acting. For a delegated skill, that read only prepares the handoff: each later tool call gathers its parent-owned evidence or is its named `subagent` call. Naming an unread skill is not using it; sequence phases and do not blend them.
+1. Route the user's intent to one active skill. The main session reads the installed `skills/<name>/SKILL.md` (or loads it with the `skill` tool) before acting. For a delegated skill, that read only prepares the handoff: each later tool call gathers its parent-owned evidence or is its named `subagent` call. Naming an unread skill is not using it; sequence phases and do not blend them.
 2. Follow, in order: latest user instruction, approved plan, repo evidence, then stated assumptions.
 3. For non-trivial repository work, run `rtk git status --short`, preserve unrelated changes, define success, make the smallest coherent change, and verify its observable outcome. On a branch, compare `HEAD` with the cached `origin/<branch>` ref first; when behind or diverged, report counts and ask before building on outdated code.
 4. Auto-run repository-local commands and edits, including build, test, package, and scripts. Managed settings deny named dangerous commands and sensitive paths, and the harness prompts for outside-project writes; ask before other destructive, privileged, ambiguous, protected/outside-project, or external/shared mutations. RTK never bypasses these protections.
@@ -64,7 +64,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 
 - Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, default-branch, or destination-less (`git push`, `git push origin`) push. A `git push` naming its remote and branch and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
-- OpenCode exposes MCP tools as `<server>_<tool>`; generated permission rules follow Managed MCP operations below. Only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images): inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain. Specialists call only the tools their profile lists.
+- OpenCode exposes MCP tools as `<server>_<tool>`; generated permission rules follow Managed MCP operations below. The ClickUp image hook is not ported; every create or update asks: inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain. Specialists call only the tools their profile lists.
 
 ## Capability activation
 
@@ -78,9 +78,9 @@ Canonical policy and per-class notes: `~/.config/opencode/b-agentic/references/m
 
 <!-- generated:mcp-operations:start -->
 - Auto-allowed by tool name: `read-only`.
-- Auto-allowed by user decision: `conditional-read`, `trusted-mutation`.
-- Approval required: `local-upload`, `private-read`, `external-mutation`, `monitor-lifecycle`, `local-mutation`, `auth`.
-- Unclassified MCP tools keep Claude Code's approval prompt; `trusted-mutation` runs in the main session only.
+- Auto-allowed by user decision: `conditional-read`.
+- Approval required: `trusted-mutation`, `local-upload`, `private-read`, `external-mutation`, `monitor-lifecycle`, `local-mutation`, `auth`.
+- Unclassified MCP tools keep OpenCode's approval prompt; `trusted-mutation` runs in the main session only.
 <!-- generated:mcp-operations:end -->
 
 ## Shell commands
