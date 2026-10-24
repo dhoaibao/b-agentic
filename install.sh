@@ -15,8 +15,8 @@
 # runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code, the default runtime)
 # and ~/.config/opencode (OpenCode) are the only supported locations, and each runtime's install
 # and uninstall leave the other untouched.
-# On a terminal the installer shows a step timeline and asks before writing (via /dev/tty, so
-# it works when piped); -y/--yes, --dry-run, or no terminal keeps the plain output.
+# On a terminal both runtime installers show a step timeline and ask before writing (via /dev/tty,
+# so it works when piped); -y/--yes, --dry-run, --uninstall, or no terminal keeps the plain output.
 
 set -euo pipefail
 

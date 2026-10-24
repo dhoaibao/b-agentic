@@ -22,13 +22,16 @@ the frozen Pi installer. The script never runs vendor installers and never
 writes under `~/.pi`.
 
 - `--dry-run` prints the plan and changes nothing.
-- On a terminal the installer shows a step timeline, a summary box, and asks before
+- On a terminal both runtime installers show a step timeline, a summary box, and ask before
   writing (and whether to add the optional ClickUp MCP server on a first
   install). Questions are read from `/dev/tty`, so they work when piped. `-y` /
   `--yes`, `--dry-run`, `--uninstall`, or a non-terminal stdout keep plain output
-  and the defaults; `NO_COLOR` disables color. Answering No leaves `~/.claude`
-  and `~/.claude.json` untouched; a piped run has already cloned or updated the
-  source checkout by then, because the summary needs it.
+  and the defaults; `NO_COLOR` disables color. Answering No leaves that runtime's
+  configuration untouched (`~/.claude` and `~/.claude.json`, or `~/.config/opencode`).
+  OpenCode also shows legacy migration removals before confirmation; declining
+  creates no backups and removes nothing. A piped run has already cloned or updated
+  the source checkout by then, because the summary needs it. With `--runtime=both`,
+  each runtime confirms separately; declining OpenCode does not undo Claude's install.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.

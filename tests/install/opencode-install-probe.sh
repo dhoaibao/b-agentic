@@ -394,4 +394,167 @@ run "$home"; expect_refused "the v1 singular permission key"
 grep -Fq "'permission'" <<<"$err" || fail "the refusal must name the permission key: $err"
 [ "$(tree "$home")" = "$before" ] || fail "a v1-key refusal wrote files"
 
+# --- terminal UI: /dev/tty answers work even when stdin is a pipe ----------------------
+cat >"$work/pty-run.py" <<'PY'
+import errno, os, pty, select, signal, subprocess, sys, time
+
+home, *answers = sys.argv[1:]
+excluded = {"XDG_CONFIG_HOME", "OPENCODE_CONFIG_DIR", "B_AGENTIC_OPENCODE_DIR",
+            "B_AGENTIC_CLICKUP_MCP", "CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR", "NO_COLOR"}
+env = {k: v for k, v in os.environ.items() if k not in excluded}
+env.update(HOME=home, TERM=env.get("PROBE_TERM", "xterm-256color"))
+if "PROBE_NO_COLOR" in env:
+    env["NO_COLOR"] = "1"
+if "PROBE_CLICKUP" in env:
+    env["B_AGENTIC_CLICKUP_MCP"] = env["PROBE_CLICKUP"]
+pid, fd = pty.fork()
+if pid == 0:
+    os.execvpe("bash", ["bash", "-c", env["PROBE_CMD"]], env)
+buf, pending, deadline = b"", b"", time.monotonic() + 30
+failure = None
+try:
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([fd], [], [], 0.1)
+        if not ready:
+            continue
+        try:
+            chunk = os.read(fd, 65536)
+        except OSError as exc:
+            if exc.errno != errno.EIO:
+                raise
+            break
+        if not chunk:
+            break
+        buf += chunk
+        pending += chunk
+        if b"[y/N] " in pending or b"[Y/n] " in pending:
+            if not answers:
+                raise RuntimeError("unexpected installer prompt")
+            while answers and answers[0].startswith("!"):
+                subprocess.run(answers.pop(0)[1:], shell=True, env=env, check=True)
+            if not answers:
+                raise RuntimeError("missing answer after prompt action")
+            os.write(fd, (answers.pop(0) + "\n").encode())
+            pending = b""
+    else:
+        raise RuntimeError("installer timed out")
+except Exception as exc:
+    failure = str(exc)
+    os.kill(pid, signal.SIGKILL)
+finally:
+    os.close(fd)
+    _, status = os.waitpid(pid, 0)
+    sys.stdout.write(buf.decode(errors="replace"))
+if failure or answers:
+    print(failure or "installer exited before consuming the expected answers", file=sys.stderr)
+    sys.exit(2)
+sys.exit(os.waitstatus_to_exitcode(status))
+PY
+# shellcheck disable=SC2016 # expanded by the child shell, not this probe
+piped_install='echo ignored | bash "$PROBE_ROOT/install.sh" --runtime=opencode'
+tui_run() {
+  local home=$1 command=$2
+  shift 2
+  rc=0
+  out=$(PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@") || rc=$?
+  err="$out"
+}
+home=$(fresh_home tui)
+before=$(tree "$home")
+tui_run "$home" "$piped_install" n n; expect_refused "decline terminal install"
+grep -Fq 'Installation Summary' <<<"$out" || fail "TUI summary missing: $out"
+grep -Fq 'Runtime: OpenCode' <<<"$out" || fail "TUI must identify its runtime: $out"
+grep -Fq 'Proceed with installation?' <<<"$out" || fail "TUI confirmation missing: $out"
+[ "$(tree "$home")" = "$before" ] || fail "declining the TUI changed files"
+tui_run "$home" "$piped_install" n y; expect_ok "accept terminal install"
+grep -Fq 'Installation complete' <<<"$out" || fail "TUI completion missing: $out"
+grep -Fq 'Next steps' <<<"$out" || fail "TUI next steps missing: $out"
+oc="$home/.config/opencode"
+[ -f "$oc/b-agentic/install.json" ] || fail "accepting must install"
+[ "$(jq -r '.clickup' "$oc/b-agentic/install.json")" = false ] || fail "declined ClickUp must stay off"
+tui_run "$home" "$piped_install" y; expect_ok "terminal reinstall"
+if grep -Fq 'Add the optional ClickUp' <<<"$out"; then fail "a saved ClickUp choice must not be asked again"; fi
+printf 'local edit\n' >>"$oc/agents/b-planner.md"
+tui_run "$home" "$piped_install" y; expect_ok "terminal preserved-file warning"
+grep -Fq 'Warnings' <<<"$out" || fail "TUI warning box missing: $out"
+grep -Fq 'local edit' "$oc/agents/b-planner.md" || fail "TUI overwrote a modified file"
+for mode in --dry-run --yes --uninstall; do
+  tui_run "$home" "$piped_install $mode"; expect_ok "terminal $mode"
+  if grep -Fq 'Installation Summary' <<<"$out" || grep -Fq 'Proceed with installation?' <<<"$out"; then
+    fail "$mode must remain plain and non-interactive: $out"
+  fi
+done
+home=$(fresh_home tui-clickup)
+tui_run "$home" "$piped_install" y y; expect_ok "terminal ClickUp opt-in"
+[ "$(jq -r '.mcp.servers.clickup.type' "$home/.config/opencode/opencode.json")" = local ] || fail "ClickUp opt-in missing"
+home=$(fresh_home tui-explicit)
+tui_run "$home" "$piped_install --without-clickup" y; expect_ok "explicit ClickUp flag"
+home=$(fresh_home tui-environment)
+PROBE_CLICKUP=yes tui_run "$home" "$piped_install" y; expect_ok "ClickUp environment opt-in"
+[ "$(jq -r '.clickup' "$home/.config/opencode/b-agentic/install.json")" = true ] || fail "environment choice lost"
+home=$(fresh_home tui-no-color)
+PROBE_NO_COLOR=1 tui_run "$home" "$piped_install --without-clickup" n; expect_refused "NO_COLOR terminal UI"
+if [[ "$out" == *$'\033['* ]]; then fail "NO_COLOR must suppress ANSI styling"; fi
+home=$(fresh_home tui-dumb)
+PROBE_TERM=dumb tui_run "$home" "$piped_install"; expect_ok "dumb terminal fallback"
+if grep -Fq 'Installation Summary' <<<"$out"; then fail "TERM=dumb must remain plain"; fi
+home=$(fresh_home tui-notes)
+srcrepo="$work/srcrepo"
+mkdir -p "$srcrepo"
+( cd "$root" && git ls-files -z -- install.sh tooling/install skills/registry.yaml opencode claude/bin claude/hooks | tar --null -T - -cf - ) | tar -xf - -C "$srcrepo"
+git -C "$srcrepo" init -q .
+git -C "$srcrepo" add -A
+git -C "$srcrepo" -c user.email=probe@example.invalid -c user.name=probe commit -qm source
+# shellcheck disable=SC2016
+piped_bootstrap='cat "$PROBE_ROOT/install.sh" | bash -s -- --runtime=opencode'
+for expected in 'Cloning source' 'Updating source'; do
+  B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n n
+  expect_refused "terminal bootstrap notes"
+  grep -Fq "$expected" <<<"$out" || fail "bootstrap notes lost: $out"
+  note_line=$(grep -nF "$expected" <<<"$out" | head -1 | cut -d: -f1)
+  header_line=$(grep -nF '┌' <<<"$out" | head -1 | cut -d: -f1)
+  [ -n "$header_line" ] && [ "$header_line" -lt "$note_line" ] || fail "bootstrap notes must follow the header"
+  [ ! -e "$home/.config/opencode" ] || fail "declined bootstrap wrote OpenCode config"
+done
+
+# Replan after confirmation: retain edits and refuse newly unsafe destinations before writes.
+home=$(fresh_home tui-edit)
+# shellcheck disable=SC2016 # HOME belongs to the sandbox child
+edit_cmd='!mkdir -p "$HOME/.config/opencode" && printf '\''{"providers":{"late":{}}}\n'\'' >"$HOME/.config/opencode/opencode.json"'
+tui_run "$home" "$piped_install --without-clickup" "$edit_cmd" y; expect_ok "edit during confirmation"
+jq -e '.providers.late == {}' "$home/.config/opencode/opencode.json" >/dev/null || fail "late user edit lost"
+home=$(fresh_home tui-alias)
+# shellcheck disable=SC2016
+alias_cmd='!mkdir -p "$HOME/.config/opencode" && ln -s AGENTS.md "$HOME/.config/opencode/opencode.json"'
+tui_run "$home" "$piped_install --without-clickup" "$alias_cmd" y; expect_refused "alias during confirmation"
+[ ! -e "$home/.config/opencode/b-agentic" ] && [ ! -e "$home/.config/opencode/AGENTS.md" ] || fail "late alias refusal wrote files"
+
+home=$(legacy_home tui-legacy)
+before=$(tree "$home")
+tui_run "$home" "$piped_install --migrate-legacy --without-clickup" n; expect_refused "decline legacy migration"
+grep -Fq 'Legacy migration' <<<"$out" || fail "migration deletions must be shown: $out"
+grep -Fq 'agents/b-reviewer.md' <<<"$out" || fail "migration summary must name removal paths: $out"
+[ "$(tree "$home")" = "$before" ] || fail "declining migration changed the legacy install"
+[ ! -e "$home/.config/opencode/b-agentic/backups" ] || fail "declining migration created backups"
+tui_run "$home" "$piped_install --migrate-legacy --without-clickup" y; expect_ok "accept legacy migration"
+[ ! -e "$home/.config/opencode/agents/b-reviewer.md" ] || fail "accepted migration left the retired agent"
+[ -f "$home/.config/opencode/agents/b-planner.md" ] || fail "accepted migration did not install"
+
+home=$(legacy_home tui-legacy-late-link)
+# shellcheck disable=SC2016
+link_cmd='!mkdir -p "$HOME/dotfiles" && ln -s "$HOME/dotfiles" "$HOME/.config/opencode/skills"'
+tui_run "$home" "$piped_install --migrate-legacy --without-clickup" "$link_cmd" y
+expect_refused "unsafe migration destination during confirmation"
+oc="$home/.config/opencode"
+[ "$(cat "$oc/agents/b-reviewer.md")" = 'legacy agent' ] || fail "late refusal removed legacy files"
+[ ! -e "$oc/b-agentic/backups" ] && [ ! -e "$home/dotfiles/b-plan" ] || fail "late refusal wrote files"
+
+# --runtime=both remains sequential: declining OpenCode does not undo Claude.
+home=$(fresh_home tui-both)
+# shellcheck disable=SC2016
+piped_both='echo ignored | bash "$PROBE_ROOT/install.sh" --runtime=both --without-clickup'
+tui_run "$home" "$piped_both" y n; expect_refused "decline second runtime"
+[ -f "$home/.claude/b-agentic/install.json" ] || fail "the first runtime was not installed"
+[ ! -e "$home/.config/opencode" ] || fail "the declined second runtime was installed"
+
 echo "opencode install probe passed"
