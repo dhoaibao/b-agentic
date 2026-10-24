@@ -16,6 +16,7 @@ SKILL_REGISTRY_PATH = ROOT / "skills" / "registry.yaml"
 KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
 MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 CAPABILITIES_PATH = ROOT / "references" / "capabilities.yaml"
+RUNTIMES_PATH = ROOT / "references" / "runtimes.yaml"
 CLAUDE_DIR = ROOT / "claude"
 CLAUDE_AGENTS_DIR = CLAUDE_DIR / "agents"
 CLAUDE_CONFIGS_DIR = CLAUDE_DIR / "configs"
@@ -36,10 +37,7 @@ KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor"}
-AGENT_MODELS = {"opus", "sonnet", "haiku"}
 CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
-# Tools a read-only specialist must never receive, whatever the registry says.
-EDITING_TOOLS = ("Edit", "Write", "NotebookEdit")
 # Likely-secret path gate; the snapshot CLI mirrors everything after "*".
 PATH_RULES = {
     "*": "allow",
@@ -229,6 +227,32 @@ def load_json_subset_yaml(path: Path) -> dict[str, Any]:
     return value
 
 
+def load_runtimes() -> dict[str, dict[str, Any]]:
+    runtimes = load_json_subset_yaml(RUNTIMES_PATH).get("runtimes")
+    if not isinstance(runtimes, dict) or not isinstance(runtimes.get("claude"), dict):
+        raise SystemExit(f"{RUNTIMES_PATH}: missing runtimes object with a claude entry")
+    return runtimes
+
+
+RUNTIMES = load_runtimes()
+CLAUDE_RUNTIME = RUNTIMES["claude"]
+AGENT_MODELS = set(CLAUDE_RUNTIME["agent_models"])
+# Tools a read-only specialist must never receive, whatever the registry says.
+EDITING_TOOLS = tuple(CLAUDE_RUNTIME["editing_tools"])
+# Canonical sources name MCP tools the Claude Code way; other runtimes get their own format.
+MCP_REFERENCE_PATTERN = re.compile(r"mcp__([a-z][a-z0-9_]*)__([A-Za-z0-9_.*-]+)")
+
+
+def localize(text: str, runtime: str) -> str:
+    """Render canonical Claude Code wording for a runtime; the claude runtime is the identity."""
+    config = RUNTIMES[runtime]
+    for source, target in sorted(config["glossary"], key=lambda pair: len(pair[0]), reverse=True):
+        text = text.replace(source, target)
+    return MCP_REFERENCE_PATTERN.sub(
+        lambda match: config["mcp_tool_format"].format(server=match[1], tool=match[2]), text
+    )
+
+
 def ensure_string(value: object, label: str, errors: list[str]) -> str:
     if not isinstance(value, str) or not value:
         errors.append(f"{label}: expected non-empty string")
@@ -269,7 +293,7 @@ def load_capabilities() -> dict[str, Any]:
 
 def mcp_tool_name(server: str, tool: str) -> str:
     """Claude Code's name for an MCP tool: mcp__<server>__<tool>."""
-    return f"mcp__{server}__{tool}"
+    return CLAUDE_RUNTIME["mcp_tool_format"].format(server=server, tool=tool)
 
 
 def validate_kernel_template(errors: list[str]) -> None:
@@ -589,16 +613,18 @@ def render_delegation(skills: list[dict[str, Any]]) -> str:
 DELEGATION_BOUNDARY_HEADING = "## Delegation boundary"
 
 
-def render_delegation_boundary(skill: dict[str, Any]) -> str:
+def render_delegation_boundary(skill: dict[str, Any], runtime: str = "claude") -> str:
     name = skill["name"]
     agent = skill["execution"]["agent"]
-    editing = ", ".join(f"`{tool}`" for tool in EDITING_TOOLS)
+    config = RUNTIMES[runtime]
+    editing = ", ".join(f"`{tool}`" for tool in config["editing_tools"])
+    check = config["profile_check"].format(agent=agent, editing=editing, name=name)
     lines = [
         DELEGATION_BOUNDARY_HEADING,
         "",
         f"`{name}` runs only in the `{agent}` subagent.",
         "",
-        f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
+        f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and {check}. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
         f"- `{agent}` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.",
     ]
     handoff = skill.get("handoff", [])
@@ -611,7 +637,7 @@ def render_delegation_boundary(skill: dict[str, Any]) -> str:
                 *[f"- {item}" for item in handoff],
             ]
         )
-    lines.extend(["", "User arguments for the bounded task: $ARGUMENTS"])
+    lines.extend(["", f"User arguments for the bounded task: {config['arguments_placeholder']}"])
     return "\n".join(lines)
 
 
@@ -628,7 +654,7 @@ def fold_yaml(key: str, value: str) -> list[str]:
     return [f"{key}: >", *wrapper.fill(value).splitlines()]
 
 
-def render_skill_file(skill: dict[str, Any]) -> str:
+def render_skill_file(skill: dict[str, Any], runtime: str = "claude") -> str:
     name = skill["name"]
     description = skill["prompt"]["description"]
     triggers = skill["routing"].get("triggers")
@@ -641,13 +667,14 @@ def render_skill_file(skill: dict[str, Any]) -> str:
         head, sep, rest = body.partition("\n## ")
         if not sep:
             raise SystemExit(f"skills/{name}/prompt.md: expected a '## ' section to place the delegation boundary")
-        body = f"{head}\n{render_delegation_boundary(skill)}\n\n## {rest}"
+        body = f"{head}\n{render_delegation_boundary(skill, runtime)}\n\n## {rest}"
         description += (
             f" Delegated: runs only in the `{execution['agent']}` subagent; the main session never executes it itself."
         )
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))
-    if skill.get("argument_hint"):
+    # OpenCode skills are not slash commands, so a hint for typed arguments has no meaning there.
+    if skill.get("argument_hint") and runtime == "claude":
         lines.append(f"argument-hint: {json.dumps(skill['argument_hint'], ensure_ascii=False)}")
     lines.extend(
         [
@@ -724,7 +751,7 @@ def render_agent_file(
     )
 
 
-HOOK_DIR = '"$HOME/.claude/b-agentic/hooks'
+HOOK_DIR = f'"{CLAUDE_RUNTIME["hook_dir"]}'
 
 
 def hook_command(script: str) -> str:
@@ -762,24 +789,32 @@ def render_settings(policy: dict[str, Any]) -> dict[str, Any]:
     return {**render_permissions(policy), "hooks": render_hooks()}
 
 
+def shell_pattern_rules() -> tuple[list[str], list[str]]:
+    """Shell command patterns the settings layer asks about and denies, as (ask, deny)."""
+    deny: list[str] = []
+    ask: list[str] = []
+    for command in DENIED_COMMANDS:
+        for prefix in ("", "rtk "):
+            deny.extend([f"{prefix}{command}", f"{prefix}{command} *"])
+    for pattern in DENIED_PUSH_PATTERNS:
+        for prefix in ("", "rtk "):
+            deny.append(f"{prefix}{pattern}")
+    for command in ASKED_COMMANDS:
+        for prefix in ("", "rtk "):
+            ask.extend([f"{prefix}{command}", f"{prefix}{command} *"])
+    for pattern in gh_api_ask_patterns():
+        for prefix in ("", "rtk "):
+            ask.append(f"{prefix}{pattern}")
+    deny.extend(DENIED_BARE_COMMANDS)
+    return ask, deny
+
+
 def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
     """Permission rules merged into the user's Claude Code settings.json."""
     allow = list(ALLOWED_TOOLS)
-    ask: list[str] = []
-    deny: list[str] = []
-    for command in DENIED_COMMANDS:
-        for prefix in ("", "rtk "):
-            deny.extend([f"Bash({prefix}{command})", f"Bash({prefix}{command} *)"])
-    for pattern in DENIED_PUSH_PATTERNS:
-        for prefix in ("", "rtk "):
-            deny.append(f"Bash({prefix}{pattern})")
-    for command in ASKED_COMMANDS:
-        for prefix in ("", "rtk "):
-            ask.extend([f"Bash({prefix}{command})", f"Bash({prefix}{command} *)"])
-    for pattern in gh_api_ask_patterns():
-        for prefix in ("", "rtk "):
-            ask.append(f"Bash({prefix}{pattern})")
-    deny.extend(f"Bash({command})" for command in DENIED_BARE_COMMANDS)
+    shell_ask, shell_deny = shell_pattern_rules()
+    ask = [f"Bash({pattern})" for pattern in shell_ask]
+    deny = [f"Bash({pattern})" for pattern in shell_deny]
     # Claude Code warns about and ignores Write(path) rules: Edit(path) rules cover every file-editing tool.
     for tool in ("Read", "Edit"):
         deny.extend(f"{tool}({glob})" for glob in DENY_READ_GLOBS)
@@ -794,6 +829,134 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
             else:
                 deny.append(name)
     return {"permissions": {"allow": allow, "ask": ask, "deny": deny}}
+
+
+OPENCODE_DIR = ROOT / "opencode"
+OPENCODE_AGENTS_DIR = OPENCODE_DIR / "agents"
+OPENCODE_SKILLS_DIR = OPENCODE_DIR / "skills"
+OPENCODE_CONFIGS_DIR = OPENCODE_DIR / "configs"
+OPENCODE_TEMPLATE_PATH = OPENCODE_CONFIGS_DIR / "opencode.template.json"
+OPENCODE_CLICKUP_PATH = OPENCODE_CONFIGS_DIR / "opencode.clickup.json"
+OPENCODE_KERNEL_PATH = OPENCODE_CONFIGS_DIR / "kernel.md"
+# The Claude Code hooks prompt on these; OpenCode has no hook that can ask, so they are shell rules.
+OPENCODE_EXTRA_SHELL_ASK = ("*b-codex-guard.mjs* --approve*", "*codex-approved-repos.json*", "*B_AGENTIC_STATE_DIR*")
+# The Claude Code ClickUp guard asks only for image references; OpenCode cannot, so every
+# trusted mutation asks there instead of running unprompted.
+OPENCODE_ASKED_CLASSES = ("trusted-mutation",)
+OPENCODE_MCP_TIMEOUT = {"startup": 30000, "catalog": 30000}
+ENV_REFERENCE = re.compile(r"\$\{([A-Z0-9_]+)\}")
+
+
+def opencode_rule(action: str, effect: str, resource: str = "*") -> dict[str, str]:
+    return {"action": action, "resource": resource, "effect": effect}
+
+
+def opencode_mcp_server(entry: dict[str, Any]) -> dict[str, Any]:
+    """A Claude Code MCP entry in OpenCode v2 shape (mcp.servers.<name>); credentials stay env references."""
+
+    def refs(value: str) -> str:
+        return ENV_REFERENCE.sub(lambda match: "{env:" + match[1] + "}", value)
+
+    if entry["type"] == "stdio":
+        server: dict[str, Any] = {
+            "type": "local",
+            "command": [entry["command"], *entry.get("args", [])],
+            "environment": {key: refs(value) for key, value in entry.get("env", {}).items()},
+        }
+    else:
+        server = {"type": "remote", "url": entry["url"]}
+        if entry.get("headers"):
+            server["headers"] = {key: refs(value) for key, value in entry["headers"].items()}
+    return {**server, "disabled": False, "codemode": False, "timeout": dict(OPENCODE_MCP_TIMEOUT)}
+
+
+def opencode_mcp_servers(path: Path) -> dict[str, Any]:
+    return {name: opencode_mcp_server(entry) for name, entry in json.loads(path.read_text())["mcpServers"].items()}
+
+
+def opencode_effect(policy: dict[str, Any], class_name: str) -> str:
+    return "ask" if class_name in OPENCODE_ASKED_CLASSES else policy["classes"][class_name]["native_permission"]
+
+
+def render_opencode_permissions(policy: dict[str, Any]) -> list[dict[str, str]]:
+    """The settings layer as OpenCode v2 rules. The last matching rule wins, so each managed server
+    asks by default and its classified tools follow; the installer appends this block last."""
+    shell_ask, shell_deny = shell_pattern_rules()
+    rules = [opencode_rule("shell", "ask", pattern) for pattern in [*shell_ask, *OPENCODE_EXTRA_SHELL_ASK]]
+    rules += [opencode_rule("shell", "deny", pattern) for pattern in shell_deny]
+    for tool in ("read", "edit"):
+        rules += [opencode_rule(tool, "deny", glob) for glob in DENY_READ_GLOBS]
+    for server, record in policy["servers"].items():
+        rules.append(opencode_rule(f"{server}_*", "ask"))
+        for tool, class_name in record["tools"].items():
+            effect = opencode_effect(policy, class_name)
+            if effect != "ask":
+                rules.append(opencode_rule(mcp_tool_name_for("opencode", server, tool), effect))
+    return rules
+
+
+def mcp_tool_name_for(runtime: str, server: str, tool: str) -> str:
+    return RUNTIMES[runtime]["mcp_tool_format"].format(server=server, tool=tool)
+
+
+def opencode_agent_permissions(agent: dict[str, Any], policy: dict[str, Any]) -> list[dict[str, str]]:
+    """A read-only specialist: no editing, delegation, or questions, and only its allowlisted MCP tools.
+    The allowlist is a wildcard deny per server followed by the permitted tools (last match wins)."""
+    rules = [opencode_rule(action, "deny") for action in RUNTIMES["opencode"]["editing_tools"]]
+    allowed = {tool for tool in agent_tool_list(agent, policy) if tool.startswith("mcp__")}
+    for server, record in policy["servers"].items():
+        permitted = [tool for tool in record["tools"] if mcp_tool_name(server, tool) in allowed]
+        if len(permitted) == len(record["tools"]):
+            continue
+        rules.append(opencode_rule(f"{server}_*", "deny"))
+        rules += [opencode_rule(mcp_tool_name_for("opencode", server, tool), "allow") for tool in permitted]
+    return rules
+
+
+def render_opencode_agent_file(
+    name: str, agent: dict[str, Any], skills: list[dict[str, Any]], policy: dict[str, Any]
+) -> str:
+    body = render_agent_file(name, agent, skills, policy).split("\n---\n", 1)[1]
+    permissions = ["permissions:"]
+    for rule in opencode_agent_permissions(agent, policy):
+        permissions += [
+            f"  - action: {json.dumps(rule['action'])}",
+            f"    resource: {json.dumps(rule['resource'])}",
+            f"    effect: {rule['effect']}",
+        ]
+    head = ["---", f"description: {json.dumps(agent['description'])}", "mode: subagent", *permissions, "---"]
+    return "\n".join(head) + localize(body, "opencode")
+
+
+def render_opencode_template(policy: dict[str, Any]) -> str:
+    template = {
+        "permissions": render_opencode_permissions(policy),
+        "mcp": {"servers": opencode_mcp_servers(CLAUDE_CONFIGS_DIR / "mcp.base.json")},
+    }
+    return json.dumps(template, indent=2) + "\n"
+
+
+def render_opencode_outputs(
+    skills: list[dict[str, Any]],
+    agents: dict[str, dict[str, Any]],
+    policy: dict[str, Any],
+    kernel: str,
+) -> dict[Path, str]:
+    outputs = {
+        OPENCODE_KERNEL_PATH: localize(kernel, "opencode"),
+        OPENCODE_TEMPLATE_PATH: render_opencode_template(policy),
+        OPENCODE_CLICKUP_PATH: json.dumps(
+            {"mcp": {"servers": opencode_mcp_servers(CLAUDE_CONFIGS_DIR / "mcp.clickup.json")}}, indent=2
+        )
+        + "\n",
+    }
+    for skill in skills:
+        outputs[OPENCODE_SKILLS_DIR / skill["name"] / "SKILL.md"] = localize(
+            render_skill_file(skill, "opencode"), "opencode"
+        )
+    for name, agent in agents.items():
+        outputs[OPENCODE_AGENTS_DIR / f"{name}.md"] = render_opencode_agent_file(name, agent, skills, policy)
+    return outputs
 
 
 def replace_block(text: str, start: str, end: str, body: str) -> str:
@@ -824,6 +987,7 @@ def render_outputs(
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
     for name, agent in agents.items():
         outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills, policy)
+    outputs.update(render_opencode_outputs(skills, agents, policy, kernel))
     return outputs
 
 
@@ -942,6 +1106,156 @@ def validate_regressions(
     return errors
 
 
+# Claude Code wording a localized runtime must not inherit from the canonical sources.
+LOCALIZED_FORBIDDEN = (
+    "mcp__",
+    "AskUserQuestion",
+    "~/.claude",
+    ".claude/",
+    "run_in_background",
+    "general-purpose",
+    "`Agent`",
+)
+
+
+def validate_runtimes() -> list[str]:
+    errors: list[str] = []
+    for name, config in RUNTIMES.items():
+        label = f"{RUNTIMES_PATH.relative_to(ROOT)}: runtimes.{name}"
+        for key in ("config_dir", "state_dir", "hook_dir", "mcp_tool_format"):
+            ensure_string(config.get(key), f"{label}.{key}", errors)
+        for key in ("agent_models", "editing_tools"):
+            if not isinstance(config.get(key), list) or not all(isinstance(item, str) and item for item in config[key]):
+                errors.append(f"{label}.{key}: expected a string array")
+        template = config.get("mcp_tool_format")
+        if isinstance(template, str) and not ("{server}" in template and "{tool}" in template):
+            errors.append(f"{label}.mcp_tool_format: must contain {{server}} and {{tool}}")
+        glossary = config.get("glossary")
+        if not isinstance(glossary, list) or not all(
+            isinstance(pair, list) and len(pair) == 2 and all(isinstance(part, str) and part for part in pair)
+            for pair in glossary
+        ):
+            errors.append(f"{label}.glossary: expected an array of [source, replacement] string pairs")
+            continue
+        sources = [pair[0] for pair in glossary]
+        if len(set(sources)) != len(sources):
+            errors.append(f"{label}.glossary: duplicate source entries")
+    claude = RUNTIMES["claude"]
+    if claude.get("glossary") != [] or claude.get("mcp_tool_format") != "mcp__{server}__{tool}":
+        errors.append(
+            "runtimes.claude: canonical sources are Claude Code wording, so its glossary must be empty and MCP format mcp__{server}__{tool}"
+        )
+    return errors
+
+
+def validate_localization(outputs: dict[Path, str]) -> list[str]:
+    """The claude runtime must reproduce its outputs exactly; other runtimes must shed Claude-only wording."""
+    errors: list[str] = []
+    prose = {path: text for path, text in outputs.items() if path.name == "SKILL.md" or path == KERNEL_TEMPLATE_PATH}
+    for path, text in outputs.items():
+        if localize(text, "claude") != text:
+            errors.append(f"{path.relative_to(ROOT)}: claude runtime localization must be the identity")
+    for runtime in RUNTIMES:
+        if runtime == "claude":
+            continue
+        for path, text in prose.items():
+            localized = localize(text, runtime)
+            for forbidden in LOCALIZED_FORBIDDEN:
+                if forbidden in localized:
+                    errors.append(f"{path.relative_to(ROOT)}: {runtime} rendering still contains {forbidden!r}")
+    return errors
+
+
+def validate_opencode_outputs(
+    outputs: dict[Path, str], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> list[str]:
+    """Structural checks on the rendered OpenCode assets: read-only specialists, an asking default
+    per managed MCP server, class-faithful tool rules, and a shell/path rule set that matches Claude's."""
+    errors: list[str] = []
+    kernel = outputs[OPENCODE_KERNEL_PATH]
+    if len(kernel.encode()) > MAX_KERNEL_BYTES or len(kernel.splitlines()) > MAX_KERNEL_LINES:
+        errors.append("opencode/configs/kernel.md: exceeds the kernel size limit")
+    for path, text in outputs.items():
+        if "{{" in text:
+            errors.append(f"{path.relative_to(ROOT)}: unresolved template token")
+        if (
+            path.name == "SKILL.md"
+            and path.is_relative_to(OPENCODE_DIR)
+            and ("argument-hint" in text or "$ARGUMENTS" in text)
+        ):
+            errors.append(
+                f"{path.relative_to(ROOT)}: OpenCode skills are not slash commands; no argument hint or $ARGUMENTS"
+            )
+    template = json.loads(outputs[OPENCODE_TEMPLATE_PATH])
+    rules = template["permissions"]
+    effect_by_tool: dict[str, str] = {}
+    for server, record in policy["servers"].items():
+        wildcard = next((i for i, rule in enumerate(rules) if rule["action"] == f"{server}_*"), None)
+        if wildcard is None or rules[wildcard]["effect"] != "ask":
+            errors.append(f"opencode template: managed server {server} must ask by default ({server}_*)")
+            continue
+        for tool, class_name in record["tools"].items():
+            expected = opencode_effect(policy, class_name)
+            name = mcp_tool_name_for("opencode", server, tool)
+            effect_by_tool[name] = expected
+            matching = [i for i, rule in enumerate(rules) if rule["action"] == name]
+            if expected == "ask":
+                if matching:
+                    errors.append(f"opencode template: {name} asks through {server}_*; remove its own rule")
+            elif len(matching) != 1 or rules[matching[0]]["effect"] != expected or matching[0] < wildcard:
+                errors.append(f"opencode template: {name} must be {expected} by one rule after {server}_*")
+    if len({json.dumps(rule, sort_keys=True) for rule in rules}) != len(rules):
+        errors.append("opencode template: permissions must not repeat a rule (the installer removes each once)")
+    shell_ask, shell_deny = shell_pattern_rules()
+    for effect, patterns in (("ask", [*shell_ask, *OPENCODE_EXTRA_SHELL_ASK]), ("deny", shell_deny)):
+        got = [rule["resource"] for rule in rules if rule["action"] == "shell" and rule["effect"] == effect]
+        if got != patterns:
+            errors.append(f"opencode template: shell {effect} rules differ from the Claude settings layer")
+    for action in ("read", "edit"):
+        got = [rule["resource"] for rule in rules if rule["action"] == action and rule["effect"] == "deny"]
+        if got != list(DENY_READ_GLOBS):
+            errors.append(f"opencode template: {action} secret-path denies differ from the Claude settings layer")
+    for name in agents:
+        text = outputs[OPENCODE_AGENTS_DIR / f"{name}.md"]
+        if "\nmode: subagent\n" not in text:
+            errors.append(f"opencode/agents/{name}.md: must be mode: subagent")
+        agent_rules = re.findall(r'  - action: "([^"]+)"\n    resource: "\*"\n    effect: (\w+)', text)
+        if agent_rules[:3] != [("edit", "deny"), ("subagent", "deny"), ("question", "deny")]:
+            errors.append(f"opencode/agents/{name}.md: must deny edit, subagent, and question first")
+        for action, effect in agent_rules[3:]:
+            if effect == "allow" and effect_by_tool.get(action) != "allow":
+                errors.append(f"opencode/agents/{name}.md: allows {action}, which is not an allowed tool")
+            if effect == "allow" and not any(f"{server}_" == action[: len(server) + 1] for server in policy["servers"]):
+                errors.append(f"opencode/agents/{name}.md: allows {action}, which is not a managed MCP tool")
+    return errors
+
+
+def validate_opencode_regressions(
+    outputs: dict[Path, str], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> list[str]:
+    """Each broken OpenCode rule set must be rejected, so the structural checks cannot rot silently."""
+    template = json.loads(outputs[OPENCODE_TEMPLATE_PATH])
+    asked = next(r for r in template["permissions"] if r["effect"] == "ask" and r["action"].endswith("_*"))
+    broken_template = {**template, "permissions": [r for r in template["permissions"] if r is not asked]}
+    broken_agent = outputs[OPENCODE_AGENTS_DIR / "b-planner.md"].replace(
+        '  - action: "edit"\n    resource: "*"\n    effect: deny',
+        '  - action: "edit"\n    resource: "*"\n    effect: allow',
+        1,
+    )
+    cases = {
+        "an MCP server without its asking default": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: json.dumps(broken_template),
+        },
+        "a specialist that may edit": {**outputs, OPENCODE_AGENTS_DIR / "b-planner.md": broken_agent},
+    }
+    return [
+        f"OpenCode regression: {label} must fail validation"
+        for label, candidate in cases.items()
+        if not validate_opencode_outputs(candidate, agents, policy)
+    ]
+
+
 def sync_outputs(check: bool) -> int:
     skills = load_skills()
     agents = load_agents()
@@ -953,11 +1267,16 @@ def sync_outputs(check: bool) -> int:
         *validate_agent_tools(agents, policy),
         *validate_capabilities(capabilities, policy),
         *validate_snapshot_cli(),
+        *validate_runtimes(),
     ]
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
     outputs = render_outputs(skills, agents, policy)
+    errors = validate_opencode_outputs(outputs, agents, policy)
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        return 1
     stale = [path for path, content in outputs.items() if not path.exists() or path.read_text() != content]
     if check and stale:
         print("\n".join(f"generated output out of date: {path.relative_to(ROOT)}" for path in stale), file=sys.stderr)
@@ -981,6 +1300,13 @@ def main() -> int:
             print("\n".join(errors), file=sys.stderr)
             return 1
         print("Skill, capability, and MCP policy regression checks passed.")
+        outputs = render_outputs(load_skills(), load_agents(), load_policy())
+        errors = validate_localization(outputs)
+        errors += validate_opencode_regressions(outputs, load_agents(), load_policy())
+        if errors:
+            print("\n".join(errors), file=sys.stderr)
+            return 1
+        print("Runtime localization checks passed.")
     return sync_outputs(args.check)
 
 

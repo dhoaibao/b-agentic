@@ -75,12 +75,26 @@ def resolve_claude_dir() -> Path:
     return default
 
 
+# The other runtime's locations, relative to the home directory. A resolved destination inside
+# them is refused, so a symlink cannot make one runtime's install write into the other's tree.
+# opencode_install.py replaces these with the Claude Code locations before it does any work.
+FOREIGN_RUNTIME_ROOTS: tuple[str, ...] = (".config/opencode",)
+FOREIGN_RUNTIME_FILES: tuple[str, ...] = ()
+
+
 def guard_destination(path: Path) -> None:
-    """Refuse to touch the frozen Pi runtime, the home directory itself, or the filesystem root."""
+    """Refuse to touch the frozen Pi runtime, the other runtime, the home directory itself, or the filesystem root."""
     resolved = Path(os.path.realpath(path))
     home = home_dir()
     if resolved in (Path("/"), Path(os.path.realpath(home))):
         raise InstallError(f"refusing to manage {path}")
+    for relative in FOREIGN_RUNTIME_ROOTS:
+        foreign = {home / relative, Path(os.path.realpath(home / relative))}
+        if any(resolved == root or root in resolved.parents for root in foreign):
+            raise InstallError(f"refusing to write into another runtime's directory: {path}")
+    for relative in FOREIGN_RUNTIME_FILES:
+        if resolved in {home / relative, Path(os.path.realpath(home / relative))}:
+            raise InstallError(f"refusing to write another runtime's configuration file: {path}")
     for pi_root in {home / ".pi", Path(os.path.realpath(home / ".pi"))}:
         if resolved == pi_root or pi_root in resolved.parents:
             raise InstallError(f"refusing to write under the Pi runtime directory: {path}")

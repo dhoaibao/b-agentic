@@ -1,0 +1,4235 @@
+{
+  "permissions": [
+    {
+      "action": "shell",
+      "resource": "git push",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "git * push",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "git * push *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git * push",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git * push *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth switch",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth switch *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth switch",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth switch *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth switch",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth switch *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth switch",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth switch *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release upload",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release upload *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release upload",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release upload *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release upload",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release upload *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release upload",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release upload *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh variable set",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh variable set *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh variable set",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh variable set *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * variable set",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * variable set *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * variable set",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * variable set *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh variable delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh variable delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh variable delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh variable delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * variable delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * variable delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * variable delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * variable delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo fork",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo fork *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo fork",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo fork *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo fork",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo fork *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo fork",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo fork *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gist create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gist create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gist create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gist create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gist create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gist create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gist create",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gist create *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gist delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gist delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gist delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gist delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gist delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gist delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gist delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gist delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh issue close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh issue close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh issue close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh issue close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * issue close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * issue close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * issue close",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * issue close *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh issue delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh issue delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh issue delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh issue delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * issue delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * issue delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * issue delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * issue delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh issue edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh issue edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh issue edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh issue edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * issue edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * issue edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * issue edit",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * issue edit *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh workflow run",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh workflow run *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh workflow run",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh workflow run *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * workflow run",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * workflow run *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * workflow run",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * workflow run *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh workflow disable",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh workflow disable *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh workflow disable",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh workflow disable *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * workflow disable",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * workflow disable *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * workflow disable",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * workflow disable *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh run delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh run delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh run delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh run delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * run delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * run delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * run delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * run delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh cache delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh cache delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh cache delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh cache delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * cache delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * cache delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * cache delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * cache delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh label delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh label delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh label delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh label delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * label delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * label delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * label delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * label delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh codespace delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh codespace delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh codespace delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh codespace delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * codespace delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * codespace delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * codespace delete",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * codespace delete *",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api * -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api * -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api * -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api * -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api * --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api * --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api * --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api * --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api * --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api * --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api * -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api * -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api * --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api * --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api * -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api * -f*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api * -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api * -F*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api * --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api * --field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api * --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api * --raw-field*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api * --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api * --input*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api * -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api * -X*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api * --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api * --method*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "*b-codex-guard.mjs* --approve*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "*codex-approved-repos.json*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "*B_AGENTIC_STATE_DIR*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "git pull",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git pull *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git pull",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git pull *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git reset --hard",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git reset --hard *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git reset --hard",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git reset --hard *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git clean -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git clean -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git clean -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git clean -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git branch -D",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git branch -D *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git branch -D",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git branch -D *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rm -rf",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rm -rf *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk rm -rf",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk rm -rf *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "sudo",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "sudo *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk sudo",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk sudo *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "doas",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "doas *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk doas",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk doas *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "docker system prune",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "docker system prune *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk docker system prune",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk docker system prune *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "bash -s",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "bash -s *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk bash -s",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk bash -s *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "sh -s",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "sh -s *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk sh -s",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk sh -s *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push origin",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push origin",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push -d",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push -d",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push -d *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push -d *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * -d",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * -d",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * -d *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * -d *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push --delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push --delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * --delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * --delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push --mirror*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push --mirror*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * --mirror*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * --mirror*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push --all*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push --all*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * --all*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * --all*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push --branches*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push --branches*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * --branches*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * --branches*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push --prune*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push --prune*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * --prune*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * --prune*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *:main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *:main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *:main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *:main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *refs/heads/main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *refs/heads/main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *refs/heads/main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *refs/heads/main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push * master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push * master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *:master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *:master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *:master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *:master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *refs/heads/master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *refs/heads/master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git push *refs/heads/master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git push *refs/heads/master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * -f",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * +*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * -f *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *:main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *:main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *:main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *:main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *refs/heads/main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *refs/heads/main",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *refs/heads/main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *refs/heads/main *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push * master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push * master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *:master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *:master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *:master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *:master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *refs/heads/master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *refs/heads/master",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "git -c * push *refs/heads/master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk git -c * push *refs/heads/master *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr merge",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr merge",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh pr merge *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh pr merge *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr merge",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr merge",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * pr merge *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * pr merge *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo archive",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo archive",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo archive *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo archive *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo archive",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo archive",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo archive *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo archive *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo rename",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo rename",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo rename *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo rename *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo rename",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo rename",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo rename *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo rename *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo edit",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo edit",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo edit *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo edit *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo edit",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo edit",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo edit *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo edit *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo deploy-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo deploy-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo deploy-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo deploy-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo deploy-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo deploy-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo deploy-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo deploy-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo deploy-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo deploy-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh repo deploy-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh repo deploy-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo deploy-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo deploy-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * repo deploy-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * repo deploy-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release delete-asset",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release delete-asset",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh release delete-asset *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh release delete-asset *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release delete-asset",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release delete-asset",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * release delete-asset *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * release delete-asset *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh extension install",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh extension install",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh extension install *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh extension install *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * extension install",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * extension install",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * extension install *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * extension install *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh alias set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh alias set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh alias set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh alias set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * alias set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * alias set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * alias set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * alias set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh alias import",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh alias import",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh alias import *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh alias import *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * alias import",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * alias import",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * alias import *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * alias import *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh secret set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh secret set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh secret set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh secret set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * secret set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * secret set",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * secret set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * secret set *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh secret delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh secret delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh secret delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh secret delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * secret delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * secret delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * secret delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * secret delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh ssh-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh ssh-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh ssh-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh ssh-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * ssh-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * ssh-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * ssh-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * ssh-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh ssh-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh ssh-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh ssh-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh ssh-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * ssh-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * ssh-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * ssh-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * ssh-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gpg-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gpg-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gpg-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gpg-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gpg-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gpg-key add",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gpg-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gpg-key add *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gpg-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gpg-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh gpg-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh gpg-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gpg-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gpg-key delete",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * gpg-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * gpg-key delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth login",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth login",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth login *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth login *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth login",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth login",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth login *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth login *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth logout",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth logout",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth logout *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth logout *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth logout",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth logout",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth logout *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth logout *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth token",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth token",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth token *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth token *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth token",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth token",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth token *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth token *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth refresh",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth refresh",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth refresh *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth refresh *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth refresh",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth refresh",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth refresh *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth refresh *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth status *--show-token*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth status *--show-token*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth status -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth status -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth status -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth status -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth status * -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth status * -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh auth status * -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh auth status * -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth status *--show-token*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth status *--show-token*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth status -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth status -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth status -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth status -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth status * -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth status * -t",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * auth status * -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * auth status * -t *",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-XDELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-XDELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-Xdelete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-Xdelete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-XPUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-XPUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-Xput*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-Xput*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-XPATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-XPATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-Xpatch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-Xpatch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *-X=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *-X=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh api *--method=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh api *--method=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-XDELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-XDELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-Xdelete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-Xdelete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-XPUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-XPUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-Xput*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-Xput*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-XPATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-XPATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-Xpatch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-Xpatch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *-X=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *-X=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method=DELETE*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method=delete*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method=PUT*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method=put*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method=PATCH*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "gh * api *--method=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "rtk gh * api *--method=patch*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "bash",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "sh",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.env.local",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.env.*.local",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/.env",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/.env.local",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/.env.*.local",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "**/*secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "codegraph_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "codegraph_codegraph_explore",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "context7_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "context7_resolve-library-id",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "context7_query-docs",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "brave_search_brave_web_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_local_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_video_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_image_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_news_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_summarizer",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_llm_context",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "brave_search_brave_place_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "firecrawl_firecrawl_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_developer_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_scrape",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_map",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_agent_status",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_check_crawl_status",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_find_tools",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_credit_usage",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_research_search_papers",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_research_inspect_paper",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_research_read_paper",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "firecrawl_firecrawl_research_related_papers",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "playwright_browser_snapshot",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_find",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_console_messages",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_network_requests",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_network_request",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_wait_for",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_generate_locator",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_element_visible",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_list_visible",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_text_visible",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "playwright_browser_verify_value",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "mobbin_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "mobbin_search_screens",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "mobbin_search_flows",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "mobbin_search_sections",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "notion_notion-search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-ai-search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-fetch",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-query-data-sources",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-query-meeting-notes",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-comments",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-teams",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-users",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-async-task",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-tool-access",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-download-attachment",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-download-skill",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-list-agents",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-search-agents",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-query-sessions",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-search-sessions",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-session-status",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-wait-session",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-list-session-events",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-read-session-event",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "excalidraw_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "excalidraw_read_me",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "drawio_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "drawio_search_shapes",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "shadcn_get_project_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_list_items_in_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_search_items_in_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_get_item_examples_from_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_view_items_in_registries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_get_add_command_for_items",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shadcn_get_audit_checklist",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "clickup_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "clickup_getTaskById",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "clickup_searchTasks",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "clickup_readDocument",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "clickup_getListInfo",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "clickup_searchSpaces",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "clickup_getTimeEntries",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "clickup_read_space_clickup_space_txt",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "datagrip_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "datagrip_list_database_connections",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "datagrip_list_database_schemas",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "datagrip_list_schema_object_kinds",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "datagrip_list_schema_objects",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "datagrip_get_database_object_description",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "datagrip_introspect_schema",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "datagrip_test_database_connection",
+      "resource": "*",
+      "effect": "allow"
+    }
+  ],
+  "mcp": {
+    "servers": {
+      "codegraph": {
+        "type": "local",
+        "command": [
+          "codegraph",
+          "serve",
+          "--mcp"
+        ],
+        "environment": {
+          "CODEGRAPH_TELEMETRY": "0"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "context7": {
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp",
+        "headers": {
+          "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "brave_search": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@brave/brave-search-mcp-server",
+          "--transport",
+          "stdio"
+        ],
+        "environment": {
+          "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "firecrawl": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "firecrawl-mcp"
+        ],
+        "environment": {
+          "FIRECRAWL_API_KEY": "{env:FIRECRAWL_API_KEY}"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "playwright": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@playwright/mcp",
+          "--isolated",
+          "--headless",
+          "--caps=testing"
+        ],
+        "environment": {},
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "mobbin": {
+        "type": "remote",
+        "url": "https://api.mobbin.com/mcp",
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "notion": {
+        "type": "remote",
+        "url": "https://mcp.notion.com/mcp",
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "excalidraw": {
+        "type": "remote",
+        "url": "https://mcp.excalidraw.com",
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "drawio": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@drawio/mcp@1.6.3"
+        ],
+        "environment": {
+          "DRAWIO_ICON_SERVICE_URL": "off"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "shadcn": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "shadcn@latest",
+          "mcp"
+        ],
+        "environment": {},
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      }
+    }
+  }
+}

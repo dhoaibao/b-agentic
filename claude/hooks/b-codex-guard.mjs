@@ -22,8 +22,8 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkProtected } from "../bin/b-candidate-snapshot.mjs";
 
 // Plugin subcommands that never send repository content to Codex; every other
@@ -31,10 +31,22 @@ import { checkProtected } from "../bin/b-candidate-snapshot.mjs";
 const NON_DISCLOSING = new Set(["status", "result", "cancel", "setup", "help"]);
 const REVIEW_SUBCOMMANDS = new Set(["review", "adversarial-review"]);
 
+// State lives beside the installed hooks (`<runtime dir>/b-agentic`), so each
+// runtime keeps its own approvals; a checkout falls back to the Claude Code location.
+const SELF = fileURLToPath(import.meta.url);
+
 function stateDir() {
-  return (
-    process.env.B_AGENTIC_STATE_DIR || join(homedir(), ".claude", "b-agentic")
-  );
+  if (process.env.B_AGENTIC_STATE_DIR) return process.env.B_AGENTIC_STATE_DIR;
+  const installed = dirname(dirname(SELF));
+  return basename(installed) === "b-agentic"
+    ? installed
+    : join(homedir(), ".claude", "b-agentic");
+}
+
+// The installed path of this script as the user would type it.
+function selfCommandPath() {
+  const home = homedir();
+  return SELF.startsWith(`${home}/`) ? `~${SELF.slice(home.length)}` : SELF;
 }
 
 function approvalsFile() {
@@ -339,7 +351,7 @@ export async function evaluate({ command, cwd }) {
     }
     if (!readApprovals().includes(root)) {
       reasons.push(
-        "the user has not approved sending this repository to Codex (OpenAI); ask with AskUserQuestion, then run `node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve`",
+        `the user has not approved sending this repository to Codex (OpenAI); ask with AskUserQuestion, then run \`node ${selfCommandPath()} --approve\``,
       );
     }
   }
@@ -349,6 +361,30 @@ export async function evaluate({ command, cwd }) {
     reasons.push(...invocationReasons(invocation));
   }
   return { ok: reasons.length === 0, root, reasons: [...new Set(reasons)] };
+}
+
+const APPROVAL_TOUCH_REASON =
+  "b-agentic Codex guard: this command records, redirects, or rewrites the standing approval to send this repository to Codex (OpenAI). Approve only if you said yes to that disclosure.";
+
+// The decision for one shell command: `allow`, `ask` (the approval store is being
+// touched), or `refuse` with the reasons. Shared by the Claude Code hook and the
+// OpenCode plugin so both runtimes apply identical rules.
+export async function judgeCommand(command, cwd) {
+  const found = findCompanionInvocations(command);
+  const guarded =
+    found.refusal !== null ||
+    found.invocations.some((item) => !NON_DISCLOSING.has(item.subcommand));
+  if (!guarded) {
+    return approvalTouch(command)
+      ? { decision: "ask", reason: APPROVAL_TOUCH_REASON }
+      : { decision: "allow" };
+  }
+  const result = await evaluate({ command, cwd });
+  if (result.ok) return { decision: "allow" };
+  return {
+    decision: "refuse",
+    reason: `/codex ${found.invocations.map((item) => item.subcommand).join(", ") || "command"}: ${result.reasons.join("; ")}`,
+  };
 }
 
 async function hook() {
@@ -371,29 +407,20 @@ async function hook() {
       : 0;
   }
   if (event.tool_name !== undefined && event.tool_name !== "Bash") return 0;
-  const found = findCompanionInvocations(command);
-  const guarded =
-    found.refusal !== null ||
-    found.invocations.some((item) => !NON_DISCLOSING.has(item.subcommand));
-  if (!guarded) {
-    if (!approvalTouch(command)) return 0;
+  const verdict = await judgeCommand(command, event.cwd || process.cwd());
+  if (verdict.decision === "ask") {
     process.stdout.write(
       `${JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
           permissionDecision: "ask",
-          permissionDecisionReason:
-            "b-agentic Codex guard: this command records, redirects, or rewrites the standing approval to send this repository to Codex (OpenAI). Approve only if you said yes to that disclosure.",
+          permissionDecisionReason: verdict.reason,
         },
       })}\n`,
     );
     return 0;
   }
-  const result = await evaluate({ command, cwd: event.cwd || process.cwd() });
-  if (result.ok) return 0;
-  return refuse(
-    `/codex ${found.invocations.map((item) => item.subcommand).join(", ") || "command"}: ${result.reasons.join("; ")}`,
-  );
+  return verdict.decision === "refuse" ? refuse(verdict.reason) : 0;
 }
 
 async function main(argv) {

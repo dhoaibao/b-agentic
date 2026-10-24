@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "format": "json-subset-of-yaml",
+  "description": "Per-runtime vocabulary for rendering b-agentic's canonical sources. Canonical sources are written in Claude Code terms, so the claude glossary is empty and its output stays byte-identical; other runtimes localize them through an ordered literal glossary and an MCP tool-name format. See docs/decisions/ADR-002-dual-runtime-support.md.",
+  "runtimes": {
+    "claude": {
+      "config_dir": "~/.claude",
+      "state_dir": "~/.claude/b-agentic",
+      "hook_dir": "$HOME/.claude/b-agentic/hooks",
+      "agent_models": [
+        "opus",
+        "sonnet",
+        "haiku"
+      ],
+      "editing_tools": [
+        "Edit",
+        "Write",
+        "NotebookEdit"
+      ],
+      "mcp_tool_format": "mcp__{server}__{tool}",
+      "glossary": [],
+      "arguments_placeholder": "$ARGUMENTS",
+      "profile_check": "confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`"
+    },
+    "opencode": {
+      "config_dir": "~/.config/opencode",
+      "state_dir": "~/.config/opencode/b-agentic",
+      "hook_dir": "$HOME/.config/opencode/b-agentic/plugins",
+      "agent_models": [],
+      "editing_tools": [
+        "edit",
+        "subagent",
+        "question"
+      ],
+      "mcp_tool_format": "{server}_{tool}",
+      "glossary": [
+        [
+          "~/.claude/b-agentic",
+          "~/.config/opencode/b-agentic"
+        ],
+        [
+          "~/.claude/agents/",
+          "~/.config/opencode/agents/"
+        ],
+        [
+          "~/.claude/skills/",
+          "~/.config/opencode/skills/"
+        ],
+        [
+          ".claude/agents/",
+          ".opencode/agents/"
+        ],
+        [
+          "Claude Code Workflow Kernel",
+          "OpenCode Workflow Kernel"
+        ],
+        [
+          "Claude Code exposes MCP tools as `mcp__<server>__<tool>`",
+          "OpenCode exposes MCP tools as `<server>_<tool>`"
+        ],
+        [
+          "`AskUserQuestion`",
+          "`question`"
+        ],
+        [
+          "`Agent`",
+          "`subagent`"
+        ],
+        [
+          "`general-purpose`",
+          "`general`"
+        ],
+        [
+          "a harness background command (`run_in_background`)",
+          "a background shell command (`background: true`)"
+        ]
+      ],
+      "arguments_placeholder": "the user's request",
+      "profile_check": "confirm the effective `{agent}.md` (project `.opencode/agents/` over `~/.config/opencode/agents/`) is readable and its `permissions` list denies {editing} for resource `*` (a missing `permissions` list grants every tool), then launch the `{agent}` subagent with a bounded task naming `{name}`"
+    }
+  }
+}

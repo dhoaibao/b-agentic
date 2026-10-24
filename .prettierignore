@@ -3,6 +3,10 @@ node_modules/
 
 # Generated delivery outputs are checked by registry synchronization instead.
 skills/*/SKILL.md
+opencode/skills/*/SKILL.md
+opencode/agents/
+opencode/configs/kernel.md
+opencode/configs/opencode.*.json
 
 # These sources contain or feed generated blocks; registry synchronization owns
 # their delivery formatting.
@@ -15,3 +19,4 @@ skills/*/prompt.md
 skills/registry.yaml
 references/capabilities.yaml
 references/mcp_operations.yaml
+references/runtimes.yaml

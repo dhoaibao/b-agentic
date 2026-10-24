@@ -18,10 +18,10 @@ MARKDOWNLINT="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
 [ -x "$MARKDOWNLINT" ] || fail_missing markdownlint-cli2 "install root development tools with 'npm ci'"
 
 is_generated() {
-  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json) return 0;; *) return 1;; esac
+  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json|opencode/skills/*/SKILL.md|opencode/agents/*|opencode/configs/kernel.md|opencode/configs/opencode.*.json) return 0;; *) return 1;; esac
 }
 is_json_compatible_yaml() {
-  case "$1" in references/mcp_operations.yaml|references/capabilities.yaml|skills/registry.yaml) return 0;; *) return 1;; esac
+  case "$1" in references/mcp_operations.yaml|references/capabilities.yaml|references/runtimes.yaml|skills/registry.yaml) return 0;; *) return 1;; esac
 }
 
 python_files=() shell_files=() markdown_files=() prettier_files=()
@@ -35,7 +35,7 @@ while IFS= read -r -d '' path; do
     *.py) python_files+=("$path") ;;
     *.sh|*.bash) shell_files+=("$path") ;;
     *.md) markdown_files+=("$path"); prettier_files+=("$path") ;;
-    *.json|*.jsonc|*.yml|*.ts|*.mjs) prettier_files+=("$path") ;;
+    *.json|*.jsonc|*.yml|*.ts|*.mjs|*.js) prettier_files+=("$path") ;;
     *.yaml) is_json_compatible_yaml "$path" || prettier_files+=("$path") ;;
     *)
       first_line="$(head -n 1 "$path" 2>/dev/null || true)"
