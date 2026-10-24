@@ -152,8 +152,19 @@ tools for `b-researcher`). Read-only behavior is instructed, not enforced by a
 child-specific permission block: shell access can still mutate state. Delegated
 skills never run in the main session; the generated `Delegation boundary` and
 the kernel carry this, so a missing subagent is reported instead of bypassed. A
-child result is evidence, not authorization. Models are Anthropic aliases from
-the registry.
+child result is evidence, not authorization. Claude Code models are Anthropic
+aliases from the registry's `model` field. OpenCode uses the separate optional
+`opencode_model` field (`provider/model#variant`); omitting it inherits the
+session model. Current OpenCode defaults are:
+
+| Specialist     | Model                | Effort  |
+| -------------- | -------------------- | ------- |
+| `b-planner`    | `openai/gpt-6.1-sol` | `xhigh` |
+| `b-researcher` | `openai/gpt-6-luna`  | `high`  |
+| `b-debugger`   | `openai/gpt-6.1-sol` | `xhigh` |
+| `b-auditor`    | `openai/gpt-6.1-sol` | `xhigh` |
+
+Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 
 ## Review gate
 

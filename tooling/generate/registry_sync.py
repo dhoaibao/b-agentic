@@ -409,6 +409,11 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
         if model and model not in AGENT_MODELS:
             errors.append(f"{label}.model: expected one of {sorted(AGENT_MODELS)}")
         allowed_fields = {"description", "model"}
+        if "opencode_model" in agent:
+            allowed_fields.add("opencode_model")
+            opencode_model = ensure_string(agent["opencode_model"], f"{label}.opencode_model", errors)
+            if opencode_model and not re.fullmatch(r"[^/#\s]+/[^#\s]+(?:#[^#\s]+)?", opencode_model):
+                errors.append(f"{label}.opencode_model: expected provider/model or provider/model#variant")
         if "max_turns" in agent:
             allowed_fields.add("max_turns")
             turns = agent["max_turns"]
@@ -923,7 +928,14 @@ def render_opencode_agent_file(
             f"    resource: {json.dumps(rule['resource'])}",
             f"    effect: {rule['effect']}",
         ]
-    head = ["---", f"description: {json.dumps(agent['description'])}", "mode: subagent", *permissions, "---"]
+    head = [
+        "---",
+        f"description: {json.dumps(agent['description'])}",
+        "mode: subagent",
+        *([f"model: {json.dumps(agent['opencode_model'])}"] if "opencode_model" in agent else []),
+        *permissions,
+        "---",
+    ]
     return "\n".join(head) + localize(body, "opencode")
 
 
@@ -1115,6 +1127,38 @@ def validate_regressions(
     invalid_agents["b-planner"]["model"] = "gpt-9"
     if not validate_skills(skills, invalid_agents):
         errors.append("agent regression: unknown model alias must fail")
+    for bad_model in (
+        None,
+        True,
+        42,
+        "",
+        "opus",
+        "openai/",
+        "/model",
+        "openai/model#",
+        "openai/model#high#low",
+        "a/b c",
+    ):
+        invalid_agents = json.loads(json.dumps(agents))
+        invalid_agents["b-planner"]["opencode_model"] = bad_model
+        if not any("opencode_model" in error for error in validate_skills(skills, invalid_agents)):
+            errors.append(f"agent regression: invalid opencode_model {bad_model!r} must fail")
+    for model in (None, "example/model", "example/model#high", "example/model#xhigh"):
+        candidate_agents = json.loads(json.dumps(agents))
+        candidate = candidate_agents["b-planner"]
+        candidate.pop("opencode_model", None)
+        if model is not None:
+            candidate["opencode_model"] = model
+        if validate_skills(skills, candidate_agents):
+            errors.append(f"agent regression: valid opencode_model {model!r} must pass")
+        if render_agent_file("b-planner", candidate, skills, policy) != render_agent_file(
+            "b-planner", agents["b-planner"], skills, policy
+        ):
+            errors.append("agent regression: opencode_model must not change Claude output")
+        rendered = render_opencode_agent_file("b-planner", candidate, skills, policy)
+        expected = [json.dumps(model)] if model is not None else []
+        if re.findall(r"^model: (.+)$", rendered, re.MULTILINE) != expected:
+            errors.append(f"agent regression: OpenCode must render opencode_model {model!r}, or inherit when omitted")
     for name, agent in agents.items():
         rendered = render_agent_file(name, agent, skills, policy)
         if TURN_BUDGET_NOTICE not in rendered:
@@ -1272,6 +1316,9 @@ def validate_opencode_outputs(
         text = outputs[OPENCODE_AGENTS_DIR / f"{name}.md"]
         if "\nmode: subagent\n" not in text:
             errors.append(f"opencode/agents/{name}.md: must be mode: subagent")
+        expected_model = [json.dumps(agent["opencode_model"])] if "opencode_model" in agent else []
+        if re.findall(r"^model: (.+)$", text, re.MULTILINE) != expected_model:
+            errors.append(f"opencode/agents/{name}.md: model must match the registry's opencode_model")
         agent_rules = re.findall(r'  - action: "([^"]+)"\n    resource: "\*"\n    effect: (\w+)', text)
         if agent_rules[:3] != [("edit", "deny"), ("subagent", "deny"), ("question", "deny")]:
             errors.append(f"opencode/agents/{name}.md: must deny edit, subagent, and question first")
@@ -1350,6 +1397,16 @@ def validate_opencode_regressions(
     }
     for name in agents:
         path = OPENCODE_AGENTS_DIR / f"{name}.md"
+        model_line = (
+            f"model: {json.dumps(agents[name]['opencode_model'])}\n" if "opencode_model" in agents[name] else ""
+        )
+        if model_line:
+            cases[f"{name} without its configured model"] = {**outputs, path: outputs[path].replace(model_line, "", 1)}
+        changed = outputs[path].replace(model_line, "", 1) if model_line else outputs[path]
+        cases[f"{name} with a mismatched model"] = {
+            **outputs,
+            path: changed.replace("\nmode: subagent\n", '\nmode: subagent\nmodel: "example/wrong#low"\n', 1),
+        }
         for server in policy["servers"]:
             rule = f'  - action: "{server}_*"\n    resource: "*"\n    effect: deny\n'
             cases[f"{name} without its {server} deny default"] = {**outputs, path: outputs[path].replace(rule, "", 1)}

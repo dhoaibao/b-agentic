@@ -4,20 +4,24 @@
   "agents": {
     "b-planner": {
       "description": "Produce a read-only execution-ready plan for the main b-agentic session.",
-      "model": "opus"
+      "model": "opus",
+      "opencode_model": "openai/gpt-6.1-sol#xhigh"
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
       "model": "haiku",
+      "opencode_model": "openai/gpt-6-luna#high",
       "conditional_tools": ["mcp__firecrawl__firecrawl_search", "mcp__firecrawl__firecrawl_scrape", "mcp__firecrawl__firecrawl_map"]
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
-      "model": "sonnet"
+      "model": "sonnet",
+      "opencode_model": "openai/gpt-6.1-sol#xhigh"
     },
     "b-auditor": {
       "description": "Audit b-agentic repository and design conformance read-only for the main session.",
-      "model": "opus"
+      "model": "opus",
+      "opencode_model": "openai/gpt-6.1-sol#xhigh"
     }
   },
   "skills": [

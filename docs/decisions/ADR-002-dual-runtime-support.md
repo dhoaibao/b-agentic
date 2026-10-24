@@ -65,8 +65,13 @@ Decisions taken by the user:
 - Installer: `--runtime=claude` stays the default; `opencode` and `both` are
   explicit. Uninstalling one runtime leaves the other byte-identical.
 
-Defaults taken: specialists on OpenCode omit `model` and inherit the session
-model; the kernel is a marked block in `~/.config/opencode/AGENTS.md`.
+The kernel is a marked block in `~/.config/opencode/AGENTS.md`. Model selection
+was refined on 2026-10-24: the registry's optional `opencode_model` field pins
+OpenCode specialists independently of Claude Code's `model` alias. OpenCode
+defaults to `openai/gpt-6.1-sol#xhigh` for planner, debugger, and auditor, and
+`openai/gpt-6-luna#high` for researcher. Omitting `opencode_model` retains session
+model inheritance. The `#xhigh` and `#high` suffixes select variants documented in the
+[OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 
 Gap handling on OpenCode:
 

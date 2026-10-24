@@ -1,6 +1,7 @@
 ---
 description: "Diagnose a runtime problem without changing product code."
 mode: subagent
+model: "openai/gpt-6.1-sol#xhigh"
 permissions:
   - action: "edit"
     resource: "*"

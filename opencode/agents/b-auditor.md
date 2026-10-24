@@ -1,6 +1,7 @@
 ---
 description: "Audit b-agentic repository and design conformance read-only for the main session."
 mode: subagent
+model: "openai/gpt-6.1-sol#xhigh"
 permissions:
   - action: "edit"
     resource: "*"
