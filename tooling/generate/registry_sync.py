@@ -849,6 +849,36 @@ OPENCODE_EXTRA_SHELL_ASK = ("*b-codex-guard.mjs* --approve*", "*codex-approved-r
 # The Claude Code ClickUp guard asks only for image references; OpenCode cannot, so every
 # trusted mutation asks there instead of running unprompted.
 OPENCODE_ASKED_CLASSES = ("trusted-mutation",)
+# OpenCode v2 matches a resource against the whole string with `*` spanning `/`, so a Claude
+# `**/name` glob (which needs a literal slash) misses a project-root file; `*name` matches both.
+OPENCODE_SECRET_SAMPLES = (
+    ".env",
+    "app/.env",
+    ".env.local",
+    "app/.env.prod.local",
+    "server.pem",
+    "keys/server.pem",
+    "credentials.json",
+    "config/credentials.json",
+    "secrets.yaml",
+    "config/secrets.yaml",
+)
+# `external_directory` asks on both reads and writes outside the project and cannot tell them
+# apart, so the main session asks except for the directories b-agentic and OpenCode itself use.
+OPENCODE_EXTERNAL_ALLOWED = (
+    "~/.config/opencode/*",
+    "~/.claude/*",
+    "~/.local/share/opencode/*",
+    "/tmp/opencode/*",
+)
+# Unmanaged `<server>_<tool>` actions (and the underscored native ones) ask through `*_*`; these
+# OpenCode-provided actions are routine and read-only or metadata-only, so they stay allowed.
+OPENCODE_BUILTIN_ALLOWED = (
+    "opencode_models",
+    "opencode_list_mcp_resources",
+    "opencode_worktree_list",
+    "opencode_session_rename",
+)
 OPENCODE_MCP_TIMEOUT = {"startup": 30000, "catalog": 30000}
 ENV_REFERENCE = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
@@ -884,14 +914,25 @@ def opencode_effect(policy: dict[str, Any], class_name: str) -> str:
     return "ask" if class_name in OPENCODE_ASKED_CLASSES else policy["classes"][class_name]["native_permission"]
 
 
+def opencode_secret_globs() -> list[str]:
+    """DENY_READ_GLOBS as OpenCode whole-string wildcards that also match project-root files."""
+    names = [glob.removeprefix("**/") for glob in DENY_READ_GLOBS]
+    return [name if name.startswith("*") else f"*{name}" for name in names]
+
+
 def render_opencode_permissions(policy: dict[str, Any]) -> list[dict[str, str]]:
-    """The settings layer as OpenCode v2 rules. The last matching rule wins, so each managed server
-    asks by default and its classified tools follow; the installer appends this block last."""
+    """The settings layer as OpenCode v2 rules. The last matching rule wins, so `*_*` asks for every
+    unmanaged `<server>_<tool>`, each managed server asks by default, and its classified tools follow;
+    the installer appends this block last."""
     shell_ask, shell_deny = shell_pattern_rules()
     rules = [opencode_rule("shell", "ask", pattern) for pattern in [*shell_ask, *OPENCODE_EXTRA_SHELL_ASK]]
     rules += [opencode_rule("shell", "deny", pattern) for pattern in shell_deny]
     for tool in ("read", "edit"):
-        rules += [opencode_rule(tool, "deny", glob) for glob in DENY_READ_GLOBS]
+        rules += [opencode_rule(tool, "deny", glob) for glob in opencode_secret_globs()]
+    rules.append(opencode_rule("*_*", "ask"))
+    rules.append(opencode_rule("external_directory", "ask"))
+    rules += [opencode_rule("external_directory", "allow", path) for path in OPENCODE_EXTERNAL_ALLOWED]
+    rules += [opencode_rule(action, "allow") for action in OPENCODE_BUILTIN_ALLOWED]
     for server, record in policy["servers"].items():
         rules.append(opencode_rule(f"{server}_*", "ask"))
         for tool, class_name in record["tools"].items():
@@ -907,8 +948,11 @@ def mcp_tool_name_for(runtime: str, server: str, tool: str) -> str:
 
 def opencode_agent_permissions(agent: dict[str, Any], policy: dict[str, Any]) -> list[dict[str, str]]:
     """A read-only specialist: no editing, delegation, or questions, and only its allowlisted MCP tools.
-    The allowlist is a wildcard deny per server followed by the permitted tools (last match wins)."""
+    `*_*` denies every `<server>_<tool>` first, so a server the user added is denied too; a wildcard
+    deny per managed server and its permitted tools follow (last match wins). External directory
+    access stays allowed, as it was before the main session started asking for it."""
     rules = [opencode_rule(action, "deny") for action in RUNTIMES["opencode"]["editing_tools"]]
+    rules += [opencode_rule("*_*", "deny"), opencode_rule("external_directory", "allow")]
     allowed = {tool for tool in agent_tool_list(agent, policy) if tool.startswith("mcp__")}
     for server, record in policy["servers"].items():
         permitted = [tool for tool in record["tools"] if mcp_tool_name(server, tool) in allowed]
@@ -1310,8 +1354,33 @@ def validate_opencode_outputs(
             errors.append(f"opencode template: shell {effect} rules differ from the Claude settings layer")
     for action in ("read", "edit"):
         got = [rule["resource"] for rule in rules if rule["action"] == action and rule["effect"] == "deny"]
-        if got != list(DENY_READ_GLOBS):
+        if got != opencode_secret_globs():
             errors.append(f"opencode template: {action} secret-path denies differ from the Claude settings layer")
+        for sample in OPENCODE_SECRET_SAMPLES:
+            if not any(fnmatch.fnmatchcase(sample, glob) for glob in got):
+                errors.append(f"opencode template: {action} secret-path denies must match {sample}")
+        if any(fnmatch.fnmatchcase(".env.example", glob) for glob in got):
+            errors.append(f"opencode template: {action} secret-path denies must not match .env.example")
+    unmanaged = next((i for i, rule in enumerate(rules) if rule == opencode_rule("*_*", "ask")), None)
+    if unmanaged is None:
+        errors.append("opencode template: unmanaged <server>_<tool> actions must ask by default (*_*)")
+    elif any(
+        rule["action"].endswith("_*") and rule["action"] != "*_*" and i < unmanaged for i, rule in enumerate(rules)
+    ):
+        errors.append("opencode template: *_* must precede the per-server rules")
+    external = [rule for rule in rules if rule["action"] == "external_directory"]
+    expected_external = [
+        opencode_rule("external_directory", "ask"),
+        *[opencode_rule("external_directory", "allow", path) for path in OPENCODE_EXTERNAL_ALLOWED],
+    ]
+    if external != expected_external:
+        errors.append("opencode template: external_directory must ask, then allow only the managed directories")
+    elif unmanaged is not None and rules.index(external[0]) < unmanaged:
+        errors.append("opencode template: external_directory rules must follow *_*")
+    for action in OPENCODE_BUILTIN_ALLOWED:
+        position = next((i for i, rule in enumerate(rules) if rule == opencode_rule(action, "allow")), None)
+        if position is None or unmanaged is None or position < unmanaged:
+            errors.append(f"opencode template: {action} must be allowed by a rule after *_*")
     for name, agent in agents.items():
         text = outputs[OPENCODE_AGENTS_DIR / f"{name}.md"]
         if "\nmode: subagent\n" not in text:
@@ -1322,6 +1391,16 @@ def validate_opencode_outputs(
         agent_rules = re.findall(r'  - action: "([^"]+)"\n    resource: "\*"\n    effect: (\w+)', text)
         if agent_rules[:3] != [("edit", "deny"), ("subagent", "deny"), ("question", "deny")]:
             errors.append(f"opencode/agents/{name}.md: must deny edit, subagent, and question first")
+        if agent_rules[3:5] != [("*_*", "deny"), ("external_directory", "allow")]:
+            errors.append(
+                f"opencode/agents/{name}.md: must deny every <server>_<tool> by default (*_*) after the editing denies"
+            )
+        for tool in ("__unmanaged___tool", "opencode_session_move", "opencode_read_mcp_resource"):
+            actual = next(
+                (effect for action, effect in reversed(agent_rules) if fnmatch.fnmatchcase(tool, action)), None
+            )
+            if actual != "deny":
+                errors.append(f"opencode/agents/{name}.md: {tool} must resolve to deny, got {actual}")
         allowed = set(agent_tool_list(agent, policy))
         for server, record in policy["servers"].items():
             wildcard = (f"{server}_*", "deny")
@@ -1341,7 +1420,7 @@ def validate_opencode_outputs(
                 )
                 if actual != expected:
                     errors.append(f"opencode/agents/{name}.md: {tool} must resolve to {expected}, got {actual}")
-        for action, effect in agent_rules[3:]:
+        for action, effect in agent_rules[5:]:
             if effect == "allow" and effect_by_tool.get(action) != "allow":
                 errors.append(f"opencode/agents/{name}.md: allows {action}, which is not an allowed tool")
             if effect == "allow" and not any(f"{server}_" == action[: len(server) + 1] for server in policy["servers"]):
@@ -1381,8 +1460,13 @@ def validate_opencode_regressions(
 ) -> list[str]:
     """Each broken OpenCode rule set must be rejected, so the structural checks cannot rot silently."""
     template = json.loads(outputs[OPENCODE_TEMPLATE_PATH])
-    asked = next(r for r in template["permissions"] if r["effect"] == "ask" and r["action"].endswith("_*"))
-    broken_template = {**template, "permissions": [r for r in template["permissions"] if r is not asked]}
+    rules = template["permissions"]
+    asked = next(r for r in rules if r["effect"] == "ask" and r["action"].endswith("_*") and r["action"] != "*_*")
+    broken_template = {**template, "permissions": [r for r in rules if r is not asked]}
+
+    def template_without(drop: Any) -> str:
+        return json.dumps({**template, "permissions": [r for r in rules if not drop(r)]})
+
     broken_agent = outputs[OPENCODE_AGENTS_DIR / "b-planner.md"].replace(
         '  - action: "edit"\n    resource: "*"\n    effect: deny',
         '  - action: "edit"\n    resource: "*"\n    effect: allow',
@@ -1394,6 +1478,30 @@ def validate_opencode_regressions(
             OPENCODE_TEMPLATE_PATH: json.dumps(broken_template),
         },
         "a specialist that may edit": {**outputs, OPENCODE_AGENTS_DIR / "b-planner.md": broken_agent},
+        "unmanaged MCP servers without an asking default": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: template_without(lambda r: r["action"] == "*_*"),
+        },
+        "outside-project access without its asking default": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: template_without(
+                lambda r: r["action"] == "external_directory" and r["effect"] == "ask"
+            ),
+        },
+        "secret-path denies that miss project-root files": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: json.dumps(
+                {
+                    **template,
+                    "permissions": [
+                        {**r, "resource": "**/" + r["resource"].lstrip("*")}
+                        if r["action"] in ("read", "edit") and r["effect"] == "deny"
+                        else r
+                        for r in rules
+                    ],
+                }
+            ),
+        },
     }
     for name in agents:
         path = OPENCODE_AGENTS_DIR / f"{name}.md"
@@ -1406,6 +1514,11 @@ def validate_opencode_regressions(
         cases[f"{name} with a mismatched model"] = {
             **outputs,
             path: changed.replace("\nmode: subagent\n", '\nmode: subagent\nmodel: "example/wrong#low"\n', 1),
+        }
+        default_deny = '  - action: "*_*"\n    resource: "*"\n    effect: deny\n'
+        cases[f"{name} without its default deny for unmanaged servers"] = {
+            **outputs,
+            path: outputs[path].replace(default_deny, "", 1),
         }
         for server in policy["servers"]:
             rule = f'  - action: "{server}_*"\n    resource: "*"\n    effect: deny\n'

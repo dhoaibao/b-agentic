@@ -1,6 +1,6 @@
 # ADR-002: Dual-runtime support for Claude Code and OpenCode
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-23
 - Supersedes: ADR-001 (product boundary and the second-runtime non-goal)
 
@@ -35,9 +35,17 @@ commands, and plugins already running on that install; the public
   wins, no match asks; actions are `read`, `edit`, `shell`, `subagent`, `skill`,
   `question`, `<server>_<tool>`, with `*` wildcards. v1 keys (`bash`, `task`) may
   silently not apply, and a `permission` map is refused by the installer.
-- Plugins: a default export `{ id, server, setup }` whose `server(ctx)` returns
-  hooks (the shape the Herdr and Orca plugins on this machine use). A permission
-  hook can force `ask`; no documented mechanism blocks a session from stopping.
+- Plugins: V2 reads the default export's `id` and `setup(ctx)` and ignores V1's
+  `server()` (`opencode.ai/v2/docs/build/plugins`, `@opencode/plugin` 2.1.4).
+  `setup` registers hooks with `await ctx.tool.hook("execute.before", callback)`;
+  the callback receives `{ tool, input, ... }` and a throw fails that call alone
+  with the thrown message. A permission hook can force `ask`; no documented
+  mechanism blocks a session from stopping.
+- Matching: rule resources are whole-string wildcards where `*` spans `/`, so
+  `**/.env` does not match a project-root `.env`, while `*.env` matches both.
+  `external_directory` is allowed by default and asks on reads and writes alike
+  once a rule says so. Any `<server>_<tool>` action, including servers the user
+  added, inherits the base `* -> allow` unless a rule says otherwise.
 - Shell: 2 minute foreground default, `background: true` available. Subagent
   fallback is `general`. Skills are not slash commands.
 
@@ -75,14 +83,16 @@ model inheritance. The `#xhigh` and `#high` suffixes select variants documented 
 
 Gap handling on OpenCode:
 
-| Claude feature                 | OpenCode handling                                                                           |
-| ------------------------------ | ------------------------------------------------------------------------------------------- |
-| Read-only specialists          | `edit`, `subagent`, `question` deny and an MCP allowlist per agent, enforced by the runtime |
-| Path guard                     | native `read`/`edit` secret denies plus the plugin refusing file tools                      |
-| ClickUp guard (asks on images) | every ClickUp create or update asks                                                         |
-| Approval-store tripwire        | shell `ask` rules for the approve command, the approvals file, and the state-dir variable   |
-| Verify gate                    | not ported: a session cannot be blocked from stopping                                       |
-| Codex gate                     | `shell` with `background: true` through the shared companion and approval logic             |
+| Claude feature                 | OpenCode handling                                                                                                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only specialists          | `edit`, `subagent`, `question` deny, `*_*` deny for every other `<server>_<tool>` (user-added servers included), then an MCP allowlist per agent; external directories stay allowed      |
+| Path guard                     | native `read`/`edit` secret denies (`*.env`, `*.pem`, `*credentials.*`, ...) plus the plugin refusing file tools                                                                         |
+| Outside-project writes         | the main session asks on `external_directory` (reads included, as OpenCode cannot tell them apart), except `~/.config/opencode`, `~/.claude`, `~/.local/share/opencode`, `/tmp/opencode` |
+| Unclassified MCP tools         | `*_*` asks in the main session; managed servers then ask by default and follow their class                                                                                               |
+| ClickUp guard (asks on images) | every ClickUp create or update asks                                                                                                                                                      |
+| Approval-store tripwire        | shell `ask` rules for the approve command, the approvals file, and the state-dir variable                                                                                                |
+| Verify gate                    | not ported: a session cannot be blocked from stopping                                                                                                                                    |
+| Codex gate                     | `shell` with `background: true` through the shared companion and approval logic                                                                                                          |
 
 Invariants: manifest-only ownership, refusal before the first write, user keys
 preserved on merge, managed permission rules always the final block,
@@ -101,11 +111,14 @@ version checked, because the v1 to v2 schema break shows config keys can change
 silently.
 
 Accepted residual risks: the verify gate and the ClickUp image prompt are not
-ported; whether a plain throw from the plugin's `tool.execute.before` blocks a
-tool, how shell patterns match compound commands, and the model-facing shell
-tool name were not exercised in a live OpenCode session and need a live check
-before relying on them; the plugin and the native rules must both be present for
-secret-path protection to be layered.
+ported; the plugin's `execute.before` throw, how shell patterns match compound
+commands, and the model-facing tool names were verified against the published
+2.1.4 packages and a recording context rather than a live OpenCode session, and
+need a live check before relying on them; the plugin and the native rules must
+both be present for secret-path protection to be layered. Because `*_*` also
+matches `opencode_*` actions, only `opencode_models`,
+`opencode_list_mcp_resources`, `opencode_worktree_list`, and
+`opencode_session_rename` are re-allowed; other `opencode_*` actions ask.
 
 Unchanged non-goals: no custom permission engine, no third runtime, no Pi
 revival, no per-project OpenCode installs, no live OpenCode or Codex sessions in

@@ -3567,63 +3567,113 @@
     },
     {
       "action": "read",
-      "resource": "**/.env",
+      "resource": "*.env",
       "effect": "deny"
     },
     {
       "action": "read",
-      "resource": "**/.env.local",
+      "resource": "*.env.local",
       "effect": "deny"
     },
     {
       "action": "read",
-      "resource": "**/.env.*.local",
+      "resource": "*.env.*.local",
       "effect": "deny"
     },
     {
       "action": "read",
-      "resource": "**/*.pem",
+      "resource": "*.pem",
       "effect": "deny"
     },
     {
       "action": "read",
-      "resource": "**/*credentials.*",
+      "resource": "*credentials.*",
       "effect": "deny"
     },
     {
       "action": "read",
-      "resource": "**/*secrets.*",
+      "resource": "*secrets.*",
       "effect": "deny"
     },
     {
       "action": "edit",
-      "resource": "**/.env",
+      "resource": "*.env",
       "effect": "deny"
     },
     {
       "action": "edit",
-      "resource": "**/.env.local",
+      "resource": "*.env.local",
       "effect": "deny"
     },
     {
       "action": "edit",
-      "resource": "**/.env.*.local",
+      "resource": "*.env.*.local",
       "effect": "deny"
     },
     {
       "action": "edit",
-      "resource": "**/*.pem",
+      "resource": "*.pem",
       "effect": "deny"
     },
     {
       "action": "edit",
-      "resource": "**/*credentials.*",
+      "resource": "*credentials.*",
       "effect": "deny"
     },
     {
       "action": "edit",
-      "resource": "**/*secrets.*",
+      "resource": "*secrets.*",
       "effect": "deny"
+    },
+    {
+      "action": "*_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "external_directory",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.config/opencode/*",
+      "effect": "allow"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.claude/*",
+      "effect": "allow"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.local/share/opencode/*",
+      "effect": "allow"
+    },
+    {
+      "action": "external_directory",
+      "resource": "/tmp/opencode/*",
+      "effect": "allow"
+    },
+    {
+      "action": "opencode_models",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "opencode_list_mcp_resources",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "opencode_worktree_list",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "opencode_session_rename",
+      "resource": "*",
+      "effect": "allow"
     },
     {
       "action": "codegraph_*",

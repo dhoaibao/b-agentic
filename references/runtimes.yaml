@@ -91,6 +91,10 @@
           "OpenCode exposes MCP tools as `<server>_<tool>`"
         ],
         [
+          "the harness prompts for outside-project writes",
+          "the harness prompts for outside-project reads and writes (managed install and temp directories excepted)"
+        ],
+        [
           "`AskUserQuestion`",
           "`question`"
         ],

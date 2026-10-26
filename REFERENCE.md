@@ -95,14 +95,21 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
 
 - **Permissions.** OpenCode applies the last matching rule, so the managed rules
   are always the final block of `permissions`; your earlier rules are preserved
-  in order, and a re-run moves the managed block back to the end. Each managed MCP
-  server asks by default (`<server>_*`), then its classified tools follow, so an
-  unclassified tool of a managed server still prompts. ClickUp's trusted
+  in order, and a re-run moves the managed block back to the end. Every
+  `<server>_<tool>` asks by default (`*_*`, so a server you added prompts too),
+  each managed server asks by default (`<server>_*`), then its classified tools
+  follow, so an unclassified tool still prompts. Secret-path denies use
+  whole-string patterns (`*.env`, `*.pem`, `*credentials.*`, `*secrets.*`) so
+  project-root files match. `external_directory` asks for any read or write
+  outside the project, except `~/.config/opencode`, `~/.claude`,
+  `~/.local/share/opencode`, and `/tmp/opencode`. ClickUp's trusted
   mutations ask on OpenCode because the image-reference guard cannot prompt there.
   `opencode.jsonc` (comments) and the v1 `permission` map are refused before any
   write.
-- **Specialists** deny `edit`, `subagent`, and `question` and keep only their
-  allowlisted MCP tools; unlike Claude Code this is enforced by the runtime.
+- **Specialists** deny `edit`, `subagent`, and `question`, deny every other
+  `<server>_<tool>` (`*_*`, including servers you added), and then allow only
+  their allowlisted MCP tools; unlike Claude Code this is enforced by the
+  runtime. They keep the default external-directory access.
 - **Skills load once.** `~/.config/opencode/skills` outranks the Claude-compatible
   `~/.claude/skills` for the same skill ID, so a machine with both installs does
   not load two copies. OpenCode v2 does not read `CLAUDE.md`.
@@ -121,13 +128,14 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
 
 Known differences from Claude Code, accepted in ADR-002:
 
-| Claude Code feature             | OpenCode                                                                                             |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Verify gate (blocks first stop) | Not ported: OpenCode has no documented way to block a session from stopping                          |
-| ClickUp image-reference prompt  | Replaced by asking on every ClickUp create or update                                                 |
-| Approval-store tripwire prompt  | Shell `ask` rules (`*b-codex-guard.mjs* --approve*`, the approvals file, `B_AGENTIC_STATE_DIR`)      |
-| Path guard on `Grep`/`Glob`     | Native `read`/`edit` secret denies plus the plugin; `grep`/`glob` resources are not matched natively |
-| Hook `exit 2` block             | Plugin throws from `tool.execute.before`; whether a plain throw blocks is unconfirmed on v2.1.4      |
+| Claude Code feature             | OpenCode                                                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Verify gate (blocks first stop) | Not ported: OpenCode has no documented way to block a session from stopping                                              |
+| ClickUp image-reference prompt  | Replaced by asking on every ClickUp create or update                                                                     |
+| Approval-store tripwire prompt  | Shell `ask` rules (`*b-codex-guard.mjs* --approve*`, the approvals file, `B_AGENTIC_STATE_DIR`)                          |
+| Path guard on `Grep`/`Glob`     | Native `read`/`edit` secret denies plus the plugin; `grep`/`glob` resources are not matched natively                     |
+| Hook `exit 2` block             | Plugin `setup` registers `ctx.tool.hook("execute.before")` and throws; the 2.1.4 loader fails that call with the message |
+| Outside-project writes prompt   | `external_directory` asks for reads as well as writes; managed install and temp directories are allowed                  |
 
 Verified against the OpenCode v2 docs and the locally installed v2.1.4 binary;
 no live OpenCode session has been run by this repository's checks. Before relying

@@ -29,13 +29,22 @@ printf 'a\n' >"$repo/a.txt"
 git -C "$repo" add .
 git -C "$repo" commit -qm init
 
-# Drive the plugin's tool.execute.before hook the way OpenCode does.
+# Drive the plugin the way OpenCode V2 does: setup(ctx) registers an execute.before hook, and a
+# throw from it fails the call.
 cat >"$work/call.mjs" <<'JS'
 const [, , plugin, tool, args, cwd] = process.argv;
 const mod = await import(plugin);
-const hooks = await mod.default.server({ directory: cwd });
+const registered = [];
+await mod.default.setup({
+  location: { directory: cwd },
+  tool: { hook: async (name, callback) => { registered.push({ name, callback }); return { dispose: async () => {} }; } },
+});
+if (registered.length !== 1 || registered[0].name !== "execute.before") {
+  process.stdout.write(`block setup registered ${JSON.stringify(registered.map((hook) => hook.name))}\n`);
+  process.exit(0);
+}
 try {
-  await hooks["tool.execute.before"]({ tool }, { args: JSON.parse(args) });
+  await registered[0].callback({ tool, input: JSON.parse(args) });
   process.stdout.write("pass\n");
 } catch (error) {
   process.stdout.write(`block ${error.message}\n`);
@@ -58,18 +67,21 @@ check() {
 }
 
 node -e '
-import(process.argv[1]).then((mod) => {
+import(process.argv[1]).then(async (mod) => {
   const plugin = mod.default;
-  if (typeof plugin.id !== "string" || typeof plugin.server !== "function") process.exit(1);
-  return plugin.server({}).then((hooks) => process.exit(typeof hooks["tool.execute.before"] === "function" ? 0 : 1));
+  if (typeof plugin.id !== "string" || typeof plugin.setup !== "function" || "server" in plugin) process.exit(1);
+  const names = [];
+  await plugin.setup({ tool: { hook: async (name) => { names.push(name); } } });
+  process.exit(names.length === 1 && names[0] === "execute.before" ? 0 : 1);
 });
-' "$oc/plugins/b-agentic.mjs" || fail "default export must be { id, server } returning tool.execute.before"
+' "$oc/plugins/b-agentic.mjs" || fail "default export must be { id, setup } registering exactly one execute.before tool hook"
 
 # --- file tools -------------------------------------------------------------
-check read-env block read '{"filePath":"/repo/.env"}' 'likely-secret path'
-check read-env-example pass read '{"filePath":"/repo/.env.example"}'
-check edit-pem block edit '{"filePath":"/repo/keys/server.pem"}'
-check write-credentials block write '{"filePath":"/repo/credentials.json"}'
+check read-env block read '{"path":"/repo/.env"}' 'likely-secret path'
+check read-env-v1-key block read '{"filePath":"/repo/.env"}' 'likely-secret path'
+check read-env-example pass read '{"path":"/repo/.env.example"}'
+check edit-pem block edit '{"path":"/repo/keys/server.pem"}'
+check write-credentials block write '{"path":"/repo/credentials.json"}'
 check glob-pem block glob '{"pattern":"**/*.pem"}'
 check grep-include-env block grep '{"pattern":"TOKEN","include":"*.env"}'
 check grep-content-pattern pass grep '{"pattern":"credentials"}'
@@ -89,5 +101,38 @@ if grep -Fq 'AskUserQuestion' <<<"$out"; then fail "OpenCode wording must say qu
 [ -f "$oc/b-agentic/codex-approved-repos.json" ] || fail "approvals must live beside the installed hooks"
 check shell-approved pass bash "$(jq -cn --arg c "$review" '{command: $c}')"
 check shell-background block bash "$(jq -cn --arg c "node /p/$companion review --background --scope working-tree" '{command: $c}')" 'foreground'
+
+# --- shell: a relative workdir resolves against the session location, not the server's cwd ---
+other="$work/other"
+mkdir -p "$other"
+git -C "$other" init -q .
+git -C "$other" config user.email probe@example.invalid
+git -C "$other" config user.name probe
+printf 'b\n' >"$other/b.txt"
+git -C "$other" add .
+git -C "$other" commit -qm init
+in_location() { # <location> <tool> <args-json>: runs from the approved repo, like a server started elsewhere
+  out=$(cd "$repo" && node "$work/call.mjs" "$oc/plugins/b-agentic.mjs" "$2" "$3" "$1")
+}
+for workdir in other ./other; do
+  in_location "$work" bash "$(jq -cn --arg c "$review" --arg w "$workdir" '{command: $c, workdir: $w}')"
+  [[ "$out" == block*'has not approved'* ]] || fail "workdir $workdir must be checked in the unapproved repository: $out"
+done
+in_location "$work" bash "$(jq -cn --arg c "$review" '{command: $c, workdir: "repo"}')"
+[ "$out" = pass ] || fail "a relative workdir in the approved repository should pass: $out"
+in_location "$other" bash "$(jq -cn --arg c "$review" '{command: $c, workdir: "../repo"}')"
+[ "$out" = pass ] || fail "a parent-relative workdir in the approved repository should pass: $out"
+in_location "$repo" bash "$(jq -cn --arg c "$review" '{command: $c}')"
+[ "$out" = pass ] || fail "no workdir should use the session location: $out"
+in_location "$other" bash "$(jq -cn --arg c "$review" '{command: $c}')"
+[[ "$out" == block*'has not approved'* ]] || fail "no workdir in the unapproved location must be refused: $out"
+node --input-type=module -e '
+import(process.argv[1]).then(({ shellCwd }) => {
+  const home = process.env.HOME;
+  const cases = [[undefined, "/s", "/s"], ["", "/s", "/s"], ["a", "/s", "/s/a"], ["../a", "/s/b", "/s/a"], ["/x", "/s", "/x"], ["~/x", "/s", home + "/x"], ["~", "/s", home]];
+  for (const [workdir, base, want] of cases)
+    if (shellCwd(workdir, base) !== want) { console.error("shellCwd", workdir, base, shellCwd(workdir, base)); process.exit(1); }
+});
+' "$oc/plugins/b-agentic.mjs" || fail "shellCwd must resolve workdir against the session location"
 
 echo "opencode plugin probe passed"

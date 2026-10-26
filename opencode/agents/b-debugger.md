@@ -12,6 +12,12 @@ permissions:
   - action: "question"
     resource: "*"
     effect: deny
+  - action: "*_*"
+    resource: "*"
+    effect: deny
+  - action: "external_directory"
+    resource: "*"
+    effect: allow
   - action: "codegraph_*"
     resource: "*"
     effect: deny
