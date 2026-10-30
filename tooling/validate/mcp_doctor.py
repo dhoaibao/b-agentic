@@ -18,7 +18,6 @@ SERVERS = (
     "brave_search",
     "firecrawl",
     "playwright",
-    "mobbin",
     "notion",
     "excalidraw",
     "drawio",

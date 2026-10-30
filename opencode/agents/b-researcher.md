@@ -108,18 +108,6 @@ permissions:
   - action: "playwright_browser_generate_locator"
     resource: "*"
     effect: allow
-  - action: "mobbin_*"
-    resource: "*"
-    effect: deny
-  - action: "mobbin_search_screens"
-    resource: "*"
-    effect: allow
-  - action: "mobbin_search_flows"
-    resource: "*"
-    effect: allow
-  - action: "mobbin_search_sections"
-    resource: "*"
-    effect: allow
   - action: "notion_*"
     resource: "*"
     effect: deny

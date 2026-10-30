@@ -322,50 +322,6 @@
       }
     },
     {
-      "id": "mcp.mobbin",
-      "kind": "mcp",
-      "purpose": "Provide product UI screens, flows, and sections as bounded design-reference evidence.",
-      "owner": "Mobbin MCP",
-      "trigger": "Use only inside b-design reference gathering when local evidence leaves a real open direction.",
-      "prerequisites": [
-        "Native MCP entry",
-        "Paid Mobbin plan",
-        "User-approved OAuth"
-      ],
-      "readiness": "A local Mobbin entry is present; plan, OAuth state, and service health are not probed.",
-      "fallback": "Continue from local evidence and state that Mobbin references are unavailable.",
-      "status_signal": {
-        "source": "local-config-file-presence",
-        "states": [
-          "unknown",
-          "blocked"
-        ],
-        "description": "Reports only local configuration presence and never reads authentication state.",
-        "sensitive": false
-      },
-      "probe": {
-        "type": "mcp",
-        "server": "mobbin",
-        "launcher": null,
-        "required_env": [],
-        "auth": "oauth"
-      },
-      "mcp": {
-        "server": "mobbin",
-        "launcher": null,
-        "required_env": [],
-        "auth": "oauth"
-      },
-      "install_state": {
-        "action": "mcpAction",
-        "state": "mcpState"
-      },
-      "source": {
-        "template": "opencode/configs/opencode.template.json",
-        "policy": "references/mcp_operations.yaml"
-      }
-    },
-    {
       "id": "mcp.notion",
       "kind": "mcp",
       "purpose": "Search, read, and (with approval) edit the user's private Notion workspace pages, databases, comments, and files.",

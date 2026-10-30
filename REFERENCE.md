@@ -282,7 +282,7 @@ external/shared actions.
 ## MCP and readiness
 
 `claude/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Mobbin, Notion, Excalidraw, draw.io, and shadcn;
+Firecrawl, Playwright, Notion, Excalidraw, draw.io, and shadcn;
 `mcp.clickup.json` is the optional ClickUp server. Tools are addressed as
 `mcp__<server>__<tool>`. Credentials are `${VAR}` references; the installer
 collects none.
@@ -294,7 +294,6 @@ collects none.
 | Brave Search | `bunx`, `BRAVE_API_KEY`                                               |
 | Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                           |
 | Playwright   | `bunx` (isolated/headless testing)                                    |
-| Mobbin       | approved OAuth/account when requested                                 |
 | Notion       | approved OAuth when Notion content is requested                       |
 | Excalidraw   | approved `create_view` calls, MCP UI viewer                           |
 | draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)    |

@@ -138,13 +138,6 @@
         "browser_verify_value": "conditional-read"
       }
     },
-    "mobbin": {
-      "tools": {
-        "search_screens": "read-only",
-        "search_flows": "read-only",
-        "search_sections": "read-only"
-      }
-    },
     "notion": {
       "tools": {
         "notion-search": "conditional-read",

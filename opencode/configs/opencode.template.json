@@ -3871,26 +3871,6 @@
       "effect": "allow"
     },
     {
-      "action": "mobbin_*",
-      "resource": "*",
-      "effect": "ask"
-    },
-    {
-      "action": "mobbin_search_screens",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "mobbin_search_flows",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "mobbin_search_sections",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
       "action": "notion_*",
       "resource": "*",
       "effect": "ask"
@@ -4212,16 +4192,6 @@
           "--caps=testing"
         ],
         "environment": {},
-        "disabled": false,
-        "codemode": false,
-        "timeout": {
-          "startup": 30000,
-          "catalog": 30000
-        }
-      },
-      "mobbin": {
-        "type": "remote",
-        "url": "https://api.mobbin.com/mcp",
         "disabled": false,
         "codemode": false,
         "timeout": {
