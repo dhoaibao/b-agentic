@@ -39,6 +39,23 @@ export function pathInput(args) {
   };
 }
 
+// Every file a `patch` call touches. Its `patchText` names targets in `*** Add File:`,
+// `*** Update File:`, `*** Delete File:`, and `*** Move to:` headers rather than in a path key.
+export function patchPaths(patchText) {
+  if (typeof patchText !== "string") return [];
+  // Split on LF only, as OpenCode does, and keep each header's whole remainder: a CR, U+2028, or
+  // U+2029 inside a path is part of the target it resolves. Match more loosely than its parser
+  // (indentation, Unicode whitespace, case): over-blocking a malformed header is safe, while a
+  // header the parser accepts and this misses is a bypass. Each fragment around an embedded
+  // separator is returned too, so a name hidden behind one is still checked.
+  const header =
+    /^\s*\*\*\*\s*(?:Add File|Update File|Delete File|Move to)\s*:\s*([\s\S]*?)\s*$/i;
+  return patchText.split("\n").flatMap((line) => {
+    const target = header.exec(line)?.[1];
+    return target ? [target, ...target.split(/[\r\u2028\u2029]/)] : [];
+  });
+}
+
 // The directory a shell call runs in: `workdir` resolved the way OpenCode does, against the
 // session location (a leading `~` is the home directory), else the location itself.
 export function shellCwd(workdir, base) {
@@ -56,10 +73,12 @@ export async function guardToolCall({ tool, args, cwd }) {
   try {
     if (FILE_TOOLS.has(name)) {
       const { blockedPaths } = await import(hooksUrl("b-path-guard.mjs"));
-      const blocked = blockedPaths(
-        pathInput(args),
-        name === "glob" ? "Glob" : name,
-      );
+      const blocked = [
+        ...blockedPaths(pathInput(args), name === "glob" ? "Glob" : name),
+        ...(name === "patch" ? patchPaths(args?.patchText) : []).flatMap(
+          (path) => blockedPaths({ path }, name),
+        ),
+      ];
       return blocked.length === 0
         ? null
         : `b-agentic path guard: ${name} refused on likely-secret path ${blocked.join(", ")}. Likely-secret files (.env, *.pem, credentials.*, secrets.*) need explicit user permission to read or change; ask the user first.`;
