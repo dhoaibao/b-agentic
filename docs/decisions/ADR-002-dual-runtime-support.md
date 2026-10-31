@@ -76,10 +76,17 @@ Decisions taken by the user:
 The kernel is a marked block in `~/.config/opencode/AGENTS.md`. Model selection
 was refined on 2026-10-24: the registry's optional `opencode_model` field pins
 OpenCode specialists independently of Claude Code's `model` alias. OpenCode
-defaults to `openai/gpt-6.1-sol#xhigh` for planner, debugger, and auditor, and
-`openai/gpt-6-luna#high` for researcher. Omitting `opencode_model` retains session
-model inheritance. The `#xhigh` and `#high` suffixes select variants documented in the
-[OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
+initially defaulted to `openai/gpt-6.1-sol#xhigh` for planner, debugger, and
+auditor, and `openai/gpt-6-luna#high` for researcher. On 2026-10-31, after a
+benchmark review (Artificial Analysis, vendor pages), the defaults became
+`anthropic/claude-opus-5-5#xhigh` for planner,
+`anthropic/claude-sonnet-5-5#xhigh` for debugger,
+`anthropic/claude-sonnet-5-5#medium` for researcher, and
+`openai/gpt-6.1-sol#xhigh` for auditor, which keeps the audit on a different model
+family than the Claude main session. The same day the registry gained an optional
+`effort` field for Claude Code subagent frontmatter. Omitting `opencode_model`
+retains session model inheritance. The variant suffixes select variants documented
+in the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 
 Gap handling on OpenCode:
 

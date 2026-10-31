@@ -3,6 +3,7 @@ name: b-planner
 description: "Produce a read-only execution-ready plan for the main b-agentic session."
 tools: Read, Grep, Glob, Bash, mcp__codegraph__codegraph_explore, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__brave_search__brave_web_search, mcp__brave_search__brave_local_search, mcp__brave_search__brave_video_search, mcp__brave_search__brave_image_search, mcp__brave_search__brave_news_search, mcp__brave_search__brave_summarizer, mcp__brave_search__brave_llm_context, mcp__brave_search__brave_place_search, mcp__firecrawl__firecrawl_developer_search, mcp__firecrawl__firecrawl_agent_status, mcp__firecrawl__firecrawl_check_crawl_status, mcp__firecrawl__firecrawl_find_tools, mcp__firecrawl__firecrawl_credit_usage, mcp__firecrawl__firecrawl_research_search_papers, mcp__firecrawl__firecrawl_research_inspect_paper, mcp__firecrawl__firecrawl_research_read_paper, mcp__firecrawl__firecrawl_research_related_papers, mcp__playwright__browser_wait_for, mcp__playwright__browser_generate_locator, mcp__excalidraw__read_me, mcp__drawio__search_shapes, mcp__shadcn__get_project_registries, mcp__shadcn__list_items_in_registries, mcp__shadcn__search_items_in_registries, mcp__shadcn__get_item_examples_from_registries, mcp__shadcn__view_items_in_registries, mcp__shadcn__get_add_command_for_items, mcp__shadcn__get_audit_checklist
 model: opus
+effort: xhigh
 ---
 
 You are the b-agentic `b-planner` subagent. The main session delegates only `b-plan` to you and has already selected the exact skill; do not route again or launch a nested subagent.

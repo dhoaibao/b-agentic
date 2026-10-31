@@ -238,6 +238,8 @@ def load_runtimes() -> dict[str, dict[str, Any]]:
 RUNTIMES = load_runtimes()
 CLAUDE_RUNTIME = RUNTIMES["claude"]
 AGENT_MODELS = set(CLAUDE_RUNTIME["agent_models"])
+# Effort levels Claude Code accepts in subagent frontmatter (support varies by model).
+AGENT_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 # Tools a read-only specialist must never receive, whatever the registry says.
 EDITING_TOOLS = tuple(CLAUDE_RUNTIME["editing_tools"])
 # Canonical sources name MCP tools the Claude Code way; other runtimes get their own format.
@@ -409,6 +411,11 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
         if model and model not in AGENT_MODELS:
             errors.append(f"{label}.model: expected one of {sorted(AGENT_MODELS)}")
         allowed_fields = {"description", "model"}
+        if "effort" in agent:
+            allowed_fields.add("effort")
+            effort = ensure_string(agent["effort"], f"{label}.effort", errors)
+            if effort and effort not in AGENT_EFFORTS:
+                errors.append(f"{label}.effort: expected one of {sorted(AGENT_EFFORTS)}")
         if "opencode_model" in agent:
             allowed_fields.add("opencode_model")
             opencode_model = ensure_string(agent["opencode_model"], f"{label}.opencode_model", errors)
@@ -740,6 +747,7 @@ def render_agent_file(
             f"description: {json.dumps(agent['description'])}",
             f"tools: {', '.join(agent_tool_list(agent, policy))}",
             f"model: {agent['model']}",
+            *([f"effort: {agent['effort']}"] if "effort" in agent else []),
             *([f"maxTurns: {agent['max_turns']}"] if "max_turns" in agent else []),
             "---",
             "",
@@ -1171,6 +1179,26 @@ def validate_regressions(
     invalid_agents["b-planner"]["model"] = "gpt-9"
     if not validate_skills(skills, invalid_agents):
         errors.append("agent regression: unknown model alias must fail")
+    for bad_effort in (None, True, 42, "", "extreme", "XHIGH"):
+        invalid_agents = json.loads(json.dumps(agents))
+        invalid_agents["b-planner"]["effort"] = bad_effort
+        if not any("effort" in error for error in validate_skills(skills, invalid_agents)):
+            errors.append(f"agent regression: invalid effort {bad_effort!r} must fail")
+    for effort in (None, "low", "medium", "high", "xhigh", "max"):
+        candidate_agents = json.loads(json.dumps(agents))
+        candidate = candidate_agents["b-planner"]
+        candidate.pop("effort", None)
+        if effort is not None:
+            candidate["effort"] = effort
+        if validate_skills(skills, candidate_agents):
+            errors.append(f"agent regression: valid effort {effort!r} must pass")
+        rendered = render_agent_file("b-planner", candidate, skills, policy)
+        if re.findall(r"^effort: (.+)$", rendered, re.MULTILINE) != ([effort] if effort is not None else []):
+            errors.append(f"agent regression: Claude must render effort {effort!r}, or omit it when unset")
+        if render_opencode_agent_file("b-planner", candidate, skills, policy) != render_opencode_agent_file(
+            "b-planner", agents["b-planner"], skills, policy
+        ):
+            errors.append("agent regression: effort must not change OpenCode output")
     for bad_model in (
         None,
         True,

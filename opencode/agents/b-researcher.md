@@ -1,7 +1,7 @@
 ---
 description: "Return bounded sourced research findings to the main b-agentic session."
 mode: subagent
-model: "openai/gpt-6-luna#high"
+model: "anthropic/claude-sonnet-5-5#medium"
 permissions:
   - action: "edit"
     resource: "*"
