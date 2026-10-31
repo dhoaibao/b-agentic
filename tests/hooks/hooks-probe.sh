@@ -199,6 +199,14 @@ if [ "$(uname -s)" != MINGW ]; then
   run "$verifygate" "$(vg Stop s11)"; expect 0 "permissive state dir must fail open"
   [ ! -e "$work/gate/s11.json" ] || fail "verify-gate wrote into a permissive directory"
   chmod 700 "$work/gate"
+  # a rejected (symlinked) state directory must not have files deleted through it.
+  mv "$work/gate" "$work/gate.real"
+  ln -s "$work/gate.real" "$work/gate"
+  printf '{"dirty":false,"reminded":false}' >"$work/gate.real/s12.json"
+  run "$verifygate" "$(vg Stop s12)"; expect 0 "symlinked state dir must fail open"
+  [ -e "$work/gate.real/s12.json" ] || fail "verify-gate deleted a file through a symlinked state directory"
+  rm -f "$work/gate"
+  mv "$work/gate.real" "$work/gate"
 fi
 echo "hooks probe passed: verify-gate"
 

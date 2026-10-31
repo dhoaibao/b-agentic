@@ -256,6 +256,15 @@ function writeState(file, state) {
   }
 }
 
+function clearState(file) {
+  try {
+    // Never delete through a state directory that readState/writeState reject.
+    if (privateDir(join(file, ".."), false)) rmSync(file, { force: true });
+  } catch {
+    // Advisory only.
+  }
+}
+
 export function handle(event) {
   const file = stateFile(event.session_id ?? "default");
   const state = readState(file);
@@ -278,7 +287,7 @@ export function handle(event) {
   if (event.hook_event_name === "Stop") {
     // The gate's own continuation, or a later stop, never re-arms it.
     if (event.stop_hook_active || state.reminded || !state.dirty) {
-      rmSync(file, { force: true });
+      clearState(file);
       return { code: 0 };
     }
     writeState(file, { dirty: false, reminded: true });
