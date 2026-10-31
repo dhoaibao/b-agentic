@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Narrow structure and traceability checks for the ADR-001 design record."""
+"""Narrow structure and traceability checks for the ADR design records."""
 
 from __future__ import annotations
 
@@ -16,6 +16,8 @@ from citations import path_citations, tracked_paths
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LABEL = "docs/decisions/ADR-001-b-agentic-design-record.md"
 DECISION_PATH = ROOT / DEFAULT_LABEL
+# Later ADRs keep the header and top-level sections but not ADR-001's per-area evidence.
+LIGHT_LABELS = ("docs/decisions/ADR-002-dual-runtime-support.md",)
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (
     "Product boundary and architecture",
@@ -79,7 +81,7 @@ def check_evidence(label: str, name: str, body: str, tracked: set[str]) -> list[
     return errors
 
 
-def validate(text: str, tracked: set[str], label: str = DEFAULT_LABEL) -> list[str]:
+def validate(text: str, tracked: set[str], label: str = DEFAULT_LABEL, light: bool = False) -> list[str]:
     # Generated delivery assets can be untracked during candidate
     # validation, but ignored on-disk files never qualify as traceable evidence.
     tracked = set(tracked) | candidate_paths()
@@ -96,7 +98,9 @@ def validate(text: str, tracked: set[str], label: str = DEFAULT_LABEL) -> list[s
         if not re.search(pattern, header, re.MULTILINE):
             errors.append(f"{label}: header must contain {description}")
 
-    for name, body in sections:
+    if light and not re.search(r"\bEvidence:", text):
+        errors.append(f"{label}: no Evidence marker")
+    for name, body in [] if light else sections:
         if name == "Decision":
             areas = decision_areas(body)
             area_names = [area_name for area_name, _ in areas]
@@ -176,6 +180,19 @@ def self_test() -> int:
                 file=sys.stderr,
             )
             return 1
+    light = fixture(area_names=[]).replace("Intro without evidence.", "Intro.")
+    light_cases = [
+        (light.replace("README.md", "tooling/missing.py"), "not currently tracked"),
+        (light.replace("Evidence:", "Support:"), "no Evidence marker"),
+        (light.replace("## Consequences", "## Extra\n\n## Consequences"), "top-level sections must be exactly"),
+    ]
+    if validate(light, tracked, "fixture", light=True):
+        print("ADR-002 self-test failed: complete fixture was rejected", file=sys.stderr)
+        return 1
+    for text, expected_error in light_cases:
+        if not any(expected_error in error for error in validate(text, tracked, "fixture", light=True)):
+            print(f"ADR-002 self-test failed: expected {expected_error!r}", file=sys.stderr)
+            return 1
     print("Decision-design structure and traceability self-test passed.")
     return 0
 
@@ -186,16 +203,20 @@ def main() -> int:
     args = parser.parse_args()
     if args.self_test:
         return self_test()
-    if not DECISION_PATH.exists():
-        print(f"{DECISION_PATH.relative_to(ROOT)}: missing", file=sys.stderr)
-        return 1
-    decision_text = DECISION_PATH.read_text()
     tracked = tracked_paths()
-    errors = validate(decision_text, tracked)
+    errors: list[str] = []
+    references: set[str] = set()
+    for label in (DEFAULT_LABEL, *LIGHT_LABELS):
+        path = ROOT / label
+        if not path.exists():
+            errors.append(f"{label}: missing")
+            continue
+        text = path.read_text()
+        errors.extend(validate(text, tracked, label, light=label in LIGHT_LABELS))
+        references.update(source_references(text, tracked))
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    references = sorted(set(source_references(decision_text, tracked)))
     print(f"Decision-design structure and traceability check passed ({len(references)} tracked source references).")
     return 0
 
