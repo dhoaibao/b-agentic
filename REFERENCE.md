@@ -168,12 +168,12 @@ aliases from the registry's `model` field, with an optional `effort` field
 separate optional `opencode_model` field (`provider/model#variant`); omitting it
 inherits the session model. Current OpenCode defaults are:
 
-| Specialist     | Model                         | Effort   |
-| -------------- | ----------------------------- | -------- |
-| `b-planner`    | `anthropic/claude-opus-5-5`   | `xhigh`  |
-| `b-researcher` | `anthropic/claude-sonnet-5-5` | `medium` |
-| `b-debugger`   | `anthropic/claude-sonnet-5-5` | `xhigh`  |
-| `b-auditor`    | `openai/gpt-6.1-sol`          | `xhigh`  |
+| Specialist     | Model                 | Effort   |
+| -------------- | --------------------- | -------- |
+| `b-planner`    | `claude-agent/opus`   | `xhigh`  |
+| `b-researcher` | `claude-agent/sonnet` | `medium` |
+| `b-debugger`   | `claude-agent/sonnet` | `xhigh`  |
+| `b-auditor`    | `openai/gpt-6.1-sol`  | `xhigh`  |
 
 Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 

@@ -1,7 +1,7 @@
 ---
 description: "Return bounded sourced research findings to the main b-agentic session."
 mode: subagent
-model: "anthropic/claude-sonnet-5-5#medium"
+model: "claude-agent/sonnet#medium"
 permissions:
   - action: "edit"
     resource: "*"

@@ -1,7 +1,7 @@
 ---
 description: "Produce a read-only execution-ready plan for the main b-agentic session."
 mode: subagent
-model: "anthropic/claude-opus-5-5#xhigh"
+model: "claude-agent/opus#xhigh"
 permissions:
   - action: "edit"
     resource: "*"

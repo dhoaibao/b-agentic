@@ -1,7 +1,7 @@
 ---
 description: "Diagnose a runtime problem without changing product code."
 mode: subagent
-model: "anthropic/claude-sonnet-5-5#xhigh"
+model: "claude-agent/sonnet#xhigh"
 permissions:
   - action: "edit"
     resource: "*"

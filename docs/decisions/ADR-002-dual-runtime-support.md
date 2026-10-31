@@ -83,7 +83,10 @@ benchmark review (Artificial Analysis, vendor pages), the defaults became
 `anthropic/claude-sonnet-5-5#xhigh` for debugger,
 `anthropic/claude-sonnet-5-5#medium` for researcher, and
 `openai/gpt-6.1-sol#xhigh` for auditor, which keeps the audit on a different model
-family than the Claude main session. The same day the registry gained an optional
+family than the Claude main session. Later that day the three Claude specialists
+moved from the `anthropic` provider, which needs a separate API key and failed
+with `invalid x-api-key`, to OpenCode's `claude-agent` provider using the
+`opus` and `sonnet` aliases with the same variants. The same day the registry gained an optional
 `effort` field for Claude Code subagent frontmatter. Omitting `opencode_model`
 retains session model inheritance. The variant suffixes select variants documented
 in the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
