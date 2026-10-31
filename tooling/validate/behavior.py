@@ -165,7 +165,7 @@ SUBAGENT_SESSION_REGRESSION = {
     "observed_failure": "Background child work could gate a decision, overwrite another child scope, or reuse incompatible or stale child context.",
     "intended_behavior": "The main session uses bounded background work only when independent, and continues only a compatible completed child while retaining independent review.",
     "required_clauses": (
-        "Default to foreground when it gates action.",
+        "when it gates action, wait for its completion notification.",
         "Start a background child only for independent, read-only work that the main session can safely continue without",
         "retain its returned agent ID and bounded task metadata.",
         "Do not start concurrent children with overlapping scope or rely on an active child for a decision.",
