@@ -8,7 +8,7 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | Source | Installed path (default `~/.claude`) | Owner |
 | --- | --- | --- |
 | `settings.template.json` | `settings.json` | Claude Code; only missing `permissions.allow/ask/deny` rules and hook commands are added, each recorded in the manifest |
-| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; ten servers, no stored credentials (`${VAR}` references) |
+| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; nine servers, no stored credentials (`${VAR}` references) |
 | `mcp.clickup.json` | same file | Optional ClickUp stdio server (`bunx`, pinned), added only after install opt-in |
 | none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules |
 | `agents/b-*.md` | `agents/b-*.md` | Four generated read-only specialist profiles (tool allowlists, no editing tools) |

@@ -9,7 +9,7 @@ never the generated files. `opencode/plugins/b-agentic.js` is hand-written.
 | Source                                           | Installed path (default `~/.config/opencode`) | Owner                                                                                              |
 | ------------------------------------------------ | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `opencode.template.json` `permissions`           | `opencode.json` (`permissions`)               | OpenCode; appended as the final block because the last matching rule wins, each rule recorded exactly |
-| `opencode.template.json` `mcp.servers`           | `opencode.json` (`mcp.servers`)               | OpenCode; ten servers, no stored credentials (`{env:VAR}` references)                              |
+| `opencode.template.json` `mcp.servers`           | `opencode.json` (`mcp.servers`)               | OpenCode; nine servers, no stored credentials (`{env:VAR}` references)                              |
 | `opencode.clickup.json`                          | same file                                     | Optional ClickUp server, added only after install opt-in                                           |
 | `kernel.md`                                      | block in `AGENTS.md`                          | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->`                  |
 | `../agents/b-*.md`                               | `agents/b-*.md`                               | Four read-only specialist profiles enforced by `permissions`                                       |

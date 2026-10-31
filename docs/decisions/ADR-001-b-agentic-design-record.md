@@ -174,7 +174,7 @@ Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_
 
 ### MCP and external-evidence design
 
-Ten base servers are configured in Claude Code's standard `mcpServers` shape;
+Nine base servers are configured in Claude Code's standard `mcpServers` shape;
 optional ClickUp is added only after install opt-in. `references/mcp_operations.yaml`
 classifies every known tool, and each class maps to an allow or ask rule on
 `mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
