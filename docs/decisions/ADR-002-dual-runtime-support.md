@@ -93,16 +93,16 @@ in the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 
 Gap handling on OpenCode:
 
-| Claude feature                 | OpenCode handling                                                                                                                                                                        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read-only specialists          | `edit`, `subagent`, `question` deny, `*_*` deny for every other `<server>_<tool>` (user-added servers included), then an MCP allowlist per agent; external directories stay allowed      |
-| Path guard                     | native `read`/`edit` secret denies (`*.env`, `*.pem`, `*credentials.*`, ...) plus the plugin refusing file tools                                                                         |
-| Outside-project writes         | the main session asks on `external_directory` (reads included, as OpenCode cannot tell them apart), except `~/.config/opencode`, `~/.claude`, `~/.local/share/opencode`, `/tmp/opencode` |
-| Unclassified MCP tools         | `*_*` asks in the main session; managed servers then ask by default and follow their class                                                                                               |
-| ClickUp guard (asks on images) | every ClickUp create or update asks                                                                                                                                                      |
-| Approval-store tripwire        | shell `ask` rules for the approve command, the approvals file, and the state-dir variable                                                                                                |
-| Verify gate                    | not ported: a session cannot be blocked from stopping                                                                                                                                    |
-| Codex gate                     | `shell` with `background: true` through the shared companion and approval logic                                                                                                          |
+| Claude feature                 | OpenCode handling                                                                                                                                                                                                 |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only specialists          | `edit`, `subagent`, `question` deny, `*_*` deny for every other `<server>_<tool>` (user-added servers included), `execute` and `browser` deny, then an MCP allowlist per agent; external directories stay allowed |
+| Path guard                     | native `read`/`edit` secret denies (`*.env`, `*.pem`, `*credentials.*`, ...) plus the plugin refusing file tools                                                                                                  |
+| Outside-project writes         | the main session asks on `external_directory` (reads included, as OpenCode cannot tell them apart), except `~/.config/opencode`, `~/.claude`, `~/.local/share/opencode`, `/tmp/opencode`                          |
+| Unclassified MCP tools         | `*_*` asks in the main session; managed servers then ask by default and follow their class                                                                                                                        |
+| ClickUp guard (asks on images) | every ClickUp create or update asks                                                                                                                                                                               |
+| Approval-store tripwire        | shell `ask` rules for the approve command, the approvals file, and the state-dir variable                                                                                                                         |
+| Verify gate                    | not ported: a session cannot be blocked from stopping                                                                                                                                                             |
+| Codex gate                     | `shell` with `background: true` through the shared companion and approval logic                                                                                                                                   |
 
 Invariants: manifest-only ownership, refusal before the first write, user keys
 preserved on merge, managed permission rules always the final block,
@@ -116,9 +116,10 @@ is passed, which backs up and removes only the paths that manifest names.
 b-agentic maintains two runtimes. The kernel size limit applies to each
 runtime's rendered kernel, and the generator validates the OpenCode outputs
 (read-only specialists, an asking default per managed MCP server, rule parity
-with the Claude settings layer). OpenCode support is pinned to v2.1.4, the
-version checked, because the v1 to v2 schema break shows config keys can change
-silently.
+with the Claude settings layer). OpenCode support is not version-pinned and
+the installer does not check the OpenCode version; the facts above were checked
+against v2.1.4, and the v1 to v2 schema break shows config keys can change
+silently, so re-verify them after an OpenCode upgrade.
 
 Accepted residual risks: the verify gate and the ClickUp image prompt are not
 ported; the plugin's `execute.before` throw, how shell patterns match compound
@@ -128,7 +129,11 @@ need a live check before relying on them; the plugin and the native rules must
 both be present for secret-path protection to be layered. Because `*_*` also
 matches `opencode_*` actions, only `opencode_models`,
 `opencode_list_mcp_resources`, `opencode_worktree_list`, and
-`opencode_session_rename` are re-allowed; other `opencode_*` actions ask.
+`opencode_session_rename` are re-allowed; other `opencode_*` actions ask when
+OpenCode raises them. Whether Code Mode's `opencode` namespace (session move,
+worktree create) and the desktop `browser` namespace raise any permission action
+is unverified on 2.2.5, so the main session may run them without asking.
+Specialists therefore also deny `execute` and `browser` outright.
 
 Unchanged non-goals: no custom permission engine, no third runtime, no Pi
 revival, no per-project OpenCode installs, no live OpenCode or Codex sessions in

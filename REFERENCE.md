@@ -107,9 +107,11 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
   `opencode.jsonc` (comments) and the v1 `permission` map are refused before any
   write.
 - **Specialists** deny `edit`, `subagent`, and `question`, deny every other
-  `<server>_<tool>` (`*_*`, including servers you added), and then allow only
-  their allowlisted MCP tools; unlike Claude Code this is enforced by the
-  runtime. They keep the default external-directory access.
+  `<server>_<tool>` (`*_*`, including servers you added), deny `execute` and
+  `browser` outright, and then allow only their allowlisted MCP tools; unlike
+  Claude Code this is enforced by the runtime. They keep the default
+  external-directory access. Whether the main session's Code Mode `opencode` and
+  `browser` calls ask is unverified on OpenCode 2.2.5.
 - **Skills load once.** `~/.config/opencode/skills` outranks the Claude-compatible
   `~/.claude/skills` for the same skill ID, so a machine with both installs does
   not load two copies. OpenCode v2 does not read `CLAUDE.md`.
@@ -346,13 +348,17 @@ rtk git diff --check
 
 Plain `scripts/validate-skills.sh` runs the generator self-test and check, the
 policy and routing checks, the hook and verdict-mapper probe
-(`tests/hooks/hooks-probe.sh`), and the snapshot CLI probe
+(`tests/hooks/hooks-probe.sh`), the OpenCode plugin probe
+(`tests/hooks/opencode-plugin-probe.sh`), and the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`). `--release` (CI) adds the sandbox installer
-probe (`tests/install/claude-install-probe.sh`) and the RTK readiness check. None
-needs Claude Code, Codex, credentials, or a network.
+probes (`tests/install/claude-install-probe.sh` and
+`tests/install/opencode-install-probe.sh`) and the RTK readiness check. None
+needs Claude Code, OpenCode, Codex, credentials, or a network.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
 generated specialists and settings plus the hooks, CLIs, and MCP templates;
+`opencode/` holds the generated OpenCode agents, skills, and references plus the
+config template and the safety plugin;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
 snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).

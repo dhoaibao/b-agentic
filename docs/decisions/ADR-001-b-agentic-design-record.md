@@ -9,8 +9,9 @@ with `Supersedes: ADR-001`, and the superseded area is noted here.
 
 Superseded in part by [ADR-002](ADR-002-dual-runtime-support.md): the
 single-runtime statement in Context, the `~/.claude`-only boundary under
-"Product boundary and architecture", and the second-runtime non-goal under
-Consequences.
+"Product boundary and architecture", the second-runtime non-goal under
+Consequences, and the Anthropic-models-only statement under "Workflow and skill
+design" (OpenCode specialists pin `opencode_model`).
 
 ## Context
 
@@ -65,10 +66,13 @@ Delegated skills never run in the main session, including for quick lookups:
 the generator writes a `Delegation boundary` (with the parent-owned evidence
 handoff and `$ARGUMENTS`) into each delegated skill file, and the kernel repeats
 the rule. An unavailable subagent is reported, not replaced by self-execution.
-Foreground is default; background work is independent and read-only. `b-review`
-is a main-session skill: it freezes the candidate, runs the Codex gate, and
-classifies the result. Specialists run on Anthropic models only (`opus`,
-`sonnet`, or `haiku`), so the earlier Gemini research model is gone.
+Claude Code starts subagents in the background by default (fork mode is on
+unless `CLAUDE_CODE_FORK_SUBAGENT=0`), so work that gates action waits for the
+completion notification; work the main session continues without is independent
+and read-only. `b-review` is a main-session skill: it freezes the candidate,
+runs the Codex gate, and classifies the result. On Claude Code, specialists run
+on Anthropic models only (`opus`, `sonnet`, or `haiku`), so the earlier Gemini
+research model is gone.
 
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
 [`skills/registry.yaml`](../../skills/registry.yaml), and

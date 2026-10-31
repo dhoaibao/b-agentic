@@ -881,6 +881,8 @@ OPENCODE_EXTERNAL_ALLOWED = (
 )
 # Unmanaged `<server>_<tool>` actions (and the underscored native ones) ask through `*_*`; these
 # OpenCode-provided actions are routine and read-only or metadata-only, so they stay allowed.
+# Whether Code Mode's `opencode` namespace reaches a permission action at all is unverified on
+# OpenCode 2.2.5 (ADR-002), so the main session relies on `*_*` only where such an action exists.
 OPENCODE_BUILTIN_ALLOWED = (
     "opencode_models",
     "opencode_list_mcp_resources",
@@ -961,9 +963,10 @@ def opencode_agent_permissions(agent: dict[str, Any], policy: dict[str, Any]) ->
     `*_*` denies every `<server>_<tool>` first, so a server the user added is denied too; a wildcard
     deny per managed server and its permitted tools follow (last match wins). External directory
     access stays allowed, as it was before the main session started asking for it. Code Mode's
-    `opencode` namespace (session move, worktree create) and the desktop `browser` namespace request no
-    permission action of their own, so no per-tool rule can restrict them: `execute` and `browser` are
-    denied outright (MCP servers set `codemode: false`, so their tools stay directly callable)."""
+    `opencode` namespace (session move, worktree create) and the desktop `browser` namespace may
+    request no permission action of their own (unverified on 2.2.5), so a specialist cannot rely on
+    a per-tool rule: `execute` and `browser` are denied outright (MCP servers set `codemode: false`,
+    so their tools stay directly callable)."""
     rules = [opencode_rule(action, "deny") for action in RUNTIMES["opencode"]["editing_tools"]]
     rules += [opencode_rule("*_*", "deny"), opencode_rule("external_directory", "allow")]
     rules += [opencode_rule(action, "deny") for action in OPENCODE_SPECIALIST_DENIED]
@@ -1429,8 +1432,8 @@ def validate_opencode_outputs(
             errors.append(
                 f"opencode/agents/{name}.md: must deny every <server>_<tool> by default (*_*) after the editing denies"
             )
-        # `opencode_*` Code Mode utilities request no permission action, so only denying `execute`
-        # and `browser` removes them; matching them against `*_*` would be false assurance.
+        # `opencode_*` Code Mode utilities may request no permission action (unverified on 2.2.5), so
+        # only denying `execute` and `browser` is certain to remove them; `*_*` alone is not relied on.
         for tool in ("__unmanaged___tool", "execute", "browser", "opencode_read_mcp_resource"):
             actual = next(
                 (effect for action, effect in reversed(agent_rules) if fnmatch.fnmatchcase(tool, action)), None
