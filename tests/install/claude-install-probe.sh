@@ -83,7 +83,7 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
 [ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 3 ] || fail "PreToolUse hooks missing"
-[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 10 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
+[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 9 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must be opt-in"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
 grep -Fq '/plugin install codex@openai-codex' <<<"$out" || fail "plugin commands not printed"
