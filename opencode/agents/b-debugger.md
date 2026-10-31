@@ -18,6 +18,12 @@ permissions:
   - action: "external_directory"
     resource: "*"
     effect: allow
+  - action: "execute"
+    resource: "*"
+    effect: deny
+  - action: "browser"
+    resource: "*"
+    effect: deny
   - action: "codegraph_*"
     resource: "*"
     effect: deny

@@ -887,6 +887,8 @@ OPENCODE_BUILTIN_ALLOWED = (
     "opencode_worktree_list",
     "opencode_session_rename",
 )
+# Native capabilities with no permission action of their own; a specialist loses them whole.
+OPENCODE_SPECIALIST_DENIED = ("execute", "browser")
 OPENCODE_MCP_TIMEOUT = {"startup": 30000, "catalog": 30000}
 ENV_REFERENCE = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
@@ -958,9 +960,13 @@ def opencode_agent_permissions(agent: dict[str, Any], policy: dict[str, Any]) ->
     """A read-only specialist: no editing, delegation, or questions, and only its allowlisted MCP tools.
     `*_*` denies every `<server>_<tool>` first, so a server the user added is denied too; a wildcard
     deny per managed server and its permitted tools follow (last match wins). External directory
-    access stays allowed, as it was before the main session started asking for it."""
+    access stays allowed, as it was before the main session started asking for it. Code Mode's
+    `opencode` namespace (session move, worktree create) and the desktop `browser` namespace request no
+    permission action of their own, so no per-tool rule can restrict them: `execute` and `browser` are
+    denied outright (MCP servers set `codemode: false`, so their tools stay directly callable)."""
     rules = [opencode_rule(action, "deny") for action in RUNTIMES["opencode"]["editing_tools"]]
     rules += [opencode_rule("*_*", "deny"), opencode_rule("external_directory", "allow")]
+    rules += [opencode_rule(action, "deny") for action in OPENCODE_SPECIALIST_DENIED]
     allowed = {tool for tool in agent_tool_list(agent, policy) if tool.startswith("mcp__")}
     for server, record in policy["servers"].items():
         permitted = [tool for tool in record["tools"] if mcp_tool_name(server, tool) in allowed]
@@ -1423,7 +1429,9 @@ def validate_opencode_outputs(
             errors.append(
                 f"opencode/agents/{name}.md: must deny every <server>_<tool> by default (*_*) after the editing denies"
             )
-        for tool in ("__unmanaged___tool", "opencode_session_move", "opencode_read_mcp_resource"):
+        # `opencode_*` Code Mode utilities request no permission action, so only denying `execute`
+        # and `browser` removes them; matching them against `*_*` would be false assurance.
+        for tool in ("__unmanaged___tool", "execute", "browser", "opencode_read_mcp_resource"):
             actual = next(
                 (effect for action, effect in reversed(agent_rules) if fnmatch.fnmatchcase(tool, action)), None
             )
@@ -1548,6 +1556,9 @@ def validate_opencode_regressions(
             **outputs,
             path: outputs[path].replace(default_deny, "", 1),
         }
+        for native in OPENCODE_SPECIALIST_DENIED:
+            rule = f'  - action: "{native}"\n    resource: "*"\n    effect: deny\n'
+            cases[f"{name} without its {native} deny"] = {**outputs, path: outputs[path].replace(rule, "", 1)}
         for server in policy["servers"]:
             rule = f'  - action: "{server}_*"\n    resource: "*"\n    effect: deny\n'
             cases[f"{name} without its {server} deny default"] = {**outputs, path: outputs[path].replace(rule, "", 1)}
