@@ -4,18 +4,21 @@
 // and not in a shell-command parser. It
 //   1. refuses unless no likely-secret path is tracked, staged, or
 //      untracked-and-not-ignored, no submodule or embedded repository hides paths
-//      from the name scan, and the user approved sending this repository
-//      (b-codex-guard's `evaluate`);
+//      from the name scan, no untracked symlink would be followed, a --base
+//      range (merge-base..HEAD and every commit in it) holds no likely-secret
+//      path, and the user approved sending this repository (b-codex-guard's
+//      `evaluate`);
 //   2. freezes the candidate (F0) and refuses an incomplete snapshot;
 //   3. runs the plugin's review in the foreground against exactly one explicit
-//      target, spawned with an argument vector (no shell, no quoting to defeat);
+//      target (a --base is resolved once and passed as its commit id), spawned
+//      with an argument vector (no shell, no quoting to defeat);
 //   4. freezes the candidate again (F1) and voids the review when F0 != F1;
 //   5. maps the plugin's verdict with b-codex-verdict's fail-closed parser.
 // The Bash hook in b-codex-guard.mjs only catches accidental direct calls to the
 // plugin script; it is a tripwire, not the boundary.
 //
 // Usage: b-codex-review.mjs (--scope working-tree | --base <ref>)
-//          [--kind adversarial|native] [--focus <text> | --focus-file <path>]
+//          [--kind adversarial] [--focus <text> | --focus-file <path>]
 //          [--round <n>] [--include-ignored <path>]... [--timeout-minutes <n>]
 //          [--kill-grace-seconds <n>] [--companion <path>]
 // Exit: 0 reviewed, candidate unchanged, verdict mapped; 3 void (the candidate
@@ -148,8 +151,13 @@ export function parseArgs(argv) {
   ) {
     throw new ReviewError("--base needs a ref that does not start with '-'");
   }
-  if (!["adversarial", "native"].includes(options.kind)) {
-    throw new ReviewError("--kind must be adversarial or native");
+  if (options.kind === "native") {
+    throw new ReviewError(
+      "native review has no verdict contract and is not a gate review; use --kind adversarial",
+    );
+  }
+  if (options.kind !== "adversarial") {
+    throw new ReviewError("--kind must be adversarial");
   }
   if (!Number.isInteger(options.round) || options.round < 1) {
     throw new ReviewError("--round needs a positive integer");
@@ -173,11 +181,6 @@ export function parseArgs(argv) {
     );
   }
   if (options.focus !== null) {
-    if (options.kind === "native") {
-      throw new ReviewError(
-        "a native review takes no focus text; use --kind adversarial",
-      );
-    }
     if (
       options.focus.trim() === "" ||
       options.focus.startsWith("-") ||
@@ -191,13 +194,15 @@ export function parseArgs(argv) {
   return options;
 }
 
-export function companionArgs(options) {
+// `baseTarget` is the immutable commit id the wrapper resolved once, so a ref
+// that moves during the review cannot change the reviewed range.
+export function companionArgs(options, baseTarget = options.base) {
   return [
-    options.kind === "native" ? "review" : "adversarial-review",
+    "adversarial-review",
     "--wait",
     ...(options.scope !== null
       ? ["--scope", "working-tree"]
-      : ["--base", options.base]),
+      : ["--base", baseTarget]),
     ...(options.focus !== null ? [options.focus] : []),
   ];
 }
@@ -295,24 +300,55 @@ function runCompanion(companion, args, cwd, options) {
 
 async function snapshot(cwd, includeIgnored) {
   const result = await computeSnapshot(cwd, undefined, includeIgnored);
-  return { complete: result.complete, fingerprint: result.fingerprint };
+  return {
+    complete: result.complete,
+    fingerprint: result.fingerprint,
+    head: result.head,
+    // Untracked entries the plugin would read by following a link; a link can
+    // appear after the guard's preflight, so the frozen candidate is checked too.
+    symlinks: result.untracked
+      .filter((item) => item.type === "symlink")
+      .map((item) => item.path),
+  };
 }
 
 export async function review(options, cwd = process.cwd()) {
   const companion = findCompanion(options.companion);
   const root = repositoryRoot(cwd);
-  const gate = await evaluate({ command: null, cwd: root });
+  const gate = await evaluate({
+    command: null,
+    cwd: root,
+    base: options.base ?? undefined,
+  });
   if (!gate.ok) {
     throw new ReviewError(`the Codex gate refused: ${gate.reasons.join("; ")}`);
+  }
+  // The range was scanned from this one resolution of the base; the plugin gets
+  // its commit id, never the mutable ref.
+  const range = options.base !== null ? gate.range : null;
+  if (options.base !== null && range === null) {
+    throw new ReviewError(
+      "the Codex gate refused: the review range could not be resolved",
+    );
   }
   const first = await snapshot(root, options.includeIgnored);
   if (!first.complete) {
     throw new ReviewError(
-      "the candidate snapshot is incomplete (protected or opaque content, or an unhashable path); the review is blocked before the plugin runs",
+      "the candidate snapshot is incomplete (protected or opaque content, an unhashable path, or a tracked file hidden by an index flag); the review is blocked before the plugin runs",
+    );
+  }
+  if (first.symlinks.length > 0) {
+    throw new ReviewError(
+      `the frozen candidate holds untracked symlinks the plugin would follow: ${first.symlinks.join(", ")}; stage, ignore, or remove them. The review is blocked before the plugin runs`,
+    );
+  }
+  if (range !== null && first.head !== range.head) {
+    throw new ReviewError(
+      "HEAD moved between the review range scan and the snapshot; rerun the review",
     );
   }
   const f0 = first.fingerprint;
-  const args = companionArgs(options);
+  const args = companionArgs(options, range?.base_oid);
   const run = await runCompanion(companion, args, root, options);
   const second = await snapshot(root, options.includeIgnored);
   const f1 = second.complete ? second.fingerprint : null;
@@ -322,6 +358,14 @@ export async function review(options, cwd = process.cwd()) {
     round: options.round,
     kind: options.kind,
     target: options.scope !== null ? "working-tree" : `base:${options.base}`,
+    base:
+      range === null
+        ? null
+        : {
+            ref: range.base_ref,
+            oid: range.base_oid,
+            merge_base: range.merge_base,
+          },
     companion_args: args.map((item, index) =>
       index === args.length - 1 && options.focus !== null ? "<focus>" : item,
     ),

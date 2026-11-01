@@ -120,14 +120,18 @@ checks are code rather than model discipline or shell parsing (the approval they
 read is covered below). The wrapper
 refuses unless no likely-secret path is tracked, staged, or
 untracked-and-not-ignored, no submodule or embedded repository hides paths from
-the name scan, and the user approved sending that repository (a standing,
+the name scan, no untracked symlink would be followed by the plugin, a `--base`
+range (merge-base..HEAD and every commit in it) holds no likely-secret path, and
+the user approved sending that repository (a standing,
 per-repository approval stored in `~/.claude/b-agentic`). It requires exactly one
-explicit target (`--scope working-tree` or `--base <ref>`), refuses an incomplete
+explicit target (`--scope working-tree` or `--base <ref>`, resolved once and passed
+to the plugin as a commit id), refuses an incomplete
 snapshot, freezes the candidate before (`f0`) and after (`f1`) the review and
 voids it when they differ, and spawns the plugin script with an argument vector
 (no shell, so the focus text is one literal argument), always in the foreground
-and from the repository root. Ignored secret files remain an accepted residual
-risk.
+and from the repository root. Native plugin review is not a gate kind because it
+has no verdict contract. Ignored secret files, history outside the reviewed range,
+and secrets under innocent names remain accepted residual risks.
 The `b-codex-guard` Bash hook is a tripwire for accidental direct calls to the
 plugin script, not the boundary: a model or user that deliberately obfuscates the
 script name (ANSI-C quoting, brace or glob expansion, names built at run time)
@@ -308,8 +312,9 @@ the user. Protected paths require permission before content is hashed. The
 read-only `b-candidate-snapshot` CLI computes the identity for the whole
 repository as one fingerprint, lists protected paths and submodules without
 hashing or diffing them, excludes git-ignored files unless named with
-`--include-ignored`, and refuses when a repository filter would run a program or
-the repository is a partial clone. Without the CLI the wrapper cannot run, so
+`--include-ignored`, treats tracked files hidden by index flags (assume-unchanged,
+or skip-worktree while present on disk) as incomplete, and refuses when a
+repository filter would run a program or the repository is a partial clone. Without the CLI the wrapper cannot run, so
 `b-review` blocks instead of hand-hashing.
 
 Evidence: [`scripts/validate-skills.sh`](../../scripts/validate-skills.sh),

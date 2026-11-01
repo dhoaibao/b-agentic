@@ -200,12 +200,18 @@ The gate sequence is:
    covers the whole repository, lists protected paths and submodules without
    hashing or diffing them, excludes git-ignored files unless named with
    `--include-ignored`, and refuses when a repository clean/process filter would
-   run or the repository is a partial clone. Exit 0 is complete, 3 incomplete,
-   2 refused.
-2. Early preflight: `node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check` refuses
-   when a likely-secret path is tracked, staged, or untracked-and-not-ignored,
-   when a submodule or embedded repository hides paths, or when the repository
-   has no standing approval. Approve once per repository with `--approve` after
+   run or the repository is a partial clone. A tracked file that git is told to
+   skip (`assume-unchanged`, or `skip-worktree` while the file exists on disk)
+   is listed in `index_flags` and makes the snapshot incomplete, because both
+   diffs would omit its edits; the index is never modified. Exit 0 is complete,
+   3 incomplete, 2 refused.
+2. Early preflight: `node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check
+[--base <ref>]` refuses when a likely-secret path is tracked, staged, or
+   untracked-and-not-ignored, when a submodule or embedded repository hides
+   paths, when an untracked non-ignored symlink exists (the plugin follows it
+   and would send its target; stage, ignore, or remove it), when a `--base` range
+   (merge-base..HEAD and every commit inside it) touches a likely-secret path
+   or a submodule, or when the repository has no standing approval. Approve once per repository with `--approve` after
    the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. The
    guard hook asks for a native confirmation of any Bash command that records
    the approval, points `B_AGENTIC_STATE_DIR` at another store, or writes
@@ -213,13 +219,16 @@ The gate sequence is:
 3. Run the gate with the wrapper, from the repository, with nothing editing:
    `node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round
 <n> --focus-file <path>` (or `--base <ref>` instead of `--scope working-tree`
-   for committed changes since that ref; `--kind native` for the plugin's
-   focus-less review; `--include-ignored <path>` as at step 1). The wrapper
-   reruns the secret and approval gate, freezes the candidate (`f0`), finds the
+   for committed changes since that ref; `--include-ignored <path>` as at step
+   1; `--kind native` is refused because its output has no verdict contract).
+   The wrapper reruns the secret and approval gate, resolves a `--base` once and
+   gives the plugin that commit id, so a ref that moves during the run cannot
+   change the reviewed range, freezes the candidate (`f0`), finds the
    plugin's `codex-companion.mjs` under `~/.claude/plugins` (or
    `B_AGENTIC_CODEX_COMPANION`), runs the review in the foreground with an
    argument vector, freezes again (`f1`), and maps the result. It prints JSON:
-   `f0`, `f1`, `unchanged`, `timed_out`, `truncated`, the raw plugin output, and
+   `f0`, `f1`, `unchanged`, `base` (`ref`, `oid`, `merge_base`; null for a
+   working-tree review), `timed_out`, `truncated`, the raw plugin output, and
    `mapped`. Exit 0 is a completed review. Exit 3 is a void one: the candidate
    changed or could not be re-snapshotted, the run hit `--timeout-minutes` (30 by
    default, at most 35791; stopped with SIGTERM, then SIGKILL after
@@ -240,12 +249,18 @@ The gate sequence is:
 
 The `b-codex-guard` PreToolUse hook is a tripwire for accidental direct calls to
 the plugin script, not the boundary: it applies the same checks to plain
-spellings and refuses background or implicit-target reviews, but deliberately
+spellings and refuses background, implicit-target, or ambiguously spelled
+reviews (repeated `--base`/`--scope`/`--wait`, single-dash options, `--`, since
+the plugin keeps the last repeat; and any option other than `--wait`, `--scope`,
+and `--base`, since a value option such as `--model` can swallow the target
+option), but deliberately
 obfuscated spellings (ANSI-C quoting, brace or glob expansion, names built at run
 time) are out of scope.
 
 Codex's read-only sandbox can read every workspace file and Codex has no ignore
-mechanism, so ignored secret files remain an accepted residual risk. Review never
+mechanism, so ignored secret files remain an accepted residual risk, as do
+secrets that exist only in history outside the reviewed range and secrets copied
+under innocent names (the scan reads path names, not content). Review never
 commits or pushes. Plugin command syntax and result shape come from its
 documentation and are not exercised live by this repository's checks.
 

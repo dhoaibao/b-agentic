@@ -237,7 +237,10 @@ grep -Fq 'has not approved' <<<"$err" || fail "approval reason missing: $err"
 [ "$(jq -r .approved "$work/approve.json")" = true ] || fail "--approve did not record approval"
 ( cd "$repo" && node "$codexguard" --check >"$work/check.json" ) || fail "--check must pass after approval"
 run "$codexguard" "$(cg "$repo" "$review")"; expect 0 "an approved clean repository must pass"
-run "$codexguard" "$(cg "$repo" 'node /p/codex-companion.mjs review --wait --base main')"; expect 0 "native review against a base ref must pass"
+git -C "$repo" branch base
+run "$codexguard" "$(cg "$repo" 'node /p/codex-companion.mjs review --wait --base base')"; expect 0 "a direct review against a resolvable base ref must pass"
+run "$codexguard" "$(cg "$repo" 'node /p/codex-companion.mjs review --wait --base nosuchref')"; expect 2 "an unresolvable base ref must be refused"
+grep -Fq 'review range' <<<"$err" || fail "the range refusal reason is missing: $err"
 run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" adversarial-review --background --scope working-tree x')"; expect 2 "--background must be refused"
 run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" adversarial-review --scope working-tree x')"; expect 2 "a missing --wait must be refused"
 run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" adversarial-review --wait x')"; expect 2 "an implicit target must be refused"
@@ -251,6 +254,27 @@ cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope working-tree x &
 cmd_expect 2 'cd /tmp && node /p/codex-companion.mjs review --wait --scope working-tree x' "a directory change must be refused"
 cmd_expect 2 'node /p/codex-companion.mjs review --wait --base' "--base without a value must be refused"
 cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope' "--scope without a value must be refused"
+# The plugin keeps the last repeated option and accepts single-dash spellings; the guard must not scan a different target.
+ambiguous() { cmd_expect 2 "$1" "$2"; grep -Fq 'ambiguous review options' <<<"$err" || fail "$2: the ambiguity reason is missing: $err"; }
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --base base --base base' "a repeated --base must be refused"
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --base=base --base base' "a mixed repeated --base must be refused"
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --scope working-tree -base base' "a single-dash -base must be refused"
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --scope working-tree -scope working-tree' "a single-dash -scope must be refused"
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --scope working-tree -- --base base' "the -- terminator must be refused"
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --wait=false --scope working-tree' "--wait=value must be refused"
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --wait --scope working-tree' "a repeated --wait must be refused"
+# git allows '=' in ref names; the plugin keeps only the text before the second '='
+git -C "$repo" branch 'base=safe'
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --base=base=safe' "an inline --base containing '=' must be refused"
+ambiguous 'node /p/codex-companion.mjs adversarial-review --wait --scope=working-tree=x' "an inline --scope containing '=' must be refused"
+# Value options such as --model and --m consume the next token, so they could swallow --base or --scope.
+unsupported() { cmd_expect 2 "$1" "$2"; grep -Fq 'unsupported review option' <<<"$err" || fail "$2: the option reason is missing: $err"; }
+unsupported 'node /p/codex-companion.mjs adversarial-review --wait --model --base base --model gpt-5.4 --scope branch' "--model must not be able to consume --base"
+unsupported 'node /p/codex-companion.mjs adversarial-review --wait --m --scope working-tree --m gpt-5.4' "--m must not be able to consume --scope"
+unsupported 'node /p/codex-companion.mjs adversarial-review --wait --scope working-tree --json' "an unlisted boolean option is refused"
+unsupported 'node /p/codex-companion.mjs adversarial-review --wait --scope --base base' "a --scope value that looks like an option is refused"
+cmd_expect 0 'node /p/codex-companion.mjs adversarial-review --wait --scope working-tree "focus text"' "focus text after the allowed options still passes"
+cmd_expect 0 'node /p/codex-companion.mjs adversarial-review --wait --base "base=safe"' "a split --base value containing '=' is read identically by the plugin"
 cmd_expect 2 "bash -c 'node /p/codex-companion.mjs review --wait --scope working-tree'" "a wrapped invocation must be refused"
 cmd_expect 2 'node "$P/codex-companion.mjs" review --wait --scope working-tree' "an unresolved expansion must be refused"
 cmd_expect 2 'node /p/codex-companion.mjs review "--wait --scope working-tree' "an unbalanced quote must be refused"
@@ -413,9 +437,11 @@ echo "hooks probe passed: verdict-mapper"
 fake="$work/plugin/codex-companion.mjs"
 mkdir -p "$work/plugin"
 cat >"$fake" <<'JS'
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
 appendFileSync(process.env.FAKE_LOG, `${JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() })}\n`);
+// Moves the mutable base ref while the review runs.
+if (process.env.FAKE_MOVE_REF) execFileSync("git", ["update-ref", "refs/heads/base", process.env.FAKE_MOVE_REF]);
 if (process.env.FAKE_TOUCH) appendFileSync(process.env.FAKE_TOUCH, "changed\n");
 if (process.env.FAKE_CREATE) writeFileSync(process.env.FAKE_CREATE, "TOPSECRET=1\n");
 const mode = process.env.FAKE_MODE ?? "";
@@ -477,8 +503,118 @@ wrap "$wrepo" --scope working-tree --focus 'check the diff'; wexpect 0 "an appro
 [ "$(jq -r .f0 <<<"$wout")" = "$(jq -r .f1 <<<"$wout")" ] || fail "F0 and F1 must match for an untouched candidate"
 [ "$(jq -c '.argv' <(tail -n 1 "$FAKE_LOG"))" = '["adversarial-review","--wait","--scope","working-tree","check the diff"]' ] || fail "plugin argv wrong: $(tail -n 1 "$FAKE_LOG")"
 [ "$(jq -r .cwd <(tail -n 1 "$FAKE_LOG"))" = "$(cd "$wrepo" && pwd -P)" ] || fail "the plugin must run in the repository root"
-wrap "$wrepo" --base main --kind native; wexpect 0 "a native base review"
-[ "$(jq -c '.argv' <(tail -n 1 "$FAKE_LOG"))" = '["review","--wait","--base","main"]' ] || fail "native argv wrong: $(tail -n 1 "$FAKE_LOG")"
+git -C "$wrepo" branch base
+base_oid=$(git -C "$wrepo" rev-parse base)
+wrap "$wrepo" --base base; wexpect 0 "an adversarial base review"
+[ "$(jq -c '.argv' <(tail -n 1 "$FAKE_LOG"))" = "[\"adversarial-review\",\"--wait\",\"--base\",\"$base_oid\"]" ] || fail "the plugin must get the resolved commit id: $(tail -n 1 "$FAKE_LOG")"
+[ "$(jq -r .base.oid <<<"$wout")" = "$base_oid" ] && [ "$(jq -r .base.ref <<<"$wout")" = base ] && [ "$(jq -r .base.merge_base <<<"$wout")" = "$base_oid" ] || fail "the base identity is missing from the result: $wout"
+[ "$(jq -r .target <<<"$wout")" = "base:base" ] || fail "the target must stay base:<ref>"
+# the base is frozen: moving the ref during the run changes neither the argv nor the result
+moved=$(git -C "$wrepo" commit-tree -p HEAD -m moved 'HEAD^{tree}')
+: >"$FAKE_LOG"
+FAKE_MOVE_REF="$moved" wrap "$wrepo" --base base; wexpect 0 "a base ref that moves during the run"
+[ "$(jq -r '.argv[3]' <(tail -n 1 "$FAKE_LOG"))" = "$base_oid" ] && [ "$(jq -r .base.oid <<<"$wout")" = "$base_oid" ] || fail "a moved ref changed the reviewed base: $wout"
+git -C "$wrepo" update-ref refs/heads/base "$base_oid"
+[ "$(jq -r .base <<<"$(wrap "$wrepo" --scope working-tree; echo "$wout")")" = null ] || fail "a working-tree review must report base null"
+: >"$FAKE_LOG"
+wrap "$wrepo" --base nosuchref; wexpect 2 "an unresolvable base must be refused"
+orphan=$(git -C "$wrepo" commit-tree -m orphan 'HEAD^{tree}')
+git -C "$wrepo" branch orphan "$orphan"
+wrap "$wrepo" --base orphan; wexpect 2 "a base that shares no history must be refused"
+grep -Fq 'review range' <<<"$err" || fail "the range refusal reason is missing: $err"
+wrap "$wrepo" --scope working-tree --kind native; wexpect 2 "a native review has no verdict contract and must be refused"
+grep -Fq 'no verdict contract' <<<"$err" || fail "the native refusal reason is missing: $err"
+[ ! -s "$FAKE_LOG" ] || fail "the plugin ran for a refused base or kind: $(cat "$FAKE_LOG")"
+: >"$FAKE_LOG"
+
+# finding: a base review sends merge-base..HEAD, so a protected path that HEAD already deleted still leaks
+whist_repo() { # whist_repo <dir>: an approved repository; the caller adds history
+  make_repo "$1"
+  ( cd "$1" && node "$codexguard" --approve >/dev/null )
+}
+whist_commit() { git -C "$1" add -A && git -C "$1" commit -qm "$2"; }
+range_refused() { # range_refused <repo> <label> [needle]
+  : >"$FAKE_LOG"
+  wrap "$1" --base base; wexpect 2 "$2"
+  grep -Fq 'review range' <<<"$err" || fail "$2: the range reason is missing: $err"
+  [ -z "${3:-}" ] || grep -Fq "$3" <<<"$err" || fail "$2: the reason must name $3: $err"
+  grep -Fq TOPSECRET <<<"$err$wout" && fail "$2: secret content reached the output"
+  [ ! -s "$FAKE_LOG" ] || fail "$2: the plugin ran"
+  return 0
+}
+whist="$work/whist-deleted"
+whist_repo "$whist"
+printf 'TOPSECRET=1\n' >"$whist/.env"; whist_commit "$whist" env
+git -C "$whist" branch base
+git -C "$whist" rm -q .env; whist_commit "$whist" rm-env
+range_refused "$whist" "a protected file deleted inside the range must refuse" .env
+wrap "$whist" --scope working-tree; wexpect 0 "the working-tree review of the same repository stays allowed"
+run "$codexguard" "$(cg "$whist" 'node /p/codex-companion.mjs adversarial-review --wait --base base')"; expect 2 "the direct hook must apply the range check"
+grep -Fq 'review range' <<<"$err" || fail "the hook range reason is missing: $err"
+rc=0; ( cd "$whist" && node "$codexguard" --check --base base >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 3 ] || fail "--check --base must refuse a protected range (exit $rc)"
+rc=0; ( cd "$whist" && node "$codexguard" --check >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 0 ] || fail "--check without a base must not scan history (exit $rc)"
+whist="$work/whist-renamed"
+whist_repo "$whist"
+printf 'TOPSECRET=1\n' >"$whist/.env"; whist_commit "$whist" env
+git -C "$whist" branch base
+git -C "$whist" mv .env config.txt; whist_commit "$whist" rename
+range_refused "$whist" "a protected file renamed inside the range must refuse" .env
+whist="$work/whist-transient"
+whist_repo "$whist"
+git -C "$whist" branch base
+printf 'TOPSECRET=1\n' >"$whist/.env"; whist_commit "$whist" env
+git -C "$whist" rm -q .env; whist_commit "$whist" rm-env
+range_refused "$whist" "a protected file added and removed inside the range must refuse" .env
+whist="$work/whist-gitlink"
+whist_repo "$whist"
+git -C "$whist" branch base
+git -C "$whist" update-index --add --cacheinfo "160000,$(git -C "$whist" rev-parse HEAD),sub"
+git -C "$whist" commit -qm gitlink
+git -C "$whist" update-index --force-remove sub; git -C "$whist" commit -qm rm-gitlink
+range_refused "$whist" "a submodule added and removed inside the range must refuse" submodule
+whist="$work/whist-example"
+whist_repo "$whist"
+git -C "$whist" branch base
+printf 'KEY=\n' >"$whist/.env.example"; whist_commit "$whist" example
+wrap "$whist" --base base; wexpect 0 "an .env.example in the range is allowed"
+
+# finding: the plugin follows untracked symlinks, so a link with an innocent name must be refused
+printf 'TOPSECRET=1\n' >"$work/outside-target"
+ln -s "$work/outside-target" "$wrepo/notes.txt"
+run "$codexguard" "$(cg "$wrepo" "$review")"; expect 2 "the hook must refuse an untracked symlink to an outside file"
+grep -Fq 'symlink' <<<"$err" || fail "the symlink reason is missing: $err"
+grep -Fq TOPSECRET <<<"$err" && fail "the symlink target content reached the hook output"
+: >"$FAKE_LOG"
+wrap "$wrepo" --scope working-tree; wexpect 2 "the wrapper must refuse an untracked symlink to an outside file"
+grep -Fq 'symlink' <<<"$err" || fail "the wrapper symlink reason is missing: $err"
+grep -Fq TOPSECRET <<<"$err$wout" && fail "the symlink target content reached the wrapper output"
+rm "$wrepo/notes.txt"; ln -s a.txt "$wrepo/notes.txt"
+wrap "$wrepo" --scope working-tree; wexpect 2 "an untracked symlink inside the repository is refused too"
+[ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite an untracked symlink"
+rm "$wrepo/notes.txt"
+wlinks="$work/wlinks"
+whist_repo "$wlinks"
+printf 'ignored.txt\n' >"$wlinks/.gitignore"; whist_commit "$wlinks" ignore
+ln -s a.txt "$wlinks/ignored.txt"
+wrap "$wlinks" --scope working-tree; wexpect 0 "an ignored symlink is not sent and must pass"
+ln -s a.txt "$wlinks/staged.txt"; git -C "$wlinks" add staged.txt
+wrap "$wlinks" --scope working-tree; wexpect 0 "a staged symlink appears in the diff as its target text and must pass"
+# A link that appears after the guard's preflight must still be refused before the plugin runs. The
+# approval store is a FIFO, so the guard blocks on its last read while the link is created.
+wrace="$work/wrace"
+make_repo "$wrace"
+mkdir -p "$work/fifostate"
+mkfifo "$work/fifostate/codex-approved-repos.json"
+( sleep 2; ln -s a.txt "$wrace/late-link"; timeout 30 bash -c 'printf "[\"%s\"]" "$1" >"$2"' _ "$(cd "$wrace" && pwd -P)" "$work/fifostate/codex-approved-repos.json" ) &
+racer=$!
+: >"$FAKE_LOG"
+B_AGENTIC_STATE_DIR="$work/fifostate" wrap "$wrace" --scope working-tree; wexpect 2 "a symlink created after the preflight must be refused"
+wait "$racer" || true
+grep -Fq 'frozen candidate' <<<"$err" || fail "the late symlink must be caught in the frozen candidate: $err"
+[ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite a late symlink"
+: >"$FAKE_LOG"
 wrap "$wrepo/" --scope working-tree --round 3 --focus 'x'; wexpect 0 "a trailing slash cwd"
 [ "$(jq -r '.mapped.findings | length' <<<"$wout")" = 0 ] && [ "$(jq -r .round <<<"$wout")" = 3 ] || fail "the round was not carried"
 # a focus with shell metacharacters is one argv element, never shell text
@@ -591,7 +727,7 @@ wrap "$wrepo" --base --evil; wexpect 2 "a --base value starting with a dash must
 wrap "$wrepo" --base; wexpect 2 "a missing --base value must be refused"
 wrap "$wrepo" --scope working-tree --focus '--background'; wexpect 2 "a focus starting with a dash must be refused"
 wrap "$wrepo" --scope working-tree --focus ''; wexpect 2 "an empty focus must be refused"
-wrap "$wrepo" --scope working-tree --kind native --focus 'x'; wexpect 2 "a focus on a native review must be refused"
+wrap "$wrepo" --scope working-tree --kind native --focus 'x'; wexpect 2 "a native review must be refused whatever the focus"
 wrap "$wrepo" --scope working-tree --kind other; wexpect 2 "an unknown kind must be refused"
 wrap "$wrepo" --scope working-tree --round 0; wexpect 2 "round 0 must be refused"
 wrap "$wrepo" --scope working-tree --bogus; wexpect 2 "an unknown argument must be refused"

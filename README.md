@@ -43,8 +43,9 @@ decisions, verification, and mutations. It delegates bounded planning,
 research, diagnosis, and repository audits to read-only subagents. A change that
 touches security, permissions, contracts, configuration, or workflow policy is
 frozen as a fingerprinted candidate and reviewed by Codex in the foreground,
-after a guard confirms that no tracked or untracked likely-secret file would be
-sent and that you approved sending the repository. Secret files that are
+after a guard confirms that no tracked or untracked likely-secret file (or one
+in a reviewed commit range) or followed symlink would be sent and that you
+approved sending the repository. Secret files that are
 git-ignored stay readable by Codex, an accepted residual risk.
 
 ## Skills

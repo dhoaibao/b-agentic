@@ -466,8 +466,8 @@ def validate_snapshot_cli() -> list[str]:
     if not SNAPSHOT_CLI_PATH.is_file():
         return [f"{label}: missing managed snapshot CLI"]
     text = SNAPSHOT_CLI_PATH.read_text()
-    if 'SNAPSHOT_SCHEMA = "b-candidate-snapshot/3"' not in text:
-        errors.append(f"{label}: snapshot schema must stay b-candidate-snapshot/3")
+    if 'SNAPSHOT_SCHEMA = "b-candidate-snapshot/4"' not in text:
+        errors.append(f"{label}: snapshot schema must stay b-candidate-snapshot/4")
     flags_block = re.search(r"SNAPSHOT_DIFF_FLAGS = \[(.*?)\];", text, re.S)
     flags = re.findall(r'"([^"]+)"', flags_block.group(1)) if flags_block else []
     if not flags:

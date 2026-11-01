@@ -4,8 +4,11 @@
 // read-only sandbox can read every file in the workspace. This guard refuses
 // that transmission unless
 //   1. no likely-secret path is tracked, staged, or untracked-and-not-ignored,
-//      and no submodule or embedded repository hides paths from a name scan
-//      (ignored protected files are the accepted residual risk);
+//      no submodule or embedded repository hides paths from a name scan, no
+//      untracked symlink would be followed by the plugin, and for a --base
+//      review no likely-secret path appears in merge-base..HEAD or in any
+//      commit inside it (ignored protected files and history outside the
+//      reviewed range are the accepted residual risk);
 //   2. the user approved sending this repository to Codex (standing, per repo);
 //   3. a review command runs in the foreground against an explicit target.
 //
@@ -14,8 +17,10 @@
 //                      blocks a Bash call that runs the plugin's companion script;
 //                      a Bash call that records or redirects the approval gets a
 //                      native `ask` prompt instead (a tripwire, not a boundary).
-//   --check            Evaluate the current repository; JSON on stdout, exit 0
-//                      when allowed and 3 when refused.
+//   --check [--base <ref>]
+//                      Evaluate the current repository (and the review range of
+//                      <ref>); JSON on stdout, exit 0 when allowed and 3 when
+//                      refused.
 //   --approve/--revoke Record or remove the standing approval for the current
 //                      repository. Run --approve only after the user said yes.
 // It reads path names only, never file content.
@@ -24,7 +29,10 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkProtected } from "../bin/b-candidate-snapshot.mjs";
+import {
+  checkProtected,
+  resolveReviewRange,
+} from "../bin/b-candidate-snapshot.mjs";
 
 // Plugin subcommands that never send repository content to Codex; every other
 // subcommand (review, adversarial-review, task, rescue, transfer, ...) is guarded.
@@ -299,6 +307,25 @@ export function invocationReasons(invocation) {
     );
   }
   if (!REVIEW_SUBCOMMANDS.has(subcommand)) return reasons;
+  // The plugin's parser keeps the LAST repeated option, accepts single-dash
+  // spellings (`-base x`), and treats everything after `--` as text, so the
+  // guard's first-match reading could scan a different base than the plugin
+  // reviews. Gate reviews therefore refuse every spelling that could disagree.
+  const occurrences = (name) =>
+    args.filter((item) => item === name || item.startsWith(`${name}=`)).length;
+  if (
+    args.includes("--") ||
+    args.some((item) => /^-[^-]/.test(item)) ||
+    args.some((item) => item.startsWith("--wait=")) ||
+    // The plugin splits `--name=value` with split("=", 2), so it would keep
+    // only the text before a second `=`, while git allows `=` in ref names.
+    args.some((item) => /^--(base|scope)=.*=/.test(item)) ||
+    ["--base", "--scope", "--wait"].some((name) => occurrences(name) > 1)
+  ) {
+    reasons.push(
+      "ambiguous review options: repeated --base/--scope/--wait, single-dash spellings, --wait=value, an inline --base/--scope value containing '=', and `--` can make the plugin review a target the guard did not scan",
+    );
+  }
   if (
     args.some(
       (item) => item === "--background" || item.startsWith("--background="),
@@ -306,6 +333,36 @@ export function invocationReasons(invocation) {
   ) {
     reasons.push(
       "a gate review must run in the foreground: drop --background and use --wait",
+    );
+  }
+  // Allow-list: the plugin consumes the next token as the value of every
+  // value option (--model, --m, --cwd, ...), so an unlisted option can swallow
+  // --base or --scope and leave the guard scanning a target the plugin never
+  // reviews. Only --wait, --scope, and --base (each with a plain value) and
+  // focus text are accepted; --background and directory options have their own
+  // refusals.
+  const unsupported = [];
+  for (let index = 0; index < args.length; index++) {
+    const item = args[index];
+    if (!item.startsWith("-")) continue;
+    if (item === "--wait" || /^--(scope|base)=/.test(item)) continue;
+    if (item === "--scope" || item === "--base") {
+      if (args[index + 1] !== undefined && !args[index + 1].startsWith("-")) {
+        index += 1;
+        continue;
+      }
+    } else if (
+      item === "--background" ||
+      item.startsWith("--background=") ||
+      DIRECTORY_OPTION.test(item)
+    ) {
+      continue;
+    }
+    unsupported.push(item);
+  }
+  if (unsupported.length > 0) {
+    reasons.push(
+      `unsupported review option ${unsupported.join(" ")}: a gate review accepts only --wait, --scope <value>, --base <value>, and focus text, because other plugin options can consume the target option`,
     );
   }
   if (!args.includes("--wait")) reasons.push("a gate review must pass --wait");
@@ -321,9 +378,15 @@ export function invocationReasons(invocation) {
   return reasons;
 }
 
-export async function evaluate({ command, cwd }) {
+// `base` is the explicit comparison ref a caller (the wrapper or --check) will
+// review; a direct plugin call carries its own `--base`. Each is resolved and
+// its range scanned, because a base review sends the whole merge-base..HEAD
+// diff, including protected files that HEAD has since deleted or renamed.
+export async function evaluate({ command, cwd, base }) {
   const reasons = [];
   let root = null;
+  let range = null;
+  const found = findCompanionInvocations(command);
   try {
     root = repositoryRoot(cwd);
   } catch {
@@ -344,10 +407,42 @@ export async function evaluate({ command, cwd }) {
           `opaque repository boundaries hide paths from the scan: ${scan.opaque.map((item) => item.path).join(", ")}`,
         );
       }
+      if (scan.symlinks.length > 0) {
+        reasons.push(
+          `untracked symlinks would be followed by the plugin and can expose files the name scan never sees: ${scan.symlinks.map((item) => item.path).join(", ")}; stage, ignore, or remove them`,
+        );
+      }
     } catch (error) {
       reasons.push(
         `secret check failed: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+    const bases = new Set();
+    if (base) bases.add(base);
+    for (const invocation of found.invocations) {
+      if (!REVIEW_SUBCOMMANDS.has(invocation.subcommand)) continue;
+      const value = optionValue(invocation.args, "--base");
+      if (value) bases.add(value);
+    }
+    for (const ref of bases) {
+      try {
+        const scanned = await resolveReviewRange(cwd, ref);
+        if (ref === base) range = scanned;
+        if (scanned.blocking.length > 0) {
+          reasons.push(
+            `likely-secret paths in the review range ${ref}..HEAD: ${scanned.blocking.join(", ")}; review the working tree or choose a later base`,
+          );
+        }
+        if (scanned.opaque.length > 0) {
+          reasons.push(
+            `submodules in the review range ${ref}..HEAD hide paths from the scan: ${scanned.opaque.map((item) => item.path).join(", ")}`,
+          );
+        }
+      } catch (error) {
+        reasons.push(
+          `review range check failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
     if (!readApprovals().includes(root)) {
       reasons.push(
@@ -355,12 +450,16 @@ export async function evaluate({ command, cwd }) {
       );
     }
   }
-  const found = findCompanionInvocations(command);
   if (found.refusal) reasons.push(found.refusal);
   for (const invocation of found.invocations) {
     reasons.push(...invocationReasons(invocation));
   }
-  return { ok: reasons.length === 0, root, reasons: [...new Set(reasons)] };
+  return {
+    ok: reasons.length === 0,
+    root,
+    range,
+    reasons: [...new Set(reasons)],
+  };
 }
 
 const APPROVAL_TOUCH_REASON =
@@ -427,7 +526,10 @@ async function main(argv) {
   if (argv.length === 0) return hook();
   const mode = argv[0];
   if (mode === "--check") {
-    const result = await evaluate({ command: null, cwd: process.cwd() });
+    const baseIndex = argv.indexOf("--base");
+    const base = baseIndex === -1 ? undefined : argv[baseIndex + 1];
+    if (baseIndex !== -1 && !base) throw new Error("--base needs a ref");
+    const result = await evaluate({ command: null, cwd: process.cwd(), base });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return result.ok ? 0 : 3;
   }

@@ -58,7 +58,7 @@ snap "$clean" "$work/c2.json"
 [ "$(rc_of "$work/c1.json")" = 0 ] || fail "clean candidate should exit 0"
 cmp -s "$work/c1.json" "$work/c2.json" || fail "repeated calls disagree"
 first=$(cat "$work/c1.json")
-[ "$(jq -r .schema <<<"$first")" = "b-candidate-snapshot/3" ] || fail "schema changed"
+[ "$(jq -r .schema <<<"$first")" = "b-candidate-snapshot/4" ] || fail "schema changed"
 [ "$(jq -r .complete <<<"$first")" = true ] || fail "clean candidate should be complete"
 [ "$(jq -r .ignored_included <<<"$first")" = false ] || fail "ignored files must be excluded by default"
 [ "$(jq -r '.ignored | length' <<<"$first")" = 0 ] || fail "no ignored files may be listed by default"
@@ -191,8 +191,56 @@ snap "$ign" "$work/ip.json" --check-protected
 [ "$(jq -r '[.protected[] | select(.where | index("ignored"))] | length' "$work/ip.json")" = 1 ] || fail "ignored protected path not reported by --check-protected"
 [ "$(jq -r '.blocking | length' "$work/ip.json")" = 0 ] || fail "ignored-only protected file reported as blocking"
 snap "$clean" "$work/cp.json" --check-protected
-[ "$(rc_of "$work/cp.json")" = 0 ] || fail "a repository with no protected paths must pass --check-protected"
+[ "$(rc_of "$work/cp.json")" = 3 ] || fail "an untracked symlink must block --check-protected"
+[ "$(jq -r '[.symlinks[].path] | join(",")' "$work/cp.json")" = link ] && [ "$(jq -r .ok "$work/cp.json")" = false ] || fail "the symlink must be listed by path: $(cat "$work/cp.json")"
+[ "$(jq -r .schema "$work/cp.json")" = "b-protected-check/2" ] || fail "protected-check schema changed"
+# A symlink to a file outside the repository is refused by name only; the target is never read.
+printf 'TOPSECRET=1\n' >"$work/outside-target"
+linked="$work/linked"
+make_repo "$linked"
+ln -s "$work/outside-target" "$linked/notes.txt"
+snap "$linked" "$work/lp.json" --check-protected
+[ "$(rc_of "$work/lp.json")" = 3 ] || fail "an untracked symlink to an outside file must block --check-protected"
+grep -Fq TOPSECRET "$work/lp.json" && fail "--check-protected followed a symlink"
+# Ignored and staged symlinks, and a repository without links, pass.
+printf 'notes.txt\n' >"$linked/.gitignore"
+git -C "$linked" add .gitignore && git -C "$linked" commit -qm ignore
+snap "$linked" "$work/lp2.json" --check-protected
+[ "$(rc_of "$work/lp2.json")" = 0 ] || fail "an ignored symlink must pass --check-protected"
+ln -s a.txt "$linked/staged.txt"
+git -C "$linked" add staged.txt
+snap "$linked" "$work/lp3.json" --check-protected
+[ "$(rc_of "$work/lp3.json")" = 0 ] || fail "a staged symlink must pass --check-protected"
+nolinks="$work/nolinks"
+make_repo "$nolinks"
+snap "$nolinks" "$work/np.json" --check-protected
+[ "$(rc_of "$work/np.json")" = 0 ] || fail "a repository with no protected paths or links must pass --check-protected"
+[ "$(jq -r '.symlinks | length' "$work/np.json")" = 0 ] || fail "a clean repository must list no symlinks"
 echo "snapshot probe passed: protected"
+
+# --- index flags: a tracked edit that git is told to ignore must not look complete ------------
+flagged="$work/flagged"
+make_repo "$flagged"
+snap "$flagged" "$work/f0.json"
+[ "$(jq -r .complete "$work/f0.json")" = true ] && [ "$(jq -r '.index_flags | length' "$work/f0.json")" = 0 ] || fail "an unflagged repository must be complete"
+git -C "$flagged" update-index --assume-unchanged a.txt
+printf 'hidden edit\n' >>"$flagged/a.txt"
+flag_index_before=$(sha256sum "$flagged/.git/index" | cut -d' ' -f1)
+snap "$flagged" "$work/f1.json"
+[ "$(rc_of "$work/f1.json")" = 3 ] || fail "an assume-unchanged edit must make the snapshot incomplete"
+[ "$(jq -c '[.index_flags[] | [.path, .flag]]' "$work/f1.json")" = '[["a.txt","assume-unchanged"]]' ] || fail "the index flag was not listed: $(jq -c .index_flags "$work/f1.json")"
+[ "$(jq -r .complete "$work/f1.json")" = false ] || fail "complete must be false"
+[ "$(sha256sum "$flagged/.git/index" | cut -d' ' -f1)" = "$flag_index_before" ] || fail "the CLI changed the index"
+git -C "$flagged" update-index --no-assume-unchanged a.txt
+git -C "$flagged" update-index --skip-worktree b.txt
+printf 'hidden edit\n' >>"$flagged/b.txt"
+snap "$flagged" "$work/f2.json"
+[ "$(rc_of "$work/f2.json")" = 3 ] || fail "a skip-worktree file present on disk must make the snapshot incomplete"
+[ "$(jq -c '[.index_flags[] | [.path, .flag]]' "$work/f2.json")" = '[["b.txt","skip-worktree"]]' ] || fail "the skip-worktree flag was not listed: $(jq -c .index_flags "$work/f2.json")"
+rm "$flagged/b.txt"
+snap "$flagged" "$work/f3.json"
+[ "$(rc_of "$work/f3.json")" = 0 ] || fail "a skip-worktree file absent from disk (sparse checkout) must stay complete: $(cat "$work/f3.json.err")"
+echo "snapshot probe passed: index-flags"
 
 # --- non-UTF-8 names: classified on raw bytes ---------------------------------
 raw="$work/raw"
