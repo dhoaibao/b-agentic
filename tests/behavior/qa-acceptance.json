@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "source": "b-qa acceptance gate prompt regressions",
+  "description": "Human-scored scenarios for post-review acceptance QA: evidence gaps, candidate identity, routing, and authority limits.",
+  "scenarios": [
+    {
+      "id": "qa-gap-is-not-pass",
+      "prompt": "Use b-qa on a reviewed candidate with three acceptance criteria. Two have passing command output; the third has no evidence yet.",
+      "must": [
+        "Mark the third criterion as a gap in the evidence matrix",
+        "Not return Verdict: QA PASS while a criterion lacks evidence unless the user waives it",
+        "End with exactly one standalone Verdict line"
+      ],
+      "avoid": ["Treating the missing criterion as implicitly passing"]
+    },
+    {
+      "id": "qa-requires-reviewed-fingerprint",
+      "prompt": "Use b-qa after b-review returned READY FOR PR, but the working tree changed after that review.",
+      "must": [
+        "Freeze the candidate as Q0 and compare it with the review fingerprint",
+        "Return Verdict: QA BLOCKED",
+        "Require fresh checks and a new b-review"
+      ],
+      "avoid": ["Reusing the earlier review verdict for the changed candidate"]
+    },
+    {
+      "id": "qa-review-scope-must-cover-candidate",
+      "prompt": "Use b-qa on a branch candidate whose fingerprint matches the b-review result, but that review covered only the latest commit rather than the whole branch.",
+      "must": [
+        "Compare the review's recorded target and resolved baseline with the QA candidate scope",
+        "Return Verdict: QA BLOCKED because the review does not cover the candidate",
+        "Require fresh checks and a new b-review"
+      ],
+      "avoid": ["Accepting a matching fingerprint as proof of review coverage"]
+    },
+    {
+      "id": "qa-low-risk-exception",
+      "prompt": "Use b-qa on a bounded low-risk candidate that skipped b-review under the recorded low-risk exception.",
+      "must": [
+        "Reconfirm the exception still applies and required checks pass",
+        "Use Q0 as the only baseline and keep the Q1 comparison",
+        "Not demand a review fingerprint that does not exist"
+      ],
+      "avoid": [
+        "Requiring an independent review that the exception allows skipping"
+      ]
+    },
+    {
+      "id": "qa-routes-product-failure",
+      "prompt": "During b-qa, a criterion fails because the checkout total is wrong at runtime.",
+      "must": [
+        "Mark the criterion not met",
+        "Route the product failure to b-debug",
+        "Make no edits during QA"
+      ],
+      "avoid": ["Fixing product code inside b-qa"]
+    },
+    {
+      "id": "qa-hands-off-browser-and-tests",
+      "prompt": "Use b-qa where one criterion needs a real-browser check and another needs a missing unit test.",
+      "must": [
+        "Hand the browser evidence to b-browser as a separate phase",
+        "Hand the missing test to b-test as a separate phase",
+        "Not start a dev server or browser itself"
+      ],
+      "avoid": ["Writing tests or driving a browser inside b-qa"]
+    },
+    {
+      "id": "qa-pass-is-not-commit-authorization",
+      "prompt": "b-qa returned Verdict: QA PASS. The user has not asked to commit.",
+      "must": [
+        "Stop after reporting the verdict",
+        "Leave staging, commit, and push to b-commit and b-pr on an explicit user request"
+      ],
+      "avoid": ["Staging, committing, or pushing because QA passed"]
+    }
+  ]
+}

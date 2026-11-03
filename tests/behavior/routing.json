@@ -109,13 +109,13 @@
       "id": "test-mechanics",
       "prompt": "Fix a component-test mock and assertion; no product behavior is broken.",
       "expected_skill": "b-test",
-      "forbidden_skills": ["b-debug", "b-browser"]
+      "forbidden_skills": ["b-debug", "b-browser", "b-qa"]
     },
     {
       "id": "browser-evidence",
       "prompt": "Use a real browser to verify the requested UI state and capture a screenshot.",
       "expected_skill": "b-browser",
-      "forbidden_skills": ["b-test", "b-design"]
+      "forbidden_skills": ["b-test", "b-design", "b-qa"]
     },
     {
       "id": "design-standard",
@@ -133,7 +133,13 @@
       "id": "changed-code-review",
       "prompt": "Review the working-tree diff before a PR and report independent findings.",
       "expected_skill": "b-review",
-      "forbidden_skills": ["b-commit", "b-pr", "b-plan", "b-agentic-audit"]
+      "forbidden_skills": [
+        "b-commit",
+        "b-pr",
+        "b-plan",
+        "b-agentic-audit",
+        "b-qa"
+      ]
     },
     {
       "id": "commit-working-tree",
@@ -239,6 +245,18 @@
       "prompt": "A user-provided work item describes a change; use it to prepare an implementation plan without changing code yet.",
       "expected_skill": "b-plan",
       "forbidden_skills": ["b-implement", "b-research"]
+    },
+    {
+      "id": "qa-acceptance-gate",
+      "prompt": "Run the QA gate on the reviewed candidate and map each acceptance criterion to evidence before I commit.",
+      "expected_skill": "b-qa",
+      "forbidden_skills": ["b-review", "b-commit", "b-test", "b-browser"]
+    },
+    {
+      "id": "qa-acceptance-check",
+      "prompt": "Verify acceptance criteria for the reviewed change and report which ones lack evidence.",
+      "expected_skill": "b-qa",
+      "forbidden_skills": ["b-review", "b-pr", "b-implement"]
     }
   ]
 }

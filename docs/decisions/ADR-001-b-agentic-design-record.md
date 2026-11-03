@@ -70,12 +70,19 @@ Claude Code starts subagents in the background by default (fork mode is on
 unless `CLAUDE_CODE_FORK_SUBAGENT=0`), so work that gates action waits for the
 completion notification; work the main session continues without is independent
 and read-only. `b-review` is a main-session skill: it freezes the candidate,
-runs the Codex gate, and classifies the result. On Claude Code, specialists run
+runs the Codex gate, and classifies the result. `b-qa` is an optional
+main-session acceptance gate after review: it compares the candidate with the
+review fingerprint, maps each acceptance criterion to fresh evidence, and ends
+with a QA verdict without committing or pushing. It has no specialist, because
+Codex already gives review independence, children are read-only and cannot drive
+approval-gated browser or dev-server work, and unbounded orchestration is a
+non-goal. On Claude Code, specialists run
 on Anthropic models only (`opus`, `sonnet`, or `haiku`), so the earlier Gemini
 research model is gone.
 
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
-[`skills/registry.yaml`](../../skills/registry.yaml), and
+[`skills/registry.yaml`](../../skills/registry.yaml),
+[`skills/b-qa/prompt.md`](../../skills/b-qa/prompt.md), and
 [`claude/agents/b-researcher.md`](../../claude/agents/b-researcher.md).
 
 ### Safety and approval design

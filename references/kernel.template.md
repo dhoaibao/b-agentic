@@ -55,6 +55,7 @@
 - Real-browser, visual, and e2e verification -> `b-browser`.
 - b-agentic repository and design-conformance audit -> `b-agentic-audit`.
 - Pre-PR changed-code review -> `b-review`.
+- Post-review acceptance QA: criterion-to-evidence matrix and QA verdict -> `b-qa`.
 - Split and commit working-tree changes -> `b-commit` only on explicit user request.
 - Push the current branch and open a draft PR -> `b-pr` only on explicit user request.
 <!-- generated:kernel-routing:end -->

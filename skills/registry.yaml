@@ -409,6 +409,28 @@
       }
     },
     {
+      "name": "b-qa",
+      "execution": {"mode": "main"},
+      "phase": "Validate",
+      "use": "Check a reviewed candidate against its acceptance criteria with fresh evidence and a QA verdict",
+      "argument_hint": "[acceptance criteria or candidate]",
+      "routing": {
+        "intent": "Post-review acceptance QA: criterion-to-evidence matrix and QA verdict",
+        "triggers": [
+          "QA",
+          "QA gate",
+          "acceptance QA",
+          "acceptance check",
+          "verify acceptance criteria",
+          "evidence matrix",
+          "regression scope"
+        ]
+      },
+      "prompt": {
+        "description": "Post-review acceptance QA for a reviewed, fingerprinted candidate: maps every acceptance criterion to the command run, its result, and the evidence type, selects regression scope by impact, hands test work to b-test, real-browser evidence to b-browser, and product failures to b-debug, and ends with QA PASS, QA FAIL, or QA BLOCKED. A criterion without evidence is a gap, never an implicit pass. Unlike b-review, it checks acceptance rather than code quality; it never commits or pushes."
+      }
+    },
+    {
       "name": "b-commit",
       "execution": {"mode": "main"},
       "phase": "Ship",

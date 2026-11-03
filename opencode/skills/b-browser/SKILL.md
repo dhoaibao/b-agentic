@@ -30,6 +30,7 @@ Own real-browser, visual, screenshot, live UI, browser-session, and e2e evidence
 - Implementing frontend/UI behavior or fixing frontend/UI code -> use **b-frontend**.
 - Implementing non-UI behavior -> use **b-implement**; diagnosing a runtime bug -> use **b-debug**.
 - Changed-code review with sufficient browser evidence already supplied -> use **b-review**.
+- An acceptance verdict across criteria -> use **b-qa**; b-browser supplies only the browser evidence.
 
 ## Tool guidance
 

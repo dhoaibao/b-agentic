@@ -12,6 +12,7 @@ Run the independent changed-code gate on a frozen candidate: Codex reviews it th
 - A b-agentic repository/design-conformance audit -> **b-agentic-audit**.
 - Root-cause diagnosis -> **b-debug**.
 - Writing or fixing tests -> **b-test**.
+- Acceptance QA of a reviewed candidate -> **b-qa**.
 
 ## Tool guidance
 

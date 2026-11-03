@@ -69,6 +69,7 @@ git-ignored stay readable by Codex, an accepted residual risk.
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `b-agentic-audit` | Validate | Audit b-agentic repository conformance, health, skill/kernel quality, and currentness |
 | `b-review` | Validate | Review changed code |
+| `b-qa` | Validate | Check a reviewed candidate against its acceptance criteria with fresh evidence and a QA verdict |
 | `b-commit` | Ship | Split working-tree changes into cohesive commits from an explicit user request |
 | `b-pr` | Ship | Push the current branch and open a draft PR from its commits |
 <!-- generated:skills-table:end -->

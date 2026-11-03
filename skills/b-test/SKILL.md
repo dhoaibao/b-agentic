@@ -26,6 +26,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 - The user asks to write tests, fix failing tests, evaluate coverage, or work TDD-style.
 - The issue is assertion, mock, fixture, setup, snapshot, or test coverage.
 - Non-browser unit, integration, contract, simulated-DOM, and component tests are in scope.
+- **b-qa** reports a missing or failing test as an evidence gap.
 
 ## When NOT to use
 
@@ -33,6 +34,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 - Real browser, visual, session, or e2e evidence is needed -> use **b-browser**.
 - Intended behavior is unclear -> use **b-plan** or **b-debug**.
 - A new test framework is needed -> use **b-plan** first.
+- A criterion-by-criterion acceptance verdict -> use **b-qa**.
 
 ## Tool guidance
 
