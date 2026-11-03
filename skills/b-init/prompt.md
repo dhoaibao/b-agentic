@@ -1,6 +1,6 @@
 # b-init
 
-Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonical. `CLAUDE.md` is a thin redirect shim. `docs/README.md` and the README in each docs folder tell agents where project docs go.
+Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonical. `CLAUDE.md` is a thin shim that imports `AGENTS.md`. `docs/README.md` and the README in each docs folder tell agents where project docs go.
 
 ## When to use
 
@@ -31,7 +31,7 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
    - observable technical surfaces that could make a change unsafe or easy to misplace, such as request/input, authentication, persistence or migrations, rendering/templates/HTML, external integrations, and infrastructure/deployment.
    Treat absent evidence as absence. Do not infer a stack, risk surface, command, owner, policy, or enforcement claim that the repository does not show.
 4. Establish the ownership boundary before writing:
-   - `AGENTS.md` is the canonical instruction file. Keep `CLAUDE.md` as the exact thin redirect shim when it is in scope.
+   - `AGENTS.md` is the canonical instruction file. Keep `CLAUDE.md` as the exact thin import shim when it is in scope: inside the managed markers, the heading `# Claude Code Instructions` followed by the line `@AGENTS.md` on its own line (not in backticks or a code block), so Claude Code loads `AGENTS.md` instead of relying on the model to read it. Developer-owned text in `CLAUDE.md` stays outside the markers. A legacy managed block holding only the redirect sentence ("Read `./AGENTS.md` first. ...") is replaced by the import on refresh; any other content in that block follows the migration-choice rule below.
    - Only the text between `<!-- b-init-managed:start -->` and `<!-- b-init-managed:end -->` is b-init-managed. `## Project Rules` is developer-owned, must stay outside those markers, and must be preserved verbatim; it must never be regenerated, moved, or deleted during refresh.
    - If a target has meaningful unmarked content, unmarked-content replacement remains a material choice. Do not silently replace it; ask whether to preserve it, explicitly replace it, or stop.
    - A legacy four-section managed block is not proof that every line was generated. Do not silently discard unknown content. Surface it and request a material migration choice before replacing the block.
@@ -61,7 +61,7 @@ Files changed (including the docs READMEs), repository evidence used, verificati
 
 ## Rules
 
-- Keep `AGENTS.md` primary and `CLAUDE.md` minimal.
+- Keep `AGENTS.md` primary and `CLAUDE.md` a minimal `@AGENTS.md` import.
 - Create only the docs READMEs and their five folders, with no `.gitkeep` or placeholder files; never move existing docs without an explicit choice.
 - Preserve developer-owned `## Project Rules` verbatim outside the managed markers.
 - Edit canonical sources and regenerate generated skill output; do not hand-edit `SKILL.md`.

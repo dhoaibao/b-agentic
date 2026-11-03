@@ -1134,6 +1134,8 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "do not copy its folder roles, naming, or templates into `AGENTS.md`",
                 "`docs/DESIGN.md` stays at the docs root",
                 "Never move, rename, or delete existing docs",
+                "the heading `# Claude Code Instructions` followed by the line `@AGENTS.md` on its own line (not in backticks or a code block)",
+                "is replaced by the import on refresh",
             ),
         },
         "skills/b-refactor/prompt.md": {
