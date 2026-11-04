@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Claude Code MCP inventory policy note.
 
-The base MCP configuration lists ten servers and offers an
+The base MCP configuration lists nine servers and offers an
 optional ClickUp server. This validator never starts a server, opens a browser,
 authenticates, or tests live tool use.
 """
