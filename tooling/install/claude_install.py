@@ -14,6 +14,12 @@ refuses on a problem before the first write. It then records its intent in the
 manifest as a `pending` section that sits beside the last committed ownership,
 applies the plan, and finally commits. An interruption leaves a manifest from
 which a retry or an uninstall still recognizes both the old and the new state.
+A hook entry or file an earlier release recorded and this one no longer ships is
+retired the same way: settings.json stops naming a script before the script is
+deleted. A hook the user edited, or one it never recorded, is kept and reported,
+and its script is kept too until that entry is gone. An uninstall removes the
+recorded hooks first and then the scripts, so such a user-owned entry can outlive
+its script.
 Nothing is ever written under ~/.pi, and only the default ~/.claude directory is
 supported because the managed hooks, agents, and instructions refer to it.
 """
@@ -200,6 +206,32 @@ def merge_unique(*groups: list[Any]) -> list[Any]:
             if item not in merged:
                 merged.append(item)
     return merged
+
+
+def remove_hook_items(hooks: dict[str, Any], items: list[dict[str, Any]]) -> bool:
+    """Remove exactly the recorded hook dicts from `hooks`; return whether anything changed.
+
+    An item matches only a hook dict equal to the recorded one inside a group with the recorded
+    matcher, so a hook the user edited is never removed. Only groups and events this removal
+    emptied are dropped; a group the user left empty stays.
+    """
+    changed = False
+    for item in items:
+        if not isinstance(item, dict) or not {"event", "matcher", "hook"} <= item.keys():
+            continue  # a malformed record never matches anything
+        entries = hooks.get(item["event"], [])
+        emptied = []
+        for entry in entries:
+            if entry.get("matcher") == item["matcher"] and item["hook"] in entry.get("hooks", []):
+                entry["hooks"].remove(item["hook"])
+                changed = True
+                if entry["hooks"] == []:
+                    emptied.append(entry)
+        if emptied:
+            hooks[item["event"]] = [entry for entry in entries if not any(entry is gone for gone in emptied)]
+            if hooks[item["event"]] == []:
+                del hooks[item["event"]]
+    return changed
 
 
 class Installer:
@@ -418,12 +450,24 @@ class Installer:
     def plan_all(self, previous: dict[str, Any], clickup: bool) -> tuple[dict[str, Any], ...]:
         self.counts = {name: 0 for name in self.counts}
         self.warnings.clear()
-        return (
-            self.plan_files(previous),
-            self.plan_kernel(previous),
-            self.plan_settings(previous.get("settings", {})),
-            self.plan_mcp(clickup, previous),
-        )
+        files = self.plan_files(previous)
+        kernel = self.plan_kernel(previous)
+        settings = self.plan_settings(previous.get("settings", {}))
+        mcp = self.plan_mcp(clickup, previous)
+        # A retired script that settings.json still names (an edited or unrecorded hook) stays,
+        # still owned, so a hook never points at a script this run deleted; a later run removes
+        # it once that hook entry is gone.
+        hooks_dir = self.assets_dir / "hooks"
+        removals: list[Path] = []
+        for path in files["removals"]:
+            if path.parent == hooks_dir and path.name in settings["named_scripts"]:
+                relative = path.relative_to(self.claude_dir).as_posix()
+                files["recorded"][relative] = sha256(path.read_bytes())
+                self.warn(f"kept {path}: settings.json still runs it; remove that hook entry and re-run to delete it")
+            else:
+                removals.append(path)
+        files["removals"] = removals
+        return files, kernel, settings, mcp
 
     def plan_files(self, manifest: dict[str, Any]) -> dict[str, Any]:
         recorded: dict[str, str] = {}
@@ -528,6 +572,15 @@ class Installer:
             record["permissions"][kind] = [rule for rule in dict.fromkeys(added) if rule in existing]
         hooks = settings.setdefault("hooks", {})
         recorded_hooks = previous.get("hooks", [])
+        wanted_hooks = [
+            {"event": event, "matcher": entry.get("matcher"), "hook": hook}
+            for event, entries in template["hooks"].items()
+            for entry in entries
+            for hook in entry["hooks"]
+        ]
+        # A hook an earlier version recorded and this version no longer ships is retired, but only
+        # if it is still exactly the recorded hook; an edited one stays and is reported below.
+        remove_hook_items(hooks, [item for item in recorded_hooks if item not in wanted_hooks])
         for event, entries in template["hooks"].items():
             event_entries = hooks.setdefault(event, [])
             for entry in entries:
@@ -556,11 +609,25 @@ class Installer:
             del hooks[event]
         if not hooks:
             del settings["hooks"]
+        shipped = {script.name for script in (self.source / "claude" / "hooks").glob("*.mjs")}
+        named_scripts: set[str] = set()
+        for entries in hooks.values():
+            for entry in entries:
+                for hook in entry.get("hooks", []) if isinstance(entry, dict) else []:
+                    command = hook.get("command") if isinstance(hook, dict) else None
+                    if isinstance(command, str):
+                        named_scripts.update(re.findall(r"\.claude/b-agentic/hooks/([\w.-]+\.mjs)", command))
+        for script in sorted(named_scripts - shipped):
+            self.warn(
+                f"{path} still runs b-agentic/hooks/{script}, which b-agentic no longer ships; "
+                "remove that hook entry (it was edited or never recorded, so it was left in place)"
+            )
         text = json_text(settings)
         return {
             "target": target,
             "text": text if not target.exists() or target.read_text() != text else None,
             "record": record,
+            "named_scripts": named_scripts,
         }
 
     def plan_mcp(self, clickup: bool, manifest: dict[str, Any]) -> dict[str, Any]:
@@ -685,10 +752,6 @@ class Installer:
                     self.backup(path)
                 self.write_bytes(path, data)
             self.counts["written"] += 1
-        for path in files["removals"]:
-            if not self.dry_run:
-                self.remove_file(path)
-            self.counts["removed"] += 1
         if kernel["text"] is not None:
             if not self.dry_run:
                 self.backup(kernel["target"])
@@ -704,6 +767,13 @@ class Installer:
                 self.backup(mcp["target"])
                 self.write_bytes(mcp["target"], mcp["text"].encode())
             self.say(f"MCP servers merged in {self.mcp_path}; restart Claude Code to load them")
+        # Retired files go last: new scripts exist before settings name them, and settings stop
+        # naming a retired script before it is deleted. A retired script that settings still name
+        # (an edited or unrecorded hook) was already dropped from `removals` by `plan_all`.
+        for path in files["removals"]:
+            if not self.dry_run:
+                self.remove_file(path)
+            self.counts["removed"] += 1
         self.write_manifest(final)
 
     def uninstall(self) -> None:
@@ -727,10 +797,6 @@ class Installer:
         kernel_plan = self.plan_kernel_removal(manifest)
         settings_plan = self.plan_settings_removal(manifest.get("settings", {}))
         mcp_plan = self.plan_mcp_removal(manifest)
-        for path in removals:
-            if not self.dry_run:
-                self.remove_file(path)
-            self.counts["removed"] += 1
         for plan, message in (
             (kernel_plan, f"kernel block removed from {self.claude_dir / 'CLAUDE.md'}"),
             (settings_plan, f"settings entries removed from {self.claude_dir / 'settings.json'}"),
@@ -745,6 +811,12 @@ class Installer:
                 else:
                     self.write_bytes(plan["target"], plan["text"].encode())
             self.say(message)
+        # Scripts are removed after the recorded hooks stop naming them. A hook the user edited, or
+        # one the manifest never recorded, stays in settings.json and may name a removed script.
+        for path in removals:
+            if not self.dry_run:
+                self.remove_file(path)
+            self.counts["removed"] += 1
         if not self.dry_run:
             guard_destination(self.manifest_path)
             self.manifest_path.unlink(missing_ok=True)
@@ -800,19 +872,8 @@ class Installer:
         if permissions == {} and "permissions" in settings and changed:
             del settings["permissions"]
         hooks = settings.get("hooks", {})
-        for item in record.get("hooks", []):
-            entries = hooks.get(item["event"], [])
-            emptied = []
-            for entry in entries:
-                if entry.get("matcher") == item["matcher"] and item["hook"] in entry.get("hooks", []):
-                    entry["hooks"].remove(item["hook"])
-                    changed = True
-                    if entry["hooks"] == []:
-                        emptied.append(entry)
-            if emptied:
-                hooks[item["event"]] = [entry for entry in entries if not any(entry is gone for gone in emptied)]
-                if hooks[item["event"]] == []:
-                    del hooks[item["event"]]
+        if remove_hook_items(hooks, record.get("hooks", [])):
+            changed = True
         if hooks == {} and "hooks" in settings and changed:
             del settings["hooks"]
         return {"target": target, "text": json_text(settings)} if changed else None

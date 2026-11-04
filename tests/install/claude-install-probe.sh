@@ -466,6 +466,135 @@ run "$home" --force; expect_ok "upgrade over the retired Codex review CLIs"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the reviewer specialist disappeared on upgrade"
 echo "install probe passed: codex-retire"
 
+# --- an upgrade retires a hook the previous release shipped: settings stop naming the script before it goes ---
+# shellcheck disable=SC2016 # The literal $HOME mirrors the command string stored in settings.json.
+old_hook_cmd='node "$HOME/.claude/b-agentic/hooks/b-old-hook.mjs"'
+# plant_old_hook <home> <matcher>: simulate the previous release, which shipped hooks/b-old-hook.mjs under <matcher>.
+plant_old_hook() {
+  local claude="$1/.claude" digest
+  printf 'old hook\n' >"$claude/b-agentic/hooks/b-old-hook.mjs"
+  digest=$(sha256sum "$claude/b-agentic/hooks/b-old-hook.mjs" | cut -d' ' -f1)
+  jq --arg k b-agentic/hooks/b-old-hook.mjs --arg d "$digest" --arg m "$2" --arg c "$old_hook_cmd" \
+    '.files[$k] = $d | .settings.hooks += [{event: "PreToolUse", matcher: $m, hook: {type: "command", command: $c}}]' \
+    "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
+  jq --arg m "$2" --arg c "$old_hook_cmd" '.hooks.PreToolUse += [{matcher: $m, hooks: [{type: "command", command: $c}]}]' \
+    "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+}
+# settings_has_old_hook <home>: true when settings.json still names the old script.
+settings_has_old_hook() { jq -e '[.. | objects | select(.command? != null) | select(.command | contains("b-old-hook"))] | length > 0' "$1/.claude/settings.json" >/dev/null; }
+
+home=$(fresh_home hook-retire)
+claude="$home/.claude"
+run "$home"; expect_ok "install before retiring a hook"
+plant_old_hook "$home" Notify
+jq '.hooks.PreToolUse += [{matcher: "Mine", hooks: [{type: "command", command: "echo mine"}]}]' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+run "$home"; expect_ok "upgrade over a retired hook"
+[ ! -e "$claude/b-agentic/hooks/b-old-hook.mjs" ] || fail "the retired hook script was not removed"
+if settings_has_old_hook "$home"; then fail "settings still name the retired hook"; fi
+[ "$(jq '[.hooks.PreToolUse[] | select(.matcher == "Notify")] | length' "$claude/settings.json")" = 0 ] || fail "the emptied retired group was left behind"
+[ "$(jq '[.hooks.PreToolUse[] | select(.hooks == [])] | length' "$claude/settings.json")" = 0 ] || fail "an empty hook group remains"
+[ "$(jq '[.hooks.PreToolUse[] | select(.matcher == "Mine")] | length' "$claude/settings.json")" = 1 ] || fail "a user hook group was removed"
+[ "$(jq '[.settings.hooks[] | select(.hook.command | contains("b-old-hook"))] | length' "$claude/b-agentic/install.json")" = 0 ] || fail "the manifest still records the retired hook"
+if grep -Fq 'no longer ships' <<<"$err"; then fail "a clean retirement must not warn: $err"; fi
+before=$(tree "$home")
+run "$home"; expect_ok "second upgrade over a retired hook"
+[ "$before" = "$(tree "$home")" ] || fail "a re-run after the retirement changed files"
+run "$home" --uninstall; expect_ok "uninstall after the retirement"
+[ "$(jq -c 'if .hooks then .hooks.PreToolUse | map(.matcher) else [] end' "$claude/settings.json")" = '["Mine"]' ] || fail "uninstall removed or kept the wrong hooks: $(cat "$claude/settings.json")"
+
+# A user hook sharing the retired hook's group stays in that group.
+home=$(fresh_home hook-retire-sibling)
+claude="$home/.claude"
+run "$home"; expect_ok "install before retiring a shared-group hook"
+plant_old_hook "$home" Notify
+jq '(.hooks.PreToolUse[] | select(.matcher == "Notify") | .hooks) += [{type: "command", command: "echo mine"}]' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+run "$home"; expect_ok "upgrade over a retired hook sharing a group"
+if settings_has_old_hook "$home"; then fail "settings still name the retired hook (shared group)"; fi
+[ "$(jq -c '[.hooks.PreToolUse[] | select(.matcher == "Notify") | .hooks[].command]' "$claude/settings.json")" = '["echo mine"]' ] || fail "the user hook sharing the group was lost: $(cat "$claude/settings.json")"
+
+# A hook the user edited is kept and reported, and so is the script it runs, until the entry is gone.
+home=$(fresh_home hook-retire-modified)
+claude="$home/.claude"
+run "$home"; expect_ok "install before retiring an edited hook"
+plant_old_hook "$home" Notify
+jq '(.hooks.PreToolUse[] | select(.matcher == "Notify") | .hooks[0]) += {timeout: 5}' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+run "$home"; expect_ok "upgrade over an edited retired hook"
+settings_has_old_hook "$home" || fail "an edited retired hook was removed"
+grep -Fq 'no longer ships' <<<"$err" || fail "no warning for the kept edited retired hook: $err"
+[ -f "$claude/b-agentic/hooks/b-old-hook.mjs" ] || fail "the script of a kept hook was deleted, leaving a dangling hook"
+[ "$(jq -r '.files["b-agentic/hooks/b-old-hook.mjs"] != null' "$claude/b-agentic/install.json")" = true ] || fail "the kept script lost its ownership record"
+before=$(tree "$home")
+run "$home"; expect_ok "second upgrade over an edited retired hook"
+[ "$before" = "$(tree "$home")" ] || fail "a re-run changed files after keeping an edited hook"
+# Once the user removes the entry, the next run deletes the script and its record.
+jq 'del(.hooks.PreToolUse[] | select(.matcher == "Notify"))' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+run "$home"; expect_ok "upgrade after the user removed the edited hook"
+[ ! -e "$claude/b-agentic/hooks/b-old-hook.mjs" ] || fail "the script survived after its hook entry was removed"
+[ "$(jq -r '.files["b-agentic/hooks/b-old-hook.mjs"] == null' "$claude/b-agentic/install.json")" = true ] || fail "the manifest still records the deleted script"
+if grep -Fq 'no longer ships' <<<"$err"; then fail "a warning remained after the entry was removed: $err"; fi
+
+# An identical hook the manifest never recorded is not ours: kept and reported.
+home=$(fresh_home hook-retire-unrecorded)
+claude="$home/.claude"
+run "$home"; expect_ok "install before an unrecorded hook"
+plant_old_hook "$home" Notify
+jq 'del(.settings.hooks[] | select(.hook.command | contains("b-old-hook")))' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
+run "$home"; expect_ok "upgrade over an unrecorded hook"
+settings_has_old_hook "$home" || fail "an unrecorded hook was removed"
+grep -Fq 'no longer ships' <<<"$err" || fail "no warning for the unrecorded hook: $err"
+[ -f "$claude/b-agentic/hooks/b-old-hook.mjs" ] || fail "the script of an unrecorded hook was deleted, leaving a dangling hook"
+# A chained command naming the script is still found, and an unrelated path is not.
+jq '.hooks.PreToolUse += [{matcher: "Chain", hooks: [{type: "command", command: "node /opt/my-b-agentic/hooks/other.mjs && echo done"}]}]' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+run "$home"; expect_ok "upgrade with an unrelated user hook path"
+if grep -Fq 'other.mjs' <<<"$err"; then fail "a user path outside .claude/b-agentic/hooks was reported: $err"; fi
+
+# The script is already gone: the recorded settings entry is still retired.
+home=$(fresh_home hook-retire-file-gone)
+claude="$home/.claude"
+run "$home"; expect_ok "install before a vanished hook script"
+plant_old_hook "$home" Notify
+rm "$claude/b-agentic/hooks/b-old-hook.mjs"
+run "$home"; expect_ok "upgrade when the retired hook script is already gone"
+if settings_has_old_hook "$home"; then fail "the recorded hook survived its missing script"; fi
+
+# A dry run over a retiring state writes nothing.
+home=$(fresh_home hook-retire-dry-run)
+claude="$home/.claude"
+run "$home"; expect_ok "install before a dry-run retirement"
+plant_old_hook "$home" Notify
+before=$(tree "$home")
+run "$home" --dry-run; expect_ok "dry-run over a retiring hook"
+[ "$before" = "$(tree "$home")" ] || fail "dry-run changed files while retiring a hook"
+
+# Order: an interrupted run has already stopped naming the script when its file removal fails.
+if [ "$(id -u)" = 0 ]; then
+  echo "install probe skipped: hook-retire-order (root ignores directory modes)"
+else
+  for mode in upgrade uninstall; do
+    home=$(fresh_home "hook-retire-order-$mode")
+    claude="$home/.claude"
+    run "$home"; expect_ok "install before the ordering check ($mode)"
+    plant_old_hook "$home" Notify
+    chmod 555 "$claude/b-agentic/hooks"
+    if [ "$mode" = upgrade ]; then run "$home"; else run "$home" --uninstall; fi
+    chmod 755 "$claude/b-agentic/hooks"
+    [ "$rc" != 0 ] || fail "removing a script from a read-only directory should fail ($mode)"
+    [ -e "$claude/b-agentic/hooks/b-old-hook.mjs" ] || fail "the script was removed despite the failure ($mode)"
+    if settings_has_old_hook "$home"; then fail "settings still name the script after the run failed: a dangling hook would be possible ($mode)"; fi
+    if [ "$mode" = upgrade ]; then run "$home"; else run "$home" --uninstall; fi
+    expect_ok "retry after the interrupted removal ($mode)"
+    [ ! -e "$claude/b-agentic/hooks/b-old-hook.mjs" ] || fail "the retry did not remove the script ($mode)"
+    if [ "$mode" = upgrade ]; then
+      [ "$(jq '[.settings.hooks[] | select(.hook.command | contains("b-old-hook"))] | length' "$claude/b-agentic/install.json")" = 0 ] || fail "the final manifest still records the retired hook"
+      [ "$(jq -r '.files["b-agentic/hooks/b-old-hook.mjs"] == null' "$claude/b-agentic/install.json")" = true ] || fail "the final manifest still records the retired script"
+      [ "$(jq -r 'has("pending")' "$claude/b-agentic/install.json")" = false ] || fail "a committed manifest still carries pending state"
+    else
+      [ ! -e "$claude/b-agentic/install.json" ] || fail "the retried uninstall left the manifest"
+    fi
+  done
+fi
+echo "install probe passed: hook-retire"
+
 # --- identical unmanaged kernel content is not ownership -------------------------------------------
 home=$(fresh_home kernel-source)
 run "$home"; expect_ok "install to capture the kernel block"
