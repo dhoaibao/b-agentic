@@ -44,7 +44,7 @@ Draw a formal or editable technical diagram in draw.io from explicit user or rep
 - The `open_drawio_*` tools ask for approval before they run; for example call `drawio_open_drawio_xml` with `content` set to the `<mxGraphModel XML>`. Use `drawio_open_drawio_mermaid` for Mermaid sequence, ER, and class diagrams and `drawio_open_drawio_csv` only for tabular data. Optional `lightbox` and `dark` flags are not needed by default; `postLayout: "elk"` is for flowcharts only.
 - Each call attempts to open the draw.io web editor in the default browser. The launch is asynchronous and its failures are not reported, so the result never proves a window opened. The diagram travels in the URL fragment, which browsers do not send to the server. The tool result always includes the editor URL.
 - Write `.drawio` source with native `write` or `edit` to a user-approved path. Read an existing uncompressed `.drawio` file with native `read`.
-- Never call `drawio_set_page`. `drawio_list_pages` and `drawio_get_page` are unclassified and always ask; use them only when a `.drawio` page is compressed and cannot be read natively, and report the approval need to the user.
+- Never call `drawio_set_page`. `drawio_list_pages` and `drawio_get_page` are `private-read` and always ask (they read any `.drawio` or `.xml` path); use them only when a `.drawio` page is compressed and cannot be read natively, and report the approval need to the user.
 - Do not fetch URLs or inspect live systems from diagram evidence references.
 
 ## Steps

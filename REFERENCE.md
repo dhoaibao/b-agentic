@@ -293,7 +293,9 @@ command, blocks the first stop once with the verify and review reminder.
 Claude Code prompts for outside-project writes instead of denying them. These
 rules are not a process or filesystem sandbox; shell indirection and MCP
 arguments they cannot see remain residual risks (only `b-clickup-guard` inspects
-ClickUp task arguments). The kernel additionally
+ClickUp task arguments). Native Linux and macOS Claude Code builds run `Grep`
+and `Glob` searches through Bash, so `b-path-guard` sees no searches there. The
+kernel additionally
 requires approval for other destructive, privileged, ambiguous, protected, or
 external/shared actions.
 
@@ -320,14 +322,15 @@ collects none.
 | DataGrip     | IDE-managed: DataGrip with MCP Server enabled; no b-agentic template  |
 
 Notion is the official hosted server and reaches the user's whole private
-workspace, so every read is `conditional-read` (allowed in the main session,
-never granted to the specialists) and every write asks. Excalidraw's
+workspace, so workspace reads are `conditional-read` (allowed in the main session,
+never granted to the specialists), calendar and contact reads are `private-read`
+and ask, and every write asks. Excalidraw's
 `create_view` and draw.io's `open_drawio_*` ask on every call and send diagram
 text to a hosted endpoint or open the draw.io web editor. draw.io runs
 `bunx @drawio/mcp@1.6.3` with `DRAWIO_ICON_SERVICE_URL=off`; the pin freezes only
 the top-level package, and the package runs unsandboxed with your permissions.
-`list_pages` and `get_page` are deliberately unclassified so they keep the
-approval prompt.
+`list_pages` and `get_page` are `private-read` and always ask: they read any
+`.drawio` or `.xml` path with no directory confinement.
 
 DataGrip's built-in MCP server is enabled in the IDE (Settings | Tools | MCP
 Server, then Auto-Configure for Claude Code), so b-agentic ships only its
