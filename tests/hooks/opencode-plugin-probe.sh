@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Exercise the OpenCode safety plugin against an installed-style layout
 # (plugins/, b-agentic/hooks, b-agentic/bin) in a throwaway directory. Needs only
-# node, git, and jq: no OpenCode, credentials, network, or Codex.
+# node, git, and jq: no OpenCode, credentials, or network.
 # shellcheck disable=SC2016 # Single-quoted shell commands with literal $ are the inputs under test.
 set -euo pipefail
 
@@ -10,7 +10,6 @@ work=$(mktemp -d)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
-unset B_AGENTIC_STATE_DIR
 
 fail() { echo "opencode plugin probe failed: $*" >&2; exit 1; }
 
@@ -108,50 +107,8 @@ check patch-no-text pass patch '{}'
 check unknown-tool pass question '{"filePath":"/repo/.env"}'
 check malformed-args pass read 'null'
 
-# --- shell: Codex guard -------------------------------------------------------
-companion='codex-compan''ion.mjs'
-review="node \"/plugin/scripts/$companion\" adversarial-review --wait --scope working-tree check the diff"
-check shell-unrelated pass bash '{"command":"ls -la"}'
-check shell-status pass shell "$(jq -cn --arg c "node /p/$companion status" '{command: $c}')"
-check shell-unapproved block bash "$(jq -cn --arg c "$review" '{command: $c}')" 'has not approved'
-grep -Fq "$oc/b-agentic/hooks/b-codex-guard.mjs --approve" <<<"$out" || fail "approve hint must name the installed guard: $out"
-if grep -Fq 'AskUserQuestion' <<<"$out"; then fail "OpenCode wording must say question, not AskUserQuestion"; fi
-(cd "$repo" && node "$oc/b-agentic/hooks/b-codex-guard.mjs" --approve >/dev/null)
-[ -f "$oc/b-agentic/codex-approved-repos.json" ] || fail "approvals must live beside the installed hooks"
-check shell-approved pass bash "$(jq -cn --arg c "$review" '{command: $c}')"
-check shell-background block bash "$(jq -cn --arg c "node /p/$companion review --background --scope working-tree" '{command: $c}')" 'foreground'
-
-# --- shell: a relative workdir resolves against the session location, not the server's cwd ---
-other="$work/other"
-mkdir -p "$other"
-git -C "$other" init -q .
-git -C "$other" config user.email probe@example.invalid
-git -C "$other" config user.name probe
-printf 'b\n' >"$other/b.txt"
-git -C "$other" add .
-git -C "$other" commit -qm init
-in_location() { # <location> <tool> <args-json>: runs from the approved repo, like a server started elsewhere
-  out=$(cd "$repo" && node "$work/call.mjs" "$oc/plugins/b-agentic.mjs" "$2" "$3" "$1")
-}
-for workdir in other ./other; do
-  in_location "$work" bash "$(jq -cn --arg c "$review" --arg w "$workdir" '{command: $c, workdir: $w}')"
-  [[ "$out" == block*'has not approved'* ]] || fail "workdir $workdir must be checked in the unapproved repository: $out"
-done
-in_location "$work" bash "$(jq -cn --arg c "$review" '{command: $c, workdir: "repo"}')"
-[ "$out" = pass ] || fail "a relative workdir in the approved repository should pass: $out"
-in_location "$other" bash "$(jq -cn --arg c "$review" '{command: $c, workdir: "../repo"}')"
-[ "$out" = pass ] || fail "a parent-relative workdir in the approved repository should pass: $out"
-in_location "$repo" bash "$(jq -cn --arg c "$review" '{command: $c}')"
-[ "$out" = pass ] || fail "no workdir should use the session location: $out"
-in_location "$other" bash "$(jq -cn --arg c "$review" '{command: $c}')"
-[[ "$out" == block*'has not approved'* ]] || fail "no workdir in the unapproved location must be refused: $out"
-node --input-type=module -e '
-import(process.argv[1]).then(({ shellCwd }) => {
-  const home = process.env.HOME;
-  const cases = [[undefined, "/s", "/s"], ["", "/s", "/s"], ["a", "/s", "/s/a"], ["../a", "/s/b", "/s/a"], ["/x", "/s", "/x"], ["~/x", "/s", home + "/x"], ["~", "/s", home]];
-  for (const [workdir, base, want] of cases)
-    if (shellCwd(workdir, base) !== want) { console.error("shellCwd", workdir, base, shellCwd(workdir, base)); process.exit(1); }
-});
-' "$oc/plugins/b-agentic.mjs" || fail "shellCwd must resolve workdir against the session location"
+# --- shell commands are not inspected: the retired Codex guard no longer runs ---------------
+check shell-not-inspected pass bash '{"command":"node /p/x.mjs review --wait --scope working-tree"}'
+check shell-unrelated pass shell '{"command":"ls -la"}'
 
 echo "opencode plugin probe passed"

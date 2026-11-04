@@ -10,7 +10,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_HOOKS = (
     "b-path-guard.mjs",
-    "b-codex-guard.mjs",
     "b-clickup-guard.mjs",
     "b-verify-gate.mjs",
 )

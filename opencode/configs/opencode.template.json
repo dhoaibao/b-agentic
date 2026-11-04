@@ -1202,21 +1202,6 @@
     },
     {
       "action": "shell",
-      "resource": "*b-codex-guard.mjs* --approve*",
-      "effect": "ask"
-    },
-    {
-      "action": "shell",
-      "resource": "*codex-approved-repos.json*",
-      "effect": "ask"
-    },
-    {
-      "action": "shell",
-      "resource": "*B_AGENTIC_STATE_DIR*",
-      "effect": "ask"
-    },
-    {
-      "action": "shell",
       "resource": "git pull",
       "effect": "deny"
     },

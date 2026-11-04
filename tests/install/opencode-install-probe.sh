@@ -68,7 +68,8 @@ oc="$home/.config/opencode"
 [ "$(find "$oc/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
 [ "$(find "$oc/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
 [ -f "$oc/plugins/b-agentic.js" ] || fail "plugin missing"
-[ -f "$oc/b-agentic/hooks/b-codex-guard.mjs" ] || fail "hooks missing"
+[ -f "$oc/b-agentic/hooks/b-path-guard.mjs" ] || fail "hooks missing"
+[ ! -e "$oc/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the retired Codex guard must not be installed"
 [ -f "$oc/b-agentic/install.json" ] || fail "manifest missing"
 [ ! -e "$home/.claude" ] || fail "an OpenCode-only install must not create ~/.claude"
 [ "$(tree "$home/.pi")" = "$pi_before" ] || fail "the Pi tree changed"
@@ -241,6 +242,32 @@ if [ "$(id -u)" != 0 ]; then
   run "$home" --uninstall; expect_ok "uninstall after a retry"
   [ ! -e "$oc/b-agentic/install.json" ] || fail "uninstall left the manifest"
 fi
+
+# --- an upgrade retires the Codex guard's shell rules and script but keeps the user's approval store ---------
+home=$(fresh_home guard-retire)
+oc="$home/.config/opencode"
+run "$home"; expect_ok "install before retiring the Codex guard"
+if grep -Fq 'no longer read' <<<"$out"; then fail "a note about the approval file needs the file to exist"; fi
+printf 'old guard\n' >"$oc/b-agentic/hooks/b-codex-guard.mjs"
+guard_digest=$(sha256sum "$oc/b-agentic/hooks/b-codex-guard.mjs" | cut -d' ' -f1)
+old_rules='[{"action":"shell","resource":"*b-codex-guard.mjs* --approve*","effect":"ask"},{"action":"shell","resource":"*codex-approved-repos.json*","effect":"ask"},{"action":"shell","resource":"*B_AGENTIC_STATE_DIR*","effect":"ask"}]'
+# The previous release recorded the rules in the manifest and appended them to the managed block;
+# a user-owned identical rule placed earlier must survive.
+jq --argjson r "$old_rules" '.permissions = [{"action":"shell","resource":"*B_AGENTIC_STATE_DIR*","effect":"ask"}] + .permissions + $r' "$oc/opencode.json" >"$work/c.json" && mv "$work/c.json" "$oc/opencode.json"
+jq --argjson r "$old_rules" --arg d "$guard_digest" '.permissions += $r | .files["b-agentic/hooks/b-codex-guard.mjs"] = $d' "$oc/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$oc/b-agentic/install.json"
+printf '["/repo"]\n' >"$oc/b-agentic/codex-approved-repos.json"
+run "$home"; expect_ok "upgrade over the Codex guard"
+[ ! -e "$oc/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the Codex guard script was not removed"
+[ "$(jq '.permissions | length' "$oc/opencode.json")" = "$((rules_expected + 1))" ] || fail "managed rules plus the user's rule expected: $(jq '.permissions | length' "$oc/opencode.json")"
+[ "$(jq '[.permissions[] | select(.resource | contains("b-codex-guard") or contains("codex-approved"))] | length' "$oc/opencode.json")" = 0 ] || fail "a retired Codex rule survived"
+[ "$(jq '[.permissions[] | select(.resource == "*B_AGENTIC_STATE_DIR*")] | length' "$oc/opencode.json")" = 1 ] || fail "the user's identical rule did not survive exactly once"
+[ "$(jq -r '.permissions | map(select(.resource | contains("codex"))) | length' "$oc/b-agentic/install.json")" = 0 ] || fail "the manifest still records a Codex rule"
+[ "$(cat "$oc/b-agentic/codex-approved-repos.json")" = '["/repo"]' ] || fail "the user's approval store was touched"
+grep -Fq 'no longer read' <<<"$out" || fail "no note about the leftover approval file: $out"
+before=$(tree "$home")
+run "$home"; expect_ok "second upgrade after the Codex guard retirement"
+[ "$before" = "$(tree "$home")" ] || fail "a re-run after retiring the Codex guard changed files"
+echo "opencode install probe passed: guard-retire"
 
 # --- the retired OpenCode install is refused, then migrated on request ------------------------------------
 home=$(fresh_home legacy)

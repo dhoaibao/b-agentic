@@ -15,15 +15,16 @@ never the generated files. `opencode/plugins/b-agentic.js` is hand-written.
 | `../agents/b-*.md`                               | `agents/b-*.md`                               | Five read-only specialist profiles enforced by `permissions`, including `b-reviewer`               |
 | `../skills/*/SKILL.md`                           | `skills/b-*/SKILL.md`                         | Skills rendered for OpenCode (no argument hint, no `$ARGUMENTS`)                                   |
 | `../references/*.yaml`                           | `b-agentic/references/`                       | Generated capability and effective MCP policy references, including OpenCode approval rules        |
-| `../plugins/b-agentic.js`                        | `plugins/b-agentic.js`                        | Safety plugin (V2 `setup` + `execute.before` hook): path guard and a dormant Codex tripwire                                                   |
+| `../plugins/b-agentic.js`                        | `plugins/b-agentic.js`                        | Safety plugin (V2 `setup` + `execute.before` hook): path guard                                                   |
 | `../../claude/hooks/*.mjs`, `../../claude/bin/*.mjs` | `b-agentic/hooks/`, `b-agentic/bin/`      | Runtime-neutral Node scripts shared with Claude Code                                               |
 
 The installer records everything it owns in `b-agentic/install.json`, backs up
 each user file it changes under `b-agentic/backups/`, keeps files you modified,
 refuses a symlinked managed directory, an `opencode.jsonc`, or a v1 `permission`
-map, and never writes under `~/.pi` or `~/.claude`. A standing Codex approval left
-by the retired review gate (`codex-approved-repos.json`) lives in `b-agentic/` and is
-user data.
+map, and never writes under `~/.pi` or `~/.claude`. The shell `ask` rules and the
+guard script of the retired Codex review gate are removed on upgrade. A standing
+Codex approval it left (`codex-approved-repos.json`) lives in `b-agentic/`, is user
+data that nothing reads any more, and is left in place with a note.
 
 Servers use OpenCode v2's `mcp.servers` shape (`type` `local` or `remote`,
 `environment`, `disabled`, `codemode: false` so tools are named

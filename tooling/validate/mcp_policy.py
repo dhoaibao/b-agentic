@@ -327,8 +327,15 @@ def main() -> int:
         errors.append("hook commands must be unique per script, except the verify gate shared by PostToolUse and Stop")
     if hooks["PreToolUse"][0]["matcher"] != "Read|Edit|Write|NotebookEdit|Grep|Glob":
         errors.append("path guard must cover every file tool")
-    if hooks["PreToolUse"][1]["matcher"] != "Bash":
-        errors.append("Codex guard must watch Bash")
+    if hooks["PreToolUse"][1]["matcher"] != "mcp__clickup__createTask|mcp__clickup__updateTask":
+        errors.append("ClickUp guard must watch task create and update")
+    shipped = {path.name for path in (ROOT / "claude" / "hooks").glob("*.mjs")}
+    for entries in hooks.values():
+        for entry in entries:
+            for hook in entry["hooks"]:
+                script = hook["command"].rsplit("/", 1)[-1].rstrip('"')
+                if script not in shipped:
+                    errors.append(f"hook runs a script that claude/hooks does not ship: {script}")
     for entries in hooks.values():
         for entry in entries:
             for hook in entry["hooks"]:

@@ -69,7 +69,7 @@ claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
 [ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
-for file in bin/b-candidate-snapshot.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs hooks/b-path-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
@@ -83,7 +83,9 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.deny | index("Bash(gh pr merge *)") != null' "$claude/settings.json")" = true ] || fail "gh pr merge deny rule missing"
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
-[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 3 ] || fail "PreToolUse hooks missing"
+[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
+[ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the retired Codex guard must not be installed"
+if grep -Fq 'codex-guard' "$claude/settings.json"; then fail "settings must not name the retired Codex guard"; fi
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 9 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must be opt-in"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
@@ -135,7 +137,7 @@ cat >"$claude/settings.json" <<'JSON'
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Read|Edit|Write|NotebookEdit|Grep|Glob",
         "hooks": [
           {
             "type": "command",
@@ -164,8 +166,8 @@ run "$home"; expect_ok "install over user content"
 [ "$(jq -r .theme "$claude/settings.json")" = dark ] || fail "user key lost"
 [ "$(jq -r '.permissions.allow | index("Bash(ls *)") != null' "$claude/settings.json")" = true ] || fail "user allow rule lost"
 [ "$(jq -r '.permissions.deny | index("Bash(curl *)") != null' "$claude/settings.json")" = true ] || fail "user deny rule lost"
-[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command] | index("echo user-hook") != null' "$claude/settings.json")" = true ] || fail "user hook lost"
-[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command] | length' "$claude/settings.json")" = 2 ] || fail "managed hook not appended to the user's Bash matcher"
+[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Read|Edit|Write|NotebookEdit|Grep|Glob") | .hooks[].command] | index("echo user-hook") != null' "$claude/settings.json")" = true ] || fail "user hook lost"
+[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Read|Edit|Write|NotebookEdit|Grep|Glob") | .hooks[].command] | length' "$claude/settings.json")" = 2 ] || fail "managed hook not appended to the user's matching group"
 [ "$(jq -r .numStartups "$home/.claude.json")" = 7 ] || fail "user key lost in .claude.json"
 [ "$(jq -r '.mcpServers | has("mine")' "$home/.claude.json")" = true ] || fail "user MCP server lost"
 grep -Fq '# My notes' "$claude/CLAUDE.md" || fail "user CLAUDE.md text lost"
@@ -254,12 +256,12 @@ echo "install probe passed: default-dir-only"
 home=$(fresh_home hooks)
 claude="$home/.claude"
 run "$home"; expect_ok "install for hook identity"
-jq '(.hooks.PreToolUse[] | select(.matcher == "Bash")) |= (.matcher = "Read" | .hooks[0].timeout = 5)' "$claude/settings.json" >"$work/moved.json" && mv "$work/moved.json" "$claude/settings.json"
+jq '(.hooks.PreToolUse[] | select(.matcher == "mcp__clickup__createTask|mcp__clickup__updateTask")) |= (.matcher = "Read" | .hooks[0].timeout = 5)' "$claude/settings.json" >"$work/moved.json" && mv "$work/moved.json" "$claude/settings.json"
 run "$home"; expect_ok "reinstall after the user moved a hook"
 grep -Fq 'different matcher or fields' <<<"$err" || fail "no warning for a moved safety hook: $err"
-[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-codex-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "a moved hook was duplicated"
+[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-clickup-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "a moved hook was duplicated"
 run "$home" --uninstall; expect_ok "uninstall with a moved hook"
-[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-codex-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "uninstall removed a user-modified hook"
+[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-clickup-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "uninstall removed a user-modified hook"
 [ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-path-guard.mjs")))] | length' "$claude/settings.json")" = 0 ] || fail "uninstall left an unmodified managed hook"
 
 home=$(fresh_home identical-hook)
@@ -469,19 +471,20 @@ echo "install probe passed: codex-retire"
 # --- an upgrade retires a hook the previous release shipped: settings stop naming the script before it goes ---
 # shellcheck disable=SC2016 # The literal $HOME mirrors the command string stored in settings.json.
 old_hook_cmd='node "$HOME/.claude/b-agentic/hooks/b-old-hook.mjs"'
-# plant_old_hook <home> <matcher>: simulate the previous release, which shipped hooks/b-old-hook.mjs under <matcher>.
+# plant_old_hook <home> <matcher> [script]: simulate the previous release, which shipped hooks/<script> under <matcher>.
 plant_old_hook() {
-  local claude="$1/.claude" digest
-  printf 'old hook\n' >"$claude/b-agentic/hooks/b-old-hook.mjs"
-  digest=$(sha256sum "$claude/b-agentic/hooks/b-old-hook.mjs" | cut -d' ' -f1)
-  jq --arg k b-agentic/hooks/b-old-hook.mjs --arg d "$digest" --arg m "$2" --arg c "$old_hook_cmd" \
+  local claude="$1/.claude" script=${3:-b-old-hook.mjs} digest command
+  command=${old_hook_cmd//b-old-hook.mjs/$script}
+  printf 'old hook\n' >"$claude/b-agentic/hooks/$script"
+  digest=$(sha256sum "$claude/b-agentic/hooks/$script" | cut -d' ' -f1)
+  jq --arg k "b-agentic/hooks/$script" --arg d "$digest" --arg m "$2" --arg c "$command" \
     '.files[$k] = $d | .settings.hooks += [{event: "PreToolUse", matcher: $m, hook: {type: "command", command: $c}}]' \
     "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
-  jq --arg m "$2" --arg c "$old_hook_cmd" '.hooks.PreToolUse += [{matcher: $m, hooks: [{type: "command", command: $c}]}]' \
+  jq --arg m "$2" --arg c "$command" '.hooks.PreToolUse += [{matcher: $m, hooks: [{type: "command", command: $c}]}]' \
     "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
 }
-# settings_has_old_hook <home>: true when settings.json still names the old script.
-settings_has_old_hook() { jq -e '[.. | objects | select(.command? != null) | select(.command | contains("b-old-hook"))] | length > 0' "$1/.claude/settings.json" >/dev/null; }
+# settings_has_old_hook <home> [script]: true when settings.json still names the old script.
+settings_has_old_hook() { jq -e --arg s "${2:-b-old-hook.mjs}" '[.. | objects | select(.command? != null) | select(.command | contains($s))] | length > 0' "$1/.claude/settings.json" >/dev/null; }
 
 home=$(fresh_home hook-retire)
 claude="$home/.claude"
@@ -594,6 +597,28 @@ else
   done
 fi
 echo "install probe passed: hook-retire"
+
+# --- the real retired Codex guard: hook entry and script go, the user's approval store stays ---
+home=$(fresh_home guard-retire)
+claude="$home/.claude"
+run "$home"; expect_ok "install before retiring the Codex guard"
+if grep -Fq 'no longer read' <<<"$out"; then fail "a note about the approval file needs the file to exist"; fi
+plant_old_hook "$home" Bash b-codex-guard.mjs
+jq '(.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks) += [{type: "command", command: "echo mine"}]' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+printf '["/repo"]\n' >"$claude/b-agentic/codex-approved-repos.json"
+run "$home"; expect_ok "upgrade over the Codex guard"
+[ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the Codex guard script was not removed"
+if settings_has_old_hook "$home" b-codex-guard.mjs; then fail "settings still run the Codex guard"; fi
+[ "$(jq -c '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command]' "$claude/settings.json")" = '["echo mine"]' ] || fail "the user's Bash hook was lost: $(cat "$claude/settings.json")"
+[ "$(cat "$claude/b-agentic/codex-approved-repos.json")" = '["/repo"]' ] || fail "the user's approval store was touched"
+grep -Fq 'no longer read' <<<"$out" || fail "no note about the leftover approval file: $out"
+if grep -Fq 'no longer ships' <<<"$err"; then fail "a clean retirement must not warn: $err"; fi
+before=$(tree "$home")
+run "$home"; expect_ok "second upgrade after the Codex guard retirement"
+[ "$before" = "$(tree "$home")" ] || fail "a re-run after retiring the Codex guard changed files"
+run "$home" --uninstall; expect_ok "uninstall after the Codex guard retirement"
+[ -f "$claude/b-agentic/codex-approved-repos.json" ] || fail "uninstall removed the user's approval store"
+echo "install probe passed: guard-retire"
 
 # --- identical unmanaged kernel content is not ownership -------------------------------------------
 home=$(fresh_home kernel-source)

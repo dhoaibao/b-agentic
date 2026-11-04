@@ -44,13 +44,24 @@ follow-up dispositions are unchanged.
 
 The Codex wrapper (`b-codex-review.mjs`) and verdict mapper (`b-codex-verdict.mjs`)
 are removed, as is the `plugin.codex-review` capability and the installer's Codex
-prerequisite and plugin instructions. The `b-codex-guard` hook and its tests stay
-for now as a dormant tripwire for direct `/codex:*` calls and the user-owned
-approval store is left in place; removing them needs an installer change that
-retires hook entries no longer in the template (`plan_settings` retires permission
-rules but not hooks), so it is a separate change. Upgrades delete unmodified
-copies of the removed CLIs and keep modified ones with a warning, through the
-existing manifest logic.
+prerequisite and plugin instructions. Upgrades delete unmodified copies of the
+removed CLIs and keep modified ones with a warning, through the existing manifest
+logic.
+
+Refined 2026-11-04: the `b-codex-guard` hook, its OpenCode shell `ask` rules, the
+Codex branch of the OpenCode plugin, their tests, and the guard-only code in the
+snapshot CLI (`--check-protected` and the review-range scan) were removed in a
+second step. That step first made the installer retire a recorded hook entry that
+the template no longer ships: `plan_settings` previously retired permission rules
+but not hooks, so deleting the script would have left every Bash call running a
+missing file. `settings.json` now stops naming a script before the script is
+deleted; a hook the user edited, or one the manifest never recorded, is kept and
+reported together with its script until the entry is gone; such a kept guard
+cannot work any more (the snapshot CLI exports it imported were removed), so it
+errors without blocking on each Bash call until the user removes the entry. The
+user-owned
+`codex-approved-repos.json` is left in place with a note, never deleted. A direct
+`/codex:*` call is no longer checked by b-agentic.
 
 ## Consequences
 
@@ -62,8 +73,9 @@ existing manifest logic.
   (security, permissions, secrets) the user can still run the Codex plugin by hand
   as an extra opinion; it is not part of the gate.
 - Read-only is instructed on Claude Code (the tool list omits `Edit`, `Write`,
-  `NotebookEdit`, and nested delegation) and enforced by `permissions` on OpenCode.
-  Shell access can still mutate state. The fingerprint recomputation catches any
+  `NotebookEdit`, and nested delegation) and partly enforced by `permissions` on
+  OpenCode (`edit`, `subagent`, and `question` denied, no shell rule). Shell access
+  can still mutate state. The fingerprint recomputation catches any
   change to tracked or named files, not a change to an ignored or
   outside-repository file that was never named.
 - Whether PreToolUse hooks such as the path guard fire for subagent tool calls was
@@ -91,6 +103,6 @@ Evidence: [`skills/registry.yaml`](../../skills/registry.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
 [`tooling/validate/behavior.py`](../../tooling/validate/behavior.py),
 [`claude/bin/b-candidate-snapshot.mjs`](../../claude/bin/b-candidate-snapshot.mjs),
-[`claude/hooks/b-codex-guard.mjs`](../../claude/hooks/b-codex-guard.mjs),
+[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py),
 [`tests/install/claude-install-probe.sh`](../../tests/install/claude-install-probe.sh), and
 [`REFERENCE.md`](../../REFERENCE.md).

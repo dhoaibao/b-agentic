@@ -15,7 +15,8 @@ design" (OpenCode specialists pin `opencode_model`).
 
 Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md): the Codex
 review gate (the plugin, the `b-codex-review` wrapper, the `b-codex-verdict`
-mapper, and the approval flow they enforced) described in Context, under
+mapper, the `b-codex-guard` hook that checked direct plugin calls, and the
+approval flow they enforced) described in Context, under
 "Workflow and skill design", "Safety and approval design", and "Verification and
 change discipline". `b-review` now runs in the read-only `b-reviewer` subagent;
 those passages are kept as history.
@@ -187,7 +188,7 @@ Codex approval store's `B_AGENTIC_STATE_DIR`), and state files are opened
 without following symlinks.
 
 Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
-[`claude/hooks/b-codex-guard.mjs`](../../claude/hooks/b-codex-guard.mjs),
+`claude/hooks/b-codex-guard.mjs` (removed by [ADR-003](ADR-003-subagent-review-gate.md)),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
 [`claude/hooks/b-clickup-guard.mjs`](../../claude/hooks/b-clickup-guard.mjs), and

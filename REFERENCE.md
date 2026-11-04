@@ -118,10 +118,10 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
   not load two copies. OpenCode v2 does not read `CLAUDE.md`.
 - **Review gate** is the same read-only `b-reviewer` specialist
   (`claude-agent/opus#high`) as on Claude Code, so it needs no plugin and no
-  second login. The retired Codex gate's standing approval store
-  (`~/.config/opencode/b-agentic/codex-approved-repos.json`) is user data that is
-  left in place, and its approval-store commands still ask through shell rules
-  instead of a hook.
+  second login. The retired Codex gate's shell `ask` rules and guard script are
+  removed on upgrade; its standing approval store
+  (`~/.config/opencode/b-agentic/codex-approved-repos.json`) is user data that
+  nothing reads any more, so the installer leaves it and prints a note.
 - **Retired install.** A manifest from the removed OpenCode runtime is refused
   unless `--migrate-legacy` is passed, which backs up and removes only the paths
   that manifest names (`skills`, `agents`, `commands`, the whole-file `AGENTS.md`)
@@ -135,7 +135,6 @@ Known differences from Claude Code, accepted in ADR-002:
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Verify gate (blocks first stop) | Not ported: OpenCode has no documented way to block a session from stopping                                              |
 | ClickUp image-reference prompt  | Replaced by asking on every ClickUp create or update                                                                     |
-| Approval-store tripwire prompt  | Shell `ask` rules (`*b-codex-guard.mjs* --approve*`, the approvals file, `B_AGENTIC_STATE_DIR`)                          |
 | Path guard on `Grep`/`Glob`     | Native `read`/`edit` secret denies plus the plugin; `grep`/`glob` resources are not matched natively                     |
 | Hook `exit 2` block             | Plugin `setup` registers `ctx.tool.hook("execute.before")` and throws; the 2.1.4 loader fails that call with the message |
 | Outside-project writes prompt   | `external_directory` asks for reads as well as writes; managed install and temp directories are allowed                  |
@@ -241,22 +240,27 @@ Accepted trade-offs against the retired Codex gate:
   correlate; the independence comes from a fresh context, a separate review
   prompt, and a read-only role. For a high-risk change (security, permissions,
   secrets) you can still run the Codex plugin by hand as an extra opinion; it is
-  not part of the gate.
+  not part of the gate, and b-agentic no longer checks such a direct call (no
+  approval or protected-path check applies), so you run it at your own risk.
 - Read-only is instructed on Claude Code, not sandboxed: the tool list omits
   `Edit`, `Write`, `NotebookEdit`, and nested delegation, but shell access can
-  still mutate state. OpenCode enforces it through the agent's `permissions`.
+  still mutate state. OpenCode denies `edit`, `subagent`, and `question` through
+  the agent's `permissions`, but has no shell rule either.
   The fingerprint recomputation catches any change to tracked or named files,
   but not a change to an ignored or outside-repository file that was never named.
 - The reviewer reads the repository as the main session's provider already does,
   so no new recipient exists and no approval store is needed. Review never
   commits or pushes.
 
-The `b-codex-guard` PreToolUse hook stays as a dormant tripwire for accidental
-direct `/codex:*` calls while the plugin remains installed; it is no longer part
-of the gate and is a candidate for removal in a later change. The wrapper
-(`b-codex-review.mjs`) and the verdict mapper (`b-codex-verdict.mjs`) were
-removed, and an upgrade deletes unmodified copies and keeps modified ones with a
-warning.
+The Codex wrapper (`b-codex-review.mjs`), the verdict mapper
+(`b-codex-verdict.mjs`), the `b-codex-guard` hook and its OpenCode shell rules were
+removed. An upgrade retires them from an existing install: the installer drops the
+recorded `b-codex-guard` hook entry from `settings.json` before it deletes the
+script, deletes unmodified copies, keeps and reports an edited hook (and keeps its
+script until that entry is gone), and leaves your `codex-approved-repos.json` in
+place with a note. A kept, edited guard hook can no longer work, because the
+snapshot CLI exports it imported are gone: it errors without blocking on each Bash
+call until you remove the entry from `settings.json`.
 
 ## Permission boundary
 
@@ -281,7 +285,7 @@ are asked about but not pattern-denied, except `git -c <key=value> push` (the fo
 branches not named `main` or `master` also stay at the ask prompt. The
 `b-path-guard` hook applies the exact path rules to the file tools (including the
 `*.env.example` allowance that deny rules cannot express). Hooks:
-`b-path-guard`, `b-codex-guard`, and `b-clickup-guard` run before tools (`b-clickup-guard` asks before an
+`b-path-guard` and `b-clickup-guard` run before tools (`b-clickup-guard` asks before an
 auto-approved ClickUp `createTask` or `updateTask` whose markdown references an image other than an
 existing ClickUp attachment URL, since the MCP uploads local and downloaded images); `b-verify-gate` tracks
 edits and, when the main session edited a non-prose file after its last non-inspection shell

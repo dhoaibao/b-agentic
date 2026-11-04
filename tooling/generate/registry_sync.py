@@ -781,10 +781,6 @@ def render_hooks() -> dict[str, Any]:
                 "hooks": [{"type": "command", "command": hook_command("b-path-guard.mjs")}],
             },
             {
-                "matcher": "Bash",
-                "hooks": [{"type": "command", "command": hook_command("b-codex-guard.mjs")}],
-            },
-            {
                 "matcher": "mcp__clickup__createTask|mcp__clickup__updateTask",
                 "hooks": [{"type": "command", "command": hook_command("b-clickup-guard.mjs")}],
             },
@@ -852,8 +848,6 @@ OPENCODE_CONFIGS_DIR = OPENCODE_DIR / "configs"
 OPENCODE_TEMPLATE_PATH = OPENCODE_CONFIGS_DIR / "opencode.template.json"
 OPENCODE_CLICKUP_PATH = OPENCODE_CONFIGS_DIR / "opencode.clickup.json"
 OPENCODE_KERNEL_PATH = OPENCODE_CONFIGS_DIR / "kernel.md"
-# The Claude Code hooks prompt on these; OpenCode has no hook that can ask, so they are shell rules.
-OPENCODE_EXTRA_SHELL_ASK = ("*b-codex-guard.mjs* --approve*", "*codex-approved-repos.json*", "*B_AGENTIC_STATE_DIR*")
 # The Claude Code ClickUp guard asks only for image references; OpenCode cannot, so every
 # trusted mutation asks there instead of running unprompted.
 OPENCODE_ASKED_CLASSES = ("trusted-mutation",)
@@ -937,7 +931,7 @@ def render_opencode_permissions(policy: dict[str, Any]) -> list[dict[str, str]]:
     unmanaged `<server>_<tool>`, each managed server asks by default, and its classified tools follow;
     the installer appends this block last."""
     shell_ask, shell_deny = shell_pattern_rules()
-    rules = [opencode_rule("shell", "ask", pattern) for pattern in [*shell_ask, *OPENCODE_EXTRA_SHELL_ASK]]
+    rules = [opencode_rule("shell", "ask", pattern) for pattern in shell_ask]
     rules += [opencode_rule("shell", "deny", pattern) for pattern in shell_deny]
     for tool in ("read", "edit"):
         rules += [opencode_rule(tool, "deny", glob) for glob in opencode_secret_globs()]
@@ -1385,7 +1379,7 @@ def validate_opencode_outputs(
     if len({json.dumps(rule, sort_keys=True) for rule in rules}) != len(rules):
         errors.append("opencode template: permissions must not repeat a rule (the installer removes each once)")
     shell_ask, shell_deny = shell_pattern_rules()
-    for effect, patterns in (("ask", [*shell_ask, *OPENCODE_EXTRA_SHELL_ASK]), ("deny", shell_deny)):
+    for effect, patterns in (("ask", shell_ask), ("deny", shell_deny)):
         got = [rule["resource"] for rule in rules if rule["action"] == "shell" and rule["effect"] == effect]
         if got != patterns:
             errors.append(f"opencode template: shell {effect} rules differ from the Claude settings layer")

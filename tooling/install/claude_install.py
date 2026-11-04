@@ -902,6 +902,11 @@ class Installer:
             "  1. Restart Claude Code so skills, agents, hooks, settings, and MCP servers load.",
             "  2. The independent review gate is the read-only b-reviewer subagent; it needs no extra login or plugin.",
         ]
+        if (self.assets_dir / "codex-approved-repos.json").is_file():
+            lines.append(
+                f"  Note: {self.assets_dir / 'codex-approved-repos.json'} is left over from the retired Codex review "
+                "gate and is no longer read; delete it if you do not need it."
+            )
         if missing:
             lines.append(
                 f"  Tools not found on PATH (install them to enable the affected workflows): {', '.join(missing)}"

@@ -12,7 +12,7 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | `mcp.clickup.json` | same file | Optional ClickUp stdio server (`bunx`, pinned), added only after install opt-in |
 | none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules |
 | `agents/b-*.md` | `agents/b-*.md` | Five generated read-only specialist profiles (tool allowlists, no editing tools), including `b-reviewer` |
-| `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-codex-guard`, `b-clickup-guard`, `b-verify-gate` |
+| `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-clickup-guard`, `b-verify-gate` |
 | `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot` (the candidate fingerprint used by the review gate) |
 | `../../skills/*/SKILL.md` | `skills/b-*/SKILL.md` | Generated skills, also the `/b-*` commands |
 | `../../references/kernel.template.md` | block in `CLAUDE.md` | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` |
@@ -20,11 +20,14 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 The installer records everything it owns in `b-agentic/install.json`, backs up
 each user file it changes under `b-agentic/backups/`, keeps files you modified,
 refuses a symlinked managed directory or manifest, writes through (never replaces)
-a symlinked config file, and never writes under `~/.pi`. State written at run time
-lives in `b-agentic/`: `codex-approved-repos.json` (a standing per-repository
-approval left by the retired Codex review gate) is user data and is not removed by a
-reinstall. `b-codex-guard` stays as a dormant tripwire for direct
-`/codex:*` calls.
+a symlinked config file, and never writes under `~/.pi`. A hook entry or file an
+earlier release recorded and this one no longer ships (for example the retired
+`b-codex-guard` hook) is retired on upgrade: `settings.json` stops naming a script
+before the script is deleted, a hook you edited is kept and reported, and its
+script is kept until that entry is gone. State written at run time lives in
+`b-agentic/`: `codex-approved-repos.json` (a standing per-repository approval left
+by the retired Codex review gate) is user data that nothing reads any more; the
+installer leaves it in place and prints a note when it exists.
 
 Servers use Claude Code's standard shape (`type` `stdio` or `http`). Credentials
 are environment references; expansion of those references in the user-scope MCP

@@ -104,7 +104,7 @@ Gap handling on OpenCode:
 | Outside-project writes         | the main session asks on `external_directory` (reads included, as OpenCode cannot tell them apart), except `~/.config/opencode`, `~/.claude`, `~/.local/share/opencode`, `/tmp/opencode`                          |
 | Unclassified MCP tools         | `*_*` asks in the main session; managed servers then ask by default and follow their class                                                                                                                        |
 | ClickUp guard (asks on images) | every ClickUp create or update asks                                                                                                                                                                               |
-| Approval-store tripwire        | shell `ask` rules for the approve command, the approvals file, and the state-dir variable                                                                                                                         |
+| Approval-store tripwire        | superseded by ADR-003: removed with the `b-codex-guard` hook; the installer retires the three shell `ask` rules on upgrade                                                                                        |
 | Verify gate                    | not ported: a session cannot be blocked from stopping                                                                                                                                                             |
 | Codex gate                     | superseded by ADR-003: the `b-reviewer` subagent, no shared companion or approval logic                                                                                                                           |
 

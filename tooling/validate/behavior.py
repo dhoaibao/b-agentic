@@ -1053,7 +1053,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "Treat a `SELECT` with side effects as a write",
                 "Run a write only when the user explicitly asks for it and names the connection and intent",
                 "then confirm with `AskUserQuestion`",
-                "Never forward results to other MCP tools, Codex review, ClickUp, Notion, subagents, or repository files",
+                "Never forward results to other MCP tools, ClickUp, Notion, subagents, or repository files",
                 "Never put a password or token in tool arguments",
                 "never bypass or retry around a denial",
                 "Report only effects confirmed per call",

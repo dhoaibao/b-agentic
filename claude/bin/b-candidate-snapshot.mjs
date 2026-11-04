@@ -2,9 +2,8 @@
 // b-agentic candidate snapshot: a read-only CLI that computes the kernel's
 // frozen-review-candidate identity so the model does not hash it by hand.
 // Usage: b-candidate-snapshot.mjs [--include-ignored <path>]... [--fingerprint]
-//        b-candidate-snapshot.mjs --check-protected
-// Exit: 0 complete, 3 incomplete (protected/submodule/unhashable content) or
-// blocking protected paths, 2 refused or failed. Output is JSON on stdout.
+// Exit: 0 complete, 3 incomplete (protected/submodule/unhashable content),
+// 2 refused or failed. Output is JSON on stdout.
 //
 // Identity = HEAD, SHA-256 of the staged and unstaged binary diffs, and the
 // sorted relevant untracked paths with type and content digest. Git-ignored
@@ -16,9 +15,7 @@
 // A tracked file that git is told to skip (assume-unchanged, or skip-worktree
 // while the file exists on disk) is listed in `index_flags` and also makes the
 // snapshot incomplete, since both diffs would omit its edits. The index is
-// never modified. `--check-protected` additionally refuses untracked,
-// non-ignored symlinks (never followed), and `resolveReviewRange` scans a
-// `--base` review's merge-base..HEAD range by path only.
+// never modified.
 //
 // Git always runs as an argv (no shell). GIT_OPTIONAL_LOCKS=0 keeps it from
 // refreshing the index, and the tool refuses when a repository clean/process
@@ -651,253 +648,8 @@ export async function computeSnapshot(cwd, signal, includeIgnored = []) {
   return { ...body, fingerprint };
 }
 
-// Metadata-only protected-path scan for the Codex secret guard. It lists
-// protected paths by name and never reads, hashes, or diffs file content.
-// Tracked and untracked-not-ignored protected paths are blocking; ignored ones
-// are reported as warnings because the caller accepts that residual risk.
-export async function checkProtected(cwd, signal) {
-  // Same pre-spawn refusal as computeSnapshot: a lossily decoded working
-  // directory can name a different, UTF-8 lookalike repository.
-  if (cwd.includes("\uFFFD")) {
-    throw new Error(
-      "snapshot refused: working directory path is not valid UTF-8 (contains U+FFFD)",
-    );
-  }
-  const rootRaw = await gitOk(cwd, ["rev-parse", "--show-toplevel"], signal);
-  const rootBytes =
-    rootRaw[rootRaw.length - 1] === 0x0a ? rootRaw.subarray(0, -1) : rootRaw;
-  const top = rootBytes.toString("utf8");
-  if (!Buffer.from(top, "utf8").equals(rootBytes)) {
-    throw new Error("snapshot refused: repository root is not valid UTF-8");
-  }
-  const indexRecords = splitZ(
-    await gitOk(top, ["ls-files", "-s", "-z", "--full-name"], signal),
-  );
-  const trackedRaws = [];
-  const opaque = [];
-  for (const record of indexRecords) {
-    const tab = record.indexOf(0x09);
-    const mode = record.subarray(0, tab).toString("utf8").split(" ")[0];
-    const raw = record.subarray(tab + 1);
-    trackedRaws.push(raw);
-    // A submodule's own files are not enumerated by the parent repository, so
-    // protected paths inside it cannot be ruled out by name.
-    if (mode === "160000") {
-      const item = entry(raw);
-      opaque.push({ path: item.label, path_hex: item.hex, kind: "submodule" });
-    }
-  }
-  const untrackedRaws = splitZ(
-    await gitOk(
-      top,
-      ["ls-files", "--others", "--exclude-standard", "-z", "--full-name"],
-      signal,
-    ),
-  );
-  const untrackedNames = [];
-  const symlinks = [];
-  for (const raw of untrackedRaws) {
-    // Git lists an untracked embedded repository as one `dir/` entry without
-    // its descendants; it is an opaque boundary, and its name still has to be
-    // matched without the slash.
-    if (raw[raw.length - 1] === 0x2f) {
-      const item = entry(raw.subarray(0, -1));
-      opaque.push({
-        path: item.label,
-        path_hex: item.hex,
-        kind: "embedded-repository",
-      });
-      untrackedNames.push(raw.subarray(0, -1));
-    } else {
-      untrackedNames.push(raw);
-      // The plugin inlines untracked files by following links, so a link with
-      // an innocent name can pull in a file the name scan never sees. lstat
-      // never follows it; the target is not read, hashed, or resolved here.
-      const full = Buffer.concat([Buffer.from(`${top}/`), raw]);
-      let kind = null;
-      try {
-        if ((await lstat(full)).isSymbolicLink()) kind = "symlink";
-      } catch {
-        kind = "unreadable";
-      }
-      if (kind !== null) {
-        const item = entry(raw);
-        symlinks.push({ path: item.label, path_hex: item.hex, kind });
-      }
-    }
-  }
-  const lists = {
-    tracked: [
-      ...trackedRaws,
-      ...splitZ(
-        await gitOk(
-          top,
-          [
-            "diff",
-            "--cached",
-            "--name-only",
-            "-z",
-            "--no-renames",
-            "--ignore-submodules=none",
-          ],
-          signal,
-        ),
-      ),
-    ],
-    untracked: untrackedNames,
-    ignored: splitZ(
-      await gitOk(
-        top,
-        [
-          "ls-files",
-          "--others",
-          "--ignored",
-          "--exclude-standard",
-          "-z",
-          "--full-name",
-        ],
-        signal,
-      ),
-    ),
-  };
-  const found = new Map();
-  for (const [where, raws] of Object.entries(lists)) {
-    for (const item of sortedEntries(raws)) {
-      if (!isProtected(item.match)) continue;
-      const key = item.raw.toString("hex");
-      const record = found.get(key) ?? {
-        path: item.label,
-        path_hex: item.hex,
-        where: [],
-      };
-      record.where.push(where);
-      found.set(key, record);
-    }
-  }
-  const protectedPaths = [...found.values()];
-  const blocking = protectedPaths.filter(
-    (item) =>
-      item.where.includes("tracked") || item.where.includes("untracked"),
-  );
-  return {
-    schema: "b-protected-check/2",
-    protected: protectedPaths,
-    blocking: blocking.map((item) => item.path),
-    // Submodules and embedded repositories hide their descendants from a
-    // name-based scan, so they fail the guard closed.
-    opaque,
-    // Untracked, non-ignored links are refused: stage, ignore, or remove them.
-    symlinks,
-    ok: blocking.length === 0 && opaque.length === 0 && symlinks.length === 0,
-  };
-}
-
-// `git diff|log --raw -z --no-renames` prints `:<old> <new> <oldsha> <newsha>
-// <status>` and then the path, each NUL-terminated. Any other shape is refused
-// so an unparsed record can never hide a path from the scan.
-function parseRawRecords(output) {
-  const tokens = splitZ(output);
-  const records = [];
-  for (let index = 0; index < tokens.length; index += 2) {
-    const meta = tokens[index].toString("latin1");
-    const raw = tokens[index + 1];
-    if (!/^:\d{6} \d{6} [0-9a-f]+ [0-9a-f]+ [A-Z]\d*$/.test(meta) || !raw) {
-      throw new Error("review range refused: unexpected git raw output");
-    }
-    const [oldMode, newMode] = meta.slice(1).split(" ");
-    records.push({
-      raw,
-      gitlink: oldMode === "160000" || newMode === "160000",
-    });
-  }
-  return records;
-}
-
-// Metadata-only scan of everything a base review sends to the plugin: the net
-// diff of merge-base..HEAD plus every commit inside it, so a protected path
-// that was deleted, renamed, or added and removed within the range is still
-// found. It resolves the base once so the caller can pass an immutable commit
-// id to the plugin. It lists names and modes only and never prints a patch.
-// Merge commits are not diffed on their own (no -m); the net diff covers them.
-export async function resolveReviewRange(cwd, base, signal) {
-  if (
-    typeof base !== "string" ||
-    base === "" ||
-    base.startsWith("-") ||
-    base.includes("\0")
-  ) {
-    throw new Error(
-      "review range refused: --base needs a ref name that is non-empty and does not start with '-'",
-    );
-  }
-  const top = await resolveTop(cwd, signal);
-  const resolve = async (args, problem) => {
-    const result = await git(top, args, signal);
-    const text = result.stdout.toString("utf8").trim();
-    if (result.code !== 0 || text === "") {
-      throw new Error(`review range refused: ${problem}`);
-    }
-    return text;
-  };
-  const head = await resolve(
-    ["rev-parse", "--verify", "-q", "HEAD^{commit}"],
-    "the repository has no commit to review",
-  );
-  const baseOid = await resolve(
-    ["rev-parse", "--verify", "-q", `${base}^{commit}`],
-    `base '${base}' does not name a commit`,
-  );
-  const mergeBase = await resolve(
-    ["merge-base", baseOid, head],
-    `base '${base}' shares no history with HEAD`,
-  );
-  const listing = ["--raw", "-z", "--no-renames", "--ignore-submodules=none"];
-  const guard = ["--no-ext-diff", "--no-textconv"];
-  const records = [
-    ...parseRawRecords(
-      await gitOk(
-        top,
-        ["diff", ...listing, ...guard, mergeBase, head, "--"],
-        signal,
-      ),
-    ),
-    ...parseRawRecords(
-      await gitOk(
-        top,
-        [
-          "log",
-          "--format=",
-          ...listing,
-          ...guard,
-          `${mergeBase}..${head}`,
-          "--",
-        ],
-        signal,
-      ),
-    ),
-  ];
-  const links = records.filter((record) => record.gitlink);
-  const blocking = sortedEntries(records.map((record) => record.raw))
-    .filter((item) => isProtected(item.match))
-    .map((item) => item.label);
-  const opaque = sortedEntries(links.map((record) => record.raw)).map(
-    (item) => ({ path: item.label, path_hex: item.hex, kind: "submodule" }),
-  );
-  return {
-    schema: "b-review-range/1",
-    base_ref: base,
-    base_oid: baseOid,
-    merge_base: mergeBase,
-    head,
-    blocking,
-    opaque,
-    ok: blocking.length === 0 && opaque.length === 0,
-  };
-}
-
 async function main(argv) {
   const includeIgnored = [];
-  let mode = "snapshot";
   let fingerprintOnly = false;
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
@@ -906,14 +658,8 @@ async function main(argv) {
       if (value === undefined)
         throw new Error("--include-ignored needs a path");
       includeIgnored.push(value);
-    } else if (arg === "--check-protected") mode = "check";
-    else if (arg === "--fingerprint") fingerprintOnly = true;
+    } else if (arg === "--fingerprint") fingerprintOnly = true;
     else throw new Error(`unknown argument: ${arg}`);
-  }
-  if (mode === "check") {
-    const result = await checkProtected(process.cwd());
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    return result.ok ? 0 : 3;
   }
   const snapshot = await computeSnapshot(
     process.cwd(),

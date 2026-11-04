@@ -898,15 +898,6 @@
         ]
       },
       {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$HOME/.claude/b-agentic/hooks/b-codex-guard.mjs\""
-          }
-        ]
-      },
-      {
         "matcher": "mcp__clickup__createTask|mcp__clickup__updateTask",
         "hooks": [
           {

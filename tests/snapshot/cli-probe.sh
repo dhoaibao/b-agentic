@@ -179,43 +179,6 @@ if [ "$unreadable" = 0 ]; then
 fi
 grep -Fq TOPSECRET "$work/g.json" && fail "protected content reached the output"
 
-# --check-protected: metadata-only guard for the Codex review gate.
-snap "$guarded" "$work/gp.json" --check-protected
-[ "$(rc_of "$work/gp.json")" = 3 ] || fail "--check-protected must block when protected paths are tracked or untracked"
-[ "$(jq -r '.blocking | sort | join(",")' "$work/gp.json")" = ".env,hex:secrets.yaml,secrets.store/a.txt,secrets.yaml" ] || fail "blocking list wrong: $(jq -c .blocking "$work/gp.json")"
-[ "$(jq -r .ok "$work/gp.json")" = false ] || fail "--check-protected ok must be false"
-grep -Fq TOPSECRET "$work/gp.json" && fail "--check-protected exposed content"
-# Ignored-only protected files are warnings, not blockers (accepted residual risk).
-snap "$ign" "$work/ip.json" --check-protected
-[ "$(rc_of "$work/ip.json")" = 0 ] || fail "ignored-only protected files must not block"
-[ "$(jq -r '[.protected[] | select(.where | index("ignored"))] | length' "$work/ip.json")" = 1 ] || fail "ignored protected path not reported by --check-protected"
-[ "$(jq -r '.blocking | length' "$work/ip.json")" = 0 ] || fail "ignored-only protected file reported as blocking"
-snap "$clean" "$work/cp.json" --check-protected
-[ "$(rc_of "$work/cp.json")" = 3 ] || fail "an untracked symlink must block --check-protected"
-[ "$(jq -r '[.symlinks[].path] | join(",")' "$work/cp.json")" = link ] && [ "$(jq -r .ok "$work/cp.json")" = false ] || fail "the symlink must be listed by path: $(cat "$work/cp.json")"
-[ "$(jq -r .schema "$work/cp.json")" = "b-protected-check/2" ] || fail "protected-check schema changed"
-# A symlink to a file outside the repository is refused by name only; the target is never read.
-printf 'TOPSECRET=1\n' >"$work/outside-target"
-linked="$work/linked"
-make_repo "$linked"
-ln -s "$work/outside-target" "$linked/notes.txt"
-snap "$linked" "$work/lp.json" --check-protected
-[ "$(rc_of "$work/lp.json")" = 3 ] || fail "an untracked symlink to an outside file must block --check-protected"
-grep -Fq TOPSECRET "$work/lp.json" && fail "--check-protected followed a symlink"
-# Ignored and staged symlinks, and a repository without links, pass.
-printf 'notes.txt\n' >"$linked/.gitignore"
-git -C "$linked" add .gitignore && git -C "$linked" commit -qm ignore
-snap "$linked" "$work/lp2.json" --check-protected
-[ "$(rc_of "$work/lp2.json")" = 0 ] || fail "an ignored symlink must pass --check-protected"
-ln -s a.txt "$linked/staged.txt"
-git -C "$linked" add staged.txt
-snap "$linked" "$work/lp3.json" --check-protected
-[ "$(rc_of "$work/lp3.json")" = 0 ] || fail "a staged symlink must pass --check-protected"
-nolinks="$work/nolinks"
-make_repo "$nolinks"
-snap "$nolinks" "$work/np.json" --check-protected
-[ "$(rc_of "$work/np.json")" = 0 ] || fail "a repository with no protected paths or links must pass --check-protected"
-[ "$(jq -r '.symlinks | length' "$work/np.json")" = 0 ] || fail "a clean repository must list no symlinks"
 echo "snapshot probe passed: protected"
 
 # --- index flags: a tracked edit that git is told to ignore must not look complete ------------
@@ -363,44 +326,15 @@ if mkdir "$rawdir" 2>/dev/null; then
   ln -s "$rawdir" "$work/rawroot/link"
   snap "$work/rawroot/link" "$work/rawroot.json"
   expect_refused "$work/rawroot.json" "non-UTF-8 repository root must be refused"
-  # The secret guard must refuse the same lookalike instead of scanning the sibling.
-  snap "$work/rawroot/link" "$work/rawroot-check.json" --check-protected
-  expect_refused "$work/rawroot-check.json" "--check-protected must refuse a non-UTF-8 repository root"
-  [ ! -s "$work/rawroot-check.json" ] || fail "--check-protected printed a result for a lookalike repository"
-  # A non-UTF-8 subtree beneath a valid root is refused in both modes.
+  # A non-UTF-8 subtree beneath a valid root is refused too.
   make_repo "$work/validroot"
   mkdir "$work/validroot/sub$(printf '\377')"
   snap "$work/validroot/sub$(printf '\377')" "$work/rawsub.json"
   expect_refused "$work/rawsub.json" "non-UTF-8 subtree cwd must be refused"
-  snap "$work/validroot/sub$(printf '\377')" "$work/rawsub-check.json" --check-protected
-  expect_refused "$work/rawsub-check.json" "--check-protected must refuse a non-UTF-8 subtree cwd"
   echo "snapshot probe passed: non-utf8-root"
 else
   echo "snapshot probe skipped: non-utf8-root (filesystem rejects raw bytes)"
 fi
-
-# --- guard boundaries: opaque repositories fail the guard closed ---------------
-snap "$subrepo" "$work/gsub.json" --check-protected
-[ "$(rc_of "$work/gsub.json")" = 3 ] || fail "--check-protected must block on a submodule gitlink (exit $(rc_of "$work/gsub.json"))"
-[ "$(jq -r '[.opaque[] | select(.kind == "submodule") | .path] | join(",")' "$work/gsub.json")" = vendor ] || fail "submodule not reported as opaque"
-[ "$(jq -r .ok "$work/gsub.json")" = false ] || fail "submodule guard ok must be false"
-
-embedded="$work/embedded"
-make_repo "$embedded"
-git init -q "$embedded/nested.env"
-git init -q "$embedded/tools"
-snap "$embedded" "$work/gemb.json" --check-protected
-[ "$(rc_of "$work/gemb.json")" = 3 ] || fail "--check-protected must block on embedded repositories (exit $(rc_of "$work/gemb.json"))"
-[ "$(jq -r '[.opaque[] | select(.kind == "embedded-repository") | .path] | sort | join(",")' "$work/gemb.json")" = "nested.env,tools" ] || fail "embedded repositories not reported as opaque: $(jq -c .opaque "$work/gemb.json")"
-[ "$(jq -r '.blocking | join(",")' "$work/gemb.json")" = "nested.env" ] || fail "embedded repository with a protected name was not blocking"
-
-innocent="$work/innocent"
-make_repo "$innocent"
-git init -q "$innocent/tools"
-snap "$innocent" "$work/ginn.json" --check-protected
-[ "$(rc_of "$work/ginn.json")" = 3 ] || fail "an innocuously named embedded repository must still block the guard"
-[ "$(jq -r '.blocking | length' "$work/ginn.json")" = 0 ] || fail "innocuous embedded repository must not be listed as a protected path"
-echo "snapshot probe passed: guard-boundaries"
 
 # --- symlinked launcher still runs the CLI --------------------------------------
 ln -s "$cli" "$work/launcher.mjs"
@@ -412,8 +346,6 @@ echo "snapshot probe passed: launcher"
 mkdir -p "$work/plain"
 snap "$work/plain" "$work/plain.json"
 expect_refused "$work/plain.json" "non-repository should fail"
-snap "$work/plain" "$work/plain-check.json" --check-protected
-expect_refused "$work/plain-check.json" "--check-protected outside a repository should fail"
 [ ! -s "$work/plain.json" ] || fail "a failed snapshot printed output on stdout"
 echo "snapshot probe passed: non-repository"
 
