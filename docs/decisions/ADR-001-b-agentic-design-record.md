@@ -13,6 +13,13 @@ single-runtime statement in Context, the `~/.claude`-only boundary under
 Consequences, and the Anthropic-models-only statement under "Workflow and skill
 design" (OpenCode specialists pin `opencode_model`).
 
+Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md): the Codex
+review gate (the plugin, the `b-codex-review` wrapper, the `b-codex-verdict`
+mapper, and the approval flow they enforced) described in Context, under
+"Workflow and skill design", "Safety and approval design", and "Verification and
+change discipline". `b-review` now runs in the read-only `b-reviewer` subagent;
+those passages are kept as history.
+
 ## Context
 
 b-agentic supports one runtime, Claude Code. It ships an always-loaded kernel,
@@ -180,7 +187,6 @@ Codex approval store's `B_AGENTIC_STATE_DIR`), and state files are opened
 without following symlinks.
 
 Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
-[`claude/bin/b-codex-review.mjs`](../../claude/bin/b-codex-review.mjs),
 [`claude/hooks/b-codex-guard.mjs`](../../claude/hooks/b-codex-guard.mjs),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
@@ -326,8 +332,7 @@ repository filter would run a program or the repository is a partial clone. With
 
 Evidence: [`scripts/validate-skills.sh`](../../scripts/validate-skills.sh),
 [`tooling/validate/behavior.py`](../../tooling/validate/behavior.py),
-[`claude/bin/b-candidate-snapshot.mjs`](../../claude/bin/b-candidate-snapshot.mjs),
-and [`claude/bin/b-codex-verdict.mjs`](../../claude/bin/b-codex-verdict.mjs).
+and [`claude/bin/b-candidate-snapshot.mjs`](../../claude/bin/b-candidate-snapshot.mjs).
 
 ## Consequences
 

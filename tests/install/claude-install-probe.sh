@@ -67,8 +67,9 @@ pi_before=$(tree "$home/.pi")
 run "$home"; expect_ok "fresh install"
 claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
-[ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 4 ] || fail "agent count"
-for file in bin/b-candidate-snapshot.mjs bin/b-codex-verdict.mjs bin/b-codex-review.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+[ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
+[ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
+for file in bin/b-candidate-snapshot.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
@@ -86,8 +87,8 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 9 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must be opt-in"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
-grep -Fq '/plugin install codex@openai-codex' <<<"$out" || fail "plugin commands not printed"
-grep -Fq '/codex:setup' <<<"$out" || fail "setup command not printed"
+grep -Fq 'b-reviewer subagent' <<<"$out" || fail "review gate guidance not printed"
+if grep -Fq 'codex' <<<"$out"; then fail "install output must not mention the retired Codex plugin"; fi
 [ "$pi_before" = "$(tree "$home/.pi")" ] || fail "install changed the Pi tree"
 echo "install probe passed: fresh"
 
@@ -445,6 +446,25 @@ run "$home" --force; expect_ok "upgrade over an edited retired skill"
 [ -f "$claude/skills/b-pr-summary/SKILL.md" ] || fail "an edited retired skill was removed"
 grep -Fq 'modified since install' <<<"$err" || fail "no warning for the kept edited retired skill: $err"
 echo "install probe passed: skill-rename"
+
+# --- an upgrade retires the Codex review CLIs but keeps the user's approval store ---------------------
+home=$(fresh_home codex-retire)
+claude="$home/.claude"
+run "$home"; expect_ok "install before retiring the Codex review CLIs"
+[ -f "$claude/agents/b-reviewer.md" ] || fail "b-reviewer not installed"
+[ ! -e "$claude/b-agentic/bin/b-codex-review.mjs" ] || fail "retired b-codex-review installed"
+# Simulate the previous release: both CLIs installed and recorded in the manifest, plus a user-owned approval store.
+for cli in b-codex-review b-codex-verdict; do
+  printf 'old cli\n' >"$claude/b-agentic/bin/$cli.mjs"
+  digest=$(sha256sum "$claude/b-agentic/bin/$cli.mjs" | cut -d' ' -f1)
+  jq --arg k "b-agentic/bin/$cli.mjs" --arg d "$digest" '.files[$k] = $d' "$claude/b-agentic/install.json" >"$work/old-manifest.json" && mv "$work/old-manifest.json" "$claude/b-agentic/install.json"
+done
+printf '["/repo"]\n' >"$claude/b-agentic/codex-approved-repos.json"
+run "$home" --force; expect_ok "upgrade over the retired Codex review CLIs"
+[ ! -e "$claude/b-agentic/bin/b-codex-review.mjs" ] && [ ! -e "$claude/b-agentic/bin/b-codex-verdict.mjs" ] || fail "an unmodified retired CLI was not removed"
+[ "$(cat "$claude/b-agentic/codex-approved-repos.json")" = '["/repo"]' ] || fail "the user's approval store was touched"
+[ -f "$claude/agents/b-reviewer.md" ] || fail "the reviewer specialist disappeared on upgrade"
+echo "install probe passed: codex-retire"
 
 # --- identical unmanaged kernel content is not ownership -------------------------------------------
 home=$(fresh_home kernel-source)

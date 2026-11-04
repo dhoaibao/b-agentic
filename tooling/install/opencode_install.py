@@ -61,7 +61,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_SCHEMA = 1
 MANAGED_ROOTS = ("skills", "agents", "plugins", "b-agentic")
 LEGACY_KERNEL_MARKER = "<!-- b-agentic-managed -->"
-PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "opencode", "codex")
+PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "opencode")
 ENV_DIR_OVERRIDES = ("XDG_CONFIG_HOME", "OPENCODE_CONFIG_DIR", "B_AGENTIC_OPENCODE_DIR")
 
 
@@ -799,12 +799,7 @@ class Installer:
         lines = [
             "Next steps:",
             "  1. Restart OpenCode so skills, agents, the safety plugin, permissions, and MCP servers load.",
-            "  2. The independent review gate reuses the Claude Code codex plugin (~/.claude/plugins); without it,",
-            "     b-review reports the gate unavailable and asks. Install it from Claude Code:",
-            "       /plugin marketplace add openai/codex-plugin-cc",
-            "       /plugin install codex@openai-codex",
-            "       /codex:setup",
-            "  3. Approve each repository once for Codex review when b-review asks.",
+            "  2. The independent review gate is the read-only b-reviewer subagent; it needs no extra login or plugin.",
         ]
         if missing:
             lines.append(

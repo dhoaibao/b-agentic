@@ -1,7 +1,8 @@
 // b-agentic safety plugin for OpenCode. It reuses the Claude Code hook logic
 // installed beside it (`../b-agentic/hooks`), so both runtimes apply the same
-// rules: likely-secret paths are refused on file tools, and a Codex review that
-// would send an unapproved or unclean repository to Codex is refused on shell.
+// rules: likely-secret paths are refused on file tools, and a direct Codex plugin
+// review that would send an unapproved or unclean repository to Codex is refused on
+// shell (a dormant tripwire now that the review gate is the b-reviewer subagent).
 //
 // This is defense in depth. OpenCode's native `permissions` rules (the
 // installed opencode.json block) are the primary control; this plugin adds the

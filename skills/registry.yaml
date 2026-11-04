@@ -26,6 +26,12 @@
       "model": "opus",
       "effort": "xhigh",
       "opencode_model": "openai/gpt-6.1-sol#xhigh"
+    },
+    "b-reviewer": {
+      "description": "Independently review a frozen changed-code candidate read-only and return findings and a verdict to the main session.",
+      "model": "opus",
+      "effort": "xhigh",
+      "opencode_model": "claude-agent/opus#xhigh"
     }
   },
   "skills": [
@@ -387,7 +393,13 @@
     },
     {
       "name": "b-review",
-      "execution": {"mode": "main"},
+      "execution": {"mode": "subagent", "agent": "b-reviewer"},
+      "handoff": [
+        "baseline (branch, HEAD, ahead/behind, git status) and the review target: the working tree, or a base ref the main session resolved to a commit id",
+        "the review round number (1 for a first review; it prefixes finding IDs), acceptance criteria, fresh required-check results, the kernel risk triggers that apply, and the exact candidate paths",
+        "the frozen candidate fingerprint F0 from `node ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs` and every relevant ignored/derived path to pass as `--include-ignored`; never the implementer's rationale or a verdict to confirm",
+        "for a re-review: prior finding IDs, dispositions, correction paths, the main session's sibling-sweep scope, and regression-check results"
+      ],
       "phase": "Validate",
       "use": "Review changed code",
       "argument_hint": "[working tree or changes since a base ref]",

@@ -42,12 +42,7 @@ KERNEL_BLOCK_END = "<!-- b-agentic:end -->"
 MANIFEST_SCHEMA = 1
 MANAGED_ROOTS = ("skills", "agents", "b-agentic")
 SKILL_NAME = re.compile(r"^b-[a-z0-9-]+$")
-CODEX_PLUGIN_COMMANDS = (
-    "/plugin marketplace add openai/codex-plugin-cc",
-    "/plugin install codex@openai-codex",
-    "/codex:setup",
-)
-PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "claude", "codex")
+PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "claude")
 
 
 class InstallError(Exception):
@@ -844,10 +839,7 @@ class Installer:
         lines = [
             "Next steps:",
             "  1. Restart Claude Code so skills, agents, hooks, settings, and MCP servers load.",
-            "  2. For the independent review gate, run these in Claude Code (installer never runs them):",
-            *[f"       {command}" for command in CODEX_PLUGIN_COMMANDS],
-            "     then sign in to Codex and keep the plugin's review gate disabled (b-review is the gate).",
-            "  3. Approve each repository once for Codex review when b-review asks.",
+            "  2. The independent review gate is the read-only b-reviewer subagent; it needs no extra login or plugin.",
         ]
         if missing:
             lines.append(

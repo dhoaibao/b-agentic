@@ -6,31 +6,17 @@
     {
       "id": "agent.b-agentic-subagents",
       "kind": "agent",
-      "purpose": "Provide b-agentic's read-only planner, researcher, debugger, and auditor specialists through Claude Code subagents.",
+      "purpose": "Provide b-agentic's read-only planner, researcher, debugger, auditor, and reviewer specialists through Claude Code subagents.",
       "owner": "b-agentic installer",
-      "trigger": "Use when a delegated b-plan, b-research, b-debug, or b-agentic-audit workflow is selected.",
+      "trigger": "Use when a delegated b-plan, b-research, b-debug, b-agentic-audit, or b-review workflow is selected.",
       "prerequisites": ["Claude Code agent directory", "Managed agent profiles"],
-      "readiness": "All four managed profile files are present locally; model availability and authentication remain unverified.",
+      "readiness": "All five managed profile files are present locally; model availability and authentication remain unverified.",
       "fallback": "Do not claim delegated workflow readiness; sync the managed Claude Code agent profiles.",
       "status_signal": {"source": "local-agent-profile-files", "states": ["installed", "missing", "unknown"], "description": "Reports only managed profile-file presence; it does not read prompts, launch an agent, or claim authentication.", "sensitive": false},
-      "probe": {"type": "agent", "names": ["b-planner", "b-researcher", "b-debugger", "b-auditor"]},
-      "agent": {"names": ["b-planner", "b-researcher", "b-debugger", "b-auditor"], "source": "claude/agents"},
+      "probe": {"type": "agent", "names": ["b-planner", "b-researcher", "b-debugger", "b-auditor", "b-reviewer"]},
+      "agent": {"names": ["b-planner", "b-researcher", "b-debugger", "b-auditor", "b-reviewer"], "source": "claude/agents"},
       "install_state": {"action": "agentsAction", "state": "agentsState"},
       "source": {"installer": "tooling/install/claude_install.py", "profiles": "claude/agents"}
-    },
-    {
-      "id": "plugin.codex-review",
-      "kind": "plugin",
-      "purpose": "Provide the independent changed-code review gate by running OpenAI Codex through the openai/codex-plugin-cc plugin.",
-      "owner": "openai/codex-plugin-cc",
-      "trigger": "Use when b-review runs the independent gate for a frozen candidate.",
-      "prerequisites": ["Codex CLI with app-server support", "openai/codex-plugin-cc plugin installed in Claude Code", "User-completed Codex login", "Approved external transmission of the candidate"],
-      "readiness": "The user installed the plugin and signed in to Codex; local files do not prove either, and no review is run to check.",
-      "fallback": "Report the review gate unavailable and ask the user; never substitute a self-review for the independent gate.",
-      "status_signal": {"source": "local-plugin-install-state", "states": ["unknown", "blocked"], "description": "Reports only whether the installer printed the plugin setup commands; it never reads Codex credentials or starts a review.", "sensitive": false},
-      "probe": {"type": "plugin", "plugin": "codex@openai-codex", "command": "codex", "auth": "chatgpt-login-or-api-key"},
-      "install_state": {"action": "pluginAction", "state": "pluginState"},
-      "source": {"installer": "tooling/install/claude_install.py", "guard": "claude/hooks/b-codex-guard.mjs", "wrapper": "claude/bin/b-codex-review.mjs"}
     },
     {
       "id": "mcp.codegraph", "kind": "mcp", "purpose": "Answer repository-wide architecture, dependency, impact, route, and affected-test questions.", "owner": "CodeGraph MCP", "trigger": "Use first for code-structure, call-flow, and pre-edit impact questions in an indexed project.", "prerequisites": ["CodeGraph CLI", "Native MCP entry"], "readiness": "A local Claude Code MCP entry and launcher are present; index state and live health are not probed.", "fallback": "Use native local search and report the gap; never initialize or rebuild the index.", "status_signal": {"source": "local-config-file-presence-and-launcher", "states": ["unknown", "blocked"], "description": "Reports only local configuration presence and launcher metadata.", "sensitive": false}, "probe": {"type": "mcp", "server": "codegraph", "launcher": "codegraph", "required_env": [], "auth": "none"}, "mcp": {"server": "codegraph", "launcher": "codegraph", "required_env": [], "auth": "none"}, "install_state": {"action": "mcpAction", "state": "mcpState"}, "source": {"template": "claude/configs/mcp.base.json", "policy": "references/mcp_operations.yaml"}

@@ -3,7 +3,7 @@
 ## Repository Purpose
 
 b-agentic is a slim personal workflow kernel for Claude Code and OpenCode, with
-Codex as the independent reviewer. It ships the always-loaded kernel, skills that double as
+a read-only subagent as the independent reviewer. It ships the always-loaded kernel, skills that double as
 commands, managed MCP configuration, read-only specialist agents, safety hooks,
 and installer/validation tooling. See the [public
 overview](README.md) and [operational reference](REFERENCE.md).
@@ -28,7 +28,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 - Keep this supplement slim, strong, and usable: retain evidence-backed orientation, ownership, boundaries, and required flows, and link to deeper docs instead of copying setup, release, readiness, or diagnostic catalogs. This is the repository's b-init output quality standard; see [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).
 - `skills/registry.yaml`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, and `references/runtimes.yaml` use the JSON-compatible YAML subset consumed by generators and validators. Do not treat generated assets as canonical sources.
-- Installer and configuration changes cross a user-owned boundary: `tooling/install/` merges user configuration and preserves unrelated content, never writes under `~/.pi`, and each runtime's install leaves the other runtime's directory untouched, and templates do not prove live MCP or Codex readiness. See the [configuration layout](claude/configs/README.md) and the [operational reference](REFERENCE.md).
+- Installer and configuration changes cross a user-owned boundary: `tooling/install/` merges user configuration and preserves unrelated content, never writes under `~/.pi`, and each runtime's install leaves the other runtime's directory untouched, and templates do not prove live MCP or model readiness. See the [configuration layout](claude/configs/README.md) and the [operational reference](REFERENCE.md).
 - No database or migration files, infrastructure/deployment manifests, or external-service client source beyond installer/MCP integration is present. Do not invent conventions for absent surfaces; reassess when evidence appears.
 
 ## Verification

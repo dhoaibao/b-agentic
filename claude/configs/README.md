@@ -11,9 +11,9 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; nine servers, no stored credentials (`${VAR}` references) |
 | `mcp.clickup.json` | same file | Optional ClickUp stdio server (`bunx`, pinned), added only after install opt-in |
 | none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules |
-| `agents/b-*.md` | `agents/b-*.md` | Four generated read-only specialist profiles (tool allowlists, no editing tools) |
+| `agents/b-*.md` | `agents/b-*.md` | Five generated read-only specialist profiles (tool allowlists, no editing tools), including `b-reviewer` |
 | `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-codex-guard`, `b-clickup-guard`, `b-verify-gate` |
-| `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot`, `b-codex-review` (the enforced gate), `b-codex-verdict` |
+| `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot` (the candidate fingerprint used by the review gate) |
 | `../../skills/*/SKILL.md` | `skills/b-*/SKILL.md` | Generated skills, also the `/b-*` commands |
 | `../../references/kernel.template.md` | block in `CLAUDE.md` | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` |
 
@@ -21,8 +21,10 @@ The installer records everything it owns in `b-agentic/install.json`, backs up
 each user file it changes under `b-agentic/backups/`, keeps files you modified,
 refuses a symlinked managed directory or manifest, writes through (never replaces)
 a symlinked config file, and never writes under `~/.pi`. State written at run time
-lives in `b-agentic/`: `codex-approved-repos.json` (the standing per-repository
-approval to send code to Codex) is user data and is not removed by a reinstall.
+lives in `b-agentic/`: `codex-approved-repos.json` (a standing per-repository
+approval left by the retired Codex review gate) is user data and is not removed by a
+reinstall. `b-codex-guard` stays as a dormant tripwire for direct
+`/codex:*` calls.
 
 Servers use Claude Code's standard shape (`type` `stdio` or `http`). Credentials
 are environment references; expansion of those references in the user-scope MCP

@@ -17,7 +17,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LABEL = "docs/decisions/ADR-001-b-agentic-design-record.md"
 DECISION_PATH = ROOT / DEFAULT_LABEL
 # Later ADRs keep the header and top-level sections but not ADR-001's per-area evidence.
-LIGHT_LABELS = ("docs/decisions/ADR-002-dual-runtime-support.md",)
+LIGHT_LABELS = (
+    "docs/decisions/ADR-002-dual-runtime-support.md",
+    "docs/decisions/ADR-003-subagent-review-gate.md",
+)
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (
     "Product boundary and architecture",

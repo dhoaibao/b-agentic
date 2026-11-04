@@ -66,7 +66,7 @@ pi_before=$(tree "$home/.pi")
 run "$home"; expect_ok "fresh install"
 oc="$home/.config/opencode"
 [ "$(find "$oc/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
-[ "$(find "$oc/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 4 ] || fail "agent count"
+[ "$(find "$oc/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
 [ -f "$oc/plugins/b-agentic.js" ] || fail "plugin missing"
 [ -f "$oc/b-agentic/hooks/b-codex-guard.mjs" ] || fail "hooks missing"
 [ -f "$oc/b-agentic/install.json" ] || fail "manifest missing"
@@ -93,7 +93,9 @@ if grep -Eq "pre-approved|without a prompt|\`b-clickup-guard\` hook" "$oc/AGENTS
 fi
 grep -Fq 'require approval on every call' "$oc/skills/b-clickup/SKILL.md" || fail "ClickUp skill must require approval"
 if grep -Eq "\`/b-([a-z][a-z0-9-]*|<name>)\`" "$oc/AGENTS.md" "$oc/skills/b-commit/SKILL.md"; then fail "OpenCode must not recommend skill slash commands"; fi
-jq -e '.capabilities[] | select(.id == "plugin.codex-review") | .prerequisites | index("openai/codex-plugin-cc plugin installed in Claude Code") != null' "$oc/b-agentic/references/capabilities.yaml" >/dev/null || fail "Codex must retain its actual Claude plugin prerequisite"
+jq -e '[.capabilities[].id] | index("plugin.codex-review") == null' "$oc/b-agentic/references/capabilities.yaml" >/dev/null || fail "the retired Codex plugin capability must not be installed"
+[ -f "$oc/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
+jq -e '.capabilities[] | select(.id == "agent.b-agentic-subagents") | .agent.names | index("b-reviewer") != null' "$oc/b-agentic/references/capabilities.yaml" >/dev/null || fail "the subagent capability must name b-reviewer"
 
 # --- the doctors read the OpenCode install without connecting to anything -------------------------------
 doctor=$(python3 "$root/tooling/validate/skill_doctor.py" --runtime opencode --home "$home") || fail "skill doctor must pass on a fresh install: $doctor"
@@ -247,10 +249,10 @@ mkdir -p "$oc/b-agentic/commands" "$oc/b-agentic/skills" "$oc/skills/b-diagram" 
 printf 'legacy skill\n' >"$oc/skills/b-diagram/SKILL.md"
 printf 'legacy skill\n' >"$oc/skills/b-plan/SKILL.md"
 printf 'mine\n' >"$oc/skills/my-skill/SKILL.md"
-printf 'legacy agent\n' >"$oc/agents/b-reviewer.md"
+printf 'legacy agent\n' >"$oc/agents/b-retired-agent.md"
 printf 'legacy command\n' >"$oc/commands/b-plan.md"
 printf '<!-- b-agentic-managed -->\n\nlegacy kernel body\n' >"$oc/AGENTS.md"
-printf '{"suite":"b-agentic","runtime":"opencode","skills":["b-diagram","b-plan"],"agents":["b-reviewer"],"commands":["b-plan"]}\n' >"$oc/b-agentic/install.json"
+printf '{"suite":"b-agentic","runtime":"opencode","skills":["b-diagram","b-plan"],"agents":["b-retired-agent"],"commands":["b-plan"]}\n' >"$oc/b-agentic/install.json"
 printf '{"providers":{"zai":{}}}\n' >"$oc/opencode.json"
 before=$(tree "$home")
 run "$home"; expect_refused "a legacy install without --migrate-legacy"
@@ -260,7 +262,7 @@ run "$home" --migrate-legacy --dry-run; expect_ok "legacy migration dry run"
 [ "$(tree "$home")" = "$before" ] || fail "a legacy dry run wrote files"
 run "$home" --migrate-legacy; expect_ok "legacy migration"
 [ ! -e "$oc/skills/b-diagram" ] || fail "a retired skill was not removed"
-[ ! -e "$oc/agents/b-reviewer.md" ] && [ ! -e "$oc/commands/b-plan.md" ] || fail "retired agent or command left behind"
+[ ! -e "$oc/agents/b-retired-agent.md" ] && [ ! -e "$oc/commands/b-plan.md" ] || fail "retired agent or command left behind"
 [ -f "$oc/skills/b-plan/SKILL.md" ] || fail "b-plan must be installed"
 if grep -Fq 'legacy skill' "$oc/skills/b-plan/SKILL.md"; then fail "b-plan must be the new skill"; fi
 [ "$(cat "$oc/skills/my-skill/SKILL.md")" = mine ] || fail "a user skill was removed"
@@ -278,8 +280,8 @@ legacy_home() {
   home=$(fresh_home "$1")
   oc="$home/.config/opencode"
   mkdir -p "$oc/b-agentic" "$oc/agents"
-  printf 'legacy agent\n' >"$oc/agents/b-reviewer.md"
-  printf '{"suite":"b-agentic","runtime":"opencode","skills":["b-plan"],"agents":["b-reviewer"],"commands":[]}\n' >"$oc/b-agentic/install.json"
+  printf 'legacy agent\n' >"$oc/agents/b-retired-agent.md"
+  printf '{"suite":"b-agentic","runtime":"opencode","skills":["b-plan"],"agents":["b-retired-agent"],"commands":[]}\n' >"$oc/b-agentic/install.json"
   printf '%s' "$home"
 }
 
@@ -301,7 +303,7 @@ run "$home" --migrate-legacy; expect_refused "a legacy migration with a malforme
 [ "$(tree "$home")" = "$before" ] || fail "a migration deleted the legacy install before validating the replacement"
 printf '{}\n' >"$oc/opencode.json"
 run "$home" --migrate-legacy; expect_ok "the migration retry once the config is valid"
-[ ! -e "$oc/agents/b-reviewer.md" ] || fail "the retry did not remove the retired agent"
+[ ! -e "$oc/agents/b-retired-agent.md" ] || fail "the retry did not remove the retired agent"
 
 home=$(legacy_home legacy-config-in-tree)
 oc="$home/.config/opencode"
@@ -348,8 +350,8 @@ realbase="$work/realconfig"
 mkdir -p "$realbase/opencode/b-agentic/templates" "$realbase/opencode/agents"
 ln -s "$realbase" "$home/.config"
 oc="$home/.config/opencode"
-printf 'legacy agent\n' >"$oc/agents/b-reviewer.md"
-printf '{"suite":"b-agentic","runtime":"opencode","skills":[],"agents":["b-reviewer"],"commands":[]}\n' >"$oc/b-agentic/install.json"
+printf 'legacy agent\n' >"$oc/agents/b-retired-agent.md"
+printf '{"suite":"b-agentic","runtime":"opencode","skills":[],"agents":["b-retired-agent"],"commands":[]}\n' >"$oc/b-agentic/install.json"
 printf '{"providers":{"keep":{}}}\n' >"$oc/b-agentic/templates/opencode.json"
 ln -s b-agentic/templates/opencode.json "$oc/opencode.json"
 before=$(tree "$realbase")
@@ -533,11 +535,11 @@ home=$(legacy_home tui-legacy)
 before=$(tree "$home")
 tui_run "$home" "$piped_install --migrate-legacy --without-clickup" n; expect_refused "decline legacy migration"
 grep -Fq 'Legacy migration' <<<"$out" || fail "migration deletions must be shown: $out"
-grep -Fq 'agents/b-reviewer.md' <<<"$out" || fail "migration summary must name removal paths: $out"
+grep -Fq 'agents/b-retired-agent.md' <<<"$out" || fail "migration summary must name removal paths: $out"
 [ "$(tree "$home")" = "$before" ] || fail "declining migration changed the legacy install"
 [ ! -e "$home/.config/opencode/b-agentic/backups" ] || fail "declining migration created backups"
 tui_run "$home" "$piped_install --migrate-legacy --without-clickup" y; expect_ok "accept legacy migration"
-[ ! -e "$home/.config/opencode/agents/b-reviewer.md" ] || fail "accepted migration left the retired agent"
+[ ! -e "$home/.config/opencode/agents/b-retired-agent.md" ] || fail "accepted migration left the retired agent"
 [ -f "$home/.config/opencode/agents/b-planner.md" ] || fail "accepted migration did not install"
 
 home=$(legacy_home tui-legacy-late-link)
@@ -546,7 +548,7 @@ link_cmd='!mkdir -p "$HOME/dotfiles" && ln -s "$HOME/dotfiles" "$HOME/.config/op
 tui_run "$home" "$piped_install --migrate-legacy --without-clickup" "$link_cmd" y
 expect_refused "unsafe migration destination during confirmation"
 oc="$home/.config/opencode"
-[ "$(cat "$oc/agents/b-reviewer.md")" = 'legacy agent' ] || fail "late refusal removed legacy files"
+[ "$(cat "$oc/agents/b-retired-agent.md")" = 'legacy agent' ] || fail "late refusal removed legacy files"
 [ ! -e "$oc/b-agentic/backups" ] && [ ! -e "$home/dotfiles/b-plan" ] || fail "late refusal wrote files"
 
 # --runtime=both remains sequential: declining OpenCode does not undo Claude.

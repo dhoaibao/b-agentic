@@ -157,6 +157,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-research` -> `b-researcher`.",
         "`b-debug` -> `b-debugger`.",
         "`b-agentic-audit` -> `b-auditor`.",
+        "`b-review` -> `b-reviewer`.",
         "The child's result is evidence, not authority.",
     ),
 }
@@ -202,6 +203,12 @@ SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
     "b-agentic-audit": (
         "supply its completed origin-freshness evidence:",
         "return the blocking message to the main session",
+    ),
+    "b-review": (
+        "Verify each blocker against the candidate with `Read` and `Grep` before acting; dispute one only through a fresh round",
+        "otherwise the review is void, so refresh the checks and run a new review",
+        "`Review void: <reason>` for a blocked or void review",
+        "A `Review void` line is not a verdict: report its reason and ask the user.",
     ),
 }
 
@@ -1098,18 +1105,16 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "skills/b-review/prompt.md": {
             "required": (
-                "This skill runs in the main session; Codex is the independent reviewer.",
-                "Never replace the Codex gate with a self-review.",
-                "Freeze the candidate with the snapshot CLI and record its `fingerprint` as F0",
-                "If the CLI is unavailable, the wrapper cannot run either: block the review (no verdict) and report the gap.",
-                "Run the gate with the wrapper, as a harness background command (`run_in_background`) from the repository: `node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round <n> --focus-file <path>`",
-                "do not call the plugin's script or `/codex:*` commands directly for a gate review, and never use `--background`",
-                "wait for its completion notification and read its JSON before acting, and do not edit anything while it runs",
-                "Its `f0` must equal the fingerprint recorded at step 1, and `unchanged` must be `true`; otherwise the review is void",
-                "Recompute the snapshot yourself as F1 after the wrapper returns and confirm it equals `f0` too",
-                "Exit 3 (a void review: the candidate changed or could not be re-snapshotted, the run timed out or hit the output cap, or the result was unmappable or finding-less `needs-attention`) and exit 2 (refused or failed, including an incomplete snapshot before the plugin runs) are not verdicts",
-                "never approve on the user's behalf",
-                "External transmission of private or proprietary material needs that explicit approval.",
+                "This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning, never sends the candidate to another vendor, and has no edit tools.",
+                "Never replace the independent review with a self-review.",
+                "always call this skill with the named `b-reviewer` subagent type, never a forked context",
+                "never the implementer's rationale or a verdict to confirm",
+                "Recompute the identity with the snapshot CLI at the start",
+                "If the CLI is unavailable, block the review (no verdict) and report the gap; never fall back to a hand-computed identity.",
+                "Keep the repository read-only: do not edit, patch, run generators or fixers, ask the user questions, message peers, or implement a correction.",
+                "Never read likely-secret files",
+                "Recompute the snapshot before returning as F1 with the same `--include-ignored` paths and confirm it equals F0; report a mismatch as a void review with no verdict",
+                "recompute the snapshot yourself as F1 and confirm it equals F0 and the reviewer's reported F1; otherwise the review is void",
                 "Review does not authorize staging or committing; `b-commit` separately inspects the exact staged paths and commit plan without repeating validation",
                 "`NEEDS FIXES` requires at least one blocker",
                 "HEAD, SHA-256 digests of staged and unstaged binary diffs, and sorted relevant untracked paths, types, and content digests",
@@ -1117,7 +1122,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "Main fixes blockers as a batch, sweeping the whole defect class",
                 "reports each follow-up as fixed, deferred, or rejected with a reason; deferred or rejected follow-ups need no new review",
                 "Be exhaustive for blockers in one pass: for each, sweep every location of the same defect class",
-                "For a re-review, start a fresh Codex round whose focus carries prior finding IDs, dispositions, correction paths, and sweep and regression-check results",
+                "For a re-review, the handoff carries prior finding IDs, dispositions, correction paths, and the main session's sibling-sweep scope and regression-check results",
                 "After 3 consecutive `NEEDS FIXES` rounds, stop and ask the user.",
                 "Corrections must return as a reverified, frozen candidate for another review.",
                 "In an indexed project, use `codegraph_explore` (read-only) on changed symbols to find callers or tests the candidate did not update",

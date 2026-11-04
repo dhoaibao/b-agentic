@@ -37,7 +37,7 @@ KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
-MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor"}
+MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor", "b-reviewer"}
 CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
 # Likely-secret path gate; the snapshot CLI mirrors everything after "*".
 PATH_RULES = {
@@ -1026,8 +1026,8 @@ def render_opencode_references(policy: dict[str, Any]) -> dict[Path, str]:
     capabilities = json.loads(localize(json.dumps(load_capabilities()), "opencode"))
     capabilities["description"] = capabilities["description"].replace("Claude Code", "OpenCode")
     for capability in capabilities["capabilities"]:
-        # The Codex companion really is installed through Claude Code; shared hooks remain there
-        # in repository source, even though the installer delivers them to each runtime's home.
+        # A plugin capability is installed through Claude Code and keeps its Claude Code wording;
+        # none ships today, but the kind stays supported.
         if capability["kind"] != "plugin":
             for key in ("purpose", "readiness", "fallback"):
                 capability[key] = capability[key].replace("Claude Code", "OpenCode")

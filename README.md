@@ -1,13 +1,14 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code and OpenCode, with Codex as the independent reviewer.**
+**A slim personal workflow kernel for Claude Code and OpenCode, with a read-only subagent as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration, for
-Claude Code and OpenCode side by side. Changed-code review runs through Codex with the
-[`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) plugin.
+Claude Code and OpenCode side by side. Changed-code review runs in the read-only
+`b-reviewer` subagent, so it needs no second subscription and sends nothing to
+another vendor.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) and [OpenCode layout](opencode/configs/README.md) — managed paths and ownership boundaries.
@@ -24,12 +25,11 @@ cd b-agentic
 The installer copies skills, agents, hooks, and CLIs under `~/.claude`, adds the
 kernel to `~/.claude/CLAUDE.md` as a marked block, merges permission rules and
 hooks into `settings.json` and MCP servers into `~/.claude.json`, and preserves
-everything else. It never runs vendor installers, never installs the Codex
-plugin for you, and never writes under `~/.pi`. Piped installs
+everything else. It never runs vendor installers and never writes under
+`~/.pi`. Piped installs
 (`curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash`)
-clone to `~/.b-agentic-claude`. After installing, restart Claude Code and run the
-printed plugin commands to enable the review gate. See [REFERENCE.md](REFERENCE.md)
-for flags and lifecycle behavior.
+clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
+[REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
 `./install.sh` installs Claude Code by default. Pass `--runtime=opencode` to
 install into `~/.config/opencode` instead, or `--runtime=both` for each; every
@@ -40,13 +40,14 @@ runtime's install and uninstall leave the other untouched.
 Each request uses one active skill rather than mixing planning, building,
 validation, and shipping. The main Claude Code session owns user interaction,
 decisions, verification, and mutations. It delegates bounded planning,
-research, diagnosis, and repository audits to read-only subagents. A change that
-touches security, permissions, contracts, configuration, or workflow policy is
-frozen as a fingerprinted candidate and reviewed by Codex in the foreground,
-after a guard confirms that no tracked or untracked likely-secret file (or one
-in a reviewed commit range) or followed symlink would be sent and that you
-approved sending the repository. Secret files that are
-git-ignored stay readable by Codex, an accepted residual risk.
+research, diagnosis, repository audits, and changed-code review to read-only
+subagents. A change that touches security, permissions, contracts,
+configuration, or workflow policy is frozen as a fingerprinted candidate and
+reviewed by the `b-reviewer` subagent in a fresh context; the main session
+recomputes the fingerprint afterward and voids the review if the candidate
+moved. The reviewer is read-only by its tool list and prompt, not a sandbox, and
+shares the main session's model family, which is the accepted trade-off against
+a cross-vendor reviewer.
 
 ## Skills
 

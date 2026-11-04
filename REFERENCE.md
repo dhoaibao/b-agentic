@@ -3,7 +3,8 @@
 [Back to the public overview](README.md)
 
 This reference defines the two supported runtimes, Claude Code and OpenCode,
-with Codex as the independent reviewer ([ADR-002](docs/decisions/ADR-002-dual-runtime-support.md)).
+with a read-only subagent as the independent reviewer ([ADR-002](docs/decisions/ADR-002-dual-runtime-support.md),
+[ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
 It covers installation, the permission boundary, the review gate, MCP
 configuration, and validation; the OpenCode differences are in
 [OpenCode runtime](#opencode-runtime). The earlier Pi runtime was removed (last
@@ -72,8 +73,8 @@ piped bootstrap honors `--dry-run` before cloning or fetching, runs git with its
 destination overrides cleared, and refuses a source checkout whose worktree or
 git directory is under `~/.pi`. Claude Code rewrites `~/.claude.json` while it
 runs, so restart it after an install. The installer reports missing tools (`rtk`,
-`codegraph`, `bunx`, `claude`, `codex`) and prints, but never runs, the Codex
-plugin commands.
+`codegraph`, `bunx`, `claude`) and never runs vendor installers. The review gate
+needs no extra tool, login, or plugin.
 
 ## OpenCode runtime
 
@@ -115,12 +116,12 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
 - **Skills load once.** `~/.config/opencode/skills` outranks the Claude-compatible
   `~/.claude/skills` for the same skill ID, so a machine with both installs does
   not load two copies. OpenCode v2 does not read `CLAUDE.md`.
-- **Codex review gate** reuses the `openai/codex-plugin-cc` companion found under
-  `~/.claude/plugins`, so Codex review on OpenCode needs that plugin installed
-  from Claude Code; without it `b-review` reports the gate unavailable and asks.
-  The standing per-repository approval is stored beside the installed hooks
-  (`~/.config/opencode/b-agentic/codex-approved-repos.json`). Approval-store
-  commands ask through shell rules instead of a hook.
+- **Review gate** is the same read-only `b-reviewer` specialist
+  (`claude-agent/opus#xhigh`) as on Claude Code, so it needs no plugin and no
+  second login. The retired Codex gate's standing approval store
+  (`~/.config/opencode/b-agentic/codex-approved-repos.json`) is user data that is
+  left in place, and its approval-store commands still ask through shell rules
+  instead of a hook.
 - **Retired install.** A manifest from the removed OpenCode runtime is refused
   unless `--migrate-legacy` is passed, which backs up and removes only the paths
   that manifest names (`skills`, `agents`, `commands`, the whole-file `AGENTS.md`)
@@ -155,8 +156,8 @@ the kernel's generated blocks, and `claude/configs/settings.template.json`.
 Explicit-request skills (`b-commit`, `b-pr`) route only on explicit
 user request and stay model-invocable.
 
-The four specialists are `b-planner`, `b-researcher`, `b-debugger`, and
-`b-auditor`. Their tool lists omit `Edit`, `Write`, `NotebookEdit`, and nested
+The five specialists are `b-planner`, `b-researcher`, `b-debugger`, `b-auditor`,
+and `b-reviewer`. Their tool lists omit `Edit`, `Write`, `NotebookEdit`, and nested
 delegation and carry only read-only MCP tools (plus three bounded Firecrawl
 tools for `b-researcher`). Read-only behavior is instructed, not enforced by a
 child-specific permission block: shell access can still mutate state. Delegated
@@ -165,7 +166,7 @@ the kernel carry this, so a missing subagent is reported instead of bypassed. A
 child result is evidence, not authorization. Claude Code models are Anthropic
 aliases from the registry's `model` field, with an optional `effort` field
 (`low`–`max`) rendered as subagent frontmatter; current Claude Code defaults are
-`opus`/`xhigh` for `b-planner` and `b-auditor`, `sonnet`/`xhigh` for
+`opus`/`xhigh` for `b-planner`, `b-auditor`, and `b-reviewer`, `sonnet`/`xhigh` for
 `b-debugger`, and `sonnet`/`medium` for `b-researcher`. OpenCode uses the
 separate optional `opencode_model` field (`provider/model#variant`); omitting it
 inherits the session model. Current OpenCode defaults are:
@@ -176,22 +177,17 @@ inherits the session model. Current OpenCode defaults are:
 | `b-researcher` | `claude-agent/sonnet` | `medium` |
 | `b-debugger`   | `claude-agent/sonnet` | `xhigh`  |
 | `b-auditor`    | `openai/gpt-6.1-sol`  | `xhigh`  |
+| `b-reviewer`   | `claude-agent/opus`   | `xhigh`  |
 
 Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 
 ## Review gate
 
-`b-review` runs in the main session. Codex is the independent reviewer through
-the [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc)
-plugin, which you install yourself:
-
-```text
-/plugin marketplace add openai/codex-plugin-cc
-/plugin install codex@openai-codex
-/codex:setup
-```
-
-Then sign in to Codex and keep the plugin's review gate (a Stop hook) disabled.
+`b-review` is a delegated skill: it runs only in the read-only `b-reviewer`
+subagent, called by its named type so it starts with a fresh context instead of a
+fork of the implementer's conversation. It needs no second subscription, login,
+or plugin, and the candidate goes to no recipient beyond the model provider that
+already serves the session ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
 The gate sequence is:
 
 1. Freeze the candidate: `node ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs`
@@ -205,64 +201,51 @@ The gate sequence is:
    is listed in `index_flags` and makes the snapshot incomplete, because both
    diffs would omit its edits; the index is never modified. Exit 0 is complete,
    3 incomplete, 2 refused.
-2. Early preflight: `node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check
-[--base <ref>]` refuses when a likely-secret path is tracked, staged, or
-   untracked-and-not-ignored, when a submodule or embedded repository hides
-   paths, when an untracked non-ignored symlink exists (the plugin follows it
-   and would send its target; stage, ignore, or remove it), when a `--base` range
-   (merge-base..HEAD and every commit inside it) touches a likely-secret path
-   or a submodule, or when the repository has no standing approval. Approve once per repository with `--approve` after
-   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. The
-   guard hook asks for a native confirmation of any Bash command that records
-   the approval, points `B_AGENTIC_STATE_DIR` at another store, or writes
-   `codex-approved-repos.json` (a tripwire, not a boundary).
-3. Run the gate with the wrapper, from the repository, with nothing editing:
-   `node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round
-<n> --focus-file <path>` (or `--base <ref>` instead of `--scope working-tree`
-   for committed changes since that ref; `--include-ignored <path>` as at step
-   1; `--kind native` is refused because its output has no verdict contract).
-   The wrapper reruns the secret and approval gate, resolves a `--base` once and
-   gives the plugin that commit id, so a ref that moves during the run cannot
-   change the reviewed range, freezes the candidate (`f0`), finds the
-   plugin's `codex-companion.mjs` under `~/.claude/plugins` (or
-   `B_AGENTIC_CODEX_COMPANION`), runs the review in the foreground with an
-   argument vector, freezes again (`f1`), and maps the result. It prints JSON:
-   `f0`, `f1`, `unchanged`, `base` (`ref`, `oid`, `merge_base`; null for a
-   working-tree review), `timed_out`, `truncated`, the raw plugin output, and
-   `mapped`. Exit 0 is a completed review. Exit 3 is a void one: the candidate
-   changed or could not be re-snapshotted, the run hit `--timeout-minutes` (30 by
-   default, at most 35791; stopped with SIGTERM, then SIGKILL after
-   `--kill-grace-seconds`, and its pipes closed by the wrapper if a descendant
-   still holds them) or
-   the 8 MB output cap, or the result was unmappable or finding-less. Exit 2 is a
-   refusal or failure, including an incomplete snapshot before the plugin runs
-   and a non-zero plugin exit. A run that was cut short is never mapped, whatever
-   status it exited with. Claude Code kills a foreground Bash command after at
-   most 10 minutes, so main launches the wrapper as a background command
-   (`run_in_background`) and waits for its completion notification, editing
-   nothing; the wrapper's own timeout then decides a long run.
-4. Main checks that `f0` equals the step-1 fingerprint and `unchanged` is true,
-   and recomputes the fingerprint itself; a difference voids the review.
-5. `mapped` carries finding IDs `R<round>-<n>` and a provisional verdict (the
-   same mapping `b-codex-verdict.mjs` applies to saved output). Main classifies
-   against the blocker taxonomy and owns the final `Verdict:` line.
+2. Handoff: main calls the `Agent` tool with `subagent_type: b-reviewer` and
+   passes the baseline (branch, HEAD, ahead/behind, status), the review target
+   (the working tree, or a base ref resolved to a commit id so it cannot move
+   during the run), the acceptance criteria, the fresh check results, the kernel
+   risk triggers that apply, the exact candidate paths, F0, and every relevant
+   ignored/derived path for `--include-ignored`. A re-review also carries prior
+   finding IDs, dispositions, correction paths, and the sibling-sweep scope and
+   regression-check results. Main does not pass the implementer's rationale or a
+   verdict to confirm, and does not edit while the review runs. The reviewer
+   never reads likely-secret files and reports them as a coverage gap.
+3. The reviewer recomputes the snapshot with the same options and compares only
+   the `fingerprint` with F0, inspects the diff with read-only commands,
+   classifies findings against the blocker taxonomy with IDs `R<round>-<n>`,
+   sweeps each blocker's defect class, recomputes the snapshot as F1, and ends
+   with exactly one `Verdict:` line. A missing CLI, `complete: false`, or a
+   mismatch blocks with no verdict; there is no hand-computed fallback.
+4. Main recomputes the fingerprint itself after the reviewer returns; a
+   difference from F0 or from the reviewer's F1 voids the review. Main verifies
+   each blocker with `Read` and `Grep` before acting, fixes blockers as a batch
+   (whole defect class each), and stops to ask the user after 3 consecutive
+   `NEEDS FIXES` rounds. A missing, failing, or verdict-less reviewer is
+   reported to the user, never replaced by a self-review.
 
-The `b-codex-guard` PreToolUse hook is a tripwire for accidental direct calls to
-the plugin script, not the boundary: it applies the same checks to plain
-spellings and refuses background, implicit-target, or ambiguously spelled
-reviews (repeated `--base`/`--scope`/`--wait`, single-dash options, `--`, since
-the plugin keeps the last repeat; and any option other than `--wait`, `--scope`,
-and `--base`, since a value option such as `--model` can swallow the target
-option), but deliberately
-obfuscated spellings (ANSI-C quoting, brace or glob expansion, names built at run
-time) are out of scope.
+Accepted trade-offs against the retired Codex gate:
 
-Codex's read-only sandbox can read every workspace file and Codex has no ignore
-mechanism, so ignored secret files remain an accepted residual risk, as do
-secrets that exist only in history outside the reviewed range and secrets copied
-under innocent names (the scan reads path names, not content). Review never
-commits or pushes. Plugin command syntax and result shape come from its
-documentation and are not exercised live by this repository's checks.
+- The reviewer shares the main session's model family, so some blind spots
+  correlate; the independence comes from a fresh context, a separate review
+  prompt, and a read-only role. For a high-risk change (security, permissions,
+  secrets) you can still run the Codex plugin by hand as an extra opinion; it is
+  not part of the gate.
+- Read-only is instructed on Claude Code, not sandboxed: the tool list omits
+  `Edit`, `Write`, `NotebookEdit`, and nested delegation, but shell access can
+  still mutate state. OpenCode enforces it through the agent's `permissions`.
+  The fingerprint recomputation catches any change to tracked or named files,
+  but not a change to an ignored or outside-repository file that was never named.
+- The reviewer reads the repository as the main session's provider already does,
+  so no new recipient exists and no approval store is needed. Review never
+  commits or pushes.
+
+The `b-codex-guard` PreToolUse hook stays as a dormant tripwire for accidental
+direct `/codex:*` calls while the plugin remains installed; it is no longer part
+of the gate and is a candidate for removal in a later change. The wrapper
+(`b-codex-review.mjs`) and the verdict mapper (`b-codex-verdict.mjs`) were
+removed, and an upgrade deletes unmodified copies and keeps modified ones with a
+warning.
 
 ## Permission boundary
 
@@ -362,13 +345,13 @@ rtk git diff --check
 ```
 
 Plain `scripts/validate-skills.sh` runs the generator self-test and check, the
-policy and routing checks, the hook and verdict-mapper probe
+policy and routing checks, the hook probe
 (`tests/hooks/hooks-probe.sh`), the OpenCode plugin probe
 (`tests/hooks/opencode-plugin-probe.sh`), and the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`). `--release` (CI) adds the sandbox installer
 probes (`tests/install/claude-install-probe.sh` and
 `tests/install/opencode-install-probe.sh`) and the RTK readiness check. None
-needs Claude Code, OpenCode, Codex, credentials, or a network.
+needs Claude Code, OpenCode, credentials, or a network.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
 generated specialists and settings plus the hooks, CLIs, and MCP templates;

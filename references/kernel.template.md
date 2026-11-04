@@ -33,6 +33,7 @@
   - `b-research` -> `b-researcher`.
   - `b-debug` -> `b-debugger`.
   - `b-agentic-audit` -> `b-auditor`.
+  - `b-review` -> `b-reviewer`.
 - All other skills run in the main session.
 <!-- generated:delegation:end -->
 - Material user-facing decisions or blockers use `AskUserQuestion`: group 1–4 concrete choices, explain trade-offs, and offer a plain-text fallback when interactive questions are unavailable. Omit for routine activity, review fixes, and no-choice confirmations.

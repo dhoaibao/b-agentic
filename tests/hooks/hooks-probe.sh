@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise the Claude Code hooks and the Codex verdict mapper with scripted hook
+# Exercise the Claude Code hooks with scripted hook
 # JSON and throwaway git repositories. Needs only node, git, and jq: no
 # credentials, network, Claude Code, or Codex.
 # shellcheck disable=SC2016 # Single-quoted shell commands with literal $ are the inputs under test.
@@ -10,8 +10,6 @@ pathguard="$root/claude/hooks/b-path-guard.mjs"
 verifygate="$root/claude/hooks/b-verify-gate.mjs"
 codexguard="$root/claude/hooks/b-codex-guard.mjs"
 clickupguard="$root/claude/hooks/b-clickup-guard.mjs"
-verdict="$root/claude/bin/b-codex-verdict.mjs"
-wrapper="$root/claude/bin/b-codex-review.mjs"
 work=$(mktemp -d)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
@@ -389,158 +387,18 @@ ag_silent 'node /p/codex-companion.mjs status'
 ag_silent 'rg -n B_AGENTIC_STATE_DIR claude/hooks'
 # A refused companion call is still refused, not downgraded to a prompt.
 cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope working-tree x && node ~/b-codex-guard.mjs --approve' "a refused companion call must stay refused"
-echo "hooks probe passed: codex-guard"
 
-# --- verdict mapper --------------------------------------------------------------
-vd() { printf '%s' "$1" | node "$verdict" "${@:2}"; }
-out=$(vd '{"verdict":"approve","findings":[],"summary":"ok"}'); [ "$(jq -r .provisional_verdict <<<"$out")" = "READY FOR PR" ] || fail "approve with no findings"
-out=$(vd '{"verdict":"needs-attention","findings":[{"severity":"high","title":"Leak","file":"a.ts","line_start":3,"line_end":9,"confidence":0.9,"recommendation":"fix","body":"b"}]}' --round 2)
-[ "$(jq -r .provisional_verdict <<<"$out")" = "NEEDS FIXES" ] || fail "high finding must need fixes"
-[ "$(jq -r '.findings[0].id' <<<"$out")" = "R2-1" ] || fail "finding id must carry the round"
-[ "$(jq -r '.findings[0].provisional_class' <<<"$out")" = blocker ] || fail "high must be a provisional blocker"
-out=$(vd '{"verdict":"needs-attention","findings":[{"severity":"critical","title":"x"}]}'); [ "$(jq -r .provisional_verdict <<<"$out")" = "NEEDS FIXES" ] || fail "critical must need fixes"
-out=$(vd '{"verdict":"needs-attention","findings":[{"severity":"medium","title":"m"},{"severity":"low","title":"l"}]}')
-[ "$(jq -r .provisional_verdict <<<"$out")" = "READY WITH FOLLOW-UPS" ] || fail "medium and low are follow-ups"
-[ "$(jq -r '[.findings[].provisional_class] | unique | join(",")' <<<"$out")" = "follow-up" ] || fail "medium and low must be follow-ups"
-out=$(vd '{"verdict":"approve","findings":[{"severity":"high","title":"x"}]}'); [ "$(jq -r .provisional_verdict <<<"$out")" = "NEEDS FIXES" ] || fail "findings win over an approve"
-vd '{"verdict":"needs-attention","findings":[]}' >"$work/void.json" && fail "needs-attention without findings must exit 3" || [ "$?" = 3 ] || fail "void exit code"
-[ "$(jq -r .provisional_verdict "$work/void.json")" = VOID ] || fail "needs-attention without findings must be void"
-text=$'Target: working tree\nVerdict: needs-attention\nFindings:\n- [high] Token logged (src/a.ts:12-18)\n- [low] Rename helper (src/b.ts:4)\n'
-out=$(vd "$text")
-[ "$(jq -r .provisional_verdict <<<"$out")" = "NEEDS FIXES" ] || fail "rendered text high finding"
-[ "$(jq -r '.findings | length' <<<"$out")" = 2 ] || fail "rendered text findings not parsed"
-[ "$(jq -r '.findings[0].file' <<<"$out")" = "src/a.ts" ] || fail "rendered text file not parsed"
-[ "$(jq -r '.findings[0].line_end' <<<"$out")" = 18 ] || fail "rendered text range not parsed"
-[ "$(jq -r '.findings[1].line_start' <<<"$out")" = 4 ] || fail "rendered text single line not parsed"
-for bad in $'Verdict: approve\nVerdict: approve\n' $'Verdict: needs-attention\nVerdict: needs-attention\n- [low] x\n'; do
-  rc=0; printf '%s' "$bad" | node "$verdict" >/dev/null 2>&1 || rc=$?
-  [ "$rc" = 2 ] || fail "a repeated verdict line must exit 2 (got $rc)"
-done
-out=$(vd $'Verdict: approve\nNo issues found.\n'); [ "$(jq -r .provisional_verdict <<<"$out")" = "READY FOR PR" ] || fail "rendered text approve"
-for bad in '' 'garbage' '{"verdict":"maybe","findings":[]}' '{"verdict":"approve"}' '{"verdict":"approve","findings":[{"severity":"urgent","title":"x"}]}' '{"verdict":"approve","findings":[{"severity":"low"}]}' '{broken'; do
-  if vd "$bad" >/dev/null 2>&1; then fail "invalid input must be refused: $bad"; fi
-done
-for bad in $'Verdict: approve\n- [urgent] leaked credentials (a.ts:1)\n' $'Verdict: approve\nVerdict: needs-attention\n' $'Verdict: needs-attention\n- [low] x\n- [highish] critical leak\n' $'Verdict: approve\nSee [high] note in the text\n' $'Verdict: approve\n1. [high] numbered finding\n' $'Verdict: maybe\n'; do
-  if vd "$bad" >/dev/null 2>&1; then fail "unparseable or conflicting rendered text must be refused: $bad"; fi
-  rc=0; printf '%s' "$bad" | node "$verdict" >/dev/null 2>&1 || rc=$?
-  [ "$rc" = 2 ] || fail "unparseable rendered text must exit 2 (got $rc): $bad"
-done
-rc=0; printf '%s' 'garbage' | node "$verdict" >/dev/null 2>&1 || rc=$?
-[ "$rc" = 2 ] || fail "invalid input must exit 2 (got $rc)"
-rc=0; node "$verdict" --round 0 </dev/null >/dev/null 2>&1 || rc=$?
-[ "$rc" = 2 ] || fail "--round 0 must exit 2 (got $rc)"
-echo "hooks probe passed: verdict-mapper"
-
-# --- review wrapper (the enforced gate) -------------------------------------------------------------
-# A fake plugin script stands in for Codex: it logs its argv and cwd, can touch a tracked file, and
-# prints canned output, so every gate decision is observable without a network or credentials.
-fake="$work/plugin/codex-companion.mjs"
-mkdir -p "$work/plugin"
-cat >"$fake" <<'JS'
-import { execFileSync, spawn } from "node:child_process";
-import { appendFileSync, writeFileSync } from "node:fs";
-appendFileSync(process.env.FAKE_LOG, `${JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() })}\n`);
-// Moves the mutable base ref while the review runs.
-if (process.env.FAKE_MOVE_REF) execFileSync("git", ["update-ref", "refs/heads/base", process.env.FAKE_MOVE_REF]);
-if (process.env.FAKE_TOUCH) appendFileSync(process.env.FAKE_TOUCH, "changed\n");
-if (process.env.FAKE_CREATE) writeFileSync(process.env.FAKE_CREATE, "TOPSECRET=1\n");
-const mode = process.env.FAKE_MODE ?? "";
-if (mode === "big") {
-  // An approving prefix, enough filler to pass the cap, then the blocking finding in later chunks.
-  process.stdout.write("Verdict: approve\n");
-  const filler = "x".repeat(1023) + "\n";
-  for (let i = 0; i < 9000; i++) process.stdout.write(filler);
-  process.stdout.write("- [high] Leak (a.ts:1)\n");
-  setTimeout(() => process.exit(0), 20000);
-} else if (mode === "big-stderr") {
-  const filler = "e".repeat(1023) + "\n";
-  for (let i = 0; i < 9000; i++) process.stderr.write(filler);
-  process.stdout.write('{"verdict":"approve","findings":[]}');
-  setTimeout(() => process.exit(0), 20000);
-} else if (mode === "term-approve") {
-  // Handles SIGTERM by approving and exiting 0, so the exit status looks like success.
-  process.on("SIGTERM", () => {
-    process.stdout.write('{"verdict":"approve","findings":[]}');
-    process.exit(0);
-  });
-  setTimeout(() => process.exit(0), 60000);
-} else if (mode.startsWith("pipe-holder")) {
-  // The companion exits (normally, or by signal) while a detached descendant keeps stdout/stderr open.
-  const code = mode === "pipe-holder-big"
-    ? "setTimeout(() => { const f = 'x'.repeat(1023) + '\\n'; for (let i = 0; i < 9000; i++) process.stdout.write(f); }, 300); setTimeout(() => {}, 10000);"
-    : "setTimeout(() => {}, 10000);";
-  const holder = spawn(process.execPath, ["-e", code], { detached: true, stdio: ["ignore", "inherit", "inherit"] });
-  holder.unref();
-  writeFileSync(process.env.FAKE_PIDFILE, String(holder.pid));
-  if (mode === "pipe-holder-signal") process.kill(process.pid, "SIGKILL");
-  setTimeout(() => process.exit(0), 100);
-} else if (mode === "ignore-term") {
-  process.on("SIGTERM", () => {});
-  setTimeout(() => process.exit(0), 60000);
-} else {
-  process.stdout.write(process.env.FAKE_OUT ?? '{"verdict":"approve","findings":[]}');
-  process.exit(Number(process.env.FAKE_EXIT ?? 0));
-}
-JS
-export FAKE_LOG="$work/fake.log"
-wrap() { # wrap <repo> [args...]: run the wrapper inside <repo>
-  local repo=$1
-  shift
-  rc=0
-  err=""
-  wout=$(cd "$repo" && B_AGENTIC_CODEX_COMPANION="$fake" node "$wrapper" "$@" 2>"$work/wstderr") || rc=$?
-  err=$(cat "$work/wstderr")
-}
-wexpect() { [ "$rc" = "$1" ] || fail "$2 (exit $rc, expected $1: $err)"; }
-wrepo="$work/wrepo"
-make_repo "$wrepo"
-( cd "$wrepo" && node "$codexguard" --approve >/dev/null )
-: >"$FAKE_LOG"
-
-wrap "$wrepo" --scope working-tree --focus 'check the diff'; wexpect 0 "an approved clean repository must be reviewed"
-[ "$(jq -r .mapped.provisional_verdict <<<"$wout")" = "READY FOR PR" ] || fail "the approve result was not mapped to READY FOR PR"
-[ "$(jq -r .unchanged <<<"$wout")" = true ] || fail "an untouched candidate must report unchanged"
-[ "$(jq -r .f0 <<<"$wout")" = "$(jq -r .f1 <<<"$wout")" ] || fail "F0 and F1 must match for an untouched candidate"
-[ "$(jq -c '.argv' <(tail -n 1 "$FAKE_LOG"))" = '["adversarial-review","--wait","--scope","working-tree","check the diff"]' ] || fail "plugin argv wrong: $(tail -n 1 "$FAKE_LOG")"
-[ "$(jq -r .cwd <(tail -n 1 "$FAKE_LOG"))" = "$(cd "$wrepo" && pwd -P)" ] || fail "the plugin must run in the repository root"
-git -C "$wrepo" branch base
-base_oid=$(git -C "$wrepo" rev-parse base)
-wrap "$wrepo" --base base; wexpect 0 "an adversarial base review"
-[ "$(jq -c '.argv' <(tail -n 1 "$FAKE_LOG"))" = "[\"adversarial-review\",\"--wait\",\"--base\",\"$base_oid\"]" ] || fail "the plugin must get the resolved commit id: $(tail -n 1 "$FAKE_LOG")"
-[ "$(jq -r .base.oid <<<"$wout")" = "$base_oid" ] && [ "$(jq -r .base.ref <<<"$wout")" = base ] && [ "$(jq -r .base.merge_base <<<"$wout")" = "$base_oid" ] || fail "the base identity is missing from the result: $wout"
-[ "$(jq -r .target <<<"$wout")" = "base:base" ] || fail "the target must stay base:<ref>"
-# the base is frozen: moving the ref during the run changes neither the argv nor the result
-moved=$(git -C "$wrepo" commit-tree -p HEAD -m moved 'HEAD^{tree}')
-: >"$FAKE_LOG"
-FAKE_MOVE_REF="$moved" wrap "$wrepo" --base base; wexpect 0 "a base ref that moves during the run"
-[ "$(jq -r '.argv[3]' <(tail -n 1 "$FAKE_LOG"))" = "$base_oid" ] && [ "$(jq -r .base.oid <<<"$wout")" = "$base_oid" ] || fail "a moved ref changed the reviewed base: $wout"
-git -C "$wrepo" update-ref refs/heads/base "$base_oid"
-[ "$(jq -r .base <<<"$(wrap "$wrepo" --scope working-tree; echo "$wout")")" = null ] || fail "a working-tree review must report base null"
-: >"$FAKE_LOG"
-wrap "$wrepo" --base nosuchref; wexpect 2 "an unresolvable base must be refused"
-orphan=$(git -C "$wrepo" commit-tree -m orphan 'HEAD^{tree}')
-git -C "$wrepo" branch orphan "$orphan"
-wrap "$wrepo" --base orphan; wexpect 2 "a base that shares no history must be refused"
-grep -Fq 'review range' <<<"$err" || fail "the range refusal reason is missing: $err"
-wrap "$wrepo" --scope working-tree --kind native; wexpect 2 "a native review has no verdict contract and must be refused"
-grep -Fq 'no verdict contract' <<<"$err" || fail "the native refusal reason is missing: $err"
-[ ! -s "$FAKE_LOG" ] || fail "the plugin ran for a refused base or kind: $(cat "$FAKE_LOG")"
-: >"$FAKE_LOG"
-
-# finding: a base review sends merge-base..HEAD, so a protected path that HEAD already deleted still leaks
+# A base review sends merge-base..HEAD, so a protected path that HEAD already deleted still leaks.
 whist_repo() { # whist_repo <dir>: an approved repository; the caller adds history
   make_repo "$1"
   ( cd "$1" && node "$codexguard" --approve >/dev/null )
 }
 whist_commit() { git -C "$1" add -A && git -C "$1" commit -qm "$2"; }
 range_refused() { # range_refused <repo> <label> [needle]
-  : >"$FAKE_LOG"
-  wrap "$1" --base base; wexpect 2 "$2"
+  run "$codexguard" "$(cg "$1" 'node /p/codex-companion.mjs adversarial-review --wait --base base')"; expect 2 "$2"
   grep -Fq 'review range' <<<"$err" || fail "$2: the range reason is missing: $err"
   [ -z "${3:-}" ] || grep -Fq "$3" <<<"$err" || fail "$2: the reason must name $3: $err"
-  grep -Fq TOPSECRET <<<"$err$wout" && fail "$2: secret content reached the output"
-  [ ! -s "$FAKE_LOG" ] || fail "$2: the plugin ran"
-  return 0
+  if grep -Fq TOPSECRET <<<"$err"; then fail "$2: secret content reached the output"; fi
 }
 whist="$work/whist-deleted"
 whist_repo "$whist"
@@ -548,9 +406,7 @@ printf 'TOPSECRET=1\n' >"$whist/.env"; whist_commit "$whist" env
 git -C "$whist" branch base
 git -C "$whist" rm -q .env; whist_commit "$whist" rm-env
 range_refused "$whist" "a protected file deleted inside the range must refuse" .env
-wrap "$whist" --scope working-tree; wexpect 0 "the working-tree review of the same repository stays allowed"
-run "$codexguard" "$(cg "$whist" 'node /p/codex-companion.mjs adversarial-review --wait --base base')"; expect 2 "the direct hook must apply the range check"
-grep -Fq 'review range' <<<"$err" || fail "the hook range reason is missing: $err"
+run "$codexguard" "$(cg "$whist" "$review")"; expect 0 "the working-tree review of the same repository stays allowed"
 rc=0; ( cd "$whist" && node "$codexguard" --check --base base >/dev/null 2>&1 ) || rc=$?
 [ "$rc" = 3 ] || fail "--check --base must refuse a protected range (exit $rc)"
 rc=0; ( cd "$whist" && node "$codexguard" --check >/dev/null 2>&1 ) || rc=$?
@@ -578,163 +434,23 @@ whist="$work/whist-example"
 whist_repo "$whist"
 git -C "$whist" branch base
 printf 'KEY=\n' >"$whist/.env.example"; whist_commit "$whist" example
-wrap "$whist" --base base; wexpect 0 "an .env.example in the range is allowed"
+run "$codexguard" "$(cg "$whist" 'node /p/codex-companion.mjs adversarial-review --wait --base base')"; expect 0 "an .env.example in the range is allowed"
+whist="$work/whist-orphan"
+whist_repo "$whist"
+git -C "$whist" branch orphan "$(git -C "$whist" commit-tree -m orphan 'HEAD^{tree}')"
+run "$codexguard" "$(cg "$whist" 'node /p/codex-companion.mjs adversarial-review --wait --base orphan')"; expect 2 "a base that shares no history must be refused"
+grep -Fq 'review range' <<<"$err" || fail "the orphan range reason is missing: $err"
 
-# finding: the plugin follows untracked symlinks, so a link with an innocent name must be refused
+# The plugin follows untracked symlinks, so a link with an innocent name must be refused without leaking its target.
 printf 'TOPSECRET=1\n' >"$work/outside-target"
-ln -s "$work/outside-target" "$wrepo/notes.txt"
-run "$codexguard" "$(cg "$wrepo" "$review")"; expect 2 "the hook must refuse an untracked symlink to an outside file"
+wlink="$work/wlink"
+whist_repo "$wlink"
+ln -s "$work/outside-target" "$wlink/notes.txt"
+run "$codexguard" "$(cg "$wlink" "$review")"; expect 2 "the hook must refuse an untracked symlink to an outside file"
 grep -Fq 'symlink' <<<"$err" || fail "the symlink reason is missing: $err"
-grep -Fq TOPSECRET <<<"$err" && fail "the symlink target content reached the hook output"
-: >"$FAKE_LOG"
-wrap "$wrepo" --scope working-tree; wexpect 2 "the wrapper must refuse an untracked symlink to an outside file"
-grep -Fq 'symlink' <<<"$err" || fail "the wrapper symlink reason is missing: $err"
-grep -Fq TOPSECRET <<<"$err$wout" && fail "the symlink target content reached the wrapper output"
-rm "$wrepo/notes.txt"; ln -s a.txt "$wrepo/notes.txt"
-wrap "$wrepo" --scope working-tree; wexpect 2 "an untracked symlink inside the repository is refused too"
-[ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite an untracked symlink"
-rm "$wrepo/notes.txt"
-wlinks="$work/wlinks"
-whist_repo "$wlinks"
-printf 'ignored.txt\n' >"$wlinks/.gitignore"; whist_commit "$wlinks" ignore
-ln -s a.txt "$wlinks/ignored.txt"
-wrap "$wlinks" --scope working-tree; wexpect 0 "an ignored symlink is not sent and must pass"
-ln -s a.txt "$wlinks/staged.txt"; git -C "$wlinks" add staged.txt
-wrap "$wlinks" --scope working-tree; wexpect 0 "a staged symlink appears in the diff as its target text and must pass"
-# A link that appears after the guard's preflight must still be refused before the plugin runs. The
-# approval store is a FIFO, so the guard blocks on its last read while the link is created.
-wrace="$work/wrace"
-make_repo "$wrace"
-mkdir -p "$work/fifostate"
-mkfifo "$work/fifostate/codex-approved-repos.json"
-( sleep 2; ln -s a.txt "$wrace/late-link"; timeout 30 bash -c 'printf "[\"%s\"]" "$1" >"$2"' _ "$(cd "$wrace" && pwd -P)" "$work/fifostate/codex-approved-repos.json" ) &
-racer=$!
-: >"$FAKE_LOG"
-B_AGENTIC_STATE_DIR="$work/fifostate" wrap "$wrace" --scope working-tree; wexpect 2 "a symlink created after the preflight must be refused"
-wait "$racer" || true
-grep -Fq 'frozen candidate' <<<"$err" || fail "the late symlink must be caught in the frozen candidate: $err"
-[ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite a late symlink"
-: >"$FAKE_LOG"
-wrap "$wrepo/" --scope working-tree --round 3 --focus 'x'; wexpect 0 "a trailing slash cwd"
-[ "$(jq -r '.mapped.findings | length' <<<"$wout")" = 0 ] && [ "$(jq -r .round <<<"$wout")" = 3 ] || fail "the round was not carried"
-# a focus with shell metacharacters is one argv element, never shell text
-: >"$FAKE_LOG"
-wrap "$wrepo" --scope working-tree --focus 'a; rm -rf / $(touch pwned) "q" {x,y} *'; wexpect 0 "a focus with metacharacters"
-[ "$(jq -r '.argv[4]' <(tail -n 1 "$FAKE_LOG"))" = 'a; rm -rf / $(touch pwned) "q" {x,y} *' ] || fail "the focus was not passed verbatim as one argument"
-[ ! -e "$wrepo/pwned" ] || fail "the focus was interpreted by a shell"
-
-# verdicts: findings map, drift and unparseable results void, failures refuse
-FAKE_OUT='{"verdict":"needs-attention","findings":[{"severity":"high","title":"Leak"}]}' wrap "$wrepo" --scope working-tree; wexpect 0 "a needs-attention result is still a completed review"
-[ "$(jq -r .mapped.provisional_verdict <<<"$wout")" = "NEEDS FIXES" ] || fail "a high finding must map to NEEDS FIXES"
-FAKE_OUT='{"verdict":"needs-attention","findings":[]}' wrap "$wrepo" --scope working-tree; wexpect 3 "needs-attention without findings is void"
-FAKE_OUT='not a review' wrap "$wrepo" --scope working-tree; wexpect 3 "an unmappable result is void"
-[ "$(jq -r .void_reason <<<"$wout")" = "the plugin result could not be mapped" ] || fail "void reason missing for an unmappable result"
-FAKE_TOUCH="$wrepo/a.txt" wrap "$wrepo" --scope working-tree; wexpect 3 "a candidate edited during the review is void"
-[ "$(jq -r .unchanged <<<"$wout")" = false ] || fail "drift must report unchanged:false"
-git -C "$wrepo" checkout -q -- a.txt
-FAKE_EXIT=1 wrap "$wrepo" --scope working-tree; wexpect 2 "a failing plugin is an error"
-[ "$(jq -r .exit_code <<<"$wout")" = 1 ] || fail "a failing plugin must still report its exit code on stdout (got: $wout)"
-
-# a run that was cut short is never a completed review, whatever its exit status says
-FAKE_MODE=big wrap "$wrepo" --scope working-tree --kill-grace-seconds 2; wexpect 3 "output past the cap must void the review"
-[ "$(jq -r '.truncated | index("stdout") != null' <<<"$wout")" = true ] || fail "an oversized stdout was not flagged: $wout"
-[ "$(jq -r 'has("mapped")' <<<"$wout")" = false ] || fail "a truncated result was mapped"
-grep -Fq 'exceeded' <<<"$(jq -r .void_reason <<<"$wout")" || fail "the void reason must name the cap"
-FAKE_MODE=big-stderr wrap "$wrepo" --scope working-tree --kill-grace-seconds 2; wexpect 3 "stderr past the cap must void the review"
-[ "$(jq -r 'has("mapped")' <<<"$wout")" = false ] || fail "a result with truncated stderr was mapped"
-SECONDS=0
-FAKE_MODE=term-approve wrap "$wrepo" --scope working-tree --timeout-minutes 0.02 --kill-grace-seconds 2; wexpect 3 "a timeout answered with an approving exit 0 must void the review"
-[ "$(jq -r .timed_out <<<"$wout")" = true ] || fail "the expired deadline was not recorded: $wout"
-[ "$(jq -r 'has("mapped")' <<<"$wout")" = false ] || fail "a timed-out run was mapped to a verdict"
-[ "$(jq -r .exit_code <<<"$wout")" = 0 ] || fail "the fixture should have exited 0 to prove status alone is not trusted"
-[ "$SECONDS" -lt 15 ] || fail "the timed-out run took too long ($SECONDS s)"
-SECONDS=0
-FAKE_MODE=ignore-term wrap "$wrepo" --scope working-tree --timeout-minutes 0.02 --kill-grace-seconds 1; wexpect 3 "a child that ignores SIGTERM must still be stopped and voided"
-[ "$(jq -r .timed_out <<<"$wout")" = true ] && [ "$(jq -r .signal <<<"$wout")" = SIGKILL ] || fail "a SIGTERM-ignoring child was not killed: $wout"
-[ "$SECONDS" -lt 15 ] || fail "a SIGTERM-ignoring child blocked the wrapper ($SECONDS s)"
-# a companion that exits while a descendant keeps the pipes open must not hang the wrapper
-export FAKE_PIDFILE="$work/holder.pid"
-# stock macOS has no GNU timeout; the alarm survives exec and bounds the command the same way
-bounded() { # bounded <seconds> <command...>
-  if command -v timeout >/dev/null 2>&1; then timeout "$@"
-  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
-  else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
-  fi
-}
-holder_case() { # holder_case <mode> <expect> <message> [extra wrapper args...]
-  local mode=$1 want=$2 message=$3
-  shift 3
-  : >"$FAKE_PIDFILE"
-  SECONDS=0
-  rc=0
-  wout=$(cd "$wrepo" && FAKE_MODE="$mode" B_AGENTIC_CODEX_COMPANION="$fake" bounded 40 node "$wrapper" --scope working-tree --kill-grace-seconds 1 "$@" 2>"$work/wstderr") || rc=$?
-  err=$(cat "$work/wstderr")
-  [ -s "$FAKE_PIDFILE" ] && kill -9 "$(cat "$FAKE_PIDFILE")" 2>/dev/null || true
-  [ "$rc" = "$want" ] || fail "$message (exit $rc, expected $want after ${SECONDS}s: $err)"
-  [ "$SECONDS" -lt 8 ] || fail "$message: took ${SECONDS}s, the wrapper waited for the descendant instead of its own bound"
-}
-holder_case pipe-holder 3 "an exited companion with a pipe-holding descendant must void at the deadline" --timeout-minutes 0.02
-[ "$(jq -r .timed_out <<<"$wout")" = true ] && [ "$(jq -r 'has("mapped")' <<<"$wout")" = false ] || fail "a pipe-held timeout must be recorded and not mapped: $wout"
-holder_case pipe-holder-signal 3 "a signal-killed companion with a pipe-holding descendant must void at the deadline" --timeout-minutes 0.02
-[ "$(jq -r .timed_out <<<"$wout")" = true ] && [ "$(jq -r .exit_code <<<"$wout")" = null ] || fail "a signal exit with held pipes must be recorded: $wout"
-holder_case pipe-holder-big 3 "overflow written by a descendant after the companion exited must void within the bound"
-[ "$(jq -r '.truncated | index("stdout") != null' <<<"$wout")" = true ] && [ "$(jq -r 'has("mapped")' <<<"$wout")" = false ] || fail "post-exit overflow must be flagged and not mapped: $wout"
-wrap "$wrepo" --scope working-tree --timeout-minutes 1e300; wexpect 2 "an oversized timeout must be refused, not clamped to 1 ms"
-wrap "$wrepo" --scope working-tree --kill-grace-seconds 1e300; wexpect 2 "an oversized kill grace must be refused"
-wrap "$wrepo" --scope working-tree --timeout-minutes NaN; wexpect 2 "a NaN timeout must be refused"
-wrap "$wrepo" --scope working-tree --timeout-minutes 0; wexpect 2 "a zero timeout must be refused"
-# an incomplete snapshot after the run voids it; before the run it refuses without calling the plugin
-FAKE_CREATE="$wrepo/.env" wrap "$wrepo" --scope working-tree; wexpect 3 "a snapshot that became incomplete during the review must void it"
-grep -Fq 'incomplete' <<<"$(jq -r .void_reason <<<"$wout")" || fail "the void reason must say the snapshot was incomplete: $wout"
-[ "$(jq -r .f1 <<<"$wout")" = null ] && [ "$(jq -r .unchanged <<<"$wout")" = false ] || fail "an incomplete F1 must be null and not unchanged"
-rm -f "$wrepo/.env"
-: >"$FAKE_LOG"
-wignored="$work/wignored"
-make_repo "$wignored"
-printf '.env\n' >"$wignored/.gitignore"
-git -C "$wignored" add .gitignore && git -C "$wignored" commit -qm ignore-env
-( cd "$wignored" && node "$codexguard" --approve >/dev/null )
-printf 'TOPSECRET=1\n' >"$wignored/.env"
-wrap "$wignored" --scope working-tree --include-ignored .env; wexpect 2 "an incomplete snapshot before the run must refuse"
-grep -Fq 'before the plugin runs' <<<"$err" || fail "the pre-run refusal must say so: $err"
-[ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite an incomplete first snapshot"
-wrap "$wrepo" --scope working-tree --kill-grace-seconds 0; wexpect 2 "a zero kill grace must be refused"
-wrap "$wrepo" --scope working-tree; wexpect 0 "the wrapper still works after the cut-short cases"
-
-# refusals: nothing may reach the plugin
-: >"$FAKE_LOG"
-printf 'TOPSECRET=1\n' >"$wrepo/.env"
-wrap "$wrepo" --scope working-tree; wexpect 2 "an untracked .env must block the review"
-grep -Fq 'likely-secret' <<<"$err" || fail "secret refusal reason missing: $err"
-grep -Fq TOPSECRET <<<"$err$wout" && fail "secret content reached the output"
-rm "$wrepo/.env"
-wunapproved="$work/wunapproved"
-make_repo "$wunapproved"
-wrap "$wunapproved" --scope working-tree; wexpect 2 "an unapproved repository must be refused"
-grep -Fq 'has not approved' <<<"$err" || fail "approval refusal reason missing: $err"
-mkdir -p "$work/wplain"
-wrap "$work/wplain" --scope working-tree; wexpect 2 "a non-repository must be refused"
-git init -q "$wrepo/tools"
-wrap "$wrepo" --scope working-tree; wexpect 2 "an embedded repository must block the review"
-mv "$wrepo/tools" "$work/wtools-moved"
-[ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite a refusal: $(cat "$FAKE_LOG")"
-
-# argument validation
-wrap "$wrepo"; wexpect 2 "no target must be refused"
-wrap "$wrepo" --scope working-tree --base main; wexpect 2 "two targets must be refused"
-wrap "$wrepo" --scope auto; wexpect 2 "an unsupported scope must be refused"
-wrap "$wrepo" --base --evil; wexpect 2 "a --base value starting with a dash must be refused"
-wrap "$wrepo" --base; wexpect 2 "a missing --base value must be refused"
-wrap "$wrepo" --scope working-tree --focus '--background'; wexpect 2 "a focus starting with a dash must be refused"
-wrap "$wrepo" --scope working-tree --focus ''; wexpect 2 "an empty focus must be refused"
-wrap "$wrepo" --scope working-tree --kind native --focus 'x'; wexpect 2 "a native review must be refused whatever the focus"
-wrap "$wrepo" --scope working-tree --kind other; wexpect 2 "an unknown kind must be refused"
-wrap "$wrepo" --scope working-tree --round 0; wexpect 2 "round 0 must be refused"
-wrap "$wrepo" --scope working-tree --bogus; wexpect 2 "an unknown argument must be refused"
-rc=0; ( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$work/plugin/not-the-script.mjs" node "$wrapper" --scope working-tree >/dev/null 2>&1 ) || rc=$?
-[ "$rc" = 2 ] || fail "a companion override with the wrong name must be refused (exit $rc)"
-rc=0; ( cd "$wrepo" && HOME="$work/wempty" B_AGENTIC_CODEX_COMPANION='' node "$wrapper" --scope working-tree >/dev/null 2>"$work/wstderr" ) || rc=$?
-[ "$rc" = 2 ] || fail "a missing plugin must be refused (exit $rc: $(cat "$work/wstderr"))"
-grep -Fq '/plugin install codex@openai-codex' "$work/wstderr" || fail "a missing plugin must be refused with install guidance: $(cat "$work/wstderr")"
-[ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite an argument refusal"
-echo "hooks probe passed: review-wrapper"
+if grep -Fq TOPSECRET <<<"$err"; then fail "the symlink target content reached the hook output"; fi
+rm "$wlink/notes.txt"; ln -s a.txt "$wlink/notes.txt"
+run "$codexguard" "$(cg "$wlink" "$review")"; expect 2 "an untracked symlink inside the repository is refused too"
+rm "$wlink/notes.txt"
+run "$codexguard" "$(cg "$wlink" "$review")"; expect 0 "the same repository passes once the symlink is gone"
+echo "hooks probe passed: codex-guard"

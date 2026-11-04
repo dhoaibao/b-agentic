@@ -36,7 +36,7 @@ EXPECTED_CLASSES = {
     "local-mutation",
     "auth",
 }
-AGENTS = ("b-planner", "b-researcher", "b-debugger", "b-auditor")
+AGENTS = ("b-planner", "b-researcher", "b-debugger", "b-auditor", "b-reviewer")
 ENV_REFERENCE = re.compile(r"^\$\{[A-Z][A-Z0-9_]*\}$")
 
 

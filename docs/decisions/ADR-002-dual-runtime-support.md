@@ -68,6 +68,8 @@ Decisions taken by the user:
   `~/.claude/plugins`. This couples the runtimes: OpenCode review needs the
   Claude plugin installed, and the gate otherwise reports unavailable. The
   approval store lives beside the installed hooks, so each runtime keeps its own.
+  Superseded by [ADR-003](ADR-003-subagent-review-gate.md): the gate is now the
+  read-only `b-reviewer` subagent on both runtimes.
 - Skills: OpenCode-rendered skills in `~/.config/opencode/skills`. Duplicate
   loading is avoided by precedence rather than by a switch.
 - Installer: `--runtime=claude` stays the default; `opencode` and `both` are
@@ -102,7 +104,7 @@ Gap handling on OpenCode:
 | ClickUp guard (asks on images) | every ClickUp create or update asks                                                                                                                                                                               |
 | Approval-store tripwire        | shell `ask` rules for the approve command, the approvals file, and the state-dir variable                                                                                                                         |
 | Verify gate                    | not ported: a session cannot be blocked from stopping                                                                                                                                                             |
-| Codex gate                     | `shell` with `background: true` through the shared companion and approval logic                                                                                                                                   |
+| Codex gate                     | superseded by ADR-003: the `b-reviewer` subagent, no shared companion or approval logic                                                                                                                           |
 
 Invariants: manifest-only ownership, refusal before the first write, user keys
 preserved on merge, managed permission rules always the final block,

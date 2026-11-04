@@ -4,7 +4,8 @@
 
 ADRs: why a choice was made over its alternatives. See
 [ADR-001](ADR-001-b-agentic-design-record.md) for the design baseline and
-[ADR-002](ADR-002-dual-runtime-support.md) for dual-runtime support.
+[ADR-002](ADR-002-dual-runtime-support.md) for dual-runtime support, and
+[ADR-003](ADR-003-subagent-review-gate.md) for the subagent review gate.
 
 ## Naming
 

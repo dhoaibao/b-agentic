@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// b-agentic Codex review guard. The independent review gate sends a repository
-// to OpenAI Codex through the openai/codex-plugin-cc plugin, and Codex's
-// read-only sandbox can read every file in the workspace. This guard refuses
-// that transmission unless
+// b-agentic Codex review guard. The review gate is now the read-only b-reviewer
+// subagent (ADR-003), so this guard is a dormant tripwire for a direct call to the
+// openai/codex-plugin-cc plugin, which sends a repository to OpenAI Codex, and
+// Codex's read-only sandbox can read every file in the workspace. This guard
+// refuses that transmission unless
 //   1. no likely-secret path is tracked, staged, or untracked-and-not-ignored,
 //      no submodule or embedded repository hides paths from a name scan, no
 //      untracked symlink would be followed by the plugin, and for a --base
@@ -210,9 +211,9 @@ const joinedText = (text) =>
 export const mentionsCompanion = (text) =>
   joinedText(text).includes(COMPANION_NAME);
 // The approval is a user decision, but it is recorded by a plain shell command
-// and read in-process by the review wrapper. A command that records it, points
-// the store elsewhere for the wrapper, or writes the store file is therefore put
-// to the user as a native prompt. The match is on the joined text, so quoting,
+// and read in-process by this guard. A command that records it, points the store
+// elsewhere for the guard, or writes the store file is therefore put to the user
+// as a native prompt. The match is on the joined text, so quoting,
 // continuations, wrappers, and interpreters do not hide it; names built at run
 // time still can (a documented residual risk).
 export const approvalTouch = (command) => {
@@ -378,8 +379,7 @@ export function invocationReasons(invocation) {
   return reasons;
 }
 
-// `base` is the explicit comparison ref a caller (the wrapper or --check) will
-// review; a direct plugin call carries its own `--base`. Each is resolved and
+// `base` is the explicit comparison ref a caller (--check) will review; a direct plugin call carries its own `--base`. Each is resolved and
 // its range scanned, because a base review sends the whole merge-base..HEAD
 // diff, including protected files that HEAD has since deleted or renamed.
 export async function evaluate({ command, cwd, base }) {

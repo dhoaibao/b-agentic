@@ -127,18 +127,18 @@
       "id": "review-freezes-candidate",
       "skill": "b-review",
       "observed_failure": "Review covered a moving candidate or made corrections itself.",
-      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), runs the Codex gate through the b-codex-review wrapper read-only as a harness background command it waits on, checks the wrapper's f0 and unchanged result and recomputes the fingerprint (F1) afterward, and corrections get fresh verification and a new review.",
+      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), delegates the review to the named read-only b-reviewer subagent with the baseline, acceptance, check results, candidate paths, F0, and relevant ignored paths, recomputes the fingerprint (F1) after it returns, and corrections get fresh verification and a new review.",
       "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant untracked generated file. Describe the review handoff, how its identity is checked, and what happens after NEEDS FIXES.",
       "must": [
         "Freeze and fingerprint the exact tracked and relevant untracked candidate as F0",
-        "Run the gate with `b-codex-review.mjs --scope working-tree` as a harness background command, wait for its completion notification before acting, and never pass the plugin's `--background` or call the plugin directly",
-        "Check the wrapper's f0 against F0 and its unchanged result, recompute the fingerprint as F1, and void the review when it differs",
+        "Delegate to the named `b-reviewer` subagent type, never a forked context, passing the baseline, acceptance, check results, candidate paths, F0, and relevant ignored paths but not the implementer's rationale",
+        "Recompute the fingerprint as F1 after the reviewer returns, and void the review when it differs from F0",
         "Do not edit while review runs",
-        "Fresh verification and a fresh Codex round with prior findings after corrections"
+        "Fresh verification and a fresh review round with prior findings after corrections"
       ],
       "avoid": [
         "Review a moving snapshot",
-        "Codex applies the fix",
+        "The reviewer applies the fix",
         "Commit automatically"
       ]
     },
@@ -147,7 +147,7 @@
       "skill": "b-review",
       "observed_failure": "Review looped for many rounds because every nit or deferred follow-up forced another fresh review.",
       "intended_behavior": "Only an evidenced blocker yields NEEDS FIXES; other findings are follow-ups that main dispositions without forcing a new review, and a re-review checks prior blockers and the correction delta.",
-      "prompt": "Codex finds one maintainability nit and one speculative edge case in a frozen candidate with passing checks and no safety-class issue. Describe the verdict and what main does next.",
+      "prompt": "The reviewer finds one maintainability nit and one speculative edge case in a frozen candidate with passing checks and no safety-class issue. Describe the verdict and what main does next.",
       "must": [
         "Classify both findings as follow-ups, not blockers",
         "Return READY WITH FOLLOW-UPS",
@@ -199,7 +199,7 @@
       "id": "explicit-pre-commit-review",
       "skill": "b-review",
       "observed_failure": "An explicit request to review changes before committing was treated as authorization to stage and commit.",
-      "intended_behavior": "An explicit pre-commit review request routes to b-review separately; the Codex gate is read-only and does not approve or perform staging.",
+      "intended_behavior": "An explicit pre-commit review request routes to b-review separately; the b-reviewer gate is read-only and does not approve or perform staging.",
       "prompt": "The user asks to review changed code before committing. Describe the read-only b-review handoff and whether this request itself authorizes a commit.",
       "must": [
         "Review the frozen changed-code candidate read-only",
@@ -451,13 +451,13 @@
     {
       "id": "main-session-no-self-review",
       "skill": "b-review",
-      "observed_failure": "The main session reviewed its own candidate and presented that as the independent gate, or ran the Codex review in the background while still editing.",
-      "intended_behavior": "b-review runs in the main session but never replaces the Codex gate with a self-review: when the plugin, login, or approval is missing it reports the gap and asks.",
-      "prompt": "A user asks for a quick review of a small diff, but the Codex plugin is not installed. Describe how the main session proceeds once b-review is selected.",
+      "observed_failure": "The main session reviewed its own candidate and presented that as the independent gate, or kept editing while the review ran.",
+      "intended_behavior": "b-review runs only in the b-reviewer subagent and the main session never replaces it with a self-review: when the reviewer is unavailable, fails, or returns no verdict it reports the gap and asks.",
+      "prompt": "A user asks for a quick review of a small diff, but the b-reviewer agent profile is missing. Describe how the main session proceeds once b-review is selected.",
       "must": [
-        "Freeze the candidate and run the secret and approval preflight",
-        "Report the missing plugin as a gap and ask the user",
-        "Do not issue a verdict without a valid Codex review"
+        "Freeze the candidate and gather the review handoff evidence",
+        "Report the unavailable reviewer as a gap and ask the user",
+        "Do not issue a verdict without a valid reviewer result"
       ],
       "avoid": [
         "Review the diff with main-session tools instead",
