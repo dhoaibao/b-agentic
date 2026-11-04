@@ -24,6 +24,7 @@
       "mcp__brave_search__brave_place_search",
       "mcp__firecrawl__firecrawl_search",
       "mcp__firecrawl__firecrawl_developer_search",
+      "mcp__firecrawl__firecrawl_gov_search",
       "mcp__firecrawl__firecrawl_scrape",
       "mcp__firecrawl__firecrawl_map",
       "mcp__firecrawl__firecrawl_agent_status",

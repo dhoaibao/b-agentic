@@ -3746,6 +3746,11 @@
       "effect": "allow"
     },
     {
+      "action": "firecrawl_firecrawl_gov_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
       "action": "firecrawl_firecrawl_scrape",
       "resource": "*",
       "effect": "allow"
