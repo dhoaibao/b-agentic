@@ -1,7 +1,7 @@
 ---
 description: "Independently review a frozen changed-code candidate read-only and return findings and a verdict to the main session."
 mode: subagent
-model: "claude-agent/opus#xhigh"
+model: "claude-agent/opus#high"
 permissions:
   - action: "edit"
     resource: "*"

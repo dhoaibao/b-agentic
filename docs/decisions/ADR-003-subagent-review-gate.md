@@ -30,7 +30,7 @@ for independence from the implementer.
 ## Decision
 
 `b-review` is a delegated skill again, run only by a new read-only `b-reviewer`
-specialist (`opus`, effort `xhigh`; OpenCode `claude-agent/opus#xhigh`), generated
+specialist (`opus`, effort `high`; OpenCode `claude-agent/opus#high`), generated
 from `skills/registry.yaml` like the other four specialists. The main session
 freezes the candidate with `b-candidate-snapshot` (F0), calls the reviewer by its
 named type with the baseline, target, acceptance, check results, candidate paths,
@@ -74,6 +74,15 @@ existing manifest logic.
   named `b-reviewer`, and the migration fixtures that modeled it now use a
   different retired name, so a real legacy `b-reviewer` migration is untested
   (a recorded follow-up).
+- Effort (refined 2026-11-04): the reviewer first shipped at `xhigh` and was
+  lowered to `high`, together with `b-planner`, on public benchmark and
+  documentation evidence (Anthropic reserves `xhigh` for measured gains; a vendor
+  code-review benchmark and Artificial Analysis favor `high` on quality per cost;
+  the same benchmark found `xhigh` caught the most hard bugs at lower precision,
+  which matters for a gate that exists to catch blockers), without a replay on
+  this repository. The OpenCode `#high` variant was not
+  verified locally. Revisit with measured wall-clock, tokens, rounds per change,
+  and real versus disputed blockers; return to `xhigh` if `high` misses blockers.
 - Revisit if review quality proves worse than the Codex gate, or if a cheap
   cross-vendor reviewer becomes available without a second subscription.
 

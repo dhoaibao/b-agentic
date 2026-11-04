@@ -117,7 +117,7 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
   `~/.claude/skills` for the same skill ID, so a machine with both installs does
   not load two copies. OpenCode v2 does not read `CLAUDE.md`.
 - **Review gate** is the same read-only `b-reviewer` specialist
-  (`claude-agent/opus#xhigh`) as on Claude Code, so it needs no plugin and no
+  (`claude-agent/opus#high`) as on Claude Code, so it needs no plugin and no
   second login. The retired Codex gate's standing approval store
   (`~/.config/opencode/b-agentic/codex-approved-repos.json`) is user data that is
   left in place, and its approval-store commands still ask through shell rules
@@ -166,18 +166,29 @@ the kernel carry this, so a missing subagent is reported instead of bypassed. A
 child result is evidence, not authorization. Claude Code models are Anthropic
 aliases from the registry's `model` field, with an optional `effort` field
 (`low`–`max`) rendered as subagent frontmatter; current Claude Code defaults are
-`opus`/`xhigh` for `b-planner`, `b-auditor`, and `b-reviewer`, `sonnet`/`xhigh` for
-`b-debugger`, and `sonnet`/`medium` for `b-researcher`. OpenCode uses the
+`opus`/`high` for `b-planner` and `b-reviewer`, `opus`/`xhigh` for `b-auditor`,
+`sonnet`/`xhigh` for `b-debugger`, and `sonnet`/`medium` for `b-researcher`. The
+`high` choice for the planner and reviewer follows Anthropic's guidance to reserve
+`xhigh` for work with a measured quality gain. One vendor code-review benchmark
+(Qodo, 2026-10) scored Opus 5.5 at `high` above `xhigh` on F1 (`xhigh` had the
+highest recall on hard bugs but lower precision), and Artificial
+Analysis puts `high` at about half the per-task cost of `xhigh` for a small
+index drop. None of this was replayed on this repository's own reviews, so
+revisit it with measured time, tokens, and blocker counts ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
+On Claude Code the registry values are defaults: a per-call `model` or `effort` on
+the agent call overrides them, `CLAUDE_CODE_EFFORT_LEVEL` overrides the effort, and
+`CLAUDE_CODE_SUBAGENT_MODEL` overrides the model only together with
+`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. OpenCode uses the
 separate optional `opencode_model` field (`provider/model#variant`); omitting it
 inherits the session model. Current OpenCode defaults are:
 
 | Specialist     | Model                 | Effort   |
 | -------------- | --------------------- | -------- |
-| `b-planner`    | `claude-agent/opus`   | `xhigh`  |
+| `b-planner`    | `claude-agent/opus`   | `high`   |
 | `b-researcher` | `claude-agent/sonnet` | `medium` |
 | `b-debugger`   | `claude-agent/sonnet` | `xhigh`  |
 | `b-auditor`    | `openai/gpt-6.1-sol`  | `xhigh`  |
-| `b-reviewer`   | `claude-agent/opus`   | `xhigh`  |
+| `b-reviewer`   | `claude-agent/opus`   | `high`   |
 
 Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 

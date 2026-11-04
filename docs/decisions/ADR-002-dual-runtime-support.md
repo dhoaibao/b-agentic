@@ -92,6 +92,8 @@ with `invalid x-api-key`, to OpenCode's `claude-agent` provider using the
 `effort` field for Claude Code subagent frontmatter. Omitting `opencode_model`
 retains session model inheritance. The variant suffixes select variants documented
 in the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
+On 2026-11-04 the planner and the new `b-reviewer` moved to `claude-agent/opus#high`
+([ADR-003](ADR-003-subagent-review-gate.md)).
 
 Gap handling on OpenCode:
 
