@@ -15,8 +15,8 @@ disclosure to OpenAI that needs per-repository approval, and about 1,200 lines o
 guard, wrapper, and verdict-mapper code plus roughly 530 lines of hook tests.
 
 The user reported that the Codex gate needs a separate subscription. In practice
-the gate also failed at its usage limit with no verdict (`b-codex-review.mjs`
-exit 2, "You've hit your usage limit"), so a required gate was unavailable when
+the gate also failed at its usage limit with no verdict (the `b-codex-review`
+wrapper exit 2, "You've hit your usage limit"), so a required gate was unavailable when
 the kernel required it. Two read-only Opus subagent reviews run through the
 `b-planner` profile as a stand-in found no blockers on a kernel change and one
 real wording ambiguity, which the main session then fixed. They were not compared
@@ -42,7 +42,7 @@ difference. A missing or failing reviewer is reported and asked about, never
 replaced by a self-review. The 3-round `NEEDS FIXES` stop, same-class sweeps, and
 follow-up dispositions are unchanged.
 
-The Codex wrapper (`b-codex-review.mjs`) and verdict mapper (`b-codex-verdict.mjs`)
+The Codex wrapper (`b-codex-review`) and verdict mapper (`b-codex-verdict`)
 are removed, as is the `plugin.codex-review` capability and the installer's Codex
 prerequisite and plugin instructions. Upgrades delete unmodified copies of the
 removed CLIs and keep modified ones with a warning, through the existing manifest
@@ -54,13 +54,13 @@ snapshot CLI (`--check-protected` and the review-range scan) were removed in a
 second step. That step first made the installer retire a recorded hook entry that
 the template no longer ships: `plan_settings` previously retired permission rules
 but not hooks, so deleting the script would have left every Bash call running a
-missing file. `settings.json` now stops naming a script before the script is
+missing file. `~/.claude/settings.json` now stops naming a script before the script is
 deleted; a hook the user edited, or one the manifest never recorded, is kept and
 reported together with its script until the entry is gone; such a kept guard
 cannot work any more (the snapshot CLI exports it imported were removed), so it
 errors without blocking on each Bash call until the user removes the entry. The
 user-owned
-`codex-approved-repos.json` is left in place with a note, never deleted. A direct
+`~/.claude/b-agentic/codex-approved-repos.json` is left in place with a note, never deleted. A direct
 `/codex:*` call is no longer checked by b-agentic.
 
 ## Consequences
@@ -82,7 +82,7 @@ user-owned
   not verified live; hook input carries an `agent_id` for subagent calls
   (ADR-001), so the path guard and deny rules are expected to apply.
 - Existing installs keep working: the installer retires the removed CLIs and adds
-  `agents/b-reviewer.md`. The retired OpenCode install really shipped an agent
+  `~/.claude/agents/b-reviewer.md`. The retired OpenCode install really shipped an agent
   named `b-reviewer`, and the migration fixtures that modeled it now use a
   different retired name, so a real legacy `b-reviewer` migration is untested
   (a recorded follow-up).

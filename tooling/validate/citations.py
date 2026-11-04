@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-REPO_SOURCE_SUFFIXES = {".md", ".py", ".ts", ".json", ".yaml", ".yml", ".sh", ".toml"}
+REPO_SOURCE_SUFFIXES = {".md", ".py", ".ts", ".mjs", ".js", ".json", ".yaml", ".yml", ".sh", ".toml"}
 CODE_SPAN_RE = re.compile(r"`([^`]+)`")
 PLAIN_PATH_RE = re.compile(r"(?<![@\w])(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.*@+-]+(?:\.[A-Za-z0-9_-]+)?")
 

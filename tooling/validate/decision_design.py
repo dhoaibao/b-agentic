@@ -172,6 +172,9 @@ def self_test() -> int:
         (good.replace("README.md", "tooling/missing.py", 1), "not currently tracked"),
         (good.replace("Evidence:", "Support:", 1), "no Evidence marker"),
         (consequences_no_evidence, "decision section 'Consequences' has no Evidence marker"),
+        (good.replace("README.md", "claude/hooks/missing.mjs", 1), "not currently tracked"),
+        (good.replace("README.md", "claude/missing.js", 1), "not currently tracked"),
+        (good.replace("README.md", "missing.md", 1), "not currently tracked"),
         (fixture(header="# ADR-001: fixture\n\n- Date: 2026-01-01\n- Supersedes: none\n\n"), "'- Status:' line"),
         (fixture(header=VALID_HEADER.replace("2026-01-01", "soon")), "'- Date: YYYY-MM-DD' line"),
     ]

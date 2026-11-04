@@ -18,8 +18,10 @@ review gate (the plugin, the `b-codex-review` wrapper, the `b-codex-verdict`
 mapper, the `b-codex-guard` hook that checked direct plugin calls, and the
 approval flow they enforced) described in Context, under
 "Workflow and skill design", "Safety and approval design", and "Verification and
-change discipline". `b-review` now runs in the read-only `b-reviewer` subagent;
-those passages are kept as history.
+change discipline", and the Codex prerequisite and plugin-command printing under
+"Installation, configuration, and lifecycle". `b-review` now runs in the read-only
+`b-reviewer` subagent, which makes five specialists; those passages are kept as
+history.
 
 ## Context
 
@@ -47,7 +49,7 @@ instructions refer to that path, so the installer refuses a different
 `CLAUDE_CONFIG_DIR`. Project guidance remains in repository
 `AGENTS.md` and `CLAUDE.md`. Canonical policy and skill sources live in
 `references/` and `skills/`; the registry generator renders each skill file
-(a skill is also its `/b-<name>` command), the four specialist profiles, the
+(a skill is also its `/b-<name>` command), the five specialist profiles, the
 kernel's generated blocks, and the settings template (permissions and hooks).
 Skills install as bare `~/.claude/skills/b-*`, not as a namespaced plugin.
 The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The installer owns
@@ -64,8 +66,8 @@ descriptors and runs a skill as `/b-<name>`. Skills marked
 `routing.explicit_request` route only on an explicit user request but stay
 model-invocable (no `disable-model-invocation`).
 Worktree mutation, user interaction, verification, and reporting stay in the
-main session. b-agentic generates four named read-only specialists for the
-`Agent` tool: `b-planner`, `b-researcher`, `b-debugger`, and `b-auditor`. Each
+main session. b-agentic generates five named read-only specialists for the
+`Agent` tool: `b-planner`, `b-researcher`, `b-debugger`, `b-auditor`, and `b-reviewer`. Each
 child reads its named skill, has a tool allowlist without `Edit`, `Write`,
 `NotebookEdit`, or nested delegation, and returns the skill's own output
 format. Read-only shell behavior is instructed, not enforced by a child-specific
@@ -188,7 +190,7 @@ Codex approval store's `B_AGENTIC_STATE_DIR`), and state files are opened
 without following symlinks.
 
 Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
-`claude/hooks/b-codex-guard.mjs` (removed by [ADR-003](ADR-003-subagent-review-gate.md)),
+the `b-codex-guard` hook script (removed by [ADR-003](ADR-003-subagent-review-gate.md)),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
 [`claude/hooks/b-clickup-guard.mjs`](../../claude/hooks/b-clickup-guard.mjs), and
@@ -202,7 +204,7 @@ classifies every known tool, and each class maps to an allow or ask rule on
 `mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
 The retired adapter's lazy and search-exposed modes are gone: Claude Code's
 built-in tool search defers large tool sets. Notion reads are `conditional-read`,
-not `read-only`, because every `read-only` tool is granted to all four
+not `read-only`, because every `read-only` tool is granted to all five
 specialists and a private workspace must not reach children. Specialists name
 their tools in `tools:`; `b-researcher` additionally lists three bounded public
 Firecrawl tools classified `conditional-read`. Credentials stay environment
@@ -255,8 +257,7 @@ Evidence: [`references/mcp_operations.yaml`](../../references/mcp_operations.yam
 `install.sh` installs from the checkout that contains it, or clones to
 `~/.b-agentic-claude` when piped (never `~/.b-agentic`, which keeps serving the
 frozen Pi installer). It never runs vendor installers: missing `rtk`,
-`codegraph`, `bunx`, `claude`, and `codex` are reported, and the Codex plugin
-commands are printed for the user to run. The installer copies skills, agents,
+`codegraph`, `bunx`, and `claude` are reported. The installer copies skills, agents,
 hooks, CLIs, and references; replaces the kernel block in the user `CLAUDE.md`; merges
 permission rules and hook entries into the user settings file and servers into
 the user MCP file; and records everything in an install manifest. It parses
