@@ -289,7 +289,11 @@ branches not named `main` or `master` also stay at the ask prompt. The
 auto-approved ClickUp `createTask` or `updateTask` whose markdown references an image other than an
 existing ClickUp attachment URL, since the MCP uploads local and downloaded images); `b-verify-gate` tracks
 edits and, when the main session edited a non-prose file after its last non-inspection shell
-command, blocks the first stop once with the verify and review reminder.
+command, blocks the first stop once with the verify and review reminder. Both PreToolUse guards set
+`onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that crashes, times out, or
+cannot start blocks the call, and malformed input still fails open by design. To recover from a
+guard that fails closed (for example a missing `node` or hook script), repair or reinstall: Bash is
+not guarded and still works. Older Claude Code versions' handling of the unknown key is undocumented.
 Claude Code prompts for outside-project writes instead of denying them. These
 rules are not a process or filesystem sandbox; shell indirection and MCP
 arguments they cannot see remain residual risks (only `b-clickup-guard` inspects

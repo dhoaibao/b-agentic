@@ -344,6 +344,15 @@ def main() -> int:
         errors.append("path guard must cover every file tool")
     if hooks["PreToolUse"][1]["matcher"] != "mcp__clickup__createTask|mcp__clickup__updateTask":
         errors.append("ClickUp guard must watch task create and update")
+    for entry in hooks["PreToolUse"]:
+        for hook in entry["hooks"]:
+            if hook.get("onFailure") != "block":
+                errors.append("PreToolUse guards must fail closed with onFailure block (Claude Code 2.1.295 or later)")
+    for event in ("PostToolUse", "Stop"):
+        for entry in hooks[event]:
+            for hook in entry["hooks"]:
+                if "onFailure" in hook:
+                    errors.append(f"onFailure is reserved for the PreToolUse guards, not {event} hooks")
     shipped = {path.name for path in (ROOT / "claude" / "hooks").glob("*.mjs")}
     for entries in hooks.values():
         for entry in entries:

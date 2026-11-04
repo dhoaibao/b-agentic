@@ -468,6 +468,33 @@ run "$home" --force; expect_ok "upgrade over the retired Codex review CLIs"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the reviewer specialist disappeared on upgrade"
 echo "install probe passed: codex-retire"
 
+# --- an upgrade from a release that shipped the PreToolUse guards without onFailure replaces them, never duplicates ---
+home=$(fresh_home hook-onfailure)
+claude="$home/.claude"
+run "$home"; expect_ok "install before the onFailure upgrade"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 2 ] || fail "a fresh install must set onFailure block on both PreToolUse guards"
+jq 'del(.hooks.PreToolUse[].hooks[].onFailure)' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+jq 'del(.settings.hooks[].hook.onFailure)' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
+run "$home"; expect_ok "upgrade over guards without onFailure"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 2 ] || fail "the upgrade did not add onFailure block to both guards: $(cat "$claude/settings.json")"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | contains("b-path-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade duplicated the path guard"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | contains("b-clickup-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade duplicated the ClickUp guard"
+if grep -Fq 'different matcher or fields' <<<"$err"; then fail "a clean onFailure upgrade must not warn: $err"; fi
+before=$(tree "$home")
+run "$home"; expect_ok "second upgrade after adding onFailure"
+[ "$before" = "$(tree "$home")" ] || fail "a re-run after the onFailure upgrade changed files"
+
+# A guard the user edited is kept as is and reported; the installer never adds a second copy beside it.
+home=$(fresh_home hook-onfailure-edited)
+claude="$home/.claude"
+run "$home"; expect_ok "install before the edited onFailure upgrade"
+jq '(.hooks.PreToolUse[] | select(.matcher == "Read|Edit|Write|NotebookEdit|Grep|Glob") | .hooks[0]) |= (del(.onFailure) | .timeout = 5)' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+jq 'del(.settings.hooks[].hook.onFailure)' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
+run "$home"; expect_ok "upgrade over an edited guard"
+grep -Fq 'different matcher or fields' <<<"$err" || fail "no warning for the kept edited guard: $err"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | contains("b-path-guard.mjs")) | select(.timeout == 5)] | length' "$claude/settings.json")" = 1 ] || fail "the user-edited guard was lost"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | contains("b-path-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "a second path guard was added beside the edited one"
+
 # --- an upgrade retires a hook the previous release shipped: settings stop naming the script before it goes ---
 # shellcheck disable=SC2016 # The literal $HOME mirrors the command string stored in settings.json.
 old_hook_cmd='node "$HOME/.claude/b-agentic/hooks/b-old-hook.mjs"'

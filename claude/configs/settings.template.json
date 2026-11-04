@@ -928,7 +928,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$HOME/.claude/b-agentic/hooks/b-path-guard.mjs\""
+            "command": "node \"$HOME/.claude/b-agentic/hooks/b-path-guard.mjs\"",
+            "onFailure": "block"
           }
         ]
       },
@@ -937,7 +938,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$HOME/.claude/b-agentic/hooks/b-clickup-guard.mjs\""
+            "command": "node \"$HOME/.claude/b-agentic/hooks/b-clickup-guard.mjs\"",
+            "onFailure": "block"
           }
         ]
       }

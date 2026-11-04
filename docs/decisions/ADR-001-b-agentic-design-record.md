@@ -115,7 +115,13 @@ checks the names a call carries, not the files a directory search would visit.
 Native Linux and macOS Claude Code builds replace `Glob` and `Grep` with `bfs` and
 `ugrep` behind Bash, so there the hook never sees a search; those searches rely on
 the kernel's secret-file rule and the Claude Code deny rules, which is an accepted
-residual risk (`--tools Grep Glob` restores the dedicated tools).
+residual risk (`--tools Grep Glob` restores the dedicated tools). Both PreToolUse
+guards set `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that
+crashes, times out, or cannot start blocks the call instead of letting it through;
+malformed input still fails open by design. If a guard fails closed (for
+example `node` or the hook script is missing), repair or reinstall: Bash is not
+guarded and still works. How an older client treats the unknown key is
+undocumented.
 `b-pr` is the only skill that pushes: on an explicit request it pushes the
 current non-default branch with an explicit `origin <branch>` destination and
 opens a draft PR, and it never forces, pulls, rebases, or merges. To push as an

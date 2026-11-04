@@ -778,11 +778,11 @@ def render_hooks() -> dict[str, Any]:
         "PreToolUse": [
             {
                 "matcher": "Read|Edit|Write|NotebookEdit|Grep|Glob",
-                "hooks": [{"type": "command", "command": hook_command("b-path-guard.mjs")}],
+                "hooks": [{"type": "command", "command": hook_command("b-path-guard.mjs"), "onFailure": "block"}],
             },
             {
                 "matcher": "mcp__clickup__createTask|mcp__clickup__updateTask",
-                "hooks": [{"type": "command", "command": hook_command("b-clickup-guard.mjs")}],
+                "hooks": [{"type": "command", "command": hook_command("b-clickup-guard.mjs"), "onFailure": "block"}],
             },
         ],
         "PostToolUse": [

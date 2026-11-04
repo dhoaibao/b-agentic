@@ -5,9 +5,10 @@
 // `*.env.example` allowed), which the settings deny rules can only approximate.
 //
 // Contract: stdin is the hook JSON; exit 2 with a stderr reason blocks the
-// call, any other exit lets it continue. It reads only path and glob strings,
-// never file content, and fails open on malformed input so it cannot wedge the
-// session. It checks the names a tool call carries, not the files a directory
+// call and exit 0 lets it continue. Under Claude Code the registered hook sets
+// `onFailure: "block"`, so a crash, timeout, or other unexpected exit also
+// blocks. It reads only path and glob strings, never file content, and fails
+// open on malformed input (exit 0) so it cannot wedge the session. It checks the names a tool call carries, not the files a directory
 // search would visit; Claude Code's own deny rules cover that best effort.
 import { readFileSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
