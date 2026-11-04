@@ -203,9 +203,10 @@ optional ClickUp is added only after install opt-in. `references/mcp_operations.
 classifies every known tool, and each class maps to an allow or ask rule on
 `mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
 The retired adapter's lazy and search-exposed modes are gone: Claude Code's
-built-in tool search defers large tool sets. Notion reads are `conditional-read`,
-not `read-only`, because every `read-only` tool is granted to all five
-specialists and a private workspace must not reach children. Specialists name
+built-in tool search defers large tool sets. Notion workspace reads are
+`conditional-read` (calendar and contact reads are `private-read`), not
+`read-only`, because every `read-only` tool is granted to all five specialists
+and a private workspace must not reach children. Specialists name
 their tools in `tools:`; `b-researcher` additionally lists three bounded public
 Firecrawl tools classified `conditional-read`. Credentials stay environment
 references (`${VAR}`), never stored values. Expansion of those references in

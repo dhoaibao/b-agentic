@@ -3871,11 +3871,6 @@
       "effect": "allow"
     },
     {
-      "action": "notion_notion-ai-search",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
       "action": "notion_notion-fetch",
       "resource": "*",
       "effect": "allow"
@@ -3926,11 +3921,6 @@
       "effect": "allow"
     },
     {
-      "action": "notion_notion-list-agents",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
       "action": "notion_notion-search-agents",
       "resource": "*",
       "effect": "allow"
@@ -3952,6 +3942,76 @@
     },
     {
       "action": "notion_notion-wait-session",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-self",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-groups",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-version-changes",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-list-recent-pages",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-list-favorite-pages",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-list-private-pages",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-list-shared-pages",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-list-page-backlinks",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-suggested-edit",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-view-version",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-enabled-skills",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-get-file-download-urls",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-query-multiple-data-sources",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "notion_notion-memory-search",
       "resource": "*",
       "effect": "allow"
     },
@@ -4057,11 +4117,6 @@
     },
     {
       "action": "clickup_getTimeEntries",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "clickup_read_space_clickup_space_txt",
       "resource": "*",
       "effect": "allow"
     },

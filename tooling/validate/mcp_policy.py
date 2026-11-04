@@ -242,6 +242,8 @@ def main() -> int:
         "mcp__notion__notion-update-page",
         "mcp__notion__notion-create-file-upload",
         "mcp__notion__notion-spawn-session",
+        "mcp__notion__notion-delete-pages",
+        "mcp__notion__notion-calendar-create-events",
         "mcp__drawio__open_drawio_xml",
         "mcp__drawio__open_drawio_csv",
         "mcp__drawio__open_drawio_mermaid",
@@ -249,6 +251,17 @@ def main() -> int:
     ):
         if name not in ask:
             errors.append(f"{name} must ask before mutation")
+    for name in (
+        "mcp__notion__notion-calendar-list-events",
+        "mcp__notion__notion-calendar-list-calendars",
+        "mcp__notion__notion-calendar-list-coworkers-events",
+        "mcp__notion__notion-calendar-list-calendar-resources",
+        "mcp__notion__notion-calendar-list-contacts",
+    ):
+        if name in allow:
+            errors.append(f"{name} is private-read and must not be auto-allowed")
+        if name not in ask:
+            errors.append(f"{name} is private-read and must ask")
     for name in ("mcp__clickup__createTask", "mcp__clickup__updateTask"):
         if name not in allow:
             errors.append(f"{name} is a trusted mutation and must be allowed")
@@ -281,7 +294,9 @@ def main() -> int:
     errors.extend(push_decision_errors(allow, ask, deny))
     for name in ("mcp__drawio__get_page", "mcp__drawio__list_pages"):
         if name in allow:
-            errors.append(f"{name} is unclassified and must keep the runtime approval prompt")
+            errors.append(f"{name} reads arbitrary .drawio/.xml paths and must not be auto-allowed")
+        if name not in ask:
+            errors.append(f"{name} is private-read and must ask")
     for tool in ("Read", "Glob", "Grep", "Edit", "Write", "Bash"):
         if tool not in allow:
             errors.append(f"repository-local tool must not prompt: {tool}")
