@@ -37,6 +37,10 @@
 <!-- generated:delegation:end -->
 - Material user-facing decisions or blockers use `question`: group 1–4 concrete choices, explain trade-offs, and offer a plain-text fallback when interactive questions are unavailable. Omit for routine activity, review fixes, and no-choice confirmations.
 
+## Peer agent messaging
+
+Only when the user asks agents to talk to each other; peers are independent sessions, and this adds no other rules. If `HERDR_ENV=1` (Herdr TUI), use the `herdr` skill; otherwise, if `hc` is on PATH (Herdr app), run `hc --skill`. The two cannot message each other.
+
 ## Routing
 <!-- generated:kernel-routing:start -->
 - Clarify fuzzy work, compare approaches, decompose execution -> `b-plan`.
@@ -65,17 +69,16 @@ A local, factual repository question needing no phase work -> answer directly fr
 
 - Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, default-branch, or destination-less (`git push`, `git push origin`) push. A `git push` naming its remote and branch and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
-- OpenCode exposes MCP tools as `<server>_<tool>`; generated permission rules follow Managed MCP operations below. The ClickUp image hook is not ported; every create or update asks: inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain. Specialists call only the tools their profile lists.
+- OpenCode exposes MCP tools as `<server>_<tool>`. The ClickUp image hook is not ported; every create or update asks: inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain.
 
 ## Capability activation
 
 `~/.config/opencode/b-agentic/references/capabilities.yaml` is canonical. Activate capabilities only on their triggers; use the local fallback when prerequisites are unavailable. Configured never means authenticated, verified, or used.
-For changed source, run behavior and quality checks; report gaps.
 A status snapshot never starts live MCP/auth/browser probes, reads credentials, or persists prompts, code, URLs, secrets, or telemetry.
 
 ## Managed MCP operations
 
-Canonical policy and per-class notes: `~/.config/opencode/b-agentic/references/mcp_operations.yaml`. Generated settings deny protected paths and apply:
+Canonical policy and per-class notes: `~/.config/opencode/b-agentic/references/mcp_operations.yaml`. Generated settings apply:
 
 <!-- generated:mcp-operations:start -->
 - Auto-allowed by tool name: `read-only`.

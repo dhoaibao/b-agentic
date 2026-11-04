@@ -24,7 +24,7 @@ CLAUDE_CONFIGS_DIR = CLAUDE_DIR / "configs"
 SETTINGS_TEMPLATE_PATH = CLAUDE_CONFIGS_DIR / "settings.template.json"
 SNAPSHOT_CLI_PATH = CLAUDE_DIR / "bin" / "b-candidate-snapshot.mjs"
 
-MAX_KERNEL_BYTES = 11_800
+MAX_KERNEL_BYTES = 12_000
 MAX_KERNEL_LINES = 100
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
