@@ -219,18 +219,28 @@ references (`${VAR}`), never stored values. Expansion of those references in
 the user-scope MCP file is a documented Claude Code behavior that was not
 exercised live. `mcp-doctor` checks only local configuration, launcher, and
 variable presence and starts no MCP or browser sessions.
-Playwright `browser_tabs` is `external-mutation` because its `new` action
-navigates to any URL. The auto-allowed Playwright reads accept a `filename`
+Playwright page-driving tools (`browser_navigate`, `browser_tabs`, `browser_click`,
+`browser_type`, `browser_evaluate`, `browser_take_screenshot`, and the other
+in-page interaction tools) are `trusted-mutation`, run without a prompt by the
+user's decision because browser testing is prompt-heavy; `browser_tabs` `new`
+and `browser_navigate` can reach any URL, and `browser_evaluate` runs page-context
+JavaScript. `browser_file_upload`, `browser_drop`, and `browser_run_code_unsafe`
+stay `external-mutation` because they read local files or run MCP-side code.
+The auto-allowed Playwright reads and `browser_take_screenshot` accept a `filename`
 that the MCP writes inside the workspace, which no permission rule or hook
-sees; b-browser forbids that argument, and the prompt-only enforcement is an
-accepted residual risk.
+sees; b-browser forbids that argument (screenshots only under the approved
+evidence root), and the prompt-only enforcement is an accepted residual risk.
+Unrestricted navigation also reaches localhost and intranet services, and a
+prompt-injected page could steer the auto-allowed click, type, and evaluate
+tools there; the isolated headless profile limits stored-credential exposure,
+and this is accepted as the user's decision. In OpenCode these tools still ask.
 
 MCP tools fall into nine classes in `references/mcp_operations.yaml`: `read-only`
 and `conditional-read` (allowed), `trusted-mutation` (allowed by the user's
 decision, main session only), and `local-upload`, `private-read`,
 `external-mutation`, `monitor-lifecycle`, `local-mutation`, and `auth` (ask). ClickUp `createTask` and
-`updateTask` are the `trusted-mutation` tools, run without a prompt by the user's
-decision. The ClickUp MCP reads and uploads a local image path or
+`updateTask` and the Playwright page-driving tools above are the `trusted-mutation`
+tools, run without a prompt by the user's decision. The ClickUp MCP reads and uploads a local image path or
 `data:` URI and downloads and re-uploads an external image URL named in task
 markdown, and no permission rule sees MCP arguments. The `b-clickup-guard`
 PreToolUse hook therefore asks whenever `description` or `append_description`

@@ -235,9 +235,9 @@ def main() -> int:
         errors.append("doubled tool names must not appear in permission rules")
     for name in (
         "mcp__firecrawl__firecrawl_crawl",
-        "mcp__playwright__browser_click",
-        "mcp__playwright__browser_navigate",
-        "mcp__playwright__browser_tabs",
+        "mcp__playwright__browser_file_upload",
+        "mcp__playwright__browser_drop",
+        "mcp__playwright__browser_run_code_unsafe",
         "mcp__notion__notion-create-pages",
         "mcp__notion__notion-update-page",
         "mcp__notion__notion-create-file-upload",
