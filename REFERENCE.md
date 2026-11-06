@@ -2,13 +2,14 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the supported runtime, Claude Code, with a read-only
-subagent as the independent reviewer ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
-It covers installation, the permission boundary, the review gate, MCP
-configuration, and validation. The OpenCode runtime was removed
-([ADR-004](docs/decisions/ADR-004-codex-runtime.md)) and Codex is planned as the
-second runtime. The earlier Pi runtime was removed (last commit `ac38e4a`) and
-is not maintained here.
+This reference defines the two supported runtimes, Claude Code and Codex, with a
+read-only subagent as the independent reviewer
+([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
+[ADR-004](docs/decisions/ADR-004-codex-runtime.md)). It covers installation, the
+permission boundary, the review gate, MCP configuration, and validation; the
+Codex differences are in [Codex runtime](#codex-runtime). The OpenCode runtime
+(ADR-004) and the earlier Pi runtime (last commit `ac38e4a`) were removed and are
+not maintained here.
 
 ## Install and lifecycle
 
@@ -23,14 +24,15 @@ the frozen Pi installer. The script never runs vendor installers and never
 writes under `~/.pi`.
 
 - `--dry-run` prints the plan and changes nothing.
-- On a terminal the installer shows a step timeline, a summary box, and asks before
+- On a terminal each runtime installer shows a step timeline, a summary box, and asks before
   writing (and whether to add the optional ClickUp MCP server on a first
   install). Questions are read from `/dev/tty`, so they work when piped. `-y` /
   `--yes`, `--dry-run`, `--uninstall`, or a non-terminal stdout keep plain output
-  and the defaults; `NO_COLOR` disables color. Answering No leaves the
-  configuration untouched (`~/.claude` and `~/.claude.json`). A piped run has
-  already cloned or updated the source checkout by then, because the summary
-  needs it.
+  and the defaults; `NO_COLOR` disables color. Answering No leaves that runtime's
+  configuration untouched (`~/.claude` and `~/.claude.json`, or `~/.codex` and
+  `~/.agents/skills`). A piped run has already cloned or updated the source
+  checkout by then, because the summary needs it. With `--runtime=both`, each
+  runtime confirms separately; declining Codex does not undo Claude's install.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
@@ -40,8 +42,9 @@ writes under `~/.pi`.
   `~/.claude/b-agentic/backups`.
 - `--with-clickup` / `--without-clickup` (or `B_AGENTIC_CLICKUP_MCP=yes`) select
   the optional ClickUp MCP server. The choice is recorded and preserved.
-- `--runtime=claude` is the default and only runtime. `--runtime=opencode` is
-  refused with a pointer to ADR-004; remove an old OpenCode install with the
+- `--runtime=claude|codex|both` selects the runtime (default `claude`). Each
+  runtime's install and uninstall leave the other untouched. `--runtime=opencode`
+  is refused with a pointer to ADR-004; remove an old OpenCode install with the
   installer from a commit before the removal.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
@@ -74,6 +77,73 @@ git directory is under `~/.pi`. Claude Code rewrites `~/.claude.json` while it
 runs, so restart it after an install. The installer reports missing tools (`rtk`,
 `codegraph`, `bunx`, `claude`) and never runs vendor installers. The review gate
 needs no extra tool, login, or plugin.
+
+## Codex runtime
+
+`./install.sh --runtime=codex` (or `both`) installs the same canonical skills,
+specialists, and safety checks for Codex CLI, rendered from the same sources
+through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
+`~/.codex` is supported (a different `CODEX_HOME` is refused), plus
+`~/.agents/skills` for skills. Everything is recorded in
+`~/.codex/b-agentic/install.json`.
+
+| Asset          | Installed path                                                                       |
+| -------------- | ------------------------------------------------------------------------------------ |
+| Skills         | `~/.agents/skills/b-*/SKILL.md` (invoked as `$b-<name>`, not slash commands)         |
+| Specialists    | `~/.codex/agents/b-*.toml` (agent roles; no model, so they inherit the session's)    |
+| Rules          | `~/.codex/rules/b-agentic.rules` (prefix rules for denied and asked commands)        |
+| Hooks and CLIs | `~/.codex/b-agentic/hooks/*.mjs`, `bin/*.mjs` (verify gate shared)                   |
+| Kernel         | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md` |
+| Hook entries   | entries merged into `~/.codex/hooks.json`, with absolute installed paths             |
+| MCP servers    | `[mcp_servers.*]` tables appended to `~/.codex/config.toml`, owned by name and value |
+
+- **Your policy stays yours.** The installer never writes `sandbox_mode` or
+  `approval_policy`. Set `workspace-write` with `on-request` approvals yourself to get
+  prompts for writes outside the project.
+- **MCP approvals.** Every managed server prompts by default
+  (`default_tools_approval_mode = "prompt"`); classified tools get a per-tool
+  `approval_mode` (`approve` for auto-allowed classes, `prompt` otherwise). ClickUp
+  `createTask` and `updateTask` prompt on every call because a Codex hook cannot ask.
+  Each managed table is owned by its name and parsed value, not by position or markers, so
+  Codex rewriting `config.toml` (`codex features enable`, `codex mcp add`, hook trust)
+  never orphans it; a table you or Codex changed, or one you already define, is kept and
+  reported. An unknown
+  `approval_mode` makes Codex reject the whole config, so the generator validates every
+  value. The IDE-managed DataGrip server has no table.
+- **Specialists** are agent roles. Codex agent files cannot restrict the sandbox, tools, or
+  MCP servers they inherit, so read-only is instructed, and a hook denies `apply_patch`
+  and MCP tools outside the role's allowlist when the hook payload names the role
+  (`agent_type`). Shell writes are not blocked.
+- **Hooks** run through one adapter (`b-codex-hooks.mjs`) for `PreToolUse`, `PostToolUse`,
+  and `Stop`. Codex skips a hook until you trust it: run `/hooks` after install and after
+  every update, because trust is tied to the hook's hash. Hooks fail open on error, cannot
+  ask, and do not run for hosted tools, so they are a guardrail rather than a boundary.
+- **Kernel size.** The global `~/.codex/AGENTS.md` does not count toward Codex's
+  `project_doc_max_bytes` (per the 0.167.0 source).
+- **Review gate** is the same read-only `b-reviewer` specialist as on Claude Code.
+- **Uninstall** removes the managed tables and the kernel block and keeps everything else,
+  including tables Codex wrote. `config.toml` and `AGENTS.md` return byte for byte unless
+  something else edited around the managed text (surrounding blank lines are normalized);
+  `hooks.json` keeps your entries but is re-serialized with two-space indentation.
+
+Known differences from Claude Code, accepted in ADR-004:
+
+| Claude Code feature                | Codex                                                                                                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Read-only specialists by tool list | Instructed, plus a best-effort `apply_patch` and MCP allowlist hook; shell writes are not blocked                          |
+| Path guard on `Read`/`Grep`/`Glob` | `apply_patch` paths and shell command words are checked; other read paths are not                                          |
+| ClickUp image-reference prompt     | Replaced by prompting on every ClickUp create or update                                                                    |
+| Shell `deny`/`ask` patterns        | Exact-prefix rules only; a flag not directly after the prefix, `gh` global options, or a refspec elsewhere are not matched |
+| Hook `ask`                         | Not supported by Codex (parsed, then ignored as a failed hook run)                                                         |
+| Outside-project writes prompt      | Your `sandbox_mode` and `approval_policy`; nothing managed                                                                 |
+| `AskUserQuestion`                  | Plain-text questions                                                                                                       |
+
+Verified against the Codex 0.167.0 binary and source: agent roles and skills load from
+the installed layout, hooks are discovered and show as untrusted, the generated rules and
+MCP tables parse and match. No live Codex turn is run by this repository's checks. Before
+relying on the hooks, confirm in a real session that `agent_type` reaches hook payloads
+inside a subagent, that an `apply_patch` on `.env` is denied, and that the model-facing MCP
+tool names are `mcp__<server>__<tool>`.
 
 ## Kernel and skills
 
@@ -285,13 +355,17 @@ rtk git diff --check
 
 Plain `scripts/validate-skills.sh` runs the generator self-test and check, the
 policy and routing checks, the hook probe
-(`tests/hooks/hooks-probe.sh`) and the snapshot CLI probe
+(`tests/hooks/hooks-probe.sh`), the Codex hook probe
+(`tests/hooks/codex-hooks-probe.sh`), and the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`). `--release` (CI) adds the sandbox installer
-probe (`tests/install/claude-install-probe.sh`) and the RTK readiness check.
-None needs Claude Code, credentials, or a network.
+probes (`tests/install/claude-install-probe.sh` and
+`tests/install/codex-install-probe.sh`) and the RTK readiness check. None
+needs Claude Code, Codex, credentials, or a network.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
 generated specialists and settings plus the hooks, CLIs, and MCP templates;
+`codex/` holds the generated Codex agents, skills, rules, and config templates plus
+the hook adapter;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
 snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).

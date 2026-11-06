@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check locally installed b-agentic skill discovery readiness for Claude Code."""
+"""Check locally installed b-agentic skill discovery readiness for Claude Code or Codex."""
 
 from __future__ import annotations
 
@@ -20,8 +20,28 @@ RUNTIMES = {
         "kernel_file": "CLAUDE.md",
         "skills_source": ROOT / "skills",
         "agents_source": ROOT / "claude" / "agents",
+        "agent_glob": "b-*.md",
         "kernel_source": ROOT / "references" / "kernel.template.md",
         "kernel_reference": "kernel.template.md",
+        "reference_files": ("capabilities.yaml", "mcp_operations.yaml"),
+        "hook_sources": sorted((ROOT / "claude" / "hooks").glob("*.mjs")),
+        "bin_sources": sorted((ROOT / "claude" / "bin").glob("*.mjs")),
+        "extra_files": {},
+    },
+    "codex": {
+        "label": "Codex",
+        "kernel_file": "AGENTS.md",
+        "skills_source": ROOT / "codex" / "skills",
+        "agents_source": ROOT / "codex" / "agents",
+        "agent_glob": "b-*.toml",
+        "kernel_source": ROOT / "codex" / "configs" / "kernel.md",
+        "kernel_reference": "kernel.md",
+        "reference_files": ("capabilities.yaml", "mcp_operations.yaml", "specialist-tools.json"),
+        "hook_sources": [
+            ROOT / "codex" / "hooks" / "b-codex-hooks.mjs",
+            ROOT / "claude" / "hooks" / "b-verify-gate.mjs",
+        ],
+        "bin_sources": [ROOT / "claude" / "bin" / "b-candidate-snapshot.mjs"],
         "extra_files": {},
     },
 }
@@ -33,7 +53,14 @@ def claude_dir(config_dir: str | None, home: Path) -> Path:
 
 
 def runtime_dir(runtime: str, config_dir: str | None, home: Path) -> Path:
+    if runtime == "codex":
+        return Path(config_dir).expanduser() if config_dir else home / ".codex"
     return claude_dir(config_dir, home)
+
+
+def skills_dir(runtime: str, root: Path, home: Path) -> Path:
+    """Codex reads user skills from ~/.agents/skills, outside its configuration directory."""
+    return home / ".agents" / "skills" if runtime == "codex" else root / "skills"
 
 
 def registry_skill_names() -> list[str]:
@@ -80,14 +107,14 @@ def missing_payload(root: Path, runtime: str = "claude") -> list[str]:
     """Managed specialists, hooks, CLIs, and references that the installed tree lacks."""
     spec = RUNTIMES[runtime]
     missing = []
-    for source in sorted(spec["agents_source"].glob("b-*.md")):
+    for source in sorted(spec["agents_source"].glob(spec["agent_glob"])):
         if not (root / "agents" / source.name).is_file():
             missing.append(f"agents/{source.name}")
-    for folder in ("bin", "hooks"):
-        for source in sorted((ROOT / "claude" / folder).glob("*.mjs")):
+    for folder, sources in (("bin", spec["bin_sources"]), ("hooks", spec["hook_sources"])):
+        for source in sources:
             if not (root / "b-agentic" / folder / source.name).is_file():
                 missing.append(f"b-agentic/{folder}/{source.name}")
-    for name in ("capabilities.yaml", "mcp_operations.yaml", spec["kernel_reference"]):
+    for name in (*spec["reference_files"], spec["kernel_reference"]):
         if not (root / "b-agentic" / "references" / name).is_file():
             missing.append(f"b-agentic/references/{name}")
     for relative in spec["extra_files"]:
@@ -96,15 +123,16 @@ def missing_payload(root: Path, runtime: str = "claude") -> list[str]:
     return missing
 
 
-def stale_assets(root: Path, skills: list[str], runtime: str = "claude") -> list[str]:
+def stale_assets(root: Path, skills: list[str], runtime: str = "claude", skills_root: Path | None = None) -> list[str]:
     spec = RUNTIMES[runtime]
+    skills_root = skills_root if skills_root is not None else root / "skills"
     stale = []
     for name in skills:
         source = spec["skills_source"] / name / "SKILL.md"
-        installed = root / "skills" / name / "SKILL.md"
+        installed = skills_root / name / "SKILL.md"
         if source.exists() and installed.exists() and source.read_bytes() != installed.read_bytes():
             stale.append(f"skill {name}")
-    for source in sorted(spec["agents_source"].glob("b-*.md")):
+    for source in sorted(spec["agents_source"].glob(spec["agent_glob"])):
         installed = root / "agents" / source.name
         if installed.exists() and source.read_bytes() != installed.read_bytes():
             stale.append(f"agent {source.stem}")
@@ -130,13 +158,13 @@ def main() -> int:
 
     home = Path(args.home).expanduser()
     claude_root = runtime_dir(args.runtime, args.config_dir, home)
-    skills_root = claude_root / "skills"
+    skills_root = skills_dir(args.runtime, claude_root, home)
     kernel = claude_root / RUNTIMES[args.runtime]["kernel_file"]
     kernel_present = kernel.exists() and kernel_block(kernel.read_text()) is not None
     expected = registry_skill_names()
     installed = installed_skill_names(skills_root)
     skills = payload_status(installed, expected)
-    stale = stale_assets(claude_root, expected, args.runtime)
+    stale = stale_assets(claude_root, expected, args.runtime, skills_root)
     missing = missing_payload(claude_root, args.runtime)
     ready = kernel_present and skills.startswith("ready") and not stale and not missing
 

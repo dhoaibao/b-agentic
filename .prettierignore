@@ -3,6 +3,10 @@ node_modules/
 
 # Generated delivery outputs are checked by registry synchronization instead.
 skills/*/SKILL.md
+codex/skills/*/SKILL.md
+codex/configs/kernel.md
+codex/configs/hooks.template.json
+codex/references/
 
 # These sources contain or feed generated blocks; registry synchronization owns
 # their delivery formatting.

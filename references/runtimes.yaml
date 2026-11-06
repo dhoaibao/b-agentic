@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Per-runtime vocabulary for rendering b-agentic's canonical sources. Canonical sources are written in Claude Code terms, so the claude glossary is empty and its output stays byte-identical; other runtimes localize them through an ordered literal glossary and an MCP tool-name format. See docs/decisions/ADR-002-dual-runtime-support.md.",
+  "description": "Per-runtime vocabulary for rendering b-agentic's canonical sources. Canonical sources are written in Claude Code terms, so the claude glossary is empty and its output stays byte-identical; other runtimes localize them through an ordered literal glossary, an MCP tool-name format, and a list of Claude-only terms their rendering must not contain. See docs/decisions/ADR-004-codex-runtime.md.",
   "runtimes": {
     "claude": {
       "config_dir": "~/.claude",
@@ -21,6 +21,143 @@
       "glossary": [],
       "arguments_placeholder": "$ARGUMENTS",
       "profile_check": "confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`"
+    },
+    "codex": {
+      "config_dir": "~/.codex",
+      "state_dir": "~/.codex/b-agentic",
+      "hook_dir": "$HOME/.codex/b-agentic/hooks",
+      "agent_models": [],
+      "editing_tools": [
+        "apply_patch"
+      ],
+      "mcp_tool_format": "mcp__{server}__{tool}",
+      "forbidden_terms": [
+        "AskUserQuestion",
+        "~/.claude",
+        ".claude/",
+        "run_in_background",
+        "general-purpose",
+        "`Agent`",
+        "`Read`",
+        "`Grep`",
+        "`Glob`"
+      ],
+      "glossary": [
+        [
+          " (or invokes its `/b-<name>` command)",
+          " (or invokes it as `$b-<name>`)"
+        ],
+        [
+          "Recommend `/b-pr`",
+          "Recommend `$b-pr`"
+        ],
+        [
+          "Only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images)",
+          "No hook inspects MCP arguments (a Codex hook cannot ask, so every ClickUp create or update asks instead)"
+        ],
+        [
+          "The tool is pre-approved and runs without a prompt, so confirm the title, list, and duplicate check first.",
+          "Every call requires approval; confirm the title, list, and duplicate check before requesting it."
+        ],
+        [
+          "it is pre-approved and runs without a prompt, so apply only the requested changes.",
+          "every call requires approval, and only the requested changes may be applied."
+        ],
+        [
+          "are pre-approved, except that the `b-clickup-guard` hook asks when a description references an image other than an existing ClickUp attachment URL.",
+          "require approval on every call; the ClickUp image-reference hook is not ported to Codex."
+        ],
+        [
+          "task creation and updates are pre-approved and run without a prompt (the guard asks only when a description references an image)",
+          "task creation and updates require approval on every call (the image-reference hook is not ported)"
+        ],
+        [
+          "Task creation and updates are pre-approved apart from the guard's image-reference ask",
+          "Task creation and updates require approval on every call"
+        ],
+        [
+          "~/.claude/b-agentic",
+          "~/.codex/b-agentic"
+        ],
+        [
+          "~/.claude/agents/",
+          "~/.codex/agents/"
+        ],
+        [
+          "~/.claude/skills/",
+          "~/.agents/skills/"
+        ],
+        [
+          ".claude/agents/",
+          ".codex/agents/"
+        ],
+        [
+          "Claude Code Workflow Kernel",
+          "Codex Workflow Kernel"
+        ],
+        [
+          "Claude Code exposes MCP tools as `mcp__<server>__<tool>`",
+          "Codex exposes MCP tools as `mcp__<server>__<tool>`"
+        ],
+        [
+          "Claude Code's approval prompt",
+          "Codex's approval prompt"
+        ],
+        [
+          "the harness prompts for outside-project writes",
+          "the sandbox prompts for writes outside the project"
+        ],
+        [
+          "Managed settings deny named dangerous commands and sensitive paths",
+          "Managed rules and hooks deny named dangerous commands and sensitive paths"
+        ],
+        [
+          "native `Read` and `Grep` (or `rg` where `Grep` is absent)",
+          "`rg` and read-only shell reads"
+        ],
+        [
+          "native `Read` and `Grep` (or `rg`)",
+          "`rg` and read-only shell reads"
+        ],
+        [
+          "with `Read` and `Grep` before acting",
+          "with `rg` and read-only shell reads before acting"
+        ],
+        [
+          "Use native `Read`/`Edit`/`Write` (plus `Glob`/`Grep` where the build has them, else `rg`/`fdfind`) for edits, configs, docs, and unindexed code, including SKILL.md and outside-project reads; use shell to run commands, never ad-hoc file I/O via `cat`/`sed`/`head`/`batcat`/`rtk read`/`python`/`sd`.",
+          "Use `apply_patch` for edits and `rg`/`fdfind` plus read-only shell reads (`sed -n`, `cat`) to read configs, docs, and unindexed code, including SKILL.md and outside-project reads; never write files through shell redirection, `sed -i`, `python`, or `sd`; use shell to run commands."
+        ],
+        [
+          "Tool lists omit edits, questions, and delegation but allow shell inspection under global permissions.",
+          "A Codex agent file cannot restrict tools, so a hook denies their edits and mutating MCP calls where it can; shell inspection stays allowed under the session sandbox."
+        ],
+        [
+          "Material user-facing decisions or blockers use `AskUserQuestion`: group 1–4 concrete choices, explain trade-offs, and offer a plain-text fallback when interactive questions are unavailable.",
+          "Material user-facing decisions or blockers are asked as a plain-text question: group 1–4 concrete choices and explain trade-offs."
+        ],
+        [
+          "Delegated skills run only in their named `Agent` subagent type",
+          "Delegated skills run only in their named subagent role (`spawn_agent` with `agent_type`)"
+        ],
+        [
+          "is its named `Agent` call",
+          "is its named `spawn_agent` call"
+        ],
+        [
+          "`general-purpose`",
+          "`default`"
+        ],
+        [
+          "`AskUserQuestion`",
+          "a plain-text question"
+        ],
+        [
+          "`Agent`",
+          "`spawn_agent`"
+        ]
+      ],
+      "arguments_placeholder": "the user's request",
+      "profile_check": "confirm the effective `{agent}.toml` (project `.codex/agents/` over `~/.codex/agents/`) is readable and its `developer_instructions` is non-empty (Codex cannot restrict an agent's tools, so read-only is instructed and a hook denies edits where it can; {editing} calls are denied for the role), then call `spawn_agent` with `agent_type` `{agent}` and a bounded task naming `{name}`"
     }
   }
 }

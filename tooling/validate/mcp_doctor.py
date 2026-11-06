@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report Claude Code MCP configuration and local prerequisites without connecting to servers."""
+"""Report Claude Code or Codex MCP configuration and local prerequisites without connecting to servers."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import sys
+import tomllib
 from pathlib import Path
 
 from session_readiness import check_session_tools
@@ -44,10 +45,17 @@ def configured_path(home: str | None, config: str | None) -> Path:
     return (Path(home).expanduser() if home else Path.home()) / ".claude.json"
 
 
+def codex_path(home: str | None, config: str | None) -> Path:
+    """Codex's user config; only the default ~/.codex is a supported install location."""
+    if config:
+        return Path(config).expanduser()
+    return (Path(home).expanduser() if home else Path.home()) / ".codex" / "config.toml"
+
+
 def status(server: str, entry: object) -> str:
     if not isinstance(entry, dict):
         return "not installed: optional" if server in OPTIONAL_SERVERS else "missing: config entry not installed"
-    if entry.get("disabled") is True:
+    if entry.get("disabled") is True or entry.get("enabled") is False:
         return "blocked: server disabled in config"
     missing = [name for name in CREDENTIALS.get(server, ()) if name not in os.environ]
     if missing:
@@ -66,7 +74,7 @@ def status(server: str, entry: object) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runtime", choices=("claude",), default="claude")
+    parser.add_argument("--runtime", choices=("claude", "codex"), default="claude")
     parser.add_argument("--home", help="Inspect this home's default MCP configuration for the runtime.")
     parser.add_argument("--config", help="Inspect this explicit MCP config file.")
     parser.add_argument("--session-tools", action="store_true")
@@ -77,23 +85,29 @@ def main() -> int:
         print(f"session-tools: {detail}")
         return 0 if ready else 1
 
-    label = "Claude Code"
-    config_path = configured_path(args.home, args.config)
+    codex = args.runtime == "codex"
+    label = "Codex" if codex else "Claude Code"
+    config_path = codex_path(args.home, args.config) if codex else configured_path(args.home, args.config)
     if not config_path.exists():
         print(f"runtime: {label}\nconfig: {config_path}\nstatus: missing {label} MCP config")
         return 0 if args.allow_degraded else 1
     try:
-        config = json.loads(config_path.read_text())
-        servers = config.get("mcpServers")
+        if codex:
+            config = tomllib.loads(config_path.read_text())
+            servers = config.get("mcp_servers")
+        else:
+            config = json.loads(config_path.read_text())
+            servers = config.get("mcpServers")
         if not isinstance(servers, dict):
-            raise ValueError("mcpServers must be an object")
+            raise ValueError("mcp_servers must be a table" if codex else "mcpServers must be an object")
     except (OSError, ValueError, AttributeError) as exc:
         print(f"runtime: {label}\nconfig: {config_path}\nstatus: invalid config: {exc}", file=sys.stderr)
         return 1
 
     print(f"runtime: {label}\nconfig: {config_path}\nstartup-check: not attempted; no MCP or browser connections")
-    blocked = shutil.which("claude") is None
-    print("claude: " + ("configured: CLI found" if not blocked else f"blocked: {label} CLI not found"))
+    cli = "codex" if codex else "claude"
+    blocked = shutil.which(cli) is None
+    print(f"{cli}: " + ("configured: CLI found" if not blocked else f"blocked: {label} CLI not found"))
     for server in SERVERS:
         detail = status(server, servers.get(server))
         print(f"{server}: {detail}")

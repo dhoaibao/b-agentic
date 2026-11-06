@@ -20,6 +20,7 @@ DECISION_PATH = ROOT / DEFAULT_LABEL
 LIGHT_LABELS = (
     "docs/decisions/ADR-002-dual-runtime-support.md",
     "docs/decisions/ADR-003-subagent-review-gate.md",
+    "docs/decisions/ADR-004-codex-runtime.md",
 )
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (

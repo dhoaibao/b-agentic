@@ -1,0 +1,514 @@
+[mcp_servers.codegraph]
+command = "codegraph"
+args = ["serve", "--mcp"]
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.codegraph.env]
+CODEGRAPH_TELEMETRY = "0"
+
+[mcp_servers.codegraph.tools.codegraph_explore]
+approval_mode = "approve"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.context7.env_http_headers]
+CONTEXT7_API_KEY = "CONTEXT7_API_KEY"
+
+[mcp_servers.context7.tools.resolve-library-id]
+approval_mode = "approve"
+
+[mcp_servers.context7.tools.query-docs]
+approval_mode = "approve"
+
+[mcp_servers.brave_search]
+command = "bunx"
+args = ["@brave/brave-search-mcp-server", "--transport", "stdio"]
+env_vars = ["BRAVE_API_KEY"]
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.brave_search.tools.brave_web_search]
+approval_mode = "approve"
+
+[mcp_servers.brave_search.tools.brave_local_search]
+approval_mode = "approve"
+
+[mcp_servers.brave_search.tools.brave_video_search]
+approval_mode = "approve"
+
+[mcp_servers.brave_search.tools.brave_image_search]
+approval_mode = "approve"
+
+[mcp_servers.brave_search.tools.brave_news_search]
+approval_mode = "approve"
+
+[mcp_servers.brave_search.tools.brave_summarizer]
+approval_mode = "approve"
+
+[mcp_servers.brave_search.tools.brave_llm_context]
+approval_mode = "approve"
+
+[mcp_servers.brave_search.tools.brave_place_search]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl]
+command = "bunx"
+args = ["firecrawl-mcp"]
+env_vars = ["FIRECRAWL_API_KEY"]
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_search]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_developer_search]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_gov_search]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_scrape]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_map]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_agent_status]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_check_crawl_status]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_find_tools]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_credit_usage]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_interact_stop]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_research_search_papers]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_research_inspect_paper]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_research_read_paper]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_research_related_papers]
+approval_mode = "approve"
+
+[mcp_servers.firecrawl.tools.firecrawl_parse]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_agent]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_crawl]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_interact]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_search_feedback]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_feedback]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_create]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_update]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_delete]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_get]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_list]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_run]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_check]
+approval_mode = "prompt"
+
+[mcp_servers.firecrawl.tools.firecrawl_monitor_checks]
+approval_mode = "prompt"
+
+[mcp_servers.playwright]
+command = "bunx"
+args = ["@playwright/mcp", "--isolated", "--headless", "--caps=testing"]
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.playwright.tools.browser_snapshot]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_find]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_take_screenshot]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_console_messages]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_network_requests]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_network_request]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_wait_for]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_navigate]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_navigate_back]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_resize]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_emulate_media]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_hover]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_close]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_tabs]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_click]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_type]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_fill_form]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_press_key]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_select_option]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_file_upload]
+approval_mode = "prompt"
+
+[mcp_servers.playwright.tools.browser_drop]
+approval_mode = "prompt"
+
+[mcp_servers.playwright.tools.browser_drag]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_evaluate]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_run_code_unsafe]
+approval_mode = "prompt"
+
+[mcp_servers.playwright.tools.browser_handle_dialog]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_generate_locator]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_verify_element_visible]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_verify_list_visible]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_verify_text_visible]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_verify_value]
+approval_mode = "approve"
+
+[mcp_servers.notion]
+url = "https://mcp.notion.com/mcp"
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-search]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-fetch]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-query-data-sources]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-query-meeting-notes]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-comments]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-teams]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-users]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-async-task]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-tool-access]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-download-attachment]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-download-skill]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-search-agents]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-query-sessions]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-search-sessions]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-session-status]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-wait-session]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-self]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-groups]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-version-changes]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-list-recent-pages]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-list-favorite-pages]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-list-private-pages]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-list-shared-pages]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-list-page-backlinks]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-suggested-edit]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-view-version]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-enabled-skills]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-get-file-download-urls]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-query-multiple-data-sources]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-memory-search]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-calendar-list-events]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-calendar-list-calendars]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-calendar-list-coworkers-events]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-calendar-list-calendar-resources]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-calendar-list-contacts]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-list-session-events]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-read-session-event]
+approval_mode = "approve"
+
+[mcp_servers.notion.tools.notion-create-pages]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-update-page]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-duplicate-page]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-move-pages]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-create-folder]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-create-database]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-update-data-source]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-create-view]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-update-view]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-create-comment]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-convert-page-to-skill]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-create-file-upload]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-create-attachment]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-spawn-session]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-stop-session]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-send-message-to-session]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-calendar-create-events]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-calendar-update-events]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-calendar-cancel-events]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-delete-pages]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-delete-databases]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-restore-pages]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-restore-version]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-create-suggested-edit]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-resolve-suggested-edit]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-delete-comment]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-update-comment]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-set-comment-reaction]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-set-discussion-resolved]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-update-folder]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-upload-skill]
+approval_mode = "prompt"
+
+[mcp_servers.notion.tools.notion-update-skill-settings]
+approval_mode = "prompt"
+
+[mcp_servers.excalidraw]
+url = "https://mcp.excalidraw.com"
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.excalidraw.tools.read_me]
+approval_mode = "approve"
+
+[mcp_servers.excalidraw.tools.create_view]
+approval_mode = "prompt"
+
+[mcp_servers.drawio]
+command = "bunx"
+args = ["@drawio/mcp@1.6.3"]
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.drawio.env]
+DRAWIO_ICON_SERVICE_URL = "off"
+
+[mcp_servers.drawio.tools.search_shapes]
+approval_mode = "approve"
+
+[mcp_servers.drawio.tools.open_drawio_xml]
+approval_mode = "prompt"
+
+[mcp_servers.drawio.tools.open_drawio_csv]
+approval_mode = "prompt"
+
+[mcp_servers.drawio.tools.open_drawio_mermaid]
+approval_mode = "prompt"
+
+[mcp_servers.drawio.tools.list_pages]
+approval_mode = "prompt"
+
+[mcp_servers.drawio.tools.get_page]
+approval_mode = "prompt"
+
+[mcp_servers.drawio.tools.set_page]
+approval_mode = "prompt"
+
+[mcp_servers.shadcn]
+command = "bunx"
+args = ["shadcn@latest", "mcp"]
+default_tools_approval_mode = "prompt"
+
+[mcp_servers.shadcn.tools.get_project_registries]
+approval_mode = "approve"
+
+[mcp_servers.shadcn.tools.list_items_in_registries]
+approval_mode = "approve"
+
+[mcp_servers.shadcn.tools.search_items_in_registries]
+approval_mode = "approve"
+
+[mcp_servers.shadcn.tools.get_item_examples_from_registries]
+approval_mode = "approve"
+
+[mcp_servers.shadcn.tools.view_items_in_registries]
+approval_mode = "approve"
+
+[mcp_servers.shadcn.tools.get_add_command_for_items]
+approval_mode = "approve"
+
+[mcp_servers.shadcn.tools.get_audit_checklist]
+approval_mode = "approve"

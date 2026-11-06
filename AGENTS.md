@@ -2,7 +2,7 @@
 
 ## Repository Purpose
 
-b-agentic is a slim personal workflow kernel for Claude Code, with
+b-agentic is a slim personal workflow kernel for Claude Code and Codex, with
 a read-only subagent as the independent reviewer. It ships the always-loaded kernel, skills that double as
 commands, managed MCP configuration, read-only specialist agents, safety hooks,
 and installer/validation tooling. See the [public
@@ -12,8 +12,8 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 ### Architecture and change map
 
-- `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, MCP policy, and per-runtime vocabulary; `claude/` holds generated agents and settings plus the hooks, CLIs, and MCP templates; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, hook, snapshot, and installer coverage.
-- Change shared guidance in `references/`, runtime hooks and CLIs in `claude/`, installer behavior in `install.sh` or `tooling/install/` (`claude_install.py`), and checks in `tooling/validate/` or `scripts/`. Use the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) when a change crosses these boundaries.
+- `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, MCP policy, and per-runtime vocabulary; `claude/` holds generated agents and settings plus the hooks, CLIs, and MCP templates (the hooks and CLIs are shared with Codex); `codex/` holds generated agents, skills, kernel, rules, and config templates plus the hand-written hook adapter; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, hook, snapshot, and installer coverage.
+- Change shared guidance in `references/`, runtime hooks and CLIs in `claude/`, the Codex hook adapter in `codex/hooks/`, installer behavior in `install.sh` or `tooling/install/` (`claude_install.py`, `codex_install.py`), and checks in `tooling/validate/` or `scripts/`. Use the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) when a change crosses these boundaries.
 
 ### Documentation
 
@@ -22,7 +22,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 ### Canonical sources and change flows
 
 - `skills/registry.yaml` owns skill metadata, routing, phase, execution ownership, and specialist-agent profiles; each `skills/*/prompt.md` owns its canonical skill body. `tooling/generate/registry_sync.py` renders `SKILL.md` files, agents, the settings template, and delivery blocks, so edit sources and regenerate rather than hand-editing output.
-- `references/kernel.template.md`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, and `references/runtimes.yaml` own runtime guidance, capability policy, and per-runtime vocabulary (canonical sources use Claude Code wording; the claude runtime renders identically and a second runtime is localized through the glossary; OpenCode was removed, see [ADR-004](docs/decisions/ADR-004-codex-runtime.md)). The installers consume generated output; the [operational reference](REFERENCE.md) documents the installed boundary. The earlier Pi runtime was removed from this repository (last commit `ac38e4a`).
+- `references/kernel.template.md`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, and `references/runtimes.yaml` own runtime guidance, capability policy, and per-runtime vocabulary (canonical sources use Claude Code wording; the claude runtime renders identically and Codex is localized through the glossary, see [ADR-004](docs/decisions/ADR-004-codex-runtime.md)). The installers consume generated output; the [operational reference](REFERENCE.md) documents the installed boundary. The earlier Pi runtime was removed from this repository (last commit `ac38e4a`).
 
 ### Project constraints and boundaries
 

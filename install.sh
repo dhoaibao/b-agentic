@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code.
+# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code, Codex, or both.
 #
 # Usage:
-#   ./install.sh [--runtime=claude] [--dry-run] [--force] [--with-clickup] [-y]
+#   ./install.sh [--runtime=claude|codex|both] [--dry-run] [--force] [--with-clickup] [-y]
 #                                                         install or sync from this checkout
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
@@ -11,9 +11,10 @@
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code) is the only
-# supported location.
-# On a terminal the installer shows a step timeline and asks before writing (via /dev/tty,
+# runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code) and ~/.codex plus
+# ~/.agents/skills (Codex) are the only supported locations, and each runtime's install and
+# uninstall leave the other untouched.
+# On a terminal each runtime installer shows a step timeline and asks before writing (via /dev/tty,
 # so it works when piped); -y/--yes, --dry-run, --uninstall, or no terminal keeps the plain output.
 
 set -euo pipefail
@@ -56,9 +57,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$RUNTIME" in
-  claude) ;;
-  opencode) die 'the OpenCode runtime was removed (see docs/decisions/ADR-004-codex-runtime.md); use --runtime=claude' ;;
-  *) die "invalid --runtime=$RUNTIME; use claude" ;;
+  claude|codex|both) ;;
+  opencode) die 'the OpenCode runtime was removed (see docs/decisions/ADR-004-codex-runtime.md); use --runtime=codex' ;;
+  *) die "invalid --runtime=$RUNTIME; use claude, codex, or both" ;;
 esac
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
@@ -161,4 +162,14 @@ if [ -e "$SOURCE_DIR/.git" ] && [ "$UNINSTALL" -eq 0 ]; then
 fi
 
 export B_AGENTIC_NOTES="$NOTES"
-exec python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+install_claude() {
+  python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+}
+install_codex() {
+  python3 "$SOURCE_DIR/tooling/install/codex_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+}
+case "$RUNTIME" in
+  claude) exec python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+  codex) exec python3 "$SOURCE_DIR/tooling/install/codex_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+  both) install_claude && install_codex ;;
+esac

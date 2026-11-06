@@ -10,5 +10,9 @@
     "MD041": false,
     "MD060": false,
   },
-  "ignores": ["skills/*/SKILL.md"],
+  "ignores": [
+    "skills/*/SKILL.md",
+    "codex/skills/*/SKILL.md",
+    "codex/configs/kernel.md",
+  ],
 }

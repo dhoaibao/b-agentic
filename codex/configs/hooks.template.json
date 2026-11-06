@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write|Bash|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.codex/b-agentic/hooks/b-codex-hooks.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.codex/b-agentic/hooks/b-codex-hooks.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.codex/b-agentic/hooks/b-codex-hooks.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-23
 - Supersedes: ADR-001 (product boundary and the second-runtime non-goal)
-- Superseded in part by [ADR-004](ADR-004-codex-runtime.md): the OpenCode runtime was removed; the runtime-adapter design stays.
+- Superseded in part by [ADR-004](ADR-004-codex-runtime.md): the OpenCode runtime was replaced by Codex; the runtime-adapter design stays.
 
 ## Context
 

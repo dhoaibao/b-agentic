@@ -17,6 +17,10 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | `../../skills/*/SKILL.md` | `skills/b-*/SKILL.md` | Generated skills, also the `/b-*` commands |
 | `../../references/kernel.template.md` | block in `CLAUDE.md` | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` |
 
+The installer refuses any destination that resolves into `~/.codex` or `~/.agents/skills`, so a symlink
+cannot make the Claude install write into the Codex tree (a `CLAUDE.md` symlinked to `~/.codex/AGENTS.md`
+is refused for that reason).
+
 The installer records everything it owns in `b-agentic/install.json`, backs up
 each user file it changes under `b-agentic/backups/`, keeps files you modified,
 refuses a symlinked managed directory or manifest, writes through (never replaces)
