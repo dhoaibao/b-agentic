@@ -11,7 +11,9 @@ Superseded in part by [ADR-002](ADR-002-dual-runtime-support.md): the
 single-runtime statement in Context, the `~/.claude`-only boundary under
 "Product boundary and architecture", the second-runtime non-goal under
 Consequences, and the Anthropic-models-only statement under "Workflow and skill
-design" (OpenCode specialists pin `opencode_model`).
+design" (OpenCode specialists pinned `opencode_model`).
+
+The OpenCode runtime ADR-002 added was removed by [ADR-004](ADR-004-codex-runtime.md).
 
 Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md): the Codex
 review gate (the plugin, the `b-codex-review` wrapper, the `b-codex-verdict`

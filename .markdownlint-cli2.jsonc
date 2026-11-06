@@ -10,10 +10,5 @@
     "MD041": false,
     "MD060": false,
   },
-  "ignores": [
-    "skills/*/SKILL.md",
-    "opencode/skills/*/SKILL.md",
-    "opencode/agents/*.md",
-    "opencode/configs/kernel.md",
-  ],
+  "ignores": ["skills/*/SKILL.md"],
 }

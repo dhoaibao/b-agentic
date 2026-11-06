@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check locally installed b-agentic skill discovery readiness for Claude Code or OpenCode."""
+"""Check locally installed b-agentic skill discovery readiness for Claude Code."""
 
 from __future__ import annotations
 
@@ -24,15 +24,6 @@ RUNTIMES = {
         "kernel_reference": "kernel.template.md",
         "extra_files": {},
     },
-    "opencode": {
-        "label": "OpenCode",
-        "kernel_file": "AGENTS.md",
-        "skills_source": ROOT / "opencode" / "skills",
-        "agents_source": ROOT / "opencode" / "agents",
-        "kernel_source": ROOT / "opencode" / "configs" / "kernel.md",
-        "kernel_reference": "kernel.md",
-        "extra_files": {"plugins/b-agentic.js": ROOT / "opencode" / "plugins" / "b-agentic.js"},
-    },
 }
 
 
@@ -42,10 +33,7 @@ def claude_dir(config_dir: str | None, home: Path) -> Path:
 
 
 def runtime_dir(runtime: str, config_dir: str | None, home: Path) -> Path:
-    if runtime == "claude":
-        return claude_dir(config_dir, home)
-    explicit = config_dir or os.environ.get("B_AGENTIC_OPENCODE_DIR")
-    return Path(explicit).expanduser() if explicit else home / ".config" / "opencode"
+    return claude_dir(config_dir, home)
 
 
 def registry_skill_names() -> list[str]:

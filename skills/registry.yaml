@@ -5,33 +5,28 @@
     "b-planner": {
       "description": "Produce a read-only execution-ready plan for the main b-agentic session.",
       "model": "opus",
-      "effort": "high",
-      "opencode_model": "claude-agent/opus#high"
+      "effort": "high"
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
       "model": "sonnet",
       "effort": "medium",
-      "opencode_model": "claude-agent/sonnet#medium",
       "conditional_tools": ["mcp__firecrawl__firecrawl_search", "mcp__firecrawl__firecrawl_scrape", "mcp__firecrawl__firecrawl_map"]
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
       "model": "sonnet",
-      "effort": "xhigh",
-      "opencode_model": "claude-agent/sonnet#xhigh"
+      "effort": "xhigh"
     },
     "b-auditor": {
       "description": "Audit b-agentic repository and design conformance read-only for the main session.",
       "model": "opus",
-      "effort": "xhigh",
-      "opencode_model": "openai/gpt-6.1-sol#xhigh"
+      "effort": "xhigh"
     },
     "b-reviewer": {
       "description": "Independently review a frozen changed-code candidate read-only and return findings and a verdict to the main session.",
       "model": "opus",
-      "effort": "high",
-      "opencode_model": "claude-agent/opus#high"
+      "effort": "high"
     }
   },
   "skills": [

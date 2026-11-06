@@ -2,13 +2,13 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the two supported runtimes, Claude Code and OpenCode,
-with a read-only subagent as the independent reviewer ([ADR-002](docs/decisions/ADR-002-dual-runtime-support.md),
-[ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
+This reference defines the supported runtime, Claude Code, with a read-only
+subagent as the independent reviewer ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
 It covers installation, the permission boundary, the review gate, MCP
-configuration, and validation; the OpenCode differences are in
-[OpenCode runtime](#opencode-runtime). The earlier Pi runtime was removed (last
-commit `ac38e4a`) and is not maintained here.
+configuration, and validation. The OpenCode runtime was removed
+([ADR-004](docs/decisions/ADR-004-codex-runtime.md)) and Codex is planned as the
+second runtime. The earlier Pi runtime was removed (last commit `ac38e4a`) and
+is not maintained here.
 
 ## Install and lifecycle
 
@@ -23,16 +23,14 @@ the frozen Pi installer. The script never runs vendor installers and never
 writes under `~/.pi`.
 
 - `--dry-run` prints the plan and changes nothing.
-- On a terminal both runtime installers show a step timeline, a summary box, and ask before
+- On a terminal the installer shows a step timeline, a summary box, and asks before
   writing (and whether to add the optional ClickUp MCP server on a first
   install). Questions are read from `/dev/tty`, so they work when piped. `-y` /
   `--yes`, `--dry-run`, `--uninstall`, or a non-terminal stdout keep plain output
-  and the defaults; `NO_COLOR` disables color. Answering No leaves that runtime's
-  configuration untouched (`~/.claude` and `~/.claude.json`, or `~/.config/opencode`).
-  OpenCode also shows legacy migration removals before confirmation; declining
-  creates no backups and removes nothing. A piped run has already cloned or updated
-  the source checkout by then, because the summary needs it. With `--runtime=both`,
-  each runtime confirms separately; declining OpenCode does not undo Claude's install.
+  and the defaults; `NO_COLOR` disables color. Answering No leaves the
+  configuration untouched (`~/.claude` and `~/.claude.json`). A piped run has
+  already cloned or updated the source checkout by then, because the summary
+  needs it.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
@@ -42,8 +40,9 @@ writes under `~/.pi`.
   `~/.claude/b-agentic/backups`.
 - `--with-clickup` / `--without-clickup` (or `B_AGENTIC_CLICKUP_MCP=yes`) select
   the optional ClickUp MCP server. The choice is recorded and preserved.
-- `--runtime=claude|opencode|both` selects the runtime (default `claude`). Each
-  runtime's install and uninstall leave the other untouched.
+- `--runtime=claude` is the default and only runtime. `--runtime=opencode` is
+  refused with a pointer to ADR-004; remove an old OpenCode install with the
+  installer from a commit before the removal.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -75,75 +74,6 @@ git directory is under `~/.pi`. Claude Code rewrites `~/.claude.json` while it
 runs, so restart it after an install. The installer reports missing tools (`rtk`,
 `codegraph`, `bunx`, `claude`) and never runs vendor installers. The review gate
 needs no extra tool, login, or plugin.
-
-## OpenCode runtime
-
-`./install.sh --runtime=opencode` (or `both`) installs the same canonical skills,
-specialists, and safety checks for OpenCode v2, rendered from the same sources
-through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
-`~/.config/opencode` is supported; a different `XDG_CONFIG_HOME` or
-`OPENCODE_CONFIG_DIR` is refused. Everything is recorded in
-`~/.config/opencode/b-agentic/install.json`.
-
-| Asset            | Installed path                                                                        |
-| ---------------- | ------------------------------------------------------------------------------------- |
-| Skills           | `skills/b-*/SKILL.md` (skills are not slash commands in OpenCode)                     |
-| Specialists      | `agents/b-*.md` (`mode: subagent`, read-only `permissions`)                           |
-| Safety plugin    | `plugins/b-agentic.js`, importing the hooks installed beside it                       |
-| Hooks and CLIs   | `b-agentic/hooks/*.mjs`, `b-agentic/bin/*.mjs` (shared with Claude Code)              |
-| Kernel           | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md`  |
-| Permissions, MCP | rules appended to `permissions`, servers added under `mcp.servers` in `opencode.json` |
-
-- **Permissions.** OpenCode applies the last matching rule, so the managed rules
-  are always the final block of `permissions`; your earlier rules are preserved
-  in order, and a re-run moves the managed block back to the end. Every
-  `<server>_<tool>` asks by default (`*_*`, so a server you added prompts too),
-  each managed server asks by default (`<server>_*`), then its classified tools
-  follow, so an unclassified tool still prompts. Secret-path denies use
-  whole-string patterns (`*.env`, `*.pem`, `*credentials.*`, `*secrets.*`) so
-  project-root files match. `external_directory` asks for any read or write
-  outside the project, except `~/.config/opencode`, `~/.claude`,
-  `~/.local/share/opencode`, and `/tmp/opencode`. ClickUp's trusted
-  mutations ask on OpenCode because the image-reference guard cannot prompt there.
-  `opencode.jsonc` (comments) and the v1 `permission` map are refused before any
-  write.
-- **Specialists** deny `edit`, `subagent`, and `question`, deny every other
-  `<server>_<tool>` (`*_*`, including servers you added), deny `execute` and
-  `browser` outright, and then allow only their allowlisted MCP tools; unlike
-  Claude Code this is enforced by the runtime. They keep the default
-  external-directory access. Whether the main session's Code Mode `opencode` and
-  `browser` calls ask is unverified on OpenCode 2.2.5.
-- **Skills load once.** `~/.config/opencode/skills` outranks the Claude-compatible
-  `~/.claude/skills` for the same skill ID, so a machine with both installs does
-  not load two copies. OpenCode v2 does not read `CLAUDE.md`.
-- **Review gate** is the same read-only `b-reviewer` specialist
-  (`claude-agent/opus#high`) as on Claude Code, so it needs no plugin and no
-  second login. The retired Codex gate's shell `ask` rules and guard script are
-  removed on upgrade; its standing approval store
-  (`~/.config/opencode/b-agentic/codex-approved-repos.json`) is user data that
-  nothing reads any more, so the installer leaves it and prints a note.
-- **Retired install.** A manifest from the removed OpenCode runtime is refused
-  unless `--migrate-legacy` is passed, which backs up and removes only the paths
-  that manifest names (`skills`, `agents`, `commands`, the whole-file `AGENTS.md`)
-  and keeps your `opencode.json` content. It validates the whole replacement
-  install before deleting anything and requires `opencode.json` and `AGENTS.md`
-  to be regular files (not symlinks) while it runs.
-
-Known differences from Claude Code, accepted in ADR-002:
-
-| Claude Code feature             | OpenCode                                                                                                                 |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Verify gate (blocks first stop) | Not ported: OpenCode has no documented way to block a session from stopping                                              |
-| ClickUp image-reference prompt  | Replaced by asking on every ClickUp create or update                                                                     |
-| Path guard on `Grep`/`Glob`     | Native `read`/`edit` secret denies plus the plugin; `grep`/`glob` resources are not matched natively                     |
-| Hook `exit 2` block             | Plugin `setup` registers `ctx.tool.hook("execute.before")` and throws; the 2.1.4 loader fails that call with the message |
-| Outside-project writes prompt   | `external_directory` asks for reads as well as writes; managed install and temp directories are allowed                  |
-
-Verified against the OpenCode v2 docs and the locally installed v2.1.4 binary;
-no live OpenCode session has been run by this repository's checks. Before relying
-on the plugin or the permission translation, confirm in a real session that a
-`.env` read is refused, a plugin throw blocks a shell call, and the model-facing
-tool name for a shell command is `shell` or `bash` (the plugin accepts both).
 
 ## Kernel and skills
 
@@ -177,19 +107,7 @@ revisit it with measured time, tokens, and blocker counts ([ADR-003](docs/decisi
 On Claude Code the registry values are defaults: a per-call `model` or `effort` on
 the agent call overrides them, `CLAUDE_CODE_EFFORT_LEVEL` overrides the effort, and
 `CLAUDE_CODE_SUBAGENT_MODEL` overrides the model only together with
-`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. OpenCode uses the
-separate optional `opencode_model` field (`provider/model#variant`); omitting it
-inherits the session model. Current OpenCode defaults are:
-
-| Specialist     | Model                 | Effort   |
-| -------------- | --------------------- | -------- |
-| `b-planner`    | `claude-agent/opus`   | `high`   |
-| `b-researcher` | `claude-agent/sonnet` | `medium` |
-| `b-debugger`   | `claude-agent/sonnet` | `xhigh`  |
-| `b-auditor`    | `openai/gpt-6.1-sol`  | `xhigh`  |
-| `b-reviewer`   | `claude-agent/opus`   | `high`   |
-
-Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
+`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`.
 
 ## Review gate
 
@@ -244,8 +162,7 @@ Accepted trade-offs against the retired Codex gate:
   approval or protected-path check applies), so you run it at your own risk.
 - Read-only is instructed on Claude Code, not sandboxed: the tool list omits
   `Edit`, `Write`, `NotebookEdit`, and nested delegation, but shell access can
-  still mutate state. OpenCode denies `edit`, `subagent`, and `question` through
-  the agent's `permissions`, but has no shell rule either.
+  still mutate state.
   The fingerprint recomputation catches any change to tracked or named files,
   but not a change to an ignored or outside-repository file that was never named.
 - The reviewer reads the repository as the main session's provider already does,
@@ -253,7 +170,7 @@ Accepted trade-offs against the retired Codex gate:
   commits or pushes.
 
 The Codex wrapper (`b-codex-review.mjs`), the verdict mapper
-(`b-codex-verdict.mjs`), the `b-codex-guard` hook and its OpenCode shell rules were
+(`b-codex-verdict.mjs`), and the `b-codex-guard` hook were
 removed. An upgrade retires them from an existing install: the installer drops the
 recorded `b-codex-guard` hook entry from `settings.json` before it deletes the
 script, deletes unmodified copies, keeps and reports an edited hook (and keeps its
@@ -368,17 +285,13 @@ rtk git diff --check
 
 Plain `scripts/validate-skills.sh` runs the generator self-test and check, the
 policy and routing checks, the hook probe
-(`tests/hooks/hooks-probe.sh`), the OpenCode plugin probe
-(`tests/hooks/opencode-plugin-probe.sh`), and the snapshot CLI probe
+(`tests/hooks/hooks-probe.sh`) and the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`). `--release` (CI) adds the sandbox installer
-probes (`tests/install/claude-install-probe.sh` and
-`tests/install/opencode-install-probe.sh`) and the RTK readiness check. None
-needs Claude Code, OpenCode, credentials, or a network.
+probe (`tests/install/claude-install-probe.sh`) and the RTK readiness check.
+None needs Claude Code, credentials, or a network.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
 generated specialists and settings plus the hooks, CLIs, and MCP templates;
-`opencode/` holds the generated OpenCode agents, skills, and references plus the
-config template and the safety plugin;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
 snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).

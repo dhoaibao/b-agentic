@@ -78,8 +78,7 @@ def resolve_claude_dir() -> Path:
 
 # The other runtime's locations, relative to the home directory. A resolved destination inside
 # them is refused, so a symlink cannot make one runtime's install write into the other's tree.
-# opencode_install.py replaces these with the Claude Code locations before it does any work.
-FOREIGN_RUNTIME_ROOTS: tuple[str, ...] = (".config/opencode",)
+FOREIGN_RUNTIME_ROOTS: tuple[str, ...] = ()
 FOREIGN_RUNTIME_FILES: tuple[str, ...] = ()
 
 
