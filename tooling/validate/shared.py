@@ -105,6 +105,11 @@ def main() -> int:
             errors.append(f"claude/configs/settings.template.json: no hook runs {script}")
     if not (ROOT / "claude" / "bin" / "b-candidate-snapshot.mjs").is_file():
         errors.append("claude/bin/b-candidate-snapshot.mjs: missing CLI")
+    if not (ROOT / "claude" / "bin" / "b-statusline.mjs").is_file():
+        errors.append("claude/bin/b-statusline.mjs: missing CLI")
+    status_line = json.loads((ROOT / "claude" / "configs" / "settings.template.json").read_text()).get("statusLine", {})
+    if not str(status_line.get("command", "")).endswith('/b-statusline.mjs"'):
+        errors.append("claude/configs/settings.template.json: statusLine does not run b-statusline.mjs")
 
     if errors:
         print("\n".join(errors), file=sys.stderr)

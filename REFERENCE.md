@@ -58,7 +58,7 @@ What it manages, all recorded in `~/.claude/b-agentic/install.json`:
 | Hooks and CLIs                     | `b-agentic/hooks/*.mjs`, `b-agentic/bin/*.mjs`                                       |
 | References                         | `b-agentic/references/`                                                              |
 | Kernel                             | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `CLAUDE.md` |
-| Permissions and hooks              | entries merged into `settings.json`                                                  |
+| Permissions, hooks, status line    | entries merged into `settings.json`                                                  |
 | MCP servers                        | entries merged into `~/.claude.json`                                                 |
 
 It plans in memory and refuses before its first write when a user file is

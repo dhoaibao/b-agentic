@@ -810,8 +810,14 @@ def render_hooks() -> dict[str, Any]:
     }
 
 
+def render_status_line() -> dict[str, Any]:
+    """The status line entry set in the user's settings.json only when none is configured."""
+    bin_dir = str(CLAUDE_RUNTIME["hook_dir"]).removesuffix("/hooks") + "/bin"
+    return {"type": "command", "command": f'node "{bin_dir}/b-statusline.mjs"', "refreshInterval": 5}
+
+
 def render_settings(policy: dict[str, Any]) -> dict[str, Any]:
-    return {**render_permissions(policy), "hooks": render_hooks()}
+    return {**render_permissions(policy), "hooks": render_hooks(), "statusLine": render_status_line()}
 
 
 def shell_pattern_rules() -> tuple[list[str], list[str]]:

@@ -180,6 +180,8 @@ def validate_settings_shape(settings: dict[str, Any], label: str) -> None:
     for kind in ("allow", "ask", "deny"):
         if not isinstance(permissions.get(kind, []), list):
             raise InstallError(f"{label}: permissions.{kind} must be an array")
+    if not isinstance(settings.get("statusLine", {}), dict):
+        raise InstallError(f"{label}: statusLine must be an object")
     hooks = settings.get("hooks", {})
     if not isinstance(hooks, dict):
         raise InstallError(f"{label}: hooks must be an object")
@@ -556,7 +558,7 @@ class Installer:
         settings = read_json(target)
         validate_settings_shape(settings, str(path))
         template = json.loads((self.source / "claude" / "configs" / "settings.template.json").read_text())
-        record: dict[str, Any] = {"permissions": {}, "hooks": []}
+        record: dict[str, Any] = {"permissions": {}, "hooks": [], "statusLine": []}
         permissions = settings.setdefault("permissions", {})
         for kind in ("allow", "ask", "deny"):
             existing = permissions.setdefault(kind, [])
@@ -579,6 +581,7 @@ class Installer:
             del hooks[event]
         if not hooks:
             del settings["hooks"]
+        record["statusLine"] = self.merge_status_line(settings, template, previous.get("statusLine", []), path)
         shipped = {script.name for script in (self.source / "claude" / "hooks").glob("*.mjs")}
         named_scripts: set[str] = set()
         for entries in hooks.values():
@@ -599,6 +602,28 @@ class Installer:
             "record": record,
             "named_scripts": named_scripts,
         }
+
+    def merge_status_line(
+        self, settings: dict[str, Any], template: dict[str, Any], recorded: list[Any], path: Path
+    ) -> list[dict[str, Any]]:
+        """Set the template's status line only when none is configured or the one present is exactly
+        what an earlier run recorded; a status line the user owns is left as is. Returns the owned items."""
+        wanted = template.get("statusLine")
+        existing = settings.get("statusLine")
+        if wanted is None:
+            if existing is not None and existing in recorded:
+                del settings["statusLine"]  # retired: still exactly the recorded one
+            return []
+        if existing is None or (existing != wanted and existing in recorded):
+            settings["statusLine"] = dict(wanted)
+            return [wanted]
+        if existing == wanted:
+            return [wanted] if wanted in recorded else []
+        self.warn(
+            f"{path} already sets a status line; left as is. Remove its statusLine entry and install again "
+            "to use b-agentic/bin/b-statusline.mjs"
+        )
+        return []
 
     def merge_hooks(
         self, hooks: dict[str, Any], template_hooks: dict[str, Any], recorded_hooks: list[Any], path: Path
@@ -737,12 +762,13 @@ class Installer:
         intent.setdefault("kernel_sha256", None)
         intent.setdefault("files", {})
         intent.setdefault("mcp", {"file": str(self.mcp_path), "servers": {}})
-        old_settings = intent.setdefault("settings", {"permissions": {}, "hooks": []})
+        old_settings = intent.setdefault("settings", {"permissions": {}, "hooks": [], "statusLine": []})
         old_settings["permissions"] = {
             kind: merge_unique(old_settings.get("permissions", {}).get(kind, []), rules)
             for kind, rules in settings["record"]["permissions"].items()
         }
         old_settings["hooks"] = merge_unique(old_settings.get("hooks", []), settings["record"]["hooks"])
+        old_settings["statusLine"] = merge_unique(old_settings.get("statusLine", []), settings["record"]["statusLine"])
         # Keep every older pending key (a retired file or a dropped server may still be scheduled
         # for cleanup) and add this run's planned values, so a second interruption loses nothing.
         pending_files = {relative: list(digests) for relative, digests in old_pending.get("files", {}).items()}
@@ -887,6 +913,9 @@ class Installer:
             changed = True
         if hooks == {} and "hooks" in settings and changed:
             del settings["hooks"]
+        if settings.get("statusLine") is not None and settings["statusLine"] in record.get("statusLine", []):
+            del settings["statusLine"]
+            changed = True
         return {"target": target, "text": json_text(settings)} if changed else None
 
     def plan_mcp_removal(self, manifest: dict[str, Any]) -> dict[str, Any] | None:

@@ -69,7 +69,7 @@ claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
 [ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
-for file in bin/b-candidate-snapshot.mjs hooks/b-path-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs bin/b-statusline.mjs hooks/b-path-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
@@ -84,6 +84,7 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
 [ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
+[ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"
 [ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the retired Codex guard must not be installed"
 if grep -Fq 'codex-guard' "$claude/settings.json"; then fail "settings must not name the retired Codex guard"; fi
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 9 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
@@ -126,6 +127,10 @@ printf '# My notes\n' >"$claude/CLAUDE.md"
 cat >"$claude/settings.json" <<'JSON'
 {
   "theme": "dark",
+  "statusLine": {
+    "type": "command",
+    "command": "echo user-status"
+  },
   "permissions": {
     "allow": [
       "Bash(ls *)"
@@ -168,6 +173,8 @@ run "$home"; expect_ok "install over user content"
 [ "$(jq -r '.permissions.deny | index("Bash(curl *)") != null' "$claude/settings.json")" = true ] || fail "user deny rule lost"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Read|Edit|Write|NotebookEdit|Grep|Glob") | .hooks[].command] | index("echo user-hook") != null' "$claude/settings.json")" = true ] || fail "user hook lost"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Read|Edit|Write|NotebookEdit|Grep|Glob") | .hooks[].command] | length' "$claude/settings.json")" = 2 ] || fail "managed hook not appended to the user's matching group"
+[ "$(jq -r .statusLine.command "$claude/settings.json")" = "echo user-status" ] || fail "a user-owned status line was replaced"
+grep -Fq 'already sets a status line' <<<"$err" || fail "a kept user status line should be reported: $err"
 [ "$(jq -r .numStartups "$home/.claude.json")" = 7 ] || fail "user key lost in .claude.json"
 [ "$(jq -r '.mcpServers | has("mine")' "$home/.claude.json")" = true ] || fail "user MCP server lost"
 grep -Fq '# My notes' "$claude/CLAUDE.md" || fail "user CLAUDE.md text lost"
