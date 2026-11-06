@@ -1374,6 +1374,11 @@ def validate_codex_outputs(
     kernel = outputs[CODEX_KERNEL_PATH]
     if len(kernel.encode()) > MAX_KERNEL_BYTES or len(kernel.splitlines()) > MAX_KERNEL_LINES:
         errors.append("codex/configs/kernel.md: exceeds the kernel size limit")
+    for path in (CODEX_KERNEL_PATH, CODEX_SKILLS_DIR / "b-commit" / "SKILL.md"):
+        if not all(f"`{tool}`" in outputs[path] for tool in ("request_user_input_async", "request_user_input")):
+            errors.append(f"{path.relative_to(ROOT)}: must name Codex structured question tools")
+    if "otherwise ask in plain text" not in kernel:
+        errors.append("codex/configs/kernel.md: must keep a plain-text question fallback")
     forbidden_terms = RUNTIMES["codex"]["forbidden_terms"]
     for path, text in outputs.items():
         if not path.is_relative_to(CODEX_DIR) or path.suffix not in {".md"}:
@@ -1543,6 +1548,20 @@ def validate_codex_regressions(
         "a kernel that names a Claude-only tool": {
             **outputs,
             CODEX_KERNEL_PATH: outputs[CODEX_KERNEL_PATH] + "\nUse `AskUserQuestion`.\n",
+        },
+        "a kernel without structured questions": {
+            **outputs,
+            CODEX_KERNEL_PATH: outputs[CODEX_KERNEL_PATH].replace("`request_user_input_async`", "plain text"),
+        },
+        "a commit skill that forces plain-text questions": {
+            **outputs,
+            CODEX_SKILLS_DIR / "b-commit" / "SKILL.md": outputs[CODEX_SKILLS_DIR / "b-commit" / "SKILL.md"].replace(
+                "`request_user_input_async`/`request_user_input`", "a plain-text question"
+            ),
+        },
+        "a kernel without a question fallback": {
+            **outputs,
+            CODEX_KERNEL_PATH: outputs[CODEX_KERNEL_PATH].replace("otherwise ask in plain text", "otherwise stop"),
         },
         "a hook template without the adapter": {
             **outputs,

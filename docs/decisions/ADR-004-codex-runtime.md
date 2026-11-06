@@ -71,7 +71,15 @@ Gap handling on Codex:
 | ClickUp guard (asks on images) | Every ClickUp create or update prompts                                                              |
 | Verify gate                    | Ported through `PostToolUse` and `Stop` (exit 2 with stderr)                                        |
 | Outside-project writes         | The user's own `sandbox_mode` and `approval_policy`                                                 |
-| `AskUserQuestion`              | Plain-text questions                                                                                |
+| `AskUserQuestion`              | Available, permitted Codex question tool; plain text as fallback                                    |
+
+Question handling (refined 2026-11-07): prefer `request_user_input_async`, then
+`request_user_input` when available and permitted for the question and current mode.
+Respect tool limits and restrictions on approval questions; use plain text when no
+permitted tool is available. An asynchronous question requires an explicit answer
+before dependent actions; a preselected option or elapsed time is not an answer.
+The runtime glossary applies this to the kernel and generated skills, including
+the commit branch choice. Claude Code retains `AskUserQuestion`.
 
 Invariants: manifest-only ownership, refusal before the first write, user keys preserved
 on merge, `~/.pi` never written, `~/.claude` untouched during a Codex-only run and the

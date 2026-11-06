@@ -144,7 +144,7 @@ Known differences from Claude Code, accepted in ADR-004:
 | Shell `deny`/`ask` patterns        | Exact-prefix rules only; a flag not directly after the prefix, `gh` global options, or a refspec elsewhere are not matched |
 | Hook `ask`                         | Not supported by Codex (parsed, then ignored as a failed hook run)                                                         |
 | Outside-project writes prompt      | Your `sandbox_mode` and `approval_policy`; nothing managed                                                                 |
-| `AskUserQuestion`                  | Plain-text questions                                                                                                       |
+| `AskUserQuestion`                  | Available, permitted structured question tool; plain text as fallback                                                      |
 
 Verified against the Codex 0.167.0 binary and source: agent roles and skills load from
 the installed layout, hooks are discovered and show as untrusted, the generated rules and

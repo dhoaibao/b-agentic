@@ -36,7 +36,7 @@
   - `b-review` -> `b-reviewer`.
 - All other skills run in the main session.
 <!-- generated:delegation:end -->
-- Material user-facing decisions or blockers are asked as a plain-text question: group 1–4 concrete choices and explain trade-offs. Omit for routine activity, review fixes, and no-choice confirmations.
+- Material user-facing decisions or blockers prefer `request_user_input_async` or `request_user_input` when available and permitted for the question and mode; otherwise ask in plain text. Respect tool limits and approval restrictions; explain trade-offs. Wait for an explicit answer before dependent actions; preselected options and elapsed time are not answers. Omit for routine activity, review fixes, and no-choice confirmations.
 
 ## Peer agent messaging
 

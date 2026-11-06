@@ -30,7 +30,7 @@ Push the current branch to `origin` and create a draft GitHub PR from its commit
 ## Tool guidance
 
 - `bash` - `rtk git` for local reads and the push, `gh` for GitHub reads, PR creation, and switching between already logged-in accounts. The harness asks before `git push`, `gh pr create`, and `gh auth switch`; force, delete, mirror, all-branch, and default-branch pushes, `gh pr merge`, `gh repo delete`, `gh auth login`/`logout`/`token`/`refresh`, and other destructive or credential-changing `gh` commands are denied. The HTTPS `git -c ... push` form is denied only for force and default-branch pushes; its other forbidden pushes are caught by the prompt rules and the ask prompt alone.
-- a plain-text question - choose the base branch when it is ambiguous.
+- `request_user_input_async`/`request_user_input` - choose the base branch when it is ambiguous.
 
 ## Steps
 
@@ -51,7 +51,7 @@ Preflight is read-only except the account switch in step 5. Stop at the first fa
 ### Choose the base
 
 1. An explicit base from the request wins when `origin/<base>` exists. Otherwise find the parent: first `git config --get branch.<branch>.b-agentic-parent`; then the oldest entry of `git reflog show --format=%gs refs/heads/<branch>`, only when it reads `branch: Created from <ref>` and `<ref>` is not `HEAD`, with an `origin/` or `refs/heads/` prefix removed. The parent is valid only when it is not the current branch and the cached `origin/<parent>` ref exists.
-   - A valid parent that differs from the default: ask once with a plain-text question whether to use the default branch or the parent as the base.
+   - A valid parent that differs from the default: ask once with `request_user_input_async`/`request_user_input` whether to use the default branch or the parent as the base.
    - A parent equal to the default: use the default without asking.
    - No valid parent: ask with the default branch offered and a typed base allowed through Other.
    - Never guess a base from the nearest-looking branch.

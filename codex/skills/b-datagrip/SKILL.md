@@ -38,7 +38,7 @@ Inspect and query DataGrip-configured databases through the DataGrip MCP server,
 
 ## Remote and production-like connections
 
-- Before the first row read or SQL statement on a connection that is not local in a session, confirm with a plain-text question, naming the connection and intent. Metadata calls need no confirmation, but they still open a connection.
+- Before the first row read or SQL statement on a connection that is not local in a session, confirm with `request_user_input_async`/`request_user_input`, naming the connection and intent. Metadata calls need no confirmation, but they still open a connection.
 - A confirmation covers one connection for that session, and never covers a write.
 - No connection is read-only by server enforcement; the DataGrip read-only flag may be off. Recommend a read-only database user for sensitive connections.
 
@@ -55,7 +55,7 @@ Inspect and query DataGrip-configured databases through the DataGrip MCP server,
 Run a write only when the user explicitly asks for it and names the connection and intent:
 
 - DML (`INSERT`, `UPDATE`, `DELETE`, `MERGE`, `COPY`), DDL (`CREATE`, `ALTER`, `DROP`, `TRUNCATE`), DCL (`GRANT`, `REVOKE`), `CALL`/`DO`, `SET`, explicit transactions, and Redis write commands.
-- First show the exact statement, the connection, and the expected affected rows (run a read-only `COUNT` check when possible), then confirm with a plain-text question. The harness approval prompt is a second gate, not a substitute.
+- First show the exact statement, the connection, and the expected affected rows (run a read-only `COUNT` check when possible), then confirm with `request_user_input_async`/`request_user_input`. The harness approval prompt is a second gate, not a substitute.
 - Never run a write on a remote or production-like connection without a confirmation that names that connection.
 
 ## Data handling

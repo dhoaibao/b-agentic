@@ -133,7 +133,7 @@
         ],
         [
           "Material user-facing decisions or blockers use `AskUserQuestion`: group 1–4 concrete choices, explain trade-offs, and offer a plain-text fallback when interactive questions are unavailable.",
-          "Material user-facing decisions or blockers are asked as a plain-text question: group 1–4 concrete choices and explain trade-offs."
+          "Material user-facing decisions or blockers prefer `request_user_input_async` or `request_user_input` when available and permitted for the question and mode; otherwise ask in plain text. Respect tool limits and approval restrictions; explain trade-offs. Wait for an explicit answer before dependent actions; preselected options and elapsed time are not answers."
         ],
         [
           "Delegated skills run only in their named `Agent` subagent type",
@@ -149,7 +149,15 @@
         ],
         [
           "`AskUserQuestion`",
-          "a plain-text question"
+          "`request_user_input_async`/`request_user_input`"
+        ],
+        [
+          "2–4 concrete",
+          "2–3 concrete"
+        ],
+        [
+          "Group related questions (up to four)",
+          "Group related questions (up to three)"
         ],
         [
           "`Agent`",
