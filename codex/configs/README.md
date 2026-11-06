@@ -8,7 +8,7 @@ regenerate, never the generated files.
 | Source                           | Installed path (default `~/.codex`)    | Owner                                                                                   |
 | -------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
 | `skills/b-*/SKILL.md`            | `~/.agents/skills/b-*/SKILL.md`        | Codex user skill scope; invoked as `$b-<name>`                                          |
-| `agents/b-*.toml`                | `agents/b-*.toml`                      | Five generated read-only specialist roles (no model, no sandbox keys: Codex ignores them) |
+| `agents/b-*.toml`                | `agents/b-*.toml`                      | Five generated read-only specialist roles with a pinned model and effort from the registry (sandbox and MCP keys are omitted: Codex ignores them) |
 | `rules/b-agentic.rules`          | `rules/b-agentic.rules`                | Prefix rules: denied and asked shell commands                                           |
 | `configs/kernel.md`              | block in `AGENTS.md`                   | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->`        |
 | `configs/hooks.template.json`    | entries in `hooks.json`                | Hook entries merged by exact value; `$HOME` is expanded to the real home at install     |

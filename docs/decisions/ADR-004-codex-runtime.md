@@ -38,7 +38,9 @@ pointer to this ADR. The adapter machinery (`references/runtimes.yaml` glossary,
 Phase 2 (done): add Codex, `install.sh --runtime=claude|codex|both` (default `claude`).
 
 - Skills render to `codex/skills` and install to `~/.agents/skills`; specialists are
-  `~/.codex/agents/b-*.toml` without model keys (they inherit the session model); the
+  `~/.codex/agents/b-*.toml` with a model and effort pinned from the registry's optional
+  `codex_model` and `codex_effort` (refined 2026-11-06 from inheriting the session model;
+  see below); the
   kernel is a marked block in `~/.codex/AGENTS.md`; MCP servers are `[mcp_servers.*]`
   tables in `~/.codex/config.toml` owned by name and parsed value (no markers, because
   Codex itself rewrites that file: `codex features enable` and `codex mcp add` move
@@ -74,6 +76,14 @@ Gap handling on Codex:
 Invariants: manifest-only ownership, refusal before the first write, user keys preserved
 on merge, `~/.pi` never written, `~/.claude` untouched during a Codex-only run and the
 reverse.
+
+Model pins (2026-11-06): planner and reviewer `gpt-6.1-sol` at `high`, auditor
+`gpt-6.1-sol` at `xhigh`, debugger `gpt-6.1-terra` at `xhigh`, researcher
+`gpt-6.1-terra` at `medium`. The IDs and the supported effort levels (`low` to `ultra`)
+come from the model catalog bundled in the Codex 0.167.0 binary, and Codex reports each
+pin in the role's `spawn_agent` description. That Sol is the stronger tier is the
+user's decision, not a measurement; whether the account can use both models is not
+checked.
 
 ## Consequences
 

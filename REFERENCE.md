@@ -90,7 +90,7 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
 | Asset          | Installed path                                                                       |
 | -------------- | ------------------------------------------------------------------------------------ |
 | Skills         | `~/.agents/skills/b-*/SKILL.md` (invoked as `$b-<name>`, not slash commands)         |
-| Specialists    | `~/.codex/agents/b-*.toml` (agent roles; no model, so they inherit the session's)    |
+| Specialists    | `~/.codex/agents/b-*.toml` (agent roles with a pinned model and effort)              |
 | Rules          | `~/.codex/rules/b-agentic.rules` (prefix rules for denied and asked commands)        |
 | Hooks and CLIs | `~/.codex/b-agentic/hooks/*.mjs`, `bin/*.mjs` (verify gate shared)                   |
 | Kernel         | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md` |
@@ -110,6 +110,14 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
   reported. An unknown
   `approval_mode` makes Codex reject the whole config, so the generator validates every
   value. The IDE-managed DataGrip server has no table.
+- **Specialist models.** The registry's `codex_model` and `codex_effort` pin each role
+  (omit them to inherit the session's). Defaults, from the model catalog bundled in Codex
+  0.167.0 (`codex debug models`): `b-planner`, `b-reviewer` `gpt-6.1-sol` at `high`;
+  `b-auditor` `gpt-6.1-sol` at `xhigh`; `b-debugger` `gpt-6.1-terra` at `xhigh`;
+  `b-researcher` `gpt-6.1-terra` at `medium`. Codex reports the pin in each role's
+  `spawn_agent` description. A role can only use models of the session's provider, and
+  whether your account can use these two is not checked here; edit the registry and
+  regenerate to change a pin.
 - **Specialists** are agent roles. Codex agent files cannot restrict the sandbox, tools, or
   MCP servers they inherit, so read-only is instructed, and a hook denies `apply_patch`
   and MCP tools outside the role's allowlist when the hook payload names the role
