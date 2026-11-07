@@ -13,7 +13,7 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules |
 | `agents/b-*.md` | `agents/b-*.md` | Five generated read-only specialist profiles (tool allowlists, no editing tools), including `b-reviewer` |
 | `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-clickup-guard`, `b-verify-gate` |
-| `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot` (the candidate fingerprint used by the review gate), `b-statusline` (the status line: model and effort, repo and branch, context, session cost, cache expiry and hit ratio, 5-hour and weekly limits; read-only) |
+| `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot` (the candidate fingerprint used by the review gate), `b-statusline` (the status line: model and effort, repo and branch, context, session cost, cache hit ratio, 5-hour and weekly limits; read-only) |
 | `../../skills/*/SKILL.md` | `skills/b-*/SKILL.md` | Generated skills, also the `/b-*` commands |
 | `../../references/kernel.template.md` | block in `CLAUDE.md` | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` |
 

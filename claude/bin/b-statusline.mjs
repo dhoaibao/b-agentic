@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 // b-agentic status line for Claude Code. Reads the status JSON on stdin and prints one line:
-// model and effort, repo and git branch, context used, session cost, how long the prompt cache
-// lasts (a red "exp." once it is out) with its hit ratio, and the 5-hour and weekly limits as
-// coloured percents with time to reset.
+// model and effort, repo and git branch, context used, session cost, the prompt cache hit ratio,
+// and the 5-hour and weekly limits as coloured percents with time to reset.
 // Read-only: it writes nothing and never touches the network.
-import { closeSync, fstatSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-
-const TAIL_BYTES = 512 * 1024;
-const TAIL_LINES = 400;
 
 const paint = (code, text) => `\u001b[${code}m${text}\u001b[0m`;
 const dim = (text) => paint("2", text);
@@ -33,68 +29,6 @@ export function left(epochSeconds, now = Date.now() / 1000) {
   if (seconds < 86400)
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
   return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
-}
-
-function tailLines(path) {
-  let fd;
-  try {
-    fd = openSync(path, "r");
-    const { size } = fstatSync(fd);
-    const length = Math.min(size, TAIL_BYTES);
-    const buffer = Buffer.alloc(length);
-    readSync(fd, buffer, 0, length, size - length);
-    const lines = buffer.toString("utf8").split("\n");
-    if (size > length) lines.shift(); // the first line is cut mid-record
-    return lines.filter(Boolean).slice(-TAIL_LINES);
-  } catch {
-    return [];
-  } finally {
-    if (fd !== undefined) closeSync(fd);
-  }
-}
-
-// Claude Code 2.1.251+ reports the cache in the status JSON (`prompt_cache.expires_at`, epoch
-// seconds, null when the last response reported no cache tokens). Undefined when the object is
-// absent, so the caller falls back to the transcript.
-export function promptCacheExpiry(input) {
-  const cache = input?.prompt_cache;
-  if (cache == null || typeof cache !== "object") return undefined;
-  return Number.isFinite(cache.expires_at) ? cache.expires_at : null;
-}
-
-// Fallback for older versions. When the prompt cache runs out (epoch seconds): the last cached
-// reply's time plus the lifetime its last cache write used (1 hour or 5 minutes). Null when no
-// reply in the tail reported cache tokens. Replies without cache tokens are skipped, so an older
-// cached reply can still set the countdown after a newer uncached one.
-export function cacheExpiry(lines) {
-  const replies = [];
-  for (const line of lines) {
-    try {
-      const record = JSON.parse(line);
-      const usage = record.type === "assistant" && record.message?.usage;
-      if (
-        usage &&
-        (usage.cache_creation_input_tokens ?? 0) +
-          (usage.cache_read_input_tokens ?? 0) +
-          (usage.cache_creation?.ephemeral_1h_input_tokens ?? 0) +
-          (usage.cache_creation?.ephemeral_5m_input_tokens ?? 0) >
-          0
-      )
-        replies.push(record);
-    } catch {
-      // a partial or non-JSON line carries no usage
-    }
-  }
-  if (replies.length === 0) return null;
-  const at = Date.parse(replies[replies.length - 1].timestamp) / 1000;
-  if (!Number.isFinite(at)) return null;
-  let ttl = 300;
-  for (const reply of replies) {
-    const created = reply.message.usage.cache_creation ?? {};
-    if ((created.ephemeral_1h_input_tokens ?? 0) > 0) ttl = 3600;
-    else if ((created.ephemeral_5m_input_tokens ?? 0) > 0) ttl = 300;
-  }
-  return at + ttl;
 }
 
 // Current git branch, read from .git/HEAD (a worktree's `.git` file points at its own gitdir).
@@ -132,7 +66,7 @@ export function gitBranch(start) {
   return null;
 }
 
-export function render(input, expiry, now = Date.now() / 1000, branch = null) {
+export function render(input, now = Date.now() / 1000, branch = null) {
   const parts = [];
   const model = [input.model?.display_name, input.effort?.level].filter(
     (value) => value != null && value !== "",
@@ -155,12 +89,10 @@ export function render(input, expiry, now = Date.now() / 1000, branch = null) {
   }
   const cost = input.cost?.total_cost_usd;
   if (Number.isFinite(cost)) parts.push(`$${cost.toFixed(2)}`);
-  const cache = [];
-  if (expiry != null)
-    cache.push(expiry > now ? dim(left(expiry, now)) : paint("31", "exp."));
+  // Claude Code 2.1.251+ reports the ratio in `prompt_cache`; older versions omit it.
   const hit = input.prompt_cache?.hit_ratio;
-  if (Number.isFinite(hit)) cache.push(dim(`${Math.round(hit * 100)}% hit`));
-  if (cache.length > 0) parts.push(`cache ${cache.join(dim(" · "))}`);
+  if (Number.isFinite(hit))
+    parts.push(`cache ${dim(`${Math.round(hit * 100)}% hit`)}`);
   for (const [label, limit] of [
     ["5h", input.rate_limits?.five_hour],
     ["week", input.rate_limits?.seven_day],
@@ -184,17 +116,8 @@ async function main() {
   } catch {
     return;
   }
-  const path =
-    typeof input.transcript_path === "string" ? input.transcript_path : "";
-  const reported = promptCacheExpiry(input);
-  const expiry =
-    reported !== undefined
-      ? reported
-      : path
-        ? cacheExpiry(tailLines(path))
-        : null;
   const branch = gitBranch(input.workspace?.current_dir ?? input.cwd);
-  process.stdout.write(`${render(input, expiry, undefined, branch)}\n`);
+  process.stdout.write(`${render(input, undefined, branch)}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
