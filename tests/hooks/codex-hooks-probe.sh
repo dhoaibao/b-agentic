@@ -80,4 +80,9 @@ run "$(post apply_patch "$(patch Update /repo/docs/readme.md)")"; run "$(stop g1
 run "$(post apply_patch "$(patch Update /repo/src/b.ts)")"; run "$(post Bash 'npm test')"; run "$(stop g1)"; expect 0 "a check after the edit clears the gate"
 run "$(post apply_patch "$(patch Update /repo/src/c.ts)")"; run "$(post Bash 'rg foo' '')"; run "$(stop g1)"; expect 2 "read-only inspection is not a check"
 run "$(post apply_patch "$(patch Update /repo/src/d.ts)")"; run "$(stop g1 true)"; expect 0 "a stop_hook_active continuation never re-arms the gate"
+post_typed() { jq -cn --arg tool "$1" --arg command "$2" --arg agent "$3" \
+  '{hook_event_name: "PostToolUse", session_id: "g1", tool_name: $tool, tool_input: {command: $command}, agent_type: $agent}'; }
+run "$(post apply_patch "$(patch Update /repo/src/e.ts)")"; run "$(post_typed Bash 'npm test' b-reviewer)"; run "$(stop g1)"; expect 2 "a specialist's check (agent_type only) must not clear the main session's gate"
+run "$(stop g1)"; expect 0 "the previous reminder is spent; this stop resets the gate state"
+run "$(post apply_patch "$(patch Update /repo/src/f.ts)")"; run "$(post_typed Bash 'npm test' worker)"; run "$(stop g1)"; expect 0 "a non-managed role's check still counts"
 echo "codex hooks probe passed: verify-gate"

@@ -51,14 +51,33 @@ function tailLines(path) {
   }
 }
 
-// When the prompt cache runs out (epoch seconds): the last reply's time plus the lifetime its
-// last cache write used (1 hour or 5 minutes). Null when no reply with usage is in the tail.
+// Claude Code 2.1.251+ reports the cache in the status JSON (`prompt_cache.expires_at`, epoch
+// seconds, null when the last response reported no cache tokens). Undefined when the object is
+// absent, so the caller falls back to the transcript.
+export function promptCacheExpiry(input) {
+  const cache = input?.prompt_cache;
+  if (cache == null || typeof cache !== "object") return undefined;
+  return Number.isFinite(cache.expires_at) ? cache.expires_at : null;
+}
+
+// Fallback for older versions. When the prompt cache runs out (epoch seconds): the last cached
+// reply's time plus the lifetime its last cache write used (1 hour or 5 minutes). Null when no
+// reply in the tail reported cache tokens. Replies without cache tokens are skipped, so an older
+// cached reply can still set the countdown after a newer uncached one.
 export function cacheExpiry(lines) {
   const replies = [];
   for (const line of lines) {
     try {
       const record = JSON.parse(line);
-      if (record.type === "assistant" && record.message?.usage)
+      const usage = record.type === "assistant" && record.message?.usage;
+      if (
+        usage &&
+        (usage.cache_creation_input_tokens ?? 0) +
+          (usage.cache_read_input_tokens ?? 0) +
+          (usage.cache_creation?.ephemeral_1h_input_tokens ?? 0) +
+          (usage.cache_creation?.ephemeral_5m_input_tokens ?? 0) >
+          0
+      )
         replies.push(record);
     } catch {
       // a partial or non-JSON line carries no usage
@@ -125,7 +144,13 @@ async function main() {
   }
   const path =
     typeof input.transcript_path === "string" ? input.transcript_path : "";
-  const expiry = path ? cacheExpiry(tailLines(path)) : null;
+  const reported = promptCacheExpiry(input);
+  const expiry =
+    reported !== undefined
+      ? reported
+      : path
+        ? cacheExpiry(tailLines(path))
+        : null;
   process.stdout.write(`${render(input, expiry)}\n`);
 }
 

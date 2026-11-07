@@ -100,12 +100,17 @@ function loadAllowlist() {
   }
 }
 
-export function specialistViolation(event, load = loadAllowlist) {
+function isManagedSpecialist(event, table) {
   const agent = event?.agent_type;
-  if (typeof agent !== "string") return null;
+  if (typeof agent !== "string") return false;
+  return (table ? Object.keys(table) : DEFAULT_SPECIALISTS).includes(agent);
+}
+
+export function specialistViolation(event, load = loadAllowlist) {
+  if (typeof event?.agent_type !== "string") return null;
   const table = load();
-  const managed = table ? Object.keys(table) : DEFAULT_SPECIALISTS;
-  if (!managed.includes(agent)) return null;
+  if (!isManagedSpecialist(event, table)) return null;
+  const agent = event.agent_type;
   const tool = event?.tool_name;
   if (EDIT_TOOLS.has(tool)) {
     return `${agent} is a read-only specialist; ${tool} is denied. Report the needed change to the main session.`;
@@ -119,8 +124,16 @@ export function specialistViolation(event, load = loadAllowlist) {
   return null;
 }
 
-// Map a Codex apply_patch event onto the shared gate's Edit events.
-function gateEvents(event) {
+// Map a Codex apply_patch event onto the shared gate's Edit events. The shared gate ignores a
+// subagent's shell commands only when `agent_id` is present, so a managed specialist's event
+// that carries `agent_type` alone is given one: its checks must not clear the main session's gate.
+function gateEvents(source, load = loadAllowlist) {
+  const event =
+    !source.agent_id &&
+    typeof source.agent_type === "string" &&
+    isManagedSpecialist(source, load())
+      ? { ...source, agent_id: source.agent_type }
+      : source;
   if (event.hook_event_name !== "PostToolUse") return [event];
   if (EDIT_TOOLS.has(event.tool_name)) {
     const paths = patchPaths(event.tool_input?.command);

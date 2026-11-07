@@ -35,6 +35,18 @@ printf '{"type":"assistant","timestamp":"%s","message":{"usage":{"cache_creation
 raw=$(jq -c --arg t "$work/expired.jsonl" '.transcript_path = $t' "$work/full.json" | node "$cli")
 grep -Fq $'cache \033[31mexp.\033[0m' <<<"$raw" || fail "expired cache not marked: $raw"
 
+# A reply that reported no cache tokens shows no countdown.
+printf '{"type":"assistant","timestamp":"%s","message":{"usage":{"input_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0}}}}\n' \
+  "$(stamp $((now - 60)))" >"$work/nocache.jsonl"
+raw=$(jq -c --arg t "$work/nocache.jsonl" '.transcript_path = $t' "$work/full.json" | node "$cli" | plain)
+grep -Fq 'cache' <<<"$raw" && fail "no-cache transcript must show no countdown: $raw"
+
+# prompt_cache from the status JSON wins over the transcript; a null expires_at hides the cache.
+raw=$(jq -c --argjson e $((now + 600)) '.prompt_cache = {expires_at: $e}' "$work/full.json" | node "$cli" | plain)
+grep -Fq 'cache 9m' <<<"$raw" || grep -Fq 'cache 10m' <<<"$raw" || fail "prompt_cache.expires_at not used: $raw"
+raw=$(jq -c '.prompt_cache = {expires_at: null}' "$work/full.json" | node "$cli" | plain)
+grep -Fq 'cache' <<<"$raw" && fail "null prompt_cache.expires_at must show no countdown: $raw"
+
 # Missing fields, a missing transcript, and invalid input never crash or print noise.
 [ -z "$(printf '{}' | node "$cli" | plain | tr -d '\n')" ] || fail "empty input must print an empty line"
 [ "$(printf '{"model":{"display_name":"Sonnet"},"transcript_path":"%s/none"}' "$work" | node "$cli" | plain)" = "Sonnet" ] || fail "missing transcript"
