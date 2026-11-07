@@ -68,14 +68,22 @@ export function gitBranch(start) {
 
 export function render(input, now = Date.now() / 1000, branch = null) {
   const parts = [];
-  const model = [input.model?.display_name, input.effort?.level].filter(
-    (value) => value != null && value !== "",
-  );
-  if (model.length > 0) parts.push(model.join(" · "));
+  const model = [
+    [input.model?.display_name, "1"],
+    [input.effort?.level, "35"],
+  ]
+    .filter(([value]) => value != null && value !== "")
+    .map(([value, code]) => paint(code, value));
+  if (model.length > 0) parts.push(model.join(dim(" · ")));
   const repo =
     input.workspace?.repo?.name ||
     (input.workspace?.project_dir ? basename(input.workspace.project_dir) : "");
-  if (repo !== "") parts.push(branch ? `${repo}@${branch}` : repo);
+  if (repo !== "")
+    parts.push(
+      branch
+        ? `${paint("36", repo)}${dim("@")}${paint("32", branch)}`
+        : paint("36", repo),
+    );
   const context = input.context_window;
   if (context?.used_percentage != null) {
     const usage = context.current_usage ?? {};
@@ -84,15 +92,20 @@ export function render(input, now = Date.now() / 1000, branch = null) {
       (usage.cache_creation_input_tokens ?? 0) +
       (usage.cache_read_input_tokens ?? 0);
     parts.push(
-      `context ${pct(context.used_percentage)} ${dim(`(${tokens(used)}/${tokens(context.context_window_size ?? 0)})`)}`,
+      `${dim("context")} ${pct(context.used_percentage)} ${dim(`(${tokens(used)}/${tokens(context.context_window_size ?? 0)})`)}`,
     );
   }
   const cost = input.cost?.total_cost_usd;
-  if (Number.isFinite(cost)) parts.push(`$${cost.toFixed(2)}`);
+  if (Number.isFinite(cost)) parts.push(paint("33", `$${cost.toFixed(2)}`));
   // Claude Code 2.1.251+ reports the ratio in `prompt_cache`; older versions omit it.
+  // A high hit ratio is good, so the colours run the other way from the usage percents.
   const hit = input.prompt_cache?.hit_ratio;
-  if (Number.isFinite(hit))
-    parts.push(`cache ${dim(`${Math.round(hit * 100)}% hit`)}`);
+  if (Number.isFinite(hit)) {
+    const percent = Math.round(hit * 100);
+    parts.push(
+      `${dim("cache")} ${paint(percent >= 80 ? "32" : percent >= 50 ? "33" : "31", `${percent}%`)} ${dim("hit")}`,
+    );
+  }
   for (const [label, limit] of [
     ["5h", input.rate_limits?.five_hour],
     ["week", input.rate_limits?.seven_day],
@@ -102,7 +115,7 @@ export function render(input, now = Date.now() / 1000, branch = null) {
       limit.resets_at == null
         ? ""
         : ` ${dim(`· ${left(limit.resets_at, now)}`)}`;
-    parts.push(`${label} ${pct(limit.used_percentage)}${reset}`);
+    parts.push(`${dim(label)} ${pct(limit.used_percentage)}${reset}`);
   }
   return parts.join("   ");
 }

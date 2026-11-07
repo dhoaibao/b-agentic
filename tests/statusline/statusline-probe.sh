@@ -44,6 +44,11 @@ grep -Fq 'demo ' <<<"$(meta "$work/none")" || fail "repo name without a reposito
 # The cache segment shows only the hit ratio, never an expiry countdown, and only when reported.
 raw=$(jq -c --argjson e $((now + 600)) '.prompt_cache = {expires_at: $e, hit_ratio: 0.5}' "$work/full.json" | node "$cli" | plain)
 grep -Fq 'cache 50% hit' <<<"$raw" || fail "hit ratio not shown: $raw"
+# A high hit ratio is good, so the colours run the other way from the usage percents.
+hit_raw() { jq -c --argjson h "$1" '.prompt_cache = {hit_ratio: $h}' "$work/full.json" | node "$cli"; }
+grep -Fq $'\033[32m90%' <<<"$(hit_raw 0.9)" || fail "90% hit must be green"
+grep -Fq $'\033[33m60%' <<<"$(hit_raw 0.6)" || fail "60% hit must be yellow"
+grep -Fq $'\033[31m20%' <<<"$(hit_raw 0.2)" || fail "20% hit must be red"
 grep -Eq 'exp\.|cache [0-9]+m' <<<"$raw" && fail "cache expiry must not be shown: $raw"
 raw=$(jq -c '.prompt_cache = {expires_at: null}' "$work/full.json" | node "$cli" | plain)
 grep -Fq 'cache' <<<"$raw" && fail "no hit ratio must show no cache segment: $raw"
