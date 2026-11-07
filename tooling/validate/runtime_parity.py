@@ -45,6 +45,31 @@ SCENARIOS = (
 )
 
 
+# Managed Claude Code settings allow bare Edit/Write/Bash, so docs must not promise a native prompt.
+DOC_SURFACES = (
+    "REFERENCE.md",
+    "README.md",
+    "claude/configs/README.md",
+    "docs/decisions/ADR-001-b-agentic-design-record.md",
+    "docs/decisions/ADR-004-codex-runtime.md",
+)
+FALSE_PROMPT_CLAIMS = (
+    "managed claude code rules ask for outside-project writes",
+    "claude code prompts for outside-project writes",
+    "outside-project writes prompt",
+)
+
+
+def validate_docs(docs: dict[str, str]) -> list[str]:
+    errors = []
+    for path, text in docs.items():
+        flat = " ".join(text.lower().split())
+        errors.extend(
+            f"{path}: unsupported native-prompt claim: {claim}" for claim in FALSE_PROMPT_CLAIMS if claim in flat
+        )
+    return errors
+
+
 def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[str]:
     errors = [
         f"{runtime}: {scenario} contract missing from {surface}"
@@ -121,6 +146,17 @@ def main() -> int:
                 candidate = {**texts, "kernel": texts["kernel"] + "\n" + bad}
                 if not any("unsupported guarantee" in error for error in validate(runtime, candidate, skills)):
                     errors.append(f"codex: parity regression accepted unsupported guarantee: {bad}")
+    doc_paths = [ROOT / path for path in DOC_SURFACES]
+    missing_docs = [str(path.relative_to(ROOT)) for path in doc_paths if not path.is_file()]
+    if missing_docs:
+        errors.append(f"docs: missing parity surfaces: {', '.join(missing_docs)}")
+    else:
+        docs = {path: (ROOT / path).read_text() for path in DOC_SURFACES}
+        errors.extend(validate_docs(docs))
+        for claim in FALSE_PROMPT_CLAIMS:
+            candidate = {**docs, DOC_SURFACES[0]: docs[DOC_SURFACES[0]] + "\n" + claim.replace(" ", "\n")}
+            if not validate_docs(candidate):
+                errors.append(f"docs: parity regression accepted unsupported native-prompt claim: {claim}")
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1

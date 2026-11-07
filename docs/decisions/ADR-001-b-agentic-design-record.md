@@ -134,8 +134,9 @@ switched account active, an accepted residual risk. Its HTTPS push
 runs as `git -c ... push`, which the deny rules match only for force and `main` or
 `master` pushes; delete, mirror, all-branch, and prune forms there stay at the ask
 prompt as an accepted residual risk. Unlike the
-earlier policy, Claude Code prompts for outside-project writes rather than
-denying them. Permission rules are not filesystem or process isolation; shell
+earlier policy, the managed rules neither deny nor prompt for outside-project writes
+(bare `Edit`, `Write`, and `Bash` allows); the kernel's approval rule is the control,
+and any native prompt comes from Claude Code's built-in protected-path checks, the permission mode, or user settings (refined 2026-11-07). Permission rules are not filesystem or process isolation; shell
 indirection and MCP arguments the rules cannot see remain residual risks, except
 the ClickUp task images that `b-clickup-guard` checks.
 Sending a repository to Codex discloses it to OpenAI, and Codex's read-only

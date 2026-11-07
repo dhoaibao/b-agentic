@@ -70,8 +70,12 @@ Gap handling on Codex:
 | Shell `deny`/`ask` patterns    | Exact-prefix rules for the adjacent forms; other patterns are an accepted gap                       |
 | ClickUp guard (asks on images) | Every ClickUp create or update prompts                                                              |
 | Verify gate                    | Ported through `PostToolUse` and `Stop` (exit 2 with stderr)                                        |
-| Outside-project writes         | The user's own `sandbox_mode` and `approval_policy`                                                 |
 | `AskUserQuestion`              | Available, permitted Codex question tool; plain text as fallback                                    |
+
+Outside-project writes are not a gap: managed Claude Code rules allow `Edit`, `Write`,
+and `Bash` without a path scope, so both runtimes rely on the kernel approval rule and
+the native prompts of the runtime and the user's own settings (Claude Code's built-in
+protected-path checks and permission mode; `sandbox_mode` and `approval_policy` on Codex).
 
 Question handling (refined 2026-11-07): prefer `request_user_input_async`, then
 `request_user_input` when available and permitted for the question and current mode.

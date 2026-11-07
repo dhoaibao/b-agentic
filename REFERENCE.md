@@ -150,7 +150,6 @@ live evidence are in [ADR-004](docs/decisions/ADR-004-codex-runtime.md).
 | ClickUp image-reference prompt     | Replaced by prompting on every ClickUp create or update                                                                    |
 | Shell `deny`/`ask` patterns        | Exact-prefix rules only; a flag not directly after the prefix, `gh` global options, or a refspec elsewhere are not matched |
 | Hook `ask`                         | Not supported by Codex (parsed, then ignored as a failed hook run)                                                         |
-| Outside-project writes prompt      | Your `sandbox_mode` and `approval_policy`; nothing managed                                                                 |
 | `AskUserQuestion`                  | Available, permitted structured question tool; plain text as fallback                                                      |
 
 Verified against the Codex 0.167.0 binary and source: agent roles and skills load from
@@ -296,9 +295,10 @@ command, blocks the first stop once with the verify and review reminder. Both Pr
 cannot start blocks the call, and malformed input still fails open by design. To recover from a
 guard that fails closed (for example a missing `node` or hook script), repair or reinstall: Bash is
 not guarded and still works. Older Claude Code versions' handling of the unknown key is undocumented.
-Managed Claude Code rules ask for outside-project writes; effective prompts depend
-on user settings. These
-rules are not a process or filesystem sandbox; shell indirection and MCP
+Managed Claude Code rules allow `Edit`, `Write`, and `Bash` without a path scope, so
+they do not prompt for outside-project writes; any native prompt comes from Claude
+Code's built-in protected-path checks, your permission mode, or your own settings, and the kernel requires approval for outside-project mutations even
+without one. These rules are not a process or filesystem sandbox; shell indirection and MCP
 arguments they cannot see remain residual risks (only `b-clickup-guard` inspects
 ClickUp task arguments). Native Linux and macOS Claude Code builds run `Grep`
 and `Glob` searches through Bash, so `b-path-guard` sees no searches there. The
