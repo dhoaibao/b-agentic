@@ -58,7 +58,7 @@ Phase 2 (done): add Codex, `install.sh --runtime=claude|codex|both` (default `cl
   the managed tables and the kernel block while keeping everything else, including
   tables Codex wrote (`[features]`, `[hooks.state]`, `[projects]`); the Codex config and
   `AGENTS.md` return byte for byte unless Codex or you edited around them (surrounding
-  blank lines are normalized), and the hook file is re-serialized with two-space
+  blank lines are normalized and CRLF line endings are rewritten as LF), and the hook file is re-serialized with two-space
   indentation. A managed server whose table you or Codex changed is kept and reported.
 
 Gap handling on Codex:

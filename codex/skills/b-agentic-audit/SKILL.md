@@ -98,8 +98,9 @@ supply its completed origin-freshness evidence:
   Inspect the main session's supplied freshness, status, audit-script, and
   narrow-check evidence; state an explicit evidence gap when a required check
   cannot be run read-only.
-- `read` - inspect `docs/decisions/ADR-001-b-agentic-design-record.md` and the canonical source files it
-  cites; prefer sources over generated assets when comparing behavior.
+- `read` - inspect `docs/decisions/ADR-001-b-agentic-design-record.md`, the later ADRs
+  (ADR-002 to ADR-004) that refine or replace parts of it, and the canonical source files they
+  cite; prefer sources over generated assets when comparing behavior.
 - `context7` or bounded primary upstream documentation/release metadata - verify
   versioned package/API currentness only when needed; do not upload local files,
   repository content, credentials, or private URLs.
@@ -113,7 +114,7 @@ supply its completed origin-freshness evidence:
 1. Confirm the main session's mandatory origin-freshness and status evidence
    before defining the four-dimension audit surface or reading repository files.
    If it is incomplete, report the blocking evidence gap.
-2. Read the decision record and identify relevant decisions, evidence markers,
+2. Read the decision records (ADR-001 and the later ADRs) and identify relevant decisions, evidence markers,
    referenced sources, generated surfaces, explicit non-goals, and local pins.
 3. Assess the main session's `scripts/b-agentic-audit.sh` output for structural,
    generated-sync, behavioral, and decision-design traceability results. Treat a

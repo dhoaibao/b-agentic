@@ -131,7 +131,8 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
 - **Review gate** is the same read-only `b-reviewer` specialist as on Claude Code.
 - **Uninstall** removes the managed tables and the kernel block and keeps everything else,
   including tables Codex wrote. `config.toml` and `AGENTS.md` return byte for byte unless
-  something else edited around the managed text (surrounding blank lines are normalized);
+  something else edited around the managed text (surrounding blank lines are normalized
+  and CRLF line endings are rewritten as LF);
   `hooks.json` keeps your entries but is re-serialized with two-space indentation.
 
 Known differences from Claude Code, accepted in ADR-004:
@@ -192,6 +193,17 @@ On Claude Code the registry values are defaults: a per-call `model` or `effort` 
 the agent call overrides them, `CLAUDE_CODE_EFFORT_LEVEL` overrides the effort, and
 `CLAUDE_CODE_SUBAGENT_MODEL` overrides the model only together with
 `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`.
+
+The generator enforces a 12,000-byte, 100-line budget on each runtime's kernel
+(`MAX_KERNEL_BYTES` and `MAX_KERNEL_LINES` in `tooling/generate/registry_sync.py`). As of
+2026-11-07 the Claude template has about 320 spare bytes and the Codex kernel about 68,
+because its localization is longer, so trim existing kernel wording before adding any.
+
+The kernel's peer agent messaging section applies only when the user asks agents to
+talk to each other. It depends on tools b-agentic does not install or manage: the
+`herdr` skill (when `HERDR_ENV=1`, Herdr TUI) or the `hc` command (Herdr app). Without
+them the section does nothing, and the Herdr TUI and the Herdr app cannot message each
+other.
 
 ## Review gate
 
