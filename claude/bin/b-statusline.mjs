@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // b-agentic status line for Claude Code. Reads the status JSON on stdin and prints one line:
-// model and effort, context used, how long the prompt cache lasts (a red "exp." once it is out),
-// and the 5-hour and weekly limits as coloured percents with time to reset.
+// model and effort, repo and git branch, context used, session cost, how long the prompt cache
+// lasts (a red "exp." once it is out) with its hit ratio, and the 5-hour and weekly limits as
+// coloured percents with time to reset.
 // Read-only: it writes nothing and never touches the network.
-import { closeSync, fstatSync, openSync, readSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const TAIL_BYTES = 512 * 1024;
@@ -95,12 +97,51 @@ export function cacheExpiry(lines) {
   return at + ttl;
 }
 
-export function render(input, expiry, now = Date.now() / 1000) {
+// Current git branch, read from .git/HEAD (a worktree's `.git` file points at its own gitdir).
+// A detached HEAD gives the short commit; null when there is no repository.
+export function gitBranch(start) {
+  let dir = typeof start === "string" && start !== "" ? resolve(start) : null;
+  for (let depth = 0; dir !== null && depth < 32; depth++) {
+    const dotGit = join(dir, ".git");
+    let found = null;
+    try {
+      found = statSync(dotGit);
+    } catch {
+      // no repository at this level: keep climbing
+    }
+    if (found) {
+      try {
+        let gitDir = dotGit;
+        if (found.isFile()) {
+          const match = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, "utf8"));
+          if (!match) return null;
+          gitDir = resolve(dir, match[1].trim());
+        }
+        const head = readFileSync(join(gitDir, "HEAD"), "utf8").trim();
+        const ref = /^ref: refs\/heads\/(.+)$/.exec(head);
+        if (ref) return ref[1];
+        return /^[0-9a-f]{7,}$/.test(head) ? head.slice(0, 7) : null;
+      } catch {
+        return null;
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+export function render(input, expiry, now = Date.now() / 1000, branch = null) {
   const parts = [];
   const model = [input.model?.display_name, input.effort?.level].filter(
     (value) => value != null && value !== "",
   );
   if (model.length > 0) parts.push(model.join(" · "));
+  const repo =
+    input.workspace?.repo?.name ||
+    (input.workspace?.project_dir ? basename(input.workspace.project_dir) : "");
+  if (repo !== "") parts.push(branch ? `${repo}@${branch}` : repo);
   const context = input.context_window;
   if (context?.used_percentage != null) {
     const usage = context.current_usage ?? {};
@@ -112,13 +153,14 @@ export function render(input, expiry, now = Date.now() / 1000) {
       `context ${pct(context.used_percentage)} ${dim(`(${tokens(used)}/${tokens(context.context_window_size ?? 0)})`)}`,
     );
   }
-  if (expiry != null) {
-    parts.push(
-      expiry > now
-        ? `cache ${dim(left(expiry, now))}`
-        : `cache ${paint("31", "exp.")}`,
-    );
-  }
+  const cost = input.cost?.total_cost_usd;
+  if (Number.isFinite(cost)) parts.push(`$${cost.toFixed(2)}`);
+  const cache = [];
+  if (expiry != null)
+    cache.push(expiry > now ? dim(left(expiry, now)) : paint("31", "exp."));
+  const hit = input.prompt_cache?.hit_ratio;
+  if (Number.isFinite(hit)) cache.push(dim(`${Math.round(hit * 100)}% hit`));
+  if (cache.length > 0) parts.push(`cache ${cache.join(dim(" · "))}`);
   for (const [label, limit] of [
     ["5h", input.rate_limits?.five_hour],
     ["week", input.rate_limits?.seven_day],
@@ -151,7 +193,8 @@ async function main() {
       : path
         ? cacheExpiry(tailLines(path))
         : null;
-  process.stdout.write(`${render(input, expiry)}\n`);
+  const branch = gitBranch(input.workspace?.current_dir ?? input.cwd);
+  process.stdout.write(`${render(input, expiry, undefined, branch)}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)

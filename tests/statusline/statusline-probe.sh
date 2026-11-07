@@ -47,6 +47,23 @@ grep -Fq 'cache 9m' <<<"$raw" || grep -Fq 'cache 10m' <<<"$raw" || fail "prompt_
 raw=$(jq -c '.prompt_cache = {expires_at: null}' "$work/full.json" | node "$cli" | plain)
 grep -Fq 'cache' <<<"$raw" && fail "null prompt_cache.expires_at must show no countdown: $raw"
 
+# Repo and branch, session cost, and cache hit ratio. The branch is read from .git/HEAD,
+# including a worktree's `.git` file and a detached HEAD.
+mkdir -p "$work/repo/.git" "$work/repo/sub" "$work/wt-gitdir" "$work/wt" "$work/detached/.git"
+printf 'ref: refs/heads/feat/x\n' >"$work/repo/.git/HEAD"
+printf 'ref: refs/heads/wt-branch\n' >"$work/wt-gitdir/HEAD"
+printf 'gitdir: %s\n' "$work/wt-gitdir" >"$work/wt/.git"
+printf '0123456789abcdef0123456789abcdef01234567\n' >"$work/detached/.git/HEAD"
+meta() { jq -c --arg d "$1" '.workspace = {current_dir: $d, repo: {name: "demo"}} | .cost = {total_cost_usd: 1.183}
+  | .prompt_cache = {expires_at: null, hit_ratio: 0.9006}' "$work/full.json" | node "$cli" | plain; }
+raw=$(meta "$work/repo/sub")
+[ "$raw" = "Opus · high   demo@feat/x   context 55% (554k/1M)   \$1.18   cache 90% hit   5h 12% · 1h 23m   week 85% · 2d 7h" ] || fail "meta line: $raw"
+grep -Fq 'demo@wt-branch' <<<"$(meta "$work/wt")" || fail "worktree branch"
+grep -Fq 'demo@0123456 ' <<<"$(meta "$work/detached")" || fail "detached HEAD short sha"
+grep -Fq 'demo ' <<<"$(meta "$work/none")" || fail "repo name without a repository"
+raw=$(jq -c --argjson e $((now + 600)) '.prompt_cache = {expires_at: $e, hit_ratio: 0.5}' "$work/full.json" | node "$cli" | plain)
+grep -Fq '9m · 50% hit' <<<"$raw" || grep -Fq '10m · 50% hit' <<<"$raw" || fail "countdown with hit ratio: $raw"
+
 # Missing fields, a missing transcript, and invalid input never crash or print noise.
 [ -z "$(printf '{}' | node "$cli" | plain | tr -d '\n')" ] || fail "empty input must print an empty line"
 [ "$(printf '{"model":{"display_name":"Sonnet"},"transcript_path":"%s/none"}' "$work" | node "$cli" | plain)" = "Sonnet" ] || fail "missing transcript"
