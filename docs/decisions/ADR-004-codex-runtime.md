@@ -81,6 +81,44 @@ before dependent actions; a preselected option or elapsed time is not an answer.
 The runtime glossary applies this to the kernel and generated skills, including
 the commit branch choice. Claude Code retains `AskUserQuestion`.
 
+Behavioral parity (refined 2026-11-07): equivalent outcomes and authorization are
+the contract. Tool names, file formats, model choices, and additional native
+approval prompts may differ. Runtime configuration does not grant authorization:
+outside-project mutations and unclassified MCP tools still require user approval
+when the runtime supplies no prompt. The installer leaves user-owned sandbox and
+approval settings untouched.
+
+Policy-sensitive delegation eligibility uses the explicit `delegation_unavailable`
+and `profile_check` runtime fields, rather than an English-sentence substitution.
+Claude checks its tool allowlist; Codex checks explicit read-only instructions.
+Neither role is a filesystem sandbox: Claude specialists retain Bash, and Codex
+tool filtering depends on an active hook. Main-session authority and the child
+prohibition on edits, user decisions, delegation, and external mutations remain
+the same.
+
+Shared acceptance scenarios:
+
+| Scenario                      | Required outcome on both runtimes                                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Delegate a scoped task        | Use the named specialist; keep all mutation and user decisions in main; report an unavailable profile without falling back. |
+| Resolve a material choice     | Use an available, permitted question interface or plain text; wait for the explicit answer before dependent work.           |
+| Read a protected path         | Require permission before reading or exposing it.                                                                           |
+| Mutate outside the project    | Require user authorization even without a native prompt.                                                                    |
+| Call an unclassified MCP tool | Obtain user approval even without a native prompt; do not infer permission from configuration.                              |
+| Edit, verify, and review      | Run applicable checks; use the same review triggers and frozen candidate identity rules.                                    |
+| Commit or push                | Require the corresponding explicit request; an unanswered branch choice never permits staging.                              |
+
+`tooling/validate/runtime_parity.py` checks the instruction contracts and rejects
+removed boundaries and the known contradictory guarantees. Generator checks
+verify synchronization; hook probes test synthetic events. None of these prove
+that an LLM follows the instructions or that a live runtime supplies the expected
+events. Live parity remains unverified: in separately approved disposable sessions,
+run these scenarios on each runtime, record runtime version, effective settings,
+question/approval replies and hook decisions, and distinguish prompt compliance
+from native denial. Use synthetic protected content, an outside-project scratch
+path, and a harmless unclassified fixture tool; approve any setup or mutation
+separately. Missing tools or event evidence mean unverified, never a pass.
+
 Invariants: manifest-only ownership, refusal before the first write, user keys preserved
 on merge, `~/.pi` never written, `~/.claude` untouched during a Codex-only run and the
 reverse.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "MCP operation classification for Codex. Tools use mcp__<server>__<tool>; managed servers prompt by default and unclassified tools prompt.",
+  "description": "MCP operation classification for Codex. Tools use mcp__<server>__<tool>; managed servers prompt by default. Unclassified tools require user approval even without a native prompt.",
   "classes": {
     "read-only": {
       "policy": "Auto-allowed by tool name",
@@ -278,6 +278,6 @@
     }
   },
   "runtime_enforcement": {
-    "codex": "Generated config.toml tables set default_tools_approval_mode = \"prompt\" on every managed server, then a per-tool approval_mode: \"approve\" for classes the policy auto-allows and \"prompt\" for approval-required classes. ClickUp createTask and updateTask prompt on every call because a Codex PreToolUse hook cannot ask. Servers without a table (the IDE-managed datagrip server, and servers you add) keep Codex's own approval behavior; the b-datagrip skill carries the SQL guardrails. No hook inspects MCP arguments, so inspect any MCP request carrying a path, URL, or private content before calling it. Live runtime enforcement of the approve mode and of unset servers is unverified."
+    "codex": "Generated config.toml tables set default_tools_approval_mode = \"prompt\" on every managed server, then a per-tool approval_mode: \"approve\" for classes the policy auto-allows and \"prompt\" for approval-required classes. ClickUp createTask and updateTask prompt on every call because a Codex PreToolUse hook cannot ask. Servers without a table (the IDE-managed datagrip server, and servers you add) keep Codex's own approval behavior; unclassified tools require user approval even without a native prompt. The b-datagrip skill carries the SQL guardrails. No hook inspects MCP arguments, so inspect any MCP request carrying a path, URL, or private content before calling it. Live runtime enforcement of the approve mode and of unset servers is unverified."
   }
 }

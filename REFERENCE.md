@@ -136,6 +136,13 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
 
 Known differences from Claude Code, accepted in ADR-004:
 
+Both runtimes share workflow and authorization obligations. Native prompts depend
+on effective user settings: missing prompts do not authorize outside-project
+mutations or unclassified MCP calls. Codex profile eligibility checks explicit
+read-only instructions; Claude checks tool lists. Neither is a filesystem sandbox.
+The shared acceptance scenarios and distinction between instruction checks and
+live evidence are in [ADR-004](docs/decisions/ADR-004-codex-runtime.md).
+
 | Claude Code feature                | Codex                                                                                                                      |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Read-only specialists by tool list | Instructed, plus a best-effort `apply_patch` and MCP allowlist hook; shell writes are not blocked                          |
@@ -289,7 +296,8 @@ command, blocks the first stop once with the verify and review reminder. Both Pr
 cannot start blocks the call, and malformed input still fails open by design. To recover from a
 guard that fails closed (for example a missing `node` or hook script), repair or reinstall: Bash is
 not guarded and still works. Older Claude Code versions' handling of the unknown key is undocumented.
-Claude Code prompts for outside-project writes instead of denying them. These
+Managed Claude Code rules ask for outside-project writes; effective prompts depend
+on user settings. These
 rules are not a process or filesystem sandbox; shell indirection and MCP
 arguments they cannot see remain residual risks (only `b-clickup-guard` inspects
 ClickUp task arguments). Native Linux and macOS Claude Code builds run `Grep`

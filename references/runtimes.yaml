@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Per-runtime vocabulary for rendering b-agentic's canonical sources. Canonical sources are written in Claude Code terms, so the claude glossary is empty and its output stays byte-identical; other runtimes localize them through an ordered literal glossary, an MCP tool-name format, and a list of Claude-only terms their rendering must not contain. See docs/decisions/ADR-004-codex-runtime.md.",
+  "description": "Runtime adapters for b-agentic's canonical sources: vocabulary uses an ordered literal glossary, policy clauses and profile checks are explicit runtime fields. Canonical sources use Claude Code wording; the claude glossary is empty. See docs/decisions/ADR-004-codex-runtime.md.",
   "runtimes": {
     "claude": {
       "config_dir": "~/.claude",
@@ -20,6 +20,7 @@
       "mcp_tool_format": "mcp__{server}__{tool}",
       "glossary": [],
       "arguments_placeholder": "$ARGUMENTS",
+      "delegation_unavailable": "A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable.",
       "profile_check": "confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`"
     },
     "codex": {
@@ -104,10 +105,6 @@
           "Codex's approval prompt"
         ],
         [
-          "the harness prompts for outside-project writes",
-          "the sandbox prompts for writes outside the project"
-        ],
-        [
           "Managed settings deny named dangerous commands and sensitive paths",
           "Managed rules and hooks deny named dangerous commands and sensitive paths"
         ],
@@ -165,7 +162,8 @@
         ]
       ],
       "arguments_placeholder": "the user's request",
-      "profile_check": "confirm the effective `{agent}.toml` (project `.codex/agents/` over `~/.codex/agents/`) is readable and its `developer_instructions` is non-empty (Codex cannot restrict an agent's tools, so read-only is instructed and a hook denies edits where it can; {editing} calls are denied for the role), then call `spawn_agent` with `agent_type` `{agent}` and a bounded task naming `{name}`"
+      "delegation_unavailable": "A missing profile, absent read-only instructions, or `default` fallback counts as unavailable.",
+      "profile_check": "confirm the effective `{agent}.toml` (project `.codex/agents/` over `~/.codex/agents/`) is readable and its `developer_instructions` explicitly requires read-only work (Codex cannot restrict tools in an agent file; the hook checks {editing} and MCP calls when active), then call `spawn_agent` with `agent_type` `{agent}` and a bounded task naming `{name}`"
     }
   }
 }

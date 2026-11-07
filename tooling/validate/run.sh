@@ -19,6 +19,7 @@ python3 "$ROOT_DIR/tooling/validate/decision_design.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/decision_design.py"
 python3 "$ROOT_DIR/tooling/validate/shared.py"
 python3 "$ROOT_DIR/tooling/validate/behavior.py"
+python3 "$ROOT_DIR/tooling/validate/runtime_parity.py"
 python3 "$ROOT_DIR/tooling/validate/mcp_policy.py"
 python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/session_readiness.py" --self-test

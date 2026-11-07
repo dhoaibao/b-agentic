@@ -70,7 +70,7 @@ Run a write only when the user explicitly asks for it and names the connection a
 
 - Create or edit a connection only when the user asks. Never put a password or token in tool arguments; the user enters secrets in DataGrip.
 - Cancel with `mcp__datagrip__cancel_sql_query` only a query this session started or one the user names.
-- Do not use other `mcp__datagrip__*` file, terminal, build, or run tools under this skill; they are unclassified and keep Claude Code's approval prompt.
+- Do not use other `mcp__datagrip__*` file, terminal, build, or run tools under this skill; they are unclassified and require user approval even without a native prompt.
 - Honor any approval prompt or denial; never bypass or retry around a denial.
 
 ## Output format

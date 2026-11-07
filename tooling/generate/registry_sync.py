@@ -615,15 +615,16 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
         groups.setdefault(meta["policy"], []).append(f"`{name}`")
     lines = [f"- {label}: {', '.join(names)}." for label, names in groups.items()]
     lines.append(
-        "- Unclassified MCP tools keep Claude Code's approval prompt; `trusted-mutation` runs in the main session only."
+        "- Unclassified MCP tools require user approval even without a native prompt; `trusted-mutation` runs in the main session only."
     )
     return "\n".join(lines)
 
 
-def render_delegation(skills: list[dict[str, Any]]) -> str:
+def render_delegation(skills: list[dict[str, Any]], runtime: str = "claude") -> str:
     delegated = [skill for skill in skills if skill["execution"]["mode"] == "subagent"]
     lines = [
-        "- Delegated skills run only in their named `Agent` subagent type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable. Skill -> agent:",
+        "- Delegated skills run only in their named `Agent` subagent type with a bounded task naming the exact skill. Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask. "
+        f"{RUNTIMES[runtime]['delegation_unavailable']} Skill -> agent:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
     lines.append("- All other skills run in the main session.")
@@ -1080,7 +1081,7 @@ def render_codex_references(policy: dict[str, Any]) -> dict[Path, str]:
     """Deliver effective runtime policy, not Claude-only approvals or capability paths."""
     effective_policy = {
         **policy,
-        "description": "MCP operation classification for Codex. Tools use mcp__<server>__<tool>; managed servers prompt by default and unclassified tools prompt.",
+        "description": "MCP operation classification for Codex. Tools use mcp__<server>__<tool>; managed servers prompt by default. Unclassified tools require user approval even without a native prompt.",
         "classes": {name: dict(meta) for name, meta in policy["classes"].items()},
         "runtime_enforcement": {"codex": policy["runtime_enforcement"]["codex"]},
     }
@@ -1113,6 +1114,8 @@ def render_codex_outputs(
     policy: dict[str, Any],
     kernel: str,
 ) -> dict[Path, str]:
+    # Policy differences use explicit adapters, independent of canonical sentence wording.
+    kernel = replace_block(kernel, KERNEL_DELEGATION_START, KERNEL_DELEGATION_END, render_delegation(skills, "codex"))
     outputs = {
         CODEX_KERNEL_PATH: localize(kernel, "codex"),
         CODEX_CONFIG_PATH: render_codex_config(CLAUDE_CONFIGS_DIR / "mcp.base.json", policy),
@@ -1326,7 +1329,14 @@ def validate_runtimes() -> list[str]:
     errors: list[str] = []
     for name, config in RUNTIMES.items():
         label = f"{RUNTIMES_PATH.relative_to(ROOT)}: runtimes.{name}"
-        for key in ("config_dir", "state_dir", "hook_dir", "mcp_tool_format"):
+        for key in (
+            "config_dir",
+            "state_dir",
+            "hook_dir",
+            "mcp_tool_format",
+            "delegation_unavailable",
+            "profile_check",
+        ):
             ensure_string(config.get(key), f"{label}.{key}", errors)
         for key in ("agent_models", "editing_tools"):
             if not isinstance(config.get(key), list) or not all(isinstance(item, str) and item for item in config[key]):

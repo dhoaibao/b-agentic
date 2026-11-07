@@ -1,6 +1,6 @@
 # b-review
 
-Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first. This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning, never sends the candidate to another vendor, and has no edit tools.
+Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first. This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning, never sends the candidate to another vendor, and is prohibited from editing.
 
 ## When to use
 
