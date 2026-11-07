@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code, Codex, or both.
+# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code, OpenCode, or both.
 #
 # Usage:
-#   ./install.sh [--runtime=claude|codex|both] [--dry-run] [--force] [--with-clickup] [-y]
+#   ./install.sh [--runtime=claude|opencode|both] [--dry-run] [--force] [--with-clickup] [-y]
 #                                                         install or sync from this checkout
+#   ./install.sh --runtime=opencode --migrate-legacy      also remove the retired OpenCode install
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
@@ -11,10 +12,10 @@
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code) and ~/.codex plus
-# ~/.agents/skills (Codex) are the only supported locations, and each runtime's install and
-# uninstall leave the other untouched.
-# On a terminal each runtime installer shows a step timeline and asks before writing (via /dev/tty,
+# runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code, the default runtime)
+# and ~/.config/opencode (OpenCode) are the only supported locations, and each runtime's install
+# and uninstall leave the other untouched.
+# On a terminal both runtime installers show a step timeline and ask before writing (via /dev/tty,
 # so it works when piped); -y/--yes, --dry-run, --uninstall, or no terminal keeps the plain output.
 
 set -euo pipefail
@@ -28,6 +29,7 @@ UNINSTALL=0
 YES=0
 NOTES=""
 RUNTIME=claude
+MIGRATE_LEGACY=0
 PASSTHROUGH=()
 
 die() {
@@ -50,6 +52,7 @@ while [ "$#" -gt 0 ]; do
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
     --force|--with-clickup|--without-clickup) PASSTHROUGH+=("$1") ;;
     --runtime=*) RUNTIME="${1#--runtime=}" ;;
+    --migrate-legacy) MIGRATE_LEGACY=1 ;;
     --ref=*) REF="${1#--ref=}"; [ -n "$REF" ] || die 'invalid empty --ref' ;;
     *) die "unknown argument: $1" ;;
   esac
@@ -57,10 +60,13 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$RUNTIME" in
-  claude|codex|both) ;;
-  opencode) die 'the OpenCode runtime was removed (see docs/decisions/ADR-004-codex-runtime.md); use --runtime=codex' ;;
-  *) die "invalid --runtime=$RUNTIME; use claude, codex, or both" ;;
+  claude|opencode|both) ;;
+  codex) die 'the Codex runtime was removed (see docs/decisions/ADR-005-opencode-restored.md); use --runtime=claude, opencode, or both' ;;
+  *) die "invalid --runtime=$RUNTIME; use claude, opencode, or both" ;;
 esac
+if [ "$MIGRATE_LEGACY" -eq 1 ] && [ "$RUNTIME" = claude ]; then
+  die '--migrate-legacy applies to the OpenCode runtime; pass --runtime=opencode or both'
+fi
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
 FANCY=0
@@ -165,11 +171,14 @@ export B_AGENTIC_NOTES="$NOTES"
 install_claude() {
   python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 }
-install_codex() {
-  python3 "$SOURCE_DIR/tooling/install/codex_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+install_opencode() {
+  local extra=()
+  [ "$MIGRATE_LEGACY" -eq 0 ] || extra+=(--migrate-legacy)
+  python3 "$SOURCE_DIR/tooling/install/opencode_install.py" --source "$SOURCE_DIR" \
+    ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ${extra[@]+"${extra[@]}"}
 }
 case "$RUNTIME" in
   claude) exec python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
-  codex) exec python3 "$SOURCE_DIR/tooling/install/codex_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
-  both) install_claude && install_codex ;;
+  opencode) install_opencode ;;
+  both) install_claude && install_opencode ;;
 esac

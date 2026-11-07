@@ -51,7 +51,7 @@ DOC_SURFACES = (
     "README.md",
     "claude/configs/README.md",
     "docs/decisions/ADR-001-b-agentic-design-record.md",
-    "docs/decisions/ADR-004-codex-runtime.md",
+    "docs/decisions/ADR-005-opencode-restored.md",
 )
 FALSE_PROMPT_CLAIMS = (
     "managed claude code rules ask for outside-project writes",
@@ -92,28 +92,12 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
             if clause not in texts[name]:
                 errors.append(f"{runtime}: delegation contract missing for {name}: {clause}")
         eligibility = (
-            "`developer_instructions` explicitly requires read-only work"
-            if runtime == "codex"
+            "denies `edit`, `subagent`, `question`"
+            if runtime == "opencode"
             else "contains none of `Edit`, `Write`, `NotebookEdit`"
         )
         if eligibility not in texts[name]:
             errors.append(f"{runtime}: profile eligibility missing for {name}")
-    if runtime == "codex":
-        for clause in (
-            "absent read-only instructions",
-            "otherwise ask in plain text",
-            "Wait for an explicit answer before dependent actions",
-            "preselected options and elapsed time are not answers",
-        ):
-            if clause not in texts["kernel"]:
-                errors.append(f"codex: question or eligibility contract missing: {clause}")
-        for forbidden in (
-            "editing-capable agent profile",
-            "the sandbox prompts for writes outside the project",
-            "Unclassified MCP tools keep Codex's approval prompt",
-        ):
-            if forbidden in texts["kernel"]:
-                errors.append(f"codex: unsupported guarantee: {forbidden}")
     return errors
 
 
@@ -122,7 +106,7 @@ def main() -> int:
     errors: list[str] = []
     for runtime, kernel, directory in (
         ("claude", "references/kernel.template.md", "skills"),
-        ("codex", "codex/configs/kernel.md", "codex/skills"),
+        ("opencode", "opencode/configs/kernel.md", "opencode/skills"),
     ):
         paths = {"kernel": ROOT / kernel}
         paths.update({skill["name"]: ROOT / directory / skill["name"] / "SKILL.md" for skill in skills})
@@ -137,15 +121,6 @@ def main() -> int:
             candidate = {**texts, surface: texts[surface].replace(clause, "removed")}
             if not any(f": {scenario} contract missing" in error for error in validate(runtime, candidate, skills)):
                 errors.append(f"{runtime}: parity regression did not detect missing {scenario}")
-        if runtime == "codex":
-            for bad in (
-                "editing-capable agent profile",
-                "the sandbox prompts for writes outside the project",
-                "Unclassified MCP tools keep Codex's approval prompt",
-            ):
-                candidate = {**texts, "kernel": texts["kernel"] + "\n" + bad}
-                if not any("unsupported guarantee" in error for error in validate(runtime, candidate, skills)):
-                    errors.append(f"codex: parity regression accepted unsupported guarantee: {bad}")
     doc_paths = [ROOT / path for path in DOC_SURFACES]
     missing_docs = [str(path.relative_to(ROOT)) for path in doc_paths if not path.is_file()]
     if missing_docs:

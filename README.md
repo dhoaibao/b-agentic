@@ -1,18 +1,18 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code and Codex, with a read-only subagent as the independent reviewer.**
+**A slim personal workflow kernel for Claude Code and OpenCode, with a read-only subagent as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration, for
-Claude Code and Codex side by side. Changed-code review runs in the read-only
+Claude Code and OpenCode side by side. Changed-code review runs in the read-only
 `b-reviewer` subagent, so it needs no second subscription and sends nothing to
 another vendor.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
-- [Configuration layout](claude/configs/README.md) and [Codex layout](codex/configs/README.md) — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-004](docs/decisions/ADR-004-codex-runtime.md) (Codex as the second runtime).
+- [Configuration layout](claude/configs/README.md) and [OpenCode layout](opencode/configs/README.md) — managed paths and ownership boundaries.
+- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-002 dual-runtime support](docs/decisions/ADR-002-dual-runtime-support.md).
 
 ## Install
 
@@ -31,10 +31,9 @@ everything else. It never runs vendor installers and never writes under
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
-`./install.sh` installs Claude Code by default. Pass `--runtime=codex` to install
-into `~/.codex` and `~/.agents/skills` instead, or `--runtime=both` for each; every
-runtime's install and uninstall leave the other untouched. After a Codex install,
-restart Codex and trust the hooks with `/hooks`.
+`./install.sh` installs Claude Code by default. Pass `--runtime=opencode` to
+install into `~/.config/opencode` instead, or `--runtime=both` for each; every
+runtime's install and uninstall leave the other untouched.
 
 ## How it works
 

@@ -99,7 +99,7 @@ supply its completed origin-freshness evidence:
   narrow-check evidence; state an explicit evidence gap when a required check
   cannot be run read-only.
 - `read` - inspect `docs/decisions/ADR-001-b-agentic-design-record.md`, the later ADRs
-  (ADR-002 to ADR-004) that refine or replace parts of it, and the canonical source files they
+  (ADR-002 to ADR-005) that refine or replace parts of it, and the canonical source files they
   cite; prefer sources over generated assets when comparing behavior.
 - `context7` or bounded primary upstream documentation/release metadata - verify
   versioned package/API currentness only when needed; do not upload local files,

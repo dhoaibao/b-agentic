@@ -2,7 +2,6 @@
 
 - Status: Accepted
 - Date: 2026-11-04
-- Note: the OpenCode parts below describe a runtime removed by [ADR-004](ADR-004-codex-runtime.md).
 - Supersedes: ADR-001 (the Codex review-gate passages in Context and under "Workflow and skill design", "Safety and approval design", and "Verification and change discipline") and ADR-002 (the Codex gate on OpenCode)
 
 ## Context

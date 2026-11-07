@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Runtime adapters for b-agentic's canonical sources: vocabulary uses an ordered literal glossary, policy clauses and profile checks are explicit runtime fields. Canonical sources use Claude Code wording; the claude glossary is empty. See docs/decisions/ADR-004-codex-runtime.md.",
+  "description": "Per-runtime vocabulary for rendering b-agentic's canonical sources. Canonical sources are written in Claude Code terms, so the claude glossary is empty and its output stays byte-identical; other runtimes localize them through an ordered literal glossary and an MCP tool-name format. See docs/decisions/ADR-002-dual-runtime-support.md and docs/decisions/ADR-005-opencode-restored.md.",
   "runtimes": {
     "claude": {
       "config_dir": "~/.claude",
@@ -23,38 +23,29 @@
       "delegation_unavailable": "A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable.",
       "profile_check": "confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`"
     },
-    "codex": {
-      "config_dir": "~/.codex",
-      "state_dir": "~/.codex/b-agentic",
-      "hook_dir": "$HOME/.codex/b-agentic/hooks",
+    "opencode": {
+      "config_dir": "~/.config/opencode",
+      "state_dir": "~/.config/opencode/b-agentic",
+      "hook_dir": "$HOME/.config/opencode/b-agentic/plugins",
       "agent_models": [],
       "editing_tools": [
-        "apply_patch"
+        "edit",
+        "subagent",
+        "question"
       ],
-      "mcp_tool_format": "mcp__{server}__{tool}",
-      "forbidden_terms": [
-        "AskUserQuestion",
-        "~/.claude",
-        ".claude/",
-        "run_in_background",
-        "general-purpose",
-        "`Agent`",
-        "`Read`",
-        "`Grep`",
-        "`Glob`"
-      ],
+      "mcp_tool_format": "{server}_{tool}",
       "glossary": [
         [
           " (or invokes its `/b-<name>` command)",
-          " (or invokes it as `$b-<name>`)"
+          " (or loads it with the `skill` tool)"
         ],
         [
           "Recommend `/b-pr`",
-          "Recommend `$b-pr`"
+          "Recommend the `b-pr` skill"
         ],
         [
           "Only the `b-clickup-guard` hook inspects MCP arguments (ClickUp task images)",
-          "No hook inspects MCP arguments (a Codex hook cannot ask, so every ClickUp create or update asks instead)"
+          "The ClickUp image hook is not ported; every create or update asks"
         ],
         [
           "The tool is pre-approved and runs without a prompt, so confirm the title, list, and duplicate check first.",
@@ -66,7 +57,7 @@
         ],
         [
           "are pre-approved, except that the `b-clickup-guard` hook asks when a description references an image other than an existing ClickUp attachment URL.",
-          "require approval on every call; the ClickUp image-reference hook is not ported to Codex."
+          "require approval on every call; the ClickUp image-reference hook is not ported to OpenCode."
         ],
         [
           "task creation and updates are pre-approved and run without a prompt (the guard asks only when a description references an image)",
@@ -78,92 +69,44 @@
         ],
         [
           "~/.claude/b-agentic",
-          "~/.codex/b-agentic"
+          "~/.config/opencode/b-agentic"
         ],
         [
           "~/.claude/agents/",
-          "~/.codex/agents/"
+          "~/.config/opencode/agents/"
         ],
         [
           "~/.claude/skills/",
-          "~/.agents/skills/"
+          "~/.config/opencode/skills/"
         ],
         [
           ".claude/agents/",
-          ".codex/agents/"
+          ".opencode/agents/"
         ],
         [
           "Claude Code Workflow Kernel",
-          "Codex Workflow Kernel"
+          "OpenCode Workflow Kernel"
         ],
         [
           "Claude Code exposes MCP tools as `mcp__<server>__<tool>`",
-          "Codex exposes MCP tools as `mcp__<server>__<tool>`"
-        ],
-        [
-          "Claude Code's approval prompt",
-          "Codex's approval prompt"
-        ],
-        [
-          "Managed settings deny named dangerous commands and sensitive paths",
-          "Managed rules and hooks deny named dangerous commands and sensitive paths"
-        ],
-        [
-          "native `Read` and `Grep` (or `rg` where `Grep` is absent)",
-          "`rg` and read-only shell reads"
-        ],
-        [
-          "native `Read` and `Grep` (or `rg`)",
-          "`rg` and read-only shell reads"
-        ],
-        [
-          "with `Read` and `Grep` before acting",
-          "with `rg` and read-only shell reads before acting"
-        ],
-        [
-          "Use native `Read`/`Edit`/`Write` (plus `Glob`/`Grep` where the build has them, else `rg`/`fdfind`) for edits, configs, docs, and unindexed code, including SKILL.md and outside-project reads; use shell to run commands, never ad-hoc file I/O via `cat`/`sed`/`head`/`batcat`/`rtk read`/`python`/`sd`.",
-          "Use `apply_patch` for edits and `rg`/`fdfind` plus read-only shell reads (`sed -n`, `cat`) to read configs, docs, and unindexed code, including SKILL.md and outside-project reads; never write files through shell redirection, `sed -i`, `python`, or `sd`; use shell to run commands."
-        ],
-        [
-          "Tool lists omit edits, questions, and delegation but allow shell inspection under global permissions.",
-          "A Codex agent file cannot restrict tools, so a hook denies their edits and mutating MCP calls where it can; shell inspection stays allowed under the session sandbox."
-        ],
-        [
-          "Material user-facing decisions or blockers use `AskUserQuestion`: group 1–4 concrete choices, explain trade-offs, and offer a plain-text fallback when interactive questions are unavailable.",
-          "Material user-facing decisions or blockers prefer `request_user_input_async` or `request_user_input` when available and permitted for the question and mode; otherwise ask in plain text. Respect tool limits and approval restrictions; explain trade-offs. Wait for an explicit answer before dependent actions; preselected options and elapsed time are not answers."
-        ],
-        [
-          "Delegated skills run only in their named `Agent` subagent type",
-          "Delegated skills run only in their named subagent role (`spawn_agent` with `agent_type`)"
-        ],
-        [
-          "is its named `Agent` call",
-          "is its named `spawn_agent` call"
-        ],
-        [
-          "`general-purpose`",
-          "`default`"
+          "OpenCode exposes MCP tools as `<server>_<tool>`"
         ],
         [
           "`AskUserQuestion`",
-          "`request_user_input_async`/`request_user_input`"
-        ],
-        [
-          "2–4 concrete",
-          "2–3 concrete"
-        ],
-        [
-          "Group related questions (up to four)",
-          "Group related questions (up to three)"
+          "`question`"
         ],
         [
           "`Agent`",
-          "`spawn_agent`"
+          "`subagent`"
+        ],
+        [
+          "`general-purpose`",
+          "`general`"
         ]
       ],
       "arguments_placeholder": "the user's request",
-      "delegation_unavailable": "A missing profile, absent read-only instructions, or `default` fallback counts as unavailable.",
-      "profile_check": "confirm the effective `{agent}.toml` (project `.codex/agents/` over `~/.codex/agents/`) is readable and its `developer_instructions` explicitly requires read-only work (Codex cannot restrict tools in an agent file; the hook checks {editing} and MCP calls when active), then call `spawn_agent` with `agent_type` `{agent}` and a bounded task naming `{name}`"
+      "profile_check": "confirm the effective `{agent}.md` (project `.opencode/agents/` over `~/.config/opencode/agents/`) is readable and its `permissions` list denies {editing} for resource `*` (a missing `permissions` list grants every tool), then launch the `{agent}` subagent with a bounded task naming `{name}`",
+      "delegation_unavailable": "A missing or editing-capable agent profile, or `general` fallback, counts as unavailable."
     }
   }
 }

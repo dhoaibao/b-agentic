@@ -78,7 +78,8 @@ def resolve_claude_dir() -> Path:
 
 # The other runtime's locations, relative to the home directory. A resolved destination inside
 # them is refused, so a symlink cannot make one runtime's install write into the other's tree.
-FOREIGN_RUNTIME_ROOTS: tuple[str, ...] = (".codex", ".agents/skills")
+# opencode_install.py replaces these with the Claude Code locations before it does any work.
+FOREIGN_RUNTIME_ROOTS: tuple[str, ...] = (".config/opencode",)
 FOREIGN_RUNTIME_FILES: tuple[str, ...] = ()
 
 
@@ -236,16 +237,12 @@ def remove_hook_items(hooks: dict[str, Any], items: list[dict[str, Any]]) -> boo
 
 
 class Installer:
-    CREATED_KEY = "claude_md_created"  # manifest flag: the kernel file did not exist before install
-    runtime_label = "Claude Code"
-
     def __init__(self, source: Path, dry_run: bool, force: bool, clickup: bool | None, ui: Ui | None = None) -> None:
         self.source = source
         self.ui = ui if ui is not None else Ui(enabled=False)
         self.claude_dir = resolve_claude_dir()
         self.assets_dir = self.claude_dir / "b-agentic"
         self.manifest_path = self.assets_dir / "install.json"
-        self.kernel_path = self.claude_dir / "CLAUDE.md"
         self.mcp_path = home_dir() / ".claude.json"
         self.dry_run = dry_run
         self.force = force
@@ -524,7 +521,7 @@ class Installer:
         return {"recorded": recorded, "writes": writes, "removals": removals}
 
     def plan_kernel(self, manifest: dict[str, Any]) -> dict[str, Any]:
-        path = self.kernel_path
+        path = self.claude_dir / "CLAUDE.md"
         target = self.config_target(path)
         existed = target.exists()
         text = target.read_text() if existed else ""
@@ -533,7 +530,7 @@ class Installer:
         digest = sha256(block.encode())
         owners = self.kernel_owners(manifest)
         committed = manifest.get("kernel_sha256")
-        created = bool(manifest.get(self.CREATED_KEY, False)) or not existed
+        created = bool(manifest.get("claude_md_created", False)) or not existed
         new_text: str | None
         if span is None:
             new_text = text.rstrip("\n") + "\n\n" + block + "\n" if text.strip() else block + "\n"
@@ -576,7 +573,40 @@ class Installer:
                     added.append(rule)
             record["permissions"][kind] = [rule for rule in dict.fromkeys(added) if rule in existing]
         hooks = settings.setdefault("hooks", {})
-        record["hooks"] = self.merge_hooks(hooks, template["hooks"], previous.get("hooks", []), path)
+        recorded_hooks = previous.get("hooks", [])
+        wanted_hooks = [
+            {"event": event, "matcher": entry.get("matcher"), "hook": hook}
+            for event, entries in template["hooks"].items()
+            for entry in entries
+            for hook in entry["hooks"]
+        ]
+        # A hook an earlier version recorded and this version no longer ships is retired, but only
+        # if it is still exactly the recorded hook; an edited one stays and is reported below.
+        remove_hook_items(hooks, [item for item in recorded_hooks if item not in wanted_hooks])
+        for event, entries in template["hooks"].items():
+            event_entries = hooks.setdefault(event, [])
+            for entry in entries:
+                matcher = entry.get("matcher")
+                for hook in entry["hooks"]:
+                    item = {"event": event, "matcher": matcher, "hook": hook}
+                    matching = [e for e in event_entries if e.get("matcher") == matcher]
+                    if any(hook in e.get("hooks", []) for e in matching):
+                        # An identical hook is ours only if a prior run inserted it.
+                        if item in recorded_hooks:
+                            record["hooks"].append(item)
+                    elif any(h.get("command") == hook["command"] for e in event_entries for h in e.get("hooks", [])):
+                        self.warn(
+                            f"the managed hook {hook['command']} already exists in {path} with a different matcher or "
+                            "fields; left as is, so its safety coverage may be incomplete"
+                        )
+                    else:
+                        if matcher is not None and matching:
+                            matching[0].setdefault("hooks", []).append(dict(hook))
+                        else:
+                            event_entries.append(
+                                {**({"matcher": matcher} if matcher is not None else {}), "hooks": [dict(hook)]}
+                            )
+                        record["hooks"].append(item)
         for event in [name for name, value in hooks.items() if value == []]:
             del hooks[event]
         if not hooks:
@@ -624,47 +654,6 @@ class Installer:
             "to use b-agentic/bin/b-statusline.mjs"
         )
         return []
-
-    def merge_hooks(
-        self, hooks: dict[str, Any], template_hooks: dict[str, Any], recorded_hooks: list[Any], path: Path
-    ) -> list[dict[str, Any]]:
-        """Add the template's hooks to `hooks` and return the items this run owns; a hook an earlier
-        version recorded and this one no longer ships is retired only while it is exactly as recorded."""
-        record: list[dict[str, Any]] = []
-        wanted_hooks = [
-            {"event": event, "matcher": entry.get("matcher"), "hook": hook}
-            for event, entries in template_hooks.items()
-            for entry in entries
-            for hook in entry["hooks"]
-        ]
-        # A hook an earlier version recorded and this version no longer ships is retired, but only
-        # if it is still exactly the recorded hook; an edited one stays and is reported below.
-        remove_hook_items(hooks, [item for item in recorded_hooks if item not in wanted_hooks])
-        for event, entries in template_hooks.items():
-            event_entries = hooks.setdefault(event, [])
-            for entry in entries:
-                matcher = entry.get("matcher")
-                for hook in entry["hooks"]:
-                    item = {"event": event, "matcher": matcher, "hook": hook}
-                    matching = [e for e in event_entries if e.get("matcher") == matcher]
-                    if any(hook in e.get("hooks", []) for e in matching):
-                        # An identical hook is ours only if a prior run inserted it.
-                        if item in recorded_hooks:
-                            record.append(item)
-                    elif any(h.get("command") == hook["command"] for e in event_entries for h in e.get("hooks", [])):
-                        self.warn(
-                            f"the managed hook {hook['command']} already exists in {path} with a different matcher or "
-                            "fields; left as is, so its safety coverage may be incomplete"
-                        )
-                    else:
-                        if matcher is not None and matching:
-                            matching[0].setdefault("hooks", []).append(dict(hook))
-                        else:
-                            event_entries.append(
-                                {**({"matcher": matcher} if matcher is not None else {}), "hooks": [dict(hook)]}
-                            )
-                        record.append(item)
-        return record
 
     def plan_mcp(self, clickup: bool, manifest: dict[str, Any]) -> dict[str, Any]:
         target = self.config_target(self.mcp_path)
@@ -872,7 +861,7 @@ class Installer:
         owners = self.kernel_owners(manifest)
         if not owners:
             return None  # the block was never ours
-        path = self.kernel_path
+        path = self.claude_dir / "CLAUDE.md"
         target = self.config_target(path)
         if not target.exists():
             return None
@@ -884,7 +873,7 @@ class Installer:
             self.warn(f"kept the modified kernel block in {path}")
             return None
         remaining = (text[: span[0]].rstrip("\n") + "\n\n" + text[span[1] :].lstrip("\n")).strip("\n")
-        if manifest.get(self.CREATED_KEY) and not remaining:
+        if manifest.get("claude_md_created") and not remaining:
             return {"target": target, "delete": True}
         return {"target": target, "text": remaining + "\n" if remaining else ""}
 
@@ -980,7 +969,7 @@ class Installer:
             print(f"warning: {warning}", file=sys.stderr)
         summary = ", ".join(f"{count} {name}" for name, count in self.counts.items() if count)
         label = "[dry-run] " if self.dry_run else ""
-        print(f"{label}b-agentic {operation} for {self.runtime_label} ({self.claude_dir}): {summary or 'no changes'}")
+        print(f"{label}b-agentic {operation} for Claude Code ({self.claude_dir}): {summary or 'no changes'}")
         if operation != "uninstall" and not self.dry_run:
             print("\n".join(self.next_steps()))
 

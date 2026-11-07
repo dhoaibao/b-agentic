@@ -2,14 +2,13 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the two supported runtimes, Claude Code and Codex, with a
-read-only subagent as the independent reviewer
-([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
-[ADR-004](docs/decisions/ADR-004-codex-runtime.md)). It covers installation, the
-permission boundary, the review gate, MCP configuration, and validation; the
-Codex differences are in [Codex runtime](#codex-runtime). The OpenCode runtime
-(ADR-004) and the earlier Pi runtime (last commit `ac38e4a`) were removed and are
-not maintained here.
+This reference defines the two supported runtimes, Claude Code and OpenCode,
+with a read-only subagent as the independent reviewer ([ADR-002](docs/decisions/ADR-002-dual-runtime-support.md),
+[ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
+It covers installation, the permission boundary, the review gate, MCP
+configuration, and validation; the OpenCode differences are in
+[OpenCode runtime](#opencode-runtime). The earlier Pi runtime was removed (last
+commit `ac38e4a`) and is not maintained here.
 
 ## Install and lifecycle
 
@@ -24,15 +23,16 @@ the frozen Pi installer. The script never runs vendor installers and never
 writes under `~/.pi`.
 
 - `--dry-run` prints the plan and changes nothing.
-- On a terminal each runtime installer shows a step timeline, a summary box, and asks before
+- On a terminal both runtime installers show a step timeline, a summary box, and ask before
   writing (and whether to add the optional ClickUp MCP server on a first
   install). Questions are read from `/dev/tty`, so they work when piped. `-y` /
   `--yes`, `--dry-run`, `--uninstall`, or a non-terminal stdout keep plain output
   and the defaults; `NO_COLOR` disables color. Answering No leaves that runtime's
-  configuration untouched (`~/.claude` and `~/.claude.json`, or `~/.codex` and
-  `~/.agents/skills`). A piped run has already cloned or updated the source
-  checkout by then, because the summary needs it. With `--runtime=both`, each
-  runtime confirms separately; declining Codex does not undo Claude's install.
+  configuration untouched (`~/.claude` and `~/.claude.json`, or `~/.config/opencode`).
+  OpenCode also shows legacy migration removals before confirmation; declining
+  creates no backups and removes nothing. A piped run has already cloned or updated
+  the source checkout by then, because the summary needs it. With `--runtime=both`,
+  each runtime confirms separately; declining OpenCode does not undo Claude's install.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
@@ -42,10 +42,8 @@ writes under `~/.pi`.
   `~/.claude/b-agentic/backups`.
 - `--with-clickup` / `--without-clickup` (or `B_AGENTIC_CLICKUP_MCP=yes`) select
   the optional ClickUp MCP server. The choice is recorded and preserved.
-- `--runtime=claude|codex|both` selects the runtime (default `claude`). Each
-  runtime's install and uninstall leave the other untouched. `--runtime=opencode`
-  is refused with a pointer to ADR-004; remove an old OpenCode install with the
-  installer from a commit before the removal.
+- `--runtime=claude|opencode|both` selects the runtime (default `claude`). Each
+  runtime's install and uninstall leave the other untouched.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -78,87 +76,74 @@ runs, so restart it after an install. The installer reports missing tools (`rtk`
 `codegraph`, `bunx`, `claude`) and never runs vendor installers. The review gate
 needs no extra tool, login, or plugin.
 
-## Codex runtime
+## OpenCode runtime
 
-`./install.sh --runtime=codex` (or `both`) installs the same canonical skills,
-specialists, and safety checks for Codex CLI, rendered from the same sources
+`./install.sh --runtime=opencode` (or `both`) installs the same canonical skills,
+specialists, and safety checks for OpenCode v2, rendered from the same sources
 through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
-`~/.codex` is supported (a different `CODEX_HOME` is refused), plus
-`~/.agents/skills` for skills. Everything is recorded in
-`~/.codex/b-agentic/install.json`.
+`~/.config/opencode` is supported; a different `XDG_CONFIG_HOME` or
+`OPENCODE_CONFIG_DIR` is refused. Everything is recorded in
+`~/.config/opencode/b-agentic/install.json`.
 
-| Asset          | Installed path                                                                       |
-| -------------- | ------------------------------------------------------------------------------------ |
-| Skills         | `~/.agents/skills/b-*/SKILL.md` (invoked as `$b-<name>`, not slash commands)         |
-| Specialists    | `~/.codex/agents/b-*.toml` (agent roles with a pinned model and effort)              |
-| Rules          | `~/.codex/rules/b-agentic.rules` (prefix rules for denied and asked commands)        |
-| Hooks and CLIs | `~/.codex/b-agentic/hooks/*.mjs`, `bin/*.mjs` (verify gate shared)                   |
-| Kernel         | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md` |
-| Hook entries   | entries merged into `~/.codex/hooks.json`, with absolute installed paths             |
-| MCP servers    | `[mcp_servers.*]` tables appended to `~/.codex/config.toml`, owned by name and value |
+| Asset            | Installed path                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| Skills           | `skills/b-*/SKILL.md` (skills are not slash commands in OpenCode)                     |
+| Specialists      | `agents/b-*.md` (`mode: subagent`, read-only `permissions`)                           |
+| Safety plugin    | `plugins/b-agentic.js`, importing the hooks installed beside it                       |
+| Hooks and CLIs   | `b-agentic/hooks/*.mjs`, `b-agentic/bin/*.mjs` (shared with Claude Code)              |
+| Kernel           | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md`  |
+| Permissions, MCP | rules appended to `permissions`, servers added under `mcp.servers` in `opencode.json` |
 
-- **Your policy stays yours.** The installer never writes `sandbox_mode` or
-  `approval_policy`. Set `workspace-write` with `on-request` approvals yourself to get
-  prompts for writes outside the project.
-- **MCP approvals.** Every managed server prompts by default
-  (`default_tools_approval_mode = "prompt"`); classified tools get a per-tool
-  `approval_mode` (`approve` for auto-allowed classes, `prompt` otherwise). ClickUp
-  `createTask` and `updateTask` prompt on every call because a Codex hook cannot ask.
-  Each managed table is owned by its name and parsed value, not by position or markers, so
-  Codex rewriting `config.toml` (`codex features enable`, `codex mcp add`, hook trust)
-  never orphans it; a table you or Codex changed, or one you already define, is kept and
-  reported. An unknown
-  `approval_mode` makes Codex reject the whole config, so the generator validates every
-  value. The IDE-managed DataGrip server has no table.
-- **Specialist models.** The registry's `codex_model` and `codex_effort` pin each role
-  (omit them to inherit the session's). Defaults, from the model catalog bundled in Codex
-  0.167.0 (`codex debug models`): `b-planner`, `b-reviewer` `gpt-6.1-sol` at `high`;
-  `b-auditor` `gpt-6.1-sol` at `xhigh`; `b-debugger` `gpt-6.1-terra` at `xhigh`;
-  `b-researcher` `gpt-6.1-terra` at `medium`. Codex reports the pin in each role's
-  `spawn_agent` description. A role can only use models of the session's provider, and
-  whether your account can use these two is not checked here; edit the registry and
-  regenerate to change a pin.
-- **Specialists** are agent roles. Codex agent files cannot restrict the sandbox, tools, or
-  MCP servers they inherit, so read-only is instructed, and a hook denies `apply_patch`
-  and MCP tools outside the role's allowlist when the hook payload names the role
-  (`agent_type`). Shell writes are not blocked.
-- **Hooks** run through one adapter (`b-codex-hooks.mjs`) for `PreToolUse`, `PostToolUse`,
-  and `Stop`. Codex skips a hook until you trust it: run `/hooks` after install and after
-  every update, because trust is tied to the hook's hash. Hooks fail open on error, cannot
-  ask, and do not run for hosted tools, so they are a guardrail rather than a boundary.
-- **Kernel size.** The global `~/.codex/AGENTS.md` does not count toward Codex's
-  `project_doc_max_bytes` (per the 0.167.0 source).
-- **Review gate** is the same read-only `b-reviewer` specialist as on Claude Code.
-- **Uninstall** removes the managed tables and the kernel block and keeps everything else,
-  including tables Codex wrote. `config.toml` and `AGENTS.md` return byte for byte unless
-  something else edited around the managed text (surrounding blank lines are normalized
-  and CRLF line endings are rewritten as LF);
-  `hooks.json` keeps your entries but is re-serialized with two-space indentation.
+- **Permissions.** OpenCode applies the last matching rule, so the managed rules
+  are always the final block of `permissions`; your earlier rules are preserved
+  in order, and a re-run moves the managed block back to the end. Every
+  `<server>_<tool>` asks by default (`*_*`, so a server you added prompts too),
+  each managed server asks by default (`<server>_*`), then its classified tools
+  follow, so an unclassified tool still prompts. Secret-path denies use
+  whole-string patterns (`*.env`, `*.pem`, `*credentials.*`, `*secrets.*`) so
+  project-root files match. `external_directory` asks for any read or write
+  outside the project, except `~/.config/opencode`, `~/.claude`,
+  `~/.local/share/opencode`, and `/tmp/opencode`. ClickUp's trusted
+  mutations ask on OpenCode because the image-reference guard cannot prompt there.
+  `opencode.jsonc` (comments) and the v1 `permission` map are refused before any
+  write.
+- **Specialists** deny `edit`, `subagent`, and `question`, deny every other
+  `<server>_<tool>` (`*_*`, including servers you added), deny `execute` and
+  `browser` outright, and then allow only their allowlisted MCP tools; unlike
+  Claude Code this is enforced by the runtime. They keep the default
+  external-directory access. Whether the main session's Code Mode `opencode` and
+  `browser` calls ask is unverified on OpenCode 2.2.5.
+- **Skills load once.** `~/.config/opencode/skills` outranks the Claude-compatible
+  `~/.claude/skills` for the same skill ID, so a machine with both installs does
+  not load two copies. OpenCode v2 does not read `CLAUDE.md`.
+- **Review gate** is the same read-only `b-reviewer` specialist
+  (`claude-agent/opus#high`) as on Claude Code, so it needs no plugin and no
+  second login. The retired Codex gate's shell `ask` rules and guard script are
+  removed on upgrade; its standing approval store
+  (`~/.config/opencode/b-agentic/codex-approved-repos.json`) is user data that
+  nothing reads any more, so the installer leaves it and prints a note.
+- **Retired install.** A manifest from the removed OpenCode runtime is refused
+  unless `--migrate-legacy` is passed, which backs up and removes only the paths
+  that manifest names (`skills`, `agents`, `commands`, the whole-file `AGENTS.md`)
+  and keeps your `opencode.json` content. It validates the whole replacement
+  install before deleting anything and requires `opencode.json` and `AGENTS.md`
+  to be regular files (not symlinks) while it runs.
 
-Known differences from Claude Code, accepted in ADR-004:
+Known differences from Claude Code, accepted in ADR-002:
 
-Both runtimes share workflow and authorization obligations. Native prompts depend
-on effective user settings: missing prompts do not authorize outside-project
-mutations or unclassified MCP calls. Codex profile eligibility checks explicit
-read-only instructions; Claude checks tool lists. Neither is a filesystem sandbox.
-The shared acceptance scenarios and distinction between instruction checks and
-live evidence are in [ADR-004](docs/decisions/ADR-004-codex-runtime.md).
+| Claude Code feature             | OpenCode                                                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Verify gate (blocks first stop) | Not ported: OpenCode has no documented way to block a session from stopping                                              |
+| ClickUp image-reference prompt  | Replaced by asking on every ClickUp create or update                                                                     |
+| Path guard on `Grep`/`Glob`     | Native `read`/`edit` secret denies plus the plugin; `grep`/`glob` resources are not matched natively                     |
+| Hook `exit 2` block             | Plugin `setup` registers `ctx.tool.hook("execute.before")` and throws; the 2.1.4 loader fails that call with the message |
+| Outside-project write approval  | `external_directory` asks for reads as well as writes; managed install and temp directories are allowed                  |
 
-| Claude Code feature                | Codex                                                                                                                      |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Read-only specialists by tool list | Instructed, plus a best-effort `apply_patch` and MCP allowlist hook; shell writes are not blocked                          |
-| Path guard on `Read`/`Grep`/`Glob` | `apply_patch` paths and shell command words are checked; other read paths are not                                          |
-| ClickUp image-reference prompt     | Replaced by prompting on every ClickUp create or update                                                                    |
-| Shell `deny`/`ask` patterns        | Exact-prefix rules only; a flag not directly after the prefix, `gh` global options, or a refspec elsewhere are not matched |
-| Hook `ask`                         | Not supported by Codex (parsed, then ignored as a failed hook run)                                                         |
-| `AskUserQuestion`                  | Available, permitted structured question tool; plain text as fallback                                                      |
-
-Verified against the Codex 0.167.0 binary and source: agent roles and skills load from
-the installed layout, hooks are discovered and show as untrusted, the generated rules and
-MCP tables parse and match. No live Codex turn is run by this repository's checks. Before
-relying on the hooks, confirm in a real session that `agent_type` reaches hook payloads
-inside a subagent, that an `apply_patch` on `.env` is denied, and that the model-facing MCP
-tool names are `mcp__<server>__<tool>`.
+Verified against the OpenCode v2 docs and the locally installed v2.1.4 binary;
+no live OpenCode session has been run by this repository's checks. Before relying
+on the plugin or the permission translation, confirm in a real session that a
+`.env` read is refused, a plugin throw blocks a shell call, and the model-facing
+tool name for a shell command is `shell` or `bash` (the plugin accepts both).
 
 ## Kernel and skills
 
@@ -192,18 +177,19 @@ revisit it with measured time, tokens, and blocker counts ([ADR-003](docs/decisi
 On Claude Code the registry values are defaults: a per-call `model` or `effort` on
 the agent call overrides them, `CLAUDE_CODE_EFFORT_LEVEL` overrides the effort, and
 `CLAUDE_CODE_SUBAGENT_MODEL` overrides the model only together with
-`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`.
+`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`. OpenCode uses the
+separate optional `opencode_model` field (`provider/model#variant`); omitting it
+inherits the session model. Current OpenCode defaults are:
 
-The generator enforces a 12,000-byte, 100-line budget on each runtime's kernel
-(`MAX_KERNEL_BYTES` and `MAX_KERNEL_LINES` in `tooling/generate/registry_sync.py`). As of
-2026-11-07 the Claude template has about 320 spare bytes and the Codex kernel about 68,
-because its localization is longer, so trim existing kernel wording before adding any.
+| Specialist     | Model                 | Effort   |
+| -------------- | --------------------- | -------- |
+| `b-planner`    | `claude-agent/opus`   | `high`   |
+| `b-researcher` | `claude-agent/sonnet` | `medium` |
+| `b-debugger`   | `claude-agent/sonnet` | `xhigh`  |
+| `b-auditor`    | `openai/gpt-6.1-sol`  | `xhigh`  |
+| `b-reviewer`   | `claude-agent/opus`   | `high`   |
 
-The kernel's peer agent messaging section applies only when the user asks agents to
-talk to each other. It depends on tools b-agentic does not install or manage: the
-`herdr` skill (when `HERDR_ENV=1`, Herdr TUI) or the `hc` command (Herdr app). Without
-them the section does nothing, and the Herdr TUI and the Herdr app cannot message each
-other.
+Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 
 ## Review gate
 
@@ -258,7 +244,8 @@ Accepted trade-offs against the retired Codex gate:
   approval or protected-path check applies), so you run it at your own risk.
 - Read-only is instructed on Claude Code, not sandboxed: the tool list omits
   `Edit`, `Write`, `NotebookEdit`, and nested delegation, but shell access can
-  still mutate state.
+  still mutate state. OpenCode denies `edit`, `subagent`, and `question` through
+  the agent's `permissions`, but has no shell rule either.
   The fingerprint recomputation catches any change to tracked or named files,
   but not a change to an ignored or outside-repository file that was never named.
 - The reviewer reads the repository as the main session's provider already does,
@@ -266,7 +253,7 @@ Accepted trade-offs against the retired Codex gate:
   commits or pushes.
 
 The Codex wrapper (`b-codex-review.mjs`), the verdict mapper
-(`b-codex-verdict.mjs`), and the `b-codex-guard` hook were
+(`b-codex-verdict.mjs`), the `b-codex-guard` hook and its OpenCode shell rules were
 removed. An upgrade retires them from an existing install: the installer drops the
 recorded `b-codex-guard` hook entry from `settings.json` before it deletes the
 script, deletes unmodified copies, keeps and reports an edited hook (and keeps its
@@ -383,19 +370,19 @@ rtk git diff --check
 
 Plain `scripts/validate-skills.sh` runs the generator self-test and check, the
 policy and routing checks, the hook probe
-(`tests/hooks/hooks-probe.sh`), the Codex hook probe
-(`tests/hooks/codex-hooks-probe.sh`), the snapshot CLI probe
+(`tests/hooks/hooks-probe.sh`), the OpenCode plugin probe
+(`tests/hooks/opencode-plugin-probe.sh`), the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`), the status line probe
 (`tests/statusline/statusline-probe.sh`), and the runtime instruction parity check
 (`tooling/validate/runtime_parity.py`). `--release` (CI) adds the sandbox installer
 probes (`tests/install/claude-install-probe.sh` and
-`tests/install/codex-install-probe.sh`) and the RTK readiness check. None
-needs Claude Code, Codex, credentials, or a network.
+`tests/install/opencode-install-probe.sh`) and the RTK readiness check. None
+needs Claude Code, OpenCode, credentials, or a network.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
 generated specialists and settings plus the hooks, CLIs, and MCP templates;
-`codex/` holds the generated Codex agents, skills, rules, and config templates plus
-the hook adapter;
+`opencode/` holds the generated OpenCode agents, skills, and references plus the
+config template and the safety plugin;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
 snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).

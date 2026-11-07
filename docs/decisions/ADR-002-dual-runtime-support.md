@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-23
 - Supersedes: ADR-001 (product boundary and the second-runtime non-goal)
-- Superseded in part by [ADR-004](ADR-004-codex-runtime.md): the OpenCode runtime was replaced by Codex; the runtime-adapter design stays.
+- Note: [ADR-004](ADR-004-codex-runtime.md) replaced OpenCode with Codex; [ADR-005](ADR-005-opencode-restored.md) restored OpenCode and removed Codex, so this ADR applies again.
 
 ## Context
 
@@ -145,6 +145,7 @@ revival, no per-project OpenCode installs, no live OpenCode or Codex sessions in
 CI.
 
 Evidence: [`install.sh`](../../install.sh),
-[`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py), and
-[`references/runtimes.yaml`](../../references/runtimes.yaml). The OpenCode installer
-and plugin it originally cited were removed by [ADR-004](ADR-004-codex-runtime.md).
+[`tooling/install/opencode_install.py`](../../tooling/install/opencode_install.py),
+[`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
+[`references/runtimes.yaml`](../../references/runtimes.yaml), and
+[`opencode/plugins/b-agentic.js`](../../opencode/plugins/b-agentic.js).

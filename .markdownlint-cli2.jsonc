@@ -12,7 +12,8 @@
   },
   "ignores": [
     "skills/*/SKILL.md",
-    "codex/skills/*/SKILL.md",
-    "codex/configs/kernel.md",
+    "opencode/skills/*/SKILL.md",
+    "opencode/agents/*.md",
+    "opencode/configs/kernel.md",
   ],
 }

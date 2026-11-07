@@ -1,7 +1,8 @@
 # ADR-004: Replace OpenCode with Codex as the second runtime
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-11-06
+- Superseded by: [ADR-005](ADR-005-opencode-restored.md), which removed Codex and restored OpenCode
 - Supersedes: ADR-002 (the OpenCode runtime, its installer, plugin, and gap table; the runtime-adapter design stays)
 
 ## Context
@@ -46,7 +47,7 @@ Phase 2 (done): add Codex, `install.sh --runtime=claude|codex|both` (default `cl
   Codex itself rewrites that file: `codex features enable` and `codex mcp add` move
   and reorder tables), edited textually and proven to leave every other table
   unchanged before the first write; rules install to `~/.codex/rules/b-agentic.rules`.
-- One hook adapter (`codex/hooks/b-codex-hooks.mjs`) serves `PreToolUse`, `PostToolUse`,
+- One hook adapter (since removed) serves `PreToolUse`, `PostToolUse`,
   and `Stop` over the shared verify gate and the snapshot CLI's secret-path rules, with gate state under
   `~/.codex/b-agentic`. It is not named `b-codex-guard`, which ADR-003 retired.
 - Read-only specialists are instructed in their role text and, when a hook payload
@@ -157,7 +158,6 @@ Unchanged non-goals: no custom permission engine, no third runtime, no Pi reviva
 per-project Codex installs, no live Codex sessions in CI.
 
 Evidence: [`install.sh`](../../install.sh),
-[`tooling/install/codex_install.py`](../../tooling/install/codex_install.py),
+the Codex installer (removed by ADR-005),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
-[`references/runtimes.yaml`](../../references/runtimes.yaml), and
-[`codex/hooks/b-codex-hooks.mjs`](../../codex/hooks/b-codex-hooks.mjs).
+[`references/runtimes.yaml`](../../references/runtimes.yaml), and the Codex hook adapter (removed by ADR-005).

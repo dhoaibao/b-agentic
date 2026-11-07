@@ -25,13 +25,13 @@ python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/session_readiness.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/browser_evidence.py" --self-test
 bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
-bash "$ROOT_DIR/tests/hooks/codex-hooks-probe.sh"
+bash "$ROOT_DIR/tests/hooks/opencode-plugin-probe.sh"
 bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
 bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
 
 if [ "$run_release" -eq 1 ]; then
   bash "$ROOT_DIR/tests/install/claude-install-probe.sh"
-  bash "$ROOT_DIR/tests/install/codex-install-probe.sh"
+  bash "$ROOT_DIR/tests/install/opencode-install-probe.sh"
   if command -v rtk >/dev/null 2>&1; then
     python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else

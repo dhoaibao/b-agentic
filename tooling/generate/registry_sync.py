@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Render Claude Code and Codex delivery assets from b-agentic's canonical sources."""
+"""Render Claude Code delivery assets from b-agentic's canonical sources."""
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import sys
 import textwrap
-import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -240,9 +240,6 @@ CLAUDE_RUNTIME = RUNTIMES["claude"]
 AGENT_MODELS = set(CLAUDE_RUNTIME["agent_models"])
 # Effort levels Claude Code accepts in subagent frontmatter (support varies by model).
 AGENT_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
-# Codex reasoning efforts (the 0.167.0 model catalog lists up to `ultra`) and a Codex model slug.
-CODEX_EFFORTS = {"low", "medium", "high", "xhigh", "max", "ultra"}
-CODEX_MODEL_PATTERN = re.compile(r"[a-z0-9][a-z0-9.-]*")
 # Tools a read-only specialist must never receive, whatever the registry says.
 EDITING_TOOLS = tuple(CLAUDE_RUNTIME["editing_tools"])
 # Canonical sources name MCP tools the Claude Code way; other runtimes get their own format.
@@ -419,15 +416,11 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
             effort = ensure_string(agent["effort"], f"{label}.effort", errors)
             if effort and effort not in AGENT_EFFORTS:
                 errors.append(f"{label}.effort: expected one of {sorted(AGENT_EFFORTS)}")
-        for field in ("codex_model", "codex_effort"):
-            if field not in agent:
-                continue
-            allowed_fields.add(field)
-            value = ensure_string(agent[field], f"{label}.{field}", errors)
-            if value and field == "codex_effort" and value not in CODEX_EFFORTS:
-                errors.append(f"{label}.{field}: expected one of {sorted(CODEX_EFFORTS)}")
-            if value and field == "codex_model" and not CODEX_MODEL_PATTERN.fullmatch(value):
-                errors.append(f"{label}.{field}: expected a model slug such as gpt-6.1-sol")
+        if "opencode_model" in agent:
+            allowed_fields.add("opencode_model")
+            opencode_model = ensure_string(agent["opencode_model"], f"{label}.opencode_model", errors)
+            if opencode_model and not re.fullmatch(r"[^/#\s]+/[^#\s]+(?:#[^#\s]+)?", opencode_model):
+                errors.append(f"{label}.opencode_model: expected provider/model or provider/model#variant")
         if "max_turns" in agent:
             allowed_fields.add("max_turns")
             turns = agent["max_turns"]
@@ -694,7 +687,7 @@ def render_skill_file(skill: dict[str, Any], runtime: str = "claude") -> str:
         )
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))
-    # Only Claude Code skills are slash commands, so a hint for typed arguments has no meaning elsewhere.
+    # OpenCode skills are not slash commands, so a hint for typed arguments has no meaning there.
     if skill.get("argument_hint") and runtime == "claude":
         lines.append(f"argument-hint: {json.dumps(skill['argument_hint'], ensure_ascii=False)}")
     lines.extend(
@@ -738,30 +731,16 @@ def agent_tool_list(agent: dict[str, Any], policy: dict[str, Any]) -> list[str]:
     return ["Read", "Grep", "Glob", "Bash", *read_only_mcp_tools(policy), *agent.get("conditional_tools", [])]
 
 
-def agent_instruction_text(name: str, skills: list[dict[str, Any]], skill_dir: str) -> str:
-    bound = [
-        skill["name"]
-        for skill in skills
-        if skill["execution"]["mode"] == "subagent" and skill["execution"]["agent"] == name
-    ]
-    skill_list = " or ".join(f"`{skill}`" for skill in bound)
-    return "\n".join(
-        [
-            f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
-            "",
-            f"Read and execute the named skill from the installed `{skill_dir}/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template. The skill's Delegation boundary directs the main session to delegate; you are the named child, so execute its steps.",
-            "",
-            "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. A returned result is not authority to change files, commit, push, or report task completion. If a required tool is absent, tell the main session rather than bypassing the allowlist.",
-            "",
-            TURN_BUDGET_NOTICE,
-        ]
-    )
-
-
 def render_agent_file(
     name: str, agent: dict[str, Any], skills: list[dict[str, Any]], policy: dict[str, Any] | None = None
 ) -> str:
     policy = policy if policy is not None else load_policy()
+    bound_skills = [
+        skill["name"]
+        for skill in skills
+        if skill["execution"]["mode"] == "subagent" and skill["execution"]["agent"] == name
+    ]
+    skill_list = " or ".join(f"`{skill}`" for skill in bound_skills)
     return "\n".join(
         [
             "---",
@@ -773,7 +752,13 @@ def render_agent_file(
             *([f"maxTurns: {agent['max_turns']}"] if "max_turns" in agent else []),
             "---",
             "",
-            agent_instruction_text(name, skills, "~/.claude/skills"),
+            f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
+            "",
+            "Read and execute the named skill from the installed `~/.claude/skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template. The skill's Delegation boundary directs the main session to delegate; you are the named child, so execute its steps.",
+            "",
+            "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. A returned result is not authority to change files, commit, push, or report task completion. If a required tool is absent, tell the main session rather than bypassing the allowlist.",
+            "",
+            TURN_BUDGET_NOTICE,
             "",
             "<!-- Managed by b-agentic. Generated from skills/registry.yaml. Do not edit this file. -->",
             "",
@@ -863,272 +848,242 @@ def render_permissions(policy: dict[str, Any]) -> dict[str, Any]:
     return {"permissions": {"allow": allow, "ask": ask, "deny": deny}}
 
 
-CODEX_DIR = ROOT / "codex"
-CODEX_AGENTS_DIR = CODEX_DIR / "agents"
-CODEX_SKILLS_DIR = CODEX_DIR / "skills"
-CODEX_CONFIGS_DIR = CODEX_DIR / "configs"
-CODEX_RULES_PATH = CODEX_DIR / "rules" / "b-agentic.rules"
-CODEX_REFERENCES_DIR = CODEX_DIR / "references"
-CODEX_KERNEL_PATH = CODEX_CONFIGS_DIR / "kernel.md"
-CODEX_CONFIG_PATH = CODEX_CONFIGS_DIR / "config.template.toml"
-CODEX_CLICKUP_PATH = CODEX_CONFIGS_DIR / "config.clickup.toml"
-CODEX_HOOKS_PATH = CODEX_CONFIGS_DIR / "hooks.template.json"
-CODEX_SPECIALIST_TOOLS_PATH = CODEX_REFERENCES_DIR / "specialist-tools.json"
-CODEX_APPROVAL_MODES = ("auto", "prompt", "writes", "approve")
-# A Codex PreToolUse hook cannot ask, so the ClickUp image-reference guard is not ported and
-# these two tools prompt on every call instead of running unprompted.
-CODEX_ASKED_TOOLS = (("clickup", "createTask"), ("clickup", "updateTask"))
-CODEX_HOOK_SCRIPT = "b-codex-hooks.mjs"
-CODEX_RUNTIME_HOOK_DIR = RUNTIMES["codex"]["hook_dir"]
+OPENCODE_DIR = ROOT / "opencode"
+OPENCODE_AGENTS_DIR = OPENCODE_DIR / "agents"
+OPENCODE_SKILLS_DIR = OPENCODE_DIR / "skills"
+OPENCODE_CONFIGS_DIR = OPENCODE_DIR / "configs"
+OPENCODE_TEMPLATE_PATH = OPENCODE_CONFIGS_DIR / "opencode.template.json"
+OPENCODE_CLICKUP_PATH = OPENCODE_CONFIGS_DIR / "opencode.clickup.json"
+OPENCODE_KERNEL_PATH = OPENCODE_CONFIGS_DIR / "kernel.md"
+# The Claude Code ClickUp guard asks only for image references; OpenCode cannot, so every
+# trusted mutation asks there instead of running unprompted.
+OPENCODE_ASKED_CLASSES = ("trusted-mutation",)
+# OpenCode v2 matches a resource against the whole string with `*` spanning `/`, so a Claude
+# `**/name` glob (which needs a literal slash) misses a project-root file; `*name` matches both.
+OPENCODE_SECRET_SAMPLES = (
+    ".env",
+    "app/.env",
+    ".env.local",
+    "app/.env.prod.local",
+    "server.pem",
+    "keys/server.pem",
+    "credentials.json",
+    "config/credentials.json",
+    "secrets.yaml",
+    "config/secrets.yaml",
+)
+# `external_directory` asks on both reads and writes outside the project and cannot tell them
+# apart, so the main session asks except for the directories b-agentic and OpenCode itself use.
+OPENCODE_EXTERNAL_ALLOWED = (
+    "~/.config/opencode/*",
+    "~/.claude/*",
+    "~/.local/share/opencode/*",
+    "/tmp/opencode/*",
+)
+# Unmanaged `<server>_<tool>` actions (and the underscored native ones) ask through `*_*`; these
+# OpenCode-provided actions are routine and read-only or metadata-only, so they stay allowed.
+# Whether Code Mode's `opencode` namespace reaches a permission action at all is unverified on
+# OpenCode 2.2.5 (ADR-002), so the main session relies on `*_*` only where such an action exists.
+OPENCODE_BUILTIN_ALLOWED = (
+    "opencode_models",
+    "opencode_list_mcp_resources",
+    "opencode_worktree_list",
+    "opencode_session_rename",
+)
+# Native capabilities with no permission action of their own; a specialist loses them whole.
+OPENCODE_SPECIALIST_DENIED = ("execute", "browser")
+OPENCODE_MCP_TIMEOUT = {"startup": 30000, "catalog": 30000}
 ENV_REFERENCE = re.compile(r"\$\{([A-Z0-9_]+)\}")
-TOML_BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
 
 
-def toml_key(key: str) -> str:
-    return key if TOML_BARE_KEY.fullmatch(key) else json.dumps(key)
+def opencode_rule(action: str, effect: str, resource: str = "*") -> dict[str, str]:
+    return {"action": action, "resource": resource, "effect": effect}
 
 
-def toml_string(text: str) -> str:
-    """A TOML string: a readable multi-line literal when safe, else a JSON-escaped basic string."""
-    if (
-        "\n" in text
-        and "'''" not in text
-        and not text.endswith("'")
-        and not re.search(r"[\x00-\x08\x0b-\x1f\x7f\r]", text)
-    ):
-        return "'''\n" + text + "'''"
-    return json.dumps(text, ensure_ascii=False)
+def opencode_mcp_server(entry: dict[str, Any]) -> dict[str, Any]:
+    """A Claude Code MCP entry in OpenCode v2 shape (mcp.servers.<name>); credentials stay env references."""
 
+    def refs(value: str) -> str:
+        return ENV_REFERENCE.sub(lambda match: "{env:" + match[1] + "}", value)
 
-def toml_value(value: Any) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, str):
-        return toml_string(value)
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_value(item) for item in value) + "]"
-    raise TypeError(f"unsupported TOML value: {value!r}")
-
-
-def codex_tool_mode(policy: dict[str, Any], server: str, class_name: str, tool: str) -> str | None:
-    """The approval_mode for a classified tool, or None when the policy denies it outright."""
-    if (server, tool) in CODEX_ASKED_TOOLS:
-        return "prompt"
-    return {"allow": "approve", "ask": "prompt"}.get(policy["classes"][class_name]["native_permission"])
-
-
-def codex_server_tables(name: str, entry: dict[str, Any], policy: dict[str, Any]) -> list[str]:
-    """One managed MCP server as Codex config.toml tables; credentials stay environment references."""
-    key = toml_key(name)
-    lines = [f"[mcp_servers.{key}]"]
-    literal: dict[str, str] = {}
-    from_env: dict[str, str] = {}
-    mapping = entry.get("env", {}) if entry["type"] == "stdio" else entry.get("headers", {})
-    for field, value in mapping.items():
-        reference = ENV_REFERENCE.fullmatch(value)
-        if reference:
-            if entry["type"] == "stdio" and reference[1] != field:
-                # `env_vars` forwards a variable under its own name, so a renamed reference has no Codex form.
-                raise SystemExit(
-                    f"mcp template {name}.{field}: a stdio env reference must use the same name, not ${{{reference[1]}}}"
-                )
-            from_env[field] = reference[1]
-        elif ENV_REFERENCE.search(value):
-            raise SystemExit(f"mcp template {name}.{field}: a ${{VAR}} reference must be the whole value")
-        else:
-            literal[field] = value
     if entry["type"] == "stdio":
-        lines.append(f"command = {toml_value(entry['command'])}")
-        if entry.get("args"):
-            lines.append(f"args = {toml_value(entry['args'])}")
-        if from_env:
-            lines.append(f"env_vars = {toml_value(list(from_env.values()))}")
-    else:
-        lines.append(f"url = {toml_value(entry['url'])}")
-    lines.append('default_tools_approval_mode = "prompt"')
-    tools = policy["servers"].get(name, {}).get("tools", {})
-    modes = {tool: codex_tool_mode(policy, name, class_name, tool) for tool, class_name in tools.items()}
-    disabled = [tool for tool, mode in modes.items() if mode is None]
-    if disabled:
-        lines.append(f"disabled_tools = {toml_value(disabled)}")
-    if literal:
-        table = "env" if entry["type"] == "stdio" else "http_headers"
-        lines += ["", f"[mcp_servers.{key}.{table}]", *[f"{toml_key(f)} = {toml_value(v)}" for f, v in literal.items()]]
-    if from_env and entry["type"] != "stdio":
-        lines += [
-            "",
-            f"[mcp_servers.{key}.env_http_headers]",
-            *[f"{toml_key(f)} = {toml_value(v)}" for f, v in from_env.items()],
-        ]
-    for tool, mode in modes.items():
-        if mode is not None:
-            lines += ["", f"[mcp_servers.{key}.tools.{toml_key(tool)}]", f"approval_mode = {toml_value(mode)}"]
-    return lines
-
-
-def render_codex_config(path: Path, policy: dict[str, Any]) -> str:
-    servers = json.loads(path.read_text())["mcpServers"]
-    blocks = ["\n".join(codex_server_tables(name, entry, policy)) for name, entry in servers.items()]
-    return "\n\n".join(blocks) + "\n"
-
-
-def render_codex_hooks() -> dict[str, Any]:
-    command = f'node "{CODEX_RUNTIME_HOOK_DIR}/{CODEX_HOOK_SCRIPT}"'
-    hook = {"type": "command", "command": command, "timeout": 10}
-    return {
-        "hooks": {
-            "PreToolUse": [{"matcher": "apply_patch|Edit|Write|Bash|mcp__.*", "hooks": [hook]}],
-            "PostToolUse": [{"matcher": "apply_patch|Edit|Write|Bash", "hooks": [hook]}],
-            "Stop": [{"hooks": [hook]}],
+        server: dict[str, Any] = {
+            "type": "local",
+            "command": [entry["command"], *entry.get("args", [])],
+            "environment": {key: refs(value) for key, value in entry.get("env", {}).items()},
         }
-    }
+    else:
+        server = {"type": "remote", "url": entry["url"]}
+        if entry.get("headers"):
+            server["headers"] = {key: refs(value) for key, value in entry["headers"].items()}
+    return {**server, "disabled": False, "codemode": False, "timeout": dict(OPENCODE_MCP_TIMEOUT)}
 
 
-def split_command(command: str) -> list[str]:
-    """A shell command pattern as a Codex prefix pattern; wildcard forms have no prefix equivalent."""
-    return command.split()
+def opencode_mcp_servers(path: Path) -> dict[str, Any]:
+    return {name: opencode_mcp_server(entry) for name, entry in json.loads(path.read_text())["mcpServers"].items()}
 
 
-def codex_rule_head(pattern: list[str], decision: str) -> str:
-    tokens = ", ".join(json.dumps(token) for token in pattern)
-    return f"pattern = [{tokens}],\n    decision = {json.dumps(decision)},"
+def opencode_effect(policy: dict[str, Any], class_name: str) -> str:
+    return "ask" if class_name in OPENCODE_ASKED_CLASSES else policy["classes"][class_name]["native_permission"]
 
 
-def codex_rule(pattern: list[str], decision: str, justification: str) -> str:
-    tokens = ", ".join(json.dumps(token) for token in pattern)
-    return (
-        "prefix_rule(\n"
-        f"    {codex_rule_head(pattern, decision)}\n"
-        f"    justification = {json.dumps(justification)},\n"
-        f"    match = [[{tokens}]],\n"
-        ")\n"
-    )
+def opencode_secret_globs() -> list[str]:
+    """DENY_READ_GLOBS as OpenCode whole-string wildcards that also match project-root files."""
+    names = [glob.removeprefix("**/") for glob in DENY_READ_GLOBS]
+    return [name if name.startswith("*") else f"*{name}" for name in names]
 
 
-CODEX_PUSH_FORBIDDEN = (
-    ("git", "push", "--force"),
-    ("git", "push", "-f"),
-    ("git", "push", "--delete"),
-    ("git", "push", "-d"),
-    ("git", "push", "--mirror"),
-    ("git", "push", "--all"),
-    ("git", "push", "--prune"),
-    *(("git", "push", "origin", branch) for branch in PROTECTED_BRANCHES),
-)
+def render_opencode_permissions(policy: dict[str, Any]) -> list[dict[str, str]]:
+    """The settings layer as OpenCode v2 rules. The last matching rule wins, so `*_*` asks for every
+    unmanaged `<server>_<tool>`, each managed server asks by default, and its classified tools follow;
+    the installer appends this block last."""
+    shell_ask, shell_deny = shell_pattern_rules()
+    rules = [opencode_rule("shell", "ask", pattern) for pattern in shell_ask]
+    rules += [opencode_rule("shell", "deny", pattern) for pattern in shell_deny]
+    for tool in ("read", "edit"):
+        rules += [opencode_rule(tool, "deny", glob) for glob in opencode_secret_globs()]
+    rules.append(opencode_rule("*_*", "ask"))
+    rules.append(opencode_rule("external_directory", "ask"))
+    rules += [opencode_rule("external_directory", "allow", path) for path in OPENCODE_EXTERNAL_ALLOWED]
+    rules += [opencode_rule(action, "allow") for action in OPENCODE_BUILTIN_ALLOWED]
+    for server, record in policy["servers"].items():
+        rules.append(opencode_rule(f"{server}_*", "ask"))
+        for tool, class_name in record["tools"].items():
+            effect = opencode_effect(policy, class_name)
+            if effect != "ask":
+                rules.append(opencode_rule(mcp_tool_name_for("opencode", server, tool), effect))
+    return rules
 
 
-def codex_rule_patterns() -> tuple[list[list[str]], list[list[str]]]:
-    """Prefix patterns for (forbidden, prompt). Codex rules match an exact argument prefix, so only
-    the adjacent forms of the Claude Code shell rules carry over; the rest is a documented gap."""
-    forbidden = [split_command(command) for command in (*DENIED_COMMANDS, *DENIED_GH_COMMANDS)]
-    forbidden += [list(pattern) for pattern in CODEX_PUSH_FORBIDDEN]
-    prompt = [split_command(command) for command in ("git push", *ASKED_GH_COMMANDS)]
-    return forbidden, prompt
+def mcp_tool_name_for(runtime: str, server: str, tool: str) -> str:
+    return RUNTIMES[runtime]["mcp_tool_format"].format(server=server, tool=tool)
 
 
-def render_codex_rules() -> str:
-    forbidden, prompt = codex_rule_patterns()
-    header = [
-        "# Managed by b-agentic. Generated from tooling/generate/registry_sync.py. Do not edit this file.",
-        "# Codex rules match an exact argument prefix: a flag that is not directly after the prefix,",
-        "# a `gh` global option, or a refspec elsewhere in the command is not matched.",
-        "",
-    ]
-    blocks = []
-    for patterns, decision, reason in (
-        (forbidden, "forbidden", "blocked by b-agentic: a destructive, privileged, or default-branch command"),
-        (prompt, "prompt", "b-agentic asks before a push or a GitHub state change"),
-    ):
-        for pattern in patterns:
-            for prefix in ([], ["rtk"]):
-                blocks.append(codex_rule([*prefix, *pattern], decision, reason))
-    return "\n".join([*header, *blocks])
+def opencode_agent_permissions(agent: dict[str, Any], policy: dict[str, Any]) -> list[dict[str, str]]:
+    """A read-only specialist: no editing, delegation, or questions, and only its allowlisted MCP tools.
+    `*_*` denies every `<server>_<tool>` first, so a server the user added is denied too; a wildcard
+    deny per managed server and its permitted tools follow (last match wins). External directory
+    access stays allowed, as it was before the main session started asking for it. Code Mode's
+    `opencode` namespace (session move, worktree create) and the desktop `browser` namespace may
+    request no permission action of their own (unverified on 2.2.5), so a specialist cannot rely on
+    a per-tool rule: `execute` and `browser` are denied outright (MCP servers set `codemode: false`,
+    so their tools stay directly callable)."""
+    rules = [opencode_rule(action, "deny") for action in RUNTIMES["opencode"]["editing_tools"]]
+    rules += [opencode_rule("*_*", "deny"), opencode_rule("external_directory", "allow")]
+    rules += [opencode_rule(action, "deny") for action in OPENCODE_SPECIALIST_DENIED]
+    allowed = {tool for tool in agent_tool_list(agent, policy) if tool.startswith("mcp__")}
+    for server, record in policy["servers"].items():
+        permitted = [tool for tool in record["tools"] if mcp_tool_name(server, tool) in allowed]
+        rules.append(opencode_rule(f"{server}_*", "deny"))
+        rules += [opencode_rule(mcp_tool_name_for("opencode", server, tool), "allow") for tool in permitted]
+    return rules
 
 
-def codex_specialist_tools(agents: dict[str, dict[str, Any]], policy: dict[str, Any]) -> dict[str, list[str]]:
-    return {
-        name: [tool for tool in agent_tool_list(agent, policy) if tool.startswith("mcp__")]
-        for name, agent in agents.items()
-    }
-
-
-CODEX_READ_ONLY_NOTICE = (
-    "Codex cannot restrict this role's tools, so read-only is your obligation: a hook denies `apply_patch` and "
-    "MCP tools outside your allowlist, but you must also avoid shell redirection, `sed -i`, and any other command "
-    "that writes, stages, or mutates state."
-)
-
-
-def render_codex_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, Any]]) -> str:
-    instructions = localize(agent_instruction_text(name, skills, "~/.claude/skills"), "codex")
-    instructions += "\n\n" + CODEX_READ_ONLY_NOTICE
-    return "\n".join(
-        [
-            "# Managed by b-agentic. Generated from skills/registry.yaml. Do not edit this file.",
-            f"name = {toml_value(name)}",
-            f"description = {toml_value(agent['description'])}",
-            *([f"model = {toml_value(agent['codex_model'])}"] if "codex_model" in agent else []),
-            *([f"model_reasoning_effort = {toml_value(agent['codex_effort'])}"] if "codex_effort" in agent else []),
-            f"developer_instructions = {toml_value(instructions + chr(10))}",
-            "",
+def render_opencode_agent_file(
+    name: str, agent: dict[str, Any], skills: list[dict[str, Any]], policy: dict[str, Any]
+) -> str:
+    body = render_agent_file(name, agent, skills, policy).split("\n---\n", 1)[1]
+    permissions = ["permissions:"]
+    for rule in opencode_agent_permissions(agent, policy):
+        permissions += [
+            f"  - action: {json.dumps(rule['action'])}",
+            f"    resource: {json.dumps(rule['resource'])}",
+            f"    effect: {rule['effect']}",
         ]
-    )
+    head = [
+        "---",
+        f"description: {json.dumps(agent['description'])}",
+        "mode: subagent",
+        *([f"model: {json.dumps(agent['opencode_model'])}"] if "opencode_model" in agent else []),
+        *permissions,
+        "---",
+    ]
+    return "\n".join(head) + localize(body, "opencode")
 
 
-def render_codex_references(policy: dict[str, Any]) -> dict[Path, str]:
+def render_opencode_template(policy: dict[str, Any]) -> str:
+    template = {
+        "permissions": render_opencode_permissions(policy),
+        "mcp": {"servers": opencode_mcp_servers(CLAUDE_CONFIGS_DIR / "mcp.base.json")},
+    }
+    return json.dumps(template, indent=2) + "\n"
+
+
+def render_opencode_references(policy: dict[str, Any]) -> dict[Path, str]:
     """Deliver effective runtime policy, not Claude-only approvals or capability paths."""
     effective_policy = {
         **policy,
-        "description": "MCP operation classification for Codex. Tools use mcp__<server>__<tool>; managed servers prompt by default. Unclassified tools require user approval even without a native prompt.",
+        "description": "MCP operation classification for OpenCode. Tools use <server>_<tool>; unclassified managed-server tools ask in the main session.",
         "classes": {name: dict(meta) for name, meta in policy["classes"].items()},
-        "runtime_enforcement": {"codex": policy["runtime_enforcement"]["codex"]},
+        "runtime_enforcement": {"opencode": policy["runtime_enforcement"]["opencode"]},
     }
-    capabilities = json.loads(localize(json.dumps(load_capabilities()), "codex"))
-    capabilities["description"] = capabilities["description"].replace("Claude Code", "Codex")
+    for name, meta in effective_policy["classes"].items():
+        meta["native_permission"] = opencode_effect(policy, name)
+        if name in OPENCODE_ASKED_CLASSES:
+            meta["policy"] = "Approval required"
+            meta["notes"] = (
+                "Requires approval on every call; main session only. The ClickUp image-reference hook is not ported."
+            )
+    capabilities = json.loads(localize(json.dumps(load_capabilities()), "opencode"))
+    capabilities["description"] = capabilities["description"].replace("Claude Code", "OpenCode")
     for capability in capabilities["capabilities"]:
+        # A plugin capability is installed through Claude Code and keeps its Claude Code wording;
+        # none ships today, but the kind stays supported.
         if capability["kind"] != "plugin":
             for key in ("purpose", "readiness", "fallback"):
-                capability[key] = capability[key].replace("Claude Code", "Codex")
-            capability["prerequisites"] = [item.replace("Claude Code", "Codex") for item in capability["prerequisites"]]
+                capability[key] = capability[key].replace("Claude Code", "OpenCode")
+            capability["prerequisites"] = [
+                item.replace("Claude Code", "OpenCode") for item in capability["prerequisites"]
+            ]
         for key, value in capability.get("source", {}).items():
             if value == "tooling/install/claude_install.py":
-                capability["source"][key] = "tooling/install/codex_install.py"
+                capability["source"][key] = "tooling/install/opencode_install.py"
             elif value == "claude/agents":
-                capability["source"][key] = "codex/agents"
+                capability["source"][key] = "opencode/agents"
             elif value.startswith("claude/configs/mcp."):
-                name = "config.clickup.toml" if value.endswith("clickup.json") else "config.template.toml"
-                capability["source"][key] = f"codex/configs/{name}"
+                name = "opencode.clickup.json" if value.endswith("clickup.json") else "opencode.template.json"
+                capability["source"][key] = f"opencode/configs/{name}"
         if capability["kind"] == "agent":
-            capability["agent"]["source"] = "codex/agents"
+            capability["agent"]["source"] = "opencode/agents"
     return {
-        CODEX_REFERENCES_DIR / name: json.dumps(value, indent=2) + "\n"
+        OPENCODE_DIR / "references" / name: json.dumps(value, indent=2) + "\n"
         for name, value in (("mcp_operations.yaml", effective_policy), ("capabilities.yaml", capabilities))
     }
 
 
-def render_codex_outputs(
+def render_opencode_outputs(
     skills: list[dict[str, Any]],
     agents: dict[str, dict[str, Any]],
     policy: dict[str, Any],
     kernel: str,
 ) -> dict[Path, str]:
-    # Policy differences use explicit adapters, independent of canonical sentence wording.
-    kernel = replace_block(kernel, KERNEL_DELEGATION_START, KERNEL_DELEGATION_END, render_delegation(skills, "codex"))
+    references = render_opencode_references(policy)
+    effective_policy = json.loads(references[OPENCODE_DIR / "references" / "mcp_operations.yaml"])
+    kernel = replace_block(
+        kernel, KERNEL_DELEGATION_START, KERNEL_DELEGATION_END, render_delegation(skills, "opencode")
+    )
+    kernel = localize(kernel, "opencode")
+    kernel = replace_block(
+        kernel,
+        MCP_OPERATIONS_START,
+        MCP_OPERATIONS_END,
+        render_mcp_operations_table(effective_policy).replace("Claude Code", "OpenCode"),
+    )
     outputs = {
-        CODEX_KERNEL_PATH: localize(kernel, "codex"),
-        CODEX_CONFIG_PATH: render_codex_config(CLAUDE_CONFIGS_DIR / "mcp.base.json", policy),
-        CODEX_CLICKUP_PATH: render_codex_config(CLAUDE_CONFIGS_DIR / "mcp.clickup.json", policy),
-        CODEX_HOOKS_PATH: json.dumps(render_codex_hooks(), indent=2) + "\n",
-        CODEX_RULES_PATH: render_codex_rules(),
-        CODEX_SPECIALIST_TOOLS_PATH: json.dumps(codex_specialist_tools(agents, policy), indent=2) + "\n",
-        **render_codex_references(policy),
+        OPENCODE_KERNEL_PATH: kernel,
+        OPENCODE_TEMPLATE_PATH: render_opencode_template(policy),
+        OPENCODE_CLICKUP_PATH: json.dumps(
+            {"mcp": {"servers": opencode_mcp_servers(CLAUDE_CONFIGS_DIR / "mcp.clickup.json")}}, indent=2
+        )
+        + "\n",
+        **references,
     }
     for skill in skills:
-        outputs[CODEX_SKILLS_DIR / skill["name"] / "SKILL.md"] = localize(render_skill_file(skill, "codex"), "codex")
+        outputs[OPENCODE_SKILLS_DIR / skill["name"] / "SKILL.md"] = localize(
+            render_skill_file(skill, "opencode"), "opencode"
+        )
     for name, agent in agents.items():
-        outputs[CODEX_AGENTS_DIR / f"{name}.toml"] = render_codex_agent_file(name, agent, skills)
+        outputs[OPENCODE_AGENTS_DIR / f"{name}.md"] = render_opencode_agent_file(name, agent, skills, policy)
     return outputs
 
 
@@ -1160,7 +1115,7 @@ def render_outputs(
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
     for name, agent in agents.items():
         outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills, policy)
-    outputs.update(render_codex_outputs(skills, agents, policy, kernel))
+    outputs.update(render_opencode_outputs(skills, agents, policy, kernel))
     return outputs
 
 
@@ -1253,36 +1208,42 @@ def validate_regressions(
         rendered = render_agent_file("b-planner", candidate, skills, policy)
         if re.findall(r"^effort: (.+)$", rendered, re.MULTILINE) != ([effort] if effort is not None else []):
             errors.append(f"agent regression: Claude must render effort {effort!r}, or omit it when unset")
-    for field, bad_values in (
-        ("codex_model", (None, True, 42, "", "Sol", "gpt 6", "-sol")),
-        ("codex_effort", (None, True, 42, "", "extreme", "XHIGH")),
+        if render_opencode_agent_file("b-planner", candidate, skills, policy) != render_opencode_agent_file(
+            "b-planner", agents["b-planner"], skills, policy
+        ):
+            errors.append("agent regression: effort must not change OpenCode output")
+    for bad_model in (
+        None,
+        True,
+        42,
+        "",
+        "opus",
+        "openai/",
+        "/model",
+        "openai/model#",
+        "openai/model#high#low",
+        "a/b c",
     ):
-        for bad in bad_values:
-            invalid_agents = json.loads(json.dumps(agents))
-            invalid_agents["b-planner"][field] = bad
-            if not any(field in error for error in validate_skills(skills, invalid_agents)):
-                errors.append(f"agent regression: invalid {field} {bad!r} must fail")
-    for model, effort in ((None, None), ("gpt-6.1-sol", None), (None, "ultra"), ("gpt-6.1-terra", "low")):
+        invalid_agents = json.loads(json.dumps(agents))
+        invalid_agents["b-planner"]["opencode_model"] = bad_model
+        if not any("opencode_model" in error for error in validate_skills(skills, invalid_agents)):
+            errors.append(f"agent regression: invalid opencode_model {bad_model!r} must fail")
+    for model in (None, "example/model", "example/model#high", "example/model#xhigh"):
         candidate_agents = json.loads(json.dumps(agents))
         candidate = candidate_agents["b-planner"]
-        candidate.pop("codex_model", None)
-        candidate.pop("codex_effort", None)
-        for field, value in (("codex_model", model), ("codex_effort", effort)):
-            if value is not None:
-                candidate[field] = value
+        candidate.pop("opencode_model", None)
+        if model is not None:
+            candidate["opencode_model"] = model
         if validate_skills(skills, candidate_agents):
-            errors.append(f"agent regression: valid codex pins {model!r}/{effort!r} must pass")
+            errors.append(f"agent regression: valid opencode_model {model!r} must pass")
         if render_agent_file("b-planner", candidate, skills, policy) != render_agent_file(
             "b-planner", agents["b-planner"], skills, policy
         ):
-            errors.append("agent regression: codex pins must not change Claude output")
-        rendered = render_codex_agent_file("b-planner", candidate, skills)
-        if re.findall(r"^model = (.+)$", rendered, re.MULTILINE) != (
-            [json.dumps(model)] if model else []
-        ) or re.findall(r"^model_reasoning_effort = (.+)$", rendered, re.MULTILINE) != (
-            [json.dumps(effort)] if effort else []
-        ):
-            errors.append(f"agent regression: Codex must render pins {model!r}/{effort!r}, or inherit when unset")
+            errors.append("agent regression: opencode_model must not change Claude output")
+        rendered = render_opencode_agent_file("b-planner", candidate, skills, policy)
+        expected = [json.dumps(model)] if model is not None else []
+        if re.findall(r"^model: (.+)$", rendered, re.MULTILINE) != expected:
+            errors.append(f"agent regression: OpenCode must render opencode_model {model!r}, or inherit when omitted")
     for name, agent in agents.items():
         rendered = render_agent_file(name, agent, skills, policy)
         if TURN_BUDGET_NOTICE not in rendered:
@@ -1325,6 +1286,18 @@ def validate_regressions(
     return errors
 
 
+# Claude Code wording a localized runtime must not inherit from the canonical sources.
+LOCALIZED_FORBIDDEN = (
+    "mcp__",
+    "AskUserQuestion",
+    "~/.claude",
+    ".claude/",
+    "run_in_background",
+    "general-purpose",
+    "`Agent`",
+)
+
+
 def validate_runtimes() -> list[str]:
     errors: list[str] = []
     for name, config in RUNTIMES.items():
@@ -1354,235 +1327,12 @@ def validate_runtimes() -> list[str]:
         sources = [pair[0] for pair in glossary]
         if len(set(sources)) != len(sources):
             errors.append(f"{label}.glossary: duplicate source entries")
-        forbidden = config.get("forbidden_terms", [])
-        if not isinstance(forbidden, list) or not all(isinstance(term, str) and term for term in forbidden):
-            errors.append(f"{label}.forbidden_terms: expected a string array")
-        elif name != "claude" and not forbidden:
-            errors.append(f"{label}.forbidden_terms: a localized runtime must list the Claude-only terms to shed")
     claude = RUNTIMES["claude"]
     if claude.get("glossary") != [] or claude.get("mcp_tool_format") != "mcp__{server}__{tool}":
         errors.append(
             "runtimes.claude: canonical sources are Claude Code wording, so its glossary must be empty and MCP format mcp__{server}__{tool}"
         )
     return errors
-
-
-def parse_toml(text: str, label: str, errors: list[str]) -> dict[str, Any]:
-    try:
-        return tomllib.loads(text)
-    except tomllib.TOMLDecodeError as exc:
-        errors.append(f"{label}: invalid TOML ({exc})")
-        return {}
-
-
-def validate_codex_outputs(
-    outputs: dict[Path, str], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
-) -> list[str]:
-    """Structural checks on the rendered Codex assets: parseable TOML, an asking default per managed MCP
-    server, class-faithful approval modes, read-only specialist profiles, and a complete rule set."""
-    errors: list[str] = []
-    kernel = outputs[CODEX_KERNEL_PATH]
-    if len(kernel.encode()) > MAX_KERNEL_BYTES or len(kernel.splitlines()) > MAX_KERNEL_LINES:
-        errors.append("codex/configs/kernel.md: exceeds the kernel size limit")
-    for path in (CODEX_KERNEL_PATH, CODEX_SKILLS_DIR / "b-commit" / "SKILL.md"):
-        if not all(f"`{tool}`" in outputs[path] for tool in ("request_user_input_async", "request_user_input")):
-            errors.append(f"{path.relative_to(ROOT)}: must name Codex structured question tools")
-    if "otherwise ask in plain text" not in kernel:
-        errors.append("codex/configs/kernel.md: must keep a plain-text question fallback")
-    forbidden_terms = RUNTIMES["codex"]["forbidden_terms"]
-    for path, text in outputs.items():
-        if not path.is_relative_to(CODEX_DIR) or path.suffix not in {".md"}:
-            continue
-        for term in forbidden_terms:
-            if term in text:
-                errors.append(f"{path.relative_to(ROOT)}: Codex rendering still contains {term!r}")
-        if re.search(r"`/b-(?:[a-z][a-z0-9-]*|<name>)`", text):
-            errors.append(f"{path.relative_to(ROOT)}: Codex skills must not recommend slash commands")
-        if path.name == "SKILL.md" and ("argument-hint:" in text or "$ARGUMENTS" in text):
-            errors.append(
-                f"{path.relative_to(ROOT)}: Codex skills are not slash commands; no argument hint or $ARGUMENTS"
-            )
-    expected_servers: dict[str, str] = {}
-    for template, path in (("mcp.base.json", CODEX_CONFIG_PATH), ("mcp.clickup.json", CODEX_CLICKUP_PATH)):
-        config = parse_toml(outputs[path], str(path.relative_to(ROOT)), errors).get("mcp_servers", {})
-        template_servers = json.loads((CLAUDE_CONFIGS_DIR / template).read_text())["mcpServers"]
-        if set(config) != set(template_servers):
-            errors.append(f"{path.relative_to(ROOT)}: servers must match claude/configs/{template}")
-        for server, table in config.items():
-            label = f"{path.relative_to(ROOT)}: {server}"
-            if table.get("default_tools_approval_mode") != "prompt":
-                errors.append(f"{label} must prompt by default (default_tools_approval_mode)")
-            tools = policy["servers"].get(server, {}).get("tools", {})
-            declared = table.get("tools", {})
-            disabled = set(table.get("disabled_tools", []))
-            for tool, class_name in tools.items():
-                expected = codex_tool_mode(policy, server, class_name, tool)
-                if expected is None:
-                    if tool not in disabled:
-                        errors.append(f"{label}.{tool} must be disabled")
-                elif declared.get(tool, {}).get("approval_mode") != expected:
-                    errors.append(f"{label}.{tool} must be approval_mode {expected!r}")
-            for tool, entry in declared.items():
-                if tool not in tools:
-                    errors.append(f"{label}.{tool}: tool table for an unclassified tool")
-                if entry.get("approval_mode") not in CODEX_APPROVAL_MODES:
-                    errors.append(f"{label}.{tool}: invalid approval_mode {entry.get('approval_mode')!r}")
-            expected_servers[server] = path.name
-    for server, tool in CODEX_ASKED_TOOLS:
-        if codex_tool_mode(policy, server, policy["servers"][server]["tools"][tool], tool) != "prompt":
-            errors.append(f"{server}.{tool} must prompt on every call")
-    for name, agent in agents.items():
-        path = CODEX_AGENTS_DIR / f"{name}.toml"
-        data = parse_toml(outputs[path], str(path.relative_to(ROOT)), errors)
-        label = str(path.relative_to(ROOT))
-        for key in ("name", "description", "developer_instructions"):
-            if not isinstance(data.get(key), str) or not data[key]:
-                errors.append(f"{label}: missing {key}")
-        if data.get("name") != name:
-            errors.append(f"{label}: name must be {name}")
-        extra = set(data) - {"name", "description", "developer_instructions", "model", "model_reasoning_effort"}
-        if extra:
-            errors.append(f"{label}: keys {sorted(extra)} are ignored by Codex agent roles; remove them")
-        if data.get("model") != agent.get("codex_model") or data.get("model_reasoning_effort") != agent.get(
-            "codex_effort"
-        ):
-            errors.append(
-                f"{label}: model and model_reasoning_effort must match the registry's codex_model and codex_effort"
-            )
-        instructions = data.get("developer_instructions", "")
-        if "Remain read-only." not in instructions or CODEX_READ_ONLY_NOTICE not in instructions:
-            errors.append(f"{label}: must carry the read-only instructions")
-        if TURN_BUDGET_NOTICE not in instructions:
-            errors.append(f"{label}: must carry the turn-budget wrap-up notice")
-    specialists = json.loads(outputs[CODEX_SPECIALIST_TOOLS_PATH])
-    if specialists != codex_specialist_tools(agents, policy):
-        errors.append("codex/references/specialist-tools.json: differs from the policy and registry")
-    mutating = policy_mutating_tools(policy)
-    for name, tools in specialists.items():
-        conditional = set(agents[name].get("conditional_tools", []))
-        if any(tool in mutating and tool not in conditional for tool in tools):
-            errors.append("codex/references/specialist-tools.json: a specialist allowlist holds a mutating tool")
-    rules = outputs[CODEX_RULES_PATH]
-    forbidden_patterns, prompt_patterns = codex_rule_patterns()
-    for patterns, decision in ((forbidden_patterns, "forbidden"), (prompt_patterns, "prompt")):
-        for pattern in patterns:
-            for prefix in ([], ["rtk"]):
-                if codex_rule_head([*prefix, *pattern], decision) not in rules:
-                    errors.append(
-                        f"codex/rules/b-agentic.rules: missing {decision} rule for {' '.join(prefix + pattern)}"
-                    )
-    for command in ("git pull", "git reset --hard", "sudo", "git push --force", "git push origin main"):
-        if codex_rule_head(command.split(), "forbidden") not in rules:
-            errors.append(f"codex/rules/b-agentic.rules: {command} must be forbidden")
-    hooks = json.loads(outputs[CODEX_HOOKS_PATH])["hooks"]
-    if set(hooks) != {"PreToolUse", "PostToolUse", "Stop"}:
-        errors.append("codex/configs/hooks.template.json: expected PreToolUse, PostToolUse, and Stop hooks")
-    for event, entries in hooks.items():
-        for entry in entries:
-            for hook in entry["hooks"]:
-                if CODEX_HOOK_SCRIPT not in hook["command"] or hook["type"] != "command":
-                    errors.append(f"codex/configs/hooks.template.json: {event} must run {CODEX_HOOK_SCRIPT}")
-    pre = hooks["PreToolUse"][0]["matcher"]
-    if not all(token in pre for token in ("apply_patch", "Bash", "mcp__")):
-        errors.append("codex/configs/hooks.template.json: PreToolUse must cover apply_patch, Bash, and MCP tools")
-    policy_path = CODEX_REFERENCES_DIR / "mcp_operations.yaml"
-    effective_policy = json.loads(outputs[policy_path])
-    if set(effective_policy["runtime_enforcement"]) != {"codex"}:
-        errors.append(f"{policy_path.relative_to(ROOT)}: must describe Codex enforcement only")
-    capabilities_path = CODEX_REFERENCES_DIR / "capabilities.yaml"
-    capabilities = json.loads(outputs[capabilities_path])
-    for capability in capabilities["capabilities"]:
-        if capability["kind"] == "agent" and capability["agent"]["source"] != "codex/agents":
-            errors.append(f"{capabilities_path.relative_to(ROOT)}: agent source must use Codex profiles")
-    for path in (CODEX_KERNEL_PATH, CODEX_SKILLS_DIR / "b-clickup" / "SKILL.md", capabilities_path, policy_path):
-        if "b-clickup-guard" in outputs[path]:
-            errors.append(f"{path.relative_to(ROOT)}: the ClickUp image guard is not ported to Codex")
-    return errors
-
-
-def policy_mutating_tools(policy: dict[str, Any]) -> set[str]:
-    return {
-        mcp_tool_name(server, tool)
-        for server, record in policy["servers"].items()
-        for tool, class_name in record["tools"].items()
-        if class_name != "read-only"
-    }
-
-
-def validate_codex_regressions(
-    outputs: dict[Path, str], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
-) -> list[str]:
-    """Each broken Codex asset must be rejected, so the structural checks cannot rot silently."""
-    agent_path = CODEX_AGENTS_DIR / "b-planner.toml"
-    cases = {
-        "an agent role that sets sandbox_mode": {
-            **outputs,
-            agent_path: outputs[agent_path].replace("name = ", 'sandbox_mode = "read-only"\nname = ', 1),
-        },
-        "an agent role that drifts from the registry model": {
-            **outputs,
-            agent_path: outputs[agent_path].replace('model = "gpt-6.1-sol"', 'model = "gpt-6.1-terra"', 1),
-        },
-        "an agent role without the read-only notice": {
-            **outputs,
-            agent_path: outputs[agent_path].replace("Remain read-only.", "Be careful."),
-        },
-        "a managed server that does not prompt by default": {
-            **outputs,
-            CODEX_CONFIG_PATH: outputs[CODEX_CONFIG_PATH].replace(
-                'default_tools_approval_mode = "prompt"', 'default_tools_approval_mode = "auto"', 1
-            ),
-        },
-        "an unknown approval mode": {
-            **outputs,
-            CODEX_CONFIG_PATH: outputs[CODEX_CONFIG_PATH].replace(
-                'approval_mode = "approve"', 'approval_mode = "bogus"', 1
-            ),
-        },
-        "ClickUp create that does not prompt": {
-            **outputs,
-            CODEX_CLICKUP_PATH: outputs[CODEX_CLICKUP_PATH].replace(
-                '[mcp_servers.clickup.tools.createTask]\napproval_mode = "prompt"',
-                '[mcp_servers.clickup.tools.createTask]\napproval_mode = "approve"',
-            ),
-        },
-        "a rule set without the sudo denial": {
-            **outputs,
-            CODEX_RULES_PATH: outputs[CODEX_RULES_PATH].replace('pattern = ["sudo"]', 'pattern = ["sudo-nothing"]'),
-        },
-        "a skill that recommends a slash command": {
-            **outputs,
-            CODEX_SKILLS_DIR / "b-commit" / "SKILL.md": outputs[CODEX_SKILLS_DIR / "b-commit" / "SKILL.md"]
-            + "\nRecommend `/b-pr`.\n",
-        },
-        "a kernel that names a Claude-only tool": {
-            **outputs,
-            CODEX_KERNEL_PATH: outputs[CODEX_KERNEL_PATH] + "\nUse `AskUserQuestion`.\n",
-        },
-        "a kernel without structured questions": {
-            **outputs,
-            CODEX_KERNEL_PATH: outputs[CODEX_KERNEL_PATH].replace("`request_user_input_async`", "plain text"),
-        },
-        "a commit skill that forces plain-text questions": {
-            **outputs,
-            CODEX_SKILLS_DIR / "b-commit" / "SKILL.md": outputs[CODEX_SKILLS_DIR / "b-commit" / "SKILL.md"].replace(
-                "`request_user_input_async`/`request_user_input`", "a plain-text question"
-            ),
-        },
-        "a kernel without a question fallback": {
-            **outputs,
-            CODEX_KERNEL_PATH: outputs[CODEX_KERNEL_PATH].replace("otherwise ask in plain text", "otherwise stop"),
-        },
-        "a hook template without the adapter": {
-            **outputs,
-            CODEX_HOOKS_PATH: outputs[CODEX_HOOKS_PATH].replace(CODEX_HOOK_SCRIPT, "other.mjs"),
-        },
-    }
-    return [
-        f"Codex regression: {label} must fail validation"
-        for label, candidate in cases.items()
-        if not validate_codex_outputs(candidate, agents, policy)
-    ]
 
 
 def validate_localization(outputs: dict[Path, str]) -> list[str]:
@@ -1597,10 +1347,267 @@ def validate_localization(outputs: dict[Path, str]) -> list[str]:
             continue
         for path, text in prose.items():
             localized = localize(text, runtime)
-            for forbidden in RUNTIMES[runtime].get("forbidden_terms", []):
+            for forbidden in LOCALIZED_FORBIDDEN:
                 if forbidden in localized:
                     errors.append(f"{path.relative_to(ROOT)}: {runtime} rendering still contains {forbidden!r}")
     return errors
+
+
+def validate_opencode_outputs(
+    outputs: dict[Path, str], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> list[str]:
+    """Structural checks on the rendered OpenCode assets: read-only specialists, an asking default
+    per managed MCP server, class-faithful tool rules, and a shell/path rule set that matches Claude's."""
+    errors: list[str] = []
+    kernel = outputs[OPENCODE_KERNEL_PATH]
+    if len(kernel.encode()) > MAX_KERNEL_BYTES or len(kernel.splitlines()) > MAX_KERNEL_LINES:
+        errors.append("opencode/configs/kernel.md: exceeds the kernel size limit")
+    for path, text in outputs.items():
+        if "{{" in text:
+            errors.append(f"{path.relative_to(ROOT)}: unresolved template token")
+        if path.is_relative_to(OPENCODE_DIR) and re.search(r"`/b-(?:[a-z][a-z0-9-]*|<name>)`", text):
+            errors.append(f"{path.relative_to(ROOT)}: OpenCode skills must not recommend slash commands")
+        if (
+            path.name == "SKILL.md"
+            and path.is_relative_to(OPENCODE_DIR)
+            and ("argument-hint" in text or "$ARGUMENTS" in text)
+        ):
+            errors.append(
+                f"{path.relative_to(ROOT)}: OpenCode skills are not slash commands; no argument hint or $ARGUMENTS"
+            )
+    template = json.loads(outputs[OPENCODE_TEMPLATE_PATH])
+    rules = template["permissions"]
+    effect_by_tool: dict[str, str] = {}
+    for server, record in policy["servers"].items():
+        wildcard = next((i for i, rule in enumerate(rules) if rule["action"] == f"{server}_*"), None)
+        if wildcard is None or rules[wildcard]["effect"] != "ask":
+            errors.append(f"opencode template: managed server {server} must ask by default ({server}_*)")
+            continue
+        for tool, class_name in record["tools"].items():
+            expected = opencode_effect(policy, class_name)
+            name = mcp_tool_name_for("opencode", server, tool)
+            effect_by_tool[name] = expected
+            matching = [i for i, rule in enumerate(rules) if rule["action"] == name]
+            if expected == "ask":
+                if matching:
+                    errors.append(f"opencode template: {name} asks through {server}_*; remove its own rule")
+            elif len(matching) != 1 or rules[matching[0]]["effect"] != expected or matching[0] < wildcard:
+                errors.append(f"opencode template: {name} must be {expected} by one rule after {server}_*")
+    if len({json.dumps(rule, sort_keys=True) for rule in rules}) != len(rules):
+        errors.append("opencode template: permissions must not repeat a rule (the installer removes each once)")
+    shell_ask, shell_deny = shell_pattern_rules()
+    for effect, patterns in (("ask", shell_ask), ("deny", shell_deny)):
+        got = [rule["resource"] for rule in rules if rule["action"] == "shell" and rule["effect"] == effect]
+        if got != patterns:
+            errors.append(f"opencode template: shell {effect} rules differ from the Claude settings layer")
+    for action in ("read", "edit"):
+        got = [rule["resource"] for rule in rules if rule["action"] == action and rule["effect"] == "deny"]
+        if got != opencode_secret_globs():
+            errors.append(f"opencode template: {action} secret-path denies differ from the Claude settings layer")
+        for sample in OPENCODE_SECRET_SAMPLES:
+            if not any(fnmatch.fnmatchcase(sample, glob) for glob in got):
+                errors.append(f"opencode template: {action} secret-path denies must match {sample}")
+        if any(fnmatch.fnmatchcase(".env.example", glob) for glob in got):
+            errors.append(f"opencode template: {action} secret-path denies must not match .env.example")
+    unmanaged = next((i for i, rule in enumerate(rules) if rule == opencode_rule("*_*", "ask")), None)
+    if unmanaged is None:
+        errors.append("opencode template: unmanaged <server>_<tool> actions must ask by default (*_*)")
+    elif any(
+        rule["action"].endswith("_*") and rule["action"] != "*_*" and i < unmanaged for i, rule in enumerate(rules)
+    ):
+        errors.append("opencode template: *_* must precede the per-server rules")
+    external = [rule for rule in rules if rule["action"] == "external_directory"]
+    expected_external = [
+        opencode_rule("external_directory", "ask"),
+        *[opencode_rule("external_directory", "allow", path) for path in OPENCODE_EXTERNAL_ALLOWED],
+    ]
+    if external != expected_external:
+        errors.append("opencode template: external_directory must ask, then allow only the managed directories")
+    elif unmanaged is not None and rules.index(external[0]) < unmanaged:
+        errors.append("opencode template: external_directory rules must follow *_*")
+    for action in OPENCODE_BUILTIN_ALLOWED:
+        position = next((i for i, rule in enumerate(rules) if rule == opencode_rule(action, "allow")), None)
+        if position is None or unmanaged is None or position < unmanaged:
+            errors.append(f"opencode template: {action} must be allowed by a rule after *_*")
+    for name, agent in agents.items():
+        text = outputs[OPENCODE_AGENTS_DIR / f"{name}.md"]
+        if "\nmode: subagent\n" not in text:
+            errors.append(f"opencode/agents/{name}.md: must be mode: subagent")
+        expected_model = [json.dumps(agent["opencode_model"])] if "opencode_model" in agent else []
+        if re.findall(r"^model: (.+)$", text, re.MULTILINE) != expected_model:
+            errors.append(f"opencode/agents/{name}.md: model must match the registry's opencode_model")
+        agent_rules = re.findall(r'  - action: "([^"]+)"\n    resource: "\*"\n    effect: (\w+)', text)
+        if agent_rules[:3] != [("edit", "deny"), ("subagent", "deny"), ("question", "deny")]:
+            errors.append(f"opencode/agents/{name}.md: must deny edit, subagent, and question first")
+        if agent_rules[3:5] != [("*_*", "deny"), ("external_directory", "allow")]:
+            errors.append(
+                f"opencode/agents/{name}.md: must deny every <server>_<tool> by default (*_*) after the editing denies"
+            )
+        # `opencode_*` Code Mode utilities may request no permission action (unverified on 2.2.5), so
+        # only denying `execute` and `browser` is certain to remove them; `*_*` alone is not relied on.
+        for tool in ("__unmanaged___tool", "execute", "browser", "opencode_read_mcp_resource"):
+            actual = next(
+                (effect for action, effect in reversed(agent_rules) if fnmatch.fnmatchcase(tool, action)), None
+            )
+            if actual != "deny":
+                errors.append(f"opencode/agents/{name}.md: {tool} must resolve to deny, got {actual}")
+        allowed = set(agent_tool_list(agent, policy))
+        for server, record in policy["servers"].items():
+            wildcard = (f"{server}_*", "deny")
+            if agent_rules.count(wildcard) != 1:
+                errors.append(f"opencode/agents/{name}.md: must deny unlisted {server} tools by default")
+            expected_tools = {
+                mcp_tool_name_for("opencode", server, tool): "allow"
+                if mcp_tool_name(server, tool) in allowed
+                else "deny"
+                for tool in record["tools"]
+            }
+            expected_tools[f"{server}___unclassified_tool__"] = "deny"
+            for tool, expected in expected_tools.items():
+                actual = next(
+                    (effect for action, effect in reversed(agent_rules) if fnmatch.fnmatchcase(tool, action)),
+                    None,
+                )
+                if actual != expected:
+                    errors.append(f"opencode/agents/{name}.md: {tool} must resolve to {expected}, got {actual}")
+        for action, effect in agent_rules[5:]:
+            if effect == "allow" and effect_by_tool.get(action) != "allow":
+                errors.append(f"opencode/agents/{name}.md: allows {action}, which is not an allowed tool")
+            if effect == "allow" and not any(f"{server}_" == action[: len(server) + 1] for server in policy["servers"]):
+                errors.append(f"opencode/agents/{name}.md: allows {action}, which is not a managed MCP tool")
+    policy_path = OPENCODE_DIR / "references" / "mcp_operations.yaml"
+    effective_policy = json.loads(outputs[policy_path])
+    for name, meta in effective_policy["classes"].items():
+        if meta["native_permission"] != opencode_effect(policy, name):
+            errors.append(f"{policy_path.relative_to(ROOT)}: {name} permission differs from OpenCode enforcement")
+    if set(effective_policy["runtime_enforcement"]) != {"opencode"}:
+        errors.append(f"{policy_path.relative_to(ROOT)}: must describe OpenCode enforcement only")
+    if (
+        "- Auto-allowed by user decision: `conditional-read`." not in kernel
+        or "- Approval required: `trusted-mutation`," not in kernel
+    ):
+        errors.append("opencode/configs/kernel.md: must describe trusted-mutation as approval required")
+    clickup_path = OPENCODE_SKILLS_DIR / "b-clickup" / "SKILL.md"
+    capabilities_path = OPENCODE_DIR / "references" / "capabilities.yaml"
+    for path in (OPENCODE_KERNEL_PATH, clickup_path, capabilities_path, policy_path):
+        text = outputs[path]
+        for obsolete in ("pre-approved", "without a prompt", "`b-clickup-guard` hook", "Only the b-clickup-guard"):
+            if obsolete in text:
+                errors.append(f"{path.relative_to(ROOT)}: contains Claude-only approval guidance {obsolete!r}")
+    if "require approval on every call" not in outputs[clickup_path]:
+        errors.append(f"{clickup_path.relative_to(ROOT)}: must require approval on every create/update call")
+    capabilities = json.loads(outputs[capabilities_path])
+    for capability in capabilities["capabilities"]:
+        if capability["kind"] != "plugin" and "Claude Code" in json.dumps(capability):
+            errors.append(f"{capabilities_path.relative_to(ROOT)}: {capability['id']} retains Claude-only guidance")
+        if capability["kind"] == "agent" and capability["agent"]["source"] != "opencode/agents":
+            errors.append(f"{capabilities_path.relative_to(ROOT)}: agent source must use OpenCode profiles")
+    return errors
+
+
+def validate_opencode_regressions(
+    outputs: dict[Path, str], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> list[str]:
+    """Each broken OpenCode rule set must be rejected, so the structural checks cannot rot silently."""
+    template = json.loads(outputs[OPENCODE_TEMPLATE_PATH])
+    rules = template["permissions"]
+    asked = next(r for r in rules if r["effect"] == "ask" and r["action"].endswith("_*") and r["action"] != "*_*")
+    broken_template = {**template, "permissions": [r for r in rules if r is not asked]}
+
+    def template_without(drop: Any) -> str:
+        return json.dumps({**template, "permissions": [r for r in rules if not drop(r)]})
+
+    broken_agent = outputs[OPENCODE_AGENTS_DIR / "b-planner.md"].replace(
+        '  - action: "edit"\n    resource: "*"\n    effect: deny',
+        '  - action: "edit"\n    resource: "*"\n    effect: allow',
+        1,
+    )
+    cases = {
+        "an MCP server without its asking default": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: json.dumps(broken_template),
+        },
+        "a specialist that may edit": {**outputs, OPENCODE_AGENTS_DIR / "b-planner.md": broken_agent},
+        "unmanaged MCP servers without an asking default": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: template_without(lambda r: r["action"] == "*_*"),
+        },
+        "outside-project access without its asking default": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: template_without(
+                lambda r: r["action"] == "external_directory" and r["effect"] == "ask"
+            ),
+        },
+        "secret-path denies that miss project-root files": {
+            **outputs,
+            OPENCODE_TEMPLATE_PATH: json.dumps(
+                {
+                    **template,
+                    "permissions": [
+                        {**r, "resource": "**/" + r["resource"].lstrip("*")}
+                        if r["action"] in ("read", "edit") and r["effect"] == "deny"
+                        else r
+                        for r in rules
+                    ],
+                }
+            ),
+        },
+    }
+    for name in agents:
+        path = OPENCODE_AGENTS_DIR / f"{name}.md"
+        model_line = (
+            f"model: {json.dumps(agents[name]['opencode_model'])}\n" if "opencode_model" in agents[name] else ""
+        )
+        if model_line:
+            cases[f"{name} without its configured model"] = {**outputs, path: outputs[path].replace(model_line, "", 1)}
+        changed = outputs[path].replace(model_line, "", 1) if model_line else outputs[path]
+        cases[f"{name} with a mismatched model"] = {
+            **outputs,
+            path: changed.replace("\nmode: subagent\n", '\nmode: subagent\nmodel: "example/wrong#low"\n', 1),
+        }
+        default_deny = '  - action: "*_*"\n    resource: "*"\n    effect: deny\n'
+        cases[f"{name} without its default deny for unmanaged servers"] = {
+            **outputs,
+            path: outputs[path].replace(default_deny, "", 1),
+        }
+        for native in OPENCODE_SPECIALIST_DENIED:
+            rule = f'  - action: "{native}"\n    resource: "*"\n    effect: deny\n'
+            cases[f"{name} without its {native} deny"] = {**outputs, path: outputs[path].replace(rule, "", 1)}
+        for server in policy["servers"]:
+            rule = f'  - action: "{server}_*"\n    resource: "*"\n    effect: deny\n'
+            cases[f"{name} without its {server} deny default"] = {**outputs, path: outputs[path].replace(rule, "", 1)}
+        rule = '  - action: "codegraph_*"\n    resource: "*"\n    effect: deny\n'
+        reordered = outputs[path].replace(rule, "", 1).replace("\n---\n", f"\n{rule}---\n", 1)
+        cases[f"{name} denying an allowed tool after its allow rule"] = {**outputs, path: reordered}
+        unknown = '  - action: "codegraph___unclassified_tool__"\n    resource: "*"\n    effect: allow\n'
+        cases[f"{name} allowing an unclassified tool"] = {
+            **outputs,
+            path: outputs[path].replace("\n---\n", f"\n{unknown}---\n", 1),
+        }
+    for path in (OPENCODE_KERNEL_PATH, OPENCODE_SKILLS_DIR / "b-commit" / "SKILL.md"):
+        cases[f"{path.relative_to(ROOT)} recommending a slash command"] = {
+            **outputs,
+            path: outputs[path] + "\nUse `/b-pr`.\n",
+        }
+    for path in (OPENCODE_KERNEL_PATH, OPENCODE_SKILLS_DIR / "b-clickup" / "SKILL.md"):
+        cases[f"{path.relative_to(ROOT)} promising unprompted mutations"] = {
+            **outputs,
+            path: outputs[path] + "\nTask updates are pre-approved.\n",
+        }
+    policy_path = OPENCODE_DIR / "references" / "mcp_operations.yaml"
+    broken_policy = json.loads(outputs[policy_path])
+    broken_policy["classes"]["trusted-mutation"]["native_permission"] = "allow"
+    cases["an installed policy allowing trusted mutations"] = {**outputs, policy_path: json.dumps(broken_policy)}
+    capabilities_path = OPENCODE_DIR / "references" / "capabilities.yaml"
+    cases["installed capabilities promising unprompted task changes"] = {
+        **outputs,
+        capabilities_path: outputs[capabilities_path].replace("require approval on every call", "are pre-approved"),
+    }
+    return [
+        f"OpenCode regression: {label} must fail validation"
+        for label, candidate in cases.items()
+        if not validate_opencode_outputs(candidate, agents, policy)
+    ]
 
 
 def sync_outputs(check: bool) -> int:
@@ -1620,7 +1627,7 @@ def sync_outputs(check: bool) -> int:
         print("\n".join(errors), file=sys.stderr)
         return 1
     outputs = render_outputs(skills, agents, policy)
-    errors = validate_codex_outputs(outputs, agents, policy)
+    errors = validate_opencode_outputs(outputs, agents, policy)
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
@@ -1649,7 +1656,7 @@ def main() -> int:
         print("Skill, capability, and MCP policy regression checks passed.")
         outputs = render_outputs(load_skills(), load_agents(), load_policy())
         errors = validate_localization(outputs)
-        errors += validate_codex_regressions(outputs, load_agents(), load_policy())
+        errors += validate_opencode_regressions(outputs, load_agents(), load_policy())
         if errors:
             print("\n".join(errors), file=sys.stderr)
             return 1
