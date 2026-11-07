@@ -52,7 +52,7 @@ instructions refer to that path, so the installer refuses a different
 `AGENTS.md` and `CLAUDE.md`. Canonical policy and skill sources live in
 `references/` and `skills/`; the registry generator renders each skill file
 (a skill is also its `/b-<name>` command), the five specialist profiles, the
-kernel's generated blocks, and the settings template (permissions and hooks).
+kernel's generated blocks, and the settings template (permissions, hooks, and the status line).
 Skills install as bare `~/.claude/skills/b-*`, not as a namespaced plugin.
 The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The installer owns
 only what its manifest records, and never writes under `~/.pi`.
@@ -279,8 +279,8 @@ Evidence: [`references/mcp_operations.yaml`](../../references/mcp_operations.yam
 frozen Pi installer). It never runs vendor installers: missing `rtk`,
 `codegraph`, `bunx`, and `claude` are reported. The installer copies skills, agents,
 hooks, CLIs, and references; replaces the kernel block in the user `CLAUDE.md`; merges
-permission rules and hook entries into the user settings file and servers into
-the user MCP file; and records everything in an install manifest. It parses
+permission rules and hook entries into the user settings file (plus the status
+line, only when none is configured) and servers into the user MCP file; and records everything in an install manifest. It parses
 every user JSON file before the first write, backs up each file it changes,
 keeps files the user modified or that it did not install, refuses a symlinked
 managed directory or manifest, writes through (never replaces) a symlinked
@@ -363,7 +363,8 @@ non-goals follow.
 
 b-agentic does not maintain a second runtime, custom permission engine,
 argument-aware MCP gate, or persistent subagent store. It does not ship themes,
-TUI widgets, notifications, a self-updating command, or third-party extension
+TUI widgets beyond the read-only `b-statusline` status line (refined 2026-11-07),
+notifications, a self-updating command, or third-party extension
 management; Claude Code's own `AskUserQuestion`, todo list, and compaction cover
 what those extensions did. The repository does not promise detached background
 work, authenticated MCP or Codex readiness from configuration, containment of

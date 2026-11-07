@@ -23,8 +23,8 @@ cd b-agentic
 ```
 
 The installer copies skills, agents, hooks, and CLIs under `~/.claude`, adds the
-kernel to `~/.claude/CLAUDE.md` as a marked block, merges permission rules and
-hooks into `settings.json` and MCP servers into `~/.claude.json`, and preserves
+kernel to `~/.claude/CLAUDE.md` as a marked block, merges permission rules,
+hooks, and a status line (only when none is configured) into `settings.json` and MCP servers into `~/.claude.json`, and preserves
 everything else. It never runs vendor installers and never writes under
 `~/.pi`. Piped installs
 (`curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash`)

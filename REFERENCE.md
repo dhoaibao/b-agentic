@@ -372,8 +372,10 @@ rtk git diff --check
 Plain `scripts/validate-skills.sh` runs the generator self-test and check, the
 policy and routing checks, the hook probe
 (`tests/hooks/hooks-probe.sh`), the Codex hook probe
-(`tests/hooks/codex-hooks-probe.sh`), and the snapshot CLI probe
-(`tests/snapshot/cli-probe.sh`). `--release` (CI) adds the sandbox installer
+(`tests/hooks/codex-hooks-probe.sh`), the snapshot CLI probe
+(`tests/snapshot/cli-probe.sh`), the status line probe
+(`tests/statusline/statusline-probe.sh`), and the runtime instruction parity check
+(`tooling/validate/runtime_parity.py`). `--release` (CI) adds the sandbox installer
 probes (`tests/install/claude-install-probe.sh` and
 `tests/install/codex-install-probe.sh`) and the RTK readiness check. None
 needs Claude Code, Codex, credentials, or a network.
