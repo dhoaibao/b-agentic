@@ -12,7 +12,7 @@ fail() { echo "statusline probe failed: $*" >&2; exit 1; }
 plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 now=$(date +%s)
-stamp() { date -u -d "@$1" +%Y-%m-%dT%H:%M:%S.000Z; }
+stamp() { node -e 'console.log(new Date(Number(process.argv[1]) * 1000).toISOString())' "$1"; }
 
 # Full input: model, effort, context, a live 1h cache, and both limits.
 printf '{"type":"assistant","timestamp":"%s","message":{"usage":{"cache_creation":{"ephemeral_1h_input_tokens":10}}}}\n' \
