@@ -122,9 +122,7 @@ def remove_last(rules: list[Any], rule: Any) -> None:
 
 
 class Installer:
-    def __init__(
-        self, source: Path, dry_run: bool, force: bool, clickup: bool | None, migrate_legacy: bool, ui: Ui | None = None
-    ) -> None:
+    def __init__(self, source: Path, dry_run: bool, force: bool, migrate_legacy: bool, ui: Ui | None = None) -> None:
         self.source = source
         self.ui = ui if ui is not None else Ui(enabled=False)
         self.opencode_dir = resolve_opencode_dir()
@@ -134,7 +132,6 @@ class Installer:
         self.kernel_path = self.opencode_dir / "AGENTS.md"
         self.dry_run = dry_run
         self.force = force
-        self.clickup_choice = clickup
         self.migrate_legacy = migrate_legacy
         self.stamp = f"{time.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
         self.messages: list[str] = []
@@ -159,9 +156,7 @@ class Installer:
         home = str(home_dir())
         return "~" + text[len(home) :] if text == home or text.startswith(home + os.sep) else text
 
-    def plan_summary(
-        self, files: dict[str, Any], kernel: dict[str, Any], config: dict[str, Any], clickup: bool
-    ) -> list[str]:
+    def plan_summary(self, files: dict[str, Any], kernel: dict[str, Any], config: dict[str, Any]) -> list[str]:
         parts = [f"{len(files['writes'])} to write", f"{self.counts['unchanged']} unchanged"]
         if files["removals"]:
             parts.append(f"{len(files['removals'])} to remove")
@@ -174,7 +169,7 @@ class Installer:
             f"  kernel: AGENTS.md block {'merge' if kernel['text'] is not None else 'unchanged'}",
             f"  config: opencode.json {'merge' if config['text'] is not None else 'unchanged'}",
             f"  permissions: {len(config['permissions'])} managed rules (last block)",
-            f"  MCP: {len(config['mcp'])} managed servers; ClickUp {'on' if clickup else 'off'}",
+            f"  MCP: {len(config['mcp'])} managed servers",
         ]
 
     def show_warnings(self) -> None:
@@ -314,10 +309,6 @@ class Installer:
     def template(self) -> dict[str, Any]:
         return json.loads((self.source / "opencode" / "configs" / "opencode.template.json").read_text())
 
-    def clickup_servers(self) -> dict[str, Any]:
-        path = self.source / "opencode" / "configs" / "opencode.clickup.json"
-        return dict(json.loads(path.read_text())["mcp"]["servers"])
-
     # -- manifest -----------------------------------------------------------------
     def read_manifest(self) -> dict[str, Any]:
         manifest = read_json(self.manifest_path)
@@ -423,13 +414,13 @@ class Installer:
         self.say("retired OpenCode install removed (backups kept under b-agentic/backups)")
 
     # -- planning -----------------------------------------------------------------------
-    def plan_all(self, previous: dict[str, Any], clickup: bool) -> tuple[dict[str, Any], ...]:
+    def plan_all(self, previous: dict[str, Any]) -> tuple[dict[str, Any], ...]:
         self.counts = {name: 0 for name in self.counts}
         self.warnings.clear()
         return (
             self.plan_files(previous),
             self.plan_kernel(previous),
-            self.plan_config(previous, clickup),
+            self.plan_config(previous),
         )
 
     def plan_files(self, manifest: dict[str, Any]) -> dict[str, Any]:
@@ -506,7 +497,7 @@ class Installer:
                 new_text, owned = None, committed
         return {"target": target, "text": new_text, "existed": existed, "sha256": owned, "created": created}
 
-    def plan_config(self, manifest: dict[str, Any], clickup: bool) -> dict[str, Any]:
+    def plan_config(self, manifest: dict[str, Any]) -> dict[str, Any]:
         """opencode.json: the managed permission block goes last, and missing MCP servers are added."""
         target = self.config_target(self.config_path)
         config = read_json(target)
@@ -522,8 +513,6 @@ class Installer:
         config["permissions"] = rules
         servers = config.setdefault("mcp", {}).setdefault("servers", {})
         desired = dict(template["mcp"]["servers"])
-        if clickup:
-            desired.update(self.clickup_servers())
         recorded: dict[str, Any] = {}
         for name, entry in desired.items():
             candidates = self.mcp_candidates(manifest, name)
@@ -589,10 +578,7 @@ class Installer:
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
         self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
-        if self.clickup_choice is None and "clickup" not in previous and self.ui.interactive:
-            self.clickup_choice = self.ui.confirm("Add the optional ClickUp MCP server?", default=False)
-        clickup = self.clickup_choice if self.clickup_choice is not None else bool(previous.get("clickup", False))
-        files, kernel, config = self.plan_all(previous, clickup)
+        files, kernel, config = self.plan_all(previous)
         if self.ui.fancy:
             if self.is_legacy(raw):
                 # The old trees still exist: do not present pre-removal file counts as the replacement plan.
@@ -601,7 +587,7 @@ class Installer:
                     self.display(self.opencode_dir),
                     f"{len(payload)} managed files to sync after legacy removal",
                     "AGENTS.md kernel, permissions, and MCP servers will be merged.",
-                    f"ClickUp {'on' if clickup else 'off'}; replacement is replanned after removal.",
+                    "Replacement is replanned after removal.",
                 ]
                 self.ui.box("Installation Summary", lines)
                 paths = [path for path in self.legacy_removals(raw) if path.exists() and not path.is_symlink()]
@@ -618,7 +604,7 @@ class Installer:
                     tone="yellow",
                 )
             else:
-                self.ui.box("Installation Summary", self.plan_summary(files, kernel, config, clickup))
+                self.ui.box("Installation Summary", self.plan_summary(files, kernel, config))
                 self.show_warnings()
             if self.ui.interactive:
                 if not self.ui.confirm("Proceed with installation?", default=True):
@@ -631,18 +617,17 @@ class Installer:
                 raw = current
                 self.validate_migration(raw)
                 previous, _ = self.validate_destinations()
-                files, kernel, config = self.plan_all(previous, clickup)
+                files, kernel, config = self.plan_all(previous)
         if self.is_legacy(raw) and self.migrate_legacy:
             # Confirmation and full replacement validation precede every backup or deletion. Keep the
             # legacy manifest until the intent manifest replaces it so interruptions remain retryable.
             self.warnings.clear()
             self.migrate_legacy_install(raw)
             previous, _ = self.validate_destinations()
-            files, kernel, config = self.plan_all(previous, clickup)
+            files, kernel, config = self.plan_all(previous)
         final = {
             "schema": MANIFEST_SCHEMA,
             "target": "opencode",
-            "clickup": clickup,
             "agents_md_created": kernel["created"],
             "kernel_sha256": kernel["sha256"],
             "files": dict(sorted(files["recorded"].items())),
@@ -651,7 +636,7 @@ class Installer:
         }
         old_pending = previous.get("pending", {})
         intent = json.loads(json.dumps(previous)) if previous else {"schema": MANIFEST_SCHEMA, "target": "opencode"}
-        intent.update({"clickup": clickup, "agents_md_created": kernel["created"]})
+        intent.update({"agents_md_created": kernel["created"]})
         intent.setdefault("kernel_sha256", None)
         intent.setdefault("files", {})
         intent.setdefault("permissions", [])
@@ -848,21 +833,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-y", "--yes", action="store_true", help="skip interactive questions and use defaults")
     parser.add_argument("--migrate-legacy", action="store_true", help="remove the retired OpenCode install first")
     parser.add_argument("--source", default=str(ROOT), help="b-agentic source checkout (default: this repository)")
-    clickup = parser.add_mutually_exclusive_group()
-    clickup.add_argument("--with-clickup", action="store_true", help="add the optional ClickUp MCP server")
-    clickup.add_argument("--without-clickup", action="store_true", help="drop the optional ClickUp MCP server")
     args = parser.parse_args(argv)
     try:
         source = Path(args.source).resolve()
         if not (source / "skills" / "registry.yaml").is_file() or not (source / "opencode" / "agents").is_dir():
             raise InstallError(f"{source} is not a b-agentic source checkout with OpenCode assets")
-        choice = True if args.with_clickup else False if args.without_clickup else None
-        if choice is None and os.environ.get("B_AGENTIC_CLICKUP_MCP", "").lower() in {"y", "yes", "true", "1"}:
-            choice = True
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
         try:
             ui.header()
-            installer = Installer(source, args.dry_run, args.force, choice, args.migrate_legacy, ui)
+            installer = Installer(source, args.dry_run, args.force, args.migrate_legacy, ui)
             if args.uninstall:
                 installer.uninstall()
                 installer.report("uninstall")

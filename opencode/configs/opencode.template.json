@@ -4086,41 +4086,6 @@
       "effect": "allow"
     },
     {
-      "action": "clickup_*",
-      "resource": "*",
-      "effect": "ask"
-    },
-    {
-      "action": "clickup_getTaskById",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "clickup_searchTasks",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "clickup_readDocument",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "clickup_getListInfo",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "clickup_searchSpaces",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
-      "action": "clickup_getTimeEntries",
-      "resource": "*",
-      "effect": "allow"
-    },
-    {
       "action": "datagrip_*",
       "resource": "*",
       "effect": "ask"

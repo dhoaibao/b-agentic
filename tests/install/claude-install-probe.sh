@@ -37,7 +37,7 @@ run() {
 # copy_source <dest>: a private copy of the tracked and untracked source tree.
 copy_source() {
   mkdir -p "$1"
-  ( cd "$root" && git ls-files -co --exclude-standard -z | tar --null -T - -cf - ) | tar -xf - -C "$1"
+  ( cd "$root" && git ls-files -co --exclude-standard -z | while IFS= read -r -d '' file; do if [[ -e "$file" || -L "$file" ]]; then printf '%s\0' "$file"; fi; done | tar --null -T - -cf - ) | tar -xf - -C "$1"
 }
 # run_from <home> <source> [args...]: like run, installing from another source tree.
 run_from() {
@@ -69,7 +69,7 @@ claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
 [ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
-for file in bin/b-candidate-snapshot.mjs bin/b-statusline.mjs hooks/b-path-guard.mjs hooks/b-clickup-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs bin/b-statusline.mjs hooks/b-path-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
@@ -83,14 +83,14 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.deny | index("Bash(gh pr merge *)") != null' "$claude/settings.json")" = true ] || fail "gh pr merge deny rule missing"
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
-[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
+[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 1 ] || fail "PreToolUse hook missing"
 [ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"
 [ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the retired Codex guard must not be installed"
 if grep -Fq 'codex-guard' "$claude/settings.json"; then fail "settings must not name the retired Codex guard"; fi
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 10 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
 # shellcheck disable=SC2016 # The placeholder must remain literal in the installed configuration.
 [ "$(jq -r '.mcpServers.tablepro.headers.Authorization' "$home/.claude.json")" = 'Bearer ${TABLEPRO_MCP_TOKEN}' ] || fail "TablePro token must remain an environment reference"
-[ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must be opt-in"
+[ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must not be installed"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
 grep -Fq 'b-reviewer subagent' <<<"$out" || fail "review gate guidance not printed"
 if grep -Fq 'codex' <<<"$out"; then fail "install output must not mention the retired Codex plugin"; fi
@@ -230,27 +230,30 @@ printf '{}\n' >"$home/.claude/settings.json"
 printf '[1]' >"$home/.claude.json"
 run "$home"; expect_refused "non-object .claude.json"
 run "$home" --bogus; expect_refused "unknown argument"
+run "$home" --with-clickup; expect_refused "retired --with-clickup flag"
+run "$home" --without-clickup; expect_refused "retired --without-clickup flag"
 echo "install probe passed: refusals"
 
-# --- optional ClickUp server and recorded choice ---------------------------------------------
-home=$(fresh_home clickup)
+# --- retired managed server -----------------------------------------------------
+home=$(fresh_home retired-clickup)
 claude="$home/.claude"
-run "$home" --with-clickup; expect_ok "install with ClickUp"
-[ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = true ] || fail "ClickUp server not added"
-# shellcheck disable=SC2016 # The literal ${VAR} reference is the expected value.
-[ "$(jq -r '.mcpServers.clickup.env.CLICKUP_API_KEY' "$home/.claude.json")" = '${CLICKUP_API_KEY}' ] || fail "ClickUp credential must stay an environment reference"
-run "$home"; expect_ok "sync keeps the recorded choice"
-[ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = true ] || fail "recorded ClickUp choice lost"
-run "$home" --without-clickup; expect_ok "drop ClickUp"
-[ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp server not removed"
+run "$home"; expect_ok "install before retirement"
+jq '.mcpServers.clickup = {"type":"stdio","command":"legacy","args":[]}' "$home/.claude.json" >"$work/legacy.json" && mv "$work/legacy.json" "$home/.claude.json"
+jq '.mcp.servers.clickup = {"type":"stdio","command":"legacy","args":[]}' "$claude/b-agentic/install.json" >"$work/manifest.json" && mv "$work/manifest.json" "$claude/b-agentic/install.json"
+run "$home"; expect_ok "retire managed ClickUp"
+[ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "owned ClickUp server not removed"
+jq '.mcpServers.clickup = {"type":"stdio","command":"user","args":[]}' "$home/.claude.json" >"$work/user.json" && mv "$work/user.json" "$home/.claude.json"
+jq '.mcp.servers.clickup = {"type":"stdio","command":"legacy","args":[]}' "$claude/b-agentic/install.json" >"$work/manifest.json" && mv "$work/manifest.json" "$claude/b-agentic/install.json"
+run "$home"; expect_ok "keep user ClickUp"
+[ "$(jq -r '.mcpServers.clickup.command' "$home/.claude.json")" = user ] || fail "user-modified ClickUp server removed"
 # A user-edited server of the same name is kept, with a warning.
 jq '.mcpServers.context7.url = "https://example.invalid/mcp"' "$home/.claude.json" >"$work/edited.json" && mv "$work/edited.json" "$home/.claude.json"
 run "$home"; expect_ok "sync with an edited server"
 [ "$(jq -r '.mcpServers.context7.url' "$home/.claude.json")" = "https://example.invalid/mcp" ] || fail "user-edited MCP server overwritten"
 grep -Fq "kept your existing MCP server 'context7'" <<<"$err" || fail "no warning for the edited server"
 run "$home" --uninstall; expect_ok "uninstall with an edited server"
-[ "$(jq -r '.mcpServers | keys | join(",")' "$home/.claude.json")" = context7 ] || fail "uninstall must keep only the user-edited server"
-echo "install probe passed: clickup"
+[ "$(jq -r '.mcpServers | keys | join(",")' "$home/.claude.json")" = clickup,context7 ] || fail "uninstall must keep user-owned servers"
+echo "install probe passed: retired server"
 
 # --- only the default ~/.claude directory is supported ------------------------------------
 home=$(fresh_home custom)
@@ -265,13 +268,12 @@ echo "install probe passed: default-dir-only"
 home=$(fresh_home hooks)
 claude="$home/.claude"
 run "$home"; expect_ok "install for hook identity"
-jq '(.hooks.PreToolUse[] | select(.matcher == "mcp__clickup__createTask|mcp__clickup__updateTask")) |= (.matcher = "Read" | .hooks[0].timeout = 5)' "$claude/settings.json" >"$work/moved.json" && mv "$work/moved.json" "$claude/settings.json"
+jq '(.hooks.PreToolUse[] | select(.matcher == "Read|Edit|Write|NotebookEdit|Grep|Glob")) |= (.matcher = "Read" | .hooks[0].timeout = 5)' "$claude/settings.json" >"$work/moved.json" && mv "$work/moved.json" "$claude/settings.json"
 run "$home"; expect_ok "reinstall after the user moved a hook"
 grep -Fq 'different matcher or fields' <<<"$err" || fail "no warning for a moved safety hook: $err"
-[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-clickup-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "a moved hook was duplicated"
+[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-path-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "a moved hook was duplicated"
 run "$home" --uninstall; expect_ok "uninstall with a moved hook"
-[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-clickup-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "uninstall removed a user-modified hook"
-[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-path-guard.mjs")))] | length' "$claude/settings.json")" = 0 ] || fail "uninstall left an unmodified managed hook"
+[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-path-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "uninstall removed a user-modified hook"
 
 home=$(fresh_home identical-hook)
 claude="$home/.claude"
@@ -481,13 +483,12 @@ echo "install probe passed: codex-retire"
 home=$(fresh_home hook-onfailure)
 claude="$home/.claude"
 run "$home"; expect_ok "install before the onFailure upgrade"
-[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 2 ] || fail "a fresh install must set onFailure block on both PreToolUse guards"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 1 ] || fail "a fresh install must set onFailure block on the PreToolUse guard"
 jq 'del(.hooks.PreToolUse[].hooks[].onFailure)' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
 jq 'del(.settings.hooks[].hook.onFailure)' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
 run "$home"; expect_ok "upgrade over guards without onFailure"
-[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 2 ] || fail "the upgrade did not add onFailure block to both guards: $(cat "$claude/settings.json")"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade did not add onFailure block to the guard"
 [ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | contains("b-path-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade duplicated the path guard"
-[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | contains("b-clickup-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade duplicated the ClickUp guard"
 if grep -Fq 'different matcher or fields' <<<"$err"; then fail "a clean onFailure upgrade must not warn: $err"; fi
 before=$(tree "$home")
 run "$home"; expect_ok "second upgrade after adding onFailure"
@@ -521,6 +522,14 @@ plant_old_hook() {
 }
 # settings_has_old_hook <home> [script]: true when settings.json still names the old script.
 settings_has_old_hook() { jq -e --arg s "${2:-b-old-hook.mjs}" '[.. | objects | select(.command? != null) | select(.command | contains($s))] | length > 0' "$1/.claude/settings.json" >/dev/null; }
+
+home=$(fresh_home clickup-guard-retire)
+claude="$home/.claude"
+run "$home"; expect_ok "install before ClickUp guard retirement"
+plant_old_hook "$home" 'mcp__clickup__createTask|mcp__clickup__updateTask' b-clickup-guard.mjs
+run "$home"; expect_ok "retire the managed ClickUp guard"
+[ ! -e "$claude/b-agentic/hooks/b-clickup-guard.mjs" ] || fail "owned ClickUp guard was not removed"
+if settings_has_old_hook "$home" b-clickup-guard.mjs; then fail "settings still name the retired ClickUp guard"; fi
 
 home=$(fresh_home hook-retire)
 claude="$home/.claude"
@@ -757,28 +766,29 @@ else
   src_gone="$work/src-gone"
   copy_source "$src_gone"
   printf '\n// v3\n' >>"$src_gone/claude/hooks/b-verify-gate.mjs"
-  clickup_entry=$(jq -c '.mcpServers.clickup' "$root/claude/configs/mcp.clickup.json")
+  probe_entry='{"type":"stdio","command":"legacy-probe","args":[]}'
+  jq --argjson entry "$probe_entry" '.mcpServers.legacy_probe = $entry' "$src_new/claude/configs/mcp.base.json" >"$work/mcp.json" && mv "$work/mcp.json" "$src_new/claude/configs/mcp.base.json"
   home=$(fresh_home repeated-interruption)
   claude="$home/.claude"
   run "$home"; expect_ok "install the base payload"
   # Interruption 1: b-extra.md is written, then the read-only hooks directory stops the run.
   chmod 555 "$claude/b-agentic/hooks"
-  run_from "$home" "$src_new" --with-clickup; expect_refused "first interruption"
+  run_from "$home" "$src_new"; expect_refused "first interruption"
   [ -f "$claude/agents/b-extra.md" ] || fail "the first run should have written the extra agent before stopping"
   [ "$(jq -r '.pending.files["agents/b-extra.md"] | length' "$claude/b-agentic/install.json")" -ge 1 ] || fail "the extra agent was not recorded as pending"
-  [ "$(jq -r '.pending.mcp_servers | has("clickup")' "$claude/b-agentic/install.json")" = true ] || fail "the pending-only server was not recorded"
+  [ "$(jq -r '.pending.mcp_servers | has("legacy_probe")' "$claude/b-agentic/install.json")" = true ] || fail "the pending-only server was not recorded"
   # The server write happens after the payload, so simulate it having landed before a crash.
-  jq --argjson entry "$clickup_entry" '.mcpServers.clickup = $entry' "$home/.claude.json" >"$work/with-clickup.json" && mv "$work/with-clickup.json" "$home/.claude.json"
+  jq --argjson entry "$probe_entry" '.mcpServers.legacy_probe = $entry' "$home/.claude.json" >"$work/with-probe.json" && mv "$work/with-probe.json" "$home/.claude.json"
   # Interruption 2: the next run schedules both for removal but stops before it gets there.
-  run_from "$home" "$src_gone" --without-clickup; expect_refused "second interruption"
+  run_from "$home" "$src_gone"; expect_refused "second interruption"
   [ -f "$claude/agents/b-extra.md" ] || fail "the second run removed the extra agent despite stopping early"
   [ "$(jq -r '.pending.files["agents/b-extra.md"] | length' "$claude/b-agentic/install.json")" -ge 1 ] || fail "the second interruption dropped the pending ownership of the retired file"
-  [ "$(jq -r '.pending.mcp_servers | has("clickup")' "$claude/b-agentic/install.json")" = true ] || fail "the second interruption dropped the pending-only server"
+  [ "$(jq -r '.pending.mcp_servers | has("legacy_probe")' "$claude/b-agentic/install.json")" = true ] || fail "the second interruption dropped the pending-only server"
   chmod 755 "$claude/b-agentic/hooks"
   run_from "$home" "$src_gone" --uninstall; expect_ok "uninstall after two interruptions"
   grep -Fq 'modified since install' <<<"$err" && fail "uninstall treated its own pending files as user changes: $err"
   [ ! -e "$claude/agents/b-extra.md" ] || fail "uninstall left the retired file behind"
-  [ "$(jq -r '.mcpServers // {} | has("clickup")' "$home/.claude.json")" = false ] || fail "uninstall left the pending-only server behind"
+  [ "$(jq -r '.mcpServers // {} | has("legacy_probe")' "$home/.claude.json")" = false ] || fail "uninstall left the pending-only server behind"
   [ ! -e "$claude/b-agentic/install.json" ] && [ ! -e "$claude/skills" ] || fail "uninstall left managed assets behind"
   echo "install probe passed: repeated-interruption"
 fi
@@ -907,7 +917,7 @@ run "$home" --dry-run; expect_ok "checkout dry-run"
 [ ! -e "$home/.claude" ] || fail "a checkout dry-run wrote files"
 srcrepo="$work/srcrepo"
 mkdir -p "$srcrepo"
-( cd "$root" && git ls-files -co --exclude-standard -z | tar --null -T - -cf - ) | tar -xf - -C "$srcrepo"
+( cd "$root" && git ls-files -co --exclude-standard -z | while IFS= read -r -d '' file; do if [[ -e "$file" || -L "$file" ]]; then printf '%s\0' "$file"; fi; done | tar --null -T - -cf - ) | tar -xf - -C "$srcrepo"
 git -C "$srcrepo" init -q .
 git -C "$srcrepo" add -A
 git -C "$srcrepo" -c user.email=probe@example.invalid -c user.name=probe commit -qm source
@@ -1009,13 +1019,13 @@ tui_run() {
   PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
 }
 home=$(fresh_home tui)
-tui_out=$(tui_run "$home" "$piped_install" n n)
+tui_out=$(tui_run "$home" "$piped_install" n)
 grep -Fq 'Installation Summary' <<<"$tui_out" || fail "TUI summary box missing: $tui_out"
 grep -Fq '┌' <<<"$tui_out" || fail "TUI header missing: $tui_out"
 if grep -Fq '█' <<<"$tui_out"; then fail "the block-letter logo must not be drawn: $tui_out"; fi
 grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "TUI confirm missing: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining the confirm must change nothing"
-tui_out=$(tui_run "$home" "$piped_install" n y)
+tui_out=$(tui_run "$home" "$piped_install" y)
 grep -Fq 'Installed' <<<"$tui_out" || fail "TUI installed box missing: $tui_out"
 [ -f "$home/.claude/b-agentic/install.json" ] || fail "accepting the confirm must install"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp stays off when declined"
@@ -1027,20 +1037,20 @@ for mode in --dry-run --yes --uninstall; do
 done
 # Declining a piped bootstrap leaves the Claude configuration untouched.
 home=$(fresh_home tui-bootstrap)
-tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n n)
+tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n)
 grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "bootstrap confirm missing: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining a bootstrap must leave ~/.claude untouched"
 # A destination alias created while the confirm is open is refused before any write.
 home=$(fresh_home tui-alias)
 # shellcheck disable=SC2016 # expanded by the harness shell, whose HOME is the sandbox
 alias_cmd='!mkdir -p "$HOME/.claude" && ln -s "$HOME/.claude/settings.json" "$HOME/.claude.json"'
-tui_out=$(tui_run "$home" "$piped_install" n "$alias_cmd" y)
+tui_out=$(tui_run "$home" "$piped_install" "$alias_cmd" y)
 grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] && [ ! -e "$home/.claude/settings.json" ] || fail "a refused alias must leave ~/.claude untouched"
 # The bootstrap's clone/update lines are shown as steps under the header, not printed before it.
 home=$(fresh_home tui-notes)
 for expected in 'Cloning source' 'Updating source'; do
-  tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n n)
+  tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n)
   line=$(grep -nF "$expected" <<<"$tui_out" | head -1 | cut -d: -f1)
   header=$(grep -nF '┌' <<<"$tui_out" | head -1 | cut -d: -f1)
   [ -n "$line" ] && [ -n "$header" ] && [ "$header" -lt "$line" ] || fail "'$expected' must appear after the header: $tui_out"

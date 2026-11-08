@@ -462,57 +462,6 @@
       }
     },
     {
-      "id": "mcp.clickup",
-      "kind": "mcp",
-      "purpose": "Create, read, and update ClickUp tasks with the b-clickup four-section description; task creation and updates require approval on every call (the image-reference hook is not ported), while other upstream write-mode actions, including comments, list, time-entry, and document changes, require approval.",
-      "owner": "hauptsacheNet/clickup-mcp",
-      "trigger": "Activate for b-clickup task creation, inspection, or update requests.",
-      "prerequisites": [
-        "Optional ClickUp MCP selected during install",
-        "Bun bunx",
-        "CLICKUP_API_KEY",
-        "CLICKUP_TEAM_ID"
-      ],
-      "readiness": "An opt-in local OpenCode MCP entry, bunx launcher, and required environment-variable names are present; credentials and service health are not probed. Task creation and updates require approval on every call; all other write-mode tools are approval-gated.",
-      "fallback": "Use ClickUp directly with user-provided information or state that task access is unavailable.",
-      "status_signal": {
-        "source": "local-config-file-presence-launcher-and-variable-presence",
-        "states": [
-          "unknown",
-          "blocked"
-        ],
-        "description": "Reports only local config, launcher, and environment-variable presence; never reads credential values or contacts ClickUp.",
-        "sensitive": false
-      },
-      "probe": {
-        "type": "mcp",
-        "server": "clickup",
-        "launcher": "bunx",
-        "required_env": [
-          "CLICKUP_API_KEY",
-          "CLICKUP_TEAM_ID"
-        ],
-        "auth": "personal-api-token"
-      },
-      "mcp": {
-        "server": "clickup",
-        "launcher": "bunx",
-        "required_env": [
-          "CLICKUP_API_KEY",
-          "CLICKUP_TEAM_ID"
-        ],
-        "auth": "personal-api-token"
-      },
-      "install_state": {
-        "action": "mcpAction",
-        "state": "mcpState"
-      },
-      "source": {
-        "template": "opencode/configs/opencode.clickup.json",
-        "policy": "references/mcp_operations.yaml"
-      }
-    },
-    {
       "id": "mcp.datagrip",
       "kind": "mcp",
       "purpose": "Inspect and query the user's DataGrip-configured databases through the DataGrip IDE MCP server for b-datagrip; schema metadata is read in the main session, while row data, SQL execution, and connection changes require approval.",

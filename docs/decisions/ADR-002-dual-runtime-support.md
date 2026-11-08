@@ -4,6 +4,7 @@
 - Date: 2026-10-23
 - Supersedes: ADR-001 (product boundary and the second-runtime non-goal)
 - Note: [ADR-004](ADR-004-codex-runtime.md) replaced OpenCode with Codex; [ADR-005](ADR-005-opencode-restored.md) restored OpenCode and removed Codex, so this ADR applies again.
+- Note: The ClickUp-specific runtime behavior was superseded by [ADR-006](ADR-006-retire-clickup-integration.md).
 
 ## Context
 

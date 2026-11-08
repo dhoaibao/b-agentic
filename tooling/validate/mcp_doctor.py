@@ -22,16 +22,14 @@ SERVERS = (
     "excalidraw",
     "drawio",
     "shadcn",
-    "clickup",
     "datagrip",
     "tablepro",
 )
-OPTIONAL_SERVERS = {"clickup", "datagrip"}
+OPTIONAL_SERVERS = {"datagrip"}
 CREDENTIALS = {
     "context7": ("CONTEXT7_API_KEY",),
     "brave_search": ("BRAVE_API_KEY",),
     "firecrawl": ("FIRECRAWL_API_KEY",),
-    "clickup": ("CLICKUP_API_KEY", "CLICKUP_TEAM_ID"),
     "tablepro": ("TABLEPRO_MCP_TOKEN",),
 }
 

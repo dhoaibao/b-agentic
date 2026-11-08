@@ -312,18 +312,6 @@ FIXTURES = [
         expected="b-implement",
     ),
     Fixture(
-        name="ClickUp task creation",
-        prompt="Create a ClickUp task with Context, Requirements, Acceptance Criteria, and Checklist.",
-        expected="b-clickup",
-        not_expected=("b-implement", "b-plan"),
-    ),
-    Fixture(
-        name="ClickUp task update",
-        prompt="Find and update this ClickUp task with revised acceptance criteria.",
-        expected="b-clickup",
-        not_expected=("b-implement", "b-plan"),
-    ),
-    Fixture(
         name="DataGrip schema inspection",
         prompt="Inspect the database schema of my DataGrip connection and list its tables.",
         expected="b-datagrip",
@@ -705,6 +693,9 @@ def score(prompt: str, skill: dict) -> int:
     phrases, word_set = metadata_terms(skill)
     score_value = 0
 
+    if name == "b-review" and re.search(r"\bpr (?:description|title|prose)\b", normalized_prompt):
+        return 0
+
     if name == "b-commit":
         commit_markers = [
             "commit changes",
@@ -1020,27 +1011,6 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "before editing indexed code, get the target's callers, blast radius, and affected tests",
             ),
         },
-        "skills/b-clickup/prompt.md": {
-            "required": (
-                "contain exactly these headings in this order",
-                "## Context\n\n## Requirements\n\n## Acceptance Criteria\n\n## Checklist",
-                "using its `terms` array",
-                "identifier argument is `id`",
-                "uses `task_id` to identify the task",
-                "explicitly pass `assignees: []`",
-                "cannot remove or replace existing assignees",
-                "`mcp__clickup__createTask` and `mcp__clickup__updateTask` are pre-approved",
-                "local paths may be read and uploaded",
-                "non-ClickUp HTTP(S) image URLs may be fetched and uploaded",
-                "In scope:",
-                "Out of scope:",
-                "whenever scope could plausibly expand",
-                "Grounding always wins over completeness",
-                "leave its body empty instead of adding placeholder text",
-                "ask one concise focused question",
-                "explicitly approved including them",
-            ),
-        },
         "skills/b-datagrip/prompt.md": {
             "required": (
                 "Pass `projectPath` on every call",
@@ -1060,12 +1030,6 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "A declined or denied approval means the call did not run.",
                 'has an unknown outcome, not "unchanged"',
                 "reconcile with a read-only check before any retry, and never retry a write blindly",
-            ),
-        },
-        "references/capabilities.yaml": {
-            "required": (
-                "task creation and updates are pre-approved and run without a prompt",
-                "Task creation and updates are pre-approved apart from the guard's image-reference ask; all other write-mode tools are approval-gated.",
             ),
         },
         "skills/b-plan/prompt.md": {

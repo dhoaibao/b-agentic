@@ -781,10 +781,6 @@ def render_hooks() -> dict[str, Any]:
                 "matcher": "Read|Edit|Write|NotebookEdit|Grep|Glob",
                 "hooks": [{"type": "command", "command": hook_command("b-path-guard.mjs"), "onFailure": "block"}],
             },
-            {
-                "matcher": "mcp__clickup__createTask|mcp__clickup__updateTask",
-                "hooks": [{"type": "command", "command": hook_command("b-clickup-guard.mjs"), "onFailure": "block"}],
-            },
         ],
         "PostToolUse": [
             {
@@ -853,10 +849,8 @@ OPENCODE_AGENTS_DIR = OPENCODE_DIR / "agents"
 OPENCODE_SKILLS_DIR = OPENCODE_DIR / "skills"
 OPENCODE_CONFIGS_DIR = OPENCODE_DIR / "configs"
 OPENCODE_TEMPLATE_PATH = OPENCODE_CONFIGS_DIR / "opencode.template.json"
-OPENCODE_CLICKUP_PATH = OPENCODE_CONFIGS_DIR / "opencode.clickup.json"
 OPENCODE_KERNEL_PATH = OPENCODE_CONFIGS_DIR / "kernel.md"
-# The Claude Code ClickUp guard asks only for image references; OpenCode cannot, so every
-# trusted mutation asks there instead of running unprompted.
+# Trusted mutations require approval in OpenCode.
 OPENCODE_ASKED_CLASSES = ("trusted-mutation",)
 # OpenCode v2 matches a resource against the whole string with `*` spanning `/`, so a Claude
 # `**/name` glob (which needs a literal slash) misses a project-root file; `*name` matches both.
@@ -1021,9 +1015,7 @@ def render_opencode_references(policy: dict[str, Any]) -> dict[Path, str]:
         meta["native_permission"] = opencode_effect(policy, name)
         if name in OPENCODE_ASKED_CLASSES:
             meta["policy"] = "Approval required"
-            meta["notes"] = (
-                "Requires approval on every call; main session only. The ClickUp image-reference hook is not ported."
-            )
+            meta["notes"] = "Requires approval on every call; main session only."
     capabilities = json.loads(localize(json.dumps(load_capabilities()), "opencode"))
     capabilities["description"] = capabilities["description"].replace("Claude Code", "OpenCode")
     for capability in capabilities["capabilities"]:
@@ -1041,8 +1033,7 @@ def render_opencode_references(policy: dict[str, Any]) -> dict[Path, str]:
             elif value == "claude/agents":
                 capability["source"][key] = "opencode/agents"
             elif value.startswith("claude/configs/mcp."):
-                name = "opencode.clickup.json" if value.endswith("clickup.json") else "opencode.template.json"
-                capability["source"][key] = f"opencode/configs/{name}"
+                capability["source"][key] = "opencode/configs/opencode.template.json"
         if capability["kind"] == "agent":
             capability["agent"]["source"] = "opencode/agents"
     return {
@@ -1072,10 +1063,6 @@ def render_opencode_outputs(
     outputs = {
         OPENCODE_KERNEL_PATH: kernel,
         OPENCODE_TEMPLATE_PATH: render_opencode_template(policy),
-        OPENCODE_CLICKUP_PATH: json.dumps(
-            {"mcp": {"servers": opencode_mcp_servers(CLAUDE_CONFIGS_DIR / "mcp.clickup.json")}}, indent=2
-        )
-        + "\n",
         **references,
     }
     for skill in skills:
@@ -1487,15 +1474,12 @@ def validate_opencode_outputs(
         or "- Approval required: `trusted-mutation`," not in kernel
     ):
         errors.append("opencode/configs/kernel.md: must describe trusted-mutation as approval required")
-    clickup_path = OPENCODE_SKILLS_DIR / "b-clickup" / "SKILL.md"
     capabilities_path = OPENCODE_DIR / "references" / "capabilities.yaml"
-    for path in (OPENCODE_KERNEL_PATH, clickup_path, capabilities_path, policy_path):
+    for path in (OPENCODE_KERNEL_PATH, capabilities_path, policy_path):
         text = outputs[path]
         for obsolete in ("pre-approved", "without a prompt", "`b-clickup-guard` hook", "Only the b-clickup-guard"):
             if obsolete in text:
                 errors.append(f"{path.relative_to(ROOT)}: contains Claude-only approval guidance {obsolete!r}")
-    if "require approval on every call" not in outputs[clickup_path]:
-        errors.append(f"{clickup_path.relative_to(ROOT)}: must require approval on every create/update call")
     capabilities = json.loads(outputs[capabilities_path])
     for capability in capabilities["capabilities"]:
         if capability["kind"] != "plugin" and "Claude Code" in json.dumps(capability):
@@ -1589,7 +1573,7 @@ def validate_opencode_regressions(
             **outputs,
             path: outputs[path] + "\nUse `/b-pr`.\n",
         }
-    for path in (OPENCODE_KERNEL_PATH, OPENCODE_SKILLS_DIR / "b-clickup" / "SKILL.md"):
+    for path in (OPENCODE_KERNEL_PATH,):
         cases[f"{path.relative_to(ROOT)} promising unprompted mutations"] = {
             **outputs,
             path: outputs[path] + "\nTask updates are pre-approved.\n",
@@ -1598,11 +1582,6 @@ def validate_opencode_regressions(
     broken_policy = json.loads(outputs[policy_path])
     broken_policy["classes"]["trusted-mutation"]["native_permission"] = "allow"
     cases["an installed policy allowing trusted mutations"] = {**outputs, policy_path: json.dumps(broken_policy)}
-    capabilities_path = OPENCODE_DIR / "references" / "capabilities.yaml"
-    cases["installed capabilities promising unprompted task changes"] = {
-        **outputs,
-        capabilities_path: outputs[capabilities_path].replace("require approval on every call", "are pre-approved"),
-    }
     return [
         f"OpenCode regression: {label} must fail validation"
         for label, candidate in cases.items()

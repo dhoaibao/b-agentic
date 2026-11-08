@@ -1,6 +1,6 @@
 # Claude Code configuration ownership
 
-`mcp.base.json` and `mcp.clickup.json` are canonical checked-in templates;
+`mcp.base.json` is the canonical checked-in MCP template;
 `settings.template.json` is generated from `references/mcp_operations.yaml` and
 the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 `python3 tooling/generate/registry_sync.py`, never the generated file.
@@ -8,11 +8,10 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | Source | Installed path (default `~/.claude`) | Owner |
 | --- | --- | --- |
 | `settings.template.json` | `settings.json` | Claude Code; only missing `permissions.allow/ask/deny` rules and hook commands are added, each recorded in the manifest; `statusLine` is set only when none is configured (or it is still the recorded one), so your own status line is kept and reported |
-| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; nine servers, no stored credentials (`${VAR}` references) |
-| `mcp.clickup.json` | same file | Optional ClickUp stdio server (`bunx`, pinned), added only after install opt-in |
+| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; ten servers, no stored credentials (`${VAR}` references) |
 | none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules |
 | `agents/b-*.md` | `agents/b-*.md` | Five generated read-only specialist profiles (tool allowlists, no editing tools), including `b-reviewer` |
-| `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-clickup-guard`, `b-verify-gate` |
+| `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-verify-gate` |
 | `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot` (the candidate fingerprint used by the review gate), `b-statusline` (the status line: model and effort, repo and branch, context, session cost, cache hit ratio, 5-hour and weekly limits; read-only) |
 | `../../skills/*/SKILL.md` | `skills/b-*/SKILL.md` | Generated skills, also the `/b-*` commands |
 | `../../references/kernel.template.md` | block in `CLAUDE.md` | Generated kernel between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` |

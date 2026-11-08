@@ -2,7 +2,7 @@
 # install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code, OpenCode, or both.
 #
 # Usage:
-#   ./install.sh [--runtime=claude|opencode|both] [--dry-run] [--force] [--with-clickup] [-y]
+#   ./install.sh [--runtime=claude|opencode|both] [--dry-run] [--force] [-y]
 #                                                         install or sync from this checkout
 #   ./install.sh --runtime=opencode --migrate-legacy      also remove the retired OpenCode install
 #   ./install.sh --update                                 fast-forward the checkout, then sync
@@ -50,7 +50,7 @@ while [ "$#" -gt 0 ]; do
     --dry-run) DRY_RUN=1; PASSTHROUGH+=("$1") ;;
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
-    --force|--with-clickup|--without-clickup) PASSTHROUGH+=("$1") ;;
+    --force) PASSTHROUGH+=("$1") ;;
     --runtime=*) RUNTIME="${1#--runtime=}" ;;
     --migrate-legacy) MIGRATE_LEGACY=1 ;;
     --ref=*) REF="${1#--ref=}"; [ -n "$REF" ] || die 'invalid empty --ref' ;;

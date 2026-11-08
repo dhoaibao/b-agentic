@@ -20,11 +20,9 @@ EXPECTED_SERVERS = {
     "excalidraw",
     "drawio",
     "shadcn",
-    "clickup",
     "datagrip",
     "tablepro",
 }
-OPTIONAL_SERVERS = {"clickup"}
 IDE_MANAGED_SERVERS = {"datagrip"}
 EXPECTED_CLASSES = {
     "read-only",
@@ -263,9 +261,6 @@ def main() -> int:
             errors.append(f"{name} is private-read and must not be auto-allowed")
         if name not in ask:
             errors.append(f"{name} is private-read and must ask")
-    for name in ("mcp__clickup__createTask", "mcp__clickup__updateTask"):
-        if name not in allow:
-            errors.append(f"{name} is a trusted mutation and must be allowed")
     for name in (
         "mcp__datagrip__preview_table_data",
         "mcp__datagrip__fetch_query_result",
@@ -347,8 +342,6 @@ def main() -> int:
         errors.append("hook commands must be unique per script, except the verify gate shared by PostToolUse and Stop")
     if hooks["PreToolUse"][0]["matcher"] != "Read|Edit|Write|NotebookEdit|Grep|Glob":
         errors.append("path guard must cover every file tool")
-    if hooks["PreToolUse"][1]["matcher"] != "mcp__clickup__createTask|mcp__clickup__updateTask":
-        errors.append("ClickUp guard must watch task create and update")
     for entry in hooks["PreToolUse"]:
         for hook in entry["hooks"]:
             if hook.get("onFailure") != "block":
@@ -397,12 +390,9 @@ def main() -> int:
             errors.append(f"{agent} must not inherit researcher-only Firecrawl tools")
 
     mcp = json.loads((ROOT / "claude" / "configs" / "mcp.base.json").read_text())
-    optional_mcp = json.loads((ROOT / "claude" / "configs" / "mcp.clickup.json").read_text())
-    if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - OPTIONAL_SERVERS - IDE_MANAGED_SERVERS:
+    if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - IDE_MANAGED_SERVERS:
         errors.append("Claude Code base MCP config must configure all required servers only")
-    if set(optional_mcp.get("mcpServers", {})) != OPTIONAL_SERVERS:
-        errors.append("Claude Code optional MCP config must configure each optional server exactly once")
-    for server, entry in {**mcp.get("mcpServers", {}), **optional_mcp.get("mcpServers", {})}.items():
+    for server, entry in mcp.get("mcpServers", {}).items():
         kind = entry.get("type")
         if kind == "http":
             if not str(entry.get("url", "")).startswith("https://") and not (

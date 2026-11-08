@@ -24,8 +24,7 @@ writes under `~/.pi`.
 
 - `--dry-run` prints the plan and changes nothing.
 - On a terminal both runtime installers show a step timeline, a summary box, and ask before
-  writing (and whether to add the optional ClickUp MCP server on a first
-  install). Questions are read from `/dev/tty`, so they work when piped. `-y` /
+  writing. Questions are read from `/dev/tty`, so they work when piped. `-y` /
   `--yes`, `--dry-run`, `--uninstall`, or a non-terminal stdout keep plain output
   and the defaults; `NO_COLOR` disables color. Answering No leaves that runtime's
   configuration untouched (`~/.claude` and `~/.claude.json`, or `~/.config/opencode`).
@@ -40,8 +39,6 @@ writes under `~/.pi`.
   did not install, after a backup. Without it such files are kept with a warning.
 - `--uninstall` removes only recorded, unmodified assets and entries and keeps
   `~/.claude/b-agentic/backups`.
-- `--with-clickup` / `--without-clickup` (or `B_AGENTIC_CLICKUP_MCP=yes`) select
-  the optional ClickUp MCP server. The choice is recorded and preserved.
 - `--runtime=claude|opencode|both` selects the runtime (default `claude`). Each
   runtime's install and uninstall leave the other untouched.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
@@ -103,8 +100,7 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
   whole-string patterns (`*.env`, `*.pem`, `*credentials.*`, `*secrets.*`) so
   project-root files match. `external_directory` asks for any read or write
   outside the project, except `~/.config/opencode`, `~/.claude`,
-  `~/.local/share/opencode`, and `/tmp/opencode`. ClickUp's trusted
-  mutations ask on OpenCode because the image-reference guard cannot prompt there.
+  `~/.local/share/opencode`, and `/tmp/opencode`. Trusted mutations ask on OpenCode.
   `opencode.jsonc` (comments) and the v1 `permission` map are refused before any
   write.
 - **Specialists** deny `edit`, `subagent`, and `question`, deny every other
@@ -133,7 +129,6 @@ Known differences from Claude Code, accepted in ADR-002:
 | Claude Code feature             | OpenCode                                                                                                                 |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Verify gate (blocks first stop) | Not ported: OpenCode has no documented way to block a session from stopping                                              |
-| ClickUp image-reference prompt  | Replaced by asking on every ClickUp create or update                                                                     |
 | Path guard on `Grep`/`Glob`     | Native `read`/`edit` secret denies plus the plugin; `grep`/`glob` resources are not matched natively                     |
 | Hook `exit 2` block             | Plugin `setup` registers `ctx.tool.hook("execute.before")` and throws; the 2.1.4 loader fails that call with the message |
 | Outside-project write approval  | `external_directory` asks for reads as well as writes; managed install and temp directories are allowed                  |
@@ -281,11 +276,9 @@ are asked about but not pattern-denied, except `git -c <key=value> push` (the fo
 branches not named `main` or `master` also stay at the ask prompt. The
 `b-path-guard` hook applies the exact path rules to the file tools (including the
 `*.env.example` allowance that deny rules cannot express). Hooks:
-`b-path-guard` and `b-clickup-guard` run before tools (`b-clickup-guard` asks before an
-auto-approved ClickUp `createTask` or `updateTask` whose markdown references an image other than an
-existing ClickUp attachment URL, since the MCP uploads local and downloaded images); `b-verify-gate` tracks
+`b-path-guard` runs before file tools; `b-verify-gate` tracks
 edits and, when the main session edited a non-prose file after its last non-inspection shell
-command, blocks the first stop once with the verify and review reminder. Both PreToolUse guards set
+command, blocks the first stop once with the verify and review reminder. The PreToolUse guard sets
 `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that crashes, times out, or
 cannot start blocks the call, and malformed input still fails open by design. To recover from a
 guard that fails closed (for example a missing `node` or hook script), repair or reinstall: Bash is
@@ -294,8 +287,7 @@ Managed Claude Code rules allow `Edit`, `Write`, and `Bash` without a path scope
 they do not prompt for outside-project writes; any native prompt comes from Claude
 Code's built-in protected-path checks, your permission mode, or your own settings, and the kernel requires approval for outside-project mutations even
 without one. These rules are not a process or filesystem sandbox; shell indirection and MCP
-arguments they cannot see remain residual risks (only `b-clickup-guard` inspects
-ClickUp task arguments). Native Linux and macOS Claude Code builds run `Grep`
+arguments they cannot see remain residual risks. Native Linux and macOS Claude Code builds run `Grep`
 and `Glob` searches through Bash, so `b-path-guard` sees no searches there. The
 kernel additionally
 requires approval for other destructive, privileged, ambiguous, protected, or
@@ -304,25 +296,23 @@ external/shared actions.
 ## MCP and readiness
 
 `claude/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Notion, Excalidraw, draw.io, shadcn, and TablePro;
-`mcp.clickup.json` is the optional ClickUp server. Tools are addressed as
+Firecrawl, Playwright, Notion, Excalidraw, draw.io, shadcn, and TablePro. Tools are addressed as
 `mcp__<server>__<tool>`. Credentials are `${VAR}` references; the installer
 collects none.
 
-| MCP          | Local prerequisite                                                    |
-| ------------ | --------------------------------------------------------------------- |
-| CodeGraph    | `codegraph` and an index for graph questions                          |
-| Context7     | `CONTEXT7_API_KEY`                                                    |
-| Brave Search | `bunx`, `BRAVE_API_KEY`                                               |
-| Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                           |
-| Playwright   | `bunx` (isolated/headless testing)                                    |
-| Notion       | approved OAuth when Notion content is requested                       |
-| Excalidraw   | approved `create_view` calls, MCP UI viewer                           |
-| draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)    |
-| shadcn       | `bunx`, project `components.json`                                     |
-| ClickUp      | optional install opt-in, `bunx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
-| DataGrip     | IDE-managed: DataGrip with MCP Server enabled; no b-agentic template  |
-| TablePro     | Linux app running with MCP enabled, `TABLEPRO_MCP_TOKEN`              |
+| MCP          | Local prerequisite                                                   |
+| ------------ | -------------------------------------------------------------------- |
+| CodeGraph    | `codegraph` and an index for graph questions                         |
+| Context7     | `CONTEXT7_API_KEY`                                                   |
+| Brave Search | `bunx`, `BRAVE_API_KEY`                                              |
+| Firecrawl    | `bunx`, `FIRECRAWL_API_KEY`                                          |
+| Playwright   | `bunx` (isolated/headless testing)                                   |
+| Notion       | approved OAuth when Notion content is requested                      |
+| Excalidraw   | approved `create_view` calls, MCP UI viewer                          |
+| draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)   |
+| shadcn       | `bunx`, project `components.json`                                    |
+| DataGrip     | IDE-managed: DataGrip with MCP Server enabled; no b-agentic template |
+| TablePro     | Linux app running with MCP enabled, `TABLEPRO_MCP_TOKEN`             |
 
 Notion is the official hosted server and reaches the user's whole private
 workspace, so workspace reads are `conditional-read` (allowed in the main session,

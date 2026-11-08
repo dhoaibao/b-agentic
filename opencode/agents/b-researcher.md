@@ -153,9 +153,6 @@ permissions:
   - action: "shadcn_get_audit_checklist"
     resource: "*"
     effect: allow
-  - action: "clickup_*"
-    resource: "*"
-    effect: deny
   - action: "datagrip_*"
     resource: "*"
     effect: deny

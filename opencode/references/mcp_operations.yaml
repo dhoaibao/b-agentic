@@ -16,7 +16,7 @@
     "trusted-mutation": {
       "policy": "Approval required",
       "native_permission": "ask",
-      "notes": "Requires approval on every call; main session only. The ClickUp image-reference hook is not ported."
+      "notes": "Requires approval on every call; main session only."
     },
     "local-upload": {
       "policy": "Approval required",
@@ -240,24 +240,6 @@
         "get_audit_checklist": "read-only"
       }
     },
-    "clickup": {
-      "tools": {
-        "getTaskById": "conditional-read",
-        "searchTasks": "conditional-read",
-        "readDocument": "conditional-read",
-        "getListInfo": "conditional-read",
-        "searchSpaces": "conditional-read",
-        "getTimeEntries": "conditional-read",
-        "updateTask": "trusted-mutation",
-        "addComment": "external-mutation",
-        "editComment": "external-mutation",
-        "createTask": "trusted-mutation",
-        "updateListInfo": "external-mutation",
-        "createTimeEntry": "external-mutation",
-        "updateDocumentPage": "external-mutation",
-        "createDocumentOrPage": "external-mutation"
-      }
-    },
     "datagrip": {
       "tools": {
         "list_database_connections": "conditional-read",
@@ -291,6 +273,6 @@
     }
   },
   "runtime_enforcement": {
-    "opencode": "Generated ordered permissions address each classified tool as <server>_<tool>; the last matching rule wins. Managed servers ask by default in the main session; specialists deny unlisted tools on every managed server. ClickUp createTask and updateTask require approval on every call because the image-reference hook is not ported. Inspect MCP arguments before calling; file-tool path protection does not inspect MCP arguments. The datagrip server is IDE-managed with no template; every execute_sql_query call asks and the b-datagrip skill carries the SQL guardrails. Live runtime enforcement remains unverified."
+    "opencode": "Generated ordered permissions address each classified tool as <server>_<tool>; the last matching rule wins. Managed servers ask by default in the main session; specialists deny unlisted tools on every managed server. Inspect MCP arguments before calling; file-tool path protection does not inspect MCP arguments. The datagrip server is IDE-managed with no template; every execute_sql_query call asks and the b-datagrip skill carries the SQL guardrails. Live runtime enforcement remains unverified."
   }
 }

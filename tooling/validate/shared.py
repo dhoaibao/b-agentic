@@ -10,7 +10,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_HOOKS = (
     "b-path-guard.mjs",
-    "b-clickup-guard.mjs",
     "b-verify-gate.mjs",
 )
 
@@ -22,7 +21,6 @@ def main() -> int:
         ROOT / "references" / "mcp_operations.yaml",
         ROOT / "references" / "capabilities.yaml",
         ROOT / "claude" / "configs" / "mcp.base.json",
-        ROOT / "claude" / "configs" / "mcp.clickup.json",
         ROOT / "claude" / "configs" / "settings.template.json",
     ):
         try:

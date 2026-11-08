@@ -22,6 +22,7 @@ LIGHT_LABELS = (
     "docs/decisions/ADR-003-subagent-review-gate.md",
     "docs/decisions/ADR-004-codex-runtime.md",
     "docs/decisions/ADR-005-opencode-restored.md",
+    "docs/decisions/ADR-006-retire-clickup-integration.md",
 )
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (

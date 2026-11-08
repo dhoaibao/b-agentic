@@ -202,10 +202,13 @@ Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_
 the `b-codex-guard` hook script (removed by [ADR-003](ADR-003-subagent-review-gate.md)),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
-[`claude/hooks/b-clickup-guard.mjs`](../../claude/hooks/b-clickup-guard.mjs), and
+the ClickUp guard (removed by [ADR-006](ADR-006-retire-clickup-integration.md)), and
 [`tests/hooks/hooks-probe.sh`](../../tests/hooks/hooks-probe.sh).
 
 ### MCP and external-evidence design
+
+The ClickUp integration and related safety-hook decision in this section were
+superseded by [ADR-006](ADR-006-retire-clickup-integration.md).
 
 Nine base servers are configured in Claude Code's standard `mcpServers` shape;
 optional ClickUp is added only after install opt-in. `references/mcp_operations.yaml`

@@ -51,7 +51,6 @@ Only when the user asks agents to talk to each other; peers are independent sess
 - Sketch a conceptual, whiteboard, or explanatory diagram -> `b-excalidraw`.
 - Formal or editable draw.io diagram (cloud/network icons, ER/UML, sequence, .drawio files) -> `b-drawio`.
 - Implement approved or clearly scoped non-UI work (general fallback) -> `b-implement`.
-- Create and update ClickUp tasks using Context, Requirements, Acceptance Criteria, and Checklist -> `b-clickup`.
 - Inspect or query DataGrip-configured databases through the DataGrip MCP -> `b-datagrip`.
 - Inspect or query TablePro-configured databases through the TablePro MCP -> `b-tablepro`.
 - Initialize repo-local agent instruction files -> `b-init`.
@@ -71,7 +70,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 
 - Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, default-branch, or destination-less (`git push`, `git push origin`) push. A `git push` naming its remote and branch and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
-- OpenCode exposes MCP tools as `<server>_<tool>`. The ClickUp image hook is not ported; every create or update asks: inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain.
+- OpenCode exposes MCP tools as `<server>_<tool>`. Inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain.
 
 ## Capability activation
 

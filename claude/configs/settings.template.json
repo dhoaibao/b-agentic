@@ -103,14 +103,6 @@
       "mcp__shadcn__view_items_in_registries",
       "mcp__shadcn__get_add_command_for_items",
       "mcp__shadcn__get_audit_checklist",
-      "mcp__clickup__getTaskById",
-      "mcp__clickup__searchTasks",
-      "mcp__clickup__readDocument",
-      "mcp__clickup__getListInfo",
-      "mcp__clickup__searchSpaces",
-      "mcp__clickup__getTimeEntries",
-      "mcp__clickup__updateTask",
-      "mcp__clickup__createTask",
       "mcp__datagrip__list_database_connections",
       "mcp__datagrip__list_database_schemas",
       "mcp__datagrip__list_schema_object_kinds",
@@ -427,12 +419,6 @@
       "mcp__drawio__list_pages",
       "mcp__drawio__get_page",
       "mcp__drawio__set_page",
-      "mcp__clickup__addComment",
-      "mcp__clickup__editComment",
-      "mcp__clickup__updateListInfo",
-      "mcp__clickup__createTimeEntry",
-      "mcp__clickup__updateDocumentPage",
-      "mcp__clickup__createDocumentOrPage",
       "mcp__datagrip__preview_table_data",
       "mcp__datagrip__fetch_query_result",
       "mcp__datagrip__list_recent_sql_queries",
@@ -938,16 +924,6 @@
           {
             "type": "command",
             "command": "node \"$HOME/.claude/b-agentic/hooks/b-path-guard.mjs\"",
-            "onFailure": "block"
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__clickup__createTask|mcp__clickup__updateTask",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$HOME/.claude/b-agentic/hooks/b-clickup-guard.mjs\"",
             "onFailure": "block"
           }
         ]

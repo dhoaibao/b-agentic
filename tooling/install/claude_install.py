@@ -237,7 +237,7 @@ def remove_hook_items(hooks: dict[str, Any], items: list[dict[str, Any]]) -> boo
 
 
 class Installer:
-    def __init__(self, source: Path, dry_run: bool, force: bool, clickup: bool | None, ui: Ui | None = None) -> None:
+    def __init__(self, source: Path, dry_run: bool, force: bool, ui: Ui | None = None) -> None:
         self.source = source
         self.ui = ui if ui is not None else Ui(enabled=False)
         self.claude_dir = resolve_claude_dir()
@@ -246,7 +246,6 @@ class Installer:
         self.mcp_path = home_dir() / ".claude.json"
         self.dry_run = dry_run
         self.force = force
-        self.clickup_choice = clickup
         self.stamp = f"{time.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
         self.messages: list[str] = []
         self.warnings: list[str] = []
@@ -277,7 +276,6 @@ class Installer:
         kernel: dict[str, Any],
         settings: dict[str, Any],
         mcp: dict[str, Any],
-        clickup: bool,
     ) -> list[str]:
         def verb(text: Any, changed: str) -> str:
             return changed if text is not None else "unchanged"
@@ -293,8 +291,7 @@ class Installer:
             f"  {self.ui.style('kernel', 'green')}: CLAUDE.md block "
             f"{verb(kernel['text'], 'updated' if kernel['existed'] else 'written')}",
             f"  {self.ui.style('settings', 'green')}: settings.json {verb(settings['text'], 'merged')}",
-            f"  {self.ui.style('mcp', 'green')}: {self.display(self.mcp_path)} {verb(mcp['text'], 'merged')}"
-            f" (ClickUp {'on' if clickup else 'off'})",
+            f"  {self.ui.style('mcp', 'green')}: {self.display(self.mcp_path)} {verb(mcp['text'], 'merged')}",
         ]
 
     # -- destinations -------------------------------------------------------------
@@ -449,13 +446,13 @@ class Installer:
         )
 
     # -- planning -----------------------------------------------------------------
-    def plan_all(self, previous: dict[str, Any], clickup: bool) -> tuple[dict[str, Any], ...]:
+    def plan_all(self, previous: dict[str, Any]) -> tuple[dict[str, Any], ...]:
         self.counts = {name: 0 for name in self.counts}
         self.warnings.clear()
         files = self.plan_files(previous)
         kernel = self.plan_kernel(previous)
         settings = self.plan_settings(previous.get("settings", {}))
-        mcp = self.plan_mcp(clickup, previous)
+        mcp = self.plan_mcp(previous)
         # A retired script that settings.json still names (an edited or unrecorded hook) stays,
         # still owned, so a hook never points at a script this run deleted; a later run removes
         # it once that hook entry is gone.
@@ -655,16 +652,12 @@ class Installer:
         )
         return []
 
-    def plan_mcp(self, clickup: bool, manifest: dict[str, Any]) -> dict[str, Any]:
+    def plan_mcp(self, manifest: dict[str, Any]) -> dict[str, Any]:
         target = self.config_target(self.mcp_path)
         config = read_json(target)
         validate_mcp_shape(config, str(self.mcp_path))
         servers = config.setdefault("mcpServers", {})
         desired = dict(json.loads((self.source / "claude" / "configs" / "mcp.base.json").read_text())["mcpServers"])
-        if clickup:
-            desired.update(
-                json.loads((self.source / "claude" / "configs" / "mcp.clickup.json").read_text())["mcpServers"]
-            )
         recorded: dict[str, Any] = {}
         for name, entry in desired.items():
             candidates = self.mcp_candidates(manifest, name)
@@ -717,13 +710,10 @@ class Installer:
                 print(note)
         self.ui.step(f"Source: {self.display(self.source)}")
         self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
-        if self.clickup_choice is None and "clickup" not in previous and self.ui.interactive:
-            self.clickup_choice = self.ui.confirm("Add the optional ClickUp MCP server?", default=False)
-        clickup = self.clickup_choice if self.clickup_choice is not None else bool(previous.get("clickup", False))
         # Plan everything first: any structural refusal happens before the first write.
-        files, kernel, settings, mcp = self.plan_all(previous, clickup)
+        files, kernel, settings, mcp = self.plan_all(previous)
         if self.ui.fancy:
-            self.ui.box("Installation Summary", self.plan_summary(files, kernel, settings, mcp, clickup))
+            self.ui.box("Installation Summary", self.plan_summary(files, kernel, settings, mcp))
             if self.ui.interactive:
                 if not self.ui.confirm("Proceed with installation?", default=True):
                     raise InstallError(
@@ -732,11 +722,10 @@ class Installer:
                 # The prompt may stay open for minutes: plan again from the files as they are now, so
                 # edits made meanwhile are merged rather than overwritten by the earlier snapshot.
                 previous, _ = self.validate_destinations()
-                files, kernel, settings, mcp = self.plan_all(previous, clickup)
+                files, kernel, settings, mcp = self.plan_all(previous)
         final = {
             "schema": MANIFEST_SCHEMA,
             "target": "claude",
-            "clickup": clickup,
             "claude_md_created": kernel["created"],
             "kernel_sha256": kernel["sha256"],
             "files": dict(sorted(files["recorded"].items())),
@@ -747,7 +736,7 @@ class Installer:
         # so an interruption leaves a manifest that recognizes both the old and the new state.
         old_pending = previous.get("pending", {})
         intent = json.loads(json.dumps(previous)) if previous else {"schema": MANIFEST_SCHEMA, "target": "claude"}
-        intent.update({"clickup": clickup, "claude_md_created": kernel["created"]})
+        intent.update({"claude_md_created": kernel["created"]})
         intent.setdefault("kernel_sha256", None)
         intent.setdefault("files", {})
         intent.setdefault("mcp", {"file": str(self.mcp_path), "servers": {}})
@@ -990,20 +979,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true", help="replace modified or unmanaged files after a backup")
     parser.add_argument("-y", "--yes", action="store_true", help="skip interactive questions and use defaults")
     parser.add_argument("--source", default=str(ROOT), help="b-agentic source checkout (default: this repository)")
-    clickup = parser.add_mutually_exclusive_group()
-    clickup.add_argument("--with-clickup", action="store_true", help="add the optional ClickUp MCP server")
-    clickup.add_argument("--without-clickup", action="store_true", help="drop the optional ClickUp MCP server")
     args = parser.parse_args(argv)
     try:
         source = Path(args.source).resolve()
         if not (source / "skills" / "registry.yaml").is_file() or not (source / "claude" / "agents").is_dir():
             raise InstallError(f"{source} is not a b-agentic Claude Code source checkout")
-        choice = True if args.with_clickup else False if args.without_clickup else None
-        if choice is None and os.environ.get("B_AGENTIC_CLICKUP_MCP", "").lower() in {"y", "yes", "true", "1"}:
-            choice = True
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
         ui.header()
-        installer = Installer(source, args.dry_run, args.force, choice, ui)
+        installer = Installer(source, args.dry_run, args.force, ui)
         try:
             if args.uninstall:
                 installer.uninstall()

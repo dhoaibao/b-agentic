@@ -77,7 +77,8 @@ grep -Fq '<!-- b-agentic:start -->' "$oc/AGENTS.md" || fail "kernel block missin
 grep -Fq 'OpenCode Workflow Kernel' "$oc/AGENTS.md" || fail "kernel is not the OpenCode rendering"
 [ "$(jq '.permissions | length' "$oc/opencode.json")" = "$rules_expected" ] || fail "permission rule count"
 [ "$(jq '.mcp.servers | length' "$oc/opencode.json")" = "$servers_expected" ] || fail "MCP server count"
-[ "$(jq -r '.mcp.servers.clickup // "none"' "$oc/opencode.json")" = none ] || fail "ClickUp must be opt-in"
+[ "$(jq -r '.mcp.servers.clickup // "none"' "$oc/opencode.json")" = none ] || fail "ClickUp must not be installed"
+[ ! -e "$oc/skills/b-clickup/SKILL.md" ] || fail "ClickUp skill must not be installed"
 if grep -Rqs 'mcp__\|AskUserQuestion' "$oc/skills" "$oc/agents" "$oc/AGENTS.md"; then fail "Claude-only wording leaked into the install"; fi
 for profile in "$root"/opencode/agents/*.md; do
   cmp -s "$profile" "$oc/agents/$(basename "$profile")" || fail "installed specialist differs from generated profile"
@@ -89,10 +90,9 @@ policy="$oc/b-agentic/references/mcp_operations.yaml"
 [ "$(jq -r '.classes["trusted-mutation"].native_permission' "$policy")" = ask ] || fail "installed policy must ask for trusted mutations"
 [ "$(jq -r '.classes["conditional-read"].native_permission' "$policy")" = allow ] || fail "conditional reads must stay allowed"
 [ "$(jq -r '.runtime_enforcement | keys | join(",")' "$policy")" = opencode ] || fail "installed policy must describe OpenCode enforcement only"
-if grep -Eq "pre-approved|without a prompt|\`b-clickup-guard\` hook" "$oc/AGENTS.md" "$oc/skills/b-clickup/SKILL.md" "$oc/b-agentic/references/capabilities.yaml"; then
+if grep -Eq "pre-approved|without a prompt|\`b-clickup-guard\` hook" "$oc/AGENTS.md" "$oc/b-agentic/references/capabilities.yaml"; then
   fail "installed guidance must not promise unprompted task changes or Claude-only safeguards"
 fi
-grep -Fq 'require approval on every call' "$oc/skills/b-clickup/SKILL.md" || fail "ClickUp skill must require approval"
 if grep -Eq "\`/b-([a-z][a-z0-9-]*|<name>)\`" "$oc/AGENTS.md" "$oc/skills/b-commit/SKILL.md"; then fail "OpenCode must not recommend skill slash commands"; fi
 jq -e '[.capabilities[].id] | index("plugin.codex-review") == null' "$oc/b-agentic/references/capabilities.yaml" >/dev/null || fail "the retired Codex plugin capability must not be installed"
 [ -f "$oc/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
@@ -163,13 +163,26 @@ cp "$work/late-config.json" "$oc/opencode.json"
 run "$home"; expect_ok "reinstall after a user rule was appended"
 [ "$(jq -c '.permissions[-1]' "$oc/opencode.json")" = "$(jq -c '.permissions[-1]' "$root/opencode/configs/opencode.template.json")" ] || fail "the managed block must move back to the end"
 [ "$(jq '[.permissions[] | select(.resource == "echo late")] | length' "$oc/opencode.json")" = 1 ] || fail "the late user rule must be kept once"
-run "$home" --with-clickup; expect_ok "enable ClickUp"
-[ "$(jq -r '.mcp.servers.clickup.type' "$oc/opencode.json")" = local ] || fail "ClickUp server missing"
+jq '.mcp.servers.clickup = {"type":"local","command":["legacy"]}' "$oc/opencode.json" >"$work/legacy.json" && mv "$work/legacy.json" "$oc/opencode.json"
+jq '.mcp.servers.clickup = {"type":"local","command":["legacy"]}' "$oc/b-agentic/install.json" >"$work/manifest.json" && mv "$work/manifest.json" "$oc/b-agentic/install.json"
+run "$home"; expect_ok "retire managed ClickUp"
+[ "$(jq -r '.mcp.servers | has("clickup")' "$oc/opencode.json")" = false ] || fail "owned ClickUp server not retired"
 run "$home" --uninstall; expect_ok "uninstall over user config"
 jq 'del(.permissions[] | select(.resource == "echo late"))' "$oc/opencode.json" >"$work/restored.json"
 [ "$(jq -S . "$work/restored.json")" = "$original_config" ] || fail "user config not restored: $(cat "$oc/opencode.json")"
 [ "$(cat "$oc/AGENTS.md")" = "$(printf '# My rules\n\nBe kind.')" ] || fail "user AGENTS.md not restored"
 [ "$(tree "$home" | rg 'my-skill|theirs.js' || true)" = "$original_user_files" ] || fail "user-owned files changed"
+
+# A retired server edited by the user must survive upgrade and uninstall.
+home=$(fresh_home retired-clickup-edited)
+oc="$home/.config/opencode"
+run "$home"; expect_ok "install before edited ClickUp retirement"
+jq '.mcp.servers.clickup = {"type":"local","command":["user"]}' "$oc/opencode.json" >"$work/user.json" && mv "$work/user.json" "$oc/opencode.json"
+jq '.mcp.servers.clickup = {"type":"local","command":["legacy"]}' "$oc/b-agentic/install.json" >"$work/manifest.json" && mv "$work/manifest.json" "$oc/b-agentic/install.json"
+run "$home"; expect_ok "preserve edited ClickUp on upgrade"
+[ "$(jq -r '.mcp.servers.clickup.command[0]' "$oc/opencode.json")" = user ] || fail "edited ClickUp server removed"
+run "$home" --uninstall; expect_ok "preserve edited ClickUp on uninstall"
+[ "$(jq -r '.mcp.servers.clickup.command[0]' "$oc/opencode.json")" = user ] || fail "uninstall removed edited ClickUp server"
 
 # --- both runtimes: each uninstall leaves the other byte-identical -----------------------------------
 home=$(fresh_home both)
@@ -434,8 +447,6 @@ env = {k: v for k, v in os.environ.items() if k not in excluded}
 env.update(HOME=home, TERM=env.get("PROBE_TERM", "xterm-256color"))
 if "PROBE_NO_COLOR" in env:
     env["NO_COLOR"] = "1"
-if "PROBE_CLICKUP" in env:
-    env["B_AGENTIC_CLICKUP_MCP"] = env["PROBE_CLICKUP"]
 pid, fd = pty.fork()
 if pid == 0:
     os.execvpe("bash", ["bash", "-c", env["PROBE_CMD"]], env)
@@ -490,17 +501,16 @@ tui_run() {
 }
 home=$(fresh_home tui)
 before=$(tree "$home")
-tui_run "$home" "$piped_install" n n; expect_refused "decline terminal install"
+tui_run "$home" "$piped_install" n; expect_refused "decline terminal install"
 grep -Fq 'Installation Summary' <<<"$out" || fail "TUI summary missing: $out"
 grep -Fq 'Runtime: OpenCode' <<<"$out" || fail "TUI must identify its runtime: $out"
 grep -Fq 'Proceed with installation?' <<<"$out" || fail "TUI confirmation missing: $out"
 [ "$(tree "$home")" = "$before" ] || fail "declining the TUI changed files"
-tui_run "$home" "$piped_install" n y; expect_ok "accept terminal install"
+tui_run "$home" "$piped_install" y; expect_ok "accept terminal install"
 grep -Fq 'Installation complete' <<<"$out" || fail "TUI completion missing: $out"
 grep -Fq 'Next steps' <<<"$out" || fail "TUI next steps missing: $out"
 oc="$home/.config/opencode"
 [ -f "$oc/b-agentic/install.json" ] || fail "accepting must install"
-[ "$(jq -r '.clickup' "$oc/b-agentic/install.json")" = false ] || fail "declined ClickUp must stay off"
 tui_run "$home" "$piped_install" y; expect_ok "terminal reinstall"
 if grep -Fq 'Add the optional ClickUp' <<<"$out"; then fail "a saved ClickUp choice must not be asked again"; fi
 printf 'local edit\n' >>"$oc/agents/b-planner.md"
@@ -513,16 +523,8 @@ for mode in --dry-run --yes --uninstall; do
     fail "$mode must remain plain and non-interactive: $out"
   fi
 done
-home=$(fresh_home tui-clickup)
-tui_run "$home" "$piped_install" y y; expect_ok "terminal ClickUp opt-in"
-[ "$(jq -r '.mcp.servers.clickup.type' "$home/.config/opencode/opencode.json")" = local ] || fail "ClickUp opt-in missing"
-home=$(fresh_home tui-explicit)
-tui_run "$home" "$piped_install --without-clickup" y; expect_ok "explicit ClickUp flag"
-home=$(fresh_home tui-environment)
-PROBE_CLICKUP=yes tui_run "$home" "$piped_install" y; expect_ok "ClickUp environment opt-in"
-[ "$(jq -r '.clickup' "$home/.config/opencode/b-agentic/install.json")" = true ] || fail "environment choice lost"
 home=$(fresh_home tui-no-color)
-PROBE_NO_COLOR=1 tui_run "$home" "$piped_install --without-clickup" n; expect_refused "NO_COLOR terminal UI"
+PROBE_NO_COLOR=1 tui_run "$home" "$piped_install" n; expect_refused "NO_COLOR terminal UI"
 if [[ "$out" == *$'\033['* ]]; then fail "NO_COLOR must suppress ANSI styling"; fi
 home=$(fresh_home tui-dumb)
 PROBE_TERM=dumb tui_run "$home" "$piped_install"; expect_ok "dumb terminal fallback"
@@ -530,14 +532,14 @@ if grep -Fq 'Installation Summary' <<<"$out"; then fail "TERM=dumb must remain p
 home=$(fresh_home tui-notes)
 srcrepo="$work/srcrepo"
 mkdir -p "$srcrepo"
-( cd "$root" && git ls-files -co --exclude-standard -z -- install.sh tooling/install skills/registry.yaml opencode claude/bin claude/hooks | tar --null -T - -cf - ) | tar -xf - -C "$srcrepo"
+( cd "$root" && git ls-files -co --exclude-standard -z -- install.sh tooling/install skills/registry.yaml opencode claude/bin claude/hooks | while IFS= read -r -d '' file; do if [[ -e "$file" || -L "$file" ]]; then printf '%s\0' "$file"; fi; done | tar --null -T - -cf - ) | tar -xf - -C "$srcrepo"
 git -C "$srcrepo" init -q .
 git -C "$srcrepo" add -A
 git -C "$srcrepo" -c user.email=probe@example.invalid -c user.name=probe commit -qm source
 # shellcheck disable=SC2016
 piped_bootstrap='cat "$PROBE_ROOT/install.sh" | bash -s -- --runtime=opencode'
 for expected in 'Cloning source' 'Updating source'; do
-  B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n n
+  B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n
   expect_refused "terminal bootstrap notes"
   grep -Fq "$expected" <<<"$out" || fail "bootstrap notes lost: $out"
   note_line=$(grep -nF "$expected" <<<"$out" | head -1 | cut -d: -f1)
@@ -550,29 +552,29 @@ done
 home=$(fresh_home tui-edit)
 # shellcheck disable=SC2016 # HOME belongs to the sandbox child
 edit_cmd='!mkdir -p "$HOME/.config/opencode" && printf '\''{"providers":{"late":{}}}\n'\'' >"$HOME/.config/opencode/opencode.json"'
-tui_run "$home" "$piped_install --without-clickup" "$edit_cmd" y; expect_ok "edit during confirmation"
+tui_run "$home" "$piped_install" "$edit_cmd" y; expect_ok "edit during confirmation"
 jq -e '.providers.late == {}' "$home/.config/opencode/opencode.json" >/dev/null || fail "late user edit lost"
 home=$(fresh_home tui-alias)
 # shellcheck disable=SC2016
 alias_cmd='!mkdir -p "$HOME/.config/opencode" && ln -s AGENTS.md "$HOME/.config/opencode/opencode.json"'
-tui_run "$home" "$piped_install --without-clickup" "$alias_cmd" y; expect_refused "alias during confirmation"
+tui_run "$home" "$piped_install" "$alias_cmd" y; expect_refused "alias during confirmation"
 [ ! -e "$home/.config/opencode/b-agentic" ] && [ ! -e "$home/.config/opencode/AGENTS.md" ] || fail "late alias refusal wrote files"
 
 home=$(legacy_home tui-legacy)
 before=$(tree "$home")
-tui_run "$home" "$piped_install --migrate-legacy --without-clickup" n; expect_refused "decline legacy migration"
+tui_run "$home" "$piped_install --migrate-legacy" n; expect_refused "decline legacy migration"
 grep -Fq 'Legacy migration' <<<"$out" || fail "migration deletions must be shown: $out"
 grep -Fq 'agents/b-retired-agent.md' <<<"$out" || fail "migration summary must name removal paths: $out"
 [ "$(tree "$home")" = "$before" ] || fail "declining migration changed the legacy install"
 [ ! -e "$home/.config/opencode/b-agentic/backups" ] || fail "declining migration created backups"
-tui_run "$home" "$piped_install --migrate-legacy --without-clickup" y; expect_ok "accept legacy migration"
+tui_run "$home" "$piped_install --migrate-legacy" y; expect_ok "accept legacy migration"
 [ ! -e "$home/.config/opencode/agents/b-retired-agent.md" ] || fail "accepted migration left the retired agent"
 [ -f "$home/.config/opencode/agents/b-planner.md" ] || fail "accepted migration did not install"
 
 home=$(legacy_home tui-legacy-late-link)
 # shellcheck disable=SC2016
 link_cmd='!mkdir -p "$HOME/dotfiles" && ln -s "$HOME/dotfiles" "$HOME/.config/opencode/skills"'
-tui_run "$home" "$piped_install --migrate-legacy --without-clickup" "$link_cmd" y
+tui_run "$home" "$piped_install --migrate-legacy" "$link_cmd" y
 expect_refused "unsafe migration destination during confirmation"
 oc="$home/.config/opencode"
 [ "$(cat "$oc/agents/b-retired-agent.md")" = 'legacy agent' ] || fail "late refusal removed legacy files"
@@ -581,7 +583,7 @@ oc="$home/.config/opencode"
 # --runtime=both remains sequential: declining OpenCode does not undo Claude.
 home=$(fresh_home tui-both)
 # shellcheck disable=SC2016
-piped_both='echo ignored | bash "$PROBE_ROOT/install.sh" --runtime=both --without-clickup'
+piped_both='echo ignored | bash "$PROBE_ROOT/install.sh" --runtime=both'
 tui_run "$home" "$piped_both" y n; expect_refused "decline second runtime"
 [ -f "$home/.claude/b-agentic/install.json" ] || fail "the first runtime was not installed"
 [ ! -e "$home/.config/opencode" ] || fail "the declined second runtime was installed"
