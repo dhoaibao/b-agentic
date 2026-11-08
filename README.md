@@ -7,8 +7,7 @@ gates, and keeps the main session responsible for all worktree changes. It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration, for
 Claude Code and OpenCode side by side. Changed-code review runs in the read-only
-`b-reviewer` subagent, so it needs no second subscription and sends nothing to
-another vendor.
+`b-reviewer` subagent.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) and [OpenCode layout](opencode/configs/README.md) — managed paths and ownership boundaries.
@@ -45,9 +44,9 @@ subagents. A change that touches security, permissions, contracts,
 configuration, or workflow policy is frozen as a fingerprinted candidate and
 reviewed by the `b-reviewer` subagent in a fresh context; the main session
 recomputes the fingerprint afterward and voids the review if the candidate
-moved. The reviewer is read-only by its tool list and prompt, not a sandbox, and
-shares the main session's model family, which is the accepted trade-off against
-a cross-vendor reviewer.
+moved. The reviewer is read-only by its tool list and prompt, not a sandbox.
+Independence comes from its fresh context and role, not necessarily a different
+model family; OpenCode uses OpenAI models for its specialists.
 
 ## Skills
 

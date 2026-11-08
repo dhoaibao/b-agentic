@@ -1,7 +1,7 @@
 ---
 description: "Independently review a frozen changed-code candidate read-only and return findings and a verdict to the main session."
 mode: subagent
-model: "claude-agent/opus#high"
+model: "openai/gpt-6.1-sol#high"
 permissions:
   - action: "edit"
     resource: "*"

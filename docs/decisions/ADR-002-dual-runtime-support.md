@@ -95,6 +95,10 @@ retains session model inheritance. The variant suffixes select variants document
 in the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 On 2026-11-04 the planner and the new `b-reviewer` moved to `claude-agent/opus#high`
 ([ADR-003](ADR-003-subagent-review-gate.md)).
+On 2026-11-08, OpenCode moved planner and reviewer to `openai/gpt-6.1-sol#high`,
+debugger to `openai/gpt-6.1-sol#xhigh`, and researcher to
+`openai/gpt-6.1-terra#medium`; auditor remains `openai/gpt-6.1-sol#xhigh`.
+Claude Code pins remain unchanged.
 
 Gap handling on OpenCode:
 

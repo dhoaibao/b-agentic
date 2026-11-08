@@ -30,7 +30,8 @@ for independence from the implementer.
 ## Decision
 
 `b-review` is a delegated skill again, run only by a new read-only `b-reviewer`
-specialist (`opus`, effort `high`; OpenCode `claude-agent/opus#high`), generated
+specialist (`opus`, effort `high`; OpenCode `openai/gpt-6.1-sol#high` as of
+2026-11-08), generated
 from `skills/registry.yaml` like the other four specialists. The main session
 freezes the candidate with `b-candidate-snapshot` (F0), calls the reviewer by its
 named type with the baseline, target, acceptance, check results, candidate paths,
@@ -65,11 +66,9 @@ user-owned
 
 ## Consequences
 
-- No second subscription, login, plugin, or approval for review, and the
-  candidate goes to no new recipient. The gate is available whenever a Claude
-  subagent is.
-- Independence is weaker than cross-vendor: the reviewer shares the main
-  session's model family, so some blind spots correlate. For a high-risk change
+- No review plugin is required. Reviewer availability depends on its configured model.
+- The reviewer may share the main session's model family, so some blind spots
+  can correlate. For a high-risk change
   (security, permissions, secrets) the user can still run the Codex plugin by hand
   as an extra opinion; it is not part of the gate.
 - Read-only is instructed on Claude Code (the tool list omits `Edit`, `Write`,
@@ -92,8 +91,8 @@ user-owned
   code-review benchmark and Artificial Analysis favor `high` on quality per cost;
   the same benchmark found `xhigh` caught the most hard bugs at lower precision,
   which matters for a gate that exists to catch blockers), without a replay on
-  this repository. The OpenCode `#high` variant was not
-  verified locally. Revisit with measured wall-clock, tokens, rounds per change,
+  this repository. The current OpenCode Sol `#high` pin has not been evaluated
+  on this repository's reviews. Revisit with measured wall-clock, tokens, rounds per change,
   and real versus disputed blockers; return to `xhigh` if `high` misses blockers.
 - Revisit if review quality proves worse than the Codex gate, or if a cheap
   cross-vendor reviewer becomes available without a second subscription.

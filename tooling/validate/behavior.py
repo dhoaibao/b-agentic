@@ -1105,7 +1105,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "skills/b-review/prompt.md": {
             "required": (
-                "This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning, never sends the candidate to another vendor, and is prohibited from editing.",
+                "This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.",
                 "Never replace the independent review with a self-review.",
                 "always call this skill with the named `b-reviewer` subagent type, never a forked context",
                 "never the implementer's rationale or a verdict to confirm",

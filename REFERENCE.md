@@ -116,9 +116,8 @@ through [`references/runtimes.yaml`](references/runtimes.yaml). Only the default
 - **Skills load once.** `~/.config/opencode/skills` outranks the Claude-compatible
   `~/.claude/skills` for the same skill ID, so a machine with both installs does
   not load two copies. OpenCode v2 does not read `CLAUDE.md`.
-- **Review gate** is the same read-only `b-reviewer` specialist
-  (`claude-agent/opus#high`) as on Claude Code, so it needs no plugin and no
-  second login. The retired Codex gate's shell `ask` rules and guard script are
+- **Review gate** uses the read-only `b-reviewer` specialist
+  (`openai/gpt-6.1-sol#high`), without a review plugin. The retired Codex gate's shell `ask` rules and guard script are
   removed on upgrade; its standing approval store
   (`~/.config/opencode/b-agentic/codex-approved-repos.json`) is user data that
   nothing reads any more, so the installer leaves it and prints a note.
@@ -181,13 +180,13 @@ the agent call overrides them, `CLAUDE_CODE_EFFORT_LEVEL` overrides the effort, 
 separate optional `opencode_model` field (`provider/model#variant`); omitting it
 inherits the session model. Current OpenCode defaults are:
 
-| Specialist     | Model                 | Effort   |
-| -------------- | --------------------- | -------- |
-| `b-planner`    | `claude-agent/opus`   | `high`   |
-| `b-researcher` | `claude-agent/sonnet` | `medium` |
-| `b-debugger`   | `claude-agent/sonnet` | `xhigh`  |
-| `b-auditor`    | `openai/gpt-6.1-sol`  | `xhigh`  |
-| `b-reviewer`   | `claude-agent/opus`   | `high`   |
+| Specialist     | Model                  | Effort   |
+| -------------- | ---------------------- | -------- |
+| `b-planner`    | `openai/gpt-6.1-sol`   | `high`   |
+| `b-researcher` | `openai/gpt-6.1-terra` | `medium` |
+| `b-debugger`   | `openai/gpt-6.1-sol`   | `xhigh`  |
+| `b-auditor`    | `openai/gpt-6.1-sol`   | `xhigh`  |
+| `b-reviewer`   | `openai/gpt-6.1-sol`   | `high`   |
 
 Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.ai/v2/docs/agents#model).
 
@@ -195,9 +194,8 @@ Model and variant syntax follows the [OpenCode V2 agent guide](https://opencode.
 
 `b-review` is a delegated skill: it runs only in the read-only `b-reviewer`
 subagent, called by its named type so it starts with a fresh context instead of a
-fork of the implementer's conversation. It needs no second subscription, login,
-or plugin, and the candidate goes to no recipient beyond the model provider that
-already serves the session ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
+fork of the implementer's conversation. It needs no review plugin
+([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
 The gate sequence is:
 
 1. Freeze the candidate: `node ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs`
@@ -236,8 +234,8 @@ The gate sequence is:
 
 Accepted trade-offs against the retired Codex gate:
 
-- The reviewer shares the main session's model family, so some blind spots
-  correlate; the independence comes from a fresh context, a separate review
+- The reviewer may share the main session's model family, so some blind spots
+  can correlate; the independence comes from a fresh context, a separate review
   prompt, and a read-only role. For a high-risk change (security, permissions,
   secrets) you can still run the Codex plugin by hand as an extra opinion; it is
   not part of the gate, and b-agentic no longer checks such a direct call (no
@@ -248,9 +246,7 @@ Accepted trade-offs against the retired Codex gate:
   the agent's `permissions`, but has no shell rule either.
   The fingerprint recomputation catches any change to tracked or named files,
   but not a change to an ignored or outside-repository file that was never named.
-- The reviewer reads the repository as the main session's provider already does,
-  so no new recipient exists and no approval store is needed. Review never
-  commits or pushes.
+- Review never commits or pushes.
 
 The Codex wrapper (`b-codex-review.mjs`), the verdict mapper
 (`b-codex-verdict.mjs`), the `b-codex-guard` hook and its OpenCode shell rules were
