@@ -530,7 +530,7 @@ if grep -Fq 'Installation Summary' <<<"$out"; then fail "TERM=dumb must remain p
 home=$(fresh_home tui-notes)
 srcrepo="$work/srcrepo"
 mkdir -p "$srcrepo"
-( cd "$root" && git ls-files -z -- install.sh tooling/install skills/registry.yaml opencode claude/bin claude/hooks | tar --null -T - -cf - ) | tar -xf - -C "$srcrepo"
+( cd "$root" && git ls-files -co --exclude-standard -z -- install.sh tooling/install skills/registry.yaml opencode claude/bin claude/hooks | tar --null -T - -cf - ) | tar -xf - -C "$srcrepo"
 git -C "$srcrepo" init -q .
 git -C "$srcrepo" add -A
 git -C "$srcrepo" -c user.email=probe@example.invalid -c user.name=probe commit -qm source

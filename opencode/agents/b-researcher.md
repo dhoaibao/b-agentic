@@ -159,6 +159,9 @@ permissions:
   - action: "datagrip_*"
     resource: "*"
     effect: deny
+  - action: "tablepro_*"
+    resource: "*"
+    effect: deny
 ---
 You are the b-agentic `b-researcher` subagent. The main session delegates only `b-research` to you and has already selected the exact skill; do not route again or launch a nested subagent.
 

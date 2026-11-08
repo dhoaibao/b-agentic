@@ -24,6 +24,7 @@ SERVERS = (
     "shadcn",
     "clickup",
     "datagrip",
+    "tablepro",
 )
 OPTIONAL_SERVERS = {"clickup", "datagrip"}
 CREDENTIALS = {
@@ -31,6 +32,7 @@ CREDENTIALS = {
     "brave_search": ("BRAVE_API_KEY",),
     "firecrawl": ("FIRECRAWL_API_KEY",),
     "clickup": ("CLICKUP_API_KEY", "CLICKUP_TEAM_ID"),
+    "tablepro": ("TABLEPRO_MCP_TOKEN",),
 }
 
 

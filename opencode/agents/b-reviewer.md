@@ -150,6 +150,9 @@ permissions:
   - action: "datagrip_*"
     resource: "*"
     effect: deny
+  - action: "tablepro_*"
+    resource: "*"
+    effect: deny
 ---
 You are the b-agentic `b-reviewer` subagent. The main session delegates only `b-review` to you and has already selected the exact skill; do not route again or launch a nested subagent.
 

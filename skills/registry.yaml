@@ -252,6 +252,20 @@
       }
     },
     {
+      "name": "b-tablepro",
+      "execution": {"mode": "main"},
+      "phase": "Build",
+      "use": "Inspect and query TablePro databases safely through the TablePro MCP",
+      "argument_hint": "[connection and question]",
+      "routing": {
+        "intent": "Inspect or query TablePro-configured databases through the TablePro MCP",
+        "triggers": ["TablePro", "TablePro connection", "run SQL in TablePro"]
+      },
+      "prompt": {
+        "description": "Inspect and query TablePro-configured databases through the Linux TablePro MCP. Use bounded reads by default, protect private data, and obtain explicit approval for connections and writes."
+      }
+    },
+    {
       "name": "b-init",
       "execution": {"mode": "main"},
       "phase": "Build",

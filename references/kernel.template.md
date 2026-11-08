@@ -53,6 +53,7 @@ Only when the user asks agents to talk to each other; peers are independent sess
 - Implement approved or clearly scoped non-UI work (general fallback) -> `b-implement`.
 - Create and update ClickUp tasks using Context, Requirements, Acceptance Criteria, and Checklist -> `b-clickup`.
 - Inspect or query DataGrip-configured databases through the DataGrip MCP -> `b-datagrip`.
+- Inspect or query TablePro-configured databases through the TablePro MCP -> `b-tablepro`.
 - Initialize repo-local agent instruction files -> `b-init`.
 - Mechanical rename, extract, move, inline, simplify, delete dead code -> `b-refactor`.
 - Runtime bug, error, "not working" -> `b-debug`.

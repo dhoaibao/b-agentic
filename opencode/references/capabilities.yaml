@@ -555,6 +555,54 @@
         "config": "User-managed DataGrip MCP entry; no b-agentic template",
         "policy": "references/mcp_operations.yaml"
       }
+    },
+    {
+      "id": "mcp.tablepro",
+      "kind": "mcp",
+      "purpose": "Inspect and query TablePro databases for b-tablepro with approval for private reads, connections, and SQL.",
+      "owner": "TablePro Linux MCP server (application-managed)",
+      "trigger": "Use only inside b-tablepro when the user asks to inspect or query a TablePro connection.",
+      "prerequisites": [
+        "TablePro Linux running with MCP enabled",
+        "User-supplied TABLEPRO_MCP_TOKEN",
+        "External clients enabled for the connection"
+      ],
+      "readiness": "A local entry and token environment variable are present; application state, authentication and connectivity are not probed.",
+      "fallback": "Use schema supplied by the user and report that TablePro access is unavailable.",
+      "status_signal": {
+        "source": "local-config-file-presence",
+        "states": [
+          "unknown",
+          "blocked"
+        ],
+        "description": "Reports local configuration and environment-variable presence only; never contacts TablePro or reads token values.",
+        "sensitive": false
+      },
+      "probe": {
+        "type": "mcp",
+        "server": "tablepro",
+        "launcher": null,
+        "required_env": [
+          "TABLEPRO_MCP_TOKEN"
+        ],
+        "auth": "bearer-token"
+      },
+      "mcp": {
+        "server": "tablepro",
+        "launcher": null,
+        "required_env": [
+          "TABLEPRO_MCP_TOKEN"
+        ],
+        "auth": "bearer-token"
+      },
+      "install_state": {
+        "action": "mcpAction",
+        "state": "mcpState"
+      },
+      "source": {
+        "template": "opencode/configs/opencode.template.json",
+        "policy": "references/mcp_operations.yaml"
+      }
     }
   ]
 }

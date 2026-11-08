@@ -87,7 +87,9 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"
 [ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the retired Codex guard must not be installed"
 if grep -Fq 'codex-guard' "$claude/settings.json"; then fail "settings must not name the retired Codex guard"; fi
-[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 9 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
+[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 10 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
+# shellcheck disable=SC2016 # The placeholder must remain literal in the installed configuration.
+[ "$(jq -r '.mcpServers.tablepro.headers.Authorization' "$home/.claude.json")" = 'Bearer ${TABLEPRO_MCP_TOKEN}' ] || fail "TablePro token must remain an environment reference"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must be opt-in"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
 grep -Fq 'b-reviewer subagent' <<<"$out" || fail "review gate guidance not printed"

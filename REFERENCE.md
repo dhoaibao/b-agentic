@@ -304,7 +304,7 @@ external/shared actions.
 ## MCP and readiness
 
 `claude/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Notion, Excalidraw, draw.io, and shadcn;
+Firecrawl, Playwright, Notion, Excalidraw, draw.io, shadcn, and TablePro;
 `mcp.clickup.json` is the optional ClickUp server. Tools are addressed as
 `mcp__<server>__<tool>`. Credentials are `${VAR}` references; the installer
 collects none.
@@ -322,6 +322,7 @@ collects none.
 | shadcn       | `bunx`, project `components.json`                                     |
 | ClickUp      | optional install opt-in, `bunx`, `CLICKUP_API_KEY`, `CLICKUP_TEAM_ID` |
 | DataGrip     | IDE-managed: DataGrip with MCP Server enabled; no b-agentic template  |
+| TablePro     | Linux app running with MCP enabled, `TABLEPRO_MCP_TOKEN`              |
 
 Notion is the official hosted server and reaches the user's whole private
 workspace, so workspace reads are `conditional-read` (allowed in the main session,
@@ -344,6 +345,17 @@ confirms before a first read on a non-local connection, and asks before any
 write. The server enforces no read-only mode, so use a read-only database user
 for sensitive connections; other `mcp__datagrip__*` tools stay unclassified and
 keep the approval prompt.
+
+TablePro Linux serves MCP while its app is open. Enable the MCP server and
+external-client access for the relevant connection in TablePro, then supply
+`TABLEPRO_MCP_TOKEN` in the client environment. The template uses the default
+loopback endpoint `http://127.0.0.1:23508/mcp`; adjust it if the port differs.
+Claude Code's expansion of header variables in its user-scope configuration has
+not been verified; if it does not work, configure authentication manually using
+the client's documented mechanism. Neither runtime's live connection has been
+tested. Connection, row reads, and SQL execution require approval; the
+`b-tablepro` skill requires explicit confirmation before every write. Use a
+least-privilege database account even in TablePro's read-only mode.
 
 `scripts/mcp-doctor.sh --allow-degraded` reports local launcher, configuration,
 and environment-variable presence only. It never reads credential values, starts

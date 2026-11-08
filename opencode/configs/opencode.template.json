@@ -4159,6 +4159,36 @@
       "action": "datagrip_test_database_connection",
       "resource": "*",
       "effect": "allow"
+    },
+    {
+      "action": "tablepro_*",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "tablepro_list_connections",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "tablepro_list_schemas",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "tablepro_list_tables",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "tablepro_describe_table",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "tablepro_get_table_ddl",
+      "resource": "*",
+      "effect": "allow"
     }
   ],
   "mcp": {
@@ -4272,6 +4302,19 @@
         ],
         "environment": {
           "DRAWIO_ICON_SERVICE_URL": "off"
+        },
+        "disabled": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000
+        }
+      },
+      "tablepro": {
+        "type": "remote",
+        "url": "http://127.0.0.1:23508/mcp",
+        "headers": {
+          "Authorization": "Bearer {env:TABLEPRO_MCP_TOKEN}"
         },
         "disabled": false,
         "codemode": false,

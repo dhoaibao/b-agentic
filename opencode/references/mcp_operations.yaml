@@ -275,6 +275,19 @@
         "create_database_connection": "auth",
         "edit_database_connection": "auth"
       }
+    },
+    "tablepro": {
+      "tools": {
+        "list_connections": "conditional-read",
+        "connect": "auth",
+        "list_schemas": "conditional-read",
+        "list_tables": "conditional-read",
+        "describe_table": "conditional-read",
+        "get_table_ddl": "conditional-read",
+        "browse_table": "private-read",
+        "count_rows": "private-read",
+        "execute_query": "external-mutation"
+      }
     }
   },
   "runtime_enforcement": {
