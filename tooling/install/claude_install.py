@@ -49,7 +49,12 @@ KERNEL_BLOCK_END = "<!-- b-agentic:end -->"
 MANIFEST_SCHEMA = 1
 MANAGED_ROOTS = ("skills", "agents", "b-agentic")
 SKILL_NAME = re.compile(r"^b-[a-z0-9-]+$")
-PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "claude")
+CODEX_PLUGIN_COMMANDS = (
+    "/plugin marketplace add openai/codex-plugin-cc",
+    "/plugin install codex@openai-codex",
+    "/codex:setup",
+)
+PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "claude", "codex")
 
 
 class InstallError(Exception):
@@ -993,18 +998,17 @@ class Installer:
         lines = [
             "Next steps:",
             "  1. Restart Claude Code so skills, agents, hooks, settings, and MCP servers load.",
-            "  2. The independent review gate is the read-only b-reviewer subagent; it needs no extra login or plugin.",
+            "  2. For the Codex-first independent review gate, run these in Claude Code (installer never runs them):",
+            *[f"       {command}" for command in CODEX_PLUGIN_COMMANDS],
+            "     then sign in to Codex and keep the plugin's review gate disabled (b-review is the gate).",
+            "  3. Approve each repository once for Codex review when b-review asks.",
+            "  Without Codex, b-review falls back to the read-only b-reviewer subagent, which needs no extra login or plugin.",
         ]
         if self.components:
             lines.append(
                 "  Optional components ("
                 + optional_components.summary(self.components, self.selection)
                 + "): re-run with --with=<id> or --without=<id>, or use the checkbox, to change them."
-            )
-        if (self.assets_dir / "codex-approved-repos.json").is_file():
-            lines.append(
-                f"  Note: {self.assets_dir / 'codex-approved-repos.json'} is left over from the retired Codex review "
-                "gate and is no longer read; delete it if you do not need it."
             )
         if missing:
             lines.append(

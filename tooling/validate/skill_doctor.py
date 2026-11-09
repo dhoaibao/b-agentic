@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tooling" / "install"))
 import optional_components  # noqa: E402
+from opencode_install import CLAUDE_ONLY_SCRIPTS  # noqa: E402
 
 KERNEL_BLOCK_START = "<!-- b-agentic:start -->"
 KERNEL_BLOCK_END = "<!-- b-agentic:end -->"
@@ -101,6 +102,8 @@ def missing_payload(root: Path, runtime: str = "claude") -> list[str]:
             missing.append(f"agents/{source.name}")
     for folder in ("bin", "hooks"):
         for source in sorted((ROOT / "claude" / folder).glob("*.mjs")):
+            if runtime != "claude" and source.name in CLAUDE_ONLY_SCRIPTS:
+                continue
             if not (root / "b-agentic" / folder / source.name).is_file():
                 missing.append(f"b-agentic/{folder}/{source.name}")
     for name in ("capabilities.yaml", "mcp_operations.yaml", spec["kernel_reference"]):

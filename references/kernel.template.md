@@ -34,6 +34,7 @@
   - `b-debug` -> `b-debugger`.
   - `b-agentic-audit` -> `b-auditor`.
   - `b-review` -> `b-reviewer`.
+  - On Claude Code `b-review` first runs Codex (openai/codex-plugin-cc) through `b-codex-review` from the main session; `b-reviewer` runs only when that wrapper exits 4 (Codex unavailable).
 - All other skills run in the main session.
 <!-- generated:delegation:end -->
 - Material user-facing decisions or blockers use `AskUserQuestion`: group 1–4 concrete choices, explain trade-offs, and offer a plain-text fallback when interactive questions are unavailable. Omit for routine activity, review fixes, and no-choice confirmations.

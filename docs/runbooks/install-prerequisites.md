@@ -84,6 +84,20 @@ this is a manual step. Which tool each MCP needs is listed in
    TablePro servers also need their apps running with MCP enabled (and
    `TABLEPRO_MCP_TOKEN` for TablePro).
 
+9. Optional: install the Codex CLI and plugin for the Codex-first review gate on
+   Claude Code (`b-review` falls back to the `b-reviewer` subagent without them).
+   These steps were not re-checked against official docs on 2026-11-09; confirm
+   the package name and plugin commands first.
+
+   ```bash
+   npm i -g @openai/codex
+   codex login
+   ```
+
+   Then, inside Claude Code, run `/plugin marketplace add openai/codex-plugin-cc`,
+   `/plugin install codex@openai-codex`, and `/codex:setup`, and keep the plugin's
+   review gate (a Stop hook) disabled.
+
 ## Verify
 
 Each command should print a version, and `rtk gain` should print a savings
@@ -93,6 +107,7 @@ dashboard:
 python3 --version && git --version && rg --version && fdfind --version \
   && jq --version && gh --version && node --version && bunx --version \
   && claude --version && rtk --version && rtk gain && codegraph --version
+codex --version   # optional: only for the Codex review gate
 scripts/mcp-doctor.sh --allow-degraded
 ```
 

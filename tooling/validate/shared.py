@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_HOOKS = (
     "b-path-guard.mjs",
+    "b-codex-guard.mjs",
     "b-verify-gate.mjs",
 )
 
@@ -101,8 +102,9 @@ def main() -> int:
             errors.append(f"claude/hooks/{script}: missing hook script")
         if not any(command.endswith(f'/{script}"') for command in commands):
             errors.append(f"claude/configs/settings.template.json: no hook runs {script}")
-    if not (ROOT / "claude" / "bin" / "b-candidate-snapshot.mjs").is_file():
-        errors.append("claude/bin/b-candidate-snapshot.mjs: missing CLI")
+    for script in ("b-candidate-snapshot.mjs", "b-codex-verdict.mjs", "b-codex-review.mjs"):
+        if not (ROOT / "claude" / "bin" / script).is_file():
+            errors.append(f"claude/bin/{script}: missing CLI")
     if not (ROOT / "claude" / "bin" / "b-statusline.mjs").is_file():
         errors.append("claude/bin/b-statusline.mjs: missing CLI")
     status_line = json.loads((ROOT / "claude" / "configs" / "settings.template.json").read_text()).get("statusLine", {})

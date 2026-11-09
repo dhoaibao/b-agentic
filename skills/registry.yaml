@@ -396,6 +396,11 @@
     {
       "name": "b-review",
       "execution": {"mode": "subagent", "agent": "b-reviewer"},
+      "primary_gate": {
+        "runtime": "claude",
+        "label": "Codex",
+        "note": "On Claude Code `b-review` first runs Codex (openai/codex-plugin-cc) through `b-codex-review` from the main session; `b-reviewer` runs only when that wrapper exits 4 (Codex unavailable)."
+      },
       "handoff": [
         "baseline (branch, HEAD, ahead/behind, git status) and the review target: the working tree, or a base ref the main session resolved to a commit id",
         "the review round number (1 for a first review; it prefixes finding IDs), acceptance criteria, fresh required-check results, the kernel risk triggers that apply, and the exact candidate paths",

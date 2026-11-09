@@ -3,7 +3,7 @@
 ## Repository Purpose
 
 b-agentic is a slim personal workflow kernel for Claude Code and OpenCode, with
-a read-only subagent as the independent reviewer. It ships the always-loaded kernel, skills that double as
+Codex (on Claude Code) or a read-only subagent as the independent reviewer. It ships the always-loaded kernel, skills that double as
 commands, managed MCP configuration, read-only specialist agents, safety hooks,
 and installer/validation tooling. See the [public
 overview](README.md) and [operational reference](REFERENCE.md).

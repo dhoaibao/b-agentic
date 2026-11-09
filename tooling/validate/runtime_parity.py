@@ -84,8 +84,12 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
         agent = execution["agent"]
         if f"`{name}` -> `{agent}`." not in texts["kernel"]:
             errors.append(f"{runtime}: routing contract missing for {name}")
+        gate = skill.get("primary_gate")
+        gate = gate if gate and gate["runtime"] == runtime else None
         for clause in (
-            f"`{name}` runs only in the `{agent}` subagent.",
+            f"`{name}` runs the {gate['label']} gate first, from the main session as the Steps direct;"
+            if gate
+            else f"`{name}` runs only in the `{agent}` subagent.",
             "never fall back to self-execution",
             "do not delegate again",
         ):

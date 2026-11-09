@@ -344,7 +344,14 @@ def main() -> int:
         errors.append("path guard must cover every file tool")
     for entry in hooks["PreToolUse"]:
         for hook in entry["hooks"]:
-            if hook.get("onFailure") != "block":
+            if entry["matcher"] == "Bash":
+                # The Codex guard is a tripwire on every Bash call (the wrapper is the boundary), so it must
+                # fail open: a broken guard that blocked Bash would also block the repair or reinstall.
+                if "onFailure" in hook:
+                    errors.append(
+                        "the Bash Codex tripwire must fail open (no onFailure), or a broken guard blocks its own repair"
+                    )
+            elif hook.get("onFailure") != "block":
                 errors.append("PreToolUse guards must fail closed with onFailure block (Claude Code 2.1.295 or later)")
     for event in ("PostToolUse", "Stop"):
         for entry in hooks[event]:

@@ -70,7 +70,7 @@ claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
 [ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
-for file in bin/b-candidate-snapshot.mjs bin/b-statusline.mjs hooks/b-path-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
@@ -84,10 +84,10 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.deny | index("Bash(gh pr merge *)") != null' "$claude/settings.json")" = true ] || fail "gh pr merge deny rule missing"
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
-[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 1 ] || fail "PreToolUse hook missing"
+[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
 [ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"
-[ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the retired Codex guard must not be installed"
-if grep -Fq 'codex-guard' "$claude/settings.json"; then fail "settings must not name the retired Codex guard"; fi
+[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.command | contains("b-codex-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the Codex guard must run on Bash exactly once"
+[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.onFailure != null)] | length' "$claude/settings.json")" = 0 ] || fail "the Bash Codex tripwire must fail open so a broken guard cannot block its own repair"
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 7 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
 for server in tablepro excalidraw drawio datagrip; do
   [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$home/.claude.json")" = false ] || fail "optional MCP server $server must not be installed by default"
@@ -101,8 +101,9 @@ done
 [ "$(jq -c .optional_components "$claude/b-agentic/install.json")" = '{"datagrip":false,"tablepro":false,"excalidraw":false,"drawio":false}' ] || fail "default selection must be recorded as all off"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must not be installed"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
-grep -Fq 'b-reviewer subagent' <<<"$out" || fail "review gate guidance not printed"
-if grep -Fq 'codex' <<<"$out"; then fail "install output must not mention the retired Codex plugin"; fi
+grep -Fq '/plugin install codex@openai-codex' <<<"$out" || fail "plugin commands not printed"
+grep -Fq '/codex:setup' <<<"$out" || fail "setup command not printed"
+grep -Fq 'b-reviewer subagent' <<<"$out" || fail "the b-reviewer fallback guidance not printed"
 [ "$pi_before" = "$(tree "$home/.pi")" ] || fail "install changed the Pi tree"
 echo "install probe passed: fresh"
 
@@ -469,24 +470,36 @@ run "$home" --force; expect_ok "upgrade over an edited retired skill"
 grep -Fq 'modified since install' <<<"$err" || fail "no warning for the kept edited retired skill: $err"
 echo "install probe passed: skill-rename"
 
-# --- an upgrade retires the Codex review CLIs but keeps the user's approval store ---------------------
-home=$(fresh_home codex-retire)
+# --- an upgrade from the subagent-only release adds the Codex gate and leaves the user's approval store alone ---
+home=$(fresh_home codex-restore)
 claude="$home/.claude"
-run "$home"; expect_ok "install before retiring the Codex review CLIs"
-[ -f "$claude/agents/b-reviewer.md" ] || fail "b-reviewer not installed"
-[ ! -e "$claude/b-agentic/bin/b-codex-review.mjs" ] || fail "retired b-codex-review installed"
-# Simulate the previous release: both CLIs installed and recorded in the manifest, plus a user-owned approval store.
-for cli in b-codex-review b-codex-verdict; do
-  printf 'old cli\n' >"$claude/b-agentic/bin/$cli.mjs"
-  digest=$(sha256sum "$claude/b-agentic/bin/$cli.mjs" | cut -d' ' -f1)
-  jq --arg k "b-agentic/bin/$cli.mjs" --arg d "$digest" '.files[$k] = $d' "$claude/b-agentic/install.json" >"$work/old-manifest.json" && mv "$work/old-manifest.json" "$claude/b-agentic/install.json"
+run "$home"; expect_ok "install for the Codex gate upgrade"
+# Simulate the previous release: no Codex CLIs or guard installed or recorded, and a user Bash hook in place.
+for file in bin/b-codex-review.mjs bin/b-codex-verdict.mjs hooks/b-codex-guard.mjs; do
+  rm -f "$claude/b-agentic/$file"
+  jq --arg k "b-agentic/$file" 'del(.files[$k])' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
 done
+jq '(.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks) |= map(select(.command | contains("b-codex-guard.mjs") | not)) | .hooks.PreToolUse |= map(select(.hooks != []))' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
+jq '.settings.hooks |= map(select(.hook.command | contains("b-codex-guard.mjs") | not))' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
+jq '.hooks.PreToolUse += [{matcher: "Bash", hooks: [{type: "command", command: "echo mine"}]}]' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
 printf '["/repo"]\n' >"$claude/b-agentic/codex-approved-repos.json"
-run "$home" --force; expect_ok "upgrade over the retired Codex review CLIs"
-[ ! -e "$claude/b-agentic/bin/b-codex-review.mjs" ] && [ ! -e "$claude/b-agentic/bin/b-codex-verdict.mjs" ] || fail "an unmodified retired CLI was not removed"
+run "$home"; expect_ok "upgrade that adds the Codex gate"
+for file in bin/b-codex-review.mjs bin/b-codex-verdict.mjs hooks/b-codex-guard.mjs; do
+  [ -f "$claude/b-agentic/$file" ] || fail "the upgrade did not install $file"
+done
+[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-codex-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade must add the Codex guard exactly once"
+[ "$(jq -c '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command] | map(select(. == "echo mine")) ' "$claude/settings.json")" = '["echo mine"]' ] || fail "the user's Bash hook was lost: $(cat "$claude/settings.json")"
 [ "$(cat "$claude/b-agentic/codex-approved-repos.json")" = '["/repo"]' ] || fail "the user's approval store was touched"
-[ -f "$claude/agents/b-reviewer.md" ] || fail "the reviewer specialist disappeared on upgrade"
-echo "install probe passed: codex-retire"
+if grep -Fq 'left over' <<<"$out"; then fail "the approval file is read again, so no leftover note: $out"; fi
+before=$(tree "$home")
+run "$home"; expect_ok "second upgrade after the Codex gate"
+[ "$before" = "$(tree "$home")" ] || fail "a re-run after adding the Codex gate changed files"
+run "$home" --uninstall; expect_ok "uninstall with the Codex gate"
+[ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] && [ ! -e "$claude/b-agentic/bin/b-codex-review.mjs" ] || fail "uninstall left a Codex gate script"
+[ -f "$claude/b-agentic/codex-approved-repos.json" ] || fail "uninstall removed the user's approval store"
+[ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-codex-guard.mjs")))] | length' "$claude/settings.json")" = 0 ] || fail "uninstall left the Codex guard in settings"
+[ "$(jq -c '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command]' "$claude/settings.json")" = '["echo mine"]' ] || fail "uninstall removed the user's Bash hook: $(cat "$claude/settings.json")"
+echo "install probe passed: codex-restore"
 
 # --- an upgrade from a release that shipped the PreToolUse guards without onFailure replaces them, never duplicates ---
 home=$(fresh_home hook-onfailure)
@@ -651,28 +664,6 @@ else
   done
 fi
 echo "install probe passed: hook-retire"
-
-# --- the real retired Codex guard: hook entry and script go, the user's approval store stays ---
-home=$(fresh_home guard-retire)
-claude="$home/.claude"
-run "$home"; expect_ok "install before retiring the Codex guard"
-if grep -Fq 'no longer read' <<<"$out"; then fail "a note about the approval file needs the file to exist"; fi
-plant_old_hook "$home" Bash b-codex-guard.mjs
-jq '(.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks) += [{type: "command", command: "echo mine"}]' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
-printf '["/repo"]\n' >"$claude/b-agentic/codex-approved-repos.json"
-run "$home"; expect_ok "upgrade over the Codex guard"
-[ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the Codex guard script was not removed"
-if settings_has_old_hook "$home" b-codex-guard.mjs; then fail "settings still run the Codex guard"; fi
-[ "$(jq -c '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command]' "$claude/settings.json")" = '["echo mine"]' ] || fail "the user's Bash hook was lost: $(cat "$claude/settings.json")"
-[ "$(cat "$claude/b-agentic/codex-approved-repos.json")" = '["/repo"]' ] || fail "the user's approval store was touched"
-grep -Fq 'no longer read' <<<"$out" || fail "no note about the leftover approval file: $out"
-if grep -Fq 'no longer ships' <<<"$err"; then fail "a clean retirement must not warn: $err"; fi
-before=$(tree "$home")
-run "$home"; expect_ok "second upgrade after the Codex guard retirement"
-[ "$before" = "$(tree "$home")" ] || fail "a re-run after retiring the Codex guard changed files"
-run "$home" --uninstall; expect_ok "uninstall after the Codex guard retirement"
-[ -f "$claude/b-agentic/codex-approved-repos.json" ] || fail "uninstall removed the user's approval store"
-echo "install probe passed: guard-retire"
 
 # --- identical unmanaged kernel content is not ownership -------------------------------------------
 home=$(fresh_home kernel-source)

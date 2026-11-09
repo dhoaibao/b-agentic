@@ -8,7 +8,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-003](ADR-003-subagent-review-gate.md) for the subagent review gate,
 [ADR-004](ADR-004-codex-runtime.md) for the superseded Codex runtime, and
 [ADR-005](ADR-005-opencode-restored.md) for restoring OpenCode and removing Codex,
-and [ADR-006](ADR-006-retire-clickup-integration.md) for retiring ClickUp support.
+[ADR-006](ADR-006-retire-clickup-integration.md) for retiring ClickUp support, and
+[ADR-007](ADR-007-codex-first-review-gate.md) for the Codex-first review gate with the subagent fallback.
 
 ## Naming
 

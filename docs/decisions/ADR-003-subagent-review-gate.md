@@ -4,6 +4,10 @@
 - Date: 2026-11-04
 - Supersedes: ADR-001 (the Codex review-gate passages in Context and under "Workflow and skill design", "Safety and approval design", and "Verification and change discipline") and ADR-002 (the Codex gate on OpenCode)
 
+Superseded in part by [ADR-007](ADR-007-codex-first-review-gate.md): Claude Code runs
+Codex first again and keeps `b-reviewer` as the fallback. This ADR still governs
+`b-reviewer` and OpenCode's gate.
+
 ## Context
 
 ADR-001 moved the independent changed-code gate from a cross-vendor Pi

@@ -127,12 +127,12 @@
       "id": "review-freezes-candidate",
       "skill": "b-review",
       "observed_failure": "Review covered a moving candidate or made corrections itself.",
-      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), delegates the review to the named read-only b-reviewer subagent with the baseline, acceptance, check results, candidate paths, F0, and relevant ignored paths, recomputes the fingerprint (F1) after it returns, and corrections get fresh verification and a new review.",
+      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), runs the Codex gate through the b-codex-review wrapper on Claude Code (the named read-only b-reviewer subagent on OpenCode), recomputes the fingerprint (F1) after it returns, and corrections get fresh verification and a new review.",
       "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant untracked generated file. Describe the review handoff, how its identity is checked, and what happens after NEEDS FIXES.",
       "must": [
         "Freeze and fingerprint the exact tracked and relevant untracked candidate as F0",
-        "Delegate to the named `b-reviewer` subagent type, never a forked context, passing the baseline, acceptance, check results, candidate paths, F0, and relevant ignored paths but not the implementer's rationale",
-        "Recompute the fingerprint as F1 after the reviewer returns, and void the review when it differs from F0",
+        "Run the secret and approval preflight, then the b-codex-review wrapper as a background command with a focus file carrying the acceptance, check results, and candidate paths but not the implementer's rationale",
+        "Recompute the fingerprint as F1 after the wrapper returns, and void the review when it differs from F0 or the wrapper reports unchanged:false",
         "Do not edit while review runs",
         "Fresh verification and a fresh review round with prior findings after corrections"
       ],
@@ -449,13 +449,48 @@
       ]
     },
     {
+      "id": "codex-unavailable-falls-back",
+      "skill": "b-review",
+      "observed_failure": "A required gate was unavailable (usage limit, signed out, missing plugin) so the change shipped without independent review, or the main session reviewed it itself.",
+      "intended_behavior": "On Claude Code the b-codex-review wrapper exits 4 when Codex is unavailable; the main session says so in one line and runs the b-reviewer subagent with the same baseline, round, and F0.",
+      "prompt": "On Claude Code, b-review runs the b-codex-review wrapper for a frozen candidate and it exits 4 with status unavailable because Codex hit its usage limit. Describe what main does next.",
+      "must": [
+        "Tell the user in one line that Codex was unavailable and why",
+        "Run the named `b-reviewer` subagent type with the same baseline, round number, acceptance, check results, candidate paths, and F0",
+        "Recompute the fingerprint as F1 after the reviewer returns"
+      ],
+      "avoid": [
+        "Review the diff with main-session tools instead",
+        "Retry Codex in a loop",
+        "Issue a verdict without a reviewer result"
+      ]
+    },
+    {
+      "id": "codex-refusal-does-not-fall-back",
+      "skill": "b-review",
+      "observed_failure": "A refusal (likely-secret path, missing approval) or void Codex run was silently routed to another reviewer, bypassing the protection that stopped it.",
+      "intended_behavior": "A refused or void Codex gate (wrapper exit 2 or 3) is not a verdict and never falls back on its own; main reports the reason and lets the user choose between rerunning and the b-reviewer subagent.",
+      "prompt": "On Claude Code, the b-codex-review preflight refuses because a tracked .env file is a likely secret. Describe what main does next.",
+      "must": [
+        "Report the refusal reasons without issuing a verdict",
+        "Ask the user whether to use the b-reviewer subagent instead, after the secret is dealt with or accepted as a coverage gap",
+        "Never move or delete the secret file to pass the guard without asking"
+      ],
+      "avoid": [
+        "Silently start the b-reviewer subagent",
+        "Send the repository to Codex anyway",
+        "Approve the repository on the user's behalf"
+      ]
+    },
+    {
       "id": "main-session-no-self-review",
       "skill": "b-review",
       "observed_failure": "The main session reviewed its own candidate and presented that as the independent gate, or kept editing while the review ran.",
-      "intended_behavior": "b-review runs only in the b-reviewer subagent and the main session never replaces it with a self-review: when the reviewer is unavailable, fails, or returns no verdict it reports the gap and asks.",
-      "prompt": "A user asks for a quick review of a small diff, but the b-reviewer agent profile is missing. Describe how the main session proceeds once b-review is selected.",
+      "intended_behavior": "The main session never replaces the independent gate with a self-review: when Codex is unavailable it falls back to the b-reviewer subagent, and when that is also unavailable, fails, or returns no verdict it reports the gap and asks.",
+      "prompt": "A user asks for a quick review of a small diff, the Codex plugin is not installed, and the b-reviewer agent profile is missing. Describe how the main session proceeds once b-review is selected.",
       "must": [
         "Freeze the candidate and gather the review handoff evidence",
+        "Treat the missing Codex plugin (wrapper exit 4) as the trigger for the b-reviewer fallback",
         "Report the unavailable reviewer as a gap and ask the user",
         "Do not issue a verdict without a valid reviewer result"
       ],

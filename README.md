@@ -1,13 +1,15 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code and OpenCode, with a read-only subagent as the independent reviewer.**
+**A slim personal workflow kernel for Claude Code and OpenCode, with Codex (or a read-only subagent) as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration, for
-Claude Code and OpenCode side by side. Changed-code review runs in the read-only
-`b-reviewer` subagent.
+Claude Code and OpenCode side by side. On Claude Code, changed-code review runs
+through Codex (`openai/codex-plugin-cc`) and falls back to the read-only
+`b-reviewer` subagent when Codex is unavailable; OpenCode always uses the
+subagent.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) and [OpenCode layout](opencode/configs/README.md) — managed paths and ownership boundaries.
@@ -49,11 +51,15 @@ decisions, verification, and mutations. It delegates bounded planning,
 research, diagnosis, repository audits, and changed-code review to read-only
 subagents. A change that touches security, permissions, contracts,
 configuration, or workflow policy is frozen as a fingerprinted candidate and
-reviewed by the `b-reviewer` subagent in a fresh context; the main session
-recomputes the fingerprint afterward and voids the review if the candidate
-moved. The reviewer is read-only by its tool list and prompt, not a sandbox.
-Independence comes from its fresh context and role, not necessarily a different
-model family; OpenCode uses OpenAI models for its specialists.
+reviewed independently; the main session recomputes the fingerprint afterward
+and voids the review if the candidate moved. On Claude Code that reviewer is
+Codex, a different model family, run through a wrapper that checks for secrets
+and a per-repository approval before anything is sent to OpenAI. If Codex is
+unavailable (plugin missing, signed out, usage limit), the `b-reviewer` subagent
+reviews instead, in a fresh context. It is read-only by its tool list and prompt,
+not a sandbox, and its independence comes from that context and role, not
+necessarily a different model family; OpenCode uses OpenAI models for its
+specialists and always uses the subagent.
 
 ## Skills
 

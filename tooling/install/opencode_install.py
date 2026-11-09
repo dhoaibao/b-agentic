@@ -65,6 +65,7 @@ MANIFEST_SCHEMA = 1
 MANAGED_ROOTS = ("skills", "agents", "plugins", "b-agentic")
 LEGACY_KERNEL_MARKER = "<!-- b-agentic-managed -->"
 PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "opencode")
+CLAUDE_ONLY_SCRIPTS = frozenset({"b-codex-guard.mjs", "b-codex-review.mjs", "b-codex-verdict.mjs"})
 ENV_DIR_OVERRIDES = ("XDG_CONFIG_HOME", "OPENCODE_CONFIG_DIR", "B_AGENTIC_OPENCODE_DIR")
 
 
@@ -333,9 +334,12 @@ class Installer:
         for path in sorted((self.source / "opencode" / "agents").glob("b-*.md")):
             files[f"agents/{path.name}"] = path.read_bytes()
         files["plugins/b-agentic.js"] = (self.source / "opencode" / "plugins" / "b-agentic.js").read_bytes()
-        # The hooks and CLIs are runtime-neutral Node scripts shared with the Claude Code install.
+        # The hooks and CLIs are runtime-neutral Node scripts shared with the Claude Code install,
+        # except the Codex review gate: OpenCode's gate is the b-reviewer subagent alone.
         for folder in ("bin", "hooks"):
             for path in sorted((self.source / "claude" / folder).glob("*.mjs")):
+                if path.name in CLAUDE_ONLY_SCRIPTS:
+                    continue
                 files[f"b-agentic/{folder}/{path.name}"] = path.read_bytes()
         for name in ("capabilities.yaml", "mcp_operations.yaml"):
             files[f"b-agentic/references/{name}"] = (self.source / "opencode" / "references" / name).read_bytes()

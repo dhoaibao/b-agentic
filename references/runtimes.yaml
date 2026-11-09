@@ -78,6 +78,10 @@
         [
           "`general-purpose`",
           "`general`"
+        ],
+        [
+          "a harness background command (`run_in_background`)",
+          "a background shell command (`background: true`)"
         ]
       ],
       "arguments_placeholder": "the user's request",

@@ -353,6 +353,17 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
             if not isinstance(execution, dict) or execution.get("mode") != "subagent":
                 errors.append(f"{label}.handoff: only subagent skills may define a handoff")
             non_empty_string_list(handoff, f"{label}.handoff", errors)
+        gate = skill.get("primary_gate")
+        if gate is not None:
+            if not isinstance(execution, dict) or execution.get("mode") != "subagent":
+                errors.append(f"{label}.primary_gate: only subagent skills may define a primary gate")
+            if not isinstance(gate, dict) or set(gate) != {"runtime", "label", "note"}:
+                errors.append(f"{label}.primary_gate: expected runtime, label, and note")
+            else:
+                if gate["runtime"] not in RUNTIMES:
+                    errors.append(f"{label}.primary_gate.runtime: expected one of {sorted(RUNTIMES)}")
+                ensure_string(gate["label"], f"{label}.primary_gate.label", errors)
+                ensure_string(gate["note"], f"{label}.primary_gate.note", errors)
         phase = ensure_string(skill.get("phase"), f"{label}.phase", errors)
         if phase and phase not in PHASES:
             errors.append(f"{label}.phase: expected {sorted(PHASES)}")
@@ -599,6 +610,11 @@ def validate_capabilities(contract: dict[str, Any], policy: dict[str, Any]) -> l
         for field in ("purpose", "owner", "trigger", "readiness", "fallback"):
             ensure_string(capability.get(field), f"{label}.{field}", errors)
         non_empty_string_list(capability.get("prerequisites"), f"{label}.prerequisites", errors)
+        runtimes = capability.get("runtimes")
+        if runtimes is not None and (
+            not isinstance(runtimes, list) or not runtimes or not set(runtimes) <= set(RUNTIMES)
+        ):
+            errors.append(f"{label}.runtimes: expected a non-empty subset of {sorted(RUNTIMES)}")
         signal = capability.get("status_signal")
         if not isinstance(signal, dict) or signal.get("sensitive") is not False:
             errors.append(f"{label}.status_signal: must be a non-sensitive object")
@@ -669,6 +685,29 @@ def render_mcp_operations_table(policy: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def primary_gate(skill: dict[str, Any], runtime: str) -> dict[str, Any] | None:
+    """The gate a delegated skill tries first on this runtime, with its subagent as the fallback."""
+    gate = skill.get("primary_gate")
+    return gate if gate and gate["runtime"] == runtime else None
+
+
+RUNTIME_BLOCK = re.compile(r"<!-- runtime:([a-z]+) -->\n(.*?)<!-- /runtime -->(?:\n|$)", re.DOTALL)
+
+
+def select_runtime_blocks(body: str, runtime: str) -> str:
+    """Keep the `<!-- runtime:X -->` blocks written for this runtime and drop the others."""
+
+    def pick(match: re.Match[str]) -> str:
+        if match[1] not in RUNTIMES:
+            raise SystemExit(f"runtime block names an unknown runtime {match[1]!r}; expected one of {sorted(RUNTIMES)}")
+        return match[2] if match[1] == runtime else ""
+
+    selected = RUNTIME_BLOCK.sub(pick, body)
+    if "<!-- runtime" in selected or "<!-- /runtime" in selected:
+        raise SystemExit("an unbalanced or malformed `<!-- runtime:NAME -->` block marker is left in a skill prompt")
+    return selected
+
+
 def render_delegation(skills: list[dict[str, Any]], runtime: str = "claude") -> str:
     delegated = [skill for skill in skills if skill["execution"]["mode"] == "subagent"]
     lines = [
@@ -676,6 +715,7 @@ def render_delegation(skills: list[dict[str, Any]], runtime: str = "claude") -> 
         f"{RUNTIMES[runtime]['delegation_unavailable']} Skill -> agent:",
     ]
     lines.extend(f"  - `{skill['name']}` -> `{skill['execution']['agent']}`." for skill in delegated)
+    lines.extend(f"  - {gate['note']}" for gate in (primary_gate(skill, runtime) for skill in delegated) if gate)
     lines.append("- All other skills run in the main session.")
     return "\n".join(lines)
 
@@ -689,13 +729,20 @@ def render_delegation_boundary(skill: dict[str, Any], runtime: str = "claude") -
     config = RUNTIMES[runtime]
     editing = ", ".join(f"`{tool}`" for tool in config["editing_tools"])
     check = config["profile_check"].format(agent=agent, editing=editing, name=name)
+    gate = primary_gate(skill, runtime)
+    if gate:
+        intro = f"`{name}` runs the {gate['label']} gate first, from the main session as the Steps direct; only when that gate is unavailable does it run in the `{agent}` subagent."
+        main_line = f"- Main session: reading this file prepares both paths. The {gate['label']} gate is not your own review, and the Steps say when it counts as unavailable. Only then gather the parent-owned evidence below and {check}. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action."
+    else:
+        intro = f"`{name}` runs only in the `{agent}` subagent."
+        main_line = f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and {check}. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action."
     lines = [
         DELEGATION_BOUNDARY_HEADING,
         "",
-        f"`{name}` runs only in the `{agent}` subagent.",
+        intro,
         "",
-        f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and {check}. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.",
-        f"- `{agent}` child: execute the steps below read-only, return this skill's Output format to the main session, and do not delegate again.",
+        main_line,
+        f"- `{agent}` child: execute the {'reviewer steps below only (never the ' + gate['label'] + ' gate)' if gate else 'steps below'} read-only, return this skill's Output format to the main session, and do not delegate again.",
     ]
     handoff = skill.get("handoff", [])
     if handoff:
@@ -731,16 +778,21 @@ def render_skill_file(skill: dict[str, Any], runtime: str = "claude") -> str:
     if triggers:
         description += f" Routing signals: {', '.join(triggers)}."
     body = (ROOT / "skills" / name / "prompt.md").read_text().rstrip()
-    body = body.replace("{{skill_support_path}}", "<skill-dir>")
+    body = select_runtime_blocks(body.replace("{{skill_support_path}}", "<skill-dir>"), runtime)
     execution = skill["execution"]
     if execution["mode"] == "subagent":
         head, sep, rest = body.partition("\n## ")
         if not sep:
             raise SystemExit(f"skills/{name}/prompt.md: expected a '## ' section to place the delegation boundary")
         body = f"{head}\n{render_delegation_boundary(skill, runtime)}\n\n## {rest}"
-        description += (
-            f" Delegated: runs only in the `{execution['agent']}` subagent; the main session never executes it itself."
-        )
+        gate = primary_gate(skill, runtime)
+        if gate:
+            description += (
+                f" Runs the {gate['label']} gate first from the main session and, only when it is unavailable,"
+                f" delegates to the `{execution['agent']}` subagent; the main session never executes the review itself."
+            )
+        else:
+            description += f" Delegated: runs only in the `{execution['agent']}` subagent; the main session never executes it itself."
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))
     # OpenCode skills are not slash commands, so a hint for typed arguments has no meaning there.
@@ -836,6 +888,10 @@ def render_hooks() -> dict[str, Any]:
             {
                 "matcher": "Read|Edit|Write|NotebookEdit|Grep|Glob",
                 "hooks": [{"type": "command", "command": hook_command("b-path-guard.mjs"), "onFailure": "block"}],
+            },
+            {
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": hook_command("b-codex-guard.mjs")}],
             },
         ],
         "PostToolUse": [
@@ -1074,9 +1130,12 @@ def render_opencode_references(policy: dict[str, Any]) -> dict[Path, str]:
             meta["notes"] = "Requires approval on every call; main session only."
     capabilities = json.loads(localize(json.dumps(load_capabilities()), "opencode"))
     capabilities["description"] = capabilities["description"].replace("Claude Code", "OpenCode")
+    # A capability pinned to Claude Code (the Codex review plugin) is not advertised on OpenCode.
+    capabilities["capabilities"] = [
+        item for item in capabilities["capabilities"] if "opencode" in item.get("runtimes", ["claude", "opencode"])
+    ]
     for capability in capabilities["capabilities"]:
-        # A plugin capability is installed through Claude Code and keeps its Claude Code wording;
-        # none ships today, but the kind stays supported.
+        # A plugin capability is installed through Claude Code and keeps its Claude Code wording.
         if capability["kind"] != "plugin":
             for key in ("purpose", "readiness", "fallback"):
                 capability[key] = capability[key].replace("Claude Code", "OpenCode")
@@ -1183,6 +1242,14 @@ def validate_regressions(
         "handoff: expected a non-empty string array" in error for error in validate_skills(invalid_handoff, agents)
     ):
         errors.append("skill regression: empty handoff must fail")
+    for bad in ("<!-- runtime:claud -->\nx\n<!-- /runtime -->\n", "<!-- runtime:claude -->\nx\n"):
+        try:
+            select_runtime_blocks(bad, "claude")
+        except SystemExit:
+            continue
+        errors.append("skill regression: a misspelled or unbalanced runtime block must fail")
+    if select_runtime_blocks("a\n<!-- runtime:claude -->\nx\n<!-- /runtime -->", "claude") != "a\nx\n":
+        errors.append("skill regression: a runtime block at the end of a prompt must still be selected")
     for skill in skills:
         if skill.get("handoff"):
             rendered = render_skill_file(skill)
@@ -1199,8 +1266,11 @@ def validate_regressions(
         has_boundary = f"\n{DELEGATION_BOUNDARY_HEADING}\n" in rendered
         if skill["execution"]["mode"] == "subagent":
             agent_name = skill["execution"]["agent"]
+            gate = primary_gate(skill, "claude")
             required = (
-                f"`{skill['name']}` runs only in the `{agent_name}` subagent.",
+                f"`{skill['name']}` runs the {gate['label']} gate first, from the main session as the Steps direct;"
+                if gate
+                else f"`{skill['name']}` runs only in the `{agent_name}` subagent.",
                 "even for a quick, small, or single-lookup request",
                 "never fall back to self-execution",
                 "$ARGUMENTS",

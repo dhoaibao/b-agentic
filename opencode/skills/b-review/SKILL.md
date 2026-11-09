@@ -19,7 +19,8 @@ metadata:
 
 # b-review
 
-Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first. This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
+Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first.
+This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
 
 ## Delegation boundary
 
@@ -51,7 +52,8 @@ User arguments for the bounded task: the user's request
 
 ## Tool guidance
 
-- Use the handoff's baseline, acceptance, check results, candidate paths, and F0. Verify the candidate yourself with native `Read` and `Grep` (or `rg` where `Grep` is absent) and read-only shell commands such as `git diff`, `git status`, and `git show`; never run a mutating command, generator, or fixer. Use `node ~/.config/opencode/b-agentic/bin/b-candidate-snapshot.mjs` for the candidate identity. In an indexed project, use `codegraph_explore` (read-only) on changed symbols to find callers or tests the candidate did not update. Bounded read-only research may substantiate a specific finding only.
+- Reviewer (`b-reviewer`): use the handoff's baseline, acceptance, check results, candidate paths, and F0. Verify the candidate yourself with native `Read` and `Grep` (or `rg` where `Grep` is absent) and read-only shell commands such as `git diff`, `git status`, and `git show`; never run a mutating command, generator, or fixer. Use `node ~/.config/opencode/b-agentic/bin/b-candidate-snapshot.mjs` for the candidate identity.
+- In an indexed project, use `codegraph_explore` (read-only) on changed symbols to find callers or tests the candidate did not update. Bounded read-only research may substantiate a specific finding only.
 - Main session: always call this skill with the named `b-reviewer` subagent type, never a forked context, and pass only the evidence listed above, never the implementer's rationale or a verdict to confirm. Never replace the independent review with a self-review. If the reviewer is unavailable, fails, or returns no verdict, report the gap and ask the user.
 
 ## Steps
