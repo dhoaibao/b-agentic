@@ -5,6 +5,8 @@
 #   ./install.sh [--runtime=claude|opencode|both] [--dry-run] [--force] [-y]
 #                                                         install or sync from this checkout
 #   ./install.sh --runtime=opencode --migrate-legacy      also remove the retired OpenCode install
+#   ./install.sh --with=tablepro,drawio                   install optional components (datagrip, tablepro,
+#                                                         excalidraw, drawio); --without=ID removes them
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
@@ -15,6 +17,9 @@
 # runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code, the default runtime)
 # and ~/.config/opencode (OpenCode) are the only supported locations, and each runtime's install
 # and uninstall leave the other untouched.
+# Optional components are never installed without a choice: a terminal shows a checkbox list (nothing
+# checked on a fresh install; installed ones are pre-checked), while -y, --dry-run, or no terminal keeps
+# the recorded choice and otherwise installs none. --with/--without are additive and repeatable.
 # On a terminal both runtime installers show a step timeline and ask before writing (via /dev/tty,
 # so it works when piped); -y/--yes, --dry-run, --uninstall, or no terminal keeps the plain output.
 
@@ -53,6 +58,9 @@ while [ "$#" -gt 0 ]; do
     --force) PASSTHROUGH+=("$1") ;;
     --runtime=*) RUNTIME="${1#--runtime=}" ;;
     --migrate-legacy) MIGRATE_LEGACY=1 ;;
+    --with=*|--without=*)
+      [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
+      PASSTHROUGH+=("$1") ;;
     --ref=*) REF="${1#--ref=}"; [ -n "$REF" ] || die 'invalid empty --ref' ;;
     *) die "unknown argument: $1" ;;
   esac

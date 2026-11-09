@@ -8,8 +8,8 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | Source | Installed path (default `~/.claude`) | Owner |
 | --- | --- | --- |
 | `settings.template.json` | `settings.json` | Claude Code; only missing `permissions.allow/ask/deny` rules and hook commands are added, each recorded in the manifest; `statusLine` is set only when none is configured (or it is still the recorded one), so your own status line is kept and reported |
-| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; ten servers, no stored credentials (`${VAR}` references) |
-| none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules |
+| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; ten servers, no stored credentials (`${VAR}` references); `tablepro`, `excalidraw`, and `drawio` install only when selected (`--with=ID` or the installer checkbox) |
+| none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules; the read-only `allow` rules install only when the optional `datagrip` component is selected, while the `ask` rules always ship |
 | `agents/b-*.md` | `agents/b-*.md` | Five generated read-only specialist profiles (tool allowlists, no editing tools), including `b-reviewer` |
 | `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-verify-gate` |
 | `../bin/*.mjs` | `b-agentic/bin/` | `b-candidate-snapshot` (the candidate fingerprint used by the review gate), `b-statusline` (the status line: model and effort, repo and branch, context, session cost, cache hit ratio, 5-hour and weekly limits; read-only) |

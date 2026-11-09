@@ -15,6 +15,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 SKILL_REGISTRY_PATH = ROOT / "skills" / "registry.yaml"
 KERNEL_TEMPLATE_PATH = ROOT / "references" / "kernel.template.md"
+OPENCODE_KERNEL_PATH = ROOT / "opencode" / "configs" / "kernel.md"
 MCP_OPERATIONS_PATH = ROOT / "references" / "mcp_operations.yaml"
 CAPABILITIES_PATH = ROOT / "references" / "capabilities.yaml"
 RUNTIMES_PATH = ROOT / "references" / "runtimes.yaml"
@@ -480,6 +481,51 @@ def validate_snapshot_cli() -> list[str]:
     return errors
 
 
+def validate_optional_components(skills: list[dict[str, Any]], policy: dict[str, Any]) -> list[str]:
+    """Optional components name real main-session skills and policy servers, never overlap, and can be
+    filtered out of both kernels (exactly one routing line per skill)."""
+    sys.path.insert(0, str(ROOT / "tooling" / "install"))
+    try:
+        import optional_components
+    finally:
+        sys.path.pop(0)
+    try:
+        components = optional_components.load(ROOT)
+    except ValueError as exc:
+        return [str(exc)]
+    errors: list[str] = []
+    by_name = {skill.get("name"): skill for skill in skills if isinstance(skill, dict)}
+    servers = policy.get("servers", {})
+    seen_skills: dict[str, str] = {}
+    seen_servers: dict[str, str] = {}
+    for key, component in components.items():
+        label = f"optional_components.{key}"
+        if not component.get("skills") and not component.get("mcp_servers"):
+            errors.append(f"{label}: expected at least one skill or MCP server")
+        for name in component.get("skills", []):
+            skill = by_name.get(name)
+            if skill is None:
+                errors.append(f"{label}: unknown skill {name!r}")
+            elif skill.get("execution", {}).get("mode") != "main":
+                errors.append(f"{label}: {name} must run in the main session (a delegated skill needs its agent)")
+            if name in seen_skills:
+                errors.append(f"{label}: skill {name} is also in optional_components.{seen_skills[name]}")
+            seen_skills[name] = key
+        for name in component.get("mcp_servers", []):
+            if name not in servers:
+                errors.append(f"{label}: MCP server {name!r} is not in the MCP operations policy")
+            if name in seen_servers:
+                errors.append(f"{label}: server {name} is also in optional_components.{seen_servers[name]}")
+            seen_servers[name] = key
+    for path in (KERNEL_TEMPLATE_PATH, OPENCODE_KERNEL_PATH):
+        for key, component in components.items():
+            try:
+                optional_components.filter_kernel(path.read_text(), set(component.get("skills", [])))
+            except (OSError, ValueError) as exc:
+                errors.append(f"optional_components.{key}: {path.relative_to(ROOT)}: {exc}")
+    return errors
+
+
 def validate_policy(policy: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if policy.get("schema_version") != 1:
@@ -597,8 +643,18 @@ def validate_capabilities(contract: dict[str, Any], policy: dict[str, Any]) -> l
 
 
 def render_readme_skills_table(skills: list[dict[str, Any]]) -> str:
+    optional = {
+        name: component_id
+        for component_id, component in load_registry().get("optional_components", {}).items()
+        for name in component.get("skills", [])
+    }
+
+    def use(skill: dict[str, Any]) -> str:
+        component_id = optional.get(skill["name"])
+        return skill["use"] if component_id is None else f"{skill['use']} (optional: `--with={component_id}`)"
+
     rows = ["| Skill | Phase | Use |", "|---|---|---|"]
-    rows.extend(f"| `{skill['name']}` | {skill['phase']} | {skill['use']} |" for skill in skills)
+    rows.extend(f"| `{skill['name']}` | {skill['phase']} | {use(skill)} |" for skill in skills)
     return "\n".join(rows)
 
 
@@ -1598,6 +1654,7 @@ def sync_outputs(check: bool) -> int:
         *validate_skills(skills, agents),
         *validate_policy(policy),
         *validate_agent_tools(agents, policy),
+        *validate_optional_components(skills, policy),
         *validate_capabilities(capabilities, policy),
         *validate_snapshot_cli(),
         *validate_runtimes(),

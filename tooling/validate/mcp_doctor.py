@@ -25,7 +25,50 @@ SERVERS = (
     "datagrip",
     "tablepro",
 )
-OPTIONAL_SERVERS = {"datagrip"}
+
+
+def optional_servers() -> set[str]:
+    """Servers a user may leave uninstalled: DataGrip (user-managed) and every optional component's."""
+    names = {"datagrip"}
+    try:
+        registry = json.loads((Path(__file__).resolve().parents[2] / "skills" / "registry.yaml").read_text())
+    except (OSError, json.JSONDecodeError):
+        return names
+    for component in registry.get("optional_components", {}).values():
+        names.update(name for name in component.get("mcp_servers", []) if isinstance(name, str))
+    return names
+
+
+def deselected_servers(runtime: str, home: str | None) -> set[str] | None:
+    """Servers of components the install manifest records as not selected; None when no choice is recorded."""
+    if runtime == "opencode":
+        explicit = os.environ.get("B_AGENTIC_OPENCODE_DIR")
+        base = (
+            Path(explicit).expanduser()
+            if explicit
+            else (Path(home).expanduser() if home else Path.home()) / ".config" / "opencode"
+        )
+    else:
+        explicit = os.environ.get("B_AGENTIC_CLAUDE_DIR") or os.environ.get("CLAUDE_CONFIG_DIR")
+        base = (
+            Path(explicit).expanduser() if explicit else (Path(home).expanduser() if home else Path.home()) / ".claude"
+        )
+    try:
+        recorded = json.loads((base / "b-agentic" / "install.json").read_text()).get("optional_components")
+        registry = json.loads((Path(__file__).resolve().parents[2] / "skills" / "registry.yaml").read_text())
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return None
+    if not isinstance(recorded, dict):
+        return None
+    return {
+        name
+        for key, component in registry.get("optional_components", {}).items()
+        if not recorded.get(key)
+        for name in component.get("mcp_servers", [])
+        if isinstance(name, str)
+    }
+
+
 CREDENTIALS = {
     "context7": ("CONTEXT7_API_KEY",),
     "brave_search": ("BRAVE_API_KEY",),
@@ -54,9 +97,9 @@ def opencode_path(home: str | None, config: str | None) -> Path:
     return (Path(home).expanduser() if home else Path.home()) / ".config" / "opencode" / "opencode.json"
 
 
-def status(server: str, entry: object) -> str:
+def status(server: str, entry: object, optional: set[str]) -> str:
     if not isinstance(entry, dict):
-        return "not installed: optional" if server in OPTIONAL_SERVERS else "missing: config entry not installed"
+        return "not installed: optional" if server in optional else "missing: config entry not installed"
     if entry.get("disabled") is True:
         return "blocked: server disabled in config"
     missing = [name for name in CREDENTIALS.get(server, ()) if name not in os.environ]
@@ -108,8 +151,10 @@ def main() -> int:
     cli = "opencode" if opencode else "claude"
     blocked = shutil.which(cli) is None
     print(f"{cli}: " + ("configured: CLI found" if not blocked else f"blocked: {label} CLI not found"))
+    deselected = deselected_servers(args.runtime, args.home)
+    optional = {"datagrip"} | (optional_servers() if deselected is None else deselected)
     for server in SERVERS:
-        detail = status(server, servers.get(server))
+        detail = status(server, servers.get(server), optional)
         print(f"{server}: {detail}")
         blocked = blocked or detail.startswith(("blocked:", "missing:"))
     return 0 if args.allow_degraded or not blocked else 1

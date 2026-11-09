@@ -59,7 +59,8 @@ expect_ok() { [ "$rc" = 0 ] || fail "$1 (exit $rc: $err $out)"; }
 expect_refused() { [ "$rc" = 1 ] || fail "$1 (exit $rc, expected 1: $err $out)"; }
 
 pi_before=""
-skills_expected=$(jq -r '.skills | length' "$root/skills/registry.yaml")
+# Optional components are never part of a default install: skills and servers they own are excluded.
+skills_expected=$(jq -r '(.skills | length) - ([.optional_components[].skills[]] | length)' "$root/skills/registry.yaml")
 
 # --- fresh install -------------------------------------------------------------
 home=$(fresh_home fresh)
@@ -87,9 +88,17 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"
 [ ! -e "$claude/b-agentic/hooks/b-codex-guard.mjs" ] || fail "the retired Codex guard must not be installed"
 if grep -Fq 'codex-guard' "$claude/settings.json"; then fail "settings must not name the retired Codex guard"; fi
-[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 10 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
-# shellcheck disable=SC2016 # The placeholder must remain literal in the installed configuration.
-[ "$(jq -r '.mcpServers.tablepro.headers.Authorization' "$home/.claude.json")" = 'Bearer ${TABLEPRO_MCP_TOKEN}' ] || fail "TablePro token must remain an environment reference"
+[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 7 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
+for server in tablepro excalidraw drawio datagrip; do
+  [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$home/.claude.json")" = false ] || fail "optional MCP server $server must not be installed by default"
+done
+if jq -e '[.permissions.allow[]] | map(select(test("^mcp__(datagrip|tablepro|excalidraw|drawio)__"))) | length > 0' "$claude/settings.json" >/dev/null; then fail "optional component allow rules must not be installed by default"; fi
+[ "$(jq -r '.permissions.ask | index("mcp__datagrip__execute_sql_query") != null' "$claude/settings.json")" = true ] || fail "ask rules of optional servers must stay so a configured server still prompts"
+for skill in b-datagrip b-tablepro b-excalidraw b-drawio; do
+  [ ! -e "$claude/skills/$skill" ] || fail "optional skill $skill must not be installed by default"
+  if grep -Fq "\`$skill\`" "$claude/CLAUDE.md"; then fail "the kernel must not route to the uninstalled $skill"; fi
+done
+[ "$(jq -c .optional_components "$claude/b-agentic/install.json")" = '{"datagrip":false,"tablepro":false,"excalidraw":false,"drawio":false}' ] || fail "default selection must be recorded as all off"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must not be installed"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
 grep -Fq 'b-reviewer subagent' <<<"$out" || fail "review gate guidance not printed"
@@ -974,6 +983,91 @@ out=$(cat "$root/install.sh" | env -u CLAUDE_CONFIG_DIR HOME="$home" B_AGENTIC_R
 [ "$pi_before" = "$(tree "$home/.pi")" ] || fail "a refused update touched the Pi tree"
 echo "install probe passed: bootstrap-git"
 
+
+# --- optional components: flags, persistence, removal, legacy inference ------------------------------------
+opt_state() { jq -c '.optional_components' "$1/.claude/b-agentic/install.json"; }
+# opt_present <home> <id>: skill, routing line, rules, and server of one component are all installed.
+opt_present() {
+  local dir="$1/.claude" skill server
+  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0]' "$root/skills/registry.yaml")
+  server=$(jq -r --arg i "$2" '.optional_components[$i].mcp_servers[0]' "$root/skills/registry.yaml")
+  [ -f "$dir/skills/$skill/SKILL.md" ] && grep -Fq "\`$skill\`" "$dir/CLAUDE.md" \
+    && { ! jq -e --arg s "$server" '.mcpServers | has($s)' "$root/claude/configs/mcp.base.json" >/dev/null \
+         || [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$1/.claude.json")" = true ]; } \
+    && jq -e --arg p "mcp__${server}__" '[.permissions.allow[] | select(startswith($p))] | length > 0' "$dir/settings.json" >/dev/null
+}
+# opt_absent <home> <id>: none of the four is installed.
+opt_absent() {
+  local dir="$1/.claude" skill server
+  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0]' "$root/skills/registry.yaml")
+  server=$(jq -r --arg i "$2" '.optional_components[$i].mcp_servers[0]' "$root/skills/registry.yaml")
+  [ ! -e "$dir/skills/$skill" ] && ! grep -Fq "\`$skill\`" "$dir/CLAUDE.md" \
+    && [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$1/.claude.json")" = false ] \
+    && ! jq -e --arg p "mcp__${server}__" '[.permissions.allow[] | select(startswith($p))] | length > 0' "$dir/settings.json" >/dev/null
+}
+home=$(fresh_home optional)
+run "$home" -y; expect_ok "default install"
+for id in datagrip tablepro excalidraw drawio; do opt_absent "$home" "$id" || fail "$id must be absent by default"; done
+run "$home" -y --with=tablepro,drawio; expect_ok "select two components"
+{ opt_present "$home" tablepro && opt_present "$home" drawio; } || fail "selected components must be installed"
+{ opt_absent "$home" datagrip && opt_absent "$home" excalidraw; } || fail "unselected components must stay absent"
+# shellcheck disable=SC2016 # The placeholder must remain literal in the installed configuration.
+[ "$(jq -r '.mcpServers.tablepro.headers.Authorization' "$home/.claude.json")" = 'Bearer ${TABLEPRO_MCP_TOKEN}' ] || fail "TablePro token must remain an environment reference"
+run "$home" -y; expect_ok "plain re-run keeps the recorded choice"
+{ opt_present "$home" tablepro && opt_present "$home" drawio; } || fail "a plain re-run must not drop components"
+[ "$(opt_state "$home")" = '{"datagrip":false,"tablepro":true,"excalidraw":false,"drawio":true}' ] || fail "selection not persisted"
+before=$(tree "$home")
+run "$home" -y; expect_ok "idempotent re-run"
+[ "$before" = "$(tree "$home")" ] || fail "re-run changed files"
+run "$home" --dry-run --with=datagrip; expect_ok "dry-run"
+[ "$before" = "$(tree "$home")" ] || fail "dry-run changed files"
+run "$home" -y --without=tablepro; expect_ok "deselect tablepro"
+{ opt_absent "$home" tablepro && opt_present "$home" drawio; } || fail "deselecting must remove only that component"
+# A modified skill and an edited server survive deselection (the server with a warning).
+printf 'mine\n' >>"$home/.claude/skills/b-drawio/SKILL.md"
+jq '.mcpServers.drawio.args += ["--mine"]' "$home/.claude.json" >"$work/edited.json"
+cp "$work/edited.json" "$home/.claude.json"
+run "$home" -y --without=drawio; expect_ok "deselect an edited component"
+[ -f "$home/.claude/skills/b-drawio/SKILL.md" ] || fail "an edited skill must be kept"
+[ "$(jq -r '.mcpServers | has("drawio")' "$home/.claude.json")" = true ] || fail "an edited server must be kept"
+grep -Fq "although its optional component is not selected" <<<"$err" || fail "a kept edited server must warn: $err"
+if grep -Fq "\`b-drawio\`" "$home/.claude/CLAUDE.md"; then fail "the routing line must go even when the skill is kept"; fi
+# Invalid combinations refuse without changing anything.
+before=$(tree "$home")
+run "$home" -y --with=nope; expect_refused "unknown id"
+run "$home" -y --with=drawio --without=drawio; expect_refused "same id in both flags"
+run "$home" --uninstall --with=drawio; expect_refused "flag with uninstall"
+[ "$before" = "$(tree "$home")" ] || fail "refusals changed files"
+# A manifest that predates the choice is inferred from what it owns.
+home=$(fresh_home optional-legacy)
+run "$home" -y --with=datagrip,tablepro,excalidraw,drawio; expect_ok "full install"
+jq 'del(.optional_components)' "$home/.claude/b-agentic/install.json" >"$work/legacy-manifest.json"
+cp "$work/legacy-manifest.json" "$home/.claude/b-agentic/install.json"
+run "$home" -y; expect_ok "upgrade a manifest without a recorded choice"
+for id in datagrip tablepro excalidraw drawio; do opt_present "$home" "$id" || fail "$id must be kept for an existing install"; done
+[ "$(opt_state "$home")" = '{"datagrip":true,"tablepro":true,"excalidraw":true,"drawio":true}' ] || fail "inferred selection must be recorded"
+# The doctor accepts a selection that leaves components out, and flags a missing selected one.
+home=$(fresh_home optional-doctor)
+run "$home" -y --with=drawio; expect_ok "doctor install"
+python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "skill doctor must pass for a partial selection: $(cat "$work/doctor.txt")"
+rm -rf "$home/.claude/skills/b-drawio"
+if python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt"; then fail "skill doctor must flag a missing selected skill"; fi
+# The doctors: an unselected server is optional, a selected-but-missing one is not, and a kept modified skill is not "extra".
+home=$(fresh_home optional-doctors)
+run "$home" -y --with=drawio; expect_ok "doctor install"
+mcp=$(python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
+grep -Fq 'tablepro: not installed: optional' <<<"$mcp" || fail "an unselected server must be optional: $mcp"
+jq 'del(.mcpServers.drawio)' "$home/.claude.json" >"$work/no-drawio.json"
+cp "$work/no-drawio.json" "$home/.claude.json"
+mcp=$(python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
+grep -Fq 'drawio: missing:' <<<"$mcp" || fail "a selected but missing server must be reported missing: $mcp"
+home=$(fresh_home optional-kept-skill)
+run "$home" -y --with=drawio; expect_ok "kept-skill install"
+printf 'mine\n' >>"$home/.claude/skills/b-drawio/SKILL.md"
+run "$home" -y --without=drawio; expect_ok "deselect a modified skill"
+python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "a kept modified skill must not fail the doctor: $(cat "$work/doctor.txt")"
+echo "install probe passed: optional-components"
+
 # --- terminal UI: header and confirm on a pty, reading answers from /dev/tty, stdin piped ----------------
 cat >"$work/pty-run.py" <<'PY'
 import os, pty, select, subprocess, sys, time
@@ -1019,13 +1113,13 @@ tui_run() {
   PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
 }
 home=$(fresh_home tui)
-tui_out=$(tui_run "$home" "$piped_install" n)
+tui_out=$(tui_run "$home" "$piped_install" "" n)
 grep -Fq 'Installation Summary' <<<"$tui_out" || fail "TUI summary box missing: $tui_out"
 grep -Fq '┌' <<<"$tui_out" || fail "TUI header missing: $tui_out"
 if grep -Fq '█' <<<"$tui_out"; then fail "the block-letter logo must not be drawn: $tui_out"; fi
 grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "TUI confirm missing: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining the confirm must change nothing"
-tui_out=$(tui_run "$home" "$piped_install" y)
+tui_out=$(tui_run "$home" "$piped_install" "" y)
 grep -Fq 'Installed' <<<"$tui_out" || fail "TUI installed box missing: $tui_out"
 [ -f "$home/.claude/b-agentic/install.json" ] || fail "accepting the confirm must install"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp stays off when declined"
@@ -1037,22 +1131,36 @@ for mode in --dry-run --yes --uninstall; do
 done
 # Declining a piped bootstrap leaves the Claude configuration untouched.
 home=$(fresh_home tui-bootstrap)
-tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n)
+tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" "" n)
 grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "bootstrap confirm missing: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining a bootstrap must leave ~/.claude untouched"
 # A destination alias created while the confirm is open is refused before any write.
 home=$(fresh_home tui-alias)
 # shellcheck disable=SC2016 # expanded by the harness shell, whose HOME is the sandbox
 alias_cmd='!mkdir -p "$HOME/.claude" && ln -s "$HOME/.claude/settings.json" "$HOME/.claude.json"'
-tui_out=$(tui_run "$home" "$piped_install" "$alias_cmd" y)
+tui_out=$(tui_run "$home" "$piped_install" "" "$alias_cmd" y)
 grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] && [ ! -e "$home/.claude/settings.json" ] || fail "a refused alias must leave ~/.claude untouched"
 # The bootstrap's clone/update lines are shown as steps under the header, not printed before it.
 home=$(fresh_home tui-notes)
 for expected in 'Cloning source' 'Updating source'; do
-  tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n)
+  tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" "" n)
   line=$(grep -nF "$expected" <<<"$tui_out" | head -1 | cut -d: -f1)
   header=$(grep -nF '┌' <<<"$tui_out" | head -1 | cut -d: -f1)
   [ -n "$line" ] && [ -n "$header" ] && [ "$header" -lt "$line" ] || fail "'$expected' must appear after the header: $tui_out"
 done
+# The checkbox list: nothing is checked on a fresh install; Space toggles the highlighted item.
+home=$(fresh_home tui-checkbox)
+tui_out=$(tui_run "$home" "$piped_install" " " y)
+grep -Fq 'Enter confirms' <<<"$tui_out" || fail "the checkbox list must be shown: $tui_out"
+grep -Fq '[ ] TablePro' <<<"$tui_out" || fail "unselected components must show an empty box: $tui_out"
+opt_present "$home" datagrip || fail "the toggled component must be installed"
+opt_absent "$home" tablepro || fail "an untouched component must stay absent"
+tui_out=$(tui_run "$home" "$piped_install" "" y)
+opt_present "$home" datagrip || fail "Enter on a re-sync must keep the installed component"
+tui_out=$(tui_run "$home" "$piped_install" " " y)
+opt_absent "$home" datagrip || fail "unchecking an installed component must remove it"
+tui_out=$(tui_run "$home" "$piped_install --with=drawio" y)
+if grep -Fq 'Enter confirms' <<<"$tui_out"; then fail "--with must skip the checkbox: $tui_out"; fi
+opt_present "$home" drawio || fail "--with must install the component"
 echo "install probe passed: tui"

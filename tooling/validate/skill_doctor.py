@@ -6,9 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tooling" / "install"))
+import optional_components  # noqa: E402
+
 KERNEL_BLOCK_START = "<!-- b-agentic:start -->"
 KERNEL_BLOCK_END = "<!-- b-agentic:end -->"
 
@@ -108,7 +112,22 @@ def missing_payload(root: Path, runtime: str = "claude") -> list[str]:
     return missing
 
 
-def stale_assets(root: Path, skills: list[str], runtime: str = "claude") -> list[str]:
+def deselected_skills(root: Path) -> set[str]:
+    """Skills of optional components the install manifest records as not selected (none when unrecorded)."""
+    try:
+        manifest = json.loads((root / "b-agentic" / "install.json").read_text())
+        components = optional_components.load(ROOT)
+    except (OSError, json.JSONDecodeError, ValueError):
+        return set()
+    recorded = manifest.get("optional_components") if isinstance(manifest, dict) else None
+    if not isinstance(recorded, dict):
+        return set()
+    return optional_components.excluded_skills(components, {key: bool(recorded.get(key)) for key in components})
+
+
+def stale_assets(
+    root: Path, skills: list[str], runtime: str = "claude", skipped_skills: set[str] | None = None
+) -> list[str]:
     spec = RUNTIMES[runtime]
     stale = []
     for name in skills:
@@ -128,7 +147,11 @@ def stale_assets(root: Path, skills: list[str], runtime: str = "claude") -> list
     installed_kernel = root / spec["kernel_file"]
     if source_kernel.exists() and installed_kernel.exists():
         block = kernel_block(installed_kernel.read_text())
-        if block is not None and block != source_kernel.read_text().strip("\n"):
+        try:
+            wanted = optional_components.filter_kernel(source_kernel.read_text().strip("\n"), skipped_skills or set())
+        except ValueError:
+            wanted = source_kernel.read_text().strip("\n")
+        if block is not None and block != wanted:
             stale.append("kernel")
     return stale
 
@@ -145,10 +168,11 @@ def main() -> int:
     skills_root = claude_root / "skills"
     kernel = claude_root / RUNTIMES[args.runtime]["kernel_file"]
     kernel_present = kernel.exists() and kernel_block(kernel.read_text()) is not None
-    expected = registry_skill_names()
-    installed = installed_skill_names(skills_root)
+    skipped = deselected_skills(claude_root)
+    expected = [name for name in registry_skill_names() if name not in skipped]
+    installed = [name for name in installed_skill_names(skills_root) if name not in skipped]
     skills = payload_status(installed, expected)
-    stale = stale_assets(claude_root, expected, args.runtime)
+    stale = stale_assets(claude_root, expected, args.runtime, skipped)
     missing = missing_payload(claude_root, args.runtime)
     ready = kernel_present and skills.startswith("ready") and not stale and not missing
 

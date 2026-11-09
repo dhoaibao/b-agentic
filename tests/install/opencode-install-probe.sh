@@ -56,9 +56,11 @@ run_both() {
 expect_ok() { [ "$rc" = 0 ] || fail "$1 (exit $rc: $err $out)"; }
 expect_refused() { [ "$rc" = 1 ] || fail "$1 (exit $rc, expected 1: $err $out)"; }
 
-skills_expected=$(jq -r '.skills | length' "$root/skills/registry.yaml")
-rules_expected=$(jq -r '.permissions | length' "$root/opencode/configs/opencode.template.json")
-servers_expected=$(jq -r '.mcp.servers | length' "$root/opencode/configs/opencode.template.json")
+# Optional components are never part of a default install: skills, rules, and servers they own are excluded.
+skills_expected=$(jq -r '(.skills | length) - ([.optional_components[].skills[]] | length)' "$root/skills/registry.yaml")
+optional_servers=$(jq -c '[.optional_components[].mcp_servers[]]' "$root/skills/registry.yaml")
+rules_expected=$(jq -r --argjson s "$optional_servers" '[.permissions[] | select((.effect == "allow" and (.action as $a | $s | any(. as $n | $a | startswith($n + "_")))) | not)] | length' "$root/opencode/configs/opencode.template.json")
+servers_expected=$(jq -r --argjson s "$optional_servers" '[.mcp.servers | keys[] | select(. as $k | ($s | index($k)) == null)] | length' "$root/opencode/configs/opencode.template.json")
 
 # --- fresh install ---------------------------------------------------------------
 home=$(fresh_home fresh)
@@ -154,14 +156,15 @@ run "$home"; expect_ok "install over user config"
 [ "$(jq -c '.plugins' "$oc/opencode.json")" = '["@scope/their-plugin"]' ] || fail "user plugins changed"
 [ "$(jq -c '.providers' "$oc/opencode.json")" = '{"openai":{}}' ] || fail "user providers changed"
 [ "$(jq -c '.permissions[0]' "$oc/opencode.json")" = '{"action":"read","resource":"*","effect":"allow"}' ] || fail "the user rule must stay first"
-[ "$(jq -c '.permissions[1:]' "$oc/opencode.json")" = "$(jq -c '.permissions' "$root/opencode/configs/opencode.template.json")" ] || fail "the managed rules must be the final block"
+default_rules=$(jq -c --argjson s "$optional_servers" '[.permissions[] | select((.effect == "allow" and (.action as $a | $s | any(. as $n | $a | startswith($n + "_")))) | not)]' "$root/opencode/configs/opencode.template.json")
+[ "$(jq -c '.permissions[1:]' "$oc/opencode.json")" = "$default_rules" ] || fail "the managed rules must be the final block"
 [ "$(jq -r '.mcp.servers.theirs.url' "$oc/opencode.json")" = 'https://example.invalid/mcp' ] || fail "user MCP server changed"
 head -n 3 "$oc/AGENTS.md" | grep -Fq 'My rules' || fail "user AGENTS.md content must stay first"
 printf '{"action":"shell","resource":"echo late","effect":"ask"}' >"$work/late.json"
 jq --slurpfile late "$work/late.json" '.permissions += $late' "$oc/opencode.json" >"$work/late-config.json"
 cp "$work/late-config.json" "$oc/opencode.json"
 run "$home"; expect_ok "reinstall after a user rule was appended"
-[ "$(jq -c '.permissions[-1]' "$oc/opencode.json")" = "$(jq -c '.permissions[-1]' "$root/opencode/configs/opencode.template.json")" ] || fail "the managed block must move back to the end"
+[ "$(jq -c '.permissions[-1]' "$oc/opencode.json")" = "$(jq -c '.[-1]' <<<"$default_rules")" ] || fail "the managed block must move back to the end"
 [ "$(jq '[.permissions[] | select(.resource == "echo late")] | length' "$oc/opencode.json")" = 1 ] || fail "the late user rule must be kept once"
 jq '.mcp.servers.clickup = {"type":"local","command":["legacy"]}' "$oc/opencode.json" >"$work/legacy.json" && mv "$work/legacy.json" "$oc/opencode.json"
 jq '.mcp.servers.clickup = {"type":"local","command":["legacy"]}' "$oc/b-agentic/install.json" >"$work/manifest.json" && mv "$work/manifest.json" "$oc/b-agentic/install.json"
@@ -281,6 +284,86 @@ before=$(tree "$home")
 run "$home"; expect_ok "second upgrade after the Codex guard retirement"
 [ "$before" = "$(tree "$home")" ] || fail "a re-run after retiring the Codex guard changed files"
 echo "opencode install probe passed: guard-retire"
+
+# --- optional components: flags, persistence, removal, legacy inference ------------------------------------
+opt_state() { jq -c '.optional_components' "$1/.config/opencode/b-agentic/install.json"; }
+# opt_present <home> <id>: skill, routing line, rules, and server of one component are all installed.
+opt_present() {
+  local dir="$1/.config/opencode" skill server
+  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0]' "$root/skills/registry.yaml")
+  server=$(jq -r --arg i "$2" '.optional_components[$i].mcp_servers[0]' "$root/skills/registry.yaml")
+  [ -f "$dir/skills/$skill/SKILL.md" ] && grep -Fq "\`$skill\`" "$dir/AGENTS.md" \
+    && { ! jq -e --arg s "$server" '.mcp.servers | has($s)' "$root/opencode/configs/opencode.template.json" >/dev/null \
+         || [ "$(jq -r --arg s "$server" '.mcp.servers | has($s)' "$dir/opencode.json")" = true ]; } \
+    && jq -e --arg s "$server" '[.permissions[] | select(.effect == "allow" and (.action | startswith($s + "_")))] | length > 0' "$dir/opencode.json" >/dev/null
+}
+# opt_absent <home> <id>: none of the four is installed.
+opt_absent() {
+  local dir="$1/.config/opencode" skill server
+  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0]' "$root/skills/registry.yaml")
+  server=$(jq -r --arg i "$2" '.optional_components[$i].mcp_servers[0]' "$root/skills/registry.yaml")
+  [ ! -e "$dir/skills/$skill" ] && ! grep -Fq "\`$skill\`" "$dir/AGENTS.md" \
+    && [ "$(jq -r --arg s "$server" '.mcp.servers | has($s)' "$dir/opencode.json")" = false ] \
+    && ! jq -e --arg s "$server" '[.permissions[] | select(.effect == "allow" and (.action | startswith($s + "_")))] | length > 0' "$dir/opencode.json" >/dev/null
+}
+home=$(fresh_home optional)
+run "$home" -y; expect_ok "default install"
+for id in datagrip tablepro excalidraw drawio; do opt_absent "$home" "$id" || fail "$id must be absent by default"; done
+[ "$(opt_state "$home")" = '{"datagrip":false,"tablepro":false,"excalidraw":false,"drawio":false}' ] || fail "default selection not recorded"
+run "$home" -y --with=tablepro,drawio; expect_ok "select two components"
+{ opt_present "$home" tablepro && opt_present "$home" drawio; } || fail "selected components must be installed"
+{ opt_absent "$home" datagrip && opt_absent "$home" excalidraw; } || fail "unselected components must stay absent"
+run "$home" -y; expect_ok "plain re-run keeps the recorded choice"
+{ opt_present "$home" tablepro && opt_present "$home" drawio; } || fail "a plain re-run must not drop components"
+before=$(tree "$home")
+run "$home" -y; expect_ok "idempotent re-run"
+[ "$before" = "$(tree "$home")" ] || fail "re-run changed files"
+run "$home" --dry-run --with=datagrip; expect_ok "dry-run"
+[ "$before" = "$(tree "$home")" ] || fail "dry-run changed files"
+run "$home" -y --without=tablepro; expect_ok "deselect tablepro"
+{ opt_absent "$home" tablepro && opt_present "$home" drawio; } || fail "deselecting must remove only that component"
+# Deselecting drops only allow rules: the ask rules of a server stay, so a user-managed or kept server still prompts.
+jq -e '[.permissions[] | select(.effect == "ask" and .action == "datagrip_*")] | length == 1' "$home/.config/opencode/opencode.json" >/dev/null || fail "the datagrip ask rule must stay when the component is off"
+# A modified skill and an edited server survive deselection (the server with a warning).
+oc="$home/.config/opencode"
+printf 'mine\n' >>"$oc/skills/b-drawio/SKILL.md"
+jq '.mcp.servers.drawio.timeout.startup = 1' "$oc/opencode.json" >"$work/edited.json"
+cp "$work/edited.json" "$oc/opencode.json"
+run "$home" -y --without=drawio; expect_ok "deselect an edited component"
+[ -f "$oc/skills/b-drawio/SKILL.md" ] || fail "an edited skill must be kept"
+[ "$(jq -r '.mcp.servers | has("drawio")' "$oc/opencode.json")" = true ] || fail "an edited server must be kept"
+grep -Fq "although its optional component is not selected" <<<"$err" || fail "a kept edited server must warn: $err"
+if grep -Fq "\`b-drawio\`" "$oc/AGENTS.md"; then fail "the routing line must go even when the skill is kept"; fi
+# Invalid combinations refuse without changing anything.
+before=$(tree "$home")
+run "$home" -y --with=nope; expect_refused "unknown id"
+run "$home" -y --with=drawio --without=drawio; expect_refused "same id in both flags"
+run "$home" --uninstall --with=drawio; expect_refused "flag with uninstall"
+[ "$before" = "$(tree "$home")" ] || fail "refusals changed files"
+# A manifest that predates the choice is inferred from what it owns.
+home=$(fresh_home optional-legacy)
+run "$home" -y --with=datagrip,tablepro,excalidraw,drawio; expect_ok "full install"
+jq 'del(.optional_components)' "$home/.config/opencode/b-agentic/install.json" >"$work/legacy-manifest.json"
+cp "$work/legacy-manifest.json" "$home/.config/opencode/b-agentic/install.json"
+run "$home" -y; expect_ok "upgrade a manifest without a recorded choice"
+for id in datagrip tablepro excalidraw drawio; do opt_present "$home" "$id" || fail "$id must be kept for an existing install"; done
+[ "$(opt_state "$home")" = '{"datagrip":true,"tablepro":true,"excalidraw":true,"drawio":true}' ] || fail "inferred selection must be recorded"
+# The doctors accept a partial selection, report a missing selected server, and ignore a kept modified skill.
+home=$(fresh_home optional-doctors)
+run "$home" -y --with=drawio; expect_ok "doctor install"
+python3 "$root/tooling/validate/skill_doctor.py" --runtime opencode --home "$home" >"$work/doctor.txt" || fail "skill doctor must pass for a partial selection: $(cat "$work/doctor.txt")"
+mcp=$(env -u B_AGENTIC_OPENCODE_DIR python3 "$root/tooling/validate/mcp_doctor.py" --runtime opencode --home "$home" --allow-degraded)
+grep -Fq 'tablepro: not installed: optional' <<<"$mcp" || fail "an unselected server must be optional: $mcp"
+jq 'del(.mcp.servers.drawio)' "$home/.config/opencode/opencode.json" >"$work/no-drawio.json"
+cp "$work/no-drawio.json" "$home/.config/opencode/opencode.json"
+mcp=$(env -u B_AGENTIC_OPENCODE_DIR python3 "$root/tooling/validate/mcp_doctor.py" --runtime opencode --home "$home" --allow-degraded)
+grep -Fq 'drawio: missing:' <<<"$mcp" || fail "a selected but missing server must be reported missing: $mcp"
+home=$(fresh_home optional-kept-skill)
+run "$home" -y --with=drawio; expect_ok "kept-skill install"
+printf 'mine\n' >>"$home/.config/opencode/skills/b-drawio/SKILL.md"
+run "$home" -y --without=drawio; expect_ok "deselect a modified skill"
+python3 "$root/tooling/validate/skill_doctor.py" --runtime opencode --home "$home" >"$work/doctor.txt" || fail "a kept modified skill must not fail the doctor: $(cat "$work/doctor.txt")"
+echo "opencode install probe passed: optional-components"
 
 # --- the retired OpenCode install is refused, then migrated on request ------------------------------------
 home=$(fresh_home legacy)
@@ -467,7 +550,7 @@ try:
             break
         buf += chunk
         pending += chunk
-        if b"[y/N] " in pending or b"[Y/n] " in pending:
+        if b"[y/N] " in pending or b"[Y/n] " in pending or b"Enter confirms" in pending:
             if not answers:
                 raise RuntimeError("unexpected installer prompt")
             while answers and answers[0].startswith("!"):
@@ -501,20 +584,20 @@ tui_run() {
 }
 home=$(fresh_home tui)
 before=$(tree "$home")
-tui_run "$home" "$piped_install" n; expect_refused "decline terminal install"
+tui_run "$home" "$piped_install" "" n; expect_refused "decline terminal install"
 grep -Fq 'Installation Summary' <<<"$out" || fail "TUI summary missing: $out"
 grep -Fq 'Runtime: OpenCode' <<<"$out" || fail "TUI must identify its runtime: $out"
 grep -Fq 'Proceed with installation?' <<<"$out" || fail "TUI confirmation missing: $out"
 [ "$(tree "$home")" = "$before" ] || fail "declining the TUI changed files"
-tui_run "$home" "$piped_install" y; expect_ok "accept terminal install"
+tui_run "$home" "$piped_install" "" y; expect_ok "accept terminal install"
 grep -Fq 'Installation complete' <<<"$out" || fail "TUI completion missing: $out"
 grep -Fq 'Next steps' <<<"$out" || fail "TUI next steps missing: $out"
 oc="$home/.config/opencode"
 [ -f "$oc/b-agentic/install.json" ] || fail "accepting must install"
-tui_run "$home" "$piped_install" y; expect_ok "terminal reinstall"
+tui_run "$home" "$piped_install" "" y; expect_ok "terminal reinstall"
 if grep -Fq 'Add the optional ClickUp' <<<"$out"; then fail "a saved ClickUp choice must not be asked again"; fi
 printf 'local edit\n' >>"$oc/agents/b-planner.md"
-tui_run "$home" "$piped_install" y; expect_ok "terminal preserved-file warning"
+tui_run "$home" "$piped_install" "" y; expect_ok "terminal preserved-file warning"
 grep -Fq 'Warnings' <<<"$out" || fail "TUI warning box missing: $out"
 grep -Fq 'local edit' "$oc/agents/b-planner.md" || fail "TUI overwrote a modified file"
 for mode in --dry-run --yes --uninstall; do
@@ -524,7 +607,7 @@ for mode in --dry-run --yes --uninstall; do
   fi
 done
 home=$(fresh_home tui-no-color)
-PROBE_NO_COLOR=1 tui_run "$home" "$piped_install" n; expect_refused "NO_COLOR terminal UI"
+PROBE_NO_COLOR=1 tui_run "$home" "$piped_install" "" n; expect_refused "NO_COLOR terminal UI"
 if [[ "$out" == *$'\033['* ]]; then fail "NO_COLOR must suppress ANSI styling"; fi
 home=$(fresh_home tui-dumb)
 PROBE_TERM=dumb tui_run "$home" "$piped_install"; expect_ok "dumb terminal fallback"
@@ -539,7 +622,7 @@ git -C "$srcrepo" -c user.email=probe@example.invalid -c user.name=probe commit 
 # shellcheck disable=SC2016
 piped_bootstrap='cat "$PROBE_ROOT/install.sh" | bash -s -- --runtime=opencode'
 for expected in 'Cloning source' 'Updating source'; do
-  B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" n
+  B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" "" n
   expect_refused "terminal bootstrap notes"
   grep -Fq "$expected" <<<"$out" || fail "bootstrap notes lost: $out"
   note_line=$(grep -nF "$expected" <<<"$out" | head -1 | cut -d: -f1)
@@ -552,29 +635,29 @@ done
 home=$(fresh_home tui-edit)
 # shellcheck disable=SC2016 # HOME belongs to the sandbox child
 edit_cmd='!mkdir -p "$HOME/.config/opencode" && printf '\''{"providers":{"late":{}}}\n'\'' >"$HOME/.config/opencode/opencode.json"'
-tui_run "$home" "$piped_install" "$edit_cmd" y; expect_ok "edit during confirmation"
+tui_run "$home" "$piped_install" "" "$edit_cmd" y; expect_ok "edit during confirmation"
 jq -e '.providers.late == {}' "$home/.config/opencode/opencode.json" >/dev/null || fail "late user edit lost"
 home=$(fresh_home tui-alias)
 # shellcheck disable=SC2016
 alias_cmd='!mkdir -p "$HOME/.config/opencode" && ln -s AGENTS.md "$HOME/.config/opencode/opencode.json"'
-tui_run "$home" "$piped_install" "$alias_cmd" y; expect_refused "alias during confirmation"
+tui_run "$home" "$piped_install" "" "$alias_cmd" y; expect_refused "alias during confirmation"
 [ ! -e "$home/.config/opencode/b-agentic" ] && [ ! -e "$home/.config/opencode/AGENTS.md" ] || fail "late alias refusal wrote files"
 
 home=$(legacy_home tui-legacy)
 before=$(tree "$home")
-tui_run "$home" "$piped_install --migrate-legacy" n; expect_refused "decline legacy migration"
+tui_run "$home" "$piped_install --migrate-legacy" "" n; expect_refused "decline legacy migration"
 grep -Fq 'Legacy migration' <<<"$out" || fail "migration deletions must be shown: $out"
 grep -Fq 'agents/b-retired-agent.md' <<<"$out" || fail "migration summary must name removal paths: $out"
 [ "$(tree "$home")" = "$before" ] || fail "declining migration changed the legacy install"
 [ ! -e "$home/.config/opencode/b-agentic/backups" ] || fail "declining migration created backups"
-tui_run "$home" "$piped_install --migrate-legacy" y; expect_ok "accept legacy migration"
+tui_run "$home" "$piped_install --migrate-legacy" "" y; expect_ok "accept legacy migration"
 [ ! -e "$home/.config/opencode/agents/b-retired-agent.md" ] || fail "accepted migration left the retired agent"
 [ -f "$home/.config/opencode/agents/b-planner.md" ] || fail "accepted migration did not install"
 
 home=$(legacy_home tui-legacy-late-link)
 # shellcheck disable=SC2016
 link_cmd='!mkdir -p "$HOME/dotfiles" && ln -s "$HOME/dotfiles" "$HOME/.config/opencode/skills"'
-tui_run "$home" "$piped_install --migrate-legacy" "$link_cmd" y
+tui_run "$home" "$piped_install --migrate-legacy" "" "$link_cmd" y
 expect_refused "unsafe migration destination during confirmation"
 oc="$home/.config/opencode"
 [ "$(cat "$oc/agents/b-retired-agent.md")" = 'legacy agent' ] || fail "late refusal removed legacy files"
@@ -584,8 +667,24 @@ oc="$home/.config/opencode"
 home=$(fresh_home tui-both)
 # shellcheck disable=SC2016
 piped_both='echo ignored | bash "$PROBE_ROOT/install.sh" --runtime=both'
-tui_run "$home" "$piped_both" y n; expect_refused "decline second runtime"
+tui_run "$home" "$piped_both" "" y "" n; expect_refused "decline second runtime"
 [ -f "$home/.claude/b-agentic/install.json" ] || fail "the first runtime was not installed"
 [ ! -e "$home/.config/opencode" ] || fail "the declined second runtime was installed"
 
+
+# The checkbox list: nothing is checked on a fresh install; Space toggles the highlighted item.
+home=$(fresh_home tui-checkbox)
+tui_run "$home" "$piped_install" " " y; expect_ok "toggle the first component in the checkbox"
+grep -Fq 'Enter confirms' <<<"$out" || fail "the checkbox list must be shown: $out"
+grep -Fq '[ ] TablePro' <<<"$out" || fail "unselected components must show an empty box: $out"
+opt_present "$home" datagrip || fail "the toggled component must be installed"
+opt_absent "$home" tablepro || fail "an untouched component must stay absent"
+tui_run "$home" "$piped_install" "" y; expect_ok "accept the pre-checked selection"
+opt_present "$home" datagrip || fail "Enter on a re-sync must keep the installed component"
+tui_run "$home" "$piped_install" " " y; expect_ok "uncheck the installed component"
+opt_absent "$home" datagrip || fail "unchecking an installed component must remove it"
+tui_run "$home" "$piped_install --with=drawio" y; expect_ok "flags skip the checkbox"
+if grep -Fq 'Enter confirms' <<<"$out"; then fail "--with must skip the checkbox: $out"; fi
+opt_present "$home" drawio || fail "--with must install the component"
+echo "opencode install probe passed: checkbox"
 echo "opencode install probe passed"

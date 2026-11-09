@@ -256,6 +256,14 @@ unusual spelling can escape it, and it fails open on malformed input. That a hoo
 `ask` overrides the `allow` rule was not exercised live, and the `b-clickup`
 prompt rule against unapproved image references remains the second layer.
 
+Optional components: `b-datagrip`, `b-tablepro`, `b-excalidraw`, `b-drawio` and
+their MCP servers, routing lines, and `allow` permission rules are declared under
+`optional_components` in `skills/registry.yaml`. Generated assets stay complete;
+the installers filter them after an explicit choice (checkbox, `--with`/`--without`),
+record the choice in the manifest, and remove a deselected component's recorded,
+unmodified assets on the next sync. `ask` and `deny` rules always ship, so a server
+that stays configured keeps its prompts and denials.
+
 The DataGrip MCP server is IDE-managed: the user enables it in DataGrip and
 Claude Code connects to it, so b-agentic ships no template and `mcp_doctor`
 treats it as optional. It is never `read-only`, because that class feeds every

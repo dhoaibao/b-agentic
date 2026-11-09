@@ -30,6 +30,13 @@ everything else. It never runs vendor installers and never writes under
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
+Four skills and their MCP servers are optional and never installed without a
+choice: DataGrip, TablePro, Excalidraw, and draw.io. On a terminal the installer
+shows a checkbox list (nothing checked on a fresh install; installed ones are
+pre-checked). Non-interactively pass `--with=tablepro,drawio` to add and
+`--without=excalidraw` to remove; `-y` keeps the recorded choice and otherwise
+installs none.
+
 `./install.sh` installs Claude Code by default. Pass `--runtime=opencode` to
 install into `~/.config/opencode` instead, or `--runtime=both` for each; every
 runtime's install and uninstall leave the other untouched.
@@ -57,11 +64,11 @@ model family; OpenCode uses OpenAI models for its specialists.
 | `b-research` | Decide | Fetch outside truth: docs, API facts, comparisons, or recent evidence |
 | `b-design` | Decide | Create or refresh docs/DESIGN.md as a frontend design standard |
 | `b-frontend` | Build | Implement contextual frontend/UI code, styling, responsive behavior, interactions, visual refreshes, and landing pages |
-| `b-excalidraw` | Build | Sketch conceptual, whiteboard, and explanatory diagrams in Excalidraw from explicit facts |
-| `b-drawio` | Build | Draw formal or editable technical diagrams in draw.io from explicit facts |
+| `b-excalidraw` | Build | Sketch conceptual, whiteboard, and explanatory diagrams in Excalidraw from explicit facts (optional: `--with=excalidraw`) |
+| `b-drawio` | Build | Draw formal or editable technical diagrams in draw.io from explicit facts (optional: `--with=drawio`) |
 | `b-implement` | Build | Make the scoped non-UI change from an approved plan or a small direct request |
-| `b-datagrip` | Build | Inspect and query DataGrip databases safely through the DataGrip MCP |
-| `b-tablepro` | Build | Inspect and query TablePro databases safely through the TablePro MCP |
+| `b-datagrip` | Build | Inspect and query DataGrip databases safely through the DataGrip MCP (optional: `--with=datagrip`) |
+| `b-tablepro` | Build | Inspect and query TablePro databases safely through the TablePro MCP (optional: `--with=tablepro`) |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
 | `b-debug` | Decide | Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code |

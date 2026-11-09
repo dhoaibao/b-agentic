@@ -32,6 +32,18 @@ writes under `~/.pi`.
   creates no backups and removes nothing. A piped run has already cloned or updated
   the source checkout by then, because the summary needs it. With `--runtime=both`,
   each runtime confirms separately; declining OpenCode does not undo Claude's install.
+- Optional components (`optional_components` in `skills/registry.yaml`: `datagrip`, `tablepro`,
+  `excalidraw`, `drawio`) are installed only after a choice. Each is its skill, its kernel routing
+  line, its `mcp__<server>__*` (OpenCode: `<server>_*`) permission rules, and its MCP server
+  entry (DataGrip's entry stays IDE-managed, so `datagrip` covers only the skill, routing line, and
+  rules). A terminal shows a checkbox list before the summary: nothing is checked on a fresh
+  install, and an existing install's recorded choice is pre-checked, so Enter keeps it. `--with=ID[,ID]` and
+  `--without=ID[,ID]` (additive, repeatable) answer non-interactively and skip the list. With `-y`,
+  `--dry-run`, or no terminal, the choice recorded in the manifest is reused and a fresh install selects
+  none. A manifest that predates the feature is treated as selected for each component it already owns.
+  Deselecting a component removes only its recorded, unmodified skill, `allow` rules, and server (a modified
+  one is kept with a warning); its `ask` and `deny` rules stay, so a server that is still configured keeps its
+  prompts and denials. Neither flag combines with `--uninstall`.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
@@ -296,7 +308,8 @@ external/shared actions.
 ## MCP and readiness
 
 `claude/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Notion, Excalidraw, draw.io, shadcn, and TablePro. Tools are addressed as
+Firecrawl, Playwright, Notion, shadcn, and the optional Excalidraw, draw.io, and TablePro entries
+(installed only when selected, see the install options). Tools are addressed as
 `mcp__<server>__<tool>`. Credentials are `${VAR}` references; the installer
 collects none.
 

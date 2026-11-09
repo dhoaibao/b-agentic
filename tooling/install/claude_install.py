@@ -40,6 +40,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import optional_components
 from claude_install_ui import Ui
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -237,8 +238,20 @@ def remove_hook_items(hooks: dict[str, Any], items: list[dict[str, Any]]) -> boo
 
 
 class Installer:
-    def __init__(self, source: Path, dry_run: bool, force: bool, ui: Ui | None = None) -> None:
+    def __init__(
+        self,
+        source: Path,
+        dry_run: bool,
+        force: bool,
+        ui: Ui | None = None,
+        with_ids: list[str] | None = None,
+        without_ids: list[str] | None = None,
+    ) -> None:
         self.source = source
+        self.components = self.load_components()
+        self.with_ids = with_ids or []
+        self.without_ids = without_ids or []
+        self.selection: dict[str, bool] = {key: False for key in self.components}
         self.ui = ui if ui is not None else Ui(enabled=False)
         self.claude_dir = resolve_claude_dir()
         self.assets_dir = self.claude_dir / "b-agentic"
@@ -253,6 +266,35 @@ class Installer:
         self.backed_up: set[Path] = set()
         guard_destination(self.claude_dir)
         guard_destination(self.mcp_path)
+
+    # -- optional components --------------------------------------------------
+    def load_components(self) -> dict[str, dict[str, Any]]:
+        try:
+            return optional_components.load(self.source)
+        except ValueError as exc:
+            raise InstallError(str(exc)) from exc
+
+    def select_components(self, manifest: dict[str, Any]) -> None:
+        """Fix the optional-component selection before any planning: flags, then a checkbox on a
+        terminal when no flag was given, over the recorded (or inferred) state."""
+        try:
+            self.selection = optional_components.resolve(self.components, manifest, self.with_ids, self.without_ids)
+        except ValueError as exc:
+            raise InstallError(str(exc)) from exc
+        if self.components and not (self.with_ids or self.without_ids) and self.ui.interactive:
+            options = [(key, component["label"]) for key, component in self.components.items()]
+            picked = self.ui.checklist(
+                "Optional components (unchecked ones are not installed; installed ones that are unchecked are removed)",
+                options,
+                {key for key, on in self.selection.items() if on},
+            )
+            self.selection = {key: key in picked for key in self.components}
+
+    def excluded_skills(self) -> set[str]:
+        return optional_components.excluded_skills(self.components, self.selection)
+
+    def excluded_servers(self) -> set[str]:
+        return optional_components.excluded_servers(self.components, self.selection)
 
     # -- output ---------------------------------------------------------------
     def say(self, text: str) -> None:
@@ -292,6 +334,7 @@ class Installer:
             f"{verb(kernel['text'], 'updated' if kernel['existed'] else 'written')}",
             f"  {self.ui.style('settings', 'green')}: settings.json {verb(settings['text'], 'merged')}",
             f"  {self.ui.style('mcp', 'green')}: {self.display(self.mcp_path)} {verb(mcp['text'], 'merged')}",
+            f"  {self.ui.style('optional', 'green')}: {optional_components.summary(self.components, self.selection)}",
         ]
 
     # -- destinations -------------------------------------------------------------
@@ -386,10 +429,13 @@ class Installer:
     def payload(self) -> dict[str, bytes]:
         files: dict[str, bytes] = {}
         registry = json.loads((self.source / "skills" / "registry.yaml").read_text())
+        excluded = self.excluded_skills()
         for skill in registry["skills"]:
             name = skill["name"]
             if not isinstance(name, str) or not SKILL_NAME.fullmatch(name):
                 raise InstallError(f"registry skill name is not a safe b-* name: {name!r}")
+            if name in excluded:
+                continue
             files[f"skills/{name}/SKILL.md"] = (self.source / "skills" / name / "SKILL.md").read_bytes()
         for path in sorted((self.source / "claude" / "agents").glob("b-*.md")):
             files[f"agents/{path.name}"] = path.read_bytes()
@@ -402,6 +448,10 @@ class Installer:
 
     def kernel_block(self) -> str:
         kernel = (self.source / "references" / "kernel.template.md").read_text().strip("\n")
+        try:
+            kernel = optional_components.filter_kernel(kernel, self.excluded_skills())
+        except ValueError as exc:
+            raise InstallError(str(exc)) from exc
         return f"{KERNEL_BLOCK_START}\n{kernel}\n{KERNEL_BLOCK_END}"
 
     # -- manifest -------------------------------------------------------------
@@ -556,7 +606,9 @@ class Installer:
         permissions = settings.setdefault("permissions", {})
         for kind in ("allow", "ask", "deny"):
             existing = permissions.setdefault(kind, [])
-            wanted = template["permissions"][kind]
+            wanted = optional_components.filter_claude_rules(
+                template["permissions"][kind], self.excluded_servers(), kind
+            )
             recorded = previous.get("permissions", {}).get(kind, [])
             # A rule an earlier version added and this version no longer ships is retired,
             # but only if the manifest says it was ours.
@@ -657,7 +709,14 @@ class Installer:
         config = read_json(target)
         validate_mcp_shape(config, str(self.mcp_path))
         servers = config.setdefault("mcpServers", {})
-        desired = dict(json.loads((self.source / "claude" / "configs" / "mcp.base.json").read_text())["mcpServers"])
+        excluded = self.excluded_servers()
+        desired = {
+            name: entry
+            for name, entry in json.loads((self.source / "claude" / "configs" / "mcp.base.json").read_text())[
+                "mcpServers"
+            ].items()
+            if name not in excluded
+        }
         recorded: dict[str, Any] = {}
         for name, entry in desired.items():
             candidates = self.mcp_candidates(manifest, name)
@@ -673,8 +732,12 @@ class Installer:
             else:
                 self.warn(f"kept your existing MCP server '{name}' (differs from the managed entry)")
         for name in self.mcp_names(manifest):
-            if name not in recorded and servers.get(name) in self.mcp_candidates(manifest, name):
+            if name in recorded or name not in servers:
+                continue
+            if servers[name] in self.mcp_candidates(manifest, name):
                 del servers[name]
+            elif name in excluded:
+                self.warn(f"kept your edited MCP server '{name}' although its optional component is not selected")
         text = json_text(config)
         return {
             "target": target,
@@ -699,9 +762,8 @@ class Installer:
         return previous, payload
 
     def install(self) -> None:
-        previous, payload = self.validate_destinations()
-        skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
-        agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
+        self.preflight()
+        manifest = self.read_manifest()
         notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
         for note in notes:
             if self.ui.fancy:
@@ -709,6 +771,10 @@ class Installer:
             else:
                 print(note)
         self.ui.step(f"Source: {self.display(self.source)}")
+        self.select_components(manifest)
+        previous, payload = self.validate_destinations()
+        skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
+        agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
         self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
         # Plan everything first: any structural refusal happens before the first write.
         files, kernel, settings, mcp = self.plan_all(previous)
@@ -731,12 +797,13 @@ class Installer:
             "files": dict(sorted(files["recorded"].items())),
             "settings": settings["record"],
             "mcp": {"file": str(self.mcp_path), "servers": mcp["recorded"]},
+            "optional_components": dict(self.selection),
         }
         # Intent: keep the last committed ownership and list what this run may write as `pending`,
         # so an interruption leaves a manifest that recognizes both the old and the new state.
         old_pending = previous.get("pending", {})
         intent = json.loads(json.dumps(previous)) if previous else {"schema": MANIFEST_SCHEMA, "target": "claude"}
-        intent.update({"claude_md_created": kernel["created"]})
+        intent.update({"claude_md_created": kernel["created"], "optional_components": dict(self.selection)})
         intent.setdefault("kernel_sha256", None)
         intent.setdefault("files", {})
         intent.setdefault("mcp", {"file": str(self.mcp_path), "servers": {}})
@@ -920,6 +987,12 @@ class Installer:
             "  1. Restart Claude Code so skills, agents, hooks, settings, and MCP servers load.",
             "  2. The independent review gate is the read-only b-reviewer subagent; it needs no extra login or plugin.",
         ]
+        if self.components:
+            lines.append(
+                "  Optional components ("
+                + optional_components.summary(self.components, self.selection)
+                + "): re-run with --with=<id> or --without=<id>, or use the checkbox, to change them."
+            )
         if (self.assets_dir / "codex-approved-repos.json").is_file():
             lines.append(
                 f"  Note: {self.assets_dir / 'codex-approved-repos.json'} is left over from the retired Codex review "
@@ -972,6 +1045,37 @@ def source_revision(source: Path) -> str | None:
         return None
 
 
+def add_optional_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--with",
+        dest="with_ids",
+        action="append",
+        default=[],
+        metavar="ID[,ID]",
+        help="install these optional components (repeatable); see skills/registry.yaml optional_components",
+    )
+    parser.add_argument(
+        "--without",
+        dest="without_ids",
+        action="append",
+        default=[],
+        metavar="ID[,ID]",
+        help="remove or skip these optional components (repeatable)",
+    )
+
+
+def parse_optional_arguments(source: Path, args: argparse.Namespace) -> tuple[list[str], list[str]]:
+    try:
+        known = optional_components.load(source)
+        with_ids = optional_components.parse_ids(args.with_ids, known, "--with")
+        without_ids = optional_components.parse_ids(args.without_ids, known, "--without")
+        if set(with_ids) & set(without_ids):
+            raise ValueError(f"--with and --without both name: {', '.join(sorted(set(with_ids) & set(without_ids)))}")
+    except ValueError as exc:
+        raise InstallError(str(exc)) from exc
+    return with_ids, without_ids
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--uninstall", action="store_true", help="remove what the manifest recorded")
@@ -979,14 +1083,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true", help="replace modified or unmanaged files after a backup")
     parser.add_argument("-y", "--yes", action="store_true", help="skip interactive questions and use defaults")
     parser.add_argument("--source", default=str(ROOT), help="b-agentic source checkout (default: this repository)")
+    add_optional_arguments(parser)
     args = parser.parse_args(argv)
     try:
+        if args.uninstall and (args.with_ids or args.without_ids):
+            raise InstallError("--with and --without cannot be combined with --uninstall")
         source = Path(args.source).resolve()
         if not (source / "skills" / "registry.yaml").is_file() or not (source / "claude" / "agents").is_dir():
             raise InstallError(f"{source} is not a b-agentic Claude Code source checkout")
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
         ui.header()
-        installer = Installer(source, args.dry_run, args.force, ui)
+        installer = Installer(source, args.dry_run, args.force, ui, *parse_optional_arguments(source, args))
         try:
             if args.uninstall:
                 installer.uninstall()

@@ -132,6 +132,96 @@ class Ui:
         self.emit(self.style(g["bl"] + g["h"] * (width + 4) + g["br"], "blue"))
 
     # -- input ------------------------------------------------------------------------
+    def checklist(self, title: str, options: list[tuple[str, str]], selected: set[str]) -> set[str]:
+        """Checkbox list on /dev/tty: arrows or j/k move, Space toggles, Enter accepts.
+
+        Without a terminal the current selection is returned and nothing is printed. If the terminal
+        cannot switch to cbreak mode, or colors are disabled (NO_COLOR), a numbered line prompt is used instead.
+        """
+        chosen = set(selected)
+        if self.tty_in is None or self.tty_out is None or not options:
+            return chosen
+        self.emit(self.bar())
+        self.tty_out.write(f"{self.style(self.glyph['step'], 'green')}  {self.style(title, 'bold')}\n")
+        try:
+            import termios
+            import tty
+        except ImportError:
+            termios = tty = None  # type: ignore[assignment]
+        saved = None
+        fd = -1
+        if termios is not None:
+            try:
+                fd = self.tty_in.fileno()
+                saved = termios.tcgetattr(fd)
+            except (OSError, ValueError, termios.error):
+                saved = None
+        if saved is None or not self.color:  # NO_COLOR also keeps the output free of escape codes
+            self.checklist_lines(options, chosen)
+        else:
+            try:
+                tty.setcbreak(fd)
+                self.checklist_keys(fd, options, chosen)
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+        labels = [label.split(" (")[0] for key, label in options if key in chosen]
+        self.emit(f"{self.bar()}  {self.style(', '.join(labels) if labels else 'None', 'dim')}")
+        return chosen
+
+    def checklist_rows(self, options: list[tuple[str, str]], chosen: set[str], index: int) -> str:
+        rows = []
+        for position, (key, label) in enumerate(options):
+            pointer = self.style(">", "cyan") if position == index else " "
+            mark = "[x]" if key in chosen else "[ ]"
+            rows.append(f"\x1b[2K\r{self.bar()}  {pointer} {mark} {label}\n")
+        return "".join(rows)
+
+    def checklist_keys(self, fd: int, options: list[tuple[str, str]], chosen: set[str]) -> None:
+        import select
+
+        assert self.tty_out is not None
+        out = self.tty_out
+        index = 0
+        out.write(f"{self.bar()}  {self.style('Up/Down move, Space toggles, Enter confirms', 'dim')}\n")
+        out.write(self.checklist_rows(options, chosen, index))
+        out.flush()
+        while True:
+            key = os.read(fd, 1)
+            if key in (b"", b"\r", b"\n"):
+                break
+            if key == b"\x03":
+                raise KeyboardInterrupt
+            if key == b"\x1b":
+                sequence = b""
+                while select.select([fd], [], [], 0.05)[0] and len(sequence) < 2:
+                    sequence += os.read(fd, 1)
+                key = {b"[A": b"k", b"[B": b"j"}.get(sequence, b"")
+            if key == b" ":
+                name = options[index][0]
+                chosen.symmetric_difference_update({name})
+            elif key == b"k":
+                index = (index - 1) % len(options)
+            elif key == b"j":
+                index = (index + 1) % len(options)
+            else:
+                continue
+            out.write(f"\x1b[{len(options)}A" + self.checklist_rows(options, chosen, index))
+            out.flush()
+
+    def checklist_lines(self, options: list[tuple[str, str]], chosen: set[str]) -> None:
+        assert self.tty_in is not None and self.tty_out is not None
+        for _ in range(3):
+            for number, (key, label) in enumerate(options, start=1):
+                self.tty_out.write(f"{self.bar()}  {number}. [{'x' if key in chosen else ' '}] {label}\n")
+            self.tty_out.write(f"{self.bar()}  Numbers to toggle (space separated), Enter confirms: ")
+            self.tty_out.flush()
+            reply = self.tty_in.readline().strip()
+            if reply == "":
+                return
+            for token in reply.replace(",", " ").split():
+                if token.isdigit() and 1 <= int(token) <= len(options):
+                    chosen.symmetric_difference_update({options[int(token) - 1][0]})
+
     def confirm(self, question: str, default: bool = True, *, say_answer: bool = True) -> bool:
         """Ask on /dev/tty; without a terminal the default is returned and nothing is printed."""
         if self.tty_in is None or self.tty_out is None:
