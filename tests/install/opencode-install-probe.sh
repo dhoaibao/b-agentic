@@ -365,6 +365,43 @@ run "$home" -y --without=drawio; expect_ok "deselect a modified skill"
 python3 "$root/tooling/validate/skill_doctor.py" --runtime opencode --home "$home" >"$work/doctor.txt" || fail "a kept modified skill must not fail the doctor: $(cat "$work/doctor.txt")"
 echo "opencode install probe passed: optional-components"
 
+# Skills never point at an optional sibling that is not installed; a full install keeps the source bytes.
+home=$(fresh_home optional-siblings)
+run "$home" -y; expect_ok "default install"
+for installed in "$home"/.config/opencode/skills/*/SKILL.md; do
+  if grep -Eq '\*\*b-(datagrip|tablepro|excalidraw|drawio)\*\*' "$installed"; then fail "a default install must not reference an uninstalled optional skill: $installed"; fi
+done
+run "$home" -y --with=drawio; expect_ok "only drawio"
+if grep -Eq '\*\*b-excalidraw\*\*|requires: b-excalidraw' "$home/.config/opencode/skills/b-drawio/SKILL.md"; then fail "b-drawio must drop its excalidraw reference when excalidraw is absent"; fi
+python3 "$root/tooling/validate/skill_doctor.py" --runtime opencode --home "$home" >"$work/doctor.txt" || fail "skill doctor must pass for the filtered skill: $(cat "$work/doctor.txt")"
+run "$home" -y --with=drawio,excalidraw; expect_ok "drawio and excalidraw"
+cmp -s "$root/opencode/skills/b-drawio/SKILL.md" "$home/.config/opencode/skills/b-drawio/SKILL.md" || fail "a full install must keep the generated b-drawio skill byte for byte"
+run "$home" -y --without=excalidraw; expect_ok "deselect excalidraw"
+if grep -Fq '**b-excalidraw**' "$home/.config/opencode/skills/b-drawio/SKILL.md"; then fail "deselecting must rewrite the sibling reference away"; fi
+backed_up=0
+for backup in "$home"/.config/opencode/b-agentic/backups/*/*__skills__b-drawio__SKILL.md; do
+  if [ -f "$backup" ] && cmp -s "$root/opencode/skills/b-drawio/SKILL.md" "$backup"; then backed_up=1; fi
+done
+[ "$backed_up" = 1 ] || fail "deselecting must back up the full b-drawio skill before rewriting it"
+before=$(tree "$home")
+run "$home" -y; expect_ok "re-run after deselect"
+[ "$before" = "$(tree "$home")" ] || fail "a plain re-run after deselect must change nothing"
+# A marker naming a skill that is not optional is refused before anything is written.
+home=$(fresh_home optional-bad-marker)
+src_bad="$work/src-bad-marker"
+mkdir -p "$src_bad"
+( cd "$root" && git ls-files -co --exclude-standard -z | while IFS= read -r -d '' file; do if [[ -e "$file" || -L "$file" ]]; then printf '%s\0' "$file"; fi; done | tar --null -T - -cf - ) | tar -xf - -C "$src_bad"
+printf '\nbad <!-- requires: b-plan -->\n' >>"$src_bad/opencode/skills/b-drawio/SKILL.md"
+before=$(tree "$home")
+rc=0
+out=$(env -u XDG_CONFIG_HOME -u OPENCODE_CONFIG_DIR -u B_AGENTIC_OPENCODE_DIR -u B_AGENTIC_CLICKUP_MCP \
+  -u CLAUDE_CONFIG_DIR -u B_AGENTIC_CLAUDE_DIR HOME="$home" bash "$src_bad/install.sh" --runtime=opencode -y --with=drawio 2>"$work/stderr") || rc=$?
+err=$(cat "$work/stderr")
+expect_refused "a marker naming a non-optional skill"
+grep -Fq 'skill marker names a skill that is not optional: b-plan' <<<"$err$out" || fail "the refusal must name the bad marker: $err $out"
+[ "$before" = "$(tree "$home")" ] || fail "a refused marker must not write anything"
+echo "opencode install probe passed: sibling-references"
+
 # --- the retired OpenCode install is refused, then migrated on request ------------------------------------
 home=$(fresh_home legacy)
 oc="$home/.config/opencode"

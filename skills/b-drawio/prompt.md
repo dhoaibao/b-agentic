@@ -10,8 +10,8 @@ Draw a formal or editable technical diagram in draw.io from explicit user or rep
 
 ## When NOT to use
 
-- A conceptual, whiteboard, brainstorm, or chat-sized explanation of about 6 steps or fewer -> use **b-excalidraw**.
-- Format is unstated and matters: ask one focused question. If it cannot be asked, a repository artifact or formal specification goes to **b-drawio**, and an explanation goes to **b-excalidraw**.
+- A conceptual, whiteboard, brainstorm, or chat-sized explanation of about 6 steps or fewer -> use **b-excalidraw**. <!-- requires: b-excalidraw -->
+- Format is unstated and matters: ask one focused question. If it cannot be asked, a repository artifact or formal specification goes to **b-drawio**, and an explanation goes to **b-excalidraw**. <!-- requires: b-excalidraw -->
 - Diagram scope, facts, or audience are materially unclear -> use **b-plan**.
 - The user wants frontend/UI code, including a draw.io embed -> use **b-frontend**.
 - The user wants reusable frontend design guidance -> use **b-design**.

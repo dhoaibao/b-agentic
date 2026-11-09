@@ -1068,6 +1068,38 @@ run "$home" -y --without=drawio; expect_ok "deselect a modified skill"
 python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "a kept modified skill must not fail the doctor: $(cat "$work/doctor.txt")"
 echo "install probe passed: optional-components"
 
+# Skills never point at an optional sibling that is not installed; a full install keeps the source bytes.
+home=$(fresh_home optional-siblings)
+run "$home" -y; expect_ok "default install"
+for installed in "$home"/.claude/skills/*/SKILL.md; do
+  if grep -Eq '\*\*b-(datagrip|tablepro|excalidraw|drawio)\*\*' "$installed"; then fail "a default install must not reference an uninstalled optional skill: $installed"; fi
+done
+run "$home" -y --with=drawio; expect_ok "only drawio"
+if grep -Eq '\*\*b-excalidraw\*\*|requires: b-excalidraw' "$home/.claude/skills/b-drawio/SKILL.md"; then fail "b-drawio must drop its excalidraw reference when excalidraw is absent"; fi
+python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "skill doctor must pass for the filtered skill: $(cat "$work/doctor.txt")"
+run "$home" -y --with=drawio,excalidraw; expect_ok "drawio and excalidraw"
+cmp -s "$root/skills/b-drawio/SKILL.md" "$home/.claude/skills/b-drawio/SKILL.md" || fail "a full install must keep the generated b-drawio skill byte for byte"
+run "$home" -y --without=excalidraw; expect_ok "deselect excalidraw"
+if grep -Fq '**b-excalidraw**' "$home/.claude/skills/b-drawio/SKILL.md"; then fail "deselecting must rewrite the sibling reference away"; fi
+backed_up=0
+for backup in "$home"/.claude/b-agentic/backups/*/*__skills__b-drawio__SKILL.md; do
+  if [ -f "$backup" ] && cmp -s "$root/skills/b-drawio/SKILL.md" "$backup"; then backed_up=1; fi
+done
+[ "$backed_up" = 1 ] || fail "deselecting must back up the full b-drawio skill before rewriting it"
+before=$(tree "$home")
+run "$home" -y; expect_ok "re-run after deselect"
+[ "$before" = "$(tree "$home")" ] || fail "a plain re-run after deselect must change nothing"
+# A marker naming a skill that is not optional is refused before anything is written.
+home=$(fresh_home optional-bad-marker)
+src_bad="$work/src-bad-marker"
+copy_source "$src_bad"
+printf '\nbad <!-- requires: b-plan -->\n' >>"$src_bad/skills/b-drawio/SKILL.md"
+before=$(tree "$home")
+run_from "$home" "$src_bad" -y --with=drawio; expect_refused "a marker naming a non-optional skill"
+grep -Fq 'skill marker names a skill that is not optional: b-plan' <<<"$err$out" || fail "the refusal must name the bad marker: $err $out"
+[ "$before" = "$(tree "$home")" ] || fail "a refused marker must not write anything"
+echo "install probe passed: sibling-references"
+
 # --- terminal UI: header and confirm on a pty, reading answers from /dev/tty, stdin piped ----------------
 cat >"$work/pty-run.py" <<'PY'
 import os, pty, select, subprocess, sys, time

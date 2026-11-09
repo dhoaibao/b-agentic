@@ -436,7 +436,15 @@ class Installer:
                 raise InstallError(f"registry skill name is not a safe b-* name: {name!r}")
             if name in excluded:
                 continue
-            files[f"skills/{name}/SKILL.md"] = (self.source / "skills" / name / "SKILL.md").read_bytes()
+            try:
+                body = optional_components.filter_skill(
+                    (self.source / "skills" / name / "SKILL.md").read_bytes().decode(),
+                    excluded,
+                    optional_components.optional_skills(self.components),
+                )
+            except ValueError as exc:
+                raise InstallError(f"skills/{name}/SKILL.md: {exc}") from exc
+            files[f"skills/{name}/SKILL.md"] = body.encode()
         for path in sorted((self.source / "claude" / "agents").glob("b-*.md")):
             files[f"agents/{path.name}"] = path.read_bytes()
         for folder in ("bin", "hooks"):

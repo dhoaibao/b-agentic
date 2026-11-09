@@ -130,11 +130,24 @@ def stale_assets(
 ) -> list[str]:
     spec = RUNTIMES[runtime]
     stale = []
+    try:
+        components = optional_components.load(ROOT)
+    except (OSError, ValueError):
+        components = {}
     for name in skills:
         source = spec["skills_source"] / name / "SKILL.md"
         installed = root / "skills" / name / "SKILL.md"
-        if source.exists() and installed.exists() and source.read_bytes() != installed.read_bytes():
-            stale.append(f"skill {name}")
+        if source.exists() and installed.exists():
+            try:
+                wanted_skill = optional_components.filter_skill(
+                    source.read_bytes().decode(),
+                    skipped_skills or set(),
+                    optional_components.optional_skills(components),
+                ).encode()
+            except (ValueError, UnicodeDecodeError):
+                wanted_skill = source.read_bytes()
+            if wanted_skill != installed.read_bytes():
+                stale.append(f"skill {name}")
     for source in sorted(spec["agents_source"].glob("b-*.md")):
         installed = root / "agents" / source.name
         if installed.exists() and source.read_bytes() != installed.read_bytes():

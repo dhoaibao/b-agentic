@@ -175,6 +175,14 @@ SUBAGENT_SESSION_REGRESSION = {
         "Never reuse a child for a changed candidate.",
     ),
 }
+PEER_MESSAGING_REGRESSION = {
+    "observed_failure": "The kernel's peer-messaging section could drift into an always-on rule or grant authority beyond user-requested agent-to-agent messaging.",
+    "intended_behavior": "Peer messaging applies only when the user asks agents to talk to each other and adds no other rules.",
+    "required_clauses": (
+        "Only when the user asks agents to talk to each other; peers are independent sessions, and this adds no other rules.",
+        "The two cannot message each other.",
+    ),
+}
 SUBAGENT_FIXTURE_CONTINUATION = {
     "background-child-is-independent": ("Retain the returned agent ID", "returned agent ID"),
     "continuation-reuses-compatible-child": (
@@ -315,13 +323,25 @@ FIXTURES = [
         name="DataGrip schema inspection",
         prompt="Inspect the database schema of my DataGrip connection and list its tables.",
         expected="b-datagrip",
-        not_expected=("b-implement", "b-debug"),
+        not_expected=("b-implement", "b-debug", "b-tablepro"),
     ),
     Fixture(
         name="DataGrip SQL query",
         prompt="Run SQL in DataGrip to preview table data from the orders table.",
         expected="b-datagrip",
-        not_expected=("b-implement", "b-debug"),
+        not_expected=("b-implement", "b-debug", "b-tablepro"),
+    ),
+    Fixture(
+        name="TablePro table listing",
+        prompt="List database tables in TablePro.",
+        expected="b-tablepro",
+        not_expected=("b-implement", "b-debug", "b-datagrip"),
+    ),
+    Fixture(
+        name="TablePro SQL query",
+        prompt="Query the database in TablePro and list its tables.",
+        expected="b-tablepro",
+        not_expected=("b-implement", "b-debug", "b-datagrip"),
     ),
     Fixture(
         name="mechanical rename",
@@ -844,6 +864,43 @@ def validate_codegraph_usage_regression(errors: list[str]) -> None:
                 )
 
 
+def validate_requires_markers(errors: list[str]) -> None:
+    """Every `<!-- requires:` comment in a skill prompt must be a well-formed marker naming only optional skills."""
+    sys.path.insert(0, str(ROOT / "tooling" / "install"))
+    try:
+        import optional_components
+    finally:
+        sys.path.pop(0)
+    try:
+        optional = optional_components.optional_skills(optional_components.load(ROOT))
+    except (OSError, ValueError) as exc:
+        errors.append(f"requires marker check: cannot load optional components: {exc}")
+        return
+    for path in sorted((ROOT / "skills").glob("*/prompt.md")):
+        fence = False
+        for number, line in enumerate(path.read_text().split("\n"), 1):
+            if line.lstrip().startswith(("```", "~~~")):
+                fence = not fence
+            if "<!-- requires:" not in line:
+                continue
+            where = f"{path.relative_to(ROOT)}:{number}"
+            match = optional_components.REQUIRES_MARKER.search(line)
+            if fence:
+                errors.append(f"requires marker inside a code fence: {where}")
+            elif not match:
+                errors.append(
+                    f"malformed requires marker (use ' <!-- requires: b-x -->' at the end of the line): {where}"
+                )
+            else:
+                unknown = sorted(set(match.group(1).split(", ")) - optional)
+                if unknown:
+                    errors.append(f"requires marker names a non-optional skill ({', '.join(unknown)}): {where}")
+
+
+def validate_peer_messaging_regression(errors: list[str]) -> None:
+    validate_clause_regression("peer messaging regression", PEER_MESSAGING_REGRESSION, errors)
+
+
 def validate_output_shape_regression(errors: list[str]) -> None:
     validate_clause_regression(
         "output shape regression",
@@ -1202,6 +1259,8 @@ def main() -> int:
     validate_kernel_consolidation_regression(errors)
     validate_codegraph_usage_regression(errors)
     validate_output_shape_regression(errors)
+    validate_peer_messaging_regression(errors)
+    validate_requires_markers(errors)
     validate_local_repository_qa_regression(errors)
     validate_shell_policy_regression(errors)
     validate_native_file_tool_regression(errors)

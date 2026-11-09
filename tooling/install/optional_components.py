@@ -5,6 +5,8 @@ kernels stay complete; the installers filter them with the helpers here. Standar
 
 Deselecting removes a component's skill, kernel routing line, MCP server entry, and `allow` permission rules.
 Its `ask` and `deny` rules stay, so a server that is still configured never loses its approval prompts.
+Installed skills also drop any line ending in ` <!-- requires: b-x -->` whose named skill was not installed,
+so a skill never sends the user to an absent sibling. A full install keeps those lines byte for byte.
 
 Selection precedence per component: an explicit `--with`/`--without` flag, then the value recorded in the
 install manifest, then (for a manifest that predates this feature) what the manifest already owns, then
@@ -22,6 +24,7 @@ COMPONENT_ID = re.compile(r"^[a-z][a-z0-9-]*$")
 ROUTING_START = "<!-- generated:kernel-routing:start -->"
 ROUTING_END = "<!-- generated:kernel-routing:end -->"
 ROUTING_LINE = re.compile(r"^- .* -> `(b-[a-z0-9-]+)`.*\.$")
+REQUIRES_MARKER = re.compile(r" <!-- requires: (b-[a-z0-9-]+(?:, b-[a-z0-9-]+)*) -->$")
 
 
 def load(source: Path) -> dict[str, dict[str, Any]]:
@@ -130,6 +133,27 @@ def filter_kernel(text: str, skills: set[str]) -> str:
     if missing:
         raise ValueError(f"expected exactly one kernel routing line for: {', '.join(missing)}")
     return "\n".join([*lines[: start + 1], *kept, *lines[end:]])
+
+
+def optional_skills(components: dict[str, dict[str, Any]]) -> set[str]:
+    return {name for c in components.values() for name in c.get("skills", [])}
+
+
+def filter_skill(text: str, excluded: set[str], optional: set[str]) -> str:
+    """Drop skill-body lines marked `<!-- requires: b-x -->` when a named skill is excluded; keep the rest
+    byte for byte. A marker naming a skill that is not an optional component's skill is rejected."""
+    kept: list[str] = []
+    for line in text.split("\n"):
+        match = REQUIRES_MARKER.search(line)
+        if match:
+            names = set(match.group(1).split(", "))
+            unknown = sorted(names - optional)
+            if unknown:
+                raise ValueError(f"skill marker names a skill that is not optional: {', '.join(unknown)}")
+            if names & excluded:
+                continue
+        kept.append(line)
+    return "\n".join(kept)
 
 
 def filter_claude_rules(rules: list[str], servers: set[str], kind: str) -> list[str]:

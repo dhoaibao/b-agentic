@@ -28,8 +28,8 @@ Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw 
 
 ## When NOT to use
 
-- A formal or editable diagram (official cloud or network icons, ER or UML models, sequence diagrams, dense or multi-page flowcharts, or a `.drawio` file) -> use **b-drawio**.
-- Format is unstated and matters: ask one focused question. If it cannot be asked, an explanation goes to **b-excalidraw** and a repository artifact or formal specification goes to **b-drawio**.
+- A formal or editable diagram (official cloud or network icons, ER or UML models, sequence diagrams, dense or multi-page flowcharts, or a `.drawio` file) -> use **b-drawio**. <!-- requires: b-drawio -->
+- Format is unstated and matters: ask one focused question. If it cannot be asked, an explanation goes to **b-excalidraw** and a repository artifact or formal specification goes to **b-drawio**. <!-- requires: b-drawio -->
 - Diagram scope, facts, or intended audience are materially unclear -> use **b-plan**.
 - The user wants frontend/UI code or visual refresh work -> use **b-frontend**.
 - The user wants reusable frontend design guidance -> use **b-design**.
