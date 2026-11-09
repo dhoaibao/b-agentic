@@ -7,8 +7,7 @@ description: >
   or connection change. Use for schema inspection, table previews, and ad-
   hoc SQL; unlike b-implement and b-debug, it does not edit application
   code or diagnose runtime failures. Routing signals: DataGrip, DataGrip
-  connection, query the database, inspect database schema, preview table
-  data, list database tables, run SQL in DataGrip.
+  connection, DataGrip database, DataGrip schema, run SQL in DataGrip.
 metadata:
   phase: Build
   execution_mode: main
@@ -28,6 +27,7 @@ Inspect and query DataGrip-configured databases through the DataGrip MCP server,
 
 - The DataGrip MCP tools (`datagrip_*`) are unavailable; state the prerequisite (DataGrip running, MCP Server enabled under Settings | Tools | MCP Server, a project open, Claude Code entry configured) rather than claiming database access.
 - The user wants application code, migrations, or ORM changes -> **b-implement**; a runtime failure to diagnose -> **b-debug**.
+- The database is a TablePro connection -> **b-tablepro**. If the user names no tool and both are installed, ask which one. <!-- requires: b-tablepro -->
 - The user asks only about DataGrip or MCP documentation -> **b-research**.
 
 ## Setup

@@ -224,10 +224,8 @@
         "triggers": [
           "DataGrip",
           "DataGrip connection",
-          "query the database",
-          "inspect database schema",
-          "preview table data",
-          "list database tables",
+          "DataGrip database",
+          "DataGrip schema",
           "run SQL in DataGrip"
         ]
       },
@@ -243,7 +241,13 @@
       "argument_hint": "[connection and question]",
       "routing": {
         "intent": "Inspect or query TablePro-configured databases through the TablePro MCP",
-        "triggers": ["TablePro", "TablePro connection", "run SQL in TablePro"]
+        "triggers": [
+          "TablePro",
+          "TablePro connection",
+          "TablePro database",
+          "TablePro schema",
+          "run SQL in TablePro"
+        ]
       },
       "prompt": {
         "description": "Inspect and query TablePro-configured databases through the Linux TablePro MCP. Use bounded reads by default, protect private data, and obtain explicit approval for connections and writes."
