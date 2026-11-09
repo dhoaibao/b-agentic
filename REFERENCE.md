@@ -83,8 +83,9 @@ piped bootstrap honors `--dry-run` before cloning or fetching, runs git with its
 destination overrides cleared, and refuses a source checkout whose worktree or
 git directory is under `~/.pi`. Claude Code rewrites `~/.claude.json` while it
 runs, so restart it after an install. The installer reports missing tools (`rtk`,
-`codegraph`, `bunx`, `claude`) and never runs vendor installers. The review gate
-needs no extra tool, login, or plugin.
+`codegraph`, `bunx`, `claude`) and never runs vendor installers; see
+[install prerequisites](docs/runbooks/install-prerequisites.md) for the manual
+steps. The review gate needs no extra tool, login, or plugin.
 
 ## OpenCode runtime
 
