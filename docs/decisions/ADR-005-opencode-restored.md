@@ -31,7 +31,8 @@ it, and remove Codex entirely.
 ## Consequences
 
 - OpenCode keeps the gaps recorded in ADR-002 (no verify gate, no ClickUp
-  image-reference prompt). Its behavior was last verified against OpenCode v2.1.4 and
+  image-reference prompt; the ClickUp gap is moot since
+  [ADR-006](ADR-006-retire-clickup-integration.md)). Its behavior was last verified against OpenCode v2.1.4 and
   no live session is run by this repository's checks.
 - `install.sh --runtime=codex` is refused with a pointer to this ADR. A machine that
   installed the Codex runtime keeps its managed files, which this repository no

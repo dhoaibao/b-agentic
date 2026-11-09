@@ -13,6 +13,10 @@ single-runtime statement in Context, the `~/.claude`-only boundary under
 Consequences, and the Anthropic-models-only statement under "Workflow and skill
 design" (OpenCode specialists pin `opencode_model`).
 
+Superseded in part by [ADR-006](ADR-006-retire-clickup-integration.md): the
+ClickUp MCP server, skill, and `b-clickup-guard` hook described below are
+history; they were removed.
+
 OpenCode was replaced by Codex in [ADR-004](ADR-004-codex-runtime.md) and restored, with Codex removed, in [ADR-005](ADR-005-opencode-restored.md).
 
 Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md): the Codex
@@ -92,6 +96,11 @@ non-goal. On Claude Code, specialists run
 on Anthropic models only (`opus`, `sonnet`, or `haiku`), so the earlier Gemini
 research model is gone.
 
+The kernel's "Peer agent messaging" section applies only when the user asks agents
+to talk to each other. It adds no other rules and grants no authority: under
+`HERDR_ENV=1` the agent uses the `herdr` skill, otherwise `hc --skill` when `hc` is on
+`PATH`, and the two cannot message each other.
+
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
 [`skills/registry.yaml`](../../skills/registry.yaml),
 [`skills/b-qa/prompt.md`](../../skills/b-qa/prompt.md), and
@@ -137,8 +146,8 @@ prompt as an accepted residual risk. Unlike the
 earlier policy, the managed rules neither deny nor prompt for outside-project writes
 (bare `Edit`, `Write`, and `Bash` allows); the kernel's approval rule is the control,
 and any native prompt comes from Claude Code's built-in protected-path checks, the permission mode, or user settings (refined 2026-11-07). Permission rules are not filesystem or process isolation; shell
-indirection and MCP arguments the rules cannot see remain residual risks, except
-the ClickUp task images that `b-clickup-guard` checks.
+indirection and MCP arguments the rules cannot see remain residual risks (the
+former ClickUp image exception, checked by `b-clickup-guard`, was removed by ADR-006).
 Sending a repository to Codex discloses it to OpenAI, and Codex's read-only
 sandbox can read every workspace file; Codex has no ignore mechanism. The
 `b-review` therefore runs the gate through one wrapper, `b-codex-review`, whose
@@ -210,8 +219,9 @@ the ClickUp guard (removed by [ADR-006](ADR-006-retire-clickup-integration.md)),
 The ClickUp integration and related safety-hook decision in this section were
 superseded by [ADR-006](ADR-006-retire-clickup-integration.md).
 
-Nine base servers are configured in Claude Code's standard `mcpServers` shape;
-optional ClickUp is added only after install opt-in. `references/mcp_operations.yaml`
+Ten base servers are configured in Claude Code's standard `mcpServers` shape:
+seven are always installed, and the optional draw.io, Excalidraw, and TablePro
+servers are added only after install opt-in. `references/mcp_operations.yaml`
 classifies every known tool, and each class maps to an allow or ask rule on
 `mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
 The retired adapter's lazy and search-exposed modes are gone: Claude Code's
@@ -246,7 +256,8 @@ and `conditional-read` (allowed), `trusted-mutation` (allowed by the user's
 decision, main session only), and `local-upload`, `private-read`,
 `external-mutation`, `monitor-lifecycle`, `local-mutation`, and `auth` (ask). ClickUp `createTask` and
 `updateTask` and the Playwright page-driving tools above are the `trusted-mutation`
-tools, run without a prompt by the user's decision. The ClickUp MCP reads and uploads a local image path or
+tools, run without a prompt by the user's decision (the ClickUp passage that follows is
+history, removed by ADR-006). The ClickUp MCP reads and uploads a local image path or
 `data:` URI and downloads and re-uploads an external image URL named in task
 markdown, and no permission rule sees MCP arguments. The `b-clickup-guard`
 PreToolUse hook therefore asks whenever `description` or `append_description`
@@ -260,6 +271,7 @@ Optional components: `b-datagrip`, `b-tablepro`, `b-excalidraw`, `b-drawio` and
 their MCP servers, routing lines, and `allow` permission rules are declared under
 `optional_components` in `skills/registry.yaml`. Generated assets stay complete;
 the installers filter them after an explicit choice (checkbox, `--with`/`--without`),
+drop skill lines marked `<!-- requires: b-x -->` whose skill is not installed,
 record the choice in the manifest, and remove a deselected component's recorded,
 unmodified assets on the next sync. `ask` and `deny` rules always ship, so a server
 that stays configured keeps its prompts and denials.

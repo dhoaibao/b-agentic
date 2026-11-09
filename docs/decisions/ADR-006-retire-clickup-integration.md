@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-08
-- Supersedes: ADR-001 (ClickUp MCP, skill, and guard)
+- Supersedes: ADR-001 (ClickUp MCP, skill, and guard); ADR-002 (ClickUp-specific runtime behavior)
 
 ## Context
 

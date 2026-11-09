@@ -26,7 +26,7 @@
     "opencode": {
       "config_dir": "~/.config/opencode",
       "state_dir": "~/.config/opencode/b-agentic",
-      "hook_dir": "$HOME/.config/opencode/b-agentic/plugins",
+      "hook_dir": "$HOME/.config/opencode/plugins",
       "agent_models": [],
       "editing_tools": [
         "edit",

@@ -32,11 +32,12 @@ writes under `~/.pi`.
   creates no backups and removes nothing. A piped run has already cloned or updated
   the source checkout by then, because the summary needs it. With `--runtime=both`,
   each runtime confirms separately; declining OpenCode does not undo Claude's install.
+- The kernel's "Peer agent messaging" section applies only when the user asks agents to talk to each other and adds no other rules: `herdr` skill under `HERDR_ENV=1`, otherwise `hc --skill` if `hc` is on `PATH`.
 - Optional components (`optional_components` in `skills/registry.yaml`: `datagrip`, `tablepro`,
   `excalidraw`, `drawio`) are installed only after a choice. Each is its skill, its kernel routing
   line, its `mcp__<server>__*` (OpenCode: `<server>_*`) permission rules, and its MCP server
   entry (DataGrip's entry stays IDE-managed, so `datagrip` covers only the skill, routing line, and
-  rules). A terminal shows a checkbox list before the summary: nothing is checked on a fresh
+  rules). Deselecting also drops lines marked `<!-- requires: b-x -->` from installed skills, so none points to an absent sibling; a full install keeps them byte for byte. A terminal shows a checkbox list before the summary: nothing is checked on a fresh
   install, and an existing install's recorded choice is pre-checked, so Enter keeps it. `--with=ID[,ID]` and
   `--without=ID[,ID]` (additive, repeatable) answer non-interactively and skip the list. With `-y`,
   `--dry-run`, or no terminal, the choice recorded in the manifest is reused and a fresh install selects
