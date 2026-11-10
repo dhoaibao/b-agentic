@@ -7,7 +7,7 @@
 // checks a glob cannot express. It blocks by throwing from the V2 `execute.before`
 // tool hook and fails open on anything it cannot interpret, so it cannot wedge a session.
 // It cannot ask the user and cannot block a session from stopping, so the
-// verify gate is not ported (see REFERENCE.md).
+// verify gate is not ported (see docs/decisions/ADR-002-dual-runtime-support.md).
 
 const hooksUrl = (name) =>
   new URL(`../b-agentic/hooks/${name}`, import.meta.url).href;

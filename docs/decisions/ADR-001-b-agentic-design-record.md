@@ -207,9 +207,23 @@ under `~/.claude/b-agentic/` (override `B_AGENTIC_GATE_DIR`, separate from the
 Codex approval store's `B_AGENTIC_STATE_DIR`), and state files are opened
 without following symlinks.
 
+The `b-spec-context` hook keeps user-approved acceptance criteria reachable
+across context compaction without storing state: a `SessionStart` hook matched on
+`compact` only lists the paths of up to five `docs/specs/*.md` files whose first
+40 lines carry a `Status: approved` line (2,000 characters at most, newest
+first), as facts rather than instructions, and never injects file content. It
+reads only plain regular files, skips symlinks and likely-secret names, sets no
+`onFailure`, and exits 0 silently on any error, so it cannot block startup or
+compaction. Claude Code also runs it when a subagent compacts (the payload has
+no `agent_id`); that residual risk is accepted because the output is a short
+pointer. Per the Claude Code hooks reference (v2.1.322), `SessionStart` output on
+`compact` is added to the context, but issue #15174 reported otherwise, so a
+live check after `/compact` stays a manual acceptance step.
+
 Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
 the `b-codex-guard` hook script (removed by [ADR-003](ADR-003-subagent-review-gate.md)),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
+[`claude/hooks/b-spec-context.mjs`](../../claude/hooks/b-spec-context.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
 the ClickUp guard (removed by [ADR-006](ADR-006-retire-clickup-integration.md)), and
 [`tests/hooks/hooks-probe.sh`](../../tests/hooks/hooks-probe.sh).

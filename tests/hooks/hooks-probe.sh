@@ -63,6 +63,7 @@ vg() {
 run "$verifygate" "$(vg PostToolUse s1 Edit /repo/src/a.ts)"; expect 0 "PostToolUse never blocks"
 run "$verifygate" "$(vg Stop s1)"; expect 2 "edit without a later shell command must remind once"
 grep -Fq 'b-agentic verify gate' <<<"$err" || fail "reminder text missing"
+grep -Fq 'AC-n' <<<"$err" || fail "reminder must tell the agent to map AC-n criteria to checks"
 run "$verifygate" "$(vg Stop s1 '' '' true)"; expect 0 "the continuation must be allowed to stop"
 # a shell command after the edit counts as a check.
 run "$verifygate" "$(vg PostToolUse s2 Write /repo/src/a.ts)"; expect 0 "write"
@@ -702,3 +703,101 @@ rc=0; ( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$work/plugin/not-the-script.mj
 [ "$rc" = 2 ] || fail "--available with a broken override must be a refusal, not unavailable (exit $rc)"
 [ ! -s "$FAKE_LOG" ] || fail "--available must not run the plugin"
 echo "hooks probe passed: review-wrapper"
+
+# --- spec context --------------------------------------------------------------
+specctx="$root/claude/hooks/b-spec-context.mjs"
+sc() { jq -cn --arg cwd "$1" --arg source "${2:-compact}" '{hook_event_name: "SessionStart", source: $source, cwd: $cwd}'; }
+sout=""
+srun() { # <json>: stdout in $sout, exit code in $rc (a hang would surface as exit 124 where timeout exists)
+  local cmd=(node "$specctx")
+  command -v timeout >/dev/null && cmd=(timeout 20 "${cmd[@]}")
+  rc=0
+  sout=$(printf '%s' "$1" | "${cmd[@]}" 2>/dev/null) || rc=$?
+}
+sexpect_silent() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
+tree_id() { (cd "$1" && find . -printf '%p %T@ %s\n' | sort | sha256sum); }
+spec() { # <project> <file> <status line>
+  mkdir -p "$work/$1/docs/specs"
+  printf '# %s\n\n%s\n\n## Acceptance criteria\n\n- AC-1: WHEN x THEN y\n' "$2" "$3" >"$work/$1/docs/specs/$2"
+}
+# an approved spec is listed by path only, as valid SessionStart output.
+spec p1 export.md 'Status: approved'
+before=$(tree_id "$work/p1")
+srun "$(sc "$work/p1")"
+[ "$rc" = 0 ] || fail "spec context must exit 0 (exit $rc)"
+jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' <<<"$sout" >/dev/null || fail "spec context output is not SessionStart JSON: $sout"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+grep -Fq 'docs/specs/export.md' <<<"$ctx" || fail "approved spec path missing: $ctx"
+[ "${#ctx}" -le 2000 ] || fail "context exceeds 2000 characters (${#ctx})"
+grep -Fq 'WHEN x THEN y' <<<"$ctx" && fail "spec content must never be injected"
+[ "$before" = "$(tree_id "$work/p1")" ] || fail "the hook changed the project tree"
+# markdown variants of the Status line are accepted.
+spec p1 bold.md '**Status:** approved'
+spec p1 listed.md '- Status: `approved`'
+srun "$(sc "$work/p1")"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+grep -Fq 'docs/specs/bold.md' <<<"$ctx" || fail "bold Status variant not listed: $ctx"
+grep -Fq 'docs/specs/listed.md' <<<"$ctx" || fail "list-item Status variant not listed: $ctx"
+# nothing to say: no folder, only README/draft/implemented, other source, bad input.
+mkdir -p "$work/p2"
+before=$(tree_id "$work/p2")
+srun "$(sc "$work/p2")"; sexpect_silent "no docs/specs must be silent"
+[ "$before" = "$(tree_id "$work/p2")" ] || fail "the hook created files when docs/specs was absent"
+printf '# Specs\n\nStatus: approved\n' >"$work/p3-readme" && mkdir -p "$work/p3/docs/specs" && cp "$work/p3-readme" "$work/p3/docs/specs/README.md"
+spec p3 a.md 'Status: draft'
+spec p3 b.md 'Status: implemented'
+spec p3 c.md 'Status: approved-ish'
+srun "$(sc "$work/p3")"; sexpect_silent "README, draft, implemented and non-approved specs must be silent"
+srun "$(sc "$work/p1" startup)"; sexpect_silent "a non-compact source must be silent"
+srun "$(sc "$work/p1" resume)"; sexpect_silent "a resume source must be silent"
+srun 'not json'; sexpect_silent "malformed input must fail open"
+srun ''; sexpect_silent "empty input must fail open"
+srun '{"hook_event_name":"SessionStart","source":"compact","cwd":"relative/path"}'; sexpect_silent "a relative cwd must be silent"
+srun '{"hook_event_name":"PreToolUse","source":"compact","cwd":"'"$work/p1"'"}'; sexpect_silent "another event must be silent"
+# a Status line outside the first 40 lines does not count.
+mkdir -p "$work/p4/docs/specs"
+{ for i in $(seq 1 45); do echo "line $i"; done; echo 'Status: approved'; } >"$work/p4/docs/specs/late.md"
+srun "$(sc "$work/p4")"; sexpect_silent "a late Status line must not count"
+# likely-secret names and unsafe names are never opened or listed.
+spec p5 secrets.md 'Status: approved'
+spec p5 credentials.md 'Status: approved'
+spec p5 'odd,name.md' 'Status: approved'
+srun "$(sc "$work/p5")"; sexpect_silent "protected and unsafe names must be skipped"
+# symlinks are never followed: a linked spec file, a linked specs folder, a linked docs folder.
+mkdir -p "$work/p6/docs/specs" "$work/outside"
+printf 'Status: approved\n' >"$work/outside/x.md"
+ln -s "$work/outside/x.md" "$work/p6/docs/specs/linked.md"
+srun "$(sc "$work/p6")"; sexpect_silent "a symlinked spec file must be skipped"
+mkdir -p "$work/p7/docs" "$work/outside-specs"
+printf 'Status: approved\n' >"$work/outside-specs/y.md"
+ln -s "$work/outside-specs" "$work/p7/docs/specs"
+srun "$(sc "$work/p7")"; sexpect_silent "a symlinked docs/specs folder must be skipped"
+mkdir -p "$work/p8" "$work/outside-docs/specs"
+printf 'Status: approved\n' >"$work/outside-docs/specs/z.md"
+ln -s "$work/outside-docs" "$work/p8/docs"
+srun "$(sc "$work/p8")"; sexpect_silent "a symlinked docs folder must be skipped"
+# more than five approved specs: the five newest, a remainder count, and the size cap.
+for i in 1 2 3 4 5 6 7; do
+  spec p9 "feature-$i.md" 'Status: approved'
+  touch -d "2026-01-0$i 00:00:00" "$work/p9/docs/specs/feature-$i.md"
+done
+srun "$(sc "$work/p9")"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+grep -Fq '(+2 more)' <<<"$ctx" || fail "remainder count missing: $ctx"
+for i in 3 4 5 6 7; do grep -Fq "docs/specs/feature-$i.md" <<<"$ctx" || fail "newest spec feature-$i missing: $ctx"; done
+for i in 1 2; do grep -Fq "docs/specs/feature-$i.md," <<<"$ctx" && fail "older spec feature-$i must not be listed"; done
+[ "${#ctx}" -le 2000 ] || fail "capped context exceeds 2000 characters (${#ctx})"
+long=$(printf 'a%.0s' $(seq 1 120))
+for i in 1 2 3 4 5; do spec p10 "$long$i.md" 'Status: approved'; done
+srun "$(sc "$work/p10")"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+[ "$rc" = 0 ] && [ "${#ctx}" -le 2000 ] || fail "long names must stay within the cap (${#ctx})"
+# a FIFO named like a spec must neither hang the hook nor be listed.
+mkdir -p "$work/p11/docs/specs"
+mkfifo "$work/p11/docs/specs/wait.md"
+srun "$(sc "$work/p11")"; sexpect_silent "a FIFO spec name must be skipped without blocking"
+# a project root reached through a symlink still works: the folders resolve inside the real root.
+ln -s "$work/p1" "$work/p1-link"
+srun "$(sc "$work/p1-link")"
+jq -e '.hookSpecificOutput.additionalContext | contains("docs/specs/export.md")' <<<"$sout" >/dev/null || fail "a symlinked project root must still list approved specs: $sout"
+echo "hooks probe passed: spec-context"

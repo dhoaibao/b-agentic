@@ -12,6 +12,7 @@ SETTINGS_HOOKS = (
     "b-path-guard.mjs",
     "b-codex-guard.mjs",
     "b-verify-gate.mjs",
+    "b-spec-context.mjs",
 )
 
 

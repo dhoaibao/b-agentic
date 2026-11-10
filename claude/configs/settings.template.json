@@ -958,6 +958,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/b-agentic/hooks/b-spec-context.mjs\""
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

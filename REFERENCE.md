@@ -377,7 +377,13 @@ branches not named `main` or `master` also stay at the ask prompt. The
 `*.env.example` allowance that deny rules cannot express). Hooks:
 `b-path-guard` runs before file tools; `b-codex-guard` is a tripwire on Bash for direct calls to the Codex plugin (see [Review gate](#review-gate)); `b-verify-gate` tracks
 edits and, when the main session edited a non-prose file after its last non-inspection shell
-command, blocks the first stop once with the verify and review reminder. The file-tool
+command, blocks the first stop once with the verify and review reminder (which also asks the agent to map each confirmed `AC-n` criterion to its check result or a stated gap).
+`b-spec-context` is a `SessionStart` hook matched on `compact` only: after compaction it lists, as plain facts, the paths of up to five `docs/specs/*.md`
+files whose first 40 lines carry a `Status: approved` line, newest first, in at most 2,000 characters. It injects no file content, never writes, skips symlinks,
+likely-secret names, and unusual file names, sets no `onFailure`, and prints nothing (exit 0) when `docs/specs/` is absent, no spec is approved, or anything fails.
+Claude Code also fires it when a subagent compacts and sends no `agent_id` to tell the two apart; this is accepted because the output is a short pointer.
+Whether the pointer reaches the model after a live `/compact` is not covered by the offline probe (Claude Code issue #15174 reported it missing), so confirm it by hand.
+It is not ported to OpenCode (see [ADR-002](docs/decisions/ADR-002-dual-runtime-support.md)). The file-tool
 guard sets `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that crashes, times out, or
 cannot start blocks the call, and malformed input still fails open by design. To recover from a
 guard that fails closed (for example a missing `node` or hook script), repair or reinstall: Bash is

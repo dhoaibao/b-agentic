@@ -112,6 +112,7 @@ Gap handling on OpenCode:
 | ClickUp guard (asks on images) | every ClickUp create or update asks                                                                                                                                                                               |
 | Approval-store tripwire        | superseded by ADR-003: removed with the `b-codex-guard` hook; the installer retires the three shell `ask` rules on upgrade                                                                                        |
 | Verify gate                    | not ported: a session cannot be blocked from stopping                                                                                                                                                             |
+| Spec context on compaction     | not ported: no verified OpenCode compaction hook; approved specs stay readable in `docs/specs/`                                                                                                                   |
 | Codex gate                     | superseded by ADR-003: the `b-reviewer` subagent, no shared companion or approval logic                                                                                                                           |
 
 Invariants: manifest-only ownership, refusal before the first write, user keys
@@ -131,7 +132,7 @@ the installer does not check the OpenCode version; the facts above were checked
 against v2.1.4, and the v1 to v2 schema break shows config keys can change
 silently, so re-verify them after an OpenCode upgrade.
 
-Accepted residual risks: the verify gate and the ClickUp image prompt are not
+Accepted residual risks: the verify gate, the spec-context hook, and the ClickUp image prompt are not
 ported; the plugin's `execute.before` throw, how shell patterns match compound
 commands, and the model-facing tool names were verified against the published
 2.1.4 packages and a recording context rather than a live OpenCode session, and

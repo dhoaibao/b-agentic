@@ -353,7 +353,7 @@ def main() -> int:
                     )
             elif hook.get("onFailure") != "block":
                 errors.append("PreToolUse guards must fail closed with onFailure block (Claude Code 2.1.295 or later)")
-    for event in ("PostToolUse", "Stop"):
+    for event in ("PostToolUse", "Stop", "SessionStart"):
         for entry in hooks[event]:
             for hook in entry["hooks"]:
                 if "onFailure" in hook:

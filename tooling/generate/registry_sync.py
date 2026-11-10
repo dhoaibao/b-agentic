@@ -901,6 +901,12 @@ def render_hooks() -> dict[str, Any]:
             }
         ],
         "Stop": [{"hooks": [{"type": "command", "command": hook_command("b-verify-gate.mjs")}]}],
+        "SessionStart": [
+            {
+                "matcher": "compact",
+                "hooks": [{"type": "command", "command": hook_command("b-spec-context.mjs")}],
+            }
+        ],
     }
 
 

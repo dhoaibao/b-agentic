@@ -10,8 +10,9 @@ Requirements and approved plans for work to be built.
 
 ## Template
 
-Status (draft, approved, implemented), Goal, Requirements, Acceptance criteria,
-Out of scope.
+A `Status: draft|approved|implemented` line within the first lines (the
+`b-spec-context` hook reads it), Goal, Requirements, Acceptance criteria
+(numbered `AC-n`), Out of scope.
 
 ## Rules
 

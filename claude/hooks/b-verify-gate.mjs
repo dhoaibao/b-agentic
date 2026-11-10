@@ -34,6 +34,7 @@ const PROSE_PATH = /\.(md|mdx|txt|rst)$/i;
 export const REMINDER = [
   "b-agentic verify gate: files were edited after the last non-inspection shell command in this run.",
   "Before finishing, run the applicable checks and inspect the changed paths and diff.",
+  "When user-confirmed AC-n criteria exist (approved plan or docs/specs/<feature>.md), map each AC-n to its check result or state the gap.",
   "If the change touches a kernel review trigger (security, permissions, contracts,",
   "dependencies, installer or config merge, workflow policy), freeze the checked candidate",
   "and run the independent b-review gate; otherwise state the low-risk exception.",
