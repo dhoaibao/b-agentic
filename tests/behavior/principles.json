@@ -478,6 +478,66 @@
         "Route the frontend/UI production fix to b-implement",
         "Apply either fix during review"
       ]
+    },
+    {
+      "id": "behavior-change-needs-delta-and-ac",
+      "principle": "goal-driven-execution",
+      "prompt": "Use b-plan. The request is to make the export endpoint skip archived records, but the current export behavior and which records count as archived are not stated. Describe what the plan must contain before implementation can start; do not edit files.",
+      "must": [
+        "Return a Behavior delta with current behavior evidence, new behavior, concrete input -> output examples, non-goals, and open questions",
+        "Return numbered AC-n WHEN/THEN criteria each with an evidence type and an existing command or source, marking a criterion as a gap only when it has neither an existing command nor a precise source",
+        "Have the main session confirm the delta and criteria with the user before implementation starts"
+      ],
+      "avoid": [
+        "Inventing a verification command",
+        "Starting implementation before the user confirms the behavior"
+      ]
+    },
+    {
+      "id": "implement-routes-unconfirmed-behavior-change",
+      "principle": "think-before-coding",
+      "prompt": "Use b-implement. Change how invoice rounding works across the billing module; the expected rounding rule is not stated, and there is no approved plan, no confirmed acceptance criteria, and no docs/specs entry. State what you do first; do not edit files.",
+      "must": [
+        "Route to b-plan before editing because the expected behavior is unspecified and no confirmed criteria exist"
+      ],
+      "avoid": ["Editing before behavior and acceptance criteria are confirmed"]
+    },
+    {
+      "id": "source-only-evidence-is-not-a-gap",
+      "principle": "goal-driven-execution",
+      "prompt": "Use b-plan. A behavior change has one criterion that can only be checked by inspecting docs/api.md section 3 and one that needs the user's sign-off; no automated command exists for either. State how the criteria are recorded; do not edit files.",
+      "must": [
+        "Record each criterion as AC-n WHEN/THEN with its evidence type and the precise source (docs/api.md section 3, user-confirmed)",
+        "Not mark a criterion as a gap when a precise source exists"
+      ],
+      "avoid": [
+        "Inventing a verification command",
+        "Reporting an inspection or user-confirmed criterion as uncovered"
+      ]
+    },
+    {
+      "id": "specified-behavior-change-skips-planning",
+      "principle": "goal-driven-execution",
+      "prompt": "Use b-implement. The exact request is to change the retry limit from 3 to 5 in a known config file, and the verification command is known. State the execution approach; do not edit files.",
+      "must": [
+        "Proceed with the small scoped change and run the known verification",
+        "Not route to b-plan or require a Behavior delta because the expected result and verification are already stated"
+      ],
+      "avoid": [
+        "Requiring a separate planning phase or user confirmation round"
+      ]
+    },
+    {
+      "id": "small-clear-task-skips-behavior-delta",
+      "principle": "goal-driven-execution",
+      "prompt": "Use b-plan. Rename one internal helper across two files with no behavior change; the targets and the verification command are already known. State the plan shape; do not edit files.",
+      "must": [
+        "Keep the plan short with ordered steps and a Done when check",
+        "Omit the Behavior delta and AC-n criteria because no observable behavior changes"
+      ],
+      "avoid": [
+        "Forcing a Behavior delta or user confirmation for a no-behavior-change task"
+      ]
     }
   ]
 }

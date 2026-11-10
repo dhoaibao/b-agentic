@@ -73,6 +73,19 @@
         "Leave staging, commit, and push to b-commit and b-pr on an explicit user request"
       ],
       "avoid": ["Staging, committing, or pushing because QA passed"]
+    },
+    {
+      "id": "qa-accepts-ac-n-from-approved-spec",
+      "prompt": "Use b-qa on a reviewed candidate. The acceptance criteria are AC-1..AC-3 recorded in the user-approved docs/specs/export-archived.md, each with an evidence type and command.",
+      "must": [
+        "Accept the AC-n criteria and the approved spec as their source instead of returning QA BLOCKED",
+        "Keep the AC-n ids in the evidence matrix",
+        "End with exactly one standalone Verdict line"
+      ],
+      "avoid": [
+        "Returning QA BLOCKED because the criteria source was a spec file",
+        "Dropping the AC-n ids from the matrix"
+      ]
     }
   ]
 }

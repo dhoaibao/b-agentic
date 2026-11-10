@@ -41,7 +41,7 @@ User arguments for the bounded task: $ARGUMENTS
 
 ## When NOT to use
 
-- A small clear non-UI change -> **b-implement**.
+- A small clear non-UI change whose expected behavior and verification are already stated, or that changes no behavior -> **b-implement**. A change with unspecified expected behavior and no confirmed `AC-n` criteria stays here.
 - Clearly scoped frontend/UI work -> **b-frontend**.
 - External facts are the blocker -> **b-research**.
 - A runtime failure needs diagnosis -> **b-debug**.
@@ -55,14 +55,14 @@ User arguments for the bounded task: $ARGUMENTS
 1. State the interpreted goal, constraints, non-goals, and success criteria.
 2. Inspect only the local evidence needed to avoid guessing. Use CodeGraph for affected symbols, callers, and tests when an index is available; otherwise report the fallback gap to the main session.
 3. For non-trivial or risky work, compare viable paths and relevant quality dimensions, including the simpler option, then recommend the smallest safe one with evidence-backed rationale and accepted trade-offs. Keep small obvious tasks free of forced comparison or research.
-4. Specify ordered implementation steps, affected paths/symbols, invariants, and `Done when` verification that proves observable behavior.
+4. Specify ordered implementation steps, affected paths/symbols, invariants, and `Done when` verification that proves observable behavior. When the work changes observable behavior or the request is ambiguous, also return a **Behavior delta**: current behavior with `file:line` or command evidence (label unverified inference as such), new behavior, 2–5 concrete input -> output examples, non-goals, and open questions; plus numbered criteria `AC-n: WHEN … THEN …`, each with an evidence type (automated check, browser, inspection, user-confirmed) and an exact existing command or, for inspection and user-confirmed evidence, a precise source. A criterion with neither is a gap; never invent a command. Skip the delta when no behavior changes or the request already states the exact expected behavior, target, and verification.
 5. For a material user-facing decision, state 2–4 concrete options and their trade-offs for the main session to resolve with the user. Do not invoke `AskUserQuestion` or claim approval.
-6. Return the plan to the main session with scope, acceptance, affected paths, invariants, verification, risks, and open items. The main session owns approval and any later implementation.
+6. Return the plan to the main session with scope, acceptance, affected paths, invariants, verification, risks, and open items. The main session owns approval and any later implementation. When a Behavior delta is returned, the main session confirms it and the `AC-n` criteria with the user before implementation starts.
 7. For changed work, include applicable checks and the kernel's risk classification of the final candidate: a bounded, verified low-risk change may finish without independent review, with direct tests/docs and faithfully regenerated outputs counted with their source; a triggered change must freeze the exact tracked plus relevant untracked/derived snapshot after fresh checks and obtain independent **b-review** review. This is not authorization to commit or push.
 
 ## Output format
 
-Concise scope, recommended path, ordered steps, verification, explicit blockers, and unresolved decisions for the main session.
+Concise scope, recommended path, ordered steps, verification, explicit blockers, and unresolved decisions for the main session. Include the Behavior delta and `AC-n` criteria when step 4 triggers them.
 
 ## Rules
 

@@ -44,7 +44,7 @@ Implement clearly scoped frontend/UI code, visual refreshes, landing pages, and 
 
 ## Steps
 
-1. Read the user's brief/intent, acceptance criteria, and existing UI context. Inspect the relevant layout/component files, tokens, assets, data, package manifest, and `docs/DESIGN.md` when present before choosing an approach.
+1. Read the user's brief/intent, acceptance criteria (the confirmed `AC-n` from the approved plan or `docs/specs/<feature>.md` when present), and existing UI context. Inspect the relevant layout/component files, tokens, assets, data, package manifest, and `docs/DESIGN.md` when present before choosing an approach.
 2. Treat the existing visual system or design documentation as authoritative. Before selecting composition or styling, make an explicit, task-conditional design read covering the surface, audience, brand/repository evidence, hierarchy, density, layout variance, and motion posture. State one product-appropriate art direction and its anti-default constraints. Ask one material question only when the requested design direction materially diverges from that authority; otherwise make the smallest contextual choice that fits the product. Treat marketing pages, product apps, dashboards, and trust/regulated surfaces differently rather than applying a rote landing-page formula. Where requirements and target support allow, prefer semantic HTML and native HTML/CSS/browser features before bespoke components or new dependencies. Keep repository UI/design authority primary; do not reduce accessible behavior or override product/design evidence for a smaller implementation.
 3. Define the bounded UI slice: component structure and content, loading/empty/error/success states where applicable, responsive behavior, interaction states, semantic HTML, keyboard/focus behavior, contrast, and other relevant accessibility needs. Choose hierarchy, density, and composition from the product context.
 4. Implement the smallest coherent change. Preserve existing information architecture, brand, behavior, and tracking in a redesign unless the user approved changing them. Avoid rote generic card grids, gratuitous gradients, fake product screenshots, invented social proof, and invented metrics.
@@ -64,7 +64,7 @@ Implement clearly scoped frontend/UI code, visual refreshes, landing pages, and 
 
 ## Output format
 
-Report implemented behavior, changed paths, exact checks and outcomes, acceptance coverage, and deviations or gaps. Include a concise handoff when browser or visual evidence is still needed.
+Report implemented behavior, changed paths, exact checks and outcomes, acceptance coverage (per `AC-n` when numbered), and deviations or gaps. Include a concise handoff when browser or visual evidence is still needed.
 
 ## Rules
 
