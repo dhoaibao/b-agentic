@@ -555,13 +555,20 @@ ln -s a.txt "$wlinks/ignored.txt"
 wrap "$wlinks" --scope working-tree; wexpect 0 "an ignored symlink is not sent and must pass"
 ln -s a.txt "$wlinks/staged.txt"; git -C "$wlinks" add staged.txt
 wrap "$wlinks" --scope working-tree; wexpect 0 "a staged symlink appears in the diff as its target text and must pass"
+# stock macOS has no GNU timeout; the alarm survives exec and bounds the command the same way
+bounded() { # bounded <seconds> <command...>
+  if command -v timeout >/dev/null 2>&1; then timeout "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
+  else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
+  fi
+}
 # A link that appears after the guard's preflight must still be refused before the plugin runs. The
 # approval store is a FIFO, so the guard blocks on its last read while the link is created.
 wrace="$work/wrace"
 make_repo "$wrace"
 mkdir -p "$work/fifostate"
 mkfifo "$work/fifostate/codex-approved-repos.json"
-( sleep 2; ln -s a.txt "$wrace/late-link"; timeout 30 bash -c 'printf "[\"%s\"]" "$1" >"$2"' _ "$(cd "$wrace" && pwd -P)" "$work/fifostate/codex-approved-repos.json" ) &
+( sleep 2; ln -s a.txt "$wrace/late-link"; bounded 30 bash -c 'printf "[\"%s\"]" "$1" >"$2"' _ "$(cd "$wrace" && pwd -P)" "$work/fifostate/codex-approved-repos.json" ) &
 racer=$!
 : >"$FAKE_LOG"
 B_AGENTIC_STATE_DIR="$work/fifostate" wrap "$wrace" --scope working-tree; wexpect 2 "a symlink created after the preflight must be refused"
@@ -609,13 +616,6 @@ FAKE_MODE=ignore-term wrap "$wrepo" --scope working-tree --timeout-minutes 0.02 
 [ "$SECONDS" -lt 15 ] || fail "a SIGTERM-ignoring child blocked the wrapper ($SECONDS s)"
 # a companion that exits while a descendant keeps the pipes open must not hang the wrapper
 export FAKE_PIDFILE="$work/holder.pid"
-# stock macOS has no GNU timeout; the alarm survives exec and bounds the command the same way
-bounded() { # bounded <seconds> <command...>
-  if command -v timeout >/dev/null 2>&1; then timeout "$@"
-  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
-  else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
-  fi
-}
 holder_case() { # holder_case <mode> <expect> <message> [extra wrapper args...]
   local mode=$1 want=$2 message=$3
   shift 3
