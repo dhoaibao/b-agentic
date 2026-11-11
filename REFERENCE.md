@@ -395,7 +395,14 @@ they do not prompt for outside-project writes; any native prompt comes from Clau
 Code's built-in protected-path checks, your permission mode, or your own settings, and the kernel requires approval for outside-project mutations even
 without one. These rules are not a process or filesystem sandbox; shell indirection and MCP
 arguments they cannot see remain residual risks. Native Linux and macOS Claude Code builds run `Grep`
-and `Glob` searches through Bash, so `b-path-guard` sees no searches there. The
+and `Glob` searches through Bash, so `b-path-guard` sees no searches there. Claude Code's
+own opt-in sandbox (`/sandbox`, the `sandbox.enabled` setting, off by default) is the
+process and filesystem layer these rules do not provide, and its `sandbox.filesystem.denyRead`
+setting can cover secret paths that Bash-backed searches skip. With the default
+`autoAllowBashIfSandboxed`, deny rules and content-scoped asks still apply. b-agentic neither
+installs nor verifies the sandbox, and whether it leaves the Codex review gate and the Node
+hooks working is unverified: after enabling it, run
+`node ~/.claude/b-agentic/bin/b-codex-review.mjs --available` and one review round. The
 kernel additionally
 requires approval for other destructive, privileged, ambiguous, protected, or
 external/shared actions.
