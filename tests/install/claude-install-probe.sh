@@ -1095,6 +1095,72 @@ grep -Fq 'skill marker names a skill that is not optional: b-plan' <<<"$err$out"
 [ "$before" = "$(tree "$home")" ] || fail "a refused marker must not write anything"
 echo "install probe passed: sibling-references"
 
+# --- status line only: one script and one settings entry, upgradeable, removable, never over a full install ---
+home=$(fresh_home statusline-only)
+pi_before=$(tree "$home/.pi")
+mkdir -p "$home/.claude"
+printf '{"theme":"dark"}\n' >"$home/.claude/settings.json"
+run "$home" -y --statusline-only --dry-run; expect_ok "status line dry-run"
+[ ! -e "$home/.claude/b-agentic" ] || fail "a status-line dry-run must write nothing"
+run "$home" -y --statusline-only; expect_ok "status line only install"
+claude="$home/.claude"
+[ -f "$claude/b-agentic/bin/b-statusline.mjs" ] || fail "the status line script must be installed"
+cmp -s "$root/claude/bin/b-statusline.mjs" "$claude/b-agentic/bin/b-statusline.mjs" || fail "status line script differs from source"
+[ "$(jq -r '.statusLine.command' "$claude/settings.json")" = "$(jq -r '.statusLine.command' "$root/claude/configs/settings.template.json")" ] || fail "the status line entry must match the template"
+[ "$(jq -r '.theme' "$claude/settings.json")" = dark ] || fail "existing settings must be preserved"
+[ "$(jq -r 'has("permissions") or has("hooks")' "$claude/settings.json")" = false ] || fail "no permissions or hooks may be added: $(cat "$claude/settings.json")"
+[ ! -e "$claude/skills" ] && [ ! -e "$claude/agents" ] && [ ! -e "$claude/CLAUDE.md" ] && [ ! -e "$home/.claude.json" ] || fail "status-line-only must not install skills, agents, the kernel, or MCP servers"
+[ "$(find "$claude/b-agentic" -type f -not -path '*/backups/*' | wc -l | tr -d ' ')" = 2 ] || fail "only the script and the manifest may be installed: $(find "$claude/b-agentic" -type f)"
+[ "$(jq -r '.scope' "$claude/b-agentic/install.json")" = statusline ] || fail "the manifest must record the status-line scope"
+before=$(tree "$home")
+run "$home" -y --statusline-only; expect_ok "status line re-run"
+[ "$before" = "$(tree "$home")" ] || fail "a status-line re-run must change nothing"
+# Flags that make no sense with it are refused, as is any other runtime.
+run "$home" -y --statusline-only --with=drawio; expect_refused "--statusline-only with --with"
+run "$home" -y --statusline-only --uninstall; expect_refused "--statusline-only with --uninstall"
+run "$home" -y --statusline-only --runtime=opencode; expect_refused "--statusline-only with another runtime"
+# A plain uninstall removes exactly what it installed and restores the user's settings.
+run "$home" --uninstall; expect_ok "status line uninstall"
+[ ! -e "$claude/b-agentic/bin" ] || fail "the status line script must be removed"
+[ "$(jq -c . "$claude/settings.json")" = '{"theme":"dark"}' ] || fail "uninstall must leave only the user's settings: $(cat "$claude/settings.json")"
+[ "$pi_before" = "$(tree "$home/.pi")" ] || fail "status line install changed the Pi tree"
+# A user-owned status line is kept, with a warning.
+printf '{"statusLine":{"type":"command","command":"mine"}}\n' >"$claude/settings.json"
+run "$home" -y --statusline-only; expect_ok "status line over a user-owned one"
+[ "$(jq -r '.statusLine.command' "$claude/settings.json")" = mine ] || fail "a user-owned status line must be kept"
+grep -Fq 'already sets a status line' <<<"$err" || fail "the kept status line must be reported: $err"
+run "$home" --uninstall; expect_ok "uninstall beside a user-owned status line"
+[ "$(jq -r '.statusLine.command' "$claude/settings.json")" = mine ] || fail "uninstall must keep the user's status line"
+# A full install upgrades a status-line-only one in place; the reverse is refused.
+home=$(fresh_home statusline-upgrade)
+run "$home" -y --statusline-only; expect_ok "status line before full install"
+run "$home" -y; expect_ok "full install over a status-line-only one"
+[ "$(jq -r 'has("scope")' "$home/.claude/b-agentic/install.json")" = false ] || fail "a full install must drop the status-line scope"
+[ "$(jq -r '.settings.statusLine | length' "$home/.claude/b-agentic/install.json")" = 1 ] || fail "the status line must stay owned after the upgrade"
+before=$(tree "$home")
+run "$home" -y --statusline-only; expect_refused "status line only over a full install"
+grep -Fq 'records a full b-agentic install' <<<"$err" || fail "the refusal must explain: $err"
+[ "$before" = "$(tree "$home")" ] || fail "a refused status-line-only run must write nothing"
+# The scope guard also holds on every re-read of the manifest (the one after a confirmation prompt): a full
+# install that lands while a status-line-only run is waiting must be refused, not planned as retired files.
+guard_out=$(HOME="$home" PYTHONDONTWRITEBYTECODE=1 python3 - "$root" <<'PY' 2>&1
+import sys
+sys.path.insert(0, sys.argv[1] + "/tooling/install")
+import claude_install as ci
+installer = ci.Installer(__import__("pathlib").Path(sys.argv[1]), False, False, None, [], [], True)
+try:
+    installer.validate_destinations()
+except ci.InstallError as exc:
+    print("refused:", exc)
+else:
+    print("not refused")
+PY
+) || fail "scope guard probe crashed: $guard_out"
+grep -Fq 'refused: ' <<<"$guard_out" || fail "validate_destinations must refuse a full manifest in status-line-only mode: $guard_out"
+run "$home" --uninstall; expect_ok "full uninstall after upgrade"
+[ "$(jq -c . "$home/.claude/settings.json")" = '{}' ] || fail "full uninstall must remove the status line too: $(cat "$home/.claude/settings.json")"
+echo "install probe passed: statusline-only"
+
 # --- terminal UI: header and confirm on a pty, reading answers from /dev/tty, stdin piped ----------------
 cat >"$work/pty-run.py" <<'PY'
 import os, pty, select, subprocess, sys, time

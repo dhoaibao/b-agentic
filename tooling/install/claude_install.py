@@ -47,6 +47,8 @@ ROOT = Path(__file__).resolve().parents[2]
 KERNEL_BLOCK_START = "<!-- b-agentic:start -->"
 KERNEL_BLOCK_END = "<!-- b-agentic:end -->"
 MANIFEST_SCHEMA = 1
+STATUSLINE_SCRIPT = "b-statusline.mjs"
+STATUSLINE_SCOPE = "statusline"
 MANAGED_ROOTS = ("skills", "agents", "b-agentic")
 SKILL_NAME = re.compile(r"^b-[a-z0-9-]+$")
 CODEX_PLUGIN_COMMANDS = (
@@ -251,8 +253,10 @@ class Installer:
         ui: Ui | None = None,
         with_ids: list[str] | None = None,
         without_ids: list[str] | None = None,
+        statusline_only: bool = False,
     ) -> None:
         self.source = source
+        self.statusline_only = statusline_only
         self.components = self.load_components()
         self.with_ids = with_ids or []
         self.without_ids = without_ids or []
@@ -282,6 +286,8 @@ class Installer:
     def select_components(self, manifest: dict[str, Any]) -> None:
         """Fix the optional-component selection before any planning: flags, then a checkbox on a
         terminal when no flag was given, over the recorded (or inferred) state."""
+        if self.statusline_only:
+            return  # nothing optional is installed in this mode; every component stays deselected
         try:
             self.selection = optional_components.resolve(self.components, manifest, self.with_ids, self.without_ids)
         except ValueError as exc:
@@ -332,6 +338,13 @@ class Installer:
             file_parts.append(f"{len(files['removals'])} to remove")
         if self.counts["kept"]:
             file_parts.append(f"{self.counts['kept']} kept")
+        if self.statusline_only:
+            return [
+                self.ui.style(self.display(self.claude_dir), "cyan"),
+                f"  {self.ui.style('files', 'green')}: {', '.join(file_parts)}",
+                f"  {self.ui.style('settings', 'green')}: settings.json status line {verb(settings['text'], 'merged')}",
+                "  only the status line is installed (--statusline-only)",
+            ]
         return [
             self.ui.style(self.display(self.claude_dir), "cyan"),
             f"  {self.ui.style('files', 'green')}: {', '.join(file_parts)}",
@@ -433,6 +446,11 @@ class Installer:
     # -- payload --------------------------------------------------------------
     def payload(self) -> dict[str, bytes]:
         files: dict[str, bytes] = {}
+        if self.statusline_only:
+            files[f"b-agentic/bin/{STATUSLINE_SCRIPT}"] = (
+                self.source / "claude" / "bin" / STATUSLINE_SCRIPT
+            ).read_bytes()
+            return files
         registry = json.loads((self.source / "skills" / "registry.yaml").read_text())
         excluded = self.excluded_skills()
         for skill in registry["skills"]:
@@ -583,6 +601,8 @@ class Installer:
     def plan_kernel(self, manifest: dict[str, Any]) -> dict[str, Any]:
         path = self.claude_dir / "CLAUDE.md"
         target = self.config_target(path)
+        if self.statusline_only:
+            return {"target": target, "text": None, "existed": target.exists(), "sha256": None, "created": False}
         existed = target.exists()
         text = target.read_text() if existed else ""
         span = find_block(text, str(path))
@@ -616,6 +636,15 @@ class Installer:
         validate_settings_shape(settings, str(path))
         template = json.loads((self.source / "claude" / "configs" / "settings.template.json").read_text())
         record: dict[str, Any] = {"permissions": {}, "hooks": [], "statusLine": []}
+        if self.statusline_only:
+            record["statusLine"] = self.merge_status_line(settings, template, previous.get("statusLine", []), path)
+            text = json_text(settings)
+            return {
+                "target": target,
+                "text": text if not target.exists() or target.read_text() != text else None,
+                "record": record,
+                "named_scripts": set(),
+            }
         permissions = settings.setdefault("permissions", {})
         for kind in ("allow", "ask", "deny"):
             existing = permissions.setdefault(kind, [])
@@ -719,6 +748,8 @@ class Installer:
 
     def plan_mcp(self, manifest: dict[str, Any]) -> dict[str, Any]:
         target = self.config_target(self.mcp_path)
+        if self.statusline_only:
+            return {"target": target, "text": None, "recorded": {}}
         config = read_json(target)
         validate_mcp_shape(config, str(self.mcp_path))
         servers = config.setdefault("mcpServers", {})
@@ -764,6 +795,11 @@ class Installer:
         made while it was open (an alias, a symlink) is refused rather than planned around."""
         self.preflight()
         previous = self.read_manifest()
+        if self.statusline_only and previous and previous.get("scope") != STATUSLINE_SCOPE:
+            raise InstallError(
+                f"{self.manifest_path} records a full b-agentic install, which already includes the status line; "
+                "run install.sh without --statusline-only, or uninstall first"
+            )
         payload = list(self.payload())
         self.check_aliases(
             merge_unique(
@@ -788,7 +824,10 @@ class Installer:
         previous, payload = self.validate_destinations()
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
-        self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
+        if self.statusline_only:
+            self.ui.step("Status line only: 1 managed file, no skills, agents, hooks, kernel, or MCP servers")
+        else:
+            self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
         # Plan everything first: any structural refusal happens before the first write.
         files, kernel, settings, mcp = self.plan_all(previous)
         if self.ui.fancy:
@@ -812,11 +851,17 @@ class Installer:
             "mcp": {"file": str(self.mcp_path), "servers": mcp["recorded"]},
             "optional_components": dict(self.selection),
         }
+        if self.statusline_only:
+            final["scope"] = STATUSLINE_SCOPE
         # Intent: keep the last committed ownership and list what this run may write as `pending`,
         # so an interruption leaves a manifest that recognizes both the old and the new state.
         old_pending = previous.get("pending", {})
         intent = json.loads(json.dumps(previous)) if previous else {"schema": MANIFEST_SCHEMA, "target": "claude"}
         intent.update({"claude_md_created": kernel["created"], "optional_components": dict(self.selection)})
+        if self.statusline_only:
+            intent["scope"] = STATUSLINE_SCOPE
+        else:
+            intent.pop("scope", None)  # a full install replaces a status-line-only one
         intent.setdefault("kernel_sha256", None)
         intent.setdefault("files", {})
         intent.setdefault("mcp", {"file": str(self.mcp_path), "servers": {}})
@@ -994,6 +1039,12 @@ class Installer:
         return {"target": target, "text": json_text(config)}
 
     def next_steps(self) -> list[str]:
+        if self.statusline_only:
+            return [
+                "Next steps:",
+                "  1. Restart Claude Code so the status line loads.",
+                "  Only the status line is installed; run install.sh without --statusline-only for the full setup.",
+            ]
         missing = [tool for tool in PREREQUISITES if shutil.which(tool) is None]
         lines = [
             "Next steps:",
@@ -1095,17 +1146,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true", help="replace modified or unmanaged files after a backup")
     parser.add_argument("-y", "--yes", action="store_true", help="skip interactive questions and use defaults")
     parser.add_argument("--source", default=str(ROOT), help="b-agentic source checkout (default: this repository)")
+    parser.add_argument(
+        "--statusline-only",
+        action="store_true",
+        help="install only the status line (b-statusline.mjs and its settings.json entry)",
+    )
     add_optional_arguments(parser)
     args = parser.parse_args(argv)
     try:
         if args.uninstall and (args.with_ids or args.without_ids):
             raise InstallError("--with and --without cannot be combined with --uninstall")
+        if args.statusline_only and (args.uninstall or args.with_ids or args.without_ids):
+            raise InstallError(
+                "--statusline-only cannot be combined with --uninstall, --with, or --without "
+                "(a plain --uninstall removes a status-line-only install)"
+            )
         source = Path(args.source).resolve()
         if not (source / "skills" / "registry.yaml").is_file() or not (source / "claude" / "agents").is_dir():
             raise InstallError(f"{source} is not a b-agentic Claude Code source checkout")
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
         ui.header()
-        installer = Installer(source, args.dry_run, args.force, ui, *parse_optional_arguments(source, args))
+        installer = Installer(
+            source, args.dry_run, args.force, ui, *parse_optional_arguments(source, args), args.statusline_only
+        )
         try:
             if args.uninstall:
                 installer.uninstall()
