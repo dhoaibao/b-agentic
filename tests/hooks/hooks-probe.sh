@@ -715,7 +715,12 @@ srun() { # <json>: stdout in $sout, exit code in $rc (a hang would surface as ex
   sout=$(printf '%s' "$1" | "${cmd[@]}" 2>/dev/null) || rc=$?
 }
 sexpect_silent() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
-tree_id() { (cd "$1" && find . -printf '%p %T@ %s\n' | sort | sha256sum); }
+# find -printf is GNU-only, so stock macOS needs perl for path, mtime and size
+tree_id() {
+  (cd "$1" && perl -MFile::Find -MTime::HiRes=lstat -e \
+    'find({no_chdir => 1, wanted => sub { my @s = lstat($_); print "$_ $s[9] $s[7]\n" }}, ".")' |
+    sort | sha256sum)
+}
 spec() { # <project> <file> <status line>
   mkdir -p "$work/$1/docs/specs"
   printf '# %s\n\n%s\n\n## Acceptance criteria\n\n- AC-1: WHEN x THEN y\n' "$2" "$3" >"$work/$1/docs/specs/$2"
