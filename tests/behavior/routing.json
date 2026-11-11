@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source": "b-agentic skill-boundary audit scenarios",
-  "description": "Human-scored Claude Code skill-selection scenarios.",
+  "description": "Skill-selection scenarios scored statically by tooling/validate/behavior.py against the registry routing metadata; they are not live model-routing evals. A scenario with known_classifier_limit documents a case the lexical scorer misroutes; it must keep failing until the marker is removed.",
   "scenarios": [
     {
       "id": "datagrip-schema-inspection",
@@ -37,7 +37,8 @@
       "id": "approved-implementation",
       "prompt": "The implementation plan is approved. Make the next small scoped code change and verify it.",
       "expected_skill": "b-implement",
-      "forbidden_skills": ["b-plan"]
+      "forbidden_skills": ["b-plan"],
+      "known_classifier_limit": "The static scorer counts the 'plan', 'implementation plan', and 'scope' (matches 'scoped') triggers and picks b-plan; trigger edits that fix it steal specialized requests from other skills."
     },
     {
       "id": "frontend-implementation-boundary",
@@ -109,7 +110,8 @@
       "id": "test-mechanics",
       "prompt": "Fix a component-test mock and assertion; no product behavior is broken.",
       "expected_skill": "b-test",
-      "forbidden_skills": ["b-debug", "b-browser", "b-qa"]
+      "forbidden_skills": ["b-debug", "b-browser", "b-qa"],
+      "known_classifier_limit": "The static scorer matches the 'broken' trigger inside 'no product behavior is broken' and the hyphenated 'component-test' does not match the 'component test' trigger; trigger edits that fix it steal browser and debug requests."
     },
     {
       "id": "browser-evidence",
@@ -257,6 +259,24 @@
       "prompt": "Verify acceptance criteria for the reviewed change and report which ones lack evidence.",
       "expected_skill": "b-qa",
       "forbidden_skills": ["b-review", "b-pr", "b-implement"]
+    },
+    {
+      "id": "approved-plan-review-stays-plan",
+      "prompt": "Review the approved plan before we start.",
+      "expected_skill": "b-plan",
+      "forbidden_skills": ["b-implement"]
+    },
+    {
+      "id": "approved-plan-frontend-stays-frontend",
+      "prompt": "Create the responsive layout from the approved plan.",
+      "expected_skill": "b-frontend",
+      "forbidden_skills": ["b-implement"]
+    },
+    {
+      "id": "runtime-assertion-failure-stays-debug",
+      "prompt": "Find the root cause of this assertion failure in the server.",
+      "expected_skill": "b-debug",
+      "forbidden_skills": ["b-test"]
     }
   ]
 }

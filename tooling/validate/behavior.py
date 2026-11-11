@@ -27,6 +27,7 @@ class Fixture:
     prompt: str
     expected: str | None = None
     not_expected: tuple[str, ...] = ()
+    known_limit: str | None = None
 
 
 # Regression: splitting runtime guidance across runtime.md and safety-tools.md
@@ -1264,6 +1265,110 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             errors.append(f"delegation contract: SKILL.md missing named output format for {name}")
 
 
+ROUTING_CORPUS = ROOT / "tests" / "behavior" / "routing.json"
+
+
+def check_routing_case(
+    name: str,
+    prompt: str,
+    expected: str | None,
+    not_expected: tuple[str, ...],
+    skills: list[dict],
+    skill_names: set,
+    errors: list[str],
+) -> None:
+    """Classify one prompt statically and record expected-skill and forbidden-skill mismatches."""
+    if expected is not None and expected not in skill_names:
+        errors.append(f"{name}: expected unknown skill {expected!r}")
+        return
+
+    actual, scores = classify(prompt, skills)
+    if expected is not None and actual != expected:
+        ordered = ", ".join(
+            f"{skill}={value}" for skill, value in sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+        )
+        errors.append(f"{name}: expected {expected}, classified as {actual}; scores: {ordered}")
+    best_score = max(scores.values())
+    for forbidden in not_expected:
+        if actual == forbidden or (best_score > 0 and scores.get(forbidden) == best_score):
+            errors.append(f"{name}: incorrectly routed to {forbidden}")
+
+
+def parse_routing_corpus(data: object) -> list[Fixture]:
+    """Turn the parsed routing corpus into fixtures; raise ValueError on a malformed scenario."""
+    scenarios = data.get("scenarios") if isinstance(data, dict) else None
+    if not isinstance(scenarios, list) or not scenarios:
+        raise ValueError("expected a non-empty 'scenarios' list")
+    fixtures: list[Fixture] = []
+    for index, item in enumerate(scenarios):
+        if not isinstance(item, dict):
+            raise ValueError(f"scenario {index} is not an object")
+        name, prompt = item.get("id"), item.get("prompt")
+        expected, forbidden = item.get("expected_skill"), item.get("forbidden_skills", [])
+        if not isinstance(name, str) or not isinstance(prompt, str):
+            raise ValueError(f"scenario {index} needs string 'id' and 'prompt'")
+        if expected is not None and not isinstance(expected, str):
+            raise ValueError(f"scenario {name}: 'expected_skill' must be a string when present")
+        if not isinstance(forbidden, list) or not all(isinstance(skill, str) for skill in forbidden):
+            raise ValueError(f"scenario {name}: 'forbidden_skills' must be a list of strings")
+        if expected is None and not forbidden:
+            raise ValueError(f"scenario {name}: needs 'expected_skill' or 'forbidden_skills'")
+        limit = item.get("known_classifier_limit")
+        if limit is not None and (not isinstance(limit, str) or not limit.strip()):
+            raise ValueError(f"scenario {name}: 'known_classifier_limit' must be a non-empty reason string")
+        fixtures.append(
+            Fixture(name=name, prompt=prompt, expected=expected, not_expected=tuple(forbidden), known_limit=limit)
+        )
+    return fixtures
+
+
+def check_routing_scenario(scenario: Fixture, skills: list[dict], skill_names: set, errors: list[str]) -> bool:
+    """Check one corpus scenario; return True when it is an accepted known classifier limit.
+
+    A scenario marked with a known limit must still fail the static classifier: once it passes, the marker is
+    stale and is reported, so recorded limits cannot hide drift or outlive a routing fix.
+    """
+    name = f"routing corpus {scenario.name}"
+    if scenario.known_limit is None:
+        check_routing_case(name, scenario.prompt, scenario.expected, scenario.not_expected, skills, skill_names, errors)
+        return False
+    found: list[str] = []
+    check_routing_case(name, scenario.prompt, scenario.expected, scenario.not_expected, skills, skill_names, found)
+    if not found:
+        errors.append(f"{name}: known_classifier_limit is stale because the scenario now passes; remove the marker")
+        return False
+    return True
+
+
+def load_routing_corpus(errors: list[str]) -> list[Fixture]:
+    try:
+        return parse_routing_corpus(json.loads(ROUTING_CORPUS.read_text()))
+    except (OSError, ValueError) as exc:
+        errors.append(f"routing corpus: cannot load {ROUTING_CORPUS.relative_to(ROOT)}: {exc}")
+        return []
+
+
+def validate_routing_corpus_regression(skills: list[dict], errors: list[str]) -> None:
+    """A wrong expected skill or a hit on a forbidden skill must fail the corpus check, never pass silently."""
+    skill_names = {skill.get("name") for skill in skills if isinstance(skill, dict)}
+    prompt = "Rename one symbol and all references without changing behavior."
+    actual, _ = classify(prompt, skills)
+    wrong = next(name for name in sorted(skill_names) if name != actual)
+    probes = {
+        "an expected skill that does not match": (wrong, ()),
+        "a forbidden skill that wins": (None, (actual,)),
+    }
+    for label, (expected, not_expected) in probes.items():
+        found: list[str] = []
+        check_routing_case("probe", prompt, expected, not_expected, skills, skill_names, found)
+        if not found:
+            errors.append(f"routing corpus regression: {label} was not reported")
+    stale = Fixture(name="probe", prompt=prompt, expected=actual, known_limit="probe")
+    stale_errors: list[str] = []
+    if check_routing_scenario(stale, skills, skill_names, stale_errors) or not stale_errors:
+        errors.append("routing corpus regression: a stale known_classifier_limit was not reported")
+
+
 def main() -> int:
     skills = load_registry()
     skill_names = {skill.get("name") for skill in skills if isinstance(skill, dict)}
@@ -1284,28 +1389,24 @@ def main() -> int:
     validate_generated_delegation_boundaries(skills, errors)
     validate_cross_skill_contracts(errors)
 
-    for fixture in FIXTURES:
-        if fixture.expected is not None and fixture.expected not in skill_names:
-            errors.append(f"{fixture.name}: expected unknown skill {fixture.expected!r}")
-            continue
+    routing_corpus = load_routing_corpus(errors)
+    validate_routing_corpus_regression(skills, errors)
 
-        actual, scores = classify(fixture.prompt, skills)
-        if fixture.expected is not None and actual != fixture.expected:
-            ordered = ", ".join(
-                f"{name}={value}" for name, value in sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-            )
-            errors.append(f"{fixture.name}: expected {fixture.expected}, classified as {actual}; scores: {ordered}")
-        best_score = max(scores.values())
-        for forbidden in fixture.not_expected:
-            if actual == forbidden or (best_score > 0 and scores.get(forbidden) == best_score):
-                errors.append(f"{fixture.name}: incorrectly routed to {forbidden}")
+    for fixture in FIXTURES:
+        check_routing_case(
+            fixture.name, fixture.prompt, fixture.expected, fixture.not_expected, skills, skill_names, errors
+        )
+    known_limits = sum(check_routing_scenario(scenario, skills, skill_names, errors) for scenario in routing_corpus)
 
     if errors:
         for error in errors:
             print(error, file=sys.stderr)
         return 1
 
-    print(f"Routing-metadata consistency check passed ({len(FIXTURES)} fixtures).")
+    print(
+        f"Routing-metadata consistency check passed ({len(FIXTURES)} fixtures, "
+        f"{len(routing_corpus)} corpus scenarios, {known_limits} known classifier limits)."
+    )
     return 0
 
 
