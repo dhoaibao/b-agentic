@@ -7,6 +7,8 @@
 #   ./install.sh --runtime=opencode --migrate-legacy      also remove the retired OpenCode install
 #   ./install.sh --with=tablepro,drawio                   install optional components (datagrip, tablepro,
 #                                                         excalidraw, drawio); --without=ID removes them
+#   ./install.sh --statusline-only                        install only the Claude Code status line (a later
+#                                                         full install upgrades it; --uninstall removes it)
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
@@ -35,6 +37,7 @@ YES=0
 NOTES=""
 RUNTIME=claude
 MIGRATE_LEGACY=0
+STATUSLINE_ONLY=0
 PASSTHROUGH=()
 
 die() {
@@ -58,6 +61,7 @@ while [ "$#" -gt 0 ]; do
     --force) PASSTHROUGH+=("$1") ;;
     --runtime=*) RUNTIME="${1#--runtime=}" ;;
     --migrate-legacy) MIGRATE_LEGACY=1 ;;
+    --statusline-only) STATUSLINE_ONLY=1; PASSTHROUGH+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
       PASSTHROUGH+=("$1") ;;
@@ -74,6 +78,10 @@ case "$RUNTIME" in
 esac
 if [ "$MIGRATE_LEGACY" -eq 1 ] && [ "$RUNTIME" = claude ]; then
   die '--migrate-legacy applies to the OpenCode runtime; pass --runtime=opencode or both'
+fi
+
+if [ "$STATUSLINE_ONLY" -eq 1 ] && [ "$RUNTIME" != claude ]; then
+  die '--statusline-only applies to Claude Code; use --runtime=claude (the default)'
 fi
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.

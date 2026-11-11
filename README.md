@@ -39,6 +39,11 @@ pre-checked). Non-interactively pass `--with=tablepro,drawio` to add and
 `--without=excalidraw` to remove; `-y` keeps the recorded choice and otherwise
 installs none.
 
+Only want the status line? `./install.sh --statusline-only` installs just
+`b-statusline.mjs` and its `settings.json` entry (kept if you already have a status
+line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
+`./install.sh` upgrades it to the full setup, and `--uninstall` removes it.
+
 `./install.sh` installs Claude Code by default. Pass `--runtime=opencode` to
 install into `~/.config/opencode` instead, or `--runtime=both` for each; every
 runtime's install and uninstall leave the other untouched.

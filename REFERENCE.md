@@ -47,6 +47,12 @@ writes under `~/.pi`.
   Deselecting a component removes only its recorded, unmodified skill, `allow` rules, and server (a modified
   one is kept with a warning); its `ask` and `deny` rules stay, so a server that is still configured keeps its
   prompts and denials. Neither flag combines with `--uninstall`.
+- `--statusline-only` (Claude Code only) installs `b-agentic/bin/b-statusline.mjs` and the `statusLine`
+  entry in `settings.json` and nothing else: no skills, agents, hooks, kernel block, permissions, MCP
+  servers, or optional components. An existing `statusLine` is kept with a warning, as in a full install.
+  The manifest records `"scope": "statusline"`; a plain `--uninstall` removes exactly that, and a later full
+  install upgrades it in place (dropping the scope). It is refused over a full install, and cannot combine with
+  `--with`, `--without`, `--uninstall`, or another `--runtime`.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
