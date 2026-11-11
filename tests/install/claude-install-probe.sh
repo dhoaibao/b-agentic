@@ -1163,7 +1163,7 @@ echo "install probe passed: statusline-only"
 
 # --- terminal UI: header and confirm on a pty, reading answers from /dev/tty, stdin piped ----------------
 cat >"$work/pty-run.py" <<'PY'
-import os, pty, select, subprocess, sys, time
+import os, pty, select, signal, subprocess, sys, time
 
 home, *answers = sys.argv[1:]
 env = {k: v for k, v in os.environ.items() if k not in {"NO_COLOR", "CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR", "B_AGENTIC_CLICKUP_MCP"}}
@@ -1192,7 +1192,20 @@ while time.time() - last < 20:
         last = time.time()
     elif not answers and time.time() - last > 3:
         break
-os.waitpid(pid, 0)
+# Reap the child with a bound: a prompt that never got its answer would otherwise block here until the CI job
+# limit. A child still alive after the grace period is killed and reported with what it printed.
+deadline = time.time() + 15
+while os.waitpid(pid, os.WNOHANG) == (0, 0):
+    if time.time() > deadline:
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except OSError:
+            os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        sys.stderr.write("pty harness: the command was still running after its answers and was killed; output so far:\n")
+        sys.stderr.write(buf.decode(errors="replace") + "\n")
+        sys.exit(1)
+    time.sleep(0.1)
 sys.stdout.write(buf.decode(errors="replace"))
 PY
 # shellcheck disable=SC2016 # expanded by the child shell, which gets PROBE_ROOT in its environment
