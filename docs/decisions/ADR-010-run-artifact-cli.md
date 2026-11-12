@@ -1,6 +1,6 @@
 # ADR-010: A single writer for `b-flow` run artifacts
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-12
 - Supersedes: none (refines the "Run files" and "State helper" bullets of
   [ADR-009](ADR-009-b-flow-automatic-run.md))
@@ -38,7 +38,14 @@ to compare against.
   the validated plan's `checks`; `advance` to `review` or `qa` runs `b_run.py
 scope-check` against the spec's scope globs; `record qa` and `record ac` must match
   the validated `qa.md`; the review and QA handoff packets come from `b_run.py
-handoff`, not from hand-written focus text.
+handoff`, not from hand-written focus text. The commit consent is a `consent` block
+  in `spec.md`: `approve` refuses flags that differ from it, `advance commit` needs
+  it to say yes, and `check` blocks a `state.json` whose consent differs. `approve`
+  also refuses a working tree with changes, so pre-existing edits cannot join the
+  candidate. `advance review` requires `--trigger` and records it, which also bars a
+  later `--low-risk` exception once a review was triggered or held. Blockers found by
+  review or QA are recorded in `followups.md` with `kind: blocker` and, once fixed, a
+  `sweep` line; the re-review handoff lists them under "Prior review".
 - **Language split.** `b-state.mjs` stays Node because it shares candidate-fingerprint
   code with the snapshot CLI and the Codex guards; each file under `.b-agentic` still
   has exactly one writer. A Python port is not part of this decision.

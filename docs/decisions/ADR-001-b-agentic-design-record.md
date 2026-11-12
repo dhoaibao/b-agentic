@@ -19,15 +19,18 @@ history; they were removed.
 
 OpenCode was replaced by Codex in [ADR-004](ADR-004-codex-runtime.md), restored in [ADR-005](ADR-005-opencode-restored.md), and removed again in [ADR-008](ADR-008-claude-code-only.md), which also retired the TablePro component.
 
-Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md): the Codex
+Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md), and
+[ADR-007](ADR-007-codex-first-review-gate.md) then restored the Codex gate on Claude
+Code with `b-reviewer` as the fallback, so the Codex-gate passages below are current
+again: the Codex
 review gate (the plugin, the `b-codex-review` wrapper, the `b-codex-verdict`
 mapper, the `b-codex-guard` hook that checked direct plugin calls, and the
 approval flow they enforced) described in Context, under
 "Workflow and skill design", "Safety and approval design", and "Verification and
 change discipline", and the Codex prerequisite and plugin-command printing under
 "Installation, configuration, and lifecycle". `b-review` now runs in the read-only
-`b-reviewer` subagent, which makes five specialists; those passages are kept as
-history.
+`b-reviewer` subagent, which makes five specialists; the passages
+describe the gate as ADR-007 restored it.
 
 ## Context
 
@@ -126,12 +129,13 @@ checks the names a call carries, not the files a directory search would visit.
 Native Linux and macOS Claude Code builds replace `Glob` and `Grep` with `bfs` and
 `ugrep` behind Bash, so there the hook never sees a search; those searches rely on
 the kernel's secret-file rule and the Claude Code deny rules, which is an accepted
-residual risk (`--tools Grep Glob` restores the dedicated tools). Both PreToolUse
-guards set `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that
+residual risk (`--tools Grep Glob` restores the dedicated tools). The file-tool path
+guard sets `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that
 crashes, times out, or cannot start blocks the call instead of letting it through;
-malformed input still fails open by design. If a guard fails closed (for
-example `node` or the hook script is missing), repair or reinstall: Bash is not
-guarded and still works. How an older client treats the unknown key is
+malformed input still fails open by design. The Bash `b-codex-guard` tripwire
+deliberately sets no `onFailure` and fails open ([ADR-007](ADR-007-codex-first-review-gate.md)).
+If the path guard fails closed (for example `node` or the hook script is missing),
+repair or reinstall: Bash is not guarded by it and still works. How an older client treats the unknown key is
 undocumented.
 `b-pr` is the only skill that pushes: on an explicit request it pushes the
 current non-default branch with an explicit `origin <branch>` destination and
