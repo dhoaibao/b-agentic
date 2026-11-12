@@ -51,7 +51,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { computeSnapshot, isProtected } from "./b-candidate-snapshot.mjs";
 
 export const STATE_SCHEMA = 1;
@@ -395,6 +395,7 @@ function validate(state) {
     ["branch", state.branch],
     ["baseline.head", state.baseline.head],
     ["spec.sha256", state.spec.sha256],
+    ["spec.plan_sha256", state.spec.plan_sha256],
     ["candidate.fingerprint", state.candidate.fingerprint],
     ["review.fingerprint", state.review.fingerprint],
     ["qa.fingerprint", state.qa.fingerprint],
@@ -410,6 +411,7 @@ function validate(state) {
     if (value !== "" && !FINGERPRINT.test(value)) fail("fingerprint format");
   }
   if (!isInt(state.review.round) || !isInt(state.qa.round)) fail("round");
+  if (!isInt(state.qa.artifact_rev)) fail("qa.artifact_rev");
   if (typeof state.review.required !== "boolean") fail("review.required");
   const plan = state.commit_plan;
   if (
@@ -438,6 +440,14 @@ function loadState(dir) {
     if (error instanceof Refused || error instanceof Invalid) throw error;
     throw invalid("state.json is unreadable or not JSON");
   }
+  // A run made before ADR-010 lacks the artifact fields. Fill them so the run can
+  // load, be checked (its unrecorded artifacts then block it), and be unblocked to
+  // clarify for new artifacts and a new approval.
+  if (state && typeof state === "object") {
+    if (state.spec && typeof state.spec === "object")
+      state.spec.plan_sha256 ??= "";
+    if (state.qa && typeof state.qa === "object") state.qa.artifact_rev ??= 0;
+  }
   return validate(state);
 }
 
@@ -462,7 +472,7 @@ function freshState(runId, root, baseline) {
     repo_root: root,
     branch: baseline.branch,
     baseline: { head: baseline.head, status_digest: baseline.status_digest },
-    spec: { path: "spec.md", sha256: "", approved_at: "" },
+    spec: { path: "spec.md", sha256: "", plan_sha256: "", approved_at: "" },
     consent: {
       commit: false,
       branch_target: "current",
@@ -481,7 +491,7 @@ function freshState(runId, root, baseline) {
       fingerprint: "",
     },
     ac: {},
-    qa: { round: 0, verdict: "", fingerprint: "" },
+    qa: { round: 0, verdict: "", fingerprint: "", artifact_rev: 0 },
     commits: [],
     prior_commits: [],
     commit_plan: null,
@@ -555,10 +565,86 @@ function specHash(dir) {
   }
 }
 
+function planHash(dir) {
+  try {
+    return sha256(readSmall(join(dir, "plan.md")));
+  } catch {
+    return "";
+  }
+}
+
 function requireSpecUnchanged(dir, state) {
   if (!state.spec.sha256) throw refuse("spec is not approved");
   if (specHash(dir) !== state.spec.sha256) {
     throw refuse("spec.md changed after approval; re-approval is required");
+  }
+  if (state.spec.plan_sha256 && planHash(dir) !== state.spec.plan_sha256) {
+    throw refuse("plan.md changed after approval; re-approval is required");
+  }
+}
+
+// ---- run artifacts (b_run.py, ADR-010) -----------------------------------------
+
+const RUN_CLI = fileURLToPath(new URL("./b_run.py", import.meta.url));
+
+// Runs the artifact CLI. A missing interpreter or CLI fails closed.
+function runArtifacts(root, args) {
+  return new Promise((done) => {
+    execFile(
+      "python3",
+      ["-I", "-B", RUN_CLI, ...args],
+      { cwd: root, encoding: "utf8", maxBuffer: 1 << 24 },
+      (error, stdout, stderr) =>
+        done({
+          code: error ? (typeof error.code === "number" ? error.code : 2) : 0,
+          stdout,
+          stderr: stderr || (error ? String(error.message) : ""),
+        }),
+    );
+  });
+}
+
+// The recorded artifacts must still be exactly what b_run.py wrote.
+async function artifactsOk(root, state) {
+  const result = await runArtifacts(root, [
+    "validate",
+    "--run",
+    state.run_id,
+    "--json",
+  ]);
+  let parsed;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    throw refuse(
+      `the artifact CLI failed: ${result.stderr.trim().split("\n")[0] || "no output"}`,
+    );
+  }
+  if (result.code !== 0 || parsed.ok !== true) {
+    throw refuse(
+      `run artifacts are not valid: ${(parsed.problems ?? [])[0] ?? "unknown problem"}`,
+    );
+  }
+  return parsed;
+}
+
+async function scopeOk(root, state) {
+  const result = await runArtifacts(root, [
+    "scope-check",
+    "--run",
+    state.run_id,
+  ]);
+  let parsed;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    throw refuse("the scope check failed to run");
+  }
+  if (parsed.ok !== true) {
+    const bad = [...(parsed.outside_scope ?? []), ...(parsed.protected ?? [])];
+    throw refuse(
+      `changed paths outside the approved scope: ${bad.slice(0, 5).join(", ")}`,
+    );
   }
 }
 
@@ -653,15 +739,12 @@ async function cmdApprove(root, dir, state, args) {
   if (!["standing", "reviewer"].includes(args.codex)) {
     throw invalid("--codex must be standing or reviewer");
   }
-  let spec;
-  try {
-    spec = readSmall(join(dir, "spec.md"));
-  } catch {
-    throw refuse("spec.md is missing");
-  }
-  const ids = [...new Set(spec.toString("utf8").match(/\bAC-\d+\b/g) ?? [])];
-  if (ids.length === 0) throw refuse("spec.md has no AC-n criterion");
-  state.spec.sha256 = sha256(spec);
+  const art = await artifactsOk(root, state);
+  if (!art.artifacts.spec || !art.artifacts.plan)
+    throw refuse("write the spec and the plan with b_run.py first");
+  const ids = art.artifacts.spec.criteria.map((c) => c.id);
+  state.spec.sha256 = art.hashes.spec;
+  state.spec.plan_sha256 = art.hashes.plan;
   state.spec.approved_at = now();
   state.consent = {
     commit: commit === "yes",
@@ -698,7 +781,16 @@ async function cmdAdvance(root, dir, state, args) {
   if (!NEXT[state.phase].includes(target)) {
     throw refuse(`cannot move from ${state.phase} to ${target}`);
   }
-  if (state.phase !== "clarify") requireSpecUnchanged(dir, state);
+  let art = null;
+  if (state.phase !== "clarify") {
+    requireSpecUnchanged(dir, state);
+    art = await artifactsOk(root, state);
+  }
+  // Every move toward review, QA, or a commit re-checks the scope: the tree can
+  // change between phases.
+  if (["review", "qa", "commit"].includes(target)) {
+    await scopeOk(root, state);
+  }
   const fingerprint = ["review", "qa", "commit"].includes(target)
     ? await currentFingerprint(state)
     : "";
@@ -722,6 +814,7 @@ async function cmdAdvance(root, dir, state, args) {
       throw refuse("low-risk exception needs passing checks");
     }
   }
+  if (target === "qa") state.qa.artifact_rev = art.revs.qa ?? 0;
   if (target === "fix") {
     const reviewFix =
       state.phase === "review" && state.review.verdict === "NEEDS FIXES";
@@ -737,6 +830,9 @@ async function cmdAdvance(root, dir, state, args) {
       state.qa.fingerprint !== fingerprint
     ) {
       throw refuse("no QA PASS for the current candidate");
+    }
+    if (art.artifacts.qa?.verdict !== "QA PASS") {
+      throw refuse("qa.md does not record a QA PASS");
     }
     if (!reviewCovers(state, fingerprint)) {
       throw refuse(
@@ -797,7 +893,12 @@ function cmdUnblock(dir, state, args) {
   }
   text(args.reason, "--reason");
   if (target === "clarify") {
-    state.spec = { path: "spec.md", sha256: "", approved_at: "" };
+    state.spec = {
+      path: "spec.md",
+      sha256: "",
+      plan_sha256: "",
+      approved_at: "",
+    };
     state.ac = {};
   } else {
     requireSpecUnchanged(dir, state);
@@ -819,10 +920,21 @@ function cmdUnblock(dir, state, args) {
 async function cmdRecord(root, dir, state, args) {
   const kind = args._[1];
   requireSpecUnchanged(dir, state);
+  const art = await artifactsOk(root, state);
+  // qa.md must have been written during this QA phase and must say what is recorded.
+  const freshQa = () => {
+    if (!art.artifacts.qa || (art.revs.qa ?? 0) <= state.qa.artifact_rev) {
+      throw refuse("write qa.md with b_run.py in this QA phase first");
+    }
+    return art.artifacts.qa;
+  };
   if (kind === "check") {
     if (state.phase !== "verify")
       throw refuse("checks are recorded in phase verify");
     const cmd = text(args.cmd, "--cmd", MAX_CMD);
+    if (!art.artifacts.plan.checks.includes(cmd)) {
+      throw refuse("that command is not one of the approved plan checks");
+    }
     const exit = Number(args.exit);
     if (!Number.isInteger(exit) || exit < 0 || exit > 255)
       throw invalid("--exit must be 0-255");
@@ -877,6 +989,10 @@ async function cmdRecord(root, dir, state, args) {
       const verdict = args.verdict;
       if (!REVIEW_VERDICTS.includes(verdict))
         throw invalid("unknown review verdict");
+      // A verdict binds to the current candidate, which must have fresh passing checks.
+      if (!checksPass(state) || state.candidate.fingerprint !== fingerprint) {
+        throw refuse("record passing checks for the current candidate first");
+      }
       state.review.required = true;
       state.review.trigger = args.trigger
         ? text(args.trigger, "--trigger")
@@ -909,6 +1025,9 @@ async function cmdRecord(root, dir, state, args) {
       throw refuse("a QA verdict is recorded in phase qa");
     const verdict = args.verdict;
     if (!QA_VERDICTS.includes(verdict)) throw invalid("unknown QA verdict");
+    if (freshQa().verdict !== verdict) {
+      throw refuse("the verdict differs from qa.md");
+    }
     state.qa.round += 1;
     state.qa.verdict = verdict;
     state.qa.fingerprint = await currentFingerprint(state);
@@ -934,8 +1053,12 @@ async function cmdRecord(root, dir, state, args) {
     if (!AC_ID.test(id ?? "") || !state.ac[id]) throw invalid("unknown AC id");
     if (!AC_STATUSES.includes(status) || status === "pending")
       throw invalid("status must be pass|fail|gap|waived");
-    if (!["verify", "review", "qa"].includes(state.phase)) {
-      throw refuse("criteria are recorded in phase verify, review, or qa");
+    if (state.phase !== "qa") {
+      throw refuse("criteria are recorded in phase qa");
+    }
+    const row = freshQa().rows.find((r) => r.ac === id);
+    if (!row || row.result !== status) {
+      throw refuse(`qa.md records ${row?.result ?? "no row"} for ${id}`);
     }
     state.ac[id] = { status, fingerprint: await currentFingerprint(state) };
     saveState(dir, state);
@@ -1001,9 +1124,23 @@ async function cmdCheck(root, dir, state, args) {
     problems.push("repository root or branch differs from the run");
     block(state, "repository root or branch changed", "user decision");
     changed = true;
-  } else if (state.phase !== "clarify" && specHash(dir) !== state.spec.sha256) {
-    problems.push("spec.md changed after approval");
-    block(state, "spec changed after approval", "re-approval");
+  } else if (
+    state.phase !== "clarify" &&
+    (specHash(dir) !== state.spec.sha256 ||
+      (state.spec.plan_sha256 && planHash(dir) !== state.spec.plan_sha256))
+  ) {
+    problems.push("spec.md or plan.md changed after approval");
+    block(state, "spec or plan changed after approval", "re-approval");
+    changed = true;
+  } else if (
+    state.phase !== "clarify" &&
+    (await artifactsOk(root, state).then(
+      () => "",
+      (error) => error.message,
+    ))
+  ) {
+    problems.push("run artifacts changed outside b_run.py");
+    block(state, "run artifacts changed outside b_run.py", "user decision");
     changed = true;
   } else {
     let headMoved = false;

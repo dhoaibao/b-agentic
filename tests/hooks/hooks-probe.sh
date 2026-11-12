@@ -52,6 +52,31 @@ run "$pathguard" "$(pg Read file_path /repo/src/app.ts)"; expect 0 "ordinary pat
 run "$pathguard" '{"tool_name":"Bash","tool_input":{"command":"ls"}}'; expect 0 "tool without a path must pass"
 run "$pathguard" 'not json'; expect 0 "malformed input must fail open"
 run "$pathguard" ''; expect 0 "empty input must fail open"
+# Run artifacts have a single writer: file-tool writes under .b-agentic are refused, reads pass.
+run "$pathguard" "$(pg Write file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .b-agentic must be blocked"
+grep -Fq 'b_run.py' <<<"$err" || fail "the .b-agentic refusal must name b_run.py: $err"
+run "$pathguard" "$(pg Edit file_path /repo/.b-agentic/runs/20260101-x/state.json)"; expect 2 "Edit under .b-agentic must be blocked"
+run "$pathguard" "$(pg NotebookEdit notebook_path /repo/.b-agentic/n.ipynb)"; expect 2 "NotebookEdit under .b-agentic must be blocked"
+run "$pathguard" "$(pg Write file_path 'C:\\repo\\.b-agentic\\runs\\x\\plan.md')"; expect 2 "a backslash path under .b-agentic must be blocked"
+run "$pathguard" "$(pg Read file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 0 "Read under .b-agentic must pass"
+run "$pathguard" "$(pg Grep path /repo/.b-agentic)"; expect 0 "Grep under .b-agentic must pass"
+run "$pathguard" "$(pg Write file_path /repo/docs/b-agentic-notes.md)"; expect 0 "a name that merely contains b-agentic must pass"
+run "$pathguard" "$(pg Write file_path /repo/x.b-agentic)"; expect 0 "a file named x.b-agentic is not the folder"
+# A symlinked directory, a relative path, or `..` cannot hide the folder.
+mkdir -p "$work/pg/proj/.b-agentic/runs/20260101-x" "$work/pg/other"
+ln -s "$work/pg/proj/.b-agentic/runs/20260101-x" "$work/pg/alias"
+pgc() { jq -cn --arg tool "$1" --arg cwd "$2" --arg path "$3" '{tool_name: $tool, cwd: $cwd, tool_input: {file_path: $path}}'; }
+run "$pathguard" "$(pgc Write "$work/pg" "$work/pg/alias/state.json")"; expect 2 "a symlinked alias of a run folder must be blocked"
+run "$pathguard" "$(pgc Edit "$work/pg" "alias/new-file.md")"; expect 2 "a relative path through an alias must be blocked, even for a new file"
+run "$pathguard" "$(pgc Write "$work/pg/other" "../alias/plan.md")"; expect 2 "a .. path through an alias must be blocked"
+run "$pathguard" "$(pgc Write "$work/pg/proj" ".b-agentic/runs/x/spec.md")"; expect 2 "a relative .b-agentic path must be blocked"
+run "$pathguard" "$(pgc Write "$work/pg" "alias/../20260101-x/state.json")"; expect 2 ".. after a symlink component must be resolved through the link"
+run "$pathguard" "$(pgc Edit "$work/pg" "alias/../20260101-x/new.md")"; expect 2 ".. after a symlink component must be blocked for a new file"
+run "$pathguard" "$(pgc Write "$work/pg" "$work/pg/alias/./sub/../state.json")"; expect 2 "an absolute path with . and .. through the alias must be blocked"
+run "$pathguard" "$(pgc Write "$work/pg/other" "notes.md")"; expect 0 "an ordinary relative path must pass"
+run "$pathguard" "$(pgc Write "$work/pg/other" "../other/./notes.md")"; expect 0 "a relative path that stays outside must pass"
+run "$pathguard" "$(pgc Write "$work/pg/other" "missing/dir/notes.md")"; expect 0 "a new path under an ordinary folder must pass"
+run "$pathguard" "$(pgc Read "$work/pg" "alias/state.json")"; expect 0 "Read through an alias must pass"
 echo "hooks probe passed: path-guard"
 
 # --- verify gate ---------------------------------------------------------------

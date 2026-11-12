@@ -11,6 +11,7 @@
 // open on malformed input (exit 0) so it cannot wedge the session. It checks the names a tool call carries, not the files a directory
 // search would visit; Claude Code's own deny rules cover that best effort.
 import { readFileSync, realpathSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isProtected } from "../bin/b-candidate-snapshot.mjs";
 
@@ -37,12 +38,66 @@ export function blockedPaths(toolInput, toolName) {
   ];
 }
 
+// Run artifacts under .b-agentic have a single writer (ADR-010), so the file
+// tools may not change them; reads stay allowed. A Bash write is not seen here:
+// b-state and b_run.py detect it as a hash mismatch or an unknown file.
+const WRITE_TOOLS = new Set(["Edit", "Write", "NotebookEdit"]);
+
+const hasAgentic = (path) =>
+  path.replaceAll("\\", "/").split("/").includes(".b-agentic");
+
+// The spelling of a path can hide the folder (a symlinked directory, a relative
+// path, `..`), so the nearest existing ancestor is resolved before the check.
+export function canonicalPath(path, cwd) {
+  // Components are resolved in filesystem order: a symlink is expanded before a
+  // later `..` applies, and a part that does not exist yet stays lexical.
+  let start = typeof cwd === "string" && cwd.startsWith("/") ? cwd : "/";
+  try {
+    start = realpathSync(start);
+  } catch {
+    // A missing cwd stays lexical.
+  }
+  let resolved = path.startsWith("/") ? "/" : start;
+  for (const part of path.split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") {
+      resolved = dirname(resolved);
+      continue;
+    }
+    const next = join(resolved, part);
+    try {
+      resolved = realpathSync(next);
+    } catch {
+      resolved = next;
+    }
+  }
+  return resolved;
+}
+
+export function agenticWrites(toolInput, toolName, cwd) {
+  if (!WRITE_TOOLS.has(toolName) || !toolInput || typeof toolInput !== "object")
+    return [];
+  return PATH_KEYS.map((key) => toolInput[key]).filter(
+    (value) =>
+      typeof value === "string" &&
+      value !== "" &&
+      (hasAgentic(value) || hasAgentic(canonicalPath(value, cwd))),
+  );
+}
+
 function main() {
   let event;
   try {
     event = JSON.parse(readFileSync(0, "utf8"));
   } catch {
     return 0;
+  }
+  const owned = agenticWrites(event?.tool_input, event?.tool_name, event?.cwd);
+  if (owned.length > 0) {
+    process.stderr.write(
+      `b-agentic path guard: ${event.tool_name} refused on ${owned.join(", ")}. Run artifacts under .b-agentic are written only by b_run.py (python3 -I -B ~/.claude/b-agentic/bin/b_run.py write <kind>) and b-state.mjs; read them with Read.\n`,
+    );
+    return 2;
   }
   const blocked = blockedPaths(event?.tool_input, event?.tool_name);
   if (blocked.length === 0) return 0;

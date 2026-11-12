@@ -37,6 +37,29 @@ invalid() { st "$@"; [ "$rc" -eq 2 ] || fail "expected invalid input ($*): rc=$r
 phase() { jq -r .phase "$1"/.b-agentic/runs/*/state.json; }
 sfile() { printf '%s' "$1"/.b-agentic/runs/*/state.json; }
 
+# Artifact helpers: specs, plans and QA files come from claude/bin/b_run.py only.
+run_cli="$root/claude/bin/b_run.py"
+br() { # REPO OWNER ARGS... (JSON on stdin)
+  local repo=$1 owner=$2
+  shift 2
+  (cd "$repo" && python3 -I -B "$run_cli" "$@" --owner "$owner")
+}
+spec_json() { # N [SCOPE]: N automated criteria that run "make test"
+  jq -n --argjson n "$1" --arg scope "${2:-**}" '{request: "probe request", answers: [],
+    behavior: {current: [], new: ["x"], examples: [{input: "a", output: "b"}, {input: "c", output: "d"}], non_goals: []},
+    criteria: [range(1; $n + 1) | {id: "AC-\(.)", when: "a", then: "b", evidence: "automated", command: "make test"}],
+    scope_paths: [$scope], out_of_scope: []}'
+}
+plan_json() { jq -n '{steps: [{id: "S-1", action: "do", paths: ["a.txt"], done_when: "done"}], checks: ["make test"], invariants: [], stop_conditions: []}'; }
+write_artifacts() { # REPO N [SCOPE]
+  spec_json "$2" "${3:-**}" | br "$1" s1 write spec >/dev/null || fail "write spec ($1)"
+  plan_json | br "$1" s1 write plan >/dev/null || fail "write plan ($1)"
+}
+write_qa() { # REPO N VERDICT RESULT
+  jq -n --argjson n "$2" --arg verdict "$3" --arg result "$4" '{rows: [range(1; $n + 1) | {ac: "AC-\(.)", evidence: "automated", command: "make test", result: $result}],
+    regression_scope: "all", not_covered: [], verdict: $verdict}' | br "$1" s1 write qa >/dev/null || fail "write qa ($1)"
+}
+
 repo="$work/repo"
 make_repo "$repo"
 
@@ -47,16 +70,18 @@ ok "$repo" s1 init demo
 [ -z "$(git -C "$repo" status --porcelain)" ] || fail ".b-agentic must not appear in git status"
 invalid "$repo" s1 init Bad_Slug
 
-# --- approve needs a spec with AC-n; commit consent and branch target are validated
+# --- approve needs valid, recorded artifacts; consent and branch target are validated
 refused "$repo" s1 approve --commit yes --branch-target current --codex reviewer
 run_dir=$(dirname "$(sfile "$repo")")
-printf '# Spec\nno criteria here\n' >"$run_dir/spec.md"
-refused "$repo" s1 approve --commit yes --branch-target current --codex reviewer
-printf '# Spec\n- AC-1: WHEN a THEN b\n- AC-2: WHEN c THEN d\n' >"$run_dir/spec.md"
+printf '# Spec\nhand written, no criteria\n' >"$run_dir/spec.md"
+refused "$repo" s1 approve --commit yes --branch-target current --codex reviewer   # unrecorded file
+rm -f "$run_dir/spec.md"
+write_artifacts "$repo" 2
 invalid "$repo" s1 approve --commit yes --branch-target "bad target" --codex reviewer
 ok "$repo" s1 approve --commit yes --branch-target current --codex reviewer
 [ "$(phase "$repo")" = approved ] || fail "approve phase"
 [ "$(jq -r '.ac | keys | join(",")' "$(sfile "$repo")")" = "AC-1,AC-2" ] || fail "AC ids"
+[ "$(jq -r '.spec.plan_sha256 | length' "$(sfile "$repo")")" = 64 ] || fail "the plan hash must be recorded at approval"
 
 # --- another session cannot write while the lock is held ----------------------
 refused "$repo" s2 advance implement
@@ -77,8 +102,14 @@ ok "$repo" s1 advance review
 ok "$repo" s1 record review --verdict "READY FOR PR" --trigger "workflow policy"
 ok "$repo" s1 advance qa
 refused "$repo" s1 advance commit          # no QA verdict yet
+refused "$repo" s1 record qa --verdict "QA PASS"      # qa.md is not written yet
+jq -n '{rows: [{ac: "AC-1", evidence: "automated", command: "make test", result: "pass"},
+  {ac: "AC-2", evidence: "automated", command: "make test", result: "waived", waived_by: "user"}],
+  regression_scope: "all", not_covered: [], verdict: "QA PASS"}' | br "$repo" s1 write qa >/dev/null || fail "write qa"
+refused "$repo" s1 record qa --verdict "QA FAIL"      # differs from qa.md
 ok "$repo" s1 record qa --verdict "QA PASS"
 refused "$repo" s1 advance commit          # criteria not passed yet
+refused "$repo" s1 record ac AC-1 fail     # differs from qa.md
 ok "$repo" s1 record ac AC-1 pass
 ok "$repo" s1 record ac AC-2 waived
 
@@ -93,8 +124,7 @@ printf 'b\n' >"$repo/a.txt"
 repo2="$work/repo2"
 make_repo "$repo2"
 ok "$repo2" s1 init nocommit
-d2=$(dirname "$(sfile "$repo2")")
-printf -- '- AC-1: WHEN a THEN b\n' >"$d2/spec.md"
+write_artifacts "$repo2" 1
 ok "$repo2" s1 approve --commit no --branch-target current --codex reviewer
 ok "$repo2" s1 advance implement
 printf 'b\n' >"$repo2/a.txt"
@@ -102,6 +132,7 @@ ok "$repo2" s1 advance verify
 ok "$repo2" s1 record check --cmd "make test" --exit 0
 ok "$repo2" s1 record review --low-risk "docs-only change, no trigger"
 ok "$repo2" s1 advance qa
+write_qa "$repo2" 1 "QA PASS" pass
 ok "$repo2" s1 record qa --verdict "QA PASS"
 ok "$repo2" s1 record ac AC-1 pass
 refused "$repo2" s1 advance commit
@@ -130,8 +161,7 @@ ok "$repo" s1 unblock clarify --reason "re-approve"
 repo3="$work/repo3"
 make_repo "$repo3"
 ok "$repo3" s1 init rounds
-d3=$(dirname "$(sfile "$repo3")")
-printf -- '- AC-1: WHEN a THEN b\n' >"$d3/spec.md"
+write_artifacts "$repo3" 1
 ok "$repo3" s1 approve --commit yes --branch-target current --codex standing
 ok "$repo3" s1 advance implement
 printf 'x\n' >"$repo3/a.txt"
@@ -165,7 +195,7 @@ to_commit() {
   make_repo "$repo"
   ok "$repo" s1 init flow
   dir=$(dirname "$(sfile "$repo")")
-  printf -- '- AC-1: WHEN a THEN b\n' >"$dir/spec.md"
+  write_artifacts "$repo" 1
   ok "$repo" s1 approve --commit yes --branch-target "$target" --codex reviewer
   ok "$repo" s1 advance implement
   printf 'feature\n' >"$repo/f.txt"
@@ -173,6 +203,7 @@ to_commit() {
   ok "$repo" s1 record check --cmd "make test" --exit 0
   ok "$repo" s1 record review --low-risk "docs-only"
   ok "$repo" s1 advance qa
+  write_qa "$repo" 1 "QA PASS" pass
   ok "$repo" s1 record qa --verdict "QA PASS"
   ok "$repo" s1 record ac AC-1 pass
   ok "$repo" s1 advance commit
@@ -246,8 +277,7 @@ invalid "$repo11" s1 show
 repo12="$work/repo12"
 make_repo "$repo12"
 ok "$repo12" s1 init retry
-d12=$(dirname "$(sfile "$repo12")")
-printf -- '- AC-1: WHEN a THEN b\n' >"$d12/spec.md"
+write_artifacts "$repo12" 1
 ok "$repo12" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo12" s1 advance implement
 printf 'r\n' >"$repo12/r.txt"
@@ -289,8 +319,7 @@ git -C "$repo14" add .gitignore
 git -C "$repo14" add -f keep.log
 git -C "$repo14" commit -qm "add ignored-but-tracked file"
 ok "$repo14" s1 init ignored
-d14=$(dirname "$(sfile "$repo14")")
-printf -- '- AC-1: WHEN a THEN b\n' >"$d14/spec.md"
+write_artifacts "$repo14" 1
 ok "$repo14" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo14" s1 advance implement
 printf 'edited\n' >"$repo14/keep.log"
@@ -299,6 +328,7 @@ ok "$repo14" s1 advance verify
 ok "$repo14" s1 record check --cmd "make test" --exit 0
 ok "$repo14" s1 record review --low-risk "docs-only"
 ok "$repo14" s1 advance qa
+write_qa "$repo14" 1 "QA PASS" pass
 ok "$repo14" s1 record qa --verdict "QA PASS"
 ok "$repo14" s1 record ac AC-1 pass
 index_before=$(git -C "$repo14" ls-files -s | sha256sum)
@@ -320,8 +350,7 @@ git -C "$repo15" add .gitignore
 git -C "$repo15" add -f keep.log
 git -C "$repo15" commit -qm "add ignored-but-tracked file"
 ok "$repo15" s1 init ignored2
-d15=$(dirname "$(sfile "$repo15")")
-printf -- '- AC-1: WHEN a THEN b\n' >"$d15/spec.md"
+write_artifacts "$repo15" 1
 ok "$repo15" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo15" s1 advance implement
 printf 'edited\n' >"$repo15/keep.log"
@@ -330,6 +359,7 @@ ok "$repo15" s1 advance verify
 ok "$repo15" s1 record check --cmd "make test" --exit 0
 ok "$repo15" s1 record review --low-risk "docs-only"
 ok "$repo15" s1 advance qa
+write_qa "$repo15" 1 "QA PASS" pass
 ok "$repo15" s1 record qa --verdict "QA PASS"
 ok "$repo15" s1 record ac AC-1 pass
 ok "$repo15" s1 advance commit
@@ -361,6 +391,7 @@ ok "$repo14c" s1 check                            # HEAD is a known prior commit
 ok "$repo14c" s1 record check --cmd "make test" --exit 0
 ok "$repo14c" s1 record review --low-risk "docs-only"
 ok "$repo14c" s1 advance qa
+write_qa "$repo14c" 1 "QA PASS" pass
 ok "$repo14c" s1 record qa --verdict "QA PASS"
 ok "$repo14c" s1 record ac AC-1 pass
 ok "$repo14c" s1 advance commit
@@ -377,8 +408,7 @@ printf 'artifact.out\n' >"$repo16/.gitignore"
 git -C "$repo16" add .gitignore
 git -C "$repo16" commit -qm "ignore artifact"
 ok "$repo16" s1 init artifact
-d16=$(dirname "$(sfile "$repo16")")
-printf -- '- AC-1: WHEN a THEN b\n' >"$d16/spec.md"
+write_artifacts "$repo16" 1
 ok "$repo16" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo16" s1 advance implement
 printf 'code\n' >"$repo16/c.txt"
@@ -387,6 +417,7 @@ ok "$repo16" s1 advance verify
 ok "$repo16" s1 record check --cmd "make test" --exit 0 --include-ignored artifact.out
 ok "$repo16" s1 record review --low-risk "docs-only"
 ok "$repo16" s1 advance qa
+write_qa "$repo16" 1 "QA PASS" pass
 ok "$repo16" s1 record qa --verdict "QA PASS"
 ok "$repo16" s1 record ac AC-1 pass
 ok "$repo16" s1 advance commit
@@ -402,8 +433,7 @@ printf 'artifact.out\n' >"$repo17/.gitignore"
 git -C "$repo17" add .gitignore
 git -C "$repo17" commit -qm "ignore artifact"
 ok "$repo17" s1 init artifact2
-d17=$(dirname "$(sfile "$repo17")")
-printf -- '- AC-1: WHEN a THEN b\n' >"$d17/spec.md"
+write_artifacts "$repo17" 1
 ok "$repo17" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo17" s1 advance implement
 printf 'code\n' >"$repo17/c.txt"
@@ -412,6 +442,7 @@ ok "$repo17" s1 advance verify
 ok "$repo17" s1 record check --cmd "make test" --exit 0 --include-ignored artifact.out
 ok "$repo17" s1 record review --low-risk "docs-only"
 ok "$repo17" s1 advance qa
+write_qa "$repo17" 1 "QA PASS" pass
 ok "$repo17" s1 record qa --verdict "QA PASS"
 ok "$repo17" s1 record ac AC-1 pass
 ok "$repo17" s1 advance commit
@@ -439,6 +470,123 @@ race=$(cd "$repo14" && node --input-type=module -e '
   }
 ' "$cli" 2>&1) || true
 grep -Fq 'refused:the working tree changed' <<<"$race" || fail "a change during capture must refuse: $race"
+
+# --- state is coupled to the validated artifacts -----------------------------------
+repo18="$work/repo18"
+make_repo "$repo18"
+ok "$repo18" s1 init coupled
+d18=$(dirname "$(sfile "$repo18")")
+write_artifacts "$repo18" 1 a.txt
+ok "$repo18" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo18" s1 advance implement
+printf 'b\n' >"$repo18/a.txt"
+printf 'x\n' >"$repo18/extra.txt"
+ok "$repo18" s1 advance verify
+refused "$repo18" s1 record check --cmd "npm test" --exit 0     # not an approved plan check
+grep -Fq 'approved plan checks' "$work/err" || fail "an unapproved check must be named: $(cat "$work/err")"
+ok "$repo18" s1 record check --cmd "make test" --exit 0
+ok "$repo18" s1 record review --low-risk "docs-only"
+refused "$repo18" s1 advance qa                                  # extra.txt is outside the spec scope
+grep -Fq 'outside the approved scope' "$work/err" || fail "scope breach must be named: $(cat "$work/err")"
+rm "$repo18/extra.txt"
+ok "$repo18" s1 record check --cmd "make test" --exit 0
+ok "$repo18" s1 record review --low-risk "docs-only"
+ok "$repo18" s1 advance qa
+# A hand-edited plan, or a file nobody recorded, stops the run.
+printf '\nhand edit\n' >>"$d18/plan.md"
+refused "$repo18" s1 record qa --verdict "QA PASS"
+refused "$repo18" s1 check
+[ "$(phase "$repo18")" = blocked ] || fail "a hand-edited plan must block: $(phase "$repo18")"
+repo19="$work/repo19"
+make_repo "$repo19"
+ok "$repo19" s1 init unknownfile
+d19=$(dirname "$(sfile "$repo19")")
+write_artifacts "$repo19" 1
+ok "$repo19" s1 approve --commit yes --branch-target current --codex reviewer
+printf 'x\n' >"$d19/notes.md"
+refused "$repo19" s1 advance implement
+grep -Fq 'unknown file' "$work/err" || fail "an unknown file must be named: $(cat "$work/err")"
+rm "$d19/notes.md"
+# qa.md must be rewritten in each QA round: an older file cannot be recorded again.
+repo20="$work/repo20"
+make_repo "$repo20"
+ok "$repo20" s1 init staleqa
+write_artifacts "$repo20" 1
+ok "$repo20" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo20" s1 advance implement
+printf 'q\n' >"$repo20/a.txt"
+ok "$repo20" s1 advance verify
+ok "$repo20" s1 record check --cmd "make test" --exit 0
+ok "$repo20" s1 record review --low-risk "docs-only"
+ok "$repo20" s1 advance qa
+write_qa "$repo20" 1 "QA FAIL" fail
+ok "$repo20" s1 record qa --verdict "QA FAIL"
+ok "$repo20" s1 advance fix
+printf 'q2\n' >"$repo20/a.txt"
+ok "$repo20" s1 advance verify
+ok "$repo20" s1 record check --cmd "make test" --exit 0
+ok "$repo20" s1 record review --low-risk "docs-only"
+ok "$repo20" s1 advance qa
+refused "$repo20" s1 record qa --verdict "QA FAIL"
+grep -Fq 'in this QA phase' "$work/err" || fail "a stale qa.md must be named: $(cat "$work/err")"
+write_qa "$repo20" 1 "QA PASS" pass
+ok "$repo20" s1 record qa --verdict "QA PASS"
+
+# --- the scope is re-checked on every move toward review, QA, and commit -------------------
+repo22="$work/repo22"
+make_repo "$repo22"
+ok "$repo22" s1 init scopeflow
+write_artifacts "$repo22" 1 a.txt
+ok "$repo22" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo22" s1 advance implement
+printf 'b\n' >"$repo22/a.txt"
+ok "$repo22" s1 advance verify
+ok "$repo22" s1 record check --cmd "make test" --exit 0
+ok "$repo22" s1 advance review
+printf 'x\n' >"$repo22/extra.txt"                        # an out-of-scope file appears during review
+refused "$repo22" s1 record review --verdict "READY FOR PR"
+grep -Fq 'current candidate' "$work/err" || fail "a verdict needs fresh checks for the current candidate: $(cat "$work/err")"
+rm "$repo22/extra.txt"
+ok "$repo22" s1 record review --verdict "READY FOR PR"
+printf 'x\n' >"$repo22/extra.txt"
+refused "$repo22" s1 advance qa
+grep -Fq 'outside the approved scope' "$work/err" || fail "review -> qa must re-check the scope: $(cat "$work/err")"
+rm "$repo22/extra.txt"
+repo23="$work/repo23"
+make_repo "$repo23"
+ok "$repo23" s1 init scopecommit
+write_artifacts "$repo23" 1 a.txt
+ok "$repo23" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo23" s1 advance implement
+printf 'b\n' >"$repo23/a.txt"
+ok "$repo23" s1 advance verify
+ok "$repo23" s1 record check --cmd "make test" --exit 0
+ok "$repo23" s1 record review --low-risk "docs-only"
+ok "$repo23" s1 advance qa
+printf 'x\n' >"$repo23/extra.txt"                        # an out-of-scope file appears during QA
+write_qa "$repo23" 1 "QA PASS" pass
+ok "$repo23" s1 record qa --verdict "QA PASS"
+ok "$repo23" s1 record ac AC-1 pass
+refused "$repo23" s1 advance commit
+grep -Fq 'outside the approved scope' "$work/err" || fail "the commit gate must re-check the scope: $(cat "$work/err")"
+
+# --- a run made before ADR-010 loads, blocks, and can be rebuilt ------------------------------
+repo21="$work/repo21"
+make_repo "$repo21"
+ok "$repo21" s1 init legacy
+d21=$(dirname "$(sfile "$repo21")")
+write_artifacts "$repo21" 1
+ok "$repo21" s1 approve --commit yes --branch-target current --codex reviewer
+tmp=$(mktemp)
+jq 'del(.spec.plan_sha256) | del(.qa.artifact_rev)' "$(sfile "$repo21")" >"$tmp" && cp "$tmp" "$(sfile "$repo21")"
+rm -f "$d21/artifacts.json"
+ok "$repo21" s1 show
+refused "$repo21" s1 check
+[ "$(phase "$repo21")" = blocked ] || fail "a legacy run without recorded artifacts must block: $(phase "$repo21")"
+ok "$repo21" s1 unblock clarify --reason "rebuild the artifacts after the upgrade"
+write_artifacts "$repo21" 1
+ok "$repo21" s1 approve --commit yes --branch-target current --codex reviewer
+[ "$(phase "$repo21")" = approved ] || fail "a rebuilt legacy run must approve again"
 
 # --- no command outside a git worktree ---------------------------------------
 mkdir -p "$work/plain"
