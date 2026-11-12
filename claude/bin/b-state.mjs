@@ -17,9 +17,12 @@
 //   show                                print the state
 //   approve --commit yes|no --branch-target current|new:<type>/<kebab>
 //           --codex standing|reviewer
-//                                       hash spec.md, record consent and AC-n, phase approved
+//                                       hash spec.md, check the flags against the
+//                                       spec's consent block, require a clean tree,
+//                                       record consent and AC-n, phase approved
 //   advance <phase> [--reason R --needs N]
-//                                       move to a phase when its guard passes
+//                                       move to a phase when its guard passes;
+//                                       `advance review` also needs --trigger T
 //   unblock <phase> --reason R          leave `blocked` for clarify|implement|fix|verify
 //   record check --cmd C --exit N [--include-ignored P]...
 //   record review (--verdict V [--trigger T] | --low-risk REASON)
@@ -95,6 +98,7 @@ const BRANCH_TARGET = /^(current|new:[a-z]+\/[a-z0-9][a-z0-9-]*)$/;
 const AC_ID = /^AC-\d+$/;
 const FINGERPRINT = /^[0-9a-f]{64}$/;
 const OWNER = /^[A-Za-z0-9._:-]{1,80}$/;
+const CONSENT_DRIFT = "recorded consent differs from the approved spec";
 const MAX_CMD = 300;
 const MAX_TEXT = 300;
 const MAX_STATE_BYTES = 1 << 20;
@@ -147,6 +151,7 @@ async function worktreeBaseline(root) {
     head: await gitOr(root, ["rev-parse", "HEAD"]),
     branch: await gitOr(root, ["rev-parse", "--abbrev-ref", "HEAD"]),
     status_digest: sha256(status),
+    dirty: status.length > 0,
   };
 }
 
@@ -664,6 +669,19 @@ function reviewCovers(state, fingerprint) {
   );
 }
 
+// The consent in state must equal the consent in the approved spec. Every
+// step that acts on it (the commit gate, recording commits, completion, and
+// `check`) compares all three fields, so a state.json edit cannot widen it.
+function consentMatches(state, art) {
+  const approved = art.artifacts.spec?.consent;
+  return Boolean(
+    approved &&
+    approved.commit === (state.consent.commit ? "yes" : "no") &&
+    approved.branch_target === state.consent.branch_target &&
+    approved.codex === state.consent.codex,
+  );
+}
+
 // Every acceptance result must belong to the candidate being committed.
 function acOpen(state, fingerprint) {
   return Object.entries(state.ac)
@@ -742,6 +760,21 @@ async function cmdApprove(root, dir, state, args) {
   const art = await artifactsOk(root, state);
   if (!art.artifacts.spec || !art.artifacts.plan)
     throw refuse("write the spec and the plan with b_run.py first");
+  // The consent the user approved is the spec's; the flags only repeat it.
+  const specConsent = art.artifacts.spec.consent;
+  if (
+    specConsent.commit !== commit ||
+    specConsent.branch_target !== args["branch-target"] ||
+    specConsent.codex !== args.codex
+  ) {
+    throw refuse("approve flags differ from the consent recorded in spec.md");
+  }
+  const baseline = await worktreeBaseline(root);
+  if (baseline.dirty) {
+    throw refuse(
+      "the working tree has changes; commit or stash them before approval",
+    );
+  }
   const ids = art.artifacts.spec.criteria.map((c) => c.id);
   state.spec.sha256 = art.hashes.spec;
   state.spec.plan_sha256 = art.hashes.plan;
@@ -756,8 +789,8 @@ async function cmdApprove(root, dir, state, args) {
     ids.map((id) => [id, { status: "pending", fingerprint: "" }]),
   );
   state.baseline = {
-    head: (await worktreeBaseline(root)).head,
-    status_digest: (await worktreeBaseline(root)).status_digest,
+    head: baseline.head,
+    status_digest: baseline.status_digest,
   };
   state.phase = "approved";
   saveState(dir, state);
@@ -800,6 +833,9 @@ async function cmdAdvance(root, dir, state, args) {
     if (state.candidate.fingerprint !== fingerprint) {
       throw refuse("candidate changed since the checks; record fresh checks");
     }
+    // The trigger is what makes the review required; the handoff carries it.
+    state.review.trigger = text(args.trigger, "--trigger");
+    state.review.required = true;
   }
   if (target === "qa") {
     if (
@@ -822,9 +858,15 @@ async function cmdAdvance(root, dir, state, args) {
     if (!reviewFix && !qaFix)
       throw refuse("fix needs a NEEDS FIXES or QA FAIL result");
   }
+  if (target === "commit" || target === "done") {
+    if (!consentMatches(state, art)) throw refuse(CONSENT_DRIFT);
+  }
   if (target === "commit") {
-    if (state.consent.commit !== true)
-      throw refuse("commit consent was not recorded at approval");
+    if (
+      state.consent.commit !== true ||
+      art.artifacts.spec.consent.commit !== "yes"
+    )
+      throw refuse("commit consent was not recorded in the approved spec");
     if (
       state.qa.verdict !== "QA PASS" ||
       state.qa.fingerprint !== fingerprint
@@ -900,6 +942,10 @@ function cmdUnblock(dir, state, args) {
       approved_at: "",
     };
     state.ac = {};
+    // A new approval starts a fresh review obligation; the round count stays so
+    // that finding ids remain unique.
+    state.review.required = false;
+    state.review.trigger = "";
   } else {
     requireSpecUnchanged(dir, state);
   }
@@ -976,6 +1022,16 @@ async function cmdRecord(root, dir, state, args) {
     if (args["low-risk"] !== undefined) {
       if (state.phase !== "verify")
         throw refuse("a low-risk exception is recorded in phase verify");
+      // Once a review was triggered or held, a correction goes back to review.
+      if (
+        state.review.trigger !== "" ||
+        state.review.round > 0 ||
+        state.attempts.review_needs_fixes > 0
+      ) {
+        throw refuse(
+          "a review was already triggered or held for this run; record a fresh review verdict",
+        );
+      }
       if (!checksPass(state) || state.candidate.fingerprint !== fingerprint) {
         throw refuse("record passing checks for the current candidate first");
       }
@@ -1068,6 +1124,7 @@ async function cmdRecord(root, dir, state, args) {
     const sha = args._[2];
     if (state.phase !== "commit")
       throw refuse("commits are recorded in phase commit");
+    if (!consentMatches(state, art)) throw refuse(CONSENT_DRIFT);
     if (!SHA.test(sha ?? "")) throw invalid("bad commit SHA");
     if ((await gitOr(root, ["cat-file", "-t", sha])) !== "commit") {
       throw refuse(`${sha} is not a commit in this repository`);
@@ -1109,18 +1166,21 @@ async function cmdCheck(root, dir, state, args) {
     return { ok: true, phase: "done", problems, actions };
   const baseline = await worktreeBaseline(root);
   let changed = false;
-  // A branch the run was approved to create is not a branch change.
-  if (
+  let artifactProblem = "";
+  // A branch the run was approved to create is not a branch change, but it is
+  // adopted only after every other check below has passed: a refused check
+  // must never persist branch authority (spec hash, artifacts, and the state's
+  // consent against the spec's all come first).
+  const adoptable =
     state.repo_root === root &&
     state.branch !== baseline.branch &&
-    state.commit_plan &&
+    Boolean(state.commit_plan) &&
     state.consent.branch_target !== "current" &&
-    branchAllowed(state, baseline.branch)
+    branchAllowed(state, baseline.branch);
+  if (
+    state.repo_root !== root ||
+    (state.branch !== baseline.branch && !adoptable)
   ) {
-    state.branch = baseline.branch;
-    changed = true;
-  }
-  if (state.repo_root !== root || state.branch !== baseline.branch) {
     problems.push("repository root or branch differs from the run");
     block(state, "repository root or branch changed", "user decision");
     changed = true;
@@ -1134,15 +1194,23 @@ async function cmdCheck(root, dir, state, args) {
     changed = true;
   } else if (
     state.phase !== "clarify" &&
-    (await artifactsOk(root, state).then(
-      () => "",
+    (artifactProblem = await artifactsOk(root, state).then(
+      (art) => (consentMatches(state, art) ? "" : CONSENT_DRIFT),
       (error) => error.message,
     ))
   ) {
-    problems.push("run artifacts changed outside b_run.py");
-    block(state, "run artifacts changed outside b_run.py", "user decision");
+    const drift = artifactProblem === CONSENT_DRIFT;
+    const why = drift
+      ? CONSENT_DRIFT
+      : "run artifacts changed outside b_run.py";
+    problems.push(why);
+    block(state, why, drift ? "re-approval" : "user decision");
     changed = true;
   } else {
+    if (adoptable) {
+      state.branch = baseline.branch;
+      changed = true;
+    }
     let headMoved = false;
     if (baseline.head !== state.baseline.head) {
       const known = [];
