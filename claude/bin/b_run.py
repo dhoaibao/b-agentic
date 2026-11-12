@@ -265,8 +265,20 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
         for i, item in enumerate(data["items"]):
             if item["disposition"] != "open" and "reason" not in item:
                 raise Invalid(f"items[{i}].reason: required unless the item is open")
+            blocker = item.get("kind") == "blocker"
+            if blocker and item["source"] not in ("review", "qa"):
+                raise Invalid(f"items[{i}].kind: a blocker comes from review or qa")
+            if "sweep" in item and not blocker:
+                raise Invalid(f"items[{i}].sweep: only a blocker carries a sweep")
+            if blocker and item["disposition"] == "fixed" and "sweep" not in item:
+                raise Invalid(f"items[{i}].sweep: required for a fixed blocker")
         if previous and not {i["id"] for i in previous["items"]} <= set(ids):
             raise Invalid("items: a rewrite may not drop an id recorded earlier")
+        recorded = {i["id"]: i for i in previous["items"]} if previous else {}
+        for i, item in enumerate(data["items"]):
+            old = recorded.get(item["id"])
+            if old and (old.get("kind") != item.get("kind") or old["source"] != item["source"]):
+                raise Invalid(f"items[{i}]: the kind and source of a recorded item may not change")
         return True
     raise Invalid(f"unknown kind {kind!r}")
 
@@ -300,6 +312,12 @@ def render(kind: str, data: dict) -> str:
             "",
             "## Out of scope",
             *_bullets(data["out_of_scope"]),
+            "",
+            "## Consent",
+            f"- Commit: {data['consent']['commit']}",
+            f"- Branch target: {data['consent']['branch_target']}",
+            f"- Codex: {data['consent']['codex']}",
+            "- Push or PR: never",
         ]
     elif kind == "plan":
         out += ["# Plan", "", "## Steps"]
@@ -340,8 +358,12 @@ def render(kind: str, data: dict) -> str:
         out += ["# Follow-ups", ""]
         for item in data["items"]:
             out.append(f"- {item['id']} [{item['source']}] {item['disposition']}: {item['summary']}")
+            if "kind" in item:
+                out.append(f"  - Kind: {item['kind']}")
             if "reason" in item:
                 out.append(f"  - Reason: {item['reason']}")
+            if "sweep" in item:
+                out.append(f"  - Sweep: {item['sweep']}")
         if not data["items"]:
             out.append("- None")
     return "\n".join(out) + "\n"
@@ -493,6 +515,7 @@ def summary(data: dict) -> dict:
         out["spec"] = {
             "criteria": [{k: c[k] for k in ("id", "evidence")} for c in data["spec"]["criteria"]],
             "scope_paths": data["spec"]["scope_paths"],
+            "consent": data["spec"]["consent"],
         }
     if "plan" in data:
         out["plan"] = {"checks": data["plan"]["checks"], "step_ids": [s["id"] for s in data["plan"]["steps"]]}
@@ -622,6 +645,8 @@ def cmd_lint(schema: dict, kind: str, args: dict) -> dict:
 
 
 def cmd_write(schema: dict, kind: str, args: dict) -> dict:
+    if kind not in schema["kinds"]:
+        raise Invalid(f"unknown kind {kind!r}; expected one of {sorted(schema['kinds'])}")
     root = repo_root()
     run_id, directory = resolve_run(root, args.get("run"))
     value = read_input(schema)
@@ -629,12 +654,8 @@ def cmd_write(schema: dict, kind: str, args: dict) -> dict:
     with Mutex(directory):
         require_lock(directory, owner)
         state = read_state(directory)
-        if state["phase"] not in schema["kinds"].get(kind, {}).get("phases", []):
-            raise Refused(
-                f"{kind} is written in {schema['kinds'].get(kind, {}).get('phases')}, not in phase {state['phase']}"
-            )
-        if kind not in schema["kinds"]:
-            raise Invalid(f"unknown kind {kind!r}")
+        if state["phase"] not in schema["kinds"][kind]["phases"]:
+            raise Refused(f"{kind} is written in {schema['kinds'][kind]['phases']}, not in phase {state['phase']}")
         skip = frozenset({kind, *DEPENDENTS[kind]})
         ctx, problems = validate_run(directory, schema, skip=skip)
         files = tuple(f"{schema['kinds'][k]['file']} " for k in skip)
@@ -786,6 +807,21 @@ def cmd_handoff(schema: dict, which: str, args: dict) -> str:
     out += ["", "## Changed paths", *(f"- {p}" for p in changed_paths(root))]
     ignored = candidate.get("include_ignored") or []
     out += ["", "## Included ignored artifacts", *([f"- {p}" for p in ignored] or ["- none"])]
+    if which == "review" and int(review.get("round", 0)) > 0:
+        attempts = state.get("attempts") or {}
+        out += [
+            "",
+            "## Prior review",
+            f"Completed rounds: {int(review.get('round', 0))}",
+            f"Consecutive NEEDS FIXES: {int(attempts.get('review_needs_fixes', 0))}",
+        ]
+        blockers = [i for i in data.get("followups", {}).get("items", []) if i.get("kind") == "blocker"]
+        for i in blockers:
+            out.append(f"- {i['id']} {i['disposition']}: {i['summary']}")
+            out.append(f"  - Reason: {i.get('reason', 'none recorded')}")
+            out.append(f"  - Sweep: {i.get('sweep', 'none recorded')}")
+        if not blockers:
+            out.append("- no blockers recorded")
     if "followups" in data:
         out += ["", "## Earlier follow-ups"]
         out += [f"- {i['id']} {i['disposition']}: {i['summary']}" for i in data["followups"]["items"]] or ["- none"]

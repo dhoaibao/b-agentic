@@ -50,6 +50,10 @@
       "fixed",
       "deferred",
       "rejected"
+    ],
+    "followup_kind": [
+      "blocker",
+      "followup"
     ]
   },
   "kinds": {
@@ -61,7 +65,8 @@
       "rules": [
         "AC ids run AC-1..AC-n in order",
         "automated and ci criteria carry a command and no source; every other evidence type carries a source and no command",
-        "scope_paths are relative globs: no absolute path, no .., no likely-secret path"
+        "scope_paths are relative globs: no absolute path, no .., no likely-secret path",
+        "consent records the user's commit, branch, and Codex answers; approve refuses flags that differ from it, and it never covers push or PR"
       ],
       "fields": {
         "request": {
@@ -181,6 +186,29 @@
           "items": {
             "type": "line"
           }
+        },
+        "consent": {
+          "type": "object",
+          "fields": {
+            "commit": {
+              "type": "enum",
+              "values": [
+                "yes",
+                "no"
+              ]
+            },
+            "branch_target": {
+              "type": "id",
+              "pattern": "^(current|new:[a-z]+/[a-z0-9][a-z0-9-]*)$"
+            },
+            "codex": {
+              "type": "enum",
+              "values": [
+                "standing",
+                "reviewer"
+              ]
+            }
+          }
         }
       },
       "example": {
@@ -237,7 +265,12 @@
         ],
         "out_of_scope": [
           "CSV output"
-        ]
+        ],
+        "consent": {
+          "commit": "no",
+          "branch_target": "current",
+          "codex": "reviewer"
+        }
       }
     },
     "plan": {
@@ -437,7 +470,8 @@
       "rules": [
         "ids look like R<round>-<n>, Q<round>-<n>, or F-<n> and are unique",
         "a reason is required unless the item is open",
-        "a rewrite may not drop an id that an earlier version recorded"
+        "a blocker comes from review or qa, and a fixed blocker carries a sweep line naming the correction paths, the sibling locations swept, and the regression check",
+        "a rewrite may not drop an id that an earlier version recorded or change that item's kind or source"
       ],
       "fields": {
         "items": {
@@ -464,6 +498,15 @@
               "reason": {
                 "type": "line",
                 "optional": true
+              },
+              "kind": {
+                "type": "enum",
+                "enum": "followup_kind",
+                "optional": true
+              },
+              "sweep": {
+                "type": "line",
+                "optional": true
               }
             }
           }
@@ -471,6 +514,15 @@
       },
       "example": {
         "items": [
+          {
+            "id": "R1-1",
+            "source": "review",
+            "summary": "Unchecked path escapes the scope",
+            "disposition": "fixed",
+            "reason": "path is now resolved before the scope test",
+            "kind": "blocker",
+            "sweep": "src/export.py; swept all path joins in src/; regression: pytest tests/test_export.py"
+          },
           {
             "id": "R1-2",
             "source": "review",

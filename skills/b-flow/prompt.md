@@ -23,11 +23,11 @@ Run one approved request from spec to commit in the main session, with progress 
 
 ### Start (`/b-flow <goal>`)
 
-1. Run `rtk git status --short`, compare `HEAD` with the cached `origin/<branch>` ref per the kernel (behind or diverged: report counts and ask), then `b-state.mjs init <kebab-slug>`.
+1. Run `rtk git status --short` (a tree with changes cannot be approved: ask the user to commit or stash them), compare `HEAD` with the cached `origin/<branch>` ref per the kernel (behind or diverged: report counts and ask), then `b-state.mjs init <kebab-slug>`.
 2. Clarify with `AskUserQuestion` (1-4 grouped questions per round) until intent, scope, non-goals, and expected behavior are clear. Delegate `b-plan` to `b-planner` for the Behavior delta, numbered `AC-n` criteria, and ordered steps.
 3. Take the spec and plan JSON from the planner's result (or build it from the clarified answers), `lint` it, then `write spec` and `write plan`. The CLI refuses a criterion without the right evidence field (a command for `automated` and `ci`, a source for the rest), non-contiguous ids, a plan check list that omits an automated command, a plan path outside `scope_paths`, and a protected scope path: resolve each with the user, never by loosening the data.
-4. Run one approval round, the last user interaction: confirm spec and `AC-n`; commit consent (yes/no); branch target (`current`, or `new:<type>/<kebab>` named as `b-commit` step 9 does, always new on a detached HEAD); Codex (`standing` only when the standing Codex approval already exists, else `reviewer`). Revise and repeat until approved; never start without it.
-5. `b-state.mjs approve --commit yes|no --branch-target T --codex standing|reviewer`; it validates the artifacts and records the spec and plan hashes. A later rewrite of either voids the approval.
+4. Run one approval round, the last user interaction: confirm spec and `AC-n`; commit consent (yes/no); branch target (`current`, or `new:<type>/<kebab>` named as `b-commit` step 9 does, always new on a detached HEAD); Codex (`standing` only when the standing Codex approval already exists, else `reviewer`). Revise and repeat until approved; never start without it. Record the answers in the spec's `consent` block (`commit` yes|no, `branch_target`, `codex`).
+5. `b-state.mjs approve --commit yes|no --branch-target T --codex standing|reviewer`; it repeats the same consent, refuses any difference from `spec.md` and a tree with changes, validates the artifacts, and records the spec and plan hashes. A later rewrite of either voids the approval.
 
 ### Run (no questions; the only exits are the stop conditions)
 
@@ -35,11 +35,11 @@ Run one approved request from spec to commit in the main session, with progress 
 
 - **approved**: `advance implement`, then continue as implement.
 - **implement**: apply `plan.md` with `b-implement`, `b-frontend`, `b-refactor`, or `b-test` inside the approved scope; then `advance verify`.
-- **verify**: run the plan's approved `checks` through `rtk` and `record check --cmd C --exit N` for each (a command outside the plan is refused: that is a plan change, so stop) (add `--include-ignored P` for derived artifacts the candidate includes); the latest result per command counts. Fix unambiguous in-scope failures and rerun; the helper blocks the third failure. Classify risk per the kernel. With a trigger: `advance review`. Otherwise `record review --low-risk REASON`, then `advance qa`.
+- **verify**: run the plan's approved `checks` through `rtk` and `record check --cmd C --exit N` for each (a command outside the plan is refused: that is a plan change, so stop) (add `--include-ignored P` for derived artifacts the candidate includes); the latest result per command counts. Fix unambiguous in-scope failures and rerun; the helper blocks the third failed check. Classify risk per the kernel. With a trigger: `advance review --trigger T`. Otherwise `record review --low-risk REASON`, then `advance qa`.
 - **review**: build the focus text with `b_run.py handoff review --out <scratch file outside the repo>`, then run `b-review` as the kernel specifies; a missing standing Codex approval is not a question here, so use the `b-reviewer` path. `record review --verdict V [--trigger T]`.
   - `READY FOR PR` or `READY WITH FOLLOW-UPS`: `write followups` for the findings that are not blockers (ids `R<round>-<n>`), then `advance qa`.
   - `NEEDS FIXES`: `advance fix`. A finding that is ambiguous, outside the scope, or would change an approved `AC-n` is a stop.
-- **fix**: fix the evidenced blockers inside scope as a batch, whole class each (`write followups` for the rest, with a disposition and reason); then `advance verify`.
+- **fix**: record each evidenced blocker with `write followups` (`kind: blocker`, id `R<round>-<n>`, disposition, reason), fix them inside scope as a batch, whole class each, and give every fixed blocker a `sweep` line (correction paths, sweep scope, regression check); record the rest as follow-ups with a disposition and reason; then `advance verify`.
 - **qa**: run `b-qa` against the spec's `AC-n` (`b_run.py handoff qa` renders its inputs), then `write qa` with one row per criterion (the rows must match the spec and the verdict must follow from them), then `record ac AC-n pass|fail|gap|waived` for each row and `record qa --verdict V`; both must match `qa.md` and it must be rewritten in every QA round. `QA PASS`: `advance commit`. `QA FAIL`: route per `b-qa`, `advance fix`. `QA BLOCKED` is a stop.
 - **commit**: `advance commit` already ran (the helper checked consent, QA, review, and every current `AC-n`, and recorded the approved tree). Run `b-commit` for the whole candidate with the recorded branch target; the recorded consent is the explicit commit request and its branch question is skipped. Then `record commit <sha>` for every commit and `advance done`, which refuses unless HEAD's tree is exactly the approved candidate on the approved branch. If the candidate changes while preparing the commit, `check` voids the evidence and returns to `verify`.
 - **done**: report commits, `AC-n` results, follow-ups, and the run folder. Offer `/b-pr` and promoting `spec.md` to `docs/specs/`; do neither on your own.
@@ -50,7 +50,7 @@ Run `b-state.mjs show`, then `check --takeover` (valid only because the user ask
 
 ### Stop
 
-Stop and ask (`AskUserQuestion`, then `unblock <phase> --reason R`; a changed spec needs `unblock clarify` and a new approval) on any of: a helper refusal or `blocked` phase (3 failed verifies, 3 consecutive `NEEDS FIXES`, 3 consecutive `QA FAIL`, `QA BLOCKED`); a path outside the approved scope; a finding that would change approved behavior; an `AC-n` without evidence; a protected or secret file; a destructive, external, or permission-prompted action; any question a phase skill would ask that approval did not answer.
+Stop and ask (`AskUserQuestion`, then `unblock <phase> --reason R`; a changed spec needs `unblock clarify` and a new approval) on any of: a helper refusal or `blocked` phase (3 failed verify checks, 3 consecutive `NEEDS FIXES`, 3 consecutive `QA FAIL`, `QA BLOCKED`); a path outside the approved scope; a finding that would change approved behavior; an `AC-n` without evidence; a protected or secret file; a destructive, external, or permission-prompted action; any question a phase skill would ask that approval did not answer.
 
 ## Output format
 

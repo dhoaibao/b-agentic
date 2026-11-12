@@ -44,7 +44,7 @@ rundir() { printf '%s' "$1"/.b-agentic/runs/*; }
 setphase() { # REPO PHASE: test-only state edit, as the probe may bypass the CLI
   local file tmp
   file=$(rundir "$1")/state.json
-  tmp=$(mktemp)
+  tmp=$(mktemp -p "$work")
   jq --arg p "$2" '.phase = $p' "$file" >"$tmp" && cp "$tmp" "$file"
 }
 
@@ -84,6 +84,11 @@ lint_bad spec '.criteria[0].when = "two\nlines"' "multi-line when"
 lint_bad spec '.criteria[0].then = (" " * 400)' "blank then"
 lint_bad spec '.request = ""' "empty request"
 lint_bad spec 'del(.criteria)' "missing criteria"
+lint_bad spec 'del(.consent)' "missing consent"
+lint_bad spec '.consent.commit = "maybe"' "consent commit outside yes or no"
+lint_bad spec '.consent.branch_target = "bad target"' "consent branch target outside the pattern"
+lint_bad spec '.consent.codex = "always"' "consent codex outside the vocabulary"
+lint_bad spec '.consent.push = "yes"' "a push consent field"
 lint_bad spec '.criteria = []' "no criteria"
 lint_bad spec '.behavior.new = ["<!-- hides the criteria"]' "an HTML comment opener"
 lint_bad spec '.request = "first line\n<div>second"' "an HTML tag in the request"
@@ -102,12 +107,16 @@ lint_bad followups '.items[0].reason = null | del(.items[0].reason)' "closed fol
 lint_bad followups '.items += [.items[0]]' "duplicate follow-up id"
 lint_bad followups '.items[0].id = "X-1"' "bad follow-up id"
 lint_bad followups '.items[0].disposition = "ignored"' "bad disposition"
+lint_bad followups 'del(.items[0].sweep)' "fixed blocker without a sweep"
+lint_bad followups '.items[0].source = "implement"' "blocker from implement"
+lint_bad followups '.items[1].sweep = "x"' "sweep on a non-blocker"
 br "$repo" lint spec < <(printf 'not json')
 [ "$rc" -eq 2 ] || fail "non-JSON input must be invalid"
 [ -z "$(ls -A "$repo/.b-agentic" 2>/dev/null)" ] || fail "lint must not create run files"
 
 # --- write: single writer, phases, locks, cross-artifact rules ---------------------------
 newrun "$repo"
+invalid "$repo" write nope < <(printf '{}')                   # an unknown kind is invalid input, not a refusal
 run_dir=$(rundir "$repo")
 br "$repo" write plan < <(example plan)
 [ "$rc" -eq 3 ] || fail "a plan needs the spec first (rc=$rc)"
@@ -116,6 +125,9 @@ br "$repo" write spec < <(example spec)
 [ "$(jq -r .file <<<"$out")" = spec.md ] || fail "write spec result"
 head -1 "$run_dir/spec.md" | grep -Fq '<!-- b-run:spec v1 -->' || fail "rendered spec marker"
 grep -Fq -- '- AC-1: WHEN export runs with --json THEN stdout is valid JSON' "$run_dir/spec.md" || fail "rendered criterion"
+for line in '## Consent' '- Commit: no' '- Push or PR: never'; do
+  grep -Fq -- "$line" "$run_dir/spec.md" || fail "rendered consent: $line"
+done
 [ "$(jq -r '.artifacts.spec.sha256' "$run_dir/artifacts.json")" = "$(sha256sum "$run_dir/spec.md" | cut -d' ' -f1)" ] || fail "recorded sha256"
 [ "$(jq -r '.artifacts.spec.rev' "$run_dir/artifacts.json")" = 1 ] || fail "first revision"
 br "$repo" write spec >/dev/null < <(example spec)
@@ -148,6 +160,10 @@ setphase "$repo" verify
 ok "$repo" write followups < <(example followups)
 br "$repo" write followups < <(example followups | jq -c '.items = [.items[1]]')
 [ "$rc" -eq 2 ] || fail "dropping a recorded follow-up id must be invalid (rc=$rc)"
+br "$repo" write followups < <(example followups | jq -c 'del(.items[0].kind) | del(.items[0].sweep)')
+[ "$rc" -eq 2 ] || fail "a recorded blocker cannot be rewritten as a follow-up (rc=$rc)"
+br "$repo" write followups < <(example followups | jq -c '.items[2].kind = "blocker" | .items[2].source = "review" | .items[2].disposition = "open" | del(.items[2].reason)')
+[ "$rc" -eq 2 ] || fail "a recorded item cannot become a blocker or change source (rc=$rc)"
 br "$repo" write followups < <(example followups | jq -c '.items[1].disposition = "fixed" | .items[1].reason = "done"')
 [ "$rc" -eq 0 ] || fail "closing a follow-up with a reason is allowed: $(cat "$work/err")"
 setphase "$repo" qa
@@ -232,7 +248,7 @@ jq -e '.protected == ["src/db.env"] and (.outside_scope | length) == 1' <<<"$out
 rm "$repo/src/db.env"
 # Ignored artifacts that the candidate names are checked like changed paths.
 state_file=$(rundir "$repo")/state.json
-tmp=$(mktemp)
+tmp=$(mktemp -p "$work")
 jq '.candidate.include_ignored = ["dist/release.js"]' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
 refused "$repo" scope-check
 jq -e '.outside_scope | index("dist/release.js") != null' <<<"$out" >/dev/null || fail "an included ignored path outside scope must be reported: $out"
@@ -267,6 +283,21 @@ ok "$repo" handoff review
 grep -Fq 'REVIEW handoff for run' <<<"$out" || fail "review packet header"
 grep -Fq -- '- AC-1: WHEN export runs with --json THEN stdout is valid JSON (automated; command `pytest tests/test_export.py`)' <<<"$out" || fail "packet criteria: $out"
 grep -Fq 'Round: 1' <<<"$out" || fail "review round"
+grep -Fq 'Review trigger: none recorded' <<<"$out" || fail "no trigger before one is recorded"
+grep -Fq 'Prior review' <<<"$out" && fail "round 1 has no prior review section"
+jq '.review.trigger = "approval policy"' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
+ok "$repo" handoff review
+grep -Fq 'Review trigger: approval policy' <<<"$out" || fail "the recorded trigger must be printed: $out"
+# A re-review carries the earlier blockers with their dispositions and sweep scope.
+jq '.review.round = 1 | .attempts.review_needs_fixes = 1' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
+ok "$repo" write followups < <(example followups)
+ok "$repo" handoff review
+grep -Fq 'Round: 2' <<<"$out" || fail "re-review round: $out"
+grep -Fq 'Consecutive NEEDS FIXES: 1' <<<"$out" || fail "re-review consecutive count: $out"
+grep -Fq -- '- R1-1 fixed: Unchecked path escapes the scope' <<<"$out" || fail "the prior blocker must be listed: $out"
+grep -Fq 'Sweep: src/export.py; swept all path joins' <<<"$out" || fail "the sweep scope must be listed: $out"
+grep -Fq -- '- F-1' <<<"$(sed -n '/Prior review/,/Earlier follow-ups/p' <<<"$out")" && fail "only blockers belong in the prior review section"
+jq '.review.round = 0 | .review.trigger = "" | .attempts.review_needs_fixes = 0' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
 ok "$repo" handoff qa
 grep -Fq 'QA handoff' <<<"$out" || fail "qa packet header"
 invalid "$repo" handoff nope

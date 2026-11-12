@@ -44,11 +44,15 @@ br() { # REPO OWNER ARGS... (JSON on stdin)
   shift 2
   (cd "$repo" && python3 -I -B "$run_cli" "$@" --owner "$owner")
 }
+# CONSENT_COMMIT, CONSENT_TARGET and CONSENT_CODEX set the spec's consent block; every
+# approve call below repeats the same values.
 spec_json() { # N [SCOPE]: N automated criteria that run "make test"
-  jq -n --argjson n "$1" --arg scope "${2:-**}" '{request: "probe request", answers: [],
+  jq -n --argjson n "$1" --arg scope "${2:-**}" --arg commit "${CONSENT_COMMIT:-yes}" \
+    --arg target "${CONSENT_TARGET:-current}" --arg codex "${CONSENT_CODEX:-reviewer}" '{request: "probe request", answers: [],
     behavior: {current: [], new: ["x"], examples: [{input: "a", output: "b"}, {input: "c", output: "d"}], non_goals: []},
     criteria: [range(1; $n + 1) | {id: "AC-\(.)", when: "a", then: "b", evidence: "automated", command: "make test"}],
-    scope_paths: [$scope], out_of_scope: []}'
+    scope_paths: [$scope], out_of_scope: [],
+    consent: {commit: $commit, branch_target: $target, codex: $codex}}'
 }
 plan_json() { jq -n '{steps: [{id: "S-1", action: "do", paths: ["a.txt"], done_when: "done"}], checks: ["make test"], invariants: [], stop_conditions: []}'; }
 write_artifacts() { # REPO N [SCOPE]
@@ -98,7 +102,7 @@ refused "$repo" s1 advance qa              # not reachable from implement
 ok "$repo" s1 advance verify
 refused "$repo" s1 advance review          # no passing checks yet
 ok "$repo" s1 record check --cmd "make test" --exit 0
-ok "$repo" s1 advance review
+ok "$repo" s1 advance review --trigger "workflow policy"
 ok "$repo" s1 record review --verdict "READY FOR PR" --trigger "workflow policy"
 ok "$repo" s1 advance qa
 refused "$repo" s1 advance commit          # no QA verdict yet
@@ -124,7 +128,7 @@ printf 'b\n' >"$repo/a.txt"
 repo2="$work/repo2"
 make_repo "$repo2"
 ok "$repo2" s1 init nocommit
-write_artifacts "$repo2" 1
+CONSENT_COMMIT=no write_artifacts "$repo2" 1
 ok "$repo2" s1 approve --commit no --branch-target current --codex reviewer
 ok "$repo2" s1 advance implement
 printf 'b\n' >"$repo2/a.txt"
@@ -137,6 +141,11 @@ ok "$repo2" s1 record qa --verdict "QA PASS"
 ok "$repo2" s1 record ac AC-1 pass
 refused "$repo2" s1 advance commit
 grep -Fq 'consent' "$work/err" || fail "refusal must name the missing consent: $(cat "$work/err")"
+# The spec's consent decides: a state.json edited to say yes cannot pass the gate.
+tmp2=$(mktemp -p "$work")
+jq '.consent.commit = true' "$(sfile "$repo2")" >"$tmp2" && cp "$tmp2" "$(sfile "$repo2")"
+refused "$repo2" s1 advance commit
+grep -Fq 'approved spec' "$work/err" || fail "the gate must name the approved spec: $(cat "$work/err")"
 
 # --- AC-2: a changed tree voids the evidence on resume ------------------------
 printf 'changed while stopped\n' >"$repo/a.txt"
@@ -161,7 +170,7 @@ ok "$repo" s1 unblock clarify --reason "re-approve"
 repo3="$work/repo3"
 make_repo "$repo3"
 ok "$repo3" s1 init rounds
-write_artifacts "$repo3" 1
+CONSENT_CODEX=standing write_artifacts "$repo3" 1
 ok "$repo3" s1 approve --commit yes --branch-target current --codex standing
 ok "$repo3" s1 advance implement
 printf 'x\n' >"$repo3/a.txt"
@@ -195,7 +204,7 @@ to_commit() {
   make_repo "$repo"
   ok "$repo" s1 init flow
   dir=$(dirname "$(sfile "$repo")")
-  write_artifacts "$repo" 1
+  CONSENT_TARGET=$target write_artifacts "$repo" 1
   ok "$repo" s1 approve --commit yes --branch-target "$target" --codex reviewer
   ok "$repo" s1 advance implement
   printf 'feature\n' >"$repo/f.txt"
@@ -247,7 +256,7 @@ refused "$repo8" s1 record commit "$(git -C "$repo8" rev-parse HEAD)"
 # --- acceptance results from another candidate cannot pass the commit gate --------
 repo9="$work/repo9"
 to_commit "$repo9-b" current
-tmp=$(mktemp)
+tmp=$(mktemp -p "$work")
 jq '.phase = "qa" | .commit_plan = null | .ac["AC-1"].fingerprint = ("0" * 64)' "$(sfile "$repo9-b")" >"$tmp" && cp "$tmp" "$(sfile "$repo9-b")"
 refused "$repo9-b" s1 advance commit
 grep -Fq 'current pass' "$work/err" || fail "stale AC must be named: $(cat "$work/err")"
@@ -284,7 +293,7 @@ printf 'r\n' >"$repo12/r.txt"
 ok "$repo12" s1 advance verify
 ok "$repo12" s1 record check --cmd "make test" --exit 1
 ok "$repo12" s1 record check --cmd "make test" --exit 0
-ok "$repo12" s1 advance review
+ok "$repo12" s1 advance review --trigger "workflow policy"
 [ "$(jq -r .attempts.verify "$(sfile "$repo12")")" = 0 ] || fail "entering review resets the verify attempts"
 
 # --- one command at a time per run; a dead holder is never recovered automatically
@@ -542,7 +551,7 @@ ok "$repo22" s1 advance implement
 printf 'b\n' >"$repo22/a.txt"
 ok "$repo22" s1 advance verify
 ok "$repo22" s1 record check --cmd "make test" --exit 0
-ok "$repo22" s1 advance review
+ok "$repo22" s1 advance review --trigger "workflow policy"
 printf 'x\n' >"$repo22/extra.txt"                        # an out-of-scope file appears during review
 refused "$repo22" s1 record review --verdict "READY FOR PR"
 grep -Fq 'current candidate' "$work/err" || fail "a verdict needs fresh checks for the current candidate: $(cat "$work/err")"
@@ -577,7 +586,7 @@ ok "$repo21" s1 init legacy
 d21=$(dirname "$(sfile "$repo21")")
 write_artifacts "$repo21" 1
 ok "$repo21" s1 approve --commit yes --branch-target current --codex reviewer
-tmp=$(mktemp)
+tmp=$(mktemp -p "$work")
 jq 'del(.spec.plan_sha256) | del(.qa.artifact_rev)' "$(sfile "$repo21")" >"$tmp" && cp "$tmp" "$(sfile "$repo21")"
 rm -f "$d21/artifacts.json"
 ok "$repo21" s1 show
@@ -587,6 +596,99 @@ ok "$repo21" s1 unblock clarify --reason "rebuild the artifacts after the upgrad
 write_artifacts "$repo21" 1
 ok "$repo21" s1 approve --commit yes --branch-target current --codex reviewer
 [ "$(phase "$repo21")" = approved ] || fail "a rebuilt legacy run must approve again"
+
+# --- consent lives in the approved spec; approve repeats it and a clean tree is required ---
+repoC="$work/repoC"
+make_repo "$repoC"
+ok "$repoC" s1 init consent
+write_artifacts "$repoC" 1
+refused "$repoC" s1 approve --commit no --branch-target current --codex reviewer
+grep -Fq 'differ from the consent' "$work/err" || fail "a commit flag mismatch must be named: $(cat "$work/err")"
+refused "$repoC" s1 approve --commit yes --branch-target current --codex standing
+refused "$repoC" s1 approve --commit yes --branch-target new:feat/x --codex reviewer
+[ "$(phase "$repoC")" = clarify ] || fail "a refused approve must leave the phase"
+printf 'x\n' >"$repoC/dirty.txt"
+refused "$repoC" s1 approve --commit yes --branch-target current --codex reviewer
+grep -Fq 'working tree' "$work/err" || fail "a dirty tree must be named: $(cat "$work/err")"
+rm "$repoC/dirty.txt"
+ok "$repoC" s1 approve --commit yes --branch-target current --codex reviewer
+grep -Fq 'Commit: yes' "$(dirname "$(sfile "$repoC")")/spec.md" || fail "spec.md must show the consent"
+# A state.json whose consent differs from the approved spec blocks the run.
+jq '.consent.codex = "standing"' "$(sfile "$repoC")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoC")"
+refused "$repoC" s1 check
+grep -Fq 'consent differs' <<<"$out" || fail "consent drift must be named: $out"
+[ "$(phase "$repoC")" = blocked ] || fail "consent drift must block"
+
+# The commit boundaries compare the whole consent without an intervening check: an unapproved
+# branch target in state.json cannot be used to record commits or finish the run.
+repoB="$work/repoB"
+to_commit "$repoB" current
+jq '.consent.branch_target = "new:fix/unapproved"' "$(sfile "$repoB")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoB")"
+git -C "$repoB" checkout -q -b fix/unapproved
+git -C "$repoB" add -A
+git -C "$repoB" commit -qm "feat: x"
+refused "$repoB" s1 record commit "$(git -C "$repoB" rev-parse HEAD)"
+grep -Fq 'consent differs' "$work/err" || fail "record commit must name the consent drift: $(cat "$work/err")"
+jq '.consent.branch_target = "current"' "$(sfile "$repoB")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoB")"
+git -C "$repoB" checkout -q -
+git -C "$repoB" branch -q -D fix/unapproved 2>/dev/null || true
+repoD="$work/repoD"
+to_commit "$repoD" current
+jq '.consent.codex = "standing"' "$(sfile "$repoD")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoD")"
+jq '.phase = "qa" | .commit_plan = null' "$(sfile "$repoD")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoD")"
+refused "$repoD" s1 advance commit
+grep -Fq 'consent differs' "$work/err" || fail "advance commit must compare the whole consent: $(cat "$work/err")"
+
+# A refused check must not adopt a branch on the strength of a forged consent, and restoring the
+# consent afterwards must not make that branch count as approved.
+repoE="$work/repoE"
+to_commit "$repoE" current
+home_branch=$(git -C "$repoE" rev-parse --abbrev-ref HEAD)
+jq '.consent.branch_target = "new:fix/unapproved"' "$(sfile "$repoE")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoE")"
+git -C "$repoE" checkout -q -b fix/unapproved
+refused "$repoE" s1 check
+[ "$(jq -r .branch "$(sfile "$repoE")")" = "$home_branch" ] || fail "a refused check must keep the run's branch: $(jq -r .branch "$(sfile "$repoE")")"
+jq '.consent.branch_target = "current"' "$(sfile "$repoE")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoE")"
+ok "$repoE" s1 unblock verify --reason "restored"
+refused "$repoE" s1 check
+[ "$(jq -r .branch "$(sfile "$repoE")")" = "$home_branch" ] || fail "the unauthorized branch must stay rejected"
+
+# The same with spec.md, its artifact record and the state's consent all rewritten consistently:
+# the recorded spec hash still refuses the check, and the branch is still not adopted.
+repoG="$work/repoG"
+to_commit "$repoG" current
+home_branch=$(git -C "$repoG" rev-parse --abbrev-ref HEAD)
+jq '.phase = "clarify"' "$(sfile "$repoG")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoG")"
+CONSENT_TARGET=new:fix/unapproved write_artifacts "$repoG" 1
+jq '.phase = "commit" | .consent.branch_target = "new:fix/unapproved"' "$(sfile "$repoG")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoG")"
+git -C "$repoG" checkout -q -b fix/unapproved
+refused "$repoG" s1 check
+[ "$(jq -r .branch "$(sfile "$repoG")")" = "$home_branch" ] || fail "a refused check must not adopt the branch after a consistent spec rewrite"
+
+# --- a review trigger is required, and a triggered run cannot skip its re-review ---
+repoF="$work/repoF"
+make_repo "$repoF"
+ok "$repoF" s1 init rereview
+write_artifacts "$repoF" 1
+ok "$repoF" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoF" s1 advance implement
+printf 'f1\n' >"$repoF/a.txt"
+ok "$repoF" s1 advance verify
+ok "$repoF" s1 record check --cmd "make test" --exit 0
+invalid "$repoF" s1 advance review                 # no --trigger
+ok "$repoF" s1 advance review --trigger "approval policy"
+[ "$(jq -r .review.trigger "$(sfile "$repoF")")" = "approval policy" ] || fail "advance review must record the trigger"
+ok "$repoF" s1 record review --verdict "NEEDS FIXES"
+ok "$repoF" s1 advance fix
+printf 'f2\n' >"$repoF/a.txt"
+ok "$repoF" s1 advance verify
+ok "$repoF" s1 record check --cmd "make test" --exit 0
+refused "$repoF" s1 record review --low-risk "fixed it"
+grep -Fq 'review was already' "$work/err" || fail "the low-risk guard must be named: $(cat "$work/err")"
+refused "$repoF" s1 advance qa
+ok "$repoF" s1 advance review --trigger "approval policy"
+ok "$repoF" s1 record review --verdict "READY FOR PR"
+ok "$repoF" s1 advance qa
 
 # --- no command outside a git worktree ---------------------------------------
 mkdir -p "$work/plain"
