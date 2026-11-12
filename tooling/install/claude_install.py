@@ -456,10 +456,11 @@ class Installer:
             files[f"skills/{name}/SKILL.md"] = body.encode()
         for path in sorted((self.source / "claude" / "agents").glob("b-*.md")):
             files[f"agents/{path.name}"] = path.read_bytes()
-        for folder in ("bin", "hooks"):
-            for path in sorted((self.source / "claude" / folder).glob("*.mjs")):
-                files[f"b-agentic/{folder}/{path.name}"] = path.read_bytes()
-        for name in ("capabilities.yaml", "mcp_operations.yaml", "kernel.template.md"):
+        for folder, patterns in (("bin", ("*.mjs", "*.py")), ("hooks", ("*.mjs",))):
+            for pattern in patterns:
+                for path in sorted((self.source / "claude" / folder).glob(pattern)):
+                    files[f"b-agentic/{folder}/{path.name}"] = path.read_bytes()
+        for name in ("capabilities.yaml", "mcp_operations.yaml", "kernel.template.md", "artifacts.yaml"):
             files[f"b-agentic/references/{name}"] = (self.source / "references" / name).read_bytes()
         return files
 

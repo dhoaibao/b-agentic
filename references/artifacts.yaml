@@ -1,0 +1,491 @@
+{
+  "version": 1,
+  "description": "Schemas for the b-flow run artifacts written by claude/bin/b_run.py (ADR-010). JSON-compatible YAML subset. Field types: line (one printable line), text (multi-line), id (pattern), enum (a named list from enums), list, object. Fields are required unless optional is true; unknown keys are refused.",
+  "run_files": [
+    "spec.md",
+    "plan.md",
+    "qa.md",
+    "followups.md",
+    "state.json",
+    "artifacts.json",
+    "lock",
+    "mutex"
+  ],
+  "limits": {
+    "line": 300,
+    "text": 2000,
+    "list_items": 50,
+    "data_bytes": 262144
+  },
+  "enums": {
+    "evidence": [
+      "automated",
+      "browser",
+      "ci",
+      "inspection",
+      "user-confirmed"
+    ],
+    "command_evidence": [
+      "automated",
+      "ci"
+    ],
+    "ac_result": [
+      "pass",
+      "fail",
+      "gap",
+      "waived"
+    ],
+    "qa_verdict": [
+      "QA PASS",
+      "QA FAIL",
+      "QA BLOCKED"
+    ],
+    "followup_source": [
+      "review",
+      "qa",
+      "implement"
+    ],
+    "disposition": [
+      "open",
+      "fixed",
+      "deferred",
+      "rejected"
+    ]
+  },
+  "kinds": {
+    "spec": {
+      "file": "spec.md",
+      "phases": [
+        "clarify"
+      ],
+      "rules": [
+        "AC ids run AC-1..AC-n in order",
+        "automated and ci criteria carry a command and no source; every other evidence type carries a source and no command",
+        "scope_paths are relative globs: no absolute path, no .., no likely-secret path"
+      ],
+      "fields": {
+        "request": {
+          "type": "text"
+        },
+        "answers": {
+          "type": "list",
+          "max": 20,
+          "items": {
+            "type": "object",
+            "fields": {
+              "q": {
+                "type": "line"
+              },
+              "a": {
+                "type": "line"
+              }
+            }
+          }
+        },
+        "behavior": {
+          "type": "object",
+          "fields": {
+            "current": {
+              "type": "list",
+              "max": 10,
+              "items": {
+                "type": "object",
+                "fields": {
+                  "text": {
+                    "type": "line"
+                  },
+                  "basis": {
+                    "type": "line"
+                  }
+                }
+              }
+            },
+            "new": {
+              "type": "list",
+              "min": 1,
+              "max": 10,
+              "items": {
+                "type": "line"
+              }
+            },
+            "examples": {
+              "type": "list",
+              "min": 2,
+              "max": 5,
+              "items": {
+                "type": "object",
+                "fields": {
+                  "input": {
+                    "type": "line"
+                  },
+                  "output": {
+                    "type": "line"
+                  }
+                }
+              }
+            },
+            "non_goals": {
+              "type": "list",
+              "max": 10,
+              "items": {
+                "type": "line"
+              }
+            }
+          }
+        },
+        "criteria": {
+          "type": "list",
+          "min": 1,
+          "max": 30,
+          "items": {
+            "type": "object",
+            "fields": {
+              "id": {
+                "type": "id",
+                "pattern": "^AC-[1-9][0-9]*$"
+              },
+              "when": {
+                "type": "line"
+              },
+              "then": {
+                "type": "line"
+              },
+              "evidence": {
+                "type": "enum",
+                "enum": "evidence"
+              },
+              "command": {
+                "type": "line",
+                "no_backtick": true,
+                "optional": true
+              },
+              "source": {
+                "type": "line",
+                "optional": true
+              }
+            }
+          }
+        },
+        "scope_paths": {
+          "type": "list",
+          "min": 1,
+          "max": 50,
+          "items": {
+            "type": "line",
+            "no_backtick": true
+          }
+        },
+        "out_of_scope": {
+          "type": "list",
+          "max": 20,
+          "items": {
+            "type": "line"
+          }
+        }
+      },
+      "example": {
+        "request": "Add a --json flag to the export command.",
+        "answers": [
+          {
+            "q": "Which formats?",
+            "a": "JSON only."
+          }
+        ],
+        "behavior": {
+          "current": [
+            {
+              "text": "export prints a table",
+              "basis": "src/export.py:12"
+            }
+          ],
+          "new": [
+            "export --json prints a JSON array"
+          ],
+          "examples": [
+            {
+              "input": "export --json",
+              "output": "[{\"id\": 1}]"
+            },
+            {
+              "input": "export",
+              "output": "table unchanged"
+            }
+          ],
+          "non_goals": [
+            "No new output formats"
+          ]
+        },
+        "criteria": [
+          {
+            "id": "AC-1",
+            "when": "export runs with --json",
+            "then": "stdout is valid JSON",
+            "evidence": "automated",
+            "command": "pytest tests/test_export.py"
+          },
+          {
+            "id": "AC-2",
+            "when": "export runs without --json",
+            "then": "the table output is unchanged",
+            "evidence": "inspection",
+            "source": "src/export.py render path"
+          }
+        ],
+        "scope_paths": [
+          "src/export.py",
+          "tests/**"
+        ],
+        "out_of_scope": [
+          "CSV output"
+        ]
+      }
+    },
+    "plan": {
+      "file": "plan.md",
+      "phases": [
+        "clarify"
+      ],
+      "rules": [
+        "step ids run S-1..S-n in order",
+        "every step path matches a spec scope glob",
+        "checks include the command of every automated or ci criterion in the spec",
+        "checks are unique one-line commands without backticks"
+      ],
+      "fields": {
+        "steps": {
+          "type": "list",
+          "min": 1,
+          "max": 30,
+          "items": {
+            "type": "object",
+            "fields": {
+              "id": {
+                "type": "id",
+                "pattern": "^S-[1-9][0-9]*$"
+              },
+              "action": {
+                "type": "line"
+              },
+              "paths": {
+                "type": "list",
+                "min": 1,
+                "max": 20,
+                "items": {
+                  "type": "line",
+                  "no_backtick": true
+                }
+              },
+              "done_when": {
+                "type": "line"
+              }
+            }
+          }
+        },
+        "checks": {
+          "type": "list",
+          "min": 1,
+          "max": 30,
+          "items": {
+            "type": "line",
+            "no_backtick": true
+          }
+        },
+        "invariants": {
+          "type": "list",
+          "max": 20,
+          "items": {
+            "type": "line"
+          }
+        },
+        "stop_conditions": {
+          "type": "list",
+          "max": 20,
+          "items": {
+            "type": "line"
+          }
+        }
+      },
+      "example": {
+        "steps": [
+          {
+            "id": "S-1",
+            "action": "Add the --json flag",
+            "paths": [
+              "src/export.py"
+            ],
+            "done_when": "export --json prints valid JSON"
+          },
+          {
+            "id": "S-2",
+            "action": "Cover it with a test",
+            "paths": [
+              "tests/test_export.py"
+            ],
+            "done_when": "the test passes"
+          }
+        ],
+        "checks": [
+          "pytest tests/test_export.py"
+        ],
+        "invariants": [
+          "The table output is unchanged"
+        ],
+        "stop_conditions": [
+          "A path outside the spec scope is needed"
+        ]
+      }
+    },
+    "qa": {
+      "file": "qa.md",
+      "phases": [
+        "qa"
+      ],
+      "rules": [
+        "rows cover every spec criterion exactly once and repeat its evidence type and command or source",
+        "a row command is the spec command or one of the plan checks",
+        "waived rows carry waived_by user and no other row does",
+        "QA PASS needs every row pass or waived; QA FAIL needs a fail or gap row"
+      ],
+      "fields": {
+        "rows": {
+          "type": "list",
+          "min": 1,
+          "max": 30,
+          "items": {
+            "type": "object",
+            "fields": {
+              "ac": {
+                "type": "id",
+                "pattern": "^AC-[1-9][0-9]*$"
+              },
+              "evidence": {
+                "type": "enum",
+                "enum": "evidence"
+              },
+              "command": {
+                "type": "line",
+                "no_backtick": true,
+                "optional": true
+              },
+              "source": {
+                "type": "line",
+                "optional": true
+              },
+              "result": {
+                "type": "enum",
+                "enum": "ac_result"
+              },
+              "waived_by": {
+                "type": "enum",
+                "values": [
+                  "user"
+                ],
+                "optional": true
+              },
+              "note": {
+                "type": "line",
+                "optional": true
+              }
+            }
+          }
+        },
+        "regression_scope": {
+          "type": "line"
+        },
+        "not_covered": {
+          "type": "list",
+          "max": 20,
+          "items": {
+            "type": "line"
+          }
+        },
+        "verdict": {
+          "type": "enum",
+          "enum": "qa_verdict"
+        }
+      },
+      "example": {
+        "rows": [
+          {
+            "ac": "AC-1",
+            "evidence": "automated",
+            "command": "pytest tests/test_export.py",
+            "result": "pass"
+          },
+          {
+            "ac": "AC-2",
+            "evidence": "inspection",
+            "source": "src/export.py render path",
+            "result": "pass",
+            "note": "diff shows no change"
+          }
+        ],
+        "regression_scope": "affected tests only, selected by import graph",
+        "not_covered": [],
+        "verdict": "QA PASS"
+      }
+    },
+    "followups": {
+      "file": "followups.md",
+      "phases": [
+        "implement",
+        "verify",
+        "review",
+        "fix",
+        "qa"
+      ],
+      "rules": [
+        "ids look like R<round>-<n>, Q<round>-<n>, or F-<n> and are unique",
+        "a reason is required unless the item is open",
+        "a rewrite may not drop an id that an earlier version recorded"
+      ],
+      "fields": {
+        "items": {
+          "type": "list",
+          "max": 50,
+          "items": {
+            "type": "object",
+            "fields": {
+              "id": {
+                "type": "id",
+                "pattern": "^(R[1-9][0-9]*-[1-9][0-9]*|Q[1-9][0-9]*-[1-9][0-9]*|F-[1-9][0-9]*)$"
+              },
+              "source": {
+                "type": "enum",
+                "enum": "followup_source"
+              },
+              "summary": {
+                "type": "line"
+              },
+              "disposition": {
+                "type": "enum",
+                "enum": "disposition"
+              },
+              "reason": {
+                "type": "line",
+                "optional": true
+              }
+            }
+          }
+        }
+      },
+      "example": {
+        "items": [
+          {
+            "id": "R1-2",
+            "source": "review",
+            "summary": "Rename helper for clarity",
+            "disposition": "deferred",
+            "reason": "style only, no behavior change"
+          },
+          {
+            "id": "F-1",
+            "source": "implement",
+            "summary": "Document the flag in the README",
+            "disposition": "open"
+          }
+        ]
+      }
+    }
+  }
+}

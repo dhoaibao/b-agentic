@@ -22,6 +22,9 @@ CLAUDE_AGENTS_DIR = CLAUDE_DIR / "agents"
 CLAUDE_CONFIGS_DIR = CLAUDE_DIR / "configs"
 SETTINGS_TEMPLATE_PATH = CLAUDE_CONFIGS_DIR / "settings.template.json"
 SNAPSHOT_CLI_PATH = CLAUDE_DIR / "bin" / "b-candidate-snapshot.mjs"
+RUN_CLI_PATH = CLAUDE_DIR / "bin" / "b_run.py"
+ARTIFACTS_PATH = ROOT / "references" / "artifacts.yaml"
+ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
 
 MAX_KERNEL_BYTES = 12_000
 MAX_KERNEL_LINES = 100
@@ -470,6 +473,63 @@ def validate_snapshot_cli() -> list[str]:
     policy_rules = [(pattern, action) for pattern, action in PATH_RULES.items() if pattern != "*"]
     if rules != policy_rules:
         errors.append(f"{label}: PROTECTED_RULES must match the generated path rules")
+    return errors
+
+
+def validate_artifacts_schema() -> list[str]:
+    """Keep references/artifacts.yaml, the run CLI, and the path rules in step (ADR-010)."""
+    errors: list[str] = []
+    label = ARTIFACTS_PATH.relative_to(ROOT)
+    try:
+        schema = json.loads(ARTIFACTS_PATH.read_text())
+    except (OSError, ValueError) as exc:
+        return [f"{label}: unreadable ({exc})"]
+    if schema.get("version") != 1:
+        errors.append(f"{label}: version must be 1")
+    kinds = schema.get("kinds", {})
+    if set(kinds) != set(ARTIFACT_KINDS):
+        errors.append(f"{label}: kinds must be exactly {list(ARTIFACT_KINDS)}")
+    enums = schema.get("enums", {})
+    run_files = schema.get("run_files", [])
+    for required in ("state.json", "artifacts.json", "lock", "mutex"):
+        if required not in run_files:
+            errors.append(f"{label}: run_files must include {required}")
+
+    def walk(spec: Any, where: str) -> None:
+        if not isinstance(spec, dict) or spec.get("type") not in {"line", "text", "id", "enum", "list", "object"}:
+            errors.append(f"{label}: {where} has an unknown field type")
+            return
+        if spec["type"] == "enum" and not (spec.get("values") or spec.get("enum") in enums):
+            errors.append(f"{label}: {where} names an unknown enum")
+        if spec["type"] == "id":
+            try:
+                re.compile(spec.get("pattern", ""))
+            except re.error:
+                errors.append(f"{label}: {where} has an invalid pattern")
+        if spec["type"] == "list":
+            walk(spec.get("items"), f"{where}[]")
+        if spec["type"] == "object":
+            for name, sub in spec.get("fields", {}).items():
+                walk(sub, f"{where}.{name}")
+
+    for kind in ARTIFACT_KINDS:
+        entry = kinds.get(kind)
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("file") not in run_files:
+            errors.append(f"{label}: {kind}.file must be listed in run_files")
+        if not entry.get("phases") or not entry.get("example"):
+            errors.append(f"{label}: {kind} needs phases and an example")
+        for name, sub in entry.get("fields", {}).items():
+            walk(sub, f"{kind}.{name}")
+    if not RUN_CLI_PATH.is_file():
+        return [*errors, f"{RUN_CLI_PATH.relative_to(ROOT)}: missing run artifact CLI"]
+    text = RUN_CLI_PATH.read_text()
+    block = re.search(r"PROTECTED_RULES = \[(.*?)\n\]", text, re.S)
+    mirror = re.findall(r'\("([^"]+)", "(allow|deny)"\)', block.group(1)) if block else []
+    policy = [(pattern, action) for pattern, action in PATH_RULES.items() if pattern != "*"]
+    if mirror != policy:
+        errors.append(f"{RUN_CLI_PATH.relative_to(ROOT)}: PROTECTED_RULES must match the generated path rules")
     return errors
 
 
@@ -1074,6 +1134,7 @@ def validate_regressions(
     if not validate_agent_tools(invalid_agent_tools, policy):
         errors.append("agent regression: mutating conditional tool must fail")
     errors.extend(validate_snapshot_cli())
+    errors.extend(validate_artifacts_schema())
     # Playwright's browser_find accepts a `filename` that writes results to disk, so it must
     # never be classed read-only (which auto-exposes it to every specialist profile).
     if policy["servers"]["playwright"]["tools"]["browser_find"] == "read-only":
@@ -1130,6 +1191,7 @@ def sync_outputs(check: bool) -> int:
         *validate_optional_components(skills, policy),
         *validate_capabilities(capabilities, policy),
         *validate_snapshot_cli(),
+        *validate_artifacts_schema(),
         *validate_runtimes(),
     ]
     if errors:
