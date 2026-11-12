@@ -424,6 +424,20 @@
       }
     },
     {
+      "name": "b-flow",
+      "execution": {"mode": "main"},
+      "phase": "Build",
+      "use": "Run one approved request from spec to commit with file-backed run state",
+      "argument_hint": "[goal | resume]",
+      "routing": {
+        "intent": "Run an approved plan-to-commit workflow end to end with resumable run state",
+        "explicit_request": true
+      },
+      "prompt": {
+        "description": "Run one request from clarified spec to commit in the main session, keeping progress in .b-agentic/runs so a stopped run can resume. After a single user approval it implements, verifies, reviews, fixes in-scope blockers, runs QA, and commits under the consent recorded at approval; it stops and asks on any bounded-round limit, scope change, or unanswered question, and never pushes or opens a PR. Only on an explicit /b-flow request."
+      }
+    },
+    {
       "name": "b-commit",
       "execution": {"mode": "main"},
       "phase": "Ship",

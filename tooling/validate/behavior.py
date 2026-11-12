@@ -455,6 +455,26 @@ FIXTURES = [
         expected="b-research",
         not_expected=("b-commit", "b-pr"),
     ),
+    Fixture(
+        name="explicit b-flow request",
+        prompt="Use b-flow to take this request from spec to commit.",
+        expected="b-flow",
+    ),
+    Fixture(
+        name="resuming a b-flow run",
+        prompt="/b-flow resume the stopped run from its saved state.",
+        expected="b-flow",
+    ),
+    Fixture(
+        name="approved implementation never starts a b-flow run",
+        prompt="The implementation plan is approved. Make the next small scoped code change and verify it.",
+        not_expected=("b-flow",),
+    ),
+    Fixture(
+        name="planning and committing separately never start a b-flow run",
+        prompt="Help me figure out the approach, then split my working-tree changes into commits.",
+        not_expected=("b-flow",),
+    ),
     # High-risk phase-boundary / authorization / tool-choice fixtures.
     Fixture(
         name="ambiguous goal stays in planning",

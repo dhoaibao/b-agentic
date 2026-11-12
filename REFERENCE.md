@@ -306,6 +306,7 @@ files whose first 40 lines carry a `Status: approved` line, newest first, in at 
 likely-secret names, and unusual file names, sets no `onFailure`, and prints nothing (exit 0) when `docs/specs/` is absent, no spec is approved, or anything fails.
 Claude Code also fires it when a subagent compacts and sends no `agent_id` to tell the two apart; this is accepted because the output is a short pointer.
 Whether the pointer reaches the model after a live `/compact` is not covered by the offline probe (Claude Code issue #15174 reported it missing), so confirm it by hand.
+`b-run-context` is a second `SessionStart` hook, matched on `startup|resume|clear|compact`: when `.b-agentic/active` names a run whose `state.json` is not finished, it prints one line with the run id and phase. It is a pointer only (an explicit `/b-flow resume` is the only way a run continues), reads with `O_NOFOLLOW`, never writes, sets no `onFailure`, and prints nothing on any error. Claude Code drops `SessionStart` context intermittently for `startup` and `fork` sources (issues #10373 and #93458), so the pointer is best effort; the run files are the record.
 The file-tool
 guard sets `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that crashes, times out, or
 cannot start blocks the call, and malformed input still fails open by design. To recover from a
@@ -406,3 +407,9 @@ generated specialists and settings plus the hooks, CLIs, and MCP templates;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
 snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).
+
+## `b-flow` runs
+
+`/b-flow <goal>` runs one request from clarified spec to commit in the main session ([ADR-009](docs/decisions/ADR-009-b-flow-automatic-run.md)). Clarification and one approval round (spec and `AC-n`, commit consent, branch target, Codex or `b-reviewer`) are the only user interaction; then it implements, verifies, reviews, fixes in-scope blockers, runs QA, and commits under the recorded consent. It never pushes or opens a PR, and it stops and asks after 3 failed verifies, 3 consecutive `NEEDS FIXES`, or 3 consecutive `QA FAIL`, on a path outside the approved scope, or on a question the approval did not answer.
+
+Run files are untracked, under `.b-agentic/runs/<yyyymmdd-slug>/` at the worktree root (`.b-agentic/.gitignore` is `*`): `spec.md` (the approval; its sha256 is recorded), `plan.md`, `qa.md`, `followups.md`, `state.json` (progress only), and `lock`. `claude/bin/b-state.mjs` is the only writer of state and fails closed: it validates the schema, refuses a symlinked folder, a changed spec, a held lock, or a step whose evidence belongs to another candidate fingerprint (for example `advance commit` without consent or a current QA PASS). `/b-flow resume` runs `b-state.mjs check --takeover`, which re-verifies the repository, branch, spec hash, `HEAD`, and candidate fingerprint; a changed tree voids review and QA evidence and returns the run to `verify`. A `/clear` changes the session id, so a resumed run takes the lock over. State holds no file contents, diffs, command output, or secrets, and is untrusted input to every reader.
