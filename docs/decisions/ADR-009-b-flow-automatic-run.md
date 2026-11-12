@@ -30,7 +30,8 @@ otherwise approved, unattended run.
   continues without questions until `done` or a recorded block.
 - **Order.** implement, checks, review (when a kernel trigger applies, else the
   recorded low-risk exception), fix, QA, commit. QA runs before the commit.
-- **Run files.** Untracked, under `.b-agentic/runs/<id>/` at the worktree root:
+- **Run files.** (The four markdown artifacts and their validation are refined by
+  [ADR-010](ADR-010-run-artifact-cli.md).) Untracked, under `.b-agentic/runs/<id>/` at the worktree root:
   `spec.md` (what was approved, with a Consent block), `plan.md`, `qa.md`,
   `followups.md`, `state.json` (progress only), and a `lock`. A self-ignoring
   `.b-agentic/.gitignore` (`*`) keeps them out of other repositories without touching
