@@ -1,19 +1,17 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code and OpenCode, with Codex (or a read-only subagent) as the independent reviewer.**
+**A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
-read-only specialist agents, safety hooks, and managed MCP configuration, for
-Claude Code and OpenCode side by side. On Claude Code, changed-code review runs
-through Codex (`openai/codex-plugin-cc`) and falls back to the read-only
-`b-reviewer` subagent when Codex is unavailable; OpenCode always uses the
-subagent.
+read-only specialist agents, safety hooks, and managed MCP configuration.
+Changed-code review runs through Codex (`openai/codex-plugin-cc`) and falls back
+to the read-only `b-reviewer` subagent when Codex is unavailable.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
-- [Configuration layout](claude/configs/README.md) and [OpenCode layout](opencode/configs/README.md) — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-002 dual-runtime support](docs/decisions/ADR-002-dual-runtime-support.md).
+- [Configuration layout](claude/configs/README.md) — managed paths and ownership boundaries.
+- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-008 Claude Code only](docs/decisions/ADR-008-claude-code-only.md).
 
 ## Install
 
@@ -32,21 +30,17 @@ everything else. It never runs vendor installers and never writes under
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
-Four skills and their MCP servers are optional and never installed without a
-choice: DataGrip, TablePro, Excalidraw, and draw.io. On a terminal the installer
+Three skills and their MCP servers are optional and never installed without a
+choice: DataGrip, Excalidraw, and draw.io. On a terminal the installer
 shows a checkbox list (nothing checked on a fresh install; installed ones are
-pre-checked). Non-interactively pass `--with=tablepro,drawio` to add and
-`--without=excalidraw` to remove; `-y` keeps the recorded choice and otherwise
+pre-checked). Non-interactively pass `--with=excalidraw,drawio` to add and
+`--without=drawio` to remove; `-y` keeps the recorded choice and otherwise
 installs none.
 
 Only want the status line? `./install.sh --statusline-only` installs just
 `b-statusline.mjs` and its `settings.json` entry (kept if you already have a status
 line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 `./install.sh` upgrades it to the full setup, and `--uninstall` removes it.
-
-`./install.sh` installs Claude Code by default. Pass `--runtime=opencode` to
-install into `~/.config/opencode` instead, or `--runtime=both` for each; every
-runtime's install and uninstall leave the other untouched.
 
 ## How it works
 
@@ -63,8 +57,7 @@ and a per-repository approval before anything is sent to OpenAI. If Codex is
 unavailable (plugin missing, signed out, usage limit), the `b-reviewer` subagent
 reviews instead, in a fresh context. It is read-only by its tool list and prompt,
 not a sandbox, and its independence comes from that context and role, not
-necessarily a different model family; OpenCode uses OpenAI models for its
-specialists and always uses the subagent.
+necessarily a different model family.
 
 ## Skills
 
@@ -79,7 +72,6 @@ specialists and always uses the subagent.
 | `b-drawio` | Build | Draw formal or editable technical diagrams in draw.io from explicit facts (optional: `--with=drawio`) |
 | `b-implement` | Build | Make the scoped non-UI change from an approved plan or a small direct request |
 | `b-datagrip` | Build | Inspect and query DataGrip databases safely through the DataGrip MCP (optional: `--with=datagrip`) |
-| `b-tablepro` | Build | Inspect and query TablePro databases safely through the TablePro MCP (optional: `--with=tablepro`) |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
 | `b-debug` | Decide | Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code |

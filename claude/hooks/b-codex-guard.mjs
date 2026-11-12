@@ -39,8 +39,8 @@ import {
 const NON_DISCLOSING = new Set(["status", "result", "cancel", "setup", "help"]);
 const REVIEW_SUBCOMMANDS = new Set(["review", "adversarial-review"]);
 
-// State lives beside the installed hooks (`<runtime dir>/b-agentic`), so each
-// runtime keeps its own approvals; a checkout falls back to the Claude Code location.
+// State lives beside the installed hooks (`<runtime dir>/b-agentic`); a checkout
+// falls back to the Claude Code location.
 const SELF = fileURLToPath(import.meta.url);
 
 function stateDir() {
@@ -466,8 +466,7 @@ const APPROVAL_TOUCH_REASON =
   "b-agentic Codex guard: this command records, redirects, or rewrites the standing approval to send this repository to Codex (OpenAI). Approve only if you said yes to that disclosure.";
 
 // The decision for one shell command: `allow`, `ask` (the approval store is being
-// touched), or `refuse` with the reasons. Used by this file's Claude Code hook;
-// OpenCode has no Codex gate (its review gate is the b-reviewer subagent).
+// touched), or `refuse` with the reasons. Used by this file's Claude Code hook.
 export async function judgeCommand(command, cwd) {
   const found = findCompanionInvocations(command);
   const guarded =

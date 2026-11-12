@@ -8,7 +8,7 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 | Source | Installed path (default `~/.claude`) | Owner |
 | --- | --- | --- |
 | `settings.template.json` | `settings.json` | Claude Code; only missing `permissions.allow/ask/deny` rules and hook commands are added, each recorded in the manifest; `statusLine` is set only when none is configured (or it is still the recorded one), so your own status line is kept and reported |
-| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; ten servers, no stored credentials (`${VAR}` references); `tablepro`, `excalidraw`, and `drawio` install only when selected (`--with=ID` or the installer checkbox) |
+| `mcp.base.json` | `~/.claude.json` (`mcpServers`) | Claude Code; nine servers, no stored credentials (`${VAR}` references); `excalidraw` and `drawio` install only when selected (`--with=ID` or the installer checkbox) |
 | none for DataGrip | same file | The DataGrip MCP entry is user and IDE managed (Auto-Configure in DataGrip); b-agentic ships only its `mcp__datagrip__*` permission rules; the read-only `allow` rules install only when the optional `datagrip` component is selected, while the `ask` rules always ship |
 | `agents/b-*.md` | `agents/b-*.md` | Five generated read-only specialist profiles (tool allowlists, no editing tools), including `b-reviewer` |
 | `../hooks/*.mjs` | `b-agentic/hooks/` | `b-path-guard`, `b-codex-guard` (a fail-open Bash tripwire and the secret/approval preflight for the Codex gate), `b-verify-gate`, `b-spec-context` (a fail-open `SessionStart` hook on `compact` that points back at approved `docs/specs/*.md`) |

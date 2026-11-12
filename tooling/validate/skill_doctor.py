@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check locally installed b-agentic skill discovery readiness for Claude Code or OpenCode."""
+"""Check locally installed b-agentic skill discovery readiness for Claude Code."""
 
 from __future__ import annotations
 
@@ -12,45 +12,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tooling" / "install"))
 import optional_components  # noqa: E402
-from opencode_install import CLAUDE_ONLY_SCRIPTS  # noqa: E402
 
 KERNEL_BLOCK_START = "<!-- b-agentic:start -->"
 KERNEL_BLOCK_END = "<!-- b-agentic:end -->"
 
 
-# Where each runtime's generated assets live in the source tree and its installed layout.
-RUNTIMES = {
-    "claude": {
-        "label": "Claude Code",
-        "kernel_file": "CLAUDE.md",
-        "skills_source": ROOT / "skills",
-        "agents_source": ROOT / "claude" / "agents",
-        "kernel_source": ROOT / "references" / "kernel.template.md",
-        "kernel_reference": "kernel.template.md",
-        "extra_files": {},
-    },
-    "opencode": {
-        "label": "OpenCode",
-        "kernel_file": "AGENTS.md",
-        "skills_source": ROOT / "opencode" / "skills",
-        "agents_source": ROOT / "opencode" / "agents",
-        "kernel_source": ROOT / "opencode" / "configs" / "kernel.md",
-        "kernel_reference": "kernel.md",
-        "extra_files": {"plugins/b-agentic.js": ROOT / "opencode" / "plugins" / "b-agentic.js"},
-    },
+# Where the generated assets live in the source tree and the installed layout.
+SPEC = {
+    "label": "Claude Code",
+    "kernel_file": "CLAUDE.md",
+    "skills_source": ROOT / "skills",
+    "agents_source": ROOT / "claude" / "agents",
+    "kernel_source": ROOT / "references" / "kernel.template.md",
+    "kernel_reference": "kernel.template.md",
 }
 
 
 def claude_dir(config_dir: str | None, home: Path) -> Path:
     explicit = config_dir or os.environ.get("B_AGENTIC_CLAUDE_DIR") or os.environ.get("CLAUDE_CONFIG_DIR")
     return Path(explicit).expanduser() if explicit else home / ".claude"
-
-
-def runtime_dir(runtime: str, config_dir: str | None, home: Path) -> Path:
-    if runtime == "claude":
-        return claude_dir(config_dir, home)
-    explicit = config_dir or os.environ.get("B_AGENTIC_OPENCODE_DIR")
-    return Path(explicit).expanduser() if explicit else home / ".config" / "opencode"
 
 
 def registry_skill_names() -> list[str]:
@@ -93,25 +73,20 @@ def kernel_block(text: str) -> str | None:
     return text[start + len(KERNEL_BLOCK_START) : end].strip("\n")
 
 
-def missing_payload(root: Path, runtime: str = "claude") -> list[str]:
+def missing_payload(root: Path) -> list[str]:
     """Managed specialists, hooks, CLIs, and references that the installed tree lacks."""
-    spec = RUNTIMES[runtime]
+    spec = SPEC
     missing = []
     for source in sorted(spec["agents_source"].glob("b-*.md")):
         if not (root / "agents" / source.name).is_file():
             missing.append(f"agents/{source.name}")
     for folder in ("bin", "hooks"):
         for source in sorted((ROOT / "claude" / folder).glob("*.mjs")):
-            if runtime != "claude" and source.name in CLAUDE_ONLY_SCRIPTS:
-                continue
             if not (root / "b-agentic" / folder / source.name).is_file():
                 missing.append(f"b-agentic/{folder}/{source.name}")
     for name in ("capabilities.yaml", "mcp_operations.yaml", spec["kernel_reference"]):
         if not (root / "b-agentic" / "references" / name).is_file():
             missing.append(f"b-agentic/references/{name}")
-    for relative in spec["extra_files"]:
-        if not (root / relative).is_file():
-            missing.append(relative)
     return missing
 
 
@@ -128,10 +103,8 @@ def deselected_skills(root: Path) -> set[str]:
     return optional_components.excluded_skills(components, {key: bool(recorded.get(key)) for key in components})
 
 
-def stale_assets(
-    root: Path, skills: list[str], runtime: str = "claude", skipped_skills: set[str] | None = None
-) -> list[str]:
-    spec = RUNTIMES[runtime]
+def stale_assets(root: Path, skills: list[str], skipped_skills: set[str] | None = None) -> list[str]:
+    spec = SPEC
     stale = []
     try:
         components = optional_components.load(ROOT)
@@ -155,10 +128,6 @@ def stale_assets(
         installed = root / "agents" / source.name
         if installed.exists() and source.read_bytes() != installed.read_bytes():
             stale.append(f"agent {source.stem}")
-    for relative, source in spec["extra_files"].items():
-        installed = root / relative
-        if source.exists() and installed.exists() and source.read_bytes() != installed.read_bytes():
-            stale.append(relative)
     source_kernel = spec["kernel_source"]
     installed_kernel = root / spec["kernel_file"]
     if source_kernel.exists() and installed_kernel.exists():
@@ -174,25 +143,24 @@ def stale_assets(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check installed b-agentic skill discovery readiness.")
-    parser.add_argument("--runtime", choices=sorted(RUNTIMES), default="claude", help="Runtime to inspect.")
     parser.add_argument("--home", default=str(Path.home()), help="Home directory to inspect. Defaults to current HOME.")
-    parser.add_argument("--config-dir", help="Inspect this explicit configuration directory for the runtime.")
+    parser.add_argument("--config-dir", help="Inspect this explicit Claude Code configuration directory.")
     args = parser.parse_args()
 
     home = Path(args.home).expanduser()
-    claude_root = runtime_dir(args.runtime, args.config_dir, home)
+    claude_root = claude_dir(args.config_dir, home)
     skills_root = claude_root / "skills"
-    kernel = claude_root / RUNTIMES[args.runtime]["kernel_file"]
+    kernel = claude_root / SPEC["kernel_file"]
     kernel_present = kernel.exists() and kernel_block(kernel.read_text()) is not None
     skipped = deselected_skills(claude_root)
     expected = [name for name in registry_skill_names() if name not in skipped]
     installed = [name for name in installed_skill_names(skills_root) if name not in skipped]
     skills = payload_status(installed, expected)
-    stale = stale_assets(claude_root, expected, args.runtime, skipped)
-    missing = missing_payload(claude_root, args.runtime)
+    stale = stale_assets(claude_root, expected, skipped)
+    missing = missing_payload(claude_root)
     ready = kernel_present and skills.startswith("ready") and not stale and not missing
 
-    print(f"agent: {RUNTIMES[args.runtime]['label']}")
+    print(f"agent: {SPEC['label']}")
     print(f"expected-skills: {len(expected)}")
     print(f"kernel-path: {kernel}")
     print(f"skill-path: {skills_root / 'b-plan' / 'SKILL.md'}")

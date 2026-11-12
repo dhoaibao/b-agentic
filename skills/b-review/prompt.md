@@ -1,12 +1,7 @@
 # b-review
 
 Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first.
-<!-- runtime:claude -->
 On Claude Code the main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); only when Codex is unavailable does it use the `b-reviewer` subagent, a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
-<!-- /runtime -->
-<!-- runtime:opencode -->
-This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
-<!-- /runtime -->
 
 ## When to use
 
@@ -22,21 +17,13 @@ This skill runs in the `b-reviewer` subagent: a fresh, read-only context that do
 
 ## Tool guidance
 
-<!-- runtime:claude -->
 - Codex gate (main session): `node ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs` for the candidate identity, `node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check` for the early secret and approval preflight, and `node ~/.claude/b-agentic/bin/b-codex-review.mjs` as the only way to run Codex (it enforces the gate, runs the plugin, and normalizes the result with `b-codex-verdict`). Native `Read` and `Grep` (or `rg` where `Grep` is absent) verify a finding against the candidate, and shell commands stay read-only.
-<!-- /runtime -->
 - Reviewer (`b-reviewer`): use the handoff's baseline, acceptance, check results, candidate paths, and F0. Verify the candidate yourself with native `Read` and `Grep` (or `rg` where `Grep` is absent) and read-only shell commands such as `git diff`, `git status`, and `git show`; never run a mutating command, generator, or fixer. Use `node ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs` for the candidate identity.
 - In an indexed project, use `codegraph_explore` (read-only) on changed symbols to find callers or tests the candidate did not update. Bounded read-only research may substantiate a specific finding only.
-<!-- runtime:claude -->
 - Main session: never replace the independent review with a self-review. The `b-reviewer` subagent stands in only when the wrapper exits 4 (Codex unavailable) or the user chooses it after a refusal or void Codex run; call it with the named `b-reviewer` subagent type, never a forked context, and pass only the evidence listed in the delegation boundary, never the implementer's rationale or a verdict to confirm. If both gates are unavailable, fail, or return no verdict, report the gap and ask the user.
-<!-- /runtime -->
-<!-- runtime:opencode -->
-- Main session: always call this skill with the named `b-reviewer` subagent type, never a forked context, and pass only the evidence listed above, never the implementer's rationale or a verdict to confirm. Never replace the independent review with a self-review. If the reviewer is unavailable, fails, or returns no verdict, report the gap and ask the user.
-<!-- /runtime -->
 
 ## Steps
 
-<!-- runtime:claude -->
 Codex gate (main session):
 
 1. Confirm the baseline, acceptance, exact candidate paths, and fresh passing required checks. Freeze the candidate with the snapshot CLI and record its `fingerprint` as F0: HEAD, SHA-256 digests of staged and unstaged binary diffs, and sorted relevant untracked paths, types, and content digests. The CLI omits git-ignored files unless they are named: pass every relevant ignored/derived artifact with `--include-ignored <path>` at every checkpoint, and block the handoff, reporting the uncovered paths, when one cannot be named. Treat `complete: false` (exit 3) as blocking, and block when protected content's identity cannot safely be checked. If the CLI is unavailable, no gate can run: block the review (no verdict) and report the gap. Do not claim requirements coverage without a baseline.
@@ -49,7 +36,6 @@ Codex gate (main session):
 
 Reviewer steps (`b-reviewer` child; reached only through the fallback rules above):
 
-<!-- /runtime -->
 1. Confirm the baseline, acceptance, exact candidate paths, fresh passing required-check results, and the F0 fingerprint from the handoff. Recompute the identity with the snapshot CLI at the start, passing every relevant ignored/derived artifact the handoff names with `--include-ignored <path>`, and compare only its `fingerprint` with F0: HEAD, SHA-256 digests of staged and unstaged binary diffs, and sorted relevant untracked paths, types, and content digests. The CLI omits git-ignored files unless they are named: block the review, reporting the uncovered paths, when a relevant ignored artifact cannot be named. Treat `complete: false` (exit 3) or a mismatch as blocking, and block when protected content's identity cannot safely be checked. If the CLI is unavailable, block the review (no verdict) and report the gap; never fall back to a hand-computed identity. Do not claim requirements coverage without a baseline.
 2. Inspect the candidate's path list and the targeted diff for non-protected paths only; for a base review, use the commit id the handoff resolved. Read repository context only when it materially affects a finding. Never read likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`); report them as a coverage gap.
 3. Independently assess the actual diff, acceptance, required check outcomes and freshness, edge cases, security, operability, and residual risk. Check that the solution choice is proportionate to the plan's quality criteria and project conventions; flag speculative abstractions, duplicated existing helpers, and new dependencies a repository, standard-library, or native alternative would cover, only with evidence; do not turn every review into an architecture report. A skipped or failed required check, changed snapshot, or blocker cannot be ready.
@@ -61,12 +47,7 @@ Reviewer steps (`b-reviewer` child; reached only through the fallback rules abov
 
 ## Output format
 
-<!-- runtime:claude -->
 Findings, checked-and-clean areas, snapshot and verification coverage (F0 and F1, review target, resolved base, round, and which gate ran: Codex with the guard result, or `b-reviewer` with the reason Codex was not used), and residual risk first. The response must end with exactly one standalone final line, with no text after it, which is one of:
-<!-- /runtime -->
-<!-- runtime:opencode -->
-Findings, checked-and-clean areas, snapshot and verification coverage (F0 and F1, review target, resolved base, and round), and residual risk first. The response must end with exactly one standalone final line, with no text after it, which is one of:
-<!-- /runtime -->
 - `Verdict: READY FOR PR`
 - `Verdict: READY WITH FOLLOW-UPS`
 - `Verdict: NEEDS FIXES`

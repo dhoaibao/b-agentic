@@ -109,12 +109,7 @@
       "mcp__datagrip__list_schema_objects",
       "mcp__datagrip__get_database_object_description",
       "mcp__datagrip__introspect_schema",
-      "mcp__datagrip__test_database_connection",
-      "mcp__tablepro__list_connections",
-      "mcp__tablepro__list_schemas",
-      "mcp__tablepro__list_tables",
-      "mcp__tablepro__describe_table",
-      "mcp__tablepro__get_table_ddl"
+      "mcp__datagrip__test_database_connection"
     ],
     "ask": [
       "Bash(git push)",
@@ -425,11 +420,7 @@
       "mcp__datagrip__execute_sql_query",
       "mcp__datagrip__cancel_sql_query",
       "mcp__datagrip__create_database_connection",
-      "mcp__datagrip__edit_database_connection",
-      "mcp__tablepro__connect",
-      "mcp__tablepro__browse_table",
-      "mcp__tablepro__count_rows",
-      "mcp__tablepro__execute_query"
+      "mcp__datagrip__edit_database_connection"
     ],
     "deny": [
       "Bash(git pull)",

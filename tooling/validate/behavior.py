@@ -324,25 +324,13 @@ FIXTURES = [
         name="DataGrip schema inspection",
         prompt="Inspect the database schema of my DataGrip connection and list its tables.",
         expected="b-datagrip",
-        not_expected=("b-implement", "b-debug", "b-tablepro"),
+        not_expected=("b-implement", "b-debug"),
     ),
     Fixture(
         name="DataGrip SQL query",
         prompt="Run SQL in DataGrip to preview table data from the orders table.",
         expected="b-datagrip",
-        not_expected=("b-implement", "b-debug", "b-tablepro"),
-    ),
-    Fixture(
-        name="TablePro table listing",
-        prompt="List database tables in TablePro.",
-        expected="b-tablepro",
-        not_expected=("b-implement", "b-debug", "b-datagrip"),
-    ),
-    Fixture(
-        name="TablePro SQL query",
-        prompt="Query the database in TablePro and list its tables.",
-        expected="b-tablepro",
-        not_expected=("b-implement", "b-debug", "b-datagrip"),
+        not_expected=("b-implement", "b-debug"),
     ),
     Fixture(
         name="mechanical rename",
@@ -1130,7 +1118,6 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "skills/b-review/prompt.md": {
             "required": (
-                "This skill runs in the `b-reviewer` subagent: a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.",
                 "On Claude Code the main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); only when Codex is unavailable does it use the `b-reviewer` subagent",
                 "as the only way to run Codex (it enforces the gate, runs the plugin, and normalizes the result with `b-codex-verdict`)",
                 "Run the gate with the wrapper, as a harness background command (`run_in_background`) from the repository: `node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round <n> --focus-file <path>`",
@@ -1142,8 +1129,8 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "never approve on the user's behalf",
                 "External transmission of private or proprietary material needs that explicit approval.",
                 "its `f0` must equal the fingerprint recorded at step 1, and `unchanged` must be `true`",
-                "Never replace the independent review with a self-review.",
-                "always call this skill with the named `b-reviewer` subagent type, never a forked context",
+                "never replace the independent review with a self-review.",
+                "call it with the named `b-reviewer` subagent type, never a forked context",
                 "never the implementer's rationale or a verdict to confirm",
                 "Recompute the identity with the snapshot CLI at the start",
                 "If the CLI is unavailable, block the review (no verdict) and report the gap; never fall back to a hand-computed identity.",

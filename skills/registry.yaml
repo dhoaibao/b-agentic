@@ -5,38 +5,32 @@
     "b-planner": {
       "description": "Produce a read-only execution-ready plan for the main b-agentic session.",
       "model": "opus",
-      "effort": "high",
-      "opencode_model": "openai/gpt-6.1-sol#high"
+      "effort": "high"
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
       "model": "sonnet",
       "effort": "medium",
-      "opencode_model": "openai/gpt-6.1-terra#medium",
       "conditional_tools": ["mcp__firecrawl__firecrawl_search", "mcp__firecrawl__firecrawl_scrape", "mcp__firecrawl__firecrawl_map"]
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
       "model": "sonnet",
-      "effort": "xhigh",
-      "opencode_model": "openai/gpt-6.1-sol#xhigh"
+      "effort": "xhigh"
     },
     "b-auditor": {
       "description": "Audit b-agentic repository and design conformance read-only for the main session.",
       "model": "opus",
-      "effort": "xhigh",
-      "opencode_model": "openai/gpt-6.1-sol#xhigh"
+      "effort": "xhigh"
     },
     "b-reviewer": {
       "description": "Independently review a frozen changed-code candidate read-only and return findings and a verdict to the main session.",
       "model": "opus",
-      "effort": "high",
-      "opencode_model": "openai/gpt-6.1-sol#high"
+      "effort": "high"
     }
   },
   "optional_components": {
     "datagrip": {"label": "DataGrip (b-datagrip; the DataGrip MCP entry stays user-managed)", "skills": ["b-datagrip"], "mcp_servers": ["datagrip"]},
-    "tablepro": {"label": "TablePro (b-tablepro + tablepro MCP)", "skills": ["b-tablepro"], "mcp_servers": ["tablepro"]},
     "excalidraw": {"label": "Excalidraw (b-excalidraw + excalidraw MCP)", "skills": ["b-excalidraw"], "mcp_servers": ["excalidraw"]},
     "drawio": {"label": "draw.io (b-drawio + drawio MCP)", "skills": ["b-drawio"], "mcp_servers": ["drawio"]}
   },
@@ -231,26 +225,6 @@
       },
       "prompt": {
         "description": "Inspect and query DataGrip-configured databases through the DataGrip MCP with read-only SQL by default, explicit row limits, named-connection confirmation for remote databases, and approval before any write, DDL, or connection change. Use for schema inspection, table previews, and ad-hoc SQL; unlike b-implement and b-debug, it does not edit application code or diagnose runtime failures."
-      }
-    },
-    {
-      "name": "b-tablepro",
-      "execution": {"mode": "main"},
-      "phase": "Build",
-      "use": "Inspect and query TablePro databases safely through the TablePro MCP",
-      "argument_hint": "[connection and question]",
-      "routing": {
-        "intent": "Inspect or query TablePro-configured databases through the TablePro MCP",
-        "triggers": [
-          "TablePro",
-          "TablePro connection",
-          "TablePro database",
-          "TablePro schema",
-          "run SQL in TablePro"
-        ]
-      },
-      "prompt": {
-        "description": "Inspect and query TablePro-configured databases through the Linux TablePro MCP. Use bounded reads by default, protect private data, and obtain explicit approval for connections and writes."
       }
     },
     {

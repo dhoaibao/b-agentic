@@ -17,7 +17,6 @@ mechanisms to retire unchanged managed entries, preserving user-owned or edited
 configuration and any hook script still referenced by user settings.
 
 Evidence: [`tooling/install/claude_install.py`](../../tooling/install/claude_install.py),
-[`tooling/install/opencode_install.py`](../../tooling/install/opencode_install.py),
 [`references/mcp_operations.yaml`](../../references/mcp_operations.yaml).
 
 ## Consequences

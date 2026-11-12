@@ -163,13 +163,3 @@ def filter_claude_rules(rules: list[str], servers: set[str], kind: str) -> list[
         return list(rules)
     prefixes = tuple(f"mcp__{name}__" for name in servers)
     return [rule for rule in rules if not (isinstance(rule, str) and rule.startswith(prefixes))]
-
-
-def filter_opencode_rules(rules: list[dict[str, Any]], servers: set[str]) -> list[dict[str, Any]]:
-    """Drop only the `allow` rules of excluded servers; their `ask` and `deny` rules stay (see above)."""
-    prefixes = tuple(f"{name}_" for name in servers)
-    return [
-        rule
-        for rule in rules
-        if not (rule.get("effect") == "allow" and str(rule.get("action", "")).startswith(prefixes))
-    ]

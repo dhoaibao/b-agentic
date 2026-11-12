@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-04
+- Note: [ADR-008](ADR-008-claude-code-only.md) removed OpenCode; the subagent gate now applies to Claude Code only.
 - Supersedes: ADR-001 (the Codex review-gate passages in Context and under "Workflow and skill design", "Safety and approval design", and "Verification and change discipline") and ADR-002 (the Codex gate on OpenCode)
 
 Superseded in part by [ADR-007](ADR-007-codex-first-review-gate.md): Claude Code runs

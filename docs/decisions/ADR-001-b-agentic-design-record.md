@@ -17,7 +17,7 @@ Superseded in part by [ADR-006](ADR-006-retire-clickup-integration.md): the
 ClickUp MCP server, skill, and `b-clickup-guard` hook described below are
 history; they were removed.
 
-OpenCode was replaced by Codex in [ADR-004](ADR-004-codex-runtime.md) and restored, with Codex removed, in [ADR-005](ADR-005-opencode-restored.md).
+OpenCode was replaced by Codex in [ADR-004](ADR-004-codex-runtime.md), restored in [ADR-005](ADR-005-opencode-restored.md), and removed again in [ADR-008](ADR-008-claude-code-only.md), which also retired the TablePro component.
 
 Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md): the Codex
 review gate (the plugin, the `b-codex-review` wrapper, the `b-codex-verdict`
@@ -233,8 +233,8 @@ the ClickUp guard (removed by [ADR-006](ADR-006-retire-clickup-integration.md)),
 The ClickUp integration and related safety-hook decision in this section were
 superseded by [ADR-006](ADR-006-retire-clickup-integration.md).
 
-Ten base servers are configured in Claude Code's standard `mcpServers` shape:
-seven are always installed, and the optional draw.io, Excalidraw, and TablePro
+Nine base servers are configured in Claude Code's standard `mcpServers` shape:
+seven are always installed, and the optional draw.io and Excalidraw
 servers are added only after install opt-in. `references/mcp_operations.yaml`
 classifies every known tool, and each class maps to an allow or ask rule on
 `mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
@@ -263,7 +263,7 @@ evidence root), and the prompt-only enforcement is an accepted residual risk.
 Unrestricted navigation also reaches localhost and intranet services, and a
 prompt-injected page could steer the auto-allowed click, type, and evaluate
 tools there; the isolated headless profile limits stored-credential exposure,
-and this is accepted as the user's decision. In OpenCode these tools still ask.
+and this is accepted as the user's decision.
 
 MCP tools fall into nine classes in `references/mcp_operations.yaml`: `read-only`
 and `conditional-read` (allowed), `trusted-mutation` (allowed by the user's
@@ -281,7 +281,7 @@ unusual spelling can escape it, and it fails open on malformed input. That a hoo
 `ask` overrides the `allow` rule was not exercised live, and the `b-clickup`
 prompt rule against unapproved image references remains the second layer.
 
-Optional components: `b-datagrip`, `b-tablepro`, `b-excalidraw`, `b-drawio` and
+Optional components: `b-datagrip`, `b-excalidraw`, `b-drawio` and
 their MCP servers, routing lines, and `allow` permission rules are declared under
 `optional_components` in `skills/registry.yaml`. Generated assets stay complete;
 the installers filter them after an explicit choice (checkbox, `--with`/`--without`),

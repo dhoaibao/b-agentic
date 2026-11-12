@@ -51,7 +51,7 @@ DOC_SURFACES = (
     "README.md",
     "claude/configs/README.md",
     "docs/decisions/ADR-001-b-agentic-design-record.md",
-    "docs/decisions/ADR-005-opencode-restored.md",
+    "docs/decisions/ADR-008-claude-code-only.md",
 )
 FALSE_PROMPT_CLAIMS = (
     "managed claude code rules ask for outside-project writes",
@@ -95,11 +95,7 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
         ):
             if clause not in texts[name]:
                 errors.append(f"{runtime}: delegation contract missing for {name}: {clause}")
-        eligibility = (
-            "denies `edit`, `subagent`, `question`"
-            if runtime == "opencode"
-            else "contains none of `Edit`, `Write`, `NotebookEdit`"
-        )
+        eligibility = "contains none of `Edit`, `Write`, `NotebookEdit`"
         if eligibility not in texts[name]:
             errors.append(f"{runtime}: profile eligibility missing for {name}")
     return errors
@@ -108,10 +104,7 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
 def main() -> int:
     skills = json.loads((ROOT / "skills/registry.yaml").read_text())["skills"]
     errors: list[str] = []
-    for runtime, kernel, directory in (
-        ("claude", "references/kernel.template.md", "skills"),
-        ("opencode", "opencode/configs/kernel.md", "opencode/skills"),
-    ):
+    for runtime, kernel, directory in (("claude", "references/kernel.template.md", "skills"),):
         paths = {"kernel": ROOT / kernel}
         paths.update({skill["name"]: ROOT / directory / skill["name"] / "SKILL.md" for skill in skills})
         missing = [str(path.relative_to(ROOT)) for path in paths.values() if not path.is_file()]
@@ -139,7 +132,7 @@ def main() -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Runtime instruction parity checks passed (two runtimes; live behavior unverified).")
+    print("Runtime instruction parity checks passed (Claude Code; live behavior unverified).")
     return 0
 
 

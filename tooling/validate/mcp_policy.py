@@ -21,7 +21,6 @@ EXPECTED_SERVERS = {
     "drawio",
     "shadcn",
     "datagrip",
-    "tablepro",
 }
 IDE_MANAGED_SERVERS = {"datagrip"}
 EXPECTED_CLASSES = {
@@ -269,10 +268,6 @@ def main() -> int:
         "mcp__datagrip__cancel_sql_query",
         "mcp__datagrip__create_database_connection",
         "mcp__datagrip__edit_database_connection",
-        "mcp__tablepro__connect",
-        "mcp__tablepro__browse_table",
-        "mcp__tablepro__count_rows",
-        "mcp__tablepro__execute_query",
     ):
         if name not in ask:
             errors.append(f"{name} returns database rows or changes database state and must ask")
@@ -386,8 +381,6 @@ def main() -> int:
             errors.append(f"{agent} must not receive private Notion workspace tools")
         if any(tool.startswith("mcp__datagrip__") for tool in tools):
             errors.append(f"{agent} must not receive private DataGrip database tools")
-        if any(tool.startswith("mcp__tablepro__") for tool in tools):
-            errors.append(f"{agent} must not receive private TablePro database tools")
         if any(tool in ask or tool in deny for tool in tools if tool.startswith("mcp__")):
             errors.append(f"{agent} must not list a tool that asks or is denied")
         if agent == "b-researcher":
@@ -402,9 +395,7 @@ def main() -> int:
     for server, entry in mcp.get("mcpServers", {}).items():
         kind = entry.get("type")
         if kind == "http":
-            if not str(entry.get("url", "")).startswith("https://") and not (
-                server == "tablepro" and entry.get("url") == "http://127.0.0.1:23508/mcp"
-            ):
+            if not str(entry.get("url", "")).startswith("https://"):
                 errors.append(f"{server} must use an https URL")
         elif kind == "stdio":
             if not isinstance(entry.get("command"), str) or not isinstance(entry.get("args"), list):
@@ -415,8 +406,6 @@ def main() -> int:
             for key, value in entry.get(field, {}).items():
                 if key.endswith(("_KEY", "_TOKEN", "_ID")) and not ENV_REFERENCE.fullmatch(str(value)):
                     errors.append(f"{server}.{field}.{key} must reference an environment variable, not store a value")
-        if server == "tablepro" and entry.get("headers", {}).get("Authorization") != "Bearer ${TABLEPRO_MCP_TOKEN}":
-            errors.append("tablepro Authorization must use the TABLEPRO_MCP_TOKEN environment reference")
         retired = {"directTools", "lifecycle", "description"} & set(entry)
         if retired:
             errors.append(f"{server} carries retired adapter fields: {sorted(retired)}")

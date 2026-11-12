@@ -10,7 +10,6 @@ Inspect and query DataGrip-configured databases through the DataGrip MCP server,
 
 - The DataGrip MCP tools (`mcp__datagrip__*`) are unavailable; state the prerequisite (DataGrip running, MCP Server enabled under Settings | Tools | MCP Server, a project open, Claude Code entry configured) rather than claiming database access.
 - The user wants application code, migrations, or ORM changes -> **b-implement**; a runtime failure to diagnose -> **b-debug**.
-- The database is a TablePro connection -> **b-tablepro**. If the user names no tool and both are installed, ask which one. <!-- requires: b-tablepro -->
 - The user asks only about DataGrip or MCP documentation -> **b-research**.
 
 ## Setup

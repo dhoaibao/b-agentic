@@ -1,9 +1,11 @@
 # ADR-002: Dual-runtime support for Claude Code and OpenCode
 
-- Status: Accepted
+- Status: Superseded
+- Superseded by: [ADR-008](ADR-008-claude-code-only.md), which removed OpenCode
 - Date: 2026-10-23
 - Supersedes: ADR-001 (product boundary and the second-runtime non-goal)
-- Note: [ADR-004](ADR-004-codex-runtime.md) replaced OpenCode with Codex; [ADR-005](ADR-005-opencode-restored.md) restored OpenCode and removed Codex, so this ADR applies again.
+- Note: [ADR-004](ADR-004-codex-runtime.md) replaced OpenCode with Codex; [ADR-005](ADR-005-opencode-restored.md) restored OpenCode and removed Codex.
+- Note: [ADR-008](ADR-008-claude-code-only.md) removed OpenCode again; Claude Code is the only runtime.
 - Note: The ClickUp-specific runtime behavior was superseded by [ADR-006](ADR-006-retire-clickup-integration.md).
 
 ## Context
@@ -151,7 +153,6 @@ revival, no per-project OpenCode installs, no live OpenCode or Codex sessions in
 CI.
 
 Evidence: [`install.sh`](../../install.sh),
-[`tooling/install/opencode_install.py`](../../tooling/install/opencode_install.py),
-[`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
-[`references/runtimes.yaml`](../../references/runtimes.yaml), and
-[`opencode/plugins/b-agentic.js`](../../opencode/plugins/b-agentic.js).
+[`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py), and
+[`references/runtimes.yaml`](../../references/runtimes.yaml). The OpenCode installer
+and plugin it describes were removed by ADR-008.

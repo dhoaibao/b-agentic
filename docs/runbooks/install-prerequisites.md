@@ -80,9 +80,8 @@ this is a manual step. Which tool each MCP needs is listed in
    ```
 
 8. Set the API keys in your shell environment for the MCP servers you use:
-   `CONTEXT7_API_KEY`, `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`. The DataGrip and
-   TablePro servers also need their apps running with MCP enabled (and
-   `TABLEPRO_MCP_TOKEN` for TablePro).
+   `CONTEXT7_API_KEY`, `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`. The DataGrip server
+   also needs its app running with MCP enabled.
 
 9. Optional: install the Codex CLI and plugin for the Codex-first review gate on
    Claude Code (`b-review` falls back to the `b-reviewer` subagent without them).

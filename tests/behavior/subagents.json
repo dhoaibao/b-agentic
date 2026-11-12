@@ -127,7 +127,7 @@
       "id": "review-freezes-candidate",
       "skill": "b-review",
       "observed_failure": "Review covered a moving candidate or made corrections itself.",
-      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), runs the Codex gate through the b-codex-review wrapper on Claude Code (the named read-only b-reviewer subagent on OpenCode), recomputes the fingerprint (F1) after it returns, and corrections get fresh verification and a new review.",
+      "intended_behavior": "The main session fingerprints the exact candidate after required checks (F0), runs the Codex gate through the b-codex-review wrapper on Claude Code, recomputes the fingerprint (F1) after it returns, and corrections get fresh verification and a new review.",
       "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant untracked generated file. Describe the review handoff, how its identity is checked, and what happens after NEEDS FIXES.",
       "must": [
         "Freeze and fingerprint the exact tracked and relevant untracked candidate as F0",

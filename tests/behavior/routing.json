@@ -16,18 +16,6 @@
       "forbidden_skills": ["b-implement", "b-debug"]
     },
     {
-      "id": "tablepro-schema-inspection",
-      "prompt": "List database tables in TablePro.",
-      "expected_skill": "b-tablepro",
-      "forbidden_skills": ["b-implement", "b-debug", "b-datagrip"]
-    },
-    {
-      "id": "tablepro-sql-query",
-      "prompt": "Query the database in TablePro and list its tables.",
-      "expected_skill": "b-tablepro",
-      "forbidden_skills": ["b-implement", "b-debug", "b-datagrip"]
-    },
-    {
       "id": "plan-vs-implement",
       "prompt": "The desired billing behavior is ambiguous. Decide which b-agentic skill should handle clarifying scope before any code changes.",
       "expected_skill": "b-plan",

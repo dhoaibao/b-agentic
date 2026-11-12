@@ -52,13 +52,6 @@
         "DRAWIO_ICON_SERVICE_URL": "off"
       }
     },
-    "tablepro": {
-      "type": "http",
-      "url": "http://127.0.0.1:23508/mcp",
-      "headers": {
-        "Authorization": "Bearer ${TABLEPRO_MCP_TOKEN}"
-      }
-    },
     "shadcn": {
       "type": "stdio",
       "command": "bunx",

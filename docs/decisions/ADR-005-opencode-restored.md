@@ -1,8 +1,10 @@
 # ADR-005: Restore OpenCode and remove Codex as the second runtime
 
-- Status: Accepted
+- Status: Superseded
+- Superseded by: [ADR-008](ADR-008-claude-code-only.md), which removed OpenCode
 - Date: 2026-11-07
 - Supersedes: ADR-004 (Codex as the second runtime)
+- Note: [ADR-008](ADR-008-claude-code-only.md) removed OpenCode again.
 
 ## Context
 
@@ -17,7 +19,7 @@ it, and remove Codex entirely.
 
 - `install.sh --runtime=claude|opencode|both` (default `claude`); `--runtime=codex`
   is no longer accepted.
-- The OpenCode assets, installer (`tooling/install/opencode_install.py`), plugin,
+- The OpenCode assets, installer (opencode_install.py under tooling/install), plugin,
   probes, and glossary entry in `references/runtimes.yaml` come back from the tree
   before `3781b7e5`. The `codex/` tree, its installer, hook adapter, probes, and
   glossary entry are deleted.
@@ -44,6 +46,5 @@ it, and remove Codex entirely.
   registry; `opencode_model` pins return.
 
 Evidence: [`install.sh`](../../install.sh),
-[`tooling/install/opencode_install.py`](../../tooling/install/opencode_install.py),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py), and
 [`references/runtimes.yaml`](../../references/runtimes.yaml).

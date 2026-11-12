@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-10
+- Note: [ADR-008](ADR-008-claude-code-only.md) removed OpenCode, so the OpenCode gate mentioned below no longer exists.
 - Supersedes: ADR-003 (the removal of the Codex gate on Claude Code; ADR-003's subagent reviewer stays as the fallback and as OpenCode's gate)
 
 ## Context

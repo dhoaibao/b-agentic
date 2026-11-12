@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code, OpenCode, or both.
+# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code.
 #
 # Usage:
-#   ./install.sh [--runtime=claude|opencode|both] [--dry-run] [--force] [-y]
-#                                                         install or sync from this checkout
-#   ./install.sh --runtime=opencode --migrate-legacy      also remove the retired OpenCode install
-#   ./install.sh --with=tablepro,drawio                   install optional components (datagrip, tablepro,
-#                                                         excalidraw, drawio); --without=ID removes them
+#   ./install.sh [--dry-run] [--force] [-y]               install or sync from this checkout
+#   ./install.sh --with=excalidraw,drawio                 install optional components (datagrip, excalidraw,
+#                                                         drawio); --without=ID removes them
 #   ./install.sh --statusline-only                        install only the Claude Code status line (a later
 #                                                         full install upgrades it; --uninstall removes it)
 #   ./install.sh --update                                 fast-forward the checkout, then sync
@@ -16,13 +14,12 @@
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code, the default runtime)
-# and ~/.config/opencode (OpenCode) are the only supported locations, and each runtime's install
-# and uninstall leave the other untouched.
+# runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code) is the only supported
+# location.
 # Optional components are never installed without a choice: a terminal shows a checkbox list (nothing
 # checked on a fresh install; installed ones are pre-checked), while -y, --dry-run, or no terminal keeps
 # the recorded choice and otherwise installs none. --with/--without are additive and repeatable.
-# On a terminal both runtime installers show a step timeline and ask before writing (via /dev/tty,
+# On a terminal the installer shows a step timeline and asks before writing (via /dev/tty,
 # so it works when piped); -y/--yes, --dry-run, --uninstall, or no terminal keeps the plain output.
 
 set -euo pipefail
@@ -35,9 +32,6 @@ DRY_RUN=0
 UNINSTALL=0
 YES=0
 NOTES=""
-RUNTIME=claude
-MIGRATE_LEGACY=0
-STATUSLINE_ONLY=0
 PASSTHROUGH=()
 
 die() {
@@ -59,9 +53,9 @@ while [ "$#" -gt 0 ]; do
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
     --force) PASSTHROUGH+=("$1") ;;
-    --runtime=*) RUNTIME="${1#--runtime=}" ;;
-    --migrate-legacy) MIGRATE_LEGACY=1 ;;
-    --statusline-only) STATUSLINE_ONLY=1; PASSTHROUGH+=("$1") ;;
+    --runtime=claude) ;;
+    --runtime=*) die "unsupported $1: only Claude Code is supported (OpenCode and Codex were removed; see docs/decisions/ADR-008-claude-code-only.md)" ;;
+    --statusline-only) PASSTHROUGH+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
       PASSTHROUGH+=("$1") ;;
@@ -70,19 +64,6 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
-
-case "$RUNTIME" in
-  claude|opencode|both) ;;
-  codex) die 'the Codex runtime was removed (see docs/decisions/ADR-005-opencode-restored.md); use --runtime=claude, opencode, or both' ;;
-  *) die "invalid --runtime=$RUNTIME; use claude, opencode, or both" ;;
-esac
-if [ "$MIGRATE_LEGACY" -eq 1 ] && [ "$RUNTIME" = claude ]; then
-  die '--migrate-legacy applies to the OpenCode runtime; pass --runtime=opencode or both'
-fi
-
-if [ "$STATUSLINE_ONLY" -eq 1 ] && [ "$RUNTIME" != claude ]; then
-  die '--statusline-only applies to Claude Code; use --runtime=claude (the default)'
-fi
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
 FANCY=0
@@ -184,17 +165,4 @@ if [ -e "$SOURCE_DIR/.git" ] && [ "$UNINSTALL" -eq 0 ]; then
 fi
 
 export B_AGENTIC_NOTES="$NOTES"
-install_claude() {
-  python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
-}
-install_opencode() {
-  local extra=()
-  [ "$MIGRATE_LEGACY" -eq 0 ] || extra+=(--migrate-legacy)
-  python3 "$SOURCE_DIR/tooling/install/opencode_install.py" --source "$SOURCE_DIR" \
-    ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ${extra[@]+"${extra[@]}"}
-}
-case "$RUNTIME" in
-  claude) exec python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
-  opencode) install_opencode ;;
-  both) install_claude && install_opencode ;;
-esac
+exec python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
