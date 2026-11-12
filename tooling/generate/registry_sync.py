@@ -867,7 +867,11 @@ def render_hooks() -> dict[str, Any]:
             {
                 "matcher": "compact",
                 "hooks": [{"type": "command", "command": hook_command("b-spec-context.mjs")}],
-            }
+            },
+            {
+                "matcher": "startup|resume|clear|compact",
+                "hooks": [{"type": "command", "command": hook_command("b-run-context.mjs")}],
+            },
         ],
     }
 

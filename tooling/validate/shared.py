@@ -13,6 +13,7 @@ SETTINGS_HOOKS = (
     "b-codex-guard.mjs",
     "b-verify-gate.mjs",
     "b-spec-context.mjs",
+    "b-run-context.mjs",
 )
 
 

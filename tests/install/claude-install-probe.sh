@@ -70,7 +70,7 @@ claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
 [ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
-for file in bin/b-candidate-snapshot.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
@@ -85,8 +85,10 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
 [ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
-[ "$(jq -r '.hooks.SessionStart | length' "$claude/settings.json")" = 1 ] || fail "SessionStart hook missing"
-[ "$(jq -r '.hooks.SessionStart[0].matcher' "$claude/settings.json")" = compact ] || fail "the spec context hook must match only compact"
+[ "$(jq -r '.hooks.SessionStart | length' "$claude/settings.json")" = 2 ] || fail "SessionStart hooks missing"
+[ "$(jq -r '[.hooks.SessionStart[] | select(.hooks[].command | contains("b-spec-context.mjs")) | .matcher] | .[0]' "$claude/settings.json")" = compact ] || fail "the spec context hook must match only compact"
+[ "$(jq -r '[.hooks.SessionStart[] | select(.hooks[].command | contains("b-run-context.mjs")) | .matcher] | .[0]' "$claude/settings.json")" = 'startup|resume|clear|compact' ] || fail "the run context hook matcher"
+[ "$(jq -r '[.hooks.SessionStart[].hooks[] | select(.command | contains("b-run-context.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the run context hook must run exactly once"
 [ "$(jq -r '[.hooks.SessionStart[].hooks[] | select(.command | contains("b-spec-context.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the spec context hook must run exactly once"
 [ "$(jq -r '[.hooks.SessionStart[].hooks[] | select(.onFailure != null)] | length' "$claude/settings.json")" = 0 ] || fail "the spec context hook must fail open (no onFailure)"
 [ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"

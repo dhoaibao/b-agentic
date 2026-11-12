@@ -806,3 +806,44 @@ ln -s "$work/p1" "$work/p1-link"
 srun "$(sc "$work/p1-link")"
 jq -e '.hookSpecificOutput.additionalContext | contains("docs/specs/export.md")' <<<"$sout" >/dev/null || fail "a symlinked project root must still list approved specs: $sout"
 echo "hooks probe passed: spec-context"
+
+# --- run context -----------------------------------------------------------------
+runctx="$root/claude/hooks/b-run-context.mjs"
+rc_in() { jq -cn --arg cwd "$1" --arg source "${2:-startup}" --arg ev "${3:-SessionStart}" '{hook_event_name: $ev, source: $source, cwd: $cwd}'; }
+rrun() { rc=0; sout=$(printf '%s' "$1" | node "$runctx" 2>/dev/null) || rc=$?; }
+rquiet() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
+rid=20260101-demo
+mkdir -p "$work/r1/.b-agentic/runs/$rid"
+printf '%s\n' "$rid" >"$work/r1/.b-agentic/active"
+jq -cn --arg id "$rid" '{schema: 1, run_id: $id, phase: "review"}' >"$work/r1/.b-agentic/runs/$rid/state.json"
+for src in startup resume clear compact; do
+  rrun "$(rc_in "$work/r1" "$src")"
+  [ "$rc" = 0 ] || fail "run context $src exit $rc"
+  jq -e --arg id "$rid" '.hookSpecificOutput.hookEventName == "SessionStart" and (.hookSpecificOutput.additionalContext | contains($id) and contains("phase review") and contains("/b-flow resume"))' <<<"$sout" >/dev/null || fail "run context $src output: $sout"
+done
+rrun "$(rc_in "$work/r1" fork)"; rquiet "an unlisted source must print nothing"
+rrun "$(rc_in "$work/r1" startup UserPromptSubmit)"; rquiet "another event must print nothing"
+rrun "$(rc_in "$work/none")"; rquiet "no run folder must print nothing"
+rrun 'not json'; rquiet "malformed input must print nothing"
+rrun "$(rc_in relative/path)"; rquiet "a relative cwd must print nothing"
+# a finished run, a bad id, and a state that names another run are not pointed at.
+mkdir -p "$work/r2/.b-agentic/runs/$rid"
+printf '%s\n' "$rid" >"$work/r2/.b-agentic/active"
+jq -cn --arg id "$rid" '{schema: 1, run_id: $id, phase: "done"}' >"$work/r2/.b-agentic/runs/$rid/state.json"
+rrun "$(rc_in "$work/r2")"; rquiet "a finished run must print nothing"
+mkdir -p "$work/r3/.b-agentic/runs/$rid"
+printf '../../etc\n' >"$work/r3/.b-agentic/active"
+rrun "$(rc_in "$work/r3")"; rquiet "a path-shaped run id must print nothing"
+mkdir -p "$work/r4/.b-agentic/runs/$rid"
+printf '%s\n' "$rid" >"$work/r4/.b-agentic/active"
+jq -cn '{schema: 1, run_id: "20260101-other", phase: "verify"}' >"$work/r4/.b-agentic/runs/$rid/state.json"
+rrun "$(rc_in "$work/r4")"; rquiet "a state naming another run must print nothing"
+# a symlinked .b-agentic is not followed.
+mkdir -p "$work/r5"
+ln -s "$work/r1/.b-agentic" "$work/r5/.b-agentic"
+rrun "$(rc_in "$work/r5")"; rquiet "a symlinked .b-agentic must not be followed"
+# the hook is read-only.
+before=$(tree_id "$work/r1")
+rrun "$(rc_in "$work/r1")"
+[ "$before" = "$(tree_id "$work/r1")" ] || fail "run context must not write"
+echo "hooks probe passed: run-context"

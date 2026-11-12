@@ -959,6 +959,15 @@
             "command": "node \"$HOME/.claude/b-agentic/hooks/b-spec-context.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/b-agentic/hooks/b-run-context.mjs\""
+          }
+        ]
       }
     ]
   },
