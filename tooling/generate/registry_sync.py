@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render Claude Code delivery assets from b-agentic's canonical sources."""
+"""Render Claude Code and Pi delivery assets from b-agentic's canonical sources."""
 
 from __future__ import annotations
 
@@ -25,6 +25,12 @@ SNAPSHOT_CLI_PATH = CLAUDE_DIR / "bin" / "b-candidate-snapshot.mjs"
 RUN_CLI_PATH = CLAUDE_DIR / "bin" / "b_run.py"
 ARTIFACTS_PATH = ROOT / "references" / "artifacts.yaml"
 ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
+PI_DIR = ROOT / "pi"
+PI_CONFIGS_DIR = PI_DIR / "configs"
+# Skill descriptions longer than this are not loaded by Pi (Agent Skills limit).
+PI_DESCRIPTION_MAX = 1024
+# A prompt line that starts with this marker is emitted only for the named runtime (marker removed).
+RUNTIME_MARKER = re.compile(r"^<!-- runtime: ([a-z]+) --> ")
 
 MAX_KERNEL_BYTES = 12_000
 MAX_KERNEL_LINES = 100
@@ -287,6 +293,50 @@ def load_capabilities() -> dict[str, Any]:
 def mcp_tool_name(server: str, tool: str) -> str:
     """Claude Code's name for an MCP tool: mcp__<server>__<tool>."""
     return CLAUDE_RUNTIME["mcp_tool_format"].format(server=server, tool=tool)
+
+
+def apply_markers(text: str, runtime: str) -> str:
+    """Keep each runtime-marked line only for its runtime, with the marker removed.
+
+    Unmarked lines are shared. An unknown runtime name is an error, so a typo cannot silently drop a line.
+    """
+    kept: list[str] = []
+    for line in text.split("\n"):
+        match = RUNTIME_MARKER.match(line)
+        if match is None:
+            if "<!-- runtime:" in line:
+                raise ValueError(f"malformed runtime marker (it must start the line): {line[:60]!r}")
+            kept.append(line)
+            continue
+        if match.group(1) not in RUNTIMES:
+            raise ValueError(f"unknown runtime {match.group(1)!r} in marker: {line[:60]!r}")
+        if match.group(1) == runtime:
+            kept.append(line[match.end() :])
+    return "\n".join(kept)
+
+
+def apply_glossary(text: str, runtime: str, hits: set[str] | None = None) -> str:
+    """Ordered literal replacements that turn Claude Code wording into the runtime's own."""
+    for entry in RUNTIMES[runtime].get("glossary", []):
+        if entry["from"] in text:
+            if hits is not None:
+                hits.add(entry["from"])
+            text = text.replace(entry["from"], entry["to"])
+    return text
+
+
+def apply_kernel_overrides(text: str, runtime: str) -> str:
+    """Replace each kernel override once; an override that matches nothing or twice has drifted from the template."""
+    for entry in RUNTIMES[runtime].get("kernel_overrides", []):
+        count = text.count(entry["from"])
+        if count != 1:
+            raise ValueError(f"kernel override {entry['from']!r} matched {count} times, expected exactly 1")
+        text = text.replace(entry["from"], entry["to"])
+    return text
+
+
+def tidy_blank_lines(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", text)
 
 
 def validate_kernel_template(errors: list[str]) -> None:
@@ -794,13 +844,14 @@ def fold_yaml(key: str, value: str) -> list[str]:
     return [f"{key}: >", *wrapper.fill(value).splitlines()]
 
 
-def render_skill_file(skill: dict[str, Any], runtime: str = "claude") -> str:
+def render_skill_file(skill: dict[str, Any], runtime: str = "claude", hits: set[str] | None = None) -> str:
     name = skill["name"]
     description = skill["prompt"]["description"]
     triggers = skill["routing"].get("triggers")
     if triggers:
         description += f" Routing signals: {', '.join(triggers)}."
     body = (ROOT / "skills" / name / "prompt.md").read_text().rstrip()
+    body = apply_markers(body, runtime)
     body = body.replace("{{skill_support_path}}", "<skill-dir>")
     execution = skill["execution"]
     if execution["mode"] == "subagent":
@@ -816,6 +867,8 @@ def render_skill_file(skill: dict[str, Any], runtime: str = "claude") -> str:
             )
         else:
             description += f" Delegated: runs only in the `{execution['agent']}` subagent; the main session never executes it itself."
+    if runtime != "claude":
+        body = tidy_blank_lines(apply_glossary(body, runtime, hits))
     lines = ["---", f"name: {name}"]
     lines.extend(fold_yaml("description", description))
     if skill.get("argument_hint") and runtime == "claude":
@@ -997,14 +1050,210 @@ def replace_block(text: str, start: str, end: str, body: str) -> str:
     return text[:body_start] + "\n" + body.rstrip() + "\n" + text[body_end:]
 
 
+def build_kernel(skills: list[dict[str, Any]], policy: dict[str, Any], runtime: str = "claude") -> str:
+    """The kernel template with its generated blocks filled in for one runtime."""
+    kernel = KERNEL_TEMPLATE_PATH.read_text()
+    kernel = replace_block(kernel, KERNEL_ROUTING_START, KERNEL_ROUTING_END, render_routing(skills))
+    kernel = replace_block(kernel, KERNEL_DELEGATION_START, KERNEL_DELEGATION_END, render_delegation(skills, runtime))
+    return replace_block(kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy))
+
+
+def render_pi_kernel(skills: list[dict[str, Any]], policy: dict[str, Any], hits: set[str] | None = None) -> str:
+    kernel = apply_kernel_overrides(build_kernel(skills, policy, "pi"), "pi")
+    return apply_glossary(kernel, "pi", hits)
+
+
+def render_pi_prompt(skill: dict[str, Any]) -> str:
+    """A thin `/b-<name>` prompt template that points at the installed Pi skill."""
+    name = skill["name"]
+    first_sentence = skill["prompt"]["description"].split(". ")[0].rstrip(".") + "."
+    lines = ["---", f"description: {json.dumps(first_sentence, ensure_ascii=False)}"]
+    if skill.get("argument_hint"):
+        lines.append(f"argument-hint: {json.dumps(skill['argument_hint'], ensure_ascii=False)}")
+    lines.extend(
+        [
+            "---",
+            "",
+            f"Read the installed `{RUNTIMES['pi']['config_dir']}/skills/{name}/SKILL.md` and follow it for this request.",
+            "",
+            "Arguments: $ARGUMENTS",
+            "",
+            "<!-- Generated from skills/registry.yaml. Edit that source, not this file. -->",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def pi_mcp_tool_ids(policy: dict[str, Any]) -> dict[str, str]:
+    """Map each classified `mcp__<server>__<tool>` name to the `mcp:<server>/<tool>` form Pi agent tool lists use."""
+    return {
+        mcp_tool_name(server, tool): f"mcp:{server}/{tool}"
+        for server, record in policy["servers"].items()
+        for tool in record["tools"]
+    }
+
+
+def pi_agent_tool_list(agent: dict[str, Any], policy: dict[str, Any]) -> list[str]:
+    ids = pi_mcp_tool_ids(policy)
+    names = [*read_only_mcp_tools(policy), *agent.get("conditional_tools", [])]
+    return [*RUNTIMES["pi"]["read_only_tools"], *(ids[name] for name in names)]
+
+
+def render_pi_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, Any]], policy: dict[str, Any]) -> str:
+    pi = RUNTIMES["pi"]
+    bound_skills = [
+        skill["name"]
+        for skill in skills
+        if skill["execution"]["mode"] == "subagent" and skill["execution"]["agent"] == name
+    ]
+    skill_list = " or ".join(f"`{skill}`" for skill in bound_skills)
+    return "\n".join(
+        [
+            "---",
+            f"name: {name}",
+            f"description: {json.dumps(agent['description'])}",
+            f"tools: {', '.join(pi_agent_tool_list(agent, policy))}",
+            f"excludeTools: {', '.join(pi['excluded_agent_tools'])}",
+            "systemPromptMode: replace",
+            "inheritProjectContext: true",
+            "inheritGlobalContext: true",
+            "allowNestedSubagents: false",
+            "---",
+            "",
+            f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
+            "",
+            f"Read and execute the named skill from the installed `{pi['config_dir']}/skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template. The skill's Delegation boundary directs the main session to delegate; you are the named child, so execute its steps.",
+            "",
+            "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. A returned result is not authority to change files, commit, push, or report task completion. If a required tool is absent, tell the main session rather than bypassing the allowlist.",
+            "",
+            TURN_BUDGET_NOTICE,
+            "",
+            "<!-- Managed by b-agentic. Generated from skills/registry.yaml. Do not edit this file. -->",
+            "",
+        ]
+    )
+
+
+def render_pi_permissions(policy: dict[str, Any]) -> dict[str, Any]:
+    """The @gotgenes/pi-permission-system config: the last matching rule in a map wins, so denies come last."""
+    shell_ask, shell_deny = shell_pattern_rules()
+    bash: dict[str, str] = {"*": "allow"}
+    bash.update({pattern: "ask" for pattern in shell_ask})
+    for pattern in shell_deny:
+        # Re-insert so a pattern that is both asked and denied sits after every ask rule.
+        bash.pop(pattern, None)
+        bash[pattern] = "deny"
+    permission: dict[str, Any] = {
+        "read": "allow",
+        "write": "allow",
+        "edit": "allow",
+        "find": "allow",
+        "grep": "allow",
+        "ls": "allow",
+        "bash": bash,
+        "path": dict(PATH_RULES),
+        "external_directory": "allow",
+        "mcp__*": "ask",
+    }
+    for server, record in policy["servers"].items():
+        for tool, class_name in record["tools"].items():
+            permission[mcp_tool_name(server, tool)] = policy["classes"][class_name]["native_permission"]
+    return {"yoloMode": False, "permission": permission}
+
+
+def render_pi_mcp() -> dict[str, Any]:
+    """Built-in MCP server entries, taken from the Claude template; the shape is confirmed by spike S7."""
+    return json.loads((CLAUDE_CONFIGS_DIR / "mcp.base.json").read_text())
+
+
+def render_pi_settings_packages() -> dict[str, Any]:
+    return {"packages": list(RUNTIMES["pi"]["packages"])}
+
+
+def render_pi_outputs(
+    skills: list[dict[str, Any]],
+    agents: dict[str, dict[str, Any]],
+    policy: dict[str, Any],
+    hits: set[str] | None = None,
+) -> dict[Path, str]:
+    outputs: dict[Path, str] = {
+        PI_DIR / "kernel.md": render_pi_kernel(skills, policy, hits),
+        PI_CONFIGS_DIR / "permission.json": json.dumps(render_pi_permissions(policy), indent=2) + "\n",
+        PI_CONFIGS_DIR / "mcp.base.json": json.dumps(render_pi_mcp(), indent=2) + "\n",
+        PI_CONFIGS_DIR / "settings.packages.json": json.dumps(render_pi_settings_packages(), indent=2) + "\n",
+    }
+    for skill in skills:
+        outputs[PI_DIR / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill, "pi", hits)
+        outputs[PI_DIR / "prompts" / f"{skill['name']}.md"] = render_pi_prompt(skill)
+    for name, agent in agents.items():
+        outputs[PI_DIR / "agents" / f"{name}.md"] = render_pi_agent_file(name, agent, skills, policy)
+    return outputs
+
+
+def forbidden_hits(text: str, runtime: str) -> list[str]:
+    return [token for token in RUNTIMES[runtime].get("forbidden_tokens", []) if token in text]
+
+
+def validate_pi_agent_tools(name: str, tools: list[str]) -> list[str]:
+    pi = RUNTIMES["pi"]
+    errors = [
+        f"pi agent {name}: tool {tool!r} is not allowed on a read-only specialist"
+        for tool in tools
+        if tool in pi["excluded_agent_tools"]
+    ]
+    if any(tool.startswith("mcp:notion/") for tool in tools):
+        errors.append(f"pi agent {name}: must not receive private Notion workspace tools")
+    return errors
+
+
+def pi_output_errors(
+    skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> list[str]:
+    """Checks on the rendered Pi outputs: leaked Claude vocabulary, read-only agents, budgets, stale glossary."""
+    errors: list[str] = []
+    hits: set[str] = set()
+    try:
+        outputs = render_pi_outputs(skills, agents, policy, hits)
+    except ValueError as exc:
+        return [f"pi outputs: {exc}"]
+    for path, text in outputs.items():
+        relative = path.relative_to(ROOT)
+        if relative.parts[:2] != ("pi", "configs"):
+            errors.extend(
+                f"{relative}: contains forbidden Claude Code token {token!r}" for token in forbidden_hits(text, "pi")
+            )
+        if "<!-- runtime:" in text:
+            errors.append(f"{relative}: unresolved runtime marker")
+    for entry in RUNTIMES["pi"]["glossary"]:
+        if entry["from"] not in hits:
+            errors.append(f"runtimes.pi.glossary: entry {entry['from']!r} matched nothing; remove or update it")
+    kernel = outputs[PI_DIR / "kernel.md"]
+    if "Pi Workflow Kernel" not in kernel:
+        errors.append("pi/kernel.md: missing the Pi kernel title")
+    if len(kernel.encode()) > MAX_KERNEL_BYTES:
+        errors.append(f"pi/kernel.md: exceeds {MAX_KERNEL_BYTES:,} byte kernel budget")
+    if len(kernel.splitlines()) > MAX_KERNEL_LINES:
+        errors.append(f"pi/kernel.md: exceeds {MAX_KERNEL_LINES} line kernel budget")
+    for skill in skills:
+        text = outputs[PI_DIR / "skills" / skill["name"] / "SKILL.md"]
+        match = re.search(r"^description: >\n((?:  .*\n)+)", text, re.MULTILINE)
+        description = " ".join(line.strip() for line in match.group(1).splitlines()) if match else ""
+        if not description or len(description) > PI_DESCRIPTION_MAX:
+            errors.append(f"pi/skills/{skill['name']}: description must be 1-{PI_DESCRIPTION_MAX} characters")
+    for name, agent in agents.items():
+        errors.extend(validate_pi_agent_tools(name, pi_agent_tool_list(agent, policy)))
+    review = outputs[PI_DIR / "skills" / "b-review" / "SKILL.md"]
+    if "b-reviewer" not in review:
+        errors.append("pi/skills/b-review: must use the b-reviewer subagent gate")
+    return errors
+
+
 def render_outputs(
     skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
 ) -> dict[Path, str]:
     readme = ROOT / "README.md"
-    kernel = KERNEL_TEMPLATE_PATH.read_text()
-    kernel = replace_block(kernel, KERNEL_ROUTING_START, KERNEL_ROUTING_END, render_routing(skills))
-    kernel = replace_block(kernel, KERNEL_DELEGATION_START, KERNEL_DELEGATION_END, render_delegation(skills))
-    kernel = replace_block(kernel, MCP_OPERATIONS_START, MCP_OPERATIONS_END, render_mcp_operations_table(policy))
+    kernel = build_kernel(skills, policy)
     outputs = {
         readme: replace_block(
             readme.read_text(), README_SKILLS_START, README_SKILLS_END, render_readme_skills_table(skills)
@@ -1016,6 +1265,7 @@ def render_outputs(
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
     for name, agent in agents.items():
         outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills, policy)
+    outputs.update(render_pi_outputs(skills, agents, policy))
     return outputs
 
 
@@ -1151,6 +1401,48 @@ def validate_regressions(
     next(iter(invalid_policy["servers"].values()))["exposure"] = "eager"
     if not validate_policy(invalid_policy):
         errors.append("MCP policy regression: retired exposure field must fail")
+    errors.extend(validate_pi_regressions(skills, agents, policy))
+    return errors
+
+
+def validate_pi_regressions(
+    skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> list[str]:
+    errors: list[str] = []
+    for bad in ("<!-- runtime: cluade --> text", "text <!-- runtime: pi -->"):
+        try:
+            apply_markers(bad, "pi")
+        except ValueError:
+            continue
+        errors.append(f"runtime regression: malformed marker {bad!r} must fail")
+    if apply_markers("a\n<!-- runtime: pi --> b\n<!-- runtime: claude --> c\nd", "claude") != "a\nc\nd":
+        errors.append("runtime regression: Claude must keep only shared and claude-marked lines")
+    if apply_markers("a\n<!-- runtime: pi --> b\n<!-- runtime: claude --> c\nd", "pi") != "a\nb\nd":
+        errors.append("runtime regression: Pi must keep only shared and pi-marked lines")
+    for text in ("no match here", "Claude Code Workflow Kernel Claude Code Workflow Kernel"):
+        try:
+            apply_kernel_overrides(text, "pi")
+        except ValueError:
+            continue
+        errors.append(f"runtime regression: a drifted kernel override must fail on {text!r}")
+    if not forbidden_hits("see ~/.claude/b-agentic", "pi"):
+        errors.append("runtime regression: a leaked Claude path must be detected in Pi output")
+    if not validate_pi_agent_tools("b-x", ["read", "edit"]) or not validate_pi_agent_tools("b-x", ["subagent"]):
+        errors.append("runtime regression: a Pi agent with edit or subagent tools must fail")
+    if not validate_pi_agent_tools("b-x", ["mcp:notion/notion-search"]):
+        errors.append("runtime regression: a Pi agent with a Notion tool must fail")
+    for skill in skills:
+        claude = render_skill_file(skill)
+        if "<!-- runtime:" in claude:
+            errors.append(f"runtime regression: {skill['name']} Claude render has an unresolved marker")
+    review = next(skill for skill in skills if skill["name"] == "b-review")
+    if "Codex" not in render_skill_file(review) or "Codex" in render_skill_file(review, "pi"):
+        errors.append("runtime regression: Codex steps must stay on Claude and be absent on Pi")
+    broken = json.loads(json.dumps(RUNTIMES["pi"]))
+    broken["packages"] = ["npm:pi-subagents"]
+    if not any("exact npm" in error for error in validate_pi_runtime(broken)):
+        errors.append("runtime regression: an unpinned Pi package must fail")
+    errors.extend(pi_output_errors(skills, agents, policy))
     return errors
 
 
@@ -1176,6 +1468,44 @@ def validate_runtimes() -> list[str]:
     claude = RUNTIMES["claude"]
     if claude.get("mcp_tool_format") != "mcp__{server}__{tool}":
         errors.append("runtimes.claude: MCP format must be mcp__{server}__{tool}")
+    errors.extend(validate_pi_runtime(RUNTIMES.get("pi")))
+    return errors
+
+
+def validate_pi_runtime(pi: object) -> list[str]:
+    label = f"{RUNTIMES_PATH.relative_to(ROOT)}: runtimes.pi"
+    if not isinstance(pi, dict):
+        return [f"{label}: missing"]
+    errors: list[str] = []
+    for key in ("read_only_tools", "excluded_agent_tools", "forbidden_tokens", "packages"):
+        non_empty_string_list(pi.get(key), f"{label}.{key}", errors)
+    for key in ("glossary", "kernel_overrides"):
+        entries = pi.get(key)
+        if not isinstance(entries, list) or not entries:
+            errors.append(f"{label}.{key}: expected a non-empty array of {{from, to}} objects")
+            continue
+        for index, entry in enumerate(entries, start=1):
+            if (
+                not isinstance(entry, dict)
+                or set(entry) != {"from", "to"}
+                or not isinstance(entry["from"], str)
+                or not entry["from"]
+                or not isinstance(entry["to"], str)
+            ):
+                errors.append(f"{label}.{key}[{index}]: expected {{from: non-empty string, to: string}}")
+    for package in pi.get("packages", []) if isinstance(pi.get("packages"), list) else []:
+        if not isinstance(package, str) or not re.fullmatch(
+            r"npm:(@[a-z0-9._-]+/)?[a-z0-9._-]+@\d+\.\d+\.\d+", package
+        ):
+            errors.append(f"{label}.packages: {package!r} must be an exact npm:name@x.y.z pin")
+    excluded = pi.get("excluded_agent_tools", [])
+    editing = pi.get("editing_tools", [])
+    if isinstance(excluded, list) and isinstance(editing, list):
+        missing = [tool for tool in (*editing, "subagent") if tool not in excluded]
+        if missing:
+            errors.append(f"{label}.excluded_agent_tools: must include {missing}")
+    if pi.get("mcp_tool_format") != "mcp__{server}__{tool}":
+        errors.append(f"{label}: MCP format must be mcp__{{server}}__{{tool}} (confirm with spike S7 before changing)")
     return errors
 
 
@@ -1194,6 +1524,8 @@ def sync_outputs(check: bool) -> int:
         *validate_artifacts_schema(),
         *validate_runtimes(),
     ]
+    if not errors:
+        errors.extend(pi_output_errors(skills, agents, policy))
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
@@ -1206,7 +1538,7 @@ def sync_outputs(check: bool) -> int:
         for path in stale:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(outputs[path])
-        print("Generated Claude Code delivery assets refreshed.")
+        print("Generated Claude Code and Pi delivery assets refreshed.")
     return 0
 
 

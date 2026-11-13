@@ -95,16 +95,73 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
         ):
             if clause not in texts[name]:
                 errors.append(f"{runtime}: delegation contract missing for {name}: {clause}")
-        eligibility = "contains none of `Edit`, `Write`, `NotebookEdit`"
+        eligibility = ELIGIBILITY[runtime]
         if eligibility not in texts[name]:
             errors.append(f"{runtime}: profile eligibility missing for {name}")
+    return errors
+
+
+ELIGIBILITY = {
+    "claude": "contains none of `Edit`, `Write`, `NotebookEdit`",
+    "pi": "contains none of `edit`, `write`",
+}
+
+
+def shell_patterns(rules: list[str]) -> set[str]:
+    """The shell patterns inside a Claude Code rule list's `Bash(...)` entries."""
+    return {rule.removeprefix("Bash(").removesuffix(")") for rule in rules if rule.startswith("Bash(")}
+
+
+def pi_permission_errors(claude: dict, pi: dict) -> list[str]:
+    """Rule-by-rule parity between the Claude settings template and the Pi permission config."""
+    sys.path.insert(0, str(ROOT))
+    from tooling.generate.registry_sync import PATH_RULES
+
+    errors: list[str] = []
+    permission = pi.get("permission", {})
+    rules = claude["permissions"]
+    bash = permission.get("bash", {})
+    if pi.get("yoloMode") is not False:
+        errors.append("pi permission: yoloMode must be false")
+    if list(bash)[:1] != ["*"] or bash.get("*") != "allow":
+        errors.append("pi permission: bash must start with the allow-all rule")
+    shell_ask = shell_patterns(rules["ask"])
+    shell_deny = shell_patterns(rules["deny"])
+    pi_ask = {pattern for pattern, value in bash.items() if value == "ask"}
+    pi_deny = {pattern for pattern, value in bash.items() if value == "deny"}
+    # A pattern that Claude denies and also asks resolves to deny, because Claude evaluates deny first.
+    if pi_ask != shell_ask - shell_deny:
+        errors.append(
+            f"pi permission: bash ask rules differ from Claude: {sorted(pi_ask ^ (shell_ask - shell_deny))[:3]}"
+        )
+    if pi_deny != shell_deny:
+        errors.append(f"pi permission: bash deny rules differ from Claude: {sorted(pi_deny ^ shell_deny)[:3]}")
+    keys = list(bash)
+    ask_positions = [index for index, key in enumerate(keys) if bash[key] == "ask"]
+    deny_positions = [index for index, key in enumerate(keys) if bash[key] == "deny"]
+    if ask_positions and deny_positions and min(deny_positions) < max(ask_positions):
+        errors.append("pi permission: every bash deny rule must come after every ask rule (the last match wins)")
+    if permission.get("path") != PATH_RULES:
+        errors.append("pi permission: path rules must equal PATH_RULES")
+    for tool in ("read", "write", "edit", "find", "grep", "ls"):
+        if permission.get(tool) != "allow":
+            errors.append(f"pi permission: {tool} must be allowed (path rules and the guard protect secrets)")
+    mcp_keys = [key for key in permission if key.startswith("mcp__")]
+    if mcp_keys[:1] != ["mcp__*"] or permission.get("mcp__*") != "ask":
+        errors.append("pi permission: the broad mcp__* ask rule must come first")
+    for label in ("allow", "ask", "deny"):
+        claude_tools = {rule for rule in rules[label] if rule.startswith("mcp__")}
+        pi_tools = {key for key in mcp_keys if key != "mcp__*" and permission[key] == label}
+        if claude_tools != pi_tools:
+            errors.append(f"pi permission: MCP {label} rules differ from Claude: {sorted(claude_tools ^ pi_tools)[:3]}")
     return errors
 
 
 def main() -> int:
     skills = json.loads((ROOT / "skills/registry.yaml").read_text())["skills"]
     errors: list[str] = []
-    for runtime, kernel, directory in (("claude", "references/kernel.template.md", "skills"),):
+    runtimes = (("claude", "references/kernel.template.md", "skills"), ("pi", "pi/kernel.md", "pi/skills"))
+    for runtime, kernel, directory in runtimes:
         paths = {"kernel": ROOT / kernel}
         paths.update({skill["name"]: ROOT / directory / skill["name"] / "SKILL.md" for skill in skills})
         missing = [str(path.relative_to(ROOT)) for path in paths.values() if not path.is_file()]
@@ -118,6 +175,26 @@ def main() -> int:
             candidate = {**texts, surface: texts[surface].replace(clause, "removed")}
             if not any(f": {scenario} contract missing" in error for error in validate(runtime, candidate, skills)):
                 errors.append(f"{runtime}: parity regression did not detect missing {scenario}")
+    claude_settings = json.loads((ROOT / "claude/configs/settings.template.json").read_text())
+    pi_config = json.loads((ROOT / "pi/configs/permission.json").read_text())
+    errors.extend(pi_permission_errors(claude_settings, pi_config))
+    mutations = {
+        "a bash deny rule turned into allow": lambda config: config["permission"]["bash"].update({"git pull": "allow"}),
+        "a bash deny rule moved before the asks": lambda config: config["permission"].update(
+            {"bash": {"*": "allow", "git push": "deny", **config["permission"]["bash"]}}
+        ),
+        "a path rule removed": lambda config: config["permission"]["path"].pop("*.pem"),
+        "the mcp ask fallback removed": lambda config: config["permission"].pop("mcp__*"),
+        "yolo mode enabled": lambda config: config.update({"yoloMode": True}),
+        "an MCP allow turned into deny": lambda config: config["permission"].update(
+            {"mcp__codegraph__codegraph_explore": "deny"}
+        ),
+    }
+    for label, mutate in mutations.items():
+        mutated = json.loads(json.dumps(pi_config))
+        mutate(mutated)
+        if not pi_permission_errors(claude_settings, mutated):
+            errors.append(f"pi permission parity regression did not detect {label}")
     doc_paths = [ROOT / path for path in DOC_SURFACES]
     missing_docs = [str(path.relative_to(ROOT)) for path in doc_paths if not path.is_file()]
     if missing_docs:
@@ -132,7 +209,7 @@ def main() -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Runtime instruction parity checks passed (Claude Code; live behavior unverified).")
+    print("Runtime instruction parity checks passed (Claude Code and Pi; live behavior unverified).")
     return 0
 
 

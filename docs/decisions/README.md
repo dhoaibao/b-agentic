@@ -12,7 +12,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-007](ADR-007-codex-first-review-gate.md) for the Codex-first review gate with the subagent fallback, and
 [ADR-008](ADR-008-claude-code-only.md) for removing OpenCode and TablePro, and
 [ADR-009](ADR-009-b-flow-automatic-run.md) for the bounded `b-flow` automatic run, and
-[ADR-010](ADR-010-run-artifact-cli.md) for the single writer of its run artifacts.
+[ADR-010](ADR-010-run-artifact-cli.md) for the single writer of its run artifacts, and
+[ADR-011](ADR-011-pi-second-runtime.md) for Pi as an opt-in second runtime.
 
 ## Naming
 
