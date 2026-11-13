@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Canonical MCP operation classification for the Claude Code runtime. Each tool is addressed as mcp__<server>__<tool>; the class decides the generated allow or ask permission rule. Unclassified tools keep the runtime default and require approval.",
+  "description": "Canonical MCP operation classification for the Claude Code and Pi runtimes. Each tool is addressed as mcp__<server>__<tool>; the class decides the generated allow or ask permission rule. Unclassified tools keep the runtime default and require approval.",
   "classes": {
     "read-only": {"policy": "Auto-allowed by tool name", "native_permission": "allow", "notes": "Observation-only MCP operation."},
     "conditional-read": {"policy": "Auto-allowed by user decision", "native_permission": "allow", "notes": "Formerly argument-validated; MCP tool arguments are not pattern-matched."},
@@ -27,6 +27,6 @@
   },
   "runtime_enforcement": {
     "claude": "Generated permissions.allow and permissions.ask rules address each classified tool as mcp__<server>__<tool>; deny rules still override them. The path-guard hook matches only file tools and does not inspect MCP arguments. Unclassified MCP tools require user approval even without a native prompt. The datagrip server is IDE-managed with no template; permission rules cannot tell a read-only statement from a write, so every execute_sql_query call asks and the b-datagrip skill carries the SQL guardrails.",
-    "pi": "The generated @gotgenes/pi-permission-system config addresses each classified tool as mcp__<server>__<tool>, listing the broad mcp__* ask rule first and the classified allow, ask, and deny rules after it so the last match wins. The b-agentic guard extension matches only file tools and does not inspect MCP arguments. Unclassified MCP tools require user approval even without a native prompt. The datagrip server is IDE-managed with no template; every execute_sql_query call asks and the b-datagrip skill carries the SQL guardrails. Pi registers each tool under its name with characters outside letters, digits, and _ replaced by _, so the generated keys use those names (verified on Pi 1.5.2, ADR-011 S7 and S13)."
+    "pi": "The generated @gotgenes/pi-permission-system config keeps every MCP rule in the nested permission.mcp map and writes no top-level mcp__ keys: the * ask fallback comes first and one allow or ask rule per classified tool, keyed mcp__<server>__<tool>, follows it so the last match wins. The b-agentic guard extension matches only file tools and does not inspect MCP arguments. Unclassified MCP tools require user approval even without a native prompt. The datagrip server is IDE-managed with no template; every execute_sql_query call asks and the b-datagrip skill carries the SQL guardrails. Pi registers each tool under its name with characters outside letters, digits, and _ replaced by _, so the generated keys use those names (verified on Pi 1.5.2, ADR-011 S7 and S13)."
   }
 }

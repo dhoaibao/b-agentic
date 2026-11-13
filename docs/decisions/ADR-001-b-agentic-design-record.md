@@ -8,7 +8,10 @@ Refinements update this record in place. A reversed decision gets a new ADR
 with `Supersedes: ADR-001`, and the superseded area is noted here.
 
 [ADR-011](ADR-011-pi-second-runtime.md) again supersedes the second-runtime
-non-goal under Consequences, by adding Pi as an opt-in second runtime.
+non-goal under Consequences, the single-runtime statement in Context, and the
+`~/.claude`-only boundary under "Product boundary and architecture", by adding
+Pi as an opt-in second runtime that installs under `~/.pi/agent`. The passages
+below describe the default Claude Code runtime; ADR-011 records the Pi one.
 
 Superseded in part by [ADR-002](ADR-002-dual-runtime-support.md): the
 single-runtime statement in Context, the `~/.claude`-only boundary under
@@ -37,13 +40,15 @@ describe the gate as ADR-007 restored it.
 
 ## Context
 
-b-agentic supports one runtime, Claude Code. It ships an always-loaded kernel,
+b-agentic's default runtime is Claude Code; Pi is an opt-in second runtime
+([ADR-011](ADR-011-pi-second-runtime.md)). It ships an always-loaded kernel,
 canonical skills, named read-only specialists, managed MCP configuration,
-hooks and small CLIs, and a merge-safe installer. Codex, through the
-`openai/codex-plugin-cc` plugin, is the independent changed-code reviewer. The
-earlier Pi runtime was removed from this repository (its last commit is
-`ac38e4a`); an already installed copy keeps working, but nothing here generates,
-installs, or tests it.
+hooks and small CLIs, and a merge-safe installer. On Claude Code, Codex, through
+the `openai/codex-plugin-cc` plugin, is the independent changed-code reviewer.
+The earlier Pi runtime was removed from this repository (its last commit is
+`ac38e4a`) and nothing here generates, installs, or tests that one; the ADR-011
+runtime replaced it and is generated, installed, and tested from this
+repository.
 
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
 [`skills/registry.yaml`](../../skills/registry.yaml), and
@@ -64,11 +69,14 @@ instructions refer to that path, so the installer refuses a different
 (a skill is also its `/b-<name>` command), the five specialist profiles, the
 kernel's generated blocks, and the settings template (permissions, hooks, and the status line).
 Skills install as bare `~/.claude/skills/b-*`, not as a namespaced plugin.
-The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The installer owns
-only what its manifest records, and never writes under `~/.pi`.
+The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The Claude Code
+installer owns only what its manifest records, and never writes under `~/.pi`;
+the opt-in Pi installer writes only under `~/.pi/agent`
+([ADR-011](ADR-011-pi-second-runtime.md)).
 
 Evidence: [`install.sh`](../../install.sh),
-[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py), and
+[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py),
+[`tooling/install/pi_install.py`](../../tooling/install/pi_install.py), and
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py).
 
 ### Workflow and skill design
