@@ -57,8 +57,19 @@ The user decided each item below on 2026-11-13.
   keys MCP tools by the names Pi registers (characters outside letters, digits, and `_`
   become `_`), and the MCP config sets each server's `exposure` because the default
   (`codemode`) leaves a server's tools out of the model's direct tool list.
-- The installer is a later change: `--runtime=claude|pi|both` with `claude` as the
-  default, disjoint install roots, and no vendor installers run.
+- The installer (`tooling/install/pi_install.py`, reached as `install.sh --runtime=pi|both`;
+  the default stays `claude`) writes only under `~/.pi/agent` and records what it owns in
+  an install manifest there, so a Pi run never touches `~/.claude` or `~/.claude.json`
+  and a Claude Code run never touches `~/.pi`. It copies the Pi skills, prompts, agents, the
+  guard extension, four hooks, three run CLIs, and three references; adds the kernel block to
+  the agent directory's `AGENTS.md` (refusing when a `CLAUDE.md` would be hidden); merges the
+  three pinned package entries and the MCP servers without replacing user content; writes the
+  generated permission config only when none exists or the file is one it wrote (a config
+  holding the user's own rules is left untouched, with a warning that Pi then runs without the
+  generated rules, because the permission system's own rule semantics make a merge unsafe), and
+  always ships a copy of it for merging by hand; and never runs `pi install`, npm, or any vendor installer, since
+  Pi installs the pinned packages on its next start. `--runtime=both` plans both installers
+  before either writes.
 - The status line and todo list are not ported in v1. Doctor scripts get no Pi mode yet.
 
 ### Gap handling on Pi
@@ -112,7 +123,7 @@ agent directory, plus the three pinned packages. "Docs" means the bundled Pi doc
   guard refuses subagent launches when that registration fails.
 - Pi and the three pinned packages can change config keys silently; re-run the spike
   after an upgrade.
-- `b-flow` on Pi needs the installer (a later change) to place the run-state helper, the run artifact CLI,
+- `b-flow` on Pi relies on the installer placing the run-state helper, the run artifact CLI,
   and the hook modules under the Pi agent directory; the run-state helper already reads
   `PI_SESSION_ID`.
 - Unchanged non-goals: no custom permission engine, no per-project installs, no live

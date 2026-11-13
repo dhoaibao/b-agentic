@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code.
+# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code and, optionally, Pi.
 #
 # Usage:
 #   ./install.sh [--dry-run] [--force] [-y]               install or sync from this checkout
+#   ./install.sh --runtime=pi                             install for Pi (~/.pi/agent) instead; --runtime=both
+#                                                         does Claude Code and Pi (default: claude)
 #   ./install.sh --with=excalidraw,drawio                 install optional components (datagrip, excalidraw,
 #                                                         drawio); --without=ID removes them
 #   ./install.sh --statusline-only                        install only the Claude Code status line (a later
@@ -14,8 +16,8 @@
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers and never writes under ~/.pi; ~/.claude (Claude Code) is the only supported
-# location.
+# runs vendor installers. A Claude Code run only touches ~/.claude and ~/.claude.json; a Pi run only touches
+# ~/.pi/agent (the pinned Pi packages are installed by Pi itself on its next start).
 # Optional components are never installed without a choice: a terminal shows a checkbox list (nothing
 # checked on a fresh install; installed ones are pre-checked), while -y, --dry-run, or no terminal keeps
 # the recorded choice and otherwise installs none. --with/--without are additive and repeatable.
@@ -31,8 +33,10 @@ UPDATE=0
 DRY_RUN=0
 UNINSTALL=0
 YES=0
+RUNTIME=claude
 NOTES=""
 PASSTHROUGH=()
+STATUSLINE_ONLY=0
 
 die() {
   [ -z "$NOTES" ] || printf '%s\n' "$NOTES"
@@ -53,9 +57,9 @@ while [ "$#" -gt 0 ]; do
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
     --force) PASSTHROUGH+=("$1") ;;
-    --runtime=claude) ;;
-    --runtime=*) die "unsupported $1: only Claude Code is supported (OpenCode and Codex were removed; see docs/decisions/ADR-008-claude-code-only.md)" ;;
-    --statusline-only) PASSTHROUGH+=("$1") ;;
+    --runtime=claude|--runtime=pi|--runtime=both) RUNTIME="${1#--runtime=}" ;;
+    --runtime=*) die "unsupported $1: use --runtime=claude, pi, or both (OpenCode and Codex were removed; see docs/decisions/ADR-008-claude-code-only.md and ADR-011-pi-second-runtime.md)" ;;
+    --statusline-only) STATUSLINE_ONLY=1; PASSTHROUGH+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
       PASSTHROUGH+=("$1") ;;
@@ -64,6 +68,8 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+[ "$STATUSLINE_ONLY" -eq 0 ] || [ "$RUNTIME" = claude ] || die '--statusline-only belongs to the Claude Code runtime; drop --runtime or use --runtime=claude'
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
 FANCY=0
@@ -81,7 +87,7 @@ esac
 command -v python3 >/dev/null 2>&1 || die 'python3 is required'
 
 # refuse_protected_dir <dir>: the clone/update destination must not be the home
-# directory or sit under the frozen Pi runtime, resolving symlinks first.
+# directory or sit under ~/.pi (the Pi installer owns that tree), resolving symlinks first.
 refuse_protected_dir() {
   python3 - "$1" <<'PY' || die "refusing to use $1 as the source directory (home directory, or under ~/.pi)"
 import os
@@ -165,4 +171,27 @@ if [ -e "$SOURCE_DIR/.git" ] && [ "$UNINSTALL" -eq 0 ]; then
 fi
 
 export B_AGENTIC_NOTES="$NOTES"
-exec python3 "$SOURCE_DIR/tooling/install/claude_install.py" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+CLAUDE_INSTALLER="$SOURCE_DIR/tooling/install/claude_install.py"
+PI_INSTALLER="$SOURCE_DIR/tooling/install/pi_install.py"
+# Pi's installer takes every shared option; --statusline-only was refused above for it.
+PI_ARGS=()
+for arg in ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}; do
+  [ "$arg" = --statusline-only ] || PI_ARGS+=("$arg")
+done
+case "$RUNTIME" in
+  claude) exec python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+  pi) exec python3 "$PI_INSTALLER" --source "$SOURCE_DIR" ${PI_ARGS[@]+"${PI_ARGS[@]}"} ;;
+  both)
+    if [ "$DRY_RUN" -eq 0 ] && [ "$UNINSTALL" -eq 0 ]; then
+      # Each runtime plans before its first write; checking both first keeps one refusal from leaving
+      # the other half installed.
+      for installer in "$CLAUDE_INSTALLER" "$PI_INSTALLER"; do
+        check_args=(--dry-run -y)
+        [ "$installer" = "$CLAUDE_INSTALLER" ] && check_args+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}) || check_args+=(${PI_ARGS[@]+"${PI_ARGS[@]}"})
+        python3 "$installer" --source "$SOURCE_DIR" "${check_args[@]}" >/dev/null || die "preflight failed for $(basename "$installer"); nothing was installed"
+      done
+    fi
+    python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+    exec python3 "$PI_INSTALLER" --source "$SOURCE_DIR" ${PI_ARGS[@]+"${PI_ARGS[@]}"}
+    ;;
+esac
