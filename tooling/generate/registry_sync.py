@@ -1163,14 +1163,16 @@ def render_pi_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         "bash": bash,
         "path": dict(PATH_RULES),
         "external_directory": "allow",
-        "mcp__*": "ask",
     }
     # Tools the Claude template allows by name (Agent, AskUserQuestion) have Pi counterparts that would
     # otherwise ask, and a prompt is denied in a headless run.
     permission.update({tool: "allow" for tool in RUNTIMES["pi"]["allowed_tools"]})
+    # Pi's built-in MCP tools resolve on the `mcp` surface; top-level `mcp__...` keys are deprecated.
+    mcp: dict[str, str] = {"*": "ask"}
     for server, record in policy["servers"].items():
         for tool, class_name in record["tools"].items():
-            permission[pi_mcp_permission_name(server, tool)] = policy["classes"][class_name]["native_permission"]
+            mcp[pi_mcp_permission_name(server, tool)] = policy["classes"][class_name]["native_permission"]
+    permission["mcp"] = mcp
     return {"yoloMode": False, "permission": permission}
 
 

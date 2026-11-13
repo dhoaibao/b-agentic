@@ -151,16 +151,20 @@ def pi_permission_errors(claude: dict, pi: dict) -> list[str]:
     for tool in ("read", "write", "edit", "find", "grep", "ls"):
         if permission.get(tool) != "allow":
             errors.append(f"pi permission: {tool} must be allowed (path rules and the guard protect secrets)")
-    mcp_keys = [key for key in permission if key.startswith("mcp__")]
-    if mcp_keys[:1] != ["mcp__*"] or permission.get("mcp__*") != "ask":
-        errors.append("pi permission: the broad mcp__* ask rule must come first")
+    mcp = permission.get("mcp", {})
+    if not isinstance(mcp, dict):
+        mcp = {}
+    if list(mcp)[:1] != ["*"] or mcp.get("*") != "ask":
+        errors.append("pi permission: the mcp ask fallback must come first")
+    if any(key.startswith("mcp__") for key in permission):
+        errors.append("pi permission: MCP tool rules belong under the mcp key, not at the top level")
     for tool in pi_allowed_tools():
         if permission.get(tool) != "allow":
             errors.append(f"pi permission: {tool} must be allowed (its Claude counterpart is allowed by name)")
     for label in ("allow", "ask", "deny"):
         # Pi registers an MCP tool under its name with characters outside letters, digits and `_` replaced by `_`.
         claude_tools = {re.sub(r"[^A-Za-z0-9_]", "_", rule) for rule in rules[label] if rule.startswith("mcp__")}
-        pi_tools = {key for key in mcp_keys if key != "mcp__*" and permission[key] == label}
+        pi_tools = {key for key, value in mcp.items() if key != "*" and value == label}
         if claude_tools != pi_tools:
             errors.append(f"pi permission: MCP {label} rules differ from Claude: {sorted(claude_tools ^ pi_tools)[:3]}")
     return errors
@@ -193,11 +197,14 @@ def main() -> int:
             {"bash": {"*": "allow", "git push": "deny", **config["permission"]["bash"]}}
         ),
         "a path rule removed": lambda config: config["permission"]["path"].pop("*.pem"),
-        "the mcp ask fallback removed": lambda config: config["permission"].pop("mcp__*"),
+        "the mcp ask fallback removed": lambda config: config["permission"]["mcp"].pop("*"),
         "yolo mode enabled": lambda config: config.update({"yoloMode": True}),
         "the subagent allow removed": lambda config: config["permission"].pop("subagent"),
-        "an MCP allow turned into deny": lambda config: config["permission"].update(
+        "an MCP allow turned into deny": lambda config: config["permission"]["mcp"].update(
             {"mcp__codegraph__codegraph_explore": "deny"}
+        ),
+        "an MCP rule moved to the top level": lambda config: config["permission"].update(
+            {"mcp__codegraph__codegraph_explore": config["permission"]["mcp"].pop("mcp__codegraph__codegraph_explore")}
         ),
     }
     for label, mutate in mutations.items():
