@@ -206,12 +206,12 @@ run "$home" --runtime=pi -y --with=excalidraw
 expect_ok "install with excalidraw"
 [ -f "$agent_dir/skills/b-excalidraw/SKILL.md" ] || fail "--with=excalidraw must install the skill"
 jq -e '.mcpServers.excalidraw' "$agent_dir/mcp.json" >/dev/null || fail "--with=excalidraw must add the server"
-jq -e '.permission | has("mcp__excalidraw__create_view")' "$(permission_file "$home")" >/dev/null || fail "--with=excalidraw must add its permission rule"
+jq -e '.permission.mcp | has("mcp__excalidraw__create_view")' "$(permission_file "$home")" >/dev/null || fail "--with=excalidraw must add its permission rule"
 run "$home" --runtime=pi -y --without=excalidraw
 expect_ok "removing excalidraw"
 [ ! -e "$agent_dir/skills/b-excalidraw/SKILL.md" ] || fail "--without=excalidraw must remove the skill"
 ! jq -e '.mcpServers.excalidraw' "$agent_dir/mcp.json" >/dev/null || fail "--without=excalidraw must remove the server"
-! jq -e '.permission | has("mcp__excalidraw__create_view")' "$(permission_file "$home")" >/dev/null || fail "--without=excalidraw must remove its permission rule"
+! jq -e '.permission.mcp | has("mcp__excalidraw__create_view")' "$(permission_file "$home")" >/dev/null || fail "--without=excalidraw must remove its permission rule"
 echo "pi install probe passed: optional components"
 
 # --- old skills in ~/.agents/skills are reported, never touched ----------------------
