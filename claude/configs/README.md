@@ -19,7 +19,8 @@ the hook list in `tooling/generate/registry_sync.py`. Edit sources and run
 The installer records everything it owns in `b-agentic/install.json`, backs up
 each user file it changes under `b-agentic/backups/`, keeps files you modified,
 refuses a symlinked managed directory or manifest, writes through (never replaces)
-a symlinked config file, and never writes under `~/.pi`. A hook entry or file an
+a symlinked config file, and never touches `~/.pi` (the Pi runtime has its own installer; see
+[Pi configuration](../../pi/configs/README.md)). A hook entry or file an
 earlier release recorded and this one no longer ships is retired on upgrade:
 `settings.json` stops naming a script before the script is deleted, a hook you
 edited is kept and reported, and its script is kept until that entry is gone.

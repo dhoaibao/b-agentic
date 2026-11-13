@@ -1,6 +1,6 @@
 # ADR-011: Pi as a second runtime
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-13
 - Supersedes: ADR-008 (Claude Code only); also the second-runtime non-goal in ADR-001
 

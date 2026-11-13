@@ -2,15 +2,18 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the one supported runtime, Claude Code, with Codex as the
+This reference defines the primary runtime, Claude Code, with Codex as the
 independent reviewer and the read-only `b-reviewer` subagent as its fallback
-([ADR-008](docs/decisions/ADR-008-claude-code-only.md),
-[ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
-[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)).
+([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
+[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)), and the opt-in
+second runtime, the Pi coding agent, where `b-reviewer` is the only reviewer
+([ADR-011](docs/decisions/ADR-011-pi-second-runtime.md), which supersedes the
+Claude-Code-only stance of [ADR-008](docs/decisions/ADR-008-claude-code-only.md)).
 It covers installation, the permission boundary, the review gate, MCP
-configuration, and validation. The earlier Pi runtime (last commit `ac38e4a`) and
-the OpenCode runtime ([ADR-008](docs/decisions/ADR-008-claude-code-only.md)) were
-removed and are not maintained here.
+configuration, the [Pi runtime](#pi-runtime), and validation. The OpenCode
+runtime was removed by ADR-008 and is not maintained here; the earlier Pi runtime (last commit
+`ac38e4a`) was replaced by the one in ADR-011. Sections that name `~/.claude`
+describe Claude Code; the [Pi runtime](#pi-runtime) section covers `~/.pi/agent`.
 
 ## Install and lifecycle
 
@@ -21,8 +24,8 @@ git clone https://github.com/dhoaibao/b-agentic.git && cd b-agentic && ./install
 `./install.sh` installs from the checkout that contains it. Piped
 (`curl -fsSL .../install.sh | bash`), it clones the source to
 `~/.b-agentic-claude` first; it never uses `~/.b-agentic`, which may still hold
-the frozen Pi installer. The script never runs vendor installers and never
-writes under `~/.pi`.
+the frozen Pi installer. The script never runs vendor installers. A Claude Code run
+touches only `~/.claude` and `~/.claude.json`; a Pi run touches only `~/.pi/agent`.
 
 - `--dry-run` prints the plan and changes nothing.
 - On a terminal the installer shows a step timeline, a summary box, and asks before
@@ -57,8 +60,11 @@ writes under `~/.pi`.
   did not install, after a backup. Without it such files are kept with a warning.
 - `--uninstall` removes only recorded, unmodified assets and entries and keeps
   `~/.claude/b-agentic/backups`.
-- `--runtime=claude` is accepted as a no-op; any other `--runtime` value is refused
-  ([ADR-008](docs/decisions/ADR-008-claude-code-only.md)).
+- `--runtime=claude|pi|both` picks the runtime; the default is `claude`, and any other
+  value is refused. `pi` runs `tooling/install/pi_install.py` for `~/.pi/agent`
+  ([Pi runtime](#pi-runtime)); `both` plans both installers in dry-run first and installs
+  neither when one refuses. `--statusline-only` belongs to Claude Code and is refused
+  with `pi` or `both`. Every other flag applies to the selected runtimes.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -383,6 +389,79 @@ supported shell command families; CodeGraph is the first stop for code-structure
 call-flow, and pre-edit impact questions in an indexed project, and agents never
 run its init, index, sync, daemon, or install commands.
 
+## Pi runtime
+
+The Pi coding agent (`@earendil-works/pi-coding-agent`, Node 22.19 or newer) is an opt-in
+second runtime ([ADR-011](docs/decisions/ADR-011-pi-second-runtime.md)). The same canonical
+skills, kernel, and MCP policy are rendered for Pi by `tooling/generate/registry_sync.py`
+under `pi/` (`skills/`, `prompts/`, `agents/`, `kernel.md`, `configs/`) using the
+`pi` entry of `references/runtimes.yaml`; Claude Code output is the unchanged identity render.
+Install it with `./install.sh --runtime=pi` (or `both`). The installer plans in memory, refuses
+before its first write on a malformed or unsafe target, backs up changed user files under
+`~/.pi/agent/b-agentic/backups/`, records what it owns in `~/.pi/agent/b-agentic/install.json`,
+supports `--dry-run`, `--force`, `--uninstall`, and the optional components (`--with`,
+`--without`), and never touches `~/.claude` or `~/.claude.json`. It never runs `pi install`,
+npm, or a vendor installer: Pi installs the pinned packages on its next online start.
+
+| Asset             | Installed path (under `~/.pi/agent`)                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Skills            | `skills/b-*/SKILL.md`                                                                                                                          |
+| `/b-*` prompts    | `prompts/b-*.md` (thin templates that point at the skill)                                                                                      |
+| Specialists       | `agents/b-*.md` (five read-only profiles, strict `tools` allowlists)                                                                           |
+| Guard extension   | `extensions/b-agentic/index.ts` and `guard.mjs`                                                                                                |
+| Hooks and CLIs    | `b-agentic/hooks/*.mjs` (4), `b-agentic/bin/` (`b-state.mjs`, `b-candidate-snapshot.mjs`, `b_run.py`)                                          |
+| References        | `b-agentic/references/` (capabilities, MCP operations, artifact schemas)                                                                       |
+| Kernel            | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md`                                                           |
+| Packages          | three pinned `packages` entries merged into `settings.json`                                                                                    |
+| MCP servers       | entries merged into `mcp.json`, each with an `exposure` setting                                                                                |
+| Permission config | `extensions/pi-permission-system/config.json`, written only when absent or b-agentic's own; a copy always ships as `b-agentic/permission.json` |
+
+The pinned packages are `pi-subagents@0.88.0`, `@gotgenes/pi-permission-system@42.0.0`, and
+`@juicesharp/rpiv-ask-user-question@2.15.0`. An existing `settings.json` entry for one of them
+that differs from the pin is kept and reported.
+
+**Instruction file.** Pi loads only the first of `AGENTS.override.md`, `AGENTS.md`, `AGENTS.MD`,
+`CLAUDE.md`, `CLAUDE.MD` in a directory. The installer therefore refuses to create an
+`AGENTS.md` that would hide an existing `CLAUDE.md` or `AGENTS.MD`, and warns about an
+`AGENTS.override.md`, which would hide the kernel block.
+
+**Permission config.** It is generated from the same `references/mcp_operations.yaml` and shell
+and path rules as the Claude settings template, with the last matching rule winning (deny rules
+last), and a parity check compares the two. It also allows `subagent`, `bg_wait`, and
+`ask_user_question`, and keys MCP tools by the names Pi registers (characters outside letters,
+digits, and `_` become `_`). When a permission config already exists that b-agentic did not
+write, the installer leaves it untouched and warns that Pi then runs without the generated rules;
+merge `~/.pi/agent/b-agentic/permission.json` by hand. Uninstall removes the config only when it is
+still unmodified and recorded as owned.
+
+**Guard extension.** `extensions/b-agentic` reuses the `claude/hooks` modules, so both runtimes
+judge likely-secret paths, `.b-agentic` writes, and shell inspection the same way. The file-tool
+guard fails closed (a missing module or any error blocks the call); the verify reminder runs on
+`agent_before_settle` for one extra turn per run, and the run context and approved-spec context
+are queued at session start and after compaction. The extension registers itself and the permission
+system as required child extensions so `pi-subagents` children are gated; if that fails, subagent
+launches are refused. The permission system's `path` rules remain a second layer for secret paths,
+because an extension that fails to load can leave Pi without the guard.
+
+**Review gate and `b-flow`.** The reviewer on Pi is the read-only `b-reviewer` subagent; there is
+no Codex wrapper, guard, or approval, and `b-flow` records `codex` as `reviewer`. The run-state lock
+owner on Pi is `PI_SESSION_ID`. Specialists inherit the session model (the registry has no Pi model
+field), and the MCP configuration sets `deferred` exposure for most servers and `direct` for
+CodeGraph, Context7, Excalidraw, and draw.io, because the default `codemode` exposure leaves a
+server's tools out of the model's direct tool list.
+
+**Not ported in v1.** The status line, the todo list, the Codex gate, and doctor scripts
+(`--runtime=pi` is not supported there). The installer refuses a `PI_CODING_AGENT_DIR` other than
+`~/.pi/agent`, because the managed extension, hooks, and instructions refer to that path, and it
+warns about old `b-*` skills in `~/.agents/skills`, which Pi also loads.
+
+**Known gaps** (ADR-011 lists the live spike results). Specialists are read-only by their tool lists and
+prompts, not a sandbox, so a child's `bash` can still mutate state, as on Claude Code. Background `pi-subagents` children, deferred MCP exposure for
+specialists, the `tree-sitter-bash` install script on a clean machine, and an auto-discovered
+extension that fails to load are unverified on live Pi. Pi startup stalled intermittently in the
+development environment for an unexplained reason, so the live Pi probes retry and the install probe
+skips its live case when Pi never starts. Re-run the spike after upgrading Pi or a pinned package.
+
 ## Verification and repository map
 
 ```bash
@@ -398,12 +477,16 @@ policy and routing checks, the hook probe
 (`tests/hooks/hooks-probe.sh`), the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`), the status line probe
 (`tests/statusline/statusline-probe.sh`), and the runtime instruction parity check
-(`tooling/validate/runtime_parity.py`). `--release` (CI) adds the sandbox installer
-probe (`tests/install/claude-install-probe.sh`) and the RTK readiness check. None
-needs Claude Code, credentials, or a network.
+(`tooling/validate/runtime_parity.py`, which also compares the Pi permission config with the
+Claude settings). It also runs the Pi guard cases (`tests/pi/guard-cases.mjs`, plain Node) and the
+live guard probe (`tests/pi/guard-probe.sh`, skipped when `pi` is absent). `--release` (CI) adds the
+sandbox installer probes (`tests/install/claude-install-probe.sh` and
+`tests/install/pi-install-probe.sh`) and the RTK readiness check. None needs Claude Code,
+credentials, or a network; the Pi probes use an offline scripted model.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
-generated specialists and settings plus the hooks, CLIs, and MCP templates;
+generated specialists and settings plus the hooks, CLIs, and MCP templates; `pi/` holds the
+generated Pi skills, prompts, agents, kernel, and configs plus the owned guard extension;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
 snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).

@@ -1,17 +1,18 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer.**
+**A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer, and the Pi coding agent as an opt-in second runtime.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for all worktree changes. It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration.
 Changed-code review runs through Codex (`openai/codex-plugin-cc`) and falls back
-to the read-only `b-reviewer` subagent when Codex is unavailable.
+to the read-only `b-reviewer` subagent when Codex is unavailable. On Pi the
+reviewer is always the `b-reviewer` subagent.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
-- [Configuration layout](claude/configs/README.md) — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-008 Claude Code only](docs/decisions/ADR-008-claude-code-only.md).
+- [Configuration layout](claude/configs/README.md) for Claude Code and [Pi configuration](pi/configs/README.md) — managed paths and ownership boundaries.
+- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-011 Pi as a second runtime](docs/decisions/ADR-011-pi-second-runtime.md) (which supersedes the Claude-Code-only stance of [ADR-008](docs/decisions/ADR-008-claude-code-only.md)).
 
 ## Install
 
@@ -24,11 +25,29 @@ cd b-agentic
 The installer copies skills, agents, hooks, and CLIs under `~/.claude`, adds the
 kernel to `~/.claude/CLAUDE.md` as a marked block, merges permission rules,
 hooks, and a status line (only when none is configured) into `settings.json` and MCP servers into `~/.claude.json`, and preserves
-everything else. It never runs vendor installers and never writes under
-`~/.pi`. Piped installs
+everything else. It never runs vendor installers. A Claude Code run only touches `~/.claude` and
+`~/.claude.json`. Piped installs
 (`curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash`)
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
+
+### Pi (optional second runtime)
+
+```bash
+./install.sh --runtime=pi      # Pi only, under ~/.pi/agent
+./install.sh --runtime=both    # Claude Code and Pi
+```
+
+`--runtime` defaults to `claude`. The Pi run installs the Pi skills, `/b-*` prompt
+templates, specialist agents, the guard extension, the hooks and run CLIs it uses, and
+the kernel as a marked block in `~/.pi/agent/AGENTS.md`. It merges three pinned packages
+into `settings.json` (`pi-subagents`, `@gotgenes/pi-permission-system`,
+`@juicesharp/rpiv-ask-user-question`) and the MCP servers into `mcp.json`, and it
+writes the generated permission config only when none exists or it is b-agentic's own. It only touches
+`~/.pi/agent`, never runs `pi install` or npm (Pi installs the pinned packages on its next
+start), and reports a missing `pi` binary (Pi needs Node 22.19 or newer). The Codex gate, status line, and todo
+list are not ported to Pi. See [REFERENCE.md](REFERENCE.md#pi-runtime) for the payload, the
+permission config rules, and the known gaps.
 
 Three skills and their MCP servers are optional and never installed without a
 choice: DataGrip, Excalidraw, and draw.io. On a terminal the installer
@@ -37,7 +56,7 @@ pre-checked). Non-interactively pass `--with=excalidraw,drawio` to add and
 `--without=drawio` to remove; `-y` keeps the recorded choice and otherwise
 installs none.
 
-Only want the status line? `./install.sh --statusline-only` installs just
+Only want the Claude Code status line? `./install.sh --statusline-only` installs just
 `b-statusline.mjs` and its `settings.json` entry (kept if you already have a status
 line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 `./install.sh` upgrades it to the full setup, and `--uninstall` removes it.
@@ -45,7 +64,7 @@ line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 ## How it works
 
 Each request uses one active skill rather than mixing planning, building,
-validation, and shipping. The main Claude Code session owns user interaction,
+validation, and shipping. The main session (Claude Code, or Pi when installed there) owns user interaction,
 decisions, verification, and mutations. It delegates bounded planning,
 research, diagnosis, repository audits, and changed-code review to read-only
 subagents. A change that touches security, permissions, contracts,
@@ -86,10 +105,11 @@ necessarily a different model family.
 <!-- generated:skills-table:end -->
 
 Claude Code discovers the installed `SKILL.md` files, and each is also a command:
-`/b-plan`, `/b-research`, `/b-implement`, `/b-test`, `/b-review`, and so on.
+`/b-plan`, `/b-research`, `/b-implement`, `/b-test`, `/b-review`, and so on. On Pi the same
+skills install from `pi/skills/`, and thin `/b-*` prompt templates point at them.
 
 ## Learn more
 
 - [Operational reference](REFERENCE.md) — lifecycle, permissions, review gate, MCP, and verification.
-- [Configuration layout](claude/configs/README.md) — installed paths and ownership boundaries.
+- [Configuration layout](claude/configs/README.md) and [Pi configuration](pi/configs/README.md) — installed paths and ownership boundaries.
 - [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) — evidence-backed architecture decisions.
