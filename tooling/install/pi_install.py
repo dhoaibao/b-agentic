@@ -603,8 +603,11 @@ class PiInstaller:
         """The generated permission config, without the rules of any deselected optional server."""
         template = json.loads((self.source / "pi" / "configs" / "permission.json").read_text())
         prefixes = tuple(f"mcp__{re.sub(r'[^A-Za-z0-9_]', '_', server)}__" for server in self.excluded_servers())
-        permission = {
-            key: value for key, value in template["permission"].items() if not (prefixes and key.startswith(prefixes))
+        permission = dict(template["permission"])
+        permission["mcp"] = {
+            key: value
+            for key, value in template["permission"]["mcp"].items()
+            if not (prefixes and key.startswith(prefixes))
         }
         return json_text({"yoloMode": template["yoloMode"], "permission": permission})
 
