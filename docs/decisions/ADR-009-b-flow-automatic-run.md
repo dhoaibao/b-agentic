@@ -48,6 +48,17 @@ otherwise approved, unattended run.
   closed (for example `commit` needs recorded consent, a QA PASS fingerprint equal to
   the current candidate, and a review verdict or low-risk exception for that same
   fingerprint).
+- **Continuing without memory.** (Refined 2026-11-13.) A session must be able to
+  continue a run from the run folder alone. `b-state check` therefore prints `next`,
+  the steps the current phase still owes, derived from the state and the validated
+  artifacts; it only reads, and every step it names is still checked by its own guard.
+  The helper also refuses what the skill text alone used to ask for: review and QA
+  need every approved plan check passing for the candidate, and a `NEEDS FIXES` or
+  `READY WITH FOLLOW-UPS` verdict needs that round's findings already in
+  `followups.md`. `state.json` keeps a bounded `history` (one entry per write, in the
+  same atomic write as the change, holding only the kinds of facts the state already
+  holds), so earlier verdicts, blocks, and unblock reasons are not lost. Progress
+  inside `implement` is still read from the tree.
 - **Resume.** Only an explicit `/b-flow resume` continues a run. `b-state check` first
   re-verifies repo root and branch, lock, spec hash, HEAD against recorded commits,
   and the current candidate fingerprint; any mismatch voids evidence tied to the old
@@ -82,7 +93,10 @@ otherwise approved, unattended run.
   `docs/specs/` as the run spec (status edits churn the fingerprint and void reviews);
   every skill reading and writing state itself (spreads authority); automatic push or
   PR (shared external mutation); a read-only planner writing `.b-agentic/` (breaks the
-  agent boundary); state under `~/.claude/b-agentic/` (does not follow the worktree).
+  agent boundary); state under `~/.claude/b-agentic/` (does not follow the worktree);
+  a separate event log file (a second write that can drift from the state); continuing
+  after compaction without `/b-flow resume` (session id and skill text surviving
+  compaction are unverified).
 
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
 [`skills/b-commit/prompt.md`](../../skills/b-commit/prompt.md),

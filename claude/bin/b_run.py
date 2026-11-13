@@ -526,7 +526,14 @@ def summary(data: dict) -> dict:
             "rows": [{"ac": r["ac"], "result": r["result"]} for r in data["qa"]["rows"]],
         }
     if "followups" in data:
-        out["followups"] = {"ids": [i["id"] for i in data["followups"]["items"]]}
+        items = data["followups"]["items"]
+        out["followups"] = {
+            "ids": [i["id"] for i in items],
+            # b-state reads the kind and disposition: a verdict needs its round's findings recorded.
+            "items": [
+                {"id": i["id"], "kind": i.get("kind", "followup"), "disposition": i["disposition"]} for i in items
+            ],
+        }
     return out
 
 

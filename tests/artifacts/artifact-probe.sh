@@ -158,6 +158,10 @@ ok "$repo" write qa < <(example qa)
 cp "$run_dir/qa.md" "$work/qa.md.keep"
 setphase "$repo" verify
 ok "$repo" write followups < <(example followups)
+ok "$repo" validate
+[ "$(jq -c '.artifacts.followups.items' <<<"$out")" \
+  = '[{"id":"R1-1","kind":"blocker","disposition":"fixed"},{"id":"R1-2","kind":"followup","disposition":"deferred"},{"id":"F-1","kind":"followup","disposition":"open"}]' ] \
+  || fail "the validate summary must give each follow-up's kind and disposition: $out"
 br "$repo" write followups < <(example followups | jq -c '.items = [.items[1]]')
 [ "$rc" -eq 2 ] || fail "dropping a recorded follow-up id must be invalid (rc=$rc)"
 br "$repo" write followups < <(example followups | jq -c 'del(.items[0].kind) | del(.items[0].sweep)')

@@ -12,9 +12,14 @@
 // SHAs, approved check commands, and exit codes. It is untrusted input to every
 // other reader and never authorizes push, PR, or any external mutation.
 //
+// The state is enough to continue a run without any memory of it (ADR-009):
+// `history` records every write, and `check` prints `next`, the steps the
+// current phase still owes.
+//
 // Usage: b-state.mjs <command> [args] [--run ID] [--owner NAME]
 //   init <slug>                         create a run in phase clarify and lock it
-//   show                                print the state
+//   show [--history]                    print the state (the latest history entries,
+//                                       or all of them with --history)
 //   approve --commit yes|no --branch-target current|new:<type>/<kebab>
 //           --codex standing|reviewer
 //                                       hash spec.md, check the flags against the
@@ -29,7 +34,8 @@
 //   record qa --verdict V
 //   record ac AC-n pass|fail|gap|waived
 //   record commit SHA
-//   check [--takeover]                  verify the state against git and void stale evidence
+//   check [--takeover]                  verify the state against git, void stale evidence,
+//                                       and print `next`: what the phase still owes
 //   lock [--takeover] | unlock          take or release the run lock
 // Exit: 0 done, 3 refused or not ok, 2 invalid input or state.
 import { execFile } from "node:child_process";
@@ -102,6 +108,37 @@ const CONSENT_DRIFT = "recorded consent differs from the approved spec";
 const MAX_CMD = 300;
 const MAX_TEXT = 300;
 const MAX_STATE_BYTES = 1 << 20;
+// One entry per write, oldest dropped first; `history_dropped` counts those.
+const MAX_HISTORY = 200;
+const SHOW_HISTORY = 20;
+const HISTORY_OPS = [
+  "init",
+  "approve",
+  "advance",
+  "unblock",
+  "check",
+  "record check",
+  "record review",
+  "record qa",
+  "record ac",
+  "record commit",
+];
+// The only facts an entry may carry: the same kinds the rest of the state holds.
+const HISTORY_DETAIL = [
+  "cmd",
+  "exit",
+  "verdict",
+  "round",
+  "trigger",
+  "reason",
+  "needs",
+  "fingerprint",
+  "ac",
+  "status",
+  "sha",
+  "spec",
+];
+const CONTROL = /[\u0000-\u001f\u007f]/;
 
 class Refused extends Error {}
 class Invalid extends Error {}
@@ -434,6 +471,34 @@ function validate(state) {
     fail("review.verdict");
   if (state.qa.verdict && !QA_VERDICTS.includes(state.qa.verdict))
     fail("qa.verdict");
+  if (
+    !Array.isArray(state.history) ||
+    state.history.length > MAX_HISTORY ||
+    !isInt(state.history_dropped)
+  ) {
+    fail("history");
+  }
+  for (const entry of state.history) {
+    if (
+      !isObj(entry) ||
+      typeof entry.at !== "string" ||
+      !isInt(entry.rev) ||
+      !HISTORY_OPS.includes(entry.op) ||
+      !(entry.from === "" || PHASES.includes(entry.from)) ||
+      !PHASES.includes(entry.to) ||
+      !isObj(entry.detail)
+    ) {
+      fail("history entry");
+    }
+    for (const [key, value] of Object.entries(entry.detail)) {
+      const line =
+        typeof value === "string" &&
+        value.length <= MAX_TEXT &&
+        !CONTROL.test(value);
+      if (!HISTORY_DETAIL.includes(key) || !(line || isInt(value)))
+        fail("history detail");
+    }
+  }
   return state;
 }
 
@@ -452,19 +517,48 @@ function loadState(dir) {
     if (state.spec && typeof state.spec === "object")
       state.spec.plan_sha256 ??= "";
     if (state.qa && typeof state.qa === "object") state.qa.artifact_rev ??= 0;
+    // A run made before the history existed starts one from here.
+    state.history ??= [];
+    state.history_dropped ??= 0;
   }
   return validate(state);
 }
 
 // `rev` is an optimistic check: a concurrent writer between our read and our
 // rename makes this write refuse rather than silently drop its change.
-function saveState(dir, state) {
+//
+// Every write appends one history entry in the same atomic write as the change
+// it describes, so the record cannot drift from the state. A new or replaced
+// block always records why: `unblock` clears the reason from the state.
+function saveState(dir, state, op, detail = {}) {
   const current = loadState(dir);
   if (current.rev !== state.rev) {
     throw refuse("state changed during the operation; rerun");
   }
   state.rev += 1;
   state.updated_at = now();
+  const blockedAnew =
+    state.phase === "blocked" &&
+    (current.phase !== "blocked" ||
+      current.blocked.reason !== state.blocked.reason ||
+      current.blocked.needs !== state.blocked.needs);
+  const facts = blockedAnew
+    ? { ...detail, reason: state.blocked.reason, needs: state.blocked.needs }
+    : detail;
+  state.history.push({
+    at: state.updated_at,
+    rev: state.rev,
+    op,
+    from: current.phase,
+    to: state.phase,
+    detail: Object.fromEntries(
+      Object.entries(facts).filter(([, v]) => v !== "" && v !== undefined),
+    ),
+  });
+  if (state.history.length > MAX_HISTORY) {
+    state.history_dropped += state.history.length - MAX_HISTORY;
+    state.history = state.history.slice(-MAX_HISTORY);
+  }
   validate(state);
   writeAtomic(join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`);
 }
@@ -501,6 +595,10 @@ function freshState(runId, root, baseline) {
     prior_commits: [],
     commit_plan: null,
     blocked: { reason: "", needs: "", from: "" },
+    history: [
+      { at: now(), rev: 0, op: "init", from: "", to: "clarify", detail: {} },
+    ],
+    history_dropped: 0,
     updated_at: now(),
   };
 }
@@ -658,12 +756,22 @@ async function scopeOk(root, state) {
   }
 }
 
-function checksPass(state) {
-  return (
-    state.candidate.checks.length > 0 &&
-    state.candidate.checks.every((c) => c.exit === 0)
+// The plan checks without a passing result for the recorded candidate.
+function missingChecks(state, plan) {
+  return plan.checks.filter(
+    (cmd) => !state.candidate.checks.some((c) => c.cmd === cmd && c.exit === 0),
   );
 }
+
+// Every approved plan check must have passed, not just the ones that were run.
+function checksPass(state, plan) {
+  return plan.checks.length > 0 && missingChecks(state, plan).length === 0;
+}
+
+const checksOwed = (state, plan) =>
+  `plan checks without a passing result for the candidate: ${
+    missingChecks(state, plan).join("; ") || "the plan lists none"
+  }`;
 
 function reviewCovers(state, fingerprint) {
   if (state.review.fingerprint !== fingerprint) return false;
@@ -724,7 +832,7 @@ const text = (value, name, max = MAX_TEXT) => {
     typeof value !== "string" ||
     !value.trim() ||
     value.length > max ||
-    /[\u0000-\u001f\u007f]/.test(value)
+    CONTROL.test(value)
   ) {
     throw invalid(`${name} must be one line of 1-${max} printable characters`);
   }
@@ -798,7 +906,7 @@ async function cmdApprove(root, dir, state, args) {
     status_digest: baseline.status_digest,
   };
   state.phase = "approved";
-  saveState(dir, state);
+  saveState(dir, state, "approve", { spec: state.spec.sha256 });
   return { phase: state.phase, ac: ids, spec_sha256: state.spec.sha256 };
 }
 
@@ -813,7 +921,7 @@ async function cmdAdvance(root, dir, state, args) {
       text(args.reason, "--reason"),
       text(args.needs ?? "user decision", "--needs"),
     );
-    saveState(dir, state);
+    saveState(dir, state, "advance");
     return { phase: state.phase };
   }
   if (!NEXT[state.phase].includes(target)) {
@@ -833,8 +941,8 @@ async function cmdAdvance(root, dir, state, args) {
     ? await currentFingerprint(state)
     : "";
   if (target === "review") {
-    if (!checksPass(state))
-      throw refuse("no passing checks recorded for the candidate");
+    if (!checksPass(state, art.artifacts.plan))
+      throw refuse(checksOwed(state, art.artifacts.plan));
     if (state.candidate.fingerprint !== fingerprint) {
       throw refuse("candidate changed since the checks; record fresh checks");
     }
@@ -851,9 +959,8 @@ async function cmdAdvance(root, dir, state, args) {
         "no review verdict or recorded low-risk exception for the current candidate",
       );
     }
-    if (state.review.verdict === "" && !checksPass(state)) {
-      throw refuse("low-risk exception needs passing checks");
-    }
+    if (!checksPass(state, art.artifacts.plan))
+      throw refuse(checksOwed(state, art.artifacts.plan));
   }
   if (target === "qa") state.qa.artifact_rev = art.revs.qa ?? 0;
   if (target === "fix") {
@@ -928,7 +1035,10 @@ async function cmdAdvance(root, dir, state, args) {
   if (["review", "qa"].includes(target) && state.phase === "verify")
     state.attempts.verify = 0;
   state.phase = target;
-  saveState(dir, state);
+  saveState(dir, state, "advance", {
+    trigger: target === "review" ? state.review.trigger : "",
+    fingerprint,
+  });
   return { phase: state.phase };
 }
 
@@ -938,7 +1048,7 @@ function cmdUnblock(dir, state, args) {
   if (!["clarify", "implement", "fix", "verify"].includes(target)) {
     throw invalid("unblock target must be clarify, implement, fix, or verify");
   }
-  text(args.reason, "--reason");
+  const reason = text(args.reason, "--reason");
   if (target === "clarify") {
     state.spec = {
       path: "spec.md",
@@ -964,7 +1074,7 @@ function cmdUnblock(dir, state, args) {
   state.attempts = { verify: 0, review_needs_fixes: 0, qa_fail: 0 };
   state.blocked = { reason: "", needs: "", from: "" };
   state.phase = target;
-  saveState(dir, state);
+  saveState(dir, state, "unblock", { reason });
   return { phase: state.phase };
 }
 
@@ -1019,7 +1129,7 @@ async function cmdRecord(root, dir, state, args) {
         block(state, `${MAX_ROUNDS} failed verify attempts`, "user decision");
       }
     }
-    saveState(dir, state);
+    saveState(dir, state, "record check", { cmd, exit, fingerprint });
     return { phase: state.phase, attempts: state.attempts.verify };
   }
   if (kind === "review") {
@@ -1037,8 +1147,13 @@ async function cmdRecord(root, dir, state, args) {
           "a review was already triggered or held for this run; record a fresh review verdict",
         );
       }
-      if (!checksPass(state) || state.candidate.fingerprint !== fingerprint) {
-        throw refuse("record passing checks for the current candidate first");
+      if (
+        !checksPass(state, art.artifacts.plan) ||
+        state.candidate.fingerprint !== fingerprint
+      ) {
+        throw refuse(
+          `record passing checks for the current candidate first (${checksOwed(state, art.artifacts.plan)})`,
+        );
       }
       state.review.required = false;
       state.review.low_risk_exception = text(args["low-risk"], "--low-risk");
@@ -1051,8 +1166,32 @@ async function cmdRecord(root, dir, state, args) {
       if (!REVIEW_VERDICTS.includes(verdict))
         throw invalid("unknown review verdict");
       // A verdict binds to the current candidate, which must have fresh passing checks.
-      if (!checksPass(state) || state.candidate.fingerprint !== fingerprint) {
-        throw refuse("record passing checks for the current candidate first");
+      if (
+        !checksPass(state, art.artifacts.plan) ||
+        state.candidate.fingerprint !== fingerprint
+      ) {
+        throw refuse(
+          `record passing checks for the current candidate first (${checksOwed(state, art.artifacts.plan)})`,
+        );
+      }
+      // The findings are written before the verdict that depends on them, so a
+      // session lost after this step can still read what the round found.
+      const round = state.review.round + 1;
+      const found = (art.artifacts.followups?.items ?? []).filter((item) =>
+        item.id.startsWith(`R${round}-`),
+      );
+      if (
+        verdict === "NEEDS FIXES" &&
+        !found.some((item) => item.kind === "blocker")
+      ) {
+        throw refuse(
+          `write this round's blockers with b_run.py write followups first (ids R${round}-<n>, kind blocker)`,
+        );
+      }
+      if (verdict === "READY WITH FOLLOW-UPS" && found.length === 0) {
+        throw refuse(
+          `write this round's follow-ups with b_run.py write followups first (ids R${round}-<n>)`,
+        );
       }
       state.review.required = true;
       state.review.trigger = args.trigger
@@ -1075,7 +1214,19 @@ async function cmdRecord(root, dir, state, args) {
         state.attempts.review_needs_fixes = 0;
       }
     }
-    saveState(dir, state);
+    saveState(
+      dir,
+      state,
+      "record review",
+      state.review.verdict
+        ? {
+            verdict: state.review.verdict,
+            round: state.review.round,
+            trigger: state.review.trigger,
+            fingerprint,
+          }
+        : { reason: state.review.low_risk_exception, fingerprint },
+    );
     return {
       phase: state.phase,
       review: state.review.verdict || "low-risk exception",
@@ -1106,7 +1257,11 @@ async function cmdRecord(root, dir, state, args) {
     } else {
       block(state, "QA BLOCKED", "user decision");
     }
-    saveState(dir, state);
+    saveState(dir, state, "record qa", {
+      verdict,
+      round: state.qa.round,
+      fingerprint: state.qa.fingerprint,
+    });
     return { phase: state.phase, qa: verdict };
   }
   if (kind === "ac") {
@@ -1122,7 +1277,11 @@ async function cmdRecord(root, dir, state, args) {
       throw refuse(`qa.md records ${row?.result ?? "no row"} for ${id}`);
     }
     state.ac[id] = { status, fingerprint: await currentFingerprint(state) };
-    saveState(dir, state);
+    saveState(dir, state, "record ac", {
+      ac: id,
+      status,
+      fingerprint: state.ac[id].fingerprint,
+    });
     return { ac: id, status };
   }
   if (kind === "commit") {
@@ -1148,7 +1307,7 @@ async function cmdRecord(root, dir, state, args) {
       throw refuse(`commits belong on the approved branch, not ${branch}`);
     }
     if (!state.commits.includes(full)) state.commits.push(full);
-    saveState(dir, state);
+    saveState(dir, state, "record commit", { sha: full });
     return { commits: state.commits };
   }
   throw invalid("record needs check|review|qa|ac|commit");
@@ -1168,9 +1327,14 @@ async function cmdCheck(root, dir, state, args) {
     };
   }
   if (state.phase === "done")
-    return { ok: true, phase: "done", problems, actions };
+    return { ok: true, phase: "done", problems, actions, next: [] };
   const baseline = await worktreeBaseline(root);
   let changed = false;
+  let why = "";
+  let art = null;
+  const blockedFor = (s) =>
+    s.phase === "blocked" ? `${s.blocked.reason}\n${s.blocked.needs}` : null;
+  const wasBlockedFor = blockedFor(state);
   let artifactProblem = "";
   // A branch the run was approved to create is not a branch change, but it is
   // adopted only after every other check below has passed: a refused check
@@ -1200,20 +1364,24 @@ async function cmdCheck(root, dir, state, args) {
   } else if (
     state.phase !== "clarify" &&
     (artifactProblem = await artifactsOk(root, state).then(
-      (art) => (consentMatches(state, art) ? "" : CONSENT_DRIFT),
+      (valid) => {
+        art = valid;
+        return consentMatches(state, valid) ? "" : CONSENT_DRIFT;
+      },
       (error) => error.message,
     ))
   ) {
     const drift = artifactProblem === CONSENT_DRIFT;
-    const why = drift
+    const problem = drift
       ? CONSENT_DRIFT
       : "run artifacts changed outside b_run.py";
-    problems.push(why);
-    block(state, why, drift ? "re-approval" : "user decision");
+    problems.push(problem);
+    block(state, problem, drift ? "re-approval" : "user decision");
     changed = true;
   } else {
     if (adoptable) {
       state.branch = baseline.branch;
+      why = "adopted the approved branch";
       changed = true;
     }
     let headMoved = false;
@@ -1224,6 +1392,7 @@ async function cmdCheck(root, dir, state, args) {
       if (known.includes(baseline.head)) {
         state.baseline.head = baseline.head;
         headMoved = true;
+        why ||= "HEAD moved to a recorded commit";
         changed = true;
       } else if (state.phase === "commit") {
         headMoved = true;
@@ -1264,6 +1433,11 @@ async function cmdCheck(root, dir, state, args) {
         ...Object.values(state.ac).map((entry) => entry.fingerprint),
         plan?.fingerprint,
       ].filter(Boolean);
+      // Past verify every plan check must have passed: a run recorded before
+      // that rule, or an edited state, goes back for the missing ones rather
+      // than being pointed at a step its guard would refuse.
+      const incomplete =
+        state.phase !== "verify" && !checksPass(state, art.artifacts.plan);
       if (
         recorded.some((f) => f !== fingerprint) ||
         (["review", "qa", "commit"].includes(state.phase) &&
@@ -1274,18 +1448,170 @@ async function cmdCheck(root, dir, state, args) {
         actions.push(
           "evidence is void for the changed candidate: run fresh checks",
         );
+        why = "candidate changed: evidence void";
+        changed = true;
+      } else if (incomplete) {
+        voidEvidence(state);
+        state.phase = "verify";
+        actions.push(
+          "a plan check has no passing result for the candidate: run every plan check",
+        );
+        why = "plan checks incomplete: evidence void";
         changed = true;
       }
     }
   }
-  if (changed) saveState(dir, state);
+  // Re-checking a run that is still blocked for the same reason writes nothing,
+  // so repeated checks cannot push the useful history out.
+  const stillBlocked =
+    wasBlockedFor !== null && wasBlockedFor === blockedFor(state) && !why;
+  if (changed && !stillBlocked) saveState(dir, state, "check", { reason: why });
+  if (state.phase === "clarify") {
+    art = await artifactsOk(root, state).catch(() => null);
+  }
   return {
     ok: state.phase !== "blocked",
     phase: state.phase,
     problems,
     actions,
+    next: await nextSteps(root, state, art),
     blocked: state.phase === "blocked" ? state.blocked : undefined,
   };
+}
+
+const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
+
+// What the current phase still owes, derived from the state and the validated
+// artifacts alone, so a session with no memory of the run can continue it. It
+// only reads: every step it names is still checked by its own guard, and it
+// grants no approval.
+async function nextSteps(root, state, art) {
+  const stateCmd = (rest) => `b-state.mjs ${rest}`;
+  const runCmd = (rest) => `b_run.py ${rest}`;
+  if (state.phase === "blocked") {
+    return [
+      `ask the user: ${state.blocked.reason} (needs: ${state.blocked.needs})`,
+      stateCmd(
+        "unblock <clarify|implement|fix|verify> --reason R (a changed spec needs clarify and a new approval)",
+      ),
+    ];
+  }
+  if (!art) return ["the run artifacts could not be read: b_run.py validate"];
+  const { spec, plan, qa, followups } = art.artifacts;
+  if (state.phase === "clarify") {
+    const steps = [];
+    if (!spec)
+      steps.push(`clarify with the user, then ${runCmd("write spec")}`);
+    if (!plan) steps.push(runCmd("write plan"));
+    const consent = spec?.consent;
+    steps.push(
+      `run the approval round with the user (never skip it), then ${stateCmd(
+        consent
+          ? `approve --commit ${consent.commit} --branch-target ${consent.branch_target} --codex ${consent.codex}`
+          : "approve --commit yes|no --branch-target T --codex standing|reviewer",
+      )}`,
+    );
+    return steps;
+  }
+  if (state.phase === "approved") return [stateCmd("advance implement")];
+  if (state.phase === "implement") {
+    return [
+      `apply plan.md steps ${plan.step_ids.join(", ")} inside the approved scope (step progress is not recorded: compare the tree with the plan)`,
+      stateCmd("advance verify"),
+    ];
+  }
+  if (state.phase === "verify") {
+    const missing = missingChecks(state, plan);
+    if (missing.length > 0) {
+      return missing.map(
+        (cmd) =>
+          `run \`${cmd}\`, then ${stateCmd(`record check --cmd ${shellQuote(cmd)} --exit <its exit code>`)}`,
+      );
+    }
+    if (state.review.low_risk_exception) return [stateCmd("advance qa")];
+    if (
+      state.review.trigger !== "" ||
+      state.review.round > 0 ||
+      state.attempts.review_needs_fixes > 0
+    ) {
+      return [
+        stateCmd(
+          `advance review --trigger ${state.review.trigger ? shellQuote(state.review.trigger) : "<kernel review trigger>"}`,
+        ),
+      ];
+    }
+    return [
+      `classify risk per the kernel: with a trigger ${stateCmd("advance review --trigger T")}; without one ${stateCmd("record review --low-risk REASON")} then ${stateCmd("advance qa")}`,
+    ];
+  }
+  if (state.phase === "review") {
+    if (state.review.verdict === "NEEDS FIXES")
+      return [stateCmd("advance fix")];
+    if (state.review.verdict) return [stateCmd("advance qa")];
+    const round = state.review.round + 1;
+    return [
+      runCmd("handoff review --out <scratch file outside the repo>"),
+      `run b-review, round ${round}`,
+      `${runCmd("write followups")} with this round's findings as R${round}-<n> (each blocker: kind blocker, disposition open)`,
+      stateCmd('record review --verdict "<verdict>"'),
+    ];
+  }
+  if (state.phase === "fix") {
+    const steps = [];
+    const open = (followups?.items ?? [])
+      .filter((item) => item.kind === "blocker" && item.disposition === "open")
+      .map((item) => item.id);
+    const failed = Object.entries(state.ac)
+      .filter(([, entry]) => ["fail", "gap"].includes(entry.status))
+      .map(([id]) => id);
+    if (state.qa.verdict === "QA FAIL") {
+      steps.push(
+        `correct the criteria QA failed, routed per b-qa: ${failed.join(", ") || "see qa.md"}`,
+      );
+    }
+    if (open.length > 0) {
+      steps.push(
+        `fix the open blockers inside the approved scope, whole class each: ${open.join(", ")}`,
+        `${runCmd("write followups")} with a disposition and reason for each, and a sweep line for every fixed blocker`,
+      );
+    }
+    return [...steps, stateCmd("advance verify")];
+  }
+  if (state.phase === "qa") {
+    if (!qa || (art.revs.qa ?? 0) <= state.qa.artifact_rev) {
+      return [
+        runCmd("handoff qa"),
+        "run b-qa against every AC-n",
+        `${runCmd("write qa")} with one row per criterion`,
+        stateCmd(
+          "record ac AC-n <result> for each row, then record qa --verdict V",
+        ),
+      ];
+    }
+    const steps = qa.rows
+      .filter((row) => state.ac[row.ac]?.status !== row.result)
+      .map((row) => stateCmd(`record ac ${row.ac} ${row.result}`));
+    if (state.qa.verdict !== qa.verdict) {
+      steps.push(stateCmd(`record qa --verdict "${qa.verdict}"`));
+    }
+    if (steps.length > 0) return steps;
+    if (qa.verdict === "QA FAIL") return [stateCmd("advance fix")];
+    return state.consent.commit
+      ? [stateCmd("advance commit")]
+      : [
+          "commit consent is no: report the QA-passed candidate and stop; the user commits",
+        ];
+  }
+  if (state.phase === "commit") {
+    const head = await gitOr(root, ["rev-parse", "HEAD"]);
+    if (state.commits.includes(head)) return [stateCmd("advance done")];
+    return [
+      `run b-commit for the whole candidate (branch target ${state.consent.branch_target}); the recorded consent is the commit request`,
+      stateCmd("record commit <sha> for every commit"),
+      stateCmd("advance done"),
+    ];
+  }
+  return [];
 }
 
 // One command at a time per run: the whole read-check-write runs while a
@@ -1371,7 +1697,7 @@ const VALUE_FLAGS = new Set([
   "trigger",
   "low-risk",
 ]);
-const BOOL_FLAGS = new Set(["takeover"]);
+const BOOL_FLAGS = new Set(["takeover", "history"]);
 
 export function parseArgs(argv) {
   const args = { _: [] };
@@ -1400,7 +1726,16 @@ export async function run(argv, cwd = process.cwd()) {
   if (command === "init") return cmdInit(root, args);
   if (!command) throw invalid("missing command");
   const { dir } = await resolveRun(root, args);
-  if (command === "show") return loadState(dir);
+  if (command === "show") {
+    const state = loadState(dir);
+    // A long run's history would crowd out the rest of the state.
+    if (args.history || state.history.length <= SHOW_HISTORY) return state;
+    return {
+      ...state,
+      history: state.history.slice(-SHOW_HISTORY),
+      history_shown: `latest ${SHOW_HISTORY} of ${state.history.length}; show --history prints all`,
+    };
+  }
   const release = acquireMutex(dir);
   try {
     const state = loadState(dir);

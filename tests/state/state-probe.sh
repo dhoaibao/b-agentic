@@ -80,10 +80,20 @@ run_dir=$(dirname "$(sfile "$repo")")
 printf '# Spec\nhand written, no criteria\n' >"$run_dir/spec.md"
 refused "$repo" s1 approve --commit yes --branch-target current --codex reviewer   # unrecorded file
 rm -f "$run_dir/spec.md"
+ok "$repo" s1 check
+grep -Fq 'write spec' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "clarify must owe the spec first: $out"
 write_artifacts "$repo" 2
+ok "$repo" s1 check
+grep -Fq 'approve --commit yes --branch-target current --codex reviewer' <<<"$(jq -r '.next[-1]' <<<"$out")" \
+  || fail "clarify must name the approval the spec records: $out"
 invalid "$repo" s1 approve --commit yes --branch-target "bad target" --codex reviewer
 ok "$repo" s1 approve --commit yes --branch-target current --codex reviewer
 [ "$(phase "$repo")" = approved ] || fail "approve phase"
+ok "$repo" s1 check
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance implement"]' ] || fail "approved must owe advance implement: $out"
+[ "$(jq -c '[.history[].op]' "$(sfile "$repo")")" = '["init","approve"]' ] || fail "every write must add one history entry"
+[ "$(jq -r '.history[1] | .from + ">" + .to + " " + (.detail.spec | length | tostring)' "$(sfile "$repo")")" = "clarify>approved 64" ] \
+  || fail "the approval entry must carry the phases and the spec hash"
 [ "$(jq -r '.ac | keys | join(",")' "$(sfile "$repo")")" = "AC-1,AC-2" ] || fail "AC ids"
 [ "$(jq -r '.spec.plan_sha256 | length' "$(sfile "$repo")")" = 64 ] || fail "the plan hash must be recorded at approval"
 
@@ -162,6 +172,12 @@ refused "$repo" s1 advance review
 refused "$repo" s1 check
 [ "$(jq -r .ok <<<"$out")" = false ] || fail "spec change must not be ok"
 [ "$(phase "$repo")" = blocked ] || fail "spec change must block"
+grep -Fq 'ask the user: spec or plan changed' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "a blocked run must owe the user decision: $out"
+[ "$(jq -r '.history[-1] | .op + " " + .to + " " + .detail.reason' "$(sfile "$repo")")" = "check blocked spec or plan changed after approval" ] \
+  || fail "a block found by check must be recorded with its reason"
+entries=$(jq '.history | length' "$(sfile "$repo")")
+refused "$repo" s1 check
+[ "$(jq '.history | length' "$(sfile "$repo")")" = "$entries" ] || fail "re-checking a run blocked for the same reason must not add history"
 refused "$repo" s1 unblock verify --reason "keep going"   # spec still differs
 ok "$repo" s1 unblock clarify --reason "re-approve"
 [ "$(phase "$repo")" = clarify ] || fail "unblock to clarify"
@@ -181,6 +197,12 @@ ok "$repo3" s1 record check --cmd "make test" --exit 1
 ok "$repo3" s1 record check --cmd "make test" --exit 1
 [ "$(phase "$repo3")" = blocked ] || fail "third failure must block"
 [ "$(jq -r .attempts.verify "$(sfile "$repo3")")" = 3 ] || fail "attempt counter"
+[ "$(jq -c '.history[-1] | [.op, .from, .to, .detail.cmd, .detail.exit, .detail.reason]' "$(sfile "$repo3")")" \
+  = '["record check","verify","blocked","make test",1,"3 failed verify attempts"]' ] || fail "the blocking check must be recorded with its reason"
+# The unblock reason is kept: it is the only record of what the user decided.
+ok "$repo3" s1 unblock verify --reason "user accepted the flaky test"
+[ "$(jq -c '.history[-1] | [.op, .from, .to, .detail.reason]' "$(sfile "$repo3")")" \
+  = '["unblock","blocked","verify","user accepted the flaky test"]' ] || fail "the unblock reason must be kept in history"
 
 # --- invalid state and unsafe folders fail closed -----------------------------
 repo4="$work/repo4"
@@ -231,7 +253,10 @@ sha=$(git -C "$repo6" rev-parse HEAD)
 ok "$repo6" s1 check                               # the approved new branch is not a branch change
 [ "$(jq -r .branch "$(sfile "$repo6")")" = feat/demo ] || fail "state must follow the approved branch"
 [ "$(phase "$repo6")" = commit ] || fail "check must keep the commit phase after the commit"
+grep -Fq 'record commit' <<<"$(jq -r '.next | join("\n")' <<<"$out")" || fail "an unrecorded commit must be owed: $out"
 ok "$repo6" s1 record commit "$sha"
+ok "$repo6" s1 check
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance done"]' ] || fail "a recorded HEAD commit must owe advance done: $out"
 ok "$repo6" s1 advance "done"
 [ "$(phase "$repo6")" = "done" ] || fail "done phase"
 
@@ -295,6 +320,78 @@ ok "$repo12" s1 record check --cmd "make test" --exit 1
 ok "$repo12" s1 record check --cmd "make test" --exit 0
 ok "$repo12" s1 advance review --trigger "workflow policy"
 [ "$(jq -r .attempts.verify "$(sfile "$repo12")")" = 0 ] || fail "entering review resets the verify attempts"
+
+# --- history is bounded, shown in part, and limited to the allowed facts --------------
+jq '.history = [range(0; 200) | {at: "t", rev: 0, op: "check", from: "verify", to: "verify", detail: {}}]' \
+  "$(sfile "$repo12")" >"$tmp" && cp "$tmp" "$(sfile "$repo12")"
+ok "$repo12" s1 advance blocked --reason "probe stop" --needs "nothing"
+[ "$(jq -c '[(.history | length), .history_dropped, .history[-1].detail.reason]' "$(sfile "$repo12")")" = '[200,1,"probe stop"]' ] \
+  || fail "history must stay capped and count what it dropped"
+# A block that replaces another keeps its own reason: unblock later clears the state's copy.
+ok "$repo12" s1 advance blocked --reason "second stop" --needs "a decision"
+[ "$(jq -c '.history[-1] | [.from, .to, .detail.reason, .detail.needs]' "$(sfile "$repo12")")" = '["blocked","blocked","second stop","a decision"]' ] \
+  || fail "a replaced block reason must be recorded"
+printf '\n- AC-9: sneaked in\n' >>"$(dirname "$(sfile "$repo12")")/spec.md"
+refused "$repo12" s1 check
+[ "$(jq -c '.history[-1] | [.op, .detail.reason]' "$(sfile "$repo12")")" = '["check","spec or plan changed after approval"]' ] \
+  || fail "a block reason replaced by check must be recorded"
+[ "$(jq -c '[.history[-3:][].detail.reason]' "$(sfile "$repo12")")" = '["probe stop","second stop","spec or plan changed after approval"]' ] \
+  || fail "every block reason must stay in history"
+ok "$repo12" s1 show
+[ "$(jq -r '(.history | length | tostring) + " " + (.history_shown | length > 0 | tostring)' <<<"$out")" = "20 true" ] || fail "show must print the latest entries only"
+ok "$repo12" s1 show --history
+[ "$(jq '.history | length' <<<"$out")" = 200 ] || fail "show --history must print every entry"
+jq '.history[0].detail.output = "command output does not belong here"' "$(sfile "$repo12")" >"$tmp" && cp "$tmp" "$(sfile "$repo12")"
+invalid "$repo12" s1 show
+
+# --- every approved plan check must pass before review, a low-risk exception, or QA ---
+repoH="$work/repoH"
+make_repo "$repoH"
+ok "$repoH" s1 init allchecks
+spec_json 1 | br "$repoH" s1 write spec >/dev/null || fail "write spec (repoH)"
+plan_json | jq '.checks += ["make lint"]' | br "$repoH" s1 write plan >/dev/null || fail "write plan (repoH)"
+ok "$repoH" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoH" s1 advance implement
+ok "$repoH" s1 check
+grep -Fq 'S-1' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "implement must name the plan steps: $out"
+printf 'h\n' >"$repoH/a.txt"
+ok "$repoH" s1 advance verify
+ok "$repoH" s1 record check --cmd "make test" --exit 0
+before=$(jq -S . "$(sfile "$repoH")")
+refused "$repoH" s1 advance review --trigger "workflow policy"
+grep -Fq 'make lint' "$work/err" || fail "the missing plan check must be named: $(cat "$work/err")"
+refused "$repoH" s1 record review --low-risk "docs-only"
+[ "$before" = "$(jq -S . "$(sfile "$repoH")")" ] || fail "a refused step must not change the state"
+ok "$repoH" s1 check
+[ "$(jq -r '.next | length' <<<"$out")" = 1 ] || fail "verify must owe only the missing check: $out"
+grep -Fq "record check --cmd 'make lint'" <<<"$(jq -r '.next[0]' <<<"$out")" || fail "verify must name the missing check command: $out"
+ok "$repoH" s1 record check --cmd "make lint" --exit 1
+refused "$repoH" s1 advance review --trigger "workflow policy"   # recorded, but not passing
+ok "$repoH" s1 record check --cmd "make lint" --exit 0
+ok "$repoH" s1 check
+grep -Fq 'classify risk' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "verify with every check passing must owe the risk decision: $out"
+ok "$repoH" s1 record review --low-risk "docs-only"
+ok "$repoH" s1 check
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance qa"]' ] || fail "a recorded low-risk exception must owe advance qa: $out"
+# QA re-checks the plan checks: a state edited to drop one cannot move on.
+jq '.candidate.checks |= map(select(.cmd != "make lint"))' "$(sfile "$repoH")" >"$tmp" && cp "$tmp" "$(sfile "$repoH")"
+refused "$repoH" s1 advance qa
+grep -Fq 'make lint' "$work/err" || fail "advance qa must name the missing plan check: $(cat "$work/err")"
+# A run already past verify with a plan check missing (recorded before this rule, or edited)
+# goes back to verify on check, and is told which check it owes; its review obligation stays.
+ok "$repoH" s1 record check --cmd "make lint" --exit 0
+ok "$repoH" s1 advance review --trigger "workflow policy"
+jq '.candidate.checks |= map(select(.cmd != "make lint"))' "$(sfile "$repoH")" >"$tmp" && cp "$tmp" "$(sfile "$repoH")"
+ok "$repoH" s1 check
+[ "$(phase "$repoH")" = verify ] || fail "a run past verify with a plan check missing must return to verify: $(phase "$repoH")"
+[ "$(jq -r '.history[-1] | .op + " " + .detail.reason' "$(sfile "$repoH")")" = "check plan checks incomplete: evidence void" ] \
+  || fail "the return to verify must be recorded with its reason"
+grep -Fq "record check --cmd 'make test'" <<<"$(jq -r '.next | join("\n")' <<<"$out")" || fail "the voided checks must be owed again: $out"
+ok "$repoH" s1 record check --cmd "make test" --exit 0
+ok "$repoH" s1 record check --cmd "make lint" --exit 0
+ok "$repoH" s1 check
+[ "$(jq -c .next <<<"$out")" = "[\"b-state.mjs advance review --trigger 'workflow policy'\"]" ] || fail "the review obligation must survive the return to verify: $out"
+refused "$repoH" s1 record review --low-risk "docs-only"
 
 # --- one command at a time per run; a dead holder is never recovered automatically
 repo13="$work/repo13"
@@ -587,9 +684,10 @@ d21=$(dirname "$(sfile "$repo21")")
 write_artifacts "$repo21" 1
 ok "$repo21" s1 approve --commit yes --branch-target current --codex reviewer
 tmp=$(mktemp -p "$work")
-jq 'del(.spec.plan_sha256) | del(.qa.artifact_rev)' "$(sfile "$repo21")" >"$tmp" && cp "$tmp" "$(sfile "$repo21")"
+jq 'del(.spec.plan_sha256) | del(.qa.artifact_rev) | del(.history) | del(.history_dropped)' "$(sfile "$repo21")" >"$tmp" && cp "$tmp" "$(sfile "$repo21")"
 rm -f "$d21/artifacts.json"
 ok "$repo21" s1 show
+[ "$(jq -c '[.history, .history_dropped]' <<<"$out")" = '[[],0]' ] || fail "a run without history must load with an empty one"
 refused "$repo21" s1 check
 [ "$(phase "$repo21")" = blocked ] || fail "a legacy run without recorded artifacts must block: $(phase "$repo21")"
 ok "$repo21" s1 unblock clarify --reason "rebuild the artifacts after the upgrade"
@@ -678,17 +776,60 @@ ok "$repoF" s1 record check --cmd "make test" --exit 0
 invalid "$repoF" s1 advance review                 # no --trigger
 ok "$repoF" s1 advance review --trigger "approval policy"
 [ "$(jq -r .review.trigger "$(sfile "$repoF")")" = "approval policy" ] || fail "advance review must record the trigger"
+# A verdict that depends on findings needs them written first, so a session lost after the
+# verdict can still read what the round found.
+followups_json() { jq -n --argjson items "$1" '{items: $items}'; }
+r1_note='{"id": "R1-1", "source": "review", "summary": "naming", "disposition": "open"}'
+r1_blocker='{"id": "R1-2", "source": "review", "summary": "unchecked path", "disposition": "open", "kind": "blocker"}'
+ok "$repoF" s1 check
+grep -Fq 'R1-<n>' <<<"$(jq -r '.next | join("\n")' <<<"$out")" || fail "review must owe the round's findings: $out"
+refused "$repoF" s1 record review --verdict "NEEDS FIXES"
+grep -Fq 'R1-<n>, kind blocker' "$work/err" || fail "the missing blocker must be named: $(cat "$work/err")"
+followups_json "[$r1_note]" | br "$repoF" s1 write followups >/dev/null || fail "write followups (note)"
+refused "$repoF" s1 record review --verdict "NEEDS FIXES"   # a follow-up is not a blocker
+followups_json "[$r1_note, $r1_blocker]" | br "$repoF" s1 write followups >/dev/null || fail "write followups (blocker)"
 ok "$repoF" s1 record review --verdict "NEEDS FIXES"
+[ "$(jq -c '.history[-1] | [.op, .detail.verdict, .detail.round, .detail.trigger]' "$(sfile "$repoF")")" \
+  = '["record review","NEEDS FIXES",1,"approval policy"]' ] || fail "the verdict must be recorded with its round and trigger"
+ok "$repoF" s1 check
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance fix"]' ] || fail "NEEDS FIXES must owe advance fix: $out"
 ok "$repoF" s1 advance fix
+ok "$repoF" s1 check
+grep -Fq 'open blockers' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "fix must owe the open blockers: $out"
+grep -Fq 'R1-2' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "fix must name the open blocker: $out"
+grep -Fq 'R1-1' <<<"$(jq -r '.next[0]' <<<"$out")" && fail "fix must not list a follow-up as a blocker: $out"
 printf 'f2\n' >"$repoF/a.txt"
 ok "$repoF" s1 advance verify
 ok "$repoF" s1 record check --cmd "make test" --exit 0
+ok "$repoF" s1 check
+[ "$(jq -c .next <<<"$out")" = "[\"b-state.mjs advance review --trigger 'approval policy'\"]" ] || fail "a triggered run must owe its re-review: $out"
 refused "$repoF" s1 record review --low-risk "fixed it"
 grep -Fq 'review was already' "$work/err" || fail "the low-risk guard must be named: $(cat "$work/err")"
 refused "$repoF" s1 advance qa
 ok "$repoF" s1 advance review --trigger "approval policy"
-ok "$repoF" s1 record review --verdict "READY FOR PR"
+refused "$repoF" s1 record review --verdict "READY WITH FOLLOW-UPS"   # round 2 recorded no finding
+grep -Fq 'R2-<n>' "$work/err" || fail "the missing round-2 follow-up must be named: $(cat "$work/err")"
+r2_note='{"id": "R2-1", "source": "review", "summary": "docs", "disposition": "open"}'
+followups_json "[$r1_note, $r1_blocker, $r2_note]" | br "$repoF" s1 write followups >/dev/null || fail "write followups (round 2)"
+ok "$repoF" s1 record review --verdict "READY WITH FOLLOW-UPS"
+[ "$(jq -c '[.history[] | select(.op == "record review") | .detail.verdict]' "$(sfile "$repoF")")" \
+  = '["NEEDS FIXES","READY WITH FOLLOW-UPS"]' ] || fail "earlier review verdicts must stay in history"
 ok "$repoF" s1 advance qa
+# A session that has never seen the run can tell what QA still owes.
+ok "$repoF" s1 check
+grep -Fq 'handoff qa' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "QA without a fresh qa.md must owe it: $out"
+write_qa "$repoF" 1 "QA PASS" pass
+ok "$repoF" cold check --takeover
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs record ac AC-1 pass","b-state.mjs record qa --verdict \"QA PASS\""]' ] \
+  || fail "a cold session must be told the QA records still owed: $out"
+ok "$repoF" cold record ac AC-1 pass
+ok "$repoF" cold check
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs record qa --verdict \"QA PASS\""]' ] || fail "only the QA verdict is still owed: $out"
+ok "$repoF" cold record qa --verdict "QA PASS"
+ok "$repoF" cold check
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance commit"]' ] || fail "a recorded QA PASS must owe advance commit: $out"
+jq -e '[.history[].detail | keys[]] | unique - ["ac","cmd","exit","fingerprint","needs","reason","round","sha","spec","status","trigger","verdict"] == []' \
+  "$(sfile "$repoF")" >/dev/null || fail "history details must hold only the allowed facts"
 
 # --- the lock owner may come from the Claude Code or the Pi session variable ----------
 repoP="$work/repoP"
