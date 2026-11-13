@@ -37,8 +37,11 @@ to compare against.
 - **State couples to the artifacts.** `record check` refuses a command that is not in
   the validated plan's `checks`; `advance` to `review` or `qa` runs `b_run.py
 scope-check` against the spec's scope globs; `record qa` and `record ac` must match
-  the validated `qa.md`; the review and QA handoff packets come from `b_run.py
-handoff`, not from hand-written focus text. The commit consent is a `consent` block
+  the validated `qa.md`; the handoff packet of every run phase a skill is briefed for
+  (clarify, implement, verify, review, fix, QA, commit; refined 2026-11-13) comes from
+  `b_run.py handoff`, not from hand-written focus text, and its sections are defined in
+  that CLI. A plan step may carry `depends_on` (earlier steps only); a step without it
+  waits for the step before it. The commit consent is a `consent` block
   in `spec.md`: `approve` refuses flags that differ from it, `advance commit` needs
   it to say yes, and `check` blocks a `state.json` whose consent differs. `approve`
   also refuses a working tree with changes, so pre-existing edits cannot join the

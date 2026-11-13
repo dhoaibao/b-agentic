@@ -58,7 +58,13 @@ otherwise approved, unattended run.
   `followups.md`. `state.json` keeps a bounded `history` (one entry per write, in the
   same atomic write as the change, holding only the kinds of facts the state already
   holds), so earlier verdicts, blocks, and unblock reasons are not lost. Progress
-  inside `implement` is still read from the tree.
+  inside `implement` is recorded too: `record step S-n` marks a plan step applied (a
+  step waits for the steps it depends on), `advance verify` needs every step recorded,
+  and a new approval or a return to `implement` or `clarify` clears the record. Each
+  phase is briefed from its packet, `b_run.py handoff <phase>`, and each skill's
+  place in a run (phase skill, evidence provider, utility, or orchestrator) is its
+  registry `contract`, from which the generator renders the phase table in the
+  `b-flow` skill.
 - **Resume.** Only an explicit `/b-flow resume` continues a run. `b-state check` first
   re-verifies repo root and branch, lock, spec hash, HEAD against recorded commits,
   and the current candidate fingerprint; any mismatch voids evidence tied to the old

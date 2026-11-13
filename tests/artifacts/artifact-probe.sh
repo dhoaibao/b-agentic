@@ -98,6 +98,10 @@ br "$repo" lint spec < <(example spec | jq -c '.criteria[0].command = "pytest te
 lint_bad plan '.steps[0].id = "S-2"' "plan ids out of order"
 lint_bad plan '.checks = []' "no checks"
 lint_bad plan '.checks = ["a", "a"]' "duplicate checks"
+lint_bad plan '.steps[1].depends_on = ["S-2"]' "a step that depends on itself"
+lint_bad plan '.steps[0].depends_on = ["S-2"]' "a step that depends on a later step"
+lint_bad plan '.steps[1].depends_on = ["S-9"]' "a step that depends on an unknown step"
+lint_bad plan '.steps[1].depends_on = ["S-1", "S-1"]' "a dependency named twice"
 lint_bad qa '.verdict = "QA PASS" | .rows[0].result = "fail"' "QA PASS with a failing row"
 lint_bad qa '.verdict = "QA FAIL"' "QA FAIL with only passing rows"
 lint_bad qa '.rows[0].result = "waived"' "waived row without waived_by"
@@ -309,7 +313,82 @@ refused "$repo" handoff review --out "$repo/focus.md"
 [ ! -e "$repo/focus.md" ] || fail "a packet must not be written inside the repository"
 ok "$repo" handoff review --out "$work/focus.md"
 grep -Fq 'Acceptance criteria' "$work/focus.md" || fail "packet --out file"
+grep -Fq 'clarify, implement, verify, review, fix, qa, commit' "$work/err" && fail "a valid phase must not print the phase list"
+invalid "$repo" handoff nope
+grep -Fq 'clarify, implement, verify, review, fix, qa, commit' "$work/err" || fail "an unknown phase must name the phases: $(cat "$work/err")"
+# The review and QA packets keep their sections; every other phase has a packet too.
+ok "$repo" handoff qa
+[ "$(grep '^## ' <<<"$out" | tr '\n' '|')" = '## Acceptance criteria|## Scope|## Recorded checks|## Changed paths|## Included ignored artifacts|## Earlier follow-ups|' ] \
+  || fail "the QA packet sections must not change: $out"
+ok "$repo" handoff implement
+grep -Fq 'IMPLEMENT handoff for run' <<<"$out" || fail "implement packet header"
+grep -Fq -- '- S-1 [open]: Add the --json flag' <<<"$out" || fail "an unrecorded step must be open: $out"
+grep -Fq '  - Depends on: S-1' <<<"$out" || fail "the packet must name what a step waits for: $out"
+grep -Fq '  - Depends on: none' <<<"$out" || fail "the first step waits for none: $out"
+grep -Fq -- '- A path outside the spec scope is needed' <<<"$out" || fail "the packet must carry the stop conditions: $out"
+jq '.steps = {"S-1": {status: "done", fingerprint: ("a" * 64)}}' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
+ok "$repo" handoff implement
+grep -Fq -- '- S-1 [recorded]: Add the --json flag' <<<"$out" || fail "a recorded step must be marked: $out"
+grep -Fq -- '- S-2 [open]: Cover it with a test' <<<"$out" || fail "the next step must stay open: $out"
+ok "$repo" handoff verify
+grep -Fq -- '- `pytest tests/test_export.py`: not recorded' <<<"$out" || fail "a plan check without a result must be named: $out"
+jq '.candidate.checks = [{cmd: "pytest tests/test_export.py", exit: 1}] | .attempts.verify = 1' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
+ok "$repo" handoff verify
+grep -Fq -- '- `pytest tests/test_export.py`: exit 1' <<<"$out" || fail "the latest result of a plan check must be printed: $out"
+grep -Fq 'Failed verify attempts: 1' <<<"$out" || fail "the verify attempts must be printed: $out"
+jq '.candidate.checks = [] | .attempts.verify = 0 | .steps = {}' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
+setphase "$repo" fix
+ok "$repo" write followups < <(example followups | jq -c '.items += [{id: "R2-1", source: "review", summary: "Flag is undocumented", disposition: "open", kind: "blocker"}]')
+ok "$repo" handoff fix
+grep -Fq -- '- R2-1: Flag is undocumented' <<<"$(sed -n '/## Open blockers/,/## QA results/p' <<<"$out")" || fail "the open blocker must be listed: $out"
+grep -Fq -- '- R1-1' <<<"$(sed -n '/## Open blockers/,/## QA results/p' <<<"$out")" && fail "a fixed blocker is not open: $out"
+grep -Fq -- '- R1-1 fixed: src/export.py; swept all path joins' <<<"$out" || fail "the earlier sweep must be listed: $out"
+ok "$repo" handoff commit
+grep -Fq -- '- Commit: no' <<<"$out" || fail "the commit packet must carry the spec's consent: $out"
+grep -Fq -- '- Base: not recorded' <<<"$out" || fail "a commit packet before the commit gate has no approved candidate: $out"
+grep -Fq -- '- F-1 open: Document the flag in the README' <<<"$out" || fail "open follow-ups must be listed: $out"
+refused "$repo" handoff implement --out "$repo/packet.md"
+[ ! -e "$repo/packet.md" ] || fail "no packet may be written inside the repository"
 setphase "$repo" clarify
+
+# --- depends_on is optional: a plan without it keeps its bytes, and clarify needs no artifacts ---
+dep_repo="$work/dep"
+make_repo "$dep_repo"
+newrun "$dep_repo"
+ok "$dep_repo" handoff clarify
+grep -Fq -- '- spec.md: not written' <<<"$out" || fail "the clarify packet must work before the spec exists: $out"
+refused "$dep_repo" handoff implement
+ok "$dep_repo" write spec < <(example spec)
+ok "$dep_repo" write plan < <(example plan | jq -c 'del(.steps[].depends_on)')
+expected='<!-- b-run:plan v1 -->
+# Plan
+
+## Steps
+- S-1: Add the --json flag
+  - Paths: `src/export.py`
+  - Done when: export --json prints valid JSON
+- S-2: Cover it with a test
+  - Paths: `tests/test_export.py`
+  - Done when: the test passes
+
+## Checks
+- `pytest tests/test_export.py`
+
+## Invariants
+- The table output is unchanged
+
+## Stop conditions
+- A path outside the spec scope is needed'
+[ "$(cat "$(rundir "$dep_repo")/plan.md")" = "$expected" ] || fail "a plan without depends_on must render as it always did"
+ok "$dep_repo" validate
+[ "$(jq -c '.artifacts.plan.steps' <<<"$out")" = '[{"id":"S-1","depends_on":[]},{"id":"S-2","depends_on":["S-1"]}]' ] \
+  || fail "a step without depends_on waits for the step before it: $out"
+ok "$dep_repo" write plan < <(example plan | jq -c '.steps[1].depends_on = []')
+grep -Fq '  - Depends on: none' "$(rundir "$dep_repo")/plan.md" || fail "an empty depends_on must be rendered"
+ok "$dep_repo" validate
+[ "$(jq -c '.artifacts.plan.steps[1].depends_on' <<<"$out")" = '[]' ] || fail "an empty depends_on means the step waits for none: $out"
+ok "$dep_repo" handoff clarify
+grep -Fq -- '- plan.md: written' <<<"$out" || fail "the clarify packet must report the written plan: $out"
 
 # --- the owner: --owner, then CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID -----------------------
 owner_repo="$work/owner"

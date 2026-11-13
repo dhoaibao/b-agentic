@@ -13,7 +13,8 @@ Commands (JSON results on stdout, one-line errors on stderr):
   write KIND               validate stdin, render, and write the artifact (main session only)
   validate [--json]        re-render every artifact and compare bytes and hashes
   scope-check              compare changed git paths with the spec's scope globs
-  handoff review|qa        render the review or QA packet from the run (--out FILE outside the repo)
+  handoff PHASE            render the packet that briefs a phase from the run: clarify, implement,
+                           verify, review, fix, qa or commit (--out FILE outside the repo)
   selftest                 validate the schema file's examples against each other
 
 Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID).
@@ -218,6 +219,10 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
         _contiguous([s["id"] for s in data["steps"]], "S", "steps")
         if len(set(data["checks"])) != len(data["checks"]):
             raise Invalid("checks: duplicate command")
+        for i, step in enumerate(data["steps"]):
+            needs = step.get("depends_on", [])
+            if len(set(needs)) != len(needs) or not set(needs) <= {s["id"] for s in data["steps"][:i]}:
+                raise Invalid(f"steps[{i}].depends_on: must name earlier steps, each once")
         spec = ctx.get("spec")
         if spec is None:
             return False
@@ -328,6 +333,8 @@ def render(kind: str, data: dict) -> str:
                 "  - Paths: " + ", ".join(f"`{p}`" for p in s["paths"]),
                 f"  - Done when: {s['done_when']}",
             ]
+            if "depends_on" in s:
+                out.append("  - Depends on: " + (", ".join(s["depends_on"]) or "none"))
         out += [
             "",
             "## Checks",
@@ -510,6 +517,14 @@ def validate_run(directory: Path, schema: dict, skip: frozenset[str] = frozenset
     return data, problems
 
 
+def step_needs(steps: list[dict]) -> list[dict]:
+    """Each step with the steps it waits for: the listed ones, or the step before it when none are listed."""
+    return [
+        {"id": s["id"], "depends_on": s.get("depends_on", [steps[i - 1]["id"]] if i else [])}
+        for i, s in enumerate(steps)
+    ]
+
+
 def summary(data: dict) -> dict:
     out: dict = {}
     if "spec" in data:
@@ -519,7 +534,11 @@ def summary(data: dict) -> dict:
             "consent": data["spec"]["consent"],
         }
     if "plan" in data:
-        out["plan"] = {"checks": data["plan"]["checks"], "step_ids": [s["id"] for s in data["plan"]["steps"]]}
+        out["plan"] = {
+            "checks": data["plan"]["checks"],
+            "step_ids": [s["id"] for s in data["plan"]["steps"]],
+            "steps": step_needs(data["plan"]["steps"]),
+        }
     if "qa" in data:
         out["qa"] = {
             "verdict": data["qa"]["verdict"],
@@ -784,16 +803,117 @@ def cmd_scope_check(schema: dict, args: dict) -> dict:
     }
 
 
-def cmd_handoff(schema: dict, which: str, args: dict) -> str:
-    if which not in ("review", "qa"):
-        raise Invalid("handoff needs review or qa")
-    root = repo_root()
-    run_id, directory = resolve_run(root, args.get("run"))
-    data, problems = validate_run(directory, schema)
-    if problems or "spec" not in data or "plan" not in data:
-        raise Refused("the run artifacts are not valid; no packet can be rendered")
-    state = read_state(directory)
-    out = [f"# {which.upper()} handoff for run {run_id}", "", f"Phase: {state['phase']}"]
+# Every phase a skill is briefed for has a packet: what the run folder and the tree say that phase
+# needs, so the brief never depends on a session's memory. registry_sync.py keeps the registry's
+# phase contracts within this list.
+HANDOFF_PHASES = ("clarify", "implement", "verify", "review", "fix", "qa", "commit")
+
+
+def _criteria_lines(spec: dict) -> list[str]:
+    out = []
+    for c in spec["criteria"]:
+        ref = f"command `{c['command']}`" if "command" in c else f"source {c['source']}"
+        out.append(f"- {c['id']}: WHEN {c['when']} THEN {c['then']} ({c['evidence']}; {ref})")
+    return out
+
+
+def _path_lines(paths: list[str]) -> list[str]:
+    return [f"- {p}" for p in paths] or ["- none"]
+
+
+def _packet_clarify(root: Path, state: dict, data: dict) -> list[str]:
+    baseline = state.get("baseline") or {}
+    out = [f"Branch: {state.get('branch') or 'unknown'}", f"Baseline HEAD: {baseline.get('head') or 'unknown'}"]
+    out += ["", "## Artifacts"]
+    for kind in ("spec", "plan"):
+        out.append(f"- {kind}.md: " + ("written" if kind in data else f"not written (`b_run.py schema {kind}`)"))
+    if "spec" in data:
+        out += ["", "## Acceptance criteria", *_criteria_lines(data["spec"])]
+        out += ["", "## Scope", *_path_lines(data["spec"]["scope_paths"])]
+    # Why the run came back to clarify: only the reasons the state CLI recorded.
+    reasons = []
+    for entry in state.get("history") or []:
+        detail = entry.get("detail") if isinstance(entry, dict) else None
+        if isinstance(detail, dict) and isinstance(detail.get("reason"), str):
+            if entry.get("to") == "blocked" or entry.get("op") == "unblock":
+                reasons.append(f"- {entry.get('op')} to {entry.get('to')}: {detail['reason']}")
+    return [*out, "", "## Earlier blocks and unblocks", *(reasons[-10:] or ["- none"])]
+
+
+def _packet_implement(root: Path, state: dict, data: dict) -> list[str]:
+    spec, plan = data["spec"], data["plan"]
+    recorded = state.get("steps") or {}
+    out = ["", "## Acceptance criteria", *_criteria_lines(spec)]
+    out += ["", "## Scope", *_path_lines(spec["scope_paths"])]
+    out += ["", "## Out of scope", *_bullets(spec["out_of_scope"], "none"), "", "## Steps"]
+    for step, needs in zip(plan["steps"], step_needs(plan["steps"])):
+        out += [
+            f"- {step['id']} [{'recorded' if step['id'] in recorded else 'open'}]: {step['action']}",
+            "  - Paths: " + ", ".join(f"`{p}`" for p in step["paths"]),
+            f"  - Done when: {step['done_when']}",
+            "  - Depends on: " + (", ".join(needs["depends_on"]) or "none"),
+        ]
+    out += ["", "## Invariants", *_bullets(plan["invariants"], "none")]
+    out += ["", "## Stop conditions", *_bullets(plan["stop_conditions"], "none")]
+    return [*out, "", "## Changed paths", *_path_lines(changed_paths(root))]
+
+
+def _packet_verify(root: Path, state: dict, data: dict) -> list[str]:
+    candidate = state.get("candidate") or {}
+    review = state.get("review") or {}
+    passed = {c.get("cmd"): c.get("exit") for c in candidate.get("checks", []) if isinstance(c, dict)}
+    out = [
+        f"Candidate fingerprint: {candidate.get('fingerprint') or 'not recorded'}",
+        f"Failed verify attempts: {int((state.get('attempts') or {}).get('verify', 0))}",
+        "",
+        "## Plan checks",
+    ]
+    out += [f"- `{c}`: " + (f"exit {passed[c]}" if c in passed else "not recorded") for c in data["plan"]["checks"]]
+    out += ["", "## Included ignored artifacts", *_path_lines(candidate.get("include_ignored") or [])]
+    out += [
+        "",
+        "## Review",
+        f"- Trigger: {review.get('trigger') or 'none recorded'}",
+        f"- Completed rounds: {int(review.get('round', 0))}",
+        f"- Low-risk exception: {review.get('low_risk_exception') or 'none'}",
+    ]
+    return [*out, "", "## Changed paths", *_path_lines(changed_paths(root))]
+
+
+def _packet_fix(root: Path, state: dict, data: dict) -> list[str]:
+    blockers = [i for i in data.get("followups", {}).get("items", []) if i.get("kind") == "blocker"]
+    out = ["", "## Open blockers"]
+    out += [f"- {i['id']}: {i['summary']}" for i in blockers if i["disposition"] == "open"] or ["- none"]
+    out += ["", "## QA results to correct"]
+    failed = [r for r in data.get("qa", {}).get("rows", []) if r["result"] in ("fail", "gap")]
+    if (state.get("qa") or {}).get("verdict") != "QA FAIL":
+        failed = []
+    out += [f"- {r['ac']}: {r['result']}" for r in failed] or ["- none"]
+    out += ["", "## Acceptance criteria", *_criteria_lines(data["spec"])]
+    out += ["", "## Scope", *_path_lines(data["spec"]["scope_paths"])]
+    out += ["", "## Stop conditions", *_bullets(data["plan"]["stop_conditions"], "none"), "", "## Earlier sweeps"]
+    out += [f"- {i['id']} {i['disposition']}: {i['sweep']}" for i in blockers if "sweep" in i] or ["- none"]
+    return [*out, "", "## Changed paths", *_path_lines(changed_paths(root))]
+
+
+def _packet_commit(root: Path, state: dict, data: dict) -> list[str]:
+    consent = data["spec"]["consent"]
+    plan = state.get("commit_plan") or {}
+    out = ["", "## Consent", f"- Commit: {consent['commit']}", f"- Branch target: {consent['branch_target']}"]
+    out += ["- Push or PR: never", "", "## Approved candidate"]
+    out += [
+        f"- Base: {plan.get('base') or 'not recorded'}",
+        f"- Tree: {plan.get('tree') or 'not recorded'}",
+        f"- Fingerprint: {plan.get('fingerprint') or 'not recorded'}",
+    ]
+    out += ["", "## Recorded commits", *_path_lines([c for c in state.get("commits") or [] if isinstance(c, str)])]
+    out += ["", "## Changed paths", *_path_lines(changed_paths(root)), "", "## Follow-ups not closed"]
+    open_items = [i for i in data.get("followups", {}).get("items", []) if i["disposition"] in ("open", "deferred")]
+    return [*out, *([f"- {i['id']} {i['disposition']}: {i['summary']}" for i in open_items] or ["- none"])]
+
+
+def _packet_review_qa(which: str, root: Path, state: dict, data: dict) -> list[str]:
+    out: list[str] = []
     candidate = state.get("candidate") or {}
     review = state.get("review") or {}
     out += [f"Candidate fingerprint: {candidate.get('fingerprint') or 'not recorded'}"]
@@ -807,10 +927,7 @@ def cmd_handoff(schema: dict, which: str, args: dict) -> str:
             f"Review verdict: {review.get('verdict') or review.get('low_risk_exception') or 'none'}",
             f"Review fingerprint: {review.get('fingerprint') or 'none'}",
         ]
-    out += ["", "## Acceptance criteria"]
-    for c in data["spec"]["criteria"]:
-        ref = f"command `{c['command']}`" if "command" in c else f"source {c['source']}"
-        out.append(f"- {c['id']}: WHEN {c['when']} THEN {c['then']} ({c['evidence']}; {ref})")
+    out += ["", "## Acceptance criteria", *_criteria_lines(data["spec"])]
     out += ["", "## Scope", *(f"- {p}" for p in data["spec"]["scope_paths"]), "", "## Recorded checks"]
     out += [f"- `{c['cmd']}` exit {c['exit']}" for c in candidate.get("checks", [])] or ["- none"]
     out += ["", "## Changed paths", *(f"- {p}" for p in changed_paths(root))]
@@ -834,6 +951,30 @@ def cmd_handoff(schema: dict, which: str, args: dict) -> str:
     if "followups" in data:
         out += ["", "## Earlier follow-ups"]
         out += [f"- {i['id']} {i['disposition']}: {i['summary']}" for i in data["followups"]["items"]] or ["- none"]
+    return out
+
+
+PACKETS = {
+    "clarify": _packet_clarify,
+    "implement": _packet_implement,
+    "verify": _packet_verify,
+    "fix": _packet_fix,
+    "commit": _packet_commit,
+}
+
+
+def cmd_handoff(schema: dict, which: str, args: dict) -> str:
+    if which not in HANDOFF_PHASES:
+        raise Invalid(f"handoff needs one of: {', '.join(HANDOFF_PHASES)}")
+    root = repo_root()
+    run_id, directory = resolve_run(root, args.get("run"))
+    data, problems = validate_run(directory, schema)
+    # Only clarify is briefed before the spec and the plan exist.
+    if problems or (which != "clarify" and ("spec" not in data or "plan" not in data)):
+        raise Refused("the run artifacts are not valid; no packet can be rendered")
+    state = read_state(directory)
+    out = [f"# {which.upper()} handoff for run {run_id}", "", f"Phase: {state['phase']}"]
+    out += PACKETS[which](root, state, data) if which in PACKETS else _packet_review_qa(which, root, state, data)
     text = "\n".join(out) + "\n"
     target = args.get("out")
     if target:

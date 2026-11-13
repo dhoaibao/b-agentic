@@ -280,6 +280,7 @@
       ],
       "rules": [
         "step ids run S-1..S-n in order",
+        "depends_on names earlier steps, each once; a step without it depends on the step before it, and an empty list means it depends on none",
         "every step path matches a spec scope glob",
         "checks include the command of every automated or ci criterion in the spec",
         "checks are unique one-line commands without backticks"
@@ -310,6 +311,15 @@
               },
               "done_when": {
                 "type": "line"
+              },
+              "depends_on": {
+                "type": "list",
+                "max": 30,
+                "optional": true,
+                "items": {
+                  "type": "id",
+                  "pattern": "^S-[1-9][0-9]*$"
+                }
               }
             }
           }
@@ -354,7 +364,10 @@
             "paths": [
               "tests/test_export.py"
             ],
-            "done_when": "the test passes"
+            "done_when": "the test passes",
+            "depends_on": [
+              "S-1"
+            ]
           }
         ],
         "checks": [

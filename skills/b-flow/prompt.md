@@ -35,8 +35,12 @@ Run one approved request from spec to commit in the main session, with progress 
 
 `phase` names where the run is. Never advance to the phase you are in; do that phase's work, then take the one listed transition. Begin every iteration with `b-state.mjs check`; a not-ok result is a stop, and a changed tree has already sent the run back to `verify`. Its `next` lists what the phase still owes, derived from the state and the artifacts: follow it rather than your memory of the run, and treat it as a pointer that grants no approval.
 
+Each phase has its skills and a packet, `b_run.py handoff <phase>`, that states what the phase needs from the run folder and the tree. Brief the phase skill from the packet, not from memory:
+
+{{phase_contracts}}
+
 - **approved**: `advance implement`, then continue as implement.
-- **implement**: apply `plan.md` with `b-implement`, `b-frontend`, `b-refactor`, or `b-test` inside the approved scope; then `advance verify`.
+- **implement**: apply each plan step with its phase skill inside the approved scope, and `record step S-n` once its `done_when` holds; a step waits for the steps it depends on. Then `advance verify`, which is refused while a step is unrecorded.
 - **verify**: run the plan's approved `checks` through `rtk` and `record check --cmd C --exit N` for each (a command outside the plan is refused: that is a plan change, so stop) (add `--include-ignored P` for derived artifacts the candidate includes); the latest result per command counts, and review, the low-risk exception, and QA are refused until every plan check has passed for the candidate. Fix unambiguous in-scope failures and rerun; the helper blocks the third failed check. Classify risk per the kernel. With a trigger: `advance review --trigger T`. Otherwise `record review --low-risk REASON`, then `advance qa`.
 - **review**: build the focus text with `b_run.py handoff review --out <scratch file outside the repo>`, then run `b-review` as the kernel specifies; a missing standing Codex approval is not a question here, so use the `b-reviewer` path. Before the verdict, `write followups` with this round's findings (ids `R<round>-<n>`; each evidenced blocker `kind: blocker`, disposition `open`): the helper refuses `NEEDS FIXES` without a blocker of this round and `READY WITH FOLLOW-UPS` without a finding. Then `record review --verdict V [--trigger T]`.
   - `READY FOR PR` or `READY WITH FOLLOW-UPS`: `advance qa`.

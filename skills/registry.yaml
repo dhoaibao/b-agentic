@@ -38,6 +38,7 @@
     {
       "name": "b-plan",
       "execution": {"mode": "subagent", "agent": "b-planner"},
+      "contract": {"role": "phase", "phases": ["clarify"], "evidence": "the spec and plan JSON, which the main session writes with `b_run.py write spec` and `write plan`", "parallel_safe": true},
       "handoff": ["goal, constraints, non-goals, known decisions and prior findings; branch, HEAD, ahead/behind, and git status baseline; state gaps rather than asking the child to guess history"],
       "phase": "Decide",
       "use": "Figure out what to do when scope or approach is fuzzy, then produce an execution-ready plan",
@@ -65,6 +66,7 @@
     {
       "name": "b-research",
       "execution": {"mode": "subagent", "agent": "b-researcher"},
+      "contract": {"role": "provider", "phases": ["clarify", "implement", "fix"], "evidence": "sourced findings for the phase that asked; nothing is recorded in the run", "parallel_safe": true},
       "handoff": ["the external question and as-of date; library/runtime version pins the main session resolved from lockfiles or manifests, or the named lockfile to read when none is resolved; no local source, repository content, or private data"],
       "phase": "Decide",
       "use": "Fetch outside truth: docs, API facts, comparisons, or recent evidence",
@@ -87,6 +89,7 @@
     {
       "name": "b-design",
       "execution": {"mode": "main"},
+      "contract": {"role": "provider", "phases": ["clarify", "implement"], "evidence": "`docs/DESIGN.md` guidance, a changed path inside the approved scope", "parallel_safe": false},
       "phase": "Decide",
       "use": "Create or refresh docs/DESIGN.md as a frontend design standard",
       "argument_hint": "[description, image, or files]",
@@ -114,6 +117,7 @@
     {
       "name": "b-frontend",
       "execution": {"mode": "main"},
+      "contract": {"role": "phase", "phases": ["implement", "fix"], "evidence": "the changed tree for a plan step (`b-state.mjs record step S-n`); in fix, dispositions in `followups.md`", "parallel_safe": false},
       "phase": "Build",
       "use": "Implement contextual frontend/UI code, styling, responsive behavior, interactions, visual refreshes, and landing pages",
       "argument_hint": "[UI change]",
@@ -142,6 +146,7 @@
     {
       "name": "b-excalidraw",
       "execution": {"mode": "main"},
+      "contract": {"role": "utility"},
       "phase": "Build",
       "use": "Sketch conceptual, whiteboard, and explanatory diagrams in Excalidraw from explicit facts",
       "argument_hint": "[diagram type and facts]",
@@ -165,6 +170,7 @@
     {
       "name": "b-drawio",
       "execution": {"mode": "main"},
+      "contract": {"role": "utility"},
       "phase": "Build",
       "use": "Draw formal or editable technical diagrams in draw.io from explicit facts",
       "argument_hint": "[diagram type, facts, and .drawio path]",
@@ -189,6 +195,7 @@
     {
       "name": "b-implement",
       "execution": {"mode": "main"},
+      "contract": {"role": "phase", "phases": ["implement", "fix"], "evidence": "the changed tree for a plan step (`b-state.mjs record step S-n`); in fix, dispositions in `followups.md`", "parallel_safe": false},
       "phase": "Build",
       "use": "Make the scoped non-UI change from an approved plan or a small direct request",
       "argument_hint": "[approved plan or change]",
@@ -210,6 +217,7 @@
     {
       "name": "b-datagrip",
       "execution": {"mode": "main"},
+      "contract": {"role": "utility"},
       "phase": "Build",
       "use": "Inspect and query DataGrip databases safely through the DataGrip MCP",
       "argument_hint": "[connection and question]",
@@ -230,6 +238,7 @@
     {
       "name": "b-init",
       "execution": {"mode": "main"},
+      "contract": {"role": "utility"},
       "phase": "Build",
       "use": "Initialize or refresh repo-local agent instruction docs",
       "routing": {
@@ -251,6 +260,7 @@
     {
       "name": "b-refactor",
       "execution": {"mode": "main"},
+      "contract": {"role": "phase", "phases": ["implement", "fix"], "evidence": "the changed tree for a plan step (`b-state.mjs record step S-n`); in fix, dispositions in `followups.md`", "parallel_safe": false},
       "phase": "Build",
       "use": "Rename, extract, move, inline, simplify, or delete behavior-preserving code",
       "argument_hint": "<transform and target>",
@@ -275,6 +285,7 @@
     {
       "name": "b-debug",
       "execution": {"mode": "subagent", "agent": "b-debugger"},
+      "contract": {"role": "provider", "phases": ["clarify", "fix", "qa"], "evidence": "the confirmed cause, the repro command, and the observable to flip; nothing is recorded in the run", "parallel_safe": true},
       "handoff": ["repro command, observed output, expected behavior, and environment; state gaps rather than asking the child to run state-changing probes"],
       "phase": "Decide",
       "use": "Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code",
@@ -300,6 +311,7 @@
     {
       "name": "b-test",
       "execution": {"mode": "main"},
+      "contract": {"role": "phase", "phases": ["implement", "fix"], "evidence": "the changed tree for a plan step (`b-state.mjs record step S-n`); in fix, dispositions in `followups.md`", "parallel_safe": false},
       "phase": "Validate",
       "use": "Write or fix unit, integration, contract, and simulated-DOM tests",
       "argument_hint": "[test target or failure]",
@@ -324,6 +336,7 @@
     {
       "name": "b-browser",
       "execution": {"mode": "main"},
+      "contract": {"role": "provider", "phases": ["verify", "qa"], "evidence": "real-browser evidence for a criterion, cited as the source of its `qa.md` row", "parallel_safe": false},
       "phase": "Validate",
       "use": "Collect real-browser, visual, screenshot, live UI, or e2e evidence",
       "argument_hint": "[route and UI state]",
@@ -350,6 +363,7 @@
     {
       "name": "b-agentic-audit",
       "execution": {"mode": "subagent", "agent": "b-auditor"},
+      "contract": {"role": "utility"},
       "handoff": ["after approved origin fetch, branch/upstream and HEAD ahead/behind counts (both zero required)", "status and scripts/b-agentic-audit.sh output; installed versions and approved live-probe results when available"],
       "phase": "Validate",
       "use": "Audit b-agentic repository conformance, health, skill/kernel quality, and currentness",
@@ -370,6 +384,7 @@
     {
       "name": "b-review",
       "execution": {"mode": "subagent", "agent": "b-reviewer"},
+      "contract": {"role": "phase", "phases": ["review"], "evidence": "the round's findings in `followups.md`, then the verdict (`b-state.mjs record review`)", "parallel_safe": true},
       "primary_gate": {
         "runtime": "claude",
         "label": "Codex",
@@ -404,6 +419,7 @@
     {
       "name": "b-qa",
       "execution": {"mode": "main"},
+      "contract": {"role": "phase", "phases": ["qa"], "evidence": "the `qa.md` matrix, then each criterion and the verdict (`b-state.mjs record ac`, `record qa`)", "parallel_safe": true},
       "phase": "Validate",
       "use": "Check a reviewed candidate against its acceptance criteria with fresh evidence and a QA verdict",
       "argument_hint": "[acceptance criteria or candidate]",
@@ -426,6 +442,7 @@
     {
       "name": "b-flow",
       "execution": {"mode": "main"},
+      "contract": {"role": "orchestrator"},
       "phase": "Build",
       "use": "Run one approved request from spec to commit with file-backed run state",
       "argument_hint": "[goal | resume]",
@@ -440,6 +457,7 @@
     {
       "name": "b-commit",
       "execution": {"mode": "main"},
+      "contract": {"role": "phase", "phases": ["commit"], "evidence": "the commits of the approved candidate (`b-state.mjs record commit`)", "parallel_safe": false},
       "phase": "Ship",
       "use": "Split working-tree changes into cohesive commits from an explicit user request",
       "argument_hint": "[commit instructions]",
@@ -454,6 +472,7 @@
     {
       "name": "b-pr",
       "execution": {"mode": "main"},
+      "contract": {"role": "utility"},
       "phase": "Ship",
       "use": "Push the current branch and open a draft PR from its commits",
       "argument_hint": "[base branch]",

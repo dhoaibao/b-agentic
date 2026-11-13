@@ -59,6 +59,8 @@ write_artifacts() { # REPO N [SCOPE]
   spec_json "$2" "${3:-**}" | br "$1" s1 write spec >/dev/null || fail "write spec ($1)"
   plan_json | br "$1" s1 write plan >/dev/null || fail "write plan ($1)"
 }
+# apply_steps REPO: record the one step of plan_json; verify is refused until every step is recorded.
+apply_steps() { ok "$1" s1 record step S-1; }
 write_qa() { # REPO N VERDICT RESULT
   jq -n --argjson n "$2" --arg verdict "$3" --arg result "$4" '{rows: [range(1; $n + 1) | {ac: "AC-\(.)", evidence: "automated", command: "make test", result: $result}],
     regression_scope: "all", not_covered: [], verdict: $verdict}' | br "$1" s1 write qa >/dev/null || fail "write qa ($1)"
@@ -109,6 +111,7 @@ refused "$repo" s1 advance review          # not reachable from approved
 ok "$repo" s1 advance implement
 printf 'b\n' >"$repo/a.txt"
 refused "$repo" s1 advance qa              # not reachable from implement
+apply_steps "$repo"
 ok "$repo" s1 advance verify
 refused "$repo" s1 advance review          # no passing checks yet
 ok "$repo" s1 record check --cmd "make test" --exit 0
@@ -142,6 +145,7 @@ CONSENT_COMMIT=no write_artifacts "$repo2" 1
 ok "$repo2" s1 approve --commit no --branch-target current --codex reviewer
 ok "$repo2" s1 advance implement
 printf 'b\n' >"$repo2/a.txt"
+apply_steps "$repo2"
 ok "$repo2" s1 advance verify
 ok "$repo2" s1 record check --cmd "make test" --exit 0
 ok "$repo2" s1 record review --low-risk "docs-only change, no trigger"
@@ -190,6 +194,7 @@ CONSENT_CODEX=standing write_artifacts "$repo3" 1
 ok "$repo3" s1 approve --commit yes --branch-target current --codex standing
 ok "$repo3" s1 advance implement
 printf 'x\n' >"$repo3/a.txt"
+apply_steps "$repo3"
 ok "$repo3" s1 advance verify
 ok "$repo3" s1 record check --cmd "make test" --exit 1
 ok "$repo3" s1 record check --cmd "make test" --exit 1
@@ -230,6 +235,7 @@ to_commit() {
   ok "$repo" s1 approve --commit yes --branch-target "$target" --codex reviewer
   ok "$repo" s1 advance implement
   printf 'feature\n' >"$repo/f.txt"
+  apply_steps "$repo"
   ok "$repo" s1 advance verify
   ok "$repo" s1 record check --cmd "make test" --exit 0
   ok "$repo" s1 record review --low-risk "docs-only"
@@ -315,6 +321,7 @@ write_artifacts "$repo12" 1
 ok "$repo12" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo12" s1 advance implement
 printf 'r\n' >"$repo12/r.txt"
+apply_steps "$repo12"
 ok "$repo12" s1 advance verify
 ok "$repo12" s1 record check --cmd "make test" --exit 1
 ok "$repo12" s1 record check --cmd "make test" --exit 0
@@ -352,9 +359,8 @@ spec_json 1 | br "$repoH" s1 write spec >/dev/null || fail "write spec (repoH)"
 plan_json | jq '.checks += ["make lint"]' | br "$repoH" s1 write plan >/dev/null || fail "write plan (repoH)"
 ok "$repoH" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repoH" s1 advance implement
-ok "$repoH" s1 check
-grep -Fq 'S-1' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "implement must name the plan steps: $out"
 printf 'h\n' >"$repoH/a.txt"
+apply_steps "$repoH"
 ok "$repoH" s1 advance verify
 ok "$repoH" s1 record check --cmd "make test" --exit 0
 before=$(jq -S . "$(sfile "$repoH")")
@@ -430,6 +436,7 @@ ok "$repo14" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo14" s1 advance implement
 printf 'edited\n' >"$repo14/keep.log"
 printf 'new\n' >"$repo14/n.txt"
+apply_steps "$repo14"
 ok "$repo14" s1 advance verify
 ok "$repo14" s1 record check --cmd "make test" --exit 0
 ok "$repo14" s1 record review --low-risk "docs-only"
@@ -461,6 +468,7 @@ ok "$repo15" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo15" s1 advance implement
 printf 'edited\n' >"$repo15/keep.log"
 printf 'new\n' >"$repo15/n.txt"
+apply_steps "$repo15"
 ok "$repo15" s1 advance verify
 ok "$repo15" s1 record check --cmd "make test" --exit 0
 ok "$repo15" s1 record review --low-risk "docs-only"
@@ -519,6 +527,7 @@ ok "$repo16" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo16" s1 advance implement
 printf 'code\n' >"$repo16/c.txt"
 printf 'built\n' >"$repo16/artifact.out"
+apply_steps "$repo16"
 ok "$repo16" s1 advance verify
 ok "$repo16" s1 record check --cmd "make test" --exit 0 --include-ignored artifact.out
 ok "$repo16" s1 record review --low-risk "docs-only"
@@ -544,6 +553,7 @@ ok "$repo17" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo17" s1 advance implement
 printf 'code\n' >"$repo17/c.txt"
 printf 'built\n' >"$repo17/artifact.out"
+apply_steps "$repo17"
 ok "$repo17" s1 advance verify
 ok "$repo17" s1 record check --cmd "make test" --exit 0 --include-ignored artifact.out
 ok "$repo17" s1 record review --low-risk "docs-only"
@@ -587,6 +597,7 @@ ok "$repo18" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo18" s1 advance implement
 printf 'b\n' >"$repo18/a.txt"
 printf 'x\n' >"$repo18/extra.txt"
+apply_steps "$repo18"
 ok "$repo18" s1 advance verify
 refused "$repo18" s1 record check --cmd "npm test" --exit 0     # not an approved plan check
 grep -Fq 'approved plan checks' "$work/err" || fail "an unapproved check must be named: $(cat "$work/err")"
@@ -621,6 +632,7 @@ write_artifacts "$repo20" 1
 ok "$repo20" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo20" s1 advance implement
 printf 'q\n' >"$repo20/a.txt"
+apply_steps "$repo20"
 ok "$repo20" s1 advance verify
 ok "$repo20" s1 record check --cmd "make test" --exit 0
 ok "$repo20" s1 record review --low-risk "docs-only"
@@ -646,6 +658,7 @@ write_artifacts "$repo22" 1 a.txt
 ok "$repo22" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo22" s1 advance implement
 printf 'b\n' >"$repo22/a.txt"
+apply_steps "$repo22"
 ok "$repo22" s1 advance verify
 ok "$repo22" s1 record check --cmd "make test" --exit 0
 ok "$repo22" s1 advance review --trigger "workflow policy"
@@ -665,6 +678,7 @@ write_artifacts "$repo23" 1 a.txt
 ok "$repo23" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repo23" s1 advance implement
 printf 'b\n' >"$repo23/a.txt"
+apply_steps "$repo23"
 ok "$repo23" s1 advance verify
 ok "$repo23" s1 record check --cmd "make test" --exit 0
 ok "$repo23" s1 record review --low-risk "docs-only"
@@ -684,10 +698,10 @@ d21=$(dirname "$(sfile "$repo21")")
 write_artifacts "$repo21" 1
 ok "$repo21" s1 approve --commit yes --branch-target current --codex reviewer
 tmp=$(mktemp -p "$work")
-jq 'del(.spec.plan_sha256) | del(.qa.artifact_rev) | del(.history) | del(.history_dropped)' "$(sfile "$repo21")" >"$tmp" && cp "$tmp" "$(sfile "$repo21")"
+jq 'del(.spec.plan_sha256) | del(.qa.artifact_rev) | del(.history) | del(.history_dropped) | del(.steps)' "$(sfile "$repo21")" >"$tmp" && cp "$tmp" "$(sfile "$repo21")"
 rm -f "$d21/artifacts.json"
 ok "$repo21" s1 show
-[ "$(jq -c '[.history, .history_dropped]' <<<"$out")" = '[[],0]' ] || fail "a run without history must load with an empty one"
+[ "$(jq -c '[.history, .history_dropped, .steps]' <<<"$out")" = '[[],0,{}]' ] || fail "a run without history or a step cursor must load with empty ones"
 refused "$repo21" s1 check
 [ "$(phase "$repo21")" = blocked ] || fail "a legacy run without recorded artifacts must block: $(phase "$repo21")"
 ok "$repo21" s1 unblock clarify --reason "rebuild the artifacts after the upgrade"
@@ -771,6 +785,7 @@ write_artifacts "$repoF" 1
 ok "$repoF" s1 approve --commit yes --branch-target current --codex reviewer
 ok "$repoF" s1 advance implement
 printf 'f1\n' >"$repoF/a.txt"
+apply_steps "$repoF"
 ok "$repoF" s1 advance verify
 ok "$repoF" s1 record check --cmd "make test" --exit 0
 invalid "$repoF" s1 advance review                 # no --trigger
@@ -795,9 +810,13 @@ ok "$repoF" s1 check
 [ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance fix"]' ] || fail "NEEDS FIXES must owe advance fix: $out"
 ok "$repoF" s1 advance fix
 ok "$repoF" s1 check
-grep -Fq 'open blockers' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "fix must owe the open blockers: $out"
-grep -Fq 'R1-2' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "fix must name the open blocker: $out"
-grep -Fq 'R1-1' <<<"$(jq -r '.next[0]' <<<"$out")" && fail "fix must not list a follow-up as a blocker: $out"
+[ "$(jq -r '.next[0]' <<<"$out")" = "b_run.py handoff fix" ] || fail "fix must start from its packet: $out"
+grep -Fq 'open blockers' <<<"$(jq -r '.next[1]' <<<"$out")" || fail "fix must owe the open blockers: $out"
+grep -Fq 'R1-2' <<<"$(jq -r '.next[1]' <<<"$out")" || fail "fix must name the open blocker: $out"
+grep -Fq 'R1-1' <<<"$(jq -r '.next[1]' <<<"$out")" && fail "fix must not list a follow-up as a blocker: $out"
+# A fix round corrects findings and owes no plan step: the cursor is kept and verify is open.
+refused "$repoF" s1 record step S-1
+[ "$(jq -c '.steps | keys' "$(sfile "$repoF")")" = '["S-1"]' ] || fail "the step cursor must survive review and fix"
 printf 'f2\n' >"$repoF/a.txt"
 ok "$repoF" s1 advance verify
 ok "$repoF" s1 record check --cmd "make test" --exit 0
@@ -828,8 +847,75 @@ ok "$repoF" cold check
 ok "$repoF" cold record qa --verdict "QA PASS"
 ok "$repoF" cold check
 [ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance commit"]' ] || fail "a recorded QA PASS must owe advance commit: $out"
-jq -e '[.history[].detail | keys[]] | unique - ["ac","cmd","exit","fingerprint","needs","reason","round","sha","spec","status","trigger","verdict"] == []' \
+jq -e '[.history[].detail | keys[]] | unique - ["ac","cmd","exit","fingerprint","needs","reason","round","sha","spec","status","step","trigger","verdict"] == []' \
   "$(sfile "$repoF")" >/dev/null || fail "history details must hold only the allowed facts"
+
+# --- the implement step cursor: progress is recorded, not read back from the tree -------
+repoS="$work/repoS"
+make_repo "$repoS"
+ok "$repoS" s1 init cursor
+spec_json 1 | br "$repoS" s1 write spec >/dev/null || fail "write spec (repoS)"
+plan_json | jq '.steps += [{id: "S-2", action: "second", paths: ["a.txt"], done_when: "done"},
+  {id: "S-3", action: "independent", paths: ["a.txt"], done_when: "done", depends_on: []}]' \
+  | br "$repoS" s1 write plan >/dev/null || fail "write plan (repoS)"
+owed_steps() { jq -c '[.next[] | select(test("record step")) | capture("record step (?<id>S-[0-9]+)").id]' <<<"$out"; }
+step_keys() { jq -c '.steps | keys' "$(sfile "$repoS")"; }
+ok "$repoS" s1 approve --commit yes --branch-target current --codex reviewer
+refused "$repoS" s1 record step S-1                 # steps are recorded in implement only
+ok "$repoS" s1 advance implement
+ok "$repoS" s1 check
+[ "$(jq -r '.next[0]' <<<"$out")" = "b_run.py handoff implement" ] || fail "implement must start from its packet: $out"
+[ "$(owed_steps)" = '["S-1","S-2","S-3"]' ] || fail "implement must owe every unrecorded step: $out"
+[ "$(jq -r '.next[-1]' <<<"$out")" = "b-state.mjs advance verify" ] || fail "implement must end with advance verify: $out"
+printf 's\n' >"$repoS/a.txt"
+before=$(jq -S . "$(sfile "$repoS")")
+refused "$repoS" s1 advance verify
+grep -Fq 'plan steps not recorded: S-1, S-2, S-3' "$work/err" || fail "the unrecorded steps must be named: $(cat "$work/err")"
+[ "$before" = "$(jq -S . "$(sfile "$repoS")")" ] || fail "a refused advance verify must not change the state"
+invalid "$repoS" s1 record step S-9                 # not a plan step
+refused "$repoS" s1 record step S-2                 # waits for the step before it
+grep -Fq 'S-1' "$work/err" || fail "the step a step waits for must be named: $(cat "$work/err")"
+ok "$repoS" s1 record step S-3                      # depends on none
+ok "$repoS" s1 record step S-1
+[ "$(jq -c '.history[-1] | [.op, .detail.step, (.detail.fingerprint | length)]' "$(sfile "$repoS")")" = '["record step","S-1",64]' ] \
+  || fail "a recorded step must add one history entry with its fingerprint"
+[ "$(jq -c '.steps["S-1"] | [.status, (.fingerprint | length)]' "$(sfile "$repoS")")" = '["done",64]' ] || fail "a recorded step must carry its evidence"
+refused "$repoS" s1 advance verify
+grep -Fq 'plan steps not recorded: S-2' "$work/err" || fail "only the remaining step must be named: $(cat "$work/err")"
+ok "$repoS" cold check --takeover                   # a session that never saw the run
+[ "$(owed_steps)" = '["S-2"]' ] || fail "a cold session must be told the one step still owed: $out"
+ok "$repoS" s1 lock --takeover
+ok "$repoS" s1 record step S-2
+ok "$repoS" s1 check
+[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance verify"]' ] || fail "with every step recorded only advance verify is owed: $out"
+ok "$repoS" s1 advance verify
+# The cursor survives a voiding check and a return to verify or fix; implement and clarify redo the plan.
+ok "$repoS" s1 record check --cmd "make test" --exit 0
+printf 's2\n' >"$repoS/a.txt"
+ok "$repoS" s1 check
+[ "$(step_keys)" = '["S-1","S-2","S-3"]' ] || fail "voided evidence must keep the step cursor"
+ok "$repoS" s1 advance blocked --reason "probe" --needs "nothing"
+ok "$repoS" s1 unblock fix --reason "probe"
+[ "$(step_keys)" = '["S-1","S-2","S-3"]' ] || fail "unblock fix must keep the step cursor"
+ok "$repoS" s1 advance verify                       # a fix round owes no step
+ok "$repoS" s1 advance blocked --reason "probe" --needs "nothing"
+ok "$repoS" s1 unblock verify --reason "probe"
+[ "$(step_keys)" = '["S-1","S-2","S-3"]' ] || fail "unblock verify must keep the step cursor"
+ok "$repoS" s1 advance blocked --reason "probe" --needs "nothing"
+ok "$repoS" s1 unblock implement --reason "redo the plan"
+[ "$(step_keys)" = '[]' ] || fail "unblock implement must reset the step cursor"
+refused "$repoS" s1 advance verify
+ok "$repoS" s1 record step S-1
+ok "$repoS" s1 advance blocked --reason "probe" --needs "nothing"
+ok "$repoS" s1 unblock clarify --reason "new plan"
+[ "$(step_keys)" = '[]' ] || fail "unblock clarify must reset the step cursor"
+# A new approval is a new plan, whatever the state claimed before it.
+jq '.steps = {"S-1": {status: "done", fingerprint: ("a" * 64)}}' "$(sfile "$repoS")" >"$tmp" && cp "$tmp" "$(sfile "$repoS")"
+git -C "$repoS" checkout -q -- a.txt
+ok "$repoS" s1 approve --commit yes --branch-target current --codex reviewer
+[ "$(step_keys)" = '[]' ] || fail "approve must reset the step cursor"
+jq '.steps = {"S-1": {status: "done", fingerprint: "not a fingerprint"}}' "$(sfile "$repoS")" >"$tmp" && cp "$tmp" "$(sfile "$repoS")"
+invalid "$repoS" s1 show
 
 # --- the lock owner may come from the Claude Code or the Pi session variable ----------
 repoP="$work/repoP"

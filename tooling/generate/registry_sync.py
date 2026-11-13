@@ -43,6 +43,16 @@ KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
 KERNEL_DELEGATION_START = "<!-- generated:delegation:start -->"
 KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 
+STATE_CLI_PATH = CLAUDE_DIR / "bin" / "b-state.mjs"
+# What a skill is to a b-flow run: it completes a run phase, supplies evidence to one, stays outside
+# every run, or sequences the run itself.
+CONTRACT_ROLES = {"phase", "provider", "utility", "orchestrator"}
+# Run phases only a phase skill completes; in `verify` the main session runs the plan checks itself.
+SKILL_RUN_PHASES = ("clarify", "implement", "review", "fix", "qa", "commit")
+# A phase skill here edits files, the index, or HEAD, so it can never run beside another.
+TREE_CHANGING_PHASES = {"implement", "fix", "commit"}
+PHASE_CONTRACTS_PLACEHOLDER = "{{phase_contracts}}"
+
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor", "b-reviewer"}
@@ -583,6 +593,94 @@ def validate_artifacts_schema() -> list[str]:
     return errors
 
 
+def packet_phases() -> tuple[str, ...]:
+    """The run phases `b_run.py handoff` renders a packet for, read from the CLI itself."""
+    block = re.search(r"^HANDOFF_PHASES = \((.*?)\)$", RUN_CLI_PATH.read_text(), re.M)
+    return tuple(re.findall(r'"([a-z]+)"', block.group(1))) if block else ()
+
+
+def state_phases() -> tuple[str, ...]:
+    block = re.search(r"export const PHASES = \[(.*?)\];", STATE_CLI_PATH.read_text(), re.S)
+    return tuple(re.findall(r'"([a-z]+)"', block.group(1))) if block else ()
+
+
+def validate_contracts(skills: list[dict[str, Any]]) -> list[str]:
+    """Every skill says what it is to a run, in phases the run CLIs know, and every phase has a skill."""
+    errors: list[str] = []
+    packets = packet_phases()
+    if not packets or not set(packets) <= set(state_phases()):
+        errors.append(f"{RUN_CLI_PATH.relative_to(ROOT)}: HANDOFF_PHASES must be run phases of b-state.mjs")
+    covered: set[str] = set()
+    orchestrators: list[str] = []
+    for skill in skills:
+        label = f"skills.{skill.get('name')}.contract"
+        contract = skill.get("contract")
+        if not isinstance(contract, dict) or contract.get("role") not in CONTRACT_ROLES:
+            errors.append(f"{label}.role: expected one of {sorted(CONTRACT_ROLES)}")
+            continue
+        role = contract["role"]
+        if role in ("utility", "orchestrator"):
+            if set(contract) != {"role"}:
+                errors.append(f"{label}: a {role} declares only its role")
+            if role == "orchestrator":
+                orchestrators.append(skill.get("name"))
+            continue
+        if set(contract) != {"role", "phases", "evidence", "parallel_safe"}:
+            errors.append(f"{label}: expected role, phases, evidence, and parallel_safe")
+            continue
+        phases = contract["phases"]
+        if (
+            not isinstance(phases, list)
+            or not phases
+            or not all(isinstance(phase, str) for phase in phases)
+            or len(set(phases)) != len(phases)
+            or not set(phases) <= set(packets)
+        ):
+            errors.append(f"{label}.phases: expected distinct run phases from {list(packets)}")
+            continue
+        ensure_string(contract["evidence"], f"{label}.evidence", errors)
+        if not isinstance(contract["parallel_safe"], bool):
+            errors.append(f"{label}.parallel_safe: expected boolean")
+        elif role == "phase":
+            covered.update(phases)
+            if contract["parallel_safe"] and TREE_CHANGING_PHASES & set(phases):
+                errors.append(f"{label}.parallel_safe: a skill for {sorted(TREE_CHANGING_PHASES)} changes the tree")
+    if orchestrators != ["b-flow"]:
+        errors.append("skills/registry.yaml: b-flow, and only b-flow, is the orchestrator")
+    elif PHASE_CONTRACTS_PLACEHOLDER not in (ROOT / "skills" / "b-flow" / "prompt.md").read_text():
+        errors.append(f"skills/b-flow/prompt.md: missing {PHASE_CONTRACTS_PLACEHOLDER}")
+    missing = [phase for phase in SKILL_RUN_PHASES if phase not in covered]
+    if missing:
+        errors.append(f"skills/registry.yaml: no phase skill for run phase(s) {missing}")
+    return errors
+
+
+def render_phase_contracts(skills: list[dict[str, Any]]) -> str:
+    """The orchestrator's phase table: who works in each run phase, its packet, and what each skill returns."""
+
+    def names(phase: str, role: str) -> str:
+        return ", ".join(
+            f"`{skill['name']}`"
+            for skill in skills
+            if skill["contract"]["role"] == role and phase in skill["contract"]["phases"]
+        )
+
+    lines = ["| Run phase | Phase skills | Evidence providers | Packet |", "| --- | --- | --- | --- |"]
+    for phase in packet_phases():
+        lines.append(
+            f"| {phase} | {names(phase, 'phase') or 'main session'} | {names(phase, 'provider') or 'none'}"
+            f" | `b_run.py handoff {phase}` |"
+        )
+    # Skills that return the same evidence share one line.
+    returned: dict[str, list[str]] = {}
+    for skill in skills:
+        if skill["contract"]["role"] in ("phase", "provider"):
+            returned.setdefault(skill["contract"]["evidence"], []).append(f"`{skill['name']}`")
+    lines += ["", "What each skill returns to the run:", ""]
+    lines += [f"- {', '.join(names_)}: {evidence}." for evidence, names_ in returned.items()]
+    return "\n".join(lines)
+
+
 def validate_optional_components(skills: list[dict[str, Any]], policy: dict[str, Any]) -> list[str]:
     """Optional components name real main-session skills and policy servers, never overlap, and can be
     filtered out of both kernels (exactly one routing line per skill)."""
@@ -853,6 +951,8 @@ def render_skill_file(skill: dict[str, Any], runtime: str = "claude", hits: set[
     body = (ROOT / "skills" / name / "prompt.md").read_text().rstrip()
     body = apply_markers(body, runtime)
     body = body.replace("{{skill_support_path}}", "<skill-dir>")
+    if PHASE_CONTRACTS_PLACEHOLDER in body:
+        body = body.replace(PHASE_CONTRACTS_PLACEHOLDER, render_phase_contracts(load_skills()))
     execution = skill["execution"]
     if execution["mode"] == "subagent":
         head, sep, rest = body.partition("\n## ")
@@ -1313,6 +1413,31 @@ def validate_regressions(
         "handoff: expected a non-empty string array" in error for error in validate_skills(invalid_handoff, agents)
     ):
         errors.append("skill regression: empty handoff must fail")
+
+    def contract_errors(name: str, change: dict[str, Any]) -> list[str]:
+        candidate = json.loads(json.dumps(skills))
+        next(skill for skill in candidate if skill["name"] == name)["contract"].update(change)
+        return validate_contracts(candidate)
+
+    if validate_contracts(skills):
+        errors.append("contract regression: the registry's own contracts must pass")
+    for name, change, why in (
+        ("b-plan", {"role": "worker"}, "an unknown role"),
+        ("b-plan", {"phases": ["planning"]}, "a phase the run CLIs do not know"),
+        ("b-plan", {"phases": []}, "a phase skill without phases"),
+        ("b-review", {"phases": ["qa"]}, "a run phase left without a phase skill"),
+        ("b-implement", {"parallel_safe": True}, "a tree-changing skill marked parallel-safe"),
+        ("b-qa", {"evidence": ""}, "a phase skill without evidence"),
+        ("b-pr", {"phases": ["commit"]}, "a utility that declares phases"),
+        ("b-commit", {"role": "orchestrator"}, "a second orchestrator"),
+    ):
+        if not contract_errors(name, change):
+            errors.append(f"contract regression: {why} must fail")
+    flow = next(skill for skill in skills if skill["name"] == "b-flow")
+    for runtime in RUNTIMES:
+        rendered = render_skill_file(flow, runtime)
+        if PHASE_CONTRACTS_PLACEHOLDER in rendered or any(f"| {phase} |" not in rendered for phase in packet_phases()):
+            errors.append(f"contract regression: the {runtime} b-flow skill must carry the phase table")
     for skill in skills:
         if skill.get("handoff"):
             rendered = render_skill_file(skill)
@@ -1546,6 +1671,7 @@ def sync_outputs(check: bool) -> int:
     capabilities = load_capabilities()
     errors = [
         *validate_skills(skills, agents),
+        *validate_contracts(skills),
         *validate_policy(policy),
         *validate_agent_tools(agents, policy),
         *validate_optional_components(skills, policy),

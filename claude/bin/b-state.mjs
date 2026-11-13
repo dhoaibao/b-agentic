@@ -34,6 +34,8 @@
 //   record qa --verdict V
 //   record ac AC-n pass|fail|gap|waived
 //   record commit SHA
+//   record step S-n                     a plan step is applied (phase implement); a step
+//                                       waits for the steps it depends on
 //   check [--takeover]                  verify the state against git, void stale evidence,
 //                                       and print `next`: what the phase still owes
 //   lock [--takeover] | unlock          take or release the run lock
@@ -122,6 +124,7 @@ const HISTORY_OPS = [
   "record qa",
   "record ac",
   "record commit",
+  "record step",
 ];
 // The only facts an entry may carry: the same kinds the rest of the state holds.
 const HISTORY_DETAIL = [
@@ -137,7 +140,9 @@ const HISTORY_DETAIL = [
   "status",
   "sha",
   "spec",
+  "step",
 ];
+const STEP_ID = /^S-[1-9]\d*$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
 class Refused extends Error {}
@@ -452,6 +457,15 @@ function validate(state) {
   ]) {
     if (value !== "" && !FINGERPRINT.test(value)) fail("fingerprint format");
   }
+  if (!isObj(state.steps)) fail("steps");
+  for (const [id, entry] of Object.entries(state.steps)) {
+    if (
+      !STEP_ID.test(id) ||
+      entry?.status !== "done" ||
+      !FINGERPRINT.test(entry.fingerprint ?? "")
+    )
+      fail(`step ${id}`);
+  }
   if (!isInt(state.review.round) || !isInt(state.qa.round)) fail("round");
   if (!isInt(state.qa.artifact_rev)) fail("qa.artifact_rev");
   if (typeof state.review.required !== "boolean") fail("review.required");
@@ -518,6 +532,9 @@ function loadState(dir) {
       state.spec.plan_sha256 ??= "";
     if (state.qa && typeof state.qa === "object") state.qa.artifact_rev ??= 0;
     // A run made before the history existed starts one from here.
+    // Nor a step cursor: only `implement` asks for it, so a run already past
+    // that phase is not sent back.
+    state.steps ??= {};
     state.history ??= [];
     state.history_dropped ??= 0;
   }
@@ -595,6 +612,7 @@ function freshState(runId, root, baseline) {
     prior_commits: [],
     commit_plan: null,
     blocked: { reason: "", needs: "", from: "" },
+    steps: {},
     history: [
       { at: now(), rev: 0, op: "init", from: "", to: "clarify", detail: {} },
     ],
@@ -768,6 +786,10 @@ function checksPass(state, plan) {
   return plan.checks.length > 0 && missingChecks(state, plan).length === 0;
 }
 
+// The plan steps not yet recorded as applied, in plan order.
+const missingSteps = (state, plan) =>
+  plan.step_ids.filter((id) => !state.steps[id]);
+
 const checksOwed = (state, plan) =>
   `plan checks without a passing result for the candidate: ${
     missingChecks(state, plan).join("; ") || "the plan lists none"
@@ -898,6 +920,8 @@ async function cmdApprove(root, dir, state, args) {
     codex: args.codex,
     push_pr: false,
   };
+  // A new approval is a new plan: none of its steps is applied yet.
+  state.steps = {};
   state.ac = Object.fromEntries(
     ids.map((id) => [id, { status: "pending", fingerprint: "" }]),
   );
@@ -1030,6 +1054,13 @@ async function cmdAdvance(root, dir, state, args) {
       throw refuse("the working tree differs from the approved candidate");
     }
   }
+  // Implementation is finished only when every plan step is recorded; a fix
+  // round corrects findings and owes no step.
+  if (target === "verify" && state.phase === "implement") {
+    const owed = missingSteps(state, art.artifacts.plan);
+    if (owed.length > 0)
+      throw refuse(`plan steps not recorded: ${owed.join(", ")}`);
+  }
   // Entering verify starts a new evidence round for a new candidate.
   if (target === "verify") voidEvidence(state);
   if (["review", "qa"].includes(target) && state.phase === "verify")
@@ -1064,6 +1095,9 @@ function cmdUnblock(dir, state, args) {
   } else {
     requireSpecUnchanged(dir, state);
   }
+  // Going back to implement or clarify redoes the plan; fix and verify keep
+  // the record of the steps already applied.
+  if (target === "clarify" || target === "implement") state.steps = {};
   voidEvidence(state);
   // Commits made under the old plan stay as an audit record; the next plan
   // starts from the current HEAD and validates only its own commits.
@@ -1310,7 +1344,25 @@ async function cmdRecord(root, dir, state, args) {
     saveState(dir, state, "record commit", { sha: full });
     return { commits: state.commits };
   }
-  throw invalid("record needs check|review|qa|ac|commit");
+  if (kind === "step") {
+    const id = args._[2];
+    if (state.phase !== "implement")
+      throw refuse("plan steps are recorded in phase implement");
+    const step = art.artifacts.plan.steps.find((s) => s.id === id);
+    if (!step) throw invalid("unknown plan step");
+    const owed = step.depends_on.filter((dep) => !state.steps[dep]);
+    if (owed.length > 0) {
+      throw refuse(
+        `record the steps ${id} depends on first: ${owed.join(", ")}`,
+      );
+    }
+    // The tree as it was when the step was applied: the step's own evidence.
+    const fingerprint = await currentFingerprint(state);
+    state.steps[id] = { status: "done", fingerprint };
+    saveState(dir, state, "record step", { step: id, fingerprint });
+    return { step: id, owed: missingSteps(state, art.artifacts.plan) };
+  }
+  throw invalid("record needs check|review|qa|ac|commit|step");
 }
 
 async function cmdCheck(root, dir, state, args) {
@@ -1515,8 +1567,13 @@ async function nextSteps(root, state, art) {
   }
   if (state.phase === "approved") return [stateCmd("advance implement")];
   if (state.phase === "implement") {
+    const owed = missingSteps(state, plan);
     return [
-      `apply plan.md steps ${plan.step_ids.join(", ")} inside the approved scope (step progress is not recorded: compare the tree with the plan)`,
+      ...(owed.length > 0 ? [runCmd("handoff implement")] : []),
+      ...owed.map(
+        (id) =>
+          `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
+      ),
       stateCmd("advance verify"),
     ];
   }
@@ -1575,7 +1632,7 @@ async function nextSteps(root, state, art) {
         `${runCmd("write followups")} with a disposition and reason for each, and a sweep line for every fixed blocker`,
       );
     }
-    return [...steps, stateCmd("advance verify")];
+    return [runCmd("handoff fix"), ...steps, stateCmd("advance verify")];
   }
   if (state.phase === "qa") {
     if (!qa || (art.revs.qa ?? 0) <= state.qa.artifact_rev) {
@@ -1606,6 +1663,7 @@ async function nextSteps(root, state, art) {
     const head = await gitOr(root, ["rev-parse", "HEAD"]);
     if (state.commits.includes(head)) return [stateCmd("advance done")];
     return [
+      runCmd("handoff commit"),
       `run b-commit for the whole candidate (branch target ${state.consent.branch_target}); the recorded consent is the commit request`,
       stateCmd("record commit <sha> for every commit"),
       stateCmd("advance done"),
