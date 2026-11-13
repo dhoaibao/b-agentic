@@ -16,7 +16,8 @@ Commands (JSON results on stdout, one-line errors on stderr):
   handoff review|qa        render the review or QA packet from the run (--out FILE outside the repo)
   selftest                 validate the schema file's examples against each other
 
-Options: --run ID, --owner NAME. Exit: 0 ok, 3 refused or not ok, 2 invalid input or state.
+Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID).
+Exit: 0 ok, 3 refused or not ok, 2 invalid input or state.
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
 """
@@ -594,9 +595,10 @@ def require_lock(directory: Path, owner: str) -> None:
 
 
 def default_owner(args: dict) -> str:
-    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+    # The same order as b-state.mjs, which takes the lock this owner must hold.
+    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("PI_SESSION_ID", "")
     if not OWNER.fullmatch(owner):
-        raise Invalid("pass --owner NAME or set CLAUDE_CODE_SESSION_ID")
+        raise Invalid("pass --owner NAME or set CLAUDE_CODE_SESSION_ID or PI_SESSION_ID")
     return owner
 
 

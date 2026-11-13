@@ -307,6 +307,33 @@ ok "$repo" handoff review --out "$work/focus.md"
 grep -Fq 'Acceptance criteria' "$work/focus.md" || fail "packet --out file"
 setphase "$repo" clarify
 
+# --- the owner: --owner, then CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID -----------------------
+owner_repo="$work/owner"
+make_repo "$owner_repo"
+newrun "$owner_repo"
+# bo [VAR=VALUE...]: write the spec without --owner under only the given session variables.
+bo() {
+  rc=0
+  out=$(cd "$owner_repo" && example spec |
+    env -u CLAUDE_CODE_SESSION_ID -u PI_SESSION_ID "$@" python3 -I -B "$cli" write spec 2>"$work/err") || rc=$?
+}
+bo PI_SESSION_ID=s1
+[ "$rc" -eq 0 ] || fail "PI_SESSION_ID must name the owner without --owner: rc=$rc $(cat "$work/err")"
+bo PI_SESSION_ID=other
+[ "$rc" -eq 3 ] || fail "a PI_SESSION_ID without the lock must be refused (rc=$rc)"
+grep -Fq 'locked by another session' "$work/err" || fail "the lock owner must be named: $(cat "$work/err")"
+bo
+[ "$rc" -eq 2 ] || fail "no owner at all must be invalid input (rc=$rc)"
+grep -Fq 'CLAUDE_CODE_SESSION_ID or PI_SESSION_ID' "$work/err" || fail "the error must name both session variables: $(cat "$work/err")"
+bo CLAUDE_CODE_SESSION_ID=s1 PI_SESSION_ID=other
+[ "$rc" -eq 0 ] || fail "CLAUDE_CODE_SESSION_ID must win over PI_SESSION_ID: rc=$rc $(cat "$work/err")"
+bo CLAUDE_CODE_SESSION_ID=other PI_SESSION_ID=s1
+[ "$rc" -eq 3 ] || fail "PI_SESSION_ID must not override CLAUDE_CODE_SESSION_ID (rc=$rc)"
+rc=0
+out=$(cd "$owner_repo" && example spec |
+  env CLAUDE_CODE_SESSION_ID=other PI_SESSION_ID=other python3 -I -B "$cli" write spec --owner s1 2>"$work/err") || rc=$?
+[ "$rc" -eq 0 ] || fail "--owner must override both session variables: rc=$rc $(cat "$work/err")"
+
 # --- no run, no repository --------------------------------------------------------------------
 repo2="$work/repo2"
 make_repo "$repo2"
