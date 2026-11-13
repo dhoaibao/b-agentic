@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -107,6 +108,10 @@ ELIGIBILITY = {
 }
 
 
+def pi_allowed_tools() -> list[str]:
+    return json.loads((ROOT / "references/runtimes.yaml").read_text())["runtimes"]["pi"]["allowed_tools"]
+
+
 def shell_patterns(rules: list[str]) -> set[str]:
     """The shell patterns inside a Claude Code rule list's `Bash(...)` entries."""
     return {rule.removeprefix("Bash(").removesuffix(")") for rule in rules if rule.startswith("Bash(")}
@@ -149,8 +154,12 @@ def pi_permission_errors(claude: dict, pi: dict) -> list[str]:
     mcp_keys = [key for key in permission if key.startswith("mcp__")]
     if mcp_keys[:1] != ["mcp__*"] or permission.get("mcp__*") != "ask":
         errors.append("pi permission: the broad mcp__* ask rule must come first")
+    for tool in pi_allowed_tools():
+        if permission.get(tool) != "allow":
+            errors.append(f"pi permission: {tool} must be allowed (its Claude counterpart is allowed by name)")
     for label in ("allow", "ask", "deny"):
-        claude_tools = {rule for rule in rules[label] if rule.startswith("mcp__")}
+        # Pi registers an MCP tool under its name with characters outside letters, digits and `_` replaced by `_`.
+        claude_tools = {re.sub(r"[^A-Za-z0-9_]", "_", rule) for rule in rules[label] if rule.startswith("mcp__")}
         pi_tools = {key for key in mcp_keys if key != "mcp__*" and permission[key] == label}
         if claude_tools != pi_tools:
             errors.append(f"pi permission: MCP {label} rules differ from Claude: {sorted(claude_tools ^ pi_tools)[:3]}")
@@ -186,6 +195,7 @@ def main() -> int:
         "a path rule removed": lambda config: config["permission"]["path"].pop("*.pem"),
         "the mcp ask fallback removed": lambda config: config["permission"].pop("mcp__*"),
         "yolo mode enabled": lambda config: config.update({"yoloMode": True}),
+        "the subagent allow removed": lambda config: config["permission"].pop("subagent"),
         "an MCP allow turned into deny": lambda config: config["permission"].update(
             {"mcp__codegraph__codegraph_explore": "deny"}
         ),

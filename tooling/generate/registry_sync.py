@@ -1135,6 +1135,15 @@ def render_pi_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str
     )
 
 
+def pi_normalized_name(name: str) -> str:
+    """Pi registers an MCP tool under its name with every character outside letters, digits, and `_` replaced by `_`."""
+    return re.sub(r"[^A-Za-z0-9_]", "_", name)
+
+
+def pi_mcp_permission_name(server: str, tool: str) -> str:
+    return f"mcp__{pi_normalized_name(server)}__{pi_normalized_name(tool)}"
+
+
 def render_pi_permissions(policy: dict[str, Any]) -> dict[str, Any]:
     """The @gotgenes/pi-permission-system config: the last matching rule in a map wins, so denies come last."""
     shell_ask, shell_deny = shell_pattern_rules()
@@ -1156,15 +1165,22 @@ def render_pi_permissions(policy: dict[str, Any]) -> dict[str, Any]:
         "external_directory": "allow",
         "mcp__*": "ask",
     }
+    # Tools the Claude template allows by name (Agent, AskUserQuestion) have Pi counterparts that would
+    # otherwise ask, and a prompt is denied in a headless run.
+    permission.update({tool: "allow" for tool in RUNTIMES["pi"]["allowed_tools"]})
     for server, record in policy["servers"].items():
         for tool, class_name in record["tools"].items():
-            permission[mcp_tool_name(server, tool)] = policy["classes"][class_name]["native_permission"]
+            permission[pi_mcp_permission_name(server, tool)] = policy["classes"][class_name]["native_permission"]
     return {"yoloMode": False, "permission": permission}
 
 
 def render_pi_mcp() -> dict[str, Any]:
-    """Built-in MCP server entries, taken from the Claude template; the shape is confirmed by spike S7."""
-    return json.loads((CLAUDE_CONFIGS_DIR / "mcp.base.json").read_text())
+    """Built-in MCP entries: the Claude template plus the exposure that lets the model call each server's tools."""
+    config = json.loads((CLAUDE_CONFIGS_DIR / "mcp.base.json").read_text())
+    exposure = RUNTIMES["pi"]["mcp_exposure"]
+    for name, entry in config["mcpServers"].items():
+        entry["exposure"] = "direct" if name in exposure["direct"] else exposure["default"]
+    return config
 
 
 def render_pi_settings_packages() -> dict[str, Any]:
@@ -1228,6 +1244,11 @@ def pi_output_errors(
     for entry in RUNTIMES["pi"]["glossary"]:
         if entry["from"] not in hits:
             errors.append(f"runtimes.pi.glossary: entry {entry['from']!r} matched nothing; remove or update it")
+    names = [
+        pi_mcp_permission_name(server, tool) for server, record in policy["servers"].items() for tool in record["tools"]
+    ]
+    if len(names) != len(set(names)):
+        errors.append("pi permission: two MCP tools share one normalized name (Pi would hash-suffix them)")
     kernel = outputs[PI_DIR / "kernel.md"]
     if "Pi Workflow Kernel" not in kernel:
         errors.append("pi/kernel.md: missing the Pi kernel title")
@@ -1477,8 +1498,15 @@ def validate_pi_runtime(pi: object) -> list[str]:
     if not isinstance(pi, dict):
         return [f"{label}: missing"]
     errors: list[str] = []
-    for key in ("read_only_tools", "excluded_agent_tools", "forbidden_tokens", "packages"):
+    for key in ("read_only_tools", "excluded_agent_tools", "forbidden_tokens", "packages", "allowed_tools"):
         non_empty_string_list(pi.get(key), f"{label}.{key}", errors)
+    exposure = pi.get("mcp_exposure")
+    if (
+        not isinstance(exposure, dict)
+        or exposure.get("default") not in {"direct", "deferred"}
+        or not isinstance(exposure.get("direct"), list)
+    ):
+        errors.append(f"{label}.mcp_exposure: expected {{default: direct|deferred, direct: [server names]}}")
     for key in ("glossary", "kernel_overrides"):
         entries = pi.get(key)
         if not isinstance(entries, list) or not entries:

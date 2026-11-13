@@ -420,8 +420,16 @@ def main() -> int:
             errors.append(f"pi {agent} MCP tools must match the Claude profile for the same specialist")
 
     mcp = json.loads((ROOT / "claude" / "configs" / "mcp.base.json").read_text())
-    if json.loads((ROOT / "pi" / "configs" / "mcp.base.json").read_text()) != mcp:
-        errors.append("pi MCP base config must carry the same servers as the Claude template")
+    pi_servers = json.loads((ROOT / "pi" / "configs" / "mcp.base.json").read_text()).get("mcpServers", {})
+    pi_without_exposure = {
+        name: {key: value for key, value in entry.items() if key != "exposure"} for name, entry in pi_servers.items()
+    }
+    if pi_without_exposure != mcp.get("mcpServers"):
+        errors.append("pi MCP base config must carry the same servers as the Claude template (plus exposure)")
+    for name, entry in pi_servers.items():
+        # Pi's default `codemode` exposure leaves a server's tools out of the model's direct tool list.
+        if entry.get("exposure") not in {"direct", "deferred"}:
+            errors.append(f"pi MCP server {name} must set exposure direct or deferred")
     if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - IDE_MANAGED_SERVERS:
         errors.append("Claude Code base MCP config must configure all required servers only")
     for server, entry in mcp.get("mcpServers", {}).items():

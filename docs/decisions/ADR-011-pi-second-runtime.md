@@ -46,63 +46,75 @@ The user decided each item below on 2026-11-13.
 - The ask tool comes from `@juicesharp/rpiv-ask-user-question` (pinned `2.15.0`).
 - The review gate on Pi is the read-only `b-reviewer` subagent only. There is no
   Codex wrapper, guard, or approval on Pi, and `b-flow` records `codex` as `reviewer`.
-- Safety hooks become one owned fail-closed Pi extension that reuses the
-  `claude/hooks` logic; it is built in a later change, not this one.
+- Safety hooks are one owned Pi extension (`pi/extensions/b-agentic`) whose plain-Node
+  core reuses the `claude/hooks` modules. The file-tool guard fails closed: a missing
+  hook module or any error blocks the call. The verify reminder and the context
+  injection fail open, as on Claude Code. The extension also registers itself and the
+  permission system as required child extensions, so `pi-subagents` children are gated;
+  if that registration fails, subagent launches are refused.
+- The run-state lock owner on Pi is `PI_SESSION_ID`, which Pi sets for its bash tool.
+- The Pi permission config also allows `subagent`, `bg_wait`, and `ask_user_question`,
+  keys MCP tools by the names Pi registers (characters outside letters, digits, and `_`
+  become `_`), and the MCP config sets each server's `exposure` because the default
+  (`codemode`) leaves a server's tools out of the model's direct tool list.
 - The installer is a later change: `--runtime=claude|pi|both` with `claude` as the
   default, disjoint install roots, and no vendor installers run.
 - The status line and todo list are not ported in v1. Doctor scripts get no Pi mode yet.
 
 ### Gap handling on Pi
 
-| Claude Code feature                          | Pi handling                                                                                |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Permission rules in the Claude settings file | Generated permission config with the last matching rule winning, so deny rules come last   |
-| Path guard hook                              | Guard extension (later change) plus the permission system's `path` rules as a second layer |
-| Verify gate (Stop hook)                      | Extension on `agent_before_settle` (later change; spike S3)                                |
-| Spec and run context after compaction        | Extension injection (later change; spike S4, S5)                                           |
-| Codex review gate                            | Not ported; `b-reviewer` only                                                              |
-| Status line, todo                            | Not ported                                                                                 |
-| `AskUserQuestion`                            | `ask_user_question` from the pinned package                                                |
-| Subagent profile check                       | `subagent` tool and the agent file's `tools` allowlist                                     |
+| Claude Code feature                          | Pi handling                                                                              |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Permission rules in the Claude settings file | Generated permission config with the last matching rule winning, so deny rules come last |
+| Path guard hook                              | Guard extension plus the permission system's `path` rules as a second layer              |
+| Verify gate (Stop hook)                      | Extension on `agent_before_settle`, one extra turn per run                               |
+| Spec and run context after compaction        | Extension queues the text and returns it from `before_agent_start`                       |
+| Codex review gate                            | Not ported; `b-reviewer` only                                                            |
+| Status line, todo                            | Not ported                                                                               |
+| `AskUserQuestion`                            | `ask_user_question` from the pinned package                                              |
+| Subagent profile check                       | `subagent` tool and the agent file's `tools` allowlist                                   |
 
 ### Spike results
 
-Every item is pending: Pi is not installed on the machine that wrote this record, and
-this record stays Proposed until the table is filled in on Pi 1.5.2.
+Run on 2026-11-13 against Pi 1.5.2 with an offline scripted model in an isolated
+agent directory, plus the three pinned packages. "Docs" means the bundled Pi docs and
+`dist` source; "live" means a run on Pi.
 
-| ID  | Check                                                                          | Result  |
-| --- | ------------------------------------------------------------------------------ | ------- |
-| S1  | A `tool_call` handler returns `block`; a throwing handler fails open or closed | pending |
-| S2  | Exact tool input keys for read, edit, write, grep, find, ls, bash              | pending |
-| S3  | `agent_before_settle` returns `continue` and adds one reminder turn            | pending |
-| S4  | Context injection after `/compact`                                             | pending |
-| S5  | The same injection on startup and resume                                       | pending |
-| S6  | The permission system and the guard cover `pi-subagents` children              | pending |
-| S7  | Built-in MCP tool names, config shape, `${VAR}` interpolation, Notion OAuth    | pending |
-| S8  | `.b-agentic` write denial for file tools while Bash writes still work          | pending |
-| S9  | `AGENTS.md` and `CLAUDE.md` loading order and duplication                      | pending |
-| S10 | `/skill:` and `/b-` commands, argument passing                                 | pending |
-| S11 | Session id environment variable for the run-state lock                         | pending |
-| S12 | `rpiv-ask-user-question` tool name and behaviour                               | pending |
-| S13 | Permission system rule order, layering, and `path` on Bash                     | pending |
-| S14 | `subagent` tool parameters, unknown-agent error, agent precedence, depth       | pending |
-| S15 | An extension that throws at import                                             | pending |
-| S16 | The Pi settings `packages` pins install and load on Pi 1.5.2                   | pending |
+| ID  | Check                                                                          | Result                                                                                                                                                          |
+| --- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | A `tool_call` handler returns `block`; a throwing handler fails open or closed | Live: block and throw both return an error result and the tool does not run (fails closed per call)                                                             |
+| S2  | Exact tool input keys for read, edit, write, grep, find, ls, bash              | Live: read, edit, write, ls take `path`; grep takes `pattern`, `path`, `glob`; find takes `pattern`, `path`; bash takes `command`                               |
+| S3  | `agent_before_settle` returns `continue` and adds one reminder turn            | Live: one extra turn with the reminder, then the run settles; `outcome` is completed, aborted, or error                                                         |
+| S4  | Context injection after `/compact`                                             | Live (RPC mode; compaction is cancelled in single-shot mode): a `before_agent_start` message queued from `session_compact` reaches the next run                 |
+| S5  | The same injection on startup and resume                                       | Live for startup; resume and new session follow the same event                                                                                                  |
+| S6  | The permission system and the guard cover `pi-subagents` children              | Live, foreground: children are ungated unless extensions are registered; `registerRequiredChildExtensions` gates them. Background children are not verified     |
+| S7  | Built-in MCP tool names, config shape, `${VAR}` interpolation, Notion OAuth    | Live: names are `mcp__<server>__<tool>` with `_` for other characters; default `codemode` exposure is not directly callable. Docs: `${VAR}`, `/mcp login` OAuth |
+| S8  | `.b-agentic` write denial for file tools while Bash writes still work          | Live: the guard refuses file-tool writes and allows reads; a Bash write through the run artifact CLI is not path-checked by design and was not run on Pi        |
+| S9  | `AGENTS.md` and `CLAUDE.md` loading order and duplication                      | Live: only the first of the override, `AGENTS.md`, and `CLAUDE.md` spellings in that order loads per directory, so the shim is not duplicated                   |
+| S10 | `/skill:` and `/b-` commands, argument passing                                 | Live: `/b-x alpha "beta gamma"` expands `$ARGUMENTS` and `$1`; `/skill:name args` expands the skill block                                                       |
+| S11 | Session id environment variable for the run-state lock                         | Live: Pi sets `PI_SESSION_ID` and `AI_AGENT=pi` for bash                                                                                                        |
+| S12 | `rpiv-ask-user-question` tool name and behaviour                               | Live: the tool is registered as `ask_user_question`; its prompt behaviour is not exercised                                                                      |
+| S13 | Permission system rule order, layering, and `path` on Bash                     | Live: deny, ask (denied when headless), and `path` rules work, including `cat .env`; unknown tools such as `subagent` ask                                       |
+| S14 | `subagent` tool parameters, unknown-agent error, agent precedence, depth       | Live: parameters `agent`, `task`, `async`; `mcp:<server>/<tool>` uses original tool names and needs configured servers. Precedence and depth are not tested     |
+| S15 | An extension that throws at import                                             | Live: with `-e` Pi refuses to start; an auto-discovered extension is not tested                                                                                 |
+| S16 | The Pi settings `packages` pins install and load on Pi 1.5.2                   | Live: all three pins install and load; npm reports the `tree-sitter-bash` install script as not yet approved                                                    |
 
 ## Consequences
 
 - Two runtimes to maintain. The kernel size limit applies to each rendered kernel.
-- The generated Pi permission keys and MCP tool names follow the prior Pi template and
-  the package READMEs and are unverified until S7 and S13 run; treat the Pi permission
-  config as a draft until then.
-- Pi extensions fail open at load time, so the permission system's `path` rules are
-  a required backstop for secret paths (S15).
-- Child bash on Pi depends on the permission system covering `pi-subagents` children
-  (S6). If it does not, child bash is prompt-enforced only, which is an accepted gap.
+- The generated permission config was exercised on the main session and a foreground
+  child (S6, S13). Background children, deferred MCP exposure for specialists, and
+  the `tree-sitter-bash` install script on a clean machine are not verified.
+- An extension that fails to load can leave Pi without the guard (S15 covers only
+  `-e`), so the permission system's `path` rules stay a required second layer for
+  secret paths.
+- Child gating depends on `registerRequiredChildExtensions` from `pi-subagents`; the
+  guard refuses subagent launches when that registration fails.
 - Pi and the three pinned packages can change config keys silently; re-run the spike
   after an upgrade.
-- `b-flow` on Pi needs the guard extension to set `B_AGENTIC_SESSION_ID` and
-  the run-state helper to read it; until that change lands, `b-flow` does not run on Pi.
+- `b-flow` on Pi needs the installer (a later change) to place the run-state helper, the run artifact CLI,
+  and the hook modules under the Pi agent directory; the run-state helper already reads
+  `PI_SESSION_ID`.
 - Unchanged non-goals: no custom permission engine, no per-project installs, no live
   Pi or Codex session in CI. Reintroducing or removing a runtime needs a new ADR.
 

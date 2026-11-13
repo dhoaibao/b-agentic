@@ -29,7 +29,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 // Prose-only edits carry no behavior to verify.
-const PROSE_PATH = /\.(md|mdx|txt|rst)$/i;
+export const PROSE_PATH = /\.(md|mdx|txt|rst)$/i;
 
 export const REMINDER = [
   "b-agentic verify gate: files were edited after the last non-inspection shell command in this run.",

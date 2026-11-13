@@ -44,6 +44,20 @@
         "subagent",
         "ask_user_question"
       ],
+      "allowed_tools": [
+        "subagent",
+        "bg_wait",
+        "ask_user_question"
+      ],
+      "mcp_exposure": {
+        "default": "deferred",
+        "direct": [
+          "codegraph",
+          "context7",
+          "excalidraw",
+          "drawio"
+        ]
+      },
       "mcp_tool_format": "mcp__{server}__{tool}",
       "arguments_placeholder": "the arguments supplied with the invocation",
       "delegation_unavailable": "A missing or editing-capable agent profile, or an unknown-agent error, counts as unavailable.",
@@ -64,7 +78,7 @@
         {"from": "`Write`", "to": "`write`"},
         {"from": "`Grep`", "to": "`grep`"},
         {"from": "`Glob`", "to": "`find`"},
-        {"from": "CLAUDE_CODE_SESSION_ID", "to": "B_AGENTIC_SESSION_ID"},
+        {"from": "CLAUDE_CODE_SESSION_ID", "to": "PI_SESSION_ID"},
         {"from": "; a missing standing Codex approval is not a question here, so use the `b-reviewer` path", "to": ""}
       ],
       "kernel_overrides": [

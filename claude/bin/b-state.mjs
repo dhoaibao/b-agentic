@@ -508,10 +508,15 @@ function freshState(runId, root, baseline) {
 // ---- lock -------------------------------------------------------------------
 
 function defaultOwner(args) {
-  const owner = args.owner ?? process.env.CLAUDE_CODE_SESSION_ID ?? "";
+  // Claude Code sets CLAUDE_CODE_SESSION_ID; Pi sets PI_SESSION_ID for its bash tool.
+  const owner =
+    args.owner ??
+    process.env.CLAUDE_CODE_SESSION_ID ??
+    process.env.PI_SESSION_ID ??
+    "";
   if (!OWNER.test(owner)) {
     throw invalid(
-      "pass --owner NAME (letters, digits, . _ : -) or set CLAUDE_CODE_SESSION_ID",
+      "pass --owner NAME (letters, digits, . _ : -) or set CLAUDE_CODE_SESSION_ID or PI_SESSION_ID",
     );
   }
   return owner;

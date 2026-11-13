@@ -29,6 +29,8 @@ bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
 bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
 bash "$ROOT_DIR/tests/state/state-probe.sh"
 bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
+node "$ROOT_DIR/tests/pi/guard-cases.mjs"
+bash "$ROOT_DIR/tests/pi/guard-probe.sh"
 
 if [ "$run_release" -eq 1 ]; then
   bash "$ROOT_DIR/tests/install/claude-install-probe.sh"

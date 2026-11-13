@@ -9,14 +9,16 @@
       ],
       "env": {
         "CODEGRAPH_TELEMETRY": "0"
-      }
+      },
+      "exposure": "direct"
     },
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
-      }
+      },
+      "exposure": "direct"
     },
     "brave_search": {
       "type": "stdio",
@@ -28,7 +30,8 @@
       ],
       "env": {
         "BRAVE_API_KEY": "${BRAVE_API_KEY}"
-      }
+      },
+      "exposure": "deferred"
     },
     "firecrawl": {
       "type": "stdio",
@@ -38,7 +41,8 @@
       ],
       "env": {
         "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
-      }
+      },
+      "exposure": "deferred"
     },
     "playwright": {
       "type": "stdio",
@@ -48,15 +52,18 @@
         "--isolated",
         "--headless",
         "--caps=testing"
-      ]
+      ],
+      "exposure": "deferred"
     },
     "notion": {
       "type": "http",
-      "url": "https://mcp.notion.com/mcp"
+      "url": "https://mcp.notion.com/mcp",
+      "exposure": "deferred"
     },
     "excalidraw": {
       "type": "http",
-      "url": "https://mcp.excalidraw.com"
+      "url": "https://mcp.excalidraw.com",
+      "exposure": "direct"
     },
     "drawio": {
       "type": "stdio",
@@ -66,7 +73,8 @@
       ],
       "env": {
         "DRAWIO_ICON_SERVICE_URL": "off"
-      }
+      },
+      "exposure": "direct"
     },
     "shadcn": {
       "type": "stdio",
@@ -74,7 +82,8 @@
       "args": [
         "shadcn@latest",
         "mcp"
-      ]
+      ],
+      "exposure": "deferred"
     }
   }
 }
