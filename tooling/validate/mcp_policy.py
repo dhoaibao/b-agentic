@@ -190,6 +190,20 @@ def agent_tools(agent: str) -> list[str]:
     return [tool.strip() for tool in line.removeprefix("tools: ").split(",") if tool.strip()]
 
 
+def pi_agent_tools(agent: str) -> list[str]:
+    profile = (ROOT / "pi" / "agents" / f"{agent}.md").read_text()
+    line = next(item for item in profile.splitlines() if item.startswith("tools: "))
+    return [tool.strip() for tool in line.removeprefix("tools: ").split(",") if tool.strip()]
+
+
+def pi_tool_to_claude_name(tool: str) -> str:
+    """`mcp:<server>/<tool>` (Pi agent tool lists) to `mcp__<server>__<tool>`; other tools pass through."""
+    if not tool.startswith("mcp:"):
+        return tool
+    server, _, name = tool.removeprefix("mcp:").partition("/")
+    return f"mcp__{server}__{name}"
+
+
 def main() -> int:
     from tooling.generate.registry_sync import (
         SETTINGS_TEMPLATE_PATH,
@@ -389,7 +403,33 @@ def main() -> int:
         elif research_tools.intersection(tools):
             errors.append(f"{agent} must not inherit researcher-only Firecrawl tools")
 
+    for agent in AGENTS:
+        raw_tools = pi_agent_tools(agent)
+        names = [pi_tool_to_claude_name(tool) for tool in raw_tools]
+        if any(tool in {"edit", "write", "subagent", "ask_user_question"} for tool in raw_tools):
+            errors.append(f"pi {agent} must stay read-only, non-delegating, and non-interactive")
+        if "mcp__codegraph__codegraph_explore" not in names:
+            errors.append(f"pi {agent} must expose the CodeGraph explore tool")
+        if any(name.startswith(("mcp__notion__", "mcp__datagrip__")) for name in names):
+            errors.append(f"pi {agent} must not receive private Notion or DataGrip tools")
+        if any(name in ask or name in deny for name in names if name.startswith("mcp__")):
+            errors.append(f"pi {agent} must not list a tool that asks or is denied")
+        if [name for name in names if name.startswith("mcp__")] != [
+            tool for tool in agent_tools(agent) if tool.startswith("mcp__")
+        ]:
+            errors.append(f"pi {agent} MCP tools must match the Claude profile for the same specialist")
+
     mcp = json.loads((ROOT / "claude" / "configs" / "mcp.base.json").read_text())
+    pi_servers = json.loads((ROOT / "pi" / "configs" / "mcp.base.json").read_text()).get("mcpServers", {})
+    pi_without_exposure = {
+        name: {key: value for key, value in entry.items() if key != "exposure"} for name, entry in pi_servers.items()
+    }
+    if pi_without_exposure != mcp.get("mcpServers"):
+        errors.append("pi MCP base config must carry the same servers as the Claude template (plus exposure)")
+    for name, entry in pi_servers.items():
+        # Pi's default `codemode` exposure leaves a server's tools out of the model's direct tool list.
+        if entry.get("exposure") not in {"direct", "deferred"}:
+            errors.append(f"pi MCP server {name} must set exposure direct or deferred")
     if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - IDE_MANAGED_SERVERS:
         errors.append("Claude Code base MCP config must configure all required servers only")
     for server, entry in mcp.get("mcpServers", {}).items():

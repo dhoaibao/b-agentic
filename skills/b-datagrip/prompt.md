@@ -8,7 +8,8 @@ Inspect and query DataGrip-configured databases through the DataGrip MCP server,
 
 ## When NOT to use
 
-- The DataGrip MCP tools (`mcp__datagrip__*`) are unavailable; state the prerequisite (DataGrip running, MCP Server enabled under Settings | Tools | MCP Server, a project open, Claude Code entry configured) rather than claiming database access.
+<!-- runtime: pi --> - The DataGrip MCP tools (`mcp__datagrip__*`) are unavailable; state the prerequisite (DataGrip running, MCP Server enabled under Settings | Tools | MCP Server, a project open, the DataGrip server configured in Pi's `mcp.json`) rather than claiming database access.
+<!-- runtime: claude --> - The DataGrip MCP tools (`mcp__datagrip__*`) are unavailable; state the prerequisite (DataGrip running, MCP Server enabled under Settings | Tools | MCP Server, a project open, Claude Code entry configured) rather than claiming database access.
 - The user wants application code, migrations, or ORM changes -> **b-implement**; a runtime failure to diagnose -> **b-debug**.
 - The user asks only about DataGrip or MCP documentation -> **b-research**.
 

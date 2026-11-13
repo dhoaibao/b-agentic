@@ -1121,9 +1121,9 @@ run "$home" -y --statusline-only; expect_ok "status line re-run"
 # Flags that make no sense with it are refused.
 run "$home" -y --statusline-only --with=drawio; expect_refused "--statusline-only with --with"
 run "$home" -y --statusline-only --uninstall; expect_refused "--statusline-only with --uninstall"
-# Only Claude Code is supported: --runtime=claude is a no-op, every other value and --migrate-legacy are refused.
+# install.sh accepts --runtime=claude (a no-op here), pi, and both (ADR-011); OpenCode, Codex, and --migrate-legacy stay refused.
 run "$home" -y --statusline-only --dry-run --runtime=claude; expect_ok "--runtime=claude is accepted"
-for bad in opencode both codex; do
+for bad in opencode codex; do
   run "$home" -y --dry-run --runtime=$bad; expect_refused "--runtime=$bad"
   grep -Fq 'ADR-008' <<<"$err$out" || fail "the --runtime=$bad refusal must point to ADR-008: $err $out"
 done

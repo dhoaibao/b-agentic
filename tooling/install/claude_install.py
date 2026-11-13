@@ -20,8 +20,8 @@ deleted. A hook the user edited, or one it never recorded, is kept and reported,
 and its script is kept too until that entry is gone. An uninstall removes the
 recorded hooks first and then the scripts, so such a user-owned entry can outlive
 its script.
-Nothing is ever written under ~/.pi, and only the default ~/.claude directory is
-supported because the managed hooks, agents, and instructions refer to it.
+Nothing is ever written under ~/.pi (pi_install.py owns that tree), and only the default ~/.claude
+directory is supported because the managed hooks, agents, and instructions refer to it.
 """
 
 from __future__ import annotations
@@ -84,18 +84,25 @@ def resolve_claude_dir() -> Path:
     return default
 
 
-def guard_destination(path: Path) -> None:
-    """Refuse to touch the frozen Pi runtime, the home directory itself, or the filesystem root."""
+# What this installer never touches: the other runtime's home entries. The Pi installer passes its own.
+CLAUDE_INSTALL_PROTECTED = ((".pi", "the Pi runtime directory"),)
+
+
+def guard_destination(path: Path, protected: tuple[tuple[str, str], ...] = CLAUDE_INSTALL_PROTECTED) -> None:
+    """Refuse to touch the other runtime's files, the home directory itself, or the filesystem root."""
     resolved = Path(os.path.realpath(path))
     home = home_dir()
     if resolved in (Path("/"), Path(os.path.realpath(home))):
         raise InstallError(f"refusing to manage {path}")
-    for pi_root in {home / ".pi", Path(os.path.realpath(home / ".pi"))}:
-        if resolved == pi_root or pi_root in resolved.parents:
-            raise InstallError(f"refusing to write under the Pi runtime directory: {path}")
+    for name, description in protected:
+        for root in {home / name, Path(os.path.realpath(home / name))}:
+            if resolved == root or root in resolved.parents:
+                raise InstallError(f"refusing to write under {description}: {path}")
 
 
-def check_directory_chain(path: Path, base: Path) -> None:
+def check_directory_chain(
+    path: Path, base: Path, protected: tuple[tuple[str, str], ...] = CLAUDE_INSTALL_PROTECTED
+) -> None:
     """Every existing component from `base` down to `path` must be a real directory."""
     current = base
     for part in path.relative_to(base).parts:
@@ -104,7 +111,7 @@ def check_directory_chain(path: Path, base: Path) -> None:
             raise InstallError(f"{current} is a symlink; remove or replace it")
         if current.exists() and not current.is_dir():
             raise InstallError(f"{current} exists but is not a directory")
-    guard_destination(path)
+    guard_destination(path, protected)
 
 
 def destination_identity(path: Path) -> tuple[Any, ...]:

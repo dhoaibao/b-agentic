@@ -7,6 +7,9 @@
 Refinements update this record in place. A reversed decision gets a new ADR
 with `Supersedes: ADR-001`, and the superseded area is noted here.
 
+[ADR-011](ADR-011-pi-second-runtime.md) again supersedes the second-runtime
+non-goal under Consequences, by adding Pi as an opt-in second runtime.
+
 Superseded in part by [ADR-002](ADR-002-dual-runtime-support.md): the
 single-runtime statement in Context, the `~/.claude`-only boundary under
 "Product boundary and architecture", the second-runtime non-goal under

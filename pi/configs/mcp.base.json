@@ -1,0 +1,89 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ],
+      "env": {
+        "CODEGRAPH_TELEMETRY": "0"
+      },
+      "exposure": "direct"
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      },
+      "exposure": "direct"
+    },
+    "brave_search": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "@brave/brave-search-mcp-server",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "exposure": "deferred"
+    },
+    "firecrawl": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "firecrawl-mcp"
+      ],
+      "env": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+      },
+      "exposure": "deferred"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "@playwright/mcp",
+        "--isolated",
+        "--headless",
+        "--caps=testing"
+      ],
+      "exposure": "deferred"
+    },
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp",
+      "exposure": "deferred"
+    },
+    "excalidraw": {
+      "type": "http",
+      "url": "https://mcp.excalidraw.com",
+      "exposure": "direct"
+    },
+    "drawio": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "@drawio/mcp@1.6.3"
+      ],
+      "env": {
+        "DRAWIO_ICON_SERVICE_URL": "off"
+      },
+      "exposure": "direct"
+    },
+    "shadcn": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ],
+      "exposure": "deferred"
+    }
+  }
+}

@@ -21,6 +21,83 @@
       "arguments_placeholder": "$ARGUMENTS",
       "delegation_unavailable": "A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable.",
       "profile_check": "confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`"
+    },
+    "pi": {
+      "config_dir": "~/.pi/agent",
+      "state_dir": "~/.pi/agent/b-agentic",
+      "hook_dir": "$HOME/.pi/agent/b-agentic/hooks",
+      "agent_models": [],
+      "editing_tools": [
+        "edit",
+        "write"
+      ],
+      "read_only_tools": [
+        "read",
+        "grep",
+        "find",
+        "ls",
+        "bash"
+      ],
+      "excluded_agent_tools": [
+        "edit",
+        "write",
+        "subagent",
+        "ask_user_question"
+      ],
+      "allowed_tools": [
+        "subagent",
+        "bg_wait",
+        "ask_user_question"
+      ],
+      "mcp_exposure": {
+        "default": "deferred",
+        "direct": [
+          "codegraph",
+          "context7",
+          "excalidraw",
+          "drawio"
+        ]
+      },
+      "mcp_tool_format": "mcp__{server}__{tool}",
+      "arguments_placeholder": "the arguments supplied with the invocation",
+      "delegation_unavailable": "A missing or editing-capable agent profile, or an unknown-agent error, counts as unavailable.",
+      "profile_check": "confirm the effective `{agent}.md` (project `.pi/agents/` over `~/.pi/agent/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `subagent` tool with `agent` `{agent}` and a task naming `{name}`",
+      "packages": [
+        "npm:pi-subagents@0.88.0",
+        "npm:@gotgenes/pi-permission-system@42.0.0",
+        "npm:@juicesharp/rpiv-ask-user-question@2.15.0"
+      ],
+      "glossary": [
+        {"from": "~/.claude/b-agentic/", "to": "~/.pi/agent/b-agentic/"},
+        {"from": "named `Agent` subagent type", "to": "named agent via the `subagent` tool"},
+        {"from": "its named `Agent` call", "to": "its named `subagent` call"},
+        {"from": "unknown agent type or `general-purpose` fallback", "to": "unknown-agent error or fallback to another agent"},
+        {"from": "AskUserQuestion", "to": "ask_user_question"},
+        {"from": "`Read`", "to": "`read`"},
+        {"from": "`Edit`", "to": "`edit`"},
+        {"from": "`Write`", "to": "`write`"},
+        {"from": "`Grep`", "to": "`grep`"},
+        {"from": "`Glob`", "to": "`find`"},
+        {"from": "CLAUDE_CODE_SESSION_ID", "to": "PI_SESSION_ID"},
+        {"from": "; a missing standing Codex approval is not a question here, so use the `b-reviewer` path", "to": ""}
+      ],
+      "kernel_overrides": [
+        {"from": "Claude Code Workflow Kernel", "to": "Pi Workflow Kernel"},
+        {"from": "; use the built-in todo list only when it helps", "to": ""},
+        {"from": "Claude Code exposes MCP tools as", "to": "Pi exposes MCP tools as"}
+      ],
+      "forbidden_tokens": [
+        "~/.claude",
+        "AskUserQuestion",
+        "Codex",
+        "b-codex",
+        "`Agent`",
+        "subagent_type",
+        "NotebookEdit",
+        "CLAUDE_CODE_SESSION_ID",
+        "run_in_background",
+        "/codex:"
+      ]
     }
   }
 }
