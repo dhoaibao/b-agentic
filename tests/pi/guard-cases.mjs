@@ -1,4 +1,5 @@
-// Cases for the Pi guard core (pi/extensions/b-agentic/guard.mjs). Needs only
+// Cases for the Pi guard core (pi/extensions/b-agentic/guard.mjs) and for the
+// child-gate registration glue in the extension entry (index.ts). Needs only
 // node: no Pi, network, or credentials. The hook modules come from claude/hooks,
 // the same files the installer copies next to the Pi extension.
 import assert from "node:assert/strict";
@@ -10,12 +11,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createGuard,
   FILE_TOOLS,
 } from "../../pi/extensions/b-agentic/guard.mjs";
+import extension from "../../pi/extensions/b-agentic/index.ts";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const hooksDir = join(root, "claude", "hooks");
@@ -245,6 +247,187 @@ test("subagent launches are refused when child sessions cannot be gated", () => 
     undefined,
   );
   guard.setChildGateError("");
+});
+
+// The extension entry, loaded through Node's type stripping with a fake `pi`
+// and a temporary agent directory per case. In the repository layout the hook
+// modules are not next to it, so these cases exercise the child gate only.
+const REGISTRATIONS = "__bAgenticChildRegistrations";
+const BUNDLES = {
+  working: `export function registerRequiredChildExtensions(options) {
+  const entry = { options, disposed: false };
+  (globalThis.${REGISTRATIONS} ??= []).push(entry);
+  return {
+    dispose() {
+      entry.disposed = true;
+    },
+  };
+}
+`,
+  noExport: "export const version = 1;\n",
+  throwing: `export function registerRequiredChildExtensions() {
+  throw new Error("registration exploded");
+}
+`,
+};
+const bundleEntry = (dir) =>
+  join(
+    dir,
+    "npm",
+    "node_modules",
+    "pi-subagents",
+    "bundle",
+    "required-child-extensions.js",
+  );
+const permissionEntry = (dir) =>
+  join(
+    dir,
+    "npm",
+    "node_modules",
+    "@gotgenes",
+    "pi-permission-system",
+    "src",
+    "index.ts",
+  );
+const writeEntry = (path, text) => {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
+};
+const agentDirWith = (name, { bundle, permission }) => {
+  const dir = join(work, `agent-${name}`);
+  mkdirSync(dir, { recursive: true });
+  if (bundle !== undefined) {
+    writeEntry(bundleEntry(dir), bundle);
+    writeFileSync(
+      join(dir, "npm", "node_modules", "pi-subagents", "package.json"),
+      '{ "type": "module" }\n',
+    );
+  }
+  if (permission) writeEntry(permissionEntry(dir), "export default 1;\n");
+  return dir;
+};
+const loadExtension = async (dir) => {
+  const handlers = {};
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = dir;
+  try {
+    await extension({
+      on(name, handler) {
+        handlers[name] = handler;
+      },
+    });
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
+  const ctx = {
+    cwd: work,
+    sessionManager: { getSessionId: () => "session-1" },
+  };
+  globalThis[REGISTRATIONS] = [];
+  return {
+    start: () => handlers.session_start({ reason: "startup" }, ctx),
+    subagent: () =>
+      handlers.tool_call(
+        { toolName: "subagent", input: { agent: "b-reviewer" } },
+        ctx,
+      ),
+    bash: () =>
+      handlers.tool_call({ toolName: "bash", input: { command: "true" } }, ctx),
+  };
+};
+const refusedFor = (result, pattern) => {
+  assert.ok(blocked(result), "the subagent launch must be refused");
+  assert.match(result.reason, /child sessions cannot be gated/);
+  assert.match(result.reason, pattern);
+};
+
+test("extension: a missing pi-subagents registration module refuses subagent launches", async () => {
+  const dir = agentDirWith("no-module", { permission: true });
+  const pi = await loadExtension(dir);
+  await pi.start();
+  const result = pi.subagent();
+  refusedFor(result, /pi-subagents/);
+  assert.ok(result.reason.includes(bundleEntry(dir)), result.reason);
+  assert.equal(pi.bash(), undefined, "other tools stay unaffected");
+});
+
+test("extension: a registration module without the register function refuses subagent launches", async () => {
+  const dir = agentDirWith("no-export", {
+    bundle: BUNDLES.noExport,
+    permission: true,
+  });
+  const pi = await loadExtension(dir);
+  await pi.start();
+  refusedFor(pi.subagent(), /registerRequiredChildExtensions/);
+});
+
+test("extension: a missing permission-system entry refuses subagent launches", async () => {
+  const dir = agentDirWith("no-permission", { bundle: BUNDLES.working });
+  const pi = await loadExtension(dir);
+  await pi.start();
+  const result = pi.subagent();
+  refusedFor(result, /pi-permission-system/);
+  assert.ok(result.reason.includes(permissionEntry(dir)), result.reason);
+  assert.deepEqual(
+    globalThis[REGISTRATIONS],
+    [],
+    "the guard must not be registered alone",
+  );
+});
+
+test("extension: a throwing registration refuses subagent launches", async () => {
+  const dir = agentDirWith("throwing", {
+    bundle: BUNDLES.throwing,
+    permission: true,
+  });
+  const pi = await loadExtension(dir);
+  await pi.start();
+  refusedFor(pi.subagent(), /registration exploded/);
+});
+
+test("extension: with both entries the guard and the permission system are required for every child", async () => {
+  const dir = agentDirWith("complete", {
+    bundle: BUNDLES.working,
+    permission: true,
+  });
+  const pi = await loadExtension(dir);
+  await pi.start();
+  assert.deepEqual(
+    globalThis[REGISTRATIONS].map((entry) => entry.options),
+    [
+      {
+        sessionId: "session-1",
+        extensions: [
+          {
+            id: "b-agentic-guard",
+            path: join(root, "pi", "extensions", "b-agentic", "index.ts"),
+          },
+          { id: "pi-permission-system", path: permissionEntry(dir) },
+        ],
+        requireForAllRunners: true,
+      },
+    ],
+  );
+  assert.equal(pi.subagent(), undefined, "a gated launch is allowed");
+});
+
+test("extension: a later session start clears a repaired gate and refuses again when it breaks", async () => {
+  const dir = agentDirWith("repaired", { bundle: BUNDLES.working });
+  const pi = await loadExtension(dir);
+  await pi.start();
+  refusedFor(pi.subagent(), /pi-permission-system/);
+  writeEntry(permissionEntry(dir), "export default 1;\n");
+  await pi.start();
+  assert.equal(pi.subagent(), undefined, "the repaired gate allows launches");
+  rmSync(permissionEntry(dir));
+  await pi.start();
+  refusedFor(pi.subagent(), /pi-permission-system/);
+  assert.deepEqual(
+    globalThis[REGISTRATIONS].map((entry) => entry.disposed),
+    [true],
+    "the earlier registration is released",
+  );
 });
 
 let failed = 0;

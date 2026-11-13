@@ -35,8 +35,9 @@ export default async function (pi: ExtensionAPI) {
   // Specialist children run in the same process but load only the extensions
   // they list. Registering this guard and the permission system as required
   // child extensions applies both to every pi-subagents child, foreground or
-  // background; a load failure then rejects the launch. When pi-subagents is
-  // installed but registration fails, subagent launches are refused instead.
+  // background; a load failure then rejects the launch. When either entry is
+  // missing or registration fails, children cannot be gated, so every subagent
+  // launch is refused; without a subagent tool that refusal never applies.
   const subagents = join(
     agentDir(),
     "npm",
@@ -55,30 +56,45 @@ export default async function (pi: ExtensionAPI) {
     "index.ts",
   );
   let registration: { dispose(): void } | undefined;
+  const release = () => {
+    const held = registration;
+    registration = undefined;
+    held?.dispose();
+  };
   pi.on("session_start", async (event, ctx) => {
     guard.sessionStart(event.reason, ctx.cwd);
-    if (!existsSync(subagents)) return;
     try {
+      release();
+      for (const [name, path] of [
+        ["pi-subagents", subagents],
+        ["pi-permission-system", permission],
+      ]) {
+        if (!existsSync(path)) {
+          throw new Error(
+            `the pinned ${name} package is not installed: ${path} is missing`,
+          );
+        }
+      }
       const api = await import(pathToFileURL(subagents).href);
-      registration?.dispose();
+      if (typeof api.registerRequiredChildExtensions !== "function") {
+        throw new Error(
+          `${subagents} does not export registerRequiredChildExtensions; install the pinned pi-subagents package`,
+        );
+      }
       registration = api.registerRequiredChildExtensions({
         sessionId: ctx.sessionManager.getSessionId(),
         extensions: [
           { id: "b-agentic-guard", path: fileURLToPath(import.meta.url) },
-          ...(existsSync(permission)
-            ? [{ id: "pi-permission-system", path: permission }]
-            : []),
+          { id: "pi-permission-system", path: permission },
         ],
         requireForAllRunners: true,
       });
+      guard.setChildGateError("");
     } catch (error) {
       guard.setChildGateError(
         error instanceof Error ? error.message : String(error),
       );
     }
   });
-  pi.on("session_shutdown", () => {
-    registration?.dispose();
-    registration = undefined;
-  });
+  pi.on("session_shutdown", release);
 }
