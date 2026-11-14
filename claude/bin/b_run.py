@@ -219,6 +219,9 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
         _contiguous([s["id"] for s in data["steps"]], "S", "steps")
         if len(set(data["checks"])) != len(data["checks"]):
             raise Invalid("checks: duplicate command")
+        together = data.get("parallel_checks", [])
+        if len(set(together)) != len(together) or not set(together) <= set(data["checks"]):
+            raise Invalid("parallel_checks: must name plan checks, each once")
         for i, step in enumerate(data["steps"]):
             needs = step.get("depends_on", [])
             if len(set(needs)) != len(needs) or not set(needs) <= {s["id"] for s in data["steps"][:i]}:
@@ -341,6 +344,10 @@ def render(kind: str, data: dict) -> str:
             "",
             "## Checks",
             *(f"- `{c}`" for c in data["checks"]),
+        ]
+        if "parallel_checks" in data:
+            out += ["", "## Checks that may run together", *(f"- `{c}`" for c in data["parallel_checks"])]
+        out += [
             "",
             "## Invariants",
             *_bullets(data["invariants"]),
@@ -541,6 +548,8 @@ def summary(data: dict) -> dict:
     if "plan" in data:
         out["plan"] = {
             "checks": data["plan"]["checks"],
+            # b-state binds each of these to the fingerprint it was started on.
+            "parallel_checks": data["plan"].get("parallel_checks", []),
             "step_ids": [s["id"] for s in data["plan"]["steps"]],
             "steps": step_needs(data["plan"]["steps"]),
         }
@@ -952,7 +961,10 @@ def _packet_verify(root: Path, state: dict, data: dict) -> list[str]:
         "",
         "## Plan checks",
     ]
-    out += [f"- `{c}`: " + (f"exit {passed[c]}" if c in passed else "not recorded") for c in data["plan"]["checks"]]
+    together = set(data["plan"].get("parallel_checks", []))
+    for c in data["plan"]["checks"]:
+        result = f"exit {passed[c]}" if c in passed else "not recorded"
+        out.append(f"- `{c}`: {result}" + (" (may run together)" if c in together else ""))
     out += ["", "## Included ignored artifacts", *_path_lines(candidate.get("include_ignored") or [])]
     out += [
         "",

@@ -35,7 +35,8 @@ never has. The kernel is also at its size limit, so the routing table cannot gro
 - **Quick run.** For a quick run the user's change request is the approval, and no
   question is asked. The state helper, not the prompt, decides whether a run may be
   quick: at most 3 plan steps, 3 criteria with automated or inspection evidence, 5
-  literal scope paths, no clarifying answers, and the fixed consent `commit: no`,
+  literal scope paths, no clarifying answers, no checks listed to run together
+  ([ADR-013](ADR-013-concurrent-plan-checks.md)), and the fixed consent `commit: no`,
   `branch_target: current`, `codex: reviewer`. A quick run therefore has the authority
   a direct `b-implement` request always had (it never commits or pushes) and gains the
   run's guards and record. A review trigger blocks it: `advance review` records the

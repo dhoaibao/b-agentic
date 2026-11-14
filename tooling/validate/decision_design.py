@@ -27,6 +27,7 @@ LIGHT_LABELS = (
     "docs/decisions/ADR-008-claude-code-only.md",
     "docs/decisions/ADR-011-pi-second-runtime.md",
     "docs/decisions/ADR-012-run-first-entry.md",
+    "docs/decisions/ADR-013-concurrent-plan-checks.md",
 )
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (

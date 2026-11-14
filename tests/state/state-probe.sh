@@ -372,7 +372,8 @@ refused "$repoH" s1 record review --low-risk "docs-only"
 [ "$before" = "$(jq -S . "$(sfile "$repoH")")" ] || fail "a refused step must not change the state"
 ok "$repoH" s1 check
 [ "$(jq -r '.next | length' <<<"$out")" = 1 ] || fail "verify must owe only the missing check: $out"
-grep -Fq "record check --cmd 'make lint'" <<<"$(jq -r '.next[0]' <<<"$out")" || fail "verify must name the missing check command: $out"
+[ "$(jq -r '.next[0]' <<<"$out")" = "run \`make lint\`, then b-state.mjs record check --cmd 'make lint' --exit <its exit code>" ] \
+  || fail "verify must name the missing check command, as it always did: $out"
 ok "$repoH" s1 record check --cmd "make lint" --exit 1
 refused "$repoH" s1 advance review --trigger "workflow policy"   # recorded, but not passing
 ok "$repoH" s1 record check --cmd "make lint" --exit 0
@@ -400,6 +401,72 @@ ok "$repoH" s1 record check --cmd "make lint" --exit 0
 ok "$repoH" s1 check
 [ "$(jq -c .next <<<"$out")" = "[\"b-state.mjs advance review --trigger 'workflow policy'\"]" ] || fail "the review obligation must survive the return to verify: $out"
 refused "$repoH" s1 record review --low-risk "docs-only"
+
+# --- checks a plan lists to run together count only for the candidate they started on ------
+par_plan() { plan_json | jq '.checks += ["make lint", "make docs"] | .parallel_checks = ["make lint", "make test"]'; }
+started() { jq -r '.next[0]' <<<"$out" | grep -o -- '--from [0-9a-f]\{64\}' | cut -d' ' -f2; }
+repoK="$work/repoK"
+make_repo "$repoK"
+printf 'artifact.out\n' >"$repoK/.gitignore"
+git -C "$repoK" add .gitignore
+git -C "$repoK" commit -qm "ignore artifact"
+ok "$repoK" s1 init together
+spec_json 1 | br "$repoK" s1 write spec >/dev/null || fail "write spec (repoK)"
+par_plan | br "$repoK" s1 write plan >/dev/null || fail "write plan (repoK)"
+ok "$repoK" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoK" s1 advance implement
+printf 'p\n' >"$repoK/a.txt"
+printf 'built\n' >"$repoK/artifact.out"
+apply_steps "$repoK"
+ok "$repoK" s1 advance verify
+ok "$repoK" s1 check
+[ "$(jq -r '.next | length' <<<"$out")" = 2 ] || fail "the listed checks share one line: $out"
+grep -Fq "these checks may run at the same time: \`make test\`, \`make lint\`; then for each b-state.mjs record check" <<<"$(jq -r '.next[0]' <<<"$out")" \
+  || fail "the listed checks must be named together, in plan order: $out"
+[ "$(jq -r '.next[1]' <<<"$out")" = "run \`make docs\`, then b-state.mjs record check --cmd 'make docs' --exit <its exit code>" ] \
+  || fail "a check that is not listed keeps its line: $out"
+[ -n "$(started)" ] || fail "the line must carry the fingerprint the checks start on: $out"
+# The included artifact is named on the check that runs alone; it is part of the candidate from then on.
+ok "$repoK" s1 record check --cmd "make docs" --exit 0 --include-ignored artifact.out
+ok "$repoK" s1 check
+from=$(started)
+[ "$from" = "$(jq -r .candidate.fingerprint "$(sfile "$repoK")")" ] || fail "--from must be the current candidate fingerprint: $out"
+before=$(jq -S . "$(sfile "$repoK")")
+refused "$repoK" s1 record check --cmd "make test" --exit 0
+grep -Fq -- '--from' "$work/err" || fail "a listed check without --from must be told to pass it: $(cat "$work/err")"
+invalid "$repoK" s1 record check --cmd "make test" --exit 0 --from nope
+invalid "$repoK" s1 record check --cmd "make test" --exit 0 --from "$from" --include-ignored other.out
+grep -Fq 'include-ignored' "$work/err" || fail "a changed included set must be named: $(cat "$work/err")"
+[ "$before" = "$(jq -S . "$(sfile "$repoK")")" ] || fail "a refused or invalid record must not change the state"
+ok "$repoK" s1 record check --cmd "make test" --exit 0 --from "$from" --include-ignored artifact.out
+[ "$(jq -c '[.candidate.checks[] | select(.cmd == "make test") | .exit]' "$(sfile "$repoK")")" = '[0]' ] || fail "a check that ran on the current candidate is recorded"
+ok "$repoK" s1 check
+grep -Fq "may run at the same time: \`make lint\`; then" <<<"$(jq -r '.next[0]' <<<"$out")" || fail "only the listed check still owed is named: $out"
+[ "$(jq -r '.next | length' <<<"$out")" = 1 ] || fail "recorded checks are not owed again: $out"
+# The candidate moves while a listed check runs: its result belongs to no candidate.
+printf 'p2\n' >"$repoK/a.txt"
+ok "$repoK" s1 record check --cmd "make lint" --exit 0 --from "$from"
+[ "$(jq -c '[.recorded, .attempts, .phase]' <<<"$out")" = '[false,1,"verify"]' ] || fail "a check of a moved candidate must not be recorded: $out"
+[ "$(jq -c '[(.candidate.checks | length), .candidate.fingerprint != $f, .attempts.verify]' --arg f "$from" "$(sfile "$repoK")")" = '[0,true,1]' ] \
+  || fail "a moved candidate has no results and costs one verify attempt"
+[ "$(jq -c '.history[-1] | [.op, .detail.cmd, .detail.reason, .detail.exit]' "$(sfile "$repoK")")" = '["record check","make lint","the candidate changed while the check ran",null]' ] \
+  || fail "the lost check must be recorded with its reason and no result"
+refused "$repoK" s1 advance review --trigger "workflow policy"
+# --from is optional for a check that is not listed, with the same meaning.
+ok "$repoK" s1 record check --cmd "make docs" --exit 0 --from "$from"
+[ "$(jq -c '[.recorded, .attempts]' <<<"$out")" = '[false,2]' ] || fail "an unlisted check with a stale --from is not recorded either: $out"
+ok "$repoK" s1 record check --cmd "make lint" --exit 0 --from "$from"
+[ "$(jq -c '[.recorded, .phase]' <<<"$out")" = '[false,"blocked"]' ] || fail "the third lost check must block the run: $out"
+[ "$(jq -c '[(.candidate.checks | length), .blocked.reason]' "$(sfile "$repoK")")" = '[0,"3 failed verify attempts"]' ] \
+  || fail "the block must name the verify limit and leave no result"
+# A quick run has no approval round, so nobody would have accepted the list.
+repoKQ="$work/repoKQ"
+make_repo "$repoKQ"
+ok "$repoKQ" s1 init quicktogether
+CONSENT_COMMIT=no spec_json 1 a.txt | jq '.size = "quick"' | br "$repoKQ" s1 write spec >/dev/null || fail "write quick spec (repoKQ)"
+par_plan | br "$repoKQ" s1 write plan >/dev/null || fail "write plan (repoKQ)"
+refused "$repoKQ" s1 approve --commit no --branch-target current --codex reviewer --size quick
+grep -Fq 'parallel checks' "$work/err" || fail "a quick run with parallel checks must be refused by name: $(cat "$work/err")"
 
 # --- one command at a time per run; a dead holder is never recovered automatically
 repo13="$work/repo13"

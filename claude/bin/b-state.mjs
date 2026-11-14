@@ -920,6 +920,10 @@ function checksPass(state, plan) {
   return plan.checks.length > 0 && missingChecks(state, plan).length === 0;
 }
 
+// The plan checks the approval allows to run at the same time.
+const parallelChecks = (art) => art.artifacts.plan?.parallel_checks ?? [];
+const CANDIDATE_MOVED = "the candidate changed while the check ran";
+
 // The plan steps not yet recorded as applied, in plan order.
 const missingSteps = (state, plan) =>
   plan.step_ids.filter((id) => !state.steps[id]);
@@ -1034,6 +1038,8 @@ function quickProblems(art) {
   if (spec.scope_paths.some((path) => /[*?[]/.test(path)))
     problems.push("a scope path that is a glob");
   if (spec.answers > 0) problems.push("clarifying answers");
+  // Nobody approves a quick run's claim that its checks can run together.
+  if (parallelChecks(art).length > 0) problems.push("parallel checks");
   if (
     spec.consent.commit !== "no" ||
     spec.consent.branch_target !== "current" ||
@@ -1382,8 +1388,18 @@ async function cmdRecord(root, dir, state, args) {
     const exit = Number(args.exit);
     if (!Number.isInteger(exit) || exit < 0 || exit > 255)
       throw invalid("--exit must be 0-255");
+    // A check that ran beside others says which candidate it started on: its
+    // result counts only while that is still the candidate.
+    const from = args.from;
+    if (from !== undefined && !FINGERPRINT.test(from))
+      throw invalid("--from must be a candidate fingerprint");
+    if (from === undefined && parallelChecks(art).includes(cmd)) {
+      throw refuse(
+        "a check that may run together is recorded with --from <the fingerprint it started on>",
+      );
+    }
     if (args["include-ignored"]?.length) {
-      state.candidate.include_ignored = args["include-ignored"].map((p) => {
+      const included = args["include-ignored"].map((p) => {
         const rel = String(p).replaceAll("\\", "/");
         if (
           !rel ||
@@ -1395,11 +1411,41 @@ async function cmdRecord(root, dir, state, args) {
         }
         return rel;
       });
+      // A different set is a different candidate, so `--from` could not match.
+      if (
+        from !== undefined &&
+        JSON.stringify(included) !==
+          JSON.stringify(state.candidate.include_ignored)
+      ) {
+        throw invalid(
+          "--from cannot be combined with a changed --include-ignored set",
+        );
+      }
+      state.candidate.include_ignored = included;
     }
     const fingerprint = await currentFingerprint(state);
     if (state.candidate.fingerprint !== fingerprint)
       state.candidate.checks = [];
     state.candidate.fingerprint = fingerprint;
+    if (from !== undefined && from !== fingerprint) {
+      // The result belongs to no candidate: nothing is recorded, and the lost
+      // round counts like a failed check so the retries stay bounded.
+      state.attempts.verify += 1;
+      if (state.attempts.verify >= MAX_ROUNDS) {
+        block(state, `${MAX_ROUNDS} failed verify attempts`, "user decision");
+      }
+      saveState(dir, state, "record check", {
+        cmd,
+        fingerprint,
+        reason: CANDIDATE_MOVED,
+      });
+      return {
+        phase: state.phase,
+        attempts: state.attempts.verify,
+        recorded: false,
+        reason: CANDIDATE_MOVED,
+      };
+    }
     // Latest result per command: a successful retry supersedes a failure, while
     // `attempts.verify` keeps counting failures.
     state.candidate.checks = state.candidate.checks.filter(
@@ -1637,6 +1683,7 @@ async function cmdCheck(root, dir, state, args) {
     s.phase === "blocked" ? `${s.blocked.reason}\n${s.blocked.needs}` : null;
   const wasBlockedFor = blockedFor(state);
   let artifactProblem = "";
+  let fingerprint = "";
   // A branch the run was approved to create is not a branch change, but it is
   // adopted only after every other check below has passed: a refused check
   // must never persist branch authority (spec hash, artifacts, and the state's
@@ -1727,7 +1774,7 @@ async function cmdCheck(root, dir, state, args) {
     } else if (["verify", "review", "qa", "commit"].includes(state.phase)) {
       // Evidence-bearing phases: any recorded result for another candidate is
       // void. `implement` and `fix` edit the tree on purpose.
-      const fingerprint = await currentFingerprint(state);
+      fingerprint = await currentFingerprint(state);
       const recorded = [
         state.candidate.fingerprint,
         state.review.fingerprint,
@@ -1776,7 +1823,7 @@ async function cmdCheck(root, dir, state, args) {
     phase: state.phase,
     problems,
     actions,
-    next: await nextSteps(root, state, art),
+    next: await nextSteps(root, state, art, fingerprint),
     blocked: state.phase === "blocked" ? state.blocked : undefined,
   };
 }
@@ -1787,7 +1834,7 @@ const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 // artifacts alone, so a session with no memory of the run can continue it. It
 // only reads: every step it names is still checked by its own guard, and it
 // grants no approval.
-async function nextSteps(root, state, art) {
+async function nextSteps(root, state, art, fingerprint = "") {
   const stateCmd = (rest) => `b-state.mjs ${rest}`;
   const runCmd = (rest) => `b_run.py ${rest}`;
   if (state.phase === "blocked") {
@@ -1838,10 +1885,29 @@ async function nextSteps(root, state, art) {
   if (state.phase === "verify") {
     const missing = missingChecks(state, plan);
     if (missing.length > 0) {
-      return missing.map(
-        (cmd) =>
-          `run \`${cmd}\`, then ${stateCmd(`record check --cmd ${shellQuote(cmd)} --exit <its exit code>`)}`,
-      );
+      const listed = parallelChecks(art);
+      const together = missing.filter((cmd) => listed.includes(cmd));
+      const started =
+        together.length > 0
+          ? fingerprint || (await currentFingerprint(state))
+          : "";
+      return [
+        ...(started
+          ? [
+              `these checks may run at the same time: ${together
+                .map((cmd) => `\`${cmd}\``)
+                .join(
+                  ", ",
+                )}; then for each ${stateCmd(`record check --cmd '<the command>' --exit <its exit code> --from ${started}`)}`,
+            ]
+          : []),
+        ...missing
+          .filter((cmd) => !listed.includes(cmd))
+          .map(
+            (cmd) =>
+              `run \`${cmd}\`, then ${stateCmd(`record check --cmd ${shellQuote(cmd)} --exit <its exit code>`)}`,
+          ),
+      ];
     }
     if (state.review.low_risk_exception) return [stateCmd("advance qa")];
     if (
@@ -2014,6 +2080,7 @@ const VALUE_FLAGS = new Set([
   "cmd",
   "exit",
   "include-ignored",
+  "from",
   "verdict",
   "trigger",
   "low-risk",

@@ -103,6 +103,12 @@ lint_bad plan '.steps[1].depends_on = ["S-2"]' "a step that depends on itself"
 lint_bad plan '.steps[0].depends_on = ["S-2"]' "a step that depends on a later step"
 lint_bad plan '.steps[1].depends_on = ["S-9"]' "a step that depends on an unknown step"
 lint_bad plan '.steps[1].depends_on = ["S-1", "S-1"]' "a dependency named twice"
+lint_bad plan '.parallel_checks = ["pytest tests/test_export.py"]' "fewer than two checks that may run together"
+lint_bad plan '.checks += ["ruff check ."] | .parallel_checks = ["pytest tests/test_export.py", "make lint"]' "a parallel check that is not a plan check"
+lint_bad plan '.checks += ["ruff check ."] | .parallel_checks = ["ruff check .", "ruff check ."]' "a parallel check named twice"
+lint_bad plan '.checks += ["ruff check ."] | .parallel_checks = "all"' "parallel checks that are not a list"
+br "$repo" lint plan < <(example plan | jq -c '.checks += ["ruff check ."] | .parallel_checks = ["ruff check .", "pytest tests/test_export.py"]')
+[ "$rc" -eq 0 ] || fail "two plan checks may be listed to run together: $(cat "$work/err")"
 lint_bad qa '.verdict = "QA PASS" | .rows[0].result = "fail"' "QA PASS with a failing row"
 lint_bad qa '.verdict = "QA FAIL"' "QA FAIL with only passing rows"
 lint_bad qa '.rows[0].result = "waived"' "waived row without waived_by"
@@ -399,6 +405,25 @@ ok "$dep_repo" write spec < <(example spec | jq -c '.size = "quick"')
 [ "$(tail -n 2 "$(rundir "$dep_repo")/spec.md" | tr '\n' '|')" = '## Size|quick|' ] || fail "a quick spec must render its size"
 ok "$dep_repo" validate
 [ "$(jq -r '.artifacts.spec.size' <<<"$out")" = quick ] || fail "the summary must give the recorded size: $out"
+# parallel_checks is optional as well: only a plan that lists it renders and marks it.
+[ "$(jq -c '.artifacts.plan.parallel_checks' <<<"$out")" = '[]' ] || fail "a plan without parallel_checks lists none: $out"
+ok "$dep_repo" handoff verify
+grep -Fxq -- '- `pytest tests/test_export.py`: not recorded' <<<"$out" || fail "a plan without parallel_checks keeps its packet line: $out"
+grep -Fq 'may run together' <<<"$out" && fail "a plan without parallel_checks marks no check: $out"
+plain_packet=$out
+ok "$dep_repo" write plan < <(example plan | jq -c '.checks += ["ruff check .", "make docs"] | .parallel_checks = ["ruff check .", "pytest tests/test_export.py"]')
+[ "$(sed -n '/^## Checks that may run together$/,/^$/p' "$(rundir "$dep_repo")/plan.md" | tr '\n' '|')" = '## Checks that may run together|- `ruff check .`|- `pytest tests/test_export.py`||' ] \
+  || fail "a plan with parallel_checks must render them: $(cat "$(rundir "$dep_repo")/plan.md")"
+ok "$dep_repo" validate
+[ "$(jq -c '.artifacts.plan.parallel_checks' <<<"$out")" = '["ruff check .","pytest tests/test_export.py"]' ] || fail "the summary must list the parallel checks: $out"
+ok "$dep_repo" handoff verify
+grep -Fxq -- '- `pytest tests/test_export.py`: not recorded (may run together)' <<<"$out" || fail "a listed check must be marked: $out"
+grep -Fxq -- '- `ruff check .`: not recorded (may run together)' <<<"$out" || fail "every listed check must be marked: $out"
+grep -Fxq -- '- `make docs`: not recorded' <<<"$out" || fail "a check that is not listed keeps its line: $out"
+ok "$dep_repo" write plan < <(example plan | jq -c '.steps[1].depends_on = []')
+grep -Fq 'run together' "$(rundir "$dep_repo")/plan.md" && fail "a plan rewritten without parallel_checks must not render them"
+ok "$dep_repo" handoff verify
+[ "$out" = "$plain_packet" ] || fail "the verify packet of a plan without parallel_checks must keep its bytes: $out"
 
 # --- the owner: --owner, then CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID -----------------------
 owner_repo="$work/owner"

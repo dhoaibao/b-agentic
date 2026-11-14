@@ -76,8 +76,9 @@ otherwise approved, unattended run.
   fingerprint and returns the run to `verify`, or blocks it. A hook may print the
   active run's path and phase as a pointer but never resumes a run.
 - **Bounds.** The run stops and asks after 3 failed verify checks (one verify round
-  with three failing checks counts; the count resets when the candidate reaches review
-  or QA), 3 consecutive
+  with three failing checks counts, and so does a check whose candidate changed while
+  it ran, [ADR-013](ADR-013-concurrent-plan-checks.md); the count resets when the
+  candidate reaches review or QA), 3 consecutive
   `NEEDS FIXES` rounds, or 3 consecutive QA FAIL rounds (all persisted), on any path
   outside the approved scope, on a finding that would change approved behavior or
   `AC-n`, on an `AC-n` without evidence, on a protected file, and on any destructive,
