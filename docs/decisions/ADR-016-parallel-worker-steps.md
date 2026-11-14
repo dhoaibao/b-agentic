@@ -98,8 +98,10 @@ has no working-directory parameter, so the directory is named in the task.
   serialized, each record's base-to-tree change is that step's. New: for a step
   recorded `--by worker` while its run worktree exists, the main-tree change since the
   step base must equal the worker's change (path, status, mode, blob), otherwise the
-  record is refused before any write. This catches both changes being applied before
-  the first record, which the gate alone would accept since both are in scope. The
+  record is refused before any write, as it is when that change includes a path
+  outside the step's own paths (the same refusal `collect` makes, so skipping
+  `collect` does not skip it). This catches both changes being applied before the
+  first record, which the gate alone would accept since both are in scope. The
   history entry gains `worktree: true` beside `by`, which also gives the measurement
   stage 5 was waiting for.
 - **Cleanup and resume.** `worktree remove S-n` runs `git worktree remove --force` on

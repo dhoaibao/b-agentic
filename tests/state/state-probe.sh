@@ -1854,9 +1854,28 @@ grep -Fq 'main working tree changed' "$work/err" || fail "a worker is collected 
 (cd "$repoPW" && bash -c "$apply3") || fail "the second apply command must apply: $apply3"
 before=$(snap "$repoPW")
 refused "$repoPW" s1 record step S-2 --by worker
-grep -Fq "is not S-2's worker change" "$work/err" || fail "a record that holds another step's change is refused by name: $(cat "$work/err")"
+grep -Fq "outside its own paths" "$work/err" || fail "a record that holds another step's change is refused by name: $(cat "$work/err")"
 [ "$before" = "$(snap "$repoPW")" ] || fail "that refusal comes before any write"
+# The worker wrote the other step's file too: the changes are equal, but they leave its own paths.
+cp "$repoPW/src/c.txt" "$wt2/src/c.txt"
+refused "$repoPW" s1 record step S-2 --by worker
+grep -Fq "outside its own paths" "$work/err" || fail "a worktree step that left its own paths is refused at record: $(cat "$work/err")"
+[ "$before" = "$(snap "$repoPW")" ] || fail "that refusal comes before any write too"
+rm "$wt2/src/c.txt"
 rm "$repoPW/src/c.txt"
+# The same for a path outside the approved scope: refused before the counted scope refusal, so nothing is written.
+printf 'x\n' >"$repoPW/README.md"
+cp "$repoPW/README.md" "$wt2/README.md"
+refused "$repoPW" s1 record step S-2 --by worker
+grep -Fq "outside its own paths" "$work/err" || fail "an out-of-scope path both trees share is refused as outside the step's own paths: $(cat "$work/err")"
+[ "$before" = "$(snap "$repoPW")" ] || fail "no attempt is counted and nothing is written for it"
+rm "$repoPW/README.md" "$wt2/README.md"
+# Within its own paths but not what the worker wrote: the equality check refuses.
+printf 'other\n' >"$repoPW/src/b.txt"
+refused "$repoPW" s1 record step S-2 --by worker
+grep -Fq "is not S-2's worker change" "$work/err" || fail "a change that differs from the worker's is refused by name: $(cat "$work/err")"
+[ "$before" = "$(snap "$repoPW")" ] || fail "that refusal comes before any write as well"
+printf 'b \n' >"$repoPW/src/b.txt"
 printf 'x\n' >"$wt2/.env"
 refused "$repoPW" s1 record step S-2 --by worker
 grep -Fq 'ignored files included' "$work/err" || fail "a worker's ignored likely-secret file stops its record: $(cat "$work/err")"

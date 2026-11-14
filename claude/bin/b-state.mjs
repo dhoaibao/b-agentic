@@ -2043,6 +2043,13 @@ async function cmdRecord(
       problem = `${snapshot.protected.length} protected path(s) changed`;
     } else {
       delta = await stepDelta(root, state, base.tree, tree, id);
+      // A worktree step stays on its own paths, as worktree collect requires. This
+      // comes before the counted refusals below, so it writes nothing: such a step
+      // is applied by the main session instead.
+      if (apart && delta.outside_step > 0)
+        throw refuse(
+          `${id} changed ${delta.outside_step} path(s) outside its own paths: apply the step yourself and record --by main`,
+        );
       if (delta.protected.length > 0) {
         problem = `${delta.protected.length} protected path(s) changed`;
         tree = "";
