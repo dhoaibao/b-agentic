@@ -113,7 +113,14 @@ user request and stay model-invocable. `b-flow` is the routing entry
 (`routing.entry`): changes that route to an implement-phase skill run inside it.
 
 The five specialists are `b-planner`, `b-researcher`, `b-debugger`, `b-auditor`,
-and `b-reviewer`. Their tool lists omit `Edit`, `Write`, `NotebookEdit`, and nested
+and `b-reviewer`. A sixth profile, `b-worker`, is the one writer child of a `b-flow`
+run ([ADR-015](docs/decisions/ADR-015-step-writer-worker.md)): Claude Code only,
+generated from the registry's separate `workers` map, with `Edit`, `Write`, and `Bash`
+on top of the specialists' reads, no prompt, delegation, or notebook tool, and the
+instruction to apply exactly one approved plan step in place, touch nothing outside the
+scope, the run folder, secrets, or git history, and report. The main session waits for
+it and edits nothing; the step gate then checks the result. No plan can hand it a step
+yet. The specialists' tool lists omit `Edit`, `Write`, `NotebookEdit`, and nested
 delegation and carry only read-only MCP tools (plus three bounded Firecrawl
 tools for `b-researcher`). Read-only behavior is instructed, not enforced by a
 child-specific permission block: shell access can still mutate state. Delegated
@@ -408,7 +415,7 @@ npm, or a vendor installer: Pi installs the pinned packages on its next online s
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Skills            | `skills/b-*/SKILL.md`                                                                                                                          |
 | `/b-*` prompts    | `prompts/b-*.md` (thin templates that point at the skill)                                                                                      |
-| Specialists       | `agents/b-*.md` (five read-only profiles, strict `tools` allowlists)                                                                           |
+| Specialists       | `agents/b-*.md` (five read-only profiles and the `b-worker` writer, strict `tools` allowlists)                                                 |
 | Guard extension   | `extensions/b-agentic/index.ts` and `guard.mjs`                                                                                                |
 | Hooks and CLIs    | `b-agentic/hooks/*.mjs` (4), `b-agentic/bin/` (`b-state.mjs`, `b-candidate-snapshot.mjs`, `b_run.py`)                                          |
 | References        | `b-agentic/references/` (capabilities, MCP operations, artifact schemas)                                                                       |

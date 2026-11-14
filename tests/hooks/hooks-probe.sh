@@ -77,6 +77,14 @@ run "$pathguard" "$(pgc Write "$work/pg/other" "notes.md")"; expect 0 "an ordina
 run "$pathguard" "$(pgc Write "$work/pg/other" "../other/./notes.md")"; expect 0 "a relative path that stays outside must pass"
 run "$pathguard" "$(pgc Write "$work/pg/other" "missing/dir/notes.md")"; expect 0 "a new path under an ordinary folder must pass"
 run "$pathguard" "$(pgc Read "$work/pg" "alias/state.json")"; expect 0 "Read through an alias must pass"
+# The writer child (ADR-015) is bound by the same guard: its events carry agent_id and agent_type.
+pgw() { jq -cn --arg tool "$1" --arg path "$2" '{tool_name: $tool, agent_id: "w1", agent_type: "b-worker", cwd: "/repo", tool_input: {file_path: $path}}'; }
+run "$pathguard" "$(pgw Write /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "a worker Write under .b-agentic must be blocked"
+grep -Fq 'b_run.py' <<<"$err" || fail "the worker's .b-agentic refusal must name b_run.py: $err"
+run "$pathguard" "$(pgw Edit /repo/.b-agentic/runs/20260101-x/state.json)"; expect 2 "a worker Edit of the run state must be blocked"
+run "$pathguard" "$(pgw Edit /repo/config/.env.production)"; expect 2 "a worker Edit of a likely-secret path must be blocked"
+run "$pathguard" "$(pgw Read /repo/secrets.yaml)"; expect 2 "a worker Read of a secrets file must be blocked"
+run "$pathguard" "$(pgw Write /repo/src/app.ts)"; expect 0 "a worker Write of an ordinary path must pass"
 echo "hooks probe passed: path-guard"
 
 # --- verify gate ---------------------------------------------------------------
@@ -151,6 +159,17 @@ sub=$(vg PostToolUse s47 Bash '' false 'npm test' | jq -c '. + {agent_id: "a1", 
 run "$verifygate" "$(vg PostToolUse s47 Edit /repo/src/a.ts)"; expect 0 "edit"
 run "$verifygate" "$sub"; expect 0 "subagent shell"
 run "$verifygate" "$(vg Stop s47)"; expect 2 "a subagent shell command must not clear the main session's reminder"
+# the writer child (ADR-015) edits the shared tree: its Edit marks the session dirty, and its own
+# shell commands, like any subagent's, never clear the reminder.
+worker_event() { jq -c '. + {agent_id: "w1", agent_type: "b-worker"}'; }
+run "$verifygate" "$(vg PostToolUse s48 Edit /repo/src/a.ts | worker_event)"; expect 0 "worker edit"
+run "$verifygate" "$(vg Stop s48)"; expect 2 "a worker edit must leave the session dirty until the main session checks"
+run "$verifygate" "$(vg PostToolUse s49 Write /repo/src/a.ts | worker_event)"; expect 0 "worker write"
+run "$verifygate" "$(vg PostToolUse s49 Bash '' false 'npm test' | worker_event)"; expect 0 "worker shell"
+run "$verifygate" "$(vg Stop s49)"; expect 2 "a worker shell command must not clear the reminder"
+run "$verifygate" "$(vg PostToolUse s50 Write /repo/src/a.ts | worker_event)"; expect 0 "worker write"
+run "$verifygate" "$(vg PostToolUse s50 Bash '' false 'npm test')"; expect 0 "the main session's check after the worker"
+run "$verifygate" "$(vg Stop s50)"; expect 0 "the main session's check after a worker edit must clear the reminder"
 # editing again during the continuation earns no second reminder.
 run "$verifygate" "$(vg PostToolUse s6 Edit /repo/src/a.ts)"; expect 0 "edit"
 run "$verifygate" "$(vg Stop s6)"; expect 2 "first stop reminds"

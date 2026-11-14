@@ -64,7 +64,7 @@ for file in skills/b-plan/SKILL.md prompts/b-plan.md agents/b-reviewer.md extens
   b-agentic/hooks/b-path-guard.mjs b-agentic/bin/b-state.mjs b-agentic/bin/b_run.py b-agentic/references/artifacts.yaml; do
   [ -f "$agent_dir/$file" ] || fail "missing $file"
 done
-for absent in b-agentic/hooks/b-codex-guard.mjs b-agentic/bin/b-codex-review.mjs b-agentic/bin/b-statusline.mjs skills/b-datagrip/SKILL.md; do
+for absent in b-agentic/hooks/b-codex-guard.mjs b-agentic/bin/b-codex-review.mjs b-agentic/bin/b-statusline.mjs skills/b-datagrip/SKILL.md agents/b-worker.md; do
   [ ! -e "$agent_dir/$absent" ] || fail "$absent must not be installed on Pi"
 done
 grep -Fq '<!-- b-agentic:start -->' "$agent_dir/AGENTS.md" || fail "the kernel block is missing"

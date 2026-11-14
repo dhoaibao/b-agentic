@@ -126,6 +126,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
     "intended_behavior": "One main session owns user interaction and mutations; bounded named subagents load and return the selected skill's own output format, and risk-triggered changed candidates receive an independent frozen b-review gate.",
     "required_clauses": (
         "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action.",
+        "It coordinates read-only children and one `b-worker` per approved worker step, never peer writers.",
         "The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` command) before acting. For a delegated skill, that read only prepares the handoff: each later tool call gathers its parent-owned evidence or is its named `Agent` call.",
         "Before delegating, read the selected SKILL.md and gather its parent-owned evidence",
         "Delegated skills run only in their named `Agent` subagent type with a bounded task naming the exact skill.",

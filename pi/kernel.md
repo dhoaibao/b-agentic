@@ -91,5 +91,5 @@ Canonical policy and per-class notes: `~/.pi/agent/b-agentic/references/mcp_oper
 
 ## Shell commands
 
-Prefer modern shell tools when available (`rg`, `fdfind`, `eza`, `jq`), else safe fallbacks. Use `rtk` for every command family it supports, except rule 6 file I/O.
+Prefer modern shell tools when available, else safe fallbacks. Use `rtk` for every command family it supports, except rule 6 file I/O.
 If `rtk` is missing for a supported family, stop and report it.

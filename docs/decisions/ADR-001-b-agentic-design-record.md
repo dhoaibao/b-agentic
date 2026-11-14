@@ -7,6 +7,11 @@
 Refinements update this record in place. A reversed decision gets a new ADR
 with `Supersedes: ADR-001`, and the superseded area is noted here.
 
+[ADR-015](ADR-015-step-writer-worker.md) supersedes, for a `b-flow` run's approved
+worker steps, the sentence "Worktree mutation, user interaction, verification, and
+reporting stay in the main session" under "Workflow and skill design", and the set of
+generated agents: five read-only specialists plus one writer child, `b-worker`.
+
 [ADR-011](ADR-011-pi-second-runtime.md) again supersedes the second-runtime
 non-goal under Consequences, the single-runtime statement in Context, and the
 `~/.claude`-only boundary under "Product boundary and architecture", by adding
@@ -261,7 +266,7 @@ The retired adapter's lazy and search-exposed modes are gone: Claude Code's
 built-in tool search defers large tool sets. Notion workspace reads are
 `conditional-read` (calendar and contact reads are `private-read`), not
 `read-only`, because every `read-only` tool is granted to all five specialists
-and a private workspace must not reach children. Specialists name
+and to the writer child, and a private workspace must not reach children. Specialists name
 their tools in `tools:`; `b-researcher` additionally lists three bounded public
 Firecrawl tools classified `conditional-read`. Credentials stay environment
 references (`${VAR}`), never stored values. Expansion of those references in

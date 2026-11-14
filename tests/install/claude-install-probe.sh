@@ -68,8 +68,10 @@ pi_before=$(tree "$home/.pi")
 run "$home"; expect_ok "fresh install"
 claude="$home/.claude"
 [ "$(find "$claude/skills" -name SKILL.md | wc -l | tr -d ' ')" = "$skills_expected" ] || fail "skill count"
-[ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 5 ] || fail "agent count"
+[ "$(find "$claude/agents" -name 'b-*.md' | wc -l | tr -d ' ')" = 6 ] || fail "agent count (five specialists and the b-worker writer)"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
+[ -f "$claude/agents/b-worker.md" ] || fail "the b-worker writer profile must be installed"
+cmp -s "$root/claude/agents/b-worker.md" "$claude/agents/b-worker.md" || fail "the installed b-worker profile differs from the source"
 for file in bin/b-candidate-snapshot.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done

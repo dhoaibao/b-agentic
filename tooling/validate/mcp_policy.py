@@ -35,6 +35,8 @@ EXPECTED_CLASSES = {
     "auth",
 }
 AGENTS = ("b-planner", "b-researcher", "b-debugger", "b-auditor", "b-reviewer")
+WORKER_BASE_TOOLS = ("Read", "Grep", "Glob", "Edit", "Write", "Bash")
+WORKER_FORBIDDEN_TOOLS = {"NotebookEdit", "Agent", "Task", "Skill", "AskUserQuestion"}
 ENV_REFERENCE = re.compile(r"^\$\{[A-Z][A-Z0-9_]*\}$")
 
 
@@ -402,6 +404,27 @@ def main() -> int:
                 errors.append("b-researcher must expose the Firecrawl search and bounded extraction tools")
         elif research_tools.intersection(tools):
             errors.append(f"{agent} must not inherit researcher-only Firecrawl tools")
+
+    # The writer child (ADR-015) is Claude Code only and the one profile with Edit and Write: its
+    # reads are the specialists' reads, and it gets no prompt, delegation, or mutating MCP class.
+    worker = agent_tools("b-worker")
+    if worker[: len(WORKER_BASE_TOOLS)] != list(WORKER_BASE_TOOLS):
+        errors.append(f"b-worker must start with exactly {', '.join(WORKER_BASE_TOOLS)}")
+    worker_mcp = [tool for tool in worker if tool.startswith("mcp__")]
+    if worker_mcp != [tool for tool in agent_tools("b-planner") if tool.startswith("mcp__")]:
+        errors.append("b-worker MCP tools must be the read-only set the specialists receive")
+    if "mcp__codegraph__codegraph_explore" not in worker:
+        errors.append("b-worker must expose the CodeGraph explore tool")
+    if WORKER_FORBIDDEN_TOOLS & set(worker):
+        errors.append("b-worker must not receive a notebook, prompt, skill, or delegation tool")
+    if any(tool.startswith(("mcp__notion__", "mcp__datagrip__")) for tool in worker):
+        errors.append("b-worker must not receive private Notion or DataGrip tools")
+    if any(tool in ask or tool in deny for tool in worker_mcp):
+        errors.append("b-worker must not list a tool that asks or is denied")
+    if research_tools.intersection(worker):
+        errors.append("b-worker must not inherit researcher-only Firecrawl tools")
+    if (ROOT / "pi" / "agents" / "b-worker.md").exists():
+        errors.append("Pi has no writer child: pi/agents/b-worker.md must not exist")
 
     for agent in AGENTS:
         raw_tools = pi_agent_tools(agent)

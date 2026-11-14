@@ -6,6 +6,11 @@
   [ADR-001](ADR-001-b-agentic-design-record.md); that non-goal stays for everything
   outside a `b-flow` run)
 
+[ADR-015](ADR-015-step-writer-worker.md) supersedes two sentences below: "The main
+session implements; read-only specialists stay read-only and no writer worker is
+added" and "An optional writer worker would need its own ADR". An approved plan step
+may be applied by one `b-worker` child while the main session waits.
+
 [ADR-012](ADR-012-run-first-entry.md) supersedes three points below: `b-flow` is no
 longer explicit-only (change requests enter a run, as a quick or full run), a run
 without commit consent may start on a changed tree and ends at QA, and the commit

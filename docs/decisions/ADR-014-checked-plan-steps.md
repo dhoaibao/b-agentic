@@ -91,9 +91,9 @@ nothing per step beyond its fingerprint.
   path and its read of that path; the helper cannot close it.
 - The check that the state revision is unchanged matters most once a worker exists;
   until then it only catches a second writer of the run state.
-- The writer worker is a later decision, after probes of the harness, with its own
-  ADR: it would supersede the "no writer worker" point of ADR-009 and change one
-  kernel sentence.
+- The writer worker is decided in [ADR-015](ADR-015-step-writer-worker.md), which
+  supersedes the "no writer worker" point of ADR-009 in part and changes one kernel
+  sentence.
 - Rejected: the harness's worktree isolation and a `WorktreeCreate` hook for a
   worker (neither carries uncommitted changes, and the hook would replace worktree
   creation for every session); a worktree made by the helper from a snapshot commit

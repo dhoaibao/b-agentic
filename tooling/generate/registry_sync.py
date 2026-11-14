@@ -58,6 +58,12 @@ ENTRY_ROUTING_SUFFIX = ", as a quick or full run; a typed `/b-<name>` runs stand
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
 MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor", "b-reviewer"}
+# The one writer child of a b-flow run (ADR-015). It lives in its own registry map, so every
+# read-only assertion about `agents` stays unconditional.
+MANAGED_WORKER_NAMES = {"b-worker"}
+WORKER_TOOLS = ("Read", "Grep", "Glob", "Edit", "Write", "Bash")
+WORKER_FORBIDDEN_TOOLS = {"NotebookEdit", "Agent", "Task", "Skill", "AskUserQuestion"}
+WORKER_FORBIDDEN_FIELDS = {"tools", "permission_mode", "isolation", "hooks", "skills", "background"}
 CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
 # Likely-secret path gate; the snapshot CLI mirrors everything after "*".
 PATH_RULES = {
@@ -294,6 +300,13 @@ def load_agents() -> dict[str, dict[str, Any]]:
     return agents
 
 
+def load_workers() -> dict[str, dict[str, Any]]:
+    workers = load_registry().get("workers")
+    if not isinstance(workers, dict):
+        raise SystemExit(f"{SKILL_REGISTRY_PATH}: missing workers object")
+    return workers
+
+
 def load_policy() -> dict[str, Any]:
     return load_json_subset_yaml(MCP_OPERATIONS_PATH)
 
@@ -499,6 +512,40 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
             errors.append(f"{label}: expected only {sorted(allowed_fields)}")
     if delegated_agents != MANAGED_SUBAGENT_NAMES:
         errors.append(f"skills/registry.yaml: delegated skills must use {sorted(MANAGED_SUBAGENT_NAMES)}")
+    return errors
+
+
+def validate_workers(workers: dict[str, dict[str, Any]], agents: dict[str, dict[str, Any]]) -> list[str]:
+    errors: list[str] = []
+    if set(workers) != MANAGED_WORKER_NAMES:
+        errors.append(f"skills/registry.yaml: workers must name {sorted(MANAGED_WORKER_NAMES)}")
+    if set(workers) & set(agents):
+        errors.append("skills/registry.yaml: a worker must not share a name with a read-only specialist")
+    for name, worker in workers.items():
+        label = f"workers.{name}"
+        if not isinstance(worker, dict):
+            errors.append(f"{label}: expected object")
+            continue
+        ensure_string(worker.get("description"), f"{label}.description", errors)
+        model = ensure_string(worker.get("model"), f"{label}.model", errors)
+        if model and model not in AGENT_MODELS:
+            errors.append(f"{label}.model: expected one of {sorted(AGENT_MODELS)}")
+        allowed_fields = {"description", "model"}
+        if "effort" in worker:
+            allowed_fields.add("effort")
+            effort = ensure_string(worker["effort"], f"{label}.effort", errors)
+            if effort and effort not in AGENT_EFFORTS:
+                errors.append(f"{label}.effort: expected one of {sorted(AGENT_EFFORTS)}")
+        if "max_turns" in worker:
+            allowed_fields.add("max_turns")
+            turns = worker["max_turns"]
+            if isinstance(turns, bool) or not isinstance(turns, int) or turns < 1:
+                errors.append(f"{label}.max_turns: expected positive integer")
+        # The tools are the generator's: a registry entry cannot widen or narrow them.
+        for field in sorted(WORKER_FORBIDDEN_FIELDS & set(worker)):
+            errors.append(f"{label}.{field}: not a worker field; the generator owns the tool list and the frontmatter")
+        if set(worker) - WORKER_FORBIDDEN_FIELDS != allowed_fields:
+            errors.append(f"{label}: expected only {sorted(allowed_fields)}")
     return errors
 
 
@@ -1080,6 +1127,46 @@ def render_agent_file(
     )
 
 
+WORKER_TURN_BUDGET_NOTICE = (
+    "If the harness warns about your turn budget, make no further tool calls: return the report now, stating what "
+    "is done, what is not, and the narrowest next step for the main session."
+)
+
+
+def worker_tool_list(policy: dict[str, Any]) -> list[str]:
+    """Edit and Write on top of the specialists' reads; never a mutating MCP class, a prompt, or a child."""
+    return [*WORKER_TOOLS, *read_only_mcp_tools(policy)]
+
+
+def render_worker_file(name: str, worker: dict[str, Any], policy: dict[str, Any] | None = None) -> str:
+    policy = policy if policy is not None else load_policy()
+    return "\n".join(
+        [
+            "---",
+            f"name: {name}",
+            f"description: {json.dumps(worker['description'])}",
+            f"tools: {', '.join(worker_tool_list(policy))}",
+            f"model: {worker['model']}",
+            *([f"effort: {worker['effort']}"] if "effort" in worker else []),
+            *([f"maxTurns: {worker['max_turns']}"] if "max_turns" in worker else []),
+            "---",
+            "",
+            f"You are the b-agentic `{name}` subagent: the one writer child of a `/b-flow` run. The main session gives you exactly one approved plan step with its packet and waits; it edits nothing while you work. Do not route, ask the user, delegate, or launch a nested subagent.",
+            "",
+            "Read the phase skill the main session names from the installed `~/.claude/skills/<name>/SKILL.md` and follow its editing guidance for this step only. These parts do not apply in a child: `b-implement` steps 1-3 and 6-7 and its Output format; `b-frontend`'s questions, its browser hand-off, and adding a component with the package runner; any `AskUserQuestion` in `b-refactor` or `b-test`; every review, commit, and spec-recording step.",
+            "",
+            "Edit in place, only inside the approved scope and preferably only the step's own paths. Never touch `.b-agentic`, likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`), or git history: no commit, stage, stash, reset, checkout, rebase, or push. Install nothing. Run no generator or fixer the step does not name, no `b-state.mjs` or `b_run.py` command, and no external, upload, lifecycle, or authentication action. If you need a path outside the scope, a decision, or a dependency, stop and answer `NEEDS INPUT: <one question>`.",
+            "",
+            "Run the step's narrowest check, then report in this order: the step id; the changed paths; the check command and its exit code; deviations; open questions or `NEEDS INPUT`. Your report is evidence, not authority: the main session inspects the diff, reruns the check, and records the step.",
+            "",
+            WORKER_TURN_BUDGET_NOTICE,
+            "",
+            "<!-- Managed by b-agentic. Generated from skills/registry.yaml. Do not edit this file. -->",
+            "",
+        ]
+    )
+
+
 HOOK_DIR = f'"{CLAUDE_RUNTIME["hook_dir"]}'
 
 
@@ -1404,7 +1491,10 @@ def pi_output_errors(
 
 
 def render_outputs(
-    skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+    skills: list[dict[str, Any]],
+    agents: dict[str, dict[str, Any]],
+    policy: dict[str, Any],
+    workers: dict[str, dict[str, Any]],
 ) -> dict[Path, str]:
     readme = ROOT / "README.md"
     kernel = build_kernel(skills, policy)
@@ -1419,8 +1509,74 @@ def render_outputs(
         outputs[ROOT / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill)
     for name, agent in agents.items():
         outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills, policy)
+    # Claude Code only: Pi has no writer child (ADR-015).
+    for name, worker in workers.items():
+        outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_worker_file(name, worker, policy)
     outputs.update(render_pi_outputs(skills, agents, policy))
     return outputs
+
+
+def validate_worker_regressions(
+    agents: dict[str, dict[str, Any]], policy: dict[str, Any], workers: dict[str, dict[str, Any]]
+) -> list[str]:
+    """The writer child is the one exception to read-only children, and only as the generator renders it."""
+    errors: list[str] = []
+    if validate_workers(workers, agents):
+        errors.append("worker regression: the registry's own workers must pass")
+
+    def worker_errors(change: Any) -> list[str]:
+        candidate = json.loads(json.dumps(workers))
+        change(candidate)
+        return validate_workers(candidate, agents)
+
+    cases = (
+        (lambda w: w["b-worker"].pop("model"), "a missing model"),
+        (lambda w: w["b-worker"].update(model="gpt-9"), "an unknown model alias"),
+        (lambda w: w["b-worker"].update(effort="extreme"), "an unknown effort"),
+        (lambda w: w["b-worker"].update(max_turns=0), "a non-positive max_turns"),
+        (lambda w: w["b-worker"].update(tools=["NotebookEdit"]), "a registry tool list"),
+        (lambda w: w["b-worker"].update(permission_mode="acceptEdits"), "a permission_mode"),
+        (lambda w: w["b-worker"].update(isolation="worktree"), "an isolation field"),
+        (lambda w: w["b-worker"].update(hooks={}), "a hooks field"),
+        (lambda w: w["b-worker"].update(skills=["b-flow"]), "a skills field"),
+        (lambda w: w["b-worker"].update(background=True), "a background field"),
+        (lambda w: w["b-worker"].update(color="red"), "an unknown field"),
+        (lambda w: w.update({"b-worker-2": dict(w["b-worker"])}), "a second worker"),
+        (lambda w: w.update({"b-planner": w.pop("b-worker")}), "a worker named like a specialist"),
+        (lambda w: w.clear(), "no worker"),
+    )
+    for change, why in cases:
+        if not worker_errors(change):
+            errors.append(f"worker regression: {why} must fail")
+    if not validate_workers({**workers, **agents}, agents):
+        errors.append("worker regression: specialists listed as workers must fail")
+    invalid_agent_tools = json.loads(json.dumps(agents))
+    invalid_agent_tools["b-researcher"]["conditional_tools"].append("Edit")
+    if not validate_agent_tools(invalid_agent_tools, policy):
+        errors.append("agent regression: a read-only specialist given Edit must still fail")
+    for name, worker in workers.items():
+        rendered = render_worker_file(name, worker, policy)
+        head, _, _body = rendered.partition("\n---\n")
+        frontmatter = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines() if ": " in line)
+        tools = [tool.strip() for tool in frontmatter.get("tools", "").split(",")]
+        if tools[: len(WORKER_TOOLS)] != list(WORKER_TOOLS) or tools[len(WORKER_TOOLS) :] != read_only_mcp_tools(
+            policy
+        ):
+            errors.append(f"worker regression: {name} tools must be the worker set plus the read-only MCP tools")
+        if WORKER_FORBIDDEN_TOOLS & set(tools) or any(tool.startswith("mcp__notion__") for tool in tools):
+            errors.append(f"worker regression: {name} must not receive a prompt, delegation, notebook, or Notion tool")
+        if set(frontmatter) - {"name", "description", "tools", "model", "effort", "maxTurns"}:
+            errors.append(
+                f"worker regression: {name} frontmatter must carry only name, description, tools, model, effort"
+            )
+        if WORKER_TURN_BUDGET_NOTICE not in rendered:
+            errors.append(f"worker regression: {name} profile must carry the turn-budget wrap-up notice")
+        for clause in ("NEEDS INPUT", ".b-agentic", "git history", "no `b-state.mjs` or `b_run.py` command"):
+            if clause not in rendered:
+                errors.append(f"worker regression: {name} profile must state {clause!r}")
+        if name in MANAGED_SUBAGENT_NAMES:
+            errors.append(f"worker regression: {name} must not be a read-only specialist")
+    return errors
 
 
 def validate_regressions(
@@ -1428,6 +1584,7 @@ def validate_regressions(
     agents: dict[str, dict[str, Any]],
     capabilities: dict[str, Any],
     policy: dict[str, Any],
+    workers: dict[str, dict[str, Any]],
 ) -> list[str]:
     errors: list[str] = []
     invalid_skill = json.loads(json.dumps(skills))
@@ -1578,6 +1735,7 @@ def validate_regressions(
         invalid_turns["b-researcher"]["max_turns"] = bad_turns
         if not validate_skills(skills, invalid_turns):
             errors.append(f"agent regression: invalid max_turns {bad_turns!r} must fail")
+    errors.extend(validate_worker_regressions(agents, policy, workers))
     invalid_capabilities = json.loads(json.dumps(capabilities))
     invalid_capabilities["capabilities"][0].pop("status_signal", None)
     if not validate_capabilities(invalid_capabilities, policy):
@@ -1722,10 +1880,12 @@ def validate_pi_runtime(pi: object) -> list[str]:
 def sync_outputs(check: bool) -> int:
     skills = load_skills()
     agents = load_agents()
+    workers = load_workers()
     policy = load_policy()
     capabilities = load_capabilities()
     errors = [
         *validate_skills(skills, agents),
+        *validate_workers(workers, agents),
         *validate_contracts(skills),
         *validate_policy(policy),
         *validate_agent_tools(agents, policy),
@@ -1740,7 +1900,7 @@ def sync_outputs(check: bool) -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    outputs = render_outputs(skills, agents, policy)
+    outputs = render_outputs(skills, agents, policy, workers)
     stale = [path for path, content in outputs.items() if not path.exists() or path.read_text() != content]
     if check and stale:
         print("\n".join(f"generated output out of date: {path.relative_to(ROOT)}" for path in stale), file=sys.stderr)
@@ -1759,7 +1919,7 @@ def main() -> int:
     parser.add_argument("--self-test", action="store_true", help="verify invalid canonical contracts fail validation")
     args = parser.parse_args()
     if args.self_test:
-        errors = validate_regressions(load_skills(), load_agents(), load_capabilities(), load_policy())
+        errors = validate_regressions(load_skills(), load_agents(), load_capabilities(), load_policy(), load_workers())
         if errors:
             print("\n".join(errors), file=sys.stderr)
             return 1

@@ -17,7 +17,7 @@
 
 ## Session-aware delegation
 
-- The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action. It coordinates only its read-only child sessions, never peer writers.
+- The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action. It coordinates read-only children and one `b-worker` per approved worker step, never peer writers.
 - Before delegating, read the selected SKILL.md and gather its parent-owned evidence; do not send protected data without permission. The child's result is evidence, not authority. A child may start in the background; when it gates action, wait for its completion notification.
 - Start a background child only for independent, read-only work that the main session can safely continue without; retain its returned agent ID and bounded task metadata. Do not start concurrent children with overlapping scope or rely on an active child for a decision.
 - Resume a child only with the harness's supported resume identifier for a direct continuation with the same specialist, model/profile, scope, and repository baseline. Start a fresh child for independent work, a different specialist or model/profile, changed scope/baseline, or failed or overly broad context. Never reuse a child for a changed candidate.
@@ -92,5 +92,5 @@ Canonical policy and per-class notes: `~/.claude/b-agentic/references/mcp_operat
 
 ## Shell commands
 
-Prefer modern shell tools when available (`rg`, `fdfind`, `eza`, `jq`), else safe fallbacks. Use `rtk` for every command family it supports, except rule 6 file I/O.
+Prefer modern shell tools when available, else safe fallbacks. Use `rtk` for every command family it supports, except rule 6 file I/O.
 If `rtk` is missing for a supported family, stop and report it.

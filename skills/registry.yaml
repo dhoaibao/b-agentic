@@ -29,6 +29,13 @@
       "effort": "high"
     }
   },
+  "workers": {
+    "b-worker": {
+      "description": "Apply one approved b-flow plan step in the main working tree and report to the main b-agentic session.",
+      "model": "sonnet",
+      "effort": "high"
+    }
+  },
   "optional_components": {
     "datagrip": {"label": "DataGrip (b-datagrip; the DataGrip MCP entry stays user-managed)", "skills": ["b-datagrip"], "mcp_servers": ["datagrip"]},
     "excalidraw": {"label": "Excalidraw (b-excalidraw + excalidraw MCP)", "skills": ["b-excalidraw"], "mcp_servers": ["excalidraw"]},
