@@ -64,7 +64,9 @@ otherwise approved, unattended run.
   same atomic write as the change, holding only the kinds of facts the state already
   holds), so earlier verdicts, blocks, and unblock reasons are not lost. Progress
   inside `implement` is recorded too: `record step S-n` marks a plan step applied (a
-  step waits for the steps it depends on), `advance verify` needs every step recorded,
+  step waits for the steps it depends on, and is refused when it changed a path
+  outside the approved scope, [ADR-014](ADR-014-checked-plan-steps.md)),
+  `advance verify` needs every step recorded,
   and a new approval or a return to `implement` or `clarify` clears the record. Each
   phase is briefed from its packet, `b_run.py handoff <phase>`, and each skill's
   place in a run (phase skill, evidence provider, utility, or orchestrator) is its

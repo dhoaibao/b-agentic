@@ -291,6 +291,40 @@ refused "$repo" scope-check
 jq -e '.outside_scope | index("renamed.txt") != null and index("a.txt") != null' <<<"$out" >/dev/null || fail "renames report both paths: $out"
 git -C "$repo" mv renamed.txt a.txt
 rm -rf "$repo/src" "$repo/tests"
+ok "$repo" scope-check
+[ "$(jq -c 'keys' <<<"$out")" = '["changed","ok","outside_scope","preexisting","protected"]' ] || fail "scope-check without tree ids keeps its output: $out"
+
+# --- scope-check for what one step changed: the paths that differ between two tree ids -------
+tree_of() { (cd "$1" && rm -f "$work/idx" && GIT_INDEX_FILE="$work/idx" git add -A . && GIT_INDEX_FILE="$work/idx" git write-tree); }
+base_tree=$(tree_of "$repo")
+mkdir -p "$repo/src" "$repo/tests/unit"
+printf 'x\n' >"$repo/src/export.py"
+printf 'x\n' >"$repo/tests/unit/test_export.py"
+step_tree=$(tree_of "$repo")
+ok "$repo" scope-check --base "$base_tree" --tree "$step_tree" --step S-1
+[ "$(jq -c '[.ok, .changed, .outside_step, .outside_scope, .protected]' <<<"$out")" = '[true,2,1,[],[]]' ] \
+  || fail "a step inside the scope passes, and a path outside its own paths is only counted: $out"
+ok "$repo" scope-check --base "$step_tree" --tree "$step_tree" --step S-2
+[ "$(jq -c '[.changed, .outside_step]' <<<"$out")" = '[0,0]' ] || fail "equal trees have no delta: $out"
+printf 'x\n' >"$repo/README.md"
+rm "$repo/a.txt"
+wide_tree=$(tree_of "$repo")
+refused "$repo" scope-check --base "$step_tree" --tree "$wide_tree" --step S-2
+[ "$(jq -c '[.changed, .outside_scope]' <<<"$out")" = '[2,["README.md","a.txt"]]' ] || fail "an added and a deleted path outside the scope are both named: $out"
+git -C "$repo" checkout -q -- a.txt
+rm "$repo/README.md"
+printf 'x\n' >"$repo/src/db.env"
+env_tree=$(tree_of "$repo")
+refused "$repo" scope-check --base "$step_tree" --tree "$env_tree" --step S-2
+[ "$(jq -c '.protected' <<<"$out")" = '["src/db.env"]' ] || fail "a protected path in the delta must be reported: $out"
+rm "$repo/src/db.env"
+invalid "$repo" scope-check --base "$base_tree" --tree "$step_tree" --step S-9
+invalid "$repo" scope-check --base "$base_tree"
+invalid "$repo" scope-check --base "$base_tree" --tree "$step_tree"
+invalid "$repo" scope-check --tree "$step_tree" --step S-1
+invalid "$repo" scope-check --base HEAD --tree "$step_tree" --step S-1
+refused "$repo" scope-check --base 0000000000000000000000000000000000000001 --tree "$step_tree" --step S-1
+rm -rf "$repo/src" "$repo/tests"
 
 # --- handoff packets ---------------------------------------------------------------------------
 setphase "$repo" review

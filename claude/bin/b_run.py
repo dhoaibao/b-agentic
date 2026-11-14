@@ -12,7 +12,8 @@ Commands (JSON results on stdout, one-line errors on stderr):
   lint KIND                validate stdin without writing (cross rules when a run is active)
   write KIND               validate stdin, render, and write the artifact (main session only)
   validate [--json]        re-render every artifact and compare bytes and hashes
-  scope-check              compare changed git paths with the spec's scope globs
+  scope-check              compare changed git paths with the spec's scope globs; with --base TREE
+                           --tree TREE --step S-n, the paths that differ between two tree ids
   handoff PHASE            render the packet that briefs a phase from the run: clarify, implement,
                            verify, review, fix, qa or commit (--out FILE outside the repo)
   selftest                 validate the schema file's examples against each other
@@ -870,12 +871,44 @@ def expand_included(root: Path, paths: list) -> list[str]:
     return sorted(set(out))
 
 
+TREE_ID = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
+DELTA_OPTIONS = ("base", "tree", "step")
+
+
+def _step_delta(root: Path, data: dict, args: dict) -> dict:
+    """What one plan step changed: the paths that differ between the tree before it and the tree after."""
+    if "plan" not in data:
+        raise Refused("the run artifacts are not valid; scope cannot be checked")
+    step = next((s for s in data["plan"]["steps"] if s["id"] == args["step"]), None)
+    if step is None:
+        raise Invalid("--step must name a plan step")
+    if not TREE_ID.fullmatch(args["base"]) or not TREE_ID.fullmatch(args["tree"]):
+        raise Invalid("--base and --tree must be tree ids")
+    raw = git(root, "diff-tree", "-r", "-z", "--name-only", "--no-renames", args["base"], args["tree"])
+    changed = [p for p in raw.split("\0") if p]
+    outside = [p for p in changed if not in_scope(p, data["spec"]["scope_paths"])]
+    protected = [p for p in changed if is_protected(p)]
+    return {
+        "ok": not outside and not protected,
+        "changed": len(changed),
+        "outside_scope": outside,
+        "protected": protected,
+        # Inside the approved scope but not among the step's own paths: counted, never refused.
+        "outside_step": sum(1 for p in changed if not in_scope(p, step["paths"])),
+    }
+
+
 def cmd_scope_check(schema: dict, args: dict) -> dict:
     root = repo_root()
     _run, directory = resolve_run(root, args.get("run"))
     data, problems = validate_run(directory, schema)
     if problems or "spec" not in data:
         raise Refused("the run artifacts are not valid; scope cannot be checked")
+    given = [name for name in DELTA_OPTIONS if name in args]
+    if given:
+        if len(given) != len(DELTA_OPTIONS):
+            raise Invalid("--base, --tree, and --step are given together")
+        return _step_delta(root, data, args)
     globs = data["spec"]["scope_paths"]
     state = read_state(directory)
     # Changes that were in the tree before the run, and are still the same, are not the run's.
@@ -1095,7 +1128,7 @@ def cmd_selftest(schema: dict) -> dict:
 
 # ---- entry --------------------------------------------------------------------
 
-VALUE_OPTIONS = {"run", "owner", "out"}
+VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step"}
 
 
 def parse_args(argv: list[str]) -> tuple[list[str], dict]:

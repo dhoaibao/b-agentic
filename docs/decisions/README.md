@@ -15,7 +15,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-010](ADR-010-run-artifact-cli.md) for the single writer of its run artifacts, and
 [ADR-011](ADR-011-pi-second-runtime.md) for Pi as an opt-in second runtime, and
 [ADR-012](ADR-012-run-first-entry.md) for change requests entering a quick or full run, and
-[ADR-013](ADR-013-concurrent-plan-checks.md) for plan checks that may run together.
+[ADR-013](ADR-013-concurrent-plan-checks.md) for plan checks that may run together, and
+[ADR-014](ADR-014-checked-plan-steps.md) for plan steps checked when they are recorded.
 
 ## Naming
 

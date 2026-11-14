@@ -41,7 +41,8 @@
 //   record ac AC-n pass|fail|gap|waived
 //   record commit SHA
 //   record step S-n                     a plan step is applied (phase implement); a step
-//                                       waits for the steps it depends on
+//                                       waits for the steps it depends on, and is refused
+//                                       when it changed a path outside the approved scope
 //   check [--takeover]                  verify the state against git, void stale evidence,
 //                                       and print `next`: what the phase still owes
 //   lock [--takeover] | unlock          take or release the run lock
@@ -148,8 +149,12 @@ const HISTORY_DETAIL = [
   "sha",
   "spec",
   "step",
+  "tree",
+  "paths",
+  "outside",
 ];
 const STEP_ID = /^S-[1-9]\d*$/;
+const TREE_ID = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 // Changes already in the tree at run start, tracked by content digest.
 const MAX_DIRTY = 200;
 const MAX_DIRTY_BYTES = 64 << 20;
@@ -177,6 +182,33 @@ function git(cwd, args, env = process.env) {
       { cwd, env, encoding: "utf8", maxBuffer: 1 << 24 },
       (error, stdout) => (error ? fail(error) : done(stdout)),
     );
+  });
+}
+
+// The same, with stdout as bytes: for path lists handed back to git unchanged.
+function gitBytes(cwd, args, env = process.env) {
+  return new Promise((done, fail) => {
+    execFile(
+      "git",
+      args,
+      { cwd, env, encoding: "buffer", maxBuffer: 1 << 26 },
+      (error, stdout) => (error ? fail(error) : done(stdout)),
+    );
+  });
+}
+
+// The same, with bytes written to stdin: for paths git is to take literally.
+function gitInput(cwd, args, input, env = process.env) {
+  return new Promise((done, fail) => {
+    const child = execFile(
+      "git",
+      args,
+      { cwd, env, encoding: "utf8", maxBuffer: 1 << 24 },
+      (error, stdout) => (error ? fail(error) : done(stdout)),
+    );
+    // git may exit before reading everything; the exit status reports that.
+    child.stdin.on("error", () => {});
+    child.stdin.end(input);
   });
 }
 
@@ -312,9 +344,34 @@ async function dirtyBaseline(root) {
 // built in a throwaway index seeded from the real one so tracked files that an
 // ignore rule covers, and sparse entries, are kept; the real index is never
 // touched. A finished run must have committed exactly this tree.
-export async function worktreeTree(root, includeIgnored = []) {
+//
+// No likely-secret file's content may reach the object store through this
+// tree, including one that appears while it is being built, so nothing is
+// added by walking the working tree:
+//   - the changed paths are listed by name, and a protected name refuses;
+//   - exactly those index entries are updated (`update-index`, never `add`):
+//     a listed path that has meanwhile become a directory is not descended
+//     into, a symbolic link is stored as a link, and a path below a link is
+//     refused by git;
+//   - every entry that then differs from HEAD is checked by name once more,
+//     which also covers a protected path that was already staged.
+// `between` runs after each listing and before its entries are updated; the
+// probes use it to change the tree at exactly that point.
+export async function worktreeTree(
+  root,
+  includeIgnored = [],
+  { between = async () => {} } = {},
+) {
   const dir = mkdtempSync(join(tmpdir(), "b-state-"));
   const env = { ...process.env, GIT_INDEX_FILE: join(dir, "index") };
+  const namesOf = (bytes) => bytes.toString("utf8").split("\0").filter(Boolean);
+  const refuseProtected = (names) => {
+    if (names.some((name) => isProtected(name))) {
+      throw refuse(
+        "a protected path is changed in the working tree; no tree is built",
+      );
+    }
+  };
   try {
     const real = await gitOr(root, ["rev-parse", "--git-path", "index"]);
     if (real) {
@@ -324,14 +381,102 @@ export async function worktreeTree(root, includeIgnored = []) {
         // No index yet: an empty one is the correct seed.
       }
     }
-    await git(root, ["add", "-A", "--", "."], env);
+    // The list goes back to git as the bytes git printed, so a name that is
+    // not valid UTF-8 survives; `update-index` takes paths, never patterns.
+    const list = (selection) =>
+      gitBytes(
+        root,
+        ["--literal-pathspecs", "ls-files", "-z", ...selection],
+        env,
+      );
+    const entries = (bytes) => {
+      const out = [];
+      let start = 0;
+      for (let i = 0; i < bytes.length; i++) {
+        if (bytes[i] !== 0) continue;
+        if (i > start) out.push(bytes.subarray(start, i));
+        start = i + 1;
+      }
+      return out;
+    };
+    // Updates exactly the listed entries: the tracked ones that changed first,
+    // then the untracked ones. A step may turn a file into a directory or a
+    // directory into a file; the tracked entry is then no longer a file, and
+    // git removes it when it comes first, so the new path no longer conflicts
+    // with it (`--replace` covers what the order does not). Neither reads
+    // anything from the tree beyond the listed paths.
+    const update = async (tracked, untracked) => {
+      refuseProtected([...namesOf(tracked), ...namesOf(untracked)]);
+      await between();
+      const first = entries(tracked);
+      const seen = new Set(first.map((entry) => entry.toString("latin1")));
+      const ordered = [
+        ...first,
+        ...entries(untracked).filter(
+          (entry) => !seen.has(entry.toString("latin1")),
+        ),
+      ];
+      if (ordered.length === 0) return;
+      await gitInput(
+        root,
+        ["update-index", "--add", "--remove", "--replace", "-z", "--stdin"],
+        Buffer.concat(ordered.flatMap((entry) => [entry, Buffer.alloc(1)])),
+        env,
+      );
+    };
+    await update(
+      await list(["--modified", "--deleted"]),
+      await list(["--others", "--exclude-standard"]),
+    );
     // Artifacts the candidate names with --include-ignored are part of what was
     // reviewed and QA'd, so they belong to the approved tree too.
     if (includeIgnored.length > 0) {
-      await git(root, ["add", "-f", "--", ...includeIgnored], env);
+      await update(
+        Buffer.alloc(0),
+        await list([
+          "--others",
+          "--ignored",
+          "--exclude-standard",
+          "--",
+          ...includeIgnored,
+        ]),
+      );
+      // A named artifact that matches nothing fails, as it always did: a typo
+      // must not leave it out of the tree silently.
+      await git(
+        root,
+        [
+          "--literal-pathspecs",
+          "ls-files",
+          "--error-unmatch",
+          "--",
+          ...includeIgnored,
+        ],
+        env,
+      );
     }
+    const head = await gitOr(root, ["rev-parse", "--verify", "-q", "HEAD"]);
+    refuseProtected(
+      namesOf(
+        await gitBytes(
+          root,
+          head
+            ? [
+                "diff-index",
+                "--cached",
+                "--name-only",
+                "--no-renames",
+                "-z",
+                head,
+              ]
+            : ["ls-files", "-z"],
+          env,
+        ),
+      ),
+    );
     return (await git(root, ["write-tree"], env)).trim();
-  } catch {
+  } catch (error) {
+    if (error instanceof Refused) throw error;
     throw refuse("cannot compute the working-tree identity");
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -518,8 +663,22 @@ function validate(state) {
   ]) {
     if (!isObj(state[key])) fail(key);
   }
-  for (const key of ["verify", "review_needs_fixes", "qa_fail"]) {
+  for (const key of ["verify", "review_needs_fixes", "qa_fail", "step"]) {
     if (!isInt(state.attempts[key])) fail(`attempts.${key}`);
+  }
+  const base = state.step_base;
+  if (
+    base !== null &&
+    !(
+      isObj(base) &&
+      TREE_ID.test(base.tree ?? "") &&
+      FINGERPRINT.test(base.fingerprint ?? "") &&
+      // Empty in a repository that has no commit yet.
+      (base.head === "" || SHA.test(base.head ?? "")) &&
+      isInt(base.rev)
+    )
+  ) {
+    fail("step_base");
   }
   if (
     !Array.isArray(state.commits) ||
@@ -660,6 +819,11 @@ function loadState(dir) {
     // Nor a step cursor: only `implement` asks for it, so a run already past
     // that phase is not sent back.
     state.steps ??= {};
+    // Nor a step base: its steps are recorded unchecked, as they were, until
+    // the run enters implement again.
+    state.step_base ??= null;
+    if (state.attempts && typeof state.attempts === "object")
+      state.attempts.step ??= 0;
     // Before run sizes every run was a full run that started on a clean tree.
     state.size ??= "full";
     if (state.baseline && typeof state.baseline === "object")
@@ -730,7 +894,7 @@ function freshState(runId, root, baseline) {
       push_pr: false,
     },
     phase: "clarify",
-    attempts: { verify: 0, review_needs_fixes: 0, qa_fail: 0 },
+    attempts: { verify: 0, review_needs_fixes: 0, qa_fail: 0, step: 0 },
     candidate: { fingerprint: "", include_ignored: [], checks: [] },
     review: {
       required: true,
@@ -747,6 +911,7 @@ function freshState(runId, root, baseline) {
     commit_plan: null,
     blocked: { reason: "", needs: "", from: "" },
     steps: {},
+    step_base: null,
     history: [
       { at: now(), rev: 0, op: "init", from: "", to: "clarify", detail: {} },
     ],
@@ -907,6 +1072,104 @@ async function scopeOk(root, state) {
     );
   }
 }
+
+// ---- plan steps ---------------------------------------------------------------
+
+const STATE_WRITTEN = "run state was written outside the step";
+const HEAD_MOVED = "HEAD moved during the step";
+
+// Where a plan step starts: the working tree as a tree id, its fingerprint,
+// HEAD, and the state revision of the write that stores it. `record step`
+// compares the tree after the step with this one, so what a step changed is
+// checked when it is recorded rather than on the way to review.
+//
+// A run without a base records its steps unchecked, as before.
+async function newStepBase(root, state) {
+  const { snapshot, tree, head } = await captureStep(root, state);
+  if (!snapshot.complete) return null;
+  return {
+    tree,
+    fingerprint: snapshot.fingerprint,
+    head,
+    rev: state.rev + 1,
+  };
+}
+
+// One consistent view of the working tree for a plan step: its snapshot, its
+// tree, and HEAD.
+//
+// The snapshot comes first: it is incomplete while a likely-secret path is
+// changed, and then no tree is built. It is taken again after the tree: a
+// different fingerprint means the tree changed while it was captured, so the
+// tree and the fingerprint would not describe the same content, and nothing
+// is recorded. HEAD is the snapshot's own (empty before the first commit): it
+// is part of the fingerprint, so the three always describe one moment.
+export async function captureStep(
+  root,
+  state,
+  {
+    tree = (r) => worktreeTree(r, []),
+    snapshotOf = (s) =>
+      computeSnapshot(s.repo_root, undefined, s.candidate.include_ignored),
+  } = {},
+) {
+  const snapshot = await snapshotOf(state);
+  const head = snapshot.head ?? "";
+  if (!snapshot.complete) return { snapshot, tree: "", head };
+  const captured = await tree(root);
+  if ((await snapshotOf(state)).fingerprint !== snapshot.fingerprint) {
+    throw refuse("the working tree changed while the step was captured; rerun");
+  }
+  return { snapshot, tree: captured, head };
+}
+
+// HEAD as the snapshot reads it: the commit id, or empty before the first commit.
+const currentHead = (root) =>
+  gitOr(root, ["rev-parse", "--verify", "-q", "HEAD^{commit}"]);
+
+// The paths that differ between two trees, classified by b_run.py against the
+// approved scope and the step's own paths.
+async function stepDelta(root, state, base, tree, id) {
+  const result = await runArtifacts(root, [
+    "scope-check",
+    "--run",
+    state.run_id,
+    "--base",
+    base,
+    "--tree",
+    tree,
+    "--step",
+    id,
+  ]);
+  try {
+    const parsed = JSON.parse(result.stdout);
+    if (
+      Array.isArray(parsed.outside_scope) &&
+      Array.isArray(parsed.protected) &&
+      Number.isInteger(parsed.changed) &&
+      Number.isInteger(parsed.outside_step)
+    )
+      return parsed;
+  } catch {
+    // Reported below.
+  }
+  throw refuse(
+    `the step's changes could not be compared with its base: ${
+      result.stderr.trim().split("\n")[0] || "no output"
+    }`,
+  );
+}
+
+// Path names fit for the state: never a protected one, never one that would
+// not survive as a printable line.
+const namedPaths = (paths) => {
+  const safe = paths
+    .filter((p) => !isProtected(p) && !CONTROL.test(p) && p.length <= 80)
+    .slice(0, 3);
+  const rest = paths.length - safe.length;
+  if (safe.length === 0) return `${paths.length} path(s)`;
+  return safe.join(", ") + (rest > 0 ? ` and ${rest} more` : "");
+};
 
 // The plan checks without a passing result for the recorded candidate.
 function missingChecks(state, plan) {
@@ -1144,6 +1407,7 @@ async function cmdApprove(root, dir, state, args) {
   };
   // A new approval is a new plan: none of its steps is applied yet.
   state.steps = {};
+  state.step_base = null;
   state.ac = Object.fromEntries(
     ids.map((id) => [id, { status: "pending", fingerprint: "" }]),
   );
@@ -1308,6 +1572,11 @@ async function cmdAdvance(root, dir, state, args) {
     if (owed.length > 0)
       throw refuse(`plan steps not recorded: ${owed.join(", ")}`);
   }
+  // Entering implement fixes where the first step starts.
+  if (target === "implement") {
+    state.attempts.step = 0;
+    state.step_base = await newStepBase(root, state);
+  }
   // Entering verify starts a new evidence round for a new candidate.
   if (target === "verify") voidEvidence(state);
   if (["review", "qa"].includes(target) && state.phase === "verify")
@@ -1320,7 +1589,7 @@ async function cmdAdvance(root, dir, state, args) {
   return { phase: state.phase };
 }
 
-function cmdUnblock(dir, state, args) {
+async function cmdUnblock(root, dir, state, args) {
   if (state.phase !== "blocked") throw refuse("run is not blocked");
   const target = args._[1];
   if (!["clarify", "implement", "fix", "verify"].includes(target)) {
@@ -1359,14 +1628,25 @@ function cmdUnblock(dir, state, args) {
     ...state.commits.filter((sha) => !state.prior_commits.includes(sha)),
   );
   state.commits = [];
-  state.attempts = { verify: 0, review_needs_fixes: 0, qa_fail: 0 };
+  state.attempts = { verify: 0, review_needs_fixes: 0, qa_fail: 0, step: 0 };
   state.blocked = { reason: "", needs: "", from: "" };
   state.phase = target;
+  // The steps start again from the tree as it is now; only implement has steps.
+  state.step_base =
+    target === "implement" ? await newStepBase(root, state) : null;
   saveState(dir, state, "unblock", { reason });
   return { phase: state.phase };
 }
 
-async function cmdRecord(root, dir, state, args) {
+// `capture` is how a step's tree is captured; the probes replace it to change
+// the repository at exactly that point.
+async function cmdRecord(
+  root,
+  dir,
+  state,
+  args,
+  { capture = captureStep } = {},
+) {
   const kind = args._[1];
   requireSpecUnchanged(dir, state);
   const art = await artifactsOk(root, state);
@@ -1651,10 +1931,96 @@ async function cmdRecord(root, dir, state, args) {
         `record the steps ${id} depends on first: ${owed.join(", ")}`,
       );
     }
+    const base = state.step_base;
+    if (!base) {
+      // No base (a run from before the step gate, or one that entered
+      // implement with an incomplete snapshot): recorded unchecked, as before.
+      const fingerprint = await currentFingerprint(state);
+      state.steps[id] = { status: "done", fingerprint };
+      saveState(dir, state, "record step", { step: id, fingerprint });
+      return { step: id, owed: missingSteps(state, art.artifacts.plan) };
+    }
+    // The step ran between two writes of this helper: anything else that wrote
+    // the run state or moved HEAD in between is not a plan step, and the run
+    // stops for the user.
+    const notAStep = (reason) => {
+      block(state, reason, "user decision");
+      saveState(dir, state, "record step", { step: id });
+      return {
+        ok: false,
+        recorded: false,
+        step: id,
+        phase: state.phase,
+        blocked: state.blocked,
+      };
+    };
+    if (state.rev !== base.rev) return notAStep(STATE_WRITTEN);
+    // HEAD is compared as the capture saw it, not as it was before: a commit
+    // made while the tree was being captured must not be adopted as the base.
+    const captured = await capture(root, state);
+    const { snapshot, head } = captured;
+    if (head !== base.head) return notAStep(HEAD_MOVED);
+    let { tree } = captured;
+    let problem = "";
+    let delta = null;
+    if (!snapshot.complete) {
+      // Only a likely-secret path is the step's doing; anything else that
+      // leaves the snapshot incomplete is refused as it always was.
+      if (snapshot.protected.length === 0) {
+        throw refuse(
+          "candidate snapshot is incomplete; resolve the uncovered paths first",
+        );
+      }
+      problem = `${snapshot.protected.length} protected path(s) changed`;
+    } else {
+      delta = await stepDelta(root, state, base.tree, tree, id);
+      if (delta.protected.length > 0) {
+        problem = `${delta.protected.length} protected path(s) changed`;
+        tree = "";
+      } else if (delta.outside_scope.length > 0) {
+        problem = `outside the approved scope: ${namedPaths(delta.outside_scope)}`;
+      }
+    }
+    if (problem) {
+      // Nothing is recorded and the base stays, so restoring the named paths
+      // and recording again compares the same step. The refusals are counted:
+      // the third in a row is a decision for the user.
+      state.attempts.step += 1;
+      state.step_base = { ...base, rev: state.rev + 1 };
+      if (state.attempts.step >= MAX_ROUNDS) {
+        block(
+          state,
+          `${MAX_ROUNDS} refused plan steps; last: ${problem}`,
+          "user decision",
+        );
+      }
+      saveState(dir, state, "record step", { step: id, reason: problem, tree });
+      return {
+        ok: false,
+        recorded: false,
+        step: id,
+        reason: problem,
+        tree: tree || undefined,
+        // What to restore the named paths from before recording again.
+        base: base.tree,
+        attempts: state.attempts.step,
+        phase: state.phase,
+      };
+    }
+    // Once more just before the write: the comparison above took time.
+    if ((await currentHead(root)) !== base.head) return notAStep(HEAD_MOVED);
     // The tree as it was when the step was applied: the step's own evidence.
-    const fingerprint = await currentFingerprint(state);
+    const fingerprint = snapshot.fingerprint;
     state.steps[id] = { status: "done", fingerprint };
-    saveState(dir, state, "record step", { step: id, fingerprint });
+    state.attempts.step = 0;
+    state.step_base = { tree, fingerprint, head, rev: state.rev + 1 };
+    saveState(dir, state, "record step", {
+      step: id,
+      fingerprint,
+      tree,
+      paths: delta.changed,
+      outside: delta.outside_step,
+    });
     return { step: id, owed: missingSteps(state, art.artifacts.plan) };
   }
   throw invalid("record needs check|review|qa|ac|commit|step");
@@ -1762,10 +2128,12 @@ async function cmdCheck(root, dir, state, args) {
     if (commitsBegan) {
       // Commits do not change the working tree, so it must still equal the
       // approved tree however many commits were made. A different tree after
-      // commits began cannot be voided cleanly: the user decides.
+      // commits began cannot be voided cleanly: the user decides. A tree that
+      // cannot be built (a protected path appeared) is a different tree too.
       if (
-        (await worktreeTree(root, state.candidate.include_ignored)) !==
-        plan.tree
+        (await worktreeTree(root, state.candidate.include_ignored).catch(
+          () => "",
+        )) !== plan.tree
       ) {
         problems.push("the working tree changed after commits began");
         block(state, "candidate changed after commits began", "user decision");
@@ -2108,7 +2476,7 @@ export function parseArgs(argv) {
   return args;
 }
 
-export async function run(argv, cwd = process.cwd()) {
+export async function run(argv, cwd = process.cwd(), deps = {}) {
   const args = parseArgs(argv);
   const command = args._[0];
   const root = await repoRoot(cwd);
@@ -2148,8 +2516,9 @@ export async function run(argv, cwd = process.cwd()) {
     requireLock(dir, args);
     if (command === "approve") return await cmdApprove(root, dir, state, args);
     if (command === "advance") return await cmdAdvance(root, dir, state, args);
-    if (command === "unblock") return cmdUnblock(dir, state, args);
-    if (command === "record") return await cmdRecord(root, dir, state, args);
+    if (command === "unblock") return await cmdUnblock(root, dir, state, args);
+    if (command === "record")
+      return await cmdRecord(root, dir, state, args, deps);
     throw invalid(`unknown command: ${command}`);
   } finally {
     release();

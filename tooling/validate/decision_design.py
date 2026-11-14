@@ -28,6 +28,7 @@ LIGHT_LABELS = (
     "docs/decisions/ADR-011-pi-second-runtime.md",
     "docs/decisions/ADR-012-run-first-entry.md",
     "docs/decisions/ADR-013-concurrent-plan-checks.md",
+    "docs/decisions/ADR-014-checked-plan-steps.md",
 )
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (

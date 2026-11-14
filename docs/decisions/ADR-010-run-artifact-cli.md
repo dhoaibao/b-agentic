@@ -38,7 +38,8 @@ to compare against.
   the validated plan's `checks` (a check the plan lists to run with others is recorded
   with the fingerprint it started on,
   [ADR-013](ADR-013-concurrent-plan-checks.md); refined 2026-11-14); `advance` to `review` or `qa` runs `b_run.py
-scope-check` against the spec's scope globs; `record qa` and `record ac` must match
+scope-check` against the spec's scope globs (and `record step` runs it for the paths
+  one step changed, [ADR-014](ADR-014-checked-plan-steps.md); refined 2026-11-14); `record qa` and `record ac` must match
   the validated `qa.md`; the handoff packet of every run phase a skill is briefed for
   (clarify, implement, verify, review, fix, QA, commit; refined 2026-11-13) comes from
   `b_run.py handoff`, not from hand-written focus text, and its sections are defined in
