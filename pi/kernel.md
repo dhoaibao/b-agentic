@@ -60,7 +60,7 @@ Only when the user asks agents to talk to each other; peers are independent sess
 - b-agentic repository and design-conformance audit -> `b-agentic-audit`.
 - Pre-PR changed-code review -> `b-review`.
 - Post-review acceptance QA: criterion-to-evidence matrix and QA verdict -> `b-qa`.
-- Run an approved plan-to-commit workflow end to end with resumable run state -> `b-flow` only on explicit user request.
+- Changes that route to b-implement, b-frontend, b-refactor, or b-test -> `b-flow`, as a quick or full run; a typed `/b-<name>` runs standalone.
 - Split and commit working-tree changes -> `b-commit` only on explicit user request.
 - Push the current branch and open a draft PR -> `b-pr` only on explicit user request.
 <!-- generated:kernel-routing:end -->
@@ -69,7 +69,7 @@ A local, factual repository question needing no phase work -> answer directly fr
 ## Safety and tools
 
 - Preserve unrelated changes; never run `git pull`, `git reset --hard`, `git clean -f`, `git branch -D`, or a force, delete, default-branch, or destination-less (`git push`, `git push origin`) push. A `git push` naming its remote and branch and `gh pr create` run only on an explicit user PR request, and the harness asks each time.
-- A `/b-flow` run's commit consent, recorded in its user-approved spec, is the explicit commit request for that run's QA-passed candidate only, never for push, PR, or other commits.
+- A run's commit consent, recorded in its approved spec, is the explicit commit request for that run's QA-passed candidate only, never for push, PR, or other commits.
 - Prefer sources and regenerate generated assets when required. Never invent behavior or compatibility.
 - Pi exposes MCP tools as `mcp__<server>__<tool>`. Inspect any MCP request carrying a path, URL, or private content before calling it, and seek approval when its effects are uncertain.
 

@@ -424,9 +424,11 @@ notifications, a self-updating command, or third-party extension
 management; Claude Code's own `AskUserQuestion`, todo list, and compaction cover
 what those extensions did. The repository does not promise detached background
 work, authenticated MCP or Codex readiness from configuration, containment of
-Codex's read access, or unbounded orchestration. The one bounded exception is an
-explicit `/b-flow` run with a persisted stop condition for each loop
-([ADR-009](ADR-009-b-flow-automatic-run.md)).
+Codex's read access, or unbounded orchestration. The one bounded exception is a
+`b-flow` run with a persisted stop condition for each loop
+([ADR-009](ADR-009-b-flow-automatic-run.md)); since
+[ADR-012](ADR-012-run-first-entry.md) a change request enters such a run without an
+explicit `/b-flow`.
 
 Evidence: [`README.md`](../../README.md),
 [`REFERENCE.md`](../../REFERENCE.md), and

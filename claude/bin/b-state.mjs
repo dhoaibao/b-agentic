@@ -17,17 +17,23 @@
 // current phase still owes.
 //
 // Usage: b-state.mjs <command> [args] [--run ID] [--owner NAME]
-//   init <slug>                         create a run in phase clarify and lock it
+//   init <slug> [--replace]             create a run in phase clarify and lock it; refused
+//                                       while another run is unfinished unless the user
+//                                       chose to leave that one (--replace)
 //   show [--history]                    print the state (the latest history entries,
 //                                       or all of them with --history)
 //   approve --commit yes|no --branch-target current|new:<type>/<kebab>
-//           --codex standing|reviewer
+//           --codex standing|reviewer [--size quick|full]
 //                                       hash spec.md, check the flags against the
-//                                       spec's consent block, require a clean tree,
-//                                       record consent and AC-n, phase approved
+//                                       spec's consent block and size, require a
+//                                       clean tree unless commit is no, record
+//                                       consent and AC-n, phase approved; a quick
+//                                       run must be within the quick limits
 //   advance <phase> [--reason R --needs N]
 //                                       move to a phase when its guard passes;
-//                                       `advance review` also needs --trigger T
+//                                       `advance review` also needs --trigger T and
+//                                       blocks a quick run; `advance done` from qa
+//                                       ends a run that has no commit consent
 //   unblock <phase> --reason R          leave `blocked` for clarify|implement|fix|verify
 //   record check --cmd C --exit N [--include-ignored P]...
 //   record review (--verdict V [--trigger T] | --low-risk REASON)
@@ -52,7 +58,7 @@ import {
   mkdirSync,
   mkdtempSync,
   openSync,
-  readFileSync,
+  readlinkSync,
   readSync,
   realpathSync,
   renameSync,
@@ -86,7 +92,7 @@ const NEXT = {
   verify: ["review", "qa"],
   review: ["fix", "qa"],
   fix: ["verify"],
-  qa: ["commit", "fix"],
+  qa: ["commit", "fix", "done"],
   commit: ["done"],
   done: [],
   blocked: [],
@@ -107,6 +113,7 @@ const AC_ID = /^AC-\d+$/;
 const FINGERPRINT = /^[0-9a-f]{64}$/;
 const OWNER = /^[A-Za-z0-9._:-]{1,80}$/;
 const CONSENT_DRIFT = "recorded consent differs from the approved spec";
+const SIZE_DRIFT = "recorded run size differs from the approved spec";
 const MAX_CMD = 300;
 const MAX_TEXT = 300;
 const MAX_STATE_BYTES = 1 << 20;
@@ -143,6 +150,15 @@ const HISTORY_DETAIL = [
   "step",
 ];
 const STEP_ID = /^S-[1-9]\d*$/;
+// Changes already in the tree at run start, tracked by content digest.
+const MAX_DIRTY = 200;
+const MAX_DIRTY_BYTES = 64 << 20;
+const DIRTY_DIGEST = /^((x:)?[0-9a-f]{64}|link:[0-9a-f]{64}|absent)$/;
+// A quick run is small enough that the request itself is the approval: it
+// never commits and never enters review. Anything larger is a full run.
+export const SIZES = ["quick", "full"];
+const QUICK_LIMITS = { steps: 3, criteria: 3, scope_paths: 5 };
+const QUICK_EVIDENCE = ["automated", "inspection"];
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
 class Refused extends Error {}
@@ -195,6 +211,101 @@ async function worktreeBaseline(root) {
     status_digest: sha256(status),
     dirty: status.length > 0,
   };
+}
+
+// The identity of one path's content, without keeping the content: the same
+// rule as path_digest in b_run.py, which compares against it.
+//
+// The read never leaves the tree: a link anywhere above the path makes it
+// unidentifiable (""), and the path itself is opened without following a link.
+// The digest carries the executable bit, which git tracks beside the content.
+function pathDigest(root, rel) {
+  const parts = rel.split("/");
+  if (rel.startsWith("/") || parts.includes("..") || parts.includes(""))
+    return "";
+  let dir = root;
+  for (const part of parts.slice(0, -1)) {
+    dir = join(dir, part);
+    let above;
+    try {
+      above = lstatSync(dir);
+    } catch {
+      return "absent";
+    }
+    if (above.isSymbolicLink()) return "";
+    if (!above.isDirectory()) return "absent";
+  }
+  const full = join(root, rel);
+  let stat;
+  try {
+    stat = lstatSync(full);
+  } catch {
+    return "absent";
+  }
+  if (stat.isSymbolicLink()) return `link:${sha256(readlinkSync(full))}`;
+  if (!stat.isFile()) return "";
+  let fd;
+  try {
+    fd = openSync(
+      full,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    );
+  } catch {
+    return "";
+  }
+  try {
+    const opened = fstatSync(fd);
+    if (!opened.isFile() || opened.size > MAX_DIRTY_BYTES) return "";
+    const hash = createHash("sha256");
+    const buffer = Buffer.alloc(1 << 20);
+    for (;;) {
+      const n = readSync(fd, buffer, 0, buffer.length, null);
+      if (n === 0) break;
+      hash.update(buffer.subarray(0, n));
+    }
+    return `${opened.mode & 0o100 ? "x:" : ""}${hash.digest("hex")}`;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+// The changes already in the tree when a run starts: they are the user's, not
+// the run's, for as long as their content stays the same. A path whose content
+// cannot be identified safely (a likely-secret file, a directory, a very large
+// file, an odd name) is left out, so it counts as a change of the run and the
+// scope check stops on it.
+async function dirtyBaseline(root) {
+  // Untrimmed: the first status code may begin with a space.
+  const status = await git(root, [
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all",
+  ]).catch(() => {
+    throw refuse("git status failed; the tree's changes cannot be recorded");
+  });
+  const tokens = status.split("\0");
+  const paths = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.length < 4) continue;
+    paths.push(token.slice(3));
+    if ("RC".includes(token[0])) paths.push(tokens[++i] ?? "");
+  }
+  const unique = [...new Set(paths)].filter(Boolean);
+  if (unique.length > MAX_DIRTY) {
+    throw refuse(
+      `the working tree has ${unique.length} changed paths, too many to tell apart from a run's own; commit or stash them first`,
+    );
+  }
+  const dirty = {};
+  for (const rel of unique) {
+    if (rel.length > MAX_TEXT || CONTROL.test(rel) || isProtected(rel))
+      continue;
+    const digest = pathDigest(root, rel);
+    if (digest) dirty[rel] = digest;
+  }
+  return dirty;
 }
 
 // The tree object of the whole working tree (tracked and untracked, not ignored),
@@ -457,6 +568,20 @@ function validate(state) {
   ]) {
     if (value !== "" && !FINGERPRINT.test(value)) fail("fingerprint format");
   }
+  if (!SIZES.includes(state.size)) fail("size");
+  const dirty = state.baseline.dirty;
+  if (!isObj(dirty) || Object.keys(dirty).length > MAX_DIRTY)
+    fail("baseline.dirty");
+  for (const [path, digest] of Object.entries(dirty)) {
+    if (
+      !path ||
+      path.length > MAX_TEXT ||
+      CONTROL.test(path) ||
+      isProtected(path) ||
+      !DIRTY_DIGEST.test(digest)
+    )
+      fail("baseline.dirty entry");
+  }
   if (!isObj(state.steps)) fail("steps");
   for (const [id, entry] of Object.entries(state.steps)) {
     if (
@@ -535,6 +660,10 @@ function loadState(dir) {
     // Nor a step cursor: only `implement` asks for it, so a run already past
     // that phase is not sent back.
     state.steps ??= {};
+    // Before run sizes every run was a full run that started on a clean tree.
+    state.size ??= "full";
+    if (state.baseline && typeof state.baseline === "object")
+      state.baseline.dirty ??= {};
     state.history ??= [];
     state.history_dropped ??= 0;
   }
@@ -587,7 +716,12 @@ function freshState(runId, root, baseline) {
     run_id: runId,
     repo_root: root,
     branch: baseline.branch,
-    baseline: { head: baseline.head, status_digest: baseline.status_digest },
+    baseline: {
+      head: baseline.head,
+      status_digest: baseline.status_digest,
+      dirty: baseline.dirty_paths,
+    },
+    size: "full",
     spec: { path: "spec.md", sha256: "", plan_sha256: "", approved_at: "" },
     consent: {
       commit: false,
@@ -817,6 +951,11 @@ function consentMatches(state, art) {
   );
 }
 
+// The run size in state must equal the size in the approved spec, for the same
+// reason: a quick run was approved by the request alone, and only a new
+// approval makes it a full one.
+const sizeMatches = (state, art) => art.artifacts.spec?.size === state.size;
+
 // Every acceptance result must belong to the candidate being committed.
 function acOpen(state, fingerprint) {
   return Object.entries(state.ac)
@@ -863,21 +1002,79 @@ const text = (value, name, max = MAX_TEXT) => {
 
 // ---- commands ---------------------------------------------------------------
 
+// The run `active` names when it is not finished; an unreadable one counts.
+function activeUnfinished(root) {
+  const { runs, active } = layout(root);
+  let id;
+  try {
+    id = readSmall(active).toString("utf8").trim();
+  } catch {
+    return "";
+  }
+  if (!RUN_ID.test(id) || !isPlainDir(join(runs, id))) return "";
+  try {
+    return loadState(join(runs, id)).phase === "done" ? "" : id;
+  } catch {
+    return id;
+  }
+}
+
+// What keeps a run small enough for the request to be its approval.
+function quickProblems(art) {
+  const { spec, plan } = art.artifacts;
+  const problems = [];
+  if (plan.step_ids.length > QUICK_LIMITS.steps)
+    problems.push(`more than ${QUICK_LIMITS.steps} plan steps`);
+  if (spec.criteria.length > QUICK_LIMITS.criteria)
+    problems.push(`more than ${QUICK_LIMITS.criteria} criteria`);
+  if (spec.criteria.some((c) => !QUICK_EVIDENCE.includes(c.evidence)))
+    problems.push(`evidence other than ${QUICK_EVIDENCE.join(" or ")}`);
+  if (spec.scope_paths.length > QUICK_LIMITS.scope_paths)
+    problems.push(`more than ${QUICK_LIMITS.scope_paths} scope paths`);
+  if (spec.scope_paths.some((path) => /[*?[]/.test(path)))
+    problems.push("a scope path that is a glob");
+  if (spec.answers > 0) problems.push("clarifying answers");
+  if (
+    spec.consent.commit !== "no" ||
+    spec.consent.branch_target !== "current" ||
+    spec.consent.codex !== "reviewer"
+  )
+    problems.push("a consent other than commit no, current, reviewer");
+  return problems;
+}
+
 async function cmdInit(root, args) {
   const slug = args._[1];
   if (!SLUG.test(slug ?? "")) throw invalid("init needs a kebab-case <slug>");
   const owner = defaultOwner(args);
   ensureBase(root);
-  const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  const id = `${stamp}-${slug}`;
-  const dir = join(layout(root).runs, id);
-  if (isPlainDir(dir)) throw refuse(`run ${id} already exists`);
-  mkdirSync(dir, { mode: 0o700 });
-  const state = freshState(id, root, await worktreeBaseline(root));
-  writeAtomic(join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`);
-  takeLock(dir, owner, false);
-  writeAtomic(layout(root).active, `${id}\n`);
-  return { run: id, dir, phase: state.phase };
+  // One init at a time per worktree: the check for an unfinished run and the
+  // write of `active` must not interleave with another session's.
+  const release = acquireMutex(layout(root).base, ".b-agentic/mutex");
+  try {
+    const stamp = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+    const id = `${stamp}-${slug}`;
+    const dir = join(layout(root).runs, id);
+    if (isPlainDir(dir)) throw refuse(`run ${id} already exists`);
+    // One unfinished run per worktree: a second one would share its tree and
+    // its evidence. Only the user decides to leave a run behind.
+    const unfinished = activeUnfinished(root);
+    if (unfinished && !args.replace) {
+      throw refuse(
+        `run ${unfinished} is not finished; resume it, or pass --replace on the user's answer to leave it`,
+      );
+    }
+    const baseline = await worktreeBaseline(root);
+    baseline.dirty_paths = await dirtyBaseline(root);
+    mkdirSync(dir, { mode: 0o700 });
+    const state = freshState(id, root, baseline);
+    writeAtomic(join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`);
+    takeLock(dir, owner, false);
+    writeAtomic(layout(root).active, `${id}\n`);
+    return { run: id, dir, phase: state.phase };
+  } finally {
+    release();
+  }
 }
 
 async function cmdApprove(root, dir, state, args) {
@@ -904,13 +1101,32 @@ async function cmdApprove(root, dir, state, args) {
   ) {
     throw refuse("approve flags differ from the consent recorded in spec.md");
   }
+  // The size the user's approval covers is the spec's too.
+  const size = args.size ?? "full";
+  if (!SIZES.includes(size)) throw invalid("--size must be quick or full");
+  if (size !== art.artifacts.spec.size)
+    throw refuse("approve --size differs from the size recorded in spec.md");
+  if (size === "quick") {
+    const problems = quickProblems(art);
+    if (state.review.trigger !== "" || state.review.round > 0)
+      problems.push("a review trigger this run already met");
+    if (problems.length > 0) {
+      throw refuse(
+        `this needs a full run with an approval round: ${problems.join("; ")}`,
+      );
+    }
+  }
+  // A commit must contain the run's work and nothing else, so a run that may
+  // commit starts clean. Without commit consent the changes already in the
+  // tree stay the user's: the run records and leaves them (ADR-012).
   const baseline = await worktreeBaseline(root);
-  if (baseline.dirty) {
+  if (baseline.dirty && commit === "yes") {
     throw refuse(
-      "the working tree has changes; commit or stash them before approval",
+      "the working tree has changes; commit or stash them before a run that may commit, or approve with commit no",
     );
   }
   const ids = art.artifacts.spec.criteria.map((c) => c.id);
+  state.size = size;
   state.spec.sha256 = art.hashes.spec;
   state.spec.plan_sha256 = art.hashes.plan;
   state.spec.approved_at = now();
@@ -925,9 +1141,12 @@ async function cmdApprove(root, dir, state, args) {
   state.ac = Object.fromEntries(
     ids.map((id) => [id, { status: "pending", fingerprint: "" }]),
   );
+  // `dirty` stays what it was when the run started: a re-approval must not
+  // turn the run's own edits into changes that were there before it.
   state.baseline = {
     head: baseline.head,
     status_digest: baseline.status_digest,
+    dirty: state.baseline.dirty,
   };
   state.phase = "approved";
   saveState(dir, state, "approve", { spec: state.spec.sha256 });
@@ -955,15 +1174,32 @@ async function cmdAdvance(root, dir, state, args) {
   if (state.phase !== "clarify") {
     requireSpecUnchanged(dir, state);
     art = await artifactsOk(root, state);
+    // The size the user approved is the spec's: an edited state cannot turn a
+    // quick run into a full one.
+    if (!sizeMatches(state, art)) throw refuse(SIZE_DRIFT);
   }
-  // Every move toward review, QA, or a commit re-checks the scope: the tree can
-  // change between phases.
-  if (["review", "qa", "commit"].includes(target)) {
-    await scopeOk(root, state);
+  // A quick run was approved by the request alone, which cannot cover a change
+  // that needs review: it stops for the approval round of a full run. The
+  // trigger is recorded as the run's review obligation, so no later step can
+  // record a low-risk exception instead.
+  if (target === "review" && state.size === "quick") {
+    const trigger = text(args.trigger, "--trigger");
+    state.review.trigger = trigger;
+    state.review.required = true;
+    block(state, "a quick run met a review trigger", "full-run approval");
+    saveState(dir, state, "advance", { trigger });
+    return { phase: state.phase, blocked: state.blocked };
   }
-  const fingerprint = ["review", "qa", "commit"].includes(target)
-    ? await currentFingerprint(state)
-    : "";
+  // A run without commit consent ends at QA; one with it ends through commit.
+  const finishing = target === "done" && state.phase === "qa";
+  if (finishing && state.consent.commit) {
+    throw refuse("a run with commit consent finishes through commit");
+  }
+  // Every move toward review, QA, a commit, or the end re-checks the scope: the
+  // tree can change between phases.
+  const evidenced = ["review", "qa", "commit"].includes(target) || finishing;
+  if (evidenced) await scopeOk(root, state);
+  const fingerprint = evidenced ? await currentFingerprint(state) : "";
   if (target === "review") {
     if (!checksPass(state, art.artifacts.plan))
       throw refuse(checksOwed(state, art.artifacts.plan));
@@ -1003,6 +1239,9 @@ async function cmdAdvance(root, dir, state, args) {
       art.artifacts.spec.consent.commit !== "yes"
     )
       throw refuse("commit consent was not recorded in the approved spec");
+  }
+  // The same evidence ends a run whether or not it may commit.
+  if (target === "commit" || finishing) {
     if (
       state.qa.verdict !== "QA PASS" ||
       state.qa.fingerprint !== fingerprint
@@ -1021,11 +1260,13 @@ async function cmdAdvance(root, dir, state, args) {
     if (open.length > 0) {
       throw refuse(`criteria without a current pass: ${open.join(", ")}`);
     }
+  }
+  if (target === "commit") {
     const head = await gitOr(root, ["rev-parse", "HEAD"]);
     if (!head) throw refuse("the repository has no commit to build on");
     state.commit_plan = await captureCommitPlan(root, state, fingerprint, head);
   }
-  if (target === "done") {
+  if (target === "done" && !finishing) {
     const plan = state.commit_plan;
     if (!plan || state.commits.length === 0)
       throw refuse("no commit recorded for the approved candidate");
@@ -1080,6 +1321,14 @@ function cmdUnblock(dir, state, args) {
     throw invalid("unblock target must be clarify, implement, fix, or verify");
   }
   const reason = text(args.reason, "--reason");
+  // A quick run that met a review trigger has outgrown the request that
+  // approved it: the only way on is a new approval, as a full run.
+  const outgrown = state.size === "quick" && state.review.trigger !== "";
+  if (outgrown && target !== "clarify") {
+    throw refuse(
+      "a quick run that met a review trigger continues only through unblock clarify and a full-run approval",
+    );
+  }
   if (target === "clarify") {
     state.spec = {
       path: "spec.md",
@@ -1088,10 +1337,9 @@ function cmdUnblock(dir, state, args) {
       approved_at: "",
     };
     state.ac = {};
-    // A new approval starts a fresh review obligation; the round count stays so
-    // that finding ids remain unique.
-    state.review.required = false;
-    state.review.trigger = "";
+    // A review trigger the run has met stays its obligation for good: no later
+    // approval, quick or full, drops it, however many times the run returns to
+    // clarify. The round count stays too, so finding ids remain unique.
   } else {
     requireSpecUnchanged(dir, state);
   }
@@ -1116,6 +1364,7 @@ async function cmdRecord(root, dir, state, args) {
   const kind = args._[1];
   requireSpecUnchanged(dir, state);
   const art = await artifactsOk(root, state);
+  if (!sizeMatches(state, art)) throw refuse(SIZE_DRIFT);
   // qa.md must have been written during this QA phase and must say what is recorded.
   const freshQa = () => {
     if (!art.artifacts.qa || (art.revs.qa ?? 0) <= state.qa.artifact_rev) {
@@ -1418,14 +1667,15 @@ async function cmdCheck(root, dir, state, args) {
     (artifactProblem = await artifactsOk(root, state).then(
       (valid) => {
         art = valid;
-        return consentMatches(state, valid) ? "" : CONSENT_DRIFT;
+        if (!consentMatches(state, valid)) return CONSENT_DRIFT;
+        return sizeMatches(state, valid) ? "" : SIZE_DRIFT;
       },
       (error) => error.message,
     ))
   ) {
-    const drift = artifactProblem === CONSENT_DRIFT;
+    const drift = [CONSENT_DRIFT, SIZE_DRIFT].includes(artifactProblem);
     const problem = drift
-      ? CONSENT_DRIFT
+      ? artifactProblem
       : "run artifacts changed outside b_run.py";
     problems.push(problem);
     block(state, problem, drift ? "re-approval" : "user decision");
@@ -1541,10 +1791,13 @@ async function nextSteps(root, state, art) {
   const stateCmd = (rest) => `b-state.mjs ${rest}`;
   const runCmd = (rest) => `b_run.py ${rest}`;
   if (state.phase === "blocked") {
+    const outgrown = state.size === "quick" && state.review.trigger !== "";
     return [
       `ask the user: ${state.blocked.reason} (needs: ${state.blocked.needs})`,
       stateCmd(
-        "unblock <clarify|implement|fix|verify> --reason R (a changed spec needs clarify and a new approval)",
+        outgrown
+          ? "unblock clarify --reason R, then write the spec without size quick and run the approval round of a full run"
+          : "unblock <clarify|implement|fix|verify> --reason R (a changed spec needs clarify and a new approval)",
       ),
     ];
   }
@@ -1556,10 +1809,15 @@ async function nextSteps(root, state, art) {
       steps.push(`clarify with the user, then ${runCmd("write spec")}`);
     if (!plan) steps.push(runCmd("write plan"));
     const consent = spec?.consent;
+    const quick = spec?.size === "quick";
     steps.push(
-      `run the approval round with the user (never skip it), then ${stateCmd(
+      `${
+        quick
+          ? "a quick run: the user's change request is its approval, so"
+          : "run the approval round with the user (never skip it), then"
+      } ${stateCmd(
         consent
-          ? `approve --commit ${consent.commit} --branch-target ${consent.branch_target} --codex ${consent.codex}`
+          ? `approve --commit ${consent.commit} --branch-target ${consent.branch_target} --codex ${consent.codex}${quick ? " --size quick" : ""}`
           : "approve --commit yes|no --branch-target T --codex standing|reviewer",
       )}`,
     );
@@ -1598,7 +1856,11 @@ async function nextSteps(root, state, art) {
       ];
     }
     return [
-      `classify risk per the kernel: with a trigger ${stateCmd("advance review --trigger T")}; without one ${stateCmd("record review --low-risk REASON")} then ${stateCmd("advance qa")}`,
+      `classify risk per the kernel: with a trigger ${stateCmd("advance review --trigger T")}${
+        state.size === "quick"
+          ? " (it blocks a quick run for a full-run approval)"
+          : ""
+      }; without one ${stateCmd("record review --low-risk REASON")} then ${stateCmd("advance qa")}`,
     ];
   }
   if (state.phase === "review") {
@@ -1656,7 +1918,8 @@ async function nextSteps(root, state, art) {
     return state.consent.commit
       ? [stateCmd("advance commit")]
       : [
-          "commit consent is no: report the QA-passed candidate and stop; the user commits",
+          stateCmd("advance done"),
+          "report the QA-passed candidate; it is not committed, so offer /b-commit",
         ];
   }
   if (state.phase === "commit") {
@@ -1696,7 +1959,7 @@ const pidAlive = (pid) => {
   }
 };
 
-function acquireMutex(dir) {
+function acquireMutex(dir, where = ".b-agentic/runs/<id>/mutex") {
   const path = join(dir, "mutex");
   const token = randomBytes(16).toString("hex");
   const temp = join(dir, `mutex.${process.pid}.${token}.tmp`);
@@ -1720,8 +1983,8 @@ function acquireMutex(dir) {
     const holder = mutexHolder(path);
     throw refuse(
       holder && !pidAlive(holder.pid)
-        ? `a b-state command (pid ${holder.pid}) died holding the run mutex; if no other b-state command is running, delete .b-agentic/runs/<id>/mutex by hand`
-        : "another b-state command is running for this run",
+        ? `a b-state command (pid ${holder.pid}) died holding the mutex; if no other b-state command is running, delete ${where} by hand`
+        : `another b-state command holds ${where}`,
     );
   } finally {
     rmSync(temp, { force: true });
@@ -1754,8 +2017,9 @@ const VALUE_FLAGS = new Set([
   "verdict",
   "trigger",
   "low-risk",
+  "size",
 ]);
-const BOOL_FLAGS = new Set(["takeover", "history"]);
+const BOOL_FLAGS = new Set(["takeover", "history", "replace"]);
 
 export function parseArgs(argv) {
   const args = { _: [] };

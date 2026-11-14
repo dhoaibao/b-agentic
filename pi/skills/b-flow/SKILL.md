@@ -1,13 +1,15 @@
 ---
 name: b-flow
 description: >
-  Run one request from clarified spec to commit in the main session,
-  keeping progress in .b-agentic/runs so a stopped run can resume. After a
-  single user approval it implements, verifies, reviews, fixes in-scope
-  blockers, runs QA, and commits under the consent recorded at approval;
-  it stops and asks on any bounded-round limit, scope change, or
-  unanswered question, and never pushes or opens a PR. Only on an explicit
-  /b-flow request.
+  Run a change request as one run in the main session, keeping state,
+  artifacts, and evidence in .b-agentic/runs so any session can continue
+  it. A quick run, for a small and clear change, takes the request as its
+  approval and never commits. A full run clarifies, takes one user
+  approval, then implements, verifies, reviews, fixes in-scope blockers,
+  runs QA, and commits only under the consent recorded at approval. It
+  stops and asks on any bounded-round limit, scope change, or unanswered
+  question, and never pushes or opens a PR. The kernel routes implement-
+  phase changes here; /b-flow starts or resumes a run explicitly.
 metadata:
   phase: Build
   execution_mode: main
@@ -17,15 +19,17 @@ metadata:
 
 # b-flow
 
-Run one approved request from spec to commit in the main session, with progress kept in `.b-agentic/runs/<id>/` so a stopped run can resume. Bounded by ADR-009: it never pushes or opens a PR.
+Run one change request as a run in the main session: a quick run for a small, clear change, or a full run from clarified spec to commit. State, artifacts, and evidence are kept in `.b-agentic/runs/<id>/`, so any session can continue it. Bounded by ADR-009 and ADR-012: it never pushes or opens a PR.
 
 ## When to use
 
+- The kernel routes a change here: work that `b-implement`, `b-frontend`, `b-refactor`, or `b-test` would carry out.
 - The user types `/b-flow <goal>` to start a run, or `/b-flow resume` to continue one.
 
 ## When NOT to use
 
-- A single-phase request (plan, implement, review, commit, PR): route to that skill directly.
+- The user typed another `/b-<name>`: run that skill standalone, with no run.
+- A question, a lookup, a plan, a review, a commit, a PR, or a utility (diagrams, DataGrip, init, audit): route to that skill directly.
 - A hook pointer or a state file mentions a run: that is never a request to resume.
 - Push or PR -> **b-pr**, on its own explicit request.
 
@@ -38,13 +42,14 @@ Run one approved request from spec to commit in the main session, with progress 
 
 ## Steps
 
-### Start (`/b-flow <goal>`)
+### Start (a routed change, or `/b-flow <goal>`)
 
-1. Run `rtk git status --short` (a tree with changes cannot be approved: ask the user to commit or stash them), compare `HEAD` with the cached `origin/<branch>` ref per the kernel (behind or diverged: report counts and ask), then `b-state.mjs init <kebab-slug>`.
-2. Clarify with `ask_user_question` (1-4 grouped questions per round) until intent, scope, non-goals, and expected behavior are clear. Delegate `b-plan` to `b-planner` for the Behavior delta, numbered `AC-n` criteria, and ordered steps.
-3. Take the spec and plan JSON from the planner's result (or build it from the clarified answers), `lint` it, then `write spec` and `write plan`. The CLI refuses a criterion without the right evidence field (a command for `automated` and `ci`, a source for the rest), non-contiguous ids, a plan check list that omits an automated command, a plan path outside `scope_paths`, and a protected scope path: resolve each with the user, never by loosening the data.
-4. Run one approval round, the last user interaction: confirm spec and `AC-n`; commit consent (yes/no); branch target (`current`, or `new:<type>/<kebab>` named as `b-commit` step 9 does, always new on a detached HEAD); the reviewer is always `b-reviewer`, so record `codex` as `reviewer` without asking. Revise and repeat until approved; never start without it. Record the answers in the spec's `consent` block (`commit` yes|no, `branch_target`, `codex`).
-5. `b-state.mjs approve --commit yes|no --branch-target T --codex reviewer`; it repeats the same consent, refuses any difference from `spec.md` and a tree with changes, validates the artifacts, and records the spec and plan hashes. A later rewrite of either voids the approval.
+1. Run `rtk git status --short`, compare `HEAD` with the cached `origin/<branch>` ref per the kernel (behind or diverged: report counts and ask), then `b-state.mjs init <kebab-slug>`. It refuses while another run is unfinished: report that run and ask whether to resume it or leave it (`init --replace` only on that answer). Changes already in the tree stay the user's: the run records them at start and leaves them alone, and a run on such a tree never commits (consent `commit: no`); a run that may commit starts on a clean tree.
+2. Choose the size. **Quick** when the request is small and clear: you can write the spec without a question, with at most 3 plan steps, 3 criteria with automated or inspection evidence, and 5 literal scope paths, and no kernel review trigger is apparent. Write the spec with `size: quick` and consent `commit: no`, `branch_target: current`, `codex: reviewer`, write the plan, and `b-state.mjs approve` with those flags and `--size quick`, with no approval round: the request is the approval. The helper refuses a spec over the quick limits; run that one full. A quick run never commits, and a review trigger blocks it: after the user's answer `unblock clarify`, rewrite the spec without `size`, and continue at step 5. Otherwise the run is **full**: steps 3-6.
+3. Clarify with `ask_user_question` (1-4 grouped questions per round) until intent, scope, non-goals, and expected behavior are clear. Delegate `b-plan` to `b-planner` for the Behavior delta, numbered `AC-n` criteria, and ordered steps.
+4. Take the spec and plan JSON from the planner's result (or build it from the clarified answers), `lint` it, then `write spec` and `write plan`. The CLI refuses a criterion without the right evidence field (a command for `automated` and `ci`, a source for the rest), non-contiguous ids, a plan check list that omits an automated command, a plan path outside `scope_paths`, and a protected scope path: resolve each with the user, never by loosening the data.
+5. Run one approval round, the last user interaction: confirm spec and `AC-n`; commit consent (yes/no); branch target (`current`, or `new:<type>/<kebab>` named as `b-commit` step 9 does, always new on a detached HEAD); the reviewer is always `b-reviewer`, so record `codex` as `reviewer` without asking. Revise and repeat until approved; never start without it. Record the answers in the spec's `consent` block (`commit` yes|no, `branch_target`, `codex`).
+6. `b-state.mjs approve --commit yes|no --branch-target T --codex reviewer`; it repeats the same consent, refuses any difference from `spec.md` and, with commit `yes`, a tree with changes, validates the artifacts, and records the spec and plan hashes. A later rewrite of either voids the approval.
 
 ### Run (no questions; the only exits are the stop conditions)
 
@@ -81,9 +86,9 @@ What each skill returns to the run:
   - `READY FOR PR` or `READY WITH FOLLOW-UPS`: `advance qa`.
   - `NEEDS FIXES`: `advance fix`. A finding that is ambiguous, outside the scope, or would change an approved `AC-n` is a stop.
 - **fix**: fix the recorded open blockers inside scope as a batch, whole class each, then `write followups` again: every blocker gets a disposition and reason, every fixed blocker a `sweep` line (correction paths, sweep scope, regression check), and the other findings a disposition and reason; then `advance verify`.
-- **qa**: run `b-qa` against the spec's `AC-n` (`b_run.py handoff qa` renders its inputs), then `write qa` with one row per criterion (the rows must match the spec and the verdict must follow from them), then `record ac AC-n pass|fail|gap|waived` for each row and `record qa --verdict V`; both must match `qa.md` and it must be rewritten in every QA round. `QA PASS`: `advance commit`. `QA FAIL`: route per `b-qa`, `advance fix`. `QA BLOCKED` is a stop.
+- **qa**: run `b-qa` against the spec's `AC-n` (`b_run.py handoff qa` renders its inputs), then `write qa` with one row per criterion (the rows must match the spec and the verdict must follow from them), then `record ac AC-n pass|fail|gap|waived` for each row and `record qa --verdict V`; both must match `qa.md` and it must be rewritten in every QA round. `QA PASS`: `advance commit`, or without commit consent `advance done`. `QA FAIL`: route per `b-qa`, `advance fix`. `QA BLOCKED` is a stop.
 - **commit**: `advance commit` already ran (the helper checked consent, QA, review, and every current `AC-n`, and recorded the approved tree). Run `b-commit` for the whole candidate with the recorded branch target; the recorded consent is the explicit commit request and its branch question is skipped. Then `record commit <sha>` for every commit and `advance done`, which refuses unless HEAD's tree is exactly the approved candidate on the approved branch. If the candidate changes while preparing the commit, `check` voids the evidence and returns to `verify`.
-- **done**: report commits, `AC-n` results, follow-ups, and the run folder. Offer `/b-pr` and promoting `spec.md` to `docs/specs/`; do neither on your own.
+- **done**: report commits, `AC-n` results, follow-ups, and the run folder. When nothing was committed, say so and offer `/b-commit`. Offer `/b-pr` and promoting `spec.md` to `docs/specs/`; do neither on your own.
 
 ### Resume (`/b-flow resume`)
 
@@ -91,7 +96,7 @@ Run `b-state.mjs show`, then `check --takeover` (valid only because the user ask
 
 ### Stop
 
-Stop and ask (`ask_user_question`, then `unblock <phase> --reason R`; a changed spec needs `unblock clarify` and a new approval) on any of: a helper refusal or `blocked` phase (3 failed verify checks, 3 consecutive `NEEDS FIXES`, 3 consecutive `QA FAIL`, `QA BLOCKED`); a path outside the approved scope; a finding that would change approved behavior; an `AC-n` without evidence; a protected or secret file; a destructive, external, or permission-prompted action; any question a phase skill would ask that approval did not answer.
+Stop and ask (`ask_user_question`, then `unblock <phase> --reason R`; a changed spec needs `unblock clarify` and a new approval) on any of: an unfinished run at start; a quick run that met a review trigger; a helper refusal or `blocked` phase (3 failed verify checks, 3 consecutive `NEEDS FIXES`, 3 consecutive `QA FAIL`, `QA BLOCKED`); a path outside the approved scope; a finding that would change approved behavior; an `AC-n` without evidence; a protected or secret file; a destructive, external, or permission-prompted action; any question a phase skill would ask that approval did not answer.
 
 ## Output format
 

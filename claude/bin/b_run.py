@@ -325,6 +325,8 @@ def render(kind: str, data: dict) -> str:
             f"- Codex: {data['consent']['codex']}",
             "- Push or PR: never",
         ]
+        if "size" in data:
+            out += ["", "## Size", data["size"]]
     elif kind == "plan":
         out += ["# Plan", "", "## Steps"]
         for s in data["steps"]:
@@ -532,6 +534,9 @@ def summary(data: dict) -> dict:
             "criteria": [{k: c[k] for k in ("id", "evidence")} for c in data["spec"]["criteria"]],
             "scope_paths": data["spec"]["scope_paths"],
             "consent": data["spec"]["consent"],
+            # b-state checks a quick run against its limits from these.
+            "size": data["spec"].get("size", "full"),
+            "answers": len(data["spec"]["answers"]),
         }
     if "plan" in data:
         out["plan"] = {
@@ -754,6 +759,82 @@ def changed_paths(root: Path) -> list[str]:
     return sorted({p for p in paths if p and not p.startswith(".b-agentic/")})
 
 
+MAX_DIRTY_BYTES = 64 << 20
+
+
+def path_digest(root: Path, rel: str) -> str:
+    """The identity of one path's content: the same rule as pathDigest in b-state.mjs, which records it."""
+    # The read never leaves the tree: a link anywhere above the path makes it unidentifiable (""),
+    # and the path itself is opened without following a link. The digest carries the executable bit.
+    parts = rel.split("/")
+    if rel.startswith("/") or ".." in parts or "" in parts:
+        return ""
+    above = root
+    for part in parts[:-1]:
+        above = above / part
+        try:
+            info = os.lstat(above)
+        except OSError:
+            return "absent"
+        if stat.S_ISLNK(info.st_mode):
+            return ""
+        if not stat.S_ISDIR(info.st_mode):
+            return "absent"
+    full = root / rel
+    try:
+        info = os.lstat(full)
+    except OSError:
+        return "absent"
+    if stat.S_ISLNK(info.st_mode):
+        return "link:" + sha(os.readlink(full))
+    if not stat.S_ISREG(info.st_mode):
+        return ""
+    try:
+        fd = os.open(full, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return ""
+    with os.fdopen(fd, "rb") as handle:
+        opened = os.fstat(handle.fileno())
+        if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_DIRTY_BYTES:
+            return ""
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return ("x:" if opened.st_mode & 0o100 else "") + digest.hexdigest()
+
+
+def run_paths(root: Path, state: dict) -> tuple[list[str], list[str]]:
+    """Changed paths split into the run's own and those that were in the tree, unchanged, before it started.
+
+    A path the state recorded at run start still belongs to the user while its content and mode are
+    the same; once they differ, the run changed it and it is checked like any other path. That
+    includes a recorded path git no longer reports: it was deleted or reverted since run start.
+    """
+    recorded = (state.get("baseline") or {}).get("dirty")
+    recorded = {p: d for p, d in recorded.items() if isinstance(p, str)} if isinstance(recorded, dict) else {}
+    changed = set(changed_paths(root))
+    mine: list[str] = []
+    earlier: list[str] = []
+    for path in sorted(changed | set(recorded)):
+        # The state is untrusted input: a likely-secret path is never read, whatever it records.
+        known = isinstance(recorded.get(path), str) and not is_protected(path)
+        same = known and recorded[path] == path_digest(root, path)
+        if not same:
+            mine.append(path)
+        elif path in changed:
+            earlier.append(path)
+    return mine, earlier
+
+
+def _tree_lines(root: Path, state: dict, empty: str | None = "- none") -> list[str]:
+    """The packet sections for the tree: the run's changed paths, then any the user had before it."""
+    mine, earlier = run_paths(root, state)
+    out = ["## Changed paths", *([f"- {p}" for p in mine] or ([empty] if empty else []))]
+    if earlier:
+        out += ["", "## Changes in the tree before the run (not part of it)", *(f"- {p}" for p in earlier)]
+    return out
+
+
 MAX_INCLUDED_FILES = 5000
 
 
@@ -787,9 +868,11 @@ def cmd_scope_check(schema: dict, args: dict) -> dict:
     if problems or "spec" not in data:
         raise Refused("the run artifacts are not valid; scope cannot be checked")
     globs = data["spec"]["scope_paths"]
-    changed = changed_paths(root)
+    state = read_state(directory)
+    # Changes that were in the tree before the run, and are still the same, are not the run's.
+    changed, earlier = run_paths(root, state)
     # Ignored artifacts that the candidate names are part of what ships: same rules.
-    included = (read_state(directory).get("candidate") or {}).get("include_ignored") or []
+    included = (state.get("candidate") or {}).get("include_ignored") or []
     for path in expand_included(root, included):
         if path not in changed:
             changed.append(path)
@@ -798,6 +881,7 @@ def cmd_scope_check(schema: dict, args: dict) -> dict:
     return {
         "ok": not outside and not protected,
         "changed": len(changed),
+        "preexisting": len(earlier),
         "outside_scope": outside,
         "protected": protected,
     }
@@ -855,7 +939,7 @@ def _packet_implement(root: Path, state: dict, data: dict) -> list[str]:
         ]
     out += ["", "## Invariants", *_bullets(plan["invariants"], "none")]
     out += ["", "## Stop conditions", *_bullets(plan["stop_conditions"], "none")]
-    return [*out, "", "## Changed paths", *_path_lines(changed_paths(root))]
+    return [*out, "", *_tree_lines(root, state)]
 
 
 def _packet_verify(root: Path, state: dict, data: dict) -> list[str]:
@@ -877,7 +961,7 @@ def _packet_verify(root: Path, state: dict, data: dict) -> list[str]:
         f"- Completed rounds: {int(review.get('round', 0))}",
         f"- Low-risk exception: {review.get('low_risk_exception') or 'none'}",
     ]
-    return [*out, "", "## Changed paths", *_path_lines(changed_paths(root))]
+    return [*out, "", *_tree_lines(root, state)]
 
 
 def _packet_fix(root: Path, state: dict, data: dict) -> list[str]:
@@ -893,7 +977,7 @@ def _packet_fix(root: Path, state: dict, data: dict) -> list[str]:
     out += ["", "## Scope", *_path_lines(data["spec"]["scope_paths"])]
     out += ["", "## Stop conditions", *_bullets(data["plan"]["stop_conditions"], "none"), "", "## Earlier sweeps"]
     out += [f"- {i['id']} {i['disposition']}: {i['sweep']}" for i in blockers if "sweep" in i] or ["- none"]
-    return [*out, "", "## Changed paths", *_path_lines(changed_paths(root))]
+    return [*out, "", *_tree_lines(root, state)]
 
 
 def _packet_commit(root: Path, state: dict, data: dict) -> list[str]:
@@ -907,7 +991,7 @@ def _packet_commit(root: Path, state: dict, data: dict) -> list[str]:
         f"- Fingerprint: {plan.get('fingerprint') or 'not recorded'}",
     ]
     out += ["", "## Recorded commits", *_path_lines([c for c in state.get("commits") or [] if isinstance(c, str)])]
-    out += ["", "## Changed paths", *_path_lines(changed_paths(root)), "", "## Follow-ups not closed"]
+    out += ["", *_tree_lines(root, state), "", "## Follow-ups not closed"]
     open_items = [i for i in data.get("followups", {}).get("items", []) if i["disposition"] in ("open", "deferred")]
     return [*out, *([f"- {i['id']} {i['disposition']}: {i['summary']}" for i in open_items] or ["- none"])]
 
@@ -930,7 +1014,7 @@ def _packet_review_qa(which: str, root: Path, state: dict, data: dict) -> list[s
     out += ["", "## Acceptance criteria", *_criteria_lines(data["spec"])]
     out += ["", "## Scope", *(f"- {p}" for p in data["spec"]["scope_paths"]), "", "## Recorded checks"]
     out += [f"- `{c['cmd']}` exit {c['exit']}" for c in candidate.get("checks", [])] or ["- none"]
-    out += ["", "## Changed paths", *(f"- {p}" for p in changed_paths(root))]
+    out += ["", *_tree_lines(root, state, None)]
     ignored = candidate.get("include_ignored") or []
     out += ["", "## Included ignored artifacts", *([f"- {p}" for p in ignored] or ["- none"])]
     if which == "review" and int(review.get("round", 0)) > 0:

@@ -52,6 +52,8 @@ SKILL_RUN_PHASES = ("clarify", "implement", "review", "fix", "qa", "commit")
 # A phase skill here edits files, the index, or HEAD, so it can never run beside another.
 TREE_CHANGING_PHASES = {"implement", "fix", "commit"}
 PHASE_CONTRACTS_PLACEHOLDER = "{{phase_contracts}}"
+# The kernel line of the routing entry: changes go through the orchestrator unless the user names a skill.
+ENTRY_ROUTING_SUFFIX = ", as a quick or full run; a typed `/b-<name>` runs standalone"
 
 EXECUTION_MODES = {"main", "subagent"}
 PHASES = {"Decide", "Build", "Validate", "Ship"}
@@ -440,9 +442,17 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
             if not isinstance(explicit, bool):
                 errors.append(f"{label}.routing.explicit_request: expected boolean")
             triggers = routing.get("triggers")
+            entry = routing.get("entry", False)
+            if not isinstance(entry, bool):
+                errors.append(f"{label}.routing.entry: expected boolean")
+            if explicit and entry:
+                errors.append(f"{label}.routing: a skill is the routing entry or explicit-request, not both")
             if explicit:
                 if triggers is not None:
                     errors.append(f"{label}.routing.triggers: explicit-request skills must omit triggers")
+            elif entry is True:
+                if triggers is not None:
+                    errors.append(f"{label}.routing.triggers: the routing entry must omit triggers")
             elif not isinstance(triggers, list) or not triggers:
                 errors.append(f"{label}.routing.triggers: expected non-empty array")
             elif not all(isinstance(trigger, str) and trigger for trigger in triggers):
@@ -652,6 +662,25 @@ def validate_contracts(skills: list[dict[str, Any]]) -> list[str]:
     missing = [phase for phase in SKILL_RUN_PHASES if phase not in covered]
     if missing:
         errors.append(f"skills/registry.yaml: no phase skill for run phase(s) {missing}")
+    # Change requests enter a run through the orchestrator, and its routing line names exactly the
+    # skills whose work that is: the phase skills of `implement`.
+    entries = [skill for skill in skills if isinstance(skill.get("routing"), dict) and skill["routing"].get("entry")]
+    if [skill.get("name") for skill in entries] != orchestrators:
+        errors.append("skills/registry.yaml: the orchestrator, and only the orchestrator, is the routing entry")
+    else:
+        implementers = {
+            skill.get("name")
+            for skill in skills
+            if isinstance(skill.get("contract"), dict)
+            and skill["contract"].get("role") == "phase"
+            and "implement" in (skill["contract"].get("phases") or [])
+        }
+        for skill in entries:
+            if set(re.findall(r"b-[a-z0-9-]+", str(skill["routing"].get("intent")))) != implementers:
+                errors.append(
+                    f"skills.{skill.get('name')}.routing.intent: must name exactly the implement-phase skills"
+                    f" {sorted(implementers)}"
+                )
     return errors
 
 
@@ -933,6 +962,8 @@ def render_routing(skills: list[dict[str, Any]]) -> str:
     lines = []
     for skill in skills:
         suffix = " only on explicit user request" if skill["routing"].get("explicit_request") else ""
+        if skill["routing"].get("entry"):
+            suffix = ENTRY_ROUTING_SUFFIX
         lines.append(f"- {skill['routing']['intent']} -> `{skill['name']}`{suffix}.")
     return "\n".join(lines)
 
@@ -1433,6 +1464,30 @@ def validate_regressions(
     ):
         if not contract_errors(name, change):
             errors.append(f"contract regression: {why} must fail")
+    for name, change, why in (
+        (
+            "b-flow",
+            {"intent": "Changes that route to b-implement, b-frontend, or b-refactor"},
+            "an entry line that omits one",
+        ),
+        (
+            "b-flow",
+            {"intent": "Changes that route to b-implement, b-frontend, b-refactor, b-test, or b-qa"},
+            "an entry line that adds one",
+        ),
+        ("b-flow", {"entry": False, "triggers": ["run"]}, "an orchestrator that is not the entry"),
+        ("b-plan", {"entry": True}, "a second routing entry"),
+    ):
+        candidate = json.loads(json.dumps(skills))
+        next(skill for skill in candidate if skill["name"] == name)["routing"].update(change)
+        if not validate_contracts(candidate):
+            errors.append(f"routing regression: {why} must fail")
+    candidate = json.loads(json.dumps(skills))
+    next(skill for skill in candidate if skill["name"] == "b-flow")["routing"]["explicit_request"] = True
+    if not any("not both" in error for error in validate_skills(candidate, agents)):
+        errors.append("routing regression: an explicit-request routing entry must fail")
+    if f"-> `b-flow`{ENTRY_ROUTING_SUFFIX}." not in render_routing(skills):
+        errors.append("routing regression: the kernel must route changes through the b-flow entry line")
     flow = next(skill for skill in skills if skill["name"] == "b-flow")
     for runtime in RUNTIMES:
         rendered = render_skill_file(flow, runtime)

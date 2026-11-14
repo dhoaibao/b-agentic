@@ -6,6 +6,11 @@
   [ADR-001](ADR-001-b-agentic-design-record.md); that non-goal stays for everything
   outside a `b-flow` run)
 
+[ADR-012](ADR-012-run-first-entry.md) supersedes three points below: `b-flow` is no
+longer explicit-only (change requests enter a run, as a quick or full run), a run
+without commit consent may start on a changed tree and ends at QA, and the commit
+consent exception applies to any run rather than to `/b-flow` alone.
+
 ## Context
 
 Multi-phase work (clarify, plan, implement, review, fix, QA, commit) is sequenced

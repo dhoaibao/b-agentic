@@ -1,5 +1,5 @@
 ---
-description: "Run one request from clarified spec to commit in the main session, keeping progress in .b-agentic/runs so a stopped run can resume."
+description: "Run a change request as one run in the main session, keeping state, artifacts, and evidence in .b-agentic/runs so any session can continue it."
 argument-hint: "[goal | resume]"
 ---
 

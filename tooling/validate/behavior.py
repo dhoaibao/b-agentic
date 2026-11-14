@@ -466,12 +466,12 @@ FIXTURES = [
         expected="b-flow",
     ),
     Fixture(
-        name="approved implementation never starts a b-flow run",
+        name="an approved implementation classifies to its phase skill, not the run entry",
         prompt="The implementation plan is approved. Make the next small scoped code change and verify it.",
         not_expected=("b-flow",),
     ),
     Fixture(
-        name="planning and committing separately never start a b-flow run",
+        name="planning and committing separately classify to their own skills, not the run entry",
         prompt="Help me figure out the approach, then split my working-tree changes into commits.",
         not_expected=("b-flow",),
     ),
@@ -767,10 +767,15 @@ def score(prompt: str, skill: dict) -> int:
             return 0
         score_value += len(matched_markers) * 4
 
+    routing = skill.get("routing") or {}
+    # The routing entry wraps whichever phase skill a change routes to, so this classifier stays at the
+    # phase level: the entry wins only when the prompt names it.
+    if routing.get("entry") is True:
+        return 100 if re.search(rf"(^|\W){re.escape(name)}($|\W)", normalized_prompt) else 0
+
     if name and re.search(rf"(^|\W){re.escape(name)}($|\W)", normalized_prompt):
         score_value += 100
 
-    routing = skill.get("routing") or {}
     triggers = routing.get("triggers", [])
     if isinstance(triggers, list):
         for trigger in triggers:
@@ -824,6 +829,10 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
         if routing.get("explicit_request") is True:
             if f"`{name}` only on explicit user request" not in text:
                 errors.append(f"references/kernel.template.md: missing explicit-request routing rule for {name}")
+            continue
+        if routing.get("entry") is True:
+            if f"-> `{name}`, as a quick or full run; a typed `/b-<name>` runs standalone." not in text:
+                errors.append(f"references/kernel.template.md: missing the run entry routing rule for {name}")
             continue
         skill_text = normalize(raw_skill_text)
         kernel_text = normalize(text)

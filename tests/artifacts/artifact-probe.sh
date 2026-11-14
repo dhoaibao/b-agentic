@@ -95,6 +95,7 @@ lint_bad spec '.request = "first line\n<div>second"' "an HTML tag in the request
 lint_bad spec '.criteria[1].source = "see </details>"' "a closing tag"
 br "$repo" lint spec < <(example spec | jq -c '.criteria[0].command = "pytest tests/test_export.py < in.txt" | .behavior.new = ["a < b is fine"]')
 [ "$rc" -eq 0 ] || fail "a bare < is allowed: $(cat "$work/err")"
+lint_bad spec '.size = "huge"' "a size outside the vocabulary"
 lint_bad plan '.steps[0].id = "S-2"' "plan ids out of order"
 lint_bad plan '.checks = []' "no checks"
 lint_bad plan '.checks = ["a", "a"]' "duplicate checks"
@@ -389,6 +390,15 @@ ok "$dep_repo" validate
 [ "$(jq -c '.artifacts.plan.steps[1].depends_on' <<<"$out")" = '[]' ] || fail "an empty depends_on means the step waits for none: $out"
 ok "$dep_repo" handoff clarify
 grep -Fq -- '- plan.md: written' <<<"$out" || fail "the clarify packet must report the written plan: $out"
+# The run size is optional too: a spec without it is a full run and keeps its bytes.
+grep -Fq '## Size' "$(rundir "$dep_repo")/spec.md" && fail "a spec without a size must not render one"
+[ "$(tail -n 1 "$(rundir "$dep_repo")/spec.md")" = '- Push or PR: never' ] || fail "a spec without a size must end as it always did"
+ok "$dep_repo" validate
+[ "$(jq -c '[.artifacts.spec.size, .artifacts.spec.answers]' <<<"$out")" = '["full",1]' ] || fail "the summary must give the size and the answer count: $out"
+ok "$dep_repo" write spec < <(example spec | jq -c '.size = "quick"')
+[ "$(tail -n 2 "$(rundir "$dep_repo")/spec.md" | tr '\n' '|')" = '## Size|quick|' ] || fail "a quick spec must render its size"
+ok "$dep_repo" validate
+[ "$(jq -r '.artifacts.spec.size' <<<"$out")" = quick ] || fail "the summary must give the recorded size: $out"
 
 # --- the owner: --owner, then CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID -----------------------
 owner_repo="$work/owner"

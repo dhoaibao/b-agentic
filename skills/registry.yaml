@@ -444,14 +444,14 @@
       "execution": {"mode": "main"},
       "contract": {"role": "orchestrator"},
       "phase": "Build",
-      "use": "Run one approved request from spec to commit with file-backed run state",
+      "use": "Run a change as a quick or full run with file-backed state, artifacts, and evidence",
       "argument_hint": "[goal | resume]",
       "routing": {
-        "intent": "Run an approved plan-to-commit workflow end to end with resumable run state",
-        "explicit_request": true
+        "intent": "Changes that route to b-implement, b-frontend, b-refactor, or b-test",
+        "entry": true
       },
       "prompt": {
-        "description": "Run one request from clarified spec to commit in the main session, keeping progress in .b-agentic/runs so a stopped run can resume. After a single user approval it implements, verifies, reviews, fixes in-scope blockers, runs QA, and commits under the consent recorded at approval; it stops and asks on any bounded-round limit, scope change, or unanswered question, and never pushes or opens a PR. Only on an explicit /b-flow request."
+        "description": "Run a change request as one run in the main session, keeping state, artifacts, and evidence in .b-agentic/runs so any session can continue it. A quick run, for a small and clear change, takes the request as its approval and never commits. A full run clarifies, takes one user approval, then implements, verifies, reviews, fixes in-scope blockers, runs QA, and commits only under the consent recorded at approval. It stops and asks on any bounded-round limit, scope change, or unanswered question, and never pushes or opens a PR. The kernel routes implement-phase changes here; /b-flow starts or resumes a run explicitly."
       }
     },
     {
