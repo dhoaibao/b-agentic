@@ -9,7 +9,8 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cli="$root/claude/bin/b_run.py"
 state_cli="$root/claude/bin/b-state.mjs"
 schema="$root/references/artifacts.yaml"
-work=$(mktemp -d)
+# Resolve links so paths match what the CLI reports (macOS /var is /private/var).
+work=$(cd "$(mktemp -d)" && pwd -P)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
