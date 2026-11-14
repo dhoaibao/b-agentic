@@ -4,7 +4,11 @@
 # --- parallel worker steps: one worktree per worker, never the main tree or the state (ADR-016) ---
 wt_tmp="$work/wt"
 mkdir -p "$wt_tmp"
+# The CLI resolves links in the temporary folder (macOS /var is /private/var), so compare against the real path.
+wt_tmp=$(cd "$wt_tmp" && pwd -P)
 export TMPDIR="$wt_tmp"
+# Octal mode of a path, portable across GNU and BSD stat.
+mode_of() { node -e 'process.stdout.write((require("fs").statSync(process.argv[1]).mode & 0o777).toString(8))' "$1"; }
 parallel_plan() {
   jq -n '{steps: [{id: "S-1", action: "a", paths: ["src/a.txt"], done_when: "d", depends_on: []},
     {id: "S-2", action: "b", paths: ["src/b.txt"], done_when: "d", depends_on: ["S-1"]},
@@ -76,7 +80,7 @@ umask "$old_umask"
 wt2=$(jq -r .dir <<<"$out")
 wt_parent=$(dirname "$wt2")
 case "$wt2" in "$wt_tmp"/b-agentic-wt-u*/b-agentic-wt-*-S-2) ;; *) fail "a worktree lives in the owner-only folder under the temporary folder, named for the run and step: $wt2" ;; esac
-[ "$(stat -c %a "$wt_parent")" = 700 ] || fail "the worktree folder is for its owner alone, whatever the umask: $(stat -c %a "$wt_parent")"
+[ "$(mode_of "$wt_parent")" = 700 ] || fail "the worktree folder is for its owner alone, whatever the umask: $(mode_of "$wt_parent")"
 [ -f "$wt2/src/a.txt" ] || fail "a worktree carries the run's earlier, uncommitted step"
 [ "$(git -C "$wt2" rev-parse 'HEAD^{tree}')" = "$(jq -r .step_base.tree "$(sfile "$repoPW")")" ] || fail "a worktree holds exactly the step base tree"
 [ -z "$(git -C "$wt2" status --porcelain)" ] || fail "a fresh worktree is clean"
