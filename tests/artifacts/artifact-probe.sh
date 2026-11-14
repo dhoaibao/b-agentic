@@ -109,6 +109,13 @@ lint_bad plan '.checks += ["ruff check ."] | .parallel_checks = ["ruff check .",
 lint_bad plan '.checks += ["ruff check ."] | .parallel_checks = "all"' "parallel checks that are not a list"
 br "$repo" lint plan < <(example plan | jq -c '.checks += ["ruff check ."] | .parallel_checks = ["ruff check .", "pytest tests/test_export.py"]')
 [ "$rc" -eq 0 ] || fail "two plan checks may be listed to run together: $(cat "$work/err")"
+lint_bad plan '.worker_steps = []' "an empty worker_steps list"
+lint_bad plan '.worker_steps = "S-2"' "worker steps that are not a list"
+lint_bad plan '.worker_steps = ["S-9"]' "a worker step that is not a plan step"
+lint_bad plan '.worker_steps = ["S-2", "S-2"]' "a worker step named twice"
+lint_bad plan '.worker_steps = ["step 2"]' "a worker step that is not a step id"
+br "$repo" lint plan < <(example plan | jq -c '.worker_steps = ["S-2"]')
+[ "$rc" -eq 0 ] || fail "a plan step may be listed as a worker step: $(cat "$work/err")"
 lint_bad qa '.verdict = "QA PASS" | .rows[0].result = "fail"' "QA PASS with a failing row"
 lint_bad qa '.verdict = "QA FAIL"' "QA FAIL with only passing rows"
 lint_bad qa '.rows[0].result = "waived"' "waived row without waived_by"
@@ -458,6 +465,205 @@ ok "$dep_repo" write plan < <(example plan | jq -c '.steps[1].depends_on = []')
 grep -Fq 'run together' "$(rundir "$dep_repo")/plan.md" && fail "a plan rewritten without parallel_checks must not render them"
 ok "$dep_repo" handoff verify
 [ "$out" = "$plain_packet" ] || fail "the verify packet of a plan without parallel_checks must keep its bytes: $out"
+
+# worker_steps is optional too: only a plan that lists it renders, summarizes, and marks it.
+ok "$dep_repo" write plan < <(example plan)
+ok "$dep_repo" validate
+[ "$(jq -c '.artifacts.plan.worker_steps' <<<"$out")" = '[]' ] || fail "a plan without worker_steps lists none: $out"
+grep -Fq 'Worker steps' "$(rundir "$dep_repo")/plan.md" && fail "a plan without worker_steps must not render a section"
+ok "$dep_repo" handoff implement
+plain_implement=$out
+grep -Fq 'worker step' <<<"$plain_implement" && fail "a plan without worker_steps marks no step: $plain_implement"
+ok "$dep_repo" write plan < <(example plan | jq -c '.worker_steps = ["S-2"]')
+[ "$(sed -n '/^## Worker steps$/,/^$/p' "$(rundir "$dep_repo")/plan.md" | tr '\n' '|')" = '## Worker steps|- S-2||' ] \
+  || fail "a plan with worker_steps must render them: $(cat "$(rundir "$dep_repo")/plan.md")"
+ok "$dep_repo" validate
+[ "$(jq -c '.artifacts.plan.worker_steps' <<<"$out")" = '["S-2"]' ] || fail "the summary must list the worker steps: $out"
+ok "$dep_repo" handoff implement
+grep -Fxq -- '- S-2 [open]: Cover it with a test (worker step)' <<<"$out" || fail "a worker step must be marked in the full packet: $out"
+[ "${out// (worker step)/}" = "$plain_implement" ] || fail "the marker is the only difference in the full packet: $out"
+# The packet of one step: what that step needs, and what the main session compares afterwards.
+dep_state="$(rundir "$dep_repo")/state.json"
+ok "$dep_repo" handoff implement --step S-2
+grep -Fxq 'Step: S-2 (worker step)' <<<"$out" || fail "the step packet must say who applies the step: $out"
+grep -Fxq 'Step base tree: not recorded' <<<"$out" || fail "a run without a step base says so: $out"
+grep -Fxq "State revision: $(jq -r .rev "$dep_state")" <<<"$out" || fail "the packet must carry the state revision: $out"
+grep -Fxq 'Follow-ups revision: 0' <<<"$out" || fail "the packet must carry the follow-ups revision: $out"
+grep -Fxq -- '- S-2 [open]: Cover it with a test' <<<"$out" || fail "the step packet must carry the step: $out"
+grep -Fxq '  - Depends on: S-1 (open)' <<<"$out" || fail "the step packet must give the status of what the step waits for: $out"
+[ "$(grep '^## ' <<<"$out" | tr '\n' '|')" = '## Step|## Acceptance criteria|## Scope|## Out of scope|## Invariants|## Stop conditions|## Boundaries|## Changed paths|' ] \
+  || fail "the step packet sections: $out"
+grep -Fq -- '- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command.' <<<"$out" \
+  || fail "the step packet must state its boundaries: $out"
+ok "$dep_repo" handoff implement --step S-1
+grep -Fxq 'Step: S-1 (main session step)' <<<"$out" || fail "an unlisted step is the main session's: $out"
+grep -Fxq '  - Depends on: none' <<<"$out" || fail "the first step waits for none: $out"
+jq '.steps = {"S-1": {status: "done", fingerprint: ("a" * 64)}} | .step_base = {tree: ("b" * 40), fingerprint: ("c" * 64), head: ("d" * 40), rev: .rev}' "$dep_state" >"$tmp" && cp "$tmp" "$dep_state"
+ok "$dep_repo" handoff implement --step S-2
+grep -Fxq '  - Depends on: S-1 (recorded)' <<<"$out" || fail "a recorded dependency is marked: $out"
+grep -Fxq "Step base tree: $(printf 'b%.0s' $(seq 1 40))" <<<"$out" || fail "the packet must carry the recorded step base: $out"
+jq '.steps = {} | .step_base = null' "$dep_state" >"$tmp" && cp "$tmp" "$dep_state"
+invalid "$dep_repo" handoff implement --step S-9
+grep -Fq 'plan step' "$work/err" || fail "an unknown step must be named invalid: $(cat "$work/err")"
+invalid "$dep_repo" handoff verify --step S-1
+grep -Fq 'only with handoff implement' "$work/err" || fail "--step belongs to the implement packet: $(cat "$work/err")"
+invalid "$dep_repo" handoff implement --step
+ok "$dep_repo" write plan < <(example plan)
+grep -Fq 'Worker steps' "$(rundir "$dep_repo")/plan.md" && fail "a plan rewritten without worker_steps must not render them"
+ok "$dep_repo" handoff implement
+[ "$out" = "$plain_implement" ] || fail "the full implement packet of a plan without worker_steps must keep its bytes: $out"
+
+# --- the b-worker profile in effect (a project profile over the user's) stays inside the worker's allowlist ---
+wp_home="$work/wphome"
+wp_repo="$work/wprepo"
+make_repo "$wp_repo"
+mkdir -p "$wp_home/.claude/agents" "$wp_repo/.claude/agents"
+wp() { rc=0; out=$(cd "$wp_repo" && HOME="$wp_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?; }
+write_profile() { # FILE TOOLS [EXTRA-FRONTMATTER-LINE]
+  { printf -- '---\nname: b-worker\ndescription: "x"\ntools: %s\nmodel: sonnet\neffort: high\n' "$2"; [ -z "${3:-}" ] || printf '%s\n' "$3"; printf -- '---\n\nbody\n'; } >"$1"
+}
+generated_tools=$(grep '^tools: ' "$root/claude/agents/b-worker.md" | cut -c8-)
+wp
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = none ] || fail "no profile installed must not start a worker: rc=$rc $out"
+cp "$root/claude/agents/b-worker.md" "$wp_home/.claude/agents/b-worker.md"
+wp
+[ "$rc" -eq 0 ] && [ "$(jq -c '[.ok, .source]' <<<"$out")" = '[true,"user"]' ] || fail "the generated profile must pass: rc=$rc $out"
+profile_case() { # DESCRIPTION TOOLS [EXTRA]: a project profile that must be refused
+  write_profile "$wp_repo/.claude/agents/b-worker.md" "$2" "${3:-}"
+  wp
+  [ "$rc" -eq 3 ] && [ "$(jq -c '[.ok, .source]' <<<"$out")" = '[false,"project"]' ] || fail "a project profile with $1 must be refused, though the user's is fine: rc=$rc $out"
+}
+profile_case "the Skill tool" "$generated_tools, Skill"
+grep -Fq "'Skill'" <<<"$out" || fail "the refusal must name the tool: $out"
+profile_case "a mutating MCP tool" "$generated_tools, mcp__playwright__browser_click"
+grep -Fq 'browser_click' <<<"$out" || fail "the refusal must name the MCP tool: $out"
+profile_case "an unknown tool" "$generated_tools, Frobnicate"
+profile_case "NotebookEdit" "$generated_tools, NotebookEdit"
+profile_case "the Agent tool" "$generated_tools, Agent"
+profile_case "AskUserQuestion" "$generated_tools, AskUserQuestion"
+profile_case "a permission mode" "$generated_tools" "permissionMode: bypassPermissions"
+profile_case "hooks" "$generated_tools" "hooks: {}"
+profile_case "an isolation field" "$generated_tools" "isolation: worktree"
+profile_case "an omitted tools list (it grants every tool)" ""
+printf -- '---\nname: b-worker\ndescription: "x"\nmodel: sonnet\n---\n\nbody\n' >"$wp_repo/.claude/agents/b-worker.md"
+wp
+[ "$rc" -eq 3 ] || fail "a profile without a tools line must be refused: rc=$rc $out"
+printf -- '---\nname: b-worker\ntools:\n  - Read\n  - Skill\nmodel: sonnet\n---\n\nbody\n' >"$wp_repo/.claude/agents/b-worker.md"
+wp
+[ "$rc" -eq 3 ] || fail "a YAML list of tools must be refused, not read as empty: rc=$rc $out"
+printf 'no frontmatter\n' >"$wp_repo/.claude/agents/b-worker.md"
+wp
+[ "$rc" -eq 3 ] || fail "a file called b-worker.md is a candidate even without frontmatter: rc=$rc $out"
+rm "$wp_repo/.claude/agents/b-worker.md"
+printf 'notes\n' >"$wp_repo/.claude/agents/notes.md"
+wp
+[ "$rc" -eq 0 ] && [ "$(jq -r .source <<<"$out")" = user ] || fail "another file without frontmatter is not an agent profile and is ignored: rc=$rc $out"
+rm "$wp_repo/.claude/agents/notes.md"
+# The harness identifies an agent by the name in its frontmatter, in any file under the agents folder.
+write_profile "$wp_repo/.claude/agents/custom.md" "$generated_tools, Skill"
+wp
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "a profile named b-worker in another file must be checked: rc=$rc $out"
+grep -Fq 'custom.md' <<<"$out" || fail "the refusal must name the file: $out"
+rm "$wp_repo/.claude/agents/custom.md"
+mkdir -p "$wp_repo/.claude/agents/team/deep"
+write_profile "$wp_repo/.claude/agents/team/deep/anything.md" "$generated_tools, mcp__playwright__browser_click"
+wp
+[ "$rc" -eq 3 ] || fail "a profile in a nested folder must be checked: rc=$rc $out"
+grep -Fq 'team/deep/anything.md' <<<"$out" || fail "the refusal must name the nested file: $out"
+rm -rf "$wp_repo/.claude/agents/team"
+printf -- '---\nname: helper\ntools: Read, Skill\n---\n\nbody\n' >"$wp_repo/.claude/agents/b-worker.md"
+wp
+[ "$rc" -eq 3 ] || fail "a file called b-worker.md is checked whatever name it declares: rc=$rc $out"
+rm "$wp_repo/.claude/agents/b-worker.md"
+printf -- '---\nname: helper\ndescription: "name: b-worker is only text here"\ntools: Read, Skill\n---\n\nbody\n' >"$wp_repo/.claude/agents/helper.md"
+wp
+[ "$rc" -eq 0 ] && [ "$(jq -r .source <<<"$out")" = user ] || fail "an ordinary agent with another name is not the worker and is ignored: rc=$rc $out"
+rm "$wp_repo/.claude/agents/helper.md"
+printf -- '---\nname: "b-worker"\ntools: Read, Skill\n---\n\nbody\n' >"$wp_repo/.claude/agents/b-worker.md"
+wp
+[ "$rc" -eq 3 ] || fail "a quoted name is still the worker: rc=$rc $out"
+rm "$wp_repo/.claude/agents/b-worker.md"
+# YAML spellings of the name that a line parser could miss: each must be checked, or refused as unreadable.
+yaml_case() { # DESCRIPTION CONTENT-FOR-printf-%b: a project file that must be refused though a good user profile exists
+  printf '%b' "$2" >"$wp_repo/.claude/agents/other.md"
+  wp
+  [ "$rc" -eq 3 ] || fail "$1 must be refused: rc=$rc $out"
+  [ "$(jq -r .source <<<"$out")" = project ] || fail "$1 must be a project problem: $out"
+  rm "$wp_repo/.claude/agents/other.md"
+}
+yaml_case "a name with a trailing comment" '---\nname: b-worker # project override\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a quoted name key" '---\n"name": b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a single-quoted name key" "---\n'name': b-worker\ntools: Read, Skill\n---\n\nbody\n"
+yaml_case "a folded name" '---\nname: >\n  b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a literal block name" '---\nname: |\n  b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "CRLF line ends" '---\r\nname: b-worker\r\ntools: Read, Skill\r\n---\r\n\r\nbody\r\n'
+yaml_case "a byte order mark" '\xef\xbb\xbf---\nname: b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a flow mapping" '---\n{name: b-worker, tools: Read}\n---\n\nbody\n'
+yaml_case "an indented mapping" '---\n  name: b-worker\n  tools: Read, Skill\n---\n\nbody\n'
+yaml_case "a tagged name" '---\nname: !!str b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "an anchored name" '---\nname: &n b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "an escaped name" '---\nname: "b\\u002dworker"\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a name key written with a question mark" '---\n? name\n: b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a quoted key spelled with an escape" '---\n"nam\\u0065": b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a name merged in from an anchor" '---\nbase: &b {"nam\\u0065": "b\\u002dworker"}\n<<: *b\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a quoted name with spaces inside the quotes" '---\nname: " b-worker "\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a repeated name" '---\nname: helper\nname: b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a differently cased name" '---\nname: B-Worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a nested name that reads b-worker" '---\nname: helper\nmeta:\n  name: b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a header that is not closed" '---\nname: b-worker\ntools: Read, Skill\n\nbody\n'
+yaml_case "a header with a tag after the dashes" '--- !x\nname: b-worker\ntools: Read, Skill\n---\n\nbody\n'
+yaml_case "a quoted tools key" '---\nname: b-worker\n"tools": Read, Skill\n---\n\nbody\n'
+yaml_case "a tools list over several lines" '---\nname: b-worker\ntools: >\n  Read, Skill\n---\n\nbody\n'
+# The same spellings are fine when the profile is the generated one, and an ordinary agent is left alone.
+printf '%b' "---\r\nname: b-worker # the worker\r\ndescription: \"x\"\r\ntools: $generated_tools # allowlist\r\nmodel: sonnet\r\n---\r\n\r\nbody\r\n" >"$wp_repo/.claude/agents/other.md"
+wp
+[ "$rc" -eq 0 ] || fail "a good profile written with CRLF and comments must pass: rc=$rc $out"
+rm "$wp_repo/.claude/agents/other.md"
+printf -- '---\nname: code-reviewer\n\n# a comment\ndescription: >\n  Reviews code. name: not a key here\n  "quoted text" at the start of a line\ntools: Read, Grep, Skill\n\nmodel: opus\ncolor: blue\n---\n\nbody\n' >"$wp_repo/.claude/agents/reviewer.md"
+wp
+[ "$rc" -eq 0 ] || fail "an ordinary agent with block-scalar text must be left alone: rc=$rc $out"
+rm "$wp_repo/.claude/agents/reviewer.md"
+printf 'docs\n' >"$wp_repo/.claude/agents/README.md"
+write_profile "$wp_repo/.claude/agents/b-worker.md" "$generated_tools"
+wp
+[ "$rc" -eq 0 ] || fail "a plain document next to a good profile must not stop the worker: rc=$rc $out"
+write_profile "$wp_repo/.claude/agents/second.md" "$generated_tools"
+wp
+[ "$rc" -eq 3 ] || fail "two profiles of the same name in one scope are ambiguous: rc=$rc $out"
+grep -Fq 'more than one profile' <<<"$out" || fail "the refusal must say why: $out"
+rm "$wp_repo/.claude/agents/second.md" "$wp_repo/.claude/agents/README.md" "$wp_repo/.claude/agents/b-worker.md"
+mkdir -p "$work/linked-agents"
+write_profile "$work/linked-agents/b-worker.md" "$generated_tools, Skill"
+ln -s "$work/linked-agents" "$wp_repo/.claude/agents/linked"
+wp
+[ "$rc" -eq 3 ] || fail "a linked folder under the agents folder cannot be checked: rc=$rc $out"
+grep -Fq 'symbolic link' <<<"$out" || fail "the refusal must say why: $out"
+rm "$wp_repo/.claude/agents/linked"
+write_profile "$wp_repo/.claude/agents/b-worker.md" "Read, Edit"
+wp
+[ "$rc" -eq 0 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "a narrower project profile stays inside the allowlist: rc=$rc $out"
+write_profile "$wp_repo/.claude/agents/b-worker.md" "$generated_tools"
+wp
+[ "$rc" -eq 0 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "a project profile equal to the generated one passes: rc=$rc $out"
+rm "$wp_repo/.claude/agents/b-worker.md"
+write_profile "$work/elsewhere-profile.md" "$generated_tools"
+ln -s "$work/elsewhere-profile.md" "$wp_repo/.claude/agents/b-worker.md"
+wp
+[ "$rc" -eq 3 ] || fail "a symlinked profile must not be followed: rc=$rc $out"
+rm "$wp_repo/.claude/agents/b-worker.md"
+write_profile "$wp_home/.claude/agents/b-worker.md" "$generated_tools, Skill"
+wp
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = user ] || fail "a user profile that grants more must be refused too: rc=$rc $out"
+# A profile in a folder between the working directory and the repository root is a project profile too.
+write_profile "$wp_home/.claude/agents/b-worker.md" "$generated_tools"
+mkdir -p "$wp_repo/pkg/inner/.claude/agents"
+write_profile "$wp_repo/pkg/inner/.claude/agents/b-worker.md" "$generated_tools, Skill"
+rc=0
+out=$(cd "$wp_repo/pkg/inner" && HOME="$wp_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "a profile in the working directory must be checked: rc=$rc $out"
+rc=0
+out=$(cd "$wp_repo/pkg" && HOME="$wp_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
+[ "$rc" -eq 0 ] && [ "$(jq -r .source <<<"$out")" = user ] || fail "a profile below the working directory is not in effect: rc=$rc $out"
 
 # --- the owner: --owner, then CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID -----------------------
 owner_repo="$work/owner"

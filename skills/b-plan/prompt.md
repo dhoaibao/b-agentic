@@ -31,6 +31,7 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 ## Output format
 
 Concise scope, recommended path, ordered steps, verification, explicit blockers, and unresolved decisions for the main session. Include the Behavior delta and `AC-n` criteria when step 4 triggers them. For a `/b-flow` run, also end with one fenced `json` block `{"spec": …, "plan": …}` in the shapes `python3 -I -B ~/.claude/b-agentic/bin/b_run.py schema spec` and `schema plan` print, checked with `b_run.py lint spec` and `lint plan` (read-only, so you may run them); the main session writes them with `b_run.py write`.
+<!-- runtime: claude --> For a `/b-flow` run the plan may also list `worker_steps`, each applied by one `b-worker` while the main session waits: only self-contained steps with their own paths and a `done_when` check a fresh child can run, no open decision, no generated output or install, and more reading and editing than a child's reload costs. Never in a quick run; leave it out when unsure, and name each listed step so the approval round confirms it.
 
 ## Rules
 

@@ -15,7 +15,10 @@ Commands (JSON results on stdout, one-line errors on stderr):
   scope-check              compare changed git paths with the spec's scope globs; with --base TREE
                            --tree TREE --step S-n, the paths that differ between two tree ids
   handoff PHASE            render the packet that briefs a phase from the run: clarify, implement,
-                           verify, review, fix, qa or commit (--out FILE outside the repo)
+                           verify, review, fix, qa or commit (--out FILE outside the repo);
+                           handoff implement --step S-n renders what that one step needs
+  worker-profile           check the b-worker profile in effect (project over user) against the
+                           worker's allowlist; not ok means apply the step in the main session
   selftest                 validate the schema file's examples against each other
 
 Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID).
@@ -124,6 +127,17 @@ def schema_path() -> Path:
     raise Invalid("references/artifacts.yaml was not found next to this script")
 
 
+def mcp_policy_path() -> Path:
+    here = Path(__file__).resolve().parent
+    for candidate in (
+        here.parent / "references" / "mcp_operations.yaml",
+        here.parent.parent / "references" / "mcp_operations.yaml",
+    ):
+        if candidate.is_file():
+            return candidate
+    raise Invalid("references/mcp_operations.yaml was not found next to this script")
+
+
 def load_schema() -> dict:
     try:
         schema = json.loads(schema_path().read_text())
@@ -223,6 +237,9 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
         together = data.get("parallel_checks", [])
         if len(set(together)) != len(together) or not set(together) <= set(data["checks"]):
             raise Invalid("parallel_checks: must name plan checks, each once")
+        applied = data.get("worker_steps", [])
+        if len(set(applied)) != len(applied) or not set(applied) <= {s["id"] for s in data["steps"]}:
+            raise Invalid("worker_steps: must name plan steps, each once")
         for i, step in enumerate(data["steps"]):
             needs = step.get("depends_on", [])
             if len(set(needs)) != len(needs) or not set(needs) <= {s["id"] for s in data["steps"][:i]}:
@@ -348,6 +365,8 @@ def render(kind: str, data: dict) -> str:
         ]
         if "parallel_checks" in data:
             out += ["", "## Checks that may run together", *(f"- `{c}`" for c in data["parallel_checks"])]
+        if "worker_steps" in data:
+            out += ["", "## Worker steps", *(f"- {s}" for s in data["worker_steps"])]
         out += [
             "",
             "## Invariants",
@@ -551,6 +570,8 @@ def summary(data: dict) -> dict:
             "checks": data["plan"]["checks"],
             # b-state binds each of these to the fingerprint it was started on.
             "parallel_checks": data["plan"].get("parallel_checks", []),
+            # b-state requires --by on these steps and refuses them in a quick run.
+            "worker_steps": data["plan"].get("worker_steps", []),
             "step_ids": [s["id"] for s in data["plan"]["steps"]],
             "steps": step_needs(data["plan"]["steps"]),
         }
@@ -969,18 +990,63 @@ def _packet_clarify(root: Path, state: dict, data: dict) -> list[str]:
 def _packet_implement(root: Path, state: dict, data: dict) -> list[str]:
     spec, plan = data["spec"], data["plan"]
     recorded = state.get("steps") or {}
+    applied = set(plan.get("worker_steps", []))
     out = ["", "## Acceptance criteria", *_criteria_lines(spec)]
     out += ["", "## Scope", *_path_lines(spec["scope_paths"])]
     out += ["", "## Out of scope", *_bullets(spec["out_of_scope"], "none"), "", "## Steps"]
     for step, needs in zip(plan["steps"], step_needs(plan["steps"])):
         out += [
-            f"- {step['id']} [{'recorded' if step['id'] in recorded else 'open'}]: {step['action']}",
+            f"- {step['id']} [{'recorded' if step['id'] in recorded else 'open'}]: {step['action']}"
+            + (" (worker step)" if step["id"] in applied else ""),
             "  - Paths: " + ", ".join(f"`{p}`" for p in step["paths"]),
             f"  - Done when: {step['done_when']}",
             "  - Depends on: " + (", ".join(needs["depends_on"]) or "none"),
         ]
     out += ["", "## Invariants", *_bullets(plan["invariants"], "none")]
     out += ["", "## Stop conditions", *_bullets(plan["stop_conditions"], "none")]
+    return [*out, "", *_tree_lines(root, state)]
+
+
+def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_rev: int) -> list[str]:
+    """What one plan step needs, for the main session or for the b-worker it hands the step to.
+
+    The two revision lines are what the main session compares after the worker's report: the run
+    state and the follow-ups were written only by it, so both must be as they were when it handed
+    the step over.
+    """
+    spec, plan = data["spec"], data["plan"]
+    steps = plan["steps"]
+    index = next((i for i, s in enumerate(steps) if s["id"] == step_id), None)
+    if index is None:
+        raise Invalid("--step must name a plan step")
+    step = steps[index]
+    recorded = state.get("steps") or {}
+    base = state.get("step_base") or {}
+    needs = step_needs(steps)[index]["depends_on"]
+    kind = "worker step" if step_id in plan.get("worker_steps", []) else "main session step"
+    out = [
+        f"Step: {step_id} ({kind})",
+        f"Step base tree: {base.get('tree') or 'not recorded'}",
+        f"State revision: {int(state.get('rev', 0))}",
+        f"Follow-ups revision: {followups_rev}",
+        "",
+        "## Step",
+        f"- {step_id} [{'recorded' if step_id in recorded else 'open'}]: {step['action']}",
+        "  - Paths: " + ", ".join(f"`{p}`" for p in step["paths"]),
+        f"  - Done when: {step['done_when']}",
+        "  - Depends on: " + (", ".join(f"{d} ({'recorded' if d in recorded else 'open'})" for d in needs) or "none"),
+    ]
+    out += ["", "## Acceptance criteria", *_criteria_lines(spec)]
+    out += ["", "## Scope", *_path_lines(spec["scope_paths"])]
+    out += ["", "## Out of scope", *_bullets(spec["out_of_scope"], "none")]
+    out += ["", "## Invariants", *_bullets(plan["invariants"], "none")]
+    out += ["", "## Stop conditions", *_bullets(plan["stop_conditions"], "none")]
+    out += [
+        "",
+        "## Boundaries",
+        "- Change nothing outside the scope above; prefer the step's own paths.",
+        "- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command.",
+    ]
     return [*out, "", *_tree_lines(root, state)]
 
 
@@ -1095,6 +1161,8 @@ PACKETS = {
 def cmd_handoff(schema: dict, which: str, args: dict) -> str:
     if which not in HANDOFF_PHASES:
         raise Invalid(f"handoff needs one of: {', '.join(HANDOFF_PHASES)}")
+    if "step" in args and which != "implement":
+        raise Invalid("--step is given only with handoff implement")
     root = repo_root()
     run_id, directory = resolve_run(root, args.get("run"))
     data, problems = validate_run(directory, schema)
@@ -1103,7 +1171,11 @@ def cmd_handoff(schema: dict, which: str, args: dict) -> str:
         raise Refused("the run artifacts are not valid; no packet can be rendered")
     state = read_state(directory)
     out = [f"# {which.upper()} handoff for run {run_id}", "", f"Phase: {state['phase']}"]
-    out += PACKETS[which](root, state, data) if which in PACKETS else _packet_review_qa(which, root, state, data)
+    if "step" in args:
+        followups = load_artifacts(directory)["artifacts"].get("followups") or {}
+        out += _packet_step(root, state, data, args["step"], int(followups.get("rev", 0)))
+    else:
+        out += PACKETS[which](root, state, data) if which in PACKETS else _packet_review_qa(which, root, state, data)
     text = "\n".join(out) + "\n"
     target = args.get("out")
     if target:
@@ -1114,6 +1186,170 @@ def cmd_handoff(schema: dict, which: str, args: dict) -> str:
         write_atomic(destination, text)
         return json.dumps({"ok": True, "out": str(destination)})
     return text
+
+
+# What the b-worker profile may grant (ADR-015): the generator renders exactly the native tools below
+# plus the read-only MCP tools of the policy. The harness identifies an agent by the `name` in its
+# frontmatter (YAML), not by its file name, and reads agent folders recursively, so the worker is
+# started only when every file that could be the b-worker profile stays inside that allowlist.
+#
+# This code does not parse YAML. It over-approximates instead: a file is a candidate when its name
+# reads as b-worker, when it is called b-worker.md, or when its name cannot be established with
+# certainty (a quoted key, a folded, tagged, anchored, or escaped value, a flow or indented mapping,
+# a repeated name, an unclosed header). A candidate is then held to a strict reading of its own
+# frontmatter, so anything unusual in it is refused rather than interpreted.
+WORKER_NAME = "b-worker"
+WORKER_NATIVE_TOOLS = frozenset({"Read", "Grep", "Glob", "Edit", "Write", "Bash"})
+WORKER_FRONTMATTER = frozenset({"name", "description", "tools", "model", "effort", "maxTurns"})
+MAX_AGENT_FILES = 2000
+_NAME_LINE = re.compile(r"^(\s*)(\?\s*)?([\"']?)name\3\s*:(.*)$", re.IGNORECASE)
+_PLAIN_LINE = re.compile(r"([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?")
+
+
+def _scalar(raw: str) -> str | None:
+    """A plain or simply quoted one-line value without its comment; None when YAML could read it another way."""
+    value = re.sub(r"\s+#.*$", "", raw.strip()).strip()
+    if not value or value[0] in "&*!|>[{%@`" or "\\" in value:
+        return None
+    if value[0] in "\"'":
+        if len(value) < 2 or value[-1] != value[0] or value[0] in value[1:-1]:
+            return None
+        return value[1:-1]
+    return value
+
+
+def _profile(stem: str, text: str) -> tuple[bool, dict[str, str], list[str]]:
+    """Whether a file may be the worker profile, with its fields and the problems of reading it."""
+    body = text.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n").lstrip()
+    lines = body.split("\n")
+    candidate = stem.casefold() == WORKER_NAME
+    if not lines[0].startswith("---"):
+        return candidate, {}, ["the profile has no frontmatter"] if candidate else []
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() in ("---", "...")), None)
+    if lines[0].strip() != "---" or end is None:
+        return True, {}, ["the frontmatter cannot be read safely: its opening or its end is not a plain line"]
+    region = lines[1:end]
+    unclear = False
+    names: list[tuple[int, str | None]] = []
+    for line in region:
+        found = _NAME_LINE.match(line)
+        if found:
+            value = None if found.group(2) or found.group(3) else _scalar(found.group(4))
+            names.append((len(found.group(1)), value))
+        # At the left margin these start a flow mapping, a complex key, or a quoted key (which can spell
+        # "name" with an escape): none of them is read here.
+        if line and line[0] in "{[?\"'":
+            unclear = True
+    content = next((line for line in region if line.strip() and not line.lstrip().startswith("#")), "")
+    unclear = unclear or content[:1] in (" ", "\t") or content.lstrip()[:1] in ("{", "[")
+    unclear = unclear or any(value is None for _, value in names)
+    unclear = unclear or sum(1 for indent, _ in names if indent == 0) > 1
+    unclear = unclear or any(
+        indent > 0 and value and value.strip().casefold() == WORKER_NAME for indent, value in names
+    )
+    # A merge key can bring a name in from an anchor defined anywhere.
+    unclear = unclear or any("<<" in line for line in region)
+    named = any(value and value.strip().casefold() == WORKER_NAME for _, value in names)
+    if not (candidate or named or unclear):
+        return False, {}, []
+    fields: dict[str, str] = {}
+    problems: list[str] = []
+    for line in region:
+        if not line.strip() or line.startswith("#"):
+            continue
+        plain = _PLAIN_LINE.fullmatch(line.rstrip())
+        if not plain:
+            problems.append("the frontmatter must be plain `key: value` lines (no indentation, quoted keys, or lists)")
+            continue
+        key, raw = plain.group(1), plain.group(2) or ""
+        value = _scalar(raw) if raw.strip() else ""
+        if key in fields:
+            problems.append(f"frontmatter key {key!r} appears twice")
+        elif value is None:
+            problems.append(f"the value of {key!r} cannot be read safely")
+        else:
+            fields[key] = value
+    if unclear:
+        problems.append("the profile's name cannot be established from its frontmatter")
+    return True, fields, problems
+
+
+def _worker_problems(fields: dict[str, str], read_only: set[str]) -> list[str]:
+    problems: list[str] = []
+    for key in sorted(set(fields) - WORKER_FRONTMATTER):
+        problems.append(f"frontmatter key {key!r} is not one the worker profile carries")
+    tools = [tool.strip() for tool in fields.get("tools", "").split(",") if tool.strip()]
+    if not tools:
+        problems.append("the tools list is missing or empty: an omitted list grants every tool")
+    for tool in tools:
+        if tool not in WORKER_NATIVE_TOOLS and tool not in read_only:
+            problems.append(f"tool {tool!r} is neither a worker tool nor a read-only MCP tool")
+    return problems
+
+
+def _agent_files(folder: Path) -> tuple[list[Path], list[str]]:
+    """Every markdown file under an agents folder; a link inside it cannot be checked, so it is a problem."""
+    files: list[Path] = []
+    problems: list[str] = []
+    for current, dirs, names in os.walk(folder):
+        for entry in sorted([*dirs, *names]):
+            path = Path(current) / entry
+            if path.is_symlink():
+                problems.append(
+                    f"a symbolic link under the agents folder cannot be checked: {path.relative_to(folder)}"
+                )
+        files += [Path(current) / name for name in sorted(names) if name.endswith(".md")]
+        dirs[:] = sorted(d for d in dirs if not (Path(current) / d).is_symlink())
+        if len(files) > MAX_AGENT_FILES:
+            return files[:MAX_AGENT_FILES], [*problems, "too many files under the agents folder to check"]
+    return [path for path in files if not path.is_symlink()], problems
+
+
+def cmd_worker_profile(args: dict) -> dict:
+    """Check the b-worker profile in effect against the worker's allowlist (read-only)."""
+    root = repo_root()
+    policy = read_json(mcp_policy_path(), "mcp_operations.yaml")
+    read_only = {
+        f"mcp__{server}__{tool}"
+        for server, record in (policy.get("servers") or {}).items()
+        for tool, classification in (record.get("tools") or {}).items()
+        if classification == "read-only"
+    }
+    # Project agents folders: the working directory and every folder above it up to the repository root.
+    # Which of several profiles the harness would load is not decided here: each one named b-worker must
+    # pass, and two of the same name in one scope are ambiguous.
+    here = Path.cwd().resolve()
+    folders = [here, *here.parents] if root == here or root in here.parents else [root]
+    folders = folders[: folders.index(root) + 1]
+    scopes = [("project", folder / ".claude" / "agents") for folder in folders]
+    scopes.append(("user", Path.home() / ".claude" / "agents"))
+    problems: list[str] = []
+    found: list[str] = []
+    for scope, folder in scopes:
+        if not folder.is_dir():
+            continue
+        files, issues = _agent_files(folder)
+        problems += [f"{scope}: {issue}" for issue in issues]
+        named: list[tuple[str, dict[str, str]]] = []
+        for path in files:
+            label = f"{scope} profile {path.relative_to(folder)}"
+            try:
+                text = read_file(path).decode()
+            except (OSError, Refused, UnicodeDecodeError):
+                problems.append(f"{label} is not a readable regular text file")
+                continue
+            may_be_worker, fields, issues = _profile(path.stem, text)
+            if may_be_worker:
+                named.append((label, fields))
+                problems += [f"{label}: {issue}" for issue in issues]
+        if len(named) > 1:
+            problems.append(f"{scope}: more than one profile may be {WORKER_NAME}: " + ", ".join(n for n, _ in named))
+        for label, fields in named:
+            problems += [f"{label}: {issue}" for issue in _worker_problems(fields, read_only)]
+        found += [scope] * len(named)
+    if not found:
+        problems.append("no b-worker profile is installed")
+    return {"ok": not problems, "source": found[0] if found else "none", "profiles": len(found), "problems": problems}
 
 
 def cmd_selftest(schema: dict) -> dict:
@@ -1168,6 +1404,8 @@ def run(argv: list[str]) -> tuple[int, str]:
         result = cmd_validate(schema, args)
     elif command == "scope-check":
         result = cmd_scope_check(schema, args)
+    elif command == "worker-profile":
+        result = cmd_worker_profile(args)
     elif command == "handoff" and len(rest) == 1:
         text = cmd_handoff(schema, rest[0], args)
         return 0, text if text.endswith("\n") else text + "\n"

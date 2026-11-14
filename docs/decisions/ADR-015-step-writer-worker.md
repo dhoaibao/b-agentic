@@ -58,34 +58,75 @@ built-in docs give no way to bring its result back.
   runs no check, generator, or formatter, starts no other child, and commits nothing.
   Afterwards it inspects the diff, reruns the step's check, and records the step; the
   step gate then checks the changed paths against the approved scope and the base.
-  This procedure is added to `b-flow` with the plan wiring, not in this change.
+  The procedure is in the `b-flow` skill (added 2026-11-14), with one more rule: the
+  main session renders the step packet again after the report and stops when its
+  state or follow-ups revision differs from the packet it handed over.
 - **The kernel sentence.** The Claude Code kernel says the main session "coordinates
   read-only children and one `b-worker` per approved worker step, never peer writers".
   The Pi kernel keeps the old sentence through a runtime override, since Pi has no
   worker. The shell-tool examples in the shell-commands line are dropped (30 bytes) to
   keep the kernel within its limit: 11,989 bytes for Claude Code, 11,720 for Pi.
-- **Inert here, optional later.** Nothing in this change lets a run use the worker: it
-  needs a plan field naming worker steps, a step-scoped packet, and the step's applier
-  recorded in the history, which come as the second run of this unit after the live
-  checklist below. Until a plan lists a worker step, nothing starts a worker, and the
-  main session applying a step itself stays a complete path to the same recorded
-  state.
+- **Opt-in by the approved plan.** The profile was inert until 2026-11-14, when the
+  plan wiring was added. A plan may list `worker_steps`: `b-plan` proposes them for
+  self-contained steps, the approval round confirms or drops each, and a quick run
+  refuses the field. The artifact CLI's `handoff implement --step S-n` renders the one-step
+  packet. `record step` on a listed step needs `--by worker`, or `--by main` when the
+  main session applied it; it is invalid or refused before any write without it, with
+  `--by` on an unlisted step, with `--by worker` and no step base for the gate to check
+  against, and for a listed step that is already recorded. The history entries of
+  listed steps (recorded, refused, or blocked) carry `by`; no other entry does. Before
+  a launch the main session runs the artifact CLI's `worker-profile`. The harness
+  identifies an agent by the name in its frontmatter, not by its file name, reads
+  agent folders recursively, and lets a project profile take precedence over the
+  generated one. The check does not parse YAML; it over-approximates instead. In any
+  file under an agents folder of the working directory, the folders above it up to the
+  repository root, and the user's, a file is a candidate when its name reads as
+  `b-worker` (any case, a trailing comment or plain quotes allowed), when its file
+  is named after the worker, or when its name cannot be established with certainty: a quoted or
+  complex key, a folded, literal, tagged, anchored, or escaped value, a flow or
+  indented mapping, a merge key, a repeated name, or a header that is not closed.
+  Every candidate is held to a strict reading of its own frontmatter (plain `key:
+value` lines, line ends and a byte order mark normalized) and to the worker's
+  allowlist: the native tools the generator renders plus the policy's read-only MCP
+  tools, no other tool, and no frontmatter key beyond name, description, tools, model,
+  effort, and a turn limit. Anything unusual in a candidate is refused rather than
+  interpreted. Which of several the harness would load is not decided; each must
+  pass, two candidates in one scope are refused as ambiguous, and a symbolic link
+  under an agents folder or an unreadable file is refused because it cannot be
+  checked. When it is not ok the main session applies the step itself. It checks the
+  tools and the frontmatter, not the body (an override could still weaken the
+  instructions, which the step gate then sees only through what the worker changes).
+  It cannot see a profile supplied on the command line or by managed settings, and
+  because the harness's own parser is not available it is a strict over-approximation,
+  not a proof; it was hardened in three review rounds and stays best effort against a
+  profile written to evade it. Nothing
+  starts a worker for a step the plan does not list, and the main session applying a
+  step itself stays a complete path to the same recorded state.
 - **Enforcement.** Prevented: nested delegation, questions, and mutating MCP calls (the
   tool list); likely-secret and run-folder writes through the file tools (the path
   guard, which does not look at who is calling, and the permission deny rules);
   destination-less and force pushes (the deny rules). Detected: a path outside the
-  scope or a likely-secret path (the step gate), a moved `HEAD` (a commit), a changed
-  state revision or run-file hash, and a Bash write into the run folder. Not seen by the
-  helper: a push the user approves, writes outside the repository, installed
-  dependencies, and a run artifact written during implement; the last has no check
-  until the packet and prompt wiring exists.
+  scope or a likely-secret path (the step gate), a moved `HEAD` (a commit), a run-file
+  hash mismatch, a Bash write into the run folder, and run state written between the
+  step base and the record. That last check is weaker than it looks: the step base
+  keeps the revision of the last write, so a `record step` made during another step
+  moves it unseen. The refusal of an already-recorded worker step and the revision
+  lines of the step packet, which the main session compares after the report, close
+  the likely cases; scope, secret, and `HEAD` safety hold in every case, because each
+  record still compares the base with the tree. A worker's other state writes (a
+  different step whose dependencies are met, `unblock`) or a follow-up written during
+  implement are seen only through those revision lines (the follow-ups file has its
+  own). Not seen by the helper at all: a push the user approves, writes outside the
+  repository, and installed dependencies.
 - **No hook, and no Pi worker.** A hook that refuses git history, run CLIs, and
   installs would prevent rather than detect, but it is a new enforcement point that
   cannot be verified from here and matches commands by text; it can be added after the
   live checks. Pi keeps the main session applying every step: its writer tools are
   excluded for agents, its background children are unverified, and its worktree option
   needs a clean tree.
-- **Live checklist (the user confirms after installing).** Each item runs in a scratch
+- **Live checklist (the user confirms after installing).** The user skipped it on
+  2026-11-14, so A1 to A7 are still assumptions and the first live use is the
+  worker-step run described after A8. Each item runs in a scratch
   repository with a direct `Agent` call to `b-worker`. The profile itself forbids the
   paths A1 and A2 use, so a worker that declines in its own words proves nothing: the
   evidence is an attempted `Edit` or `Write` call and the refusal text the harness
@@ -113,6 +154,15 @@ built-in docs give no way to bring its result back.
     false, accept the prompts or list no worker steps.
   - A7: the registry model is honoured (the agent listing shows it); the effort is not
     observable and stays unverified.
+  - A8: a background worker survives `/clear`, compaction, or a resume. If not, the
+    resume rule (ask whether an earlier session's worker may still be running before
+    starting one) already covers it.
+  - First live use of the wiring: in a scratch repository, a `/b-flow` run whose plan
+    lists one worker step records it `--by worker`; a file outside the scope created
+    while the worker runs is refused naming the path, removed, and the step recorded on
+    retry. The user waived this at the wiring run's QA and confirms it after the
+    commit; a failure becomes a follow-up, and A1 to A8 say what each failed
+    assumption changes.
 
 ## Consequences
 
@@ -120,13 +170,15 @@ built-in docs give no way to bring its result back.
 - The worker's cost is per step: its reloaded instructions, plus a main-session
   inspection of every report. It pays off for a self-contained step whose own reading
   and editing exceed that; for a small step the main session is cheaper.
-- The history will carry who applied each step, once the plan wiring exists. With the
-  tree, path counts, refusals, and timestamps the step gate already records, that is
-  the measurement stage 5 (parallel writers) is to be decided on.
+- The history carries who applied each listed step (`by`). With the tree, path counts,
+  refusals, and timestamps the step gate already records, that is the measurement
+  stage 5 (parallel writers) is to be decided on; durations include the main session's
+  inspection time, and a worker's own cost is not recorded. A helper from before this
+  wiring refuses `--by` as an unknown argument, so it fails closed on such a run.
 - A worker can still do what the profile asks it not to do and the helper cannot see
   (see Enforcement); the approval of the steps handed to it is the safeguard, and the
   user's review of the diff.
-- Until the live checklist is run, A1 to A7 are assumptions, each with a fallback that
+- Until the live checklist is run, A1 to A8 are assumptions, each with a fallback that
   leaves the main session applying the step.
 - Rejected: harness worktree isolation, a `WorktreeCreate` hook, and a worktree made
   by the helper (none carries uncommitted changes; the last leaves the child's working
@@ -135,7 +187,12 @@ built-in docs give no way to bring its result back.
   source rule and the generator would not see it); a permission mode in the profile; a
   Pi worker; a capability-registry entry (the agent capability names exactly the five
   specialists); recording "worker started" in the state (a state write between the
-  step base and the record would stop the run); the worker recording its own step.
+  step base and the record would stop the run); a required revision pin on the record
+  (a retry after a gate refusal would need the new revision, and a stale one blocks
+  the run; to be revisited if the revision lines prove insufficient); the main session
+  choosing worker steps at run time (delegation with no approval); `--by` optional or
+  required on every step (silent misattribution, or changed commands for unlisted
+  steps); a new ADR for the wiring (the decision is unchanged).
 
 Evidence: [`skills/registry.yaml`](../../skills/registry.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),

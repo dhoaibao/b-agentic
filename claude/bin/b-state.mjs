@@ -40,9 +40,10 @@
 //   record qa --verdict V
 //   record ac AC-n pass|fail|gap|waived
 //   record commit SHA
-//   record step S-n                     a plan step is applied (phase implement); a step
+//   record step S-n [--by worker|main]  a plan step is applied (phase implement); a step
 //                                       waits for the steps it depends on, and is refused
-//                                       when it changed a path outside the approved scope
+//                                       when it changed a path outside the approved scope;
+//                                       a step the plan lists in worker_steps needs --by
 //   check [--takeover]                  verify the state against git, void stale evidence,
 //                                       and print `next`: what the phase still owes
 //   lock [--takeover] | unlock          take or release the run lock
@@ -152,6 +153,7 @@ const HISTORY_DETAIL = [
   "tree",
   "paths",
   "outside",
+  "by",
 ];
 const STEP_ID = /^S-[1-9]\d*$/;
 const TREE_ID = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
@@ -1185,6 +1187,8 @@ function checksPass(state, plan) {
 
 // The plan checks the approval allows to run at the same time.
 const parallelChecks = (art) => art.artifacts.plan?.parallel_checks ?? [];
+// The plan steps the approval hands to a worker (ADR-015).
+const workerSteps = (art) => art.artifacts.plan?.worker_steps ?? [];
 const CANDIDATE_MOVED = "the candidate changed while the check ran";
 
 // The plan steps not yet recorded as applied, in plan order.
@@ -1303,6 +1307,7 @@ function quickProblems(art) {
   if (spec.answers > 0) problems.push("clarifying answers");
   // Nobody approves a quick run's claim that its checks can run together.
   if (parallelChecks(art).length > 0) problems.push("parallel checks");
+  if (workerSteps(art).length > 0) problems.push("worker steps");
   if (
     spec.consent.commit !== "no" ||
     spec.consent.branch_target !== "current" ||
@@ -1925,6 +1930,28 @@ async function cmdRecord(
       throw refuse("plan steps are recorded in phase implement");
     const step = art.artifacts.plan.steps.find((s) => s.id === id);
     if (!step) throw invalid("unknown plan step");
+    // Who applied a step matters only for the steps the approved plan hands to
+    // a worker. Every refusal here comes before any write, so a wrong `--by`
+    // never counts as a refused step.
+    const worker = workerSteps(art).includes(id);
+    const by = args.by;
+    if (by !== undefined && !["worker", "main"].includes(by))
+      throw invalid("--by must be worker or main");
+    if (worker && by === undefined)
+      throw invalid(
+        `${id} is a worker step: record it with --by worker, or --by main when the main session applied it`,
+      );
+    if (!worker && by !== undefined)
+      throw refuse(`${id} is not listed in the plan's worker_steps`);
+    if (worker && state.steps[id])
+      throw refuse(
+        `${id} is already recorded; a worker step is recorded once, by the main session after its report`,
+      );
+    if (by === "worker" && !state.step_base)
+      throw refuse(
+        `${id} has no step base for the step gate to check: apply it in the main session and record --by main`,
+      );
+    const applier = worker ? { by } : {};
     const owed = step.depends_on.filter((dep) => !state.steps[dep]);
     if (owed.length > 0) {
       throw refuse(
@@ -1937,7 +1964,11 @@ async function cmdRecord(
       // implement with an incomplete snapshot): recorded unchecked, as before.
       const fingerprint = await currentFingerprint(state);
       state.steps[id] = { status: "done", fingerprint };
-      saveState(dir, state, "record step", { step: id, fingerprint });
+      saveState(dir, state, "record step", {
+        step: id,
+        fingerprint,
+        ...applier,
+      });
       return { step: id, owed: missingSteps(state, art.artifacts.plan) };
     }
     // The step ran between two writes of this helper: anything else that wrote
@@ -1945,7 +1976,7 @@ async function cmdRecord(
     // stops for the user.
     const notAStep = (reason) => {
       block(state, reason, "user decision");
-      saveState(dir, state, "record step", { step: id });
+      saveState(dir, state, "record step", { step: id, ...applier });
       return {
         ok: false,
         recorded: false,
@@ -1994,7 +2025,12 @@ async function cmdRecord(
           "user decision",
         );
       }
-      saveState(dir, state, "record step", { step: id, reason: problem, tree });
+      saveState(dir, state, "record step", {
+        step: id,
+        reason: problem,
+        tree,
+        ...applier,
+      });
       return {
         ok: false,
         recorded: false,
@@ -2020,6 +2056,7 @@ async function cmdRecord(
       tree,
       paths: delta.changed,
       outside: delta.outside_step,
+      ...applier,
     });
     return { step: id, owed: missingSteps(state, art.artifacts.plan) };
   }
@@ -2241,11 +2278,13 @@ async function nextSteps(root, state, art, fingerprint = "") {
   if (state.phase === "approved") return [stateCmd("advance implement")];
   if (state.phase === "implement") {
     const owed = missingSteps(state, plan);
+    const handed = workerSteps(art);
     return [
       ...(owed.length > 0 ? [runCmd("handoff implement")] : []),
-      ...owed.map(
-        (id) =>
-          `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
+      ...owed.map((id) =>
+        handed.includes(id)
+          ? `hand ${id} to one b-worker with ${runCmd(`handoff implement --step ${id}`)} and wait for its report (or apply it yourself), then ${stateCmd(`record step ${id} --by worker`)} (--by main when the main session applied it)`
+          : `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
       ),
       stateCmd("advance verify"),
     ];
@@ -2449,6 +2488,7 @@ const VALUE_FLAGS = new Set([
   "exit",
   "include-ignored",
   "from",
+  "by",
   "verdict",
   "trigger",
   "low-risk",
