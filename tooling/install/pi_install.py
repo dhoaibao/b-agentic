@@ -57,7 +57,19 @@ MANAGED_ROOTS = ("skills", "prompts", "agents", "extensions", "b-agentic")
 # What a Pi install never touches: Claude Code's directory and configuration file.
 PI_PROTECTED = ((".claude", "the Claude Code directory"), (".claude.json", "the Claude Code configuration"))
 PI_HOOKS = ("b-path-guard.mjs", "b-verify-gate.mjs", "b-spec-context.mjs", "b-run-context.mjs")
-PI_BINS = ("b-candidate-snapshot.mjs", "b-state.mjs", "b_run.py")
+PI_BINS = (
+    "b-candidate-snapshot.mjs",
+    "b-state.mjs",
+    "b-state-commands.mjs",
+    "b-state-core.mjs",
+    "b-state-gates.mjs",
+    "b-state-git.mjs",
+    "b-state-next.mjs",
+    "b-state-record.mjs",
+    "b-state-store.mjs",
+    "b-state-worktree.mjs",
+    "b_run.py",
+)
 PI_REFERENCES = ("capabilities.yaml", "mcp_operations.yaml", "artifacts.yaml")
 EXTENSION_FILES = ("index.ts", "guard.mjs")
 # A copy of the generated permission config always ships here, so a user with their own rules can merge it by hand.

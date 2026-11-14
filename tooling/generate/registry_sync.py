@@ -43,7 +43,7 @@ KERNEL_ROUTING_END = "<!-- generated:kernel-routing:end -->"
 KERNEL_DELEGATION_START = "<!-- generated:delegation:start -->"
 KERNEL_DELEGATION_END = "<!-- generated:delegation:end -->"
 
-STATE_CLI_PATH = CLAUDE_DIR / "bin" / "b-state.mjs"
+STATE_CORE_PATH = CLAUDE_DIR / "bin" / "b-state-core.mjs"
 # What a skill is to a b-flow run: it completes a run phase, supplies evidence to one, stays outside
 # every run, or sequences the run itself.
 CONTRACT_ROLES = {"phase", "provider", "utility", "orchestrator"}
@@ -657,7 +657,7 @@ def packet_phases() -> tuple[str, ...]:
 
 
 def state_phases() -> tuple[str, ...]:
-    block = re.search(r"export const PHASES = \[(.*?)\];", STATE_CLI_PATH.read_text(), re.S)
+    block = re.search(r"export const PHASES = \[(.*?)\];", STATE_CORE_PATH.read_text(), re.S)
     return tuple(re.findall(r'"([a-z]+)"', block.group(1))) if block else ()
 
 

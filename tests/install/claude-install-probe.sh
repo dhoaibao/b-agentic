@@ -75,6 +75,9 @@ cmp -s "$root/claude/agents/b-worker.md" "$claude/agents/b-worker.md" || fail "t
 for file in bin/b-candidate-snapshot.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
+for module in "$root"/claude/bin/b-state-*.mjs; do
+  [ -f "$claude/b-agentic/bin/$(basename "$module")" ] || fail "missing b-agentic/bin/$(basename "$module")"
+done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
 grep -Fq '<!-- b-agentic:start -->' "$claude/CLAUDE.md" || fail "kernel block missing"
 grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text missing"
