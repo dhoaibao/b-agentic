@@ -20,8 +20,8 @@
     },
     "b-auditor": {
       "description": "Audit b-agentic repository and design conformance read-only for the main session.",
-      "model": "opus",
-      "effort": "xhigh"
+      "model": "fable",
+      "effort": "high"
     },
     "b-reviewer": {
       "description": "Independently review a frozen changed-code candidate read-only and return findings and a verdict to the main session.",

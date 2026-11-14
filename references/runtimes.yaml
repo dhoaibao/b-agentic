@@ -8,6 +8,7 @@
       "state_dir": "~/.claude/b-agentic",
       "hook_dir": "$HOME/.claude/b-agentic/hooks",
       "agent_models": [
+        "fable",
         "opus",
         "sonnet",
         "haiku"

@@ -131,7 +131,7 @@ the kernel carry this, so a missing subagent is reported instead of bypassed. A
 child result is evidence, not authorization. Claude Code models are Anthropic
 aliases from the registry's `model` field, with an optional `effort` field
 (`low`–`max`) rendered as subagent frontmatter; current Claude Code defaults are
-`opus`/`high` for `b-planner` and `b-reviewer`, `opus`/`xhigh` for `b-auditor`,
+`opus`/`high` for `b-planner` and `b-reviewer`, `fable`/`high` for `b-auditor`,
 `sonnet`/`xhigh` for `b-debugger`, and `sonnet`/`medium` for `b-researcher`. The
 `high` choice for the planner and reviewer follows Anthropic's guidance to reserve
 `xhigh` for work with a measured quality gain. One vendor code-review benchmark
