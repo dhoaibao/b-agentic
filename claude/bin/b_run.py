@@ -221,6 +221,46 @@ def _scope_glob_ok(glob: str, path: str) -> None:
         raise Invalid(f"{path}: must be a relative, non-protected glob")
 
 
+def _paths_overlap(first: str, second: str) -> bool:
+    a, b = first.rstrip("/"), second.rstrip("/")
+    return a == b or a.startswith(b + "/") or b.startswith(a + "/")
+
+
+def _batch_rules(data: dict, applied: list[str]) -> None:
+    """parallel_steps: worker steps whose literal paths never overlap and that can be ready together."""
+    batch = data.get("parallel_steps", [])
+    if not batch:
+        return
+    if len(set(batch)) != len(batch) or not set(batch) <= set(applied):
+        raise Invalid("parallel_steps: must name worker steps, each once")
+    steps = {s["id"]: s for s in data["steps"]}
+    for step_id in batch:
+        for step_path in steps[step_id]["paths"]:
+            if any(ch in step_path for ch in "*?[]{}"):
+                raise Invalid(f"parallel_steps: {step_id} path {step_path!r} must be literal")
+            if step_path.startswith("/") or any(part in ("", ".", "..") for part in step_path.split("/")):
+                # An alias such as src/./a.txt would pass the overlap test and name one file twice.
+                raise Invalid(
+                    f"parallel_steps: {step_id} path {step_path!r} must be canonical (no '.', '..', repeated or trailing separators)"
+                )
+    for i, first in enumerate(batch):
+        for second in batch[i + 1 :]:
+            for a in steps[first]["paths"]:
+                for b in steps[second]["paths"]:
+                    if _paths_overlap(a, b):
+                        raise Invalid(f"parallel_steps: {first} and {second} share a path ({a} / {b})")
+    needs = {n["id"]: n["depends_on"] for n in step_needs(data["steps"])}
+    waits: dict[str, set[str]] = {}
+    for step_id in needs:  # steps are listed in dependency order
+        waits[step_id] = set(needs[step_id]).union(*(waits[d] for d in needs[step_id]))
+    if not any(
+        first not in waits[second] and second not in waits[first]
+        for i, first in enumerate(batch)
+        for second in batch[i + 1 :]
+    ):
+        raise Invalid("parallel_steps: no two listed steps can be ready together")
+
+
 def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict | None) -> bool:
     """Cross-field and cross-artifact rules. Returns whether the cross rules ran."""
     if kind == "spec":
@@ -244,6 +284,7 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
             needs = step.get("depends_on", [])
             if len(set(needs)) != len(needs) or not set(needs) <= {s["id"] for s in data["steps"][:i]}:
                 raise Invalid(f"steps[{i}].depends_on: must name earlier steps, each once")
+        _batch_rules(data, applied)
         spec = ctx.get("spec")
         if spec is None:
             return False
@@ -367,6 +408,8 @@ def render(kind: str, data: dict) -> str:
             out += ["", "## Checks that may run together", *(f"- `{c}`" for c in data["parallel_checks"])]
         if "worker_steps" in data:
             out += ["", "## Worker steps", *(f"- {s}" for s in data["worker_steps"])]
+        if "parallel_steps" in data:
+            out += ["", "## Steps that may run together", *(f"- {s}" for s in data["parallel_steps"])]
         out += [
             "",
             "## Invariants",
@@ -572,6 +615,8 @@ def summary(data: dict) -> dict:
             "parallel_checks": data["plan"].get("parallel_checks", []),
             # b-state requires --by on these steps and refuses them in a quick run.
             "worker_steps": data["plan"].get("worker_steps", []),
+            # b-state starts at most two of the ready ones together, each in its own worktree.
+            "parallel_steps": data["plan"].get("parallel_steps", []),
             "step_ids": [s["id"] for s in data["plan"]["steps"]],
             "steps": step_needs(data["plan"]["steps"]),
         }
@@ -1007,6 +1052,24 @@ def _packet_implement(root: Path, state: dict, data: dict) -> list[str]:
     return [*out, "", *_tree_lines(root, state)]
 
 
+def _worktree_dir(root: Path, state: dict, step_id: str) -> str | None:
+    """The registered worktree b-state.mjs made for this step of this run, if one exists.
+
+    It is found by name in git's own list, built as b-state.mjs builds it, so a worker told to
+    work there reaches the folder the state CLI will collect from.
+    """
+    try:
+        listed = git(root, "worktree", "list", "--porcelain")
+    except Refused:
+        return None
+    tag = hashlib.sha256(str(root).encode()).hexdigest()[:8]
+    name = f"b-agentic-wt-{tag}-{state.get('run_id', '')}-{step_id}"
+    for line in listed.splitlines():
+        if line.startswith("worktree ") and line[len("worktree ") :].rsplit("/", 1)[-1] == name:
+            return line[len("worktree ") :]
+    return None
+
+
 def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_rev: int) -> list[str]:
     """What one plan step needs, for the main session or for the b-worker it hands the step to.
 
@@ -1029,6 +1092,11 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
         f"Step base tree: {base.get('tree') or 'not recorded'}",
         f"State revision: {int(state.get('rev', 0))}",
         f"Follow-ups revision: {followups_rev}",
+        *(
+            [f"Working directory: {where}"]
+            if plan.get("parallel_steps") and (where := _worktree_dir(root, state, step_id))
+            else []
+        ),
         "",
         "## Step",
         f"- {step_id} [{'recorded' if step_id in recorded else 'open'}]: {step['action']}",

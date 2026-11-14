@@ -86,7 +86,7 @@
         {"from": "; use the built-in todo list only when it helps", "to": ""},
         {"from": "Claude Code exposes MCP tools as", "to": "Pi exposes MCP tools as"},
         {
-          "from": "It coordinates read-only children and one `b-worker` per approved worker step, never peer writers.",
+          "from": "It coordinates read-only children and a `b-worker` per approved worker step, never two in a tree.",
           "to": "It coordinates only its read-only child sessions, never peer writers."
         }
       ],

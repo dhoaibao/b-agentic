@@ -116,6 +116,26 @@ lint_bad plan '.worker_steps = ["S-2", "S-2"]' "a worker step named twice"
 lint_bad plan '.worker_steps = ["step 2"]' "a worker step that is not a step id"
 br "$repo" lint plan < <(example plan | jq -c '.worker_steps = ["S-2"]')
 [ "$rc" -eq 0 ] || fail "a plan step may be listed as a worker step: $(cat "$work/err")"
+# parallel_steps: worker steps in their own worktrees at the same time; literal disjoint paths, readiness together.
+three='.steps += [{"id": "S-3", "action": "Document it", "paths": ["docs/export.md"], "done_when": "the doc exists", "depends_on": ["S-1"]}] | .worker_steps = ["S-2", "S-3"]'
+lint_bad plan "$three | .parallel_steps = []" "an empty parallel_steps list"
+lint_bad plan "$three | .parallel_steps = [\"S-2\"]" "fewer than two steps that run together"
+lint_bad plan "$three | .parallel_steps = \"S-2\"" "parallel steps that are not a list"
+lint_bad plan "$three | .parallel_steps = [\"S-2\", \"S-2\"]" "a parallel step named twice"
+lint_bad plan "$three | .parallel_steps = [\"S-2\", \"S-1\"]" "a parallel step that is not a worker step"
+lint_bad plan "$three | .parallel_steps = [\"S-2\", \"S-9\"]" "a parallel step that is not a plan step"
+lint_bad plan "$three | .steps[1].paths = [\"tests/*.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a glob path in a parallel step"
+lint_bad plan "$three | .steps[2].paths = [\"tests\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a path inside another parallel step's path"
+lint_bad plan "$three | .steps[2].paths = [\"tests/test_export.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "two parallel steps with the same path"
+lint_bad plan "$three | .steps[2].paths = [\"tests/./test_export.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "an alias of another parallel step's path"
+lint_bad plan "$three | .steps[2].paths = [\"tests//x.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a doubled separator in a parallel step path"
+lint_bad plan "$three | .steps[2].paths = [\"tests/\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a trailing separator in a parallel step path"
+lint_bad plan "$three | .steps[2].paths = [\"../x.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "a parent component in a parallel step path"
+lint_bad plan "$three | .steps[2].paths = [\"/abs/x.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "an absolute parallel step path"
+lint_bad plan "$three | .steps[2].depends_on = [\"S-2\"] | .parallel_steps = [\"S-2\", \"S-3\"]" "parallel steps where one waits for the other"
+lint_bad plan "$three | del(.steps[2].depends_on) | .parallel_steps = [\"S-2\", \"S-3\"]" "a step that waits for the step before it, which is the other one"
+br "$repo" lint plan < <(example plan | jq -c "$three | .parallel_steps = [\"S-2\", \"S-3\"]")
+[ "$rc" -eq 0 ] || fail "two ready worker steps with disjoint literal paths may run together: $(cat "$work/err")"
 lint_bad qa '.verdict = "QA PASS" | .rows[0].result = "fail"' "QA PASS with a failing row"
 lint_bad qa '.verdict = "QA FAIL"' "QA FAIL with only passing rows"
 lint_bad qa '.rows[0].result = "waived"' "waived row without waived_by"
@@ -512,6 +532,32 @@ ok "$dep_repo" write plan < <(example plan)
 grep -Fq 'Worker steps' "$(rundir "$dep_repo")/plan.md" && fail "a plan rewritten without worker_steps must not render them"
 ok "$dep_repo" handoff implement
 [ "$out" = "$plain_implement" ] || fail "the full implement packet of a plan without worker_steps must keep its bytes: $out"
+# parallel_steps renders and summarizes only when listed; a plan without it keeps every byte.
+ok "$dep_repo" write plan < <(example plan | jq -c "$three | .steps[2].paths = [\"tests/test_other.py\"] | .parallel_steps = [\"S-2\", \"S-3\"]")
+[ "$(sed -n '/^## Steps that may run together$/,/^$/p' "$(rundir "$dep_repo")/plan.md" | tr '\n' '|')" = '## Steps that may run together|- S-2|- S-3||' ] \
+  || fail "a plan with parallel_steps must render them: $(cat "$(rundir "$dep_repo")/plan.md")"
+ok "$dep_repo" validate
+[ "$(jq -c '.artifacts.plan.parallel_steps' <<<"$out")" = '["S-2","S-3"]' ] || fail "the summary must list the parallel steps: $out"
+# A step with a registered worktree of this run says where the worker works; one without keeps its bytes.
+ok "$dep_repo" handoff implement --step S-2
+no_dir_packet=$out
+grep -Fq 'Working directory' <<<"$out" && fail "a step without a worktree names no working directory: $out"
+wt_run=$(jq -r .run_id "$dep_state")
+wt_tag=$(printf '%s' "$(cd "$dep_repo" && pwd -P)" | sha256sum | cut -c1-8)
+wt_path="$work/b-agentic-wt-$wt_tag-$wt_run-S-2"
+git -C "$dep_repo" worktree add -q --detach "$wt_path" HEAD
+ok "$dep_repo" handoff implement --step S-2
+grep -Fxq "Working directory: $wt_path" <<<"$out" || fail "the packet of a step with a run worktree must name it: $out"
+[ "$(grep -v '^Working directory: ' <<<"$out")" = "$no_dir_packet" ] || fail "the working directory line is the only difference in the step packet: $out"
+ok "$dep_repo" handoff implement --step S-3
+grep -Fq 'Working directory' <<<"$out" && fail "another step's packet names no working directory: $out"
+git -C "$dep_repo" worktree remove --force "$wt_path"
+ok "$dep_repo" write plan < <(example plan)
+grep -Fq 'may run together' "$(rundir "$dep_repo")/plan.md" && fail "a plan rewritten without parallel_steps must not render them"
+ok "$dep_repo" validate
+[ "$(jq -c '.artifacts.plan.parallel_steps' <<<"$out")" = '[]' ] || fail "a plan without parallel_steps lists none: $out"
+ok "$dep_repo" handoff implement
+[ "$out" = "$plain_implement" ] || fail "the full implement packet of a plan without parallel_steps must keep its bytes: $out"
 
 # --- the b-worker profile in effect (a project profile over the user's) stays inside the worker's allowlist ---
 wp_home="$work/wphome"

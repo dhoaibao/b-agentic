@@ -17,7 +17,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-012](ADR-012-run-first-entry.md) for change requests entering a quick or full run, and
 [ADR-013](ADR-013-concurrent-plan-checks.md) for plan checks that may run together, and
 [ADR-014](ADR-014-checked-plan-steps.md) for plan steps checked when they are recorded, and
-[ADR-015](ADR-015-step-writer-worker.md) for one writer subagent applying an approved plan step.
+[ADR-015](ADR-015-step-writer-worker.md) for one writer subagent applying an approved plan step, and
+[ADR-016](ADR-016-parallel-worker-steps.md) for approved worker steps running at the same time, each in its own worktree.
 
 ## Naming
 

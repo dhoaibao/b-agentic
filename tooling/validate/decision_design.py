@@ -30,6 +30,7 @@ LIGHT_LABELS = (
     "docs/decisions/ADR-013-concurrent-plan-checks.md",
     "docs/decisions/ADR-014-checked-plan-steps.md",
     "docs/decisions/ADR-015-step-writer-worker.md",
+    "docs/decisions/ADR-016-parallel-worker-steps.md",
 )
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (

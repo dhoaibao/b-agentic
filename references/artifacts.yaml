@@ -294,7 +294,8 @@
         "checks include the command of every automated or ci criterion in the spec",
         "checks are unique one-line commands without backticks",
         "parallel_checks names at least two of the checks, each once: they may run at the same time (none writes tracked or shared files, shares a port, lock, or server, or needs another check's result); every other check runs alone",
-        "worker_steps names plan steps, each once: each is applied by one b-worker (Claude Code) while the main session waits, and recorded with --by; every other step is applied by the main session"
+        "worker_steps names plan steps, each once: each is applied by one b-worker (Claude Code) while the main session waits, and recorded with --by; every other step is applied by the main session",
+        "parallel_steps names at least two worker steps, each once: each runs in its own git worktree at the same time as the others that are ready (two at most per batch), so their paths are literal and pairwise disjoint (none equal to or inside another's), and at least two of them can be ready together; every other worker step runs alone, in place"
       ],
       "fields": {
         "steps": {
@@ -357,6 +358,16 @@
         "worker_steps": {
           "type": "list",
           "min": 1,
+          "max": 30,
+          "optional": true,
+          "items": {
+            "type": "id",
+            "pattern": "^S-[1-9][0-9]*$"
+          }
+        },
+        "parallel_steps": {
+          "type": "list",
+          "min": 2,
           "max": 30,
           "optional": true,
           "items": {
