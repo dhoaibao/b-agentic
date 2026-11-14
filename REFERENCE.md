@@ -417,7 +417,7 @@ npm, or a vendor installer: Pi installs the pinned packages on its next online s
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Skills            | `skills/b-*/SKILL.md`                                                                                                                          |
 | `/b-*` prompts    | `prompts/b-*.md` (thin templates that point at the skill)                                                                                      |
-| Specialists       | `agents/b-*.md` (five read-only profiles and the `b-worker` writer, strict `tools` allowlists)                                                 |
+| Specialists       | `agents/b-*.md` (five read-only profiles, strict `tools` allowlists)                                                                           |
 | Guard extension   | `extensions/b-agentic/index.ts` and `guard.mjs`                                                                                                |
 | Hooks and CLIs    | `b-agentic/hooks/*.mjs` (4), `b-agentic/bin/` (`b-state.mjs` with its `b-state-*.mjs` modules, `b-candidate-snapshot.mjs`, `b_run.py`)         |
 | References        | `b-agentic/references/` (capabilities, MCP operations, artifact schemas)                                                                       |

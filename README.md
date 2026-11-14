@@ -3,7 +3,8 @@
 **A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer, and the Pi coding agent as an opt-in second runtime.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
-gates, and keeps the main session responsible for all worktree changes. It
+gates, and keeps the main session responsible for worktree changes (on Claude
+Code, an approved `b-flow` step may be applied by a `b-worker`). It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration.
 Changed-code review runs through Codex (`openai/codex-plugin-cc`) and falls back
@@ -67,7 +68,8 @@ Each request uses one active skill rather than mixing planning, building,
 validation, and shipping. The main session (Claude Code, or Pi when installed there) owns user interaction,
 decisions, verification, and mutations. It delegates bounded planning,
 research, diagnosis, repository audits, and changed-code review to read-only
-subagents. A change that touches security, permissions, contracts,
+subagents; on Claude Code only, it may hand one approved `b-flow` step at a time
+to the `b-worker` writer. A change that touches security, permissions, contracts,
 configuration, or workflow policy is frozen as a fingerprinted candidate and
 reviewed independently; the main session recomputes the fingerprint afterward
 and voids the review if the candidate moved. On Claude Code that reviewer is

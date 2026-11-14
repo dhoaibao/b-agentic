@@ -116,7 +116,7 @@ with a QA verdict without committing or pushing. It has no specialist, because
 Codex already gives review independence, children are read-only and cannot drive
 main-session-only browser or dev-server work, and unbounded orchestration is a
 non-goal. On Claude Code, specialists run
-on Anthropic models only (`opus`, `sonnet`, or `haiku`), so the earlier Gemini
+on Anthropic models only (`fable`, `opus`, `sonnet`, or `haiku`), so the earlier Gemini
 research model is gone.
 
 The kernel's "Peer agent messaging" section applies only when the user asks agents
