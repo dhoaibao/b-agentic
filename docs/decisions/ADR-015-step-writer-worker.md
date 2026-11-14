@@ -124,10 +124,10 @@ value` lines, line ends and a byte order mark normalized) and to the worker's
   live checks. Pi keeps the main session applying every step: its writer tools are
   excluded for agents, its background children are unverified, and its worktree option
   needs a clean tree.
-- **Live checklist (the user confirms after installing).** The user skipped it on
-  2026-11-14, so A1 to A7 are still assumptions and the first live use is the
-  worker-step run described after A8. Each item runs in a scratch
-  repository with a direct `Agent` call to `b-worker`. The profile itself forbids the
+- **Live checklist.** Run on 2026-11-14, after installing, in this repository rather
+  than a scratch one, because a worker's working directory is the session's: A1, A2,
+  A3, and A5 are confirmed, A6 is probable, A4, A7, and A8 were not checked, and the
+  first live use passed. Each item runs with a direct `Agent` call to `b-worker`. The profile itself forbids the
   paths A1 and A2 use, so a worker that declines in its own words proves nothing: the
   evidence is an attempted `Edit` or `Write` call and the refusal text the harness
   returned for it. A refusal without an attempted call is inconclusive, and an
@@ -137,32 +137,41 @@ value` lines, line ends and a byte order mark normalized) and to the worker's
   - A1: the path guard fires for the worker. Ask it to write a file under the run
     folder. Expect the guard's own message, which names the run artifact CLI, and no
     file. If false, run files are only detected, not prevented; keep the worker but
-    add the hook, or list no worker steps.
+    add the hook, or list no worker steps. Confirmed: a `Write` under the run folder
+    came back with the guard's message and no file existed.
   - A2: the deny rules bind the worker. Ask it to edit a `.env` file. Expect a refusal
     that is the permission denial, not the path guard's message, and no file: the guard
     also blocks that path, so only the message tells the two apart. If the message is
     the guard's, the deny rules are unverified and count as failed. If false, secrets
-    are only detected; list no worker steps until fixed.
+    are only detected; list no worker steps until fixed. Confirmed: a `Write` to a
+    `.env` file came back as the permission denial ("File is in a directory that is
+    denied by your permission settings"), not the guard's message, and no file existed.
   - A3: edits land in the main tree. Its working directory is the repository root and a
     file it writes shows in the main session's status. If false, the step gate sees
-    nothing; the main session applies steps.
+    nothing; the main session applies steps. Confirmed: the worker's `pwd` was the
+    repository root and its file showed in the main session's status.
   - A4: which session id the worker's shell sees. Only the enforcement notes change.
+    Not checked.
   - A5: the call returns at once, the main session ends its turn, and the completion
     notification returns it to work with the worker's report. If false, the user
-    nudges with any message.
+    nudges with any message. Confirmed, in the probe and in the first live use below.
   - A6: an in-repository edit raises no permission prompt in the default mode. If
-    false, accept the prompts or list no worker steps.
+    false, accept the prompts or list no worker steps. Probable: the worker reported
+    no prompt and the user saw none, but a subagent cannot reliably see one.
   - A7: the registry model is honoured (the agent listing shows it); the effort is not
-    observable and stays unverified.
+    observable and stays unverified. Not checked.
   - A8: a background worker survives `/clear`, compaction, or a resume. If not, the
     resume rule (ask whether an earlier session's worker may still be running before
-    starting one) already covers it.
+    starting one) already covers it. Not checked.
   - First live use of the wiring: in a scratch repository, a `/b-flow` run whose plan
     lists one worker step records it `--by worker`; a file outside the scope created
     while the worker runs is refused naming the path, removed, and the step recorded on
-    retry. The user waived this at the wiring run's QA and confirms it after the
-    commit; a failure becomes a follow-up, and A1 to A8 say what each failed
-    assumption changes.
+    retry. Passed in a throwaway full run in this repository: the worker applied the
+    step, the report left the state and follow-ups revisions unchanged, and the
+    record carried `by: worker` with one path and none outside. A stray file made by
+    the main session after the report was refused naming its path, and the step
+    recorded once it was removed. A file created while the worker runs was not
+    tried, so the concurrent case is still untested.
 
 ## Consequences
 
@@ -178,8 +187,8 @@ value` lines, line ends and a byte order mark normalized) and to the worker's
 - A worker can still do what the profile asks it not to do and the helper cannot see
   (see Enforcement); the approval of the steps handed to it is the safeguard, and the
   user's review of the diff.
-- Until the live checklist is run, A1 to A8 are assumptions, each with a fallback that
-  leaves the main session applying the step.
+- A4, A6, A7, and A8 stay assumptions until checked, each with a fallback that leaves
+  the main session applying the step. The worker's own cost is not recorded.
 - Rejected: harness worktree isolation, a `WorktreeCreate` hook, and a worktree made
   by the helper (none carries uncommitted changes; the last leaves the child's working
   directory in the main tree); a writer flag inside the `agents` map (every read-only
