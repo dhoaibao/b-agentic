@@ -2040,6 +2040,12 @@ async function cmdRecord(
           "candidate snapshot is incomplete; resolve the uncovered paths first",
         );
       }
+      // A worktree step is applied by the main session instead, and the counted
+      // refusal then applies to that record: nothing is written here.
+      if (apart)
+        throw refuse(
+          `${snapshot.protected.length} protected path(s) changed in the main tree: apply ${id} yourself and record --by main`,
+        );
       problem = `${snapshot.protected.length} protected path(s) changed`;
     } else {
       delta = await stepDelta(root, state, base.tree, tree, id);

@@ -1870,6 +1870,12 @@ refused "$repoPW" s1 record step S-2 --by worker
 grep -Fq "outside its own paths" "$work/err" || fail "an out-of-scope path both trees share is refused as outside the step's own paths: $(cat "$work/err")"
 [ "$before" = "$(snap "$repoPW")" ] || fail "no attempt is counted and nothing is written for it"
 rm "$repoPW/README.md" "$wt2/README.md"
+# A likely-secret path in the main tree makes the snapshot incomplete: a worktree step is refused without counting.
+printf 'x\n' >"$repoPW/server.pem"
+refused "$repoPW" s1 record step S-2 --by worker
+grep -Fq 'protected path' "$work/err" || fail "a likely-secret path in the main tree is refused for a worktree step: $(cat "$work/err")"
+[ "$before" = "$(snap "$repoPW")" ] || fail "no attempt is counted and nothing is written for it either"
+rm "$repoPW/server.pem"
 # Within its own paths but not what the worker wrote: the equality check refuses.
 printf 'other\n' >"$repoPW/src/b.txt"
 refused "$repoPW" s1 record step S-2 --by worker

@@ -100,7 +100,9 @@ has no working-directory parameter, so the directory is named in the task.
   step base must equal the worker's change (path, status, mode, blob), otherwise the
   record is refused before any write, as it is when that change includes a path
   outside the step's own paths (the same refusal `collect` makes, so skipping
-  `collect` does not skip it). This catches both changes being applied before the
+  `collect` does not skip it) or when a likely-secret path is changed in the main tree
+  (no attempt is counted: the main session applies the step itself, and the counted
+  refusal of ADR-014 then applies to that record). This catches both changes being applied before the
   first record, which the gate alone would accept since both are in scope. The
   history entry gains `worktree: true` beside `by`, which also gives the measurement
   stage 5 was waiting for.
