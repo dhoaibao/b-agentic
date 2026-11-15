@@ -19,7 +19,7 @@
       "effort": "xhigh"
     },
     "b-auditor": {
-      "description": "Audit b-agentic repository and design conformance read-only for the main session.",
+      "description": "Audit a repository read-only for the main session: b-agentic conformance or a whole-project audit.",
       "model": "fable",
       "effort": "high"
     },
@@ -386,6 +386,28 @@
       },
       "prompt": {
         "description": "Four-dimension read-only b-agentic audit covering source/design conformance, whole-project and first-party hook and CLI health, canonical skill/kernel quality, and currentness/MCP compatibility, with evidence thresholds and approval-gated live probing."
+      }
+    },
+    {
+      "name": "b-audit",
+      "execution": {"mode": "subagent", "agent": "b-auditor"},
+      "contract": {"role": "utility"},
+      "handoff": ["after approved origin fetch, branch/upstream and HEAD ahead/behind counts (both zero required)", "status, user-named scope and dimensions, paths of the repo's own instruction/decision docs (AGENTS.md, CLAUDE.md, README, ADRs), and output of its documented verification commands; manifest/lockfile names and installed versions when available; approved advisory-scan output when run"],
+      "phase": "Validate",
+      "use": "Audit the current project for defects, dependency currentness, architecture drift, test gaps, and docs drift",
+      "argument_hint": "[scope or dimensions]",
+      "routing": {
+        "intent": "Whole-project audit of the current repository",
+        "triggers": [
+          "project audit",
+          "codebase audit",
+          "audit this project",
+          "audit this repo",
+          "dependency currentness"
+        ]
+      },
+      "prompt": {
+        "description": "Read-only whole-project audit of the current repository across correctness/security defects, dependency currentness, architecture and boundary drift, test and verification gaps, and docs/instruction drift, with evidence thresholds and approval-gated advisory scans. Unlike b-agentic-audit, it audits any repository against its own documented standards."
       }
     },
     {

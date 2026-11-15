@@ -87,6 +87,7 @@ supply its completed origin-freshness evidence:
 - Implementing an audit finding -> use **b-frontend** for frontend/UI production changes,
   **b-implement** for other production changes, or **b-refactor** for a named
   behavior-preserving transform after the audit.
+- Auditing any other project -> use **b-audit**.
 - Planning an ambiguous audit scope -> use **b-plan**.
 - General UI/design review or broad external research -> use **b-browser**,
   **b-design**, or **b-research** as appropriate.

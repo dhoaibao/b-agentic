@@ -47,6 +47,7 @@ User arguments for the bounded task: the arguments supplied with the invocation
 ## When NOT to use
 
 - A b-agentic repository/design-conformance audit -> **b-agentic-audit**.
+- A whole-project audit -> **b-audit**.
 - Root-cause diagnosis -> **b-debug**.
 - Writing or fixing tests -> **b-test**.
 - Acceptance QA of a reviewed candidate -> **b-qa**.

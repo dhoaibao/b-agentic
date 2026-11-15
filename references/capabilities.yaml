@@ -8,7 +8,7 @@
       "kind": "agent",
       "purpose": "Provide b-agentic's read-only planner, researcher, debugger, auditor, and reviewer specialists through Claude Code subagents.",
       "owner": "b-agentic installer",
-      "trigger": "Use when a delegated b-plan, b-research, b-debug, b-agentic-audit, or b-review workflow is selected.",
+      "trigger": "Use when a delegated b-plan, b-research, b-debug, b-agentic-audit, b-audit, or b-review workflow is selected.",
       "prerequisites": ["Claude Code agent directory", "Managed agent profiles"],
       "readiness": "All five managed profile files are present locally; model availability and authentication remain unverified.",
       "fallback": "Do not claim delegated workflow readiness; sync the managed Claude Code agent profiles.",

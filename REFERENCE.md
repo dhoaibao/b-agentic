@@ -122,8 +122,8 @@ Explicit-request skills (`b-commit`, `b-pr`) route only on explicit
 user request and stay model-invocable. `b-flow` is the routing entry
 (`routing.entry`): changes that route to an implement-phase skill run inside it.
 
-The five specialists are `b-planner`, `b-researcher`, `b-debugger`, `b-auditor`,
-and `b-reviewer`. A sixth profile, `b-worker`, is the one writer child of a `b-flow`
+The five specialists are `b-planner`, `b-researcher`, `b-debugger`, `b-auditor`
+(serving both `b-agentic-audit` and `b-audit`), and `b-reviewer`. A sixth profile, `b-worker`, is the one writer child of a `b-flow`
 run ([ADR-015](docs/decisions/ADR-015-step-writer-worker.md)): Claude Code only,
 generated from the registry's separate `workers` map, with `Edit`, `Write`, and `Bash`
 on top of the specialists' reads, no prompt, delegation, or notebook tool, and the

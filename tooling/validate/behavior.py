@@ -159,6 +159,7 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "`b-research` -> `b-researcher`.",
         "`b-debug` -> `b-debugger`.",
         "`b-agentic-audit` -> `b-auditor`.",
+        "`b-audit` -> `b-auditor`.",
         "`b-review` -> `b-reviewer`.",
         "The child's result is evidence, not authority.",
     ),
@@ -213,6 +214,13 @@ SUBAGENT_PROMPT_BOUNDARY_CONTRACTS = {
     "b-agentic-audit": (
         "supply its completed origin-freshness evidence:",
         "return the blocking message to the main session",
+    ),
+    "b-audit": (
+        "supply its completed origin-freshness evidence:",
+        "return the blocking message to the main session",
+        "Never run registry-contacting commands",
+        "BLOCKED: current branch is not up to date with origin; synchronize it and rerun the audit.",
+        "Do not transmit repository or private data or credentials for currentness checks",
     ),
     "b-review": (
         "Verify each blocker against the candidate with `Read` and `Grep` before acting; dispute one only through a fresh round",
@@ -365,7 +373,7 @@ FIXTURES = [
         name="changed-code review",
         prompt="Review my working tree diff before PR.",
         expected="b-review",
-        not_expected=("b-agentic-audit", "b-qa"),
+        not_expected=("b-agentic-audit", "b-audit", "b-qa"),
     ),
     Fixture(
         name="review changes",
@@ -553,6 +561,18 @@ FIXTURES = [
         prompt="Run the design-conformance audit and compare documented decisions with canonical sources.",
         expected="b-agentic-audit",
         not_expected=("b-review",),
+    ),
+    Fixture(
+        name="project audit routes to b-audit",
+        prompt="Run a project audit of this codebase for defects, outdated dependencies, and docs drift.",
+        expected="b-audit",
+        not_expected=("b-agentic-audit", "b-review"),
+    ),
+    Fixture(
+        name="audit this repo routes to b-audit",
+        prompt="Audit this repo for architecture drift and test gaps.",
+        expected="b-audit",
+        not_expected=("b-agentic-audit", "b-review"),
     ),
     # Trigger-tightening regressions (suite audit: bare add/build/error/docs over-routed).
     Fixture(

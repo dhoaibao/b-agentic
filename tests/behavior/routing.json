@@ -128,6 +128,7 @@
         "b-pr",
         "b-plan",
         "b-agentic-audit",
+        "b-audit",
         "b-qa"
       ]
     },
@@ -159,13 +160,25 @@
       "id": "b-agentic-repository-audit",
       "prompt": "Run a b-agentic repository audit and report decision-design drift.",
       "expected_skill": "b-agentic-audit",
-      "forbidden_skills": ["b-review", "b-implement"]
+      "forbidden_skills": ["b-review", "b-implement", "b-audit"]
     },
     {
       "id": "b-agentic-full-currentness-audit",
       "prompt": "Run a full b-agentic audit covering source and design conformance, whole-project and first-party hook and CLI health, canonical skill/kernel quality, and currentness/MCP compatibility; keep it read-only and report unavailable live evidence.",
       "expected_skill": "b-agentic-audit",
-      "forbidden_skills": ["b-review", "b-implement", "b-research"]
+      "forbidden_skills": ["b-review", "b-implement", "b-research", "b-audit"]
+    },
+    {
+      "id": "project-audit",
+      "prompt": "Run a project audit of this codebase for defects, outdated dependencies, and docs drift.",
+      "expected_skill": "b-audit",
+      "forbidden_skills": ["b-agentic-audit", "b-review", "b-implement"]
+    },
+    {
+      "id": "audit-this-repo",
+      "prompt": "Audit this repo for architecture drift and test gaps.",
+      "expected_skill": "b-audit",
+      "forbidden_skills": ["b-agentic-audit", "b-review", "b-plan"]
     },
     {
       "id": "explicit-b-pr",

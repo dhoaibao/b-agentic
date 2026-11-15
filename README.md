@@ -99,6 +99,7 @@ necessarily a different model family.
 | `b-test` | Validate | Write or fix unit, integration, contract, and simulated-DOM tests |
 | `b-browser` | Validate | Collect real-browser, visual, screenshot, live UI, or e2e evidence |
 | `b-agentic-audit` | Validate | Audit b-agentic repository conformance, health, skill/kernel quality, and currentness |
+| `b-audit` | Validate | Audit the current project for defects, dependency currentness, architecture drift, test gaps, and docs drift |
 | `b-review` | Validate | Review changed code |
 | `b-qa` | Validate | Check a reviewed candidate against its acceptance criteria with fresh evidence and a QA verdict |
 | `b-flow` | Build | Run a change as a quick or full run with file-backed state, artifacts, and evidence |
