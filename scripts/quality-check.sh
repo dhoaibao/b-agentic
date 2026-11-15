@@ -12,10 +12,12 @@ fail_missing() {
 command -v python3 >/dev/null 2>&1 || fail_missing python3 "install Python 3.11+ and retry"
 command -v ruff >/dev/null 2>&1 || fail_missing ruff "install Python quality tools with 'python3 -m pip install -r requirements-dev-quality.txt'"
 command -v shellcheck >/dev/null 2>&1 || fail_missing shellcheck "install ShellCheck and retry"
-PRETTIER="$ROOT_DIR/node_modules/.bin/prettier"
-MARKDOWNLINT="$ROOT_DIR/node_modules/.bin/markdownlint-cli2"
-[ -x "$PRETTIER" ] || fail_missing prettier "install root development tools with 'npm ci'"
-[ -x "$MARKDOWNLINT" ] || fail_missing markdownlint-cli2 "install root development tools with 'npm ci'"
+command -v bun >/dev/null 2>&1 || fail_missing bun "install Bun and retry"
+# The tools' shebangs name node, so they run through bun (ADR-018).
+PRETTIER=(bun "$ROOT_DIR/node_modules/.bin/prettier")
+MARKDOWNLINT=(bun "$ROOT_DIR/node_modules/.bin/markdownlint-cli2")
+[ -e "$ROOT_DIR/node_modules/.bin/prettier" ] || fail_missing prettier "install root development tools with 'bun install --frozen-lockfile'"
+[ -e "$ROOT_DIR/node_modules/.bin/markdownlint-cli2" ] || fail_missing markdownlint-cli2 "install root development tools with 'bun install --frozen-lockfile'"
 
 is_generated() {
   case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json) return 0;; pi/skills/*|pi/prompts/*|pi/agents/*|pi/kernel.md|pi/configs/*.json) return 0;; *) return 1;; esac
@@ -52,9 +54,9 @@ run_if_files() {
   "$@"
 }
 
-run_if_files 'Prettier' "${#prettier_files[@]}" "$PRETTIER" --check "${prettier_files[@]}"
+run_if_files 'Prettier' "${#prettier_files[@]}" "${PRETTIER[@]}" --check "${prettier_files[@]}"
 run_if_files 'Ruff lint' "${#python_files[@]}" ruff check "${python_files[@]}"
 run_if_files 'Ruff format check' "${#python_files[@]}" ruff format --check "${python_files[@]}"
 run_if_files 'ShellCheck' "${#shell_files[@]}" shellcheck --shell=bash --external-sources "${shell_files[@]}"
-run_if_files 'Markdownlint' "${#markdown_files[@]}" "$MARKDOWNLINT" --config .markdownlint-cli2.jsonc "${markdown_files[@]}"
+run_if_files 'Markdownlint' "${#markdown_files[@]}" "${MARKDOWNLINT[@]}" --config .markdownlint-cli2.jsonc "${markdown_files[@]}"
 printf 'Repository quality checks passed.\n'

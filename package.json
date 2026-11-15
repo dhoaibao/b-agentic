@@ -2,7 +2,7 @@
   "name": "@dhoaibao/b-agentic-dev-tools",
   "private": true,
   "scripts": {
-    "prepare": "husky",
+    "prepare": "bun node_modules/.bin/husky",
     "quality": "bash scripts/quality-check.sh"
   },
   "devDependencies": {
@@ -20,11 +20,11 @@
       "shellcheck --shell=bash --external-sources"
     ],
     "**/*.md": [
-      "prettier --check",
-      "markdownlint-cli2"
+      "bun node_modules/.bin/prettier --check",
+      "bun node_modules/.bin/markdownlint-cli2"
     ],
     "**/*.{json,jsonc,yaml,yml}": [
-      "prettier --check"
+      "bun node_modules/.bin/prettier --check"
     ]
   }
 }
