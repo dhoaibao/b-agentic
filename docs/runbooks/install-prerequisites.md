@@ -36,7 +36,8 @@ this is a manual step. Which tool each MCP needs is listed in
      && sudo apt install gh -y
    ```
 
-3. Install Node through nvm. The tag below was the latest on 2026-11-09; check
+3. Install Node through nvm. Only the Pi runtime and the npm-packaged tools below need it; b-agentic's own
+   hooks and scripts run with Bun. The tag below was the latest on 2026-11-09; check
    the [nvm releases](https://github.com/nvm-sh/nvm/releases) for a newer one.
    Open a new shell afterwards.
 
@@ -45,7 +46,8 @@ this is a manual step. Which tool each MCP needs is listed in
    nvm install --lts
    ```
 
-4. Install Bun, which provides `bunx`. Open a new shell afterwards.
+4. Install Bun, which b-agentic requires: the managed hooks, status line, and helper scripts run with it, and it
+   provides `bunx`. The installer refuses without it. Open a new shell afterwards.
 
    ```bash
    curl -fsSL https://bun.com/install | bash
@@ -104,7 +106,7 @@ dashboard:
 
 ```bash
 python3 --version && git --version && rg --version && fdfind --version \
-  && jq --version && gh --version && node --version && bunx --version \
+  && jq --version && gh --version && bun --version && node --version && bunx --version \
   && claude --version && rtk --version && rtk gain && codegraph --version
 codex --version   # optional: only for the Codex review gate
 scripts/mcp-doctor.sh --allow-degraded

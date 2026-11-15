@@ -23,7 +23,8 @@ cd b-agentic
 ./install.sh
 ```
 
-The installer copies skills, agents, hooks, and CLIs under `~/.claude`, adds the
+The installer needs [Bun](https://bun.sh): Claude Code runs the hooks, status line, and helper scripts with it, and
+the installer refuses without it. It copies skills, agents, hooks, and CLIs under `~/.claude`, adds the
 kernel to `~/.claude/CLAUDE.md` as a marked block, merges permission rules,
 hooks, and a status line (only when none is configured) into `settings.json` and MCP servers into `~/.claude.json`, and preserves
 everything else. It never runs vendor installers. A Claude Code run only touches `~/.claude` and

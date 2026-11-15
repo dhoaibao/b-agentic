@@ -36,7 +36,7 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 - `python3 tooling/generate/registry_sync.py --check` — confirm generated delivery assets match canonical sources.
 - `scripts/validate-skills.sh` — run synchronization, behavior, policy, hook, snapshot, Pi guard, and readiness checks (`--release` adds the sandbox installer probes for both runtimes).
-- `npm run quality` — run tracked source quality checks when dependencies are installed.
+- `bun run quality` — run tracked source quality checks when dependencies are installed.
 - `rtk git diff --check` — check changed paths for whitespace errors.
 
 <!-- b-init-managed:end -->

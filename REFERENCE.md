@@ -53,12 +53,14 @@ touches only `~/.claude` and `~/.claude.json`; a Pi run touches only `~/.pi/agen
   The manifest records `"scope": "statusline"`; a plain `--uninstall` removes exactly that, and a later full
   install upgrades it in place (dropping the scope). It is refused over a full install, and cannot combine with
   `--with`, `--without`, or `--uninstall`.
-- `--js-runtime=auto|node|bun` (on `tooling/install/claude_install.py`; `./install.sh` takes it as
-  `B_AGENTIC_JS_RUNTIME=bun ./install.sh`) picks how Claude Code launches the managed hooks and status
-  line ([ADR-017](docs/decisions/ADR-017-bun-hook-runtime.md)). `auto`, the default, uses a working `bun` on
-  `PATH` and otherwise `node`; `bun` is refused when none works. A bun command falls back to `node` if
-  `bun` is later removed. Changing the choice is an ordinary re-install: only the recorded managed entries
-  are replaced, never your own hooks.
+- Bun is required ([ADR-018](docs/decisions/ADR-018-bun-only-runtime.md)): Claude Code runs the managed hooks
+  and status line with `bun --no-env-file --config=/dev/null`, so a repository's `bunfig.toml` preload and
+  `.env` never load into a hook. Install, `--dry-run`, and `--statusline-only` refuse without a working Bun
+  (nothing is written); `--uninstall` does not need it. The installer writes the absolute Bun path it found
+  (symlinks kept), with no Node fallback: if Bun is removed later, a fail-closed guard blocks until you
+  reinstall Bun. A re-install swaps only the entries the manifest recorded (plain `node` or the earlier
+  bun-or-node form) and never your own hooks; an unrecorded `node` entry for a managed script is kept and
+  reported. Pi keeps Node: its guard runs inside Pi's own process.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
@@ -172,14 +174,14 @@ subagent ([ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md),
 
 The gate sequence is:
 
-0. Probe the plugin: `node ~/.claude/b-agentic/bin/b-codex-review.mjs --available`
+0. Probe the plugin: `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --available`
    only looks for the plugin script and runs nothing: exit 0 means found, exit 4
    (`status: unavailable`) means Codex cannot run, so main skips steps 2 and 3,
    never asks for the OpenAI approval, and goes straight to the `b-reviewer`
    fallback. Exit 2 means a broken `B_AGENTIC_CODEX_COMPANION` override and is
    reported as a refusal. The probe cannot tell whether you are signed in or have
    quota left; those failures still surface as exit 4 from the real run at step 3.
-1. Freeze the candidate: `node ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs`
+1. Freeze the candidate: `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs`
    gives HEAD, SHA-256 digests of the staged and unstaged binary diffs, sorted
    untracked paths with type and content digest, and one `fingerprint` (F0). It
    covers the whole repository, lists protected paths and submodules without
@@ -190,7 +192,7 @@ The gate sequence is:
    is listed in `index_flags` and makes the snapshot incomplete, because both
    diffs would omit its edits; the index is never modified. Exit 0 is complete,
    3 incomplete, 2 refused.
-2. Early preflight: `node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check
+2. Early preflight: `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check
 [--base <ref>]` refuses when a likely-secret path is tracked, staged, or
    untracked-and-not-ignored, when a submodule or embedded repository hides
    paths, when an untracked non-ignored symlink exists (the plugin follows it
@@ -202,7 +204,7 @@ The gate sequence is:
    the approval, points `B_AGENTIC_STATE_DIR` at another store, or writes
    `codex-approved-repos.json` (a tripwire, not a boundary).
 3. Run the gate with the wrapper, from the repository, with nothing editing:
-   `node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round
+   `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round
 <n> --focus-file <path>` (or `--base <ref>` instead of `--scope working-tree`
    for committed changes since that ref; `--include-ignored <path>` as at step
    1; `--kind native` is refused because its output has no verdict contract).
@@ -332,7 +334,7 @@ Whether the pointer reaches the model after a live `/compact` is not covered by 
 The file-tool
 guard sets `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that crashes, times out, or
 cannot start blocks the call, and malformed input still fails open by design. To recover from a
-guard that fails closed (for example a missing `node` or hook script), repair or reinstall: Bash is
+guard that fails closed (for example a missing `bun` or hook script), repair or reinstall: Bash is
 not fail-closed and still works. The Bash Codex tripwire deliberately sets no `onFailure`: it runs
 on every Bash call, so a broken copy that blocked Bash would also block its own repair; the
 wrapper, not the hook, is the boundary. Older Claude Code versions' handling of the unknown key is undocumented.
@@ -346,9 +348,9 @@ own opt-in sandbox (`/sandbox`, the `sandbox.enabled` setting, off by default) i
 process and filesystem layer these rules do not provide, and its `sandbox.filesystem.denyRead`
 setting can cover secret paths that Bash-backed searches skip. With the default
 `autoAllowBashIfSandboxed`, deny rules and content-scoped asks still apply. b-agentic neither
-installs nor verifies the sandbox, and whether it leaves the Codex review gate and the Node
+installs nor verifies the sandbox, and whether it leaves the Codex review gate and the Bun
 hooks working is unverified: after enabling it, run
-`node ~/.claude/b-agentic/bin/b-codex-review.mjs --available` and one review round. The
+`bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --available` and one review round. The
 kernel additionally
 requires approval for other destructive, privileged, ambiguous, protected, or
 external/shared actions.
@@ -484,7 +486,7 @@ skips its live case when Pi never starts. Re-run the spike after upgrading Pi or
 python3 tooling/generate/registry_sync.py --self-test --check
 scripts/validate-skills.sh --release
 scripts/b-agentic-audit.sh
-npm run quality
+bun run quality
 rtk git diff --check
 ```
 

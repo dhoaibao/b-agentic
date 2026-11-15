@@ -1,6 +1,6 @@
 # ADR-017: Managed hooks and status line may run under Bun, with Node as the fallback
 
-- Status: Accepted
+- Status: Superseded by [ADR-018](ADR-018-bun-only-runtime.md) (Bun is required and there is no Node fallback)
 - Date: 2026-11-15
 
 ## Context

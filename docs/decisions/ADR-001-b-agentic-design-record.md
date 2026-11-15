@@ -154,7 +154,7 @@ guard sets `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that
 crashes, times out, or cannot start blocks the call instead of letting it through;
 malformed input still fails open by design. The Bash `b-codex-guard` tripwire
 deliberately sets no `onFailure` and fails open ([ADR-007](ADR-007-codex-first-review-gate.md)).
-If the path guard fails closed (for example `node` or the hook script is missing),
+If the path guard fails closed (for example `bun` or the hook script is missing),
 repair or reinstall: Bash is not guarded by it and still works. How an older client treats the unknown key is
 undocumented.
 `b-pr` is the only skill that pushes: on an explicit request it pushes the
