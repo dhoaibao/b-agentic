@@ -201,7 +201,8 @@ The gate sequence is:
    and would send its target; stage, ignore, or remove it), when a `--base` range
    (merge-base..HEAD and every commit inside it) touches a likely-secret path
    or a submodule, or when the repository has no standing approval. Approve once per repository with `--approve` after
-   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. The
+   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. On OpenCode the plugin
+   guard refuses both from the session, so the user runs them in their own terminal. The
    guard hook asks for a native confirmation of any Bash command that records
    the approval, points `B_AGENTIC_STATE_DIR` at another store, or writes
    `codex-approved-repos.json` (a tripwire, not a boundary).
@@ -445,7 +446,7 @@ allows `edit`.
 **Plugin.** `plugins/b-agentic.js` reuses the `claude/hooks` modules through `b-agentic/guard.mjs`, so both
 runtimes judge likely-secret paths, `.b-agentic` writes, and shell inspection the same way. The path guard
 runs on `execute.before` (also in subagent sessions), covers `patch` targets, and fails closed: a missing
-module or any error throws and blocks the call. A directory `grep` is pre-scanned with the same ripgrep traversal OpenCode uses (`rg --files --hidden --glob=<include>`, `.git` excluded) and refused when a likely-secret name is among them or the listing fails (ripgrep, `rg`, is a prerequisite); every file-tool path is judged as written, as OpenCode resolves it lexically (so `..` applies before any symlink), and with a leading `~`, `$HOME`, or `${HOME}` expanded (OpenCode expands only `~`; the guard also scans the literal directory), because OpenCode authorizes `grep` on its pattern, not on the files it reads; a shell `rg` is not inspected, as on Claude Code. The verify reminder sends one extra turn on
+module or any error throws and blocks the call. A directory `grep` is pre-scanned with the same ripgrep traversal OpenCode uses (`rg --files --hidden --glob=<include>`, `.git` excluded) and refused when a likely-secret name is among them or the listing fails (ripgrep, `rg`, is a prerequisite); every file-tool path is judged as written, as OpenCode resolves it lexically (so `..` applies before any symlink), and with a leading `~`, `$HOME`, or `${HOME}` expanded (OpenCode expands only `~`; the guard also scans the literal directory), because OpenCode authorizes `grep` on its pattern, not on the files it reads; a shell `rg` is not inspected, as on Claude Code. On both runtimes likely-secret names match case-insensitively in the path guards, the snapshot CLI, the Codex preflight, and `b_run.py` (`.ENV` is the same file on a case-insensitive filesystem); the native permission globs stay case-sensitive, an accepted residual. The verify reminder sends one extra turn on
 `session.execution.succeeded`, and the run and approved-spec context are added at a session's first model
 call and after compaction. The native `read` and `edit` secret-path denies stay as a second layer, because a
 plugin that fails to load leaves OpenCode without the guard.

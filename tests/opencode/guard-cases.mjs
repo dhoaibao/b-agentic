@@ -280,6 +280,7 @@ test("shell: every fallback refuses a command, including a quote-split Codex one
       pathGuard: { agenticWrites: () => [], blockedPaths: () => [] },
       verifyGate: { isInspection: () => true, PROSE_PATH: /\.md$/ },
       codexGuard: {
+        revokeTouch: () => false,
         judgeCommand() {
           throw new Error("boom");
         },
