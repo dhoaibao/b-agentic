@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Compare the snapshot CLI at a baseline git ref with the working tree on a set of
 # fixture repositories: stdout, stderr, and exit code must be byte-identical, so a
-# speed-up of the CLI cannot change a fingerprint. Needs only node and git.
+# speed-up of the CLI cannot change a fingerprint. Needs only node and git (and bun, when installed, for the bun comparison).
 # Set BASE_REF to the commit to compare against; without it the probe is skipped
 # (a baseline is only meaningful while the CLI differs from some earlier ref).
 set -euo pipefail
@@ -38,15 +38,24 @@ make_repo() {
   git -C "$dir" commit -qm init
 }
 
-# compare NAME REPO [cli args...]: run both CLIs in REPO and require identical results.
+# The baseline always runs under node (that is how Pi runs the CLI); the changed CLI runs under node and,
+# when it is installed, under bun with the hardening flags the installer writes (ADR-018).
+runtimes=("node")
+if command -v bun >/dev/null 2>&1; then runtimes+=("bun --no-env-file --config=/dev/null"); fi
+
+# compare NAME REPO [cli args...]: run the baseline and the changed CLI in REPO and require identical results.
 compare() {
-  local name=$1 repo=$2 old_rc=0 new_rc=0
+  local name=$1 repo=$2 old_rc=0 new_rc runtime
   shift 2
   (cd "$repo" && node "$base_cli" "$@" >"$work/old.out" 2>"$work/old.err") || old_rc=$?
-  (cd "$repo" && node "$new_cli" "$@" >"$work/new.out" 2>"$work/new.err") || new_rc=$?
-  [ "$old_rc" = "$new_rc" ] || fail "$name: exit code $old_rc at $BASE_REF, $new_rc now"
-  cmp -s "$work/old.out" "$work/new.out" || fail "$name: stdout differs"
-  cmp -s "$work/old.err" "$work/new.err" || fail "$name: stderr differs"
+  for runtime in "${runtimes[@]}"; do
+    new_rc=0
+    # shellcheck disable=SC2086 # The runtime entry is a command with its flags.
+    (cd "$repo" && $runtime "$new_cli" "$@" >"$work/new.out" 2>"$work/new.err") || new_rc=$?
+    [ "$old_rc" = "$new_rc" ] || fail "$name ($runtime): exit code $old_rc at $BASE_REF, $new_rc now"
+    cmp -s "$work/old.out" "$work/new.out" || fail "$name ($runtime): stdout differs"
+    cmp -s "$work/old.err" "$work/new.err" || fail "$name ($runtime): stderr differs"
+  done
   echo "snapshot parity probe passed: $name (exit $new_rc)"
 }
 

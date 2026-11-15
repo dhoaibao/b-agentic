@@ -135,7 +135,7 @@ ok "$repo13" s1 lock --takeover
 repo13b="$work/repo13b"
 make_repo "$repo13b"
 ok "$repo13b" s1 init race
-( cd "$repo13b" && for _ in 1 2 3 4 5 6; do node "$cli" lock --owner s1 >/dev/null 2>&1 & done; wait ) || true
+( cd "$repo13b" && for _ in 1 2 3 4 5 6; do "${js[@]}" "$cli" lock --owner s1 >/dev/null 2>&1 & done; wait ) || true
 [ ! -e "$(dirname "$(sfile "$repo13b")")/mutex" ] || fail "no mutex may remain after concurrent commands"
 ok "$repo13b" s1 show
 

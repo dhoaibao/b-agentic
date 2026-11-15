@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Exercise claude/bin/b_run.py (the b-flow run artifact CLI, ADR-010) against throwaway
-# git repositories. Needs only python3, node, git, and jq: no network or credentials.
+# git repositories. Needs only python3, bun, git, and jq: no network or credentials.
 # Exit contract: 0 ok, 3 refused or not ok, 2 invalid input or state.
 # shellcheck disable=SC2016 # Single-quoted jq programs with literal $ are the inputs under test.
 set -euo pipefail
@@ -8,6 +8,10 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cli="$root/claude/bin/b_run.py"
 state_cli="$root/claude/bin/b-state.mjs"
+# The runtime that runs the CLI under test: bun with the hardening flags the installer writes (ADR-018), or
+# node (ARTIFACT_PROBE_RUNTIME=node) for the Pi runtime, which runs these CLIs in Node.
+js=(bun --no-env-file --config=/dev/null)
+if [ "${ARTIFACT_PROBE_RUNTIME:-}" = node ]; then js=(node); fi
 schema="$root/references/artifacts.yaml"
 # Resolve links so paths match what the CLI reports (macOS /var is /private/var).
 work=$(cd "$(mktemp -d)" && pwd -P)
@@ -39,7 +43,7 @@ make_repo() {
   git -C "$1" commit -qm init
 }
 newrun() { # REPO: create a run through b-state (clarify phase, locked by s1)
-  (cd "$1" && node "$state_cli" init demo --owner s1 >/dev/null)
+  (cd "$1" && "${js[@]}" "$state_cli" init demo --owner s1 >/dev/null)
 }
 rundir() { printf '%s' "$1"/.b-agentic/runs/*; }
 setphase() { # REPO PHASE: test-only state edit, as the probe may bypass the CLI

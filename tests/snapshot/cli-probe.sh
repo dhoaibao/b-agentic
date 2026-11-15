@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # Exercise claude/bin/b-candidate-snapshot.mjs against throwaway git
-# repositories. Needs only node, git, and jq: no npm packages, credentials, or
+# repositories. Needs only bun (or node), git, and jq: no npm packages, credentials, or
 # network. Exit code contract: 0 complete, 3 incomplete, 2 refused or failed.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cli="$root/claude/bin/b-candidate-snapshot.mjs"
+# The runtime that runs the CLI under test: bun with the hardening flags the installer writes (ADR-018), or
+# node (SNAPSHOT_PROBE_RUNTIME=node) for the Pi runtime, which runs this CLI in Node.
+js=(bun --no-env-file --config=/dev/null)
+if [ "${SNAPSHOT_PROBE_RUNTIME:-}" = node ]; then js=(node); fi
 work=$(mktemp -d)
 if [ -z "${SNAPSHOT_PROBE_KEEP:-}" ]; then trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT; else echo "kept: $work" >&2; fi
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
@@ -36,7 +40,7 @@ snap() {
   local cwd=$1 out=$2
   shift 2
   local rc=0
-  ( cd "$cwd" && node "$cli" "$@" >"$out" 2>"$out.err" ) || rc=$?
+  ( cd "$cwd" && "${js[@]}" "$cli" "$@" >"$out" 2>"$out.err" ) || rc=$?
   printf '%s' "$rc" >"$out.rc"
 }
 rc_of() { cat "$1.rc"; }
@@ -404,8 +408,8 @@ echo "snapshot probe passed: guard-boundaries"
 
 # --- symlinked launcher still runs the CLI --------------------------------------
 ln -s "$cli" "$work/launcher.mjs"
-( cd "$clean" && node "$work/launcher.mjs" --fingerprint >"$work/launcher.out" 2>"$work/launcher.err" ) || fail "symlinked launcher failed"
-[ "$(cat "$work/launcher.out")" = "$(jq -r .fingerprint <(cd "$clean" && node "$cli"))" ] || fail "symlinked launcher printed no or a different fingerprint"
+( cd "$clean" && "${js[@]}" "$work/launcher.mjs" --fingerprint >"$work/launcher.out" 2>"$work/launcher.err" ) || fail "symlinked launcher failed"
+[ "$(cat "$work/launcher.out")" = "$(jq -r .fingerprint <(cd "$clean" && "${js[@]}" "$cli"))" ] || fail "symlinked launcher printed no or a different fingerprint"
 echo "snapshot probe passed: launcher"
 
 # --- not a repository: a failure, never a bogus snapshot ----------------------
@@ -428,7 +432,7 @@ real_git=$(command -v git)
 printf '#!/bin/sh\nprintf x >> "%s/git-calls"\nexec "%s" "$@"\n' "$work" "$real_git" >"$shim/git"
 chmod +x "$shim/git"
 : >"$work/git-calls"
-( cd "$clean" && PATH="$shim:$PATH" node "$cli" >"$work/budget.json" 2>"$work/budget.err" ) || true
+( cd "$clean" && PATH="$shim:$PATH" "${js[@]}" "$cli" >"$work/budget.json" 2>"$work/budget.err" ) || true
 calls=$(wc -c <"$work/git-calls" | tr -d ' ')
 [ "$calls" -ge 1 ] || fail "the git shim saw no call, so the budget measured nothing"
 [ "$calls" -le "$git_budget" ] || fail "a clean snapshot started $calls git processes, over the budget of $git_budget"

@@ -8,7 +8,7 @@ mkdir -p "$wt_tmp"
 wt_tmp=$(cd "$wt_tmp" && pwd -P)
 export TMPDIR="$wt_tmp"
 # Octal mode of a path, portable across GNU and BSD stat.
-mode_of() { node -e 'process.stdout.write((require("fs").statSync(process.argv[1]).mode & 0o777).toString(8))' "$1"; }
+mode_of() { "${js[@]}" -e 'process.stdout.write((require("fs").statSync(process.argv[1]).mode & 0o777).toString(8))' "$1"; }
 parallel_plan() {
   jq -n '{steps: [{id: "S-1", action: "a", paths: ["src/a.txt"], done_when: "d", depends_on: []},
     {id: "S-2", action: "b", paths: ["src/b.txt"], done_when: "d", depends_on: ["S-1"]},
@@ -66,7 +66,7 @@ refused "$repoPW" s1 worktree add S-2
 grep -Fq 'smudge, or process filter' "$work/err" || fail "a configured filter is refused: $(cat "$work/err")"
 [ ! -e "$work/filter-ran" ] || fail "the filter must not run"
 rc=0
-(cd "$repoPW/src" && node "$cli" worktree add S-2 --owner s1 >/dev/null 2>"$work/err") || rc=$?
+(cd "$repoPW/src" && "${js[@]}" "$cli" worktree add S-2 --owner s1 >/dev/null 2>"$work/err") || rc=$?
 [ "$rc" -eq 3 ] || fail "a configured filter is refused from a subdirectory too: rc=$rc $(cat "$work/err")"
 git -C "$repoPW" config --unset filter.probe.smudge
 printf '[filter "global"]\n\tprocess = touch %s/filter-ran-global\n' "$work" >"$work/global.cfg"

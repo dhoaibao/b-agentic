@@ -149,7 +149,7 @@ ok "$repo17" s1 advance "done"
 [ "$(phase "$repo17")" = "done" ] || fail "committing the approved artifact must complete the run"
 
 # The fingerprint is rechecked after the tree is captured: a change during capture records no plan.
-race=$(cd "$repo14" && node --input-type=module -e '
+race=$(cd "$repo14" && "${js[@]}" --input-type=module -e '
   import { pathToFileURL } from "node:url";
   const { captureCommitPlan } = await import(pathToFileURL(process.argv[1]).href);
   const state = { repo_root: process.cwd(), candidate: { include_ignored: [] } };

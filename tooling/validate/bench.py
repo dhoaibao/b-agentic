@@ -20,16 +20,19 @@ ROOT = Path(__file__).resolve().parents[2]
 HOOKS = ROOT / "claude" / "hooks"
 BIN = ROOT / "claude" / "bin"
 
-# name -> (runtime, milliseconds). A runtime of "py" is python3.
+# (name, runtime) -> milliseconds. A runtime of "py" is python3. Claude Code runs the hooks and CLIs with bun
+# (ADR-018); the snapshot also runs under node because the Pi runtime does.
 TARGETS = {
-    ("path-guard", "node"): 32,
-    ("codex-guard", "node"): 34,
-    ("snapshot", "node"): 65,
+    ("path-guard", "bun"): 15,
+    ("codex-guard", "bun"): 17,
+    ("statusline", "bun"): 20,
+    ("snapshot", "bun"): 45,
+    ("snapshot", "node"): 70,
     ("b_run-startup", "py"): 40,
     ("mcp_policy", "py"): 200,
-    ("path-guard", "bun"): 15,
-    ("statusline", "bun"): 20,
 }
+# The command that starts each runtime: bun with the flags the installer writes into the managed commands.
+BUN_FLAGS = ["--no-env-file", "--config=/dev/null"]
 
 PATH_GUARD_INPUT = {"tool_name": "Read", "tool_input": {"file_path": "/repo/src/app.ts"}}
 CODEX_GUARD_INPUT = {"tool_name": "Bash", "cwd": "/tmp", "tool_input": {"command": "rtk git status --short"}}
@@ -111,10 +114,13 @@ def main():
     parser.add_argument("--tolerance", type=float, default=1.15, help="multiplier on each target for --check")
     args = parser.parse_args()
 
-    runtimes = {"node": shutil.which("node")}
+    runtimes = {}
     if shutil.which("bun"):
-        runtimes["bun"] = shutil.which("bun")
-    runtimes = {name: path for name, path in runtimes.items() if path}
+        runtimes["bun"] = [shutil.which("bun"), *BUN_FLAGS]
+    if shutil.which("node"):
+        runtimes["node"] = [shutil.which("node")]
+    if "bun" not in runtimes:
+        sys.exit("bench.py needs bun on PATH")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -143,7 +149,7 @@ def main():
             "statusline": (BIN / "b-statusline.mjs", STATUSLINE_INPUT),
         }
         subprocess.run(
-            [runtimes["node"], str(BIN / "b-state.mjs"), "init", "bench", "--owner", "bench"],
+            [*runtimes["bun"], str(BIN / "b-state.mjs"), "init", "bench", "--owner", "bench"],
             env=env,
             cwd=str(repo),
             check=True,
@@ -154,15 +160,15 @@ def main():
         for name, (script, payload) in hook_cases.items():
             for runtime, binary in runtimes.items():
                 medians[f"{name}/{runtime}"] = median_ms(
-                    [binary, str(script)], json.dumps(payload).encode(), env, str(repo), args.reps
+                    [*binary, str(script)], json.dumps(payload).encode(), env, str(repo), args.reps
                 )
         for runtime, binary in runtimes.items():
-            snap = [binary, str(BIN / "b-candidate-snapshot.mjs")]
+            snap = [*binary, str(BIN / "b-candidate-snapshot.mjs")]
             medians[f"snapshot/{runtime}"] = median_ms(snap, None, env, str(repo), args.reps)
             medians[f"snapshot-git-runs/{runtime}"] = count_git(
                 snap, shim_env, str(repo), log, git_lines.setdefault(f"snapshot/{runtime}", [])
             )
-            state = [binary, str(BIN / "b-state.mjs"), "check", "--owner", "bench"]
+            state = [*binary, str(BIN / "b-state.mjs"), "check", "--owner", "bench"]
             medians[f"b-state-check/{runtime}"] = median_ms(state, None, env, str(repo), args.reps)
             medians[f"b-state-check-git-runs/{runtime}"] = count_git(
                 state, shim_env, str(repo), log, git_lines.setdefault(f"b-state-check/{runtime}", [])
