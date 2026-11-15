@@ -44,7 +44,7 @@ Create or refresh `docs/DESIGN.md`, the repo-local frontend design standard. Do 
 ## Steps
 
 1. Confirm the source mode: user description, attached image/mockup, existing `docs/DESIGN.md`, design-token source, current frontend code, or a mix.
-2. Run `rtk git status --short` via Bash for repo work and preserve unrelated changes.
+2. Run `rtk git status --short` via the shell tool for repo work and preserve unrelated changes.
 3. Inspect the lightest useful evidence: existing design docs, frontend components, tokens, CSS, layout files, screenshots, and repo conventions. Use native `read` first. Do not invent a design system when evidence is thin. Before drafting, make an explicit, task-conditional design read: identify the surface, audience, brand/repository evidence, hierarchy, density, layout variance, and motion posture; then state one product-appropriate art direction and its anti-default constraints. Treat marketing pages, product apps, dashboards, and trust/regulated surfaces differently. If evidence leaves materially different directions, ask one focused question rather than guessing.
 4. If analyzing images, separate observed facts from inferred rules. Treat exact dimensions, counts, colors, and spatial alignment as approximate unless supported by source files or browser evidence.
 5. Create or update only `docs/DESIGN.md` with edit/write unless the user explicitly approved a broader documentation change. Preserve useful existing content and remove generic filler. If an unresolved product choice is material and user-facing, use `question` with 2–4 concrete options and a concise recommended choice; if unavailable or noninteractive, ask one focused plain-text question. Otherwise, record the unresolved choice as an open question.

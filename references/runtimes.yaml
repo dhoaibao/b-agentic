@@ -131,6 +131,42 @@
         {
           "from": "the harness starts the worker in the background, and that is the wait",
           "to": "the harness starts the worker in the background and notifies you when it goes idle, and that is the wait"
+        },
+        {
+          "from": "record a yes with the guard's `--approve`, which raises a native permission prompt as a second confirmation; never approve on the user's behalf or around that prompt (no environment override or direct write of the approval store)",
+          "to": "if they say yes, ask them to run the guard's `--approve` themselves in their own terminal (the plugin guard refuses it from this session), then rerun `--check`; never approve on the user's behalf (no environment override or direct write of the approval store)"
+        },
+        {
+          "from": "(run via Bash)",
+          "to": "(run via the shell tool)"
+        },
+        {
+          "from": "(using Bash)",
+          "to": "(using the shell tool)"
+        },
+        {
+          "from": "Using Bash,",
+          "to": "Using the shell tool,"
+        },
+        {
+          "from": "via Bash for repo work",
+          "to": "via the shell tool for repo work"
+        },
+        {
+          "from": "through Bash is detected",
+          "to": "through the shell tool is detected"
+        },
+        {
+          "from": "named `b-reviewer` subagent type,",
+          "to": "named `b-reviewer` agent,"
+        },
+        {
+          "from": "after a `/clear` or a resume",
+          "to": "after a new session or a resume"
+        },
+        {
+          "from": "a `/clear` changes the session id",
+          "to": "a new session changes the session id"
         }
       ],
       "kernel_overrides": [
@@ -154,7 +190,8 @@
         "subagent_type",
         "NotebookEdit",
         "CLAUDE_CODE_SESSION_ID",
-        "run_in_background"
+        "run_in_background",
+        "mcp__"
       ]
     }
   }

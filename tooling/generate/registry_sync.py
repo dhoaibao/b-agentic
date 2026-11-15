@@ -351,14 +351,28 @@ def apply_markers(text: str, runtime: str) -> str:
     return "\n".join(kept)
 
 
+def translate_mcp_names(text: str) -> str:
+    """Rewrite Claude-style `mcp__<server>__<tool>` names (and `*` wildcards) of managed servers to OpenCode's `<server>_<tool>`."""
+    servers = sorted(load_policy()["servers"], key=len, reverse=True)
+    pattern = re.compile(
+        r"mcp__(" + "|".join(re.escape(server) for server in servers) + r")__([A-Za-z0-9_*-]+(?:\.[A-Za-z0-9_*-]+)*)"
+    )
+
+    def swap(match: re.Match[str]) -> str:
+        tool = "*".join(opencode_name(part) for part in match.group(2).split("*"))
+        return f"{opencode_name(match.group(1))}_{tool}"
+
+    return pattern.sub(swap, text)
+
+
 def apply_glossary(text: str, runtime: str, hits: set[str] | None = None) -> str:
-    """Ordered literal replacements that turn Claude Code wording into the runtime's own."""
+    """Ordered literal replacements that turn Claude Code wording into the runtime's own, then MCP tool names."""
     for entry in RUNTIMES[runtime].get("glossary", []):
         if entry["from"] in text:
             if hits is not None:
                 hits.add(entry["from"])
             text = text.replace(entry["from"], entry["to"])
-    return text
+    return translate_mcp_names(text) if runtime == "opencode" else text
 
 
 def apply_kernel_overrides(text: str, runtime: str) -> str:

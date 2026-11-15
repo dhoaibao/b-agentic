@@ -45,7 +45,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 
 ## Steps
 
-1. Find the test framework and narrowest runnable command from manifests, CI, or existing tests (using Bash). Use native inspection and test discovery for the runner; use CodeGraph for source-to-test impact when an index is available.
+1. Find the test framework and narrowest runnable command from manifests, CI, or existing tests (using the shell tool). Use native inspection and test discovery for the runner; use CodeGraph for source-to-test impact when an index is available.
 2. Confirm intended behavior from user intent, product contract, source change, existing passing tests, and materially relevant repo context. Use Context7 only for unresolved versioned framework semantics: one bounded lookup (resolve once, query once) inside this skill; a broader or user-requested external question goes to **b-research**.
 3. For failing tests, run the narrow target, read the test and exercised source, edit tests only after classifying the failure.
 4. For new tests, cover requested or changed behavior through the highest practical public interface first; add edge cases only when risk requires them.
