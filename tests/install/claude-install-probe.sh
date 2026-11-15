@@ -1192,7 +1192,7 @@ pid, fd = pty.fork()
 if pid == 0:
     keep = {k: os.environ[k] for k in ("PROBE_ROOT", "PROBE_CMD", "B_AGENTIC_REPO", "B_AGENTIC_DIR") if k in os.environ}
     os.execvpe("bash", ["bash", "-c", os.environ["PROBE_CMD"]], {**env, **keep})
-buf, last = b"", time.time()
+buf, last, since = b"", time.time(), b""
 while time.time() - last < 20:
     ready, _, _ = select.select([fd], [], [], 0.3)
     if ready:
@@ -1202,14 +1202,17 @@ while time.time() - last < 20:
             break
         if not chunk:
             break
-        buf, last = buf + chunk, time.time()
-    elif answers and time.time() - last > 0.5:
+        buf, since, last = buf + chunk, since + chunk, time.time()
+    # An answer is typed only once its prompt is on screen: input sent while the installer is still computing
+    # (slow on a loaded runner) is flushed by the prompt's terminal-mode switch and the run then waits forever.
+    elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"Enter confirms" in since):
         answer = answers.pop(0)
-        if answer.startswith("!"):  # a shell command run while the prompt is open
+        if answer.startswith("!"):  # a shell command run while the prompt is open; the prompt stays on screen
             subprocess.run(answer[1:], shell=True, env=env, check=True)
+            last = time.time()
         else:
             os.write(fd, (answer + "\n").encode())
-        last = time.time()
+            last, since = time.time(), b""
     elif not answers and time.time() - last > 3:
         break
 # Reap the child with a bound: a prompt that never got its answer would otherwise block here until the CI job
