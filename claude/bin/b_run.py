@@ -73,7 +73,8 @@ class Invalid(Exception):
 
 def _glob_regex(pattern: str) -> re.Pattern[str]:
     body = "".join(".*" if c == "*" else "." if c == "?" else re.escape(c) for c in pattern)
-    return re.compile(f"^{body}$", re.S)
+    # Case-insensitive like b-protected.mjs (`.ENV` opens `.env` on a case-insensitive filesystem); ASCII-only folding.
+    return re.compile(f"^{body}$", re.S | re.I | re.A)
 
 
 _PROTECTED = [(_glob_regex(p), action) for p, action in PROTECTED_RULES]
@@ -1456,9 +1457,15 @@ def _opencode_worker_problems(text: str, read_only: set[str]) -> list[str]:
 def _opencode_inline_problems(config_dirs: list[tuple[str, Path]]) -> list[str]:
     """An inline `agents` entry for the worker is merged over the file profile and is not inspected, so it is refused."""
     problems: list[str] = []
+    default_dir = os.path.realpath(Path.home() / ".config" / "opencode")
     for name in ("OPENCODE_CONFIG", "OPENCODE_CONFIG_CONTENT", "OPENCODE_CONFIG_DIR"):
-        if os.environ.get(name):
-            problems.append(f"{name} is set: a config it names is merged over the profile files and is not inspected")
+        value = os.environ.get(name)
+        if not value:
+            continue
+        # The default directory is inspected below as the user scope, and the installer accepts it too.
+        if name == "OPENCODE_CONFIG_DIR" and os.path.realpath(os.path.expanduser(value)) == default_dir:
+            continue
+        problems.append(f"{name} is set: a config it names is merged over the profile files and is not inspected")
     for scope, directory in config_dirs:
         if (directory / "opencode.jsonc").exists():
             problems.append(f"{scope}: opencode.jsonc cannot be read safely; an inline b-worker could hide in it")

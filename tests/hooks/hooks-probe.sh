@@ -71,6 +71,12 @@ run "$pathguard" "$(pg Grep pattern 'foo.pem')"; expect 0 "a Grep regex mentioni
 run "$pathguard" "$(pg Grep glob '**/*.ts')"; expect 0 "an ordinary glob must pass"
 run "$pathguard" "$(pg Grep glob '**/.env.example')"; expect 0 "a glob naming .env.example must pass"
 run "$pathguard" "$(pg Read file_path /repo/.env.example)"; expect 0 ".env.example is explicitly allowed"
+# A case variant is the same file on a case-insensitive filesystem.
+run "$pathguard" "$(pg Read file_path /repo/.ENV)"; expect 2 "Read .ENV must be blocked"
+run "$pathguard" "$(pg Read file_path /repo/Credentials.json)"; expect 2 "Credentials.json must be blocked"
+run "$pathguard" "$(pg Read file_path /repo/SECRETS.yaml)"; expect 2 "SECRETS.yaml must be blocked"
+run "$pathguard" "$(pg Write file_path /repo/keys/server.PEM)"; expect 2 "server.PEM must be blocked"
+run "$pathguard" "$(pg Read file_path /repo/.ENV.example)"; expect 0 ".ENV.example stays allowed"
 run "$pathguard" "$(pg Read file_path /repo/src/app.ts)"; expect 0 "ordinary path must pass"
 run "$pathguard" '{"tool_name":"Bash","tool_input":{"command":"ls"}}'; expect 0 "tool without a path must pass"
 run "$pathguard" 'not json'; expect 0 "malformed input must fail open"

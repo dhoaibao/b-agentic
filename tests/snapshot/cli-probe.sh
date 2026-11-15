@@ -246,6 +246,18 @@ snap "$flagged" "$work/f3.json"
 [ "$(rc_of "$work/f3.json")" = 0 ] || fail "a skip-worktree file absent from disk (sparse checkout) must stay complete: $(cat "$work/f3.json.err")"
 echo "snapshot probe passed: index-flags"
 
+# --- case variants: the same likely-secret file on a case-insensitive filesystem --
+casev="$work/casev"
+make_repo "$casev"
+printf 'TOPSECRET=1\n' >"$casev/.ENV"
+printf 'TOPSECRET=1\n' >"$casev/Credentials.json"
+printf 'TOPSECRET=1\n' >"$casev/server.PEM"
+printf 'ok\n' >"$casev/.ENV.example"
+snap "$casev" "$work/casev.json"
+[ "$(jq -r '[.protected[].path] | sort | join(",")' "$work/casev.json")" = ".ENV,Credentials.json,server.PEM" ] || fail "case variants not classified as protected: $(jq -c '[.protected[].path]' "$work/casev.json")"
+grep -Fq TOPSECRET "$work/casev.json" && fail "a case-variant protected file reached the output"
+echo "snapshot probe passed: case variants"
+
 # --- non-UTF-8 names: classified on raw bytes ---------------------------------
 raw="$work/raw"
 make_repo "$raw"

@@ -28,7 +28,8 @@ function globToRegExp(pattern) {
           : char.replace(/[.+^${}()|[\]\\]/g, "\\$&"),
     )
     .join("");
-  return new RegExp(`^${body}$`, "s");
+  // Case-insensitive: `.ENV` opens `.env` on a case-insensitive filesystem, so a case variant is the same file.
+  return new RegExp(`^${body}$`, "si");
 }
 const COMPILED_RULES = PROTECTED_RULES.map(([pattern, action]) => [
   globToRegExp(pattern),

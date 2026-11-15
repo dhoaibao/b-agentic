@@ -81,6 +81,7 @@ lint_bad spec '.criteria[0].evidence = "magic"' "unknown evidence type"
 lint_bad spec '.criteria[0].command = "run `x`"' "backtick in a command"
 lint_bad spec '.criteria[0].extra = 1' "unknown field"
 lint_bad spec '.scope_paths = ["config/secrets.yaml"]' "protected scope path"
+lint_bad spec '.scope_paths = ["config/SECRETS.yaml"]' "protected scope path in another case"
 lint_bad spec '.scope_paths = ["/etc/passwd"]' "absolute scope path"
 lint_bad spec '.scope_paths = ["../x"]' "scope path with .."
 lint_bad spec '.behavior.examples = [.behavior.examples[0]]' "fewer than two examples"
@@ -293,6 +294,10 @@ printf 'x\n' >"$repo/src/db.env"
 refused "$repo" scope-check
 jq -e '.protected == ["src/db.env"] and (.outside_scope | length) == 1' <<<"$out" >/dev/null || fail "a protected path must be reported: $out"
 rm "$repo/src/db.env"
+printf 'x\n' >"$repo/src/DB.ENV"
+refused "$repo" scope-check
+jq -e '.protected == ["src/DB.ENV"]' <<<"$out" >/dev/null || fail "a protected path in another case must be reported: $out"
+rm "$repo/src/DB.ENV"
 # Ignored artifacts that the candidate names are checked like changed paths.
 state_file=$(rundir "$repo")/state.json
 tmp=$(mktemp -p "$work")
@@ -779,6 +784,13 @@ ocwp
 rc=0
 out=$(cd "$oc_repo" && env -u CLAUDE_CODE_SESSION_ID OPENCODE_SESSION_ID=ses_x OPENCODE_CONFIG_CONTENT='{}' HOME="$oc_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
 { [ "$rc" -eq 3 ] && grep -Fq 'OPENCODE_CONFIG_CONTENT' <<<"$out"; } || fail "a config named by the environment must be refused: rc=$rc $out"
+# The default config directory is inspected as the user scope, so naming it is accepted; any other one is refused.
+rc=0
+out=$(cd "$oc_repo" && env -u CLAUDE_CODE_SESSION_ID OPENCODE_SESSION_ID=ses_x OPENCODE_CONFIG_DIR="$oc_home/.config/opencode" HOME="$oc_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
+[ "$rc" -eq 0 ] || fail "OPENCODE_CONFIG_DIR naming the default directory must be accepted: rc=$rc $out"
+rc=0
+out=$(cd "$oc_repo" && env -u CLAUDE_CODE_SESSION_ID OPENCODE_SESSION_ID=ses_x OPENCODE_CONFIG_DIR="$work/elsewhere" HOME="$oc_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
+{ [ "$rc" -eq 3 ] && grep -Fq 'OPENCODE_CONFIG_DIR' <<<"$out"; } || fail "another OPENCODE_CONFIG_DIR must be refused: rc=$rc $out"
 # An unsafe profile in the system directory must not hide behind the safe installed one.
 oc_sys="$work/ocsys"
 mkdir -p "$oc_sys/agents"
