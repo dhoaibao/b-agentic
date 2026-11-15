@@ -19,7 +19,7 @@ st() {
   local repo=$1 owner=$2
   shift 2
   rc=0; [ -z "${STATE_PROBE_DEBUG:-}" ] || echo "st: $*" >&2
-  out=$(cd "$repo" && node "$cli" "$@" --owner "$owner" 2>"$work/err") || rc=$?
+  out=$(cd "$repo" && "${js[@]}" "$cli" "$@" --owner "$owner" 2>"$work/err") || rc=$?
 }
 ok() { st "$@"; [ "$rc" -eq 0 ] || fail "expected success ($*): rc=$rc $(cat "$work/err")"; }
 refused() { st "$@"; [ "$rc" -eq 3 ] || fail "expected refusal ($*): rc=$rc $(cat "$work/err")"; }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Exercise claude/bin/b-state.mjs against throwaway git repositories.
-# Needs only node, git, and jq: no network, credentials, or Claude Code.
+# Needs only bun, git, and jq: no network, credentials, or Claude Code.
 # Exit contract: 0 done, 3 refused or not ok, 2 invalid input or state.
 #
 # Each file in cases/ is an independent shard with its own work folder and repositories
@@ -43,6 +43,10 @@ for known in "${cases[@]}"; do [ "$known" != "$name" ] || found=1; done
 [ "$found" -eq 1 ] || { echo "usage: state-probe.sh [${cases[*]}]" >&2; exit 2; }
 
 cli="$root/claude/bin/b-state.mjs"
+# The runtime that runs the CLI under test: bun with the hardening flags the installer writes (ADR-018), or
+# node (STATE_PROBE_RUNTIME=node) for the Pi runtime, which runs these CLIs in Node.
+js=(bun --no-env-file --config=/dev/null)
+if [ "${STATE_PROBE_RUNTIME:-}" = node ]; then js=(node); fi
 work=$(mktemp -d)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null

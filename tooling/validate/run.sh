@@ -13,6 +13,11 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# The Claude Code probes run with bun; the Pi probes and the fake Codex plugin need node.
+for tool in bun node; do
+  command -v "$tool" >/dev/null 2>&1 || { printf 'error: %s is required to run the validation suite\n' "$tool" >&2; exit 1; }
+done
+
 python3 "$ROOT_DIR/tooling/generate/registry_sync.py" --self-test --check
 python3 "$ROOT_DIR/tooling/validate/capabilities.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/decision_design.py" --self-test
@@ -64,14 +69,13 @@ finish_probes() {
   fi
 }
 
-# The hooks probe in three processes: the hook sections under node, the same under bun when it is installed,
-# and the slow verdict mapper and review wrapper (CLIs the skills run with node) on their own.
-start_probe hooks-node env HOOKS_PROBE_PART=hooks HOOKS_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
-if command -v bun >/dev/null 2>&1; then
-  start_probe hooks-bun env HOOKS_PROBE_PART=hooks HOOKS_PROBE_RUNTIME=bun bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
-fi
+# Claude Code runs everything below with bun (ADR-018). The hooks probe is two processes: the hook sections,
+# and the slow verdict mapper and review wrapper on their own. The snapshot CLI also runs under node, and
+# a release run repeats the state and artifact probes under node, because the Pi runtime runs those CLIs in Node.
+start_probe hooks env HOOKS_PROBE_PART=hooks bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
 start_probe hooks-cli env HOOKS_PROBE_PART=cli bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
 start_probe snapshot bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
+start_probe snapshot-node env SNAPSHOT_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
 start_probe statusline bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
 start_probe state bash "$ROOT_DIR/tests/state/state-probe.sh"
 start_probe artifacts bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
@@ -79,6 +83,8 @@ start_probe pi-guard-cases node "$ROOT_DIR/tests/pi/guard-cases.mjs"
 start_probe pi-guard bash "$ROOT_DIR/tests/pi/guard-probe.sh"
 
 if [ "$run_release" -eq 1 ]; then
+  start_probe state-node env STATE_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/state/state-probe.sh"
+  start_probe artifacts-node env ARTIFACT_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
   start_probe claude-install bash "$ROOT_DIR/tests/install/claude-install-probe.sh"
   start_probe pi-install bash "$ROOT_DIR/tests/install/pi-install-probe.sh"
   if command -v rtk >/dev/null 2>&1; then

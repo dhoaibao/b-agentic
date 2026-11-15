@@ -267,7 +267,7 @@ scope "$repoL"
 repoR="$work/repoR"
 make_repo "$repoR"
 mkdir -p "$repoR/.b-agentic/runs" && printf '*\n' >"$repoR/.b-agentic/.gitignore"
-( cd "$repoR" && for n in 1 2 3 4 5 6; do node "$cli" init "race$n" --owner "r$n" >/dev/null 2>&1 & done; wait ) || true
+( cd "$repoR" && for n in 1 2 3 4 5 6; do "${js[@]}" "$cli" init "race$n" --owner "r$n" >/dev/null 2>&1 & done; wait ) || true
 [ "$(find "$repoR/.b-agentic/runs" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ] || fail "concurrent inits must create exactly one run: $(ls "$repoR/.b-agentic/runs")"
 [ ! -e "$repoR/.b-agentic/mutex" ] || fail "no worktree mutex may remain after init"
 [ "$(cat "$repoR/.b-agentic/active")" = "$(ls "$repoR/.b-agentic/runs")" ] || fail "the active pointer must name the one run"

@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
 # Exercise claude/bin/b-statusline.mjs with scripted status JSON.
-# Needs only node and jq: no network, credentials, or Claude Code.
+# Needs only bun and jq: no network, credentials, or Claude Code.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cli="$root/claude/bin/b-statusline.mjs"
-# The status line runs under node and, when it is installed, bun: STATUSLINE_PROBE_RUNTIME names the
-# runtime of this run, and an unset value runs node and then bun.
-js=${STATUSLINE_PROBE_RUNTIME:-node}
-if [ -z "${STATUSLINE_PROBE_RUNTIME:-}" ] && command -v bun >/dev/null 2>&1; then
-  STATUSLINE_PROBE_RUNTIME=bun bash "${BASH_SOURCE[0]}" || { echo "statusline probe failed under bun" >&2; exit 1; }
-fi
+# Claude Code runs the status line with bun and the same hardening flags the installer writes (ADR-018).
+js=(bun --no-env-file --config=/dev/null)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
@@ -25,7 +21,7 @@ jq -nc --argjson r $((now + 5000)) --argjson w $((now + 200000)) '{
   context_window: {used_percentage: 55.4, context_window_size: 1000000,
     current_usage: {input_tokens: 10, cache_read_input_tokens: 554000}},
   rate_limits: {five_hour: {used_percentage: 12, resets_at: $r}, seven_day: {used_percentage: 85, resets_at: $w}}}' >"$work/full.json"
-raw=$("$js" "$cli" <"$work/full.json")
+raw=$("${js[@]}" "$cli" <"$work/full.json")
 line=$(plain <<<"$raw")
 [ "$line" = "Opus · high   context 55% (554k/1M)   5h 12% · 1h 23m   week 85% · 2d 7h" ] || fail "full line: $line"
 grep -Fq $'\033[31m85%' <<<"$raw" || fail "85% must be red"
@@ -40,7 +36,7 @@ printf 'ref: refs/heads/wt-branch\n' >"$work/wt-gitdir/HEAD"
 printf 'gitdir: %s\n' "$work/wt-gitdir" >"$work/wt/.git"
 printf '0123456789abcdef0123456789abcdef01234567\n' >"$work/detached/.git/HEAD"
 meta() { jq -c --arg d "$1" '.workspace = {current_dir: $d, repo: {name: "demo"}} | .cost = {total_cost_usd: 1.183}
-  | .prompt_cache = {expires_at: 1, hit_ratio: 0.9006}' "$work/full.json" | "$js" "$cli" | plain; }
+  | .prompt_cache = {expires_at: 1, hit_ratio: 0.9006}' "$work/full.json" | "${js[@]}" "$cli" | plain; }
 raw=$(meta "$work/repo/sub")
 [ "$raw" = "Opus · high   demo@feat/x   context 55% (554k/1M)   \$1.18   cache 90% hit   5h 12% · 1h 23m   week 85% · 2d 7h" ] || fail "meta line: $raw"
 grep -Fq 'demo@wt-branch' <<<"$(meta "$work/wt")" || fail "worktree branch"
@@ -48,24 +44,24 @@ grep -Fq 'demo@0123456 ' <<<"$(meta "$work/detached")" || fail "detached HEAD sh
 grep -Fq 'demo ' <<<"$(meta "$work/none")" || fail "repo name without a repository"
 
 # The cache segment shows only the hit ratio, never an expiry countdown, and only when reported.
-raw=$(jq -c --argjson e $((now + 600)) '.prompt_cache = {expires_at: $e, hit_ratio: 0.5}' "$work/full.json" | "$js" "$cli" | plain)
+raw=$(jq -c --argjson e $((now + 600)) '.prompt_cache = {expires_at: $e, hit_ratio: 0.5}' "$work/full.json" | "${js[@]}" "$cli" | plain)
 grep -Fq 'cache 50% hit' <<<"$raw" || fail "hit ratio not shown: $raw"
 # A high hit ratio is good, so the colours run the other way from the usage percents.
-hit_raw() { jq -c --argjson h "$1" '.prompt_cache = {hit_ratio: $h}' "$work/full.json" | "$js" "$cli"; }
+hit_raw() { jq -c --argjson h "$1" '.prompt_cache = {hit_ratio: $h}' "$work/full.json" | "${js[@]}" "$cli"; }
 grep -Fq $'\033[32m90%' <<<"$(hit_raw 0.9)" || fail "90% hit must be green"
 grep -Fq $'\033[33m60%' <<<"$(hit_raw 0.6)" || fail "60% hit must be yellow"
 grep -Fq $'\033[31m20%' <<<"$(hit_raw 0.2)" || fail "20% hit must be red"
 grep -Eq 'exp\.|cache [0-9]+m' <<<"$raw" && fail "cache expiry must not be shown: $raw"
-raw=$(jq -c '.prompt_cache = {expires_at: null}' "$work/full.json" | "$js" "$cli" | plain)
+raw=$(jq -c '.prompt_cache = {expires_at: null}' "$work/full.json" | "${js[@]}" "$cli" | plain)
 grep -Fq 'cache' <<<"$raw" && fail "no hit ratio must show no cache segment: $raw"
 
 # Missing fields and invalid input never crash or print noise.
-[ -z "$(printf '{}' | "$js" "$cli" | plain | tr -d '\n')" ] || fail "empty input must print an empty line"
-[ "$(printf '{"model":{"display_name":"Sonnet"}}' | "$js" "$cli" | plain)" = "Sonnet" ] || fail "model only"
-[ -z "$(printf 'not json' | "$js" "$cli")" ] || fail "invalid input must print nothing"
+[ -z "$(printf '{}' | "${js[@]}" "$cli" | plain | tr -d '\n')" ] || fail "empty input must print an empty line"
+[ "$(printf '{"model":{"display_name":"Sonnet"}}' | "${js[@]}" "$cli" | plain)" = "Sonnet" ] || fail "model only"
+[ -z "$(printf 'not json' | "${js[@]}" "$cli")" ] || fail "invalid input must print nothing"
 
 # A reader never writes: the run leaves the work directory unchanged.
 before=$(find "$work" -type f | sort | xargs sha256sum)
-"$js" "$cli" <"$work/full.json" >/dev/null
+"${js[@]}" "$cli" <"$work/full.json" >/dev/null
 [ "$before" = "$(find "$work" -type f | sort | xargs sha256sum)" ] || fail "the status line wrote a file"
 echo "statusline probe passed"

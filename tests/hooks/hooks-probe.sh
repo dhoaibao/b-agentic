@@ -1,31 +1,24 @@
 #!/usr/bin/env bash
 # Exercise the Claude Code hooks and the Codex verdict mapper with scripted hook
-# JSON and throwaway git repositories. Needs only node, git, and jq: no
-# credentials, network, Claude Code, or Codex.
+# JSON and throwaway git repositories. Needs only bun, node (for the fake
+# plugin), git, and jq: no credentials, network, Claude Code, or Codex.
 # shellcheck disable=SC2016 # Single-quoted shell commands with literal $ are the inputs under test.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-# The hooks run under node and, when it is installed, bun (the installer can point them at either):
-# HOOKS_PROBE_RUNTIME names the one this run uses, and an unset value runs node and starts a bun run beside it.
-js=${HOOKS_PROBE_RUNTIME:-node}
+# Claude Code runs the hooks and the helper CLIs with bun and the hardening flags the installer writes
+# (ADR-018). The fake Codex plugin below is a node script because the real plugin's runtime is node.
+js=(bun --no-env-file --config=/dev/null)
 # HOOKS_PROBE_PART=hooks runs only the hook sections, cli only the verdict mapper and the review wrapper (the
 # slow part); an unset value runs both. tooling/validate/run.sh starts them as separate processes.
 part=${HOOKS_PROBE_PART:-all}
-bun_log=""
-bun_pid=""
-if [ -z "${HOOKS_PROBE_RUNTIME:-}" ] && command -v bun >/dev/null 2>&1; then
-  bun_log=$(mktemp)
-  HOOKS_PROBE_RUNTIME=bun bash "${BASH_SOURCE[0]}" >"$bun_log" 2>&1 &
-  bun_pid=$!
-fi
 pathguard="$root/claude/hooks/b-path-guard.mjs"
 verifygate="$root/claude/hooks/b-verify-gate.mjs"
 codexguard="$root/claude/hooks/b-codex-guard.mjs"
 verdict="$root/claude/bin/b-codex-verdict.mjs"
 wrapper="$root/claude/bin/b-codex-review.mjs"
 work=$(mktemp -d)
-trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"; [ -z "$bun_pid" ] || kill "$bun_pid" 2>/dev/null || true; [ -z "$bun_log" ] || rm -f "$bun_log"' EXIT
+trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
 export B_AGENTIC_STATE_DIR="$work/state"
@@ -40,7 +33,7 @@ run() {
   local script=$1 input=$2
   shift 2
   rc=0
-  err=$(printf '%s' "$input" | "$js" "$script" "$@" 2>&1 >/dev/null) || rc=$?
+  err=$(printf '%s' "$input" | "${js[@]}" "$script" "$@" 2>&1 >/dev/null) || rc=$?
 }
 expect() { [ "$rc" = "$1" ] || fail "$2 (exit $rc, expected $1: $err)"; }
 
@@ -252,12 +245,12 @@ run "$codexguard" "$(cg "$repo" 'ls -la')"; expect 0 "unrelated Bash must pass"
 run "$codexguard" "$(cg "$repo" 'node "/plugin/scripts/codex-companion.mjs" status')"; expect 0 "non-review companion command must pass"
 run "$codexguard" "$(cg "$repo" "$review")"; expect 2 "an unapproved repository must be refused"
 grep -Fq 'has not approved' <<<"$err" || fail "approval reason missing: $err"
-( cd "$repo" && "$js" "$codexguard" --check >"$work/check.json" ) && fail "--check must refuse an unapproved repository" || true
+( cd "$repo" && "${js[@]}" "$codexguard" --check >"$work/check.json" ) && fail "--check must refuse an unapproved repository" || true
 [ "$(jq -r .ok "$work/check.json")" = false ] || fail "--check ok must be false before approval"
 
-( cd "$repo" && "$js" "$codexguard" --approve >"$work/approve.json" )
+( cd "$repo" && "${js[@]}" "$codexguard" --approve >"$work/approve.json" )
 [ "$(jq -r .approved "$work/approve.json")" = true ] || fail "--approve did not record approval"
-( cd "$repo" && "$js" "$codexguard" --check >"$work/check.json" ) || fail "--check must pass after approval"
+( cd "$repo" && "${js[@]}" "$codexguard" --check >"$work/check.json" ) || fail "--check must pass after approval"
 run "$codexguard" "$(cg "$repo" "$review")"; expect 0 "an approved clean repository must pass"
 git -C "$repo" branch base
 run "$codexguard" "$(cg "$repo" 'node /p/codex-companion.mjs review --wait --base base')"; expect 0 "a direct review against a resolvable base ref must pass"
@@ -379,13 +372,13 @@ run "$codexguard" "$(cg "$other" $'node /p/codex-compan\\\nion.mjs review --wait
 grep -Fq 'Codex guard refused' <<<"$err" || fail "guard gave no refusal for the line-continuation split: $err"
 run "$codexguard" "$(cg "$other" 'node -e '"'"'require("child_process").execSync("node /p/codex-companion.mjs review --wait --scope working-tree")'"'"'')"; expect 2 "an interpreter must not bypass the approval check"
 run "$codexguard" "$(cg "$other" "git -c 'alias.scan=!node /p/codex-companion.mjs review --wait --scope working-tree' scan")"; expect 2 "a git alias must not bypass the approval check"
-( cd "$repo" && "$js" "$codexguard" --revoke >/dev/null )
+( cd "$repo" && "${js[@]}" "$codexguard" --revoke >/dev/null )
 run "$codexguard" "$(cg "$repo" "$review")"; expect 2 "a revoked repository must be refused"
-( cd "$repo" && "$js" "$codexguard" --bogus 2>/dev/null ) && fail "an unknown argument must fail" || true
+( cd "$repo" && "${js[@]}" "$codexguard" --bogus 2>/dev/null ) && fail "an unknown argument must fail" || true
 
 # The approval itself is a tripwire: a command that records, redirects, or rewrites it
 # answers on stdout with an "ask" decision and exits 0; unrelated commands stay silent.
-ag_out() { out=$(printf '%s' "$1" | "$js" "$codexguard") || fail "the approval tripwire must exit 0"; }
+ag_out() { out=$(printf '%s' "$1" | "${js[@]}" "$codexguard") || fail "the approval tripwire must exit 0"; }
 ag_asks() {
   ag_out "$(cg "$repo" "$1")"
   [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$out")" = ask ] || fail "codex guard must ask for: $1"
@@ -406,6 +399,10 @@ ag_asks 'export B_AGENTIC_STATE_DIR=/tmp/x; node ~/.claude/b-agentic/bin/b-codex
 ag_asks "echo '[\"/repo\"]' > ~/.claude/b-agentic/codex-approved-repos.json"
 ag_silent 'ls -la'
 ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check'
+ag_asks 'bun --no-env-file --config=/dev/null ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
+ag_asks '/home/me/.bun/bin/bun --no-env-file --config=/dev/null "$HOME/.claude/b-agentic/hooks/b-codex-guard.mjs" --approve'
+ag_asks 'B_AGENTIC_STATE_DIR=/tmp/x bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
+ag_silent 'bun --no-env-file --config=/dev/null ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check'
 ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --revoke'
 ag_silent 'node /p/codex-companion.mjs status'
 ag_silent 'rg -n B_AGENTIC_STATE_DIR claude/hooks'
@@ -418,7 +415,7 @@ specctx="$root/claude/hooks/b-spec-context.mjs"
 sc() { jq -cn --arg cwd "$1" --arg source "${2:-compact}" '{hook_event_name: "SessionStart", source: $source, cwd: $cwd}'; }
 sout=""
 srun() { # <json>: stdout in $sout, exit code in $rc (a hang would surface as exit 124 where timeout exists)
-  local cmd=("$js" "$specctx")
+  local cmd=("${js[@]}" "$specctx")
   command -v timeout >/dev/null && cmd=(timeout 20 "${cmd[@]}")
   rc=0
   sout=$(printf '%s' "$1" | "${cmd[@]}" 2>/dev/null) || rc=$?
@@ -519,7 +516,7 @@ echo "hooks probe passed: spec-context"
 # --- run context -----------------------------------------------------------------
 runctx="$root/claude/hooks/b-run-context.mjs"
 rc_in() { jq -cn --arg cwd "$1" --arg source "${2:-startup}" --arg ev "${3:-SessionStart}" '{hook_event_name: $ev, source: $source, cwd: $cwd}'; }
-rrun() { rc=0; sout=$(printf '%s' "$1" | "$js" "$runctx" 2>/dev/null) || rc=$?; }
+rrun() { rc=0; sout=$(printf '%s' "$1" | "${js[@]}" "$runctx" 2>/dev/null) || rc=$?; }
 rquiet() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
 rid=20260101-demo
 mkdir -p "$work/r1/.b-agentic/runs/$rid"
@@ -559,12 +556,11 @@ echo "hooks probe passed: run-context"
 
 fi
 
-# The verdict mapper and the review wrapper are CLIs the skills run with node whichever runtime the hooks
-# use, so the bun run (hooks only) stops here and the node run carries on with them.
-if [ "$js" != node ] || [ "$part" = hooks ]; then exit 0; fi
+# The hook sections are done; the verdict mapper and the review wrapper are the cli part.
+if [ "$part" = hooks ]; then exit 0; fi
 
 # --- verdict mapper --------------------------------------------------------------
-vd() { printf '%s' "$1" | node "$verdict" "${@:2}"; }
+vd() { printf '%s' "$1" | "${js[@]}" "$verdict" "${@:2}"; }
 out=$(vd '{"verdict":"approve","findings":[],"summary":"ok"}'); [ "$(jq -r .provisional_verdict <<<"$out")" = "READY FOR PR" ] || fail "approve with no findings"
 out=$(vd '{"verdict":"needs-attention","findings":[{"severity":"high","title":"Leak","file":"a.ts","line_start":3,"line_end":9,"confidence":0.9,"recommendation":"fix","body":"b"}]}' --round 2)
 [ "$(jq -r .provisional_verdict <<<"$out")" = "NEEDS FIXES" ] || fail "high finding must need fixes"
@@ -585,7 +581,7 @@ out=$(vd "$text")
 [ "$(jq -r '.findings[0].line_end' <<<"$out")" = 18 ] || fail "rendered text range not parsed"
 [ "$(jq -r '.findings[1].line_start' <<<"$out")" = 4 ] || fail "rendered text single line not parsed"
 for bad in $'Verdict: approve\nVerdict: approve\n' $'Verdict: needs-attention\nVerdict: needs-attention\n- [low] x\n'; do
-  rc=0; printf '%s' "$bad" | node "$verdict" >/dev/null 2>&1 || rc=$?
+  rc=0; printf '%s' "$bad" | "${js[@]}" "$verdict" >/dev/null 2>&1 || rc=$?
   [ "$rc" = 2 ] || fail "a repeated verdict line must exit 2 (got $rc)"
 done
 out=$(vd $'Verdict: approve\nNo issues found.\n'); [ "$(jq -r .provisional_verdict <<<"$out")" = "READY FOR PR" ] || fail "rendered text approve"
@@ -594,12 +590,12 @@ for bad in '' 'garbage' '{"verdict":"maybe","findings":[]}' '{"verdict":"approve
 done
 for bad in $'Verdict: approve\n- [urgent] leaked credentials (a.ts:1)\n' $'Verdict: approve\nVerdict: needs-attention\n' $'Verdict: needs-attention\n- [low] x\n- [highish] critical leak\n' $'Verdict: approve\nSee [high] note in the text\n' $'Verdict: approve\n1. [high] numbered finding\n' $'Verdict: maybe\n'; do
   if vd "$bad" >/dev/null 2>&1; then fail "unparseable or conflicting rendered text must be refused: $bad"; fi
-  rc=0; printf '%s' "$bad" | node "$verdict" >/dev/null 2>&1 || rc=$?
+  rc=0; printf '%s' "$bad" | "${js[@]}" "$verdict" >/dev/null 2>&1 || rc=$?
   [ "$rc" = 2 ] || fail "unparseable rendered text must exit 2 (got $rc): $bad"
 done
-rc=0; printf '%s' 'garbage' | node "$verdict" >/dev/null 2>&1 || rc=$?
+rc=0; printf '%s' 'garbage' | "${js[@]}" "$verdict" >/dev/null 2>&1 || rc=$?
 [ "$rc" = 2 ] || fail "invalid input must exit 2 (got $rc)"
-rc=0; node "$verdict" --round 0 </dev/null >/dev/null 2>&1 || rc=$?
+rc=0; "${js[@]}" "$verdict" --round 0 </dev/null >/dev/null 2>&1 || rc=$?
 [ "$rc" = 2 ] || fail "--round 0 must exit 2 (got $rc)"
 echo "hooks probe passed: verdict-mapper"
 
@@ -611,7 +607,7 @@ mkdir -p "$work/plugin"
 cat >"$fake" <<'JS'
 import { execFileSync, spawn } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
-appendFileSync(process.env.FAKE_LOG, `${JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() })}\n`);
+appendFileSync(process.env.FAKE_LOG, `${JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), runtime: process.versions.bun ? "bun" : "node" })}\n`);
 // Moves the mutable base ref while the review runs.
 if (process.env.FAKE_MOVE_REF) execFileSync("git", ["update-ref", "refs/heads/base", process.env.FAKE_MOVE_REF]);
 if (process.env.FAKE_TOUCH) appendFileSync(process.env.FAKE_TOUCH, "changed\n");
@@ -660,13 +656,13 @@ wrap() { # wrap <repo> [args...]: run the wrapper inside <repo>
   shift
   rc=0
   err=""
-  wout=$(cd "$repo" && B_AGENTIC_CODEX_COMPANION="$fake" node "$wrapper" "$@" 2>"$work/wstderr") || rc=$?
+  wout=$(cd "$repo" && B_AGENTIC_CODEX_COMPANION="$fake" "${js[@]}" "$wrapper" "$@" 2>"$work/wstderr") || rc=$?
   err=$(cat "$work/wstderr")
 }
 wexpect() { [ "$rc" = "$1" ] || fail "$2 (exit $rc, expected $1: $err)"; }
 wrepo="$work/wrepo"
 make_repo "$wrepo"
-( cd "$wrepo" && "$js" "$codexguard" --approve >/dev/null )
+( cd "$wrepo" && "${js[@]}" "$codexguard" --approve >/dev/null )
 : >"$FAKE_LOG"
 
 wrap "$wrepo" --scope working-tree --focus 'check the diff'; wexpect 0 "an approved clean repository must be reviewed"
@@ -674,6 +670,8 @@ wrap "$wrepo" --scope working-tree --focus 'check the diff'; wexpect 0 "an appro
 [ "$(jq -r .unchanged <<<"$wout")" = true ] || fail "an untouched candidate must report unchanged"
 [ "$(jq -r .f0 <<<"$wout")" = "$(jq -r .f1 <<<"$wout")" ] || fail "F0 and F1 must match for an untouched candidate"
 [ "$(jq -c '.argv' <(tail -n 1 "$FAKE_LOG"))" = '["adversarial-review","--wait","--scope","working-tree","check the diff"]' ] || fail "plugin argv wrong: $(tail -n 1 "$FAKE_LOG")"
+# The wrapper runs under bun, but the plugin's companion script runs with node, the plugin's own runtime.
+[ "$(jq -r '.runtime' <(tail -n 1 "$FAKE_LOG"))" = node ] || fail "the companion must run under node, not the wrapper's runtime: $(tail -n 1 "$FAKE_LOG")"
 [ "$(jq -r .cwd <(tail -n 1 "$FAKE_LOG"))" = "$(cd "$wrepo" && pwd -P)" ] || fail "the plugin must run in the repository root"
 git -C "$wrepo" branch base
 base_oid=$(git -C "$wrepo" rev-parse base)
@@ -702,7 +700,7 @@ grep -Fq 'no verdict contract' <<<"$err" || fail "the native refusal reason is m
 # finding: a base review sends merge-base..HEAD, so a protected path that HEAD already deleted still leaks
 whist_repo() { # whist_repo <dir>: an approved repository; the caller adds history
   make_repo "$1"
-  ( cd "$1" && "$js" "$codexguard" --approve >/dev/null )
+  ( cd "$1" && "${js[@]}" "$codexguard" --approve >/dev/null )
 }
 whist_commit() { git -C "$1" add -A && git -C "$1" commit -qm "$2"; }
 range_refused() { # range_refused <repo> <label> [needle]
@@ -723,9 +721,9 @@ range_refused "$whist" "a protected file deleted inside the range must refuse" .
 wrap "$whist" --scope working-tree; wexpect 0 "the working-tree review of the same repository stays allowed"
 run "$codexguard" "$(cg "$whist" 'node /p/codex-companion.mjs adversarial-review --wait --base base')"; expect 2 "the direct hook must apply the range check"
 grep -Fq 'review range' <<<"$err" || fail "the hook range reason is missing: $err"
-rc=0; ( cd "$whist" && "$js" "$codexguard" --check --base base >/dev/null 2>&1 ) || rc=$?
+rc=0; ( cd "$whist" && "${js[@]}" "$codexguard" --check --base base >/dev/null 2>&1 ) || rc=$?
 [ "$rc" = 3 ] || fail "--check --base must refuse a protected range (exit $rc)"
-rc=0; ( cd "$whist" && "$js" "$codexguard" --check >/dev/null 2>&1 ) || rc=$?
+rc=0; ( cd "$whist" && "${js[@]}" "$codexguard" --check >/dev/null 2>&1 ) || rc=$?
 [ "$rc" = 0 ] || fail "--check without a base must not scan history (exit $rc)"
 whist="$work/whist-renamed"
 whist_repo "$whist"
@@ -840,7 +838,7 @@ holder_case() { # holder_case <mode> <expect> <message> [extra wrapper args...]
   : >"$FAKE_PIDFILE"
   SECONDS=0
   rc=0
-  wout=$(cd "$wrepo" && FAKE_MODE="$mode" B_AGENTIC_CODEX_COMPANION="$fake" bounded 40 node "$wrapper" --scope working-tree --kill-grace-seconds 1 "$@" 2>"$work/wstderr") || rc=$?
+  wout=$(cd "$wrepo" && FAKE_MODE="$mode" B_AGENTIC_CODEX_COMPANION="$fake" bounded 40 "${js[@]}" "$wrapper" --scope working-tree --kill-grace-seconds 1 "$@" 2>"$work/wstderr") || rc=$?
   err=$(cat "$work/wstderr")
   [ -s "$FAKE_PIDFILE" ] && kill -9 "$(cat "$FAKE_PIDFILE")" 2>/dev/null || true
   [ "$rc" = "$want" ] || fail "$message (exit $rc, expected $want after ${SECONDS}s: $err)"
@@ -866,7 +864,7 @@ wignored="$work/wignored"
 make_repo "$wignored"
 printf '.env\n' >"$wignored/.gitignore"
 git -C "$wignored" add .gitignore && git -C "$wignored" commit -qm ignore-env
-( cd "$wignored" && "$js" "$codexguard" --approve >/dev/null )
+( cd "$wignored" && "${js[@]}" "$codexguard" --approve >/dev/null )
 printf 'TOPSECRET=1\n' >"$wignored/.env"
 wrap "$wignored" --scope working-tree --include-ignored .env; wexpect 2 "an incomplete snapshot before the run must refuse"
 grep -Fq 'before the plugin runs' <<<"$err" || fail "the pre-run refusal must say so: $err"
@@ -904,24 +902,28 @@ wrap "$wrepo" --scope working-tree --kind native --focus 'x'; wexpect 2 "a nativ
 wrap "$wrepo" --scope working-tree --kind other; wexpect 2 "an unknown kind must be refused"
 wrap "$wrepo" --scope working-tree --round 0; wexpect 2 "round 0 must be refused"
 wrap "$wrepo" --scope working-tree --bogus; wexpect 2 "an unknown argument must be refused"
-rc=0; ( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$work/plugin/not-the-script.mjs" node "$wrapper" --scope working-tree >/dev/null 2>&1 ) || rc=$?
+rc=0; ( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$work/plugin/not-the-script.mjs" "${js[@]}" "$wrapper" --scope working-tree >/dev/null 2>&1 ) || rc=$?
 [ "$rc" = 2 ] || fail "a companion override with the wrong name must be refused (exit $rc)"
-rc=0; wout=$( cd "$wrepo" && HOME="$work/wempty" B_AGENTIC_CODEX_COMPANION='' node "$wrapper" --scope working-tree 2>"$work/wstderr" ) || rc=$?
+rc=0; wout=$( cd "$wrepo" && HOME="$work/wempty" B_AGENTIC_CODEX_COMPANION='' "${js[@]}" "$wrapper" --scope working-tree 2>"$work/wstderr" ) || rc=$?
 [ "$(jq -r .status <<<"$wout")" = unavailable ] || fail "a missing plugin must say unavailable on stdout (got: $wout)"
 [ "$rc" = 4 ] || fail "a missing plugin must report Codex unavailable (exit $rc: $(cat "$work/wstderr"))"
 grep -Fq '/plugin install codex@openai-codex' "$work/wstderr" || fail "a missing plugin must be refused with install guidance: $(cat "$work/wstderr")"
 [ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite an argument refusal"
+# The companion runs with node from PATH, so a machine without node ends the run as an unavailable plugin
+# (exit 4, which b-review answers with the b-reviewer fallback); the wrapper itself runs under bun.
+mkdir -p "$work/nonodebin"
+ln -sf "$(command -v git)" "$work/nonodebin/git"
+: >"$FAKE_LOG"
+rc=0; wout=$( cd "$wrepo" && PATH="$work/nonodebin" B_AGENTIC_CODEX_COMPANION="$fake" "$(command -v bun)" --no-env-file --config=/dev/null "$wrapper" --scope working-tree 2>"$work/wstderr" ) || rc=$?
+[ "$rc" = 4 ] && [ "$(jq -r .status <<<"$wout")" = unavailable ] || fail "a missing node must report Codex unavailable (exit $rc: $wout $(cat "$work/wstderr"))"
+[ ! -s "$FAKE_LOG" ] || fail "the plugin ran without node"
 # --available probes the plugin only: found -> 0, missing -> 4 with status unavailable, and the plugin never runs
 : >"$FAKE_LOG"
-rc=0; wout=$( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$fake" node "$wrapper" --available 2>/dev/null ) || rc=$?
+rc=0; wout=$( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$fake" "${js[@]}" "$wrapper" --available 2>/dev/null ) || rc=$?
 [ "$rc" = 0 ] && [ "$(jq -r .status <<<"$wout")" = available ] || fail "--available must report the plugin found (exit $rc: $wout)"
-rc=0; wout=$( cd "$wrepo" && HOME="$work/wempty" B_AGENTIC_CODEX_COMPANION='' node "$wrapper" --available 2>/dev/null ) || rc=$?
+rc=0; wout=$( cd "$wrepo" && HOME="$work/wempty" B_AGENTIC_CODEX_COMPANION='' "${js[@]}" "$wrapper" --available 2>/dev/null ) || rc=$?
 [ "$rc" = 4 ] && [ "$(jq -r .status <<<"$wout")" = unavailable ] || fail "--available must report a missing plugin as unavailable (exit $rc: $wout)"
-rc=0; ( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$work/plugin/not-the-script.mjs" node "$wrapper" --available >/dev/null 2>&1 ) || rc=$?
+rc=0; ( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$work/plugin/not-the-script.mjs" "${js[@]}" "$wrapper" --available >/dev/null 2>&1 ) || rc=$?
 [ "$rc" = 2 ] || fail "--available with a broken override must be a refusal, not unavailable (exit $rc)"
 [ ! -s "$FAKE_LOG" ] || fail "--available must not run the plugin"
 echo "hooks probe passed: review-wrapper"
-if [ -n "$bun_pid" ]; then
-  wait "$bun_pid" || { cat "$bun_log" >&2; fail "the hooks probe failed under bun"; }
-  sed 's/^hooks probe passed:/hooks probe passed (bun):/' "$bun_log"
-fi

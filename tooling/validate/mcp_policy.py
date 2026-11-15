@@ -386,9 +386,9 @@ def main() -> int:
         for entry in entries:
             for hook in entry["hooks"]:
                 if hook.get("type") != "command" or not hook["command"].startswith(
-                    'node "$HOME/.claude/b-agentic/hooks/'
+                    'bun --no-env-file --config=/dev/null "$HOME/.claude/b-agentic/hooks/'
                 ):
-                    errors.append(f"hook must run a managed script with node: {hook}")
+                    errors.append(f"hook must run a managed script with hardened bun: {hook}")
 
     research_tools = {
         "mcp__firecrawl__firecrawl_search",

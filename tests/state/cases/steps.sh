@@ -184,7 +184,7 @@ expected=$(cd "$repoU" && cp .git/index "$work/idxU" && GIT_INDEX_FILE="$work/id
 # step_js BODY: run BODY with the CLI module as `m` in repoU (or $step_repo); prints its result or "refused:<why>".
 step_js() {
   # The CLI path travels in the environment: as an argument it would make the module run as a command.
-  (cd "${step_repo:-$repoU}" && STATE_CLI="$cli" node --input-type=module -e '
+  (cd "${step_repo:-$repoU}" && STATE_CLI="$cli" "${js[@]}" --input-type=module -e '
     import { pathToFileURL } from "node:url";
     import { execFileSync } from "node:child_process";
     import * as fs from "node:fs";
