@@ -11,6 +11,10 @@ trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 
 fail() { echo "install probe failed: $*" >&2; exit 1; }
 
+# Scenarios run with node unless they say otherwise, so they do not depend on bun being installed;
+# the js-runtime scenario below covers auto and bun with a stand-in bun.
+export B_AGENTIC_JS_RUNTIME=node
+
 # fresh_home <name>: a sandbox HOME with a frozen Pi tree that must never change.
 fresh_home() {
   local home="$work/$1"
@@ -72,7 +76,7 @@ claude="$home/.claude"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
 [ -f "$claude/agents/b-worker.md" ] || fail "the b-worker writer profile must be installed"
 cmp -s "$root/claude/agents/b-worker.md" "$claude/agents/b-worker.md" || fail "the installed b-worker profile differs from the source"
-for file in bin/b-candidate-snapshot.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs bin/b-protected.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 for module in "$root"/claude/bin/b-state-*.mjs; do
@@ -1284,3 +1288,64 @@ tui_out=$(tui_run "$home" "$piped_install --with=drawio" y)
 if grep -Fq 'Enter confirms' <<<"$tui_out"; then fail "--with must skip the checkbox: $tui_out"; fi
 opt_present "$home" drawio || fail "--with must install the component"
 echo "install probe passed: tui"
+
+# --- JavaScript runtime: bun when one works, node otherwise ---------------------------
+# A stand-in bun that runs node keeps this scenario independent of a real bun.
+fakebin="$work/fakebin"
+mkdir -p "$fakebin"
+printf '#!/bin/sh\nexec node "$@"\n' >"$fakebin/bun"
+chmod +x "$fakebin/bun"
+nobun_path=$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do [ -x "$dir/bun" ] || printf '%s:' "$dir"; done)
+nobun_path=${nobun_path%:}
+# runjs <home> <runtime> <path> [args...]: the installer with one runtime choice and PATH.
+runjs() {
+  local home=$1 runtime=$2 path=$3
+  shift 3
+  rc=0
+  out=$(env -u CLAUDE_CONFIG_DIR -u B_AGENTIC_CLAUDE_DIR -u B_AGENTIC_CLICKUP_MCP HOME="$home" PATH="$path" B_AGENTIC_JS_RUNTIME="$runtime" bash "$root/install.sh" "$@" 2>"$work/stderr") || rc=$?
+  err=$(cat "$work/stderr")
+}
+hook_cmds() { jq -r '[.hooks[][].hooks[].command, .statusLine.command] | .[]' "$1/.claude/settings.json"; }
+
+home=$(fresh_home jsruntime)
+claude="$home/.claude"
+mkdir -p "$claude"
+cat >"$claude/settings.json" <<'JSON'
+{"hooks": {"PreToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "echo mine"}]}]}}
+JSON
+runjs "$home" auto "$nobun_path" -y; expect_ok "auto without bun"
+if hook_cmds "$home" | grep -Fq 'exec'; then fail "auto without bun must keep node commands: $(hook_cmds "$home")"; fi
+# shellcheck disable=SC2016 # The literal $HOME is the text the template ships.
+hook_cmds "$home" | grep -Fq 'node "$HOME/.claude/b-agentic/hooks/b-path-guard.mjs"' || fail "auto without bun must install node commands"
+runjs "$home" bun "$nobun_path" -y; expect_refused "bun requested without bun"
+grep -Fq 'working bun' <<<"$err" || fail "the refusal must say bun is missing: $err"
+
+runjs "$home" auto "$fakebin:$nobun_path" -y; expect_ok "auto with bun"
+hook_cmds "$home" | grep -Fq "if [ -x $fakebin/bun ]; then exec $fakebin/bun " || fail "auto with bun must prefer the bun path: $(hook_cmds "$home")"
+[ "$(hook_cmds "$home" | grep -c 'exec node ')" = "$(hook_cmds "$home" | grep -c 'if \[ -x ')" ] || fail "every bun command must fall back to node"
+[ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive the swap"
+[ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "the swap must replace the managed hooks, not add to them: $(jq -c '.hooks' "$claude/settings.json")"
+before=$(tree "$home")
+runjs "$home" auto "$fakebin:$nobun_path" -y; expect_ok "second bun install"
+[ "$before" = "$(tree "$home")" ] || fail "a bun re-run changed files"
+
+# The installed command runs: it blocks a secret path under bun, and keeps blocking when bun disappears.
+guard_cmd=$(jq -r '.hooks.PreToolUse[] | select(.matcher | test("Read")) | .hooks[] | select(.command | contains("b-path-guard.mjs")) | .command' "$claude/settings.json")
+secret='{"tool_name":"Read","tool_input":{"file_path":"/repo/.env"}}'
+rc=0; printf '%s' "$secret" | HOME="$home" PATH="$fakebin:$nobun_path" sh -c "$guard_cmd" >/dev/null 2>&1 || rc=$?
+[ "$rc" = 2 ] || fail "the bun guard command must block a secret path (exit $rc)"
+rm "$fakebin/bun"
+rc=0; printf '%s' "$secret" | HOME="$home" PATH="$nobun_path" sh -c "$guard_cmd" >/dev/null 2>&1 || rc=$?
+[ "$rc" = 2 ] || fail "the guard command must fall back to node when bun is gone (exit $rc)"
+printf '#!/bin/sh\nexec node "$@"\n' >"$fakebin/bun"
+chmod +x "$fakebin/bun"
+
+runjs "$home" node "$fakebin:$nobun_path" -y; expect_ok "back to node"
+if hook_cmds "$home" | grep -Fq 'exec'; then fail "--js-runtime node must restore node commands: $(hook_cmds "$home")"; fi
+[ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "swapping back must not leave bun hooks behind"
+[ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive swapping back"
+rc=0; out=$(HOME="$home" PATH="$nobun_path" python3 "$root/tooling/install/claude_install.py" --dry-run --js-runtime bogus 2>&1) || rc=$?
+[ "$rc" != 0 ] || fail "an unknown runtime must be refused"
+runjs "$home" auto "$fakebin:$nobun_path" -y --uninstall; expect_ok "uninstall after swaps"
+[ "$(jq -c . "$claude/settings.json")" = '{"hooks":{"PreToolUse":[{"matcher":"Read","hooks":[{"type":"command","command":"echo mine"}]}]}}' ] || fail "uninstall must leave only the user's hook: $(cat "$claude/settings.json")"
+echo "install probe passed: js-runtime"

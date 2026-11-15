@@ -18,7 +18,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-013](ADR-013-concurrent-plan-checks.md) for plan checks that may run together, and
 [ADR-014](ADR-014-checked-plan-steps.md) for plan steps checked when they are recorded, and
 [ADR-015](ADR-015-step-writer-worker.md) for one writer subagent applying an approved plan step, and
-[ADR-016](ADR-016-parallel-worker-steps.md) for approved worker steps running at the same time, each in its own worktree.
+[ADR-016](ADR-016-parallel-worker-steps.md) for approved worker steps running at the same time, each in its own worktree, and
+[ADR-017](ADR-017-bun-hook-runtime.md) for the managed hooks and status line running under Bun with Node as the fallback.
 
 ## Naming
 

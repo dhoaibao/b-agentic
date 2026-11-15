@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -57,6 +58,56 @@ CODEX_PLUGIN_COMMANDS = (
     "/codex:setup",
 )
 PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "claude", "codex")
+JS_RUNTIMES = ("auto", "node", "bun")
+JS_RUNTIME_ENV = "B_AGENTIC_JS_RUNTIME"
+
+
+def resolve_js_runtime(choice: str) -> tuple[str | None, str | None]:
+    """The absolute bun path the managed hooks and status line should prefer, or None for node.
+
+    `auto` uses bun when a working one is on PATH and says nothing otherwise; `bun` refuses when none is.
+    Returns (path, note) where the note explains an `auto` fallback."""
+    if choice not in JS_RUNTIMES:
+        raise InstallError(f"unsupported JavaScript runtime {choice!r}: use one of {', '.join(JS_RUNTIMES)}")
+    if choice == "node":
+        return None, None
+    found = shutil.which("bun")
+    working = False
+    if found:
+        try:
+            working = subprocess.run([found, "--version"], capture_output=True, timeout=10).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            working = False
+    if working:
+        return str(Path(found).absolute()), None
+    if choice == "bun":
+        raise InstallError("--js-runtime=bun needs a working bun on PATH; install bun or use --js-runtime=auto")
+    return None, None
+
+
+def runtime_command(command: str, bun: str | None) -> str:
+    """Rewrite a managed `node "<script>"` command to prefer bun, falling back to node.
+
+    The fallback keeps a fail-closed hook working if bun is removed after install."""
+    prefix = "node "
+    if bun is None or not command.startswith(prefix):
+        return command
+    rest = command[len(prefix) :]
+    quoted = shlex.quote(bun)
+    return f"if [ -x {quoted} ]; then exec {quoted} {rest}; else exec node {rest}; fi"
+
+
+def apply_js_runtime(template: dict[str, Any], bun: str | None) -> None:
+    """Point the template's hook and status line commands at the chosen runtime, in place."""
+    if bun is None:
+        return
+    for entries in template.get("hooks", {}).values():
+        for entry in entries:
+            for hook in entry.get("hooks", []):
+                hook["command"] = runtime_command(hook["command"], bun)
+    status_line = template.get("statusLine")
+    if isinstance(status_line, dict) and isinstance(status_line.get("command"), str):
+        status_line["command"] = runtime_command(status_line["command"], bun)
 
 
 class InstallError(Exception):
@@ -247,9 +298,12 @@ class Installer:
         with_ids: list[str] | None = None,
         without_ids: list[str] | None = None,
         statusline_only: bool = False,
+        js_runtime: str = "auto",
     ) -> None:
         self.source = source
         self.statusline_only = statusline_only
+        self.js_runtime = js_runtime
+        self.bun_path, _ = resolve_js_runtime(js_runtime)
         self.components = self.load_components()
         self.with_ids = with_ids or []
         self.without_ids = without_ids or []
@@ -629,6 +683,7 @@ class Installer:
         settings = read_json(target)
         validate_settings_shape(settings, str(path))
         template = json.loads((self.source / "claude" / "configs" / "settings.template.json").read_text())
+        apply_js_runtime(template, self.bun_path)
         record: dict[str, Any] = {"permissions": {}, "hooks": [], "statusLine": []}
         if self.statusline_only:
             record["statusLine"] = self.merge_status_line(settings, template, previous.get("statusLine", []), path)
@@ -1145,6 +1200,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="install only the status line (b-statusline.mjs and its settings.json entry)",
     )
+    parser.add_argument(
+        "--js-runtime",
+        choices=JS_RUNTIMES,
+        default=os.environ.get(JS_RUNTIME_ENV, "auto"),
+        help=(
+            "JavaScript runtime for the managed hooks and status line: bun when one works (auto, the default), "
+            f"node, or bun (refused when missing); the {JS_RUNTIME_ENV} variable sets the default so "
+            "install.sh can pass it. A hook falls back to node if bun is later removed."
+        ),
+    )
     add_optional_arguments(parser)
     args = parser.parse_args(argv)
     try:
@@ -1161,7 +1226,13 @@ def main(argv: list[str] | None = None) -> int:
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
         ui.header()
         installer = Installer(
-            source, args.dry_run, args.force, ui, *parse_optional_arguments(source, args), args.statusline_only
+            source,
+            args.dry_run,
+            args.force,
+            ui,
+            *parse_optional_arguments(source, args),
+            args.statusline_only,
+            js_runtime=args.js_runtime,
         )
         try:
             if args.uninstall:

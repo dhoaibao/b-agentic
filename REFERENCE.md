@@ -53,6 +53,12 @@ touches only `~/.claude` and `~/.claude.json`; a Pi run touches only `~/.pi/agen
   The manifest records `"scope": "statusline"`; a plain `--uninstall` removes exactly that, and a later full
   install upgrades it in place (dropping the scope). It is refused over a full install, and cannot combine with
   `--with`, `--without`, or `--uninstall`.
+- `--js-runtime=auto|node|bun` (on `tooling/install/claude_install.py`; `./install.sh` takes it as
+  `B_AGENTIC_JS_RUNTIME=bun ./install.sh`) picks how Claude Code launches the managed hooks and status
+  line ([ADR-017](docs/decisions/ADR-017-bun-hook-runtime.md)). `auto`, the default, uses a working `bun` on
+  `PATH` and otherwise `node`; `bun` is refused when none works. A bun command falls back to `node` if
+  `bun` is later removed. Changing the choice is an ordinary re-install: only the recorded managed entries
+  are replaced, never your own hooks.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
@@ -413,18 +419,18 @@ supports `--dry-run`, `--force`, `--uninstall`, and the optional components (`--
 `--without`), and never touches `~/.claude` or `~/.claude.json`. It never runs `pi install`,
 npm, or a vendor installer: Pi installs the pinned packages on its next online start.
 
-| Asset             | Installed path (under `~/.pi/agent`)                                                                                                           |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Skills            | `skills/b-*/SKILL.md`                                                                                                                          |
-| `/b-*` prompts    | `prompts/b-*.md` (thin templates that point at the skill)                                                                                      |
-| Specialists       | `agents/b-*.md` (five read-only profiles, strict `tools` allowlists)                                                                           |
-| Guard extension   | `extensions/b-agentic/index.ts` and `guard.mjs`                                                                                                |
-| Hooks and CLIs    | `b-agentic/hooks/*.mjs` (4), `b-agentic/bin/` (`b-state.mjs` with its `b-state-*.mjs` modules, `b-candidate-snapshot.mjs`, `b_run.py`)         |
-| References        | `b-agentic/references/` (capabilities, MCP operations, artifact schemas)                                                                       |
-| Kernel            | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md`                                                           |
-| Packages          | three pinned `packages` entries merged into `settings.json`                                                                                    |
-| MCP servers       | entries merged into `mcp.json`, each with an `exposure` setting                                                                                |
-| Permission config | `extensions/pi-permission-system/config.json`, written only when absent or b-agentic's own; a copy always ships as `b-agentic/permission.json` |
+| Asset             | Installed path (under `~/.pi/agent`)                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Skills            | `skills/b-*/SKILL.md`                                                                                                                                     |
+| `/b-*` prompts    | `prompts/b-*.md` (thin templates that point at the skill)                                                                                                 |
+| Specialists       | `agents/b-*.md` (five read-only profiles, strict `tools` allowlists)                                                                                      |
+| Guard extension   | `extensions/b-agentic/index.ts` and `guard.mjs`                                                                                                           |
+| Hooks and CLIs    | `b-agentic/hooks/*.mjs` (4), `b-agentic/bin/` (`b-state.mjs` with its `b-state-*.mjs` modules, `b-candidate-snapshot.mjs`, `b-protected.mjs`, `b_run.py`) |
+| References        | `b-agentic/references/` (capabilities, MCP operations, artifact schemas)                                                                                  |
+| Kernel            | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `AGENTS.md`                                                                      |
+| Packages          | three pinned `packages` entries merged into `settings.json`                                                                                               |
+| MCP servers       | entries merged into `mcp.json`, each with an `exposure` setting                                                                                           |
+| Permission config | `extensions/pi-permission-system/config.json`, written only when absent or b-agentic's own; a copy always ships as `b-agentic/permission.json`            |
 
 The pinned packages are `pi-subagents@0.88.0`, `@gotgenes/pi-permission-system@42.0.0`, and
 `@juicesharp/rpiv-ask-user-question@2.15.0`. An existing `settings.json` entry for one of them
@@ -486,7 +492,7 @@ Plain `scripts/validate-skills.sh` runs the generator self-test and check, the
 policy and routing checks, the hook probe
 (`tests/hooks/hooks-probe.sh`), the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`), the status line probe
-(`tests/statusline/statusline-probe.sh`), and the runtime instruction parity check
+(`tests/statusline/statusline-probe.sh`; the hook and status line probes also run under `bun` when it is installed), and the runtime instruction parity check
 (`tooling/validate/runtime_parity.py`, which also compares the Pi permission config with the
 Claude settings). It also runs the Pi guard cases (`tests/pi/guard-cases.mjs`, plain Node) and the
 live guard probe (`tests/pi/guard-probe.sh`, skipped when `pi` is absent). `--release` (CI) adds the
