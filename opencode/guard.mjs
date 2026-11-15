@@ -216,13 +216,20 @@ export async function createGuard({ hooksDir, loader = loadHooks }) {
       }
       const directory = workdir === undefined ? cwd : resolve(cwd, workdir);
       try {
+        // Removing the approval changes the same store, so it is the user's to do as well.
+        if (hooks.codexGuard.revokeTouch(command)) {
+          return block(
+            "b-agentic Codex guard: this command removes the standing approval to send this repository to Codex (OpenAI). Only the user may record or change a Codex approval; ask them to run the command themselves.",
+          );
+        }
         const verdict = await hooks.codexGuard.judgeCommand(command, directory);
         if (verdict.decision === "refuse") {
           return block(`b-agentic Codex guard refused: ${verdict.reason}.`);
         }
         if (verdict.decision === "ask") {
+          // The ask reason already carries the guard prefix.
           return block(
-            `b-agentic Codex guard: ${verdict.reason} Only the user may record or change a Codex approval; ask them to run the command themselves.`,
+            `${verdict.reason} Only the user may record or change a Codex approval; ask them to run the command themselves.`,
           );
         }
         return undefined;
@@ -266,6 +273,7 @@ export async function createGuard({ hooksDir, loader = loadHooks }) {
                 { ...input, path },
               ]),
         );
+        const searched = new Set();
         for (const [claude, toolInput] of variants) {
           if (toolInput.unreadable) {
             return block(
@@ -291,7 +299,14 @@ export async function createGuard({ hooksDir, loader = loadHooks }) {
               `b-agentic Codex guard: ${tool} refused on ${toolInput.path}. Only the user records or changes a Codex disclosure approval; ask them to do it.`,
             );
           }
-          if (tool === "grep") {
+          // One listing per resolved directory and include glob: the as-written and resolved spellings of a path
+          // name the same directory.
+          const searchKey =
+            tool === "grep"
+              ? `${typeof toolInput.path === "string" ? resolve(cwd, toolInput.path) : cwd}\0${toolInput.glob ?? ""}`
+              : "";
+          if (tool === "grep" && !searched.has(searchKey)) {
+            searched.add(searchKey);
             const reached = protectedSearchTargets(
               hooks,
               toolInput.path,

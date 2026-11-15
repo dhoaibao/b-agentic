@@ -47,6 +47,10 @@ test("secret paths are blocked for every file tool", async () => {
     ["write", { path: "keys/server.pem", content: "x" }],
     ["grep", { pattern: "x", path: "aws-credentials.json" }],
     ["grep", { pattern: "x", include: "**/secrets.yaml" }],
+    ["read", { path: "/repo/.ENV" }],
+    ["read", { path: "/repo/Credentials.json" }],
+    ["read", { path: "/repo/SECRETS.yaml" }],
+    ["write", { path: "keys/server.PEM", content: "x" }],
     ["glob", { pattern: "**/.env" }],
     [
       "patch",
@@ -69,6 +73,7 @@ test("ordinary paths and .env.example are allowed", async () => {
   for (const [tool, input] of [
     ["read", { path: "src/index.ts" }],
     ["read", { path: ".env.example" }],
+    ["read", { path: ".ENV.example" }],
     ["edit", { path: "README.md", oldString: "a", newString: "b" }],
     ["grep", { pattern: "x", include: "*.ts" }],
     ["glob", { pattern: "*.md" }],
@@ -233,6 +238,20 @@ test("shell: a self-approval or a direct companion call is refused, plain comman
   const asked = await call("shell", { command: approve });
   assert.ok(blocked(asked), "the approval store is changed only by the user");
   assert.match(asked.reason, /Only the user may record/);
+  assert.equal(
+    asked.reason.match(/b-agentic Codex guard:/g).length,
+    1,
+    "the guard prefix appears once",
+  );
+  for (const revoke of [
+    `bun --no-env-file --config=/dev/null ${join(hooksDir, "b-codex-guard.mjs")} --revoke`,
+    `node ${join(hooksDir, "b-codex-gu''ard.mjs")} --revoke`,
+  ]) {
+    const revoked = await call("shell", { command: revoke });
+    assert.ok(blocked(revoked), `removing the approval is refused: ${revoke}`);
+    assert.match(revoked.reason, /Only the user may record or change/);
+    assert.equal(revoked.reason.match(/b-agentic Codex guard:/g).length, 1);
+  }
   const direct = await call("shell", {
     command:
       "node /home/u/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs adversarial-review",
@@ -416,6 +435,38 @@ test("patch: indented headers are read as OpenCode reads them, and an unreadable
     await call("patch", { patchText: "  *** Add File: src/a.ts\n+x" }),
     undefined,
   );
+});
+
+test("grep: a relative directory is listed once, not once per spelling", async () => {
+  const repo = join(work, "grep-once");
+  mkdirSync(join(repo, "src"), { recursive: true });
+  writeFileSync(join(repo, "src", "a.ts"), "x\n");
+  const realRg = execFileSync("sh", ["-c", "command -v rg"], {
+    encoding: "utf8",
+  }).trim();
+  const shimDir = join(work, "rg-shim");
+  const counter = join(work, "rg-count");
+  mkdirSync(shimDir, { recursive: true });
+  writeFileSync(counter, "");
+  writeFileSync(
+    join(shimDir, "rg"),
+    `#!/bin/sh\necho x >> '${counter}'\nexec '${realRg}' "$@"\n`,
+    { mode: 0o755 },
+  );
+  const savedPath = process.env.PATH;
+  process.env.PATH = `${shimDir}:${savedPath}`;
+  try {
+    assert.equal(
+      await call("grep", { pattern: "x", path: "src" }, {}, repo),
+      undefined,
+    );
+  } finally {
+    process.env.PATH = savedPath;
+  }
+  const listings = execFileSync("wc", ["-l", counter], { encoding: "utf8" })
+    .trim()
+    .split(/\s+/)[0];
+  assert.equal(listings, "1", "one rg listing for one resolved directory");
 });
 
 test("grep: a directory search that would read a protected-name file is refused, as ripgrep would list it", async () => {

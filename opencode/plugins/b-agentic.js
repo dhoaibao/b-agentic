@@ -42,23 +42,28 @@ export default Plugin.define({
     void (async () => {
       try {
         for await (const event of ctx.event.subscribe()) {
-          const sessionID = event.data?.sessionID;
-          if (!sessionID) continue;
-          if (event.type === "session.execution.started")
-            guard.executionStarted(sessionID);
-          else if (event.type === "session.execution.succeeded") {
-            const text = guard.reminder(sessionID);
-            if (text) await ctx.session.prompt({ sessionID, text });
-          } else if (
-            /^session\.compaction\..*(succeeded|completed|ended)$/.test(
-              event.type,
-            )
-          ) {
-            guard.queueContext(sessionID, cwd());
+          // One failed event must not end the loop: the verify reminder and compaction context are advisory.
+          try {
+            const sessionID = event.data?.sessionID;
+            if (!sessionID) continue;
+            if (event.type === "session.execution.started")
+              guard.executionStarted(sessionID);
+            else if (event.type === "session.execution.succeeded") {
+              const text = guard.reminder(sessionID);
+              if (text) await ctx.session.prompt({ sessionID, text });
+            } else if (
+              /^session\.compaction\..*(succeeded|completed|ended)$/.test(
+                event.type,
+              )
+            ) {
+              guard.queueContext(sessionID, cwd());
+            }
+          } catch {
+            // Advisory only; go on with the next event.
           }
         }
       } catch {
-        // The verify reminder and compaction context are advisory.
+        // The subscription itself ended or failed; the advisories stop with it.
       }
     })();
   },
