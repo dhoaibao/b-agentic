@@ -42,7 +42,7 @@ two facts that the fallback design hid:
   hooks are never touched, and an unrecorded `node` entry for a managed script is kept
   and reported because it would fail without Node.
 - `--js-runtime` and `B_AGENTIC_JS_RUNTIME` are removed.
-- Pi stays on Node: its guard extension runs inside Pi's own process and imports the same
+- Pi stays on Node (Pi was later removed by [ADR-019](ADR-019-opencode-second-runtime.md)): its guard extension runs inside Pi's own process and imports the same
   hook modules, so those modules stay runtime-neutral (the snapshot parity probe and the
   Pi probes run under Node). Pi's generated text keeps `node ~/.pi/agent/b-agentic/...`
   through a glossary entry for the Bun prefix.

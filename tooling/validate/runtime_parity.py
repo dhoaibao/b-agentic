@@ -86,7 +86,7 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
         if f"`{name}` -> `{agent}`." not in texts["kernel"]:
             errors.append(f"{runtime}: routing contract missing for {name}")
         gate = skill.get("primary_gate")
-        gate = gate if gate and gate["runtime"] == runtime else None
+        gate = gate if gate and runtime in gate["runtimes"] else None
         for clause in (
             f"`{name}` runs the {gate['label']} gate first, from the main session as the Steps direct;"
             if gate
@@ -104,12 +104,8 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
 
 ELIGIBILITY = {
     "claude": "contains none of `Edit`, `Write`, `NotebookEdit`",
-    "pi": "contains none of `edit`, `write`",
+    "opencode": "never allows `edit` or `subagent`",
 }
-
-
-def pi_allowed_tools() -> list[str]:
-    return json.loads((ROOT / "references/runtimes.yaml").read_text())["runtimes"]["pi"]["allowed_tools"]
 
 
 def shell_patterns(rules: list[str]) -> set[str]:
@@ -117,63 +113,94 @@ def shell_patterns(rules: list[str]) -> set[str]:
     return {rule.removeprefix("Bash(").removesuffix(")") for rule in rules if rule.startswith("Bash(")}
 
 
-def pi_permission_errors(claude: dict, pi: dict) -> list[str]:
-    """Rule-by-rule parity between the Claude settings template and the Pi permission config."""
+def mcp_action_name(rule: str) -> str:
+    """`mcp__<server>__<tool>` as OpenCode names the action: `<server>_<tool>` with characters outside letters, digits, `_` and `-` as `_`."""
+    server, _, tool = rule.removeprefix("mcp__").partition("__")
+    return f"{re.sub(r'[^A-Za-z0-9_-]', '_', server)}_{re.sub(r'[^A-Za-z0-9_-]', '_', tool)}"
+
+
+def opencode_permission_errors(claude: dict, template: dict) -> list[str]:
+    """Rule-by-rule parity between the Claude settings template and the OpenCode permissions list."""
     sys.path.insert(0, str(ROOT))
-    from tooling.generate.registry_sync import PATH_RULES
+    from tooling.generate.registry_sync import (
+        DENY_READ_GLOBS,
+        PATH_RULES,
+        OPENCODE_APPROVAL_STORE_GLOB,
+        OPENCODE_CODEX_ASKS,
+        OPENCODE_RUN_STATE_GLOBS,
+    )
 
     errors: list[str] = []
-    permission = pi.get("permission", {})
-    rules = claude["permissions"]
-    bash = permission.get("bash", {})
-    if pi.get("yoloMode") is not False:
-        errors.append("pi permission: yoloMode must be false")
-    if list(bash)[:1] != ["*"] or bash.get("*") != "allow":
-        errors.append("pi permission: bash must start with the allow-all rule")
-    shell_ask = shell_patterns(rules["ask"])
-    shell_deny = shell_patterns(rules["deny"])
-    pi_ask = {pattern for pattern, value in bash.items() if value == "ask"}
-    pi_deny = {pattern for pattern, value in bash.items() if value == "deny"}
+    rules = template.get("permissions")
+    if not isinstance(rules, list) or not all(isinstance(rule, dict) for rule in rules):
+        return ["opencode permission: expected a permissions list of {action, resource, effect}"]
+    claude_rules = claude["permissions"]
+
+    def pairs(action: str, effect: str) -> list[str]:
+        return [r["resource"] for r in rules if r.get("action") == action and r.get("effect") == effect]
+
+    if rules[:1] != [{"action": "*_*", "resource": "*", "effect": "ask"}]:
+        errors.append("opencode permission: the `*_*` ask fallback for unclassified MCP actions must come first")
+    if {"action": "external_directory", "resource": "*", "effect": "allow"} not in rules:
+        errors.append("opencode permission: external_directory must be allowed after the `*_*` fallback")
+    shell_ask = shell_patterns(claude_rules["ask"])
+    shell_deny = shell_patterns(claude_rules["deny"])
+    oc_ask, oc_deny = set(pairs("shell", "ask")) - set(OPENCODE_CODEX_ASKS), set(pairs("shell", "deny"))
     # A pattern that Claude denies and also asks resolves to deny, because Claude evaluates deny first.
-    if pi_ask != shell_ask - shell_deny:
+    if oc_ask != shell_ask - shell_deny:
         errors.append(
-            f"pi permission: bash ask rules differ from Claude: {sorted(pi_ask ^ (shell_ask - shell_deny))[:3]}"
+            f"opencode permission: shell ask rules differ from Claude: {sorted(oc_ask ^ (shell_ask - shell_deny))[:3]}"
         )
-    if pi_deny != shell_deny:
-        errors.append(f"pi permission: bash deny rules differ from Claude: {sorted(pi_deny ^ shell_deny)[:3]}")
-    keys = list(bash)
-    ask_positions = [index for index, key in enumerate(keys) if bash[key] == "ask"]
-    deny_positions = [index for index, key in enumerate(keys) if bash[key] == "deny"]
-    if ask_positions and deny_positions and min(deny_positions) < max(ask_positions):
-        errors.append("pi permission: every bash deny rule must come after every ask rule (the last match wins)")
-    if permission.get("path") != PATH_RULES:
-        errors.append("pi permission: path rules must equal PATH_RULES")
-    for tool in ("read", "write", "edit", "find", "grep", "ls"):
-        if permission.get(tool) != "allow":
-            errors.append(f"pi permission: {tool} must be allowed (path rules and the guard protect secrets)")
-    mcp = permission.get("mcp", {})
-    if not isinstance(mcp, dict):
-        mcp = {}
-    if list(mcp)[:1] != ["*"] or mcp.get("*") != "ask":
-        errors.append("pi permission: the mcp ask fallback must come first")
-    if any(key.startswith("mcp__") for key in permission):
-        errors.append("pi permission: MCP tool rules belong under the mcp key, not at the top level")
-    for tool in pi_allowed_tools():
-        if permission.get(tool) != "allow":
-            errors.append(f"pi permission: {tool} must be allowed (its Claude counterpart is allowed by name)")
+    if oc_deny != shell_deny:
+        errors.append(f"opencode permission: shell deny rules differ from Claude: {sorted(oc_deny ^ shell_deny)[:3]}")
+    shell_positions = [(i, r["effect"]) for i, r in enumerate(rules) if r.get("action") == "shell"]
+    ask_at = [i for i, effect in shell_positions if effect == "ask"]
+    deny_at = [i for i, effect in shell_positions if effect == "deny"]
+    if ask_at and deny_at and min(deny_at) < max(ask_at):
+        errors.append(
+            "opencode permission: every shell deny rule must come after every shell ask rule (last match wins)"
+        )
+    for action in ("read", "edit"):
+        prefix = "Read(" if action == "read" else "Edit("
+        wanted = {
+            rule.removeprefix(prefix).removesuffix(")") for rule in claude_rules["deny"] if rule.startswith(prefix)
+        }
+        if wanted != set(DENY_READ_GLOBS):
+            errors.append(f"opencode permission: Claude {action} deny globs differ from DENY_READ_GLOBS")
+        have = [(r["resource"], r["effect"]) for r in rules if r.get("action") == action]
+        expected = [(pattern, effect) for pattern, effect in PATH_RULES.items() if pattern != "*"]
+        if action == "edit":
+            expected += [(glob, "deny") for glob in OPENCODE_RUN_STATE_GLOBS]
+            expected.append((OPENCODE_APPROVAL_STORE_GLOB, "deny"))
+        if have != expected:
+            errors.append(
+                f"opencode permission: {action} path rules differ from PATH_RULES: {have[:2]} vs {expected[:2]}"
+            )
+    last_protection = max((i for i, r in enumerate(rules) if r.get("action") in {"shell", "read", "edit"}), default=-1)
+    last_mcp = max((i for i, r in enumerate(rules) if r.get("action") not in {"shell", "read", "edit"}), default=-1)
+    if last_mcp > last_protection:
+        errors.append("opencode permission: the shell and path protections must come last")
     for label in ("allow", "ask", "deny"):
-        # Pi registers an MCP tool under its name with characters outside letters, digits and `_` replaced by `_`.
-        claude_tools = {re.sub(r"[^A-Za-z0-9_]", "_", rule) for rule in rules[label] if rule.startswith("mcp__")}
-        pi_tools = {key for key, value in mcp.items() if key != "*" and value == label}
-        if claude_tools != pi_tools:
-            errors.append(f"pi permission: MCP {label} rules differ from Claude: {sorted(claude_tools ^ pi_tools)[:3]}")
+        claude_tools = {mcp_action_name(rule) for rule in claude_rules[label] if rule.startswith("mcp__")}
+        oc_tools = {
+            r["action"]
+            for r in rules[1:]
+            if r.get("effect") == label and r["action"] not in {"shell", "read", "edit", "external_directory", "*_*"}
+        }
+        if claude_tools != oc_tools:
+            errors.append(
+                f"opencode permission: MCP {label} rules differ from Claude: {sorted(claude_tools ^ oc_tools)[:3]}"
+            )
     return errors
 
 
 def main() -> int:
     skills = json.loads((ROOT / "skills/registry.yaml").read_text())["skills"]
     errors: list[str] = []
-    runtimes = (("claude", "references/kernel.template.md", "skills"), ("pi", "pi/kernel.md", "pi/skills"))
+    runtimes = (
+        ("claude", "references/kernel.template.md", "skills"),
+        ("opencode", "opencode/kernel.md", "opencode/skills"),
+    )
     for runtime, kernel, directory in runtimes:
         paths = {"kernel": ROOT / kernel}
         paths.update({skill["name"]: ROOT / directory / skill["name"] / "SKILL.md" for skill in skills})
@@ -189,29 +216,39 @@ def main() -> int:
             if not any(f": {scenario} contract missing" in error for error in validate(runtime, candidate, skills)):
                 errors.append(f"{runtime}: parity regression did not detect missing {scenario}")
     claude_settings = json.loads((ROOT / "claude/configs/settings.template.json").read_text())
-    pi_config = json.loads((ROOT / "pi/configs/permission.json").read_text())
-    errors.extend(pi_permission_errors(claude_settings, pi_config))
+    template = json.loads((ROOT / "opencode/configs/opencode.template.json").read_text())
+    errors.extend(opencode_permission_errors(claude_settings, template))
+
+    def drop_first(config, action, effect):
+        for index, rule in enumerate(config["permissions"]):
+            if rule["action"] == action and rule["effect"] == effect:
+                del config["permissions"][index]
+                return
+
     mutations = {
-        "a bash deny rule turned into allow": lambda config: config["permission"]["bash"].update({"git pull": "allow"}),
-        "a bash deny rule moved before the asks": lambda config: config["permission"].update(
-            {"bash": {"*": "allow", "git push": "deny", **config["permission"]["bash"]}}
+        "a shell deny rule turned into allow": lambda config: [
+            rule.update(effect="allow") for rule in config["permissions"] if rule["resource"] == "git pull"
+        ],
+        "a shell deny rule moved before the asks": lambda config: config["permissions"].insert(
+            1, {"action": "shell", "resource": "git push", "effect": "deny"}
         ),
-        "a path rule removed": lambda config: config["permission"]["path"].pop("*.pem"),
-        "the mcp ask fallback removed": lambda config: config["permission"]["mcp"].pop("*"),
-        "yolo mode enabled": lambda config: config.update({"yoloMode": True}),
-        "the subagent allow removed": lambda config: config["permission"].pop("subagent"),
-        "an MCP allow turned into deny": lambda config: config["permission"]["mcp"].update(
-            {"mcp__codegraph__codegraph_explore": "deny"}
+        "a secret read deny removed": lambda config: drop_first(config, "read", "deny"),
+        "the unclassified MCP fallback removed": lambda config: config["permissions"].pop(0),
+        "an MCP allow turned into deny": lambda config: [
+            rule.update(effect="deny")
+            for rule in config["permissions"]
+            if rule["action"] == "codegraph_codegraph_explore"
+        ],
+        "an MCP rule moved after the protections": lambda config: config["permissions"].append(
+            {"action": "codegraph_codegraph_explore", "resource": "*", "effect": "allow"}
         ),
-        "an MCP rule moved to the top level": lambda config: config["permission"].update(
-            {"mcp__codegraph__codegraph_explore": config["permission"]["mcp"].pop("mcp__codegraph__codegraph_explore")}
-        ),
+        "the external_directory allow removed": lambda config: drop_first(config, "external_directory", "allow"),
     }
     for label, mutate in mutations.items():
-        mutated = json.loads(json.dumps(pi_config))
+        mutated = json.loads(json.dumps(template))
         mutate(mutated)
-        if not pi_permission_errors(claude_settings, mutated):
-            errors.append(f"pi permission parity regression did not detect {label}")
+        if not opencode_permission_errors(claude_settings, mutated):
+            errors.append(f"opencode permission parity regression did not detect {label}")
     doc_paths = [ROOT / path for path in DOC_SURFACES]
     missing_docs = [str(path.relative_to(ROOT)) for path in doc_paths if not path.is_file()]
     if missing_docs:
@@ -226,7 +263,7 @@ def main() -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Runtime instruction parity checks passed (Claude Code and Pi; live behavior unverified).")
+    print("Runtime instruction parity checks passed (Claude Code and OpenCode; live behavior unverified).")
     return 0
 
 

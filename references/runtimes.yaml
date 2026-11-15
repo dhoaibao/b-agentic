@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Per-runtime vocabulary used when rendering b-agentic's canonical sources: config and state locations, subagent models, editing tools, MCP tool-name format, and the delegation profile check. The claude entry is the identity render (docs/decisions/ADR-008-claude-code-only.md); the pi entry adds the glossary, packages, and overrides that render the opt-in Pi runtime (docs/decisions/ADR-011-pi-second-runtime.md).",
+  "description": "Per-runtime vocabulary used when rendering b-agentic's canonical sources: config and state locations, subagent models, editing tools, MCP tool-name format, and the delegation profile check. The claude entry is the identity render (docs/decisions/ADR-008-claude-code-only.md); the opencode entry adds the glossary and overrides that render the opt-in OpenCode runtime (docs/decisions/ADR-019-opencode-second-runtime.md).",
   "runtimes": {
     "claude": {
       "config_dir": "~/.claude",
@@ -23,88 +23,138 @@
       "delegation_unavailable": "A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable.",
       "profile_check": "confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`"
     },
-    "pi": {
-      "config_dir": "~/.pi/agent",
-      "state_dir": "~/.pi/agent/b-agentic",
-      "hook_dir": "$HOME/.pi/agent/b-agentic/hooks",
+    "opencode": {
+      "config_dir": "~/.config/opencode",
+      "state_dir": "~/.config/opencode/b-agentic",
+      "hook_dir": "$HOME/.config/opencode/b-agentic/hooks",
       "agent_models": [],
       "editing_tools": [
-        "edit",
-        "write"
+        "edit"
       ],
-      "read_only_tools": [
-        "read",
-        "grep",
-        "find",
-        "ls",
-        "bash"
-      ],
-      "excluded_agent_tools": [
-        "edit",
-        "write",
-        "subagent",
-        "ask_user_question"
-      ],
-      "allowed_tools": [
-        "subagent",
-        "bg_wait",
-        "ask_user_question"
-      ],
-      "mcp_exposure": {
-        "default": "deferred",
-        "direct": [
-          "codegraph",
-          "context7",
-          "excalidraw",
-          "drawio"
-        ]
-      },
-      "mcp_tool_format": "mcp__{server}__{tool}",
+      "mcp_tool_format": "{server}_{tool}",
       "arguments_placeholder": "the arguments supplied with the invocation",
       "delegation_unavailable": "A missing or editing-capable agent profile, or an unknown-agent error, counts as unavailable.",
-      "profile_check": "confirm the effective `{agent}.md` (project `.pi/agents/` over `~/.pi/agent/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `subagent` tool with `agent` `{agent}` and a task naming `{name}`",
-      "packages": [
-        "npm:pi-subagents@0.88.0",
-        "npm:@gotgenes/pi-permission-system@42.0.0",
-        "npm:@juicesharp/rpiv-ask-user-question@2.15.0"
+      "profile_check": "confirm the effective `{agent}.md` (project `.opencode/agents/` over `~/.config/opencode/agents/`) is readable and its parsed frontmatter `permissions` list is explicit and non-empty, starts with a deny-all rule, and never allows {editing} or `subagent` (a missing list grants every tool), then call the `subagent` tool with `agent` `{agent}` and a task naming `{name}`",
+      "read_only_actions": [
+        "read",
+        "glob",
+        "grep",
+        "shell",
+        "external_directory"
+      ],
+      "denied_agent_actions": [
+        "edit",
+        "subagent",
+        "question"
+      ],
+      "worker_actions": [
+        "read",
+        "glob",
+        "grep",
+        "edit",
+        "shell",
+        "external_directory"
       ],
       "glossary": [
-        {"from": "bun --no-env-file --config=/dev/null ~/.claude/b-agentic/", "to": "node ~/.pi/agent/b-agentic/"},
-        {"from": "~/.claude/b-agentic/", "to": "~/.pi/agent/b-agentic/"},
-        {"from": "Naming an unread skill is not using it; do not blend phases.", "to": "Naming an unread skill is not using it; sequence phases and do not blend them."},
-        {"from": "approval, safety, or review.", "to": "approval, safety, or review behavior."},
-        {"from": "named `Agent` subagent type", "to": "named agent via the `subagent` tool"},
-        {"from": "its named `Agent` call", "to": "its named `subagent` call"},
-        {"from": "unknown agent type or `general-purpose` fallback", "to": "unknown-agent error or fallback to another agent"},
-        {"from": "AskUserQuestion", "to": "ask_user_question"},
-        {"from": "`Read`", "to": "`read`"},
-        {"from": "`Edit`", "to": "`edit`"},
-        {"from": "`Write`", "to": "`write`"},
-        {"from": "`Grep`", "to": "`grep`"},
-        {"from": "`Glob`", "to": "`find`"},
-        {"from": "CLAUDE_CODE_SESSION_ID", "to": "PI_SESSION_ID"},
-        {"from": "; a missing standing Codex approval is not a question here, so use the `b-reviewer` path", "to": ""}
+        {
+          "from": "~/.claude/b-agentic/",
+          "to": "~/.config/opencode/b-agentic/"
+        },
+        {
+          "from": "~/.claude/skills/",
+          "to": "~/.config/opencode/skills/"
+        },
+        {
+          "from": "named `Agent` subagent type",
+          "to": "named agent via the `subagent` tool"
+        },
+        {
+          "from": "its named `Agent` call",
+          "to": "its named `subagent` call"
+        },
+        {
+          "from": "unknown agent type or `general-purpose` fallback",
+          "to": "unknown-agent error or fallback to another agent"
+        },
+        {
+          "from": "AskUserQuestion",
+          "to": "question"
+        },
+        {
+          "from": "`Read`",
+          "to": "`read`"
+        },
+        {
+          "from": "`Edit`",
+          "to": "`edit`"
+        },
+        {
+          "from": "`Write`",
+          "to": "`write`"
+        },
+        {
+          "from": "`Grep`",
+          "to": "`grep`"
+        },
+        {
+          "from": "`Glob`",
+          "to": "`glob`"
+        },
+        {
+          "from": "CLAUDE_CODE_SESSION_ID",
+          "to": "OPENCODE_SESSION_ID"
+        },
+        {
+          "from": "On Claude Code",
+          "to": "On OpenCode"
+        },
+        {
+          "from": "harness background command (`run_in_background`)",
+          "to": "background shell command (`background: true`)"
+        },
+        {
+          "from": "`Agent` call with `subagent_type` `b-worker`",
+          "to": "`subagent` call with `agent` `b-worker`"
+        },
+        {
+          "from": "each step the plan lists in `worker_steps` or `parallel_steps` (confirm or drop it)",
+          "to": "each step the plan lists in `worker_steps` (confirm or drop it)"
+        },
+        {
+          "from": "the generated native tools plus read-only MCP tools only and no other frontmatter key, so an override cannot add `Skill`, a mutating MCP tool, or a prompt",
+          "to": "the generated `permissions` list only and no other frontmatter key, so an override cannot widen the permissions or replace the prompt"
+        },
+        {
+          "from": " (the workers of one batch start together, below)",
+          "to": ""
+        },
+        {
+          "from": "the harness starts the worker in the background, and that is the wait",
+          "to": "the harness starts the worker in the background and notifies you when it goes idle, and that is the wait"
+        }
       ],
       "kernel_overrides": [
-        {"from": "Claude Code Workflow Kernel", "to": "Pi Workflow Kernel"},
-        {"from": "; use the built-in todo list only when it helps", "to": ""},
-        {"from": "Claude Code exposes MCP tools as", "to": "Pi exposes MCP tools as"},
         {
-          "from": "It coordinates read-only children and a `b-worker` per approved worker step, never two in a tree.",
-          "to": "It coordinates only its read-only child sessions, never peer writers."
+          "from": "Claude Code Workflow Kernel",
+          "to": "OpenCode Workflow Kernel"
+        },
+        {
+          "from": "Claude Code exposes MCP tools as `mcp__<server>__<tool>`",
+          "to": "OpenCode exposes MCP tools as `<server>_<tool>`"
+        },
+        {
+          "from": "use the built-in todo list only when it helps",
+          "to": "use the todo list only when it helps"
         }
       ],
       "forbidden_tokens": [
         "~/.claude",
         "AskUserQuestion",
-        "Codex",
-        "b-codex",
         "`Agent`",
         "subagent_type",
         "NotebookEdit",
         "CLAUDE_CODE_SESSION_ID",
-        "run_in_background",
-        "/codex:"
+        "run_in_background"
       ]
     }
   }

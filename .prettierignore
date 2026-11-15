@@ -3,10 +3,11 @@ node_modules/
 
 # Generated delivery outputs are checked by registry synchronization instead.
 skills/*/SKILL.md
-pi/skills/*/SKILL.md
-pi/prompts/*.md
-pi/kernel.md
-pi/configs/*.json
+opencode/skills/*/SKILL.md
+opencode/commands/*.md
+opencode/agents/*.md
+opencode/kernel.md
+opencode/configs/*.json
 
 # These sources contain or feed generated blocks; registry synchronization owns
 # their delivery formatting.

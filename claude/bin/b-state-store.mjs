@@ -442,15 +442,15 @@ export function freshState(runId, root, baseline) {
 }
 
 export function defaultOwner(args) {
-  // Claude Code sets CLAUDE_CODE_SESSION_ID; Pi sets PI_SESSION_ID for its bash tool.
+  // Claude Code sets CLAUDE_CODE_SESSION_ID; OpenCode sets OPENCODE_SESSION_ID for its bash tool.
   const owner =
     args.owner ??
     process.env.CLAUDE_CODE_SESSION_ID ??
-    process.env.PI_SESSION_ID ??
+    process.env.OPENCODE_SESSION_ID ??
     "";
   if (!OWNER.test(owner)) {
     throw invalid(
-      "pass --owner NAME (letters, digits, . _ : -) or set CLAUDE_CODE_SESSION_ID or PI_SESSION_ID",
+      "pass --owner NAME (letters, digits, . _ : -) or set CLAUDE_CODE_SESSION_ID or OPENCODE_SESSION_ID",
     );
   }
   return owner;

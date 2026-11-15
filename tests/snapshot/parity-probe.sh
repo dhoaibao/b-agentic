@@ -38,7 +38,7 @@ make_repo() {
   git -C "$dir" commit -qm init
 }
 
-# The baseline always runs under node (that is how Pi runs the CLI); the changed CLI runs under node and,
+# The baseline always runs under node (the CLI stays runnable under node); the changed CLI runs under node and,
 # when it is installed, under bun with the hardening flags the installer writes (ADR-018).
 runtimes=("node")
 if command -v bun >/dev/null 2>&1; then runtimes+=("bun --no-env-file --config=/dev/null"); fi

@@ -28,7 +28,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
-      # Node stays for the Pi probes (Pi runs in Node) and the Codex plugin's own script.
+      # Node stays for the Codex plugin's own script (the hooks probe fakes it).
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

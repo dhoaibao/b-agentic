@@ -1,0 +1,784 @@
+---
+description: "Apply one approved b-flow plan step in the main working tree and report to the main b-agentic session."
+mode: subagent
+permissions:
+  - {"action": "*", "resource": "*", "effect": "deny"}
+  - {"action": "read", "resource": "*", "effect": "allow"}
+  - {"action": "glob", "resource": "*", "effect": "allow"}
+  - {"action": "grep", "resource": "*", "effect": "allow"}
+  - {"action": "edit", "resource": "*", "effect": "allow"}
+  - {"action": "shell", "resource": "*", "effect": "allow"}
+  - {"action": "external_directory", "resource": "*", "effect": "allow"}
+  - {"action": "codegraph_codegraph_explore", "resource": "*", "effect": "allow"}
+  - {"action": "context7_resolve-library-id", "resource": "*", "effect": "allow"}
+  - {"action": "context7_query-docs", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_web_search", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_local_search", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_video_search", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_image_search", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_news_search", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_summarizer", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_llm_context", "resource": "*", "effect": "allow"}
+  - {"action": "brave_search_brave_place_search", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_developer_search", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_agent_status", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_check_crawl_status", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_find_tools", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_credit_usage", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_research_search_papers", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_research_inspect_paper", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_research_read_paper", "resource": "*", "effect": "allow"}
+  - {"action": "firecrawl_firecrawl_research_related_papers", "resource": "*", "effect": "allow"}
+  - {"action": "playwright_browser_wait_for", "resource": "*", "effect": "allow"}
+  - {"action": "playwright_browser_generate_locator", "resource": "*", "effect": "allow"}
+  - {"action": "excalidraw_read_me", "resource": "*", "effect": "allow"}
+  - {"action": "drawio_search_shapes", "resource": "*", "effect": "allow"}
+  - {"action": "shadcn_get_project_registries", "resource": "*", "effect": "allow"}
+  - {"action": "shadcn_list_items_in_registries", "resource": "*", "effect": "allow"}
+  - {"action": "shadcn_search_items_in_registries", "resource": "*", "effect": "allow"}
+  - {"action": "shadcn_get_item_examples_from_registries", "resource": "*", "effect": "allow"}
+  - {"action": "shadcn_view_items_in_registries", "resource": "*", "effect": "allow"}
+  - {"action": "shadcn_get_add_command_for_items", "resource": "*", "effect": "allow"}
+  - {"action": "shadcn_get_audit_checklist", "resource": "*", "effect": "allow"}
+  - {"action": "shell", "resource": "git push *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk git push *", "effect": "ask"}
+  - {"action": "shell", "resource": "git * push", "effect": "ask"}
+  - {"action": "shell", "resource": "git * push *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk git * push", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk git * push *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh pr create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh pr create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh pr create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh pr create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * pr create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * pr create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * pr create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * pr create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh pr close", "effect": "ask"}
+  - {"action": "shell", "resource": "gh pr close *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh pr close", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh pr close *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * pr close", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * pr close *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * pr close", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * pr close *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh pr edit", "effect": "ask"}
+  - {"action": "shell", "resource": "gh pr edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh pr edit", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh pr edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * pr edit", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * pr edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * pr edit", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * pr edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh auth switch", "effect": "ask"}
+  - {"action": "shell", "resource": "gh auth switch *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh auth switch", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh auth switch *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * auth switch", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * auth switch *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * auth switch", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * auth switch *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh release create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh release create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh release create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh release create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * release create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * release create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * release create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * release create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh release upload", "effect": "ask"}
+  - {"action": "shell", "resource": "gh release upload *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh release upload", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh release upload *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * release upload", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * release upload *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * release upload", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * release upload *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh release edit", "effect": "ask"}
+  - {"action": "shell", "resource": "gh release edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh release edit", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh release edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * release edit", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * release edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * release edit", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * release edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh variable set", "effect": "ask"}
+  - {"action": "shell", "resource": "gh variable set *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh variable set", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh variable set *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * variable set", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * variable set *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * variable set", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * variable set *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh variable delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh variable delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh variable delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh variable delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * variable delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * variable delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * variable delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * variable delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh repo create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh repo create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh repo create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh repo create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * repo create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * repo create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * repo create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * repo create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh repo fork", "effect": "ask"}
+  - {"action": "shell", "resource": "gh repo fork *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh repo fork", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh repo fork *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * repo fork", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * repo fork *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * repo fork", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * repo fork *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh gist create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh gist create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh gist create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh gist create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * gist create", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * gist create *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * gist create", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * gist create *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh gist delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh gist delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh gist delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh gist delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * gist delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * gist delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * gist delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * gist delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh issue close", "effect": "ask"}
+  - {"action": "shell", "resource": "gh issue close *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh issue close", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh issue close *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * issue close", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * issue close *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * issue close", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * issue close *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh issue delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh issue delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh issue delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh issue delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * issue delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * issue delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * issue delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * issue delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh issue edit", "effect": "ask"}
+  - {"action": "shell", "resource": "gh issue edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh issue edit", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh issue edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * issue edit", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * issue edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * issue edit", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * issue edit *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh workflow run", "effect": "ask"}
+  - {"action": "shell", "resource": "gh workflow run *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh workflow run", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh workflow run *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * workflow run", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * workflow run *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * workflow run", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * workflow run *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh workflow disable", "effect": "ask"}
+  - {"action": "shell", "resource": "gh workflow disable *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh workflow disable", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh workflow disable *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * workflow disable", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * workflow disable *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * workflow disable", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * workflow disable *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh run delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh run delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh run delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh run delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * run delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * run delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * run delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * run delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh cache delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh cache delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh cache delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh cache delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * cache delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * cache delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * cache delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * cache delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh label delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh label delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh label delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh label delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * label delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * label delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * label delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * label delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh codespace delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh codespace delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh codespace delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh codespace delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * codespace delete", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * codespace delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * codespace delete", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * codespace delete *", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api * -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api * -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api * -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api * -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api * --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api * --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api * --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api * --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api * --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api * --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api * -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api * -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh api * --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh api * --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api * -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api * -f*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api * -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api * -F*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api * --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api * --field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api * --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api * --raw-field*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api * --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api * --input*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api * -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api * -X*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "gh * api * --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "rtk gh * api * --method*", "effect": "ask"}
+  - {"action": "shell", "resource": "*b-codex-guard.mjs*--approve*", "effect": "ask"}
+  - {"action": "shell", "resource": "*b-codex-guard.mjs*--revoke*", "effect": "ask"}
+  - {"action": "shell", "resource": "git pull", "effect": "deny"}
+  - {"action": "shell", "resource": "git pull *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git pull", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git pull *", "effect": "deny"}
+  - {"action": "shell", "resource": "git reset --hard", "effect": "deny"}
+  - {"action": "shell", "resource": "git reset --hard *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git reset --hard", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git reset --hard *", "effect": "deny"}
+  - {"action": "shell", "resource": "git clean -f", "effect": "deny"}
+  - {"action": "shell", "resource": "git clean -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git clean -f", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git clean -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "git branch -D", "effect": "deny"}
+  - {"action": "shell", "resource": "git branch -D *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git branch -D", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git branch -D *", "effect": "deny"}
+  - {"action": "shell", "resource": "rm -rf", "effect": "deny"}
+  - {"action": "shell", "resource": "rm -rf *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk rm -rf", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk rm -rf *", "effect": "deny"}
+  - {"action": "shell", "resource": "sudo", "effect": "deny"}
+  - {"action": "shell", "resource": "sudo *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk sudo", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk sudo *", "effect": "deny"}
+  - {"action": "shell", "resource": "doas", "effect": "deny"}
+  - {"action": "shell", "resource": "doas *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk doas", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk doas *", "effect": "deny"}
+  - {"action": "shell", "resource": "docker system prune", "effect": "deny"}
+  - {"action": "shell", "resource": "docker system prune *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk docker system prune", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk docker system prune *", "effect": "deny"}
+  - {"action": "shell", "resource": "bash -s", "effect": "deny"}
+  - {"action": "shell", "resource": "bash -s *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk bash -s", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk bash -s *", "effect": "deny"}
+  - {"action": "shell", "resource": "sh -s", "effect": "deny"}
+  - {"action": "shell", "resource": "sh -s *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk sh -s", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk sh -s *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push", "effect": "deny"}
+  - {"action": "shell", "resource": "git push origin", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push origin", "effect": "deny"}
+  - {"action": "shell", "resource": "git push -f", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push -f", "effect": "deny"}
+  - {"action": "shell", "resource": "git push -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * -f", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * -f", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push -d", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push -d", "effect": "deny"}
+  - {"action": "shell", "resource": "git push -d *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push -d *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * -d", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * -d", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * -d *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * -d *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push --delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push --delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * --delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * --delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push --mirror*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push --mirror*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * --mirror*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * --mirror*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push --all*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push --all*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * --all*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * --all*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push --branches*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push --branches*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * --branches*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * --branches*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push --prune*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push --prune*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * --prune*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * --prune*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push +*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push +*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * +*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * +*", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * main", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * main", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * main *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * main *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *:main", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *:main", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *:main *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *:main *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *refs/heads/main", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *refs/heads/main", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *refs/heads/main *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *refs/heads/main *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * master", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * master", "effect": "deny"}
+  - {"action": "shell", "resource": "git push * master *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push * master *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *:master", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *:master", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *:master *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *:master *", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *refs/heads/master", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *refs/heads/master", "effect": "deny"}
+  - {"action": "shell", "resource": "git push *refs/heads/master *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git push *refs/heads/master *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push -f", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push -f", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * -f", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * -f", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * --force*", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push +*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push +*", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * +*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * +*", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * -f *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * main", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * main", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * main *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * main *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *:main", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *:main", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *:main *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *:main *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *refs/heads/main", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *refs/heads/main", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *refs/heads/main *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *refs/heads/main *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * master", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * master", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push * master *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push * master *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *:master", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *:master", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *:master *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *:master *", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *refs/heads/master", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *refs/heads/master", "effect": "deny"}
+  - {"action": "shell", "resource": "git -c * push *refs/heads/master *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk git -c * push *refs/heads/master *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh pr merge", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh pr merge", "effect": "deny"}
+  - {"action": "shell", "resource": "gh pr merge *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh pr merge *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * pr merge", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * pr merge", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * pr merge *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * pr merge *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo archive", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo archive", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo archive *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo archive *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo archive", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo archive", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo archive *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo archive *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo rename", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo rename", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo rename *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo rename *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo rename", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo rename", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo rename *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo rename *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo edit", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo edit", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo edit *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo edit *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo edit", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo edit", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo edit *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo edit *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo deploy-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo deploy-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo deploy-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo deploy-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo deploy-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo deploy-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo deploy-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo deploy-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo deploy-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo deploy-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh repo deploy-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh repo deploy-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo deploy-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo deploy-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * repo deploy-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * repo deploy-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh release delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh release delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh release delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh release delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * release delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * release delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * release delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * release delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh release delete-asset", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh release delete-asset", "effect": "deny"}
+  - {"action": "shell", "resource": "gh release delete-asset *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh release delete-asset *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * release delete-asset", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * release delete-asset", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * release delete-asset *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * release delete-asset *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh extension install", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh extension install", "effect": "deny"}
+  - {"action": "shell", "resource": "gh extension install *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh extension install *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * extension install", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * extension install", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * extension install *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * extension install *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh alias set", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh alias set", "effect": "deny"}
+  - {"action": "shell", "resource": "gh alias set *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh alias set *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * alias set", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * alias set", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * alias set *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * alias set *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh alias import", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh alias import", "effect": "deny"}
+  - {"action": "shell", "resource": "gh alias import *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh alias import *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * alias import", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * alias import", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * alias import *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * alias import *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh secret set", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh secret set", "effect": "deny"}
+  - {"action": "shell", "resource": "gh secret set *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh secret set *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * secret set", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * secret set", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * secret set *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * secret set *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh secret delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh secret delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh secret delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh secret delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * secret delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * secret delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * secret delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * secret delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh ssh-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh ssh-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "gh ssh-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh ssh-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * ssh-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * ssh-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * ssh-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * ssh-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh ssh-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh ssh-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh ssh-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh ssh-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * ssh-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * ssh-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * ssh-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * ssh-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh gpg-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh gpg-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "gh gpg-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh gpg-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * gpg-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * gpg-key add", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * gpg-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * gpg-key add *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh gpg-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh gpg-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh gpg-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh gpg-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * gpg-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * gpg-key delete", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * gpg-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * gpg-key delete *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth login", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth login", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth login *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth login *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth login", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth login", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth login *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth login *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth logout", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth logout", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth logout *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth logout *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth logout", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth logout", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth logout *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth logout *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth token", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth token", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth token *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth token *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth token", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth token", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth token *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth token *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth refresh", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth refresh", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth refresh *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth refresh *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth refresh", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth refresh", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth refresh *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth refresh *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth status *--show-token*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth status *--show-token*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth status -t", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth status -t", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth status -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth status -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth status * -t", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth status * -t", "effect": "deny"}
+  - {"action": "shell", "resource": "gh auth status * -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh auth status * -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth status *--show-token*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth status *--show-token*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth status -t", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth status -t", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth status -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth status -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth status * -t", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth status * -t", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * auth status * -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * auth status * -t *", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-XDELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-XDELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-Xdelete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-Xdelete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-XPUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-XPUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-Xput*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-Xput*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-XPATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-XPATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-Xpatch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-Xpatch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *-X=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *-X=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh api *--method=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh api *--method=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-XDELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-XDELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-Xdelete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-Xdelete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-XPUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-XPUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-Xput*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-Xput*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-XPATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-XPATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-Xpatch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-Xpatch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *-X=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *-X=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method=DELETE*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method=delete*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method=PUT*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method=put*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method=PATCH*", "effect": "deny"}
+  - {"action": "shell", "resource": "gh * api *--method=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "rtk gh * api *--method=patch*", "effect": "deny"}
+  - {"action": "shell", "resource": "bash", "effect": "deny"}
+  - {"action": "shell", "resource": "sh", "effect": "deny"}
+  - {"action": "read", "resource": "*.env", "effect": "deny"}
+  - {"action": "read", "resource": "*.env.*", "effect": "deny"}
+  - {"action": "read", "resource": "*.env.example", "effect": "allow"}
+  - {"action": "read", "resource": "*.pem", "effect": "deny"}
+  - {"action": "read", "resource": "*credentials.*", "effect": "deny"}
+  - {"action": "read", "resource": "*secrets.*", "effect": "deny"}
+  - {"action": "edit", "resource": "*.env", "effect": "deny"}
+  - {"action": "edit", "resource": "*.env.*", "effect": "deny"}
+  - {"action": "edit", "resource": "*.env.example", "effect": "allow"}
+  - {"action": "edit", "resource": "*.pem", "effect": "deny"}
+  - {"action": "edit", "resource": "*credentials.*", "effect": "deny"}
+  - {"action": "edit", "resource": "*secrets.*", "effect": "deny"}
+  - {"action": "edit", "resource": ".b-agentic/*", "effect": "deny"}
+  - {"action": "edit", "resource": "*/.b-agentic/*", "effect": "deny"}
+  - {"action": "edit", "resource": "*codex-approved-repos.json", "effect": "deny"}
+  - {"action": "subagent", "resource": "*", "effect": "deny"}
+  - {"action": "question", "resource": "*", "effect": "deny"}
+---
+
+You are the b-agentic `b-worker` subagent: a writer child of a `/b-flow` run. The main session gives you exactly one approved plan step with its packet and waits; it edits nothing while you work. Do not route, ask the user, delegate, or launch a nested subagent.
+
+Read the phase skill the main session names from the installed `~/.config/opencode/skills/<name>/SKILL.md` and follow its editing guidance for this step only. These parts do not apply in a child: `b-implement` steps 1-3 and 6-7 and its Output format; `b-frontend`'s questions, its browser hand-off, and adding a component with the package runner; any `question` in `b-refactor` or `b-test`; every review, commit, and spec-recording step.
+
+Edit in place, only inside the approved scope and preferably only the step's own paths. Never touch `.b-agentic`, likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`), or git history: no commit, stage, stash, reset, checkout, rebase, or push. Install nothing. Run no generator or fixer the step does not name, no `b-state.mjs` or `b_run.py` command, and no external, upload, lifecycle, or authentication action. If you need a path outside the scope, a decision, or a dependency, stop and answer `NEEDS INPUT: <one question>`.
+
+If the packet has a `Working directory` line, work only there: it is your own git worktree, and another worker may run beside you in a different one. Use absolute paths under it for `read`, `edit`, `write`, and `grep`, start every shell command with `cd <that directory> &&`, and never write to the main repository or to another worktree. CodeGraph indexes the main tree: use it for orientation only, and read and edit the files under your own directory. Your check runs there; if it needs something a fresh checkout lacks, such as installed packages, report that instead of installing it. Without that line, work in the repository root.
+
+Run the step's narrowest check, then report in this order: the step id; the changed paths; the check command and its exit code; deviations; open questions or `NEEDS INPUT`. Your report is evidence, not authority: the main session inspects the diff, reruns the check, and records the step.
+
+If the harness warns about your turn budget, make no further tool calls: return the report now, stating what is done, what is not, and the narrowest next step for the main session.
+
+<!-- Managed by b-agentic. Generated from skills/registry.yaml. Do not edit this file. -->

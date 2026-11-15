@@ -21,7 +21,7 @@ HOOKS = ROOT / "claude" / "hooks"
 BIN = ROOT / "claude" / "bin"
 
 # (name, runtime) -> milliseconds. A runtime of "py" is python3. Claude Code runs the hooks and CLIs with bun
-# (ADR-018); the snapshot also runs under node because the Pi runtime does.
+# (ADR-018); the snapshot CLI is a Bun script.
 TARGETS = {
     ("path-guard", "bun"): 15,
     ("codex-guard", "bun"): 17,

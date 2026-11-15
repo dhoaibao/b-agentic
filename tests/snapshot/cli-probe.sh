@@ -7,7 +7,7 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cli="$root/claude/bin/b-candidate-snapshot.mjs"
 # The runtime that runs the CLI under test: bun with the hardening flags the installer writes (ADR-018), or
-# node (SNAPSHOT_PROBE_RUNTIME=node) for the Pi runtime, which runs this CLI in Node.
+# node (SNAPSHOT_PROBE_RUNTIME=node), which the CLI stays runnable under but no runtime installs it with.
 js=(bun --no-env-file --config=/dev/null)
 if [ "${SNAPSHOT_PROBE_RUNTIME:-}" = node ]; then js=(node); fi
 work=$(mktemp -d)

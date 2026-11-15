@@ -21,7 +21,7 @@ Commands (JSON results on stdout, one-line errors on stderr):
                            worker's allowlist; not ok means apply the step in the main session
   selftest                 validate the schema file's examples against each other
 
-Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID).
+Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID, then OPENCODE_SESSION_ID).
 Exit: 0 ok, 3 refused or not ok, 2 invalid input or state.
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
@@ -711,9 +711,9 @@ def require_lock(directory: Path, owner: str) -> None:
 
 def default_owner(args: dict) -> str:
     # The same order as b-state.mjs, which takes the lock this owner must hold.
-    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("PI_SESSION_ID", "")
+    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("OPENCODE_SESSION_ID", "")
     if not OWNER.fullmatch(owner):
-        raise Invalid("pass --owner NAME or set CLAUDE_CODE_SESSION_ID or PI_SESSION_ID")
+        raise Invalid("pass --owner NAME or set CLAUDE_CODE_SESSION_ID or OPENCODE_SESSION_ID")
     return owner
 
 
@@ -1367,6 +1367,118 @@ def _worker_problems(fields: dict[str, str], read_only: set[str]) -> list[str]:
     return problems
 
 
+# OpenCode (ADR-019): an agent file is `description`, `mode`, and a `permissions` list of one JSON mapping
+# per line. The agent id is the path under the agents folder, so only a top-level b-worker.md is the worker.
+# OpenCode also merges agent definitions from its system directory (tests point this at a temporary one).
+OPENCODE_SYSTEM_DIR = Path("/etc/opencode")
+OPENCODE_FRONTMATTER = frozenset({"description", "mode", "permissions"})
+OPENCODE_WORKER_ACTIONS = frozenset({"read", "glob", "grep", "edit", "shell", "external_directory"})
+_OPENCODE_RULE = re.compile(r"  - (\{.*\})")
+
+
+def _opencode_runtime() -> bool:
+    """OpenCode's shell tool sets OPENCODE_SESSION_ID; a Claude Code session id wins, as for the lock owner."""
+    return bool(os.environ.get("OPENCODE_SESSION_ID")) and not os.environ.get("CLAUDE_CODE_SESSION_ID")
+
+
+def _opencode_action(name: str) -> str:
+    """`mcp__<server>__<tool>` as the OpenCode action `<server>_<tool>` (characters outside letters, digits, `_` and `-` become `_`)."""
+    server, _, tool = name.removeprefix("mcp__").partition("__")
+    return f"{re.sub(r'[^A-Za-z0-9_-]', '_', server)}_{re.sub(r'[^A-Za-z0-9_-]', '_', tool)}"
+
+
+def _opencode_worker_problems(text: str, read_only: set[str]) -> list[str]:
+    """Hold an OpenCode b-worker profile to its permissions allowlist (the generator's exact grant)."""
+    lines = text.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n").lstrip().split("\n")
+    if not lines or lines[0].strip() != "---":
+        return ["the profile has no frontmatter"]
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if end is None:
+        return ["the frontmatter has no end"]
+    problems: list[str] = []
+    keys: list[str] = []
+    rules: list[dict] = []
+    # A strict structural reading: only `description` and `mode` carry a one-line scalar, and the only block is
+    # `permissions:` with one JSON mapping per following line. A rule-shaped line anywhere else (a block scalar, a
+    # second key, an indented line) is never counted, and `permissions` may not be written in any other form.
+    in_rules = False
+    for line in lines[1:end]:
+        if not line.strip() or line.startswith("#"):
+            continue
+        plain = _PLAIN_LINE.fullmatch(line.rstrip())
+        if plain:
+            key, raw = plain.group(1), plain.group(2) or ""
+            in_rules = key == "permissions" and not raw.strip()
+            if key in keys:
+                problems.append(f"frontmatter key {key!r} appears twice")
+            keys.append(key)
+            if key == "permissions" and raw.strip():
+                problems.append("permissions must be a block list of one-line JSON mappings")
+            elif key != "permissions" and (not raw.strip() or _scalar(raw) is None):
+                problems.append(f"the value of {key!r} must be a plain one-line scalar")
+            continue
+        rule = _OPENCODE_RULE.fullmatch(line.rstrip())
+        if rule and in_rules:
+            try:
+                value = json.loads(rule.group(1))
+            except ValueError:
+                problems.append("a permissions entry is not a JSON mapping")
+                continue
+            if not isinstance(value, dict) or not all(
+                isinstance(value.get(k), str) for k in ("action", "resource", "effect")
+            ):
+                problems.append("every permissions entry must be an object with action, resource, and effect")
+            else:
+                rules.append(value)
+            continue
+        problems.append("the frontmatter must be plain `key: value` lines and one-line permissions entries")
+    for key in sorted(set(keys) - OPENCODE_FRONTMATTER):
+        problems.append(f"frontmatter key {key!r} is not one the worker profile carries")
+    if not rules:
+        return [*problems, "the permissions list is missing or empty: an omitted list grants every tool"]
+    if rules[0] != {"action": "*", "resource": "*", "effect": "deny"}:
+        problems.append("permissions must start with a deny-all rule")
+    allowed_mcp = {_opencode_action(name) for name in read_only}
+    final: dict[str, str] = {}
+    for rule in rules:
+        if rule["resource"] == "*":
+            final[rule["action"]] = rule["effect"]
+        if rule["effect"] == "allow" and rule["action"] not in OPENCODE_WORKER_ACTIONS | allowed_mcp:
+            problems.append(f"action {rule['action']!r} is neither a worker action nor a read-only MCP tool")
+    for action in ("subagent", "question"):
+        if final.get(action) != "deny":
+            problems.append(f"{action!r} must end denied")
+    if final.get("edit") != "allow":
+        problems.append("'edit' must be allowed for the worker")
+    return problems
+
+
+def _opencode_inline_problems(config_dirs: list[tuple[str, Path]]) -> list[str]:
+    """An inline `agents` entry for the worker is merged over the file profile and is not inspected, so it is refused."""
+    problems: list[str] = []
+    for name in ("OPENCODE_CONFIG", "OPENCODE_CONFIG_CONTENT", "OPENCODE_CONFIG_DIR"):
+        if os.environ.get(name):
+            problems.append(f"{name} is set: a config it names is merged over the profile files and is not inspected")
+    for scope, directory in config_dirs:
+        if (directory / "opencode.jsonc").exists():
+            problems.append(f"{scope}: opencode.jsonc cannot be read safely; an inline b-worker could hide in it")
+        path = directory / "opencode.json"
+        if not path.exists():
+            continue
+        try:
+            config = json.loads(read_file(path).decode())
+        except (OSError, Refused, UnicodeDecodeError, ValueError):
+            problems.append(f"{scope}: {path.name} cannot be read, so an inline b-worker cannot be ruled out")
+            continue
+        for key in ("agents", "agent"):
+            entries = config.get(key) if isinstance(config, dict) else None
+            if isinstance(entries, dict) and any(str(name).casefold() == WORKER_NAME for name in entries):
+                problems.append(
+                    f"{scope}: {path.name} defines {WORKER_NAME} inline; remove it so the profile file applies"
+                )
+    return problems
+
+
 def _agent_files(folder: Path) -> tuple[list[Path], list[str]]:
     """Every markdown file under an agents folder; a link inside it cannot be checked, so it is a problem."""
     files: list[Path] = []
@@ -1401,15 +1513,42 @@ def cmd_worker_profile(args: dict) -> dict:
     here = Path.cwd().resolve()
     folders = [here, *here.parents] if root == here or root in here.parents else [root]
     folders = folders[: folders.index(root) + 1]
-    scopes = [("project", folder / ".claude" / "agents") for folder in folders]
-    scopes.append(("user", Path.home() / ".claude" / "agents"))
-    problems: list[str] = []
+    opencode = _opencode_runtime()
+    problems_inline: list[str] = []
+    if opencode:
+        names = ("agents", "agent", "modes", "mode")
+        scopes = [("project", folder / ".opencode" / name) for folder in folders for name in names]
+        scopes += [("user", Path.home() / ".config" / "opencode" / name) for name in names]
+        configs = [("project", folder) for folder in folders] + [
+            ("project", folder / ".opencode") for folder in folders
+        ]
+        configs.append(("user", Path.home() / ".config" / "opencode"))
+        scopes += [("system", OPENCODE_SYSTEM_DIR / name) for name in names]
+        configs.append(("system", OPENCODE_SYSTEM_DIR))
+        problems_inline = _opencode_inline_problems(configs)
+    else:
+        scopes = [("project", folder / ".claude" / "agents") for folder in folders]
+        scopes.append(("user", Path.home() / ".claude" / "agents"))
+    problems: list[str] = list(problems_inline) if opencode else []
     found: list[str] = []
     for scope, folder in scopes:
         if not folder.is_dir():
             continue
         files, issues = _agent_files(folder)
         problems += [f"{scope}: {issue}" for issue in issues]
+        if opencode:
+            for path in files:
+                if path.relative_to(folder).with_suffix("").as_posix().casefold() != WORKER_NAME:
+                    continue
+                label = f"{scope} profile {path.relative_to(folder)}"
+                try:
+                    text = read_file(path).decode()
+                except (OSError, Refused, UnicodeDecodeError):
+                    problems.append(f"{label} is not a readable regular text file")
+                    continue
+                problems += [f"{label}: {issue}" for issue in _opencode_worker_problems(text, read_only)]
+                found.append(scope)
+            continue
         named: list[tuple[str, dict[str, str]]] = []
         for path in files:
             label = f"{scope} profile {path.relative_to(folder)}"

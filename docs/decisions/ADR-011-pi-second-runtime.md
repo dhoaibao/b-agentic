@@ -1,7 +1,8 @@
 # ADR-011: Pi as a second runtime
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-11-13
+- Superseded by: [ADR-019](ADR-019-opencode-second-runtime.md), which replaced Pi with OpenCode as the second runtime
 - Supersedes: ADR-008 (Claude Code only); also the second-runtime non-goal in ADR-001
 
 ## Context
@@ -57,7 +58,7 @@ The user decided each item below on 2026-11-13.
   keys MCP tools by the names Pi registers (characters outside letters, digits, and `_`
   become `_`), and the MCP config sets each server's `exposure` because the default
   (`codemode`) leaves a server's tools out of the model's direct tool list.
-- The installer (`tooling/install/pi_install.py`, reached as `install.sh --runtime=pi|both`;
+- The installer (the Pi installer, removed by ADR-019, reached as `install.sh --runtime=pi|both`;
   the default stays `claude`) writes only under `~/.pi/agent` and records what it owns in
   an install manifest there, so a Pi run never touches `~/.claude` or `~/.claude.json`
   and a Claude Code run never touches `~/.pi`. It copies the Pi skills, prompts, agents, the
@@ -132,5 +133,4 @@ agent directory, plus the three pinned packages. "Docs" means the bundled Pi doc
 Evidence: [`references/runtimes.yaml`](../../references/runtimes.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
 [`tooling/validate/runtime_parity.py`](../../tooling/validate/runtime_parity.py),
-[`pi/kernel.md`](../../pi/kernel.md), and
-[`pi/configs/permission.json`](../../pi/configs/permission.json).
+and the Pi tree at commit ba7bc2db (removed by ADR-019).

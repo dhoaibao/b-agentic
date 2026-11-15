@@ -13,7 +13,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# The Claude Code probes run with bun; the Pi probes and the fake Codex plugin need node.
+# The probes run with bun; the fake Codex plugin's own script needs node.
 for tool in bun node; do
   command -v "$tool" >/dev/null 2>&1 || { printf 'error: %s is required to run the validation suite\n' "$tool" >&2; exit 1; }
 done
@@ -69,24 +69,19 @@ finish_probes() {
   fi
 }
 
-# Claude Code runs everything below with bun (ADR-018). The hooks probe is two processes: the hook sections,
-# and the slow verdict mapper and review wrapper on their own. The snapshot CLI also runs under node, and
-# a release run repeats the state and artifact probes under node, because the Pi runtime runs those CLIs in Node.
+# Claude Code and OpenCode run everything below with bun (ADR-018, ADR-019). The hooks probe is two processes: the hook
+# sections, and the slow verdict mapper and review wrapper on their own.
 start_probe hooks env HOOKS_PROBE_PART=hooks bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
 start_probe hooks-cli env HOOKS_PROBE_PART=cli bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
 start_probe snapshot bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
-start_probe snapshot-node env SNAPSHOT_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
 start_probe statusline bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
 start_probe state bash "$ROOT_DIR/tests/state/state-probe.sh"
 start_probe artifacts bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
-start_probe pi-guard-cases node "$ROOT_DIR/tests/pi/guard-cases.mjs"
-start_probe pi-guard bash "$ROOT_DIR/tests/pi/guard-probe.sh"
+start_probe opencode-guard bun --no-env-file --config=/dev/null "$ROOT_DIR/tests/opencode/guard-cases.mjs"
 
 if [ "$run_release" -eq 1 ]; then
-  start_probe state-node env STATE_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/state/state-probe.sh"
-  start_probe artifacts-node env ARTIFACT_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
   start_probe claude-install bash "$ROOT_DIR/tests/install/claude-install-probe.sh"
-  start_probe pi-install bash "$ROOT_DIR/tests/install/pi-install-probe.sh"
+  start_probe opencode-install bash "$ROOT_DIR/tests/install/opencode-install-probe.sh"
   if command -v rtk >/dev/null 2>&1; then
     start_probe session-readiness python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else

@@ -1,6 +1,6 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer, and the Pi coding agent as an opt-in second runtime.**
+**A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer, and OpenCode as an opt-in second runtime.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for worktree changes (on Claude
@@ -8,12 +8,11 @@ Code, an approved `b-flow` step may be applied by a `b-worker`). It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration.
 Changed-code review runs through Codex (`openai/codex-plugin-cc`) and falls back
-to the read-only `b-reviewer` subagent when Codex is unavailable. On Pi the
-reviewer is always the `b-reviewer` subagent.
+to the read-only `b-reviewer` subagent when Codex is unavailable, on both runtimes.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
-- [Configuration layout](claude/configs/README.md) for Claude Code and [Pi configuration](pi/configs/README.md) — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-011 Pi as a second runtime](docs/decisions/ADR-011-pi-second-runtime.md) (which supersedes the Claude-Code-only stance of [ADR-008](docs/decisions/ADR-008-claude-code-only.md)).
+- [Configuration layout](claude/configs/README.md) for Claude Code and [OpenCode configuration](opencode/configs/README.md) — managed paths and ownership boundaries.
+- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-019 OpenCode as the second runtime](docs/decisions/ADR-019-opencode-second-runtime.md) (which supersedes [ADR-011](docs/decisions/ADR-011-pi-second-runtime.md) and reverses the OpenCode removal in [ADR-008](docs/decisions/ADR-008-claude-code-only.md)).
 
 ## Install
 
@@ -33,23 +32,23 @@ everything else. It never runs vendor installers. A Claude Code run only touches
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
-### Pi (optional second runtime)
+### OpenCode (optional second runtime)
 
 ```bash
-./install.sh --runtime=pi      # Pi only, under ~/.pi/agent
-./install.sh --runtime=both    # Claude Code and Pi
+./install.sh --runtime=opencode   # OpenCode only, under ~/.config/opencode
+./install.sh --runtime=both       # Claude Code and OpenCode
 ```
 
-`--runtime` defaults to `claude`. The Pi run installs the Pi skills, `/b-*` prompt
-templates, specialist agents, the guard extension, the hooks and run CLIs it uses, and
-the kernel as a marked block in `~/.pi/agent/AGENTS.md`. It merges three pinned packages
-into `settings.json` (`pi-subagents`, `@gotgenes/pi-permission-system`,
-`@juicesharp/rpiv-ask-user-question`) and the MCP servers into `mcp.json`, and it
-writes the generated permission config only when none exists or it is b-agentic's own. It only touches
-`~/.pi/agent`, never runs `pi install` or npm (Pi installs the pinned packages on its next
-start), and reports a missing `pi` binary (Pi needs Node 22.19 or newer). The Codex gate, status line, and todo
-list are not ported to Pi. See [REFERENCE.md](REFERENCE.md#pi-runtime) for the payload, the
-permission config rules, and the known gaps.
+`--runtime` defaults to `claude`. The OpenCode run installs the OpenCode skills, `/b-*`
+commands, specialist agents and the `b-worker`, the safety plugin, the hooks and run CLIs it
+uses (including the Codex review wrapper), and the kernel as a marked block in
+`~/.config/opencode/AGENTS.md`. It merges the generated permission rules, the MCP servers,
+and `experimental.todo` into `opencode.json` and preserves everything else; an earlier
+b-agentic OpenCode install is upgraded in place. It only touches `~/.config/opencode`, never
+runs `opencode`, npm, or a vendor installer, and refuses an `opencode.jsonc`. The status line
+is not ported. See [REFERENCE.md](REFERENCE.md#opencode-runtime) for the payload, the
+permission rules, and the known gaps. Pi is no longer supported; see
+[ADR-019](docs/decisions/ADR-019-opencode-second-runtime.md).
 
 Three skills and their MCP servers are optional and never installed without a
 choice: DataGrip, Excalidraw, and draw.io. On a terminal the installer
@@ -66,14 +65,14 @@ line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 ## How it works
 
 Each request uses one active skill rather than mixing planning, building,
-validation, and shipping. The main session (Claude Code, or Pi when installed there) owns user interaction,
+validation, and shipping. The main session (Claude Code, or OpenCode when installed there) owns user interaction,
 decisions, verification, and mutations. It delegates bounded planning,
 research, diagnosis, repository audits, and changed-code review to read-only
-subagents; on Claude Code only, it may hand one approved `b-flow` step at a time
+subagents; it may hand one approved `b-flow` step at a time
 to the `b-worker` writer. A change that touches security, permissions, contracts,
 configuration, or workflow policy is frozen as a fingerprinted candidate and
 reviewed independently; the main session recomputes the fingerprint afterward
-and voids the review if the candidate moved. On Claude Code that reviewer is
+and voids the review if the candidate moved. On Claude Code and OpenCode that reviewer is
 Codex, a different model family, run through a wrapper that checks for secrets
 and a per-repository approval before anything is sent to OpenAI. If Codex is
 unavailable (plugin missing, signed out, usage limit), the `b-reviewer` subagent
@@ -108,11 +107,11 @@ necessarily a different model family.
 <!-- generated:skills-table:end -->
 
 Claude Code discovers the installed `SKILL.md` files, and each is also a command:
-`/b-plan`, `/b-research`, `/b-implement`, `/b-test`, `/b-review`, and so on. On Pi the same
-skills install from `pi/skills/`, and thin `/b-*` prompt templates point at them.
+`/b-plan`, `/b-research`, `/b-implement`, `/b-test`, `/b-review`, and so on. On OpenCode the same
+skills install from `opencode/skills/`, and thin `/b-*` command files point at them.
 
 ## Learn more
 
 - [Operational reference](REFERENCE.md) — lifecycle, permissions, review gate, MCP, and verification.
-- [Configuration layout](claude/configs/README.md) and [Pi configuration](pi/configs/README.md) — installed paths and ownership boundaries.
+- [Configuration layout](claude/configs/README.md) and [OpenCode configuration](opencode/configs/README.md) — installed paths and ownership boundaries.
 - [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) — evidence-backed architecture decisions.

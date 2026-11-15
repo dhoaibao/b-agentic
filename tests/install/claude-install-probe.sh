@@ -243,6 +243,11 @@ pi_before=$(tree "$home/.pi")
 runenv "$home" "CLAUDE_CONFIG_DIR=$home/.pi/agent"; expect_refused "installing into the Pi directory"
 grep -Fq 'not supported' <<<"$err" || fail "custom directory refusal reason missing: $err"
 [ "$pi_before" = "$(tree "$home/.pi")" ] || fail "Pi tree changed by a refused install"
+mkdir -p "$home/.config/opencode"
+printf '{"opencode":true}\n' >"$home/.config/opencode/opencode.json"
+oc_before=$(tree "$home/.config")
+runenv "$home" "CLAUDE_CONFIG_DIR=$home/.config/opencode"; expect_refused "installing into the OpenCode directory"
+[ "$oc_before" = "$(tree "$home/.config")" ] || fail "OpenCode tree changed by a refused install"
 run "$home" --claude-dir="$home/x"; expect_refused "the removed --claude-dir flag"
 mkdir -p "$home/.claude"
 printf '{broken' >"$home/.claude/settings.json"
@@ -1132,12 +1137,12 @@ run "$home" -y --statusline-only; expect_ok "status line re-run"
 # Flags that make no sense with it are refused.
 run "$home" -y --statusline-only --with=drawio; expect_refused "--statusline-only with --with"
 run "$home" -y --statusline-only --uninstall; expect_refused "--statusline-only with --uninstall"
-# install.sh accepts --runtime=claude (a no-op here), pi, and both (ADR-011); OpenCode, Codex, and --migrate-legacy stay refused.
+# install.sh accepts --runtime=claude (a no-op here), opencode, and both (ADR-019); pi, Codex, and --migrate-legacy stay refused.
 run "$home" -y --statusline-only --dry-run --runtime=claude; expect_ok "--runtime=claude is accepted"
-for bad in opencode codex; do
-  run "$home" -y --dry-run --runtime=$bad; expect_refused "--runtime=$bad"
-  grep -Fq 'ADR-008' <<<"$err$out" || fail "the --runtime=$bad refusal must point to ADR-008: $err $out"
-done
+run "$home" -y --dry-run --runtime=pi; expect_refused "--runtime=pi"
+grep -Fq 'ADR-019' <<<"$err$out" || fail "the --runtime=pi refusal must point to ADR-019: $err $out"
+run "$home" -y --dry-run --runtime=codex; expect_refused "--runtime=codex"
+grep -Fq 'ADR-019' <<<"$err$out" || fail "the --runtime=codex refusal must point to ADR-019: $err $out"
 run "$home" -y --dry-run --migrate-legacy; expect_refused "--migrate-legacy is no longer accepted"
 # A plain uninstall removes exactly what it installed and restores the user's settings.
 run "$home" --uninstall; expect_ok "status line uninstall"

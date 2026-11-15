@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code and, optionally, Pi.
+# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code and, optionally, OpenCode.
 #
 # Usage:
 #   ./install.sh [--dry-run] [--force] [-y]               install or sync from this checkout
-#   ./install.sh --runtime=pi                             install for Pi (~/.pi/agent) instead; --runtime=both
-#                                                         does Claude Code and Pi (default: claude)
+#   ./install.sh --runtime=opencode                       install for OpenCode (~/.config/opencode) instead;
+#                                                         --runtime=both does Claude Code and OpenCode (default: claude)
 #   ./install.sh --with=excalidraw,drawio                 install optional components (datagrip, excalidraw,
 #                                                         drawio); --without=ID removes them
 #   ./install.sh --statusline-only                        install only the Claude Code status line (a later
@@ -16,8 +16,8 @@
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers. A Claude Code run only touches ~/.claude and ~/.claude.json; a Pi run only touches
-# ~/.pi/agent (the pinned Pi packages are installed by Pi itself on its next start).
+# runs vendor installers. A Claude Code run only touches ~/.claude and ~/.claude.json; an OpenCode run only
+# touches ~/.config/opencode. Nothing is ever written under ~/.pi (the Pi runtime was removed by ADR-019).
 # Optional components are never installed without a choice: a terminal shows a checkbox list (nothing
 # checked on a fresh install; installed ones are pre-checked), while -y, --dry-run, or no terminal keeps
 # the recorded choice and otherwise installs none. --with/--without are additive and repeatable.
@@ -57,8 +57,9 @@ while [ "$#" -gt 0 ]; do
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
     --force) PASSTHROUGH+=("$1") ;;
-    --runtime=claude|--runtime=pi|--runtime=both) RUNTIME="${1#--runtime=}" ;;
-    --runtime=*) die "unsupported $1: use --runtime=claude, pi, or both (OpenCode and Codex were removed; see docs/decisions/ADR-008-claude-code-only.md and ADR-011-pi-second-runtime.md)" ;;
+    --runtime=claude|--runtime=opencode|--runtime=both) RUNTIME="${1#--runtime=}" ;;
+    --runtime=pi) die "unsupported $1: the Pi runtime was replaced by OpenCode (docs/decisions/ADR-019-opencode-second-runtime.md); use --runtime=claude, opencode, or both, and uninstall an old Pi install from commit ba7bc2db" ;;
+    --runtime=*) die "unsupported $1: use --runtime=claude, opencode, or both (see docs/decisions/ADR-019-opencode-second-runtime.md)" ;;
     --statusline-only) STATUSLINE_ONLY=1; PASSTHROUGH+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
@@ -87,15 +88,19 @@ esac
 command -v python3 >/dev/null 2>&1 || die 'python3 is required'
 
 # refuse_protected_dir <dir>: the clone/update destination must not be the home
-# directory or sit under ~/.pi (the Pi installer owns that tree), resolving symlinks first.
+# directory or sit under ~/.pi or ~/.config/opencode (the runtime installers own those trees), resolving symlinks first.
 refuse_protected_dir() {
-  python3 - "$1" <<'PY' || die "refusing to use $1 as the source directory (home directory, or under ~/.pi)"
+  python3 - "$1" <<'PY' || die "refusing to use $1 as the source directory (home directory, or under ~/.pi or ~/.config/opencode)"
 import os
 import sys
 
 home = os.path.expanduser("~")
 dest = os.path.realpath(sys.argv[1])
-pi_roots = {os.path.join(home, ".pi"), os.path.realpath(os.path.join(home, ".pi"))}
+pi_roots = {
+    candidate
+    for name in (".pi", os.path.join(".config", "opencode"))
+    for candidate in (os.path.join(home, name), os.path.realpath(os.path.join(home, name)))
+}
 if dest in {os.path.realpath(home), "/"}:
     raise SystemExit(1)
 if any(dest == root or dest.startswith(root + os.sep) for root in pi_roots):
@@ -172,26 +177,26 @@ fi
 
 export B_AGENTIC_NOTES="$NOTES"
 CLAUDE_INSTALLER="$SOURCE_DIR/tooling/install/claude_install.py"
-PI_INSTALLER="$SOURCE_DIR/tooling/install/pi_install.py"
-# Pi's installer takes every shared option; --statusline-only was refused above for it.
-PI_ARGS=()
+OPENCODE_INSTALLER="$SOURCE_DIR/tooling/install/opencode_install.py"
+# OpenCode's installer takes every shared option; --statusline-only was refused above for it.
+OPENCODE_ARGS=()
 for arg in ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}; do
-  [ "$arg" = --statusline-only ] || PI_ARGS+=("$arg")
+  [ "$arg" = --statusline-only ] || OPENCODE_ARGS+=("$arg")
 done
 case "$RUNTIME" in
   claude) exec python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
-  pi) exec python3 "$PI_INSTALLER" --source "$SOURCE_DIR" ${PI_ARGS[@]+"${PI_ARGS[@]}"} ;;
+  opencode) exec python3 "$OPENCODE_INSTALLER" --source "$SOURCE_DIR" ${OPENCODE_ARGS[@]+"${OPENCODE_ARGS[@]}"} ;;
   both)
     if [ "$DRY_RUN" -eq 0 ] && [ "$UNINSTALL" -eq 0 ]; then
       # Each runtime plans before its first write; checking both first keeps one refusal from leaving
       # the other half installed.
-      for installer in "$CLAUDE_INSTALLER" "$PI_INSTALLER"; do
+      for installer in "$CLAUDE_INSTALLER" "$OPENCODE_INSTALLER"; do
         check_args=(--dry-run -y)
-        [ "$installer" = "$CLAUDE_INSTALLER" ] && check_args+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}) || check_args+=(${PI_ARGS[@]+"${PI_ARGS[@]}"})
+        [ "$installer" = "$CLAUDE_INSTALLER" ] && check_args+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}) || check_args+=(${OPENCODE_ARGS[@]+"${OPENCODE_ARGS[@]}"})
         python3 "$installer" --source "$SOURCE_DIR" "${check_args[@]}" >/dev/null || die "preflight failed for $(basename "$installer"); nothing was installed"
       done
     fi
     python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
-    exec python3 "$PI_INSTALLER" --source "$SOURCE_DIR" ${PI_ARGS[@]+"${PI_ARGS[@]}"}
+    exec python3 "$OPENCODE_INSTALLER" --source "$SOURCE_DIR" ${OPENCODE_ARGS[@]+"${OPENCODE_ARGS[@]}"}
     ;;
 esac

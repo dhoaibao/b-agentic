@@ -9,7 +9,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cli="$root/claude/bin/b_run.py"
 state_cli="$root/claude/bin/b-state.mjs"
 # The runtime that runs the CLI under test: bun with the hardening flags the installer writes (ADR-018), or
-# node (ARTIFACT_PROBE_RUNTIME=node) for the Pi runtime, which runs these CLIs in Node.
+# node (ARTIFACT_PROBE_RUNTIME=node), which the CLIs stay runnable under but no runtime installs them with.
 js=(bun --no-env-file --config=/dev/null)
 if [ "${ARTIFACT_PROBE_RUNTIME:-}" = node ]; then js=(node); fi
 schema="$root/references/artifacts.yaml"
@@ -716,7 +716,87 @@ rc=0
 out=$(cd "$wp_repo/pkg" && HOME="$wp_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
 [ "$rc" -eq 0 ] && [ "$(jq -r .source <<<"$out")" = user ] || fail "a profile below the working directory is not in effect: rc=$rc $out"
 
-# --- the owner: --owner, then CLAUDE_CODE_SESSION_ID, then PI_SESSION_ID -----------------------
+# --- the OpenCode b-worker profile (ADR-019): the permissions list stays inside the worker's grant -------
+oc_home="$work/ochome"
+oc_repo="$work/ocrepo"
+make_repo "$oc_repo"
+mkdir -p "$oc_home/.config/opencode/agents" "$oc_repo/.opencode/agents"
+ocwp() { rc=0; out=$(cd "$oc_repo" && env -u CLAUDE_CODE_SESSION_ID OPENCODE_SESSION_ID=ses_x HOME="$oc_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?; }
+ocwp
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = none ] || fail "no OpenCode profile installed must not start a worker: rc=$rc $out"
+cp "$root/opencode/agents/b-worker.md" "$oc_home/.config/opencode/agents/b-worker.md"
+ocwp
+[ "$rc" -eq 0 ] && [ "$(jq -c '[.ok, .source]' <<<"$out")" = '[true,"user"]' ] || fail "the generated OpenCode profile must pass: rc=$rc $out"
+oc_case() { # DESCRIPTION SED-EXPRESSION: a project profile derived from the generated one that must be refused
+  sed "$2" "$root/opencode/agents/b-worker.md" >"$oc_repo/.opencode/agents/b-worker.md"
+  ocwp
+  [ "$rc" -eq 3 ] && [ "$(jq -c '[.ok, .source]' <<<"$out")" = '[false,"project"]' ] || fail "an OpenCode profile with $1 must be refused: rc=$rc $out"
+}
+oc_case "delegation allowed" 's/{"action": "subagent", "resource": "\*", "effect": "deny"}/{"action": "subagent", "resource": "*", "effect": "allow"}/'
+oc_case "questions allowed" 's/{"action": "question", "resource": "\*", "effect": "deny"}/{"action": "question", "resource": "*", "effect": "allow"}/'
+oc_case "a mutating MCP tool" '0,/^permissions:/s//permissions:\n  - {"action": "playwright_browser_click", "resource": "*", "effect": "allow"}/'
+oc_case "no deny-all start" '/"action": "\*", "resource": "\*", "effect": "deny"/d'
+oc_case "an extra frontmatter key" 's/^mode: subagent/mode: subagent\ncolor: red/'
+# Rule-shaped lines hidden in a block scalar must not stand in for the real permissions value.
+{
+  printf -- '---\ndescription: |\n'
+  sed -n '/^permissions:/,/^---$/p' "$root/opencode/agents/b-worker.md" | sed '1d;$d' | sed 's/^/  /' | sed 's/^    - / - /;s/^  - /  - /'
+  printf 'mode: subagent\npermissions: [{"action": "*", "resource": "*", "effect": "allow"}]\n---\n\nbody\n'
+} >"$oc_repo/.opencode/agents/b-worker.md"
+ocwp
+[ "$rc" -eq 3 ] && [ "$(jq -c '[.ok, .source]' <<<"$out")" = '[false,"project"]' ] || fail "rules hidden in a block scalar must be refused: rc=$rc $out"
+oc_case "a duplicate permissions key" 's/^mode: subagent/mode: subagent\npermissions:/'
+rm -f "$oc_repo/.opencode/agents/b-worker.md"
+ocwp
+[ "$rc" -eq 0 ] || fail "removing the bad project profile must restore the user's: rc=$rc $out"
+# An unsafe definition in any other place OpenCode reads must not hide behind the safe installed profile.
+mkdir -p "$oc_repo/.opencode/modes" "$oc_repo/.opencode/mode"
+for folder in modes mode; do
+  sed 's/{"action": "subagent", "resource": "\*", "effect": "deny"}/{"action": "subagent", "resource": "*", "effect": "allow"}/' "$root/opencode/agents/b-worker.md" >"$oc_repo/.opencode/$folder/b-worker.md"
+  ocwp
+  { [ "$rc" -eq 3 ] && grep -Fq 'subagent' <<<"$out"; } || fail "an unsafe $folder/b-worker.md must be refused: rc=$rc $out"
+  rm -f "$oc_repo/.opencode/$folder/b-worker.md"
+done
+ocwp
+[ "$rc" -eq 0 ] || fail "removing the bad modes profiles must restore the user's: rc=$rc $out"
+printf '{"agents": {"b-worker": {"permissions": []}}}\n' >"$oc_repo/opencode.json"
+ocwp
+{ [ "$rc" -eq 3 ] && grep -Fq 'inline' <<<"$out"; } || fail "an inline b-worker in the project config must be refused: rc=$rc $out"
+rm -f "$oc_repo/opencode.json"
+printf '{"agent": {"B-Worker": {}}}\n' >"$oc_repo/.opencode/opencode.json"
+ocwp
+{ [ "$rc" -eq 3 ] && grep -Fq 'inline' <<<"$out"; } || fail "an inline legacy agent entry must be refused: rc=$rc $out"
+rm -f "$oc_repo/.opencode/opencode.json"
+printf '{ // comment\n}\n' >"$oc_repo/opencode.jsonc"
+ocwp
+{ [ "$rc" -eq 3 ] && grep -Fq 'opencode.jsonc' <<<"$out"; } || fail "an opencode.jsonc must be refused: rc=$rc $out"
+rm -f "$oc_repo/opencode.jsonc"
+ocwp
+[ "$rc" -eq 0 ] || fail "removing the inline definitions must restore the user's profile: rc=$rc $out"
+rc=0
+out=$(cd "$oc_repo" && env -u CLAUDE_CODE_SESSION_ID OPENCODE_SESSION_ID=ses_x OPENCODE_CONFIG_CONTENT='{}' HOME="$oc_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
+{ [ "$rc" -eq 3 ] && grep -Fq 'OPENCODE_CONFIG_CONTENT' <<<"$out"; } || fail "a config named by the environment must be refused: rc=$rc $out"
+# An unsafe profile in the system directory must not hide behind the safe installed one.
+oc_sys="$work/ocsys"
+mkdir -p "$oc_sys/agents"
+sed 's/{"action": "subagent", "resource": "\*", "effect": "deny"}/{"action": "subagent", "resource": "*", "effect": "allow"}/' "$root/opencode/agents/b-worker.md" >"$oc_sys/agents/b-worker.md"
+rc=0
+out=$(cd "$oc_repo" && env -u CLAUDE_CODE_SESSION_ID OPENCODE_SESSION_ID=ses_x HOME="$oc_home" python3 -I -B -c '
+import sys
+sys.path.insert(0, sys.argv[1] + "/claude/bin")
+import b_run
+from pathlib import Path
+b_run.OPENCODE_SYSTEM_DIR = Path(sys.argv[2])
+sys.argv = ["b_run.py", "worker-profile", "--owner", "s1"]
+raise SystemExit(b_run.main(sys.argv[1:]))
+' "$root" "$oc_sys" 2>"$work/err") || rc=$?
+{ [ "$rc" -eq 3 ] && grep -Fq 'system profile' <<<"$out"; } || fail "an unsafe system b-worker must be refused: rc=$rc $out $(cat "$work/err")"
+# A Claude Code session id keeps the Claude Code check, so an OpenCode profile alone is not enough there.
+rc=0
+out=$(cd "$oc_repo" && CLAUDE_CODE_SESSION_ID=s1 OPENCODE_SESSION_ID=ses_x HOME="$oc_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = none ] || fail "a Claude Code session must not accept an OpenCode profile: rc=$rc $out"
+
+# --- the owner: --owner, then CLAUDE_CODE_SESSION_ID, then OPENCODE_SESSION_ID -----------------------
 owner_repo="$work/owner"
 make_repo "$owner_repo"
 newrun "$owner_repo"
@@ -724,23 +804,23 @@ newrun "$owner_repo"
 bo() {
   rc=0
   out=$(cd "$owner_repo" && example spec |
-    env -u CLAUDE_CODE_SESSION_ID -u PI_SESSION_ID "$@" python3 -I -B "$cli" write spec 2>"$work/err") || rc=$?
+    env -u CLAUDE_CODE_SESSION_ID -u OPENCODE_SESSION_ID "$@" python3 -I -B "$cli" write spec 2>"$work/err") || rc=$?
 }
-bo PI_SESSION_ID=s1
-[ "$rc" -eq 0 ] || fail "PI_SESSION_ID must name the owner without --owner: rc=$rc $(cat "$work/err")"
-bo PI_SESSION_ID=other
-[ "$rc" -eq 3 ] || fail "a PI_SESSION_ID without the lock must be refused (rc=$rc)"
+bo OPENCODE_SESSION_ID=s1
+[ "$rc" -eq 0 ] || fail "OPENCODE_SESSION_ID must name the owner without --owner: rc=$rc $(cat "$work/err")"
+bo OPENCODE_SESSION_ID=other
+[ "$rc" -eq 3 ] || fail "a OPENCODE_SESSION_ID without the lock must be refused (rc=$rc)"
 grep -Fq 'locked by another session' "$work/err" || fail "the lock owner must be named: $(cat "$work/err")"
 bo
 [ "$rc" -eq 2 ] || fail "no owner at all must be invalid input (rc=$rc)"
-grep -Fq 'CLAUDE_CODE_SESSION_ID or PI_SESSION_ID' "$work/err" || fail "the error must name both session variables: $(cat "$work/err")"
-bo CLAUDE_CODE_SESSION_ID=s1 PI_SESSION_ID=other
-[ "$rc" -eq 0 ] || fail "CLAUDE_CODE_SESSION_ID must win over PI_SESSION_ID: rc=$rc $(cat "$work/err")"
-bo CLAUDE_CODE_SESSION_ID=other PI_SESSION_ID=s1
-[ "$rc" -eq 3 ] || fail "PI_SESSION_ID must not override CLAUDE_CODE_SESSION_ID (rc=$rc)"
+grep -Fq 'CLAUDE_CODE_SESSION_ID or OPENCODE_SESSION_ID' "$work/err" || fail "the error must name both session variables: $(cat "$work/err")"
+bo CLAUDE_CODE_SESSION_ID=s1 OPENCODE_SESSION_ID=other
+[ "$rc" -eq 0 ] || fail "CLAUDE_CODE_SESSION_ID must win over OPENCODE_SESSION_ID: rc=$rc $(cat "$work/err")"
+bo CLAUDE_CODE_SESSION_ID=other OPENCODE_SESSION_ID=s1
+[ "$rc" -eq 3 ] || fail "OPENCODE_SESSION_ID must not override CLAUDE_CODE_SESSION_ID (rc=$rc)"
 rc=0
 out=$(cd "$owner_repo" && example spec |
-  env CLAUDE_CODE_SESSION_ID=other PI_SESSION_ID=other python3 -I -B "$cli" write spec --owner s1 2>"$work/err") || rc=$?
+  env CLAUDE_CODE_SESSION_ID=other OPENCODE_SESSION_ID=other python3 -I -B "$cli" write spec --owner s1 2>"$work/err") || rc=$?
 [ "$rc" -eq 0 ] || fail "--owner must override both session variables: rc=$rc $(cat "$work/err")"
 
 # --- no run, no repository --------------------------------------------------------------------

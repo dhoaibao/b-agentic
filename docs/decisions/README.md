@@ -20,7 +20,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-015](ADR-015-step-writer-worker.md) for one writer subagent applying an approved plan step, and
 [ADR-016](ADR-016-parallel-worker-steps.md) for approved worker steps running at the same time, each in its own worktree, and
 [ADR-017](ADR-017-bun-hook-runtime.md) for the managed hooks and status line running under Bun with Node as the fallback, and
-[ADR-018](ADR-018-bun-only-runtime.md) for Bun as the only runtime for Claude Code, superseding ADR-017.
+[ADR-018](ADR-018-bun-only-runtime.md) for Bun as the only runtime for Claude Code, superseding ADR-017, and
+[ADR-019](ADR-019-opencode-second-runtime.md) for OpenCode as the second runtime in place of Pi, superseding ADR-011.
 
 ## Naming
 

@@ -9,7 +9,7 @@ Everything else in those files is user-owned and preserved, and byte equality
 with a managed value is never treated as ownership.
 
 Every operation first plans in memory: it parses and validates every user file
-and every destination (symlinks, non-directory ancestors, the Pi runtime) and
+and every destination (symlinks, non-directory ancestors, the other runtimes) and
 refuses on a problem before the first write. It then records its intent in the
 manifest as a `pending` section that sits beside the last committed ownership,
 applies the plan, and finally commits. An interruption leaves a manifest from
@@ -20,7 +20,7 @@ deleted. A hook the user edited, or one it never recorded, is kept and reported,
 and its script is kept too until that entry is gone. An uninstall removes the
 recorded hooks first and then the scripts, so such a user-owned entry can outlive
 its script.
-Nothing is ever written under ~/.pi (pi_install.py owns that tree), and only the default ~/.claude
+Nothing is ever written under ~/.config/opencode (opencode_install.py owns that tree) or ~/.pi, and only the default ~/.claude
 directory is supported because the managed hooks, agents, and instructions refer to it.
 """
 
@@ -124,8 +124,11 @@ def resolve_claude_dir() -> Path:
     return default
 
 
-# What this installer never touches: the other runtime's home entries. The Pi installer passes its own.
-CLAUDE_INSTALL_PROTECTED = ((".pi", "the Pi runtime directory"),)
+# What this installer never touches: the other runtimes' home entries (OpenCode, and the retired Pi tree).
+CLAUDE_INSTALL_PROTECTED = (
+    (".config/opencode", "the OpenCode runtime directory"),
+    (".pi", "the Pi runtime directory"),
+)
 
 
 def guard_destination(path: Path, protected: tuple[tuple[str, str], ...] = CLAUDE_INSTALL_PROTECTED) -> None:

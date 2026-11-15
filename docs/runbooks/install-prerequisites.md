@@ -36,8 +36,8 @@ this is a manual step. Which tool each MCP needs is listed in
      && sudo apt install gh -y
    ```
 
-3. Install Node through nvm. Only the Pi runtime and the npm-packaged tools below need it; b-agentic's own
-   hooks and scripts run with Bun. The tag below was the latest on 2026-11-09; check
+3. Install Node through nvm. Only the npm-packaged tools below and the Codex plugin's own script need it; b-agentic's own
+   hooks and scripts run with Bun on both runtimes. The tag below was the latest on 2026-11-09; check
    the [nvm releases](https://github.com/nvm-sh/nvm/releases) for a newer one.
    Open a new shell afterwards.
 

@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-11-12
 - Supersedes: ADR-002 (dual-runtime support) and ADR-005 (OpenCode restored)
+- Note: [ADR-019](ADR-019-opencode-second-runtime.md) restores OpenCode as the second runtime in place of Pi; the TablePro removal stands.
 - Note: [ADR-011](ADR-011-pi-second-runtime.md) supersedes the Claude-Code-only runtime statement and adds Pi as an opt-in second runtime; the OpenCode and TablePro removals stand.
 
 ## Context

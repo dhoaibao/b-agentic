@@ -44,7 +44,7 @@ for known in "${cases[@]}"; do [ "$known" != "$name" ] || found=1; done
 
 cli="$root/claude/bin/b-state.mjs"
 # The runtime that runs the CLI under test: bun with the hardening flags the installer writes (ADR-018), or
-# node (STATE_PROBE_RUNTIME=node) for the Pi runtime, which runs these CLIs in Node.
+# node (STATE_PROBE_RUNTIME=node), which the CLIs stay runnable under but no runtime installs them with.
 js=(bun --no-env-file --config=/dev/null)
 if [ "${STATE_PROBE_RUNTIME:-}" = node ]; then js=(node); fi
 work=$(mktemp -d)
