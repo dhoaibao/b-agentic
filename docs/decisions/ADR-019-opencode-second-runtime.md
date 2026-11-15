@@ -61,7 +61,7 @@ The user decided each item below on 2026-11-15.
   default stays `claude`) writes only under `~/.config/opencode` and records what it owns
   in a manifest there. A schema-1 manifest from the earlier OpenCode release is adopted and
   upgraded: recorded `tablepro` and Codex entries are retired, the Codex approval file is
-  left in place with a note, and user plugins and rules are preserved. It never runs
+  left in place (the OpenCode review wrapper still reads it), and user plugins and rules are preserved. It never runs
   `opencode`, npm, or any vendor installer. A pending permission intent records how many
   identical rules the file held before the write, so an interrupted run never makes a rule
   the user already had look like ours, and the count each owned rule is left at is written to the
@@ -114,8 +114,9 @@ Code Mode, a plugin load failure leaving OpenCode running without the guard, and
 ## Consequences
 
 - Two runtimes to maintain; each rendered kernel stays within its size limit.
-- Removing Pi drops the Node requirement for the second runtime; Node remains for the Codex
-  plugin script in tests.
+- Removing Pi drops Node as a runtime for the plugin and hooks (Bun runs them), but Node is still
+  needed on both runtimes: the Codex review wrapper starts the Codex plugin's script with it, so both
+  installers list `node` as a prerequisite.
 - OpenCode config keys have already changed once (V1 to V2); pin the verified version here
   and re-run the probe after an upgrade.
 - If the plugin fails to load the guard is absent, so native `deny` rules for secret paths

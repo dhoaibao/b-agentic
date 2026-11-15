@@ -57,7 +57,7 @@ CODEX_PLUGIN_COMMANDS = (
     "/plugin install codex@openai-codex",
     "/codex:setup",
 )
-PREREQUISITES = ("bun", "git", "rtk", "codegraph", "bunx", "claude", "codex")
+PREREQUISITES = ("bun", "node", "git", "rtk", "codegraph", "bunx", "claude", "codex")
 # Claude Code runs the managed hooks and status line with Bun (ADR-018). The flags keep Bun from loading the
 # working directory's bunfig.toml preload and .env files into a hook, so a cloned repository cannot run code
 # inside a guard. The generated commands start with the bare name; the installer swaps in the absolute path it found.

@@ -36,8 +36,8 @@ this is a manual step. Which tool each MCP needs is listed in
      && sudo apt install gh -y
    ```
 
-3. Install Node through nvm. Only the npm-packaged tools below and the Codex plugin's own script need it; b-agentic's own
-   hooks and scripts run with Bun on both runtimes. The tag below was the latest on 2026-11-09; check
+3. Install Node through nvm. Only the npm-packaged tools below and the Codex plugin's own script (which the review
+   wrapper starts with Node on both runtimes) need it; b-agentic's own hooks and scripts run with Bun. The tag below was the latest on 2026-11-09; check
    the [nvm releases](https://github.com/nvm-sh/nvm/releases) for a newer one.
    Open a new shell afterwards.
 
@@ -97,7 +97,14 @@ this is a manual step. Which tool each MCP needs is listed in
 
    Then, inside Claude Code, run `/plugin marketplace add openai/codex-plugin-cc`,
    `/plugin install codex@openai-codex`, and `/codex:setup`, and keep the plugin's
-   review gate (a Stop hook) disabled.
+   review gate (a Stop hook) disabled. The OpenCode runtime uses the same Codex gate: it needs the Codex
+   CLI and this plugin, and the plugin is installed through Claude Code.
+
+10. Optional: install OpenCode (2.3.0 or newer) for the second runtime
+    ([ADR-019](../decisions/ADR-019-opencode-second-runtime.md)), then run `./install.sh --runtime=opencode`
+    (or `both`). The installer never installs OpenCode; follow OpenCode's own install instructions. This
+    step was not re-checked against official docs on 2026-11-15, so confirm the install command and the
+    version first.
 
 ## Verify
 
@@ -109,6 +116,7 @@ python3 --version && git --version && rg --version && fdfind --version \
   && jq --version && gh --version && bun --version && node --version && bunx --version \
   && claude --version && rtk --version && rtk gain && codegraph --version
 codex --version   # optional: only for the Codex review gate
+opencode --version   # optional: only for the OpenCode runtime (2.3.0 or newer)
 scripts/mcp-doctor.sh --allow-degraded
 ```
 

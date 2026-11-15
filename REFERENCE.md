@@ -457,8 +457,8 @@ Code, with `b-reviewer` only when the wrapper exits 4; the wrapper finds the Cod
 tool sets. A `b-worker` step runs as a background subagent whose idle notification is the wait; parallel
 worker worktrees are not ported, and `b_run.py worker-profile` checks the OpenCode profile's `permissions` in `agents/`, `agent/`, `modes/`, and
 `mode/`, and refuses an inline `agents` entry for the worker, an `opencode.jsonc`, or a config named by
-`OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, or `OPENCODE_CONFIG_DIR`, because those merge over the profile
-file and are not inspected.
+`OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, or an `OPENCODE_CONFIG_DIR` other than `~/.config/opencode`, because
+those merge over the profile file and are not inspected (the default directory is inspected as the user scope).
 
 **Not ported in v1.** The status line, the parallel worker batch, and doctor scripts. The installer refuses
 a different `XDG_CONFIG_HOME`, `OPENCODE_CONFIG_DIR`, or `B_AGENTIC_OPENCODE_DIR`, an `opencode.jsonc`, and a
