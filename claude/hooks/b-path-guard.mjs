@@ -13,7 +13,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { isProtected } from "../bin/b-candidate-snapshot.mjs";
+import { isProtected } from "../bin/b-protected.mjs";
 
 const PATH_KEYS = ["file_path", "notebook_path", "path"];
 // Search tools take a glob that can name a secret file directly. `pattern` is a

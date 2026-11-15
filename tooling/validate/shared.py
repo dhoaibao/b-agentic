@@ -104,7 +104,7 @@ def main() -> int:
             errors.append(f"claude/hooks/{script}: missing hook script")
         if not any(command.endswith(f'/{script}"') for command in commands):
             errors.append(f"claude/configs/settings.template.json: no hook runs {script}")
-    for script in ("b-candidate-snapshot.mjs", "b-codex-verdict.mjs", "b-codex-review.mjs"):
+    for script in ("b-candidate-snapshot.mjs", "b-protected.mjs", "b-codex-verdict.mjs", "b-codex-review.mjs"):
         if not (ROOT / "claude" / "bin" / script).is_file():
             errors.append(f"claude/bin/{script}: missing CLI")
     if not (ROOT / "claude" / "bin" / "b-statusline.mjs").is_file():

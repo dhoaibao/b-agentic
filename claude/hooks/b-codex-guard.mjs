@@ -29,10 +29,10 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-  checkProtected,
-  resolveReviewRange,
-} from "../bin/b-candidate-snapshot.mjs";
+
+// The snapshot CLI is loaded only when a guarded command needs a scan, so the
+// common case (a Bash call that is not a Codex review) skips its parse cost.
+const snapshot = () => import("../bin/b-candidate-snapshot.mjs");
 
 // Plugin subcommands that never send repository content to Codex; every other
 // subcommand (review, adversarial-review, task, rescue, transfer, ...) is guarded.
@@ -396,7 +396,7 @@ export async function evaluate({ command, cwd, base }) {
   }
   if (root) {
     try {
-      const scan = await checkProtected(cwd);
+      const scan = await (await snapshot()).checkProtected(cwd);
       if (scan.blocking.length > 0) {
         reasons.push(
           `likely-secret paths present: ${scan.blocking.join(", ")}`,
@@ -426,7 +426,7 @@ export async function evaluate({ command, cwd, base }) {
     }
     for (const ref of bases) {
       try {
-        const scanned = await resolveReviewRange(cwd, ref);
+        const scanned = await (await snapshot()).resolveReviewRange(cwd, ref);
         if (ref === base) range = scanned;
         if (scanned.blocking.length > 0) {
           reasons.push(

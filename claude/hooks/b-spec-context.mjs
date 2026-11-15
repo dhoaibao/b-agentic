@@ -33,7 +33,7 @@ import {
 } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { isProtected } from "../bin/b-candidate-snapshot.mjs";
+import { isProtected } from "../bin/b-protected.mjs";
 
 export const MAX_SPECS = 5;
 export const MAX_CHARS = 2000;

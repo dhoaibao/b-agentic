@@ -86,15 +86,27 @@ export async function repoRoot(cwd) {
 }
 
 export async function worktreeBaseline(root) {
-  const status = await gitOr(root, [
-    "status",
-    "--porcelain=v1",
-    "-z",
-    "--untracked-files=all",
+  // The status and the HEAD/branch pair are independent reads, so they run
+  // together; one `rev-parse` answers both HEAD and the branch.
+  const [status, pair] = await Promise.all([
+    gitOr(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
+    gitOr(root, ["rev-parse", "HEAD", "--abbrev-ref", "HEAD"], null),
   ]);
+  let [head, branch] = pair?.split("\n") ?? [];
+  if (
+    pair === null ||
+    branch === undefined ||
+    !/^[0-9a-f]{40,64}$/.test(head)
+  ) {
+    // An unborn HEAD (or any other surprise) is answered the way it always was.
+    [head, branch] = await Promise.all([
+      gitOr(root, ["rev-parse", "HEAD"]),
+      gitOr(root, ["rev-parse", "--abbrev-ref", "HEAD"]),
+    ]);
+  }
   return {
-    head: await gitOr(root, ["rev-parse", "HEAD"]),
-    branch: await gitOr(root, ["rev-parse", "--abbrev-ref", "HEAD"]),
+    head,
+    branch,
     status_digest: sha256(status),
     dirty: status.length > 0,
   };

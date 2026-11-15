@@ -417,6 +417,23 @@ expect_refused "$work/plain-check.json" "--check-protected outside a repository 
 [ ! -s "$work/plain.json" ] || fail "a failed snapshot printed output on stdout"
 echo "snapshot probe passed: non-repository"
 
+# --- git-call budget: independent reads run together, but the count stays bounded ---
+# A logging git shim counts the git processes one clean-candidate snapshot starts, so a
+# change that adds sequential or redundant git calls fails here instead of slowing every
+# review. Raise the budget only with a measured reason.
+git_budget=7
+shim="$work/shim"
+mkdir -p "$shim"
+real_git=$(command -v git)
+printf '#!/bin/sh\nprintf x >> "%s/git-calls"\nexec "%s" "$@"\n' "$work" "$real_git" >"$shim/git"
+chmod +x "$shim/git"
+: >"$work/git-calls"
+( cd "$clean" && PATH="$shim:$PATH" node "$cli" >"$work/budget.json" 2>"$work/budget.err" ) || true
+calls=$(wc -c <"$work/git-calls" | tr -d ' ')
+[ "$calls" -ge 1 ] || fail "the git shim saw no call, so the budget measured nothing"
+[ "$calls" -le "$git_budget" ] || fail "a clean snapshot started $calls git processes, over the budget of $git_budget"
+echo "snapshot probe passed: git budget ($calls of $git_budget)"
+
 # --- usage errors ---------------------------------------------------------------
 snap "$clean" "$work/usage.json" --bogus
 expect_refused "$work/usage.json" "an unknown argument must be refused"

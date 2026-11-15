@@ -20,7 +20,7 @@ mkdir -p "$home/extensions/b-agentic" "$home/b-agentic/hooks" "$home/b-agentic/b
 for hook in b-path-guard b-verify-gate b-spec-context b-run-context; do
   cp "$root/claude/hooks/$hook.mjs" "$home/b-agentic/hooks/"
 done
-cp "$root/claude/bin/b-candidate-snapshot.mjs" "$home/b-agentic/bin/"
+cp "$root/claude/bin/b-candidate-snapshot.mjs" "$root/claude/bin/b-protected.mjs" "$home/b-agentic/bin/"
 cp "$root/pi/extensions/b-agentic/index.ts" "$root/pi/extensions/b-agentic/guard.mjs" "$home/extensions/b-agentic/"
 printf 'SECRET=1\n' >"$work/cwd/.env"
 printf 'EXAMPLE=1\n' >"$work/cwd/.env.example"

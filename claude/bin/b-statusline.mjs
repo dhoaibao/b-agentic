@@ -120,12 +120,10 @@ export function render(input, now = Date.now() / 1000, branch = null) {
   return parts.join("   ");
 }
 
-async function main() {
-  let raw = "";
-  for await (const chunk of process.stdin) raw += chunk;
+function main() {
   let input;
   try {
-    input = JSON.parse(raw);
+    input = JSON.parse(readFileSync(0, "utf8"));
   } catch {
     return;
   }
@@ -134,4 +132,4 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  await main();
+  main();

@@ -59,7 +59,7 @@ run "$home" --runtime=pi -y
 expect_ok "install"
 agent_dir=$(agent "$home")
 [ "$(jq -r .target "$(manifest "$home")")" = pi ] || fail "the manifest must record target pi"
-[ "$(jq '.files | length' "$(manifest "$home")")" = 58 ] || fail "expected 58 managed files, got $(jq '.files | length' "$(manifest "$home")")"
+[ "$(jq '.files | length' "$(manifest "$home")")" = 59 ] || fail "expected 59 managed files, got $(jq '.files | length' "$(manifest "$home")")"
 for file in skills/b-plan/SKILL.md prompts/b-plan.md agents/b-reviewer.md extensions/b-agentic/index.ts extensions/b-agentic/guard.mjs \
   b-agentic/hooks/b-path-guard.mjs b-agentic/bin/b-state.mjs b-agentic/bin/b_run.py b-agentic/references/artifacts.yaml; do
   [ -f "$agent_dir/$file" ] || fail "missing $file"
@@ -83,7 +83,7 @@ snapshot=$(tree "$home" .pi)
 run "$home" --runtime=pi -y
 expect_ok "rerun"
 [ "$(tree "$home" .pi)" = "$snapshot" ] || fail "a rerun changed files"
-grep -Fq '58 unchanged' <<<"$out" || fail "a rerun must report unchanged files: $out"
+grep -Fq '59 unchanged' <<<"$out" || fail "a rerun must report unchanged files: $out"
 echo "pi install probe passed: install and rerun"
 
 # --- uninstall removes exactly what was installed ----------------------------------

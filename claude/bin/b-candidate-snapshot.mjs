@@ -29,13 +29,19 @@
 // and attribute processing still reads what git would read for `git status`;
 // that is not exposure, and it is documented as a residual boundary.
 //
-// SNAPSHOT_DIFF_FLAGS and PROTECTED_RULES must stay aligned with the
-// permission rules the generator renders. Edit them together.
+// SNAPSHOT_DIFF_FLAGS and PROTECTED_RULES (in b-protected.mjs) must stay aligned
+// with the permission rules the generator renders. Edit them together.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createReadStream, realpathSync } from "node:fs";
-import { lstat, readlink } from "node:fs/promises";
+import {
+  createReadStream,
+  lstatSync,
+  readlinkSync,
+  realpathSync,
+} from "node:fs";
 import { pathToFileURL } from "node:url";
+import { PROTECTED_RULES, isProtected } from "./b-protected.mjs";
+export { PROTECTED_RULES, isProtected };
 export const SNAPSHOT_SCHEMA = "b-candidate-snapshot/4";
 export const SNAPSHOT_DIFF_FLAGS = [
   "--no-ext-diff",
@@ -45,18 +51,6 @@ export const SNAPSHOT_DIFF_FLAGS = [
   "--ignore-submodules=none",
   "--submodule=short",
   "--binary",
-];
-// Same order and semantics as the permission policy's `path` rules: `*` spans
-// `/`, `?` is one character, the whole path must match, and the last match wins.
-// Paths are matched repository-relative, as raw bytes (latin1), so neither a
-// subdirectory cwd nor a non-UTF-8 name can hide a protected path.
-export const PROTECTED_RULES = [
-  ["*.env", "deny"],
-  ["*.env.*", "deny"],
-  ["*.env.example", "allow"],
-  ["*.pem", "deny"],
-  ["*credentials.*", "deny"],
-  ["*secrets.*", "deny"],
 ];
 const TIMEOUT_MS = 120_000;
 const KEPT_GIT_ENV = new Set([
@@ -72,29 +66,6 @@ const MAX_EXCLUDED_PATHS = 400;
 // Explicitly included ignored files are hashed one by one; refuse a runaway tree.
 const MAX_IGNORED_FILES = 2000;
 const MAX_IGNORED_SPECS = 50;
-function globToRegExp(pattern) {
-  const body = [...pattern]
-    .map((char) =>
-      char === "*"
-        ? ".*"
-        : char === "?"
-          ? "."
-          : char.replace(/[.+^${}()|[\]\\]/g, "\\$&"),
-    )
-    .join("");
-  return new RegExp(`^${body}$`, "s");
-}
-const COMPILED_RULES = PROTECTED_RULES.map(([pattern, action]) => [
-  globToRegExp(pattern),
-  action,
-]);
-export function isProtected(path) {
-  let verdict = "allow";
-  for (const [matcher, action] of COMPILED_RULES) {
-    if (matcher.test(path)) verdict = action;
-  }
-  return verdict === "deny";
-}
 function entry(raw) {
   const text = raw.toString("utf8");
   const valid = Buffer.from(text, "utf8").equals(raw);
@@ -181,6 +152,14 @@ function git(cwd, args, signal, options = {}) {
     );
   });
 }
+// Start independent reads together and rethrow the first failure in argument
+// order, so a refusal never depends on which git process finished first.
+async function settled(...promises) {
+  const results = await Promise.allSettled(promises);
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
+  return results.map((result) => result.value);
+}
 async function gitOk(cwd, args, signal, input) {
   const result = await git(cwd, args, signal, { input });
   if (result.code !== 0) {
@@ -249,48 +228,48 @@ async function diffDigest(cwd, cached, excluded, signal) {
   }
   return hash.digest("hex");
 }
-// A promisor (partial-clone) repository can fetch missing objects from its
-// remote in the middle of a diff, which is a network operation and a write.
-async function assertNotPartialClone(cwd, signal) {
-  const config = await git(
+// One `git config` read covers both refusals: a promisor (partial-clone)
+// repository can fetch missing objects from its remote in the middle of a diff,
+// which is a network operation and a write, and repository clean/process filters
+// are programs the diff would run, which can write anywhere or read protected
+// files. Exit code 1 means no such key.
+const REFUSED_CONFIG_KEYS =
+  "^(extensions\\.partialclone|remote\\..*\\.promisor|filter\\..*\\.(clean|process))$";
+const PARTIAL_CLONE_KEY = /^(extensions\.partialclone|remote\..*\.promisor)$/;
+function readRefusedConfig(cwd, signal) {
+  return git(
     cwd,
-    [
-      "config",
-      "--get-regexp",
-      "^(extensions\\.partialclone|remote\\..*\\.promisor)$",
-    ],
+    ["config", "--get-regexp", "-z", REFUSED_CONFIG_KEYS],
     signal,
-  );
-  if (config.code === 1) return;
-  if (config.code !== 0) {
-    throw new Error(
-      `git config failed: ${config.stderr.trim() || config.code}`,
-    );
-  }
-  throw new Error(
-    "snapshot refused: partial-clone (promisor) repository; git could fetch missing objects during diff",
   );
 }
-// Repository clean/process filters are programs the diff would run, and they
-// can write anywhere or read protected files. Refuse when a path uses one.
-async function assertNoExecutableFilters(cwd, paths, signal) {
-  const config = await git(
-    cwd,
-    ["config", "--get-regexp", "-z", "^filter\\..*\\.(clean|process)$"],
-    signal,
-  );
-  if (config.code === 1) return;
+function configKeys(config) {
+  if (config.code === 1) return [];
   if (config.code !== 0) {
     throw new Error(
       `git config failed: ${config.stderr.trim() || config.code}`,
     );
   }
-  const drivers = new Set();
-  for (const record of splitZ(config.stdout)) {
-    const key = record.toString("utf8").split("\n", 1)[0];
-    drivers.add(key.slice("filter.".length, key.lastIndexOf(".")));
+  return splitZ(config.stdout).map(
+    (record) => record.toString("utf8").split("\n", 1)[0],
+  );
+}
+function assertNotPartialClone(config) {
+  if (configKeys(config).some((key) => PARTIAL_CLONE_KEY.test(key))) {
+    throw new Error(
+      "snapshot refused: partial-clone (promisor) repository; git could fetch missing objects during diff",
+    );
   }
-  if (paths.length === 0) return;
+}
+// Refuse when a path uses a repository clean/process filter.
+async function assertNoExecutableFilters(cwd, paths, signal, config) {
+  const drivers = new Set();
+  for (const key of configKeys(config)) {
+    if (key.startsWith("filter.")) {
+      drivers.add(key.slice("filter.".length, key.lastIndexOf(".")));
+    }
+  }
+  if (drivers.size === 0 || paths.length === 0) return;
   const input = Buffer.concat(
     paths.flatMap((item) => [item.raw, Buffer.alloc(1)]),
   );
@@ -335,10 +314,10 @@ async function describeUntracked(top, item, signal) {
   const base = { path: item.label, path_hex: item.hex };
   const full = Buffer.concat([Buffer.from(`${top}/`), item.raw]);
   try {
-    const info = await lstat(full);
+    const info = lstatSync(full);
     const mode = (info.mode & 0o777).toString(8).padStart(3, "0");
     if (info.isSymbolicLink()) {
-      const target = Buffer.from(await readlink(full, { encoding: "buffer" }));
+      const target = Buffer.from(readlinkSync(full, { encoding: "buffer" }));
       return {
         ...base,
         type: "symlink",
@@ -445,7 +424,10 @@ async function listIgnored(top, specs, signal) {
   }
   return raws;
 }
-async function resolveTop(cwd, signal) {
+// The repository root, and with `withHead` HEAD too when one call answers both.
+// An unborn HEAD or any unexpected output falls back to the root-only call and
+// leaves `head` undefined, so the caller asks for it separately.
+async function resolveTop(cwd, signal, withHead = false) {
   // Always the whole repository, from its top, so a subdirectory cwd can
   // neither narrow the candidate nor hide a protected parent directory.
   // Node decodes a non-UTF-8 working directory lossily to U+FFFD, which can
@@ -455,7 +437,23 @@ async function resolveTop(cwd, signal) {
       "snapshot refused: working directory path is not valid UTF-8 (contains U+FFFD)",
     );
   }
-  const rootRaw = await gitOk(cwd, ["rev-parse", "--show-toplevel"], signal);
+  let rootRaw;
+  let head;
+  const both = withHead
+    ? await git(cwd, ["rev-parse", "--show-toplevel", "HEAD^{commit}"], signal)
+    : null;
+  if (both?.code === 0) {
+    const out = both.stdout;
+    const end = out[out.length - 1] === 0x0a ? out.length - 1 : out.length;
+    const split = out.lastIndexOf(0x0a, end - 1);
+    const tail =
+      split === -1 ? "" : out.subarray(split + 1, end).toString("latin1");
+    if (/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(tail)) {
+      rootRaw = out.subarray(0, split + 1);
+      head = tail;
+    }
+  }
+  rootRaw ??= await gitOk(cwd, ["rev-parse", "--show-toplevel"], signal);
   // Remove exactly git's line terminator (a directory name may end in
   // whitespace) and require the root to survive a UTF-8 round trip: a lossy
   // decode would point every later git call at a different directory.
@@ -467,86 +465,95 @@ async function resolveTop(cwd, signal) {
       `snapshot refused: repository root is not valid UTF-8 (hex ${rootBytes.toString("hex")})`,
     );
   }
-  return top;
+  return { top, head };
 }
 export async function computeSnapshot(cwd, signal, includeIgnored = []) {
-  const top = await resolveTop(cwd, signal);
-  const headRun = await git(
-    top,
-    ["rev-parse", "--verify", "-q", "HEAD^{commit}"],
-    signal,
-  );
+  const { top, head: knownHead } = await resolveTop(cwd, signal, true);
+  // Metadata-only discovery (index and untracked listing read no file content)
+  // runs as one parallel round; everything protected or unsupported is decided
+  // before any command that compares working-tree content.
+  const [headRun, listOutput, stagedOutput, ignoredRaws, refusedConfig] =
+    await settled(
+      knownHead === undefined
+        ? git(top, ["rev-parse", "--verify", "-q", "HEAD^{commit}"], signal)
+        : { code: 0, stdout: Buffer.from(knownHead) },
+      // One listing of the index (stage records), untracked-not-ignored paths
+      // (tag `?`), and the index flags: both diffs below would omit a real edit
+      // of a file git is told to skip, while the snapshot looked complete.
+      // assume-unchanged (lowercase tag) fails anywhere; skip-worktree only when
+      // the file exists on disk, so a sparse checkout still works. Read-only
+      // listing; the index is never modified.
+      gitOk(
+        top,
+        [
+          "ls-files",
+          "-s",
+          "-v",
+          "-o",
+          "--exclude-standard",
+          "-z",
+          "--full-name",
+        ],
+        signal,
+      ),
+      gitOk(
+        top,
+        [
+          "diff",
+          "--cached",
+          "--name-only",
+          "-z",
+          "--no-renames",
+          "--ignore-submodules=none",
+          "--submodule=short",
+        ],
+        signal,
+      ),
+      listIgnored(top, includeIgnored, signal),
+      readRefusedConfig(top, signal),
+    );
+  assertNotPartialClone(refusedConfig);
   const head =
     headRun.code === 0 ? headRun.stdout.toString("utf8").trim() : null;
-  // Metadata-only discovery first (index and untracked listing read no file
-  // content); everything protected or unsupported is decided before any
-  // command that compares working-tree content.
-  const indexRecords = splitZ(
-    await gitOk(top, ["ls-files", "-s", "-z", "--full-name"], signal),
-  );
   const trackedRaws = [];
+  const untrackedRaws = [];
   const gitlinks = new Map();
-  for (const record of indexRecords) {
+  const flagged = new Map();
+  for (const record of splitZ(listOutput)) {
+    const tag = String.fromCharCode(record[0]);
+    if (tag === "?") {
+      untrackedRaws.push(record.subarray(2));
+      continue;
+    }
     const tab = record.indexOf(0x09);
-    const meta = record.subarray(0, tab).toString("utf8").split(" ");
+    const meta = record.subarray(2, tab).toString("utf8").split(" ");
     const raw = record.subarray(tab + 1);
     trackedRaws.push(raw);
-    if (meta[0] === "160000")
+    if (meta[0] === "160000") {
       gitlinks.set(raw.toString("hex"), { raw, oid: meta[1] });
-  }
-  const stagedRaws = splitZ(
-    await gitOk(
-      top,
-      [
-        "diff",
-        "--cached",
-        "--name-only",
-        "-z",
-        "--no-renames",
-        "--ignore-submodules=none",
-        "--submodule=short",
-      ],
-      signal,
-    ),
-  );
-  const untrackedRaws = splitZ(
-    await gitOk(
-      top,
-      ["ls-files", "--others", "--exclude-standard", "-z", "--full-name"],
-      signal,
-    ),
-  );
-  // Index flags that make git skip a tracked file's working-tree content: both
-  // diffs below would omit a real edit while the snapshot looked complete.
-  // assume-unchanged (lowercase tag) fails anywhere; skip-worktree only when the
-  // file exists on disk, so a sparse checkout still works. Read-only listing;
-  // the index is never modified.
-  const flagged = new Map();
-  for (const record of splitZ(
-    await gitOk(top, ["ls-files", "-v", "-z", "--full-name"], signal),
-  )) {
-    const tag = String.fromCharCode(record[0]);
-    const raw = record.subarray(2);
-    if (gitlinks.has(raw.toString("hex"))) continue;
+      continue;
+    }
     if (/[a-z]/.test(tag)) {
       flagged.set(raw.toString("hex"), { raw, flag: "assume-unchanged" });
     } else if (tag === "S") {
       const full = Buffer.concat([Buffer.from(`${top}/`), raw]);
-      const present = await lstat(full).then(
-        () => true,
-        (error) => error?.code !== "ENOENT" && error?.code !== "ENOTDIR",
-      );
+      let present = true;
+      try {
+        lstatSync(full);
+      } catch (error) {
+        present = error?.code !== "ENOENT" && error?.code !== "ENOTDIR";
+      }
       if (present)
         flagged.set(raw.toString("hex"), { raw, flag: "skip-worktree" });
     }
   }
+  const stagedRaws = splitZ(stagedOutput);
   const indexFlags = [...flagged.values()]
     .sort((a, b) => Buffer.compare(a.raw, b.raw))
     .map(({ raw, flag }) => {
       const item = entry(raw);
       return { path: item.label, path_hex: item.hex, flag };
     });
-  const ignoredRaws = await listIgnored(top, includeIgnored, signal);
   const tracked = sortedEntries([...trackedRaws, ...stagedRaws]);
   const untrackedNames = sortedEntries(untrackedRaws);
   const ignoredNames = sortedEntries(ignoredRaws);
@@ -591,7 +598,6 @@ export async function computeSnapshot(cwd, signal, includeIgnored = []) {
   ]);
   const hashable = (items) =>
     items.filter((item) => !protectedByPath.has(item.raw.toString("hex")));
-  await assertNotPartialClone(top, signal);
   const checked = [
     ...hashable(tracked).filter(
       (item) => !gitlinks.has(item.raw.toString("hex")),
@@ -599,21 +605,35 @@ export async function computeSnapshot(cwd, signal, includeIgnored = []) {
     ...hashable(untrackedNames),
     ...hashable(ignoredNames),
   ];
-  await assertNoExecutableFilters(top, checked, signal);
-  const stagedDigest = await diffDigest(top, true, excluded, signal);
-  const unstagedDigest = await diffDigest(top, false, excluded, signal);
+  await assertNoExecutableFilters(top, checked, signal, refusedConfig);
+  const describeAll = async (items) => {
+    const described = [];
+    for (const item of items) {
+      described.push(await describeUntracked(top, item, signal));
+    }
+    return described;
+  };
+  const [stagedDigest, unstagedDigest, unstagedNames, untracked, ignored] =
+    await settled(
+      diffDigest(top, true, excluded, signal),
+      diffDigest(top, false, excluded, signal),
+      diffNames(top, false, excluded, signal),
+      describeAll(hashable(untrackedNames)),
+      describeAll(hashable(ignoredNames)),
+    );
+  // The staged names from discovery, minus what git's literal exclude pathspecs
+  // would drop (the path itself or anything beneath it).
+  const underExcluded = (raw) =>
+    excluded.some(
+      ({ raw: skip }) =>
+        raw.length >= skip.length &&
+        raw.subarray(0, skip.length).equals(skip) &&
+        (raw.length === skip.length || raw[skip.length] === 0x2f),
+    );
   const changed = sortedEntries([
-    ...(await diffNames(top, true, excluded, signal)),
-    ...(await diffNames(top, false, excluded, signal)),
+    ...stagedRaws.filter((raw) => !underExcluded(raw)),
+    ...unstagedNames,
   ]);
-  const untracked = [];
-  for (const item of hashable(untrackedNames)) {
-    untracked.push(await describeUntracked(top, item, signal));
-  }
-  const ignored = [];
-  for (const item of hashable(ignoredNames)) {
-    ignored.push(await describeUntracked(top, item, signal));
-  }
   const unhashed = [...untracked, ...ignored].filter(
     (item) => item.sha256 === null,
   );
@@ -716,7 +736,7 @@ export async function checkProtected(cwd, signal) {
       const full = Buffer.concat([Buffer.from(`${top}/`), raw]);
       let kind = null;
       try {
-        if ((await lstat(full)).isSymbolicLink()) kind = "symlink";
+        if (lstatSync(full).isSymbolicLink()) kind = "symlink";
       } catch {
         kind = "unreadable";
       }
@@ -830,7 +850,7 @@ export async function resolveReviewRange(cwd, base, signal) {
       "review range refused: --base needs a ref name that is non-empty and does not start with '-'",
     );
   }
-  const top = await resolveTop(cwd, signal);
+  const { top } = await resolveTop(cwd, signal);
   const resolve = async (args, problem) => {
     const result = await git(top, args, signal);
     const text = result.stdout.toString("utf8").trim();

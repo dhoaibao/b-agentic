@@ -410,6 +410,11 @@ export async function cmdCheck(root, dir, state, args) {
   }
   if (state.phase === "done")
     return { ok: true, phase: "done", problems, actions, next: [] };
+  // The artifact validation is a python process: start it beside the git reads.
+  // Every path below that needs it awaits this promise; an unused one is
+  // swallowed, and the validation is read-only.
+  const artifactsPromise = artifactsOk(root, state);
+  artifactsPromise.catch(() => {});
   const baseline = await worktreeBaseline(root);
   let changed = false;
   let why = "";
@@ -446,7 +451,7 @@ export async function cmdCheck(root, dir, state, args) {
     changed = true;
   } else if (
     state.phase !== "clarify" &&
-    (artifactProblem = await artifactsOk(root, state).then(
+    (artifactProblem = await artifactsPromise.then(
       (valid) => {
         art = valid;
         if (!consentMatches(state, valid)) return CONSENT_DRIFT;
@@ -553,7 +558,7 @@ export async function cmdCheck(root, dir, state, args) {
     wasBlockedFor !== null && wasBlockedFor === blockedFor(state) && !why;
   if (changed && !stillBlocked) saveState(dir, state, "check", { reason: why });
   if (state.phase === "clarify") {
-    art = await artifactsOk(root, state).catch(() => null);
+    art = await artifactsPromise.catch(() => null);
   }
   return {
     ok: state.phase !== "blocked",

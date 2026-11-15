@@ -22,6 +22,7 @@ CLAUDE_AGENTS_DIR = CLAUDE_DIR / "agents"
 CLAUDE_CONFIGS_DIR = CLAUDE_DIR / "configs"
 SETTINGS_TEMPLATE_PATH = CLAUDE_CONFIGS_DIR / "settings.template.json"
 SNAPSHOT_CLI_PATH = CLAUDE_DIR / "bin" / "b-candidate-snapshot.mjs"
+PROTECTED_RULES_PATH = CLAUDE_DIR / "bin" / "b-protected.mjs"
 RUN_CLI_PATH = CLAUDE_DIR / "bin" / "b_run.py"
 ARTIFACTS_PATH = ROOT / "references" / "artifacts.yaml"
 ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
@@ -585,11 +586,14 @@ def validate_snapshot_cli() -> list[str]:
     flags = re.findall(r'"([^"]+)"', flags_block.group(1)) if flags_block else []
     if not flags:
         errors.append(f"{label}: SNAPSHOT_DIFF_FLAGS not found")
-    rules_block = re.search(r"PROTECTED_RULES[^=]*= \[(.*?)\n\];", text, re.S)
+    rules_label = PROTECTED_RULES_PATH.relative_to(ROOT)
+    if not PROTECTED_RULES_PATH.is_file():
+        return [*errors, f"{rules_label}: missing protected-path rules module"]
+    rules_block = re.search(r"PROTECTED_RULES[^=]*= \[(.*?)\n\];", PROTECTED_RULES_PATH.read_text(), re.S)
     rules = re.findall(r'\["([^"]+)", "(allow|deny)"\]', rules_block.group(1)) if rules_block else []
     policy_rules = [(pattern, action) for pattern, action in PATH_RULES.items() if pattern != "*"]
     if rules != policy_rules:
-        errors.append(f"{label}: PROTECTED_RULES must match the generated path rules")
+        errors.append(f"{rules_label}: PROTECTED_RULES must match the generated path rules")
     return errors
 
 

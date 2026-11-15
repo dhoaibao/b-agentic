@@ -29,15 +29,15 @@ input to every reader: they never grant approval.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
-import secrets
 import stat
-import subprocess
 import sys
 from pathlib import Path
+
+# hashlib, secrets and subprocess are imported where they are used: schema, lint and the other
+# commands that touch neither start several milliseconds sooner.
 
 ARTIFACTS_SCHEMA = 1
 # Artifacts whose cross rules read another artifact: a rewrite keeps a dependent only if it still passes.
@@ -50,7 +50,7 @@ CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 HTML_MARKUP = re.compile(r"<[A-Za-z!/?]")
 TEMP_NAME = re.compile(r"^[A-Za-z0-9._-]+\.\d+\.[0-9a-f]{8,}\.tmp$")
 
-# Same rules, order and semantics as PROTECTED_RULES in b-candidate-snapshot.mjs
+# Same rules, order and semantics as PROTECTED_RULES in b-protected.mjs
 # (`*` spans `/`, `?` is one character, the whole path must match, the last match
 # wins). registry_sync.py keeps the two in step.
 PROTECTED_RULES = [
@@ -464,6 +464,8 @@ def read_file(path: Path, limit: int = MAX_FILE) -> bytes:
 
 
 def write_atomic(path: Path, text: str) -> None:
+    import secrets
+
     temp = path.with_name(f"{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp")
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     try:
@@ -482,6 +484,8 @@ def is_plain_dir(path: Path) -> bool:
 
 
 def git(root: Path | str, *args: str) -> str:
+    import subprocess
+
     done = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
     if done.returncode != 0:
         raise Refused("git failed: " + (done.stderr.strip().splitlines() or ["unknown"])[0])
@@ -541,6 +545,8 @@ def load_artifacts(directory: Path) -> dict:
 
 
 def sha(text: str) -> str:
+    import hashlib
+
     return hashlib.sha256(text.encode()).hexdigest()
 
 
@@ -654,6 +660,8 @@ class Mutex:
     """The per-run command mutex: a file created atomically by hard-linking a finished temp file."""
 
     def __init__(self, directory: Path):
+        import secrets
+
         self.path = directory / "mutex"
         self.token = secrets.token_hex(16)
         self.directory = directory
@@ -873,6 +881,8 @@ def path_digest(root: Path, rel: str) -> str:
         opened = os.fstat(handle.fileno())
         if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_DIRTY_BYTES:
             return ""
+        import hashlib
+
         digest = hashlib.sha256()
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
@@ -1062,6 +1072,8 @@ def _worktree_dir(root: Path, state: dict, step_id: str) -> str | None:
         listed = git(root, "worktree", "list", "--porcelain")
     except Refused:
         return None
+    import hashlib
+
     tag = hashlib.sha256(str(root).encode()).hexdigest()[:8]
     name = f"b-agentic-wt-{tag}-{state.get('run_id', '')}-{step_id}"
     for line in listed.splitlines():

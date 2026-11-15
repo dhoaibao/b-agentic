@@ -59,6 +59,7 @@ PI_PROTECTED = ((".claude", "the Claude Code directory"), (".claude.json", "the 
 PI_HOOKS = ("b-path-guard.mjs", "b-verify-gate.mjs", "b-spec-context.mjs", "b-run-context.mjs")
 PI_BINS = (
     "b-candidate-snapshot.mjs",
+    "b-protected.mjs",
     "b-state.mjs",
     "b-state-commands.mjs",
     "b-state-core.mjs",
