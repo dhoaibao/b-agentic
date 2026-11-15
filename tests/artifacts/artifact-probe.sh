@@ -734,9 +734,11 @@ oc_case() { # DESCRIPTION SED-EXPRESSION: a project profile derived from the gen
 }
 oc_case "delegation allowed" 's/{"action": "subagent", "resource": "\*", "effect": "deny"}/{"action": "subagent", "resource": "*", "effect": "allow"}/'
 oc_case "questions allowed" 's/{"action": "question", "resource": "\*", "effect": "deny"}/{"action": "question", "resource": "*", "effect": "allow"}/'
-oc_case "a mutating MCP tool" '0,/^permissions:/s//permissions:\n  - {"action": "playwright_browser_click", "resource": "*", "effect": "allow"}/'
+oc_case "a mutating MCP tool" '/^permissions:/s//permissions:\
+  - {"action": "playwright_browser_click", "resource": "*", "effect": "allow"}/'
 oc_case "no deny-all start" '/"action": "\*", "resource": "\*", "effect": "deny"/d'
-oc_case "an extra frontmatter key" 's/^mode: subagent/mode: subagent\ncolor: red/'
+oc_case "an extra frontmatter key" 's/^mode: subagent/mode: subagent\
+color: red/'
 # Rule-shaped lines hidden in a block scalar must not stand in for the real permissions value.
 {
   printf -- '---\ndescription: |\n'
@@ -745,7 +747,8 @@ oc_case "an extra frontmatter key" 's/^mode: subagent/mode: subagent\ncolor: red
 } >"$oc_repo/.opencode/agents/b-worker.md"
 ocwp
 [ "$rc" -eq 3 ] && [ "$(jq -c '[.ok, .source]' <<<"$out")" = '[false,"project"]' ] || fail "rules hidden in a block scalar must be refused: rc=$rc $out"
-oc_case "a duplicate permissions key" 's/^mode: subagent/mode: subagent\npermissions:/'
+oc_case "a duplicate permissions key" 's/^mode: subagent/mode: subagent\
+permissions:/'
 rm -f "$oc_repo/.opencode/agents/b-worker.md"
 ocwp
 [ "$rc" -eq 0 ] || fail "removing the bad project profile must restore the user's: rc=$rc $out"
