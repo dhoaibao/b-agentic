@@ -56,6 +56,38 @@ write_qa() { # REPO N VERDICT RESULT
     regression_scope: "all", not_covered: [], verdict: $verdict}' | br "$1" s1 write qa >/dev/null || fail "write qa ($1)"
 }
 
+# Helpers and scratch files that more than one case file uses. Each case file runs as its own shard
+# (state-probe.sh), so anything shared lives here, not in the file that happened to define it first.
+tmp=$(mktemp -p "$work")
+tmp2=$(mktemp -p "$work")
+# to_commit REPO TARGET: drive a fresh run to the commit phase on a changed candidate.
+to_commit() {
+  local repo=$1 target=$2 dir
+  make_repo "$repo"
+  ok "$repo" s1 init flow
+  dir=$(dirname "$(sfile "$repo")")
+  CONSENT_TARGET=$target write_artifacts "$repo" 1
+  ok "$repo" s1 approve --commit yes --branch-target "$target" --codex reviewer
+  ok "$repo" s1 advance implement
+  printf 'feature\n' >"$repo/f.txt"
+  apply_steps "$repo"
+  ok "$repo" s1 advance verify
+  ok "$repo" s1 record check --cmd "make test" --exit 0
+  ok "$repo" s1 record review --low-risk "docs-only"
+  ok "$repo" s1 advance qa
+  write_qa "$repo" 1 "QA PASS" pass
+  ok "$repo" s1 record qa --verdict "QA PASS"
+  ok "$repo" s1 record ac AC-1 pass
+  ok "$repo" s1 advance commit
+}
+steps_plan() {
+  jq -n '{steps: [{id: "S-1", action: "a", paths: ["src/a.txt"], done_when: "d"}, {id: "S-2", action: "b", paths: ["src/b.txt"], done_when: "d"},
+    {id: "S-3", action: "c", paths: ["src/c.txt"], done_when: "d"}], checks: ["make test"], invariants: [], stop_conditions: []}'
+}
+quick_spec() { CONSENT_COMMIT=${2:-no} spec_json "${3:-1}" "$1" | jq '.size = "quick"'; }
+quick_approve=(approve --commit no --branch-target current --codex reviewer --size quick)
+
+snap() { jq -S . "$(sfile "$1")"; } # the state file as sorted JSON, to compare before and after
 repo="$work/repo"
 make_repo "$repo"
 

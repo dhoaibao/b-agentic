@@ -6,13 +6,26 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# The hooks run under node and, when it is installed, bun (the installer can point them at either):
+# HOOKS_PROBE_RUNTIME names the one this run uses, and an unset value runs node and starts a bun run beside it.
+js=${HOOKS_PROBE_RUNTIME:-node}
+# HOOKS_PROBE_PART=hooks runs only the hook sections, cli only the verdict mapper and the review wrapper (the
+# slow part); an unset value runs both. tooling/validate/run.sh starts them as separate processes.
+part=${HOOKS_PROBE_PART:-all}
+bun_log=""
+bun_pid=""
+if [ -z "${HOOKS_PROBE_RUNTIME:-}" ] && command -v bun >/dev/null 2>&1; then
+  bun_log=$(mktemp)
+  HOOKS_PROBE_RUNTIME=bun bash "${BASH_SOURCE[0]}" >"$bun_log" 2>&1 &
+  bun_pid=$!
+fi
 pathguard="$root/claude/hooks/b-path-guard.mjs"
 verifygate="$root/claude/hooks/b-verify-gate.mjs"
 codexguard="$root/claude/hooks/b-codex-guard.mjs"
 verdict="$root/claude/bin/b-codex-verdict.mjs"
 wrapper="$root/claude/bin/b-codex-review.mjs"
 work=$(mktemp -d)
-trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
+trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"; [ -z "$bun_pid" ] || kill "$bun_pid" 2>/dev/null || true; [ -z "$bun_log" ] || rm -f "$bun_log"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
 export B_AGENTIC_STATE_DIR="$work/state"
@@ -27,9 +40,26 @@ run() {
   local script=$1 input=$2
   shift 2
   rc=0
-  err=$(printf '%s' "$input" | node "$script" "$@" 2>&1 >/dev/null) || rc=$?
+  err=$(printf '%s' "$input" | "$js" "$script" "$@" 2>&1 >/dev/null) || rc=$?
 }
 expect() { [ "$rc" = "$1" ] || fail "$2 (exit $rc, expected $1: $err)"; }
+
+make_repo() {
+  local dir=$1
+  mkdir -p "$dir"
+  git -C "$dir" init -q .
+  git -C "$dir" config user.email probe@example.invalid
+  git -C "$dir" config user.name probe
+  printf 'a\n' >"$dir/a.txt"
+  git -C "$dir" add .
+  git -C "$dir" commit -qm init
+}
+cg() { jq -cn --arg cwd "$1" --arg command "$2" '{tool_name: "Bash", cwd: $cwd, tool_input: {command: $command}}'; }
+review='node "/plugin/scripts/codex-companion.mjs" adversarial-review --wait --scope working-tree check the diff'
+repo="$work/repo"
+make_repo "$repo"
+
+if [ "$part" != cli ]; then
 
 # --- path guard ----------------------------------------------------------------
 pg() { jq -cn --arg tool "$1" --arg key "$2" --arg path "$3" '{tool_name: $tool, tool_input: {($key): $path}}'; }
@@ -217,31 +247,17 @@ fi
 echo "hooks probe passed: verify-gate"
 
 # --- codex guard ---------------------------------------------------------------
-make_repo() {
-  local dir=$1
-  mkdir -p "$dir"
-  git -C "$dir" init -q .
-  git -C "$dir" config user.email probe@example.invalid
-  git -C "$dir" config user.name probe
-  printf 'a\n' >"$dir/a.txt"
-  git -C "$dir" add .
-  git -C "$dir" commit -qm init
-}
-cg() { jq -cn --arg cwd "$1" --arg command "$2" '{tool_name: "Bash", cwd: $cwd, tool_input: {command: $command}}'; }
-review='node "/plugin/scripts/codex-companion.mjs" adversarial-review --wait --scope working-tree check the diff'
-repo="$work/repo"
-make_repo "$repo"
 
 run "$codexguard" "$(cg "$repo" 'ls -la')"; expect 0 "unrelated Bash must pass"
 run "$codexguard" "$(cg "$repo" 'node "/plugin/scripts/codex-companion.mjs" status')"; expect 0 "non-review companion command must pass"
 run "$codexguard" "$(cg "$repo" "$review")"; expect 2 "an unapproved repository must be refused"
 grep -Fq 'has not approved' <<<"$err" || fail "approval reason missing: $err"
-( cd "$repo" && node "$codexguard" --check >"$work/check.json" ) && fail "--check must refuse an unapproved repository" || true
+( cd "$repo" && "$js" "$codexguard" --check >"$work/check.json" ) && fail "--check must refuse an unapproved repository" || true
 [ "$(jq -r .ok "$work/check.json")" = false ] || fail "--check ok must be false before approval"
 
-( cd "$repo" && node "$codexguard" --approve >"$work/approve.json" )
+( cd "$repo" && "$js" "$codexguard" --approve >"$work/approve.json" )
 [ "$(jq -r .approved "$work/approve.json")" = true ] || fail "--approve did not record approval"
-( cd "$repo" && node "$codexguard" --check >"$work/check.json" ) || fail "--check must pass after approval"
+( cd "$repo" && "$js" "$codexguard" --check >"$work/check.json" ) || fail "--check must pass after approval"
 run "$codexguard" "$(cg "$repo" "$review")"; expect 0 "an approved clean repository must pass"
 git -C "$repo" branch base
 run "$codexguard" "$(cg "$repo" 'node /p/codex-companion.mjs review --wait --base base')"; expect 0 "a direct review against a resolvable base ref must pass"
@@ -363,13 +379,13 @@ run "$codexguard" "$(cg "$other" $'node /p/codex-compan\\\nion.mjs review --wait
 grep -Fq 'Codex guard refused' <<<"$err" || fail "guard gave no refusal for the line-continuation split: $err"
 run "$codexguard" "$(cg "$other" 'node -e '"'"'require("child_process").execSync("node /p/codex-companion.mjs review --wait --scope working-tree")'"'"'')"; expect 2 "an interpreter must not bypass the approval check"
 run "$codexguard" "$(cg "$other" "git -c 'alias.scan=!node /p/codex-companion.mjs review --wait --scope working-tree' scan")"; expect 2 "a git alias must not bypass the approval check"
-( cd "$repo" && node "$codexguard" --revoke >/dev/null )
+( cd "$repo" && "$js" "$codexguard" --revoke >/dev/null )
 run "$codexguard" "$(cg "$repo" "$review")"; expect 2 "a revoked repository must be refused"
-( cd "$repo" && node "$codexguard" --bogus 2>/dev/null ) && fail "an unknown argument must fail" || true
+( cd "$repo" && "$js" "$codexguard" --bogus 2>/dev/null ) && fail "an unknown argument must fail" || true
 
 # The approval itself is a tripwire: a command that records, redirects, or rewrites it
 # answers on stdout with an "ask" decision and exits 0; unrelated commands stay silent.
-ag_out() { out=$(printf '%s' "$1" | node "$codexguard") || fail "the approval tripwire must exit 0"; }
+ag_out() { out=$(printf '%s' "$1" | "$js" "$codexguard") || fail "the approval tripwire must exit 0"; }
 ag_asks() {
   ag_out "$(cg "$repo" "$1")"
   [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$out")" = ask ] || fail "codex guard must ask for: $1"
@@ -396,6 +412,156 @@ ag_silent 'rg -n B_AGENTIC_STATE_DIR claude/hooks'
 # A refused companion call is still refused, not downgraded to a prompt.
 cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope working-tree x && node ~/b-codex-guard.mjs --approve' "a refused companion call must stay refused"
 echo "hooks probe passed: codex-guard"
+
+# --- spec context --------------------------------------------------------------
+specctx="$root/claude/hooks/b-spec-context.mjs"
+sc() { jq -cn --arg cwd "$1" --arg source "${2:-compact}" '{hook_event_name: "SessionStart", source: $source, cwd: $cwd}'; }
+sout=""
+srun() { # <json>: stdout in $sout, exit code in $rc (a hang would surface as exit 124 where timeout exists)
+  local cmd=("$js" "$specctx")
+  command -v timeout >/dev/null && cmd=(timeout 20 "${cmd[@]}")
+  rc=0
+  sout=$(printf '%s' "$1" | "${cmd[@]}" 2>/dev/null) || rc=$?
+}
+sexpect_silent() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
+# find -printf is GNU-only, so stock macOS needs perl for path, mtime and size
+tree_id() {
+  (cd "$1" && perl -MFile::Find -MTime::HiRes=lstat -e \
+    'find({no_chdir => 1, wanted => sub { my @s = lstat($_); print "$_ $s[9] $s[7]\n" }}, ".")' |
+    sort | sha256sum)
+}
+spec() { # <project> <file> <status line>
+  mkdir -p "$work/$1/docs/specs"
+  printf '# %s\n\n%s\n\n## Acceptance criteria\n\n- AC-1: WHEN x THEN y\n' "$2" "$3" >"$work/$1/docs/specs/$2"
+}
+# an approved spec is listed by path only, as valid SessionStart output.
+spec p1 export.md 'Status: approved'
+before=$(tree_id "$work/p1")
+srun "$(sc "$work/p1")"
+[ "$rc" = 0 ] || fail "spec context must exit 0 (exit $rc)"
+jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' <<<"$sout" >/dev/null || fail "spec context output is not SessionStart JSON: $sout"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+grep -Fq 'docs/specs/export.md' <<<"$ctx" || fail "approved spec path missing: $ctx"
+[ "${#ctx}" -le 2000 ] || fail "context exceeds 2000 characters (${#ctx})"
+grep -Fq 'WHEN x THEN y' <<<"$ctx" && fail "spec content must never be injected"
+[ "$before" = "$(tree_id "$work/p1")" ] || fail "the hook changed the project tree"
+# markdown variants of the Status line are accepted.
+spec p1 bold.md '**Status:** approved'
+spec p1 listed.md '- Status: `approved`'
+srun "$(sc "$work/p1")"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+grep -Fq 'docs/specs/bold.md' <<<"$ctx" || fail "bold Status variant not listed: $ctx"
+grep -Fq 'docs/specs/listed.md' <<<"$ctx" || fail "list-item Status variant not listed: $ctx"
+# nothing to say: no folder, only README/draft/implemented, other source, bad input.
+mkdir -p "$work/p2"
+before=$(tree_id "$work/p2")
+srun "$(sc "$work/p2")"; sexpect_silent "no docs/specs must be silent"
+[ "$before" = "$(tree_id "$work/p2")" ] || fail "the hook created files when docs/specs was absent"
+printf '# Specs\n\nStatus: approved\n' >"$work/p3-readme" && mkdir -p "$work/p3/docs/specs" && cp "$work/p3-readme" "$work/p3/docs/specs/README.md"
+spec p3 a.md 'Status: draft'
+spec p3 b.md 'Status: implemented'
+spec p3 c.md 'Status: approved-ish'
+srun "$(sc "$work/p3")"; sexpect_silent "README, draft, implemented and non-approved specs must be silent"
+srun "$(sc "$work/p1" startup)"; sexpect_silent "a non-compact source must be silent"
+srun "$(sc "$work/p1" resume)"; sexpect_silent "a resume source must be silent"
+srun 'not json'; sexpect_silent "malformed input must fail open"
+srun ''; sexpect_silent "empty input must fail open"
+srun '{"hook_event_name":"SessionStart","source":"compact","cwd":"relative/path"}'; sexpect_silent "a relative cwd must be silent"
+srun '{"hook_event_name":"PreToolUse","source":"compact","cwd":"'"$work/p1"'"}'; sexpect_silent "another event must be silent"
+# a Status line outside the first 40 lines does not count.
+mkdir -p "$work/p4/docs/specs"
+{ for i in $(seq 1 45); do echo "line $i"; done; echo 'Status: approved'; } >"$work/p4/docs/specs/late.md"
+srun "$(sc "$work/p4")"; sexpect_silent "a late Status line must not count"
+# likely-secret names and unsafe names are never opened or listed.
+spec p5 secrets.md 'Status: approved'
+spec p5 credentials.md 'Status: approved'
+spec p5 'odd,name.md' 'Status: approved'
+srun "$(sc "$work/p5")"; sexpect_silent "protected and unsafe names must be skipped"
+# symlinks are never followed: a linked spec file, a linked specs folder, a linked docs folder.
+mkdir -p "$work/p6/docs/specs" "$work/outside"
+printf 'Status: approved\n' >"$work/outside/x.md"
+ln -s "$work/outside/x.md" "$work/p6/docs/specs/linked.md"
+srun "$(sc "$work/p6")"; sexpect_silent "a symlinked spec file must be skipped"
+mkdir -p "$work/p7/docs" "$work/outside-specs"
+printf 'Status: approved\n' >"$work/outside-specs/y.md"
+ln -s "$work/outside-specs" "$work/p7/docs/specs"
+srun "$(sc "$work/p7")"; sexpect_silent "a symlinked docs/specs folder must be skipped"
+mkdir -p "$work/p8" "$work/outside-docs/specs"
+printf 'Status: approved\n' >"$work/outside-docs/specs/z.md"
+ln -s "$work/outside-docs" "$work/p8/docs"
+srun "$(sc "$work/p8")"; sexpect_silent "a symlinked docs folder must be skipped"
+# more than five approved specs: the five newest, a remainder count, and the size cap.
+for i in 1 2 3 4 5 6 7; do
+  spec p9 "feature-$i.md" 'Status: approved'
+  touch -d "2026-01-0$i 00:00:00" "$work/p9/docs/specs/feature-$i.md"
+done
+srun "$(sc "$work/p9")"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+grep -Fq '(+2 more)' <<<"$ctx" || fail "remainder count missing: $ctx"
+for i in 3 4 5 6 7; do grep -Fq "docs/specs/feature-$i.md" <<<"$ctx" || fail "newest spec feature-$i missing: $ctx"; done
+for i in 1 2; do grep -Fq "docs/specs/feature-$i.md," <<<"$ctx" && fail "older spec feature-$i must not be listed"; done
+[ "${#ctx}" -le 2000 ] || fail "capped context exceeds 2000 characters (${#ctx})"
+long=$(printf 'a%.0s' $(seq 1 120))
+for i in 1 2 3 4 5; do spec p10 "$long$i.md" 'Status: approved'; done
+srun "$(sc "$work/p10")"
+ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
+[ "$rc" = 0 ] && [ "${#ctx}" -le 2000 ] || fail "long names must stay within the cap (${#ctx})"
+# a FIFO named like a spec must neither hang the hook nor be listed.
+mkdir -p "$work/p11/docs/specs"
+mkfifo "$work/p11/docs/specs/wait.md"
+srun "$(sc "$work/p11")"; sexpect_silent "a FIFO spec name must be skipped without blocking"
+# a project root reached through a symlink still works: the folders resolve inside the real root.
+ln -s "$work/p1" "$work/p1-link"
+srun "$(sc "$work/p1-link")"
+jq -e '.hookSpecificOutput.additionalContext | contains("docs/specs/export.md")' <<<"$sout" >/dev/null || fail "a symlinked project root must still list approved specs: $sout"
+echo "hooks probe passed: spec-context"
+
+# --- run context -----------------------------------------------------------------
+runctx="$root/claude/hooks/b-run-context.mjs"
+rc_in() { jq -cn --arg cwd "$1" --arg source "${2:-startup}" --arg ev "${3:-SessionStart}" '{hook_event_name: $ev, source: $source, cwd: $cwd}'; }
+rrun() { rc=0; sout=$(printf '%s' "$1" | "$js" "$runctx" 2>/dev/null) || rc=$?; }
+rquiet() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
+rid=20260101-demo
+mkdir -p "$work/r1/.b-agentic/runs/$rid"
+printf '%s\n' "$rid" >"$work/r1/.b-agentic/active"
+jq -cn --arg id "$rid" '{schema: 1, run_id: $id, phase: "review"}' >"$work/r1/.b-agentic/runs/$rid/state.json"
+for src in startup resume clear compact; do
+  rrun "$(rc_in "$work/r1" "$src")"
+  [ "$rc" = 0 ] || fail "run context $src exit $rc"
+  jq -e --arg id "$rid" '.hookSpecificOutput.hookEventName == "SessionStart" and (.hookSpecificOutput.additionalContext | contains($id) and contains("phase review") and contains("/b-flow resume"))' <<<"$sout" >/dev/null || fail "run context $src output: $sout"
+done
+rrun "$(rc_in "$work/r1" fork)"; rquiet "an unlisted source must print nothing"
+rrun "$(rc_in "$work/r1" startup UserPromptSubmit)"; rquiet "another event must print nothing"
+rrun "$(rc_in "$work/none")"; rquiet "no run folder must print nothing"
+rrun 'not json'; rquiet "malformed input must print nothing"
+rrun "$(rc_in relative/path)"; rquiet "a relative cwd must print nothing"
+# a finished run, a bad id, and a state that names another run are not pointed at.
+mkdir -p "$work/r2/.b-agentic/runs/$rid"
+printf '%s\n' "$rid" >"$work/r2/.b-agentic/active"
+jq -cn --arg id "$rid" '{schema: 1, run_id: $id, phase: "done"}' >"$work/r2/.b-agentic/runs/$rid/state.json"
+rrun "$(rc_in "$work/r2")"; rquiet "a finished run must print nothing"
+mkdir -p "$work/r3/.b-agentic/runs/$rid"
+printf '../../etc\n' >"$work/r3/.b-agentic/active"
+rrun "$(rc_in "$work/r3")"; rquiet "a path-shaped run id must print nothing"
+mkdir -p "$work/r4/.b-agentic/runs/$rid"
+printf '%s\n' "$rid" >"$work/r4/.b-agentic/active"
+jq -cn '{schema: 1, run_id: "20260101-other", phase: "verify"}' >"$work/r4/.b-agentic/runs/$rid/state.json"
+rrun "$(rc_in "$work/r4")"; rquiet "a state naming another run must print nothing"
+# a symlinked .b-agentic is not followed.
+mkdir -p "$work/r5"
+ln -s "$work/r1/.b-agentic" "$work/r5/.b-agentic"
+rrun "$(rc_in "$work/r5")"; rquiet "a symlinked .b-agentic must not be followed"
+# the hook is read-only.
+before=$(tree_id "$work/r1")
+rrun "$(rc_in "$work/r1")"
+[ "$before" = "$(tree_id "$work/r1")" ] || fail "run context must not write"
+echo "hooks probe passed: run-context"
+
+fi
+
+# The verdict mapper and the review wrapper are CLIs the skills run with node whichever runtime the hooks
+# use, so the bun run (hooks only) stops here and the node run carries on with them.
+if [ "$js" != node ] || [ "$part" = hooks ]; then exit 0; fi
 
 # --- verdict mapper --------------------------------------------------------------
 vd() { printf '%s' "$1" | node "$verdict" "${@:2}"; }
@@ -500,7 +666,7 @@ wrap() { # wrap <repo> [args...]: run the wrapper inside <repo>
 wexpect() { [ "$rc" = "$1" ] || fail "$2 (exit $rc, expected $1: $err)"; }
 wrepo="$work/wrepo"
 make_repo "$wrepo"
-( cd "$wrepo" && node "$codexguard" --approve >/dev/null )
+( cd "$wrepo" && "$js" "$codexguard" --approve >/dev/null )
 : >"$FAKE_LOG"
 
 wrap "$wrepo" --scope working-tree --focus 'check the diff'; wexpect 0 "an approved clean repository must be reviewed"
@@ -536,7 +702,7 @@ grep -Fq 'no verdict contract' <<<"$err" || fail "the native refusal reason is m
 # finding: a base review sends merge-base..HEAD, so a protected path that HEAD already deleted still leaks
 whist_repo() { # whist_repo <dir>: an approved repository; the caller adds history
   make_repo "$1"
-  ( cd "$1" && node "$codexguard" --approve >/dev/null )
+  ( cd "$1" && "$js" "$codexguard" --approve >/dev/null )
 }
 whist_commit() { git -C "$1" add -A && git -C "$1" commit -qm "$2"; }
 range_refused() { # range_refused <repo> <label> [needle]
@@ -557,9 +723,9 @@ range_refused "$whist" "a protected file deleted inside the range must refuse" .
 wrap "$whist" --scope working-tree; wexpect 0 "the working-tree review of the same repository stays allowed"
 run "$codexguard" "$(cg "$whist" 'node /p/codex-companion.mjs adversarial-review --wait --base base')"; expect 2 "the direct hook must apply the range check"
 grep -Fq 'review range' <<<"$err" || fail "the hook range reason is missing: $err"
-rc=0; ( cd "$whist" && node "$codexguard" --check --base base >/dev/null 2>&1 ) || rc=$?
+rc=0; ( cd "$whist" && "$js" "$codexguard" --check --base base >/dev/null 2>&1 ) || rc=$?
 [ "$rc" = 3 ] || fail "--check --base must refuse a protected range (exit $rc)"
-rc=0; ( cd "$whist" && node "$codexguard" --check >/dev/null 2>&1 ) || rc=$?
+rc=0; ( cd "$whist" && "$js" "$codexguard" --check >/dev/null 2>&1 ) || rc=$?
 [ "$rc" = 0 ] || fail "--check without a base must not scan history (exit $rc)"
 whist="$work/whist-renamed"
 whist_repo "$whist"
@@ -700,7 +866,7 @@ wignored="$work/wignored"
 make_repo "$wignored"
 printf '.env\n' >"$wignored/.gitignore"
 git -C "$wignored" add .gitignore && git -C "$wignored" commit -qm ignore-env
-( cd "$wignored" && node "$codexguard" --approve >/dev/null )
+( cd "$wignored" && "$js" "$codexguard" --approve >/dev/null )
 printf 'TOPSECRET=1\n' >"$wignored/.env"
 wrap "$wignored" --scope working-tree --include-ignored .env; wexpect 2 "an incomplete snapshot before the run must refuse"
 grep -Fq 'before the plugin runs' <<<"$err" || fail "the pre-run refusal must say so: $err"
@@ -755,147 +921,7 @@ rc=0; ( cd "$wrepo" && B_AGENTIC_CODEX_COMPANION="$work/plugin/not-the-script.mj
 [ "$rc" = 2 ] || fail "--available with a broken override must be a refusal, not unavailable (exit $rc)"
 [ ! -s "$FAKE_LOG" ] || fail "--available must not run the plugin"
 echo "hooks probe passed: review-wrapper"
-
-# --- spec context --------------------------------------------------------------
-specctx="$root/claude/hooks/b-spec-context.mjs"
-sc() { jq -cn --arg cwd "$1" --arg source "${2:-compact}" '{hook_event_name: "SessionStart", source: $source, cwd: $cwd}'; }
-sout=""
-srun() { # <json>: stdout in $sout, exit code in $rc (a hang would surface as exit 124 where timeout exists)
-  local cmd=(node "$specctx")
-  command -v timeout >/dev/null && cmd=(timeout 20 "${cmd[@]}")
-  rc=0
-  sout=$(printf '%s' "$1" | "${cmd[@]}" 2>/dev/null) || rc=$?
-}
-sexpect_silent() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
-# find -printf is GNU-only, so stock macOS needs perl for path, mtime and size
-tree_id() {
-  (cd "$1" && perl -MFile::Find -MTime::HiRes=lstat -e \
-    'find({no_chdir => 1, wanted => sub { my @s = lstat($_); print "$_ $s[9] $s[7]\n" }}, ".")' |
-    sort | sha256sum)
-}
-spec() { # <project> <file> <status line>
-  mkdir -p "$work/$1/docs/specs"
-  printf '# %s\n\n%s\n\n## Acceptance criteria\n\n- AC-1: WHEN x THEN y\n' "$2" "$3" >"$work/$1/docs/specs/$2"
-}
-# an approved spec is listed by path only, as valid SessionStart output.
-spec p1 export.md 'Status: approved'
-before=$(tree_id "$work/p1")
-srun "$(sc "$work/p1")"
-[ "$rc" = 0 ] || fail "spec context must exit 0 (exit $rc)"
-jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' <<<"$sout" >/dev/null || fail "spec context output is not SessionStart JSON: $sout"
-ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
-grep -Fq 'docs/specs/export.md' <<<"$ctx" || fail "approved spec path missing: $ctx"
-[ "${#ctx}" -le 2000 ] || fail "context exceeds 2000 characters (${#ctx})"
-grep -Fq 'WHEN x THEN y' <<<"$ctx" && fail "spec content must never be injected"
-[ "$before" = "$(tree_id "$work/p1")" ] || fail "the hook changed the project tree"
-# markdown variants of the Status line are accepted.
-spec p1 bold.md '**Status:** approved'
-spec p1 listed.md '- Status: `approved`'
-srun "$(sc "$work/p1")"
-ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
-grep -Fq 'docs/specs/bold.md' <<<"$ctx" || fail "bold Status variant not listed: $ctx"
-grep -Fq 'docs/specs/listed.md' <<<"$ctx" || fail "list-item Status variant not listed: $ctx"
-# nothing to say: no folder, only README/draft/implemented, other source, bad input.
-mkdir -p "$work/p2"
-before=$(tree_id "$work/p2")
-srun "$(sc "$work/p2")"; sexpect_silent "no docs/specs must be silent"
-[ "$before" = "$(tree_id "$work/p2")" ] || fail "the hook created files when docs/specs was absent"
-printf '# Specs\n\nStatus: approved\n' >"$work/p3-readme" && mkdir -p "$work/p3/docs/specs" && cp "$work/p3-readme" "$work/p3/docs/specs/README.md"
-spec p3 a.md 'Status: draft'
-spec p3 b.md 'Status: implemented'
-spec p3 c.md 'Status: approved-ish'
-srun "$(sc "$work/p3")"; sexpect_silent "README, draft, implemented and non-approved specs must be silent"
-srun "$(sc "$work/p1" startup)"; sexpect_silent "a non-compact source must be silent"
-srun "$(sc "$work/p1" resume)"; sexpect_silent "a resume source must be silent"
-srun 'not json'; sexpect_silent "malformed input must fail open"
-srun ''; sexpect_silent "empty input must fail open"
-srun '{"hook_event_name":"SessionStart","source":"compact","cwd":"relative/path"}'; sexpect_silent "a relative cwd must be silent"
-srun '{"hook_event_name":"PreToolUse","source":"compact","cwd":"'"$work/p1"'"}'; sexpect_silent "another event must be silent"
-# a Status line outside the first 40 lines does not count.
-mkdir -p "$work/p4/docs/specs"
-{ for i in $(seq 1 45); do echo "line $i"; done; echo 'Status: approved'; } >"$work/p4/docs/specs/late.md"
-srun "$(sc "$work/p4")"; sexpect_silent "a late Status line must not count"
-# likely-secret names and unsafe names are never opened or listed.
-spec p5 secrets.md 'Status: approved'
-spec p5 credentials.md 'Status: approved'
-spec p5 'odd,name.md' 'Status: approved'
-srun "$(sc "$work/p5")"; sexpect_silent "protected and unsafe names must be skipped"
-# symlinks are never followed: a linked spec file, a linked specs folder, a linked docs folder.
-mkdir -p "$work/p6/docs/specs" "$work/outside"
-printf 'Status: approved\n' >"$work/outside/x.md"
-ln -s "$work/outside/x.md" "$work/p6/docs/specs/linked.md"
-srun "$(sc "$work/p6")"; sexpect_silent "a symlinked spec file must be skipped"
-mkdir -p "$work/p7/docs" "$work/outside-specs"
-printf 'Status: approved\n' >"$work/outside-specs/y.md"
-ln -s "$work/outside-specs" "$work/p7/docs/specs"
-srun "$(sc "$work/p7")"; sexpect_silent "a symlinked docs/specs folder must be skipped"
-mkdir -p "$work/p8" "$work/outside-docs/specs"
-printf 'Status: approved\n' >"$work/outside-docs/specs/z.md"
-ln -s "$work/outside-docs" "$work/p8/docs"
-srun "$(sc "$work/p8")"; sexpect_silent "a symlinked docs folder must be skipped"
-# more than five approved specs: the five newest, a remainder count, and the size cap.
-for i in 1 2 3 4 5 6 7; do
-  spec p9 "feature-$i.md" 'Status: approved'
-  touch -d "2026-01-0$i 00:00:00" "$work/p9/docs/specs/feature-$i.md"
-done
-srun "$(sc "$work/p9")"
-ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
-grep -Fq '(+2 more)' <<<"$ctx" || fail "remainder count missing: $ctx"
-for i in 3 4 5 6 7; do grep -Fq "docs/specs/feature-$i.md" <<<"$ctx" || fail "newest spec feature-$i missing: $ctx"; done
-for i in 1 2; do grep -Fq "docs/specs/feature-$i.md," <<<"$ctx" && fail "older spec feature-$i must not be listed"; done
-[ "${#ctx}" -le 2000 ] || fail "capped context exceeds 2000 characters (${#ctx})"
-long=$(printf 'a%.0s' $(seq 1 120))
-for i in 1 2 3 4 5; do spec p10 "$long$i.md" 'Status: approved'; done
-srun "$(sc "$work/p10")"
-ctx=$(jq -r .hookSpecificOutput.additionalContext <<<"$sout")
-[ "$rc" = 0 ] && [ "${#ctx}" -le 2000 ] || fail "long names must stay within the cap (${#ctx})"
-# a FIFO named like a spec must neither hang the hook nor be listed.
-mkdir -p "$work/p11/docs/specs"
-mkfifo "$work/p11/docs/specs/wait.md"
-srun "$(sc "$work/p11")"; sexpect_silent "a FIFO spec name must be skipped without blocking"
-# a project root reached through a symlink still works: the folders resolve inside the real root.
-ln -s "$work/p1" "$work/p1-link"
-srun "$(sc "$work/p1-link")"
-jq -e '.hookSpecificOutput.additionalContext | contains("docs/specs/export.md")' <<<"$sout" >/dev/null || fail "a symlinked project root must still list approved specs: $sout"
-echo "hooks probe passed: spec-context"
-
-# --- run context -----------------------------------------------------------------
-runctx="$root/claude/hooks/b-run-context.mjs"
-rc_in() { jq -cn --arg cwd "$1" --arg source "${2:-startup}" --arg ev "${3:-SessionStart}" '{hook_event_name: $ev, source: $source, cwd: $cwd}'; }
-rrun() { rc=0; sout=$(printf '%s' "$1" | node "$runctx" 2>/dev/null) || rc=$?; }
-rquiet() { [ "$rc" = 0 ] && [ -z "$sout" ] || fail "$1 (exit $rc, stdout: $sout)"; }
-rid=20260101-demo
-mkdir -p "$work/r1/.b-agentic/runs/$rid"
-printf '%s\n' "$rid" >"$work/r1/.b-agentic/active"
-jq -cn --arg id "$rid" '{schema: 1, run_id: $id, phase: "review"}' >"$work/r1/.b-agentic/runs/$rid/state.json"
-for src in startup resume clear compact; do
-  rrun "$(rc_in "$work/r1" "$src")"
-  [ "$rc" = 0 ] || fail "run context $src exit $rc"
-  jq -e --arg id "$rid" '.hookSpecificOutput.hookEventName == "SessionStart" and (.hookSpecificOutput.additionalContext | contains($id) and contains("phase review") and contains("/b-flow resume"))' <<<"$sout" >/dev/null || fail "run context $src output: $sout"
-done
-rrun "$(rc_in "$work/r1" fork)"; rquiet "an unlisted source must print nothing"
-rrun "$(rc_in "$work/r1" startup UserPromptSubmit)"; rquiet "another event must print nothing"
-rrun "$(rc_in "$work/none")"; rquiet "no run folder must print nothing"
-rrun 'not json'; rquiet "malformed input must print nothing"
-rrun "$(rc_in relative/path)"; rquiet "a relative cwd must print nothing"
-# a finished run, a bad id, and a state that names another run are not pointed at.
-mkdir -p "$work/r2/.b-agentic/runs/$rid"
-printf '%s\n' "$rid" >"$work/r2/.b-agentic/active"
-jq -cn --arg id "$rid" '{schema: 1, run_id: $id, phase: "done"}' >"$work/r2/.b-agentic/runs/$rid/state.json"
-rrun "$(rc_in "$work/r2")"; rquiet "a finished run must print nothing"
-mkdir -p "$work/r3/.b-agentic/runs/$rid"
-printf '../../etc\n' >"$work/r3/.b-agentic/active"
-rrun "$(rc_in "$work/r3")"; rquiet "a path-shaped run id must print nothing"
-mkdir -p "$work/r4/.b-agentic/runs/$rid"
-printf '%s\n' "$rid" >"$work/r4/.b-agentic/active"
-jq -cn '{schema: 1, run_id: "20260101-other", phase: "verify"}' >"$work/r4/.b-agentic/runs/$rid/state.json"
-rrun "$(rc_in "$work/r4")"; rquiet "a state naming another run must print nothing"
-# a symlinked .b-agentic is not followed.
-mkdir -p "$work/r5"
-ln -s "$work/r1/.b-agentic" "$work/r5/.b-agentic"
-rrun "$(rc_in "$work/r5")"; rquiet "a symlinked .b-agentic must not be followed"
-# the hook is read-only.
-before=$(tree_id "$work/r1")
-rrun "$(rc_in "$work/r1")"
-[ "$before" = "$(tree_id "$work/r1")" ] || fail "run context must not write"
-echo "hooks probe passed: run-context"
+if [ -n "$bun_pid" ]; then
+  wait "$bun_pid" || { cat "$bun_log" >&2; fail "the hooks probe failed under bun"; }
+  sed 's/^hooks probe passed:/hooks probe passed (bun):/' "$bun_log"
+fi

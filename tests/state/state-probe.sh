@@ -2,39 +2,55 @@
 # Exercise claude/bin/b-state.mjs against throwaway git repositories.
 # Needs only node, git, and jq: no network, credentials, or Claude Code.
 # Exit contract: 0 done, 3 refused or not ok, 2 invalid input or state.
+#
+# Each file in cases/ is an independent shard with its own work folder and repositories
+# (shared helpers live in lib.sh). With no argument every shard runs at the same time and a
+# failed shard's log is printed; `state-probe.sh <case>` runs one shard in the foreground.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck disable=SC2034 # cli and the other variables are used by the files this script sources.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+cases=(core commit-gates checks commit-plan artifacts steps quick worker worktree owner)
+
+if [ "$#" -eq 0 ]; then
+  logs=$(mktemp -d)
+  trap 'rm -rf "$logs"' EXIT
+  pids=()
+  for name in "${cases[@]}"; do
+    bash "${BASH_SOURCE[0]}" "$name" >"$logs/$name.log" 2>&1 &
+    pids+=($!)
+  done
+  failed=()
+  for index in "${!cases[@]}"; do
+    wait "${pids[$index]}" || failed+=("${cases[$index]}")
+  done
+  if [ "${#failed[@]}" -gt 0 ]; then
+    for name in "${failed[@]}"; do
+      echo "--- state probe shard failed: $name" >&2
+      cat "$logs/$name.log" >&2
+    done
+    echo "state probe failed: ${failed[*]}" >&2
+    exit 1
+  fi
+  echo "state probe passed"
+  exit 0
+fi
+
+name=$1
+found=0
+for known in "${cases[@]}"; do [ "$known" != "$name" ] || found=1; done
+[ "$found" -eq 1 ] || { echo "usage: state-probe.sh [${cases[*]}]" >&2; exit 2; }
+
 cli="$root/claude/bin/b-state.mjs"
 work=$(mktemp -d)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
 
-# Sourced in order, in this shell: the sections share the work folder and the repository variables.
 # shellcheck source=lib.sh
 source "$root/tests/state/lib.sh"
 # shellcheck source=cases/core.sh
-source "$root/tests/state/cases/core.sh"
-# shellcheck source=cases/commit-gates.sh
-source "$root/tests/state/cases/commit-gates.sh"
-# shellcheck source=cases/checks.sh
-source "$root/tests/state/cases/checks.sh"
-# shellcheck source=cases/commit-plan.sh
-source "$root/tests/state/cases/commit-plan.sh"
-# shellcheck source=cases/artifacts.sh
-source "$root/tests/state/cases/artifacts.sh"
-# shellcheck source=cases/steps.sh
-source "$root/tests/state/cases/steps.sh"
-# shellcheck source=cases/quick.sh
-source "$root/tests/state/cases/quick.sh"
-# shellcheck source=cases/worker.sh
-source "$root/tests/state/cases/worker.sh"
-# shellcheck source=cases/worktree.sh
-source "$root/tests/state/cases/worktree.sh"
-# shellcheck source=cases/owner.sh
-source "$root/tests/state/cases/owner.sh"
+source "$root/tests/state/cases/$name.sh"
 
-echo "state probe passed"
+echo "state probe passed: $name"

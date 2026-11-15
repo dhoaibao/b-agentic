@@ -3,7 +3,6 @@
 # Worker steps recorded with who applied them (ADR-015).
 # --- a plan step handed to a worker is recorded with who applied it (ADR-015) -----------------
 worker_plan() { steps_plan | jq '.worker_steps = ["S-2", "S-3"]'; }
-snap() { jq -S . "$(sfile "$1")"; }
 repoWK="$work/repoWK"
 make_repo "$repoWK"
 ok "$repoWK" s1 init workers

@@ -2,12 +2,10 @@
 # shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
 # Quick runs, runs without commit consent, changes present at start and the scope check.
 # --- a quick run: the request is its approval, within limits the CLI checks ----------------
-quick_spec() { CONSENT_COMMIT=${2:-no} spec_json "${3:-1}" "$1" | jq '.size = "quick"'; }
 write_quick() { # REPO [SCOPE] [COMMIT] [N]
   quick_spec "${2:-a.txt}" "${3:-no}" "${4:-1}" | br "$1" s1 write spec >/dev/null || fail "write quick spec ($1)"
   plan_json | br "$1" s1 write plan >/dev/null || fail "write plan ($1)"
 }
-quick_approve=(approve --commit no --branch-target current --codex reviewer --size quick)
 repoQ="$work/repoQ"
 make_repo "$repoQ"
 ok "$repoQ" s1 init quick

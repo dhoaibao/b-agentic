@@ -69,10 +69,6 @@ jq '.steps = {"S-1": {status: "done", fingerprint: "not a fingerprint"}}' "$(sfi
 invalid "$repoS" s1 show
 
 # --- a plan step is checked against the approved scope when it is recorded -------------------
-steps_plan() {
-  jq -n '{steps: [{id: "S-1", action: "a", paths: ["src/a.txt"], done_when: "d"}, {id: "S-2", action: "b", paths: ["src/b.txt"], done_when: "d"},
-    {id: "S-3", action: "c", paths: ["src/c.txt"], done_when: "d"}], checks: ["make test"], invariants: [], stop_conditions: []}'
-}
 last() { jq -c ".history[-1] | $1" "$(sfile "$repoJ")"; } # JQ-FILTER applied to the latest history entry
 repoJ="$work/repoJ"
 make_repo "$repoJ"

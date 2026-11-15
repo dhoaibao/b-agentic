@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 import sys
@@ -162,10 +163,15 @@ def bash_patterns(rules: set[str]) -> list[str]:
     return [rule[5:-1] for rule in rules if rule.startswith("Bash(") and rule.endswith(")")]
 
 
+@functools.lru_cache(maxsize=None)
+def glob_regex(pattern: str) -> re.Pattern[str]:
+    # Cached without a bound: `re`'s own cache holds 512 patterns, far fewer than the rules checked per command.
+    return re.compile("^" + ".*".join(re.escape(part) for part in pattern.split("*")) + "$")
+
+
 def glob_matches(pattern: str, command: str) -> bool:
     """Approximate Claude Code's Bash glob: `*` spans any characters; a trailing ` *` also matches the bare command."""
-    regex = "^" + ".*".join(re.escape(part) for part in pattern.split("*")) + "$"
-    return bool(re.match(regex, command)) or (pattern.endswith(" *") and command == pattern[:-2])
+    return bool(glob_regex(pattern).match(command)) or (pattern.endswith(" *") and command == pattern[:-2])
 
 
 def push_decision_errors(allow: set[str], ask: set[str], deny: set[str]) -> list[str]:

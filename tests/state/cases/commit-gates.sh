@@ -1,27 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
 # A complete run to done, acceptance results, consent, retry and history.
-# --- helpers for the sections below ---------------------------------------------
-# to_commit REPO TARGET: drive a fresh run to the commit phase on a changed candidate.
-to_commit() {
-  local repo=$1 target=$2 dir
-  make_repo "$repo"
-  ok "$repo" s1 init flow
-  dir=$(dirname "$(sfile "$repo")")
-  CONSENT_TARGET=$target write_artifacts "$repo" 1
-  ok "$repo" s1 approve --commit yes --branch-target "$target" --codex reviewer
-  ok "$repo" s1 advance implement
-  printf 'feature\n' >"$repo/f.txt"
-  apply_steps "$repo"
-  ok "$repo" s1 advance verify
-  ok "$repo" s1 record check --cmd "make test" --exit 0
-  ok "$repo" s1 record review --low-risk "docs-only"
-  ok "$repo" s1 advance qa
-  write_qa "$repo" 1 "QA PASS" pass
-  ok "$repo" s1 record qa --verdict "QA PASS"
-  ok "$repo" s1 record ac AC-1 pass
-  ok "$repo" s1 advance commit
-}
 
 # --- a complete run on a new branch reaches done only with the approved commits ---
 repo6="$work/repo6"

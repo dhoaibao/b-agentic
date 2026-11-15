@@ -24,20 +24,67 @@ python3 "$ROOT_DIR/tooling/validate/mcp_policy.py"
 python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/session_readiness.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/browser_evidence.py" --self-test
-bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
-bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
-bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
-bash "$ROOT_DIR/tests/state/state-probe.sh"
-bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
-node "$ROOT_DIR/tests/pi/guard-cases.mjs"
-bash "$ROOT_DIR/tests/pi/guard-probe.sh"
+
+# The probes below share nothing (each makes its own work folder and repositories), so they
+# run at the same time. Each one's output is kept in a log and printed in the order started;
+# a failed probe's log goes to stderr and the run fails after every probe has finished.
+probe_dir=$(mktemp -d)
+trap 'rm -rf "$probe_dir"' EXIT
+probe_names=()
+probe_pids=()
+# The hooks-cli probe is the longest (it waits on real timeouts) and the others are CPU-bound, so only it
+# runs at normal priority: the rest yield to it and still finish before it does.
+start_probe() { # NAME COMMAND...
+  local name=$1
+  shift
+  if [ "$name" = hooks-cli ] || ! command -v nice >/dev/null 2>&1; then
+    "$@" >"$probe_dir/$name.log" 2>&1 &
+  else
+    nice -n 10 "$@" >"$probe_dir/$name.log" 2>&1 &
+  fi
+  probe_pids+=($!)
+  probe_names+=("$name")
+}
+finish_probes() {
+  local failed=() index
+  for index in "${!probe_names[@]}"; do
+    if wait "${probe_pids[$index]}"; then
+      cat "$probe_dir/${probe_names[$index]}.log"
+    else
+      failed+=("${probe_names[$index]}")
+      printf -- '--- probe failed: %s\n' "${probe_names[$index]}" >&2
+      cat "$probe_dir/${probe_names[$index]}.log" >&2
+    fi
+  done
+  probe_names=()
+  probe_pids=()
+  if [ "${#failed[@]}" -gt 0 ]; then
+    printf 'validation failed: %s\n' "${failed[*]}" >&2
+    exit 1
+  fi
+}
+
+# The hooks probe in three processes: the hook sections under node, the same under bun when it is installed,
+# and the slow verdict mapper and review wrapper (CLIs the skills run with node) on their own.
+start_probe hooks-node env HOOKS_PROBE_PART=hooks HOOKS_PROBE_RUNTIME=node bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
+if command -v bun >/dev/null 2>&1; then
+  start_probe hooks-bun env HOOKS_PROBE_PART=hooks HOOKS_PROBE_RUNTIME=bun bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
+fi
+start_probe hooks-cli env HOOKS_PROBE_PART=cli bash "$ROOT_DIR/tests/hooks/hooks-probe.sh"
+start_probe snapshot bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
+start_probe statusline bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
+start_probe state bash "$ROOT_DIR/tests/state/state-probe.sh"
+start_probe artifacts bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
+start_probe pi-guard-cases node "$ROOT_DIR/tests/pi/guard-cases.mjs"
+start_probe pi-guard bash "$ROOT_DIR/tests/pi/guard-probe.sh"
 
 if [ "$run_release" -eq 1 ]; then
-  bash "$ROOT_DIR/tests/install/claude-install-probe.sh"
-  bash "$ROOT_DIR/tests/install/pi-install-probe.sh"
+  start_probe claude-install bash "$ROOT_DIR/tests/install/claude-install-probe.sh"
+  start_probe pi-install bash "$ROOT_DIR/tests/install/pi-install-probe.sh"
   if command -v rtk >/dev/null 2>&1; then
-    python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
+    start_probe session-readiness python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else
     printf '%s\n' 'RTK policy compatibility skipped: rtk is not installed.'
   fi
 fi
+finish_probes
