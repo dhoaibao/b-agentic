@@ -57,50 +57,39 @@ CODEX_PLUGIN_COMMANDS = (
     "/plugin install codex@openai-codex",
     "/codex:setup",
 )
-PREREQUISITES = ("node", "git", "rtk", "codegraph", "bunx", "claude", "codex")
-JS_RUNTIMES = ("auto", "node", "bun")
-JS_RUNTIME_ENV = "B_AGENTIC_JS_RUNTIME"
+PREREQUISITES = ("bun", "git", "rtk", "codegraph", "bunx", "claude", "codex")
+# Claude Code runs the managed hooks and status line with Bun (ADR-018). The flags keep Bun from loading the
+# working directory's bunfig.toml preload and .env files into a hook, so a cloned repository cannot run code
+# inside a guard. The generated commands start with the bare name; the installer swaps in the absolute path it found.
+BUN_FLAGS = ("--no-env-file", "--config=/dev/null")
+BUN_COMMAND = " ".join(("bun", *BUN_FLAGS))
 
 
-def resolve_js_runtime(choice: str) -> tuple[str | None, str | None]:
-    """The absolute bun path the managed hooks and status line should prefer, or None for node.
+def find_bun() -> str:
+    """The absolute path of a Bun that runs with the hardening flags; refuses when there is none.
 
-    `auto` uses bun when a working one is on PATH and says nothing otherwise; `bun` refuses when none is.
-    Returns (path, note) where the note explains an `auto` fallback."""
-    if choice not in JS_RUNTIMES:
-        raise InstallError(f"unsupported JavaScript runtime {choice!r}: use one of {', '.join(JS_RUNTIMES)}")
-    if choice == "node":
-        return None, None
+    The path is kept as found (symlinks are not resolved) so a package-manager upgrade keeps working."""
     found = shutil.which("bun")
-    working = False
-    if found:
-        try:
-            working = subprocess.run([found, "--version"], capture_output=True, timeout=10).returncode == 0
-        except (OSError, subprocess.SubprocessError):
-            working = False
-    if working:
-        return str(Path(found).absolute()), None
-    if choice == "bun":
-        raise InstallError("--js-runtime=bun needs a working bun on PATH; install bun or use --js-runtime=auto")
-    return None, None
+    if not found:
+        raise InstallError("bun is required: the managed hooks and status line run with it; install Bun and retry")
+    try:
+        working = subprocess.run([found, *BUN_FLAGS, "-e", "0"], capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        working = False
+    if not working:
+        raise InstallError(f"{found} does not run with {' '.join(BUN_FLAGS)}; upgrade Bun and retry")
+    return str(Path(found).absolute())
 
 
-def runtime_command(command: str, bun: str | None) -> str:
-    """Rewrite a managed `node "<script>"` command to prefer bun, falling back to node.
-
-    The fallback keeps a fail-closed hook working if bun is removed after install."""
-    prefix = "node "
-    if bun is None or not command.startswith(prefix):
+def runtime_command(command: str, bun: str) -> str:
+    """Point a managed `bun <flags> "<script>"` command at the absolute Bun path found at install."""
+    if not command.startswith(f"{BUN_COMMAND} "):
         return command
-    rest = command[len(prefix) :]
-    quoted = shlex.quote(bun)
-    return f"if [ -x {quoted} ]; then exec {quoted} {rest}; else exec node {rest}; fi"
+    return shlex.quote(bun) + command[len("bun") :]
 
 
-def apply_js_runtime(template: dict[str, Any], bun: str | None) -> None:
-    """Point the template's hook and status line commands at the chosen runtime, in place."""
-    if bun is None:
-        return
+def apply_bun_path(template: dict[str, Any], bun: str) -> None:
+    """Use the absolute Bun path in the template's hook and status line commands, in place."""
     for entries in template.get("hooks", {}).values():
         for entry in entries:
             for hook in entry.get("hooks", []):
@@ -298,12 +287,9 @@ class Installer:
         with_ids: list[str] | None = None,
         without_ids: list[str] | None = None,
         statusline_only: bool = False,
-        js_runtime: str = "auto",
     ) -> None:
         self.source = source
         self.statusline_only = statusline_only
-        self.js_runtime = js_runtime
-        self.bun_path, _ = resolve_js_runtime(js_runtime)
         self.components = self.load_components()
         self.with_ids = with_ids or []
         self.without_ids = without_ids or []
@@ -683,7 +669,8 @@ class Installer:
         settings = read_json(target)
         validate_settings_shape(settings, str(path))
         template = json.loads((self.source / "claude" / "configs" / "settings.template.json").read_text())
-        apply_js_runtime(template, self.bun_path)
+        # Resolved here, not in the constructor, so an uninstall never needs Bun.
+        apply_bun_path(template, find_bun())
         record: dict[str, Any] = {"permissions": {}, "hooks": [], "statusLine": []}
         if self.statusline_only:
             record["statusLine"] = self.merge_status_line(settings, template, previous.get("statusLine", []), path)
@@ -754,12 +741,23 @@ class Installer:
         record["statusLine"] = self.merge_status_line(settings, template, previous.get("statusLine", []), path)
         shipped = {script.name for script in (self.source / "claude" / "hooks").glob("*.mjs")}
         named_scripts: set[str] = set()
+        node_hooks: list[str] = []
         for entries in hooks.values():
             for entry in entries:
                 for hook in entry.get("hooks", []) if isinstance(entry, dict) else []:
                     command = hook.get("command") if isinstance(hook, dict) else None
                     if isinstance(command, str):
-                        named_scripts.update(re.findall(r"\.claude/b-agentic/hooks/([\w.-]+\.mjs)", command))
+                        found = re.findall(r"\.claude/b-agentic/hooks/([\w.-]+\.mjs)", command)
+                        named_scripts.update(found)
+                        # An entry b-agentic did not record (so it was left in place) that starts the hook
+                        # with node: Node is no longer a supported runtime, and without it this hook would fail.
+                        if found and (command.startswith("node ") or "exec node " in command):
+                            node_hooks.append(found[0])
+        for script in sorted(set(node_hooks)):
+            self.warn(
+                f"{path} still runs b-agentic/hooks/{script} with node, which b-agentic no longer supports "
+                "(it was edited or never recorded, so it was left in place); remove that hook entry and install again"
+            )
         for script in sorted(named_scripts - shipped):
             self.warn(
                 f"{path} still runs b-agentic/hooks/{script}, which b-agentic no longer ships; "
@@ -1200,16 +1198,6 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="install only the status line (b-statusline.mjs and its settings.json entry)",
     )
-    parser.add_argument(
-        "--js-runtime",
-        choices=JS_RUNTIMES,
-        default=os.environ.get(JS_RUNTIME_ENV, "auto"),
-        help=(
-            "JavaScript runtime for the managed hooks and status line: bun when one works (auto, the default), "
-            f"node, or bun (refused when missing); the {JS_RUNTIME_ENV} variable sets the default so "
-            "install.sh can pass it. A hook falls back to node if bun is later removed."
-        ),
-    )
     add_optional_arguments(parser)
     args = parser.parse_args(argv)
     try:
@@ -1232,7 +1220,6 @@ def main(argv: list[str] | None = None) -> int:
             ui,
             *parse_optional_arguments(source, args),
             args.statusline_only,
-            js_runtime=args.js_runtime,
         )
         try:
             if args.uninstall:

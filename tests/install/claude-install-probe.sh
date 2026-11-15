@@ -11,9 +11,8 @@ trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 
 fail() { echo "install probe failed: $*" >&2; exit 1; }
 
-# Scenarios run with node unless they say otherwise, so they do not depend on bun being installed;
-# the js-runtime scenario below covers auto and bun with a stand-in bun.
-export B_AGENTIC_JS_RUNTIME=node
+# The managed hooks and status line run with Bun (ADR-018), so the installer needs a real bun on PATH.
+command -v bun >/dev/null 2>&1 || fail "this probe needs bun on PATH (the installer refuses without it)"
 
 # fresh_home <name>: a sandbox HOME with a frozen Pi tree that must never change.
 fresh_home() {
@@ -311,7 +310,7 @@ cat >"$claude/settings.json" <<'JSON'
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$HOME/.claude/b-agentic/hooks/b-verify-gate.mjs\""
+            "command": "BUNPATH --no-env-file --config=/dev/null \"$HOME/.claude/b-agentic/hooks/b-verify-gate.mjs\""
           }
         ]
       }
@@ -319,6 +318,8 @@ cat >"$claude/settings.json" <<'JSON'
   }
 }
 JSON
+# Portable: BSD sed takes a different -i argument, so write a copy and move it over.
+sed "s|BUNPATH|$(command -v bun)|" "$claude/settings.json" >"$work/settings.bun" && mv "$work/settings.bun" "$claude/settings.json"
 run "$home"; expect_ok "install beside an identical user hook"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "an identical user hook was duplicated"
 run "$home"; expect_ok "second install beside an identical user hook"
@@ -1118,7 +1119,8 @@ run "$home" -y --statusline-only; expect_ok "status line only install"
 claude="$home/.claude"
 [ -f "$claude/b-agentic/bin/b-statusline.mjs" ] || fail "the status line script must be installed"
 cmp -s "$root/claude/bin/b-statusline.mjs" "$claude/b-agentic/bin/b-statusline.mjs" || fail "status line script differs from source"
-[ "$(jq -r '.statusLine.command' "$claude/settings.json")" = "$(jq -r '.statusLine.command' "$root/claude/configs/settings.template.json")" ] || fail "the status line entry must match the template"
+# The template names bare `bun`; the installer swaps in the absolute path it found.
+[ "$(jq -r '.statusLine.command' "$claude/settings.json")" = "$(jq -r '.statusLine.command' "$root/claude/configs/settings.template.json" | sed "s|^bun |$(command -v bun) |")" ] || fail "the status line entry must match the template"
 [ "$(jq -r '.theme' "$claude/settings.json")" = dark ] || fail "existing settings must be preserved"
 [ "$(jq -r 'has("permissions") or has("hooks")' "$claude/settings.json")" = false ] || fail "no permissions or hooks may be added: $(cat "$claude/settings.json")"
 [ ! -e "$claude/skills" ] && [ ! -e "$claude/agents" ] && [ ! -e "$claude/CLAUDE.md" ] && [ ! -e "$home/.claude.json" ] || fail "status-line-only must not install skills, agents, the kernel, or MCP servers"
@@ -1289,63 +1291,114 @@ if grep -Fq 'Enter confirms' <<<"$tui_out"; then fail "--with must skip the chec
 opt_present "$home" drawio || fail "--with must install the component"
 echo "install probe passed: tui"
 
-# --- JavaScript runtime: bun when one works, node otherwise ---------------------------
-# A stand-in bun that runs node keeps this scenario independent of a real bun.
-fakebin="$work/fakebin"
-mkdir -p "$fakebin"
-printf '#!/bin/sh\nexec node "$@"\n' >"$fakebin/bun"
-chmod +x "$fakebin/bun"
+# --- Bun runtime: required, hardened, no node fallback ---------------------------------
+real_bun=$(command -v bun)
+bun_dir=$(dirname "$real_bun")
 nobun_path=$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do [ -x "$dir/bun" ] || printf '%s:' "$dir"; done)
 nobun_path=${nobun_path%:}
-# runjs <home> <runtime> <path> [args...]: the installer with one runtime choice and PATH.
-runjs() {
-  local home=$1 runtime=$2 path=$3
-  shift 3
+flags='--no-env-file --config=/dev/null'
+# runpath <home> <path> [args...]: the installer with one PATH.
+runpath() {
+  local home=$1 path=$2
+  shift 2
   rc=0
-  out=$(env -u CLAUDE_CONFIG_DIR -u B_AGENTIC_CLAUDE_DIR -u B_AGENTIC_CLICKUP_MCP HOME="$home" PATH="$path" B_AGENTIC_JS_RUNTIME="$runtime" bash "$root/install.sh" "$@" 2>"$work/stderr") || rc=$?
+  out=$(env -u CLAUDE_CONFIG_DIR -u B_AGENTIC_CLAUDE_DIR -u B_AGENTIC_CLICKUP_MCP HOME="$home" PATH="$path" bash "$root/install.sh" "$@" 2>"$work/stderr") || rc=$?
   err=$(cat "$work/stderr")
 }
 hook_cmds() { jq -r '[.hooks[][].hooks[].command, .statusLine.command] | .[]' "$1/.claude/settings.json"; }
 
-home=$(fresh_home jsruntime)
+home=$(fresh_home bunrt)
 claude="$home/.claude"
 mkdir -p "$claude"
 cat >"$claude/settings.json" <<'JSON'
 {"hooks": {"PreToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "echo mine"}]}]}}
 JSON
-runjs "$home" auto "$nobun_path" -y; expect_ok "auto without bun"
-if hook_cmds "$home" | grep -Fq 'exec'; then fail "auto without bun must keep node commands: $(hook_cmds "$home")"; fi
-# shellcheck disable=SC2016 # The literal $HOME is the text the template ships.
-hook_cmds "$home" | grep -Fq 'node "$HOME/.claude/b-agentic/hooks/b-path-guard.mjs"' || fail "auto without bun must install node commands"
-runjs "$home" bun "$nobun_path" -y; expect_refused "bun requested without bun"
-grep -Fq 'working bun' <<<"$err" || fail "the refusal must say bun is missing: $err"
-
-runjs "$home" auto "$fakebin:$nobun_path" -y; expect_ok "auto with bun"
-hook_cmds "$home" | grep -Fq "if [ -x $fakebin/bun ]; then exec $fakebin/bun " || fail "auto with bun must prefer the bun path: $(hook_cmds "$home")"
-[ "$(hook_cmds "$home" | grep -c 'exec node ')" = "$(hook_cmds "$home" | grep -c 'if \[ -x ')" ] || fail "every bun command must fall back to node"
-[ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive the swap"
-[ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "the swap must replace the managed hooks, not add to them: $(jq -c '.hooks' "$claude/settings.json")"
 before=$(tree "$home")
-runjs "$home" auto "$fakebin:$nobun_path" -y; expect_ok "second bun install"
-[ "$before" = "$(tree "$home")" ] || fail "a bun re-run changed files"
+runpath "$home" "$nobun_path" -y; expect_refused "install without bun"
+grep -Fq 'bun is required' <<<"$err" || fail "the refusal must say bun is required: $err"
+[ "$before" = "$(tree "$home")" ] || fail "a refused install must write nothing"
+runpath "$home" "$nobun_path" --dry-run; expect_refused "dry-run without bun"
+runpath "$home" "$nobun_path" -y --statusline-only; expect_refused "status line only without bun"
+[ "$before" = "$(tree "$home")" ] || fail "a refused dry-run or status-line install must write nothing"
 
-# The installed command runs: it blocks a secret path under bun, and keeps blocking when bun disappears.
+runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "install with bun"
+[ "$(hook_cmds "$home" | grep -c "^$real_bun $flags \"")" = 7 ] || fail "six hooks and the status line must run the absolute bun path with the hardening flags: $(hook_cmds "$home")"
+if hook_cmds "$home" | grep -Eq '(^|[ ;])node( |$)'; then fail "no managed command may use node: $(hook_cmds "$home")"; fi
+[ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "managed hooks plus the user's own: $(jq -c .hooks "$claude/settings.json")"
+[ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive"
+before=$(tree "$home")
+runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "second bun install"
+[ "$before" = "$(tree "$home")" ] || fail "a re-run changed files"
+
+# The installed guard runs with the hardening: a repository's bunfig.toml preload and .env are not loaded,
+# and the secret-path decision is unchanged.
 guard_cmd=$(jq -r '.hooks.PreToolUse[] | select(.matcher | test("Read")) | .hooks[] | select(.command | contains("b-path-guard.mjs")) | .command' "$claude/settings.json")
+trap_repo="$work/bunfig-repo"
+mkdir -p "$trap_repo"
+printf 'preload = ["./preload.ts"]\n' >"$trap_repo/bunfig.toml"
+printf 'await Bun.write("%s/PRELOAD-RAN", "x");\n' "$work" >"$trap_repo/preload.ts"
+printf 'B_AGENTIC_PROBE_ENV=loaded\n' >"$trap_repo/.env"
 secret='{"tool_name":"Read","tool_input":{"file_path":"/repo/.env"}}'
-rc=0; printf '%s' "$secret" | HOME="$home" PATH="$fakebin:$nobun_path" sh -c "$guard_cmd" >/dev/null 2>&1 || rc=$?
-[ "$rc" = 2 ] || fail "the bun guard command must block a secret path (exit $rc)"
-rm "$fakebin/bun"
-rc=0; printf '%s' "$secret" | HOME="$home" PATH="$nobun_path" sh -c "$guard_cmd" >/dev/null 2>&1 || rc=$?
-[ "$rc" = 2 ] || fail "the guard command must fall back to node when bun is gone (exit $rc)"
-printf '#!/bin/sh\nexec node "$@"\n' >"$fakebin/bun"
-chmod +x "$fakebin/bun"
+rc=0; ( cd "$trap_repo" && printf '%s' "$secret" | HOME="$home" PATH="$nobun_path" sh -c "$guard_cmd" >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 2 ] || fail "the installed guard must block a secret path (exit $rc)"
+[ ! -e "$work/PRELOAD-RAN" ] || fail "the guard ran the repository's bunfig.toml preload"
+# A positive control: plain bun run from the same directory does load the preload and the .env, and the hardening
+# flags the installer writes turn both off, so the checks above and below cannot pass for the wrong reason.
+printf 'console.log(process.env.B_AGENTIC_PROBE_ENV ?? "");\n' >"$trap_repo/probe-env.ts"
+control=$(cd "$trap_repo" && "$real_bun" probe-env.ts)
+[ "$control" = loaded ] || fail "control: plain bun should load the repository's .env (got '$control'), so this probe cannot show the flag works"
+[ -e "$work/PRELOAD-RAN" ] || fail "control: plain bun should run the repository's bunfig.toml preload"
+rm -f "$work/PRELOAD-RAN"
+hardened=$(cd "$trap_repo" && "$real_bun" --no-env-file --config=/dev/null probe-env.ts)
+[ -z "$hardened" ] || fail "--no-env-file must keep the repository's .env out of the process (got '$hardened')"
+[ ! -e "$work/PRELOAD-RAN" ] || fail "--config=/dev/null must keep the repository's preload from running"
 
-runjs "$home" node "$fakebin:$nobun_path" -y; expect_ok "back to node"
-if hook_cmds "$home" | grep -Fq 'exec'; then fail "--js-runtime node must restore node commands: $(hook_cmds "$home")"; fi
-[ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "swapping back must not leave bun hooks behind"
-[ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive swapping back"
-rc=0; out=$(HOME="$home" PATH="$nobun_path" python3 "$root/tooling/install/claude_install.py" --dry-run --js-runtime bogus 2>&1) || rc=$?
-[ "$rc" != 0 ] || fail "an unknown runtime must be refused"
-runjs "$home" auto "$fakebin:$nobun_path" -y --uninstall; expect_ok "uninstall after swaps"
-[ "$(jq -c . "$claude/settings.json")" = '{"hooks":{"PreToolUse":[{"matcher":"Read","hooks":[{"type":"command","command":"echo mine"}]}]}}' ] || fail "uninstall must leave only the user's hook: $(cat "$claude/settings.json")"
-echo "install probe passed: js-runtime"
+# A bun installed through a symlink keeps working after an upgrade swaps its target, and with no bun left the
+# command fails (so a fail-closed hook blocks) instead of falling back to node.
+mkdir -p "$work/linkbin"
+ln -s "$real_bun" "$work/linkbin/bun"
+home=$(fresh_home bunlink)
+claude="$home/.claude"
+runpath "$home" "$work/linkbin:$nobun_path" -y; expect_ok "install with a symlinked bun"
+hook_cmds "$home" | grep -Fq "$work/linkbin/bun $flags " || fail "the symlink path must be kept, not resolved: $(hook_cmds "$home")"
+guard_cmd=$(jq -r '.hooks.PreToolUse[] | select(.matcher | test("Read")) | .hooks[] | select(.command | contains("b-path-guard.mjs")) | .command' "$claude/settings.json")
+rm "$work/linkbin/bun"
+rc=0; printf '%s' "$secret" | HOME="$home" PATH="$nobun_path" sh -c "$guard_cmd" >/dev/null 2>&1 || rc=$?
+[ "$rc" = 127 ] || [ "$rc" = 126 ] || fail "with bun gone the guard command must fail, not fall back (exit $rc)"
+runpath "$home" "$nobun_path" -y --uninstall; expect_ok "uninstall without bun"
+[ "$(jq -c . "$claude/settings.json")" = '{}' ] || fail "an uninstall without bun must still remove the managed entries: $(cat "$claude/settings.json")"
+
+# Earlier installs recorded node commands (plain, or the ADR-017 bun-or-node form). Installing again swaps exactly
+# those recorded entries to the bun form and leaves the user's own hooks alone.
+for old_form in plain adr017; do
+  home=$(fresh_home "swap-$old_form")
+  claude="$home/.claude"
+  mkdir -p "$claude"
+  cat >"$claude/settings.json" <<'JSON'
+{"hooks": {"PreToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "echo mine"}]}]}}
+JSON
+  runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "install before the swap ($old_form)"
+  # Rewrite the installed settings and the manifest the way the old installer would have written them.
+  # shellcheck disable=SC2016 # jq program text, not shell expansion.
+  rewrite='def old: sub("^[^ ]+ --no-env-file --config=/dev/null "; "node ") | if $form == "adr017" then "if [ -x \u0027/old/bun\u0027 ]; then exec \u0027/old/bun\u0027 " + (. | sub("^node "; "")) + "; else exec node " + (. | sub("^node "; "")) + "; fi" else . end;'
+  jq --arg form "$old_form" "$rewrite"' (.hooks[][].hooks[] | select(.command | test("b-agentic")) | .command) |= old | (if .statusLine then .statusLine.command |= old else . end)' "$claude/settings.json" >"$work/settings.new" && cp "$work/settings.new" "$claude/settings.json"
+  jq --arg form "$old_form" "$rewrite"' (.settings.hooks[].hook.command) |= old | (.settings.statusLine[].command) |= old' "$claude/b-agentic/install.json" >"$work/install.new" && cp "$work/install.new" "$claude/b-agentic/install.json"
+  hook_cmds "$home" | grep -Fq "$real_bun" && fail "the rewrite to the old form did not take ($old_form)"
+  runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "install over the old form ($old_form)"
+  [ "$(hook_cmds "$home" | grep -c "^$real_bun $flags \"")" = 7 ] || fail "the recorded $old_form entries must swap to the bun form: $(hook_cmds "$home")"
+  [ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "the swap must replace, not add ($old_form): $(jq -c .hooks "$claude/settings.json")"
+  [ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive the swap ($old_form)"
+done
+
+# A node entry for a managed script that the manifest never recorded is the user's: it is kept, and reported,
+# because without node that hook would fail.
+home=$(fresh_home nodehook)
+claude="$home/.claude"
+mkdir -p "$claude"
+cat >"$claude/settings.json" <<'JSON'
+{"hooks": {"PreToolUse": [{"matcher": "Chain", "hooks": [{"type": "command", "command": "node \"$HOME/.claude/b-agentic/hooks/b-path-guard.mjs\""}]}]}}
+JSON
+runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "install with an unrecorded node hook"
+grep -Fq 'with node, which b-agentic no longer supports' <<<"$out$err" || fail "an unrecorded node hook must be reported: $out $err"
+[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Chain")] | length' "$claude/settings.json")" = 1 ] || fail "the user's node hook entry must be kept"
+echo "install probe passed: bun-runtime"
