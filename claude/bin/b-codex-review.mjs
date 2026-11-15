@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic Codex review wrapper. This is the enforced path for the independent
 // changed-code gate: the checks run in this code, not in the model's discipline
 // and not in a shell-command parser. It
@@ -229,7 +229,9 @@ export function companionArgs(options, baseTarget = options.base) {
 // pipes open.
 function runCompanion(companion, args, cwd, options) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [companion, ...args], {
+    // The plugin's own runtime is Node, so the companion runs under `node` from PATH
+    // whatever runs this wrapper; a missing node ends the run as an unavailable plugin.
+    const child = spawn("node", [companion, ...args], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
     });

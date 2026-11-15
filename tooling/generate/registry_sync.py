@@ -1174,10 +1174,14 @@ def render_worker_file(name: str, worker: dict[str, Any], policy: dict[str, Any]
 
 
 HOOK_DIR = f'"{CLAUDE_RUNTIME["hook_dir"]}'
+# Claude Code runs the managed scripts with Bun (ADR-018). The flags keep Bun from loading the working
+# directory's bunfig.toml preload and .env files into a hook or helper; the installer replaces the leading
+# `bun` with the absolute path it found.
+BUN_COMMAND = "bun --no-env-file --config=/dev/null"
 
 
 def hook_command(script: str) -> str:
-    return f'node {HOOK_DIR}/{script}"'
+    return f'{BUN_COMMAND} {HOOK_DIR}/{script}"'
 
 
 def render_hooks() -> dict[str, Any]:
@@ -1216,7 +1220,7 @@ def render_hooks() -> dict[str, Any]:
 def render_status_line() -> dict[str, Any]:
     """The status line entry set in the user's settings.json only when none is configured."""
     bin_dir = str(CLAUDE_RUNTIME["hook_dir"]).removesuffix("/hooks") + "/bin"
-    return {"type": "command", "command": f'node "{bin_dir}/b-statusline.mjs"', "refreshInterval": 5}
+    return {"type": "command", "command": f'{BUN_COMMAND} "{bin_dir}/b-statusline.mjs"', "refreshInterval": 5}
 
 
 def render_settings(policy: dict[str, Any]) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic run context: a Claude Code SessionStart hook (matcher
 // `startup|resume|clear|compact`) that points the model at the active `b-flow`
 // run (ADR-009), so a new or compacted session can tell a run exists.

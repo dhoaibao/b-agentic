@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic Codex verdict mapper. It normalizes the result of the
 // openai/codex-plugin-cc adversarial review into b-review's finding IDs and a
 // provisional verdict. The main session applies b-review's blocker taxonomy to

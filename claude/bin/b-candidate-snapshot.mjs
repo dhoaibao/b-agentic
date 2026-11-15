@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic candidate snapshot: a read-only CLI that computes the kernel's
 // frozen-review-candidate identity so the model does not hash it by hand.
 // Usage: b-candidate-snapshot.mjs [--include-ignored <path>]... [--fingerprint]
@@ -36,6 +36,7 @@ import { createHash } from "node:crypto";
 import {
   createReadStream,
   lstatSync,
+  openSync,
   readlinkSync,
   realpathSync,
 } from "node:fs";
@@ -304,7 +305,10 @@ async function assertNoExecutableFilters(cwd, paths, signal, config) {
 function fileDigest(path, signal) {
   return new Promise((resolve, reject) => {
     const hash = createHash("sha256");
-    const stream = createReadStream(path, { signal });
+    // The path is a Buffer (raw git bytes); Bun's createReadStream rejects a
+    // Buffer path, so open it here and stream the descriptor, which both
+    // runtimes accept. An open failure rejects like a stream error.
+    const stream = createReadStream(null, { fd: openSync(path, "r"), signal });
     stream.on("data", (chunk) => hash.update(chunk));
     stream.on("error", reject);
     stream.on("end", () => resolve(hash.digest("hex")));

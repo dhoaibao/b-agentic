@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic path guard: a Claude Code PreToolUse hook that refuses file tools
 // on likely-secret paths. It applies the same PROTECTED_RULES as the snapshot
 // CLI (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`, `*secrets.*`, with

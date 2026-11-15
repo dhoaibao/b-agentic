@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic spec context: a Claude Code SessionStart hook (matcher `compact`)
 // that points the model back at the user-approved specs after compaction, so
 // confirmed acceptance criteria (AC-n) do not survive only as a summary.

@@ -38,7 +38,7 @@ Run the acceptance gate on a reviewed, frozen candidate: map every acceptance cr
 
 ## Tool guidance
 
-- Main session only. Use `node ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs` for candidate identity, with the same `--include-ignored <path>` set the review used.
+- Main session only. Use `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs` for candidate identity, with the same `--include-ignored <path>` set the review used.
 - Run existing repository commands through `rtk`; never invent commands. Use native `Read` and `Grep` (or `rg`) for inspection evidence.
 - In an indexed project, use `codegraph_explore` (read-only) for affected tests and routes; report an absent or stale index as a gap and never initialize one.
 - No Playwright tools, no edits.

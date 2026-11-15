@@ -69,7 +69,10 @@
         "npm:@juicesharp/rpiv-ask-user-question@2.15.0"
       ],
       "glossary": [
+        {"from": "bun --no-env-file --config=/dev/null ~/.claude/b-agentic/", "to": "node ~/.pi/agent/b-agentic/"},
         {"from": "~/.claude/b-agentic/", "to": "~/.pi/agent/b-agentic/"},
+        {"from": "Naming an unread skill is not using it; do not blend phases.", "to": "Naming an unread skill is not using it; sequence phases and do not blend them."},
+        {"from": "approval, safety, or review.", "to": "approval, safety, or review behavior."},
         {"from": "named `Agent` subagent type", "to": "named agent via the `subagent` tool"},
         {"from": "its named `Agent` call", "to": "its named `subagent` call"},
         {"from": "unknown agent type or `general-purpose` fallback", "to": "unknown-agent error or fallback to another agent"},

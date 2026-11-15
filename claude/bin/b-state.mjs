@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic run state: the file-backed progress record for a `b-flow` run
 // (ADR-009). Only the main session runs it. It keeps `.b-agentic/runs/<id>/state.json`
 // valid and refuses steps whose evidence is missing or stale. It fails closed:

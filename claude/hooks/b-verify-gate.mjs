@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic verify gate: an advisory, one-shot reminder at the end of a turn.
 //
 // When the main session edited files after its last non-inspection shell

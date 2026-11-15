@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic status line for Claude Code. Reads the status JSON on stdin and prints one line:
 // model and effort, repo and git branch, context used, session cost, the prompt cache hit ratio,
 // and the 5-hour and weekly limits as coloured percents with time to reset.

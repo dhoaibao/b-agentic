@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // b-agentic Codex review guard. The independent review gate sends a repository
 // to OpenAI Codex through the openai/codex-plugin-cc plugin, and Codex's
 // read-only sandbox can read every file in the workspace. This guard refuses
@@ -446,7 +446,7 @@ export async function evaluate({ command, cwd, base }) {
     }
     if (!readApprovals().includes(root)) {
       reasons.push(
-        `the user has not approved sending this repository to Codex (OpenAI); ask with AskUserQuestion, then run \`node ${selfCommandPath()} --approve\``,
+        `the user has not approved sending this repository to Codex (OpenAI); ask with AskUserQuestion, then run \`bun --no-env-file --config=/dev/null ${selfCommandPath()} --approve\``,
       );
     }
   }
