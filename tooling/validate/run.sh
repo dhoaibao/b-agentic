@@ -29,6 +29,8 @@ python3 "$ROOT_DIR/tooling/validate/mcp_policy.py"
 python3 "$ROOT_DIR/tooling/validate/mcp_probe.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/session_readiness.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/browser_evidence.py" --self-test
+python3 "$ROOT_DIR/tooling/validate/review_eval.py" --self-test
+python3 "$ROOT_DIR/tooling/validate/review_eval.py"
 
 # The probes below share nothing (each makes its own work folder and repositories), so they
 # run at the same time. Each one's output is kept in a log and printed in the order started;

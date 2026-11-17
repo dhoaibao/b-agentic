@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "description": "Reviewer eval cases from this repository's history. An incident is a diff whose answer key a b-review round should find as a blocker; a control is a merged change that no later fix commit is known to correct, used to measure over-flagging. base and head are the two commits to review (head against base); a revert-of-fix reviews the reverse of a fix, so head is the fix's parent. Edit test-split cases only together with test_set_digest. See docs/runbooks/review-eval.md.",
+  "test_set_digest": "sha256:926fa9d9918c0a66a2357720660bd30bdf4054effd9807c9a02b7fc521c1b38a",
+  "cases": [
+    {
+      "id": "gate-clearstate-unvalidated-dir",
+      "split": "test",
+      "kind": "incident",
+      "construction": "revert-of-fix",
+      "base": "a3e8eb0c484ced7641a85964d3732a17d93a8bd0",
+      "head": "f4ac60b34af7ec4246763d5109f0abe370a2d3b5",
+      "fixed_by": ["a3e8eb0c484ced7641a85964d3732a17d93a8bd0"],
+      "blocker_class": "data-integrity loss",
+      "answer_key": "The verify gate's stop cleanup deletes the state file with rmSync without validating the state directory first, so a symlinked state directory lets it delete files outside the gate's own state.",
+      "expected_verdict": "NEEDS FIXES"
+    },
+    {
+      "id": "gate-subagent-shell-clears-reminder",
+      "split": "test",
+      "kind": "incident",
+      "construction": "revert-of-fix",
+      "base": "38412d94a52fc14068ccc1d93b2bfd037b00d917",
+      "head": "21ffaa2e3c504b40326905ebc0b0cd1ba78f9598",
+      "fixed_by": ["38412d94a52fc14068ccc1d93b2bfd037b00d917"],
+      "blocker_class": "correctness regression",
+      "answer_key": "The verify gate counts every non-inspection shell command as the main session's check, including a subagent's command that carries an agent_id, so a subagent's test run silently clears the reminder.",
+      "expected_verdict": "NEEDS FIXES"
+    },
+    {
+      "id": "probes-run-under-bun",
+      "split": "test",
+      "kind": "control",
+      "construction": "merged-change",
+      "base": "3a6ee3bede2029de2174a4213e098e9217cc0da4",
+      "head": "2663b1d207b18d4961c0305cdc824b240ca077fe",
+      "expected_verdict": "no blocker"
+    },
+    {
+      "id": "validation-probes-in-parallel",
+      "split": "test",
+      "kind": "control",
+      "construction": "merged-change",
+      "base": "c3018bc4b47f94d7dddfe59e6d0aa484a2c6a7ef",
+      "head": "948de1b601973926616b0dc5edde5ab14b33ab14",
+      "expected_verdict": "no blocker"
+    },
+    {
+      "id": "protected-paths-case-sensitive",
+      "split": "tuning",
+      "kind": "incident",
+      "construction": "revert-of-fix",
+      "base": "a4c7157ae4c8089ed5b53d1b7f94724a80e78576",
+      "head": "f2ed0b2d1eecb462a4695e46d500043f29bfa372",
+      "fixed_by": ["a4c7157ae4c8089ed5b53d1b7f94724a80e78576"],
+      "blocker_class": "security/privacy/permission/secret exposure",
+      "answer_key": "Likely-secret path patterns match case-sensitively, so a case variant such as .ENV is not treated as protected.",
+      "expected_verdict": "NEEDS FIXES"
+    },
+    {
+      "id": "path-guard-grep-regex-as-glob",
+      "split": "test",
+      "kind": "incident",
+      "construction": "revert-of-fix",
+      "base": "293975b2ed527cdf5769809f85157684e2b47743",
+      "head": "fbed15f0e91fd42413e4cfc12cf2ec8c35dcbc95",
+      "fixed_by": ["293975b2ed527cdf5769809f85157684e2b47743"],
+      "blocker_class": "correctness regression",
+      "answer_key": "The path guard checks Grep's content-regex pattern as a path glob, so a search whose regex resembles a secret file name is blocked.",
+      "expected_verdict": "NEEDS FIXES"
+    },
+    {
+      "id": "routing-corpus-behavior-check",
+      "split": "tuning",
+      "kind": "control",
+      "construction": "merged-change",
+      "base": "67e3c70f39a630523132faa6aa839c0145b19911",
+      "head": "4909fd918267e6e59efe7b592a8868c81908e915",
+      "expected_verdict": "no blocker"
+    },
+    {
+      "id": "classify-firecrawl-gov-search",
+      "split": "tuning",
+      "kind": "control",
+      "construction": "merged-change",
+      "base": "d08680972438ab8f7214974d48c80374b1d1f980",
+      "head": "906a42f5f744e479d026301b4345734ee5b2849b",
+      "expected_verdict": "no blocker"
+    }
+  ]
+}
