@@ -39,7 +39,6 @@ def main() -> int:
         "`Agent` subagent type",
         "`AskUserQuestion`",
         "`mcp__<server>__<tool>`",
-        "Track multi-step work in concise prose",
     ):
         if marker not in text:
             errors.append(f"references/kernel.template.md: missing Claude Code marker {marker!r}")

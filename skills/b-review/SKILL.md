@@ -8,8 +8,9 @@ description: >
   signals: code review, review diff, review my diff, review changes,
   review these changes, working tree diff, pre-PR, "what would an
   architect". Runs the Codex gate first from the main session and, only
-  when it is unavailable, delegates to the `b-reviewer` subagent; the main
-  session never executes the review itself.
+  when it is unavailable or the user chooses it after a refused or void
+  run, delegates to the `b-reviewer` subagent; the main session never
+  executes the review itself.
 argument-hint: "[working tree or changes since a base ref]"
 metadata:
   phase: Validate
@@ -22,13 +23,13 @@ metadata:
 # b-review
 
 Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first.
-On Claude Code the main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); only when Codex is unavailable does it use the `b-reviewer` subagent, a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
+The main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); it uses the `b-reviewer` subagent only when Codex is unavailable or the user chooses it after a refused or void Codex run. The subagent is a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
 
 ## Delegation boundary
 
-`b-review` runs the Codex gate first, from the main session as the Steps direct; only when that gate is unavailable does it run in the `b-reviewer` subagent.
+`b-review` runs the Codex gate first, from the main session as the Steps direct; it runs in the `b-reviewer` subagent only when that gate is unavailable or the user chooses it after a refused or void run.
 
-- Main session: reading this file prepares both paths. The Codex gate is not your own review, and the Steps say when it counts as unavailable. Only then gather the parent-owned evidence below and confirm the effective `b-reviewer.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of `Edit`, `Write`, `NotebookEdit` (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `b-reviewer` and a bounded task naming `b-review`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
+- Main session: reading this file prepares both paths. The Codex gate is not your own review, and the Steps say when it counts as unavailable or when the user may choose the subagent. Only then gather the parent-owned evidence below and confirm the effective `b-reviewer.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of `Edit`, `Write`, `NotebookEdit` (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `b-reviewer` and a bounded task naming `b-review`. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action.
 - `b-reviewer` child: execute the reviewer steps below only (never the Codex gate) read-only, return this skill's Output format to the main session, and do not delegate again.
 
 Parent-owned evidence to gather and pass to the child (or state what is unavailable):

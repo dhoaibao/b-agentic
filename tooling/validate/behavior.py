@@ -89,12 +89,11 @@ SHELL_POLICY_REGRESSION = {
         "Kernel designated RTK and modern replacements, but unscoped Git content reads bypassed path protection."
     ),
     "intended_behavior": (
-        "Recommend RTK and modern fallbacks while allowing regular repository-local "
+        "Require RTK for supported command families while allowing regular repository-local "
         "commands, and require approval for unscoped Git content reads."
     ),
     "required_clauses": (
         "RTK never bypasses these protections",
-        "Prefer modern shell tools when available",
         "Use `rtk` for every command family it supports",
         "except rule 6 file I/O",
     ),
@@ -128,13 +127,12 @@ SUBAGENT_DELEGATION_REGRESSION = {
         "The main session owns user-facing discussion, material decisions, worktree changes, verification, commits, final reporting, and every approved external/shared mutation, local upload, lifecycle, or authentication action.",
         "It coordinates read-only children and a `b-worker` per approved worker step, never two in a tree.",
         "The main session reads the installed `skills/<name>/SKILL.md` (or invokes its `/b-<name>` command) before acting. For a delegated skill, that read only prepares the handoff: each later tool call gathers its parent-owned evidence or is its named `Agent` call.",
-        "Before delegating, read the selected SKILL.md and gather its parent-owned evidence",
         "Delegated skills run only in their named `Agent` subagent type with a bounded task naming the exact skill.",
         "Never do their work with main-session tools, even for a quick lookup or when a tool description invites it; if the subagent is unavailable, report the gap and ask.",
         "A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable.",
         "a user request for external or current facts, however small, -> `b-research`",
         "- All other skills run in the main session.",
-        "Delegated agents are prompt-enforced read-only specialists, not sandboxed by the harness.",
+        "Read-only children are prompt-enforced specialists, not sandboxed by the harness.",
         "Tool lists omit edits, questions, and delegation but allow shell inspection under global permissions.",
         "They do not edit, commit, question users, delegate, or perform mutations, uploads, lifecycle, or auth actions; they report those needs to main.",
         "ask before other destructive, privileged, ambiguous, protected/outside-project, or external/shared mutations",
@@ -968,10 +966,6 @@ def validate_native_file_tool_regression(errors: list[str]) -> None:
         NATIVE_FILE_TOOL_REGRESSION,
         errors,
     )
-    # The modern-tools recommendation must not steer models toward shell readers/editors.
-    for line in routing_table_text().splitlines():
-        if line.startswith("Prefer modern shell tools") and ("`batcat`" in line or "`sd`" in line):
-            errors.append("native file tool regression: modern shell tools line recommends batcat or sd")
 
 
 def validate_subagent_delegation_regression(errors: list[str]) -> None:
@@ -1168,7 +1162,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
         },
         "skills/b-review/prompt.md": {
             "required": (
-                "On Claude Code the main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); only when Codex is unavailable does it use the `b-reviewer` subagent",
+                "The main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); it uses the `b-reviewer` subagent only when Codex is unavailable or the user chooses it after a refused or void Codex run",
                 "as the only way to run Codex (it enforces the gate, runs the plugin, and normalizes the result with `b-codex-verdict`)",
                 "Run the gate with the wrapper, as a harness background command (`run_in_background`) from the repository: `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round <n> --focus-file <path>`",
                 "do not call the plugin's script or `/codex:*` commands directly for a gate review, and never use `--background`",

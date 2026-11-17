@@ -1,7 +1,7 @@
 # b-review
 
 Independently review a frozen changed-code candidate for blockers, regressions, security risk, and missing evidence. Findings first.
-On Claude Code the main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); only when Codex is unavailable does it use the `b-reviewer` subagent, a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
+The main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); it uses the `b-reviewer` subagent only when Codex is unavailable or the user chooses it after a refused or void Codex run. The subagent is a fresh, read-only context that does not share the implementer's reasoning and is prohibited from editing.
 
 ## When to use
 

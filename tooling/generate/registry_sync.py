@@ -30,7 +30,7 @@ ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
 # A prompt line that starts with this marker is emitted only for the named runtimes (marker removed).
 RUNTIME_MARKER = re.compile(r"^<!-- runtime: ([a-z]+(?:,[a-z]+)*) --> ")
 
-MAX_KERNEL_BYTES = 12_100
+MAX_KERNEL_BYTES = 12_000
 MAX_KERNEL_LINES = 100
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
@@ -1015,8 +1015,8 @@ def render_delegation_boundary(skill: dict[str, Any], runtime: str = "claude") -
     check = config["profile_check"].format(agent=agent, editing=editing, name=name)
     gate = primary_gate(skill, runtime)
     if gate:
-        intro = f"`{name}` runs the {gate['label']} gate first, from the main session as the Steps direct; only when that gate is unavailable does it run in the `{agent}` subagent."
-        main_line = f"- Main session: reading this file prepares both paths. The {gate['label']} gate is not your own review, and the Steps say when it counts as unavailable. Only then gather the parent-owned evidence below and {check}. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action."
+        intro = f"`{name}` runs the {gate['label']} gate first, from the main session as the Steps direct; it runs in the `{agent}` subagent only when that gate is unavailable or the user chooses it after a refused or void run."
+        main_line = f"- Main session: reading this file prepares both paths. The {gate['label']} gate is not your own review, and the Steps say when it counts as unavailable or when the user may choose the subagent. Only then gather the parent-owned evidence below and {check}. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action."
     else:
         intro = f"`{name}` runs only in the `{agent}` subagent."
         main_line = f"- Main session: reading this file prepares the handoff; it never authorizes running the steps below yourself. Gather the parent-owned evidence and {check}. Do not do this skill's work with your own tools, even for a quick, small, or single-lookup request. If the subagent is unavailable or fails, or its result notes an unknown agent type or `general-purpose` fallback (discard that result), report the gap and ask the user; never fall back to self-execution. Evaluate the returned result before any user-facing or worktree action."
@@ -1077,7 +1077,7 @@ def render_skill_file(skill: dict[str, Any], runtime: str = "claude", hits: set[
         gate = primary_gate(skill, runtime)
         if gate:
             description += (
-                f" Runs the {gate['label']} gate first from the main session and, only when it is unavailable,"
+                f" Runs the {gate['label']} gate first from the main session and, only when it is unavailable or the user chooses it after a refused or void run,"
                 f" delegates to the `{execution['agent']}` subagent; the main session never executes the review itself."
             )
         else:
