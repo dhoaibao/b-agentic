@@ -103,15 +103,10 @@ supply its completed origin-freshness evidence:
    obtain approval and supply its result, and if approval, evidence, or a usable
    environment is missing, report the limitation rather than guessing or
    exposing raw errors.
-7. Use native inspection first. Select CodeGraph when a distinct concrete
-   architecture/impact/affected-test question is central to the audit and
-   likely valuable; use an available index for that question and report an
-   absent-index gap to the main session. Spanning files alone never justifies
-   initialization.
-8. Separate deterministic results from semantic findings. Order findings by
+7. Separate deterministic results from semantic findings. Order findings by
    severity and cite repository-relative paths, evidence, impact, and the
    smallest follow-up route. State what was not mechanically proven.
-9. Keep the audit read-only. Record needed changes as follow-up; do not edit during the audit.
+8. Record needed changes as follow-up.
 
 ## Output format
 
@@ -130,17 +125,15 @@ Otherwise, the response must end with exactly one standalone final line, with no
 - Keep the audit strictly read-only: do not edit, stage, commit, push, run
   mutating commands, or apply fixes. Route frontend/UI production fixes to **b-frontend**,
   other behavioral fixes to **b-implement**, and named behavior-preserving
-  transforms to **b-refactor**; do not edit during the audit.
-- The main-session origin freshness evidence is mandatory before every audit
-  action. A missing, failed, or non-zero comparison is a blocked audit, not a
-  finding; return the blocking message to the main session and stop without auditing or issuing a verdict.
+  transforms to **b-refactor**.
+- A missing, failed, or non-zero origin-freshness comparison is a blocked audit,
+  not a finding; return the blocking message to the main session and stop without auditing or issuing a verdict.
 - Prefer repository evidence over assumptions and cite repository-relative paths.
 - Do not claim that passing structural or traceability checks proves all prose
   semantics, production readiness, health, currentness, or the absence of drift.
 - Do not treat generated assets as canonical when a source file exists.
 - Do not transmit repository/private data or credentials for currentness checks.
-- Do not use live MCP schema probing without approval; report it unverified when
-  unavailable. Do not expose credentials, token values, private URLs, or raw
-  operational errors.
+- Do not expose credentials, token values, private URLs, or raw operational
+  errors.
 - Do not use this skill as a generic code-diff review; triggered independent
   review of a frozen changed candidate belongs to **b-review**.

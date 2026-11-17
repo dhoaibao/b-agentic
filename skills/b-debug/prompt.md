@@ -18,7 +18,7 @@ Confirm the real cause of broken runtime behavior, then produce an evidence-back
 - `Read` - inspect repository context and the main session's supplied reproduction evidence only when it materially affects the diagnosis.
 - Read-only shell commands - inspect logs, diffs, and diagnostics; do not run mutating commands or state-changing probes.
 - Native MCP tools - use only named read-only tools permitted to this subagent; report an unavailable or denied evidence gap to the main session.
-- `codegraph` - per the kernel CodeGraph rule, trace entry-to-failure call paths in an indexed project; report an absent-index gap to the main session.
+- `codegraph` - per the kernel CodeGraph rule, trace entry-to-failure call paths in an indexed project.
 - `context7` - versioned dependency/API behavior only when a library suspect remains after local evidence.
 - `mcp__firecrawl__firecrawl_developer_search` - upstream issue/PR history for a named dependency suspect remaining after local evidence; limit ≤5; query only the public package name, version, and public error text. Never send repository paths, code, private stack frames, internal URLs, or secrets; report that gap instead.
 - Use only the reproduction and diagnosis evidence supplied in the current task; report missing historical context rather than assuming it.

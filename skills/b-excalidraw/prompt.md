@@ -38,7 +38,7 @@ Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw 
    - Show a boundary as a background rectangle plus a text label, since frames are not supported.
    - Lay out in one direction with consistent spacing. Start with a `cameraUpdate` at a 4:3 size that frames the whole diagram.
    - Keep each view small (about 20 nodes or fewer); split larger systems into separate views rather than shrinking text.
-   - No images or freehand drawing, and no invented relationships, traffic, deployment placement, owners, risk, or causal impact.
+   - No images or freehand drawing.
 6. Call `mcp__excalidraw__create_view`. Repair only the errors it reports. To refine, call it again with `restoreCheckpoint` and `delete` entries rather than redrawing everything.
 7. If the user approved saving the source, write the exact elements array to the approved path (suggested name `<name>.excalidraw-elements.json`). Do not use the `.excalidraw` extension: the array uses `label` and pseudo-elements, so it is not a scene file. Tell the user that `.excalidraw`, PNG, and SVG files come from the widget's export, and that a share link uploads the diagram to excalidraw.com, which is their decision.
 8. If the Excalidraw MCP is unconfigured, fails, or is denied, say "Excalidraw MCP unavailable" once and stop. Offer only to save the elements source; never fall back to HTML or SVG. If no viewer window opens (headless session or `MCP_UI_VIEWER=none`), report that nothing was displayed and give the tool's URL notice.

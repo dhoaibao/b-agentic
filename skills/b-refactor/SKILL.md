@@ -35,7 +35,7 @@ Run concrete behavior-preserving transforms: rename, extract, move, inline, simp
 ## Tool guidance
 
 - `Bash` - `rtk git status --short`, checks, and modern discovery routed through `rtk` whenever supported.
-- `codegraph` - per the kernel CodeGraph rule, map the target's callers and dependents in an indexed project; report an absent index as a gap and never initialize one.
+- `codegraph` - per the kernel CodeGraph rule, map the target's callers and dependents in an indexed project.
 - `Read`/`Edit` - routine file work, prose, comments, and config keys. Prefer native edits.
 
 ## Steps

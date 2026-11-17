@@ -38,7 +38,7 @@ Draw a formal or editable technical diagram in draw.io from explicit user or rep
    - One labelled shape per fact node and one edge per fact edge, connected by existing cell ids; use `mcp__drawio__search_shapes` for icon styles instead of guessing style names.
    - Express a boundary (VPC, subnet, cluster, swimlane) as a container the member nodes are parented to.
    - Lay out in one direction with consistent spacing. Prefer Mermaid for sequence, ER, and class diagrams.
-   - Split larger systems into pages or separate diagrams rather than shrinking text. No invented relationships, traffic, deployment placement, owners, risk, or causal impact.
+   - Split larger systems into pages or separate diagrams rather than shrinking text.
 6. If a target path was approved, write the full `.drawio` file (an `<mxfile>` wrapping uncompressed `<mxGraphModel>` XML) with native tools. A diagram authored as Mermaid is not a `.drawio` file: save the Mermaid source if the repository uses it, or tell the user to save a `.drawio` file from the draw.io editor.
 7. If a preview was approved, call the matching `mcp__drawio__open_drawio_*` tool and repair only the errors it reports. Always give the returned editor URL, and report only that a launch was attempted; do not claim a window opened or the diagram rendered.
 8. If the draw.io MCP is unconfigured, fails, or is denied, say "draw.io MCP unavailable" once. Keep the written `.drawio` source if any; never fall back to HTML or SVG.

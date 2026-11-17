@@ -87,7 +87,7 @@ Before any other audit step or repository read, require the main session to supp
 7. Tests and verification: use the supplied output of the documented commands and name untested critical paths; make no coverage claim without data.
 8. Docs: list commands, paths, and claims that do not match the repository.
 9. Separate deterministic results from semantic findings. Order findings by severity and cite repository-relative paths, evidence, impact, and the smallest follow-up route. State what was not mechanically proven.
-10. Keep the audit read-only. Record needed changes as follow-up; do not edit during the audit.
+10. Record needed changes as follow-up.
 
 ## Output format
 
@@ -100,7 +100,7 @@ Findings (ordered by severity), per-dimension comparison, automated checks, chec
 ## Rules
 
 - Keep the audit strictly read-only: do not edit, stage, commit, push, run mutating commands, or apply fixes.
-- The main-session origin freshness evidence is mandatory before every audit action. A missing, failed, or non-zero comparison is a blocked audit, not a finding; return the blocking message to the main session and stop without auditing or issuing a verdict.
+- A missing, failed, or non-zero origin-freshness comparison is a blocked audit, not a finding; return the blocking message to the main session and stop without auditing or issuing a verdict.
 - Make no finding from file size, export count, or style preference alone; a performance finding needs a measured hotspot or explicit algorithmic evidence.
 - Prefer repository evidence over assumptions and cite repository-relative paths; never treat generated assets as canonical when a source exists.
 - Do not claim that passing checks prove health, currentness, or the absence of drift.

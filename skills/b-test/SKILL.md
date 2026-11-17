@@ -40,7 +40,7 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 
 - `Bash` - run tests via `rtk` when supported (`rtk pytest`, `rtk vitest`, `rtk jest`, …) and inspect failure output.
 - `Read`/`Edit` - use native tools for routine and unsupported file work.
-- `codegraph` - per the kernel CodeGraph rule, ask for changed-symbol/file impact and affected tests in an indexed project; report an absent or stale index as a gap and never initialize one.
+- `codegraph` - per the kernel CodeGraph rule, ask for changed-symbol/file impact and affected tests in an indexed project.
 - `context7` - versioned test-framework/API semantics only when local tests and contracts do not settle them.
 
 ## Steps
