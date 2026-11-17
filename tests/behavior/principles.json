@@ -352,22 +352,6 @@
       ]
     },
     {
-      "id": "lesson-distillation-candidates",
-      "principle": "goal-driven-execution",
-      "skill": "b-agentic-audit",
-      "observed_failure": "Audits left recurring recall-backed lessons in volatile memory with no promotion route, so the same lessons were re-learned across sessions.",
-      "intended_behavior": "Audits flag recurring, generalizable recall lessons as distillation candidates for canonical skill prompts with the promotion route (b-implement against skills/*/prompt.md plus registry_sync), instead of runtime automation.",
-      "prompt": "Use b-agentic-audit. You find the same useful lesson recurring in recall-backed observations across sessions. State how you record the finding, where it should be promoted, and whether you add runtime skill management; do not edit files.",
-      "must": [
-        "Flag the recurring lesson as a distillation candidate",
-        "Name b-implement against skills/*/prompt.md plus registry_sync as the promotion route"
-      ],
-      "avoid": [
-        "Propose runtime skill management",
-        "Leave the lesson only in volatile memory"
-      ]
-    },
-    {
       "id": "proportionate-quality-comparison",
       "principle": "think-before-coding",
       "skill": "b-plan",

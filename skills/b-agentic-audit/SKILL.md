@@ -129,10 +129,6 @@ supply its completed origin-freshness evidence:
 5. Assess canonical skill/kernel quality by checking routing boundaries,
    evidence thresholds, safety/privacy guidance, no-edit handoffs, prompt
    cohesion, generated assets, and kernel headroom against the source record.
-   When recurring memory lessons plausibly generalize across
-   sessions, flag them as distillation candidates for canonical skill prompts;
-   promote them through b-implement against `skills/*/prompt.md` with
-   `registry_sync`, rather than leaving them only in volatile memory.
 6. Assess currentness/MCP compatibility from local pins and installed versions.
    Use `context7` or bounded primary upstream evidence for compatibility claims. A live MCP
    schema probe is an explicit operational step: require the main session to
@@ -155,12 +151,11 @@ Findings (ordered by severity), four-dimension source-based comparison,
 automated checks, checked-and-clean areas, currentness/live-evidence status,
 residual limitations, and follow-up. If the freshness gate fails, report the
 blocked notification only and do not emit the normal findings or verdict.
-Verdict:
+Otherwise, the response must end with exactly one standalone final line, with no text after it, which is one of:
 
-- `NEEDS FIXES` when there is actual source, safety, or semantic drift.
-- `READY WITH FOLLOW-UPS` when no finding exists but required external,
-  currentness, or live MCP evidence is unavailable or unverified.
-- `READY FOR PR` only when all required dimensions and evidence are verified.
+- `Verdict: NEEDS FIXES` when there is actual source, safety, or semantic drift, a concrete defect, or a failing `scripts/b-agentic-audit.sh` check.
+- `Verdict: READY WITH FOLLOW-UPS` when only non-blocking findings exist (maintainability friction, harmful duplication, performance candidates, or skill/kernel-quality improvements), or when required external, currentness, or live MCP evidence is unavailable or unverified.
+- `Verdict: READY FOR PR` only when all required dimensions and evidence are verified.
 
 ## Rules
 

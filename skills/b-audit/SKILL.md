@@ -91,11 +91,11 @@ Before any other audit step or repository read, require the main session to supp
 
 ## Output format
 
-Findings (ordered by severity), per-dimension comparison, automated checks, checked-and-clean areas, currentness and advisory-scan status, residual limitations, and follow-up. If the freshness gate fails, report the blocked notification only and do not emit the normal findings or verdict. Verdict:
+Findings (ordered by severity), per-dimension comparison, automated checks, checked-and-clean areas, currentness and advisory-scan status, residual limitations, and follow-up. If the freshness gate fails, report the blocked notification only and do not emit the normal findings or verdict. Otherwise, the response must end with exactly one standalone final line, with no text after it, which is one of:
 
-- `NEEDS FIXES` when there is an actual defect, safety issue, failing documented check, or documented-boundary drift.
-- `READY WITH FOLLOW-UPS` when only non-blocking findings exist (outdated dependencies, test gaps, docs drift), or when required currentness, advisory-scan, or documented-check evidence is unavailable or unverified.
-- `READY FOR PR` only when all required dimensions and evidence are verified.
+- `Verdict: NEEDS FIXES` when there is an actual defect, safety issue, failing documented check, or documented-boundary drift.
+- `Verdict: READY WITH FOLLOW-UPS` when only non-blocking findings exist (outdated dependencies, test gaps, docs drift), or when required currentness, advisory-scan, or documented-check evidence is unavailable or unverified.
+- `Verdict: READY FOR PR` only when all required dimensions and evidence are verified.
 
 ## Rules
 
