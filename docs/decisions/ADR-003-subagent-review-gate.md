@@ -2,12 +2,12 @@
 
 - Status: Accepted
 - Date: 2026-11-04
-- Note: [ADR-008](ADR-008-claude-code-only.md) removed OpenCode; the subagent gate now applies to Claude Code only.
+- Note: [ADR-008](ADR-008-claude-code-only.md) removed OpenCode, [ADR-019](ADR-019-opencode-second-runtime.md) restored it, and [ADR-020](ADR-020-claude-code-only-again.md) removed it again; the subagent gate now applies to Claude Code only.
 - Supersedes: ADR-001 (the Codex review-gate passages in Context and under "Workflow and skill design", "Safety and approval design", and "Verification and change discipline") and ADR-002 (the Codex gate on OpenCode)
 
 Superseded in part by [ADR-007](ADR-007-codex-first-review-gate.md): Claude Code runs
 Codex first again and keeps `b-reviewer` as the fallback. This ADR still governs
-`b-reviewer` and OpenCode's gate.
+`b-reviewer` (and, while OpenCode existed, its gate).
 
 ## Context
 
@@ -96,7 +96,7 @@ user-owned
   code-review benchmark and Artificial Analysis favor `high` on quality per cost;
   the same benchmark found `xhigh` caught the most hard bugs at lower precision,
   which matters for a gate that exists to catch blockers), without a replay on
-  this repository. The current OpenCode Sol `#high` pin has not been evaluated
+  this repository. The OpenCode Sol `#high` pin (since removed) was never evaluated
   on this repository's reviews. Revisit with measured wall-clock, tokens, rounds per change,
   and real versus disputed blockers; return to `xhigh` if `high` misses blockers.
   2026-11-17 research note: an independent code-review benchmark (IronBee,

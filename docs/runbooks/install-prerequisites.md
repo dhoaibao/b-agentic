@@ -37,7 +37,7 @@ this is a manual step. Which tool each MCP needs is listed in
    ```
 
 3. Install Node through nvm. Only the npm-packaged tools below and the Codex plugin's own script (which the review
-   wrapper starts with Node on both runtimes) need it; b-agentic's own hooks and scripts run with Bun. The tag below was the latest on 2026-11-09; check
+   wrapper starts with Node) need it; b-agentic's own hooks and scripts run with Bun. The tag below was the latest on 2026-11-09; check
    the [nvm releases](https://github.com/nvm-sh/nvm/releases) for a newer one.
    Open a new shell afterwards.
 
