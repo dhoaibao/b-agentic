@@ -224,12 +224,6 @@ export const approvalTouch = (command) => {
       /b-codex-(guard|review)|codex-companion/.test(text))
   );
 };
-// Removing the approval is the user's decision too. The Claude Code hook leaves
-// it silent; only the OpenCode plugin guard uses this matcher, to refuse it.
-export const revokeTouch = (command) => {
-  const text = joinedText(command);
-  return text.includes("b-codex-guard") && text.includes("--revoke");
-};
 const redirectAllowed = ({ op, target }) =>
   target === "/dev/null" ||
   // `2>&1` and `>&-` duplicate or close a descriptor; `>&word` is a file.

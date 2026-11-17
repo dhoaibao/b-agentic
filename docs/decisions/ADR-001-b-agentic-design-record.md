@@ -18,6 +18,8 @@ non-goal under Consequences, the single-runtime statement in Context, and the
 Pi as an opt-in second runtime that installs under `~/.pi/agent`. The passages
 below describe the default Claude Code runtime; ADR-011 recorded the Pi one, and
 [ADR-019](ADR-019-opencode-second-runtime.md) replaced Pi with OpenCode (`~/.config/opencode`).
+[ADR-020](ADR-020-claude-code-only-again.md) then removed OpenCode, so Claude Code is the
+only runtime again and the passages below describe it without qualification.
 
 Superseded in part by [ADR-002](ADR-002-dual-runtime-support.md): the
 single-runtime statement in Context, the `~/.claude`-only boundary under
@@ -46,16 +48,14 @@ describe the gate as ADR-007 restored it.
 
 ## Context
 
-b-agentic's default runtime is Claude Code; OpenCode is an opt-in second runtime
-([ADR-019](ADR-019-opencode-second-runtime.md), which replaced the Pi runtime of
-[ADR-011](ADR-011-pi-second-runtime.md)). It ships an always-loaded kernel,
+b-agentic's only runtime is Claude Code
+([ADR-020](ADR-020-claude-code-only-again.md)). It ships an always-loaded kernel,
 canonical skills, named read-only specialists, managed MCP configuration,
 hooks and small CLIs, and a merge-safe installer. On Claude Code, Codex, through
 the `openai/codex-plugin-cc` plugin, is the independent changed-code reviewer.
-The earlier Pi runtimes were removed from this repository (the last Pi tree is
-commit `ba7bc2db`) and nothing here generates, installs, or tests them; the
-OpenCode runtime of ADR-019 is generated, installed, and tested from this
-repository.
+The earlier Pi and OpenCode runtimes were removed from this repository (the last Pi
+tree is commit `ba7bc2db`, the last OpenCode tree commit `f80281b7`) and nothing here
+generates, installs, or tests them.
 
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
 [`skills/registry.yaml`](../../skills/registry.yaml), and
@@ -78,12 +78,10 @@ kernel's generated blocks, and the settings template (permissions, hooks, and th
 Skills install as bare `~/.claude/skills/b-*`, not as a namespaced plugin.
 The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The Claude Code
 installer owns only what its manifest records, and never writes under `~/.pi` or
-`~/.config/opencode`; the opt-in OpenCode installer writes only under `~/.config/opencode`
-([ADR-019](ADR-019-opencode-second-runtime.md)).
+`~/.config/opencode`.
 
 Evidence: [`install.sh`](../../install.sh),
-[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py),
-[`tooling/install/opencode_install.py`](../../tooling/install/opencode_install.py), and
+[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py), and
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py).
 
 ### Workflow and skill design
@@ -245,8 +243,7 @@ or file content. `acted` means the main session ran a non-inspection shell
 command after the reminder; `dismissed` means it did not, so the ratio is the
 false-positive signal to review before tightening anything. The log is opened
 append-only without following symlinks, written only into a private directory,
-and stops growing at 256 KiB; delete the file to reset it. The OpenCode guard
-keeps its own one-shot reminder with no modes or log. The mode is advisory like
+and stops growing at 256 KiB; delete the file to reset it. The mode is advisory like
 the gate: an agent that can edit the user settings can set `off`.
 
 The `b-spec-context` hook keeps user-approved acceptance criteria reachable

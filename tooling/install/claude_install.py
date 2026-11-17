@@ -20,7 +20,7 @@ deleted. A hook the user edited, or one it never recorded, is kept and reported,
 and its script is kept too until that entry is gone. An uninstall removes the
 recorded hooks first and then the scripts, so such a user-owned entry can outlive
 its script.
-Nothing is ever written under ~/.config/opencode (opencode_install.py owns that tree) or ~/.pi, and only the default ~/.claude
+Nothing is ever written under ~/.config/opencode or ~/.pi (trees of removed runtimes), and only the default ~/.claude
 directory is supported because the managed hooks, agents, and instructions refer to it.
 """
 
@@ -124,10 +124,10 @@ def resolve_claude_dir() -> Path:
     return default
 
 
-# What this installer never touches: the other runtimes' home entries (OpenCode, and the retired Pi tree).
+# What this installer never touches: the home entries of the removed runtimes (OpenCode and Pi).
 CLAUDE_INSTALL_PROTECTED = (
-    (".config/opencode", "the OpenCode runtime directory"),
-    (".pi", "the Pi runtime directory"),
+    (".config/opencode", "the retired OpenCode runtime directory"),
+    (".pi", "the retired Pi runtime directory"),
 )
 
 

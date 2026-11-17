@@ -1137,12 +1137,12 @@ run "$home" -y --statusline-only; expect_ok "status line re-run"
 # Flags that make no sense with it are refused.
 run "$home" -y --statusline-only --with=drawio; expect_refused "--statusline-only with --with"
 run "$home" -y --statusline-only --uninstall; expect_refused "--statusline-only with --uninstall"
-# install.sh accepts --runtime=claude (a no-op here), opencode, and both (ADR-019); pi, Codex, and --migrate-legacy stay refused.
+# install.sh accepts --runtime=claude (a no-op); every other runtime and --migrate-legacy stay refused (ADR-020).
 run "$home" -y --statusline-only --dry-run --runtime=claude; expect_ok "--runtime=claude is accepted"
-run "$home" -y --dry-run --runtime=pi; expect_refused "--runtime=pi"
-grep -Fq 'ADR-019' <<<"$err$out" || fail "the --runtime=pi refusal must point to ADR-019: $err $out"
-run "$home" -y --dry-run --runtime=codex; expect_refused "--runtime=codex"
-grep -Fq 'ADR-019' <<<"$err$out" || fail "the --runtime=codex refusal must point to ADR-019: $err $out"
+for runtime in opencode both pi codex; do
+  run "$home" -y --dry-run --runtime=$runtime; expect_refused "--runtime=$runtime"
+  grep -Fq 'ADR-020' <<<"$err$out" || fail "the --runtime=$runtime refusal must point to ADR-020: $err $out"
+done
 run "$home" -y --dry-run --migrate-legacy; expect_refused "--migrate-legacy is no longer accepted"
 # A plain uninstall removes exactly what it installed and restores the user's settings.
 run "$home" --uninstall; expect_ok "status line uninstall"

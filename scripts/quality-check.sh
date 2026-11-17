@@ -20,7 +20,7 @@ MARKDOWNLINT=(bun "$ROOT_DIR/node_modules/.bin/markdownlint-cli2")
 [ -e "$ROOT_DIR/node_modules/.bin/markdownlint-cli2" ] || fail_missing markdownlint-cli2 "install root development tools with 'bun install --frozen-lockfile'"
 
 is_generated() {
-  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json) return 0;; opencode/skills/*|opencode/commands/*|opencode/agents/*|opencode/kernel.md|opencode/configs/*.json) return 0;; *) return 1;; esac
+  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json) return 0;; *) return 1;; esac
 }
 is_json_compatible_yaml() {
   case "$1" in references/mcp_operations.yaml|references/capabilities.yaml|references/runtimes.yaml|references/artifacts.yaml|skills/registry.yaml) return 0;; *) return 1;; esac
@@ -30,7 +30,7 @@ python_files=() shell_files=() markdown_files=() prettier_files=()
 while IFS= read -r -d '' path; do
   [ -f "$path" ] || continue
   if is_generated "$path"; then
-    case "$path" in claude/agents/*.md|opencode/agents/*.md) prettier_files+=("$path");; esac
+    case "$path" in claude/agents/*.md) prettier_files+=("$path");; esac
     continue
   fi
   case "$path" in

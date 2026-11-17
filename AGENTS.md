@@ -3,8 +3,7 @@
 ## Repository Purpose
 
 b-agentic is a slim personal workflow kernel for Claude Code, with
-Codex or a read-only subagent as the independent reviewer, and an opt-in second
-runtime for OpenCode ([ADR-019](docs/decisions/ADR-019-opencode-second-runtime.md)). It ships the always-loaded kernel, skills that double as
+Codex or a read-only subagent as the independent reviewer. It ships the always-loaded kernel, skills that double as
 commands, managed MCP configuration, read-only specialist agents, safety hooks,
 and installer/validation tooling. See the [public
 overview](README.md) and [operational reference](REFERENCE.md).
@@ -13,8 +12,8 @@ overview](README.md) and [operational reference](REFERENCE.md).
 
 ### Architecture and change map
 
-- `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, MCP policy, and Claude Code vocabulary; `claude/` holds generated agents and settings plus the hooks, CLIs, and MCP templates; `opencode/` holds the generated OpenCode skills, commands, agents, kernel, and configs plus the owned plugin `opencode/plugins/b-agentic.js` and guard core `opencode/guard.mjs`; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, hook, snapshot, and installer coverage.
-- Change shared guidance in `references/`, runtime hooks and CLIs in `claude/`, installer behavior in `install.sh` or `tooling/install/` (`claude_install.py`, `opencode_install.py`), and checks in `tooling/validate/` or `scripts/`. Use the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) when a change crosses these boundaries.
+- `skills/` holds registry metadata, canonical prompts, and generated skill files; `references/` holds the shared kernel, capability registry, MCP policy, and Claude Code vocabulary; `claude/` holds generated agents and settings plus the hooks, CLIs, and MCP templates; `tooling/` holds generation, installation, and validation; `tests/` holds behavior, hook, snapshot, and installer coverage.
+- Change shared guidance in `references/`, runtime hooks and CLIs in `claude/`, installer behavior in `install.sh` or `tooling/install/` (`claude_install.py`), and checks in `tooling/validate/` or `scripts/`. Use the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) when a change crosses these boundaries.
 
 ### Documentation
 
@@ -23,19 +22,19 @@ overview](README.md) and [operational reference](REFERENCE.md).
 ### Canonical sources and change flows
 
 - `skills/registry.yaml` owns skill metadata, routing, phase, execution ownership, and specialist-agent profiles; each `skills/*/prompt.md` owns its canonical skill body. `tooling/generate/registry_sync.py` renders `SKILL.md` files, agents, the settings template, and delivery blocks, so edit sources and regenerate rather than hand-editing output.
-- `references/kernel.template.md`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, and `references/runtimes.yaml` own runtime guidance, capability policy, and per-runtime vocabulary (canonical sources use Claude Code wording; the `opencode` entry of `references/runtimes.yaml`, `<!-- runtime: NAME[,NAME] -->` prompt lines, and the OpenCode `kernel_overrides` render the OpenCode variants, see [ADR-019](docs/decisions/ADR-019-opencode-second-runtime.md)). Claude Code output is the identity render. The installers consume generated output; the [operational reference](REFERENCE.md) documents the installed boundary. OpenCode was removed in [ADR-008](docs/decisions/ADR-008-claude-code-only.md) and restored by ADR-019, which also replaced the Pi runtime (last in commit `ba7bc2db`).
+- `references/kernel.template.md`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, and `references/runtimes.yaml` own runtime guidance, capability policy, and per-runtime vocabulary (canonical sources use Claude Code wording; `references/runtimes.yaml` holds only the `claude` entry, the identity render, and the generic `<!-- runtime: NAME[,NAME] -->` marker, glossary, and `kernel_overrides` mechanism stays for a future runtime). The installer consumes generated output; the [operational reference](REFERENCE.md) documents the installed boundary. A second runtime was removed by [ADR-008](docs/decisions/ADR-008-claude-code-only.md) and again by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md) (last second-runtime tree in commit `f80281b7`; the Pi runtime was last in `ba7bc2db`).
 
 ### Project constraints and boundaries
 
 - Keep this supplement slim, strong, and usable: retain evidence-backed orientation, ownership, boundaries, and required flows, and link to deeper docs instead of copying setup, release, readiness, or diagnostic catalogs. This is the repository's b-init output quality standard; see [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).
 - `skills/registry.yaml`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, and `references/runtimes.yaml` use the JSON-compatible YAML subset consumed by generators and validators. Do not treat generated assets as canonical sources.
-- Installer and configuration changes cross a user-owned boundary: `tooling/install/` merges user configuration and preserves unrelated content, and templates do not prove live MCP or model readiness. A Claude Code run touches only `~/.claude` and `~/.claude.json`; an OpenCode run (`install.sh --runtime=opencode|both`, default `claude`) touches only `~/.config/opencode` and merges the generated permissions, MCP servers, and todo flag into `opencode.json` without replacing user content. See the [Claude Code](claude/configs/README.md) and [OpenCode](opencode/configs/README.md) configuration layouts and the [operational reference](REFERENCE.md).
+- Installer and configuration changes cross a user-owned boundary: `tooling/install/` merges user configuration and preserves unrelated content, and templates do not prove live MCP or model readiness. A Claude Code run touches only `~/.claude` and `~/.claude.json`. `install.sh` refuses any `--runtime` other than `claude`. See the [Claude Code configuration layout](claude/configs/README.md) and the [operational reference](REFERENCE.md).
 - No database or migration files, infrastructure/deployment manifests, or external-service client source beyond installer/MCP integration is present. Do not invent conventions for absent surfaces; reassess when evidence appears.
 
 ## Verification
 
 - `python3 tooling/generate/registry_sync.py --check` — confirm generated delivery assets match canonical sources.
-- `scripts/validate-skills.sh` — run synchronization, behavior, policy, hook, snapshot, OpenCode guard, and readiness checks (`--release` adds the sandbox installer probes for both runtimes).
+- `scripts/validate-skills.sh` — run synchronization, behavior, policy, hook, snapshot, and readiness checks (`--release` adds the sandbox installer probe).
 - `bun run quality` — run tracked source quality checks when dependencies are installed.
 - `rtk git diff --check` — check changed paths for whitespace errors.
 

@@ -2,19 +2,15 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the primary runtime, Claude Code, with Codex as the
+This reference defines the only runtime, Claude Code, with Codex as the
 independent reviewer and the read-only `b-reviewer` subagent as its fallback
 ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
-[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)), and the opt-in
-second runtime, OpenCode, which uses the same Codex gate and fallback
-([ADR-019](docs/decisions/ADR-019-opencode-second-runtime.md), which supersedes
-[ADR-011](docs/decisions/ADR-011-pi-second-runtime.md) and reverses the OpenCode
-removal in [ADR-008](docs/decisions/ADR-008-claude-code-only.md)).
-It covers installation, the permission boundary, the review gate, MCP
-configuration, the [OpenCode runtime](#opencode-runtime), and validation. The Pi
-runtime was removed by ADR-019 (its last tree is commit `ba7bc2db`). Sections that name
-`~/.claude` describe Claude Code; the [OpenCode runtime](#opencode-runtime) section covers
-`~/.config/opencode`.
+[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)). It covers
+installation, the permission boundary, the review gate, MCP configuration, and
+validation. Second runtimes were removed by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md)
+(the last tree is commit `f80281b7`; Pi was last in `ba7bc2db`). An install an earlier
+release left under `~/.config/opencode` is never touched: uninstall it from a checkout of
+`f80281b7` (`./install.sh --runtime=opencode --uninstall`) or remove the b-agentic entries there by hand.
 
 ## Install and lifecycle
 
@@ -26,7 +22,7 @@ git clone https://github.com/dhoaibao/b-agentic.git && cd b-agentic && ./install
 (`curl -fsSL .../install.sh | bash`), it clones the source to
 `~/.b-agentic-claude` first; it never uses `~/.b-agentic`, which may still hold
 a frozen earlier installer. The script never runs vendor installers. A Claude Code run
-touches only `~/.claude` and `~/.claude.json`; an OpenCode run touches only `~/.config/opencode`.
+touches only `~/.claude` and `~/.claude.json`.
 
 - `--dry-run` prints the plan and changes nothing.
 - On a terminal the installer shows a step timeline, a summary box, and asks before
@@ -61,7 +57,7 @@ touches only `~/.claude` and `~/.claude.json`; an OpenCode run touches only `~/.
   (symlinks kept), with no Node fallback: if Bun is removed later, a fail-closed guard blocks until you
   reinstall Bun. A re-install swaps only the entries the manifest recorded (plain `node` or the earlier
   bun-or-node form) and never your own hooks; an unrecorded `node` entry for a managed script is kept and
-  reported. OpenCode runs the same scripts with Bun.
+  reported.
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.
@@ -69,12 +65,8 @@ touches only `~/.claude` and `~/.claude.json`; an OpenCode run touches only `~/.
   did not install, after a backup. Without it such files are kept with a warning.
 - `--uninstall` removes only recorded, unmodified assets and entries and keeps
   `~/.claude/b-agentic/backups`.
-- `--runtime=claude|opencode|both` picks the runtime; the default is `claude`, `pi` is refused
-  with a pointer to ADR-019, and any other value is refused. `opencode` runs
-  `tooling/install/opencode_install.py` for `~/.config/opencode`
-  ([OpenCode runtime](#opencode-runtime)); `both` plans both installers in dry-run first and
-  installs neither when one refuses. `--statusline-only` belongs to Claude Code and is refused
-  with `opencode` or `both`. Every other flag applies to the selected runtimes.
+- `--runtime=claude` is accepted as a no-op; any other value is refused with a pointer to ADR-020 and
+  nothing is written.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -201,8 +193,7 @@ The gate sequence is:
    and would send its target; stage, ignore, or remove it), when a `--base` range
    (merge-base..HEAD and every commit inside it) touches a likely-secret path
    or a submodule, or when the repository has no standing approval. Approve once per repository with `--approve` after
-   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. On OpenCode the plugin
-   guard refuses both from the session, so the user runs them in their own terminal. The
+   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. The
    guard hook asks for a native confirmation of any Bash command that records
    the approval, points `B_AGENTIC_STATE_DIR` at another store, or writes
    `codex-approved-repos.json` (a tripwire, not a boundary).
@@ -329,7 +320,7 @@ branches not named `main` or `master` also stay at the ask prompt. The
 edits and, when the main session edited a non-prose file after its last non-inspection shell
 command, blocks the first stop once with the verify and review reminder (which also asks the agent to map each confirmed `AC-n` criterion to its check result or a stated gap).
 `B_AGENTIC_GATE_MODE=observe` logs what it would have blocked without blocking, `off` disables it, and anything else (the default) enforces; decisions append to
-`~/.claude/b-agentic/verify-gate/events.jsonl` (256 KiB cap, no commands or file content; `jq -r .event events.jsonl | sort | uniq -c` counts them, deleting the file resets it). OpenCode keeps its one-shot reminder without modes. [Review eval](docs/runbooks/review-eval.md) describes how to score reviewer rounds against the cases in `tests/behavior/review-eval.json`.
+`~/.claude/b-agentic/verify-gate/events.jsonl` (256 KiB cap, no commands or file content; `jq -r .event events.jsonl | sort | uniq -c` counts them, deleting the file resets it). [Review eval](docs/runbooks/review-eval.md) describes how to score reviewer rounds against the cases in `tests/behavior/review-eval.json`.
 `b-spec-context` is a `SessionStart` hook matched on `compact` only: after compaction it lists, as plain facts, the paths of up to five `docs/specs/*.md`
 files whose first 40 lines carry a `Status: approved` line, newest first, in at most 2,000 characters. It injects no file content, never writes, skips symlinks,
 likely-secret names, and unusual file names, sets no `onFailure`, and prints nothing (exit 0) when `docs/specs/` is absent, no spec is approved, or anything fails.
@@ -412,68 +403,6 @@ supported shell command families; CodeGraph is the first stop for code-structure
 call-flow, and pre-edit impact questions in an indexed project, and agents never
 run its init, index, sync, daemon, or install commands.
 
-## OpenCode runtime
-
-OpenCode (2.3.0 or newer) is an opt-in second runtime
-([ADR-019](docs/decisions/ADR-019-opencode-second-runtime.md)). The same canonical skills,
-kernel, and MCP policy are rendered for OpenCode by `tooling/generate/registry_sync.py` under
-`opencode/` (`skills/`, `commands/`, `agents/`, `kernel.md`, `configs/`) using the `opencode`
-entry of `references/runtimes.yaml`; Claude Code output is the unchanged identity render. Install
-it with `./install.sh --runtime=opencode` (or `both`). The installer plans in memory, refuses
-before the first write on a malformed user file or unsafe destination, backs up each user file it
-changes under `~/.config/opencode/b-agentic/backups/`, records what it owns in
-`~/.config/opencode/b-agentic/install.json`, supports `--dry-run`, `--force`, `--uninstall`, and
-the optional components (`--with`, `--without`), and never touches `~/.claude`, `~/.claude.json`,
-or `~/.pi`. It never runs `opencode`, npm, or a vendor installer.
-
-| Asset            | Installed path (under `~/.config/opencode`)                                                               |
-| ---------------- | --------------------------------------------------------------------------------------------------------- |
-| Skills           | `skills/b-*/SKILL.md` (outranks `~/.claude/skills` for the same skill id)                                 |
-| Commands         | `commands/b-*.md`, thin `/b-<name>` files that point at the skill                                         |
-| Agents           | `agents/b-*.md`: five read-only specialists and `b-worker`, each with a deny-first `permissions` list     |
-| Plugin           | `plugins/b-agentic.js` and `b-agentic/guard.mjs`                                                          |
-| Hooks, CLIs      | `b-agentic/hooks`, `b-agentic/bin` (the run CLIs, the Codex wrapper and guard), `b-agentic/references`    |
-| Kernel           | a marked block in `AGENTS.md` (OpenCode V2 reads only `AGENTS.md`)                                        |
-| Permissions, MCP | `opencode.json`: `permissions` (the managed rules are the last block), `mcp.servers`, `experimental.todo` |
-
-**Permissions.** The list is generated from the same `references/mcp_operations.yaml` and shell and
-path rules as the Claude settings template, with the last matching rule winning (deny rules last), and
-`tooling/validate/runtime_parity.py` compares the two rule by rule. It opens with a `*_*` ask fallback for
-unclassified MCP actions, re-allows `external_directory`, and addresses each MCP tool as
-`<server>_<tool>` with every character outside letters, digits, `_` and `-` replaced by `_` (hyphens stay). MCP servers are configured with
-`codemode: false` so each tool is direct. Specialists start from a deny-all rule, allow only reads, shell,
-and the read-only MCP tools, and end with `edit`, `subagent`, and `question` denied; `b-worker` also
-allows `edit`.
-
-**Plugin.** `plugins/b-agentic.js` reuses the `claude/hooks` modules through `b-agentic/guard.mjs`, so both
-runtimes judge likely-secret paths, `.b-agentic` writes, and shell inspection the same way. The path guard
-runs on `execute.before` (also in subagent sessions), covers `patch` targets, and fails closed: a missing
-module or any error throws and blocks the call. A directory `grep` is pre-scanned with the same ripgrep traversal OpenCode uses (`rg --files --hidden --glob=<include>`, `.git` excluded) and refused when a likely-secret name is among them or the listing fails (ripgrep, `rg`, is a prerequisite); every file-tool path is judged as written, as OpenCode resolves it lexically (so `..` applies before any symlink), and with a leading `~`, `$HOME`, or `${HOME}` expanded (OpenCode expands only `~`; the guard also scans the literal directory), because OpenCode authorizes `grep` on its pattern, not on the files it reads; a shell `rg` is not inspected, as on Claude Code. On both runtimes likely-secret names match case-insensitively in the path guards, the snapshot CLI, the Codex preflight, and `b_run.py` (`.ENV` is the same file on a case-insensitive filesystem); the native permission globs stay case-sensitive, an accepted residual. The verify reminder sends one extra turn on
-`session.execution.succeeded`, and the run and approved-spec context are added at a session's first model
-call and after compaction. The native `read` and `edit` secret-path denies stay as a second layer, because a
-plugin that fails to load leaves OpenCode without the guard.
-
-**Review gate and `b-flow`.** The reviewer is Codex through the `b-codex-review` wrapper, as on Claude
-Code, with `b-reviewer` only when the wrapper exits 4; the wrapper finds the Codex plugin under
-`~/.claude/plugins` (install it with Claude Code) and keeps its approval store beside the installed hooks in
-`~/.config/opencode/b-agentic`. The run-state lock owner on OpenCode is `OPENCODE_SESSION_ID`, which the shell
-tool sets. A `b-worker` step runs as a background subagent whose idle notification is the wait; parallel
-worker worktrees are not ported, and `b_run.py worker-profile` checks the OpenCode profile's `permissions` in `agents/`, `agent/`, `modes/`, and
-`mode/`, and refuses an inline `agents` entry for the worker, an `opencode.jsonc`, or a config named by
-`OPENCODE_CONFIG`, `OPENCODE_CONFIG_CONTENT`, or an `OPENCODE_CONFIG_DIR` other than `~/.config/opencode`, because
-those merge over the profile file and are not inspected (the default directory is inspected as the user scope).
-
-**Not ported in v1.** The status line, the parallel worker batch, and doctor scripts. The installer refuses
-a different `XDG_CONFIG_HOME`, `OPENCODE_CONFIG_DIR`, or `B_AGENTIC_OPENCODE_DIR`, an `opencode.jsonc`, and a
-manifest from the first OpenCode install (before ADR-019); a schema-1 manifest from the earlier release is
-upgraded in place.
-
-**Known gaps** (ADR-019 lists the live probe results). Specialists are read-only by their permissions and
-prompts, not a sandbox, so a child's shell can still mutate state, as on Claude Code. Background `b-worker`
-behavior, the `session.idle` event, compaction survival of the injected context, `execute.before` for MCP
-calls nested in Code Mode, and a plugin that fails to load are unverified on live OpenCode. Re-run the probe
-after upgrading OpenCode.
-
 ## Verification and repository map
 
 ```bash
@@ -489,15 +418,12 @@ policy and routing checks, the hook probe
 (`tests/hooks/hooks-probe.sh`), the snapshot CLI probe
 (`tests/snapshot/cli-probe.sh`), the status line probe
 (`tests/statusline/statusline-probe.sh`; the hook and status line probes also run under `bun` when it is installed), and the runtime instruction parity check
-(`tooling/validate/runtime_parity.py`, which also compares the OpenCode permissions with the
-Claude settings). It also runs the OpenCode guard cases (`tests/opencode/guard-cases.mjs`, under Bun).
-`--release` (CI) adds the sandbox installer probes (`tests/install/claude-install-probe.sh` and
-`tests/install/opencode-install-probe.sh`) and the RTK readiness check. None needs Claude Code,
-OpenCode, credentials, or a network.
+(`tooling/validate/runtime_parity.py`).
+`--release` (CI) adds the sandbox installer probe (`tests/install/claude-install-probe.sh`) and the RTK readiness check.
+None needs Claude Code, credentials, or a network.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
-generated specialists and settings plus the hooks, CLIs, and MCP templates; `opencode/` holds the
-generated OpenCode skills, commands, agents, kernel, and configs plus the owned plugin and guard core;
+generated specialists and settings plus the hooks, CLIs, and MCP templates;
 `tooling/generate/`, `tooling/install/`, and `tooling/validate/` own
 generation, lifecycle, and static checks; `tests/` covers behavior, hooks,
 snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md).
@@ -506,6 +432,6 @@ snapshots, and the installer. See the [ADR-001 design record](docs/decisions/ADR
 
 A change that would route to `b-implement`, `b-frontend`, `b-refactor`, or `b-test` enters a `b-flow` run, and `/b-flow <goal>` starts one explicitly ([ADR-012](docs/decisions/ADR-012-run-first-entry.md)); a `/b-<name>` the user types runs that skill standalone, and questions, lookups, and utilities start no run. A **quick** run (`size: quick` in the spec) takes the request as its approval and never commits; `b-state.mjs approve --size quick` refuses one over the quick limits (3 plan steps, 3 criteria with automated or inspection evidence, 5 literal scope paths, no answers, no `parallel_checks`, `worker_steps`, or `parallel_steps`, consent `commit: no`), and a review trigger blocks it until the user approves a full run (`unblock clarify` is its only way on). A review trigger a run has met stays its obligation through every later approval: it cannot be approved as quick again or record a low-risk exception. The run size, like the consent, is compared with the approved spec at every step. A run without commit consent ends with `advance done` from `qa`, and may start on a tree that already has changes: `init` records those paths by a digest of content and executable bit (never following a symbolic link above a path), and while a path keeps that identity the scope check ignores it; a recorded path the run changes, deletes, or reverts is checked like any other. `init` refuses while another run is unfinished (`--replace` on the user's answer) and holds a worktree mutex while it checks. A **full** run takes one request from clarified spec to commit in the main session ([ADR-009](docs/decisions/ADR-009-b-flow-automatic-run.md)). Clarification and one approval round (spec and `AC-n`, commit consent, branch target, Codex or `b-reviewer`; the consent is recorded in `spec.md` and `approve` must repeat it, on a clean working tree when it may commit) are the only user interaction; then it implements, verifies, reviews, fixes in-scope blockers, runs QA, and commits under the recorded consent. It never pushes or opens a PR, and it stops and asks after 3 failed verify checks, 3 consecutive `NEEDS FIXES`, or 3 consecutive `QA FAIL`, on a path outside the approved scope, or on a question the approval did not answer.
 
-Run files are untracked, under `.b-agentic/runs/<yyyymmdd-slug>/` at the worktree root (`.b-agentic/.gitignore` is `*`): `spec.md` (the approval; its sha256 is recorded), `plan.md`, `qa.md`, `followups.md`, `state.json` (progress only), and `lock`. `claude/bin/b-state.mjs` is the only writer of state and fails closed: it validates the schema, refuses a symlinked folder, a changed spec, a held lock, or a step whose evidence belongs to another candidate fingerprint (for example `advance commit` without the spec's consent or a current QA PASS; `advance review` needs `--trigger`, and a low-risk exception is refused once a review was triggered or held). `/b-flow resume` runs `b-state.mjs check --takeover`, which re-verifies the repository, branch, spec hash, `HEAD`, and candidate fingerprint; a changed tree voids review and QA evidence and returns the run to `verify`. So that a session can continue a run from the run folder alone, `check` also prints `next` (the steps the phase still owes, derived from the state and the artifacts; a pointer that grants no approval), review, the low-risk exception, and QA need every approved plan check passing for the candidate (a run already past `verify` without them is returned to `verify` by `check`), a `NEEDS FIXES` or `READY WITH FOLLOW-UPS` verdict needs that round's findings already in `followups.md`, and `state.json` keeps a bounded `history` of every write (200 entries; `show` prints the latest 20, `show --history` all) with verdicts, check results, block reasons, and unblock reasons. A plan may list `parallel_checks`, at least two of its checks that may run at the same time ([ADR-013](docs/decisions/ADR-013-concurrent-plan-checks.md)); every other check runs alone. `next` names the listed checks in one line with the candidate fingerprint as `--from`, and `record check --from <fingerprint>` (required for a listed check) records the result only while that is still the candidate: otherwise nothing is recorded and the lost check counts as a failed verify attempt. Claude Code starts the listed checks as background commands and OpenCode as `background: true` shell commands, and a quick run refuses the list. Progress inside `implement` is recorded with `record step S-n` (a step waits for the steps it depends on), and `advance verify` is refused while a plan step is unrecorded. Each step is checked when it is recorded ([ADR-014](docs/decisions/ADR-014-checked-plan-steps.md)): entering `implement` and every recorded step store a step base (tree id, fingerprint, `HEAD`, state revision), and `record step` refuses a step whose changes since that base include a path outside the approved scope or a likely-secret path (nothing recorded, the base kept, the refusal counted, the third in a row blocking the run) and blocks the run when the state was written or `HEAD` moved in between. A recorded step's history entry carries its tree id, its changed-path count, and how many of those are outside the step's own paths; `scope-check --base T --tree T --step S-n` is the comparison it runs. A full-run plan may list `worker_steps` ([ADR-015](docs/decisions/ADR-015-step-writer-worker.md)): `b-plan` proposes them for self-contained steps and the approval round confirms or drops each, and a quick run refuses the field. On Claude Code the main session first checks every file that may be the `b-worker` profile (one named so in its frontmatter, one called `b-worker.md`, or one whose name cannot be established by a strict reading, in any file under a project or user agents folder) with `b_run.py worker-profile`, which refuses any tool outside the generated native tools plus the read-only MCP tools, any other frontmatter key, unusual YAML in a candidate, two candidates in one scope, and a link under an agents folder, then hands each listed step to one `b-worker` with `b_run.py handoff implement --step S-n` and waits, editing nothing and running neither run CLI; after the report it renders the packet again and stops if its state or follow-ups revision changed, then inspects the diff, runs the step's check, and records the step. `record step` on a listed step needs `--by worker` (or `--by main` when the main session applied it) and is refused before any write otherwise, for `--by` on an unlisted step, for `--by worker` without a step base, and for a listed step already recorded; the history entries of listed steps carry `by`. A plan may also list `parallel_steps` ([ADR-016](docs/decisions/ADR-016-parallel-worker-steps.md)), at least two `worker_steps` with literal, disjoint paths that may be ready together (a quick run refuses the list): the first two such steps that are open with their dependencies recorded form a batch, and each gets its own detached git worktree in an owner-only folder under the temporary folder, made by `b-state.mjs worktree add S-n` from the step base tree (the user's uncommitted work and earlier steps included, no ignored or likely-secret files). The step packet then carries a `Working directory:` line and the two workers run at the same time. After every report the main session, in plan order, runs `worktree collect S-n` (which refuses a moved worktree `HEAD`, a main tree that is not the step base, and any path outside the step's own paths, and prints the `git apply` command), applies it from the repository root, runs the step's check in the main tree, records the step `--by worker`, and runs `worktree remove S-n`. These commands never write `state.json`, never change the main tree, and never apply; `record step` refuses a worker step whose main-tree change differs from the worker's, the history entry carries `worktree: true`, `check` lists remaining worktrees, and `advance verify` is refused while one remains. A step whose check needs installed dependencies must not be parallel. On OpenCode the worker is ported, but parallel worker worktrees are not: the main session applies a `parallel_steps` batch itself and records its steps `--by main`. Each skill's `contract` in `skills/registry.yaml` says whether it is a phase skill, an evidence provider, a utility, or the orchestrator, and the `b-flow` skill carries the generated table of phases, skills, and packets. A `/clear` changes the session id, so a resumed run takes the lock over. State holds no file contents, diffs, command output, or secrets, and is untrusted input to every reader.
+Run files are untracked, under `.b-agentic/runs/<yyyymmdd-slug>/` at the worktree root (`.b-agentic/.gitignore` is `*`): `spec.md` (the approval; its sha256 is recorded), `plan.md`, `qa.md`, `followups.md`, `state.json` (progress only), and `lock`. `claude/bin/b-state.mjs` is the only writer of state and fails closed: it validates the schema, refuses a symlinked folder, a changed spec, a held lock, or a step whose evidence belongs to another candidate fingerprint (for example `advance commit` without the spec's consent or a current QA PASS; `advance review` needs `--trigger`, and a low-risk exception is refused once a review was triggered or held). `/b-flow resume` runs `b-state.mjs check --takeover`, which re-verifies the repository, branch, spec hash, `HEAD`, and candidate fingerprint; a changed tree voids review and QA evidence and returns the run to `verify`. So that a session can continue a run from the run folder alone, `check` also prints `next` (the steps the phase still owes, derived from the state and the artifacts; a pointer that grants no approval), review, the low-risk exception, and QA need every approved plan check passing for the candidate (a run already past `verify` without them is returned to `verify` by `check`), a `NEEDS FIXES` or `READY WITH FOLLOW-UPS` verdict needs that round's findings already in `followups.md`, and `state.json` keeps a bounded `history` of every write (200 entries; `show` prints the latest 20, `show --history` all) with verdicts, check results, block reasons, and unblock reasons. A plan may list `parallel_checks`, at least two of its checks that may run at the same time ([ADR-013](docs/decisions/ADR-013-concurrent-plan-checks.md)); every other check runs alone. `next` names the listed checks in one line with the candidate fingerprint as `--from`, and `record check --from <fingerprint>` (required for a listed check) records the result only while that is still the candidate: otherwise nothing is recorded and the lost check counts as a failed verify attempt. Claude Code starts the listed checks as background commands, and a quick run refuses the list. Progress inside `implement` is recorded with `record step S-n` (a step waits for the steps it depends on), and `advance verify` is refused while a plan step is unrecorded. Each step is checked when it is recorded ([ADR-014](docs/decisions/ADR-014-checked-plan-steps.md)): entering `implement` and every recorded step store a step base (tree id, fingerprint, `HEAD`, state revision), and `record step` refuses a step whose changes since that base include a path outside the approved scope or a likely-secret path (nothing recorded, the base kept, the refusal counted, the third in a row blocking the run) and blocks the run when the state was written or `HEAD` moved in between. A recorded step's history entry carries its tree id, its changed-path count, and how many of those are outside the step's own paths; `scope-check --base T --tree T --step S-n` is the comparison it runs. A full-run plan may list `worker_steps` ([ADR-015](docs/decisions/ADR-015-step-writer-worker.md)): `b-plan` proposes them for self-contained steps and the approval round confirms or drops each, and a quick run refuses the field. On Claude Code the main session first checks every file that may be the `b-worker` profile (one named so in its frontmatter, one called `b-worker.md`, or one whose name cannot be established by a strict reading, in any file under a project or user agents folder) with `b_run.py worker-profile`, which refuses any tool outside the generated native tools plus the read-only MCP tools, any other frontmatter key, unusual YAML in a candidate, two candidates in one scope, and a link under an agents folder, then hands each listed step to one `b-worker` with `b_run.py handoff implement --step S-n` and waits, editing nothing and running neither run CLI; after the report it renders the packet again and stops if its state or follow-ups revision changed, then inspects the diff, runs the step's check, and records the step. `record step` on a listed step needs `--by worker` (or `--by main` when the main session applied it) and is refused before any write otherwise, for `--by` on an unlisted step, for `--by worker` without a step base, and for a listed step already recorded; the history entries of listed steps carry `by`. A plan may also list `parallel_steps` ([ADR-016](docs/decisions/ADR-016-parallel-worker-steps.md)), at least two `worker_steps` with literal, disjoint paths that may be ready together (a quick run refuses the list): the first two such steps that are open with their dependencies recorded form a batch, and each gets its own detached git worktree in an owner-only folder under the temporary folder, made by `b-state.mjs worktree add S-n` from the step base tree (the user's uncommitted work and earlier steps included, no ignored or likely-secret files). The step packet then carries a `Working directory:` line and the two workers run at the same time. After every report the main session, in plan order, runs `worktree collect S-n` (which refuses a moved worktree `HEAD`, a main tree that is not the step base, and any path outside the step's own paths, and prints the `git apply` command), applies it from the repository root, runs the step's check in the main tree, records the step `--by worker`, and runs `worktree remove S-n`. These commands never write `state.json`, never change the main tree, and never apply; `record step` refuses a worker step whose main-tree change differs from the worker's, the history entry carries `worktree: true`, `check` lists remaining worktrees, and `advance verify` is refused while one remains. A step whose check needs installed dependencies must not be parallel. Each skill's `contract` in `skills/registry.yaml` says whether it is a phase skill, an evidence provider, a utility, or the orchestrator, and the `b-flow` skill carries the generated table of phases, skills, and packets. A `/clear` changes the session id, so a resumed run takes the lock over. State holds no file contents, diffs, command output, or secrets, and is untrusted input to every reader.
 
 The four markdown artifacts have one writer too ([ADR-010](docs/decisions/ADR-010-run-artifact-cli.md)): `python3 -I -B ~/.claude/b-agentic/bin/b_run.py write <spec|plan|qa|followups>` reads JSON on stdin, validates it against `b-agentic/references/artifacts.yaml` (field grammar, enums, limits, one example per kind) and the cross-artifact rules (contiguous `AC-n` and `S-n`, evidence needs a command or a source, plan checks cover every automated command, plan paths inside the spec scope, QA rows matching the spec, no dropped follow-up ids), checks the artifact's phase and the run lock, renders canonical markdown, and records its sha256 and data in `artifacts.json`. `validate` re-renders and compares bytes and refuses unknown files in the run folder; `scope-check` compares changed git paths with the spec scope; `handoff <clarify|implement|verify|review|fix|qa|commit>` renders the packet that briefs that phase from the run folder and the tree. A plan step may name the earlier steps it waits for in `depends_on`; without it a step waits for the one before it. `b-path-guard` refuses native `Edit`, `Write`, and `NotebookEdit` on any `.b-agentic` path, a Bash write is detected rather than prevented, and `b-state` requires valid artifacts, matching spec and plan hashes, approved check commands, and a `qa.md` rewritten in the current QA round before it advances or records.

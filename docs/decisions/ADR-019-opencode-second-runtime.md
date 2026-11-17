@@ -1,8 +1,9 @@
 # ADR-019: OpenCode as the second runtime, replacing Pi
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-11-15
 - Supersedes: ADR-011 (Pi as a second runtime); reverses the OpenCode removal in ADR-008
+- Superseded by: [ADR-020](ADR-020-claude-code-only-again.md) (Claude Code only again). The OpenCode tree this record describes was last present at commit `f80281b7`.
 
 ## Context
 
@@ -32,8 +33,8 @@ The user decided each item below on 2026-11-15.
   `references/runtimes.yaml` replacing `pi`. Claude output is the identity render.
 - OpenCode output is committed under `opencode/`: `skills/`, `commands/` (thin `/b-<name>`
   files that point at the skill), `agents/` (five read-only specialists and `b-worker`),
-  `opencode/kernel.md`, `configs/` (permissions and MCP template), and the hand-written plugin
-  `opencode/plugins/b-agentic.js`.
+  the OpenCode kernel, `configs/` (permissions and MCP template), and the hand-written plugin
+  the plugin file under that tree.
 - Permissions use OpenCode's native ordered `permissions` list, generated from
   `references/mcp_operations.yaml` and the same shell and path rules as the Claude settings
   template (last match wins, so deny rules come last). A parity check compares both rule
@@ -57,7 +58,7 @@ The user decided each item below on 2026-11-15.
   ported in this change.
 - The run-state lock owner on OpenCode is `OPENCODE_SESSION_ID`, which the shell tool sets
   (see S4 below; it is undocumented, so a probe guards it).
-- The installer (`tooling/install/opencode_install.py`, `install.sh --runtime=opencode|both`;
+- The installer (the OpenCode installer, `install.sh --runtime=opencode|both`;
   default stays `claude`) writes only under `~/.config/opencode` and records what it owns
   in a manifest there. A schema-1 manifest from the earlier OpenCode release is adopted and
   upgraded: recorded `tablepro` and Codex entries are retired, the Codex approval file is
@@ -128,6 +129,5 @@ Code Mode, a plugin load failure leaving OpenCode running without the guard, and
 
 Evidence: [`references/runtimes.yaml`](../../references/runtimes.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
-[`tooling/validate/runtime_parity.py`](../../tooling/validate/runtime_parity.py),
-[`opencode/kernel.md`](../../opencode/kernel.md), and
-[`opencode/plugins/b-agentic.js`](../../opencode/plugins/b-agentic.js).
+and [`tooling/validate/runtime_parity.py`](../../tooling/validate/runtime_parity.py), plus the
+OpenCode tree at commit `f80281b7` (removed by ADR-020).

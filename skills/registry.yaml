@@ -415,7 +415,7 @@
       "execution": {"mode": "subagent", "agent": "b-reviewer"},
       "contract": {"role": "phase", "phases": ["review"], "evidence": "the round's findings in `followups.md`, then the verdict (`b-state.mjs record review`)", "parallel_safe": true},
       "primary_gate": {
-        "runtimes": ["claude", "opencode"],
+        "runtimes": ["claude"],
         "label": "Codex",
         "note": "On Claude Code `b-review` first runs Codex (openai/codex-plugin-cc) through `b-codex-review` from the main session; `b-reviewer` runs only when that wrapper exits 4 (Codex unavailable)."
       },

@@ -198,27 +198,6 @@ def agent_tools(agent: str) -> list[str]:
     return [tool.strip() for tool in line.removeprefix("tools: ").split(",") if tool.strip()]
 
 
-def opencode_agent_rules(agent: str) -> list[dict[str, str]]:
-    profile = (ROOT / "opencode" / "agents" / f"{agent}.md").read_text()
-    head = profile.partition("\n---\n")[0]
-    return [json.loads(line.strip()[2:]) for line in head.splitlines() if line.startswith("  - {")]
-
-
-def opencode_action(claude_name: str) -> str:
-    """`mcp__<server>__<tool>` as the OpenCode permission action `<server>_<tool>`."""
-    server, _, tool = claude_name.removeprefix("mcp__").partition("__")
-    return f"{re.sub(r'[^A-Za-z0-9_-]', '_', server)}_{re.sub(r'[^A-Za-z0-9_-]', '_', tool)}"
-
-
-def opencode_allowed_mcp(rules: list[dict[str, str]], known: set[str]) -> set[str]:
-    """MCP actions a rule list ends up allowing: the last `*`-resource rule of each action decides."""
-    final: dict[str, str] = {}
-    for rule in rules:
-        if rule["resource"] == "*":
-            final[rule["action"]] = rule["effect"]
-    return {action for action, effect in final.items() if effect == "allow" and action in known}
-
-
 def main() -> int:
     from tooling.generate.registry_sync import (
         SETTINGS_TEMPLATE_PATH,
@@ -437,48 +416,7 @@ def main() -> int:
     if research_tools.intersection(worker):
         errors.append("b-worker must not inherit researcher-only Firecrawl tools")
 
-    all_mcp_names = [
-        mcp_tool_name(server, tool) for server, record in servers.items() for tool in record.get("tools", {})
-    ]
-    known = {opencode_action(name) for name in all_mcp_names}
-    gated = {opencode_action(name) for name in (*ask, *deny) if name.startswith("mcp__")}
-    for agent in (*AGENTS, "b-worker"):
-        rules = opencode_agent_rules(agent)
-        final = {rule["action"]: rule["effect"] for rule in rules if rule["resource"] == "*"}
-        claude_names = [tool for tool in agent_tools(agent) if tool.startswith("mcp__")]
-        expected = {opencode_action(name) for name in claude_names}
-        if rules[:1] != [{"action": "*", "resource": "*", "effect": "deny"}]:
-            errors.append(f"opencode {agent} must start with a deny-all rule")
-        for action in ("subagent", "question") + (() if agent == "b-worker" else ("edit",)):
-            if final.get(action) != "deny":
-                errors.append(f"opencode {agent} must end with {action} denied")
-        if agent == "b-worker" and final.get("edit") != "allow":
-            errors.append("opencode b-worker must be allowed to edit")
-        if agent != "b-worker" and final.get("shell") != "allow":
-            errors.append(f"opencode {agent} must keep shell for read-only inspection")
-        if opencode_allowed_mcp(rules, known) != expected:
-            errors.append(f"opencode {agent} MCP tools must match the Claude profile for the same specialist")
-        if opencode_action("mcp__codegraph__codegraph_explore") not in expected:
-            errors.append(f"opencode {agent} must expose the CodeGraph explore tool")
-        if any(action.startswith(("notion_", "datagrip_")) for action in expected):
-            errors.append(f"opencode {agent} must not receive private Notion or DataGrip tools")
-        if any(opencode_action(name) in gated for name in claude_names):
-            errors.append(f"opencode {agent} must not list a tool that asks or is denied")
-
     mcp = json.loads((ROOT / "claude" / "configs" / "mcp.base.json").read_text())
-    oc_servers = (
-        json.loads((ROOT / "opencode" / "configs" / "opencode.template.json").read_text())
-        .get("mcp", {})
-        .get("servers", {})
-    )
-    if set(oc_servers) != set(mcp.get("mcpServers", {})):
-        errors.append("opencode MCP config must carry the same servers as the Claude template")
-    for name, entry in oc_servers.items():
-        # Code Mode hides a server's tools behind `execute`, which the specialists deny.
-        if entry.get("codemode") is not False:
-            errors.append(f"opencode MCP server {name} must set codemode false")
-        if entry.get("type") not in {"local", "remote"}:
-            errors.append(f"opencode MCP server {name} must declare type local or remote")
     if set(mcp.get("mcpServers", {})) != EXPECTED_SERVERS - IDE_MANAGED_SERVERS:
         errors.append("Claude Code base MCP config must configure all required servers only")
     for server, entry in mcp.get("mcpServers", {}).items():

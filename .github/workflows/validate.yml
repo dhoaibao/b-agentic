@@ -20,15 +20,6 @@ jobs:
         run: |
           brew install bash
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
-      # The OpenCode guard lists grep targets with ripgrep and fails closed without it.
-      - name: Install ripgrep
-        run: |
-          if command -v rg >/dev/null 2>&1; then exit 0; fi
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            brew install ripgrep
-          else
-            sudo apt-get update && sudo apt-get install -y ripgrep
-          fi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
