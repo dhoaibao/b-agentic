@@ -133,8 +133,17 @@ the kernel carry this, so a missing subagent is reported instead of bypassed. A
 child result is evidence, not authorization. Claude Code models are Anthropic
 aliases from the registry's `model` field, with an optional `effort` field
 (`low`–`max`) rendered as subagent frontmatter; current Claude Code defaults are
-`opus`/`high` for `b-planner` and `b-reviewer`, `fable`/`high` for `b-auditor`,
-`sonnet`/`xhigh` for `b-debugger`, and `sonnet`/`medium` for `b-researcher`. The
+`opus`/`high` for `b-planner`, `b-reviewer`, `b-debugger`, and `b-auditor`,
+`sonnet`/`medium` for `b-researcher` and `b-worker`. The 2026-11-17 retune moved
+`b-debugger` from `sonnet`/`xhigh` and `b-auditor` from `fable`/`high` to
+`opus`/`high` (Artificial Analysis scores Opus 5.5 `high` at 52 for about $3.46 per
+task against $9.08 for Fable 5.2 `high`; Vals Index scores the two within about
+1.2 points; Anthropic says to start on Opus 5.5 and move to Fable only when
+evals at higher effort fall short, and Fable carries cyber classifiers that can
+block a security audit) and `b-worker` from `high` to `medium`
+(Anthropic starts Sonnet 5.5 at `medium` for well-specified agentic coding). That
+was a literature-based choice, not a replay on this repository: move
+`b-debugger` or `b-auditor` to Fable only where Opus misses in practice. The
 `high` choice for the planner and reviewer follows Anthropic's guidance to reserve
 `xhigh` for work with a measured quality gain. One vendor code-review benchmark
 (Qodo, 2026-10) scored Opus 5.5 at `high` above `xhigh` on F1 (`xhigh` had the

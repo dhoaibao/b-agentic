@@ -15,12 +15,12 @@
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
-      "model": "sonnet",
-      "effort": "xhigh"
+      "model": "opus",
+      "effort": "high"
     },
     "b-auditor": {
       "description": "Audit a repository read-only for the main session: b-agentic conformance or a whole-project audit.",
-      "model": "fable",
+      "model": "opus",
       "effort": "high"
     },
     "b-reviewer": {
@@ -33,7 +33,7 @@
     "b-worker": {
       "description": "Apply one approved b-flow plan step in the main working tree and report to the main b-agentic session.",
       "model": "sonnet",
-      "effort": "high"
+      "effort": "medium"
     }
   },
   "optional_components": {

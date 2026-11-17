@@ -99,6 +99,13 @@ user-owned
   this repository. The current OpenCode Sol `#high` pin has not been evaluated
   on this repository's reviews. Revisit with measured wall-clock, tokens, rounds per change,
   and real versus disputed blockers; return to `xhigh` if `high` misses blockers.
+  2026-11-17 research note: an independent code-review benchmark (IronBee,
+  50 PRs, Opus 5.5 at `low`, default, and `xhigh`; no `high`, no Fable 5.2)
+  found `low` the most precise (46.3% against 33.3% at `xhigh`) and the best
+  F2, so a precision-first gate may do better below `high`. That one benchmark
+  did not reproduce the vendor review benchmark cited above, which that
+  research could not locate; neither was replayed here. `b-reviewer` stays at
+  `high` until a replay of `low`, `medium`, and `high` on real diffs.
 - Revisit if review quality proves worse than the Codex gate, or if a cheap
   cross-vendor reviewer becomes available without a second subscription.
 
