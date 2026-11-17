@@ -158,6 +158,41 @@ PUSH_DECISIONS = {
     "gh gpg-key delete 1": "deny",
 }
 
+# Destructive spellings the option-placement and combined-flag deny rules must catch, and their
+# safe neighbours that must stay allowed. Each runs plain and under `rtk`.
+DESTRUCTIVE_DECISIONS = {
+    "git clean -f": "deny",
+    "git clean -fd": "deny",
+    "git clean -xdf": "deny",
+    "git clean -d -f": "deny",
+    "git clean -n -d --force": "deny",
+    "git reset --hard HEAD~1": "deny",
+    "git reset -q --hard": "deny",
+    "git reset HEAD~1 --hard": "deny",
+    "git branch -D old": "deny",
+    "git branch --delete --force old": "deny",
+    "git branch -d -f old": "deny",
+    "git branch -f -d old": "deny",
+    "rm -rf build": "deny",
+    "rm -fr build": "deny",
+    "rm -Rf build": "deny",
+    "rm -r -f build": "deny",
+    "rm -f -r build": "deny",
+    "rm -v -rf build": "deny",
+    "rm --recursive --force build": "deny",
+    "rm build -r -f": "deny",
+    "git clean -n": "allow",
+    "git clean -nd": "allow",
+    "git clean --dry-run": "allow",
+    "git reset --soft HEAD~1": "allow",
+    "git reset HEAD file.txt": "allow",
+    "git branch -d merged": "allow",
+    "git branch -f topic HEAD~1": "allow",
+    "rm -r build": "allow",
+    "rm -f notes-r.txt": "allow",
+    "rm -r notes-f.txt": "allow",
+}
+
 
 def bash_patterns(rules: set[str]) -> list[str]:
     return [rule[5:-1] for rule in rules if rule.startswith("Bash(") and rule.endswith(")")]
@@ -175,10 +210,10 @@ def glob_matches(pattern: str, command: str) -> bool:
 
 
 def push_decision_errors(allow: set[str], ask: set[str], deny: set[str]) -> list[str]:
-    """Check concrete push and PR commands against the rendered rules in deny, ask, allow order."""
+    """Check concrete push, PR, and destructive commands against the rendered rules in deny, ask, allow order."""
     errors: list[str] = []
     deny_patterns, ask_patterns = bash_patterns(deny), bash_patterns(ask)
-    for command, expected in PUSH_DECISIONS.items():
+    for command, expected in {**PUSH_DECISIONS, **DESTRUCTIVE_DECISIONS}.items():
         for prefix in ("", "rtk "):
             full = prefix + command
             if any(glob_matches(pattern, full) for pattern in deny_patterns):
@@ -188,7 +223,7 @@ def push_decision_errors(allow: set[str], ask: set[str], deny: set[str]) -> list
             else:
                 actual = "allow" if "Bash" in allow else "unmatched"
             if actual != expected:
-                errors.append(f"push policy: {full!r} resolves to {actual}, expected {expected}")
+                errors.append(f"shell policy: {full!r} resolves to {actual}, expected {expected}")
     return errors
 
 
@@ -317,6 +352,11 @@ def main() -> int:
         "Bash(git clean -f *)",
         "Bash(git branch -D *)",
         "Bash(rm -rf *)",
+        "Bash(git clean * -f*)",
+        "Bash(git reset * --hard)",
+        "Bash(git branch --delete --force*)",
+        "Bash(rtk rm -r -f*)",
+        "Bash(rm --recursive --force*)",
         "Bash(sudo *)",
         "Bash(doas *)",
         "Bash(docker system prune *)",

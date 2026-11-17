@@ -142,7 +142,11 @@ and denies named dangerous commands (`git pull`, `git reset --hard`, `git clean 
 mirror, all/branches, prune, `main` or `master`, and destination-less (`git push`, `git push origin`) pushes, privilege escalation, bare
 shells) plus unambiguous secret files through `Read(path)` and `Edit(path)` rules
 (Claude Code warns about and ignores `Write(path)` rules; an `Edit` rule
-covers every built-in file-editing tool). Claude Code deny rules cannot carve out `.env.example`, so the `b-path-guard` PreToolUse hook enforces
+covers every built-in file-editing tool). The `git reset --hard`, `git clean -f`, `git branch -D`, and `rm -rf`
+denies also match option-placement and combined-flag spellings (`git clean -fd`, `rm -fr`, `rm -r -f`) while their
+dry-run and single-flag neighbours stay allowed; global-option forms, unlisted flag clusters, wrappers, and other
+destructive commands remain residual and are stopped only by the kernel's prose rule (listed in
+[REFERENCE.md](../../REFERENCE.md#permission-boundary)). Claude Code deny rules cannot carve out `.env.example`, so the `b-path-guard` PreToolUse hook enforces
 the exact path rules (`*.env`, `*.env.*`, `*.pem`, `*credentials.*`,
 `*secrets.*`, with `*.env.example` allowed) for the file tools, including the glob a search tool is given (Glob's `pattern`, not Grep's content regex). It
 checks the names a call carries, not the files a directory search would visit.

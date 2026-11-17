@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import re
 import sys
@@ -220,7 +221,38 @@ def push_deny_patterns() -> tuple[str, ...]:
     return tuple(patterns)
 
 
+def flag_pair_patterns(command: str, first: tuple[str, ...], second: tuple[str, ...]) -> list[str]:
+    """Patterns for a flag from `first` and a flag from `second` given as separate words, in either order and anywhere after the command."""
+    patterns = []
+    for left, right in [*itertools.product(first, second), *itertools.product(second, first)]:
+        for lead in (f"{command} ", f"{command} * "):
+            for separator in (" ", " * "):
+                patterns.append(f"{lead}{left}{separator}{right}*")
+    return patterns
+
+
+def destructive_deny_patterns() -> tuple[str, ...]:
+    """Option-placement and combined-flag spellings of the destructive commands in `DENIED_COMMANDS`.
+
+    `*` spans spaces, so a flag word is anchored on its leading space: `git clean -n`, `git reset --soft`,
+    `git branch -d`, `rm -r` and `rm -f notes-r.txt` stay allowed. Not matched, so only the kernel's prose rule
+    stops them: global-option forms (`git -C dir clean -fd`), flag clusters not listed here (`rm -Irf`), wrappers
+    (`command rm`, `/bin/rm`, `xargs rm -rf`, `bash -c '...'`), and other destructive commands
+    (`git checkout -- .`, `git restore`, `find -delete`).
+    """
+    patterns = ["git reset * --hard", "git reset * --hard *"]
+    clean_words = ("-f*", "--force*", "-df*", "-xf*", "-Xf*", "-qf*", "-dxf*", "-xdf*", "-dXf*", "-Xdf*")
+    rm_words = ("-rf*", "-fr*", "-Rf*", "-fR*", "-vrf*", "-vfr*", "-vRf*", "-vfR*", "-rvf*", "-fvr*", "-Rvf*", "-fvR*")
+    for command, words in (("git clean", clean_words), ("git branch", ("-D*", "-df*", "-fd*")), ("rm", rm_words)):
+        for word in words:
+            patterns += [f"{command} {word}", f"{command} * {word}"]
+    patterns += flag_pair_patterns("git branch", ("-d", "--delete"), ("-f", "--force"))
+    patterns += flag_pair_patterns("rm", ("-r", "-R", "--recursive"), ("-f", "--force"))
+    return tuple(patterns)
+
+
 DENIED_PUSH_PATTERNS = push_deny_patterns()
+DENIED_DESTRUCTIVE_PATTERNS = destructive_deny_patterns()
 DENIED_COMMANDS = (
     "git pull",
     "git reset --hard",
@@ -1235,7 +1267,7 @@ def shell_pattern_rules() -> tuple[list[str], list[str]]:
     for command in DENIED_COMMANDS:
         for prefix in ("", "rtk "):
             deny.extend([f"{prefix}{command}", f"{prefix}{command} *"])
-    for pattern in DENIED_PUSH_PATTERNS:
+    for pattern in (*DENIED_PUSH_PATTERNS, *DENIED_DESTRUCTIVE_PATTERNS):
         for prefix in ("", "rtk "):
             deny.append(f"{prefix}{pattern}")
     for command in ASKED_COMMANDS:

@@ -146,8 +146,8 @@ was a literature-based choice, not a replay on this repository: move
 `b-debugger` or `b-auditor` to Fable only where Opus misses in practice. The
 `high` choice for the planner and reviewer follows Anthropic's guidance to reserve
 `xhigh` for work with a measured quality gain. One vendor code-review benchmark
-(Qodo, 2026-10) scored Opus 5.5 at `high` above `xhigh` on F1 (`xhigh` had the
-highest recall on hard bugs but lower precision), and Artificial
+(Qodo, 2026-10; a later search could not locate it, see ADR-003) reported Opus 5.5 at `high` above `xhigh` on F1
+(`xhigh` had the highest recall on hard bugs but lower precision), and Artificial
 Analysis puts `high` at about half the per-task cost of `xhigh` for a small
 index drop. None of this was replayed on this repository's own reviews, so
 revisit it with measured time, tokens, and blocker counts ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md)).
@@ -323,6 +323,13 @@ relevant) and unambiguous secret files. Global-option forms such as `git -C <dir
 are asked about but not pattern-denied, except `git -c <key=value> push` (the form
 `b-pr` uses over HTTPS), whose force and `main` or `master` pushes are denied; `:branch` delete refspecs and default
 branches not named `main` or `master` also stay at the ask prompt. The
+`git reset --hard`, `git clean -f`, `git branch -D`, and `rm -rf` denies also cover option placement and
+combined flags (`git reset -q --hard`, `git clean -fd`/`-xdf`/`-d -f`, `git branch --delete --force`,
+`rm -fr`/`-Rf`/`-r -f`/`--recursive --force`), while `git clean -n`, `git reset --soft`, `git branch -d`,
+`rm -r`, and `rm -f` stay allowed. Not pattern-denied, so only the kernel's prose rule stops them: global-option
+forms (`git -C <dir> clean -fd`), flag clusters outside the generated list (`rm -Irf`), wrappers (`command rm`,
+`/bin/rm`, `xargs rm -rf`, `bash -c '…'`), and other destructive commands (`git checkout -- .`,
+`git restore`, `find -delete`). The
 `b-path-guard` hook applies the exact path rules to the file tools (including the
 `*.env.example` allowance that deny rules cannot express). Hooks:
 `b-path-guard` runs before file tools; `b-codex-guard` is a tripwire on Bash for direct calls to the Codex plugin (see [Review gate](#review-gate)); `b-verify-gate` tracks
