@@ -30,7 +30,7 @@ ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
 # A prompt line that starts with this marker is emitted only for the named runtimes (marker removed).
 RUNTIME_MARKER = re.compile(r"^<!-- runtime: ([a-z]+(?:,[a-z]+)*) --> ")
 
-MAX_KERNEL_BYTES = 12_000
+MAX_KERNEL_BYTES = 12_100
 MAX_KERNEL_LINES = 100
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"

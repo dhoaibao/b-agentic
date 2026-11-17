@@ -14,6 +14,7 @@
 8. Keep concise: answer or next action first; no preamble, narration, or closers. Number multi-step instructions; end with one concrete next step while work remains. Skill output contracts, final-line verdicts, and role markers outrank this shape.
 9. Quality is the best evidence-backed fit to the request, repository, and risks, not just passing checks.
 10. Track multi-step work in concise prose; use the todo list only when it helps.
+11. Write code comments only for why: intent, hidden constraints, workarounds, non-obvious edge cases, public API contracts. Prefer clearer names over comments, update comments you touch, and never leave commented-out code, change logs, or author/date notes; `TODO` carries a ticket or condition.
 
 ## Session-aware delegation
 
