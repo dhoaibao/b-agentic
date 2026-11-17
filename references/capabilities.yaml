@@ -25,7 +25,7 @@
       "purpose": "Provide the independent changed-code review gate by running OpenAI Codex through the openai/codex-plugin-cc plugin.",
       "owner": "openai/codex-plugin-cc",
       "trigger": "Use when b-review runs the independent gate for a frozen candidate.",
-      "prerequisites": ["Codex CLI with app-server support", "openai/codex-plugin-cc plugin installed in Claude Code", "User-completed Codex login", "Approved external transmission of the candidate"],
+      "prerequisites": ["Codex CLI with app-server support", "openai/codex-plugin-cc plugin installed in Claude Code", "User-completed Codex login"],
       "readiness": "The user installed the plugin and signed in to Codex; local files do not prove either, and no review is run to check.",
       "fallback": "When the b-codex-review wrapper exits 4 (plugin missing, signed out, usage limit, or crash), run the read-only b-reviewer subagent; a refused or void Codex run asks the user instead, and a self-review never substitutes.",
       "status_signal": {"source": "local-plugin-install-state", "states": ["unknown", "blocked"], "description": "Reports only whether the installer printed the plugin setup commands; it never reads Codex credentials or starts a review.", "sensitive": false},

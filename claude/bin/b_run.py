@@ -385,7 +385,7 @@ def render(kind: str, data: dict) -> str:
             "## Consent",
             f"- Commit: {data['consent']['commit']}",
             f"- Branch target: {data['consent']['branch_target']}",
-            f"- Codex: {data['consent']['codex']}",
+            *([f"- Codex: {data['consent']['codex']}"] if "codex" in data["consent"] else []),
             "- Push or PR: never",
         ]
         if "size" in data:
@@ -736,6 +736,9 @@ def validate_input(kind: str, value: object, ctx: dict, schema: dict, previous: 
     if kind not in schema["kinds"]:
         raise Invalid(f"unknown kind {kind!r}; expected one of {sorted(schema['kinds'])}")
     check_value({"type": "object", "fields": schema["kinds"][kind]["fields"]}, value, kind, schema)
+    # Older specs keep their codex consent so they still render the same; new data omits it (ADR-021).
+    if kind == "spec" and isinstance(value, dict) and "codex" in value.get("consent", {}):
+        raise Invalid("consent.codex is retired (ADR-021); omit it")
     return check_rules(kind, value, ctx, schema, previous)  # type: ignore[arg-type]
 
 
@@ -1188,6 +1191,15 @@ def _packet_commit(root: Path, state: dict, data: dict) -> list[str]:
     return [*out, *([f"- {i['id']} {i['disposition']}: {i['summary']}" for i in open_items] or ["- none"])]
 
 
+def _review_gate(review: dict) -> str:
+    """The gate that gave the verdict, and why Codex was not used; legacy runs name none."""
+    gate = review.get("gate") or ""
+    if not gate:
+        return "not recorded"
+    reason = review.get("gate_reason") or ""
+    return f"{gate} ({reason})" if reason else gate
+
+
 def _packet_review_qa(which: str, root: Path, state: dict, data: dict) -> list[str]:
     out: list[str] = []
     candidate = state.get("candidate") or {}
@@ -1202,6 +1214,7 @@ def _packet_review_qa(which: str, root: Path, state: dict, data: dict) -> list[s
         out += [
             f"Review verdict: {review.get('verdict') or review.get('low_risk_exception') or 'none'}",
             f"Review fingerprint: {review.get('fingerprint') or 'none'}",
+            "Review gate: " + _review_gate(review),
         ]
     out += ["", "## Acceptance criteria", *_criteria_lines(data["spec"])]
     out += ["", "## Scope", *(f"- {p}" for p in data["spec"]["scope_paths"]), "", "## Recorded checks"]

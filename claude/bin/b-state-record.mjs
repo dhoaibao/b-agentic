@@ -12,6 +12,7 @@ import {
   MAX_ROUNDS,
   QA_VERDICTS,
   refuse,
+  REVIEW_GATES,
   REVIEW_VERDICTS,
   SHA,
   SIZE_DRIFT,
@@ -148,6 +149,11 @@ export async function cmdRecord(
   if (kind === "review") {
     const fingerprint = await currentFingerprint(state);
     if (args["low-risk"] !== undefined) {
+      // No review ran, so there is no gate to name.
+      if (args.gate !== undefined || args["gate-reason"] !== undefined)
+        throw invalid(
+          "--gate and --gate-reason go with --verdict, not --low-risk",
+        );
       if (state.phase !== "verify")
         throw refuse("a low-risk exception is recorded in phase verify");
       // Once a review was triggered or held, a correction goes back to review.
@@ -170,6 +176,8 @@ export async function cmdRecord(
       }
       state.review.required = false;
       state.review.low_risk_exception = text(args["low-risk"], "--low-risk");
+      state.review.gate = "";
+      state.review.gate_reason = "";
       state.review.verdict = "";
       state.review.fingerprint = fingerprint;
     } else {
@@ -178,6 +186,18 @@ export async function cmdRecord(
       const verdict = args.verdict;
       if (!REVIEW_VERDICTS.includes(verdict))
         throw invalid("unknown review verdict");
+      // Which gate gave the verdict, and why the subagent stood in for Codex.
+      const gate = args.gate;
+      if (!REVIEW_GATES.includes(gate))
+        throw invalid(`--gate must be ${REVIEW_GATES.join(" or ")}`);
+      if (gate === "reviewer" && args["gate-reason"] === undefined)
+        throw invalid(
+          "--gate reviewer needs --gate-reason (why Codex was not used)",
+        );
+      if (gate === "codex" && args["gate-reason"] !== undefined)
+        throw invalid("--gate-reason goes with --gate reviewer only");
+      const gateReason =
+        gate === "reviewer" ? text(args["gate-reason"], "--gate-reason") : "";
       // A verdict binds to the current candidate, which must have fresh passing checks.
       if (
         !checksPass(state, art.artifacts.plan) ||
@@ -211,6 +231,8 @@ export async function cmdRecord(
         ? text(args.trigger, "--trigger")
         : state.review.trigger;
       state.review.low_risk_exception = "";
+      state.review.gate = gate;
+      state.review.gate_reason = gateReason;
       state.review.round += 1;
       state.review.verdict = verdict;
       state.review.fingerprint = fingerprint;
@@ -236,6 +258,11 @@ export async function cmdRecord(
             verdict: state.review.verdict,
             round: state.review.round,
             trigger: state.review.trigger,
+            gate: state.review.gate,
+            // Not `reason`: a blocking verdict records its block reason there.
+            ...(state.review.gate_reason
+              ? { gate_reason: state.review.gate_reason }
+              : {}),
             fingerprint,
           }
         : { reason: state.review.low_risk_exception, fingerprint },
@@ -243,6 +270,7 @@ export async function cmdRecord(
     return {
       phase: state.phase,
       review: state.review.verdict || "low-risk exception",
+      ...(state.review.gate ? { gate: state.review.gate } : {}),
     };
   }
   if (kind === "qa") {

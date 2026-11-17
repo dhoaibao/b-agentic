@@ -66,8 +66,8 @@
         "AC ids run AC-1..AC-n in order",
         "automated and ci criteria carry a command and no source; every other evidence type carries a source and no command",
         "scope_paths are relative globs: no absolute path, no .., no likely-secret path",
-        "consent records the user's commit, branch, and Codex answers; approve refuses flags that differ from it, and it never covers push or PR",
-        "size is full when absent; a quick run has at most 3 plan steps, 3 criteria with automated or inspection evidence, 5 literal scope paths, no answers, and consent commit no, current, reviewer"
+        "consent records the user's commit and branch answers; approve refuses flags that differ from it, and it never covers push or PR (a codex consent in an older spec is legacy and read-only; new data omits it)",
+        "size is full when absent; a quick run has at most 3 plan steps, 3 criteria with automated or inspection evidence, 5 literal scope paths, no answers, and consent commit no, current"
       ],
       "fields": {
         "request": {
@@ -207,7 +207,8 @@
               "values": [
                 "standing",
                 "reviewer"
-              ]
+              ],
+              "optional": true
             }
           }
         },
@@ -277,8 +278,7 @@
         ],
         "consent": {
           "commit": "no",
-          "branch_target": "current",
-          "codex": "reviewer"
+          "branch_target": "current"
         }
       }
     },

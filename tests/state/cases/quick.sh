@@ -17,12 +17,12 @@ write_quick "$repoQ" a.txt no 4
 refused "$repoQ" s1 "${quick_approve[@]}"
 grep -Fq 'more than 3 criteria' "$work/err" || fail "the criteria limit must be named: $(cat "$work/err")"
 write_quick "$repoQ" a.txt yes
-refused "$repoQ" s1 approve --commit yes --branch-target current --codex reviewer --size quick
+refused "$repoQ" s1 approve --commit yes --branch-target current --size quick
 grep -Fq 'commit no' "$work/err" || fail "a quick run must not carry commit consent: $(cat "$work/err")"
 write_quick "$repoQ"
-refused "$repoQ" s1 approve --commit no --branch-target current --codex reviewer   # the spec says quick
+refused "$repoQ" s1 approve --commit no --branch-target current   # the spec says quick
 grep -Fq 'size' "$work/err" || fail "a size that differs from the spec must be named: $(cat "$work/err")"
-invalid "$repoQ" s1 approve --commit no --branch-target current --codex reviewer --size huge
+invalid "$repoQ" s1 approve --commit no --branch-target current --size huge
 [ "$(phase "$repoQ")" = clarify ] || fail "a refused quick approval must leave the phase"
 ok "$repoQ" s1 check
 grep -Fq 'the user'"'"'s change request is its approval' <<<"$(jq -r '.next[-1]' <<<"$out")" || fail "a quick run needs no approval round: $out"
@@ -58,7 +58,7 @@ ok "$repoQ" s1 unblock clarify --reason "the user approved a full run"
 refused "$repoQ" s1 "${quick_approve[@]}"             # the spec is still quick
 grep -Fq 'a review trigger this run already met' "$work/err" || fail "a run that met a trigger cannot be approved as quick again: $(cat "$work/err")"
 CONSENT_COMMIT=no write_artifacts "$repoQ" 1 a.txt
-ok "$repoQ" s1 approve --commit no --branch-target current --codex reviewer
+ok "$repoQ" s1 approve --commit no --branch-target current
 [ "$(jq -c '[.size, .baseline.dirty]' "$(sfile "$repoQ")")" = '["full",{}]' ] || fail "a promoted run is full and its edits are not pre-existing"
 # The promoted run still owes the review: no low-risk exception, and review is where it goes.
 ok "$repoQ" s1 advance implement
@@ -81,7 +81,7 @@ write_quick "$repoQ"
 refused "$repoQ" s1 "${quick_approve[@]}"
 grep -Fq 'a review trigger this run already met' "$work/err" || fail "a promoted run cannot go back to quick: $(cat "$work/err")"
 CONSENT_COMMIT=no write_artifacts "$repoQ" 1 a.txt
-ok "$repoQ" s1 approve --commit no --branch-target current --codex reviewer
+ok "$repoQ" s1 approve --commit no --branch-target current
 ok "$repoQ" s1 advance implement
 apply_steps "$repoQ"
 ok "$repoQ" s1 advance verify
@@ -95,7 +95,7 @@ repoY="$work/repoY"
 make_repo "$repoY"
 ok "$repoY" s1 init fullfirst
 write_artifacts "$repoY" 1 a.txt
-ok "$repoY" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoY" s1 approve --commit yes --branch-target current
 ok "$repoY" s1 advance implement
 printf 'y\n' >"$repoY/a.txt"
 apply_steps "$repoY"
@@ -109,7 +109,7 @@ write_quick "$repoY"
 refused "$repoY" s1 "${quick_approve[@]}"
 grep -Fq 'a review trigger this run already met' "$work/err" || fail "a run that met a trigger cannot become quick: $(cat "$work/err")"
 CONSENT_COMMIT=no write_artifacts "$repoY" 1 a.txt
-ok "$repoY" s1 approve --commit no --branch-target current --codex reviewer
+ok "$repoY" s1 approve --commit no --branch-target current
 ok "$repoY" s1 advance implement
 apply_steps "$repoY"
 ok "$repoY" s1 advance verify
@@ -181,7 +181,7 @@ ok "$repoW" s1 init dirty
 [ "$(jq -r '.baseline.dirty["a.txt"] | length' "$(sfile "$repoW")")" = 64 ] || fail "a pre-existing path is recorded by content digest"
 CONSENT_COMMIT=no spec_json 1 b.txt | br "$repoW" s1 write spec >/dev/null || fail "write spec (repoW)"
 plan_json | jq '.steps[0].paths = ["b.txt"]' | br "$repoW" s1 write plan >/dev/null || fail "write plan (repoW)"
-ok "$repoW" s1 approve --commit no --branch-target current --codex reviewer   # no commit: a changed tree is allowed
+ok "$repoW" s1 approve --commit no --branch-target current   # no commit: a changed tree is allowed
 ok "$repoW" s1 advance implement
 printf 'run\n' >"$repoW/b.txt"
 refused "$repoW" s1 record step S-1                   # a likely-secret file has no safe identity: no evidence yet

@@ -60,8 +60,8 @@ export async function nextSteps(root, state, art, fingerprint = "") {
           : "run the approval round with the user (never skip it), then"
       } ${stateCmd(
         consent
-          ? `approve --commit ${consent.commit} --branch-target ${consent.branch_target} --codex ${consent.codex}${quick ? " --size quick" : ""}`
-          : "approve --commit yes|no --branch-target T --codex standing|reviewer",
+          ? `approve --commit ${consent.commit} --branch-target ${consent.branch_target}${quick ? " --size quick" : ""}`
+          : "approve --commit yes|no --branch-target T",
       )}`,
     );
     return steps;
@@ -165,7 +165,9 @@ export async function nextSteps(root, state, art, fingerprint = "") {
       runCmd("handoff review --out <scratch file outside the repo>"),
       `run b-review, round ${round}`,
       `${runCmd("write followups")} with this round's findings as R${round}-<n> (each blocker: kind blocker, disposition open)`,
-      stateCmd('record review --verdict "<verdict>"'),
+      stateCmd(
+        'record review --verdict "<verdict>" --gate codex|reviewer [--gate-reason R]',
+      ),
     ];
   }
   if (state.phase === "fix") {

@@ -23,7 +23,7 @@
 //   show [--history]                    print the state (the latest history entries,
 //                                       or all of them with --history)
 //   approve --commit yes|no --branch-target current|new:<type>/<kebab>
-//           --codex standing|reviewer [--size quick|full]
+//           [--size quick|full]
 //                                       hash spec.md, check the flags against the
 //                                       spec's consent block and size, require a
 //                                       clean tree unless commit is no, record
@@ -36,7 +36,10 @@
 //                                       ends a run that has no commit consent
 //   unblock <phase> --reason R          leave `blocked` for clarify|implement|fix|verify
 //   record check --cmd C --exit N [--include-ignored P]...
-//   record review (--verdict V [--trigger T] | --low-risk REASON)
+//   record review (--verdict V --gate codex|reviewer [--gate-reason R] [--trigger T]
+//                  | --low-risk REASON)
+//                                       the gate that ran; a reviewer gate needs the
+//                                       reason Codex was not used, a codex gate has none
 //   record qa --verdict V
 //   record ac AC-n pass|fail|gap|waived
 //   record commit SHA
@@ -93,7 +96,6 @@ const VALUE_FLAGS = new Set([
   "owner",
   "commit",
   "branch-target",
-  "codex",
   "reason",
   "needs",
   "cmd",
@@ -102,6 +104,8 @@ const VALUE_FLAGS = new Set([
   "from",
   "by",
   "verdict",
+  "gate",
+  "gate-reason",
   "trigger",
   "low-risk",
   "size",

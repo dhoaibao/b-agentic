@@ -1,34 +1,28 @@
 #!/usr/bin/env bun
 // b-agentic Codex review guard. The independent review gate sends a repository
 // to OpenAI Codex through the openai/codex-plugin-cc plugin, and Codex's
-// read-only sandbox can read every file in the workspace. This guard refuses
-// that transmission unless
+// read-only sandbox can read every file in the workspace. Sending code to Codex
+// needs no per-repository approval (ADR-021); this guard refuses that
+// transmission unless
 //   1. no likely-secret path is tracked, staged, or untracked-and-not-ignored,
 //      no submodule or embedded repository hides paths from a name scan, no
 //      untracked symlink would be followed by the plugin, and for a --base
 //      review no likely-secret path appears in merge-base..HEAD or in any
 //      commit inside it (ignored protected files and history outside the
 //      reviewed range are the accepted residual risk);
-//   2. the user approved sending this repository to Codex (standing, per repo);
-//   3. a review command runs in the foreground against an explicit target.
+//   2. a review command runs in the foreground against an explicit target.
 //
 // Modes:
 //   (no args)          PreToolUse hook: stdin JSON, exit 2 with a stderr reason
-//                      blocks a Bash call that runs the plugin's companion script;
-//                      a Bash call that records or redirects the approval gets a
-//                      native `ask` prompt instead (a tripwire, not a boundary).
+//                      blocks a Bash call that runs the plugin's companion script.
 //   --check [--base <ref>]
 //                      Evaluate the current repository (and the review range of
 //                      <ref>); JSON on stdout, exit 0 when allowed and 3 when
 //                      refused.
-//   --approve/--revoke Record or remove the standing approval for the current
-//                      repository. Run --approve only after the user said yes.
 // It reads path names only, never file content.
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { readFileSync, realpathSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 // The snapshot CLI is loaded only when a guarded command needs a scan, so the
 // common case (a Bash call that is not a Codex review) skips its parse cost.
@@ -38,44 +32,6 @@ const snapshot = () => import("../bin/b-candidate-snapshot.mjs");
 // subcommand (review, adversarial-review, task, rescue, transfer, ...) is guarded.
 const NON_DISCLOSING = new Set(["status", "result", "cancel", "setup", "help"]);
 const REVIEW_SUBCOMMANDS = new Set(["review", "adversarial-review"]);
-
-// State lives beside the installed hooks (`<runtime dir>/b-agentic`); a checkout
-// falls back to the Claude Code location.
-const SELF = fileURLToPath(import.meta.url);
-
-function stateDir() {
-  if (process.env.B_AGENTIC_STATE_DIR) return process.env.B_AGENTIC_STATE_DIR;
-  const installed = dirname(dirname(SELF));
-  return basename(installed) === "b-agentic"
-    ? installed
-    : join(homedir(), ".claude", "b-agentic");
-}
-
-// The installed path of this script as the user would type it.
-function selfCommandPath() {
-  const home = homedir();
-  return SELF.startsWith(`${home}/`) ? `~${SELF.slice(home.length)}` : SELF;
-}
-
-function approvalsFile() {
-  return join(stateDir(), "codex-approved-repos.json");
-}
-
-function readApprovals() {
-  try {
-    const value = JSON.parse(readFileSync(approvalsFile(), "utf8"));
-    return Array.isArray(value)
-      ? value.filter((item) => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeApprovals(repos) {
-  mkdirSync(stateDir(), { recursive: true });
-  writeFileSync(approvalsFile(), `${JSON.stringify(repos, null, 2)}\n`);
-}
 
 export function repositoryRoot(cwd) {
   const out = execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], {
@@ -209,21 +165,6 @@ const joinedText = (text) =>
   text.replace(/\\\r?\n/g, "").replace(/['"\\$`{}]/g, "");
 export const mentionsCompanion = (text) =>
   joinedText(text).includes(COMPANION_NAME);
-// The approval is a user decision, but it is recorded by a plain shell command
-// and read in-process by the review wrapper. A command that records it, points
-// the store elsewhere for the wrapper, or writes the store file is therefore put
-// to the user as a native prompt. The match is on the joined text, so quoting,
-// continuations, wrappers, and interpreters do not hide it; names built at run
-// time still can (a documented residual risk).
-export const approvalTouch = (command) => {
-  const text = joinedText(command);
-  return (
-    (text.includes("b-codex-guard") && text.includes("--approve")) ||
-    text.includes("codex-approved-repos.json") ||
-    (text.includes("B_AGENTIC_STATE_DIR") &&
-      /b-codex-(guard|review)|codex-companion/.test(text))
-  );
-};
 const redirectAllowed = ({ op, target }) =>
   target === "/dev/null" ||
   // `2>&1` and `>&-` duplicate or close a descriptor; `>&word` is a file.
@@ -444,11 +385,6 @@ export async function evaluate({ command, cwd, base }) {
         );
       }
     }
-    if (!readApprovals().includes(root)) {
-      reasons.push(
-        `the user has not approved sending this repository to Codex (OpenAI); ask the user, and record their yes only with \`bun --no-env-file --config=/dev/null ${selfCommandPath()} --approve\`, which needs the user's own confirmation`,
-      );
-    }
   }
   if (found.refusal) reasons.push(found.refusal);
   for (const invocation of found.invocations) {
@@ -462,21 +398,14 @@ export async function evaluate({ command, cwd, base }) {
   };
 }
 
-const APPROVAL_TOUCH_REASON =
-  "b-agentic Codex guard: this command records, redirects, or rewrites the standing approval to send this repository to Codex (OpenAI). Approve only if you said yes to that disclosure.";
-
-// The decision for one shell command: `allow`, `ask` (the approval store is being
-// touched), or `refuse` with the reasons. Used by this file's Claude Code hook.
+// The decision for one shell command: `allow`, or `refuse` with the reasons.
+// Used by this file's Claude Code hook.
 export async function judgeCommand(command, cwd) {
   const found = findCompanionInvocations(command);
   const guarded =
     found.refusal !== null ||
     found.invocations.some((item) => !NON_DISCLOSING.has(item.subcommand));
-  if (!guarded) {
-    return approvalTouch(command)
-      ? { decision: "ask", reason: APPROVAL_TOUCH_REASON }
-      : { decision: "allow" };
-  }
+  if (!guarded) return { decision: "allow" };
   const result = await evaluate({ command, cwd });
   if (result.ok) return { decision: "allow" };
   return {
@@ -506,18 +435,6 @@ async function hook() {
   }
   if (event.tool_name !== undefined && event.tool_name !== "Bash") return 0;
   const verdict = await judgeCommand(command, event.cwd || process.cwd());
-  if (verdict.decision === "ask") {
-    process.stdout.write(
-      `${JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          permissionDecision: "ask",
-          permissionDecisionReason: verdict.reason,
-        },
-      })}\n`,
-    );
-    return 0;
-  }
   return verdict.decision === "refuse" ? refuse(verdict.reason) : 0;
 }
 
@@ -531,16 +448,6 @@ async function main(argv) {
     const result = await evaluate({ command: null, cwd: process.cwd(), base });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return result.ok ? 0 : 3;
-  }
-  if (mode === "--approve" || mode === "--revoke") {
-    const root = repositoryRoot(process.cwd());
-    const repos = readApprovals().filter((item) => item !== root);
-    if (mode === "--approve") repos.push(root);
-    writeApprovals(repos.sort());
-    process.stdout.write(
-      `${JSON.stringify({ root, approved: mode === "--approve" })}\n`,
-    );
-    return 0;
   }
   throw new Error(`unknown argument: ${mode}`);
 }

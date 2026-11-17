@@ -37,6 +37,7 @@ import {
   QA_VERDICTS,
   refuse,
   Refused,
+  REVIEW_GATES,
   REVIEW_VERDICTS,
   RUN_ID,
   SHA,
@@ -225,7 +226,12 @@ function validate(state) {
   if (typeof consent.commit !== "boolean") fail("consent.commit");
   if (!BRANCH_TARGET.test(consent.branch_target ?? ""))
     fail("consent.branch_target");
-  if (!["standing", "reviewer"].includes(consent.codex)) fail("consent.codex");
+  // A run approved before ADR-021 still carries the retired codex consent.
+  if (
+    consent.codex !== undefined &&
+    !["standing", "reviewer"].includes(consent.codex)
+  )
+    fail("consent.codex");
   if (consent.push_pr !== false) fail("consent.push_pr");
   for (const [key, value] of [
     ["branch", state.branch],
@@ -286,6 +292,15 @@ function validate(state) {
   }
   if (state.review.verdict && !REVIEW_VERDICTS.includes(state.review.verdict))
     fail("review.verdict");
+  // The gate that ran and, for the subagent, why Codex was not used.
+  if (
+    !["", ...REVIEW_GATES].includes(state.review.gate) ||
+    typeof state.review.gate_reason !== "string" ||
+    state.review.gate_reason.length > MAX_TEXT ||
+    CONTROL.test(state.review.gate_reason) ||
+    (state.review.gate === "reviewer") !== (state.review.gate_reason !== "")
+  )
+    fail("review.gate");
   if (state.qa.verdict && !QA_VERDICTS.includes(state.qa.verdict))
     fail("qa.verdict");
   if (
@@ -336,6 +351,11 @@ export function loadState(dir) {
     if (state.spec && typeof state.spec === "object")
       state.spec.plan_sha256 ??= "";
     if (state.qa && typeof state.qa === "object") state.qa.artifact_rev ??= 0;
+    // A review recorded before ADR-021 names no gate.
+    if (state.review && typeof state.review === "object") {
+      state.review.gate ??= "";
+      state.review.gate_reason ??= "";
+    }
     // A run made before the history existed starts one from here.
     // Nor a step cursor: only `implement` asks for it, so a run already past
     // that phase is not sent back.
@@ -411,7 +431,6 @@ export function freshState(runId, root, baseline) {
     consent: {
       commit: false,
       branch_target: "current",
-      codex: "reviewer",
       push_pr: false,
     },
     phase: "clarify",
@@ -424,6 +443,8 @@ export function freshState(runId, root, baseline) {
       verdict: "",
       low_risk_exception: "",
       fingerprint: "",
+      gate: "",
+      gate_reason: "",
     },
     ac: {},
     qa: { round: 0, verdict: "", fingerprint: "", artifact_rev: 0 },

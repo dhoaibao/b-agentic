@@ -103,9 +103,6 @@ export async function cmdApprove(root, dir, state, args) {
   if (!BRANCH_TARGET.test(args["branch-target"] ?? "")) {
     throw invalid("--branch-target must be current or new:<type>/<kebab>");
   }
-  if (!["standing", "reviewer"].includes(args.codex)) {
-    throw invalid("--codex must be standing or reviewer");
-  }
   const art = await artifactsOk(root, state);
   if (!art.artifacts.spec || !art.artifacts.plan)
     throw refuse("write the spec and the plan with b_run.py first");
@@ -113,8 +110,7 @@ export async function cmdApprove(root, dir, state, args) {
   const specConsent = art.artifacts.spec.consent;
   if (
     specConsent.commit !== commit ||
-    specConsent.branch_target !== args["branch-target"] ||
-    specConsent.codex !== args.codex
+    specConsent.branch_target !== args["branch-target"]
   ) {
     throw refuse("approve flags differ from the consent recorded in spec.md");
   }
@@ -150,7 +146,6 @@ export async function cmdApprove(root, dir, state, args) {
   state.consent = {
     commit: commit === "yes",
     branch_target: args["branch-target"],
-    codex: args.codex,
     push_pr: false,
   };
   // A new approval is a new plan: none of its steps is applied yet.

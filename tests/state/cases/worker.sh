@@ -8,7 +8,7 @@ make_repo "$repoWK"
 ok "$repoWK" s1 init workers
 spec_json 1 'src/**' | br "$repoWK" s1 write spec >/dev/null || fail "write spec (repoWK)"
 worker_plan | br "$repoWK" s1 write plan >/dev/null || fail "write plan (repoWK)"
-ok "$repoWK" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoWK" s1 approve --commit yes --branch-target current
 ok "$repoWK" s1 advance implement
 ok "$repoWK" s1 check
 [ "$(jq -r '.next[1]' <<<"$out")" = "apply S-1 inside the approved scope, then b-state.mjs record step S-1" ] \
@@ -63,7 +63,7 @@ make_repo "$repoWB"
 ok "$repoWB" s1 init nobase
 spec_json 1 'src/**' | br "$repoWB" s1 write spec >/dev/null || fail "write spec (repoWB)"
 steps_plan | jq '.worker_steps = ["S-1"]' | br "$repoWB" s1 write plan >/dev/null || fail "write plan (repoWB)"
-ok "$repoWB" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoWB" s1 approve --commit yes --branch-target current
 ok "$repoWB" s1 advance implement
 jq '.step_base = null' "$(sfile "$repoWB")" >"$tmp" && cp "$tmp" "$(sfile "$repoWB")"
 mkdir -p "$repoWB/src"
@@ -80,7 +80,7 @@ make_repo "$repoWS"
 ok "$repoWS" s1 init statewrite
 spec_json 1 'src/**' | br "$repoWS" s1 write spec >/dev/null || fail "write spec (repoWS)"
 steps_plan | jq '.worker_steps = ["S-1"]' | br "$repoWS" s1 write plan >/dev/null || fail "write plan (repoWS)"
-ok "$repoWS" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoWS" s1 approve --commit yes --branch-target current
 ok "$repoWS" s1 advance implement
 mkdir -p "$repoWS/src"
 printf 'a\n' >"$repoWS/src/a.txt"
@@ -105,7 +105,7 @@ make_repo "$repoWN"
 ok "$repoWN" s1 init noworker
 spec_json 1 'src/**' | br "$repoWN" s1 write spec >/dev/null || fail "write spec (repoWN)"
 steps_plan | br "$repoWN" s1 write plan >/dev/null || fail "write plan (repoWN)"
-ok "$repoWN" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoWN" s1 approve --commit yes --branch-target current
 ok "$repoWN" s1 advance implement
 ok "$repoWN" s1 check
 [ "$(jq -c '.next | map(select(startswith("apply ")))' <<<"$out")" = '["apply S-1 inside the approved scope, then b-state.mjs record step S-1","apply S-2 inside the approved scope, then b-state.mjs record step S-2","apply S-3 inside the approved scope, then b-state.mjs record step S-3"]' ] \

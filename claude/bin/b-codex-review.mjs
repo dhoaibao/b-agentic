@@ -6,8 +6,7 @@
 //      untracked-and-not-ignored, no submodule or embedded repository hides paths
 //      from the name scan, no untracked symlink would be followed, a --base
 //      range (merge-base..HEAD and every commit in it) holds no likely-secret
-//      path, and the user approved sending this repository (b-codex-guard's
-//      `evaluate`);
+//      path (b-codex-guard's `evaluate`; no per-repository approval, ADR-021);
 //   2. freezes the candidate (F0) and refuses an incomplete snapshot;
 //   3. runs the plugin's review in the foreground against exactly one explicit
 //      target (a --base is resolved once and passed as its commit id), spawned
@@ -24,7 +23,7 @@
 // Usage: b-codex-review.mjs --available   (probe only: exit 0 when the plugin script
 //          is found, exit 4 with status "unavailable" when it is not, exit 2 when an
 //          override variable names a missing or wrongly named script; nothing is
-//          sent, read, or approved, so b-review can skip the approval question)
+//          sent or read, so b-review can skip the secret preflight)
 //        b-codex-review.mjs (--scope working-tree | --base <ref>)
 //          [--kind adversarial] [--focus <text> | --focus-file <path>]
 //          [--round <n>] [--include-ignored <path>]... [--timeout-minutes <n>]

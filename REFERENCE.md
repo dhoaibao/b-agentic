@@ -179,9 +179,8 @@ The gate sequence is:
 
 0. Probe the plugin: `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --available`
    only looks for the plugin script and runs nothing: exit 0 means found, exit 4
-   (`status: unavailable`) means Codex cannot run, so main skips steps 2 and 3,
-   never asks for the OpenAI approval, and goes straight to the `b-reviewer`
-   fallback. Exit 2 means a broken `B_AGENTIC_CODEX_COMPANION` override and is
+   (`status: unavailable`) means Codex cannot run, so main skips steps 2 and 3
+   and goes straight to the `b-reviewer` fallback. Exit 2 means a broken `B_AGENTIC_CODEX_COMPANION` override and is
    reported as a refusal. The probe cannot tell whether you are signed in or have
    quota left; those failures still surface as exit 4 from the real run at step 3.
 1. Freeze the candidate: `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs`
@@ -201,17 +200,17 @@ The gate sequence is:
    paths, when an untracked non-ignored symlink exists (the plugin follows it
    and would send its target; stage, ignore, or remove it), when a `--base` range
    (merge-base..HEAD and every commit inside it) touches a likely-secret path
-   or a submodule, or when the repository has no standing approval. Approve once per repository with `--approve` after
-   the user agrees to send it to Codex (OpenAI); `--revoke` withdraws it. The
-   guard hook asks for a native confirmation of any Bash command that records
-   the approval, points `B_AGENTIC_STATE_DIR` at another store, or writes
-   `codex-approved-repos.json` (a tripwire, not a boundary).
+   or a submodule. There is no per-repository approval
+   ([ADR-021](docs/decisions/ADR-021-codex-gate-without-repo-approval.md)): a
+   repository that passes these checks goes to Codex (OpenAI) without a question,
+   as it goes to Claude. `--approve` and `--revoke` no longer exist, and the
+   `codex-approved-repos.json` file an older install wrote is no longer read.
 3. Run the gate with the wrapper, from the repository, with nothing editing:
    `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round
 <n> --focus-file <path>` (or `--base <ref>` instead of `--scope working-tree`
    for committed changes since that ref; `--include-ignored <path>` as at step
    1; `--kind native` is refused because its output has no verdict contract).
-   The wrapper reruns the secret and approval gate, resolves a `--base` once and
+   The wrapper reruns the secret gate, resolves a `--base` once and
    gives the plugin that commit id, so a ref that moves during the run cannot
    change the reviewed range, freezes the candidate (`f0`), finds the
    plugin's `codex-companion.mjs` under `~/.claude/plugins` (or
@@ -261,8 +260,7 @@ this repository's checks.
 
 Only these cases reach `b-reviewer`: the wrapper exits 4 (Codex unavailable; main
 tells you in one line and continues with the same baseline, round, and F0), or you
-choose it after a refused (exit 2) or void (exit 3) Codex run or when the
-repository is not approved for Codex. A refusal or void run never falls back on
+choose it after a refused (exit 2) or void (exit 3) Codex run. A refusal or void run never falls back on
 its own, because that would route around the protection that stopped it. If
 `b-reviewer` is also unavailable, fails, or returns no verdict, main reports the
 gap and asks; a self-review never substitutes. The sequence is:
@@ -289,6 +287,11 @@ gap and asks; a self-review never substitutes. The sequence is:
    each blocker with `Read` and `Grep` before acting, fixes blockers as a batch
    (whole defect class each), and stops to ask the user after 3 consecutive
    `NEEDS FIXES` rounds.
+
+In a `b-flow` run the verdict is recorded with `record review --gate codex|reviewer`;
+a `reviewer` gate also records why Codex was not used (`--gate-reason`, for example
+the wrapper's exit 4). The gate shows in the run state, its history, and the QA
+packet (`Review gate:`), and runs recorded before this existed read `not recorded`.
 
 Trade-offs of the fallback:
 

@@ -94,6 +94,7 @@ lint_bad spec 'del(.consent)' "missing consent"
 lint_bad spec '.consent.commit = "maybe"' "consent commit outside yes or no"
 lint_bad spec '.consent.branch_target = "bad target"' "consent branch target outside the pattern"
 lint_bad spec '.consent.codex = "always"' "consent codex outside the vocabulary"
+lint_bad spec '.consent.codex = "reviewer"' "a retired codex consent on new spec data"
 lint_bad spec '.consent.push = "yes"' "a push consent field"
 lint_bad spec '.criteria = []' "no criteria"
 lint_bad spec '.behavior.new = ["<!-- hides the criteria"]' "an HTML comment opener"
@@ -172,6 +173,7 @@ grep -Fq -- '- AC-1: WHEN export runs with --json THEN stdout is valid JSON' "$r
 for line in '## Consent' '- Commit: no' '- Push or PR: never'; do
   grep -Fq -- "$line" "$run_dir/spec.md" || fail "rendered consent: $line"
 done
+grep -Fq -- 'Codex' "$run_dir/spec.md" && fail "a new spec must render no Codex consent"
 [ "$(jq -r '.artifacts.spec.sha256' "$run_dir/artifacts.json")" = "$(sha256sum "$run_dir/spec.md" | cut -d' ' -f1)" ] || fail "recorded sha256"
 [ "$(jq -r '.artifacts.spec.rev' "$run_dir/artifacts.json")" = 1 ] || fail "first revision"
 br "$repo" write spec >/dev/null < <(example spec)
@@ -386,6 +388,14 @@ grep -Fq -- '- F-1' <<<"$(sed -n '/Prior review/,/Earlier follow-ups/p' <<<"$out
 jq '.review.round = 0 | .review.trigger = "" | .attempts.review_needs_fixes = 0' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
 ok "$repo" handoff qa
 grep -Fq 'QA handoff' <<<"$out" || fail "qa packet header"
+grep -Fq 'Review gate: not recorded' <<<"$out" || fail "a review with no gate must read not recorded: $out"
+jq '.review.gate = "reviewer" | .review.gate_reason = "codex unavailable: usage limit"' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
+ok "$repo" handoff qa
+grep -Fq 'Review gate: reviewer (codex unavailable: usage limit)' <<<"$out" || fail "the QA packet must name the gate and its reason: $out"
+jq '.review.gate = "codex" | .review.gate_reason = ""' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
+ok "$repo" handoff qa
+grep -Fq 'Review gate: codex' <<<"$out" || fail "the QA packet must name a codex gate: $out"
+jq '.review.gate = "" | .review.gate_reason = ""' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
 invalid "$repo" handoff nope
 refused "$repo" handoff review --out "$repo/focus.md"
 [ ! -e "$repo/focus.md" ] || fail "a packet must not be written inside the repository"
@@ -750,5 +760,36 @@ make_repo "$repo2"
 refused "$repo2" validate
 mkdir -p "$work/plain"
 refused "$work/plain" validate
+
+# --- a spec written before ADR-021 keeps its codex consent: it validates and re-renders the same ---
+legacy_repo="$work/legacy"
+make_repo "$legacy_repo"
+newrun "$legacy_repo"
+ok "$legacy_repo" write spec < <(example spec)
+ok "$legacy_repo" write plan < <(example plan)
+legacy_dir=$(rundir "$legacy_repo")
+python3 -I - "$legacy_dir" <<'PY'
+import hashlib
+import json
+import sys
+
+d = sys.argv[1]
+body = open(f"{d}/spec.md").read()
+assert "- Branch target: current\n" in body
+body = body.replace("- Branch target: current\n", "- Branch target: current\n- Codex: reviewer\n")
+open(f"{d}/spec.md", "w").write(body)
+artifacts = json.load(open(f"{d}/artifacts.json"))
+spec = artifacts["artifacts"]["spec"]
+spec["data"]["consent"]["codex"] = "reviewer"
+spec["sha256"] = hashlib.sha256(body.encode()).hexdigest()
+json.dump(artifacts, open(f"{d}/artifacts.json", "w"), indent=2)
+PY
+ok "$legacy_repo" validate
+grep -Fq -- '- Codex: reviewer' "$legacy_dir/spec.md" || fail "a legacy spec must keep rendering its Codex consent"
+# New data is refused even in a run that holds a legacy spec.
+invalid "$legacy_repo" write spec < <(example spec | jq -c '.consent.codex = "reviewer"')
+ok "$legacy_repo" write spec < <(example spec)
+grep -Fq 'Codex' "$legacy_dir/spec.md" && fail "a rewritten spec must drop the retired Codex consent"
+ok "$legacy_repo" validate
 
 echo "artifact probe passed"

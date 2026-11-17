@@ -9,19 +9,19 @@ ok "$repo" s1 init demo
 invalid "$repo" s1 init Bad_Slug
 
 # --- approve needs valid, recorded artifacts; consent and branch target are validated
-refused "$repo" s1 approve --commit yes --branch-target current --codex reviewer
+refused "$repo" s1 approve --commit yes --branch-target current
 run_dir=$(dirname "$(sfile "$repo")")
 printf '# Spec\nhand written, no criteria\n' >"$run_dir/spec.md"
-refused "$repo" s1 approve --commit yes --branch-target current --codex reviewer   # unrecorded file
+refused "$repo" s1 approve --commit yes --branch-target current   # unrecorded file
 rm -f "$run_dir/spec.md"
 ok "$repo" s1 check
 grep -Fq 'write spec' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "clarify must owe the spec first: $out"
 write_artifacts "$repo" 2
 ok "$repo" s1 check
-grep -Fq 'approve --commit yes --branch-target current --codex reviewer' <<<"$(jq -r '.next[-1]' <<<"$out")" \
+grep -Fq 'approve --commit yes --branch-target current' <<<"$(jq -r '.next[-1]' <<<"$out")" \
   || fail "clarify must name the approval the spec records: $out"
-invalid "$repo" s1 approve --commit yes --branch-target "bad target" --codex reviewer
-ok "$repo" s1 approve --commit yes --branch-target current --codex reviewer
+invalid "$repo" s1 approve --commit yes --branch-target "bad target"
+ok "$repo" s1 approve --commit yes --branch-target current
 [ "$(phase "$repo")" = approved ] || fail "approve phase"
 ok "$repo" s1 check
 [ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance implement"]' ] || fail "approved must owe advance implement: $out"
@@ -48,7 +48,7 @@ ok "$repo" s1 advance verify
 refused "$repo" s1 advance review          # no passing checks yet
 ok "$repo" s1 record check --cmd "make test" --exit 0
 ok "$repo" s1 advance review --trigger "workflow policy"
-ok "$repo" s1 record review --verdict "READY FOR PR" --trigger "workflow policy"
+ok "$repo" s1 record review --verdict "READY FOR PR" --gate codex --trigger "workflow policy"
 ok "$repo" s1 advance qa
 refused "$repo" s1 advance commit          # no QA verdict yet
 refused "$repo" s1 record qa --verdict "QA PASS"      # qa.md is not written yet
@@ -76,7 +76,7 @@ repo2="$work/repo2"
 make_repo "$repo2"
 ok "$repo2" s1 init nocommit
 CONSENT_COMMIT=no write_artifacts "$repo2" 1
-ok "$repo2" s1 approve --commit no --branch-target current --codex reviewer
+ok "$repo2" s1 approve --commit no --branch-target current
 ok "$repo2" s1 advance implement
 printf 'b\n' >"$repo2/a.txt"
 apply_steps "$repo2"
@@ -124,8 +124,8 @@ ok "$repo" s1 unblock clarify --reason "re-approve"
 repo3="$work/repo3"
 make_repo "$repo3"
 ok "$repo3" s1 init rounds
-CONSENT_CODEX=standing write_artifacts "$repo3" 1
-ok "$repo3" s1 approve --commit yes --branch-target current --codex standing
+write_artifacts "$repo3" 1
+ok "$repo3" s1 approve --commit yes --branch-target current
 ok "$repo3" s1 advance implement
 printf 'x\n' >"$repo3/a.txt"
 apply_steps "$repo3"

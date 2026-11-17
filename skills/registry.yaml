@@ -413,7 +413,7 @@
     {
       "name": "b-review",
       "execution": {"mode": "subagent", "agent": "b-reviewer"},
-      "contract": {"role": "phase", "phases": ["review"], "evidence": "the round's findings in `followups.md`, then the verdict (`b-state.mjs record review`)", "parallel_safe": true},
+      "contract": {"role": "phase", "phases": ["review"], "evidence": "the round's findings in `followups.md`, then the verdict and gate (`b-state.mjs record review --gate`)", "parallel_safe": true},
       "primary_gate": {
         "runtimes": ["claude"],
         "label": "Codex",

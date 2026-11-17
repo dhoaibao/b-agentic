@@ -1102,7 +1102,6 @@ class Installer:
             "  2. For the Codex-first independent review gate, run these in Claude Code (installer never runs them):",
             *[f"       {command}" for command in CODEX_PLUGIN_COMMANDS],
             "     then sign in to Codex and keep the plugin's review gate disabled (b-review is the gate).",
-            "  3. Approve each repository once for Codex review when b-review asks.",
             "  Without Codex, b-review falls back to the read-only b-reviewer subagent, which needs no extra login or plugin.",
         ]
         if self.components:

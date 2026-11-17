@@ -131,7 +131,7 @@
       "prompt": "A user explicitly requests review of a changed task with passing required checks, a tracked source change, and a relevant untracked generated file. Describe the review handoff, how its identity is checked, and what happens after NEEDS FIXES.",
       "must": [
         "Freeze and fingerprint the exact tracked and relevant untracked candidate as F0",
-        "Run the secret and approval preflight, then the b-codex-review wrapper as a background command with a focus file carrying the acceptance, check results, and candidate paths but not the implementer's rationale",
+        "Run the secret preflight, then the b-codex-review wrapper as a background command with a focus file carrying the acceptance, check results, and candidate paths but not the implementer's rationale",
         "Recompute the fingerprint as F1 after the wrapper returns, and void the review when it differs from F0 or the wrapper reports unchanged:false",
         "Do not edit while review runs",
         "Fresh verification and a fresh review round with prior findings after corrections"
@@ -485,7 +485,7 @@
     {
       "id": "codex-refusal-does-not-fall-back",
       "skill": "b-review",
-      "observed_failure": "A refusal (likely-secret path, missing approval) or void Codex run was silently routed to another reviewer, bypassing the protection that stopped it.",
+      "observed_failure": "A refusal (likely-secret path, opaque boundary, untracked symlink) or void Codex run was silently routed to another reviewer, bypassing the protection that stopped it.",
       "intended_behavior": "A refused or void Codex gate (wrapper exit 2 or 3) is not a verdict and never falls back on its own; main reports the reason and lets the user choose between rerunning and the b-reviewer subagent.",
       "prompt": "On Claude Code, the b-codex-review preflight refuses because a tracked .env file is a likely secret. Describe what main does next.",
       "must": [

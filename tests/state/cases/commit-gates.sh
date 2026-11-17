@@ -74,7 +74,7 @@ repo12="$work/repo12"
 make_repo "$repo12"
 ok "$repo12" s1 init retry
 write_artifacts "$repo12" 1
-ok "$repo12" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo12" s1 approve --commit yes --branch-target current
 ok "$repo12" s1 advance implement
 printf 'r\n' >"$repo12/r.txt"
 apply_steps "$repo12"

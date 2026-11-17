@@ -491,7 +491,7 @@ run "$home" --force; expect_ok "upgrade over an edited retired skill"
 grep -Fq 'modified since install' <<<"$err" || fail "no warning for the kept edited retired skill: $err"
 echo "install probe passed: skill-rename"
 
-# --- an upgrade from the subagent-only release adds the Codex gate and leaves the user's approval store alone ---
+# --- an upgrade from the subagent-only release adds the Codex gate and leaves a leftover approval file (no longer read, ADR-021) alone ---
 home=$(fresh_home codex-restore)
 claude="$home/.claude"
 run "$home"; expect_ok "install for the Codex gate upgrade"
@@ -511,7 +511,8 @@ done
 [ "$(jq -r '[.. | objects | select(.command? != null and (.command | contains("b-codex-guard.mjs")))] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade must add the Codex guard exactly once"
 [ "$(jq -c '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command] | map(select(. == "echo mine")) ' "$claude/settings.json")" = '["echo mine"]' ] || fail "the user's Bash hook was lost: $(cat "$claude/settings.json")"
 [ "$(cat "$claude/b-agentic/codex-approved-repos.json")" = '["/repo"]' ] || fail "the user's approval store was touched"
-if grep -Fq 'left over' <<<"$out"; then fail "the approval file is read again, so no leftover note: $out"; fi
+if grep -Fq 'left over' <<<"$out"; then fail "the installer prints no note about the unread approval file: $out"; fi
+if grep -Fiq 'approve each repository' <<<"$out"; then fail "the next steps must not ask for a per-repository approval: $out"; fi
 before=$(tree "$home")
 run "$home"; expect_ok "second upgrade after the Codex gate"
 [ "$before" = "$(tree "$home")" ] || fail "a re-run after adding the Codex gate changed files"

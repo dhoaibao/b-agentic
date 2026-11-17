@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-12
+- Note: [ADR-021](ADR-021-codex-gate-without-repo-approval.md) removed the Codex consent from the approval round, so the approval covers no Codex choice.
 - Supersedes: none (narrows the "unbounded orchestration" non-goal in
   [ADR-001](ADR-001-b-agentic-design-record.md); that non-goal stays for everything
   outside a `b-flow` run)

@@ -11,7 +11,7 @@ plan_json | jq '.steps += [{id: "S-2", action: "second", paths: ["a.txt"], done_
   | br "$repoS" s1 write plan >/dev/null || fail "write plan (repoS)"
 owed_steps() { jq -c '[.next[] | select(test("record step")) | capture("record step (?<id>S-[0-9]+)").id]' <<<"$out"; }
 step_keys() { jq -c '.steps | keys' "$(sfile "$repoS")"; }
-ok "$repoS" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoS" s1 approve --commit yes --branch-target current
 refused "$repoS" s1 record step S-1                 # steps are recorded in implement only
 ok "$repoS" s1 advance implement
 ok "$repoS" s1 check
@@ -63,7 +63,7 @@ ok "$repoS" s1 unblock clarify --reason "new plan"
 # A new approval is a new plan, whatever the state claimed before it.
 jq '.steps = {"S-1": {status: "done", fingerprint: ("a" * 64)}}' "$(sfile "$repoS")" >"$tmp" && cp "$tmp" "$(sfile "$repoS")"
 git -C "$repoS" checkout -q -- a.txt
-ok "$repoS" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoS" s1 approve --commit yes --branch-target current
 [ "$(step_keys)" = '[]' ] || fail "approve must reset the step cursor"
 jq '.steps = {"S-1": {status: "done", fingerprint: "not a fingerprint"}}' "$(sfile "$repoS")" >"$tmp" && cp "$tmp" "$(sfile "$repoS")"
 invalid "$repoS" s1 show
@@ -75,7 +75,7 @@ make_repo "$repoJ"
 ok "$repoJ" s1 init stepgate
 spec_json 1 'src/**' | br "$repoJ" s1 write spec >/dev/null || fail "write spec (repoJ)"
 steps_plan | br "$repoJ" s1 write plan >/dev/null || fail "write plan (repoJ)"
-ok "$repoJ" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoJ" s1 approve --commit yes --branch-target current
 [ "$(jq -c '[.step_base, .attempts.step]' "$(sfile "$repoJ")")" = '[null,0]' ] || fail "a run has no step base before implement"
 ok "$repoJ" s1 advance implement
 [ "$(jq -c '[.step_base.rev == .rev, (.step_base.tree | length), .step_base.head == .baseline.head]' "$(sfile "$repoJ")")" = '[true,40,true]' ] \
@@ -138,7 +138,7 @@ repoV="$work/repoV"
 make_repo "$repoV"
 ok "$repoV" s1 init oldrun
 write_artifacts "$repoV" 1 a.txt
-ok "$repoV" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoV" s1 approve --commit yes --branch-target current
 ok "$repoV" s1 advance implement
 jq 'del(.step_base) | del(.attempts.step)' "$(sfile "$repoV")" >"$tmp" && cp "$tmp" "$(sfile "$repoV")"
 ok "$repoV" s1 show
@@ -158,7 +158,7 @@ make_repo "$repoZ"
 printf 's\n' >"$repoZ/db.env"
 ok "$repoZ" s1 init secretfirst
 CONSENT_COMMIT=no write_artifacts "$repoZ" 1 a.txt
-ok "$repoZ" s1 approve --commit no --branch-target current --codex reviewer
+ok "$repoZ" s1 approve --commit no --branch-target current
 ok "$repoZ" s1 advance implement
 [ "$(jq -c .step_base "$(sfile "$repoZ")")" = null ] || fail "no step base is built while a protected path is changed"
 before=$(jq -S . "$(sfile "$repoZ")")
@@ -271,7 +271,7 @@ git -C "$repoA" config user.name probe
 printf 'a\n' >"$repoA/a.txt"
 ok "$repoA" s1 init nocommit
 CONSENT_COMMIT=no write_artifacts "$repoA" 1 a.txt
-ok "$repoA" s1 approve --commit no --branch-target current --codex reviewer
+ok "$repoA" s1 approve --commit no --branch-target current
 ok "$repoA" s1 advance implement
 [ "$(jq -c '[.step_base.head, (.step_base.tree | length)]' "$(sfile "$repoA")")" = '["",40]' ] || fail "a run before the first commit has a step base without HEAD"
 printf 'b\n' >"$repoA/a.txt"
@@ -338,7 +338,7 @@ repoO="$work/repoO"
 make_repo "$repoO"
 ok "$repoO" s1 init headrace
 write_artifacts "$repoO" 1 a.txt
-ok "$repoO" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoO" s1 approve --commit yes --branch-target current
 ok "$repoO" s1 advance implement
 printf 'o\n' >"$repoO/a.txt"
 step_repo=$repoO

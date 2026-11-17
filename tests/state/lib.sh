@@ -34,15 +34,15 @@ br() { # REPO OWNER ARGS... (JSON on stdin)
   shift 2
   (cd "$repo" && python3 -I -B "$run_cli" "$@" --owner "$owner")
 }
-# CONSENT_COMMIT, CONSENT_TARGET and CONSENT_CODEX set the spec's consent block; every
+# CONSENT_COMMIT and CONSENT_TARGET set the spec's consent block; every
 # approve call below repeats the same values.
 spec_json() { # N [SCOPE]: N automated criteria that run "make test"
   jq -n --argjson n "$1" --arg scope "${2:-**}" --arg commit "${CONSENT_COMMIT:-yes}" \
-    --arg target "${CONSENT_TARGET:-current}" --arg codex "${CONSENT_CODEX:-reviewer}" '{request: "probe request", answers: [],
+    --arg target "${CONSENT_TARGET:-current}" '{request: "probe request", answers: [],
     behavior: {current: [], new: ["x"], examples: [{input: "a", output: "b"}, {input: "c", output: "d"}], non_goals: []},
     criteria: [range(1; $n + 1) | {id: "AC-\(.)", when: "a", then: "b", evidence: "automated", command: "make test"}],
     scope_paths: [$scope], out_of_scope: [],
-    consent: {commit: $commit, branch_target: $target, codex: $codex}}'
+    consent: {commit: $commit, branch_target: $target}}'
 }
 plan_json() { jq -n '{steps: [{id: "S-1", action: "do", paths: ["a.txt"], done_when: "done"}], checks: ["make test"], invariants: [], stop_conditions: []}'; }
 write_artifacts() { # REPO N [SCOPE]
@@ -67,7 +67,7 @@ to_commit() {
   ok "$repo" s1 init flow
   dir=$(dirname "$(sfile "$repo")")
   CONSENT_TARGET=$target write_artifacts "$repo" 1
-  ok "$repo" s1 approve --commit yes --branch-target "$target" --codex reviewer
+  ok "$repo" s1 approve --commit yes --branch-target "$target"
   ok "$repo" s1 advance implement
   printf 'feature\n' >"$repo/f.txt"
   apply_steps "$repo"
@@ -85,7 +85,7 @@ steps_plan() {
     {id: "S-3", action: "c", paths: ["src/c.txt"], done_when: "d"}], checks: ["make test"], invariants: [], stop_conditions: []}'
 }
 quick_spec() { CONSENT_COMMIT=${2:-no} spec_json "${3:-1}" "$1" | jq '.size = "quick"'; }
-quick_approve=(approve --commit no --branch-target current --codex reviewer --size quick)
+quick_approve=(approve --commit no --branch-target current --size quick)
 
 snap() { jq -S . "$(sfile "$1")"; } # the state file as sorted JSON, to compare before and after
 repo="$work/repo"

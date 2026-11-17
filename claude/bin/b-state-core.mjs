@@ -37,6 +37,10 @@ export const REVIEW_VERDICTS = [
   "NEEDS FIXES",
 ];
 
+// The review gate that ran: OpenAI Codex through the plugin, or the read-only
+// b-reviewer subagent (ADR-021).
+export const REVIEW_GATES = ["codex", "reviewer"];
+
 export const QA_VERDICTS = ["QA PASS", "QA FAIL", "QA BLOCKED"];
 
 export const AC_STATUSES = ["pending", "pass", "fail", "gap", "waived"];
@@ -106,6 +110,8 @@ export const HISTORY_DETAIL = [
   "outside",
   "by",
   "worktree",
+  "gate",
+  "gate_reason",
 ];
 
 export const STEP_ID = /^S-[1-9]\d*$/;

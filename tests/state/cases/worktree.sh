@@ -27,7 +27,7 @@ chmod +x "$repoPW/.git/hooks/post-checkout"
 ok "$repoPW" s1 init parallel
 spec_json 1 'src/**' | br "$repoPW" s1 write spec >/dev/null || fail "write spec (repoPW)"
 parallel_plan | br "$repoPW" s1 write plan >/dev/null || fail "write plan (repoPW)"
-ok "$repoPW" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoPW" s1 approve --commit yes --branch-target current
 ok "$repoPW" s1 advance implement
 ok "$repoPW" s1 check
 jq -e '.next | map(select(startswith("these worker steps may run"))) | length == 0' <<<"$out" >/dev/null || fail "no batch is named while its dependency is open: $out"
@@ -252,7 +252,7 @@ git -C "$repoPF" commit -qm attrs
 ok "$repoPF" s1 init filtered
 spec_json 1 'src/**' | br "$repoPF" s1 write spec >/dev/null || fail "write spec (repoPF)"
 parallel_plan | br "$repoPF" s1 write plan >/dev/null || fail "write plan (repoPF)"
-ok "$repoPF" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoPF" s1 approve --commit yes --branch-target current
 ok "$repoPF" s1 advance implement
 mkdir -p "$repoPF/src"
 printf 'a\n' >"$repoPF/src/a.txt"

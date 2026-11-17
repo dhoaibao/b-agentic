@@ -21,7 +21,6 @@ work=$(mktemp -d)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
-export B_AGENTIC_STATE_DIR="$work/state"
 export B_AGENTIC_GATE_DIR="$work/gate"
 # The verify gate reads this; a developer's own setting must not change the probe results.
 unset B_AGENTIC_GATE_MODE
@@ -326,15 +325,16 @@ echo "hooks probe passed: verify-gate"
 
 run "$codexguard" "$(cg "$repo" 'ls -la')"; expect 0 "unrelated Bash must pass"
 run "$codexguard" "$(cg "$repo" 'node "/plugin/scripts/codex-companion.mjs" status')"; expect 0 "non-review companion command must pass"
-run "$codexguard" "$(cg "$repo" "$review")"; expect 2 "an unapproved repository must be refused"
-grep -Fq 'has not approved' <<<"$err" || fail "approval reason missing: $err"
-( cd "$repo" && "${js[@]}" "$codexguard" --check >"$work/check.json" ) && fail "--check must refuse an unapproved repository" || true
-[ "$(jq -r .ok "$work/check.json")" = false ] || fail "--check ok must be false before approval"
-
-( cd "$repo" && "${js[@]}" "$codexguard" --approve >"$work/approve.json" )
-[ "$(jq -r .approved "$work/approve.json")" = true ] || fail "--approve did not record approval"
-( cd "$repo" && "${js[@]}" "$codexguard" --check >"$work/check.json" ) || fail "--check must pass after approval"
-run "$codexguard" "$(cg "$repo" "$review")"; expect 0 "an approved clean repository must pass"
+# No per-repository approval exists (ADR-021): a clean repository passes with no store.
+run "$codexguard" "$(cg "$repo" "$review")"; expect 0 "a clean repository needs no approval"
+( cd "$repo" && "${js[@]}" "$codexguard" --check >"$work/check.json" ) || fail "--check must pass on a clean repository"
+[ "$(jq -r .ok "$work/check.json")" = true ] || fail "--check ok must be true on a clean repository"
+[ "$(jq -r '.reasons | length' "$work/check.json")" = 0 ] || fail "--check must give no reason on a clean repository"
+# The retired approval commands fail loudly and write nothing.
+for retired in --approve --revoke; do
+  ( cd "$repo" && "${js[@]}" "$codexguard" "$retired" >/dev/null 2>&1 ) && fail "$retired must be an unknown argument" || true
+done
+[ -z "$(find "$work" -name 'codex-approved-repos.json' -print -quit)" ] || fail "a retired approval command wrote an approval store"
 git -C "$repo" branch base
 run "$codexguard" "$(cg "$repo" 'node /p/codex-companion.mjs review --wait --base base')"; expect 0 "a direct review against a resolvable base ref must pass"
 run "$codexguard" "$(cg "$repo" 'node /p/codex-companion.mjs review --wait --base nosuchref')"; expect 2 "an unresolvable base ref must be refused"
@@ -342,7 +342,7 @@ grep -Fq 'review range' <<<"$err" || fail "the range refusal reason is missing: 
 run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" adversarial-review --background --scope working-tree x')"; expect 2 "--background must be refused"
 run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" adversarial-review --scope working-tree x')"; expect 2 "a missing --wait must be refused"
 run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" adversarial-review --wait x')"; expect 2 "an implicit target must be refused"
-run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" task --wait something')"; expect 0 "task passes the review-flag rules once approved and clean"
+run "$codexguard" "$(cg "$repo" 'node "/p/codex-companion.mjs" task --wait something')"; expect 0 "task passes the review-flag rules on a clean repository"
 
 # Command interpretation is quote-aware and fails closed on anything ambiguous.
 cmd_expect() { run "$codexguard" "$(cg "$repo" "$2")"; expect "$1" "$3"; }
@@ -384,7 +384,7 @@ cmd_expect 2 'node /p/codex-companion.mjs status; node /p/codex-companion.mjs re
 cmd_expect 0 'node /p/codex-companion.mjs review --wait --scope working-tree "focus; with ; punctuation" 2>&1' "a quoted focus and a redirection must pass"
 run "$codexguard" 'garbage mentioning codex-companion.mjs review'; expect 2 "unreadable input that names the plugin must be refused"
 # Quote concatenation is the same word to the shell, so it must be the same word to the guard.
-cmd_expect 0 'node /p/codex-compan""ion.mjs review --wait --scope working-tree x' "a quote-concatenated companion name is recognised and valid when approved"
+cmd_expect 0 'node /p/codex-compan""ion.mjs review --wait --scope working-tree x' "a quote-concatenated companion name is recognised and valid on a clean repository"
 cmd_expect 2 'env -C /other node /p/codex-companion.mjs review --wait --scope working-tree' "an env wrapper must be refused"
 cmd_expect 2 'command cd /other; node /p/codex-companion.mjs review --wait --scope working-tree' "a wrapped directory change must be refused"
 cmd_expect 2 'timeout 5 node /p/codex-companion.mjs review --wait --scope working-tree' "a timeout wrapper must be refused"
@@ -448,48 +448,31 @@ run "$codexguard" "$(cg "$work/plain" "$review")"; expect 2 "a non-repository mu
 run "$codexguard" 'not json'; expect 0 "malformed hook input must fail open"
 other="$work/other"
 make_repo "$other"
-run "$codexguard" "$(cg "$other" "$review")"; expect 2 "approval is per repository"
-run "$codexguard" "$(cg "$other" 'node /p/codex-companion.mjs "review" --wait --scope working-tree x')"; expect 2 "a quoted subcommand must not bypass the approval check"
-run "$codexguard" "$(cg "$other" 'node /p/codex-compan""ion.mjs review --wait --scope working-tree x')"; expect 2 "a quote-concatenated name must not bypass the approval check"
-run "$codexguard" "$(cg "$other" $'node /p/codex-compan\\\nion.mjs review --wait --scope working-tree x')"; expect 2 "a line-continuation split must not bypass the approval check"
+printf 'K=1\n' >"$other/.env"; git -C "$other" add -f .env
+run "$codexguard" "$(cg "$other" "$review")"; expect 2 "a repository with a tracked secret must be refused"
+run "$codexguard" "$(cg "$other" 'node /p/codex-companion.mjs "review" --wait --scope working-tree x')"; expect 2 "a quoted subcommand must not bypass the secret check"
+run "$codexguard" "$(cg "$other" 'node /p/codex-compan""ion.mjs review --wait --scope working-tree x')"; expect 2 "a quote-concatenated name must not bypass the secret check"
+run "$codexguard" "$(cg "$other" $'node /p/codex-compan\\\nion.mjs review --wait --scope working-tree x')"; expect 2 "a line-continuation split must not bypass the secret check"
 grep -Fq 'Codex guard refused' <<<"$err" || fail "guard gave no refusal for the line-continuation split: $err"
-run "$codexguard" "$(cg "$other" 'node -e '"'"'require("child_process").execSync("node /p/codex-companion.mjs review --wait --scope working-tree")'"'"'')"; expect 2 "an interpreter must not bypass the approval check"
-run "$codexguard" "$(cg "$other" "git -c 'alias.scan=!node /p/codex-companion.mjs review --wait --scope working-tree' scan")"; expect 2 "a git alias must not bypass the approval check"
-( cd "$repo" && "${js[@]}" "$codexguard" --revoke >/dev/null )
-run "$codexguard" "$(cg "$repo" "$review")"; expect 2 "a revoked repository must be refused"
+run "$codexguard" "$(cg "$other" 'node -e '"'"'require("child_process").execSync("node /p/codex-companion.mjs review --wait --scope working-tree")'"'"'')"; expect 2 "an interpreter must not bypass the secret check"
+run "$codexguard" "$(cg "$other" "git -c 'alias.scan=!node /p/codex-companion.mjs review --wait --scope working-tree' scan")"; expect 2 "a git alias must not bypass the secret check"
 ( cd "$repo" && "${js[@]}" "$codexguard" --bogus 2>/dev/null ) && fail "an unknown argument must fail" || true
 
-# The approval itself is a tripwire: a command that records, redirects, or rewrites it
-# answers on stdout with an "ask" decision and exits 0; unrelated commands stay silent.
-ag_out() { out=$(printf '%s' "$1" | "${js[@]}" "$codexguard") || fail "the approval tripwire must exit 0"; }
-ag_asks() {
-  ag_out "$(cg "$repo" "$1")"
-  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<<"$out")" = ask ] || fail "codex guard must ask for: $1"
-}
+# The approval tripwire is gone (ADR-021): commands that name the retired approval
+# surface are ordinary commands, so the hook answers nothing for them.
+ag_out() { out=$(printf '%s' "$1" | "${js[@]}" "$codexguard") || fail "the guard must exit 0 for an ordinary command"; }
 ag_silent() {
   ag_out "$(cg "$repo" "$1")"
   [ -z "$out" ] || fail "codex guard must stay silent for: $1 ($out)"
 }
-ag_asks 'node "$HOME/.claude/b-agentic/hooks/b-codex-guard.mjs" --approve'
-ag_asks 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
-ag_asks 'rtk node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
-ag_asks 'cd /repo && node ./b-codex-guard.mjs --approve'
-ag_asks 'node ~/.claude/b-agentic/hooks/b-codex-""guard.mjs --approve'
-ag_asks $'node ~/.claude/b-agentic/hooks/b-codex-gu\\\nard.mjs --approve'
-ag_asks "sh -c 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'"
-ag_asks 'B_AGENTIC_STATE_DIR=/tmp/x node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
-ag_asks 'export B_AGENTIC_STATE_DIR=/tmp/x; node ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
-ag_asks "echo '[\"/repo\"]' > ~/.claude/b-agentic/codex-approved-repos.json"
 ag_silent 'ls -la'
-ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check'
-ag_asks 'bun --no-env-file --config=/dev/null ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
-ag_asks '/home/me/.bun/bin/bun --no-env-file --config=/dev/null "$HOME/.claude/b-agentic/hooks/b-codex-guard.mjs" --approve'
-ag_asks 'B_AGENTIC_STATE_DIR=/tmp/x bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
+ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
 ag_silent 'bun --no-env-file --config=/dev/null ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check'
-ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --revoke'
+ag_silent "echo '[\"/repo\"]' > ~/.claude/b-agentic/codex-approved-repos.json"
+ag_silent 'B_AGENTIC_STATE_DIR=/tmp/x bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
 ag_silent 'node /p/codex-companion.mjs status'
 ag_silent 'rg -n B_AGENTIC_STATE_DIR claude/hooks'
-# A refused companion call is still refused, not downgraded to a prompt.
+# A refused companion call is still refused.
 cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope working-tree x && node ~/b-codex-guard.mjs --approve' "a refused companion call must stay refused"
 echo "hooks probe passed: codex-guard"
 
@@ -745,10 +728,9 @@ wrap() { # wrap <repo> [args...]: run the wrapper inside <repo>
 wexpect() { [ "$rc" = "$1" ] || fail "$2 (exit $rc, expected $1: $err)"; }
 wrepo="$work/wrepo"
 make_repo "$wrepo"
-( cd "$wrepo" && "${js[@]}" "$codexguard" --approve >/dev/null )
 : >"$FAKE_LOG"
 
-wrap "$wrepo" --scope working-tree --focus 'check the diff'; wexpect 0 "an approved clean repository must be reviewed"
+wrap "$wrepo" --scope working-tree --focus 'check the diff'; wexpect 0 "a clean repository must be reviewed with no approval"
 [ "$(jq -r .mapped.provisional_verdict <<<"$wout")" = "READY FOR PR" ] || fail "the approve result was not mapped to READY FOR PR"
 [ "$(jq -r .unchanged <<<"$wout")" = true ] || fail "an untouched candidate must report unchanged"
 [ "$(jq -r .f0 <<<"$wout")" = "$(jq -r .f1 <<<"$wout")" ] || fail "F0 and F1 must match for an untouched candidate"
@@ -781,9 +763,8 @@ grep -Fq 'no verdict contract' <<<"$err" || fail "the native refusal reason is m
 : >"$FAKE_LOG"
 
 # finding: a base review sends merge-base..HEAD, so a protected path that HEAD already deleted still leaks
-whist_repo() { # whist_repo <dir>: an approved repository; the caller adds history
+whist_repo() { # whist_repo <dir>: a repository; the caller adds history
   make_repo "$1"
-  ( cd "$1" && "${js[@]}" "$codexguard" --approve >/dev/null )
 }
 whist_commit() { git -C "$1" add -A && git -C "$1" commit -qm "$2"; }
 range_refused() { # range_refused <repo> <label> [needle]
@@ -861,17 +842,24 @@ bounded() { # bounded <seconds> <command...>
   else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
   fi
 }
-# A link that appears after the guard's preflight must still be refused before the plugin runs. The
-# approval store is a FIFO, so the guard blocks on its last read while the link is created.
+# A link that appears after the guard's preflight must still be refused before the plugin runs. A
+# `git` shim on PATH creates the link just before the wrapper's first snapshot (the first
+# `rev-parse --show-toplevel HEAD...` call, which follows the guard's whole scan).
 wrace="$work/wrace"
 make_repo "$wrace"
-mkdir -p "$work/fifostate"
-mkfifo "$work/fifostate/codex-approved-repos.json"
-( sleep 2; ln -s a.txt "$wrace/late-link"; bounded 30 bash -c 'printf "[\"%s\"]" "$1" >"$2"' _ "$(cd "$wrace" && pwd -P)" "$work/fifostate/codex-approved-repos.json" ) &
-racer=$!
+mkdir -p "$work/gitshim"
+cat >"$work/gitshim/git" <<'SHIM'
+#!/usr/bin/env bash
+case " $* " in
+  *" rev-parse --show-toplevel HEAD"*)
+    if [ ! -e "$RACE_MARK" ]; then : >"$RACE_MARK"; ln -s a.txt "$RACE_LINK"; fi ;;
+esac
+exec "$REAL_GIT" "$@"
+SHIM
+chmod +x "$work/gitshim/git"
 : >"$FAKE_LOG"
-B_AGENTIC_STATE_DIR="$work/fifostate" wrap "$wrace" --scope working-tree; wexpect 2 "a symlink created after the preflight must be refused"
-wait "$racer" || true
+RACE_MARK="$work/race-mark" RACE_LINK="$wrace/late-link" REAL_GIT="$(command -v git)" PATH="$work/gitshim:$PATH" wrap "$wrace" --scope working-tree; wexpect 2 "a symlink created after the preflight must be refused"
+[ -e "$work/race-mark" ] || fail "the git shim never saw the snapshot start, so the race was not exercised"
 grep -Fq 'frozen candidate' <<<"$err" || fail "the late symlink must be caught in the frozen candidate: $err"
 [ ! -s "$FAKE_LOG" ] || fail "the plugin ran despite a late symlink"
 : >"$FAKE_LOG"
@@ -947,7 +935,6 @@ wignored="$work/wignored"
 make_repo "$wignored"
 printf '.env\n' >"$wignored/.gitignore"
 git -C "$wignored" add .gitignore && git -C "$wignored" commit -qm ignore-env
-( cd "$wignored" && "${js[@]}" "$codexguard" --approve >/dev/null )
 printf 'TOPSECRET=1\n' >"$wignored/.env"
 wrap "$wignored" --scope working-tree --include-ignored .env; wexpect 2 "an incomplete snapshot before the run must refuse"
 grep -Fq 'before the plugin runs' <<<"$err" || fail "the pre-run refusal must say so: $err"
@@ -955,6 +942,10 @@ grep -Fq 'before the plugin runs' <<<"$err" || fail "the pre-run refusal must sa
 wrap "$wrepo" --scope working-tree --kill-grace-seconds 0; wexpect 2 "a zero kill grace must be refused"
 wrap "$wrepo" --scope working-tree; wexpect 0 "the wrapper still works after the cut-short cases"
 
+wnostore="$work/wnostore"
+make_repo "$wnostore"
+wrap "$wnostore" --scope working-tree; wexpect 0 "a repository with no approval store must be reviewed"
+[ -s "$FAKE_LOG" ] || fail "the plugin did not run for a clean repository"
 # refusals: nothing may reach the plugin
 : >"$FAKE_LOG"
 printf 'TOPSECRET=1\n' >"$wrepo/.env"
@@ -962,10 +953,6 @@ wrap "$wrepo" --scope working-tree; wexpect 2 "an untracked .env must block the 
 grep -Fq 'likely-secret' <<<"$err" || fail "secret refusal reason missing: $err"
 grep -Fq TOPSECRET <<<"$err$wout" && fail "secret content reached the output"
 rm "$wrepo/.env"
-wunapproved="$work/wunapproved"
-make_repo "$wunapproved"
-wrap "$wunapproved" --scope working-tree; wexpect 2 "an unapproved repository must be refused"
-grep -Fq 'has not approved' <<<"$err" || fail "approval refusal reason missing: $err"
 mkdir -p "$work/wplain"
 wrap "$work/wplain" --scope working-tree; wexpect 2 "a non-repository must be refused"
 git init -q "$wrepo/tools"

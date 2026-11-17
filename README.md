@@ -56,7 +56,7 @@ configuration, or workflow policy is frozen as a fingerprinted candidate and
 reviewed independently; the main session recomputes the fingerprint afterward
 and voids the review if the candidate moved. That reviewer is
 Codex, a different model family, run through a wrapper that checks for secrets
-and a per-repository approval before anything is sent to OpenAI. If Codex is
+before anything is sent to OpenAI. If Codex is
 unavailable (plugin missing, signed out, usage limit), the `b-reviewer` subagent
 reviews instead, in a fresh context. It is read-only by its tool list and prompt,
 not a sandbox, and its independence comes from that context and role, not

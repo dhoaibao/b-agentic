@@ -7,7 +7,7 @@ make_repo "$repoH"
 ok "$repoH" s1 init allchecks
 spec_json 1 | br "$repoH" s1 write spec >/dev/null || fail "write spec (repoH)"
 plan_json | jq '.checks += ["make lint"]' | br "$repoH" s1 write plan >/dev/null || fail "write plan (repoH)"
-ok "$repoH" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoH" s1 approve --commit yes --branch-target current
 ok "$repoH" s1 advance implement
 printf 'h\n' >"$repoH/a.txt"
 apply_steps "$repoH"
@@ -61,7 +61,7 @@ git -C "$repoK" commit -qm "ignore artifact"
 ok "$repoK" s1 init together
 spec_json 1 | br "$repoK" s1 write spec >/dev/null || fail "write spec (repoK)"
 par_plan | br "$repoK" s1 write plan >/dev/null || fail "write plan (repoK)"
-ok "$repoK" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repoK" s1 approve --commit yes --branch-target current
 ok "$repoK" s1 advance implement
 printf 'p\n' >"$repoK/a.txt"
 printf 'built\n' >"$repoK/artifact.out"
@@ -113,7 +113,7 @@ make_repo "$repoKQ"
 ok "$repoKQ" s1 init quicktogether
 CONSENT_COMMIT=no spec_json 1 a.txt | jq '.size = "quick"' | br "$repoKQ" s1 write spec >/dev/null || fail "write quick spec (repoKQ)"
 par_plan | br "$repoKQ" s1 write plan >/dev/null || fail "write plan (repoKQ)"
-refused "$repoKQ" s1 approve --commit no --branch-target current --codex reviewer --size quick
+refused "$repoKQ" s1 approve --commit no --branch-target current --size quick
 grep -Fq 'parallel checks' "$work/err" || fail "a quick run with parallel checks must be refused by name: $(cat "$work/err")"
 
 # --- one command at a time per run; a dead holder is never recovered automatically

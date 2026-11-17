@@ -7,6 +7,11 @@
 Refinements update this record in place. A reversed decision gets a new ADR
 with `Supersedes: ADR-001`, and the superseded area is noted here.
 
+[ADR-021](ADR-021-codex-gate-without-repo-approval.md) supersedes the Codex approval passages under "Safety and
+approval design" (the standing per-repository approval, `b-codex-guard --approve`, and the
+Bash-hook tripwire on the approval store): the Codex gate has no per-repository approval,
+and its secret checks stay.
+
 [ADR-015](ADR-015-step-writer-worker.md) supersedes, for a `b-flow` run's approved
 worker steps, the sentence "Worktree mutation, user interaction, verification, and
 reporting stay in the main session" under "Workflow and skill design", and the set of

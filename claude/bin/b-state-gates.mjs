@@ -288,14 +288,13 @@ export function reviewCovers(state, fingerprint) {
 
 // The consent in state must equal the consent in the approved spec. Every
 // step that acts on it (the commit gate, recording commits, completion, and
-// `check`) compares all three fields, so a state.json edit cannot widen it.
+// `check`) compares both fields, so a state.json edit cannot widen it.
 export function consentMatches(state, art) {
   const approved = art.artifacts.spec?.consent;
   return Boolean(
     approved &&
     approved.commit === (state.consent.commit ? "yes" : "no") &&
-    approved.branch_target === state.consent.branch_target &&
-    approved.codex === state.consent.codex,
+    approved.branch_target === state.consent.branch_target,
   );
 }
 
@@ -322,6 +321,8 @@ export function voidEvidence(state) {
   state.review.verdict = "";
   state.review.low_risk_exception = "";
   state.review.fingerprint = "";
+  state.review.gate = "";
+  state.review.gate_reason = "";
   state.qa.verdict = "";
   state.qa.fingerprint = "";
   for (const entry of Object.values(state.ac)) {
@@ -348,11 +349,7 @@ export function quickProblems(art) {
   // Nobody approves a quick run's claim that its checks can run together.
   if (parallelChecks(art).length > 0) problems.push("parallel checks");
   if (workerSteps(art).length > 0) problems.push("worker steps");
-  if (
-    spec.consent.commit !== "no" ||
-    spec.consent.branch_target !== "current" ||
-    spec.consent.codex !== "reviewer"
-  )
-    problems.push("a consent other than commit no, current, reviewer");
+  if (spec.consent.commit !== "no" || spec.consent.branch_target !== "current")
+    problems.push("a consent other than commit no, current");
   return problems;
 }

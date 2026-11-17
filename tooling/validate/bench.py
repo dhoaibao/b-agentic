@@ -132,7 +132,6 @@ def main():
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_CONFIG_SYSTEM": "/dev/null",
             "GIT_CEILING_DIRECTORIES": str(tmp),
-            "B_AGENTIC_STATE_DIR": str(tmp / "state"),
             "B_AGENTIC_GATE_DIR": str(tmp / "gate"),
             "CLAUDE_CODE_SESSION_ID": "bench",
         }

@@ -11,7 +11,7 @@ git -C "$repo14" add -f keep.log
 git -C "$repo14" commit -qm "add ignored-but-tracked file"
 ok "$repo14" s1 init ignored
 write_artifacts "$repo14" 1
-ok "$repo14" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo14" s1 approve --commit yes --branch-target current
 ok "$repo14" s1 advance implement
 printf 'edited\n' >"$repo14/keep.log"
 printf 'new\n' >"$repo14/n.txt"
@@ -43,7 +43,7 @@ git -C "$repo15" add -f keep.log
 git -C "$repo15" commit -qm "add ignored-but-tracked file"
 ok "$repo15" s1 init ignored2
 write_artifacts "$repo15" 1
-ok "$repo15" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo15" s1 approve --commit yes --branch-target current
 ok "$repo15" s1 advance implement
 printf 'edited\n' >"$repo15/keep.log"
 printf 'new\n' >"$repo15/n.txt"
@@ -102,7 +102,7 @@ git -C "$repo16" add .gitignore
 git -C "$repo16" commit -qm "ignore artifact"
 ok "$repo16" s1 init artifact
 write_artifacts "$repo16" 1
-ok "$repo16" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo16" s1 approve --commit yes --branch-target current
 ok "$repo16" s1 advance implement
 printf 'code\n' >"$repo16/c.txt"
 printf 'built\n' >"$repo16/artifact.out"
@@ -128,7 +128,7 @@ git -C "$repo17" add .gitignore
 git -C "$repo17" commit -qm "ignore artifact"
 ok "$repo17" s1 init artifact2
 write_artifacts "$repo17" 1
-ok "$repo17" s1 approve --commit yes --branch-target current --codex reviewer
+ok "$repo17" s1 approve --commit yes --branch-target current
 ok "$repo17" s1 advance implement
 printf 'code\n' >"$repo17/c.txt"
 printf 'built\n' >"$repo17/artifact.out"
