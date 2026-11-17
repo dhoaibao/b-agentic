@@ -328,6 +328,8 @@ branches not named `main` or `master` also stay at the ask prompt. The
 `b-path-guard` runs before file tools; `b-codex-guard` is a tripwire on Bash for direct calls to the Codex plugin (see [Review gate](#review-gate)); `b-verify-gate` tracks
 edits and, when the main session edited a non-prose file after its last non-inspection shell
 command, blocks the first stop once with the verify and review reminder (which also asks the agent to map each confirmed `AC-n` criterion to its check result or a stated gap).
+`B_AGENTIC_GATE_MODE=observe` logs what it would have blocked without blocking, `off` disables it, and anything else (the default) enforces; decisions append to
+`~/.claude/b-agentic/verify-gate/events.jsonl` (256 KiB cap, no commands or file content; `jq -r .event events.jsonl | sort | uniq -c` counts them, deleting the file resets it). OpenCode keeps its one-shot reminder without modes. [Review eval](docs/runbooks/review-eval.md) describes how to score reviewer rounds against the cases in `tests/behavior/review-eval.json`.
 `b-spec-context` is a `SessionStart` hook matched on `compact` only: after compaction it lists, as plain facts, the paths of up to five `docs/specs/*.md`
 files whose first 40 lines carry a `Status: approved` line, newest first, in at most 2,000 characters. It injects no file content, never writes, skips symlinks,
 likely-secret names, and unusual file names, sets no `onFailure`, and prints nothing (exit 0) when `docs/specs/` is absent, no spec is approved, or anything fails.

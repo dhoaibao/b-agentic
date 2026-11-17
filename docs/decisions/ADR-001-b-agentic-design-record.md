@@ -233,6 +233,22 @@ under `~/.claude/b-agentic/` (override `B_AGENTIC_GATE_DIR`, separate from the
 Codex approval store's `B_AGENTIC_STATE_DIR`), and state files are opened
 without following symlinks.
 
+`B_AGENTIC_GATE_MODE` sets how the Claude Code gate acts, read from the hook's
+environment (a shell export or the `env` key of Claude Code's user settings): `enforce` (the
+default, today's behavior), `observe` (never blocks; logs what enforce would
+have blocked), or `off` (does nothing and writes nothing). An unset or
+unrecognized value is `enforce`, so a typo never disables the gate. Gate
+decisions append to an event log (events.jsonl) in the same private directory, as one JSON
+line each with the session, time, mode, event (`would-block`, `blocked`,
+`acted` or `dismissed`), working directory, and last edited path, never a command
+or file content. `acted` means the main session ran a non-inspection shell
+command after the reminder; `dismissed` means it did not, so the ratio is the
+false-positive signal to review before tightening anything. The log is opened
+append-only without following symlinks, written only into a private directory,
+and stops growing at 256 KiB; delete the file to reset it. The OpenCode guard
+keeps its own one-shot reminder with no modes or log. The mode is advisory like
+the gate: an agent that can edit the user settings can set `off`.
+
 The `b-spec-context` hook keeps user-approved acceptance criteria reachable
 across context compaction without storing state: a `SessionStart` hook matched on
 `compact` only lists the paths of up to five `docs/specs/*.md` files whose first

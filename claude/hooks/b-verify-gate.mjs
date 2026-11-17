@@ -12,6 +12,10 @@
 // state and a Stop hook that emits the reminder. Contract: stdin is the hook
 // JSON; exit 2 with a stderr reason blocks the stop, any other exit lets it
 // finish. It fails open on malformed input and unreadable state.
+//
+// B_AGENTIC_GATE_MODE selects `enforce` (default), `observe` (log what would
+// have been blocked, never block), or `off` (do nothing). Decisions are logged
+// to events.jsonl in the private gate directory.
 import {
   closeSync,
   constants,
@@ -191,11 +195,26 @@ export function isInspection(command) {
   );
 }
 
-function stateFile(sessionId) {
-  const dir =
+function gateDir() {
+  return (
     process.env.B_AGENTIC_GATE_DIR ||
-    join(homedir(), ".claude", "b-agentic", "verify-gate");
-  return join(dir, `${String(sessionId).replace(/[^A-Za-z0-9_-]/g, "_")}.json`);
+    join(homedir(), ".claude", "b-agentic", "verify-gate")
+  );
+}
+
+function stateFile(sessionId) {
+  return join(
+    gateDir(),
+    `${String(sessionId).replace(/[^A-Za-z0-9_-]/g, "_")}.json`,
+  );
+}
+
+// B_AGENTIC_GATE_MODE: `off` never blocks and writes nothing; `observe` never
+// blocks and logs what enforce would have blocked; anything else, including an
+// unset or misspelled value, is `enforce` so a typo never disables the gate.
+export function gateMode() {
+  const mode = process.env.B_AGENTIC_GATE_MODE;
+  return mode === "off" || mode === "observe" ? mode : "enforce";
 }
 
 // The state directory must be a real directory owned by the current user with
@@ -266,21 +285,74 @@ function clearState(file) {
   }
 }
 
+// The decision log: one JSON line per event in the private gate directory. It
+// is advisory like the state files: same directory checks, never followed
+// through a symlink, capped in size, and silent on any failure. It holds the
+// session, time, mode, event, working directory, and last edited path, never a
+// command or file content.
+const EVENT_LOG = "events.jsonl";
+const EVENT_LOG_CAP = 256 * 1024;
+
+function text(value) {
+  return typeof value === "string" ? value.slice(0, 512) : undefined;
+}
+
+function appendEvent(event, mode, name, state) {
+  let fd;
+  try {
+    const dir = gateDir();
+    if (!privateDir(dir, true)) return;
+    fd = openSync(
+      join(dir, EVENT_LOG),
+      constants.O_WRONLY |
+        constants.O_APPEND |
+        constants.O_CREAT |
+        NOFOLLOW |
+        constants.O_NONBLOCK,
+      0o600,
+    );
+    const info = fstatSync(fd);
+    if (!info.isFile() || info.size >= EVENT_LOG_CAP) return;
+    writeSync(
+      fd,
+      `${JSON.stringify({
+        t: new Date().toISOString(),
+        session: text(event.session_id),
+        mode,
+        event: name,
+        cwd: text(event.cwd),
+        path: text(state.path),
+      })}\n`,
+    );
+  } catch {
+    // Advisory only: an unusable log is skipped.
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
 export function handle(event) {
+  const mode = gateMode();
+  if (mode === "off") return { code: 0 };
   const file = stateFile(event.session_id ?? "default");
   const state = readState(file);
   if (event.hook_event_name === "PostToolUse") {
     if (event.tool_name === "Bash") {
       // A main-session shell command counts as a check attempt, pass or fail,
-      // unless it is plain read-only inspection.
+      // unless it is plain read-only inspection. After a reminder it also
+      // records that the reminder was acted on.
       if (!event.agent_id && !isInspection(event.tool_input?.command)) {
-        writeState(file, { ...state, dirty: false });
+        writeState(file, {
+          ...state,
+          dirty: false,
+          ...(state.reminded ? { acted: true } : {}),
+        });
       }
     } else if (["Edit", "Write", "NotebookEdit"].includes(event.tool_name)) {
       const path =
         event.tool_input?.file_path ?? event.tool_input?.notebook_path;
       if (!(typeof path === "string" && PROSE_PATH.test(path))) {
-        writeState(file, { ...state, dirty: true });
+        writeState(file, { ...state, dirty: true, path: text(path) });
       }
     }
     return { code: 0 };
@@ -288,10 +360,19 @@ export function handle(event) {
   if (event.hook_event_name === "Stop") {
     // The gate's own continuation, or a later stop, never re-arms it.
     if (event.stop_hook_active || state.reminded || !state.dirty) {
+      if (state.reminded) {
+        appendEvent(event, mode, state.acted ? "acted" : "dismissed", state);
+      }
       clearState(file);
       return { code: 0 };
     }
-    writeState(file, { dirty: false, reminded: true });
+    if (mode === "observe") {
+      appendEvent(event, mode, "would-block", state);
+      clearState(file);
+      return { code: 0 };
+    }
+    appendEvent(event, mode, "blocked", state);
+    writeState(file, { dirty: false, reminded: true, path: state.path });
     return { code: 2, message: REMINDER };
   }
   return { code: 0 };

@@ -23,6 +23,8 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
 export B_AGENTIC_STATE_DIR="$work/state"
 export B_AGENTIC_GATE_DIR="$work/gate"
+# The verify gate reads this; a developer's own setting must not change the probe results.
+unset B_AGENTIC_GATE_MODE
 
 fail() { echo "hooks probe failed: $*" >&2; exit 1; }
 
@@ -243,6 +245,81 @@ if [ "$(uname -s)" != MINGW ]; then
   rm -f "$work/gate"
   mv "$work/gate.real" "$work/gate"
 fi
+# gate modes and the decision log (B_AGENTIC_GATE_MODE, events.jsonl).
+log="$work/gate/events.jsonl"
+nlines() { if [ -f "$log" ]; then wc -l <"$log" | tr -d ' '; else echo 0; fi; }
+last_event() { tail -n 1 "$log" | jq -r .event; }
+rm -f "$log"
+# default (unset) is enforce: the block is logged, the continuation is logged as dismissed.
+run "$verifygate" "$(vg PostToolUse m1 Edit /repo/src/a.ts | jq -c '. + {cwd: "/repo"}')"; expect 0 "edit"
+run "$verifygate" "$(vg Stop m1 | jq -c '. + {cwd: "/repo"}')"; expect 2 "unset mode must enforce"
+[ "$(nlines)" = 1 ] && [ "$(last_event)" = blocked ] || fail "a block must log one blocked event"
+jq -e '.mode == "enforce" and .session == "m1" and .path == "/repo/src/a.ts" and .cwd == "/repo" and (.t | type == "string")' <<<"$(tail -n 1 "$log")" >/dev/null || fail "the event must carry mode, session, path, cwd and time"
+run "$verifygate" "$(vg Stop m1 '' '' true)"; expect 0 "continuation"
+[ "$(nlines)" = 2 ] && [ "$(last_event)" = dismissed ] || fail "a continuation without a check must log dismissed"
+# a main-session check after the reminder is logged as acted; the log never holds the command.
+run "$verifygate" "$(vg PostToolUse m2 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$(vg Stop m2)"; expect 2 "block"
+run "$verifygate" "$(vg PostToolUse m2 Bash '' false 'npm test --secret-flag')"; expect 0 "check after reminder"
+run "$verifygate" "$(vg Stop m2 '' '' true)"; expect 0 "continuation"
+[ "$(last_event)" = acted ] || fail "a check after the reminder must log acted"
+! grep -Fq 'secret-flag' "$log" || fail "the event log must not hold command text"
+# a subagent's shell command is not the main session acting on the reminder.
+run "$verifygate" "$(vg PostToolUse m3 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$(vg Stop m3)"; expect 2 "block"
+run "$verifygate" "$(vg PostToolUse m3 Bash '' false 'npm test' | jq -c '. + {agent_id: "a1", agent_type: "b-debugger"}')"; expect 0 "subagent shell"
+run "$verifygate" "$(vg Stop m3 '' '' true)"; expect 0 "continuation"
+[ "$(last_event)" = dismissed ] || fail "a subagent shell command must not log acted"
+# observe never blocks and logs what enforce would have blocked, once.
+rm -f "$log"
+B_AGENTIC_GATE_MODE=observe run "$verifygate" "$(vg PostToolUse m4 Edit /repo/src/a.ts)"; expect 0 "observe edit"
+B_AGENTIC_GATE_MODE=observe run "$verifygate" "$(vg Stop m4)"; expect 0 "observe must not block"
+[ "$(nlines)" = 1 ] && [ "$(last_event)" = would-block ] || fail "observe must log one would-block event"
+jq -e '.mode == "observe"' <<<"$(tail -n 1 "$log")" >/dev/null || fail "the observe event must name its mode"
+B_AGENTIC_GATE_MODE=observe run "$verifygate" "$(vg Stop m4)"; expect 0 "observe second stop"
+[ "$(nlines)" = 1 ] || fail "observe must not log a stop with nothing pending"
+B_AGENTIC_GATE_MODE=observe run "$verifygate" "$(vg PostToolUse m5 Edit /repo/README.md)"; expect 0 "observe prose edit"
+B_AGENTIC_GATE_MODE=observe run "$verifygate" "$(vg Stop m5)"; expect 0 "observe prose stop"
+[ "$(nlines)" = 1 ] || fail "observe must not log a prose-only edit"
+# off does nothing at all: no state, no log, no block.
+rm -f "$log"
+B_AGENTIC_GATE_MODE=off run "$verifygate" "$(vg PostToolUse m6 Edit /repo/src/a.ts)"; expect 0 "off edit"
+[ ! -e "$work/gate/m6.json" ] || fail "off must not write a state file"
+B_AGENTIC_GATE_MODE=off run "$verifygate" "$(vg Stop m6)"; expect 0 "off must not block"
+[ "$(nlines)" = 0 ] || fail "off must not write the event log"
+# an unknown value is enforce, so a typo never disables the gate.
+run "$verifygate" "$(vg PostToolUse m7 Edit /repo/src/a.ts)"; expect 0 "edit"
+B_AGENTIC_GATE_MODE=obseve run "$verifygate" "$(vg Stop m7)"; expect 2 "a misspelled mode must enforce"
+B_AGENTIC_GATE_MODE=OFF run "$verifygate" "$(vg PostToolUse m8 Edit /repo/src/a.ts)"; expect 0 "edit"
+B_AGENTIC_GATE_MODE=OFF run "$verifygate" "$(vg Stop m8)"; expect 2 "mode values are case-sensitive and unknown ones enforce"
+if [ "$(uname -s)" != MINGW ]; then
+  # a symlinked log must not be followed.
+  rm -f "$log"
+  ln -s "$victim" "$log"
+  run "$verifygate" "$(vg PostToolUse m9 Edit /repo/src/a.ts)"; expect 0 "edit"
+  run "$verifygate" "$(vg Stop m9)"; expect 2 "a symlinked log must not change the stop exit code"
+  [ "$(cat "$victim")" = keep ] || fail "verify-gate wrote through a symlinked event log"
+  rm -f "$log"
+  # a non-regular log must not block the hook.
+  mkfifo "$log"
+  run "$verifygate" "$(vg PostToolUse m10 Edit /repo/src/a.ts)"; expect 0 "edit"
+  run "$verifygate" "$(vg Stop m10)"; expect 2 "a FIFO log must not block or change the exit code"
+  rm -f "$log"
+  # a gate directory that turns permissive after an edit disables the gate and gets no log.
+  run "$verifygate" "$(vg PostToolUse m11 Edit /repo/src/a.ts)"; expect 0 "edit"
+  chmod 755 "$work/gate"
+  run "$verifygate" "$(vg Stop m11)"; expect 0 "a permissive dir must fail open at stop"
+  [ ! -e "$log" ] || fail "verify-gate wrote an event log into a permissive directory"
+  chmod 700 "$work/gate"
+  rm -f "$work/gate/m11.json"
+fi
+# the log stops growing at its cap, and the stop is unaffected.
+head -c 262144 /dev/zero | tr '\0' x >"$log"
+chmod 600 "$log"
+run "$verifygate" "$(vg PostToolUse m12 Edit /repo/src/a.ts)"; expect 0 "edit"
+run "$verifygate" "$(vg Stop m12)"; expect 2 "a full log must not change the stop exit code"
+[ "$(wc -c <"$log" | tr -d ' ')" = 262144 ] || fail "the event log must not grow past its cap"
+rm -f "$log"
 echo "hooks probe passed: verify-gate"
 
 # --- codex guard ---------------------------------------------------------------
