@@ -31,10 +31,8 @@ UPDATE=0
 DRY_RUN=0
 UNINSTALL=0
 YES=0
-RUNTIME=claude
 NOTES=""
 PASSTHROUGH=()
-STATUSLINE_ONLY=0
 
 die() {
   [ -z "$NOTES" ] || printf '%s\n' "$NOTES"
@@ -55,9 +53,9 @@ while [ "$#" -gt 0 ]; do
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
     --force) PASSTHROUGH+=("$1") ;;
-    --runtime=claude) RUNTIME=claude ;;
+    --runtime=claude) ;;
     --runtime=*) die "unsupported $1: only Claude Code is supported (see docs/decisions/ADR-020-claude-code-only-again.md)" ;;
-    --statusline-only) STATUSLINE_ONLY=1; PASSTHROUGH+=("$1") ;;
+    --statusline-only) PASSTHROUGH+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
       PASSTHROUGH+=("$1") ;;
@@ -66,8 +64,6 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
-
-[ "$STATUSLINE_ONLY" -eq 0 ] || [ "$RUNTIME" = claude ] || die '--statusline-only belongs to the Claude Code runtime; drop --runtime or use --runtime=claude'
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
 FANCY=0
