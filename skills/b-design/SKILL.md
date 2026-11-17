@@ -1,17 +1,15 @@
 ---
 name: b-design
 description: >
-  Frontend design-standard authoring for creating or refreshing
-  `docs/DESIGN.md` from user descriptions, attached images or mockups,
-  existing frontend files, or current design docs. Use when the agent
-  needs to extract, normalize, or rewrite shared UI style guidance for
-  future `b-frontend` implementation. Unlike `b-frontend`, it writes
-  design guidance rather than UI code; unlike b-browser, it does not
-  collect final browser evidence. Routing signals: DESIGN.md, frontend
-  design standard, design guidelines, style guide, visual style, visual
-  design rules, design rules, design guidance from screenshot, design
-  guidance from mockup, document mockup design, document screenshot
-  design, design system docs.
+  Frontend design-standard authoring: create, refresh, extract, normalize,
+  or rewrite `docs/DESIGN.md` shared UI style guidance from user
+  descriptions, attached images or mockups, existing frontend files, or
+  current design docs. Unlike `b-frontend`, it writes design guidance
+  rather than UI code; unlike b-browser, it does not collect final browser
+  evidence. Routing signals: DESIGN.md, frontend design standard, design
+  guidelines, style guide, visual style, visual design rules, design
+  rules, design guidance from screenshot, design guidance from mockup,
+  document mockup design, document screenshot design, design system docs.
 argument-hint: "[description, image, or files]"
 metadata:
   phase: Decide

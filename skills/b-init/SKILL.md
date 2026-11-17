@@ -3,12 +3,11 @@ name: b-init
 description: >
   Initialize or refresh repo-local agent instruction docs: canonical
   AGENTS.md plus a minimal CLAUDE.md shim that routes readers to
-  AGENTS.md. Grounds the docs in repo evidence, preserves user-owned
-  content, and keeps the output slim. Also establishes a docs/ structure:
-  a docs/README.md index plus a README in each docs folder that define
-  where agent-authored docs go, how they are named, and minimal templates.
-  Routing signals: /init, init agent docs, initialize agent docs, create
-  AGENTS.md, create CLAUDE.md, refresh AGENTS.md, refresh agent docs.
+  AGENTS.md, grounded in repo evidence with user-owned content preserved.
+  Also sets up the docs/ structure: a docs/README.md index and a README in
+  each docs folder for agent-authored docs. Routing signals: /init, init
+  agent docs, initialize agent docs, create AGENTS.md, create CLAUDE.md,
+  refresh AGENTS.md, refresh agent docs.
 metadata:
   phase: Build
   execution_mode: main

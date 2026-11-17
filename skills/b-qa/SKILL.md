@@ -2,14 +2,12 @@
 name: b-qa
 description: >
   Post-review acceptance QA for a reviewed, fingerprinted candidate: maps
-  every acceptance criterion to the command run, its result, and the
-  evidence type, selects regression scope by impact, hands test work to
-  b-test, real-browser evidence to b-browser, and product failures to
-  b-debug, and ends with QA PASS, QA FAIL, or QA BLOCKED. A criterion
-  without evidence is a gap, never an implicit pass. Unlike b-review, it
-  checks acceptance rather than code quality; it never commits or pushes.
-  Routing signals: QA, QA gate, acceptance QA, acceptance check, verify
-  acceptance criteria, evidence matrix, regression scope.
+  every acceptance criterion to fresh evidence, hands test work to b-test,
+  real-browser evidence to b-browser, and product failures to b-debug, and
+  ends with QA PASS, QA FAIL, or QA BLOCKED. Unlike b-review, it checks
+  acceptance rather than code quality; it never commits or pushes. Routing
+  signals: QA, QA gate, acceptance QA, acceptance check, verify acceptance
+  criteria, evidence matrix, regression scope.
 argument-hint: "[acceptance criteria or candidate]"
 metadata:
   phase: Validate

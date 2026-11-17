@@ -1,14 +1,12 @@
 ---
 name: b-flow
 description: >
-  Run a change request as one run in the main session, keeping state,
-  artifacts, and evidence in .b-agentic/runs so any session can continue
-  it. A quick run, for a small and clear change, takes the request as its
-  approval and never commits. A full run clarifies, takes one user
-  approval, then implements, verifies, reviews, fixes in-scope blockers,
-  runs QA, and commits only under the consent recorded at approval. It
-  stops and asks on any bounded-round limit, scope change, or unanswered
-  question, and never pushes or opens a PR. The kernel routes implement-
+  Run a change request as one resumable run in the main session, with
+  state, artifacts, and evidence in .b-agentic/runs. A quick run, for a
+  small and clear change, takes the request as its approval and never
+  commits. A full run clarifies, takes one user approval, then implements,
+  reviews, runs QA, and commits only under the consent recorded at
+  approval. It never pushes or opens a PR. The kernel routes implement-
   phase changes here; /b-flow starts or resumes a run explicitly.
 argument-hint: "[goal | resume]"
 metadata:

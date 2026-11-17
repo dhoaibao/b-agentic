@@ -1,15 +1,12 @@
 ---
 name: b-implement
 description: >
-  Execute approved or scoped non-UI work safely after b-plan approval,
-  when a user gives a small direct request or an approved plan. Applies
-  the next small step, verifies it, and hands back to planning or research
-  instead of guessing when new ambiguity appears. Frontend/UI code—pages,
-  layouts, components, styling, responsive behavior, interactions, or
-  visual refreshes—belongs to b-frontend instead. Unlike b-plan,
-  b-implement changes code. Routing signals: implement, make the change,
-  apply the plan, code the fix, finish the implementation, build the
-  feature.
+  Execute approved or scoped non-UI work from an approved plan or a small
+  direct request, one verified step at a time, handing back to planning or
+  research when new ambiguity appears. Frontend/UI code belongs to
+  b-frontend. Unlike b-plan, b-implement changes code. Routing signals:
+  implement, make the change, apply the plan, code the fix, finish the
+  implementation, build the feature.
 argument-hint: "[approved plan or change]"
 metadata:
   phase: Build

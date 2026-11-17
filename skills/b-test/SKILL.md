@@ -1,14 +1,14 @@
 ---
 name: b-test
 description: >
-  Test-driven development, test debugging, and test coverage evaluation.
-  Use for writing tests, fixing failing tests, evaluating coverage, or
-  working TDD-style. Unlike b-debug, which traces runtime bugs, b-test
-  owns test-specific failures and simulated-DOM/component-test work: wrong
-  assertions, missing mocks, fixture or setup issues, and coverage gaps.
-  Real-browser, visual, browser-session, and e2e verification belongs to
-  b-browser. Routing signals: tests, coverage, failing test, snapshot,
-  mock, component test, jsdom, happy-dom, React Testing Library.
+  Test-driven development, writing or debugging tests, fixing failing
+  tests, and evaluating coverage. Unlike b-debug, which traces runtime
+  bugs, b-test owns test-specific failures and simulated-DOM/component-
+  test work: wrong assertions, missing mocks, fixture or setup issues, and
+  coverage gaps. Real-browser, visual, browser-session, and e2e
+  verification belongs to b-browser. Routing signals: tests, coverage,
+  failing test, snapshot, mock, component test, jsdom, happy-dom, React
+  Testing Library.
 argument-hint: "[test target or failure]"
 metadata:
   phase: Validate
@@ -39,7 +39,6 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 ## Tool guidance
 
 - `Bash` - run tests via `rtk` when supported (`rtk pytest`, `rtk vitest`, `rtk jest`, …) and inspect failure output.
-
 - `Read`/`Edit` - use native tools for routine and unsupported file work.
 - `codegraph` - per the kernel CodeGraph rule, ask for changed-symbol/file impact and affected tests in an indexed project; report an absent or stale index as a gap and never initialize one.
 - `context7` - versioned test-framework/API semantics only when local tests and contracts do not settle them.
@@ -51,9 +50,8 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 3. For failing tests, run the narrow target, read the test and exercised source, edit tests only after classifying the failure.
 4. For new tests, cover requested or changed behavior through the highest practical public interface first; add edge cases only when risk requires them.
 5. For explicitly requested TDD, use vertical tracer bullets: add one failing behavior test, make the smallest production change needed to pass it, verify, then continue to the next behavior. Outside explicit TDD, route frontend/UI production changes to **b-frontend** and other production changes to **b-implement**.
-6. Select affected tests before broad suites: ask an available CodeGraph index for changed-symbol/file impact and affected tests; without an index, or on a staleness notice, use local search, test discovery, and repository scripts and disclose the limitation. Do not initialize an index. Run the narrow affected set first, then expand only when the change or risk requires it.
+6. Select affected tests before broad suites: ask an available CodeGraph index for changed-symbol/file impact and affected tests; without an index, or on a staleness notice, use local search, test discovery, and repository scripts and disclose the limitation. Do not initialize an index. Run the narrow affected set first, with diagnostics when useful, then expand only when the change or risk requires it, and verify each new or changed test proves the intended behavior.
 7. Report the selected tests, whether CodeGraph or fallback discovery supplied them, and any remaining coverage gap. A partial or affected-only run must never be described as full-suite coverage.
-8. Run diagnostics when useful, then the narrowest relevant test, and verify the test proves the intended behavior.
 
 ## Output format
 

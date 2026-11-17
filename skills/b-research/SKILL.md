@@ -3,13 +3,12 @@ name: b-research
 description: >
   External knowledge, from quick lookup to multi-source synthesis, for
   library/framework docs, API facts, config keys, method signatures,
-  comparisons, deep dives, or recency-sensitive topics. Auto-detects
-  depth, answers with sources, and hands off to implementation when the
-  next action is obvious. Unlike b-debug or b-plan, it fetches docs and
-  web information rather than tracing code or choosing implementation.
-  Routing signals: library docs, API docs, look up, compare APIs,
-  versioned docs, external documentation. Delegated: runs only in the
-  `b-researcher` subagent; the main session never executes it itself.
+  comparisons, deep dives, or recency-sensitive topics, answered with
+  sources. Unlike b-debug or b-plan, it fetches docs and web information
+  rather than tracing code or choosing implementation. Routing signals:
+  library docs, API docs, look up, compare APIs, versioned docs, external
+  documentation. Delegated: runs only in the `b-researcher` subagent; the
+  main session never executes it itself.
 argument-hint: "[question or topic]"
 metadata:
   phase: Decide

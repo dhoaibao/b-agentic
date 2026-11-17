@@ -90,7 +90,7 @@
         ]
       },
       "prompt": {
-        "description": "External knowledge, from quick lookup to multi-source synthesis, for library/framework docs, API facts, config keys, method signatures, comparisons, deep dives, or recency-sensitive topics. Auto-detects depth, answers with sources, and hands off to implementation when the next action is obvious. Unlike b-debug or b-plan, it fetches docs and web information rather than tracing code or choosing implementation."
+        "description": "External knowledge, from quick lookup to multi-source synthesis, for library/framework docs, API facts, config keys, method signatures, comparisons, deep dives, or recency-sensitive topics, answered with sources. Unlike b-debug or b-plan, it fetches docs and web information rather than tracing code or choosing implementation."
       }
     },
     {
@@ -118,7 +118,7 @@
         ]
       },
       "prompt": {
-        "description": "Frontend design-standard authoring for creating or refreshing `docs/DESIGN.md` from user descriptions, attached images or mockups, existing frontend files, or current design docs. Use when the agent needs to extract, normalize, or rewrite shared UI style guidance for future `b-frontend` implementation. Unlike `b-frontend`, it writes design guidance rather than UI code; unlike b-browser, it does not collect final browser evidence."
+        "description": "Frontend design-standard authoring: create, refresh, extract, normalize, or rewrite `docs/DESIGN.md` shared UI style guidance from user descriptions, attached images or mockups, existing frontend files, or current design docs. Unlike `b-frontend`, it writes design guidance rather than UI code; unlike b-browser, it does not collect final browser evidence."
       }
     },
     {
@@ -218,7 +218,7 @@
         ]
       },
       "prompt": {
-        "description": "Execute approved or scoped non-UI work safely after b-plan approval, when a user gives a small direct request or an approved plan. Applies the next small step, verifies it, and hands back to planning or research instead of guessing when new ambiguity appears. Frontend/UI code\u2014pages, layouts, components, styling, responsive behavior, interactions, or visual refreshes\u2014belongs to b-frontend instead. Unlike b-plan, b-implement changes code."
+        "description": "Execute approved or scoped non-UI work from an approved plan or a small direct request, one verified step at a time, handing back to planning or research when new ambiguity appears. Frontend/UI code belongs to b-frontend. Unlike b-plan, b-implement changes code."
       }
     },
     {
@@ -261,7 +261,7 @@
         ]
       },
       "prompt": {
-        "description": "Initialize or refresh repo-local agent instruction docs: canonical AGENTS.md plus a minimal CLAUDE.md shim that routes readers to AGENTS.md. Grounds the docs in repo evidence, preserves user-owned content, and keeps the output slim. Also establishes a docs/ structure: a docs/README.md index plus a README in each docs folder that define where agent-authored docs go, how they are named, and minimal templates."
+        "description": "Initialize or refresh repo-local agent instruction docs: canonical AGENTS.md plus a minimal CLAUDE.md shim that routes readers to AGENTS.md, grounded in repo evidence with user-owned content preserved. Also sets up the docs/ structure: a docs/README.md index and a README in each docs folder for agent-authored docs."
       }
     },
     {
@@ -312,7 +312,7 @@
         ]
       },
       "prompt": {
-        "description": "Systematic hypothesis-driven diagnosis for runtime bugs, errors, broken behavior, slow paths, memory issues, and stack traces. Confirms root cause and produces a handoff with the exact runnable repro command, observable to flip, and confirmed causal mechanism, without editing product code. When the issue is not yet a confirmed product bug, it hands off cleanly instead of guessing. Unlike b-test, b-debug owns runtime behavior failures, not test-mechanic issues such as wrong assertions, mocks, or fixtures."
+        "description": "Hypothesis-driven diagnosis for runtime bugs, errors, broken behavior, slow paths, memory issues, and stack traces. Confirms the root cause and hands off an evidence-backed fix without editing product code. Unlike b-test, b-debug owns runtime behavior failures, not test-mechanic issues such as wrong assertions, mocks, or fixtures."
       }
     },
     {
@@ -337,7 +337,7 @@
         ]
       },
       "prompt": {
-        "description": "Test-driven development, test debugging, and test coverage evaluation. Use for writing tests, fixing failing tests, evaluating coverage, or working TDD-style. Unlike b-debug, which traces runtime bugs, b-test owns test-specific failures and simulated-DOM/component-test work: wrong assertions, missing mocks, fixture or setup issues, and coverage gaps. Real-browser, visual, browser-session, and e2e verification belongs to b-browser."
+        "description": "Test-driven development, writing or debugging tests, fixing failing tests, and evaluating coverage. Unlike b-debug, which traces runtime bugs, b-test owns test-specific failures and simulated-DOM/component-test work: wrong assertions, missing mocks, fixture or setup issues, and coverage gaps. Real-browser, visual, browser-session, and e2e verification belongs to b-browser."
       }
     },
     {
@@ -465,7 +465,7 @@
         ]
       },
       "prompt": {
-        "description": "Post-review acceptance QA for a reviewed, fingerprinted candidate: maps every acceptance criterion to the command run, its result, and the evidence type, selects regression scope by impact, hands test work to b-test, real-browser evidence to b-browser, and product failures to b-debug, and ends with QA PASS, QA FAIL, or QA BLOCKED. A criterion without evidence is a gap, never an implicit pass. Unlike b-review, it checks acceptance rather than code quality; it never commits or pushes."
+        "description": "Post-review acceptance QA for a reviewed, fingerprinted candidate: maps every acceptance criterion to fresh evidence, hands test work to b-test, real-browser evidence to b-browser, and product failures to b-debug, and ends with QA PASS, QA FAIL, or QA BLOCKED. Unlike b-review, it checks acceptance rather than code quality; it never commits or pushes."
       }
     },
     {
@@ -480,7 +480,7 @@
         "entry": true
       },
       "prompt": {
-        "description": "Run a change request as one run in the main session, keeping state, artifacts, and evidence in .b-agentic/runs so any session can continue it. A quick run, for a small and clear change, takes the request as its approval and never commits. A full run clarifies, takes one user approval, then implements, verifies, reviews, fixes in-scope blockers, runs QA, and commits only under the consent recorded at approval. It stops and asks on any bounded-round limit, scope change, or unanswered question, and never pushes or opens a PR. The kernel routes implement-phase changes here; /b-flow starts or resumes a run explicitly."
+        "description": "Run a change request as one resumable run in the main session, with state, artifacts, and evidence in .b-agentic/runs. A quick run, for a small and clear change, takes the request as its approval and never commits. A full run clarifies, takes one user approval, then implements, reviews, runs QA, and commits only under the consent recorded at approval. It never pushes or opens a PR. The kernel routes implement-phase changes here; /b-flow starts or resumes a run explicitly."
       }
     },
     {
