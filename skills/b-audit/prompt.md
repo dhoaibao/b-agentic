@@ -36,7 +36,7 @@ Before any other audit step or repository read, require the main session to supp
 ## Tool guidance
 
 - Read-only shell commands (for example `git status`, `git diff`, `rg`) inspect repository evidence; run nothing that mutates. Use the main session's supplied status and documented-check output, and state an explicit evidence gap when a required check cannot be run read-only.
-- Native `read` inspects the repository's own instruction and decision docs and the sources they cite; prefer sources over generated assets.
+- Native `Read` inspects the repository's own instruction and decision docs and the sources they cite; prefer sources over generated assets.
 - Never run registry-contacting commands (`npm audit`, `pip-audit`, `osv-scanner`, `npm outdated`, or similar): they send manifest data off the machine. Ask the main session to obtain the user's approval and supply the output; report dependency advisories as unverified without it.
 - `context7` or bounded primary upstream documentation and release metadata verify versioned currentness using public package names only; never upload repository content, credentials, or private URLs.
 - Read nothing outside the project and no likely-secret file (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit approval.

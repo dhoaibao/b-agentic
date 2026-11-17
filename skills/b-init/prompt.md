@@ -17,8 +17,8 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
 
 ## Tool guidance
 
-- `bash` - inspect the repository layout, status, and existence of referenced paths or commands.
-- `read`/`edit`/`write` - inspect source guidance and make precise documentation changes while preserving user-owned text.
+- `Bash` - inspect the repository layout, status, and existence of referenced paths or commands.
+- `Read`/`Edit`/`Write` - inspect source guidance and make precise documentation changes while preserving user-owned text.
 
 ## Steps
 
@@ -37,7 +37,7 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
    - A legacy four-section managed block is not proof that every line was generated. Do not silently discard unknown content. Surface it and request a material migration choice before replacing the block.
    - `docs/README.md` and each docs folder README follow the same marker rule: only the text between its `<!-- b-init-managed:start -->` and `<!-- b-init-managed:end -->` markers is b-init-managed, and text outside them is developer-owned. An existing README without markers is user-owned; reconcile it with the same preserve, explicit-replace, or stop choice. An existing docs folder only needs its README added or refreshed.
    - Never move, rename, or delete existing docs to match the convention. Report non-conforming docs as a focused gap, or offer to move them as a separate explicit choice.
-5. Resolve material choices before editing. Use the installed questionnaire for grouped options; if it is unavailable, ask one focused plain-text question directly to the user. Offer a preserve option, a clean-baseline migration option only when the user explicitly approves it, and a stop option. A clean-baseline choice may remove old generated boilerplate, but any specifically identified durable developer rule must be moved to `## Project Rules` verbatim rather than lost. Without an explicit choice, leave the existing content unchanged.
+5. Resolve material choices before editing. Use `AskUserQuestion` for grouped options; if it is unavailable, ask one focused plain-text question directly to the user. Offer a preserve option, a clean-baseline migration option only when the user explicitly approves it, and a stop option. A clean-baseline choice may remove old generated boilerplate, but any specifically identified durable developer rule must be moved to `## Project Rules` verbatim rather than lost. Without an explicit choice, leave the existing content unchanged.
 6. Build the managed block as a slim, strong, usable operating guide. It must contain exactly these ordered top-level sections and no other level-two section:
    - `## Repository Purpose` - one short paragraph stating what the repository ships or maintains, grounded in repository evidence.
    - `## Project Operating Guide` - use descriptive nested headings only as evidence warrants. Cover only (a) architecture and change map: where relevant changes belong; (b) canonical sources, generated outputs, and required change flows: what owns truth and which companion or regeneration steps are required; (c) project-specific constraints and boundaries that could cause an incorrect change; and (d) one short nested heading (for example `### Documentation`) that points to `docs/README.md` for creating and updating docs; do not copy its folder roles, naming, or templates into `AGENTS.md`. (Folder-level naming and templates live in each folder README.)
@@ -53,7 +53,7 @@ Initialize or refresh repo-local agent instruction docs. `AGENTS.md` is canonica
 8. Include only facts that answer where to change, source of truth, required companion or regeneration changes, a non-obvious project constraint, or how to verify. Prefer links to deeper docs over copied catalogs. Omit non-actionable catalogs or link to deeper docs instead of copying them into `AGENTS.md`. Ground non-obvious claims in paths or links to evidence, and distinguish configuration-backed conventions from contextual boundaries or gaps.
 9. Apply the output quality standard: slim means no duplicated facts or exhaustive catalog; strong means explicit ownership, evidence, boundaries, and verification; usable means an agent can find the next edit and required flow quickly. Preserve the project's "slim, strong, usable" philosophy as a concrete b-init output quality standard.
 10. Keep generic kernel workflow, tool, and secret policy out of the project supplement. The always-loaded kernel owns that guidance; do not restate, weaken, or replace it. If evidence is insufficient, write a bounded gap rather than a generic best-practice or security catalog.
-11. Verify that referenced paths and commands exist. Use `bash` for repository-local checks, regenerate any generated skill output from its canonical source, confirm the docs READMEs exist with resolving links and that no `.gitkeep` or other placeholder files were added, and inspect the diff for noise, discarded developer rules, duplicated verification, or invented detail.
+11. Verify that referenced paths and commands exist. Use `Bash` for repository-local checks, regenerate any generated skill output from its canonical source, confirm the docs READMEs exist with resolving links and that no `.gitkeep` or other placeholder files were added, and inspect the diff for noise, discarded developer rules, duplicated verification, or invented detail.
 
 ## Output format
 

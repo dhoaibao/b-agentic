@@ -51,7 +51,7 @@ User arguments for the bounded task: $ARGUMENTS
 
 ## Tool guidance
 
-- `read` - inspect repository context and the main session's supplied reproduction evidence only when it materially affects the diagnosis.
+- `Read` - inspect repository context and the main session's supplied reproduction evidence only when it materially affects the diagnosis.
 - Read-only shell commands - inspect logs, diffs, and diagnostics; do not run mutating commands or state-changing probes.
 - Native MCP tools - use only named read-only tools permitted to this subagent; report an unavailable or denied evidence gap to the main session.
 - `codegraph` - per the kernel CodeGraph rule, trace entry-to-failure call paths in an indexed project; report an absent-index gap to the main session.
@@ -62,7 +62,7 @@ User arguments for the bounded task: $ARGUMENTS
 ## Steps
 
 1. Establish a feedback loop from the main session's supplied failing test, CLI reproduction, HTTP/browser trace, replay, diagnostic output, or baseline measurement. The read-only child may run read-only diagnostic commands but does not create mutating probes.
-2. Capture exact symptom, expected versus actual behavior, repro rate, determinism, and environment. Use read for repository context only when it materially affects the diagnosis.
+2. Capture exact symptom, expected versus actual behavior, repro rate, determinism, and environment. Use `Read` for repository context only when it materially affects the diagnosis.
 3. Rank suspects from stack traces, diagnostics, recent changes, config, data shape, call paths, and the feedback loop.
 4. Trace the call path from entry to failure with CodeGraph when an index is available; otherwise report the gap to the main session. Use Context7 only for versioned dependency suspects, and `mcp__firecrawl__firecrawl_developer_search` only for that suspect's upstream issue history.
 5. Confirm the root cause before handing it off. If the supplied evidence cannot prove it, report the exact additional reproduction or diagnostic artifact the main session must collect rather than creating a probe.

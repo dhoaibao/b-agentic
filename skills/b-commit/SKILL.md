@@ -31,7 +31,7 @@ Create cohesive commits from an explicit user request, or draft one message for 
 
 ## Tool guidance
 
-- Native `read`/`edit` for applicable repository commit rules and required preparation; `bash` for repository-mandated commit-time checks, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
+- Native `Read`/`Edit` for applicable repository commit rules and required preparation; `Bash` for repository-mandated commit-time checks, `rtk git status --short`, metadata-only Git path lists, targeted safe-path diffs, exact staging, and commit creation.
 
 ## Commit boundary
 

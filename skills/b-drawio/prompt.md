@@ -20,11 +20,11 @@ Draw a formal or editable technical diagram in draw.io from explicit user or rep
 
 ## Tool guidance
 
-- Use `read` and local discovery for the smallest relevant repository evidence. Select CodeGraph only when a concrete repository-wide architecture, dependency, or call-flow question is central.
+- Use `Read` and local discovery for the smallest relevant repository evidence. Select CodeGraph only when a concrete repository-wide architecture, dependency, or call-flow question is central.
 - `mcp__drawio__search_shapes` is a direct read-only tool (`query`, optional `limit`): use it to find exact shape or icon style names. The managed entry disables the live icon service, so results come from the local stencil index; the first use downloads that index without sending diagram content.
 - The `open_drawio_*` tools ask for approval before they run; for example call `mcp__drawio__open_drawio_xml` with `content` set to the `<mxGraphModel XML>`. Use `mcp__drawio__open_drawio_mermaid` for Mermaid sequence, ER, and class diagrams and `mcp__drawio__open_drawio_csv` only for tabular data. Optional `lightbox` and `dark` flags are not needed by default; `postLayout: "elk"` is for flowcharts only.
 - Each call attempts to open the draw.io web editor in the default browser. The launch is asynchronous and its failures are not reported, so the result never proves a window opened. The diagram travels in the URL fragment, which browsers do not send to the server. The tool result always includes the editor URL.
-- Write `.drawio` source with native `write` or `edit` to a user-approved path. Read an existing uncompressed `.drawio` file with native `read`.
+- Write `.drawio` source with native `Write` or `Edit` to a user-approved path. Read an existing uncompressed `.drawio` file with native `Read`.
 - Never call `mcp__drawio__set_page`. `mcp__drawio__list_pages` and `mcp__drawio__get_page` are `private-read` and always ask (they read any `.drawio` or `.xml` path); use them only when a `.drawio` page is compressed and cannot be read natively, and report the approval need to the user.
 - Do not fetch URLs or inspect live systems from diagram evidence references.
 

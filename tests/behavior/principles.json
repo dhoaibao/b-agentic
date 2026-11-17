@@ -339,15 +339,15 @@
       "id": "edit-anchor-retry",
       "principle": "surgical-changes",
       "skill": "b-implement",
-      "observed_failure": "Edit calls blind-retried the same non-matching oldText or speculatively widened context after a mismatch, burning turns and corrupting unrelated regions.",
-      "intended_behavior": "On oldText mismatch, re-read the target region and re-anchor the edit from current content; never blind-retry the same anchor or widen context speculatively.",
-      "prompt": "Use b-implement. An edit call reports that its oldText does not match the current file content. State exactly what you do before retrying the edit and which retry strategies you reject; do not edit files.",
+      "observed_failure": "Edit calls blind-retried the same non-matching old_string or speculatively widened context after a mismatch, burning turns and corrupting unrelated regions.",
+      "intended_behavior": "On old_string mismatch, re-read the target region and re-anchor the edit from current content; never blind-retry the same anchor or widen context speculatively.",
+      "prompt": "Use b-implement. An edit call reports that its old_string does not match the current file content. State exactly what you do before retrying the edit and which retry strategies you reject; do not edit files.",
       "must": [
         "Re-read the target region before re-editing",
         "Re-anchor the edit from current content"
       ],
       "avoid": [
-        "Repeat the identical failed oldText",
+        "Repeat the identical failed old_string",
         "Widen context without re-reading"
       ]
     },

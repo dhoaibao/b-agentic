@@ -19,9 +19,9 @@ Own code-level and simulated-DOM tests: add coverage, fix test-only failures, an
 
 ## Tool guidance
 
-- `bash` - run tests via `rtk` when supported (`rtk pytest`, `rtk vitest`, `rtk jest`, …) and inspect failure output.
+- `Bash` - run tests via `rtk` when supported (`rtk pytest`, `rtk vitest`, `rtk jest`, …) and inspect failure output.
 
-- `read`/`edit` - use native tools for routine and unsupported file work.
+- `Read`/`Edit` - use native tools for routine and unsupported file work.
 - `codegraph` - per the kernel CodeGraph rule, ask for changed-symbol/file impact and affected tests in an indexed project; report an absent or stale index as a gap and never initialize one.
 - `context7` - versioned test-framework/API semantics only when local tests and contracts do not settle them.
 
@@ -43,7 +43,7 @@ Test scope, changes, verification, and remaining gaps.
 ## Rules
 
 - Never change production code only because a test is red.
-- When an edit anchor (oldText) fails to match, re-read the target region and re-anchor the edit from current content; never blind-retry the same anchor or widen context speculatively.
+- When an edit anchor (`old_string`) fails to match, re-read the target region and re-anchor the edit from current content; never blind-retry the same anchor or widen context speculatively.
 - Keep production-code changes in **b-implement** unless they are frontend/UI changes, which belong to **b-frontend**, or the user explicitly requested a tightly scoped TDD red-green loop.
 - Never update assertions, snapshots, or goldens without confirming intended behavior. If the intended contract is materially unresolved, use `AskUserQuestion` with 2–4 concrete intent options (for example, keep the current expectation, adopt the changed behavior, or defer the test change); if unavailable or noninteractive, ask one focused plain-text question. Do not use the question tool for routine test-result updates or no-choice confirmations.
 - Avoid implementation-coupled tests and mocks derived from buggy implementation instead of the real interface.
