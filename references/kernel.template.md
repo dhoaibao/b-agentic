@@ -38,7 +38,7 @@
   - `b-review` first runs Codex (openai/codex-plugin-cc) through `b-codex-review` from the main session; `b-reviewer` runs when that wrapper exits 4 (Codex unavailable) or by the user's choice after a refused or void run.
 - All other skills run in the main session.
 <!-- generated:delegation:end -->
-- Material user-facing decisions or blockers use `AskUserQuestion` with 1–4 concrete choices with trade-offs (plain text when unavailable), not routine activity or no-choice confirmations.
+- Material user-facing decisions or blockers use `AskUserQuestion` with 1–4 questions, each with 2–4 concrete options and trade-offs (one focused plain-text question when unavailable or noninteractive), not routine activity or no-choice confirmations.
 
 ## Peer agent messaging
 
