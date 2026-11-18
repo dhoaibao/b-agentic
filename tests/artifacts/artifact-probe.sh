@@ -792,4 +792,187 @@ ok "$legacy_repo" write spec < <(example spec)
 grep -Fq 'Codex' "$legacy_dir/spec.md" && fail "a rewritten spec must drop the retired Codex consent"
 ok "$legacy_repo" validate
 
+# --- runs and prune: only finished, old, non-active runs of plain files are ever removed ------
+old_stamp=2026-01-01T00:00:00.000Z
+new_stamp=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+mkrun() { # REPO NAME PHASE UPDATED [RUN_ID]: a run folder with the files a real run holds
+  local dir=$1/.b-agentic/runs/$2
+  mkdir -p "$dir"
+  jq -n --arg id "${5:-$2}" --arg phase "$3" --arg at "$4" '{run_id: $id, phase: $phase, updated_at: $at}' >"$dir/state.json"
+  printf 'x\n' >"$dir/lock"
+  printf 'spec\n' >"$dir/spec.md"
+}
+listing() { (cd "$1/.b-agentic/runs" && find . -mindepth 1 | LC_ALL=C sort | tr '\n' ' '); }
+prunerepo="$work/prune"
+make_repo "$prunerepo"
+mkdir -p "$prunerepo/.b-agentic/runs"
+mkrun "$prunerepo" 20260101-done-old "done" "$old_stamp"
+mkrun "$prunerepo" 20260102-done-old2 "done" "$old_stamp"
+mkrun "$prunerepo" 20260103-done-new "done" "$new_stamp"
+mkrun "$prunerepo" 20260104-clarify-old clarify "$old_stamp"
+mkrun "$prunerepo" 20260105-blocked-old blocked "$old_stamp"
+mkrun "$prunerepo" 20260106-active-done-old "done" "$old_stamp"
+printf '20260106-active-done-old\n' >"$prunerepo/.b-agentic/active"
+mkrun "$prunerepo" 20260107-bad-state "done" "$old_stamp"
+printf 'not json\n' >"$prunerepo/.b-agentic/runs/20260107-bad-state/state.json"
+mkrun "$prunerepo" 20260108-mismatch "done" "$old_stamp" 20260199-other
+mkrun "$prunerepo" 20260109-subdir "done" "$old_stamp"
+mkdir "$prunerepo/.b-agentic/runs/20260109-subdir/nested"
+mkrun "$prunerepo" 20260110-mutexfile "done" "$old_stamp"
+printf 'm\n' >"$prunerepo/.b-agentic/runs/20260110-mutexfile/mutex"
+mkrun "$prunerepo" 20260113-no-date "done" ""
+mkdir -p "$work/outside-run"
+jq -n --arg at "$old_stamp" '{run_id: "20260111-linkrun", phase: "done", updated_at: $at}' >"$work/outside-run/state.json"
+ln -s "$work/outside-run" "$prunerepo/.b-agentic/runs/20260111-linkrun"
+printf 'f\n' >"$prunerepo/.b-agentic/runs/20260112-afile"
+mkdir "$prunerepo/.b-agentic/runs/not-a-run"
+before=$(listing "$prunerepo")
+want='["20260101-done-old","20260102-done-old2"]'
+
+# AC-1, AC-5: both commands only report by default, and prune lists exactly the eligible runs.
+ok "$prunerepo" prune
+[ "$(jq -c .eligible <<<"$out")" = "$want" ] || fail "prune must list the finished old runs only: $out"
+[ "$(jq -r .applied <<<"$out")" = false ] || fail "prune without --apply must report applied false"
+[ "$(listing "$prunerepo")" = "$before" ] || fail "prune without --apply must delete nothing"
+ok "$prunerepo" runs
+[ "$(jq -c .eligible <<<"$out")" = "$want" ] || fail "runs must list the same eligible runs: $out"
+jq -e '.runs == 13 and .bytes > 0 and .over_threshold == false and .kept.active == 1 and .kept.unfinished == 2 and .kept.recent == 1
+  and .kept.unreadable == 3 and .kept.unexpected == 3 and .kept.symlink == 1 and .kept.ignored == 1' <<<"$out" >/dev/null \
+  || fail "runs must count every kept reason: $out"
+[ "$(jq 'has("removed")' <<<"$out")" = false ] || fail "runs must have no deletion result"
+[ "$(listing "$prunerepo")" = "$before" ] || fail "runs must delete nothing"
+invalid "$prunerepo" runs --apply
+invalid "$prunerepo" prune --days 0
+invalid "$prunerepo" prune --days x
+invalid "$prunerepo" prune --days 3651
+invalid "$prunerepo" prune extra
+# An option these commands do not use is refused, never ignored: --run must not widen a prune to every run.
+for unused in "--run 20260101-done-old" "--out /tmp/x" "--step S-1" "--base x" "--tree x" "--json"; do
+  # shellcheck disable=SC2086 # The option and its value are meant to split.
+  invalid "$prunerepo" prune --apply $unused
+  # shellcheck disable=SC2086
+  invalid "$prunerepo" runs $unused
+done
+[ "$(listing "$prunerepo")" = "$before" ] || fail "a refused option must delete nothing"
+ok "$prunerepo" prune --days 3650
+[ "$(jq -c .eligible <<<"$out")" = '[]' ] || fail "no run is older than the longest --days: $out"
+
+# AC-3: a running init (mutex) blocks --apply.
+printf 'busy\n' >"$prunerepo/.b-agentic/mutex"
+refused "$prunerepo" prune --apply
+[ "$(listing "$prunerepo")" = "$before" ] || fail "a refused --apply must delete nothing"
+rm -f "$prunerepo/.b-agentic/mutex"
+
+# AC-2, AC-3: --apply removes exactly the eligible runs and never follows the link.
+ok "$prunerepo" prune --apply
+[ "$(jq -c .removed <<<"$out")" = "$want" ] || fail "prune --apply must remove exactly the eligible runs: $out"
+[ "$(jq -r .ok <<<"$out")" = true ] || fail "prune --apply must succeed: $out"
+[ ! -e "$prunerepo/.b-agentic/runs/20260101-done-old" ] || fail "an eligible run must be gone"
+[ ! -e "$prunerepo/.b-agentic/runs/20260102-done-old2" ] || fail "an eligible run must be gone"
+for kept in 20260103-done-new 20260104-clarify-old 20260105-blocked-old 20260106-active-done-old 20260107-bad-state 20260108-mismatch \
+  20260109-subdir 20260110-mutexfile 20260113-no-date 20260111-linkrun 20260112-afile not-a-run; do
+  [ -e "$prunerepo/.b-agentic/runs/$kept" ] || [ -L "$prunerepo/.b-agentic/runs/$kept" ] || fail "prune must keep $kept"
+done
+[ -f "$work/outside-run/state.json" ] || fail "prune must not follow a link out of the runs folder"
+[ -d "$prunerepo/.b-agentic/runs/20260109-subdir/nested" ] || fail "prune must not touch a run holding a folder"
+ok "$prunerepo" prune --apply
+[ "$(jq -c .removed <<<"$out")" = '[]' ] || fail "a second prune --apply has nothing left to remove: $out"
+
+# AC-3: a link in place of .b-agentic or of the runs folder is refused, and its target stays intact.
+for linked in runs base; do
+  linkrepo="$work/link-$linked"
+  target="$work/target-$linked"
+  make_repo "$linkrepo"
+  mkrun "$target" 20260101-done-old "done" "$old_stamp"
+  if [ "$linked" = runs ]; then
+    mkdir -p "$linkrepo/.b-agentic"
+    ln -s "$target/.b-agentic/runs" "$linkrepo/.b-agentic/runs"
+  else
+    ln -s "$target/.b-agentic" "$linkrepo/.b-agentic"
+  fi
+  refused "$linkrepo" prune --apply
+  refused "$linkrepo" runs
+  [ -f "$target/.b-agentic/runs/20260101-done-old/state.json" ] || fail "a linked $linked must not be followed"
+done
+
+# AC-3: a link swapped in for .b-agentic after the scan began must not move a removal outside the worktree.
+racerepo="$work/race"
+racetarget="$work/race-target"
+make_repo "$racerepo"
+mkrun "$racerepo" 20260101-done-old "done" "$old_stamp"
+mkrun "$racetarget" 20260101-done-old "done" "$old_stamp"
+python3 -I -B - "$root/claude/bin" "$racerepo" "$racetarget" <<'PY' || fail "the .b-agentic swap must not redirect prune"
+import os
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import b_run
+
+repo, target = sys.argv[2], sys.argv[3]
+base = os.path.join(repo, ".b-agentic")
+real = b_run._read_active
+
+
+def swap(base_fd):
+    # Runs after .b-agentic was opened and before runs is: the point the old path-based open could be redirected.
+    os.rename(base, base + ".orig")
+    os.symlink(os.path.join(target, ".b-agentic"), base)
+    return real(base_fd)
+
+
+b_run._read_active = swap
+os.chdir(repo)
+result = b_run.cmd_prune({"apply": True})
+assert result["removed"] == ["20260101-done-old"], result
+PY
+[ -f "$racetarget/.b-agentic/runs/20260101-done-old/state.json" ] || fail "prune followed a swapped link and deleted outside the worktree"
+[ ! -e "$racerepo/.b-agentic.orig/runs/20260101-done-old" ] || fail "prune must remove from the folder it opened"
+
+# AC-2: a folder swapped in for an inspected run is never emptied: removal follows the inspected folder.
+swaprepo="$work/swap"
+make_repo "$swaprepo"
+mkrun "$swaprepo" 20260101-done-old "done" "$old_stamp"
+python3 -I -B - "$root/claude/bin" "$swaprepo" <<'PY' || fail "a replaced run folder must be kept"
+import os
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import b_run
+
+repo = sys.argv[2]
+runs = os.path.join(repo, ".b-agentic", "runs")
+real = b_run._inspect_run
+
+
+def swap(runs_fd, name, active, cutoff):
+    category, size, fd = real(runs_fd, name, active, cutoff)
+    # Runs after the inspection and before the removal: another folder takes the name.
+    os.rename(os.path.join(runs, name), os.path.join(runs, name + "-moved"))
+    os.mkdir(os.path.join(runs, name))
+    with open(os.path.join(runs, name, "precious.txt"), "w") as handle:
+        handle.write("keep\n")
+    return category, size, fd
+
+
+b_run._inspect_run = swap
+os.chdir(repo)
+result = b_run.cmd_prune({"apply": True})
+assert result["ok"] is False and result["removed"] == [] and len(result["problems"]) == 1, result
+PY
+[ -f "$swaprepo/.b-agentic/runs/20260101-done-old/precious.txt" ] || fail "prune emptied a folder it had not inspected"
+
+# AC-5: no runs folder is an ok report of zero; the hint threshold is more than 40 runs.
+emptyrepo="$work/empty-runs"
+make_repo "$emptyrepo"
+ok "$emptyrepo" runs
+jq -e '.runs == 0 and .bytes == 0 and .over_threshold == false' <<<"$out" >/dev/null || fail "no runs folder must report zero: $out"
+manyrepo="$work/many-runs"
+make_repo "$manyrepo"
+for i in $(seq 1 40); do mkrun "$manyrepo" "20261101-run-$i" "done" "$new_stamp"; done
+ok "$manyrepo" runs
+jq -e '.runs == 40 and .over_threshold == false' <<<"$out" >/dev/null || fail "40 runs must not be over the threshold: $out"
+mkrun "$manyrepo" 20261101-run-41 "done" "$new_stamp"
+ok "$manyrepo" runs
+jq -e '.runs == 41 and .over_threshold == true' <<<"$out" >/dev/null || fail "41 runs must be over the threshold: $out"
+
 echo "artifact probe passed"

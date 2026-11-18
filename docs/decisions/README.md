@@ -25,7 +25,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-020](ADR-020-claude-code-only-again.md) for Claude Code only again, superseding ADR-019, and
 [ADR-021](ADR-021-codex-gate-without-repo-approval.md) for the Codex review gate without a per-repository approval, superseding parts of ADR-007, and
 [ADR-022](ADR-022-discussion-first-entry.md) for the discussion-first entry gate and the split of oversized requests, refining ADR-012, and
-[ADR-023](ADR-023-per-agent-mcp-tool-scope.md) for per-agent MCP tool allowlists, refining ADR-001 and ADR-015.
+[ADR-023](ADR-023-per-agent-mcp-tool-scope.md) for per-agent MCP tool allowlists, refining ADR-001 and ADR-015, and
+[ADR-024](ADR-024-prune-old-runs.md) for cleaning up old run folders on request, refining ADR-010 and ADR-012.
 
 ## Naming
 

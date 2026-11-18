@@ -9,6 +9,7 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readSync,
   renameSync,
   rmSync,
@@ -23,6 +24,7 @@ import {
   CONTROL,
   DIRTY_DIGEST,
   FINGERPRINT,
+  HINT_RUNS,
   HISTORY_DETAIL,
   HISTORY_OPS,
   invalid,
@@ -500,6 +502,20 @@ export function requireLock(dir, args) {
     throw refuse(`run is locked by another session (${held.owner})`);
   }
   return owner;
+}
+
+// A hint for init when the runs folder holds more than HINT_RUNS run folders; "" otherwise.
+// It only counts names, so it stays cheap and never reads a run.
+export function runsHint(root) {
+  let names;
+  try {
+    names = readdirSync(layout(root).runs);
+  } catch {
+    return "";
+  }
+  const count = names.filter((name) => RUN_ID.test(name)).length;
+  if (count <= HINT_RUNS) return "";
+  return `${count} run folders in .b-agentic/runs; list the old finished ones with: python3 -I -B ~/.claude/b-agentic/bin/b_run.py prune`;
 }
 
 // The run `active` names when it is not finished; an unreadable one counts.

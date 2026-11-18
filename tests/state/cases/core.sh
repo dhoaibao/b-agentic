@@ -158,3 +158,18 @@ mkdir -p "$work/elsewhere/runs"
 ln -s "$work/elsewhere" "$repo5/.b-agentic"
 refused "$repo5" s1 init linked
 
+
+# --- init hint: more than 40 run folders suggest `b_run.py prune`, count only, nothing is deleted ---
+hintrepo="$work/hint-few"
+make_repo "$hintrepo"
+ok "$hintrepo" s1 init seed
+for i in $(seq 1 38); do mkdir "$hintrepo/.b-agentic/runs/20260101-old-$i"; done
+ok "$hintrepo" s1 init second --replace   # 39 earlier folders and the new run: 40
+[ "$(jq 'has("hint")' <<<"$out")" = false ] || fail "40 run folders must not carry a hint: $out"
+hintrepo="$work/hint-many"
+make_repo "$hintrepo"
+ok "$hintrepo" s1 init seed
+for i in $(seq 1 39); do mkdir "$hintrepo/.b-agentic/runs/20260101-old-$i"; done
+ok "$hintrepo" s1 init second --replace   # 40 earlier folders and the new run: 41
+grep -Fq 'b_run.py prune' <<<"$(jq -r '.hint // ""' <<<"$out")" || fail "41 run folders must carry a prune hint: $out"
+[ "$(find "$hintrepo/.b-agentic/runs" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 41 ] || fail "init must delete no run folder"

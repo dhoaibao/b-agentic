@@ -54,6 +54,7 @@ import {
   isPlainDir,
   layout,
   readLock,
+  runsHint,
   saveState,
   takeLock,
   writeAtomic,
@@ -88,7 +89,10 @@ export async function cmdInit(root, args) {
     writeAtomic(join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`);
     takeLock(dir, owner, false);
     writeAtomic(layout(root).active, `${id}\n`);
-    return { run: id, dir, phase: state.phase };
+    const hint = runsHint(root);
+    return hint
+      ? { run: id, dir, phase: state.phase, hint }
+      : { run: id, dir, phase: state.phase };
   } finally {
     release();
   }

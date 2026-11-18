@@ -47,6 +47,9 @@ export const AC_STATUSES = ["pending", "pass", "fail", "gap", "waived"];
 
 export const MAX_ROUNDS = 3;
 
+// Run folders past which init suggests `b_run.py prune` (it never deletes); b_run.py HINT_RUNS holds the same value.
+export const HINT_RUNS = 40;
+
 export const RUN_ID = /^\d{8}-[a-z0-9][a-z0-9-]{0,40}$/;
 
 export const SLUG = /^[a-z0-9][a-z0-9-]{0,40}$/;

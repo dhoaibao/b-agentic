@@ -20,8 +20,11 @@ Commands (JSON results on stdout, one-line errors on stderr):
   worker-profile           check the b-worker profile in effect (project over user) against the
                            worker's allowlist; not ok means apply the step in the main session
   selftest                 validate the schema file's examples against each other
+  runs [--days N]          read-only report of .b-agentic/runs: count, bytes, the finished runs older
+                           than N days (default 30), and whether the folder is over its hint threshold
+  prune [--days N]         list those runs; with --apply, delete exactly them (dry run by default)
 
-Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID).
+Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only).
 Exit: 0 ok, 3 refused or not ok, 2 invalid input or state.
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
@@ -29,12 +32,17 @@ input to every reader: they never grant approval.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
 import stat
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 # hashlib, secrets and subprocess are imported where they are used: schema, lint and the other
 # commands that touch neither start several milliseconds sooner.
@@ -1456,9 +1464,239 @@ def cmd_selftest(schema: dict) -> dict:
     return {"ok": True, "kinds": sorted(ctx)}
 
 
+# ---- run folder cleanup -----------------------------------------------------------
+# Only finished runs (phase done) are ever listed for removal. Every other phase may be resumed, so it is
+# kept. Reads and deletes go through directory file descriptors opened without following links, so a link
+# planted under .b-agentic cannot point a removal outside the run folders. Nothing here recurses.
+
+PRUNE_DAYS = 30
+MAX_PRUNE_DAYS = 3650
+HINT_RUNS = 40
+HINT_BYTES = 50 << 20
+OPEN_DIR = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+
+def prune_days(args: dict) -> int:
+    raw = args.get("days")
+    if raw is None:
+        return PRUNE_DAYS
+    if not re.fullmatch(r"[1-9][0-9]{0,3}", raw) or int(raw) > MAX_PRUNE_DAYS:
+        raise Invalid(f"--days needs a whole number from 1 to {MAX_PRUNE_DAYS}")
+    return int(raw)
+
+
+def _read_json_at(dir_fd: int, name: str) -> dict | None:
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
+    except OSError:
+        return None
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_FILE:
+            return None
+        value = json.loads(os.read(fd, info.st_size) if info.st_size else b"")
+    except (OSError, ValueError):
+        return None
+    finally:
+        os.close(fd)
+    return value if isinstance(value, dict) else None
+
+
+def _updated_at(value: object) -> datetime | None:
+    from datetime import datetime, timezone
+
+    if not isinstance(value, str):
+        return None
+    try:
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _inspect_run(runs_fd: int, name: str, active: str | None, cutoff: datetime) -> tuple[str, int, int | None]:
+    """Classify one entry of the runs folder: (category, bytes of its plain files, open folder fd).
+
+    The fd is returned only for an eligible run, still open: the caller removes through that same
+    descriptor, so what is deleted is exactly the folder that was inspected, never a replacement.
+    """
+    try:
+        info = os.stat(name, dir_fd=runs_fd, follow_symlinks=False)
+    except OSError:
+        return "unexpected", 0, None
+    if stat.S_ISLNK(info.st_mode):
+        return "symlink", 0, None
+    if not stat.S_ISDIR(info.st_mode):
+        return "unexpected", 0, None
+    try:
+        fd = os.open(name, OPEN_DIR, dir_fd=runs_fd)
+    except OSError:
+        return "unexpected", 0, None
+    keep = False
+    try:
+        size = 0
+        plain = True
+        for entry in os.listdir(fd):
+            try:
+                child = os.stat(entry, dir_fd=fd, follow_symlinks=False)
+            except OSError:
+                plain = False
+                continue
+            # mutex is the init lock: a run folder holding one is being created right now.
+            if not stat.S_ISREG(child.st_mode) or entry == "mutex":
+                plain = False
+                continue
+            size += child.st_size
+        if not plain:
+            return "unexpected", size, None
+        if name == active:
+            return "active", size, None
+        state = _read_json_at(fd, "state.json")
+        if state is None or state.get("run_id") != name or not isinstance(state.get("phase"), str):
+            return "unreadable", size, None
+        if state["phase"] != "done":
+            return "unfinished", size, None
+        updated = _updated_at(state.get("updated_at"))
+        if updated is None:
+            return "unreadable", size, None
+        if updated > cutoff:
+            return "recent", size, None
+        keep = True
+        return "eligible", size, fd
+    finally:
+        if not keep:
+            os.close(fd)
+
+
+def _remove_run(runs_fd: int, name: str, run_fd: int) -> None:
+    """Delete the plain files of the inspected folder through its own fd, then its name if it is still that folder."""
+    try:
+        inspected = os.fstat(run_fd)
+        for entry in os.listdir(run_fd):
+            os.unlink(entry, dir_fd=run_fd)
+        current = os.stat(name, dir_fd=runs_fd, follow_symlinks=False)
+        if (current.st_dev, current.st_ino) != (inspected.st_dev, inspected.st_ino):
+            raise OSError(errno.ESTALE, "the folder was replaced while it was being removed; the replacement is kept")
+        os.rmdir(name, dir_fd=runs_fd)
+    finally:
+        os.close(run_fd)
+
+
+def _open_dir(name: str, parent_fd: int) -> int | None:
+    """Open a folder below parent_fd without following a link; None when it does not exist."""
+    try:
+        return os.open(name, OPEN_DIR, dir_fd=parent_fd)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        if exc.errno in (errno.ELOOP, errno.ENOTDIR):
+            raise Refused(f"{name} is a link or not a folder; nothing was read") from exc
+        raise
+
+
+def _read_active(base_fd: int) -> str | None:
+    try:
+        fd = os.open("active", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=base_fd)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise Refused("the active run file is unreadable; nothing was classified") from exc
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 256:
+            raise Refused("the active run file is unreadable; nothing was classified")
+        return os.read(fd, info.st_size).decode().strip() or None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Refused("the active run file is unreadable; nothing was classified") from exc
+    finally:
+        os.close(fd)
+
+
+def _scan_runs(root: Path, days: int, remove: bool) -> dict:
+    from datetime import datetime, timedelta, timezone
+
+    kept = {"active": 0, "unfinished": 0, "recent": 0, "unreadable": 0, "unexpected": 0, "symlink": 0, "ignored": 0}
+    result: dict = {"ok": True, "runs": 0, "bytes": 0, "days": days, "eligible": [], "eligible_bytes": 0, "kept": kept}
+    removed: list[str] = []
+    problems: list[str] = []
+    # Every folder is opened relative to the one before it with no link followed, so a link swapped in
+    # for .b-agentic or runs after this point cannot move the scan or a removal outside the worktree.
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    base_fd = runs_fd = None
+    try:
+        base_fd = _open_dir(".b-agentic", root_fd)
+        runs_fd = _open_dir("runs", base_fd) if base_fd is not None else None
+        if runs_fd is None:
+            result["over_threshold"] = False
+            return result
+        if remove:
+            try:
+                os.stat("mutex", dir_fd=base_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise Refused("a run is being created (.b-agentic/mutex exists); try again when it finishes")
+        active = _read_active(base_fd)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        for name in sorted(os.listdir(runs_fd)):
+            if not RUN_ID.fullmatch(name):
+                kept["ignored"] += 1
+                continue
+            category, size, run_fd = _inspect_run(runs_fd, name, active, cutoff)
+            result["runs"] += 1
+            result["bytes"] += size
+            if category != "eligible":
+                kept[category] += 1
+                continue
+            result["eligible"].append(name)
+            result["eligible_bytes"] += size
+            if remove and run_fd is not None:
+                try:
+                    _remove_run(runs_fd, name, run_fd)
+                    removed.append(name)
+                except OSError as exc:
+                    problems.append(f"{name}: {exc.strerror or exc}")
+            elif run_fd is not None:
+                os.close(run_fd)
+    finally:
+        for fd in (runs_fd, base_fd, root_fd):
+            if fd is not None:
+                os.close(fd)
+    result["over_threshold"] = result["runs"] > HINT_RUNS or result["bytes"] > HINT_BYTES
+    if remove:
+        result["removed"] = removed
+        result["problems"] = problems
+        result["ok"] = not problems
+    return result
+
+
+def _only_options(command: str, args: dict, allowed: set[str]) -> None:
+    # The parser accepts the options of every command; one that prune or runs ignores would silently widen
+    # what it covers (--run ID would delete every eligible run), so anything unused is refused.
+    extra = sorted(set(args) - allowed - {"owner"})
+    if extra:
+        raise Invalid(f"{command} does not take {', '.join('--' + name for name in extra)}")
+
+
+def cmd_runs(args: dict) -> dict:
+    if args.get("apply"):
+        raise Invalid("runs only reports; --apply belongs to prune")
+    _only_options("runs", args, {"days"})
+    return {**_scan_runs(repo_root(), prune_days(args), False), "thresholds": {"runs": HINT_RUNS, "bytes": HINT_BYTES}}
+
+
+def cmd_prune(args: dict) -> dict:
+    _only_options("prune", args, {"days", "apply"})
+    days = prune_days(args)
+    apply = bool(args.get("apply"))
+    result = _scan_runs(repo_root(), days, apply)
+    result["applied"] = apply
+    return result
+
+
 # ---- entry --------------------------------------------------------------------
 
-VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step"}
+VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days"}
 
 
 def parse_args(argv: list[str]) -> tuple[list[str], dict]:
@@ -1477,6 +1715,8 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
             i += 1
         elif arg == "--json":
             options["json"] = True
+        elif arg == "--apply":
+            options["apply"] = True
         else:
             raise Invalid(f"unknown argument: {arg}")
     return positional, options
@@ -1505,6 +1745,10 @@ def run(argv: list[str]) -> tuple[int, str]:
         return 0, text if text.endswith("\n") else text + "\n"
     elif command == "selftest":
         result = cmd_selftest(schema)
+    elif command == "runs" and not rest:
+        result = cmd_runs(args)
+    elif command == "prune" and not rest:
+        result = cmd_prune(args)
     else:
         raise Invalid(f"unknown command: {command}")
     ok = not (isinstance(result, dict) and result.get("ok") is False)
