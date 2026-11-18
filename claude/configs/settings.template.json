@@ -1203,6 +1203,16 @@
             "command": "bun --no-env-file --config=/dev/null \"$HOME/.claude/b-agentic/hooks/b-codex-guard.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__firecrawl__firecrawl_scrape",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun --no-env-file --config=/dev/null \"$HOME/.claude/b-agentic/hooks/b-alexandria-guard.mjs\"",
+            "onFailure": "block"
+          }
+        ]
       }
     ],
     "PostToolUse": [

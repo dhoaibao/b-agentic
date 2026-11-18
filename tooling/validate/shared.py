@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_HOOKS = (
     "b-path-guard.mjs",
     "b-codex-guard.mjs",
+    "b-alexandria-guard.mjs",
     "b-verify-gate.mjs",
     "b-spec-context.mjs",
     "b-run-context.mjs",

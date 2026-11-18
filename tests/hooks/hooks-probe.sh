@@ -481,6 +481,39 @@ ag_silent 'rg -n B_AGENTIC_STATE_DIR claude/hooks'
 cmd_expect 2 'node /p/codex-companion.mjs review --wait --scope working-tree x && node ~/b-codex-guard.mjs --approve' "a refused companion call must stay refused"
 echo "hooks probe passed: codex-guard"
 
+# --- alexandria guard ----------------------------------------------------------
+alexguard="$root/claude/hooks/b-alexandria-guard.mjs"
+scrape=mcp__firecrawl__firecrawl_scrape
+aout=""
+arun() { # <json>: stdout in $aout, exit code in $rc
+  rc=0
+  aout=$(printf '%s' "$1" | "${js[@]}" "$alexguard" 2>/dev/null) || rc=$?
+}
+aexpect_silent() { [ "$rc" = 0 ] && [ -z "$aout" ] || fail "$1 (exit $rc, stdout: $aout)"; }
+aexpect_ask() {
+  [ "$rc" = 0 ] || fail "$1 (exit $rc)"
+  [ "$(jq -r '.hookSpecificOutput | [.hookEventName, .permissionDecision] | join(" ")' <<<"$aout")" = "PreToolUse ask" ] || fail "$1 must ask (stdout: $aout)"
+  [ "$(jq -r '.hookSpecificOutput.permissionDecisionReason | length > 0' <<<"$aout")" = true ] || fail "$1 needs a reason"
+}
+ag() { jq -cn --arg tool "$1" --argjson input "$2" '{hook_event_name: "PreToolUse", tool_name: $tool, tool_input: $input}'; }
+arun "$(ag "$scrape" '{"url":"https://example.com"}')"; aexpect_silent "a plain scrape must stay silent"
+arun "$(ag "$scrape" '{"url":"https://example.com","formats":["markdown"]}')"; aexpect_silent "a scrape with options must stay silent"
+arun "$(ag "$scrape" '{"alexandria":{"provider":"p","capability":"c"}}')"; aexpect_ask "an alexandria object"
+arun "$(ag "$scrape" '{"alexandria":[{"provider":"p","capability":"c"}]}')"; aexpect_ask "an alexandria array"
+arun "$(ag "$scrape" '{"alexandria":{}}')"; aexpect_ask "an empty alexandria object"
+arun "$(ag "$scrape" '{"url":"https://example.com","alexandria":{"provider":"p","capability":"c"}}')"; aexpect_ask "alexandria beside a url"
+arun "$(ag "$scrape" '{"alexandria":null}')"; aexpect_silent "a null alexandria must stay silent"
+arun "$(ag "$scrape" '{}')"; aexpect_silent "an empty scrape input must stay silent"
+arun "$(ag mcp__firecrawl__firecrawl_search '{"alexandria":{"provider":"p"}}')"; aexpect_silent "another tool name must stay silent"
+arun "$(ag Read '{"file_path":"/x","alexandria":{}}')"; aexpect_silent "a file tool must stay silent"
+arun "$(jq -cn --arg tool "$scrape" '{tool_name: $tool}')"; aexpect_ask "a scrape without tool_input"
+arun 'not json'; aexpect_ask "malformed input must ask, not allow"
+arun ''; aexpect_ask "empty input must ask, not allow"
+arun '[]'; aexpect_ask "a non-object event must ask"
+arun "$(ag "$scrape" '{"alexandria":{"query":"SECRET-PROBE-VALUE"}}')"
+grep -Fq SECRET-PROBE-VALUE <<<"$aout" && fail "the guard must not echo tool input"
+echo "hooks probe passed: alexandria-guard"
+
 # --- spec context --------------------------------------------------------------
 specctx="$root/claude/hooks/b-spec-context.mjs"
 sc() { jq -cn --arg cwd "$1" --arg source "${2:-compact}" '{hook_event_name: "SessionStart", source: $source, cwd: $cwd}'; }

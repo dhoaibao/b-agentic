@@ -276,6 +276,9 @@ Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-spec-context.mjs`](../../claude/hooks/b-spec-context.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
+[`claude/hooks/b-alexandria-guard.mjs`](../../claude/hooks/b-alexandria-guard.mjs) (a fail-closed
+`PreToolUse` hook that asks when the auto-allowed `firecrawl_scrape` carries an `alexandria` argument, which
+permission rules cannot match),
 the ClickUp guard (removed by [ADR-006](ADR-006-retire-clickup-integration.md)), and
 [`tests/hooks/hooks-probe.sh`](../../tests/hooks/hooks-probe.sh).
 

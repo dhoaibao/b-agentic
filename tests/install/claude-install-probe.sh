@@ -75,7 +75,7 @@ claude="$home/.claude"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
 [ -f "$claude/agents/b-worker.md" ] || fail "the b-worker writer profile must be installed"
 cmp -s "$root/claude/agents/b-worker.md" "$claude/agents/b-worker.md" || fail "the installed b-worker profile differs from the source"
-for file in bin/b-candidate-snapshot.mjs bin/b-protected.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-candidate-snapshot.mjs bin/b-protected.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-alexandria-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 for module in "$root"/claude/bin/b-state-*.mjs; do
@@ -92,7 +92,7 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.permissions.deny | index("Bash(gh pr merge *)") != null' "$claude/settings.json")" = true ] || fail "gh pr merge deny rule missing"
 [ "$(jq -r '.permissions.allow | index("mcp__codegraph__codegraph_explore") != null' "$claude/settings.json")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.hooks.Stop | length' "$claude/settings.json")" = 1 ] || fail "Stop hook missing"
-[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 2 ] || fail "PreToolUse hooks missing"
+[ "$(jq -r '.hooks.PreToolUse | length' "$claude/settings.json")" = 3 ] || fail "PreToolUse hooks missing"
 [ "$(jq -r '.hooks.SessionStart | length' "$claude/settings.json")" = 2 ] || fail "SessionStart hooks missing"
 [ "$(jq -r '[.hooks.SessionStart[] | select(.hooks[].command | contains("b-spec-context.mjs")) | .matcher] | .[0]' "$claude/settings.json")" = compact ] || fail "the spec context hook must match only compact"
 [ "$(jq -r '[.hooks.SessionStart[] | select(.hooks[].command | contains("b-run-context.mjs")) | .matcher] | .[0]' "$claude/settings.json")" = 'startup|resume|clear|compact' ] || fail "the run context hook matcher"
@@ -102,6 +102,7 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.command | contains("b-codex-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the Codex guard must run on Bash exactly once"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.onFailure != null)] | length' "$claude/settings.json")" = 0 ] || fail "the Bash Codex tripwire must fail open so a broken guard cannot block its own repair"
+[ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "mcp__firecrawl__firecrawl_scrape") | .hooks[] | select(.command | contains("b-alexandria-guard.mjs")) | select(.onFailure == "block")] | length' "$claude/settings.json")" = 1 ] || fail "the scrape alexandria guard must run exactly once and fail closed"
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 6 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
 for server in excalidraw drawio datagrip notion; do
   [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$home/.claude.json")" = false ] || fail "optional MCP server $server must not be installed by default"
@@ -528,11 +529,11 @@ echo "install probe passed: codex-restore"
 home=$(fresh_home hook-onfailure)
 claude="$home/.claude"
 run "$home"; expect_ok "install before the onFailure upgrade"
-[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 1 ] || fail "a fresh install must set onFailure block on the PreToolUse guard"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 2 ] || fail "a fresh install must set onFailure block on both PreToolUse guards"
 jq 'del(.hooks.PreToolUse[].hooks[].onFailure)' "$claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$claude/settings.json"
 jq 'del(.settings.hooks[].hook.onFailure)' "$claude/b-agentic/install.json" >"$work/m.json" && mv "$work/m.json" "$claude/b-agentic/install.json"
 run "$home"; expect_ok "upgrade over guards without onFailure"
-[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade did not add onFailure block to the guard"
+[ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.onFailure == "block")] | length' "$claude/settings.json")" = 2 ] || fail "the upgrade did not add onFailure block to the guards"
 [ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | contains("b-path-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the upgrade duplicated the path guard"
 if grep -Fq 'different matcher or fields' <<<"$err"; then fail "a clean onFailure upgrade must not warn: $err"; fi
 before=$(tree "$home")
@@ -1360,9 +1361,9 @@ runpath "$home" "$nobun_path" -y --statusline-only; expect_refused "status line 
 [ "$before" = "$(tree "$home")" ] || fail "a refused dry-run or status-line install must write nothing"
 
 runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "install with bun"
-[ "$(hook_cmds "$home" | grep -c "^$real_bun $flags \"")" = 7 ] || fail "six hooks and the status line must run the absolute bun path with the hardening flags: $(hook_cmds "$home")"
+[ "$(hook_cmds "$home" | grep -c "^$real_bun $flags \"")" = 8 ] || fail "seven hooks and the status line must run the absolute bun path with the hardening flags: $(hook_cmds "$home")"
 if hook_cmds "$home" | grep -Eq '(^|[ ;])node( |$)'; then fail "no managed command may use node: $(hook_cmds "$home")"; fi
-[ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "managed hooks plus the user's own: $(jq -c .hooks "$claude/settings.json")"
+[ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 8 ] || fail "managed hooks plus the user's own: $(jq -c .hooks "$claude/settings.json")"
 [ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive"
 before=$(tree "$home")
 runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "second bun install"
@@ -1423,8 +1424,8 @@ JSON
   jq --arg form "$old_form" "$rewrite"' (.settings.hooks[].hook.command) |= old | (.settings.statusLine[].command) |= old' "$claude/b-agentic/install.json" >"$work/install.new" && cp "$work/install.new" "$claude/b-agentic/install.json"
   hook_cmds "$home" | grep -Fq "$real_bun" && fail "the rewrite to the old form did not take ($old_form)"
   runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "install over the old form ($old_form)"
-  [ "$(hook_cmds "$home" | grep -c "^$real_bun $flags \"")" = 7 ] || fail "the recorded $old_form entries must swap to the bun form: $(hook_cmds "$home")"
-  [ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 7 ] || fail "the swap must replace, not add ($old_form): $(jq -c .hooks "$claude/settings.json")"
+  [ "$(hook_cmds "$home" | grep -c "^$real_bun $flags \"")" = 8 ] || fail "the recorded $old_form entries must swap to the bun form: $(hook_cmds "$home")"
+  [ "$(jq -r '[.hooks[][].hooks[]] | length' "$claude/settings.json")" = 8 ] || fail "the swap must replace, not add ($old_form): $(jq -c .hooks "$claude/settings.json")"
   [ "$(jq -r '.hooks.PreToolUse[] | select(.matcher == "Read") | .hooks[] | select(.command == "echo mine") | .command' "$claude/settings.json")" = "echo mine" ] || fail "the user's own hook must survive the swap ($old_form)"
 done
 

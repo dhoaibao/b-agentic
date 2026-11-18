@@ -1241,6 +1241,12 @@ def render_hooks() -> dict[str, Any]:
                 "matcher": "Bash",
                 "hooks": [{"type": "command", "command": hook_command("b-codex-guard.mjs")}],
             },
+            {
+                # Permission rules match tool names only, so the alexandria argument of the auto-allowed
+                # scrape tool needs a hook to reach the prompt the policy keeps for the billed lookups.
+                "matcher": "mcp__firecrawl__firecrawl_scrape",
+                "hooks": [{"type": "command", "command": hook_command("b-alexandria-guard.mjs"), "onFailure": "block"}],
+            },
         ],
         "PostToolUse": [
             {

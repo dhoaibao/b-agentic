@@ -395,6 +395,19 @@ def main() -> int:
         errors.append("hook commands must be unique per script, except the verify gate shared by PostToolUse and Stop")
     if hooks["PreToolUse"][0]["matcher"] != "Read|Edit|Write|NotebookEdit|Grep|Glob":
         errors.append("path guard must cover every file tool")
+    # firecrawl_scrape is auto-allowed, and its alexandria argument runs the billed lookups the policy asks
+    # for; a rule cannot match an argument, so the guard hook is the only thing that restores the prompt.
+    if "mcp__firecrawl__firecrawl_scrape" in allow:
+        scrape_guards = [
+            hook
+            for entry in hooks["PreToolUse"]
+            if entry["matcher"] == "mcp__firecrawl__firecrawl_scrape"
+            for hook in entry["hooks"]
+        ]
+        if len(scrape_guards) != 1 or not scrape_guards[0]["command"].endswith('/b-alexandria-guard.mjs"'):
+            errors.append("the auto-allowed firecrawl_scrape needs exactly one b-alexandria-guard PreToolUse hook")
+        elif scrape_guards[0].get("onFailure") != "block":
+            errors.append("the b-alexandria-guard hook must fail closed with onFailure block")
     for entry in hooks["PreToolUse"]:
         for hook in entry["hooks"]:
             if entry["matcher"] == "Bash":

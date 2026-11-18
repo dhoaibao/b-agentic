@@ -349,7 +349,7 @@ forms (`git -C <dir> clean -fd`), flag clusters outside the generated list (`rm 
 `git restore`, `find -delete`). The
 `b-path-guard` hook applies the exact path rules to the file tools (including the
 `*.env.example` allowance that deny rules cannot express). Hooks:
-`b-path-guard` runs before file tools; `b-codex-guard` is a tripwire on Bash for direct calls to the Codex plugin (see [Review gate](#review-gate)); `b-verify-gate` tracks
+`b-path-guard` runs before file tools; `b-codex-guard` is a tripwire on Bash for direct calls to the Codex plugin (see [Review gate](#review-gate)); `b-alexandria-guard` runs before `firecrawl_scrape`, which is auto-allowed by name but whose `alexandria` argument runs the billed provider lookups that `alexandria_library_read`, `people_company_search`, and `people_company_enrich` keep behind a prompt. Permission rules cannot match an argument, so the hook answers `ask` when that argument is present, stays silent otherwise, prints a fixed reason that never echoes the input, and fails closed (`onFailure: block`; input it cannot parse asks). Whether the prompt also reaches a subagent such as `b-researcher` is not exercised live; `b-verify-gate` tracks
 edits and, when the main session edited a non-prose file after its last non-inspection shell
 command, blocks the first stop once with the verify and review reminder (which also asks the agent to map each confirmed `AC-n` criterion to its check result or a stated gap).
 `B_AGENTIC_GATE_MODE=observe` logs what it would have blocked without blocking, `off` disables it, and anything else (the default) enforces; decisions append to
