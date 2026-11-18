@@ -125,8 +125,9 @@ it and edits nothing; the step gate then checks the result. A plan hands it a st
 through `worker_steps`, and two such steps may run at the same time, each in its own
 git worktree, through `parallel_steps`
 ([ADR-016](docs/decisions/ADR-016-parallel-worker-steps.md)). The specialists' tool lists omit `Edit`, `Write`, `NotebookEdit`, and nested
-delegation and carry only read-only MCP tools (plus three bounded Firecrawl
-tools for `b-researcher`). Read-only behavior is instructed, not enforced by a
+delegation and carry only the read-only MCP tools their skill uses, listed per agent in
+`mcp_tools` ([ADR-023](docs/decisions/ADR-023-per-agent-mcp-tool-scope.md); plus three
+bounded Firecrawl tools for `b-researcher`). Read-only behavior is instructed, not enforced by a
 child-specific permission block: shell access can still mutate state. Delegated
 skills never run in the main session; the generated `Delegation boundary` and
 the kernel carry this, so a missing subagent is reported instead of bypassed. A

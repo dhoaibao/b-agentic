@@ -5,28 +5,51 @@
     "b-planner": {
       "description": "Produce a read-only execution-ready plan for the main b-agentic session.",
       "model": "opus",
-      "effort": "high"
+      "effort": "high",
+      "mcp_tools": ["mcp__codegraph__codegraph_explore", "mcp__context7__resolve-library-id", "mcp__context7__query-docs"]
     },
     "b-researcher": {
       "description": "Return bounded sourced research findings to the main b-agentic session.",
       "model": "sonnet",
       "effort": "medium",
+      "mcp_tools": [
+        "mcp__codegraph__codegraph_explore",
+        "mcp__context7__resolve-library-id",
+        "mcp__context7__query-docs",
+        "mcp__brave_search__brave_web_search",
+        "mcp__brave_search__brave_local_search",
+        "mcp__brave_search__brave_video_search",
+        "mcp__brave_search__brave_image_search",
+        "mcp__brave_search__brave_news_search",
+        "mcp__brave_search__brave_summarizer",
+        "mcp__brave_search__brave_llm_context",
+        "mcp__brave_search__brave_place_search",
+        "mcp__firecrawl__firecrawl_developer_search",
+        "mcp__firecrawl__firecrawl_find_tools",
+        "mcp__firecrawl__firecrawl_research_search_papers",
+        "mcp__firecrawl__firecrawl_research_inspect_paper",
+        "mcp__firecrawl__firecrawl_research_read_paper",
+        "mcp__firecrawl__firecrawl_research_related_papers"
+      ],
       "conditional_tools": ["mcp__firecrawl__firecrawl_search", "mcp__firecrawl__firecrawl_scrape", "mcp__firecrawl__firecrawl_map"]
     },
     "b-debugger": {
       "description": "Diagnose a runtime problem without changing product code.",
       "model": "opus",
-      "effort": "high"
+      "effort": "high",
+      "mcp_tools": ["mcp__codegraph__codegraph_explore", "mcp__context7__resolve-library-id", "mcp__context7__query-docs", "mcp__firecrawl__firecrawl_developer_search"]
     },
     "b-auditor": {
       "description": "Audit a repository read-only for the main session: b-agentic conformance or a whole-project audit.",
       "model": "opus",
-      "effort": "high"
+      "effort": "high",
+      "mcp_tools": ["mcp__codegraph__codegraph_explore", "mcp__context7__resolve-library-id", "mcp__context7__query-docs"]
     },
     "b-reviewer": {
       "description": "Independently review a frozen changed-code candidate read-only and return findings and a verdict to the main session.",
       "model": "opus",
-      "effort": "high"
+      "effort": "high",
+      "mcp_tools": ["mcp__codegraph__codegraph_explore", "mcp__context7__resolve-library-id", "mcp__context7__query-docs"]
     }
   },
   "workers": {

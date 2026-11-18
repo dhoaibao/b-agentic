@@ -421,10 +421,18 @@ def main() -> int:
         "mcp__firecrawl__firecrawl_scrape",
         "mcp__firecrawl__firecrawl_map",
     }
+    classified = {
+        mcp_tool_name(server, tool): classification
+        for server, record in servers.items()
+        for tool, classification in record.get("tools", {}).items()
+    }
     for agent in AGENTS:
         tools = agent_tools(agent)
         if "mcp__codegraph__codegraph_explore" not in tools:
             errors.append(f"{agent} must expose the CodeGraph explore tool")
+        for tool in tools:
+            if tool.startswith("mcp__") and classified.get(tool) not in {"read-only", "conditional-read"}:
+                errors.append(f"{agent} lists {tool}, which the MCP policy does not class as read-only")
         if any(tool.startswith("mcp__notion__") for tool in tools):
             errors.append(f"{agent} must not receive private Notion workspace tools")
         if any(tool.startswith("mcp__datagrip__") for tool in tools):
@@ -444,7 +452,9 @@ def main() -> int:
         errors.append(f"b-worker must start with exactly {', '.join(WORKER_BASE_TOOLS)}")
     worker_mcp = [tool for tool in worker if tool.startswith("mcp__")]
     if worker_mcp != [tool for tool in agent_tools("b-planner") if tool.startswith("mcp__")]:
-        errors.append("b-worker MCP tools must be the read-only set the specialists receive")
+        errors.append("b-worker MCP tools must be exactly b-planner's MCP tools")
+    if any(classified.get(tool) != "read-only" for tool in worker_mcp):
+        errors.append("b-worker MCP tools must all be classed read-only")
     if "mcp__codegraph__codegraph_explore" not in worker:
         errors.append("b-worker must expose the CodeGraph explore tool")
     if WORKER_FORBIDDEN_TOOLS & set(worker):

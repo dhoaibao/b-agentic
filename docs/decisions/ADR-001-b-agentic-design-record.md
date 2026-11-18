@@ -289,8 +289,10 @@ classifies every known tool, and each class maps to an allow or ask rule on
 The retired adapter's lazy and search-exposed modes are gone: Claude Code's
 built-in tool search defers large tool sets. Notion workspace reads are
 `conditional-read` (calendar and contact reads are `private-read`), not
-`read-only`, because every `read-only` tool is granted to all five specialists
-and to the writer child, and a private workspace must not reach children. Specialists name
+`read-only`, because a `read-only` tool is eligible for the per-agent `mcp_tools`
+allowlists of the specialists and the writer child
+([ADR-023](ADR-023-per-agent-mcp-tool-scope.md)), and a private workspace must not
+reach children. Specialists name
 their tools in `tools:`; `b-researcher` additionally lists three bounded public
 Firecrawl tools classified `conditional-read`. Credentials stay environment
 references (`${VAR}`), never stored values. Expansion of those references in

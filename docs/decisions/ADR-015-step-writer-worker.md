@@ -41,7 +41,7 @@ built-in docs give no way to bring its result back.
   skills, or background field, a second worker, or a worker named like a specialist.
   No skill binds to a worker.
 - **The profile.** Tools: `Read`, `Grep`, `Glob`, `Edit`, `Write`, `Bash`, and the
-  read-only MCP tools the specialists receive. Never `NotebookEdit`, `Agent`, `Task`,
+  the MCP tools `b-planner` receives ([ADR-023](ADR-023-per-agent-mcp-tool-scope.md)). Never `NotebookEdit`, `Agent`, `Task`,
   `Skill`, `AskUserQuestion`, or another MCP class. The frontmatter carries only name,
   description, tools, model, and effort (and a turn limit when the registry sets
   one): no permission mode (it applies only when the parent is in the default or

@@ -60,6 +60,7 @@ MANAGED_SUBAGENT_NAMES = {"b-planner", "b-researcher", "b-debugger", "b-auditor"
 # read-only assertion about `agents` stays unconditional.
 MANAGED_WORKER_NAMES = {"b-worker"}
 WORKER_TOOLS = ("Read", "Grep", "Glob", "Edit", "Write", "Bash")
+CODEGRAPH_TOOL = "mcp__codegraph__codegraph_explore"
 WORKER_FORBIDDEN_TOOLS = {"NotebookEdit", "Agent", "Task", "Skill", "AskUserQuestion"}
 WORKER_FORBIDDEN_FIELDS = {"tools", "permission_mode", "isolation", "hooks", "skills", "background"}
 CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
@@ -528,7 +529,7 @@ def validate_skills(skills: list[dict[str, Any]], agents: dict[str, dict[str, An
         model = ensure_string(agent.get("model"), f"{label}.model", errors)
         if model and model not in AGENT_MODELS:
             errors.append(f"{label}.model: expected one of {sorted(AGENT_MODELS)}")
-        allowed_fields = {"description", "model"}
+        allowed_fields = {"description", "model", "mcp_tools"}
         if "effort" in agent:
             allowed_fields.add("effort")
             effort = ensure_string(agent["effort"], f"{label}.effort", errors)
@@ -590,8 +591,22 @@ def validate_agent_tools(agents: dict[str, dict[str, Any]], policy: dict[str, An
         for tool, classification in record["tools"].items()
         if classification == "conditional-read"
     }
+    read_only = set(read_only_mcp_tools(policy))
     errors: list[str] = []
     for name, agent in agents.items():
+        scoped = agent.get("mcp_tools")
+        if (
+            not isinstance(scoped, list)
+            or not all(isinstance(tool, str) for tool in scoped)
+            or len(scoped) != len(set(scoped))
+        ):
+            errors.append(f"agents.{name}.mcp_tools: expected unique tool names")
+        else:
+            errors.extend(
+                f"agents.{name}.mcp_tools: {tool!r} is not a read-only tool" for tool in scoped if tool not in read_only
+            )
+            if CODEGRAPH_TOOL not in scoped:
+                errors.append(f"agents.{name}.mcp_tools: must include {CODEGRAPH_TOOL}")
         tools = agent.get("conditional_tools", [])
         if (
             not isinstance(tools, list)
@@ -1114,8 +1129,14 @@ def read_only_mcp_tools(policy: dict[str, Any]) -> list[str]:
     ]
 
 
+def agent_mcp_tools(agent: dict[str, Any], policy: dict[str, Any]) -> list[str]:
+    """The agent's own MCP allowlist, in policy order; every tool loaded into a child costs context on each spawn."""
+    scoped = set(agent["mcp_tools"])
+    return [tool for tool in read_only_mcp_tools(policy) if tool in scoped]
+
+
 def agent_tool_list(agent: dict[str, Any], policy: dict[str, Any]) -> list[str]:
-    return ["Read", "Grep", "Glob", "Bash", *read_only_mcp_tools(policy), *agent.get("conditional_tools", [])]
+    return ["Read", "Grep", "Glob", "Bash", *agent_mcp_tools(agent, policy), *agent.get("conditional_tools", [])]
 
 
 def render_agent_file(
@@ -1159,19 +1180,21 @@ WORKER_TURN_BUDGET_NOTICE = (
 )
 
 
-def worker_tool_list(policy: dict[str, Any]) -> list[str]:
-    """Edit and Write on top of the specialists' reads; never a mutating MCP class, a prompt, or a child."""
-    return [*WORKER_TOOLS, *read_only_mcp_tools(policy)]
+def worker_tool_list(agents: dict[str, dict[str, Any]], policy: dict[str, Any]) -> list[str]:
+    """Edit and Write on top of the planner's reads; never a mutating MCP class, a prompt, or a child."""
+    return [*WORKER_TOOLS, *agent_mcp_tools(agents["b-planner"], policy)]
 
 
-def render_worker_file(name: str, worker: dict[str, Any], policy: dict[str, Any] | None = None) -> str:
+def render_worker_file(
+    name: str, worker: dict[str, Any], agents: dict[str, dict[str, Any]], policy: dict[str, Any] | None = None
+) -> str:
     policy = policy if policy is not None else load_policy()
     return "\n".join(
         [
             "---",
             f"name: {name}",
             f"description: {json.dumps(worker['description'])}",
-            f"tools: {', '.join(worker_tool_list(policy))}",
+            f"tools: {', '.join(worker_tool_list(agents, policy))}",
             f"model: {worker['model']}",
             *([f"effort: {worker['effort']}"] if "effort" in worker else []),
             *([f"maxTurns: {worker['max_turns']}"] if "max_turns" in worker else []),
@@ -1332,7 +1355,7 @@ def render_outputs(
     for name, agent in agents.items():
         outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills, policy)
     for name, worker in workers.items():
-        outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_worker_file(name, worker, policy)
+        outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_worker_file(name, worker, agents, policy)
     return outputs
 
 
@@ -1375,14 +1398,14 @@ def validate_worker_regressions(
     if not validate_agent_tools(invalid_agent_tools, policy):
         errors.append("agent regression: a read-only specialist given Edit must still fail")
     for name, worker in workers.items():
-        rendered = render_worker_file(name, worker, policy)
+        rendered = render_worker_file(name, worker, agents, policy)
         head, _, _body = rendered.partition("\n---\n")
         frontmatter = dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines() if ": " in line)
         tools = [tool.strip() for tool in frontmatter.get("tools", "").split(",")]
-        if tools[: len(WORKER_TOOLS)] != list(WORKER_TOOLS) or tools[len(WORKER_TOOLS) :] != read_only_mcp_tools(
-            policy
+        if tools[: len(WORKER_TOOLS)] != list(WORKER_TOOLS) or tools[len(WORKER_TOOLS) :] != agent_mcp_tools(
+            agents["b-planner"], policy
         ):
-            errors.append(f"worker regression: {name} tools must be the worker set plus the read-only MCP tools")
+            errors.append(f"worker regression: {name} tools must be the worker set plus b-planner's MCP tools")
         if WORKER_FORBIDDEN_TOOLS & set(tools) or any(tool.startswith("mcp__notion__") for tool in tools):
             errors.append(f"worker regression: {name} must not receive a prompt, delegation, notebook, or Notion tool")
         if set(frontmatter) - {"name", "description", "tools", "model", "effort", "maxTurns"}:
@@ -1571,10 +1594,21 @@ def validate_regressions(
     invalid_agent_tools["b-researcher"]["conditional_tools"].append("mcp__playwright__browser_click")
     if not validate_agent_tools(invalid_agent_tools, policy):
         errors.append("agent regression: mutating conditional tool must fail")
+    for change, why in (
+        (lambda a: a["b-planner"].pop("mcp_tools"), "a missing mcp_tools"),
+        (lambda a: a["b-planner"]["mcp_tools"].append("mcp__notion__notion-search"), "a non-read-only tool"),
+        (lambda a: a["b-planner"]["mcp_tools"].append(a["b-planner"]["mcp_tools"][0]), "a duplicate tool"),
+        (lambda a: a["b-planner"]["mcp_tools"].remove(CODEGRAPH_TOOL), "an allowlist without CodeGraph"),
+        (lambda a: a["b-planner"]["mcp_tools"].append("mcp__firecrawl__firecrawl_search"), "a conditional tool"),
+    ):
+        candidate_agents = json.loads(json.dumps(agents))
+        change(candidate_agents)
+        if not validate_agent_tools(candidate_agents, policy):
+            errors.append(f"agent regression: {why} in mcp_tools must fail")
     errors.extend(validate_snapshot_cli())
     errors.extend(validate_artifacts_schema())
     # Playwright's browser_find accepts a `filename` that writes results to disk, so it must
-    # never be classed read-only (which auto-exposes it to every specialist profile).
+    # never be classed read-only (which makes it eligible for any specialist's mcp_tools allowlist).
     if policy["servers"]["playwright"]["tools"]["browser_find"] == "read-only":
         errors.append("MCP policy regression: file-writing browser_find must not be read-only")
     for agent_name, agent in agents.items():
