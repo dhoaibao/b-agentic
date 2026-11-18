@@ -123,9 +123,17 @@ not start servers or read secret values.
   installed. Run `cargo uninstall rtk` and reinstall with the script above.
 - **`fd` not found:** Debian installs the binary as `fdfind`. Optionally run
   `mkdir -p ~/.local/bin && ln -s "$(command -v fdfind)" ~/.local/bin/fd`.
-- **Do not run `rtk init -g` or `codegraph install` alongside b-agentic's
-  installer.** They edit `~/.claude/settings.json`, the MCP config, and
-  `CLAUDE.md` or `AGENTS.md`, which the installer already merges.
+- **Do not run `rtk init -g` (without `--hook-only`), `rtk init --claude-md`, or
+  `codegraph install` alongside b-agentic's installer.** They edit
+  `~/.claude/settings.json`, the MCP config, and `CLAUDE.md` or `AGENTS.md`, which
+  the installer already merges.
+- **Optional rtk hook:** `rtk init -g --hook-only` is supported and user-owned.
+  It adds one Bash `PreToolUse` entry to `~/.claude/settings.json` that rewrites
+  supported commands to their `rtk` form, and writes nothing to `CLAUDE.md`. The
+  installer leaves that entry alone on sync and uninstall because it never
+  recorded it. Preview with `rtk init -g --hook-only --dry-run -v`, install it
+  yourself, restart Claude Code, then check `rtk init --show` and `rtk verify`.
+  The verify gate treats `rtk read` as a file read, not a check.
 - **RTK edition:** the default build is Apache-2.0 plus BUSL-1.1. An
   Apache-2.0-only build is available with `RTK_EDITION=oss` on the install
   script. Install one edition only.

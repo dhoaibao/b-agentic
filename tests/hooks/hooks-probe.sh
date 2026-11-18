@@ -192,6 +192,11 @@ gate_case s43 0 'find . [a-]exec echo {} +' "a leading bracket class could expan
 gate_case s44 0 'rg foo *' "a bare * could expand to an option file name for rg"
 gate_case s45 2 'ls *.mjs && cat src/*.md' "leading globs are fine for tools without executing options"
 gate_case s46 2 'rg foo src/*.mjs' "a fixed-prefix glob is fine"
+# rtk's hook rewrites cat, head, and tail to `rtk read`, which is a file read, not a check.
+gate_case s46a 2 'rtk read src/a.ts' "rtk read is a file read, not a check attempt"
+gate_case s46b 2 'rtk read src/a.ts --head-lines 5' "rtk read with an option is still a file read"
+gate_case s46c 0 'rtk read src/a.ts > /tmp/x' "a redirect makes rtk read a check attempt"
+gate_case s46d 0 'read line' "a bare read is the shell builtin, not inspection"
 # a subagent's shell command (it carries agent_id) is not the main session's check.
 sub=$(vg PostToolUse s47 Bash '' false 'npm test' | jq -c '. + {agent_id: "a1", agent_type: "b-debugger"}')
 run "$verifygate" "$(vg PostToolUse s47 Edit /repo/src/a.ts)"; expect 0 "edit"

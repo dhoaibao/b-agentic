@@ -172,6 +172,9 @@ function inspectionWords({ words, wild }) {
   const [name, ...args] = rest;
   if (wild && OPTION_EXECUTORS.has(name)) return false;
   if (args.some((arg) => EXECUTING.test(arg))) return false;
+  // `rtk read` is rtk's file reader and the rewrite of cat, head, and tail. A bare
+  // `read` is the shell builtin, which consumes input, so it stays a check attempt.
+  if (words[0] === "rtk" && name === "read") return true;
   if (name === "git") {
     let i = 0;
     for (;;) {
