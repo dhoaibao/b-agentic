@@ -33,7 +33,9 @@ clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
 Three skills and their MCP servers are optional and never installed without a
-choice: DataGrip, Excalidraw, and draw.io. On a terminal the installer
+choice: DataGrip, Excalidraw, and draw.io. The Notion MCP server is optional too:
+no b-agentic skill uses it, so a fresh install leaves it out (`--with=notion` adds
+it, and an install that already has it keeps it). On a terminal the installer
 shows a checkbox list (nothing checked on a fresh install; installed ones are
 pre-checked). Non-interactively pass `--with=excalidraw,drawio` to add and
 `--without=drawio` to remove; `-y` keeps the recorded choice and otherwise

@@ -62,7 +62,8 @@
   "optional_components": {
     "datagrip": {"label": "DataGrip (b-datagrip; the DataGrip MCP entry stays user-managed)", "skills": ["b-datagrip"], "mcp_servers": ["datagrip"]},
     "excalidraw": {"label": "Excalidraw (b-excalidraw + excalidraw MCP)", "skills": ["b-excalidraw"], "mcp_servers": ["excalidraw"]},
-    "drawio": {"label": "draw.io (b-drawio + drawio MCP)", "skills": ["b-drawio"], "mcp_servers": ["drawio"]}
+    "drawio": {"label": "draw.io (b-drawio + drawio MCP)", "skills": ["b-drawio"], "mcp_servers": ["drawio"]},
+    "notion": {"label": "Notion (notion MCP; no b-agentic skill uses it)", "skills": [], "mcp_servers": ["notion"]}
   },
   "skills": [
     {

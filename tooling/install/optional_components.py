@@ -9,8 +9,9 @@ Installed skills also drop any line ending in ` <!-- requires: b-x -->` whose na
 so a skill never sends the user to an absent sibling. A full install keeps those lines byte for byte.
 
 Selection precedence per component: an explicit `--with`/`--without` flag, then the value recorded in the
-install manifest, then (for a manifest that predates this feature) what the manifest already owns, then
-unselected.
+install manifest, then (for a manifest with no recorded value for that component, such as one that predates
+the component) what the manifest already owns, then unselected. A component added later therefore never
+removes an entry an existing install already owns.
 """
 
 from __future__ import annotations
@@ -85,17 +86,18 @@ def resolve(
     if overlap:
         raise ValueError(f"--with and --without both name: {', '.join(overlap)}")
     recorded = manifest.get("optional_components")
-    base = infer_legacy(manifest, components) if not isinstance(recorded, dict) else {}
+    recorded = recorded if isinstance(recorded, dict) else {}
+    owned = infer_legacy(manifest, components)
     selection: dict[str, bool] = {}
     for key in components:
         if key in with_ids:
             selection[key] = True
         elif key in without_ids:
             selection[key] = False
-        elif isinstance(recorded, dict):
-            selection[key] = bool(recorded.get(key, False))
+        elif key in recorded:
+            selection[key] = bool(recorded[key])
         else:
-            selection[key] = base[key]
+            selection[key] = owned[key]
     return selection
 
 

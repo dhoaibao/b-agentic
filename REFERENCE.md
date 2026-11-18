@@ -33,14 +33,17 @@ touches only `~/.claude` and `~/.claude.json`.
   cloned or updated the source checkout by then, because the summary needs it.
 - The kernel's "Peer agent messaging" section applies only when the user asks agents to talk to each other and adds no other rules: `herdr` skill under `HERDR_ENV=1`, otherwise `hc --skill` if `hc` is on `PATH`.
 - Optional components (`optional_components` in `skills/registry.yaml`: `datagrip`,
-  `excalidraw`, `drawio`) are installed only after a choice. Each is its skill, its kernel routing
+  `excalidraw`, `drawio`, `notion`) are installed only after a choice. Each is its skill, its kernel routing
   line, its `mcp__<server>__*` permission rules, and its MCP server
   entry (DataGrip's entry stays IDE-managed, so `datagrip` covers only the skill, routing line, and
-  rules). Deselecting also drops lines marked `<!-- requires: b-x -->` from installed skills, so none points to an absent sibling; a full install keeps them byte for byte. A terminal shows a checkbox list before the summary: nothing is checked on a fresh
+  rules; `notion` has no skill because no b-agentic skill uses it, so it covers only the server entry
+  and its `allow` rules). Deselecting also drops lines marked `<!-- requires: b-x -->` from installed skills, so none points to an absent sibling; a full install keeps them byte for byte. A terminal shows a checkbox list before the summary: nothing is checked on a fresh
   install, and an existing install's recorded choice is pre-checked, so Enter keeps it. `--with=ID[,ID]` and
   `--without=ID[,ID]` (additive, repeatable) answer non-interactively and skip the list. With `-y`,
   `--dry-run`, or no terminal, the choice recorded in the manifest is reused and a fresh install selects
-  none. A manifest that predates the feature is treated as selected for each component it already owns.
+  none. A component with no recorded choice, whether the manifest predates the feature or the component
+  was added later (as `notion` was), is treated as selected when the manifest already owns it, so an
+  existing install keeps its Notion entry until you pass `--without=notion`.
   Deselecting a component removes only its recorded, unmodified skill, `allow` rules, and server (a modified
   one is kept with a warning); its `ask` and `deny` rules stay, so a server that is still configured keeps its
   prompts and denials. Neither flag combines with `--uninstall`.
@@ -374,7 +377,7 @@ external/shared actions.
 ## MCP and readiness
 
 `claude/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, Notion, shadcn, and the optional Excalidraw and draw.io entries
+Firecrawl, Playwright, shadcn, and the optional Notion, Excalidraw, and draw.io entries
 (installed only when selected, see the install options). Tools are addressed as
 `mcp__<server>__<tool>`. Credentials are `${VAR}` references; the installer
 collects none.

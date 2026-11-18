@@ -102,17 +102,18 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '.statusLine.command | contains("b-agentic/bin/b-statusline.mjs")' "$claude/settings.json")" = true ] || fail "status line missing"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.command | contains("b-codex-guard.mjs"))] | length' "$claude/settings.json")" = 1 ] || fail "the Codex guard must run on Bash exactly once"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.onFailure != null)] | length' "$claude/settings.json")" = 0 ] || fail "the Bash Codex tripwire must fail open so a broken guard cannot block its own repair"
-[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 7 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
-for server in excalidraw drawio datagrip; do
+[ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 6 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
+for server in excalidraw drawio datagrip notion; do
   [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$home/.claude.json")" = false ] || fail "optional MCP server $server must not be installed by default"
 done
-if jq -e '[.permissions.allow[]] | map(select(test("^mcp__(datagrip|excalidraw|drawio)__"))) | length > 0' "$claude/settings.json" >/dev/null; then fail "optional component allow rules must not be installed by default"; fi
+if jq -e '[.permissions.allow[]] | map(select(test("^mcp__(datagrip|excalidraw|drawio|notion)__"))) | length > 0' "$claude/settings.json" >/dev/null; then fail "optional component allow rules must not be installed by default"; fi
 [ "$(jq -r '.permissions.ask | index("mcp__datagrip__execute_sql_query") != null' "$claude/settings.json")" = true ] || fail "ask rules of optional servers must stay so a configured server still prompts"
+[ "$(jq -r '.permissions.ask | index("mcp__notion__notion-calendar-list-events") != null' "$claude/settings.json")" = true ] || fail "notion ask rules must stay so a configured server still prompts"
 for skill in b-datagrip b-excalidraw b-drawio; do
   [ ! -e "$claude/skills/$skill" ] || fail "optional skill $skill must not be installed by default"
   if grep -Fq "\`$skill\`" "$claude/CLAUDE.md"; then fail "the kernel must not route to the uninstalled $skill"; fi
 done
-[ "$(jq -c .optional_components "$claude/b-agentic/install.json")" = '{"datagrip":false,"excalidraw":false,"drawio":false}' ] || fail "default selection must be recorded as all off"
+[ "$(jq -c .optional_components "$claude/b-agentic/install.json")" = '{"datagrip":false,"excalidraw":false,"drawio":false,"notion":false}' ] || fail "default selection must be recorded as all off"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must not be installed"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
 grep -Fq '/plugin install codex@openai-codex' <<<"$out" || fail "plugin commands not printed"
@@ -999,28 +1000,28 @@ echo "install probe passed: bootstrap-git"
 
 # --- optional components: flags, persistence, removal, legacy inference ------------------------------------
 opt_state() { jq -c '.optional_components' "$1/.claude/b-agentic/install.json"; }
-# opt_present <home> <id>: skill, routing line, rules, and server of one component are all installed.
+# opt_present <home> <id>: skill (when the component has one), routing line, rules, and server of one component are all installed.
 opt_present() {
   local dir="$1/.claude" skill server
-  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0]' "$root/skills/registry.yaml")
+  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0] // empty' "$root/skills/registry.yaml")
   server=$(jq -r --arg i "$2" '.optional_components[$i].mcp_servers[0]' "$root/skills/registry.yaml")
-  [ -f "$dir/skills/$skill/SKILL.md" ] && grep -Fq "\`$skill\`" "$dir/CLAUDE.md" \
+  { [ -z "$skill" ] || { [ -f "$dir/skills/$skill/SKILL.md" ] && grep -Fq "\`$skill\`" "$dir/CLAUDE.md"; }; } \
     && { ! jq -e --arg s "$server" '.mcpServers | has($s)' "$root/claude/configs/mcp.base.json" >/dev/null \
          || [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$1/.claude.json")" = true ]; } \
     && jq -e --arg p "mcp__${server}__" '[.permissions.allow[] | select(startswith($p))] | length > 0' "$dir/settings.json" >/dev/null
 }
-# opt_absent <home> <id>: none of the four is installed.
+# opt_absent <home> <id>: none of the four (or the three, for a component without a skill) is installed.
 opt_absent() {
   local dir="$1/.claude" skill server
-  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0]' "$root/skills/registry.yaml")
+  skill=$(jq -r --arg i "$2" '.optional_components[$i].skills[0] // empty' "$root/skills/registry.yaml")
   server=$(jq -r --arg i "$2" '.optional_components[$i].mcp_servers[0]' "$root/skills/registry.yaml")
-  [ ! -e "$dir/skills/$skill" ] && ! grep -Fq "\`$skill\`" "$dir/CLAUDE.md" \
+  { [ -z "$skill" ] || { [ ! -e "$dir/skills/$skill" ] && ! grep -Fq "\`$skill\`" "$dir/CLAUDE.md"; }; } \
     && [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$1/.claude.json")" = false ] \
     && ! jq -e --arg p "mcp__${server}__" '[.permissions.allow[] | select(startswith($p))] | length > 0' "$dir/settings.json" >/dev/null
 }
 home=$(fresh_home optional)
 run "$home" -y; expect_ok "default install"
-for id in datagrip excalidraw drawio; do opt_absent "$home" "$id" || fail "$id must be absent by default"; done
+for id in datagrip excalidraw drawio notion; do opt_absent "$home" "$id" || fail "$id must be absent by default"; done
 run "$home" -y --with=excalidraw,drawio; expect_ok "select two components"
 { opt_present "$home" excalidraw && opt_present "$home" drawio; } || fail "selected components must be installed"
 opt_absent "$home" datagrip || fail "unselected components must stay absent"
@@ -1029,7 +1030,7 @@ run "$home_one" -y --with=drawio; expect_ok "select one component"
 { opt_present "$home_one" drawio && opt_absent "$home_one" excalidraw && opt_absent "$home_one" datagrip; } || fail "an unselected component that ships an MCP server must stay absent"
 run "$home" -y; expect_ok "plain re-run keeps the recorded choice"
 { opt_present "$home" excalidraw && opt_present "$home" drawio; } || fail "a plain re-run must not drop components"
-[ "$(opt_state "$home")" = '{"datagrip":false,"excalidraw":true,"drawio":true}' ] || fail "selection not persisted"
+[ "$(opt_state "$home")" = '{"datagrip":false,"excalidraw":true,"drawio":true,"notion":false}' ] || fail "selection not persisted"
 before=$(tree "$home")
 run "$home" -y; expect_ok "idempotent re-run"
 [ "$before" = "$(tree "$home")" ] || fail "re-run changed files"
@@ -1059,7 +1060,34 @@ jq 'del(.optional_components)' "$home/.claude/b-agentic/install.json" >"$work/le
 cp "$work/legacy-manifest.json" "$home/.claude/b-agentic/install.json"
 run "$home" -y; expect_ok "upgrade a manifest without a recorded choice"
 for id in datagrip excalidraw drawio; do opt_present "$home" "$id" || fail "$id must be kept for an existing install"; done
-[ "$(opt_state "$home")" = '{"datagrip":true,"excalidraw":true,"drawio":true}' ] || fail "inferred selection must be recorded"
+opt_absent "$home" notion || fail "a component the manifest never owned must stay absent"
+[ "$(opt_state "$home")" = '{"datagrip":true,"excalidraw":true,"drawio":true,"notion":false}' ] || fail "inferred selection must be recorded"
+# Notion shipped in every install before it became optional, so an install that owns it keeps it when
+# its recorded choice has no notion key, and only an explicit --without removes it.
+home=$(fresh_home optional-notion-upgrade)
+run "$home" -y --with=notion; expect_ok "select notion"
+opt_present "$home" notion || fail "--with=notion must install the server and its allow rules"
+[ "$(jq -c '.mcpServers.notion' "$home/.claude.json")" = "$(jq -c '.mcpServers.notion' "$root/claude/configs/mcp.base.json")" ] || fail "the notion entry must equal the managed entry"
+jq 'del(.optional_components.notion)' "$home/.claude/b-agentic/install.json" >"$work/notion-manifest.json"
+cp "$work/notion-manifest.json" "$home/.claude/b-agentic/install.json"
+run "$home" -y; expect_ok "upgrade a recorded choice without a notion key"
+opt_present "$home" notion || fail "an install that owns notion must keep it when the recorded choice lacks the key"
+[ "$(jq -r '.notion' <<<"$(opt_state "$home")")" = true ] || fail "the kept notion selection must be recorded as true"
+run "$home" -y --without=notion; expect_ok "deselect notion"
+opt_absent "$home" notion || fail "--without=notion must remove an owned unmodified entry and its allow rules"
+[ "$(jq -r '.permissions.ask | index("mcp__notion__notion-calendar-list-events") != null' "$home/.claude/settings.json")" = true ] || fail "notion ask rules must stay after deselecting"
+run "$home" -y --with=notion; expect_ok "select notion again"
+jq '.mcpServers.notion.mine = true' "$home/.claude.json" >"$work/notion-edited.json"
+cp "$work/notion-edited.json" "$home/.claude.json"
+run "$home" -y --without=notion; expect_ok "deselect an edited notion entry"
+[ "$(jq -r '.mcpServers | has("notion")' "$home/.claude.json")" = true ] || fail "an edited notion entry must be kept"
+grep -Fq "although its optional component is not selected" <<<"$err" || fail "a kept edited notion entry must warn: $err"
+home=$(fresh_home optional-notion-user)
+run "$home" -y; expect_ok "default install before a user adds notion"
+jq '.mcpServers.notion = {"type":"http","url":"https://example.invalid/notion"}' "$home/.claude.json" >"$work/notion-user.json"
+cp "$work/notion-user.json" "$home/.claude.json"
+run "$home" -y; expect_ok "re-run with a user-owned notion entry"
+[ "$(jq -c '.mcpServers.notion' "$home/.claude.json")" = '{"type":"http","url":"https://example.invalid/notion"}' ] || fail "a user-owned notion entry must be left untouched"
 # The doctor accepts a selection that leaves components out, and flags a missing selected one.
 home=$(fresh_home optional-doctor)
 run "$home" -y --with=drawio; expect_ok "doctor install"
@@ -1071,6 +1099,7 @@ home=$(fresh_home optional-doctors)
 run "$home" -y --with=drawio; expect_ok "doctor install"
 mcp=$(python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
 grep -Fq 'excalidraw: not installed: optional' <<<"$mcp" || fail "an unselected server must be optional: $mcp"
+grep -Fq 'notion: not installed: optional' <<<"$mcp" || fail "an unselected notion must be optional: $mcp"
 jq 'del(.mcpServers.drawio)' "$home/.claude.json" >"$work/no-drawio.json"
 cp "$work/no-drawio.json" "$home/.claude.json"
 mcp=$(python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
