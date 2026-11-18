@@ -59,7 +59,8 @@ touches only `~/.claude` and `~/.claude.json`.
   shows `/compact or /clear` or `/compact before implement`, because the run state on disk already holds what a
   compaction would drop. In any other phase, or a blocked run, it only warns from 80%: finish the phase, then
   compact. It is read-only and fixed text; any read error shows nothing. The model cannot run `/compact`, so
-  this is a hint for you, not an automatic step.
+  this is a hint for you, not an automatic step. To check whether a change saved tokens, follow
+  [Measure token cost](docs/runbooks/measure-token-cost.md).
 - Bun is required ([ADR-018](docs/decisions/ADR-018-bun-only-runtime.md)): Claude Code runs the managed hooks
   and status line with `bun --no-env-file --config=/dev/null`, so a repository's `bunfig.toml` preload and
   `.env` never load into a hook. Install, `--dry-run`, and `--statusline-only` refuse without a working Bun
