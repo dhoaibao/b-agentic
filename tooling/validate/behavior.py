@@ -853,17 +853,7 @@ def validate_runtime_contract(skills: list[dict], errors: list[str]) -> None:
             if f"-> `{name}`, as a quick or full run; a typed `/b-<name>` runs standalone." not in text:
                 errors.append(f"references/kernel.template.md: missing the run entry routing rule for {name}")
             continue
-        skill_text = normalize(raw_skill_text)
-        kernel_text = normalize(text)
-        for trigger in routing.get("triggers", []):
-            if (
-                isinstance(trigger, str)
-                and normalize(trigger.strip('"')) not in kernel_text
-                and normalize(trigger.strip('"')) not in skill_text
-            ):
-                errors.append(
-                    f"runtime routing signal missing for {name}: {trigger!r} is absent from kernel and SKILL.md"
-                )
+        # Triggers are static-scorer metadata only; no generated text repeats them, so none is checked here.
 
 
 def validate_clause_regression(name: str, regression: dict, errors: list[str]) -> None:

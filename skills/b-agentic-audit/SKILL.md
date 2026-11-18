@@ -4,10 +4,7 @@ description: >
   Four-dimension read-only b-agentic audit covering source/design
   conformance, whole-project and first-party hook and CLI health,
   canonical skill/kernel quality, and currentness/MCP compatibility, with
-  evidence thresholds and approval-gated live probing. Routing signals:
-  b-agentic audit, suite audit, maintainer audit, design-conformance
-  audit, decision-design drift. Delegated: runs only in the `b-auditor`
-  subagent; the main session never executes it itself.
+  evidence thresholds and approval-gated live probing.
 metadata:
   phase: Validate
   execution_mode: subagent

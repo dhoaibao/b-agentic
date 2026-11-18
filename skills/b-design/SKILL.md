@@ -6,10 +6,7 @@ description: >
   descriptions, attached images or mockups, existing frontend files, or
   current design docs. Unlike `b-frontend`, it writes design guidance
   rather than UI code; unlike b-browser, it does not collect final browser
-  evidence. Routing signals: DESIGN.md, frontend design standard, design
-  guidelines, style guide, visual style, visual design rules, design
-  rules, design guidance from screenshot, design guidance from mockup,
-  document mockup design, document screenshot design, design system docs.
+  evidence.
 argument-hint: "[description, image, or files]"
 metadata:
   phase: Decide

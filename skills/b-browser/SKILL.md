@@ -4,9 +4,7 @@ description: >
   Browser automation and evidence operator for Playwright, Cypress e2e,
   Puppeteer, WebDriver, visual, screenshot, browser-session, live UI, and
   e2e checks. Unlike b-test, b-browser owns real-browser UI evidence, not
-  simulated-DOM unit, integration, or contract tests. Routing signals:
-  browser, e2e, visual verification, visual check, screenshot evidence,
-  browser session, live UI, Playwright, Cypress e2e, Puppeteer, WebDriver.
+  simulated-DOM unit, integration, or contract tests.
 argument-hint: "[route and UI state]"
 metadata:
   phase: Validate

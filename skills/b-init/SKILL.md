@@ -5,9 +5,7 @@ description: >
   AGENTS.md plus a minimal CLAUDE.md shim that routes readers to
   AGENTS.md, grounded in repo evidence with user-owned content preserved.
   Also sets up the docs/ structure: a docs/README.md index and a README in
-  each docs folder for agent-authored docs. Routing signals: /init, init
-  agent docs, initialize agent docs, create AGENTS.md, create CLAUDE.md,
-  refresh AGENTS.md, refresh agent docs.
+  each docs folder for agent-authored docs.
 metadata:
   phase: Build
   execution_mode: main

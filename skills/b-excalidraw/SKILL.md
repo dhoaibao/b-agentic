@@ -6,9 +6,7 @@ description: >
   MCP from explicit facts, without inferring topology, ownership, runtime
   behavior, impact, or merge safety. Formal, icon-based, ER/UML, sequence,
   or editable .drawio diagrams belong to b-drawio. Never produces HTML or
-  SVG. Routing signals: architecture diagram, system map, workflow
-  diagram, data-flow diagram, lifecycle diagram, whiteboard sketch,
-  brainstorm diagram, Excalidraw diagram.
+  SVG.
 argument-hint: "[diagram type and facts]"
 metadata:
   phase: Build

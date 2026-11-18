@@ -6,9 +6,7 @@ description: >
   bugs, b-test owns test-specific failures and simulated-DOM/component-
   test work: wrong assertions, missing mocks, fixture or setup issues, and
   coverage gaps. Real-browser, visual, browser-session, and e2e
-  verification belongs to b-browser. Routing signals: tests, coverage,
-  failing test, snapshot, mock, component test, jsdom, happy-dom, React
-  Testing Library.
+  verification belongs to b-browser.
 argument-hint: "[test target or failure]"
 metadata:
   phase: Validate

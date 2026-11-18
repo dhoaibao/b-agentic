@@ -5,9 +5,7 @@ description: >
   every acceptance criterion to fresh evidence, hands test work to b-test,
   real-browser evidence to b-browser, and product failures to b-debug, and
   ends with QA PASS, QA FAIL, or QA BLOCKED. Unlike b-review, it checks
-  acceptance rather than code quality; it never commits or pushes. Routing
-  signals: QA, QA gate, acceptance QA, acceptance check, verify acceptance
-  criteria, evidence matrix, regression scope.
+  acceptance rather than code quality; it never commits or pushes.
 argument-hint: "[acceptance criteria or candidate]"
 metadata:
   phase: Validate

@@ -5,11 +5,7 @@ description: >
   styling, responsive behavior, interactions, and visual refreshes. Uses
   existing product tokens, components, assets, and design guidance without
   inventing a generic aesthetic, and hands browser/visual proof to
-  b-browser. Routing signals: frontend implementation, UI implementation,
-  page implementation, layout implementation, component implementation,
-  component styling, responsive behavior, responsive layout, UI
-  interaction, interaction state, visual refresh, landing page, landing-
-  page.
+  b-browser.
 argument-hint: "[UI change]"
 metadata:
   phase: Build

@@ -4,13 +4,7 @@ description: >
   Pre-PR changed-code review for architect-style reads of working-tree
   changes or changes since a base ref after implementation. Do NOT invoke
   for PR-prose review, b-agentic repository or design-conformance audits,
-  UI/design review, plan review, or research synthesis review. Routing
-  signals: code review, review diff, review my diff, review changes,
-  review these changes, working tree diff, pre-PR, "what would an
-  architect". Runs the Codex gate first from the main session and, only
-  when it is unavailable or the user chooses it after a refused or void
-  run, delegates to the `b-reviewer` subagent; the main session never
-  executes the review itself.
+  UI/design review, plan review, or research synthesis review.
 argument-hint: "[working tree or changes since a base ref]"
 metadata:
   phase: Validate

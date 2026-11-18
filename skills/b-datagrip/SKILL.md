@@ -6,8 +6,7 @@ description: >
   confirmation for remote databases, and approval before any write, DDL,
   or connection change. Use for schema inspection, table previews, and ad-
   hoc SQL; unlike b-implement and b-debug, it does not edit application
-  code or diagnose runtime failures. Routing signals: DataGrip, DataGrip
-  connection, DataGrip database, DataGrip schema, run SQL in DataGrip.
+  code or diagnose runtime failures.
 argument-hint: "[connection and question]"
 metadata:
   phase: Build

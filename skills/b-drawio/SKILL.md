@@ -6,10 +6,7 @@ description: >
   models, sequence diagrams, dense or multi-page flowcharts, and
   repository .drawio files, without inferring topology, ownership, runtime
   behavior, impact, or merge safety. Conceptual whiteboard sketches belong
-  to b-excalidraw. Never produces HTML or SVG. Routing signals: draw.io
-  diagram, drawio, .drawio file, network topology diagram, cloud
-  architecture diagram, ER diagram, UML diagram, class diagram, sequence
-  diagram.
+  to b-excalidraw. Never produces HTML or SVG.
 argument-hint: "[diagram type, facts, and .drawio path]"
 metadata:
   phase: Build

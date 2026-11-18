@@ -6,9 +6,7 @@ description: >
   boundary drift, test and verification gaps, and docs/instruction drift,
   with evidence thresholds and approval-gated advisory scans. Unlike
   b-agentic-audit, it audits any repository against its own documented
-  standards. Routing signals: project audit, codebase audit, audit this
-  project, audit this repo, dependency currentness. Delegated: runs only
-  in the `b-auditor` subagent; the main session never executes it itself.
+  standards.
 argument-hint: "[scope or dimensions]"
 metadata:
   phase: Validate

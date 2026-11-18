@@ -5,10 +5,7 @@ description: >
   slow paths, memory issues, and stack traces. Confirms the root cause and
   hands off an evidence-backed fix without editing product code. Unlike
   b-test, b-debug owns runtime behavior failures, not test-mechanic issues
-  such as wrong assertions, mocks, or fixtures. Routing signals: bug,
-  broken, stack trace, "not working", runtime error, regression, product
-  regression, product bug, diagnose. Delegated: runs only in the
-  `b-debugger` subagent; the main session never executes it itself.
+  such as wrong assertions, mocks, or fixtures.
 argument-hint: "[repro command or error]"
 metadata:
   phase: Decide

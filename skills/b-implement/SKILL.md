@@ -4,9 +4,7 @@ description: >
   Execute approved or scoped non-UI work from an approved plan or a small
   direct request, one verified step at a time, handing back to planning or
   research when new ambiguity appears. Frontend/UI code belongs to
-  b-frontend. Unlike b-plan, b-implement changes code. Routing signals:
-  implement, make the change, apply the plan, code the fix, finish the
-  implementation, build the feature.
+  b-frontend. Unlike b-plan, b-implement changes code.
 argument-hint: "[approved plan or change]"
 metadata:
   phase: Build

@@ -5,9 +5,7 @@ description: >
   verification for named behavior-preserving transforms: rename, extract,
   move, inline, delete dead code, or simplify a specific target. Vague
   cleanups go to b-plan first. Unlike b-plan, which decides what to build,
-  b-refactor owns mechanical edits. Routing signals: rename, extract
-  function, extract method, move symbol, inline, simplify code, delete
-  dead code, remove dead code, behavior-preserving.
+  b-refactor owns mechanical edits.
 argument-hint: "<transform and target>"
 metadata:
   phase: Build

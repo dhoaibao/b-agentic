@@ -4,10 +4,7 @@ description: >
   Turn goals into execution-ready plans. Handles both underspecified
   requests and fuzzy problem statements by investigating enough to compare
   options, choose a path, and write ordered steps. Unlike b-implement,
-  b-plan does not change code. Routing signals: plan, decompose, approach,
-  explore, not sure, figure out, "how should I", implementation plan,
-  clarify, requirements, scope. Delegated: runs only in the `b-planner`
-  subagent; the main session never executes it itself.
+  b-plan does not change code.
 argument-hint: "[goal or problem]"
 metadata:
   phase: Decide

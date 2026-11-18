@@ -1060,9 +1060,6 @@ def fold_yaml(key: str, value: str) -> list[str]:
 def render_skill_file(skill: dict[str, Any], runtime: str = "claude", hits: set[str] | None = None) -> str:
     name = skill["name"]
     description = skill["prompt"]["description"]
-    triggers = skill["routing"].get("triggers")
-    if triggers:
-        description += f" Routing signals: {', '.join(triggers)}."
     body = (ROOT / "skills" / name / "prompt.md").read_text().rstrip()
     body = apply_markers(body, runtime)
     body = body.replace("{{skill_support_path}}", "<skill-dir>")
@@ -1074,14 +1071,6 @@ def render_skill_file(skill: dict[str, Any], runtime: str = "claude", hits: set[
         if not sep:
             raise SystemExit(f"skills/{name}/prompt.md: expected a '## ' section to place the delegation boundary")
         body = f"{head}\n{render_delegation_boundary(skill, runtime)}\n\n## {rest}"
-        gate = primary_gate(skill, runtime)
-        if gate:
-            description += (
-                f" Runs the {gate['label']} gate first from the main session and, only when it is unavailable or the user chooses it after a refused or void run,"
-                f" delegates to the `{execution['agent']}` subagent; the main session never executes the review itself."
-            )
-        else:
-            description += f" Delegated: runs only in the `{execution['agent']}` subagent; the main session never executes it itself."
     if runtime != "claude":
         body = tidy_blank_lines(apply_glossary(body, runtime, hits))
     lines = ["---", f"name: {name}"]
@@ -1487,6 +1476,13 @@ def validate_regressions(
             if any(item not in rendered for item in skill["handoff"]):
                 errors.append(f"skill regression: {skill['name']} handoff missing from generated skill")
     for skill in skills:
+        # The always-loaded kernel already carries routing and delegation, so a generated suffix only costs context.
+        description_block = "\n".join(fold_yaml("description", skill["prompt"]["description"]))
+        _, found, after = render_skill_file(skill).partition(f"\n{description_block}\n")
+        if not found or after.startswith("  "):
+            errors.append(
+                f"skill regression: {skill['name']} description must be the registry description with no generated suffix"
+            )
         if "\ndisable-model-invocation:" in render_skill_file(skill):
             errors.append(f"skill regression: {skill['name']} must not set disable-model-invocation")
         hint = skill.get("argument_hint")
