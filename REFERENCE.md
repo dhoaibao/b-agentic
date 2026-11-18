@@ -57,7 +57,9 @@ touches only `~/.claude` and `~/.claude.json`.
   (`.b-agentic/active`). Claude Code's docs name no percentage for compacting by hand, so the hint uses token
   counts. A finished run (`done`) or a just-approved run (`approved`) at 200k tokens or 80% of the window or more
   shows `/compact or /clear` or `/compact before implement`, because the run state on disk already holds what a
-  compaction would drop. In any other phase, or a blocked run, it only warns from 80%: finish the phase, then
+  compaction would drop. These two hints show only in the session that holds the run's lock (the lock owner
+  equals the status line's `session_id`), so a later unrelated conversation does not see them; from 80% it
+  still shows `near auto-compact: /compact soon`. In any other phase, or a blocked run, it only warns from 80%: finish the phase, then
   compact. It is read-only and fixed text; any read error shows nothing. The model cannot run `/compact`, so
   this is a hint for you, not an automatic step. To check whether a change saved tokens, follow
   [Measure token cost](docs/runbooks/measure-token-cost.md).

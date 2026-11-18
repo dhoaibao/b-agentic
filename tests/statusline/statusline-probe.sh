@@ -60,6 +60,7 @@ run_dir() { # name, phase: a project with a recorded run in that phase
   mkdir -p "$work/$1/.b-agentic/runs/20261118-r1" "$work/$1/sub"
   printf '20261118-r1\n' >"$work/$1/.b-agentic/active"
   jq -nc --arg p "$2" '{run_id: "20261118-r1", phase: $p, other: "text that must never be printed"}' >"$work/$1/.b-agentic/runs/20261118-r1/state.json"
+  printf '{"owner":"sess-1","at":"2026-11-18T00:00:00.000Z"}\n' >"$work/$1/.b-agentic/runs/20261118-r1/lock"
 }
 # stock macOS has no GNU timeout; the alarm survives exec and bounds the command the same way
 bounded() { # bounded <seconds> <command...>
@@ -68,9 +69,10 @@ bounded() { # bounded <seconds> <command...>
   else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
   fi
 }
-hint_line() { # project name, used tokens, used percent
-  jq -c --arg d "$work/$1/sub" --argjson u "$2" --argjson p "$3" '.workspace = {current_dir: $d}
-    | .context_window = {used_percentage: $p, context_window_size: 1000000, current_usage: {input_tokens: $u}}' "$work/full.json" | bounded 10 "${js[@]}" "$cli" | plain
+hint_line() { # project name, used tokens, used percent, optional session id (default sess-1, the lock owner)
+  jq -c --arg d "$work/$1/sub" --argjson u "$2" --argjson p "$3" --arg s "${4-sess-1}" '.workspace = {current_dir: $d}
+    | .context_window = {used_percentage: $p, context_window_size: 1000000, current_usage: {input_tokens: $u}}
+    | if $s == "" then del(.session_id) else .session_id = $s end' "$work/full.json" | bounded 10 "${js[@]}" "$cli" | plain
 }
 run_dir hint-done "done"
 run_dir hint-approved approved
@@ -82,6 +84,31 @@ grep -Fq 'plan on disk: /compact before implement' <<<"$(hint_line hint-approved
 grep -Fq 'near auto-compact' <<<"$(hint_line hint-implement 820000 82)" || fail "an implement run at 82% must warn"
 grep -Fq 'near auto-compact' <<<"$(hint_line hint-blocked 900000 90)" || fail "a blocked run at 90% must warn"
 grep -Eq 'run done|plan on disk|near auto-compact' <<<"$(hint_line hint-implement 550000 55)" && fail "a mid-run phase at 55% must not hint"
+# A finished or just-approved run counts only in the session that holds its lock; the 80% warning needs no session.
+grep -Fq 'run done' <<<"$(hint_line hint-done 620000 62 sess-2)" && fail "a done run must not hint in another session"
+grep -Fq 'plan on disk' <<<"$(hint_line hint-approved 250000 25 sess-2)" && fail "an approved run must not hint in another session"
+grep -Fq 'run done' <<<"$(hint_line hint-done 620000 62 '')" && fail "a done run must not hint without a session id"
+grep -Fq 'near auto-compact' <<<"$(hint_line hint-implement 820000 82 sess-2)" || fail "the 80% warning must show in any session"
+# Above 80% the near-limit warning stays for both phases whatever the session check says, without the run-specific text.
+for p in hint-done hint-approved; do
+  for s in sess-2 ''; do
+    out=$(hint_line "$p" 820000 82 "$s")
+    grep -Fq 'near auto-compact: /compact soon' <<<"$out" || fail "$p in session '$s' at 82% must still warn: $out"
+    grep -Eq 'run done|plan on disk|finish this phase' <<<"$out" && fail "$p in session '$s' must not show run-specific text: $out"
+  done
+done
+run_dir hint-nolock "done"
+rm -f "$work/hint-nolock/.b-agentic/runs/20261118-r1/lock"
+grep -Fq 'run done' <<<"$(hint_line hint-nolock 620000 62)" && fail "a done run without a lock must not hint"
+grep -Fq 'near auto-compact: /compact soon' <<<"$(hint_line hint-nolock 820000 82)" || fail "a done run without a lock must still warn at 82%"
+run_dir hint-badlock "done"
+printf 'not json' >"$work/hint-badlock/.b-agentic/runs/20261118-r1/lock"
+grep -Fq 'run done' <<<"$(hint_line hint-badlock 620000 62)" && fail "a done run with an unreadable lock must not hint"
+grep -Fq 'near auto-compact: /compact soon' <<<"$(hint_line hint-badlock 820000 82)" || fail "a done run with an unreadable lock must still warn at 82%"
+run_dir hint-locklink "done"
+mv "$work/hint-locklink/.b-agentic/runs/20261118-r1/lock" "$work/hint-locklink/real-lock"
+ln -s "$work/hint-locklink/real-lock" "$work/hint-locklink/.b-agentic/runs/20261118-r1/lock"
+grep -Fq 'run done' <<<"$(hint_line hint-locklink 620000 62)" && fail "a symlinked lock must not be followed"
 grep -Fq 'text that must never be printed' <<<"$(hint_line hint-done 620000 62)" && fail "run state text must never reach the line"
 # Without run state, with a corrupt state, or with an unknown phase the line is unchanged.
 mkdir -p "$work/hint-none/sub"
@@ -114,12 +141,13 @@ grep -Eq 'run done|plan on disk|near auto-compact' <<<"$(hint_line hint-big 9000
 # The pointer lives at the worktree root: a nested repository never borrows an enclosing project's run.
 run_dir hint-outer "done"
 mkdir -p "$work/hint-outer/nested/.git" "$work/hint-outer/nested/deep"
-grep -Eq 'run done' <<<"$(jq -c --arg d "$work/hint-outer/nested/deep" '.workspace = {current_dir: $d}
+grep -Eq 'run done' <<<"$(jq -c --arg d "$work/hint-outer/nested/deep" '.workspace = {current_dir: $d} | .session_id = "sess-1"
   | .context_window = {used_percentage: 90, context_window_size: 1000000, current_usage: {input_tokens: 900000}}' "$work/full.json" | "${js[@]}" "$cli" | plain)" && fail "a nested repository must not inherit the enclosing run"
 mkdir -p "$work/hint-outer/nested/.b-agentic/runs/20261118-n1"
 printf '20261118-n1\n' >"$work/hint-outer/nested/.b-agentic/active"
 printf '{"run_id":"20261118-n1","phase":"approved"}' >"$work/hint-outer/nested/.b-agentic/runs/20261118-n1/state.json"
-grep -Fq 'plan on disk' <<<"$(jq -c --arg d "$work/hint-outer/nested/deep" '.workspace = {current_dir: $d}
+printf '{"owner":"sess-1"}\n' >"$work/hint-outer/nested/.b-agentic/runs/20261118-n1/lock"
+grep -Fq 'plan on disk' <<<"$(jq -c --arg d "$work/hint-outer/nested/deep" '.workspace = {current_dir: $d} | .session_id = "sess-1"
   | .context_window = {used_percentage: 30, context_window_size: 1000000, current_usage: {input_tokens: 300000}}' "$work/full.json" | "${js[@]}" "$cli" | plain)" || fail "a nested repository must use its own run"
 # A run folder must be a real directory of the same project and carry the id the pointer names.
 run_dir hint-mismatch "done"

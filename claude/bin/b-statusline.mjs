@@ -4,7 +4,7 @@
 // and the 5-hour and weekly limits as coloured percents with time to reset. Where a b-flow run is
 // recorded it also adds a short compaction hint, chosen from the run phase and the context size.
 // Read-only: it writes nothing and never touches the network; it reads only the stdin JSON,
-// .git/HEAD, and the phase of the run in .b-agentic.
+// .git/HEAD, and the phase and lock owner of the run in .b-agentic.
 import {
   closeSync,
   constants,
@@ -12,6 +12,7 @@ import {
   lstatSync,
   openSync,
   readFileSync,
+  readSync,
   statSync,
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -109,7 +110,10 @@ export function readRunFile(path) {
     );
     const info = fstatSync(fd);
     if (!info.isFile() || info.size > MAX_RUN_FILE_BYTES) return null;
-    return readFileSync(fd, "utf8");
+    // One byte more than fstat saw: a file another process grew since then reads longer and is dropped.
+    const buffer = Buffer.alloc(info.size + 1);
+    const count = readSync(fd, buffer, 0, buffer.length, 0);
+    return count === info.size ? buffer.toString("utf8", 0, count) : null;
   } catch {
     return null;
   } finally {
@@ -139,25 +143,45 @@ const isPlainDir = (path) => {
 // The id format b-state writes, as in claude/hooks/b-run-context.mjs.
 const RUN_ID = /^\d{8}-[a-z0-9][a-z0-9-]{0,40}$/;
 
+// The pointer keeps naming a finished run, so these phases say nothing about a later conversation.
+// They count only in the session that holds the run's lock; elsewhere the phase reads as
+// OTHER_SESSION, which keeps the near-limit warning and drops the run-specific hints.
+const SESSION_BOUND_PHASES = ["approved", "done"];
+export const OTHER_SESSION = "other-session";
+
+function lockedBy(runDir, sessionId) {
+  if (typeof sessionId !== "string" || sessionId === "") return false;
+  try {
+    return JSON.parse(readRunFile(join(runDir, "lock")))?.owner === sessionId;
+  } catch {
+    return false;
+  }
+}
+
 // Phase of the run recorded under .b-agentic, or null when there is no run state or it cannot be
 // read. The pointer lives at the worktree root, so the search stops at the first directory that has
 // a `.git`: a nested repository never borrows an enclosing project's run. Only a known phase name is
-// returned, so nothing else from the state file reaches the output.
-export function runPhase(start) {
+// returned, so nothing else from the state file reaches the output. An approved or done run is
+// returned only when its lock owner is `sessionId`; otherwise it reads as OTHER_SESSION.
+export function runPhase(start, sessionId = null) {
   let dir = typeof start === "string" && start !== "" ? resolve(start) : null;
   for (let depth = 0; dir !== null && depth < 32; depth++) {
     const base = join(dir, ".b-agentic");
     const pointer = join(base, "active");
     if (exists(pointer)) {
+      if (!isPlainDir(base)) return null;
       const id = readRunFile(pointer)?.trim();
       if (!id || !RUN_ID.test(id)) return null;
       const runDir = join(base, "runs", id);
-      if (![base, join(base, "runs"), runDir].every(isPlainDir)) return null;
+      if (![join(base, "runs"), runDir].every(isPlainDir)) return null;
       try {
         const state = JSON.parse(readRunFile(join(runDir, "state.json")));
-        return state?.run_id === id && RUN_PHASES.includes(state?.phase)
-          ? state.phase
-          : null;
+        if (state?.run_id !== id || !RUN_PHASES.includes(state?.phase))
+          return null;
+        return SESSION_BOUND_PHASES.includes(state.phase) &&
+          !lockedBy(runDir, sessionId)
+          ? OTHER_SESSION
+          : state.phase;
       } catch {
         return null;
       }
@@ -180,6 +204,8 @@ export function compactHint(phase, usedTokens, percent) {
     return paint(near ? "31" : "33", "run done: /compact or /clear");
   if (phase === "approved" && heavy)
     return paint(near ? "31" : "33", "plan on disk: /compact before implement");
+  if (phase === OTHER_SESSION && near)
+    return paint("31", "near auto-compact: /compact soon");
   if (phase !== "done" && phase !== "approved" && near)
     return paint("31", "near auto-compact: finish this phase, then /compact");
   return null;
@@ -255,7 +281,7 @@ function main() {
   }
   const start = input.workspace?.current_dir ?? input.cwd;
   process.stdout.write(
-    `${render(input, undefined, gitBranch(start), runPhase(start))}\n`,
+    `${render(input, undefined, gitBranch(start), runPhase(start, input.session_id))}\n`,
   );
 }
 
