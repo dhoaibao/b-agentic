@@ -98,8 +98,10 @@ export const NEAR_LIMIT_PERCENT = 80;
 
 // Run files are untrusted project content and the status line must always print, so they are read
 // with the flags of the run-context hook: no symlink, no blocking open of a FIFO, and a size cap.
-// Run state files are about 13 KB; the cap is far above that.
-const MAX_RUN_FILE_BYTES = 262_144;
+// The cap equals MAX_STATE_BYTES in b-state-core.mjs: a state the writer accepts must stay readable,
+// or the hint would vanish silently. Typical state files are about 13 KB. It is copied, not imported,
+// because `--statusline-only` installs this file alone.
+const MAX_RUN_FILE_BYTES = 1 << 20;
 
 export function readRunFile(path) {
   let fd = null;
@@ -140,8 +142,8 @@ const isPlainDir = (path) => {
   }
 };
 
-// The id format b-state writes, as in claude/hooks/b-run-context.mjs.
-const RUN_ID = /^\d{8}-[a-z0-9][a-z0-9-]{0,40}$/;
+// The id format b-state writes, as in claude/hooks/b-run-context.mjs; the probe checks every copy.
+export const RUN_ID = /^\d{8}-[a-z0-9][a-z0-9-]{0,40}$/;
 
 // The pointer keeps naming a finished run, so these phases say nothing about a later conversation.
 // They count only in the session that holds the run's lock; elsewhere the phase reads as

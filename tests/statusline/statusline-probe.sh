@@ -168,6 +168,20 @@ grep -Eq 'run done|plan on disk|near auto-compact' <<<"$(hint_line hint-linkbase
 # The copied phase list must stay equal to the state helper's.
 [ "$("${js[@]}" -e 'import { RUN_PHASES } from "'"$cli"'"; import { PHASES } from "'"$root"'/claude/bin/b-state-core.mjs"; console.log(JSON.stringify(RUN_PHASES) === JSON.stringify(PHASES))')" = true ] || fail "the status line phase list must equal the b-state phase list"
 
+# Every copy of the run id pattern must stay equal to the state helper's.
+[ "$("${js[@]}" -e 'import { readFileSync } from "node:fs"; import { RUN_ID as a } from "'"$cli"'"; import { RUN_ID as core } from "'"$root"'/claude/bin/b-state-core.mjs";
+const hook = readFileSync("'"$root"'/claude/hooks/b-run-context.mjs", "utf8").match(/const RUN_ID = \/(.+)\/;/)?.[1];
+const py = readFileSync("'"$root"'/claude/bin/b_run.py", "utf8").match(/^RUN_ID = re\.compile\(r"(.+)"\)$/m)?.[1];
+console.log([a.source, hook, py].every((source) => source === core.source))')" = true ] || fail "every RUN_ID copy must equal the b-state run id pattern"
+
+# A valid state the writer accepts (up to 1 MiB) must still read; a larger file is dropped.
+run_dir hint-big "done"
+jq -nc '{run_id: "20261118-r1", phase: "done", pad: ("x" * 300000)}' >"$work/hint-big/.b-agentic/runs/20261118-r1/state.json"
+grep -Fq 'run done: /compact or /clear' <<<"$(hint_line hint-big 620000 62)" || fail "a 300 KB valid state must still hint"
+run_dir hint-huge "done"
+jq -nc '{run_id: "20261118-r1", phase: "done", pad: ("x" * 1100000)}' >"$work/hint-huge/.b-agentic/runs/20261118-r1/state.json"
+grep -Eq 'run done|plan on disk|near auto-compact' <<<"$(hint_line hint-huge 900000 90)" && fail "a state over 1 MiB must not hint"
+
 # Missing fields and invalid input never crash or print noise.
 [ -z "$(printf '{}' | "${js[@]}" "$cli" | plain | tr -d '\n')" ] || fail "empty input must print an empty line"
 [ "$(printf '{"model":{"display_name":"Sonnet"}}' | "${js[@]}" "$cli" | plain)" = "Sonnet" ] || fail "model only"
