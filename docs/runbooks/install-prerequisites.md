@@ -131,7 +131,7 @@ not start servers or read secret values.
   It adds one Bash `PreToolUse` entry to `~/.claude/settings.json` that rewrites
   supported commands to their `rtk` form, and writes nothing to `CLAUDE.md`. The
   installer leaves that entry alone on sync and uninstall because it never
-  recorded it. Preview with `rtk init -g --hook-only --dry-run -v`, install it
+  recorded it. Preview with `rtk -v init -g --hook-only --dry-run` (`-v` is only recognized before the subcommand), install it
   yourself, restart Claude Code, then check `rtk init --show` and `rtk verify`.
   The verify gate treats `rtk read` as a file read, not a check.
 - **RTK edition:** the default build is Apache-2.0 plus BUSL-1.1. An
