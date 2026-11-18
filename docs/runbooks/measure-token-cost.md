@@ -33,8 +33,10 @@ not measurements: use this routine before keeping a change that was justified by
    `rtk discover -p b-agentic --since 7` for commands that ran without it.
 6. Watch for the compaction hint on the status line. It appears only where a
    b-flow run is recorded (`.b-agentic/active`): at 200k tokens when a run is done or
-   just approved, or from 80% of the window in any phase. Run `/compact` or `/clear`
-   when it shows; the model cannot do that for you.
+   just approved, or from 80% of the window in any phase. The done and approved hints
+   show only in the session that holds the run's lock; other sessions get only the
+   80% warning. Run `/compact` or `/clear` when it shows; the model cannot do that
+   for you.
 7. Know when Claude Code compacts by itself. A model with a native 1M window compacts
    at about 967k tokens by default, so on 1M nothing compacts for you until the window
    is nearly full. To compact sooner as a safety net, run `/autocompact 400k` (saved per model), set
@@ -60,7 +62,9 @@ the cache hit ratio did not fall.
 - The dollar figure looks too high on a subscription: it is a list-price figure from
   local token counts, not a charge.
 - No compaction hint: the repository has no `.b-agentic/active`, or the context is
-  below 200k tokens and 80%.
+  below 200k tokens and 80%, or the run is done or approved but this session does not
+  hold its lock (`/clear` starts a new session id, so the old lock no longer matches).
+  Only the 80% warning shows then.
 - The status line percent does not match when compaction runs: with
   `CLAUDE_CODE_AUTO_COMPACT_WINDOW` set, `used_percentage` is still measured against the
   full window. Read the token count, not the percent, to see the distance to your limit.

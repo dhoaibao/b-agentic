@@ -113,8 +113,9 @@ the rule. An unavailable subagent is reported, not replaced by self-execution.
 Claude Code starts subagents in the background by default (fork mode is on
 unless `CLAUDE_CODE_FORK_SUBAGENT=0`), so work that gates action waits for the
 completion notification; work the main session continues without is independent
-and read-only. `b-review` is a main-session skill: it freezes the candidate,
-runs the Codex gate, and classifies the result. `b-qa` is an optional
+and read-only. `b-review` is a `subagent`-mode skill with `b-reviewer` as its agent: the main
+session freezes the candidate, runs the Codex gate first, classifies the result,
+and uses `b-reviewer` only as the fallback ([ADR-007](ADR-007-codex-first-review-gate.md)). `b-qa` is an optional
 main-session acceptance gate after review: it compares the candidate with the
 review fingerprint, maps each acceptance criterion to fresh evidence, and ends
 with a QA verdict without committing or pushing. It has no specialist, because
@@ -269,7 +270,9 @@ pointer. Per the Claude Code hooks reference (v2.1.322), `SessionStart` output o
 live check after `/compact` stays a manual acceptance step.
 
 Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
-the `b-codex-guard` hook script (removed by [ADR-003](ADR-003-subagent-review-gate.md)),
+[`claude/hooks/b-codex-guard.mjs`](../../claude/hooks/b-codex-guard.mjs) (removed by
+[ADR-003](ADR-003-subagent-review-gate.md), restored as a Bash tripwire by
+[ADR-007](ADR-007-codex-first-review-gate.md)),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-spec-context.mjs`](../../claude/hooks/b-spec-context.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
@@ -282,12 +285,14 @@ The ClickUp integration and related safety-hook decision in this section were
 superseded by [ADR-006](ADR-006-retire-clickup-integration.md).
 
 Nine base servers are configured in Claude Code's standard `mcpServers` shape:
-seven are always installed, and the optional draw.io and Excalidraw
+six are always installed, and the optional draw.io, Excalidraw, and Notion
 servers are added only after install opt-in. `references/mcp_operations.yaml`
 classifies every known tool, and each class maps to an allow or ask rule on
 `mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
-The retired adapter's lazy and search-exposed modes are gone: Claude Code's
-built-in tool search defers large tool sets. Notion workspace reads are
+The retired adapter's lazy and search-exposed modes are gone. The design does not
+rely on Claude Code's tool search deferring large tool sets, because a child
+spawn loads the full schemas of its allowlisted tools
+([ADR-023](ADR-023-per-agent-mcp-tool-scope.md)). Notion workspace reads are
 `conditional-read` (calendar and contact reads are `private-read`), not
 `read-only`, because a `read-only` tool is eligible for the per-agent `mcp_tools`
 allowlists of the specialists and the writer child
@@ -331,9 +336,9 @@ unusual spelling can escape it, and it fails open on malformed input. That a hoo
 `ask` overrides the `allow` rule was not exercised live, and the `b-clickup`
 prompt rule against unapproved image references remains the second layer.
 
-Optional components: `b-datagrip`, `b-excalidraw`, `b-drawio` and
-their MCP servers, routing lines, and `allow` permission rules are declared under
-`optional_components` in `skills/registry.yaml`. Generated assets stay complete;
+Optional components: `b-datagrip`, `b-excalidraw`, `b-drawio`, and the
+skill-less `notion` MCP server, with their MCP servers, routing lines, and `allow`
+permission rules, are declared under `optional_components` in `skills/registry.yaml`. Generated assets stay complete;
 the installers filter them after an explicit choice (checkbox, `--with`/`--without`),
 drop skill lines marked `<!-- requires: b-x -->` whose skill is not installed,
 record the choice in the manifest, and remove a deselected component's recorded,
