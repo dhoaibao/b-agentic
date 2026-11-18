@@ -53,6 +53,13 @@ touches only `~/.claude` and `~/.claude.json`.
   The manifest records `"scope": "statusline"`; a plain `--uninstall` removes exactly that, and a later full
   install upgrades it in place (dropping the scope). It is refused over a full install, and cannot combine with
   `--with`, `--without`, or `--uninstall`.
+- The status line also adds a compaction hint, only where the project records a b-flow run
+  (`.b-agentic/active`). Claude Code's docs name no percentage for compacting by hand, so the hint uses token
+  counts. A finished run (`done`) or a just-approved run (`approved`) at 200k tokens or 80% of the window or more
+  shows `/compact or /clear` or `/compact before implement`, because the run state on disk already holds what a
+  compaction would drop. In any other phase, or a blocked run, it only warns from 80%: finish the phase, then
+  compact. It is read-only and fixed text; any read error shows nothing. The model cannot run `/compact`, so
+  this is a hint for you, not an automatic step.
 - Bun is required ([ADR-018](docs/decisions/ADR-018-bun-only-runtime.md)): Claude Code runs the managed hooks
   and status line with `bun --no-env-file --config=/dev/null`, so a repository's `bunfig.toml` preload and
   `.env` never load into a hook. Install, `--dry-run`, and `--statusline-only` refuse without a working Bun
