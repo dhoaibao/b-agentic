@@ -48,6 +48,11 @@ User arguments for the bounded task: $ARGUMENTS
 - Writing or fixing tests -> **b-test**.
 - Acceptance QA of a reviewed candidate -> **b-qa**.
 
+## Rules
+
+- Do not claim `READY FOR PR` without baseline, unchanged candidate, acceptance, fresh passing required checks, no blockers/material gaps, and a valid independent review.
+- Self-review or generic review cannot substitute for this loaded skill's review gate.
+
 ## Tool guidance
 
 - Codex gate (main session): `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-candidate-snapshot.mjs` for the candidate identity, `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check` for the early secret preflight, and `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs` as the only way to run Codex (it enforces the gate, runs the plugin, and normalizes the result with `b-codex-verdict`). Native `Read` and `Grep` (or `rg` where `Grep` is absent) verify a finding against the candidate, and shell commands stay read-only.
@@ -87,8 +92,3 @@ Findings, checked-and-clean areas, snapshot and verification coverage (F0 and F1
 - `Review void: <reason>` for a blocked or void review (missing CLI, incomplete snapshot, F0/F1 mismatch, or an unnameable ignored artifact), with no `Verdict:` line.
 
 `NEEDS FIXES` requires at least one blocker; follow-ups alone yield `READY WITH FOLLOW-UPS`, which requires explicit disposition and never waives required safety evidence. A verdict is not task acceptance, commit creation, or shipping.
-
-## Rules
-
-- Do not claim `READY FOR PR` without baseline, unchanged candidate, acceptance, fresh passing required checks, no blockers/material gaps, and a valid independent review.
-- Self-review or generic review cannot substitute for this loaded skill's review gate.
