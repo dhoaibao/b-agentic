@@ -269,6 +269,7 @@ def main() -> int:
         "mcp__context7__resolve-library-id",
         "mcp__notion__notion-search",
         "mcp__drawio__search_shapes",
+        "mcp__firecrawl__alexandria_library_search",
     ):
         if name not in allow:
             errors.append(f"read tool must be allowed: {name}")
@@ -276,6 +277,15 @@ def main() -> int:
         errors.append("doubled tool names must not appear in permission rules")
     for name in (
         "mcp__firecrawl__firecrawl_crawl",
+        "mcp__firecrawl__alexandria_library_read",
+        "mcp__firecrawl__people_company_search",
+        "mcp__firecrawl__people_company_enrich",
+        "mcp__notion__notion-create-meeting-note",
+        "mcp__notion__notion-update-sidebar-tabs",
+        "mcp__notion__notion-complete-mcp-setup",
+        "mcp__notion__notion-convert-to-meetings-database",
+        "mcp__notion__notion-link-meeting-note-to-calendar-event",
+        "mcp__notion__notion-update-page-favorites",
         "mcp__playwright__browser_file_upload",
         "mcp__playwright__browser_drop",
         "mcp__playwright__browser_run_code_unsafe",
