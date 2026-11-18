@@ -35,6 +35,14 @@ not measurements: use this routine before keeping a change that was justified by
    b-flow run is recorded (`.b-agentic/active`): at 200k tokens when a run is done or
    just approved, or from 80% of the window in any phase. Run `/compact` or `/clear`
    when it shows; the model cannot do that for you.
+7. Know when Claude Code compacts by itself. A model with a native 1M window compacts
+   at about 967k tokens by default, so on 1M nothing compacts for you until the window
+   is nearly full. To compact sooner as a safety net, run `/autocompact 400k` (saved per model), set
+   `autoCompactWindow` in settings, or set `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, which
+   overrides the other two; the accepted range is 100k to 1m. Claude Code's docs name
+   no best size: compact at a break between tasks while the prompt cache is warm,
+   because `/compact` reads the whole conversation and costs more once the cache has
+   expired, and use `/clear` when the next task is unrelated.
 
 ## Verify
 
@@ -53,3 +61,6 @@ the cache hit ratio did not fall.
   local token counts, not a charge.
 - No compaction hint: the repository has no `.b-agentic/active`, or the context is
   below 200k tokens and 80%.
+- The status line percent does not match when compaction runs: with
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW` set, `used_percentage` is still measured against the
+  full window. Read the token count, not the percent, to see the distance to your limit.
