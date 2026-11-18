@@ -7,7 +7,9 @@ description: >
   commits. A full run clarifies, takes one user approval, then implements,
   reviews, runs QA, and commits only under the consent recorded at
   approval. It never pushes or opens a PR. The kernel routes implement-
-  phase changes here; /b-flow starts or resumes a run explicitly.
+  phase changes here; /b-flow starts or resumes a run explicitly. A large
+  or still-open request is discussed first; a run starts only on the
+  user's go.
 argument-hint: "[goal | resume]"
 metadata:
   phase: Build
@@ -31,6 +33,7 @@ Run one change request as a run in the main session: a quick run for a small, cl
 - A question, a lookup, a plan, a review, a commit, a PR, or a utility (diagrams, DataGrip, init, audit): route to that skill directly.
 - A hook pointer or a state file mentions a run: that is never a request to resume.
 - Push or PR -> **b-pr**, on its own explicit request.
+- A large, greenfield, or open request the user is still shaping: discuss it in the main session, with no run and no `b-planner` call, until the user's go (see the Entry gate under Start).
 
 ## Tool guidance
 
@@ -43,10 +46,12 @@ Run one change request as a run in the main session: a quick run for a small, cl
 
 ### Start (a routed change, or `/b-flow <goal>`)
 
+**Entry gate.** Before step 1, keep the request in discussion when any of these holds: it creates a new project or app, or a component with no existing code to extend (check the target paths with `rtk git ls-files`); it names more than one feature that could ship on its own; an architecture decision is open (stack, storage, interface, deployment); or the user's latest message asks a question, weighs options, or adds an idea. While the gate holds, discuss directly with the user, use `AskUserQuestion` for material choices, run no `b-state.mjs init`, and call no `b-planner` unless the user asks for a plan or comparison. Only an explicit go passes the gate: a typed `/b-flow <goal>`, or words such as "go", "start", "settled", "chốt, làm đi". A question, a new idea, or "sounds good" is not a go. A small, clear request passes at once.
+
 1. Run `rtk git status --short`, compare `HEAD` with the cached `origin/<branch>` ref per the kernel (behind or diverged: report counts and ask), then `b-state.mjs init <kebab-slug>`. It refuses while another run is unfinished: report that run and ask whether to resume it or leave it (`init --replace` only on that answer). Changes already in the tree stay the user's: the run records them at start and leaves them alone, and a run on such a tree never commits (consent `commit: no`); a run that may commit starts on a clean tree.
 2. Choose the size. **Quick** when the request is small and clear: you can write the spec without a question, with at most 3 plan steps, 3 criteria with automated or inspection evidence, and 5 literal scope paths, and no kernel review trigger is apparent. Write the spec with `size: quick` and consent `commit: no`, `branch_target: current`, write the plan, and `b-state.mjs approve` with those flags and `--size quick`, with no approval round: the request is the approval. The helper refuses a spec over the quick limits; run that one full. A quick run never commits, and a review trigger blocks it: after the user's answer `unblock clarify`, rewrite the spec without `size`, and continue at step 5. Otherwise the run is **full**: steps 3-6.
-3. Clarify with `AskUserQuestion` (1-4 grouped questions per round) until intent, scope, non-goals, and expected behavior are clear. Delegate `b-plan` to `b-planner` for the Behavior delta, numbered `AC-n` criteria, and ordered steps.
-4. Take the spec and plan JSON from the planner's result (or build it from the clarified answers), `lint` it, then `write spec` and `write plan`. The CLI refuses a criterion without the right evidence field (a command for `automated` and `ci`, a source for the rest), non-contiguous ids, a plan check list that omits an automated command, a plan path outside `scope_paths`, and a protected scope path: resolve each with the user, never by loosening the data.
+3. Clarify with `AskUserQuestion` (1-4 grouped questions per round) until intent, scope, non-goals, and expected behavior are clear. Delegate `b-plan` to `b-planner` for the Behavior delta, numbered `AC-n` criteria, and ordered steps. When the Entry gate's new-project or multi-feature condition still holds, put a split question in the same round: a scaffold run now and one run per feature (recommended), one full run, or a narrower scope. On a split, the spec covers the scaffold only and lists each later run as a `behavior.non_goals` line `Later run: FEATURE` (at most 10).
+4. Take the spec and plan JSON from the planner's result (or build it from the clarified answers); if the draft exceeds 9 steps, 9 criteria, or 15 scope paths, do not write it until the user has answered the split question for this request: return to step 3 and ask it, and write the draft as is when the user chose one full run. `lint` it, then `write spec` and `write plan`. The CLI refuses a criterion without the right evidence field (a command for `automated` and `ci`, a source for the rest), non-contiguous ids, a plan check list that omits an automated command, a plan path outside `scope_paths`, and a protected scope path: resolve each with the user, never by loosening the data.
 5. Run one approval round, the last user interaction: confirm spec and `AC-n`, and each step the plan lists in `worker_steps` or `parallel_steps` (confirm or drop it); commit consent (yes/no); branch target (`current`, or `new:<type>/<kebab>` named as `b-commit` step 9 does, always new on a detached HEAD). Revise and repeat until approved; never start without it. Record the answers in the spec's `consent` block (`commit` yes|no, `branch_target`); a spec carries no Codex consent, because Codex needs no approval (ADR-021).
 6. `b-state.mjs approve --commit yes|no --branch-target T`; it repeats the same consent, refuses any difference from `spec.md` and, with commit `yes`, a tree with changes, validates the artifacts, and records the spec and plan hashes. A later rewrite of either voids the approval.
 
@@ -92,7 +97,7 @@ What each skill returns to the run:
 - **fix**: fix the recorded open blockers inside scope as a batch, whole class each, then `write followups` again: every blocker gets a disposition and reason, every fixed blocker a `sweep` line (correction paths, sweep scope, regression check), and the other findings a disposition and reason; then `advance verify`.
 - **qa**: run `b-qa` against the spec's `AC-n` (`b_run.py handoff qa` renders its inputs), then `write qa` with one row per criterion (the rows must match the spec and the verdict must follow from them), then `record ac AC-n pass|fail|gap|waived` for each row and `record qa --verdict V`; both must match `qa.md` and it must be rewritten in every QA round. `QA PASS`: `advance commit`, or without commit consent `advance done`. `QA FAIL`: route per `b-qa`, `advance fix`. `QA BLOCKED` is a stop.
 - **commit**: `advance commit` already ran (the helper checked consent, QA, review, and every current `AC-n`, and recorded the approved tree). Run `b-commit` for the whole candidate with the recorded branch target; the recorded consent is the explicit commit request and its branch question is skipped. Then `record commit <sha>` for every commit and `advance done`, which refuses unless HEAD's tree is exactly the approved candidate on the approved branch. If the candidate changes while preparing the commit, `check` voids the evidence and returns to `verify`.
-- **done**: report commits, `AC-n` results, follow-ups, and the run folder. When nothing was committed, say so and offer `/b-commit`. Offer `/b-pr` and promoting `spec.md` to `docs/specs/`; do neither on your own.
+- **done**: report commits, `AC-n` results, follow-ups, and the run folder. When nothing was committed, say so and offer `/b-commit`. Offer `/b-pr` and promoting `spec.md` to `docs/specs/` (for a split scaffold run, as the shared vision with `Status: draft`, so the compact hook does not inject it as acceptance for later runs); do neither on your own.
 
 ### Resume (`/b-flow resume`)
 

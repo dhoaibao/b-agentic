@@ -1129,6 +1129,20 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "include applicable checks and the kernel's risk classification",
                 "otherwise list it as an open **b-research** item",
+                "An idea the user is still shaping, with no plan or comparison asked for -> discuss it in the main session, per the **b-flow** Entry gate.",
+            ),
+        },
+        "skills/b-flow/prompt.md": {
+            "required": (
+                "run no `b-state.mjs init`, and call no `b-planner` unless the user asks for a plan or comparison",
+                "Only an explicit go passes the gate",
+                'A question, a new idea, or "sounds good" is not a go.',
+                "A small, clear request passes at once.",
+                "put a split question in the same round",
+                "lists each later run as a `behavior.non_goals` line `Later run: FEATURE`",
+                "if the draft exceeds 9 steps, 9 criteria, or 15 scope paths, do not write it",
+                "write the draft as is when the user chose one full run",
+                "as the shared vision with `Status: draft`",
             ),
         },
         "skills/b-pr/prompt.md": {

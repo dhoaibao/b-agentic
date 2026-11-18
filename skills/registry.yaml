@@ -480,7 +480,7 @@
         "entry": true
       },
       "prompt": {
-        "description": "Run a change request as one resumable run in the main session, with state, artifacts, and evidence in .b-agentic/runs. A quick run, for a small and clear change, takes the request as its approval and never commits. A full run clarifies, takes one user approval, then implements, reviews, runs QA, and commits only under the consent recorded at approval. It never pushes or opens a PR. The kernel routes implement-phase changes here; /b-flow starts or resumes a run explicitly."
+        "description": "Run a change request as one resumable run in the main session, with state, artifacts, and evidence in .b-agentic/runs. A quick run, for a small and clear change, takes the request as its approval and never commits. A full run clarifies, takes one user approval, then implements, reviews, runs QA, and commits only under the consent recorded at approval. It never pushes or opens a PR. The kernel routes implement-phase changes here; /b-flow starts or resumes a run explicitly. A large or still-open request is discussed first; a run starts only on the user's go."
       }
     },
     {

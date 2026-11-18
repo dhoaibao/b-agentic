@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-11-13
 - Note: [ADR-021](ADR-021-codex-gate-without-repo-approval.md) removed the fixed quick-run consent `codex: reviewer`; the quick consent is `commit: no`, `branch_target: current`.
+- Note: [ADR-022](ADR-022-discussion-first-entry.md) added a discussion-first Entry gate before the run starts and a split for oversized requests; the entry rule below otherwise stands.
 - Supersedes: ADR-009 in part (the explicit-only entry of `b-flow`, the clean tree at
   every approval, and "outside `/b-flow`" in the commit consent exception); ADR-001 in
   part (the "explicit `/b-flow` run" wording of the bounded-orchestration exception)

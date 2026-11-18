@@ -13,6 +13,7 @@ Turn an unclear goal into the smallest execution-ready plan. Do not implement.
 - Clearly scoped frontend/UI work -> **b-frontend**.
 - External facts are the blocker -> **b-research**.
 - A runtime failure needs diagnosis -> **b-debug**.
+- An idea the user is still shaping, with no plan or comparison asked for -> discuss it in the main session, per the **b-flow** Entry gate.
 
 ## Tool guidance
 
