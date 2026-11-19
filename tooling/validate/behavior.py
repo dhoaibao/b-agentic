@@ -82,6 +82,19 @@ OUTPUT_SHAPE_REGRESSION = {
     ),
 }
 
+# Regression: the kernel's only grounding text covered work, not statements, and
+# the kernel sits within a few bytes of its size limit, so a later trim could
+# drop the rule without any check noticing. No violation was observed.
+GROUNDED_CLAIMS_REGRESSION = {
+    "observed_failure": "The kernel had no general rule that claims name their basis, so a size trim could silently remove it.",
+    "intended_behavior": "Every claim names its basis, an unchecked or unknown point is said so, and an inference is labeled.",
+    "required_clauses": (
+        "Cite the basis of each claim",
+        'else say "not checked" or "unknown"',
+        "label any inference",
+    ),
+}
+
 # Regression: unscoped Git diffs could expose protected content without a
 # literal path token, and RTK guidance must not weaken that protection.
 SHELL_POLICY_REGRESSION = {
@@ -936,6 +949,14 @@ def validate_output_shape_regression(errors: list[str]) -> None:
     )
 
 
+def validate_grounded_claims_regression(errors: list[str]) -> None:
+    validate_clause_regression(
+        "grounded claims regression",
+        GROUNDED_CLAIMS_REGRESSION,
+        errors,
+    )
+
+
 def validate_local_repository_qa_regression(errors: list[str]) -> None:
     clause = "A local, factual repository question needing no phase work -> answer directly from evidence"
     if clause not in routing_table_text():
@@ -1412,6 +1433,7 @@ def main() -> int:
     validate_kernel_consolidation_regression(errors)
     validate_codegraph_usage_regression(errors)
     validate_output_shape_regression(errors)
+    validate_grounded_claims_regression(errors)
     validate_peer_messaging_regression(errors)
     validate_requires_markers(errors)
     validate_local_repository_qa_regression(errors)
