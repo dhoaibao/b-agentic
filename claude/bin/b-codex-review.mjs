@@ -220,6 +220,15 @@ export function companionArgs(options, baseTarget = options.base) {
   ];
 }
 
+// The Antigravity CLI keeps a CSRF token in its ANTIGRAVITY_* variables; the
+// companion has no use for them, so none reaches it (ADR-025). Without those
+// variables the environment is passed through unchanged.
+export function companionEnv(env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(([key]) => !key.startsWith("ANTIGRAVITY_")),
+  );
+}
+
 // Runs the plugin and reports how it ended. It never trusts the exit status alone:
 // a deadline that expired or an output cap that was hit is recorded as its own
 // fact (`timedOut`, `truncated`), because a child can handle SIGTERM and still
@@ -232,6 +241,7 @@ function runCompanion(companion, args, cwd, options) {
     // whatever runs this wrapper; a missing node ends the run as an unavailable plugin.
     const child = spawn("node", [companion, ...args], {
       cwd,
+      env: companionEnv(process.env),
       stdio: ["ignore", "pipe", "pipe"],
     });
     const chunks = { stdout: [], stderr: [] };
