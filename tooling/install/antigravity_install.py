@@ -55,6 +55,10 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_SCHEMA = 1
 MANAGED_ROOTS = ("skills", "agents", "rules", "b-agentic")
 HOOK_GROUP = "b-agentic"
+# agy's Auto mode needs a terminal sandbox that some hosts lack, so every shell command would ask. The rule
+# lives here, not in the generated template, so it can be switched off per install; the template's `ask` and
+# `deny` rules still win over it.
+SHELL_ALLOW_RULE = "command(*)"
 RULE_RELATIVE = "rules/b-agentic.md"
 STATUSLINE_SCRIPT = "b-statusline.mjs"
 PREREQUISITES = ("bun", "node", "git", "rtk", "codegraph", "bunx", "agy", "codex")
@@ -106,11 +110,14 @@ class AntigravityInstaller:
         ui: Ui | None = None,
         with_ids: list[str] | None = None,
         without_ids: list[str] | None = None,
+        shell_auto: bool | None = None,
     ) -> None:
         self.source = source
         self.components = self.load_components()
         self.with_ids = with_ids or []
         self.without_ids = without_ids or []
+        self.shell_auto_flag = shell_auto
+        self.shell_auto = True
         self.selection: dict[str, bool] = {key: False for key in self.components}
         self.ui = ui if ui is not None else Ui(enabled=False)
         self.home = home_dir()
@@ -152,6 +159,13 @@ class AntigravityInstaller:
             )
             self.selection = {key: key in picked for key in self.components}
 
+    def select_shell_auto(self, manifest: dict[str, Any]) -> None:
+        """An explicit flag, then the boolean the manifest recorded, then on."""
+        recorded = manifest.get("shell_auto", True)
+        if not isinstance(recorded, bool):
+            raise InstallError(f"{self.manifest_path}: shell_auto must be true or false")
+        self.shell_auto = recorded if self.shell_auto_flag is None else self.shell_auto_flag
+
     def excluded_skills(self) -> set[str]:
         return optional_components.excluded_skills(self.components, self.selection)
 
@@ -191,6 +205,7 @@ class AntigravityInstaller:
             f"  {self.ui.style('settings', 'green')}: {self.display(self.settings_path)} {verb(settings['text'], 'merged')}",
             f"  {self.ui.style('mcp', 'green')}: {self.display(self.mcp_path)} {verb(mcp['text'], 'merged')}",
             f"  {self.ui.style('optional', 'green')}: {optional_components.summary(self.components, self.selection)}",
+            f"  {self.ui.style('shell', 'green')}: {SHELL_ALLOW_RULE} allow {'on' if self.shell_auto else 'off'}",
         ]
 
     # -- destinations -------------------------------------------------------------
@@ -499,6 +514,8 @@ class AntigravityInstaller:
         for kind in ("allow", "ask", "deny"):
             existing = permissions.setdefault(kind, [])
             wanted = filter_agy_rules(template["permissions"][kind], self.excluded_servers(), kind)
+            if kind == "allow" and self.shell_auto:
+                wanted.append(SHELL_ALLOW_RULE)
             recorded = previous.get("permissions", {}).get(kind, [])
             # A rule an earlier version added and this version no longer ships is retired,
             # but only if the manifest says it was ours.
@@ -511,6 +528,10 @@ class AntigravityInstaller:
                     existing.append(rule)
                     added.append(rule)
             record["permissions"][kind] = [rule for rule in dict.fromkeys(added) if rule in existing]
+        if not self.shell_auto and SHELL_ALLOW_RULE in permissions["allow"]:
+            message = f"kept your own {SHELL_ALLOW_RULE} allow rule in {self.settings_path}; --no-shell-auto does not remove it"
+            if message not in self.warnings:
+                self.warn(message)
         return {
             "target": target,
             "text": json_text(settings) if settings != original or not existed else None,
@@ -586,6 +607,7 @@ class AntigravityInstaller:
                 print(note)
         self.ui.step(f"Source: {self.display(self.source)}")
         self.select_components(manifest)
+        self.select_shell_auto(manifest)
         previous, payload = self.validate_destinations()
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
@@ -610,6 +632,7 @@ class AntigravityInstaller:
             "settings": settings["record"],
             "mcp": {"file": str(self.mcp_path), "servers": mcp["recorded"]},
             "optional_components": dict(self.selection),
+            "shell_auto": self.shell_auto,
         }
         if final["hooks"]["value"] is None:
             del final["hooks"]["value"]
@@ -617,7 +640,9 @@ class AntigravityInstaller:
         # so an interruption leaves a manifest that recognizes both the old and the new state.
         old_pending = previous.get("pending", {})
         intent = json.loads(json.dumps(previous)) if previous else {"schema": MANIFEST_SCHEMA, "target": "antigravity"}
-        intent.update({"created": final["created"], "optional_components": dict(self.selection)})
+        intent.update(
+            {"created": final["created"], "optional_components": dict(self.selection), "shell_auto": self.shell_auto}
+        )
         intent.setdefault("files", {})
         intent.setdefault("hooks", {"file": str(self.hooks_path), "group": HOOK_GROUP})
         intent.setdefault("mcp", {"file": str(self.mcp_path), "servers": {}})
@@ -760,6 +785,7 @@ class AntigravityInstaller:
             "settings": {"permissions": {}},
             "mcp": {"file": manifest.get("mcp", {}).get("file", ""), "servers": {}},
             "optional_components": manifest.get("optional_components", {}),
+            **({"shell_auto": manifest["shell_auto"]} if "shell_auto" in manifest else {}),
             "pending": {
                 "files": {k: v for k, v in pending.get("files", {}).items() if k.startswith("b-agentic/")},
                 "hooks": pending.get("hooks", []),
@@ -837,6 +863,14 @@ class AntigravityInstaller:
             "  3. The Codex review gate needs the Claude Code Codex plugin (b-codex-review looks for it under",
             "     ~/.claude/plugins); without it, b-review uses the read-only b-reviewer subagent.",
         ]
+        lines.append(
+            f"  Shell commands: {SHELL_ALLOW_RULE} allow is "
+            + (
+                "on, so only the ask and deny rules prompt; re-run with --no-shell-auto to turn it off."
+                if self.shell_auto
+                else "off."
+            )
+        )
         if self.components:
             lines.append(
                 "  Optional components ("
@@ -889,16 +923,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-y", "--yes", action="store_true", help="skip interactive questions and use defaults")
     parser.add_argument("--source", default=str(ROOT), help="b-agentic source checkout (default: this repository)")
     add_optional_arguments(parser)
+    parser.add_argument(
+        "--shell-auto", action="store_true", help=f"add the {SHELL_ALLOW_RULE} shell allow rule (default)"
+    )
+    parser.add_argument(
+        "--no-shell-auto", action="store_true", help=f"remove the {SHELL_ALLOW_RULE} rule this installer added"
+    )
     args = parser.parse_args(argv)
     try:
         if args.uninstall and (args.with_ids or args.without_ids):
             raise InstallError("--with and --without cannot be combined with --uninstall")
+        if args.shell_auto and args.no_shell_auto:
+            raise InstallError("--shell-auto and --no-shell-auto cannot be combined")
+        if args.uninstall and (args.shell_auto or args.no_shell_auto):
+            raise InstallError("--shell-auto and --no-shell-auto cannot be combined with --uninstall")
         source = Path(args.source).resolve()
         if not (source / "skills" / "registry.yaml").is_file() or not (source / "antigravity" / "agents").is_dir():
             raise InstallError(f"{source} is not a b-agentic source checkout with the antigravity tree")
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
         ui.header()
-        installer = AntigravityInstaller(source, args.dry_run, args.force, ui, *parse_optional_arguments(source, args))
+        shell_auto = True if args.shell_auto else False if args.no_shell_auto else None
+        installer = AntigravityInstaller(
+            source, args.dry_run, args.force, ui, *parse_optional_arguments(source, args), shell_auto=shell_auto
+        )
         try:
             if args.uninstall:
                 installer.uninstall()

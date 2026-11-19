@@ -116,6 +116,11 @@ settings="$gemini/antigravity-cli/settings.json"
 [ "$(jq -r '.permissions.allow | index("mcp(codegraph/codegraph_explore)") != null' "$settings")" = true ] || fail "allow rule missing"
 [ "$(jq -r '.permissions.ask | index("command(git push)") != null' "$settings")" = true ] || fail "git push ask rule missing"
 [ "$(jq -r '.permissions.deny | index("command(git pull)") != null' "$settings")" = true ] || fail "git pull deny rule missing"
+# Shell auto is on by default: command(*) is added once, after the user's own rules, and recorded.
+[ "$(jq -r '[.permissions.allow[] | select(. == "command(*)")] | length' "$settings")" = 1 ] || fail "command(*) must be added once by default"
+[ "$(jq -r '.permissions.allow | index("command(*)") > 0' "$settings")" = true ] || fail "command(*) must come after the user's own allow rule"
+[ "$(jq -r '.shell_auto' "$config/b-agentic/install.json")" = true ] || fail "the manifest must record shell_auto true"
+[ "$(jq -r '.settings.permissions.allow | index("command(*)") != null' "$config/b-agentic/install.json")" = true ] || fail "command(*) must be recorded as ours"
 if jq -e '[.permissions.allow[]] | map(select(test("^mcp\\((datagrip|excalidraw|drawio|notion)/"))) | length > 0' "$settings" >/dev/null; then fail "optional component allow rules must not be installed by default"; fi
 [ -f "$gemini/config/skills/mine/SKILL.md" ] && [ -f "$config/rules/mine.md" ] || fail "the user's own skill and rule must stay"
 
@@ -205,6 +210,51 @@ run "$home" --uninstall --runtime=antigravity; expect_refused "uninstall with a 
 [ "$(tree "$home")" = "$before" ] || fail "a refused uninstall must not write"
 run "$home" --dry-run --uninstall --runtime=antigravity; expect_refused "dry-run uninstall with a malformed hooks.json"
 
+# --- shell auto: command(*) is on by default, remembered, and owned by exact entry -----
+shell_rules() { jq -r '[.permissions.allow[]? | select(. == "command(*)")] | length' "$1/.gemini/antigravity-cli/settings.json"; }
+shell_manifest() { jq -r '.shell_auto' "$1/.gemini/config/b-agentic/install.json"; }
+home=$(user_home shell)
+run "$home" -y --runtime=antigravity --no-shell-auto; expect_ok "install with --no-shell-auto"
+[ "$(shell_rules "$home")" = 0 ] && [ "$(shell_manifest "$home")" = false ] || fail "--no-shell-auto must leave the rule out and record false"
+run "$home" -y --runtime=antigravity; expect_ok "flagless run after --no-shell-auto"
+[ "$(shell_rules "$home")" = 0 ] && [ "$(shell_manifest "$home")" = false ] || fail "the recorded off choice must stay off without a flag"
+before=$(tree "$home")
+run "$home" --dry-run --runtime=antigravity --shell-auto; expect_ok "dry run with --shell-auto"
+[ "$(tree "$home")" = "$before" ] || fail "--dry-run --shell-auto changed files"
+run "$home" -y --runtime=antigravity --shell-auto; expect_ok "--shell-auto"
+[ "$(shell_rules "$home")" = 1 ] && [ "$(shell_manifest "$home")" = true ] || fail "--shell-auto must add the rule once and record true"
+before=$(tree "$home")
+run "$home" -y --runtime=antigravity; expect_ok "flagless run after --shell-auto"
+[ "$(tree "$home")" = "$before" ] || fail "an identical run with shell auto on changed files"
+run "$home" --dry-run --runtime=antigravity --no-shell-auto; expect_ok "dry run with --no-shell-auto"
+[ "$(tree "$home")" = "$before" ] || fail "--dry-run --no-shell-auto changed files"
+run "$home" -y --runtime=antigravity --no-shell-auto; expect_ok "--no-shell-auto after --shell-auto"
+[ "$(shell_rules "$home")" = 0 ] && [ "$(shell_manifest "$home")" = false ] || fail "--no-shell-auto must remove the rule this installer added"
+[ "$(jq -r '.permissions.allow | index("command(ls)") == 0' "$home/.gemini/antigravity-cli/settings.json")" = true ] || fail "the user's allow rule must stay"
+# A manifest from before this option has no shell_auto key: the default (on) applies.
+manifest="$home/.gemini/config/b-agentic/install.json"
+jq 'del(.shell_auto)' "$manifest" >"$work/legacy.json" && cp "$work/legacy.json" "$manifest"
+run "$home" -y --runtime=antigravity; expect_ok "an older manifest without shell_auto"
+[ "$(shell_rules "$home")" = 1 ] && [ "$(shell_manifest "$home")" = true ] || fail "a manifest without shell_auto must get the default (on)"
+jq '.shell_auto = "yes"' "$manifest" >"$work/bad.json" && cp "$work/bad.json" "$manifest"
+before=$(tree "$home")
+run "$home" -y --runtime=antigravity; expect_refused "a manifest with a non-boolean shell_auto"
+grep -Fq "shell_auto must be true or false" <<<"$err" || fail "the refusal must name shell_auto: $err"
+[ "$(tree "$home")" = "$before" ] || fail "a refused run changed files"
+# A command(*) the user already had is never recorded: it survives --no-shell-auto and uninstall.
+home=$(user_home ownrule)
+settings_file="$home/.gemini/antigravity-cli/settings.json"
+jq '.permissions.allow += ["command(*)"]' "$settings_file" >"$work/own.json" && cp "$work/own.json" "$settings_file"
+cp "$settings_file" "$work/ownrule.before/antigravity-cli/settings.json"
+run "$home" -y --runtime=antigravity; expect_ok "install over the user's own command(*)"
+[ "$(shell_rules "$home")" = 1 ] || fail "the user's command(*) must not be duplicated"
+[ "$(jq -r '.settings.permissions.allow | index("command(*)")' "$home/.gemini/config/b-agentic/install.json")" = null ] || fail "the user's command(*) must not be recorded"
+run "$home" -y --runtime=antigravity --no-shell-auto; expect_ok "--no-shell-auto over the user's command(*)"
+[ "$(shell_rules "$home")" = 1 ] || fail "--no-shell-auto must keep the user's own command(*)"
+grep -Fq "kept your own command(*)" <<<"$err" || fail "--no-shell-auto must warn about the user's command(*): $err"
+run "$home" --uninstall --runtime=antigravity; expect_ok "uninstall over the user's command(*)"
+same_json "$settings_file" "$work/ownrule.before/antigravity-cli/settings.json" || fail "uninstall must leave the user's settings as they were"
+
 # --- refusals happen before any write (AC-4) ---------------------------------------
 refuse() { # refuse <label> <home> <pattern> [args...]
   local label=$1 home=$2 pattern=$3
@@ -239,6 +289,10 @@ refuse "an unknown runtime" "$home" "ADR-025" -y --runtime=gemini
 refuse "--statusline-only with antigravity" "$home" "ADR-025" -y --runtime=antigravity --statusline-only
 refuse "--statusline-only with both" "$home" "ADR-025" -y --runtime=both --statusline-only
 refuse "--with together with --uninstall" "$home" "cannot be combined" --uninstall --runtime=antigravity --with=excalidraw
+refuse "--shell-auto without a runtime" "$home" "only apply" -y --shell-auto
+refuse "--no-shell-auto with claude" "$home" "only apply" -y --runtime=claude --no-shell-auto
+refuse "both shell flags" "$home" "cannot be combined" -y --runtime=antigravity --shell-auto --no-shell-auto
+refuse "a shell flag with --uninstall" "$home" "cannot be combined" --uninstall --runtime=antigravity --no-shell-auto
 [ ! -e "$home/.gemini" ] && [ ! -e "$home/.claude" ] || fail "refused runs must create nothing"
 # A write through a refused link would land outside the home tree, which `tree` does not follow.
 for target in elsewhere elsewhere2 elsewhere3; do
@@ -283,6 +337,9 @@ run "$home" --uninstall; expect_ok "plain uninstall"
 run "$home" --uninstall --runtime=both; expect_ok "both uninstall"
 [ ! -e "$home/.gemini/config/b-agentic/install.json" ] && [ ! -e "$home/.gemini/config/rules/b-agentic.md" ] || fail "--runtime=both --uninstall must remove the agy install"
 [ ! -e "$home/.claude/skills/b-plan" ] || fail "--runtime=both --uninstall must remove the Claude Code install"
+home="$work/both-noauto"; mkdir -p "$home"
+run "$home" -y --runtime=both --no-shell-auto; expect_ok "both runtimes with --no-shell-auto"
+[ -f "$home/.claude/b-agentic/install.json" ] && [ "$(shell_rules "$home")" = 0 ] && [ "$(shell_manifest "$home")" = false ] || fail "--runtime=both --no-shell-auto must install Claude Code and leave the shell rule out"
 home="$work/both-claude-fails"; mkdir -p "$home/.claude"
 printf '{bad' >"$home/.claude/settings.json"
 run "$home" -y --runtime=both; expect_refused "both with a broken Claude Code file"

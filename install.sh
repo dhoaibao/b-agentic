@@ -13,6 +13,9 @@
 #                                                         --runtime=both runs Claude Code, then Antigravity (default: claude).
 #                                                         A plain --uninstall removes only the Claude Code install; add
 #                                                         --runtime=antigravity or both to remove the Antigravity one.
+#   ./install.sh --runtime=antigravity --no-shell-auto    leave out the command(*) shell allow rule that an Antigravity
+#                                                         install adds by default (--shell-auto turns it back on;
+#                                                         refused with --runtime=claude and with --uninstall).
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 #
 # From a checkout the script installs that checkout. When piped, it clones the
@@ -40,6 +43,8 @@ RUNTIME=claude
 STATUSLINE_ONLY=0
 NOTES=""
 PASSTHROUGH=()
+AGY_ARGS=()
+SHELL_AUTO_FLAGS=0
 
 die() {
   [ -z "$NOTES" ] || printf '%s\n' "$NOTES"
@@ -63,6 +68,7 @@ while [ "$#" -gt 0 ]; do
     --runtime=claude|--runtime=antigravity|--runtime=both) RUNTIME="${1#--runtime=}" ;;
     --runtime=*) die "unsupported $1: use --runtime=claude, antigravity, or both (see docs/decisions/ADR-025-antigravity-second-runtime.md)" ;;
     --statusline-only) STATUSLINE_ONLY=1; PASSTHROUGH+=("$1") ;;
+    --shell-auto|--no-shell-auto) SHELL_AUTO_FLAGS=$((SHELL_AUTO_FLAGS + 1)); AGY_ARGS+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
       PASSTHROUGH+=("$1") ;;
@@ -74,6 +80,12 @@ done
 
 if [ "$STATUSLINE_ONLY" -eq 1 ] && [ "$RUNTIME" != claude ]; then
   die "--statusline-only is only available for --runtime=claude (the Antigravity status line is not ported; see docs/decisions/ADR-025-antigravity-second-runtime.md)"
+fi
+
+if [ "$SHELL_AUTO_FLAGS" -gt 0 ]; then
+  [ "$SHELL_AUTO_FLAGS" -eq 1 ] || die "--shell-auto and --no-shell-auto cannot be combined"
+  [ "$RUNTIME" != claude ] || die "--shell-auto and --no-shell-auto only apply to --runtime=antigravity or both (the Claude Code installer has no shell rule; see docs/decisions/ADR-025-antigravity-second-runtime.md)"
+  [ "$UNINSTALL" -eq 0 ] || die "--shell-auto and --no-shell-auto cannot be combined with --uninstall"
 fi
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
@@ -186,9 +198,9 @@ case "$RUNTIME" in
   claude)
     exec python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
   antigravity)
-    exec python3 "$AGY_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+    exec python3 "$AGY_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ${AGY_ARGS[@]+"${AGY_ARGS[@]}"} ;;
   both)
     # Claude Code first; a failure stops the run before the Antigravity side is touched (set -e).
     python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
-    B_AGENTIC_NOTES="" exec python3 "$AGY_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+    B_AGENTIC_NOTES="" exec python3 "$AGY_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ${AGY_ARGS[@]+"${AGY_ARGS[@]}"} ;;
 esac
