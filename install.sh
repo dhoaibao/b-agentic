@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code.
+# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code and, opt-in, the Antigravity CLI (agy).
 #
 # Usage:
 #   ./install.sh [--dry-run] [--force] [-y]               install or sync from this checkout
@@ -9,12 +9,17 @@
 #                                                         full install upgrades it; --uninstall removes it)
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
+#   ./install.sh --runtime=antigravity                    target the Antigravity CLI (~/.gemini) instead of Claude Code;
+#                                                         --runtime=both runs Claude Code, then Antigravity (default: claude).
+#                                                         A plain --uninstall removes only the Claude Code install; add
+#                                                         --runtime=antigravity or both to remove the Antigravity one.
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 #
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers. A run only touches ~/.claude and ~/.claude.json. Nothing is ever written under ~/.pi or
+# runs vendor installers. A Claude Code run only touches ~/.claude and ~/.claude.json; an Antigravity run only
+# touches ~/.gemini (docs/decisions/ADR-025-antigravity-second-runtime.md). Nothing is ever written under ~/.pi or
 # ~/.config/opencode (the Pi and OpenCode runtimes were removed; see docs/decisions/ADR-020-claude-code-only-again.md).
 # Optional components are never installed without a choice: a terminal shows a checkbox list (nothing
 # checked on a fresh install; installed ones are pre-checked), while -y, --dry-run, or no terminal keeps
@@ -31,6 +36,8 @@ UPDATE=0
 DRY_RUN=0
 UNINSTALL=0
 YES=0
+RUNTIME=claude
+STATUSLINE_ONLY=0
 NOTES=""
 PASSTHROUGH=()
 
@@ -53,9 +60,9 @@ while [ "$#" -gt 0 ]; do
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
     --force) PASSTHROUGH+=("$1") ;;
-    --runtime=claude) ;;
-    --runtime=*) die "unsupported $1: only Claude Code is supported (see docs/decisions/ADR-020-claude-code-only-again.md)" ;;
-    --statusline-only) PASSTHROUGH+=("$1") ;;
+    --runtime=claude|--runtime=antigravity|--runtime=both) RUNTIME="${1#--runtime=}" ;;
+    --runtime=*) die "unsupported $1: use --runtime=claude, antigravity, or both (see docs/decisions/ADR-025-antigravity-second-runtime.md)" ;;
+    --statusline-only) STATUSLINE_ONLY=1; PASSTHROUGH+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
       PASSTHROUGH+=("$1") ;;
@@ -64,6 +71,10 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$STATUSLINE_ONLY" -eq 1 ] && [ "$RUNTIME" != claude ]; then
+  die "--statusline-only is only available for --runtime=claude (the Antigravity status line is not ported; see docs/decisions/ADR-025-antigravity-second-runtime.md)"
+fi
 
 # Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
 FANCY=0
@@ -170,4 +181,14 @@ fi
 
 export B_AGENTIC_NOTES="$NOTES"
 CLAUDE_INSTALLER="$SOURCE_DIR/tooling/install/claude_install.py"
-exec python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+AGY_INSTALLER="$SOURCE_DIR/tooling/install/antigravity_install.py"
+case "$RUNTIME" in
+  claude)
+    exec python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+  antigravity)
+    exec python3 "$AGY_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+  both)
+    # Claude Code first; a failure stops the run before the Antigravity side is touched (set -e).
+    python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+    B_AGENTIC_NOTES="" exec python3 "$AGY_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"} ;;
+esac

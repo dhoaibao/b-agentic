@@ -1168,11 +1168,16 @@ run "$home" -y --statusline-only; expect_ok "status line re-run"
 # Flags that make no sense with it are refused.
 run "$home" -y --statusline-only --with=drawio; expect_refused "--statusline-only with --with"
 run "$home" -y --statusline-only --uninstall; expect_refused "--statusline-only with --uninstall"
-# install.sh accepts --runtime=claude (a no-op); every other runtime and --migrate-legacy stay refused (ADR-020).
+# install.sh accepts --runtime=claude (the default); antigravity and both need a full install, and any other
+# runtime or --migrate-legacy stays refused (ADR-020, ADR-025).
 run "$home" -y --statusline-only --dry-run --runtime=claude; expect_ok "--runtime=claude is accepted"
-for runtime in opencode both pi codex; do
+for runtime in opencode gemini pi codex; do
   run "$home" -y --dry-run --runtime=$runtime; expect_refused "--runtime=$runtime"
-  grep -Fq 'ADR-020' <<<"$err$out" || fail "the --runtime=$runtime refusal must point to ADR-020: $err $out"
+  grep -Fq 'ADR-025' <<<"$err$out" || fail "the --runtime=$runtime refusal must point to ADR-025: $err $out"
+done
+for runtime in antigravity both; do
+  run "$home" -y --dry-run --statusline-only --runtime=$runtime; expect_refused "--statusline-only with --runtime=$runtime"
+  grep -Fq 'ADR-025' <<<"$err$out" || fail "the --statusline-only refusal with $runtime must point to ADR-025: $err $out"
 done
 run "$home" -y --dry-run --migrate-legacy; expect_refused "--migrate-legacy is no longer accepted"
 # A plain uninstall removes exactly what it installed and restores the user's settings.
