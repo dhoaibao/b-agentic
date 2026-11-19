@@ -64,6 +64,10 @@ two facts that the fallback design hid:
   CI keeps Node for the Pi probes and for the Codex plugin's own script (the fake plugin in the hooks probe
   runs with it).
 
+Evidence: [`install.sh`](../../install.sh),
+[`claude/bin/b-state.mjs`](../../claude/bin/b-state.mjs), and
+[`claude/configs/settings.template.json`](../../claude/configs/settings.template.json).
+
 ## Rejected
 
 - Keeping the ADR-017 Node fallback: the user decided against it, and it hid the

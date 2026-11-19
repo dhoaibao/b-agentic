@@ -41,3 +41,6 @@ but `done` is state a later session may continue.
 - Rejected: automatic or background deletion, a statusline or `SessionStart` check, `shutil.rmtree`
   or shell `rm`, keeping a summary inside the folder (`validate` would fail on it and the folder
   would still count), a settings rule for `prune --apply`, and letting an audit run `prune`.
+
+Evidence: [`claude/bin/b_run.py`](../../claude/bin/b_run.py) and
+[`claude/bin/b-state.mjs`](../../claude/bin/b-state.mjs).

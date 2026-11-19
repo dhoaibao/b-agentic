@@ -1,7 +1,9 @@
 # ADR-017: Managed hooks and status line may run under Bun, with Node as the fallback
 
-- Status: Superseded by [ADR-018](ADR-018-bun-only-runtime.md) (Bun is required and there is no Node fallback)
+- Status: Superseded
 - Date: 2026-11-15
+- Superseded by: [ADR-018](ADR-018-bun-only-runtime.md) (Bun is required and there is no Node fallback)
+- Supersedes: none
 
 ## Context
 
@@ -47,6 +49,9 @@ installer chooses how Claude Code launches them:
   both runtimes when `bun` is installed, and every case must give the same result.
 - Hook decisions, exit codes, messages, and the snapshot schema are unchanged.
 - Pi is unchanged beyond shipping `b-protected.mjs` with its other hook modules.
+
+Evidence: [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs) and
+[`claude/configs/settings.template.json`](../../claude/configs/settings.template.json).
 
 ## Rejected
 

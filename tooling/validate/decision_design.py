@@ -10,33 +10,34 @@ import subprocess
 import sys
 from pathlib import Path
 
-from citations import path_citations, tracked_paths
+from citations import path_citations, resolve_path, tracked_paths
 
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LABEL = "docs/decisions/ADR-001-b-agentic-design-record.md"
 DECISION_PATH = ROOT / DEFAULT_LABEL
-# Later ADRs keep the header and top-level sections but not ADR-001's per-area evidence.
-LIGHT_LABELS = (
-    "docs/decisions/ADR-002-dual-runtime-support.md",
-    "docs/decisions/ADR-003-subagent-review-gate.md",
-    "docs/decisions/ADR-004-codex-runtime.md",
-    "docs/decisions/ADR-005-opencode-restored.md",
-    "docs/decisions/ADR-006-retire-clickup-integration.md",
-    "docs/decisions/ADR-007-codex-first-review-gate.md",
-    "docs/decisions/ADR-008-claude-code-only.md",
-    "docs/decisions/ADR-011-pi-second-runtime.md",
-    "docs/decisions/ADR-019-opencode-second-runtime.md",
-    "docs/decisions/ADR-020-claude-code-only-again.md",
-    "docs/decisions/ADR-012-run-first-entry.md",
-    "docs/decisions/ADR-013-concurrent-plan-checks.md",
-    "docs/decisions/ADR-014-checked-plan-steps.md",
-    "docs/decisions/ADR-015-step-writer-worker.md",
-    "docs/decisions/ADR-016-parallel-worker-steps.md",
-    "docs/decisions/ADR-021-codex-gate-without-repo-approval.md",
-    "docs/decisions/ADR-022-discussion-first-entry.md",
-)
+DECISIONS_DIR = ROOT / "docs" / "decisions"
+INDEX_LABEL = "docs/decisions/README.md"
+ADR_FILE_RE = re.compile(r"^ADR-\d{3}-[a-z0-9-]+\.md$")
+INDEX_LINK_RE = re.compile(r"\]\((ADR-[^)\s]+\.md)\)")
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
+# Names an ADR may cite in code spans that are run-folder files or illustrative, not repository sources.
+NON_REPO_NAMES = frozenset(
+    {
+        "artifacts.json",
+        "artifacts.yaml",
+        "bunfig.toml",
+        "file.mjs",
+        "followups.md",
+        "plan.md",
+        "qa.md",
+        "script.mjs",
+        "spec.md",
+        "state.json",
+    }
+)
+# A superseded or reversed ADR may close with the options it turned down.
+OPTIONAL_LIGHT_SECTION = "Rejected"
 REQUIRED_DECISION_AREAS = (
     "Product boundary and architecture",
     "Workflow and skill design",
@@ -99,6 +100,26 @@ def check_evidence(label: str, name: str, body: str, tracked: set[str]) -> list[
     return errors
 
 
+def adr_labels() -> list[str]:
+    """Return every ADR record under docs/decisions, ADR-001 first, so a new ADR is never skipped."""
+    names = sorted(path.name for path in DECISIONS_DIR.glob("ADR-*.md"))
+    labels = [f"docs/decisions/{name}" for name in names]
+    return [DEFAULT_LABEL, *(label for label in labels if label != DEFAULT_LABEL)]
+
+
+def check_index(readme: str, names: list[str]) -> list[str]:
+    """Require the decisions README to link every ADR file and nothing that does not exist."""
+    errors: list[str] = []
+    linked = set(INDEX_LINK_RE.findall(readme))
+    for name in sorted(set(names) - linked):
+        errors.append(f"{INDEX_LABEL}: ADR file is not linked from the index: {name}")
+    for name in sorted(linked - set(names)):
+        errors.append(f"{INDEX_LABEL}: index links a missing ADR file: {name}")
+    for name in sorted(n for n in names if not ADR_FILE_RE.match(n)):
+        errors.append(f"docs/decisions/{name}: ADR file name must be ADR-NNN-<kebab-title>.md")
+    return errors
+
+
 def validate(text: str, tracked: set[str], label: str = DEFAULT_LABEL, light: bool = False) -> list[str]:
     # Generated delivery assets can be untracked during candidate
     # validation, but ignored on-disk files never qualify as traceable evidence.
@@ -107,7 +128,8 @@ def validate(text: str, tracked: set[str], label: str = DEFAULT_LABEL, light: bo
     sections = section_bodies(text)
     section_names = [name for name, _ in sections]
     expected = list(REQUIRED_SECTIONS)
-    if section_names != expected:
+    allowed = [expected, [*expected, OPTIONAL_LIGHT_SECTION]] if light else [expected]
+    if section_names not in allowed:
         errors.append(f"{label}: top-level sections must be exactly {expected!r} in order; found {section_names!r}")
 
     first_heading = H2_RE.search(text)
@@ -134,8 +156,8 @@ def validate(text: str, tracked: set[str], label: str = DEFAULT_LABEL, light: bo
             errors.extend(check_evidence(label, name, body, tracked))
 
     references = source_references(text)
-    for reference in sorted(set(references)):
-        if reference not in tracked:
+    for reference in sorted(set(references) - NON_REPO_NAMES):
+        if not resolve_path(reference, tracked):
             errors.append(f"{label}: referenced repository source is not currently tracked: {reference}")
     if not references:
         errors.append(f"{label}: no repository source references found")
@@ -207,6 +229,26 @@ def self_test() -> int:
         (light.replace("Evidence:", "Support:"), "no Evidence marker"),
         (light.replace("## Consequences", "## Extra\n\n## Consequences"), "top-level sections must be exactly"),
     ]
+    rejected = light + "\n## Rejected\nA turned-down option.\n"
+    if validate(rejected, tracked, "fixture", light=True):
+        print("ADR-002 self-test failed: optional Rejected section was rejected", file=sys.stderr)
+        return 1
+    if not any("top-level sections must be exactly" in e for e in validate(rejected, tracked, "fixture")):
+        print("ADR-001 self-test failed: strict mode accepted a Rejected section", file=sys.stderr)
+        return 1
+    index = "[a](ADR-001-x.md) [b](ADR-002-y.md)"
+    index_cases = [
+        (index, ["ADR-001-x.md"], "index links a missing ADR file: ADR-002-y.md"),
+        (index, ["ADR-001-x.md", "ADR-002-y.md", "ADR-003-z.md"], "not linked from the index: ADR-003-z.md"),
+        (index, ["ADR-001-x.md", "ADR-002-y.md", "ADR-3.md"], "ADR file name must be"),
+    ]
+    if check_index(index, ["ADR-001-x.md", "ADR-002-y.md"]):
+        print("ADR-002 self-test failed: matching index was rejected", file=sys.stderr)
+        return 1
+    for readme, names, expected_error in index_cases:
+        if not any(expected_error in error for error in check_index(readme, names)):
+            print(f"ADR-002 self-test failed: expected {expected_error!r}", file=sys.stderr)
+            return 1
     if validate(light, tracked, "fixture", light=True):
         print("ADR-002 self-test failed: complete fixture was rejected", file=sys.stderr)
         return 1
@@ -227,14 +269,16 @@ def main() -> int:
     tracked = tracked_paths()
     errors: list[str] = []
     references: set[str] = set()
-    for label in (DEFAULT_LABEL, *LIGHT_LABELS):
-        path = ROOT / label
-        if not path.exists():
-            errors.append(f"{label}: missing")
-            continue
-        text = path.read_text()
-        errors.extend(validate(text, tracked, label, light=label in LIGHT_LABELS))
+    labels = adr_labels()
+    for label in labels:
+        text = (ROOT / label).read_text()
+        errors.extend(validate(text, tracked, label, light=label != DEFAULT_LABEL))
         references.update(source_references(text, tracked))
+    readme = ROOT / INDEX_LABEL
+    if readme.exists():
+        errors.extend(check_index(readme.read_text(), [Path(label).name for label in labels]))
+    else:
+        errors.append(f"{INDEX_LABEL}: missing")
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
