@@ -22,12 +22,11 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-017](ADR-017-bun-hook-runtime.md) for the managed hooks and status line running under Bun with Node as the fallback, and
 [ADR-018](ADR-018-bun-only-runtime.md) for Bun as the only runtime for Claude Code, superseding ADR-017, and
 [ADR-019](ADR-019-opencode-second-runtime.md) for OpenCode as the second runtime in place of Pi, superseding ADR-011, and
-[ADR-020](ADR-020-claude-code-only-again.md) for Claude Code only again, superseding ADR-019 and itself superseded by ADR-025, and
+[ADR-020](ADR-020-claude-code-only-again.md) for Claude Code only again, superseding ADR-019, and
 [ADR-021](ADR-021-codex-gate-without-repo-approval.md) for the Codex review gate without a per-repository approval, superseding parts of ADR-007, and
 [ADR-022](ADR-022-discussion-first-entry.md) for the discussion-first entry gate and the split of oversized requests, refining ADR-012, and
 [ADR-023](ADR-023-per-agent-mcp-tool-scope.md) for per-agent MCP tool allowlists, refining ADR-001 and ADR-015, and
-[ADR-024](ADR-024-prune-old-runs.md) for cleaning up old run folders on request, refining ADR-010 and ADR-012, and
-[ADR-025](ADR-025-antigravity-second-runtime.md) for Antigravity CLI as the opt-in second runtime, superseding ADR-020.
+[ADR-024](ADR-024-prune-old-runs.md) for cleaning up old run folders on request, refining ADR-010 and ADR-012.
 
 ## Naming
 

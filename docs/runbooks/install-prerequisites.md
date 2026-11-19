@@ -11,9 +11,6 @@ this is a manual step. Which tool each MCP needs is listed in
 - Debian/Ubuntu Linux with `sudo`, `curl`, and `zsh` or `bash`.
 - Read each `curl | sh` script before running it.
 
-The opt-in Antigravity CLI runtime also needs `agy` (installed by Google, not by
-b-agentic) plus `bun` and `python3`; see [install-antigravity](install-antigravity.md).
-
 ## Steps
 
 1. Install the base packages. `eza` is missing from Ubuntu 22.04 and Debian 12

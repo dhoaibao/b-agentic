@@ -32,15 +32,6 @@ RUNTIME_MARKER = re.compile(r"^<!-- runtime: ([a-z]+(?:,[a-z]+)*) --> ")
 
 MAX_KERNEL_BYTES = 12_000
 MAX_KERNEL_LINES = 100
-ANTIGRAVITY_DIR = ROOT / "antigravity"
-ANTIGRAVITY_CONFIGS_DIR = ANTIGRAVITY_DIR / "configs"
-ANTIGRAVITY_RULE_PATH = ANTIGRAVITY_DIR / "rules" / "b-agentic.md"
-# agy rejects a rule file over 24 KB; this leaves room for the user's own rules (ADR-025).
-MAX_ANTIGRAVITY_RULE_BYTES = 16_000
-ANTIGRAVITY_RULE_FRONTMATTER = "---\ntrigger: always_on\n---\n\n"
-ANTIGRAVITY_HOOK_FILE = "b-agy-hook.mjs"
-# Tool names exercised by the ADR-025 probes; an agent `tools` list may name only these.
-ANTIGRAVITY_TOOL_NAMES = {"read_file", "write_file", "edit_file", "run_command"}
 README_SKILLS_START = "<!-- generated:skills-table:start -->"
 README_SKILLS_END = "<!-- generated:skills-table:end -->"
 MCP_OPERATIONS_START = "<!-- generated:mcp-operations:start -->"
@@ -380,15 +371,6 @@ def apply_markers(text: str, runtime: str) -> str:
     return "\n".join(kept)
 
 
-def translate_mcp_names(text: str, template: str) -> str:
-    """Rewrite Claude-style `mcp__<server>__<tool>` names (and `*` wildcards) of managed servers into the runtime's prose form."""
-    servers = sorted(load_policy()["servers"], key=len, reverse=True)
-    pattern = re.compile(
-        r"mcp__(" + "|".join(re.escape(server) for server in servers) + r")__([A-Za-z0-9_*-]+(?:\.[A-Za-z0-9_*-]+)*)"
-    )
-    return pattern.sub(lambda match: template.format(server=match.group(1), tool=match.group(2)), text)
-
-
 def apply_glossary(text: str, runtime: str, hits: set[str] | None = None) -> str:
     """Ordered literal replacements that turn Claude Code wording into the runtime's own, then MCP tool names."""
     for entry in RUNTIMES[runtime].get("glossary", []):
@@ -396,8 +378,7 @@ def apply_glossary(text: str, runtime: str, hits: set[str] | None = None) -> str
             if hits is not None:
                 hits.add(entry["from"])
             text = text.replace(entry["from"], entry["to"])
-    template = RUNTIMES[runtime].get("mcp_prose_format")
-    return translate_mcp_names(text, template) if template else text
+    return text
 
 
 def apply_kernel_overrides(text: str, runtime: str) -> str:
@@ -1360,224 +1341,6 @@ def forbidden_hits(text: str, runtime: str) -> list[str]:
     return [token for token in RUNTIMES[runtime].get("forbidden_tokens", []) if token in text]
 
 
-def render_antigravity_kernel(
-    skills: list[dict[str, Any]], policy: dict[str, Any], hits: set[str] | None = None
-) -> str:
-    kernel = apply_kernel_overrides(build_kernel(skills, policy, "antigravity"), "antigravity")
-    return ANTIGRAVITY_RULE_FRONTMATTER + apply_glossary(kernel, "antigravity", hits)
-
-
-def render_antigravity_agent_file(
-    name: str, description: str, claude_text: str, tools: list[str], hits: set[str] | None = None
-) -> str:
-    """agy frontmatter with an explicit tool list, then the Claude profile body in agy vocabulary."""
-    body = claude_text.split("\n---\n", 1)[1]
-    marker = "<!-- Managed by b-agentic."
-    if body.count(marker) != 1:
-        raise ValueError(f"agent {name}: expected exactly one managed-by marker")
-    body = body.replace(marker, f"{RUNTIMES['antigravity']['agent_note']}\n\n{marker}")
-    return "\n".join(
-        [
-            "---",
-            f"name: {name}",
-            f"description: {json.dumps(description)}",
-            "subagent: true",
-            "mainAgent: false",
-            f"model: {RUNTIMES['antigravity']['agent_models'][0]}",
-            f"tools: [{', '.join(tools)}]",
-            "---",
-            apply_glossary(body, "antigravity", hits).rstrip("\n"),
-            "",
-        ]
-    )
-
-
-def antigravity_command_rule(pattern: str, patterns: set[str]) -> str | None:
-    """A Claude `Bash(...)` pattern as an agy `command(...)` prefix rule, or None when agy cannot express it.
-
-    agy matches a command by prefix. A Claude pattern without a `*` matches that exact command, so rendering it
-    as a prefix would widen it (`git push` would cover every push): it is kept only when a `<pattern> *` sibling
-    shows the prefix reading is meant. A trailing ` *` or `*` becomes the prefix; an inner `*` has no verified agy
-    equivalent.
-    """
-    if "*" not in pattern and f"{pattern} *" not in patterns:
-        return None
-    prefix = pattern.removesuffix(" *").removesuffix("*")
-    return None if "*" in prefix or not prefix else f"command({prefix})"
-
-
-def render_antigravity_permissions(policy: dict[str, Any]) -> dict[str, Any]:
-    """Permission rules merged into agy's settings file: shell prefixes and MCP tools, never file globs."""
-    shell_ask, shell_deny = shell_pattern_rules()
-
-    def commands(patterns: list[str]) -> list[str]:
-        known = set(patterns)
-        return list(dict.fromkeys(rule for rule in (antigravity_command_rule(p, known) for p in patterns) if rule))
-
-    allow: list[str] = []
-    ask = commands(shell_ask)
-    deny = commands(shell_deny)
-    for server, record in policy["servers"].items():
-        for tool, class_name in record["tools"].items():
-            permission = policy["classes"][class_name]["native_permission"]
-            name = RUNTIMES["antigravity"]["mcp_tool_format"].format(server=server, tool=tool)
-            {"allow": allow, "ask": ask}.get(permission, deny).append(name)
-    return {"permissions": {"allow": allow, "ask": ask, "deny": deny}}
-
-
-def render_antigravity_mcp() -> dict[str, Any]:
-    """agy `mcpServers` entries derived from the Claude template; a remote server uses `serverUrl`."""
-    servers: dict[str, Any] = {}
-    for name, entry in json.loads((CLAUDE_CONFIGS_DIR / "mcp.base.json").read_text())["mcpServers"].items():
-        if entry["type"] == "stdio":
-            server: dict[str, Any] = {"command": entry["command"], "args": entry.get("args", [])}
-            if entry.get("env"):
-                server["env"] = entry["env"]
-        else:
-            server = {"serverUrl": entry["url"]}
-            if entry.get("headers"):
-                server["headers"] = entry["headers"]
-        servers[name] = server
-    return {"mcpServers": servers}
-
-
-def render_antigravity_hooks() -> dict[str, Any]:
-    """One hook group for agy's hooks file. Tool events match every tool and the adapter ignores the rest."""
-    command = f'{BUN_COMMAND} "{RUNTIMES["antigravity"]["hook_dir"]}/{ANTIGRAVITY_HOOK_FILE}"'
-    entry = {"type": "command", "command": command, "timeout": 10}
-    return {
-        "b-agentic": {
-            "PreToolUse": [{"matcher": "*", "hooks": [dict(entry)]}],
-            "PostToolUse": [{"matcher": "*", "hooks": [dict(entry)]}],
-            "Stop": [dict(entry)],
-            "SessionStart": [dict(entry)],
-        }
-    }
-
-
-def render_antigravity_outputs(
-    skills: list[dict[str, Any]],
-    agents: dict[str, dict[str, Any]],
-    policy: dict[str, Any],
-    workers: dict[str, dict[str, Any]],
-    hits: set[str] | None = None,
-) -> dict[Path, str]:
-    config = RUNTIMES["antigravity"]
-    outputs: dict[Path, str] = {
-        ANTIGRAVITY_RULE_PATH: render_antigravity_kernel(skills, policy, hits),
-        ANTIGRAVITY_CONFIGS_DIR / "hooks.template.json": json.dumps(render_antigravity_hooks(), indent=2) + "\n",
-        ANTIGRAVITY_CONFIGS_DIR / "settings.template.json": json.dumps(render_antigravity_permissions(policy), indent=2)
-        + "\n",
-        ANTIGRAVITY_CONFIGS_DIR / "mcp.template.json": json.dumps(render_antigravity_mcp(), indent=2) + "\n",
-    }
-    for skill in skills:
-        outputs[ANTIGRAVITY_DIR / "skills" / skill["name"] / "SKILL.md"] = render_skill_file(skill, "antigravity", hits)
-    for name, agent in agents.items():
-        outputs[ANTIGRAVITY_DIR / "agents" / f"{name}.md"] = render_antigravity_agent_file(
-            name, agent["description"], render_agent_file(name, agent, skills, policy), config["specialist_tools"], hits
-        )
-    for name, worker in workers.items():
-        outputs[ANTIGRAVITY_DIR / "agents" / f"{name}.md"] = render_antigravity_agent_file(
-            name,
-            worker["description"],
-            render_worker_file(name, worker, agents, policy),
-            config["worker_tools"],
-            hits,
-        )
-    return outputs
-
-
-def antigravity_agent_errors(name: str, text: str, worker: bool) -> list[str]:
-    label = f"antigravity agent {name}"
-    config = RUNTIMES["antigravity"]
-    errors: list[str] = []
-    head = text.partition("\n---\n")[0]
-    for line in ("subagent: true", "mainAgent: false", f"model: {config['agent_models'][0]}"):
-        if line not in head.splitlines():
-            errors.append(f"{label}: frontmatter must contain {line!r}")
-    match = re.search(r"^tools: \[(.*)\]$", head, re.MULTILINE)
-    tools = [tool.strip() for tool in match.group(1).split(",")] if match else []
-    if not tools:
-        return [*errors, f"{label}: tools must be an explicit non-empty list"]
-    unknown = [tool for tool in tools if tool not in ANTIGRAVITY_TOOL_NAMES]
-    if unknown:
-        errors.append(f"{label}: tools {unknown} were not probed (an unknown tool name stops the agent from starting)")
-    editing = [tool for tool in tools if tool in config["editing_tools"]]
-    if worker and not editing:
-        errors.append(f"{label}: a worker needs {config['editing_tools']}")
-    if not worker and editing:
-        errors.append(f"{label}: a read-only specialist must not hold {editing}")
-    if "call_mcp_tool" not in text.partition("\n---\n")[2]:
-        errors.append(f"{label}: the body must state that MCP is reached through call_mcp_tool")
-    return errors
-
-
-def antigravity_output_errors(
-    skills: list[dict[str, Any]],
-    agents: dict[str, dict[str, Any]],
-    policy: dict[str, Any],
-    workers: dict[str, dict[str, Any]],
-) -> list[str]:
-    """Checks on the rendered agy outputs: leaked Claude vocabulary, agent tools, budgets, stale glossary, orphans."""
-    errors: list[str] = []
-    hits: set[str] = set()
-    try:
-        outputs = render_antigravity_outputs(skills, agents, policy, workers, hits)
-    except ValueError as exc:
-        return [f"antigravity outputs: {exc}"]
-    for path, text in outputs.items():
-        relative = path.relative_to(ROOT)
-        errors.extend(
-            f"{relative}: contains forbidden Claude Code token {token!r}"
-            for token in forbidden_hits(text, "antigravity")
-        )
-        if "<!-- runtime:" in text:
-            errors.append(f"{relative}: unresolved runtime marker")
-    for entry in RUNTIMES["antigravity"]["glossary"]:
-        if entry["from"] not in hits:
-            errors.append(
-                f"runtimes.antigravity.glossary: entry {entry['from']!r} matched nothing; remove or update it"
-            )
-    rule = outputs[ANTIGRAVITY_RULE_PATH]
-    if not rule.startswith(ANTIGRAVITY_RULE_FRONTMATTER):
-        errors.append("antigravity/rules/b-agentic.md: must start with the always_on frontmatter")
-    if "Antigravity CLI Workflow Kernel" not in rule:
-        errors.append("antigravity/rules/b-agentic.md: missing the Antigravity kernel title")
-    if len(rule.encode()) > MAX_ANTIGRAVITY_RULE_BYTES:
-        errors.append(f"antigravity/rules/b-agentic.md: exceeds {MAX_ANTIGRAVITY_RULE_BYTES:,} byte rule budget")
-    for name in agents:
-        errors.extend(antigravity_agent_errors(name, outputs[ANTIGRAVITY_DIR / "agents" / f"{name}.md"], False))
-    for name in workers:
-        errors.extend(antigravity_agent_errors(name, outputs[ANTIGRAVITY_DIR / "agents" / f"{name}.md"], True))
-    review = outputs[ANTIGRAVITY_DIR / "skills" / "b-review" / "SKILL.md"]
-    if "b-reviewer" not in review or "b-codex-review" not in review:
-        errors.append("antigravity/skills/b-review: must run the Codex gate with the b-reviewer fallback")
-    for skill_name in ("b-flow", "b-plan"):
-        text = outputs[ANTIGRAVITY_DIR / "skills" / skill_name / "SKILL.md"]
-        if "parallel_steps" in text or "worktree add" in text:
-            errors.append(f"antigravity/skills/{skill_name}: parallel worker steps are not ported to agy")
-    hook_group = json.loads(outputs[ANTIGRAVITY_CONFIGS_DIR / "hooks.template.json"])["b-agentic"]
-    for event in ("PreToolUse", "PostToolUse", "Stop", "SessionStart"):
-        if event not in hook_group or ANTIGRAVITY_HOOK_FILE not in json.dumps(hook_group[event]):
-            errors.append(f"antigravity/configs/hooks.template.json: {event} must run {ANTIGRAVITY_HOOK_FILE}")
-    errors.extend(antigravity_orphan_errors(outputs))
-    return errors
-
-
-def antigravity_orphan_errors(outputs: dict[Path, str]) -> list[str]:
-    """Generated subtrees hold only rendered files; antigravity/hooks is the hand-written adapter and is not checked."""
-    errors: list[str] = []
-    for sub in ("skills", "agents", "rules", "configs"):
-        directory = ANTIGRAVITY_DIR / sub
-        if directory.is_dir():
-            errors.extend(
-                f"{path.relative_to(ROOT)}: not rendered from the canonical sources; delete it"
-                for path in sorted(directory.rglob("*"))
-                if path.is_file() and path not in outputs
-            )
-    return errors
-
-
 def render_outputs(
     skills: list[dict[str, Any]],
     agents: dict[str, dict[str, Any]],
@@ -1599,7 +1362,6 @@ def render_outputs(
         outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_agent_file(name, agent, skills, policy)
     for name, worker in workers.items():
         outputs[CLAUDE_AGENTS_DIR / f"{name}.md"] = render_worker_file(name, worker, agents, policy)
-    outputs.update(render_antigravity_outputs(skills, agents, policy, workers))
     return outputs
 
 
@@ -1868,7 +1630,6 @@ def validate_regressions(
     if not validate_policy(invalid_policy):
         errors.append("MCP policy regression: retired exposure field must fail")
     errors.extend(validate_runtime_regressions())
-    errors.extend(validate_antigravity_regressions(policy))
     return errors
 
 
@@ -1895,55 +1656,6 @@ def validate_runtime_regressions() -> list[str]:
             errors.append(f"runtime regression: a drifted kernel override must fail on {text!r}")
     finally:
         del RUNTIMES["_probe"]
-    return errors
-
-
-def validate_antigravity_regressions(policy: dict[str, Any]) -> list[str]:
-    errors: list[str] = []
-    shared = "a\n<!-- runtime: antigravity --> b\n<!-- runtime: claude --> c\n<!-- runtime: claude,antigravity --> e\nd"
-    if apply_markers(shared, "claude") != "a\nc\ne\nd":
-        errors.append("antigravity regression: Claude must keep only shared, claude and claude,antigravity lines")
-    if apply_markers(shared, "antigravity") != "a\nb\ne\nd":
-        errors.append("antigravity regression: agy must keep only shared, antigravity and claude,antigravity lines")
-    template = RUNTIMES["antigravity"]["mcp_prose_format"]
-    for source, expected in (
-        ("`mcp__firecrawl__firecrawl_search`", "`firecrawl/firecrawl_search`"),
-        ("`mcp__brave_search__brave_web_search`", "`brave_search/brave_web_search`"),
-        ("`mcp__datagrip__*` tools", "`datagrip/*` tools"),
-        ("mcp__unmanaged__tool", "mcp__unmanaged__tool"),
-    ):
-        if translate_mcp_names(source, template) != expected:
-            errors.append(f"antigravity regression: MCP name {source!r} must become {expected!r}")
-    if not forbidden_hits("run `Bash` or AskUserQuestion", "antigravity"):
-        errors.append("antigravity regression: a leaked Claude tool name must be detected")
-    permissions = render_antigravity_permissions(policy)["permissions"]
-    for bucket, rule in (
-        ("ask", "command(git push)"),
-        ("deny", "command(git pull)"),
-        ("deny", "command(git reset --hard)"),
-        ("deny", "command(git push --force)"),
-    ):
-        if rule not in permissions[bucket]:
-            errors.append(f"antigravity regression: {rule} must be in permissions.{bucket}")
-    if set(permissions["ask"]) & set(permissions["deny"]):
-        errors.append("antigravity regression: no rule may be both asked and denied")
-    rules = permissions["allow"] + permissions["ask"] + permissions["deny"]
-    if "command(bash)" in permissions["deny"] or "command(git push origin)" in permissions["deny"]:
-        errors.append("antigravity regression: an exact-only Claude deny must not become a prefix rule")
-    if any("*" in rule for rule in rules if rule.startswith("command(")):
-        errors.append("antigravity regression: inner wildcards must not be rendered as command rules")
-    good = "---\nname: x\nsubagent: true\nmainAgent: false\nmodel: inherit\ntools: [read_file, run_command]\n---\nuses call_mcp_tool"
-    if antigravity_agent_errors("x", good, False):
-        errors.append("antigravity regression: a valid specialist was rejected")
-    for text, worker, why in (
-        (good.replace("run_command]", "run_command, call_mcp_tool]"), False, "call_mcp_tool in tools"),
-        (good.replace("read_file, run_command", "read_file, write_file"), False, "an editing tool on a specialist"),
-        (good, True, "a worker without an editing tool"),
-        (good.replace("model: inherit", "model: opus"), False, "a model other than inherit"),
-        (good.replace("tools: [read_file, run_command]\n", ""), False, "a missing tools list"),
-    ):
-        if not antigravity_agent_errors("x", text, worker):
-            errors.append(f"antigravity regression: {why} must fail")
     return errors
 
 
@@ -1975,13 +1687,9 @@ def validate_runtimes() -> list[str]:
                     errors.append(f"{label}.{key}[{index}]: expected {{from: non-empty string, to: string}}")
         if "forbidden_tokens" in config:
             non_empty_string_list(config["forbidden_tokens"], f"{label}.forbidden_tokens", errors)
-        for key in ("mcp_tool_format", "mcp_prose_format"):
-            template = config.get(key)
-            if isinstance(template, str) and not ("{server}" in template and "{tool}" in template):
-                errors.append(f"{label}.{key}: must contain {{server}} and {{tool}}")
-        for key in ("specialist_tools", "worker_tools"):
-            if key in config:
-                non_empty_string_list(config[key], f"{label}.{key}", errors)
+        template = config.get("mcp_tool_format")
+        if isinstance(template, str) and not ("{server}" in template and "{tool}" in template):
+            errors.append(f"{label}.mcp_tool_format: must contain {{server}} and {{tool}}")
     claude = RUNTIMES["claude"]
     if claude.get("mcp_tool_format") != "mcp__{server}__{tool}":
         errors.append("runtimes.claude: MCP format must be mcp__{server}__{tool}")
@@ -2005,7 +1713,6 @@ def sync_outputs(check: bool) -> int:
         *validate_snapshot_cli(),
         *validate_artifacts_schema(),
         *validate_runtimes(),
-        *antigravity_output_errors(skills, agents, policy, workers),
     ]
     if errors:
         print("\n".join(errors), file=sys.stderr)

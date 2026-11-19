@@ -20,7 +20,7 @@ MARKDOWNLINT=(bun "$ROOT_DIR/node_modules/.bin/markdownlint-cli2")
 [ -e "$ROOT_DIR/node_modules/.bin/markdownlint-cli2" ] || fail_missing markdownlint-cli2 "install root development tools with 'bun install --frozen-lockfile'"
 
 is_generated() {
-  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json|antigravity/skills/*|antigravity/agents/*|antigravity/rules/*|antigravity/configs/*) return 0;; *) return 1;; esac
+  case "$1" in skills/*/SKILL.md|claude/agents/*|claude/configs/settings.template.json) return 0;; *) return 1;; esac
 }
 is_json_compatible_yaml() {
   case "$1" in references/mcp_operations.yaml|references/capabilities.yaml|references/runtimes.yaml|references/artifacts.yaml|skills/registry.yaml) return 0;; *) return 1;; esac

@@ -35,7 +35,6 @@ LIGHT_LABELS = (
     "docs/decisions/ADR-016-parallel-worker-steps.md",
     "docs/decisions/ADR-021-codex-gate-without-repo-approval.md",
     "docs/decisions/ADR-022-discussion-first-entry.md",
-    "docs/decisions/ADR-025-antigravity-second-runtime.md",
 )
 REQUIRED_SECTIONS = ("Context", "Decision", "Consequences")
 REQUIRED_DECISION_AREAS = (

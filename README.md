@@ -1,6 +1,6 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code (and, opt-in, the Antigravity CLI), with Codex (or a read-only subagent) as the independent reviewer.**
+**A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for worktree changes (on Claude
@@ -12,8 +12,7 @@ to the read-only `b-reviewer` subagent when Codex is unavailable.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) for Claude Code — managed paths and ownership boundaries.
-- [Antigravity tree](antigravity/README.md) and the [install runbook](docs/runbooks/install-antigravity.md) for the opt-in Antigravity CLI runtime.
-- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-020 Claude Code only again](docs/decisions/ADR-020-claude-code-only-again.md) (Claude Code is the default runtime) and [ADR-025](docs/decisions/ADR-025-antigravity-second-runtime.md) (the opt-in Antigravity CLI runtime).
+- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-020 Claude Code only again](docs/decisions/ADR-020-claude-code-only-again.md) (Claude Code is the only runtime).
 
 ## Install
 
@@ -32,12 +31,6 @@ everything else. It never runs vendor installers. A Claude Code run only touches
 (`curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash`)
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
-
-The Antigravity CLI (`agy`) is an opt-in second runtime: `./install.sh --runtime=antigravity` installs into `~/.gemini`
-only and never touches `~/.claude`, while `--runtime=both` installs Claude Code first and then `agy`. A plain
-`./install.sh` stays Claude Code only. An `agy` install also adds a `command(*)` shell allow rule so commands do not
-all ask (the `ask` and `deny` rules still apply); `--no-shell-auto` leaves it out. See the
-[install runbook](docs/runbooks/install-antigravity.md).
 
 Three skills and their MCP servers are optional and never installed without a
 choice: DataGrip, Excalidraw, and draw.io. The Notion MCP server is optional too:

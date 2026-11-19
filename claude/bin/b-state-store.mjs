@@ -465,13 +465,8 @@ export function freshState(runId, root, baseline) {
 }
 
 export function defaultOwner(args) {
-  // Claude Code sets CLAUDE_CODE_SESSION_ID; the Antigravity CLI sets ANTIGRAVITY_CONVERSATION_ID, which
-  // equals the conversationId its hooks receive (ADR-025). Claude Code wins when both are set.
-  const owner =
-    args.owner ??
-    (process.env.CLAUDE_CODE_SESSION_ID ||
-      process.env.ANTIGRAVITY_CONVERSATION_ID ||
-      "");
+  // Claude Code sets CLAUDE_CODE_SESSION_ID.
+  const owner = args.owner ?? process.env.CLAUDE_CODE_SESSION_ID ?? "";
   if (!OWNER.test(owner)) {
     throw invalid(
       "pass --owner NAME (letters, digits, . _ : -) or set CLAUDE_CODE_SESSION_ID",
@@ -520,13 +515,7 @@ export function runsHint(root) {
   }
   const count = names.filter((name) => RUN_ID.test(name)).length;
   if (count <= HINT_RUNS) return "";
-  const agy =
-    process.env.ANTIGRAVITY_CONVERSATION_ID &&
-    !process.env.CLAUDE_CODE_SESSION_ID;
-  const bin = agy
-    ? "~/.gemini/config/b-agentic/bin"
-    : "~/.claude/b-agentic/bin";
-  return `${count} run folders in .b-agentic/runs; list the old finished ones with: python3 -I -B ${bin}/b_run.py prune`;
+  return `${count} run folders in .b-agentic/runs; list the old finished ones with: python3 -I -B ~/.claude/b-agentic/bin/b_run.py prune`;
 }
 
 // The run `active` names when it is not finished; an unreadable one counts.

@@ -2,14 +2,13 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the default runtime, Claude Code (plus the opt-in Antigravity CLI runtime described below), with Codex as the
+This reference defines the only runtime, Claude Code, with Codex as the
 independent reviewer and the read-only `b-reviewer` subagent as its fallback
 ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
 [ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)). It covers
 installation, the permission boundary, the review gate, MCP configuration, and
-validation. The OpenCode and Pi runtimes were removed by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md)
-(the last tree is commit `f80281b7`; Pi was last in `ba7bc2db`); the Antigravity CLI returned as an opt-in runtime by
-[ADR-025](docs/decisions/ADR-025-antigravity-second-runtime.md). An install an earlier
+validation. Second runtimes were removed by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md)
+(the last tree is commit `f80281b7`; Pi was last in `ba7bc2db`). An install an earlier
 release left under `~/.config/opencode` is never touched: uninstall it from a checkout of
 `f80281b7` (`./install.sh --runtime=opencode --uninstall`) or remove the b-agentic entries there by hand.
 
@@ -79,12 +78,8 @@ touches only `~/.claude` and `~/.claude.json`.
   did not install, after a backup. Without it such files are kept with a warning.
 - `--uninstall` removes only recorded, unmodified assets and entries and keeps
   `~/.claude/b-agentic/backups`.
-- `--runtime=claude|antigravity|both` selects the target (default `claude`); any other value is refused with a
-  pointer to ADR-025 and nothing is written. `both` runs the Claude Code installer, then the Antigravity one,
-  and stops at the first failure. A plain `--uninstall` removes only the Claude Code install; pass
-  `--runtime=antigravity` or `both` to remove the Antigravity one. `--statusline-only` is Claude Code only.
-  `--no-shell-auto` and `--shell-auto` apply to the Antigravity install only (see below) and are refused with
-  `--runtime=claude`, with `--uninstall`, and together.
+- `--runtime=claude` is accepted as a no-op; any other value is refused with a pointer to ADR-020 and
+  nothing is written.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -120,38 +115,6 @@ steps. The Codex review gate on Claude Code needs the `codex` CLI, the
 `openai/codex-plugin-cc` plugin, and a Codex login, which the installer prints but
 never runs; without them `b-review` falls back to the `b-reviewer` subagent, which needs
 none of these.
-
-### Antigravity CLI runtime
-
-`./install.sh --runtime=antigravity` (see the [install runbook](docs/runbooks/install-antigravity.md) and
-[ADR-025](docs/decisions/ADR-025-antigravity-second-runtime.md)) uses the same plan-first, manifest-owned,
-merge-and-preserve discipline through `tooling/install/antigravity_install.py`, but only under `~/.gemini`
-(a symlinked `~/.gemini`, `config`, `antigravity-cli`, or managed directory is refused, and a config file linked
-outside `~/.gemini` is refused). It records ownership in `~/.gemini/config/b-agentic/install.json`:
-
-| Asset          | Installed path                                                                                 |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| Skills         | `config/skills/b-*/SKILL.md` (real directories)                                                |
-| Specialists    | `config/agents/b-*.md`                                                                         |
-| Kernel         | `config/rules/b-agentic.md`, an `always_on` rule owned by its sha256 (not a marker block)      |
-| Hooks and CLIs | `config/b-agentic/hooks/*.mjs` (with `b-agy-hook.mjs`), `config/b-agentic/bin/`, `references/` |
-| Hook group     | group `b-agentic` in `config/hooks.json`, with absolute Bun and script paths (no `$HOME`)      |
-| MCP servers    | entries merged into `config/mcp_config.json`, compared exactly (including `disabled`)          |
-| Permissions    | `command(...)` and `mcp(server/tool)` rules union-merged into `antigravity-cli/settings.json`  |
-| Shell allow    | one `command(*)` allow rule in the same file, unless `--no-shell-auto` (on by default)         |
-
-Other tools' hook groups, servers, settings keys, and rules are preserved. `--with`/`--without`, `--dry-run`, `--force`
-(files only; a user's same-named server or `b-agentic` hook group is never replaced), `-y`, and `--uninstall` work as
-above. A `b-agentic` hook group you edited is kept, and uninstall then keeps `b-agentic/` and a reduced
-manifest until you remove that group and uninstall again. The status line is not ported. Quit `agy` before installing, because it rewrites `settings.json` while it runs.
-The unverified items (for example `$HOME` expansion in hook commands and the manual smoke test) are listed in ADR-025.
-
-Shell auto: `agy` Auto mode needs a terminal sandbox that some hosts lack, so every command would ask. The install
-therefore adds `command(*)` to `permissions.allow` by default; the managed `ask` and `deny` rules (for example
-`git push`, force pushes) still win. `--no-shell-auto` leaves it out or removes the one this installer added,
-`--shell-auto` adds it back, and the choice is remembered in the manifest (`shell_auto`). A `command(*)` you already
-had is never recorded and stays. Commands without an `ask` or `deny` prefix run without a prompt, and the path guard
-does not stop a recursive read such as `grep -r` into a directory that holds a secret file.
 
 ## Kernel and skills
 

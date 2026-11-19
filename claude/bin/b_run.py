@@ -24,7 +24,7 @@ Commands (JSON results on stdout, one-line errors on stderr):
                            than N days (default 30), and whether the folder is over its hint threshold
   prune [--days N]         list those runs; with --apply, delete exactly them (dry run by default)
 
-Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID, else ANTIGRAVITY_CONVERSATION_ID), --days N, --apply (prune only).
+Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only).
 Exit: 0 ok, 3 refused or not ok, 2 invalid input or state.
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
@@ -720,11 +720,7 @@ def require_lock(directory: Path, owner: str) -> None:
 
 def default_owner(args: dict) -> str:
     # The same order as b-state.mjs, which takes the lock this owner must hold.
-    owner = (
-        args.get("owner")
-        or os.environ.get("CLAUDE_CODE_SESSION_ID")
-        or os.environ.get("ANTIGRAVITY_CONVERSATION_ID", "")
-    )
+    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID", "")
     if not OWNER.fullmatch(owner):
         raise Invalid("pass --owner NAME or set CLAUDE_CODE_SESSION_ID")
     return owner
@@ -1307,11 +1303,6 @@ def cmd_handoff(schema: dict, which: str, args: dict) -> str:
 WORKER_NAME = "b-worker"
 WORKER_NATIVE_TOOLS = frozenset({"Read", "Grep", "Glob", "Edit", "Write", "Bash"})
 WORKER_FRONTMATTER = frozenset({"name", "description", "tools", "model", "effort", "maxTurns"})
-# Antigravity CLI (ADR-025): its agents carry a `tools: [..]` flow list of its own tool names, and MCP
-# tools are never listed there, so no MCP name is allowed in the list.
-AGY_WORKER_NATIVE_TOOLS = frozenset({"read_file", "write_file", "edit_file", "run_command"})
-AGY_WORKER_FRONTMATTER = frozenset({"name", "description", "tools", "model", "subagent", "mainAgent"})
-_FLOW_TOOLS = re.compile(r"\[([A-Za-z0-9_, ]*)\]")
 MAX_AGENT_FILES = 2000
 _NAME_LINE = re.compile(r"^(\s*)(\?\s*)?([\"']?)name\3\s*:(.*)$", re.IGNORECASE)
 _PLAIN_LINE = re.compile(r"([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?")
@@ -1329,18 +1320,7 @@ def _scalar(raw: str) -> str | None:
     return value
 
 
-def _agy_runtime() -> bool:
-    """Whether this process runs under the Antigravity CLI; the owner rule decides, so Claude Code wins when both are set."""
-    return not os.environ.get("CLAUDE_CODE_SESSION_ID") and bool(os.environ.get("ANTIGRAVITY_CONVERSATION_ID"))
-
-
-def _flow_tools(raw: str) -> str | None:
-    """An Antigravity `[a, b]` tool list as the comma-separated text the Claude profile reader checks."""
-    found = _FLOW_TOOLS.fullmatch(re.sub(r"\s+#.*$", "", raw.strip()).strip())
-    return ",".join(part.strip() for part in found.group(1).split(",") if part.strip()) if found else None
-
-
-def _profile(stem: str, text: str, agy: bool = False) -> tuple[bool, dict[str, str], list[str]]:
+def _profile(stem: str, text: str) -> tuple[bool, dict[str, str], list[str]]:
     """Whether a file may be the worker profile, with its fields and the problems of reading it."""
     body = text.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n").lstrip()
     lines = body.split("\n")
@@ -1385,8 +1365,6 @@ def _profile(stem: str, text: str, agy: bool = False) -> tuple[bool, dict[str, s
             continue
         key, raw = plain.group(1), plain.group(2) or ""
         value = _scalar(raw) if raw.strip() else ""
-        if value is None and agy and key == "tools":
-            value = _flow_tools(raw)
         if key in fields:
             problems.append(f"frontmatter key {key!r} appears twice")
         elif value is None:
@@ -1398,19 +1376,15 @@ def _profile(stem: str, text: str, agy: bool = False) -> tuple[bool, dict[str, s
     return True, fields, problems
 
 
-def _worker_problems(fields: dict[str, str], read_only: set[str], agy: bool = False) -> list[str]:
+def _worker_problems(fields: dict[str, str], read_only: set[str]) -> list[str]:
     problems: list[str] = []
-    allowed = AGY_WORKER_FRONTMATTER if agy else WORKER_FRONTMATTER
-    native = AGY_WORKER_NATIVE_TOOLS if agy else WORKER_NATIVE_TOOLS
-    if agy:
-        read_only = set()
-    for key in sorted(set(fields) - allowed):
+    for key in sorted(set(fields) - WORKER_FRONTMATTER):
         problems.append(f"frontmatter key {key!r} is not one the worker profile carries")
     tools = [tool.strip() for tool in fields.get("tools", "").split(",") if tool.strip()]
     if not tools:
         problems.append("the tools list is missing or empty: an omitted list grants every tool")
     for tool in tools:
-        if tool not in native and tool not in read_only:
+        if tool not in WORKER_NATIVE_TOOLS and tool not in read_only:
             problems.append(f"tool {tool!r} is neither a worker tool nor a read-only MCP tool")
     return problems
 
@@ -1449,11 +1423,8 @@ def cmd_worker_profile(args: dict) -> dict:
     here = Path.cwd().resolve()
     folders = [here, *here.parents] if root == here or root in here.parents else [root]
     folders = folders[: folders.index(root) + 1]
-    agy = _agy_runtime()
-    project_agents = (".agents", "agents") if agy else (".claude", "agents")
-    user_agents = (".gemini", "config", "agents") if agy else (".claude", "agents")
-    scopes = [("project", folder.joinpath(*project_agents)) for folder in folders]
-    scopes.append(("user", Path.home().joinpath(*user_agents)))
+    scopes = [("project", folder / ".claude" / "agents") for folder in folders]
+    scopes.append(("user", Path.home() / ".claude" / "agents"))
     problems: list[str] = []
     found: list[str] = []
     for scope, folder in scopes:
@@ -1469,14 +1440,14 @@ def cmd_worker_profile(args: dict) -> dict:
             except (OSError, Refused, UnicodeDecodeError):
                 problems.append(f"{label} is not a readable regular text file")
                 continue
-            may_be_worker, fields, issues = _profile(path.stem, text, agy)
+            may_be_worker, fields, issues = _profile(path.stem, text)
             if may_be_worker:
                 named.append((label, fields))
                 problems += [f"{label}: {issue}" for issue in issues]
         if len(named) > 1:
             problems.append(f"{scope}: more than one profile may be {WORKER_NAME}: " + ", ".join(n for n, _ in named))
         for label, fields in named:
-            problems += [f"{label}: {issue}" for issue in _worker_problems(fields, read_only, agy)]
+            problems += [f"{label}: {issue}" for issue in _worker_problems(fields, read_only)]
         found += [scope] * len(named)
     if not found:
         problems.append("no b-worker profile is installed")
