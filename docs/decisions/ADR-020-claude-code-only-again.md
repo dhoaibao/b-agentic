@@ -1,8 +1,9 @@
 # ADR-020: Claude Code only again; remove OpenCode
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-11-17
 - Supersedes: ADR-019 (OpenCode as the second runtime)
+- Superseded by: [ADR-025](ADR-025-antigravity-second-runtime.md) (Antigravity CLI as the second runtime). Claude Code stays the default; the OpenCode tree is still removed.
 
 ## Context
 
