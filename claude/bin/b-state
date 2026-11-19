@@ -1,0 +1,4 @@
+#!/bin/sh
+# Short entry point for b-state.mjs (ADR-028). The installer swaps the bare bun below for the
+# absolute path it found; the flags stop a repository's bunfig.toml and .env from loading (ADR-018).
+exec bun --no-env-file --config=/dev/null "${0%/*}/b-state.mjs" "$@"

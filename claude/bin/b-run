@@ -1,0 +1,3 @@
+#!/bin/sh
+# Short entry point for b_run.py (ADR-028); -I -B keep a repository's Python files from being imported or cached.
+exec python3 -I -B "${0%/*}/b_run.py" "$@"

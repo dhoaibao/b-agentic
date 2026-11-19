@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -16,6 +17,16 @@ SETTINGS_HOOKS = (
     "b-spec-context.mjs",
     "b-run-context.mjs",
 )
+# The short wrappers skills and the kernel name (ADR-028), each with the exact line that runs its target. The bun
+# ones carry the hardening flags of ADR-018; the installer swaps the bare bun for the absolute path it found.
+BUN_PREFIX = 'exec bun --no-env-file --config=/dev/null "${0%/*}/'
+WRAPPER_LINES = {
+    "b-state": BUN_PREFIX + 'b-state.mjs" "$@"',
+    "b-snapshot": BUN_PREFIX + 'b-candidate-snapshot.mjs" "$@"',
+    "b-codex-review": BUN_PREFIX + 'b-codex-review.mjs" "$@"',
+    "b-codex-guard": BUN_PREFIX + '../hooks/b-codex-guard.mjs" "$@"',
+    "b-run": 'exec python3 -I -B "${0%/*}/b_run.py" "$@"',
+}
 
 
 def main() -> int:
@@ -107,6 +118,16 @@ def main() -> int:
     for script in ("b-candidate-snapshot.mjs", "b-protected.mjs", "b-codex-verdict.mjs", "b-codex-review.mjs"):
         if not (ROOT / "claude" / "bin" / script).is_file():
             errors.append(f"claude/bin/{script}: missing CLI")
+    for name, line in WRAPPER_LINES.items():
+        wrapper = ROOT / "claude" / "bin" / name
+        if not wrapper.is_file():
+            errors.append(f"claude/bin/{name}: missing wrapper")
+            continue
+        if not os.access(wrapper, os.X_OK):
+            errors.append(f"claude/bin/{name}: wrapper is not executable")
+        lines = wrapper.read_text().splitlines()
+        if not lines or lines[0] != "#!/bin/sh" or line not in lines:
+            errors.append(f"claude/bin/{name}: wrapper must start with #!/bin/sh and carry the line: {line}")
     if not (ROOT / "claude" / "bin" / "b-statusline.mjs").is_file():
         errors.append("claude/bin/b-statusline.mjs: missing CLI")
     status_line = json.loads((ROOT / "claude" / "configs" / "settings.template.json").read_text()).get("statusLine", {})

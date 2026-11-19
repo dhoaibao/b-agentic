@@ -75,7 +75,7 @@ claude="$home/.claude"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
 [ -f "$claude/agents/b-worker.md" ] || fail "the b-worker writer profile must be installed"
 cmp -s "$root/claude/agents/b-worker.md" "$claude/agents/b-worker.md" || fail "the installed b-worker profile differs from the source"
-for file in bin/b-candidate-snapshot.mjs bin/b-protected.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-alexandria-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-state bin/b-run bin/b-snapshot bin/b-codex-review bin/b-codex-guard bin/b-candidate-snapshot.mjs bin/b-protected.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-alexandria-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 for module in "$root"/claude/bin/b-state-*.mjs; do
@@ -1392,6 +1392,57 @@ hardened=$(cd "$trap_repo" && "$real_bun" --no-env-file --config=/dev/null probe
 [ -z "$hardened" ] || fail "--no-env-file must keep the repository's .env out of the process (got '$hardened')"
 [ ! -e "$work/PRELOAD-RAN" ] || fail "--config=/dev/null must keep the repository's preload from running"
 
+# The five short wrappers (ADR-028): owner-executable, each naming the absolute bun with the hardening flags (b-run
+# runs python3 -I -B), and runnable from the trap repository with no bun on PATH without loading its preload.
+for wrapper in b-state b-run b-snapshot b-codex-review b-codex-guard; do
+  [ -x "$claude/b-agentic/bin/$wrapper" ] || fail "the $wrapper wrapper must be executable"
+  if [ "$wrapper" = b-run ]; then
+    grep -Fq 'exec python3 -I -B ' "$claude/b-agentic/bin/$wrapper" || fail "b-run must run python3 -I -B"
+  else
+    grep -Fq "exec $real_bun $flags " "$claude/b-agentic/bin/$wrapper" || fail "$wrapper must exec the absolute bun with the hardening flags"
+  fi
+done
+rc=0; ( cd "$trap_repo" && HOME="$home" PATH="$nobun_path" "$claude/b-agentic/bin/b-run" schema spec >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 0 ] || fail "b-run must run with no bun on PATH (exit $rc)"
+rc=0; ( cd "$trap_repo" && HOME="$home" PATH="$nobun_path" "$claude/b-agentic/bin/b-codex-review" --available >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 4 ] || fail "b-codex-review must report the missing Codex plugin with exit 4 (exit $rc)"
+rc=0; ( cd "$trap_repo" && HOME="$home" PATH="$nobun_path" "$claude/b-agentic/bin/b-state" check >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 3 ] || fail "b-state must run outside a worktree and refuse with exit 3 (exit $rc)"
+rc=0; ( cd "$trap_repo" && HOME="$home" PATH="$nobun_path" "$claude/b-agentic/bin/b-snapshot" >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 2 ] || fail "b-snapshot must run outside a worktree and refuse with exit 2 (exit $rc)"
+rc=0; ( cd "$trap_repo" && HOME="$home" PATH="$nobun_path" "$claude/b-agentic/bin/b-codex-guard" --check >/dev/null 2>&1 ) || rc=$?
+[ "$rc" = 3 ] || fail "b-codex-guard --check must run outside a worktree and refuse with exit 3 (exit $rc)"
+[ ! -e "$work/PRELOAD-RAN" ] || fail "a wrapper ran the repository's bunfig.toml preload"
+
+# Skills call the wrappers by path, so a wrapper path b-agentic does not own is refused before anything is written
+# (a conflicting file, a symlink, an identical copy without the exec bit), never kept; --force repairs a file and
+# still never replaces a symlink.
+cp "$claude/b-agentic/bin/b-state" "$work/b-state.good"
+home=$(fresh_home wrapcol)
+claude="$home/.claude"
+mkdir -p "$claude/b-agentic/bin"
+printf '#!/bin/sh\nexit 0\n' >"$claude/b-agentic/bin/b-state"
+chmod 700 "$claude/b-agentic/bin/b-state"
+before=$(tree "$home")
+runpath "$home" "$bun_dir:$nobun_path" -y; expect_refused "install over a conflicting wrapper"
+grep -Fq 'was not installed by b-agentic' <<<"$err" || fail "the refusal must say the wrapper is not ours: $err"
+[ "$before" = "$(tree "$home")" ] || fail "a refused wrapper collision must write nothing"
+runpath "$home" "$bun_dir:$nobun_path" -y --force; expect_ok "forced install over a conflicting wrapper"
+grep -Fq "exec $real_bun $flags " "$claude/b-agentic/bin/b-state" || fail "--force must replace the conflicting wrapper"
+rm "$claude/b-agentic/bin/b-state"
+ln -s /bin/true "$claude/b-agentic/bin/b-state"
+runpath "$home" "$bun_dir:$nobun_path" -y --force; expect_refused "install over a wrapper symlink"
+grep -Fq 'not a regular file' <<<"$err" || fail "the refusal must say the wrapper is a link: $err"
+home=$(fresh_home wrapexec)
+claude="$home/.claude"
+mkdir -p "$claude/b-agentic/bin"
+cp "$work/b-state.good" "$claude/b-agentic/bin/b-state"
+chmod 600 "$claude/b-agentic/bin/b-state"
+runpath "$home" "$bun_dir:$nobun_path" -y; expect_refused "install over an identical wrapper without the exec bit"
+grep -Fq 'is not executable' <<<"$err" || fail "the refusal must say the wrapper is not executable: $err"
+runpath "$home" "$bun_dir:$nobun_path" -y --force; expect_ok "forced install over an identical non-executable wrapper"
+[ -x "$claude/b-agentic/bin/b-state" ] || fail "--force must repair the exec bit of an identical wrapper"
+
 # A bun installed through a symlink keeps working after an upgrade swaps its target, and with no bun left the
 # command fails (so a fail-closed hook blocks) instead of falling back to node.
 mkdir -p "$work/linkbin"
@@ -1406,6 +1457,7 @@ rc=0; printf '%s' "$secret" | HOME="$home" PATH="$nobun_path" sh -c "$guard_cmd"
 [ "$rc" = 127 ] || [ "$rc" = 126 ] || fail "with bun gone the guard command must fail, not fall back (exit $rc)"
 runpath "$home" "$nobun_path" -y --uninstall; expect_ok "uninstall without bun"
 [ "$(jq -c . "$claude/settings.json")" = '{}' ] || fail "an uninstall without bun must still remove the managed entries: $(cat "$claude/settings.json")"
+[ ! -e "$claude/b-agentic/bin/b-state" ] || fail "an uninstall must remove the short wrappers"
 
 # Earlier installs recorded node commands (plain, or the ADR-017 bun-or-node form). Installing again swaps exactly
 # those recorded entries to the bun form and leaves the user's own hooks alone.

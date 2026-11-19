@@ -63,6 +63,22 @@ PREREQUISITES = ("bun", "node", "git", "rtk", "codegraph", "bunx", "claude", "co
 # inside a guard. The generated commands start with the bare name; the installer swaps in the absolute path it found.
 BUN_FLAGS = ("--no-env-file", "--config=/dev/null")
 BUN_COMMAND = " ".join(("bun", *BUN_FLAGS))
+# Short entry points that skills and the kernel name instead of the long runtime commands (ADR-028). A source
+# wrapper carries the bare `bun` like the generated hook commands; the installer swaps in the absolute path it found
+# and installs it owner-executable, because the default new-file mode is not executable.
+WRAPPERS = ("b-codex-guard", "b-codex-review", "b-run", "b-snapshot", "b-state")
+WRAPPER_MODE = 0o700
+
+
+def wrapper_bytes(name: str, data: bytes, bun: str) -> bytes:
+    """Point a bun wrapper's exec line at the absolute Bun path; refuse a source wrapper without that line."""
+    if name == "b-run":
+        return data
+    line = f"exec {BUN_COMMAND} "
+    text = data.decode()
+    if line not in text:
+        raise InstallError(f"claude/bin/{name} has no `{line}...` line to point at the absolute Bun path")
+    return text.replace(line, f"exec {shlex.quote(bun)} {' '.join(BUN_FLAGS)} ", 1).encode()
 
 
 def find_bun() -> str:
@@ -309,6 +325,7 @@ class Installer:
         self.warnings: list[str] = []
         self.counts = {"written": 0, "unchanged": 0, "kept": 0, "removed": 0}
         self.backed_up: set[Path] = set()
+        self._bun: str | None = None
         guard_destination(self.claude_dir)
         guard_destination(self.mcp_path)
 
@@ -446,6 +463,31 @@ class Installer:
         self.check_aliases([])
 
     # -- writes (only called after planning) ----------------------------------------
+    def is_wrapper(self, path: Path) -> bool:
+        return path.parent == self.assets_dir / "bin" and path.name in WRAPPERS
+
+    def require_wrapper_slot(self, path: Path, digest: str, owners: set[str]) -> None:
+        """Skills call the wrappers by path, so refuse, before anything is written, a link or a file that
+        b-agentic does not own there instead of keeping it and publishing skills that would run it."""
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise InstallError(f"{path} is not a regular file, but skills call it; remove it and re-run")
+        if not path.exists() or self.force:
+            return
+        current = sha256(path.read_bytes())
+        if current != digest and current not in owners:
+            raise InstallError(
+                f"{path} was not installed by b-agentic and differs from the wrapper skills call; "
+                "move it aside, or pass --force to replace it after a backup"
+            )
+        if current == digest and not owners and not os.access(path, os.X_OK):
+            raise InstallError(f"{path} is not executable, but skills call it; run chmod u+x on it, or pass --force")
+
+    def bun_path(self) -> str:
+        """The absolute Bun path, found once and only when an install needs it (an uninstall never does)."""
+        if self._bun is None:
+            self._bun = find_bun()
+        return self._bun
+
     def write_bytes(self, path: Path, data: bytes) -> None:
         guard_destination(path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -455,6 +497,8 @@ class Installer:
                 stream.write(data)
             if path.exists():
                 os.chmod(temporary, path.stat().st_mode & 0o777)
+            if self.is_wrapper(path):
+                os.chmod(temporary, WRAPPER_MODE)
             os.replace(temporary, path)
         finally:
             if os.path.exists(temporary):
@@ -489,6 +533,9 @@ class Installer:
             return files
         registry = json.loads((self.source / "skills" / "registry.yaml").read_text())
         excluded = self.excluded_skills()
+        # Skills call the agents, helpers, and wrappers below, so they are written last: an interrupted upgrade
+        # then never publishes a skill that points at a command that was not installed yet.
+        skills: dict[str, bytes] = {}
         for skill in registry["skills"]:
             name = skill["name"]
             if not isinstance(name, str) or not SKILL_NAME.fullmatch(name):
@@ -503,15 +550,18 @@ class Installer:
                 )
             except ValueError as exc:
                 raise InstallError(f"skills/{name}/SKILL.md: {exc}") from exc
-            files[f"skills/{name}/SKILL.md"] = body.encode()
+            skills[f"skills/{name}/SKILL.md"] = body.encode()
         for path in sorted((self.source / "claude" / "agents").glob("b-*.md")):
             files[f"agents/{path.name}"] = path.read_bytes()
         for folder, patterns in (("bin", ("*.mjs", "*.py")), ("hooks", ("*.mjs",))):
             for pattern in patterns:
                 for path in sorted((self.source / "claude" / folder).glob(pattern)):
                     files[f"b-agentic/{folder}/{path.name}"] = path.read_bytes()
+        for name in WRAPPERS:
+            files[f"b-agentic/bin/{name}"] = (self.source / "claude" / "bin" / name).read_bytes()
         for name in ("capabilities.yaml", "mcp_operations.yaml", "kernel.template.md", "artifacts.yaml"):
             files[f"b-agentic/references/{name}"] = (self.source / "references" / name).read_bytes()
+        files.update(skills)
         return files
 
     def kernel_block(self) -> str:
@@ -592,10 +642,17 @@ class Installer:
         removals: list[Path] = []
         committed = manifest.get("files", {})
         desired = self.payload()
+        for name in WRAPPERS:
+            if f"b-agentic/bin/{name}" in desired:
+                desired[f"b-agentic/bin/{name}"] = wrapper_bytes(
+                    name, desired[f"b-agentic/bin/{name}"], self.bun_path()
+                )
         for relative, data in desired.items():
             path = self.managed_path(relative)
             digest = sha256(data)
             owners = self.file_owners(manifest, relative)
+            if self.is_wrapper(path):
+                self.require_wrapper_slot(path, digest, owners)
             if path.is_symlink():
                 self.warn(f"left user-owned symlink: {path}")
                 self.counts["kept"] += 1
@@ -607,10 +664,17 @@ class Installer:
             else:
                 current = sha256(path.read_bytes())
                 if current == digest:
-                    self.counts["unchanged"] += 1
-                    # Byte equality is not ownership: only a file a previous run recorded is ours.
-                    if owners:
+                    lost_exec_bit = (
+                        (owners or self.force) and self.is_wrapper(path) and path.stat().st_mode & 0o777 != WRAPPER_MODE
+                    )
+                    if lost_exec_bit:
+                        writes.append((path, data, True))  # same bytes, but the exec bit was lost
                         recorded[relative] = digest
+                    else:
+                        self.counts["unchanged"] += 1
+                        # Byte equality is not ownership: only a file a previous run recorded is ours.
+                        if owners:
+                            recorded[relative] = digest
                 elif current in owners or self.force:
                     writes.append((path, data, True))
                     recorded[relative] = digest
@@ -673,7 +737,7 @@ class Installer:
         validate_settings_shape(settings, str(path))
         template = json.loads((self.source / "claude" / "configs" / "settings.template.json").read_text())
         # Resolved here, not in the constructor, so an uninstall never needs Bun.
-        apply_bun_path(template, find_bun())
+        apply_bun_path(template, self.bun_path())
         record: dict[str, Any] = {"permissions": {}, "hooks": [], "statusLine": []}
         if self.statusline_only:
             record["statusLine"] = self.merge_status_line(settings, template, previous.get("statusLine", []), path)
