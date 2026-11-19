@@ -143,9 +143,25 @@ interactive child terminal, a mock stdio MCP server, and probe hooks.
 | P8  | Config normalization            | the agy settings file is reformatted with content kept; the agy hooks file and MCP config stay byte-identical                 |
 | P9  | Owner id                        | The shell id equals the hook `conversationId` and the JSON `conversation_id`, stable across resume                            |
 
+### Installed smoke test
+
+Run on 2026-11-19 against `agy` 1.5.12 with the installed `b-agentic` assets in the real `~/.gemini`
+(the run-2 installer, absolute hook commands), headless `-p`, in a scratch workspace with a synthetic `.env`:
+
+| ID  | Check             | Result                                                                                                                                 |
+| --- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | Secret path read  | `read_file` of `./.env` was denied by the `b-agentic` path guard hook, so the installed hook command ran and agy loaded the hooks file |
+| S2  | Plain read        | `read_file` of an ordinary file returned its content                                                                                   |
+| S3  | Kernel and skills | The `b-agentic` kernel rule was loaded and the `b-*` skills were visible                                                               |
+| S4  | `git push`        | A `command` permission was needed; headless mode cannot prompt and auto-denied it, so the push did not run                             |
+
+An interactive approval dialog for `git push` was not exercised, and these runs prove nothing about the
+Gemini-class models following the long skills.
+
 ### Not verified
 
-- Whether the hook `command` field expands `$HOME` or runs through a shell.
+- Whether the hook `command` field expands `$HOME`: the installer writes absolute paths, which S1 shows
+  work, so the form with `$HOME` is not used.
 - The permission syntax for file paths (only `mcp(server/tool)` and `command(...)` were
   exercised).
 - Whether a hook `allow` overrides a permission `ask`; the adapter never prints `allow`.
