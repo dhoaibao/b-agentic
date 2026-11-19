@@ -27,7 +27,9 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-022](ADR-022-discussion-first-entry.md) for the discussion-first entry gate and the split of oversized requests, refining ADR-012, and
 [ADR-023](ADR-023-per-agent-mcp-tool-scope.md) for per-agent MCP tool allowlists, refining ADR-001 and ADR-015, and
 [ADR-024](ADR-024-prune-old-runs.md) for cleaning up old run folders on request, refining ADR-010 and ADR-012, and
-[ADR-026](ADR-026-grounded-claims-rule.md) for the grounded-claims kernel rule, refining ADR-022.
+[ADR-025](ADR-025-antigravity-second-runtime.md) for the superseded Antigravity second runtime, and
+[ADR-026](ADR-026-grounded-claims-rule.md) for the grounded-claims kernel rule, refining ADR-022, and
+[ADR-027](ADR-027-antigravity-runtime-removed.md) for removing the Antigravity runtime again, superseding ADR-025.
 
 ## Naming
 

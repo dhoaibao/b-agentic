@@ -8,9 +8,13 @@ independent reviewer and the read-only `b-reviewer` subagent as its fallback
 [ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)). It covers
 installation, the permission boundary, the review gate, MCP configuration, and
 validation. Second runtimes were removed by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md)
-(the last tree is commit `f80281b7`; Pi was last in `ba7bc2db`). An install an earlier
+(the last OpenCode tree is commit `f80281b7`; Pi was last in `ba7bc2db`) and, for Antigravity, by
+[ADR-027](docs/decisions/ADR-027-antigravity-runtime-removed.md) (last tree at `caf570fd`). An install an earlier
 release left under `~/.config/opencode` is never touched: uninstall it from a checkout of
 `f80281b7` (`./install.sh --runtime=opencode --uninstall`) or remove the b-agentic entries there by hand.
+The same holds for an Antigravity install under `~/.gemini` (manifest `~/.gemini/config/b-agentic/install.json`):
+uninstall it from a checkout of `caf570fd` (`./install.sh --runtime=antigravity --uninstall`) or remove the
+b-agentic entries there by hand, including the `b-agentic` hook group, because a failing hook blocks every tool.
 
 ## Install and lifecycle
 
