@@ -155,6 +155,12 @@ Run on 2026-11-19 against `agy` 1.5.12 with the installed `b-agentic` assets in 
 | S3  | Kernel and skills | The `b-agentic` kernel rule was loaded and the `b-*` skills were visible                                                               |
 | S4  | `git push`        | A `command` permission was needed; headless mode cannot prompt and auto-denied it, so the push did not run                             |
 
+A session-only `--settings` allow of `command(*)` was probed the same day: `ls` ran, `git push --dry-run`
+still asked, `git push --force` was denied by a deny rule, and `cat .env` was denied by the path-guard hook.
+`grep -r FAKE .` in a directory holding a synthetic `.env` printed the file's line with no prompt: the guard
+matches a secret path named in the command, not a recursive read of a directory that holds one. Before
+`command(*)` that command asked.
+
 An interactive approval dialog for `git push` was not exercised, and these runs prove nothing about the
 Gemini-class models following the long skills.
 
@@ -175,8 +181,9 @@ Gemini-class models following the long skills.
   command (`git push`, `git push origin`, bare `bash`), and as a prefix it would widen to every
   push or every shell, so it is not rendered either: a plain `git push` asks, while the
   force, delete, mirror, all, and prune spellings are denied by prefix. The kernel text is the
-  only guard for the rest. No broad shell allow is rendered either, so shell commands follow the user's `agy`
-  agent mode.
+  only guard for the rest. The generated template renders no broad shell allow; the installer adds `command(*)`
+  by default (run 3), so a command outside those prefixes (`git -C repo push`, `npm publish`, `curl -X POST`)
+  runs without a prompt.
 - The argument key of an `edit_file` call: probes captured `Path` for `read_file` and
   `write_file` only, so the adapter also checks `TargetFile` and `AbsolutePath`.
 - Whether a hook `ask` is answered from an earlier "Always Allow" grant. The adapter prints
@@ -185,6 +192,8 @@ Gemini-class models following the long skills.
 - Whether `${VAR}` in MCP `env` and `headers` is interpolated; the template copies the
   Claude values unchanged, and a remote server uses `serverUrl` (seen by `agy mcp add` in a
   temporary home, not by a live call).
+- Whether the interactive prompt, not only headless mode, still asks for a command with an `ask` rule while
+  `command(*)` is allowed, and whether `command(*)` from the saved settings file (not only `--settings`) behaves the same.
 - Whether a hook `matcher` accepts `a|b` alternation; the hook template uses `*` and the
   adapter ignores tools it does not guard.
 
@@ -222,3 +231,16 @@ Evidence: [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs)
 [`references/mcp_operations.yaml`](../../references/mcp_operations.yaml),
 [`tooling/install/antigravity_install.py`](../../tooling/install/antigravity_install.py), and
 [`tests/install/antigravity-install-probe.sh`](../../tests/install/antigravity-install-probe.sh).
+
+- Installer decisions (run 3): `agy` Auto mode needs a terminal sandbox that some hosts lack (Ubuntu with
+  restricted user namespaces), where every shell command asks and defeats the automation b-agentic is for.
+  `tooling/install/antigravity_install.py` therefore adds one allow rule, `command(*)`, by default for
+  `--runtime=antigravity` and `both`; `--no-shell-auto` leaves it out and `--shell-auto` adds it back. The
+  choice is a boolean `shell_auto` in the manifest (flag, then the recorded value, then on; an install made
+  before this option gets the default at its next run). The rule is a constant in the installer, not in the
+  generated template, and is owned by exact entry: an identical `command(*)` the user already had is never
+  recorded, so `--no-shell-auto` and uninstall keep it. `install.sh` refuses the flags with
+  `--runtime=claude`, with `--uninstall`, and together, and never passes them to the Claude installer. The
+  `ask` and `deny` rules still win over the allow. Accepted risk: a command with no `ask` or `deny` prefix
+  runs without a prompt, and the path guard does not catch a recursive read such as `grep -r` into a
+  directory holding a secret file, so only the kernel text guards those.

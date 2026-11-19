@@ -83,6 +83,8 @@ touches only `~/.claude` and `~/.claude.json`.
   pointer to ADR-025 and nothing is written. `both` runs the Claude Code installer, then the Antigravity one,
   and stops at the first failure. A plain `--uninstall` removes only the Claude Code install; pass
   `--runtime=antigravity` or `both` to remove the Antigravity one. `--statusline-only` is Claude Code only.
+  `--no-shell-auto` and `--shell-auto` apply to the Antigravity install only (see below) and are refused with
+  `--runtime=claude`, with `--uninstall`, and together.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -136,12 +138,20 @@ outside `~/.gemini` is refused). It records ownership in `~/.gemini/config/b-age
 | Hook group     | group `b-agentic` in `config/hooks.json`, with absolute Bun and script paths (no `$HOME`)      |
 | MCP servers    | entries merged into `config/mcp_config.json`, compared exactly (including `disabled`)          |
 | Permissions    | `command(...)` and `mcp(server/tool)` rules union-merged into `antigravity-cli/settings.json`  |
+| Shell allow    | one `command(*)` allow rule in the same file, unless `--no-shell-auto` (on by default)         |
 
 Other tools' hook groups, servers, settings keys, and rules are preserved. `--with`/`--without`, `--dry-run`, `--force`
 (files only; a user's same-named server or `b-agentic` hook group is never replaced), `-y`, and `--uninstall` work as
 above. A `b-agentic` hook group you edited is kept, and uninstall then keeps `b-agentic/` and a reduced
 manifest until you remove that group and uninstall again. The status line is not ported. Quit `agy` before installing, because it rewrites `settings.json` while it runs.
 The unverified items (for example `$HOME` expansion in hook commands and the manual smoke test) are listed in ADR-025.
+
+Shell auto: `agy` Auto mode needs a terminal sandbox that some hosts lack, so every command would ask. The install
+therefore adds `command(*)` to `permissions.allow` by default; the managed `ask` and `deny` rules (for example
+`git push`, force pushes) still win. `--no-shell-auto` leaves it out or removes the one this installer added,
+`--shell-auto` adds it back, and the choice is remembered in the manifest (`shell_auto`). A `command(*)` you already
+had is never recorded and stays. Commands without an `ask` or `deny` prefix run without a prompt, and the path guard
+does not stop a recursive read such as `grep -r` into a directory that holds a secret file.
 
 ## Kernel and skills
 

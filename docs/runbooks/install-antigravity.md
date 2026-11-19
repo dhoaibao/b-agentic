@@ -48,7 +48,18 @@ are in [ADR-025](../decisions/ADR-025-antigravity-second-runtime.md).
    ./install.sh -y --runtime=antigravity --force
    ```
 
-5. Start `agy` again so skills, agents, the rule, hooks, permissions, and MCP
+5. Optional: shell commands. `agy` Auto mode needs a terminal sandbox that some
+   hosts lack, so every command would ask. The install therefore adds one allow
+   rule, `command(*)`, by default; the managed `ask` and `deny` rules (for
+   example `git push` and force pushes) still win over it. The choice is
+   remembered in the manifest.
+
+   ```bash
+   ./install.sh -y --runtime=antigravity --no-shell-auto   # leave it out, or remove the one this installer added
+   ./install.sh -y --runtime=antigravity --shell-auto      # add it back
+   ```
+
+6. Start `agy` again so skills, agents, the rule, hooks, permissions, and MCP
    servers load.
 
 What lands where, all under `~/.gemini`:
@@ -73,6 +84,8 @@ which uses sandbox homes and never starts `agy`.
    loaded.
 3. Ask `agy` to read a `.env`-style path. The hook should deny it.
 4. Ask `agy` to run `git push`. It should ask before running.
+5. With shell auto on, ask `agy` to run `ls`. It should run without a prompt, and
+   `cat .env` in the scratch workspace should still be denied by the hook.
 
 ## Troubleshooting
 
@@ -96,7 +109,12 @@ which uses sandbox homes and never starts `agy`.
 - **`kept your existing 'b-agentic' hook group` or MCP server** means yours differs
   from the managed one; remove it and install again to use the managed one.
 - **`--statusline-only` is refused with `--runtime=antigravity`**, and any other
-  `--runtime` value is refused.
+  `--runtime` value is refused. `--shell-auto` and `--no-shell-auto` are refused with
+  `--runtime=claude` (also the default), with `--uninstall`, and together.
+- **A command you did not expect ran without asking.** `command(*)` allows every
+  command that has no `ask` or `deny` prefix, and the path guard does not stop a
+  recursive read such as `grep -r` into a directory holding a `.env`. Turn it off with
+  `--no-shell-auto`; a `command(*)` you added yourself stays and the installer warns.
 - **The Codex review gate** needs the Claude Code Codex plugin (see
   [install-prerequisites](install-prerequisites.md)). Without it `b-review` uses
   the read-only `b-reviewer` subagent.
@@ -112,8 +130,8 @@ remove the `agy` install, name the runtime:
 ```
 
 Uninstall removes only the files, hook group, servers, and permission rules the
-manifest recorded and that are still unmodified; modified files stay with a
-warning. A kept `b-agentic` hook group keeps `b-agentic/` and the manifest until
+manifest recorded (including a `command(*)` this installer added, never yours) and
+that are still unmodified; modified files stay with a warning. A kept `b-agentic` hook group keeps `b-agentic/` and the manifest until
 you remove the group and uninstall again. Backups under `~/.gemini/config/b-agentic/backups/` are kept.
 
 ## Not ported or unverified

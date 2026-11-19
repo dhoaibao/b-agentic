@@ -35,7 +35,8 @@ clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 
 The Antigravity CLI (`agy`) is an opt-in second runtime: `./install.sh --runtime=antigravity` installs into `~/.gemini`
 only and never touches `~/.claude`, while `--runtime=both` installs Claude Code first and then `agy`. A plain
-`./install.sh` stays Claude Code only. See the
+`./install.sh` stays Claude Code only. An `agy` install also adds a `command(*)` shell allow rule so commands do not
+all ask (the `ask` and `deny` rules still apply); `--no-shell-auto` leaves it out. See the
 [install runbook](docs/runbooks/install-antigravity.md).
 
 Three skills and their MCP servers are optional and never installed without a

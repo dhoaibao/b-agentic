@@ -16,7 +16,7 @@ file under the generated subtrees, which is why this README sits at the
 | `rules/b-agentic.md` | `config/rules/b-agentic.md` | Generated kernel as an `always_on` rule; routing lines for unselected optional skills are filtered out |
 | `configs/hooks.template.json` | group `b-agentic` in `config/hooks.json` | Generated template; the installer writes absolute Bun and script paths |
 | `configs/mcp.template.json` | servers in `config/mcp_config.json` | Generated template; `excalidraw`, `drawio`, and `notion` install only when selected |
-| `configs/settings.template.json` | `permissions` in `antigravity-cli/settings.json` | Generated template; only missing rules are added |
+| `configs/settings.template.json` | `permissions` in `antigravity-cli/settings.json` | Generated template; only missing rules are added; the installer also adds `command(*)` to `allow` unless `--no-shell-auto` |
 | `hooks/b-agy-hook.mjs` | `config/b-agentic/hooks/b-agy-hook.mjs` | Hand-written Bun adapter that reuses the pure exports of the `claude/hooks` scripts |
 | none (copied from `claude/`) | `config/b-agentic/bin/`, `config/b-agentic/hooks/`, `config/b-agentic/references/` | Claude sources, copied as is (the Claude status line script is skipped) |
 
