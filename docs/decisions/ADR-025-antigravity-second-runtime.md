@@ -23,7 +23,7 @@ commit `f80281b7`; its render pipeline is the template for this change
 The work is split into two runs. Run 1 (this record) delivers the decision, the runtime entry,
 the renderers and the committed `antigravity/` tree, the hook adapter, and the small
 `claude/bin` changes. Run 2 delivers the installer, `install.sh --runtime`, validator wiring,
-and the user-facing docs. Until run 2 lands nothing installs into `~/.gemini`.
+and the user-facing docs; it has landed, so `install.sh --runtime=antigravity` installs into `~/.gemini`.
 
 Evidence: [`references/runtimes.yaml`](../../references/runtimes.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py), and
@@ -50,7 +50,8 @@ The user decided each item below on 2026-11-19 after the probes listed further d
 - Later installs copy files directly (no plugin). A plugin namespace could rename `/b-plan` or
   MCP tool names and a failed plugin would silently drop every guard.
 - `--runtime=claude|antigravity|both` (default `claude`) is the opt-in switch, added in run 2.
-  Any other value stays refused.
+  Any other value stays refused. `both` runs the Claude Code installer and then the Antigravity one,
+  stopping at the first failure; a plain `--uninstall` removes only the Claude Code install.
 - The verified `agy` version (1.5.12) is recorded in this ADR and in `references/runtimes.yaml`. It is
   reported, never enforced, because `agy` released 1.5.11 and 1.5.12 within one day.
 
@@ -181,14 +182,27 @@ interactive child terminal, a mock stdio MCP server, and probe hooks.
 - Per-agent MCP scope, parallel worker worktrees, a todo tool, and the status line are
   accepted gaps. A subagent's edits do not dirty the parent's verify gate.
 - `~/.gemini/config` is shared with other tools. Hook groups owned by other tools (herdr,
-  orca) must survive an install, which run 2's installer has to prove.
-- Uninstall notes: run 2 will record a manifest under `~/.gemini`. Until then nothing from
-  b-agentic is installed there. An older b-agentic install under `~/.gemini` (2026-09-14) was
-  removed by hand on 2026-11-19 with a backup.
+  orca) must survive an install; `tests/install/antigravity-install-probe.sh` proves it in a sandbox HOME.
+- Uninstall notes: `tooling/install/antigravity_install.py` records a manifest at
+  `~/.gemini/config/b-agentic/install.json`. Files and the kernel rule are owned by sha256, the
+  `b-agentic` hook group and MCP servers by exact value, and permission rules by exact entry, with
+  `pending` intent for an interrupted run. `--runtime=antigravity --uninstall` removes only recorded,
+  unmodified entries, keeps backups, and leaves other tools' groups, servers, and settings. A `b-agentic`
+  hook group the user edited stays too, and because a failing hook blocks every tool, uninstall then keeps
+  `b-agentic/` and a reduced manifest until that group is removed and uninstall runs again. An older
+  b-agentic install under `~/.gemini` (2026-09-14) was removed by hand on 2026-11-19 with a backup.
+- Installer decisions (run 2): a separate module reusing the Claude installer's helpers; hook commands
+  use the absolute Bun and home paths, unquoted, because `$HOME` expansion and quoting are unverified, and
+  the install is refused when a path would need quoting; a same-named user MCP server or an unrecorded
+  `b-agentic` hook group is kept with a warning (`--force` replaces files only); a symlinked `~/.gemini`,
+  `config`, `antigravity-cli`, or managed directory is refused; optional components work as on Claude Code.
+  The real-`agy` smoke test is manual (see the install runbook), not an automated check.
 - Adding or removing a runtime needs a new ADR.
 
 Evidence: [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/bin/b-state-store.mjs`](../../claude/bin/b-state-store.mjs),
 [`claude/bin/b-codex-review.mjs`](../../claude/bin/b-codex-review.mjs), and
-[`references/mcp_operations.yaml`](../../references/mcp_operations.yaml).
+[`references/mcp_operations.yaml`](../../references/mcp_operations.yaml),
+[`tooling/install/antigravity_install.py`](../../tooling/install/antigravity_install.py), and
+[`tests/install/antigravity-install-probe.sh`](../../tests/install/antigravity-install-probe.sh).

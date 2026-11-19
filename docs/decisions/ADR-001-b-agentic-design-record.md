@@ -86,10 +86,13 @@ kernel's generated blocks, and the settings template (permissions, hooks, and th
 Skills install as bare `~/.claude/skills/b-*`, not as a namespaced plugin.
 The kernel lives in a marked block of `~/.claude/CLAUDE.md`. The Claude Code
 installer owns only what its manifest records, and never writes under `~/.pi` or
-`~/.config/opencode`.
+`~/.config/opencode`. The opt-in Antigravity CLI installer
+([ADR-025](ADR-025-antigravity-second-runtime.md)) follows the same discipline under
+`~/.gemini` only, with its own manifest at `~/.gemini/config/b-agentic/install.json`.
 
 Evidence: [`install.sh`](../../install.sh),
-[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py), and
+[`tooling/install/claude_install.py`](../../tooling/install/claude_install.py),
+[`tooling/install/antigravity_install.py`](../../tooling/install/antigravity_install.py), and
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py).
 
 ### Workflow and skill design
