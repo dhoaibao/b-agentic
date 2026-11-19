@@ -73,7 +73,7 @@ Before any other audit step or repository read, require the main session to supp
 - `context7` or bounded primary upstream documentation and release metadata verify versioned currentness using public package names only; never upload repository content, credentials, or private URLs.
 - Read nothing outside the project and no likely-secret file (`.env`, `*.pem`, `credentials.*`, `secrets.*`) without explicit approval.
 - `codegraph` - select when a concrete architecture, impact, or affected-test question is central and an index exists; report an absent index as a gap. Spanning files alone never justifies it.
-- `python3 -I -B ~/.claude/b-agentic/bin/b_run.py runs` is read-only: run it once, after the freshness gate, to count the local `.b-agentic/runs` folders. Report it as a housekeeping note, never a finding: it does not change a severity or the verdict. When `over_threshold` is true, add one follow-up with the run count and size that recommends the main session list the old finished runs with `b_run.py prune` and ask the user before `prune --apply`; otherwise one checked-and-clean line. A missing folder or helper is a one-line note, not an evidence gap. Never run `prune`.
+- `~/.claude/b-agentic/bin/b-run runs` is read-only: run it once, after the freshness gate, to count the local `.b-agentic/runs` folders. Report it as a housekeeping note, never a finding: it does not change a severity or the verdict. When `over_threshold` is true, add one follow-up with the run count and size that recommends the main session list the old finished runs with `b_run.py prune` and ask the user before `prune --apply`; otherwise one checked-and-clean line. A missing folder or helper is a one-line note, not an evidence gap. Never run `prune`.
 
 ## Steps
 

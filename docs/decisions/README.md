@@ -29,7 +29,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-024](ADR-024-prune-old-runs.md) for cleaning up old run folders on request, refining ADR-010 and ADR-012, and
 [ADR-025](ADR-025-antigravity-second-runtime.md) for the superseded Antigravity second runtime, and
 [ADR-026](ADR-026-grounded-claims-rule.md) for the grounded-claims kernel rule, refining ADR-022, and
-[ADR-027](ADR-027-antigravity-runtime-removed.md) for removing the Antigravity runtime again, superseding ADR-025.
+[ADR-027](ADR-027-antigravity-runtime-removed.md) for removing the Antigravity runtime again, superseding ADR-025, and
+[ADR-028](ADR-028-short-helper-wrappers.md) for short helper wrappers in place of the long runtime commands, refining ADR-018.
 
 ## Naming
 

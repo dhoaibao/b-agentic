@@ -1204,7 +1204,7 @@ def render_worker_file(
             "",
             "Read the phase skill the main session names from the installed `~/.claude/skills/<name>/SKILL.md` and follow its editing guidance for this step only. These parts do not apply in a child: `b-implement` steps 1-3 and 6-7 and its Output format; `b-frontend`'s questions, its browser hand-off, and adding a component with the package runner; any `AskUserQuestion` in `b-refactor` or `b-test`; every review, commit, and spec-recording step.",
             "",
-            "Edit in place, only inside the approved scope and preferably only the step's own paths. Never touch `.b-agentic`, likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`), or git history: no commit, stage, stash, reset, checkout, rebase, or push. Install nothing. Run no generator or fixer the step does not name, no `b-state.mjs` or `b_run.py` command, and no external, upload, lifecycle, or authentication action. If you need a path outside the scope, a decision, or a dependency, stop and answer `NEEDS INPUT: <one question>`.",
+            "Edit in place, only inside the approved scope and preferably only the step's own paths. Never touch `.b-agentic`, likely-secret files (`.env`, `*.pem`, `credentials.*`, `secrets.*`), or git history: no commit, stage, stash, reset, checkout, rebase, or push. Install nothing. Run no generator or fixer the step does not name, no `b-state.mjs` or `b_run.py` command (nor its `b-state` or `b-run` wrapper), and no external, upload, lifecycle, or authentication action. If you need a path outside the scope, a decision, or a dependency, stop and answer `NEEDS INPUT: <one question>`.",
             "",
             "If the packet has a `Working directory` line, work only there: it is your own git worktree, and another worker may run beside you in a different one. Use absolute paths under it for `Read`, `Edit`, `Write`, and `Grep`, start every shell command with `cd <that directory> &&`, and never write to the main repository or to another worktree. CodeGraph indexes the main tree: use it for orientation only, and read and edit the files under your own directory. Your check runs there; if it needs something a fresh checkout lacks, such as installed packages, report that instead of installing it. Without that line, work in the repository root.",
             "",
@@ -1420,7 +1420,13 @@ def validate_worker_regressions(
             )
         if WORKER_TURN_BUDGET_NOTICE not in rendered:
             errors.append(f"worker regression: {name} profile must carry the turn-budget wrap-up notice")
-        for clause in ("NEEDS INPUT", ".b-agentic", "git history", "no `b-state.mjs` or `b_run.py` command"):
+        for clause in (
+            "NEEDS INPUT",
+            ".b-agentic",
+            "git history",
+            "no `b-state.mjs` or `b_run.py` command",
+            "`b-state` or `b-run` wrapper",
+        ):
             if clause not in rendered:
                 errors.append(f"worker regression: {name} profile must state {clause!r}")
         if name in MANAGED_SUBAGENT_NAMES:

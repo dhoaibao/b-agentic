@@ -515,7 +515,7 @@ export function runsHint(root) {
   }
   const count = names.filter((name) => RUN_ID.test(name)).length;
   if (count <= HINT_RUNS) return "";
-  return `${count} run folders in .b-agentic/runs; list the old finished ones with: python3 -I -B ~/.claude/b-agentic/bin/b_run.py prune`;
+  return `${count} run folders in .b-agentic/runs; list the old finished ones with: ~/.claude/b-agentic/bin/b-run prune`;
 }
 
 // The run `active` names when it is not finished; an unreadable one counts.

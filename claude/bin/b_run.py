@@ -1137,7 +1137,7 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
         "",
         "## Boundaries",
         "- Change nothing outside the scope above; prefer the step's own paths.",
-        "- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command.",
+        "- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command (nor its b-state or b-run wrapper).",
     ]
     return [*out, "", *_tree_lines(root, state)]
 

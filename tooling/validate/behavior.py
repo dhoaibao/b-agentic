@@ -1189,9 +1189,9 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
             "required": (
                 "The main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); it uses the `b-reviewer` subagent only when Codex is unavailable or the user chooses it after a refused or void Codex run",
                 "as the only way to run Codex (it enforces the gate, runs the plugin, and normalizes the result with `b-codex-verdict`)",
-                "Run the gate with the wrapper, as a harness background command (`run_in_background`) from the repository: `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree --round <n> --focus-file <path>`",
+                "Run the gate with the wrapper, as a harness background command (`run_in_background`) from the repository: `~/.claude/b-agentic/bin/b-codex-review --scope working-tree --round <n> --focus-file <path>`",
                 "do not call the plugin's script or `/codex:*` commands directly for a gate review, and never use `--background`",
-                "First probe the plugin with `bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --available`; exit 4 (`status: unavailable`) means Codex cannot run, so skip the preflight entirely",
+                "First probe the plugin with `~/.claude/b-agentic/bin/b-codex-review --available`; exit 4 (`status: unavailable`) means Codex cannot run, so skip the preflight entirely",
                 "probe exit 2 (a broken `B_AGENTIC_CODEX_COMPANION` override) is a refusal, so report it and ask the user",
                 "Exit 4 (`status: unavailable`: the Codex plugin is not installed, or it exited non-zero, for example signed out, over its usage limit, or crashed) is the only automatic fallback",
                 "are not verdicts and never fall back on their own: report the reason and ask the user, who may rerun or choose `b-reviewer`",

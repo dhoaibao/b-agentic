@@ -30,6 +30,7 @@ two facts that the fallback design hid:
   validators, and the repository's own dev tooling (`bun install` with a `bun.lock`,
   `bun run quality`, a `.husky` hook, CI). Node is no longer a Claude Code prerequisite.
 - Every managed and documented command is `bun --no-env-file --config=/dev/null <script>`.
+  [ADR-028](ADR-028-short-helper-wrappers.md) refines this: the helpers a model types are called through short wrappers that carry these flags.
   The generator renders the bare `bun`; the installer replaces it with the absolute path
   it found (symlinks kept, so a package-manager upgrade keeps working), because Claude
   Code's hook shell may not have `~/.bun/bin` on `PATH`.

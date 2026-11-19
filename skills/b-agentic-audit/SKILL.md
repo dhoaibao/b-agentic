@@ -106,7 +106,7 @@ supply its completed origin-freshness evidence:
   affected-test question is central to the audit and likely valuable; use an
   available index for that question and report an absent-index gap to the main
   session. Spanning files alone never justifies it.
-- `python3 -I -B ~/.claude/b-agentic/bin/b_run.py runs` is read-only: run it once,
+- `~/.claude/b-agentic/bin/b-run runs` is read-only: run it once,
   after the freshness gate, to count the local `.b-agentic/runs` folders. Report it as
   a housekeeping note, never a finding: it does not change a severity or the verdict.
   When `over_threshold` is true, add one follow-up with the run count and size that

@@ -473,6 +473,8 @@ ag_silent() {
 ag_silent 'ls -la'
 ag_silent 'node ~/.claude/b-agentic/hooks/b-codex-guard.mjs --approve'
 ag_silent 'bun --no-env-file --config=/dev/null ~/.claude/b-agentic/hooks/b-codex-guard.mjs --check'
+ag_silent "$HOME/.claude/b-agentic/bin/b-codex-guard --check"
+ag_silent "$HOME/.claude/b-agentic/bin/b-codex-review --scope working-tree"
 ag_silent "echo '[\"/repo\"]' > ~/.claude/b-agentic/codex-approved-repos.json"
 ag_silent 'B_AGENTIC_STATE_DIR=/tmp/x bun --no-env-file --config=/dev/null ~/.claude/b-agentic/bin/b-codex-review.mjs --scope working-tree'
 ag_silent 'node /p/codex-companion.mjs status'

@@ -533,7 +533,7 @@ grep -Fxq -- '- S-2 [open]: Cover it with a test' <<<"$out" || fail "the step pa
 grep -Fxq '  - Depends on: S-1 (open)' <<<"$out" || fail "the step packet must give the status of what the step waits for: $out"
 [ "$(grep '^## ' <<<"$out" | tr '\n' '|')" = '## Step|## Acceptance criteria|## Scope|## Out of scope|## Invariants|## Stop conditions|## Boundaries|## Changed paths|' ] \
   || fail "the step packet sections: $out"
-grep -Fq -- '- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command.' <<<"$out" \
+grep -Fq -- '- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command (nor its b-state or b-run wrapper).' <<<"$out" \
   || fail "the step packet must state its boundaries: $out"
 ok "$dep_repo" handoff implement --step S-1
 grep -Fxq 'Step: S-1 (main session step)' <<<"$out" || fail "an unlisted step is the main session's: $out"
