@@ -1,0 +1,42 @@
+{
+  "b-agentic": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun --no-env-file --config=/dev/null \"$HOME/.gemini/config/b-agentic/hooks/b-agy-hook.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun --no-env-file --config=/dev/null \"$HOME/.gemini/config/b-agentic/hooks/b-agy-hook.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "bun --no-env-file --config=/dev/null \"$HOME/.gemini/config/b-agentic/hooks/b-agy-hook.mjs\"",
+        "timeout": 10
+      }
+    ],
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bun --no-env-file --config=/dev/null \"$HOME/.gemini/config/b-agentic/hooks/b-agy-hook.mjs\"",
+        "timeout": 10
+      }
+    ]
+  }
+}
