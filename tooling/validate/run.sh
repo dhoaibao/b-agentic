@@ -79,9 +79,13 @@ start_probe snapshot bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
 start_probe statusline bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
 start_probe state bash "$ROOT_DIR/tests/state/state-probe.sh"
 start_probe artifacts bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
+# The Antigravity CLI runtime (ADR-025): the hook adapter and the claude/bin parts it relies on.
+start_probe agy-hooks bun --no-env-file --config=/dev/null "$ROOT_DIR/tests/antigravity/hook-cases.mjs"
+start_probe agy-runtime bun --no-env-file --config=/dev/null "$ROOT_DIR/tests/antigravity/runtime-cases.mjs"
 
 if [ "$run_release" -eq 1 ]; then
   start_probe claude-install bash "$ROOT_DIR/tests/install/claude-install-probe.sh"
+  start_probe agy-install bash "$ROOT_DIR/tests/install/antigravity-install-probe.sh"
   if command -v rtk >/dev/null 2>&1; then
     start_probe session-readiness python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else
