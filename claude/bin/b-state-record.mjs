@@ -369,7 +369,9 @@ export async function cmdRecord(
         `${id} is a worker step: record it with --by worker, or --by main when the main session applied it`,
       );
     if (!worker && by !== undefined)
-      throw refuse(`${id} is not listed in the plan's worker_steps`);
+      throw refuse(
+        `${id} is not listed in the plan's worker_steps: record it without --by`,
+      );
     if (worker && state.steps[id])
       throw refuse(
         `${id} is already recorded; a worker step is recorded once, by the main session after its report`,
