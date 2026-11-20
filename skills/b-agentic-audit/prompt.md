@@ -81,7 +81,7 @@ supply its completed origin-freshness evidence:
   after the freshness gate, to count the local `.b-agentic/runs` folders. Report it as
   a housekeeping note, never a finding: it does not change a severity or the verdict.
   When `over_threshold` is true, add one follow-up with the run count and size that
-  recommends the main session list the old finished runs with `b_run.py prune` and
+  recommends the main session list the old finished runs with `~/.claude/b-agentic/bin/b-run prune` and
   ask the user before `prune --apply`; otherwise one checked-and-clean line. A
   missing folder or helper is a one-line note, not an evidence gap. Never run `prune`.
 
