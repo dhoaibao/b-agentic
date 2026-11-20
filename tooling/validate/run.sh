@@ -39,12 +39,12 @@ probe_dir=$(mktemp -d)
 trap 'rm -rf "$probe_dir"' EXIT
 probe_names=()
 probe_pids=()
-# The hooks-cli probe is the longest (it waits on real timeouts) and the others are CPU-bound, so only it
-# runs at normal priority: the rest yield to it and still finish before it does.
+# The state probe is the longest and CPU-bound (about 40 s alone), and hooks-cli mostly waits on real
+# timeouts, so both run at normal priority and the other probes yield to them.
 start_probe() { # NAME COMMAND...
   local name=$1
   shift
-  if [ "$name" = hooks-cli ] || ! command -v nice >/dev/null 2>&1; then
+  if [ "$name" = state ] || [ "$name" = hooks-cli ] || ! command -v nice >/dev/null 2>&1; then
     "$@" >"$probe_dir/$name.log" 2>&1 &
   else
     nice -n 10 "$@" >"$probe_dir/$name.log" 2>&1 &
