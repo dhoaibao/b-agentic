@@ -29,7 +29,8 @@ true: the Antigravity tree was last present at `caf570fd`.
 
 ## Consequences
 
-- No tracked file describes Antigravity except ADR-025 and this record. The runtime parity, installer, and
+- No source, generated, or installer file describes Antigravity; only ADR-025, this record, and the pointer docs
+  (`REFERENCE.md`, `AGENTS.md`, `docs/decisions/README.md`) mention it. The runtime parity, installer, and
   generated-tree checks it needed are gone with the tree, and `references/runtimes.yaml` holds only the `claude`
   entry.
 - A user who still has the `~/.gemini` install keeps its hooks, and a failing hook blocks every `agy` tool, so
