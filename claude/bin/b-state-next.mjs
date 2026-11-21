@@ -18,8 +18,8 @@ const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 // only reads: every step it names is still checked by its own guard, and it
 // grants no approval.
 export async function nextSteps(root, state, art, fingerprint = "") {
-  const stateCmd = (rest) => `b-state.mjs ${rest}`;
-  const runCmd = (rest) => `b_run.py ${rest}`;
+  const stateCmd = (rest) => `~/.claude/b-agentic/bin/b-state ${rest}`;
+  const runCmd = (rest) => `~/.claude/b-agentic/bin/b-run ${rest}`;
   if (state.phase === "blocked") {
     const outgrown = state.size === "quick" && state.review.trigger !== "";
     return [
@@ -31,7 +31,8 @@ export async function nextSteps(root, state, art, fingerprint = "") {
       ),
     ];
   }
-  if (!art) return ["the run artifacts could not be read: b_run.py validate"];
+  if (!art)
+    return [`the run artifacts could not be read: ${runCmd("validate")}`];
   const { spec, plan, qa, followups } = art.artifacts;
   // Worktrees of parallel worker steps (ADR-016): none exist unless the plan lists such steps.
   const parallel = parallelSteps(art);
@@ -86,7 +87,7 @@ export async function nextSteps(root, state, art, fingerprint = "") {
     const grouped = new Set(batched ? batch : []);
     const batchLines = batched
       ? [
-          `these worker steps may run at the same time, each in its own worktree: ${batch.join(", ")}; for each ${stateCmd("worktree add S-n")} and hand it to one b-worker with ${runCmd("handoff implement --step S-n")} (all calls in one message, then end the turn); once every report is in, in plan order for each: ${stateCmd("worktree collect S-n")}, run the apply command it prints, ${stateCmd("record step S-n --by worker")}, ${stateCmd("worktree remove S-n")} (a refusal at any point: apply that step yourself in the main tree, record it --by main, then worktree remove)`,
+          `these worker steps may run at the same time, each in its own worktree: ${batch.join(", ")}; for each ${stateCmd("worktree add S-n")} and hand it to one b-worker with ${runCmd("handoff implement --step S-n")} (all calls in one message, then end the turn); once every report is in, in plan order for each: ${stateCmd("worktree collect S-n")}, run the apply command it prints, ${stateCmd("record step S-n --by worker")}, ${stateCmd("worktree remove S-n")} (a refusal at any point: apply that step yourself in the main tree, ${stateCmd("record step S-n --by main")}, then ${stateCmd("worktree remove S-n")})`,
         ]
       : [];
     const inProgress =
@@ -197,9 +198,7 @@ export async function nextSteps(root, state, art, fingerprint = "") {
         runCmd("handoff qa"),
         "run b-qa against every AC-n",
         `${runCmd("write qa")} with one row per criterion`,
-        stateCmd(
-          "record ac AC-n <result> for each row, then record qa --verdict V",
-        ),
+        `${stateCmd("record ac AC-n <result>")} for each row, then ${stateCmd("record qa --verdict V")}`,
       ];
     }
     const steps = qa.rows

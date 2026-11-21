@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
+# shellcheck disable=SC2154,SC2034,SC2088 # Variables are shared with state-probe.sh and the other files it sources; the quoted tilde is the literal text the CLI prints.
 # Quick runs, runs without commit consent, changes present at start and the scope check.
 # --- a quick run: the request is its approval, within limits the CLI checks ----------------
 write_quick() { # REPO [SCOPE] [COMMIT] [N]
@@ -69,7 +69,7 @@ refused "$repoQ" s1 record review --low-risk "small change"
 grep -Fq 'review was already' "$work/err" || fail "a promoted run must not skip its review: $(cat "$work/err")"
 refused "$repoQ" s1 advance qa
 ok "$repoQ" s1 check
-[ "$(jq -c .next <<<"$out")" = "[\"b-state.mjs advance review --trigger 'workflow policy'\"]" ] || fail "a promoted run must owe its review: $out"
+[ "$(jq -c .next <<<"$out")" = "[\"~/.claude/b-agentic/bin/b-state advance review --trigger 'workflow policy'\"]" ] || fail "a promoted run must owe its review: $out"
 ok "$repoQ" s1 advance review --trigger "workflow policy"
 [ "$(phase "$repoQ")" = review ] || fail "a full run enters review: $(phase "$repoQ")"
 # A second return to clarify does not drop the obligation either: not as a quick run, not as a full one.
@@ -116,7 +116,7 @@ ok "$repoY" s1 advance verify
 ok "$repoY" s1 record check --cmd "make test" --exit 0
 refused "$repoY" s1 record review --low-risk "small change"
 ok "$repoY" s1 check
-[ "$(jq -c .next <<<"$out")" = "[\"b-state.mjs advance review --trigger 'approval policy'\"]" ] || fail "a re-approved run must still owe its review: $out"
+[ "$(jq -c .next <<<"$out")" = "[\"~/.claude/b-agentic/bin/b-state advance review --trigger 'approval policy'\"]" ] || fail "a re-approved run must still owe its review: $out"
 
 # The size is the approved spec's: a state edited to call a quick run full gains nothing.
 repoT="$work/repoT"
@@ -158,7 +158,7 @@ refused "$repoN" s1 advance "done"                    # the criterion is not rec
 grep -Fq 'AC-1' "$work/err" || fail "the open criterion must be named: $(cat "$work/err")"
 ok "$repoN" s1 record ac AC-1 pass
 ok "$repoN" s1 check
-[ "$(jq -r '.next[0]' <<<"$out")" = "b-state.mjs advance done" ] || fail "a run without commit consent must owe advance done: $out"
+[ "$(jq -r '.next[0]' <<<"$out")" = "~/.claude/b-agentic/bin/b-state advance done" ] || fail "a run without commit consent must owe advance done: $out"
 refused "$repoN" s1 advance commit                    # the spec gave no commit consent
 refused "$repoN" s2 init second                       # the first run is not finished
 grep -Fq 'first is not finished' "$work/err" || fail "the unfinished run must be named: $(cat "$work/err")"

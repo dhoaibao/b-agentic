@@ -484,6 +484,7 @@ make_repo "$dep_repo"
 newrun "$dep_repo"
 ok "$dep_repo" handoff clarify
 grep -Fq -- '- spec.md: not written' <<<"$out" || fail "the clarify packet must work before the spec exists: $out"
+grep -Fq -- '- spec.md: not written (`~/.claude/b-agentic/bin/b-run schema spec`)' <<<"$out" || fail "the clarify packet must name the b-run wrapper: $out"
 refused "$dep_repo" handoff implement
 ok "$dep_repo" write spec < <(example spec)
 ok "$dep_repo" write plan < <(example plan | jq -c 'del(.steps[].depends_on)')

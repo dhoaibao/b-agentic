@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
+# shellcheck disable=SC2154,SC2034,SC2088 # Variables are shared with state-probe.sh and the other files it sources; the quoted tilde is the literal text the CLI prints.
 # State coupled to artifacts, scope re-checks, old runs, consent in the spec and review triggers.
 # --- state is coupled to the validated artifacts -----------------------------------
 repo18="$work/repo18"
@@ -23,6 +23,9 @@ rm "$repo18/extra.txt"
 ok "$repo18" s1 record check --cmd "make test" --exit 0
 ok "$repo18" s1 record review --low-risk "docs-only"
 ok "$repo18" s1 advance qa
+ok "$repo18" s1 check
+grep -Fq 'for each row, then ~/.claude/b-agentic/bin/b-state record qa --verdict V' <<<"$(jq -r '.next | join("\n")' <<<"$out")" \
+  || fail "a QA phase without a fresh qa.md must name the b-state wrapper for the verdict command: $out"
 # A hand-edited plan, or a file nobody recorded, stops the run.
 printf '\nhand edit\n' >>"$d18/plan.md"
 refused "$repo18" s1 record qa --verdict "QA PASS"
@@ -61,6 +64,7 @@ ok "$repo20" s1 record review --low-risk "docs-only"
 ok "$repo20" s1 advance qa
 refused "$repo20" s1 record qa --verdict "QA FAIL"
 grep -Fq 'in this QA phase' "$work/err" || fail "a stale qa.md must be named: $(cat "$work/err")"
+grep -Fq '~/.claude/b-agentic/bin/b-run write qa' "$work/err" || fail "a stale qa.md must name the b-run wrapper: $(cat "$work/err")"
 write_qa "$repo20" 1 "QA PASS" pass
 ok "$repo20" s1 record qa --verdict "QA PASS"
 
@@ -216,6 +220,7 @@ ok "$repoF" s1 check
 grep -Fq 'R1-<n>' <<<"$(jq -r '.next | join("\n")' <<<"$out")" || fail "review must owe the round's findings: $out"
 refused "$repoF" s1 record review --verdict "NEEDS FIXES" --gate codex
 grep -Fq 'R1-<n>, kind blocker' "$work/err" || fail "the missing blocker must be named: $(cat "$work/err")"
+grep -Fq '~/.claude/b-agentic/bin/b-run write followups' "$work/err" || fail "the missing blocker must name the b-run wrapper: $(cat "$work/err")"
 followups_json "[$r1_note]" | br "$repoF" s1 write followups >/dev/null || fail "write followups (note)"
 refused "$repoF" s1 record review --verdict "NEEDS FIXES" --gate codex   # a follow-up is not a blocker
 followups_json "[$r1_note, $r1_blocker]" | br "$repoF" s1 write followups >/dev/null || fail "write followups (blocker)"
@@ -231,10 +236,10 @@ ok "$repoF" s1 record review --verdict "NEEDS FIXES" --gate reviewer --gate-reas
   = '["record review","NEEDS FIXES",1,"approval policy","reviewer","codex unavailable: usage limit"]' ] || fail "the verdict must be recorded with its round, trigger, gate and reason"
 [ "$(jq -c '.review | [.gate, .gate_reason]' "$(sfile "$repoF")")" = '["reviewer","codex unavailable: usage limit"]' ] || fail "the review state must name the gate and its reason"
 ok "$repoF" s1 check
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance fix"]' ] || fail "NEEDS FIXES must owe advance fix: $out"
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance fix"]' ] || fail "NEEDS FIXES must owe advance fix: $out"
 ok "$repoF" s1 advance fix
 ok "$repoF" s1 check
-[ "$(jq -r '.next[0]' <<<"$out")" = "b_run.py handoff fix" ] || fail "fix must start from its packet: $out"
+[ "$(jq -r '.next[0]' <<<"$out")" = "~/.claude/b-agentic/bin/b-run handoff fix" ] || fail "fix must start from its packet: $out"
 grep -Fq 'open blockers' <<<"$(jq -r '.next[1]' <<<"$out")" || fail "fix must owe the open blockers: $out"
 grep -Fq 'R1-2' <<<"$(jq -r '.next[1]' <<<"$out")" || fail "fix must name the open blocker: $out"
 grep -Fq 'R1-1' <<<"$(jq -r '.next[1]' <<<"$out")" && fail "fix must not list a follow-up as a blocker: $out"
@@ -245,13 +250,14 @@ printf 'f2\n' >"$repoF/a.txt"
 ok "$repoF" s1 advance verify
 ok "$repoF" s1 record check --cmd "make test" --exit 0
 ok "$repoF" s1 check
-[ "$(jq -c .next <<<"$out")" = "[\"b-state.mjs advance review --trigger 'approval policy'\"]" ] || fail "a triggered run must owe its re-review: $out"
+[ "$(jq -c .next <<<"$out")" = "[\"~/.claude/b-agentic/bin/b-state advance review --trigger 'approval policy'\"]" ] || fail "a triggered run must owe its re-review: $out"
 refused "$repoF" s1 record review --low-risk "fixed it"
 grep -Fq 'review was already' "$work/err" || fail "the low-risk guard must be named: $(cat "$work/err")"
 refused "$repoF" s1 advance qa
 ok "$repoF" s1 advance review --trigger "approval policy"
 refused "$repoF" s1 record review --verdict "READY WITH FOLLOW-UPS" --gate codex   # round 2 recorded no finding
 grep -Fq 'R2-<n>' "$work/err" || fail "the missing round-2 follow-up must be named: $(cat "$work/err")"
+grep -Fq '~/.claude/b-agentic/bin/b-run write followups' "$work/err" || fail "the missing follow-up must name the b-run wrapper: $(cat "$work/err")"
 r2_note='{"id": "R2-1", "source": "review", "summary": "docs", "disposition": "open"}'
 followups_json "[$r1_note, $r1_blocker, $r2_note]" | br "$repoF" s1 write followups >/dev/null || fail "write followups (round 2)"
 ok "$repoF" s1 record review --verdict "READY WITH FOLLOW-UPS" --gate codex
@@ -265,14 +271,14 @@ ok "$repoF" s1 check
 grep -Fq 'handoff qa' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "QA without a fresh qa.md must owe it: $out"
 write_qa "$repoF" 1 "QA PASS" pass
 ok "$repoF" cold check --takeover
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs record ac AC-1 pass","b-state.mjs record qa --verdict \"QA PASS\""]' ] \
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state record ac AC-1 pass","~/.claude/b-agentic/bin/b-state record qa --verdict \"QA PASS\""]' ] \
   || fail "a cold session must be told the QA records still owed: $out"
 ok "$repoF" cold record ac AC-1 pass
 ok "$repoF" cold check
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs record qa --verdict \"QA PASS\""]' ] || fail "only the QA verdict is still owed: $out"
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state record qa --verdict \"QA PASS\""]' ] || fail "only the QA verdict is still owed: $out"
 ok "$repoF" cold record qa --verdict "QA PASS"
 ok "$repoF" cold check
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance commit"]' ] || fail "a recorded QA PASS must owe advance commit: $out"
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance commit"]' ] || fail "a recorded QA PASS must owe advance commit: $out"
 jq -e '[.history[].detail | keys[]] | unique - ["ac","cmd","exit","fingerprint","gate","gate_reason","needs","outside","paths","reason","round","sha","spec","status","step","tree","trigger","verdict"] == []' \
   "$(sfile "$repoF")" >/dev/null || fail "history details must hold only the allowed facts"
 

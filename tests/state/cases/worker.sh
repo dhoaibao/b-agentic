@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
+# shellcheck disable=SC2154,SC2034,SC2088 # Variables are shared with state-probe.sh and the other files it sources; the quoted tilde is the literal text the CLI prints.
 # Worker steps recorded with who applied them (ADR-015).
 # --- a plan step handed to a worker is recorded with who applied it (ADR-015) -----------------
 worker_plan() { steps_plan | jq '.worker_steps = ["S-2", "S-3"]'; }
@@ -11,10 +11,10 @@ worker_plan | br "$repoWK" s1 write plan >/dev/null || fail "write plan (repoWK)
 ok "$repoWK" s1 approve --commit yes --branch-target current
 ok "$repoWK" s1 advance implement
 ok "$repoWK" s1 check
-[ "$(jq -r '.next[1]' <<<"$out")" = "apply S-1 inside the approved scope, then b-state.mjs record step S-1" ] \
+[ "$(jq -r '.next[1]' <<<"$out")" = "apply S-1 inside the approved scope, then ~/.claude/b-agentic/bin/b-state record step S-1" ] \
   || fail "a step that is not a worker step keeps its next line: $out"
 for id in S-2 S-3; do
-  [ "$(jq -r --arg id "$id" '.next[] | select(startswith("hand " + $id))' <<<"$out")" = "hand $id to one b-worker with b_run.py handoff implement --step $id and wait for its report (or apply it yourself), then b-state.mjs record step $id --by worker (--by main when the main session applied it)" ] \
+  [ "$(jq -r --arg id "$id" '.next[] | select(startswith("hand " + $id))' <<<"$out")" = "hand $id to one b-worker with ~/.claude/b-agentic/bin/b-run handoff implement --step $id and wait for its report (or apply it yourself), then ~/.claude/b-agentic/bin/b-state record step $id --by worker (--by main when the main session applied it)" ] \
     || fail "a worker step is handed over by its next line: $out"
 done
 # Every guard comes before any write: nothing changes, and nothing counts as a refused step.
@@ -108,7 +108,7 @@ steps_plan | br "$repoWN" s1 write plan >/dev/null || fail "write plan (repoWN)"
 ok "$repoWN" s1 approve --commit yes --branch-target current
 ok "$repoWN" s1 advance implement
 ok "$repoWN" s1 check
-[ "$(jq -c '.next | map(select(startswith("apply ")))' <<<"$out")" = '["apply S-1 inside the approved scope, then b-state.mjs record step S-1","apply S-2 inside the approved scope, then b-state.mjs record step S-2","apply S-3 inside the approved scope, then b-state.mjs record step S-3"]' ] \
+[ "$(jq -c '.next | map(select(startswith("apply ")))' <<<"$out")" = '["apply S-1 inside the approved scope, then ~/.claude/b-agentic/bin/b-state record step S-1","apply S-2 inside the approved scope, then ~/.claude/b-agentic/bin/b-state record step S-2","apply S-3 inside the approved scope, then ~/.claude/b-agentic/bin/b-state record step S-3"]' ] \
   || fail "a plan without worker_steps keeps its next lines: $out"
 grep -Fq 'b-worker' <<<"$out" && fail "a plan without worker_steps never mentions the worker: $out"
 grep -Fq 'worktree' <<<"$out" && fail "a plan without parallel_steps never mentions a worktree: $out"

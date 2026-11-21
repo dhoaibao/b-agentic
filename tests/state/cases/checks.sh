@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
+# shellcheck disable=SC2154,SC2034,SC2088 # Variables are shared with state-probe.sh and the other files it sources; the quoted tilde is the literal text the CLI prints.
 # Plan checks, checks run together, and one command at a time per run.
 # --- every approved plan check must pass before review, a low-risk exception, or QA ---
 repoH="$work/repoH"
@@ -20,7 +20,7 @@ refused "$repoH" s1 record review --low-risk "docs-only"
 [ "$before" = "$(jq -S . "$(sfile "$repoH")")" ] || fail "a refused step must not change the state"
 ok "$repoH" s1 check
 [ "$(jq -r '.next | length' <<<"$out")" = 1 ] || fail "verify must owe only the missing check: $out"
-[ "$(jq -r '.next[0]' <<<"$out")" = "run \`make lint\`, then b-state.mjs record check --cmd 'make lint' --exit <its exit code>" ] \
+[ "$(jq -r '.next[0]' <<<"$out")" = "run \`make lint\`, then ~/.claude/b-agentic/bin/b-state record check --cmd 'make lint' --exit <its exit code>" ] \
   || fail "verify must name the missing check command, as it always did: $out"
 ok "$repoH" s1 record check --cmd "make lint" --exit 1
 refused "$repoH" s1 advance review --trigger "workflow policy"   # recorded, but not passing
@@ -29,7 +29,7 @@ ok "$repoH" s1 check
 grep -Fq 'classify risk' <<<"$(jq -r '.next[0]' <<<"$out")" || fail "verify with every check passing must owe the risk decision: $out"
 ok "$repoH" s1 record review --low-risk "docs-only"
 ok "$repoH" s1 check
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance qa"]' ] || fail "a recorded low-risk exception must owe advance qa: $out"
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance qa"]' ] || fail "a recorded low-risk exception must owe advance qa: $out"
 # QA re-checks the plan checks: a state edited to drop one cannot move on.
 jq '.candidate.checks |= map(select(.cmd != "make lint"))' "$(sfile "$repoH")" >"$tmp" && cp "$tmp" "$(sfile "$repoH")"
 refused "$repoH" s1 advance qa
@@ -47,7 +47,7 @@ grep -Fq "record check --cmd 'make test'" <<<"$(jq -r '.next | join("\n")' <<<"$
 ok "$repoH" s1 record check --cmd "make test" --exit 0
 ok "$repoH" s1 record check --cmd "make lint" --exit 0
 ok "$repoH" s1 check
-[ "$(jq -c .next <<<"$out")" = "[\"b-state.mjs advance review --trigger 'workflow policy'\"]" ] || fail "the review obligation must survive the return to verify: $out"
+[ "$(jq -c .next <<<"$out")" = "[\"~/.claude/b-agentic/bin/b-state advance review --trigger 'workflow policy'\"]" ] || fail "the review obligation must survive the return to verify: $out"
 refused "$repoH" s1 record review --low-risk "docs-only"
 
 # --- checks a plan lists to run together count only for the candidate they started on ------
@@ -69,9 +69,9 @@ apply_steps "$repoK"
 ok "$repoK" s1 advance verify
 ok "$repoK" s1 check
 [ "$(jq -r '.next | length' <<<"$out")" = 2 ] || fail "the listed checks share one line: $out"
-grep -Fq "these checks may run at the same time: \`make test\`, \`make lint\`; then for each b-state.mjs record check" <<<"$(jq -r '.next[0]' <<<"$out")" \
+grep -Fq "these checks may run at the same time: \`make test\`, \`make lint\`; then for each ~/.claude/b-agentic/bin/b-state record check" <<<"$(jq -r '.next[0]' <<<"$out")" \
   || fail "the listed checks must be named together, in plan order: $out"
-[ "$(jq -r '.next[1]' <<<"$out")" = "run \`make docs\`, then b-state.mjs record check --cmd 'make docs' --exit <its exit code>" ] \
+[ "$(jq -r '.next[1]' <<<"$out")" = "run \`make docs\`, then ~/.claude/b-agentic/bin/b-state record check --cmd 'make docs' --exit <its exit code>" ] \
   || fail "a check that is not listed keeps its line: $out"
 [ -n "$(started)" ] || fail "the line must carry the fingerprint the checks start on: $out"
 # The included artifact is named on the check that runs alone; it is part of the candidate from then on.

@@ -29,9 +29,18 @@ whose message did not say what to do:
 - `b-run` says which argument a known command lacks (`lint needs one KIND: ...`, `handoff needs one PHASE: ...`,
   `runs takes no argument`) and lists the commands for an unknown one.
 - The refusal outside a git worktree stays exit 3 and adds the current folder and `run it from inside the repository`.
-  A vanished current folder still refuses; it never becomes an invalid-input exit.
+  A vanished current folder still refuses in `b-run`; `b-state` reads its current folder before it dispatches, so there
+  it still exits 2 with the system error (a known gap, not changed here).
 - The HTML markup error quotes the two matched characters and says to write a placeholder as `FILE` or `{file}`.
   `b-run schema` and `schema KIND` gain an additive `text_rules` list, kept beside the regexes that enforce it.
+- Every command the CLIs print for the model to type names its wrapper: the `b-state` `next` lines, the refusals that
+  tell the model to write an artifact, the `b-run handoff clarify` packet line, and the path guard's refusal name
+  `~/.claude/b-agentic/bin/b-state` or `~/.claude/b-agentic/bin/b-run`, so a literal copy runs instead of exiting 127.
+  Text that names a helper without a command to type (the stored `run artifacts changed outside b_run.py` block
+  reason, the mutex messages) is unchanged.
+- b-flow's verify step tells the model to run each approved plan check verbatim as its own command and to add no pipe
+  such as `| tail`, so the exit code it records is that command's own: a pipe reports the last command, and
+  `${PIPESTATUS[0]}` is empty in zsh. A pipe the plan's command already contains stays.
 
 Exit codes keep their meaning in each CLI. Two usage cases move: `--help` goes from 2 to 0, and a `b-state` unknown or
 missing command goes from 3 (outside git or when the run or lock refused) to 2.
@@ -41,8 +50,9 @@ missing command goes from 3 (outside git or when the run or lock refused) to 2.
 - A failed call says what to type next; the rules a draft must follow are visible before `lint` fails.
 - Rendered artifact bytes, recorded hashes, gates, locks and consent are unchanged; JSON stdout only gains
   `text_rules`.
-- The error messages and `next` lines still print the short helper names (`b-state.mjs`, `b_run.py`); naming the
-  wrappers there is a separate decision, with its own run.
+- The short names `b-state.mjs` and `b_run.py` remain only where b-flow's own mapping sentence covers them: its prompt
+  text and the registry `contract.evidence` strings that render into its phase table. The check on skill prompts and the kernel (`tooling/validate/behavior.py`)
+  exempts only `skills/b-flow`.
 - Rejected: an `argparse` rewrite (changes every error format), `text_rules` in `references/artifacts.yaml` (the rules
   are enforced in code), per-command help pages (wider than the failure needs), a `--repo` flag or environment override
   (a second source of the repository next to the current folder, with lock and scope risk), renumbering exit codes
@@ -51,5 +61,8 @@ missing command goes from 3 (outside git or when the run or lock refused) to 2.
 Evidence: [`claude/bin/b_run.py`](../../claude/bin/b_run.py),
 [`claude/bin/b-state.mjs`](../../claude/bin/b-state.mjs),
 [`claude/bin/b-state-git.mjs`](../../claude/bin/b-state-git.mjs),
+[`claude/bin/b-state-next.mjs`](../../claude/bin/b-state-next.mjs),
+[`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
+[`skills/b-flow/prompt.md`](../../skills/b-flow/prompt.md),
 [`tests/artifacts/artifact-probe.sh`](../../tests/artifacts/artifact-probe.sh), and
 [`tests/state/cases/core.sh`](../../tests/state/cases/core.sh).

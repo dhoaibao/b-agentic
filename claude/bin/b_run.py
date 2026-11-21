@@ -1071,7 +1071,10 @@ def _packet_clarify(root: Path, state: dict, data: dict) -> list[str]:
     out = [f"Branch: {state.get('branch') or 'unknown'}", f"Baseline HEAD: {baseline.get('head') or 'unknown'}"]
     out += ["", "## Artifacts"]
     for kind in ("spec", "plan"):
-        out.append(f"- {kind}.md: " + ("written" if kind in data else f"not written (`b_run.py schema {kind}`)"))
+        out.append(
+            f"- {kind}.md: "
+            + ("written" if kind in data else f"not written (`~/.claude/b-agentic/bin/b-run schema {kind}`)")
+        )
     if "spec" in data:
         out += ["", "## Acceptance criteria", *_criteria_lines(data["spec"])]
         out += ["", "## Scope", *_path_lines(data["spec"]["scope_paths"])]

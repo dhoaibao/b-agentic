@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
+# shellcheck disable=SC2154,SC2034,SC2088 # Variables are shared with state-probe.sh and the other files it sources; the quoted tilde is the literal text the CLI prints.
 # A complete run to done, acceptance results, consent, retry and history.
 
 # --- a complete run on a new branch reaches done only with the approved commits ---
@@ -18,7 +18,7 @@ ok "$repo6" s1 check                               # the approved new branch is 
 grep -Fq 'record commit' <<<"$(jq -r '.next | join("\n")' <<<"$out")" || fail "an unrecorded commit must be owed: $out"
 ok "$repo6" s1 record commit "$sha"
 ok "$repo6" s1 check
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance done"]' ] || fail "a recorded HEAD commit must owe advance done: $out"
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance done"]' ] || fail "a recorded HEAD commit must owe advance done: $out"
 ok "$repo6" s1 advance "done"
 [ "$(phase "$repo6")" = "done" ] || fail "done phase"
 

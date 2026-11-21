@@ -36,6 +36,12 @@ run() {
   rc=0
   err=$(printf '%s' "$input" | "${js[@]}" "$script" "$@" 2>&1 >/dev/null) || rc=$?
 }
+# guard_guidance ERR LABEL: the refusal must give the whole recovery guidance with both installed wrapper paths.
+guard_guidance() {
+  grep -Fq 'written only by ~/.claude/b-agentic/bin/b-run write <kind> and ~/.claude/b-agentic/bin/b-state; read them with Read' <<<"$1" \
+    || fail "$2 must name the installed b-run and b-state wrappers: $1"
+  ! grep -Fq 'b_run.py' <<<"$1" || fail "$2 must not name the legacy script: $1"
+}
 expect() { [ "$rc" = "$1" ] || fail "$2 (exit $rc, expected $1: $err)"; }
 
 make_repo() {
@@ -84,7 +90,7 @@ run "$pathguard" 'not json'; expect 0 "malformed input must fail open"
 run "$pathguard" ''; expect 0 "empty input must fail open"
 # Run artifacts have a single writer: file-tool writes under .b-agentic are refused, reads pass.
 run "$pathguard" "$(pg Write file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .b-agentic must be blocked"
-grep -Fq 'b_run.py' <<<"$err" || fail "the .b-agentic refusal must name b_run.py: $err"
+guard_guidance "$err" "the .b-agentic refusal"
 run "$pathguard" "$(pg Edit file_path /repo/.b-agentic/runs/20260101-x/state.json)"; expect 2 "Edit under .b-agentic must be blocked"
 run "$pathguard" "$(pg NotebookEdit notebook_path /repo/.b-agentic/n.ipynb)"; expect 2 "NotebookEdit under .b-agentic must be blocked"
 run "$pathguard" "$(pg Write file_path 'C:\\repo\\.b-agentic\\runs\\x\\plan.md')"; expect 2 "a backslash path under .b-agentic must be blocked"
@@ -110,7 +116,7 @@ run "$pathguard" "$(pgc Read "$work/pg" "alias/state.json")"; expect 0 "Read thr
 # The writer child (ADR-015) is bound by the same guard: its events carry agent_id and agent_type.
 pgw() { jq -cn --arg tool "$1" --arg path "$2" '{tool_name: $tool, agent_id: "w1", agent_type: "b-worker", cwd: "/repo", tool_input: {file_path: $path}}'; }
 run "$pathguard" "$(pgw Write /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "a worker Write under .b-agentic must be blocked"
-grep -Fq 'b_run.py' <<<"$err" || fail "the worker's .b-agentic refusal must name b_run.py: $err"
+guard_guidance "$err" "the worker's .b-agentic refusal"
 run "$pathguard" "$(pgw Edit /repo/.b-agentic/runs/20260101-x/state.json)"; expect 2 "a worker Edit of the run state must be blocked"
 run "$pathguard" "$(pgw Edit /repo/config/.env.production)"; expect 2 "a worker Edit of a likely-secret path must be blocked"
 run "$pathguard" "$(pgw Read /repo/secrets.yaml)"; expect 2 "a worker Read of a secrets file must be blocked"
@@ -118,7 +124,7 @@ run "$pathguard" "$(pgw Write /repo/src/app.ts)"; expect 0 "a worker Write of an
 # A worker of a parallel step works in a worktree outside the repository (ADR-016): the guard matches names, not the repository.
 wtdir=/tmp/b-agentic-wt-0123abcd-20261114-x-S-2
 run "$pathguard" "$(pgw Write "$wtdir/.b-agentic/runs/20261114-x/spec.md")"; expect 2 "a worker Write under .b-agentic in a worktree must be blocked"
-grep -Fq 'b_run.py' <<<"$err" || fail "the worktree .b-agentic refusal must name b_run.py: $err"
+guard_guidance "$err" "the worktree .b-agentic refusal"
 run "$pathguard" "$(pgw Edit "$wtdir/config/.env.production")"; expect 2 "a worker Edit of a likely-secret path in a worktree must be blocked"
 grep -Fq 'likely-secret path' <<<"$err" || fail "the worktree secret refusal must give the same reason: $err"
 run "$pathguard" "$(pgw Write "$wtdir/.env")"; expect 2 "a worker Write of .env in a worktree must be blocked"

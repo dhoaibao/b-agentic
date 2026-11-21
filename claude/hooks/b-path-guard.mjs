@@ -95,7 +95,7 @@ function main() {
   const owned = agenticWrites(event?.tool_input, event?.tool_name, event?.cwd);
   if (owned.length > 0) {
     process.stderr.write(
-      `b-agentic path guard: ${event.tool_name} refused on ${owned.join(", ")}. Run artifacts under .b-agentic are written only by b_run.py (~/.claude/b-agentic/bin/b-run write <kind>) and b-state.mjs; read them with Read.\n`,
+      `b-agentic path guard: ${event.tool_name} refused on ${owned.join(", ")}. Run artifacts under .b-agentic are written only by ~/.claude/b-agentic/bin/b-run write <kind> and ~/.claude/b-agentic/bin/b-state; read them with Read.\n`,
     );
     return 2;
   }

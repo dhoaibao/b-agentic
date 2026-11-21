@@ -59,7 +59,9 @@ export async function cmdRecord(
   // qa.md must have been written during this QA phase and must say what is recorded.
   const freshQa = () => {
     if (!art.artifacts.qa || (art.revs.qa ?? 0) <= state.qa.artifact_rev) {
-      throw refuse("write qa.md with b_run.py in this QA phase first");
+      throw refuse(
+        "write qa.md with ~/.claude/b-agentic/bin/b-run write qa in this QA phase first",
+      );
     }
     return art.artifacts.qa;
   };
@@ -218,12 +220,12 @@ export async function cmdRecord(
         !found.some((item) => item.kind === "blocker")
       ) {
         throw refuse(
-          `write this round's blockers with b_run.py write followups first (ids R${round}-<n>, kind blocker)`,
+          `write this round's blockers with ~/.claude/b-agentic/bin/b-run write followups first (ids R${round}-<n>, kind blocker)`,
         );
       }
       if (verdict === "READY WITH FOLLOW-UPS" && found.length === 0) {
         throw refuse(
-          `write this round's follow-ups with b_run.py write followups first (ids R${round}-<n>)`,
+          `write this round's follow-ups with ~/.claude/b-agentic/bin/b-run write followups first (ids R${round}-<n>)`,
         );
       }
       state.review.required = true;

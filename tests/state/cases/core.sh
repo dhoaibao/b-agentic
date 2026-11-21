@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
+# shellcheck disable=SC2154,SC2034,SC2088 # Variables are shared with state-probe.sh and the other files it sources; the quoted tilde is the literal text the CLI prints.
 # init, approve, lock, step guards, resume, spec change, bounded rounds, unsafe folders.
 # --- init: layout, self-ignoring folder, no tracked change -------------------
 ok "$repo" s1 init demo
@@ -37,6 +37,8 @@ grep -Fq 'run it from inside the repository' "$work/err" || fail "the cwd refusa
 
 # --- approve needs valid, recorded artifacts; consent and branch target are validated
 refused "$repo" s1 approve --commit yes --branch-target current
+grep -Fq '~/.claude/b-agentic/bin/b-run write spec and ~/.claude/b-agentic/bin/b-run write plan' "$work/err" \
+  || fail "the approve refusal must name the b-run write command of each missing kind: $(cat "$work/err")"
 run_dir=$(dirname "$(sfile "$repo")")
 printf '# Spec\nhand written, no criteria\n' >"$run_dir/spec.md"
 refused "$repo" s1 approve --commit yes --branch-target current   # unrecorded file
@@ -51,7 +53,7 @@ invalid "$repo" s1 approve --commit yes --branch-target "bad target"
 ok "$repo" s1 approve --commit yes --branch-target current
 [ "$(phase "$repo")" = approved ] || fail "approve phase"
 ok "$repo" s1 check
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance implement"]' ] || fail "approved must owe advance implement: $out"
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance implement"]' ] || fail "approved must owe advance implement: $out"
 [ "$(jq -c '[.history[].op]' "$(sfile "$repo")")" = '["init","approve"]' ] || fail "every write must add one history entry"
 [ "$(jq -r '.history[1] | .from + ">" + .to + " " + (.detail.spec | length | tostring)' "$(sfile "$repo")")" = "clarify>approved 64" ] \
   || fail "the approval entry must carry the phases and the spec hash"

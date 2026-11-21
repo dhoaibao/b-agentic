@@ -44,6 +44,9 @@ ok "$repoPW" s1 record step S-1
 ok "$repoPW" s1 check
 jq -e '.next | any(startswith("these worker steps may run at the same time, each in its own worktree: S-2, S-3; for each"))' <<<"$out" >/dev/null \
   || fail "a batch names the first two ready steps in plan order: $out"
+batch_line=$(jq -r '.next[] | select(startswith("these worker steps"))' <<<"$out")
+grep -Fq ', ~/.claude/b-agentic/bin/b-state record step S-n --by main, then ~/.claude/b-agentic/bin/b-state worktree remove S-n)' <<<"$batch_line" \
+  || fail "the batch fallback must name the b-state wrapper for each command: $batch_line"
 jq -e '.next | any(startswith("hand S-4")) and all(startswith("hand S-2") | not)' <<<"$out" >/dev/null \
   || fail "a step in the batch gets no line of its own, one outside it keeps its line: $out"
 before=$(snap "$repoPW")

@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2154,SC2034 # Variables are shared with state-probe.sh and the other files it sources.
+# shellcheck disable=SC2154,SC2034,SC2088 # Variables are shared with state-probe.sh and the other files it sources; the quoted tilde is the literal text the CLI prints.
 # The implement step cursor and the step gate against the approved scope.
 # --- the implement step cursor: progress is recorded, not read back from the tree -------
 repoS="$work/repoS"
@@ -15,9 +15,9 @@ ok "$repoS" s1 approve --commit yes --branch-target current
 refused "$repoS" s1 record step S-1                 # steps are recorded in implement only
 ok "$repoS" s1 advance implement
 ok "$repoS" s1 check
-[ "$(jq -r '.next[0]' <<<"$out")" = "b_run.py handoff implement" ] || fail "implement must start from its packet: $out"
+[ "$(jq -r '.next[0]' <<<"$out")" = "~/.claude/b-agentic/bin/b-run handoff implement" ] || fail "implement must start from its packet: $out"
 [ "$(owed_steps)" = '["S-1","S-2","S-3"]' ] || fail "implement must owe every unrecorded step: $out"
-[ "$(jq -r '.next[-1]' <<<"$out")" = "b-state.mjs advance verify" ] || fail "implement must end with advance verify: $out"
+[ "$(jq -r '.next[-1]' <<<"$out")" = "~/.claude/b-agentic/bin/b-state advance verify" ] || fail "implement must end with advance verify: $out"
 printf 's\n' >"$repoS/a.txt"
 before=$(jq -S . "$(sfile "$repoS")")
 refused "$repoS" s1 advance verify
@@ -38,7 +38,7 @@ ok "$repoS" cold check --takeover                   # a session that never saw t
 ok "$repoS" s1 lock --takeover
 ok "$repoS" s1 record step S-2
 ok "$repoS" s1 check
-[ "$(jq -c .next <<<"$out")" = '["b-state.mjs advance verify"]' ] || fail "with every step recorded only advance verify is owed: $out"
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance verify"]' ] || fail "with every step recorded only advance verify is owed: $out"
 ok "$repoS" s1 advance verify
 # The cursor survives a voiding check and a return to verify or fix; implement and clarify redo the plan.
 ok "$repoS" s1 record check --cmd "make test" --exit 0
