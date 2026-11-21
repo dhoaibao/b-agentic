@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -80,14 +81,52 @@ def missing_payload(root: Path) -> list[str]:
     for source in sorted(spec["agents_source"].glob("b-*.md")):
         if not (root / "agents" / source.name).is_file():
             missing.append(f"agents/{source.name}")
-    for folder in ("bin", "hooks"):
-        for source in sorted((ROOT / "claude" / folder).glob("*.mjs")):
-            if not (root / "b-agentic" / folder / source.name).is_file():
-                missing.append(f"b-agentic/{folder}/{source.name}")
-    for name in ("capabilities.yaml", "mcp_operations.yaml", spec["kernel_reference"]):
+    for folder, patterns in (("bin", ("*.mjs", "*.py")), ("hooks", ("*.mjs",))):
+        for pattern in patterns:
+            for source in sorted((ROOT / "claude" / folder).glob(pattern)):
+                if not (root / "b-agentic" / folder / source.name).is_file():
+                    missing.append(f"b-agentic/{folder}/{source.name}")
+    for source in sorted((ROOT / "claude" / "bin").iterdir()):
+        if source.is_file() and not source.suffix:
+            problem = wrapper_problem(source, root / "b-agentic" / "bin" / source.name)
+            if problem:
+                missing.append(f"b-agentic/bin/{source.name} ({problem})")
+    for name in ("capabilities.yaml", "mcp_operations.yaml", "artifacts.yaml", spec["kernel_reference"]):
         if not (root / "b-agentic" / "references" / name).is_file():
             missing.append(f"b-agentic/references/{name}")
     return missing
+
+
+def exec_command(path: Path) -> list[str]:
+    """Words of the first `exec` line of a shell wrapper; empty when there is none or it cannot be read."""
+    try:
+        for line in path.read_text().splitlines():
+            if line.startswith("exec "):
+                return shlex.split(line)[1:]
+    except (OSError, UnicodeDecodeError, ValueError):
+        pass
+    return []
+
+
+def wrapper_problem(source: Path, installed: Path) -> str | None:
+    """Why an installed wrapper cannot run: skills call it by path, so a gap is exit 126 or 127, not a usage error.
+
+    The installer swaps the bare `bun` of a Bun wrapper for the absolute path it found (ADR-028); an interpreter
+    the source names bare, such as python3, is resolved from PATH and left alone.
+    """
+    if not installed.is_file():
+        return "wrapper missing"
+    if not os.access(installed, os.X_OK):
+        return "not executable"
+    if exec_command(source)[:1] != ["bun"]:
+        return None
+    command = exec_command(installed)
+    if not command or not command[0].startswith("/"):
+        return "no absolute bun path"
+    bun = Path(command[0])
+    if not (bun.is_file() and os.access(bun, os.X_OK)):
+        return "bun path not executable"
+    return None
 
 
 def deselected_skills(root: Path) -> set[str]:

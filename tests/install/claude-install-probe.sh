@@ -1095,6 +1095,38 @@ run "$home" -y --with=drawio; expect_ok "doctor install"
 python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "skill doctor must pass for a partial selection: $(cat "$work/doctor.txt")"
 rm -rf "$home/.claude/skills/b-drawio"
 if python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt"; then fail "skill doctor must flag a missing selected skill"; fi
+# The doctor flags what makes a skill's helper call fail with exit 126 or 127: a wrapper that is missing, not
+# executable, or execs a bun that is gone, and a missing b_run.py or artifacts.yaml. A fresh install passes.
+home=$(fresh_home doctor-wrappers)
+run "$home" -y; expect_ok "doctor wrapper install"
+doctor_bin="$home/.claude/b-agentic/bin"
+doctor_flags() {
+  local what=$1 expected=$2 status=0
+  python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || status=$?
+  [ "$status" = 1 ] || fail "skill doctor must exit 1 for $what (exit $status)"
+  grep '^payload:' "$work/doctor.txt" | grep -Fq "$expected" || fail "skill doctor must name '$expected' for $what: $(cat "$work/doctor.txt")"
+}
+python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "skill doctor must pass a fresh install: $(cat "$work/doctor.txt")"
+grep -Fxq 'payload: ready' "$work/doctor.txt" || fail "a fresh install must report payload ready: $(cat "$work/doctor.txt")"
+chmod 600 "$doctor_bin/b-state"
+doctor_flags "a wrapper without the execute bit" "b-agentic/bin/b-state (not executable)"
+chmod 700 "$doctor_bin/b-state"
+mv "$doctor_bin/b-snapshot" "$work/b-snapshot.saved"
+doctor_flags "a missing wrapper" "b-agentic/bin/b-snapshot (wrapper missing)"
+mv "$work/b-snapshot.saved" "$doctor_bin/b-snapshot"
+cp -p "$doctor_bin/b-codex-review" "$work/b-codex-review.saved"
+sed 's#^exec [^ ]*#exec /nonexistent/bun#' "$work/b-codex-review.saved" >"$doctor_bin/b-codex-review"
+doctor_flags "a wrapper whose bun is gone" "b-agentic/bin/b-codex-review (bun path not executable)"
+sed 's#^exec [^ ]*#exec bun#' "$work/b-codex-review.saved" >"$doctor_bin/b-codex-review"
+doctor_flags "a wrapper with a bare bun" "b-agentic/bin/b-codex-review (no absolute bun path)"
+cp -p "$work/b-codex-review.saved" "$doctor_bin/b-codex-review"
+mv "$doctor_bin/b_run.py" "$work/b_run.py.saved"
+doctor_flags "a missing b_run.py" "b-agentic/bin/b_run.py"
+mv "$work/b_run.py.saved" "$doctor_bin/b_run.py"
+mv "$home/.claude/b-agentic/references/artifacts.yaml" "$work/artifacts.yaml.saved"
+doctor_flags "a missing artifacts.yaml" "b-agentic/references/artifacts.yaml"
+mv "$work/artifacts.yaml.saved" "$home/.claude/b-agentic/references/artifacts.yaml"
+python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "skill doctor must pass again once every file is restored: $(cat "$work/doctor.txt")"
 # The doctors: an unselected server is optional, a selected-but-missing one is not, and a kept modified skill is not "extra".
 home=$(fresh_home optional-doctors)
 run "$home" -y --with=drawio; expect_ok "doctor install"
