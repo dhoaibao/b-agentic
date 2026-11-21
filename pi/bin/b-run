@@ -1,0 +1,9 @@
+#!/bin/sh
+# Pi entry point for b_run.py (-I -B keep a repository's Python files from being imported or cached) (ADR-030).
+# The printed commands name this folder, and a Pi session id replaces an inherited Claude Code one
+# so the lock owner is the Pi session.
+# shellcheck disable=SC2088 # The helpers print this folder as the literal text ~/..., never expanded.
+B_AGENTIC_HELPER_DIR='~/.pi/agent/b-agentic/bin'
+export B_AGENTIC_HELPER_DIR
+if [ -n "${PI_SESSION_ID:-}" ]; then unset CLAUDE_CODE_SESSION_ID; fi
+exec python3 -I -B "${0%/*}/b_run.py" "$@"

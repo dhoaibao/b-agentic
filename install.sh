@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code.
+# install.sh - bootstrap, refresh, or remove the b-agentic setup for Claude Code or, opt-in, Pi.
 #
 # Usage:
 #   ./install.sh [--dry-run] [--force] [-y]               install or sync from this checkout
@@ -9,13 +9,17 @@
 #                                                         full install upgrades it; --uninstall removes it)
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
+#   ./install.sh --runtime=pi [--dry-run] [--force] [-y]  install, sync, or (--uninstall) remove the Pi runtime
+#                                                         under ~/.pi/agent (ADR-030); Pi and its packages are
+#                                                         installed by you, never by this script
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 #
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
 # --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers. A run only touches ~/.claude and ~/.claude.json. Nothing is ever written under ~/.pi or
-# ~/.config/opencode (the Pi and OpenCode runtimes were removed; see docs/decisions/ADR-020-claude-code-only-again.md).
+# runs vendor installers. A Claude Code run only touches ~/.claude and ~/.claude.json, and never anything under ~/.pi or
+# ~/.config/opencode (the OpenCode runtime was removed; see docs/decisions/ADR-020-claude-code-only-again.md). A Pi run
+# (--runtime=pi) only touches ~/.pi/agent, never ~/.claude, ~/.claude.json, or the network.
 # Optional components are never installed without a choice: a terminal shows a checkbox list (nothing
 # checked on a fresh install; installed ones are pre-checked), while -y, --dry-run, or no terminal keeps
 # the recorded choice and otherwise installs none. --with/--without are additive and repeatable.
@@ -31,6 +35,8 @@ UPDATE=0
 DRY_RUN=0
 UNINSTALL=0
 YES=0
+RUNTIME=claude
+STATUSLINE=0
 NOTES=""
 PASSTHROUGH=()
 
@@ -53,9 +59,10 @@ while [ "$#" -gt 0 ]; do
     --uninstall) UNINSTALL=1; PASSTHROUGH+=("$1") ;;
     -y|--yes) YES=1; PASSTHROUGH+=("$1") ;;
     --force) PASSTHROUGH+=("$1") ;;
-    --runtime=claude) ;;
-    --runtime=*) die "unsupported $1: only Claude Code is supported (see docs/decisions/ADR-020-claude-code-only-again.md)" ;;
-    --statusline-only) PASSTHROUGH+=("$1") ;;
+    --runtime=claude) RUNTIME=claude ;;
+    --runtime=pi) RUNTIME=pi ;;
+    --runtime=*) die "unsupported $1: only claude and pi are supported (see docs/decisions/ADR-020-claude-code-only-again.md and docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)" ;;
+    --statusline-only) STATUSLINE=1; PASSTHROUGH+=("$1") ;;
     --with=*|--without=*)
       [[ "${1#*=}" =~ ^[a-z][a-z0-9-]*(,[a-z][a-z0-9-]*)*$ ]] || die "invalid ${1%%=*} value; use comma-separated component ids"
       PASSTHROUGH+=("$1") ;;
@@ -65,9 +72,13 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-# Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
+[ "$RUNTIME" != pi ] || [ "$STATUSLINE" -eq 0 ] || die '--statusline-only is a Claude Code option and cannot be combined with --runtime=pi'
+[ "$RUNTIME" != pi ] || { [ "$UPDATE" -eq 0 ] && [ -z "$REF" ]; } || die '--update and --ref fetch over the network; --runtime=pi installs only from a local checkout, so update the checkout yourself first'
+
+# Same condition as the Claude Code installer's terminal UI: a terminal, and none of the plain-output modes (the Pi
+# installer never draws one).
 FANCY=0
-if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ "$DRY_RUN" -eq 0 ] && [ "$UNINSTALL" -eq 0 ] && [ "$YES" -eq 0 ]; then
+if [ "$RUNTIME" = claude ] && [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ "$DRY_RUN" -eq 0 ] && [ "$UNINSTALL" -eq 0 ] && [ "$YES" -eq 0 ]; then
   FANCY=1
 fi
 
@@ -130,6 +141,7 @@ fi
 if [ -n "$SELF_DIR" ] && [ -f "$SELF_DIR/skills/registry.yaml" ] && [ -d "$SELF_DIR/claude" ]; then
   SOURCE_DIR="$SELF_DIR"
 else
+  [ "$RUNTIME" != pi ] || die '--runtime=pi installs only from a local checkout and never clones; run ./install.sh from a b-agentic checkout'
   SOURCE_DIR="$CLONE_DIR"
   command -v git >/dev/null 2>&1 || die 'git is required to prepare the b-agentic source'
   refuse_protected_dir "$SOURCE_DIR"
@@ -169,5 +181,9 @@ if [ -e "$SOURCE_DIR/.git" ] && [ "$UNINSTALL" -eq 0 ]; then
 fi
 
 export B_AGENTIC_NOTES="$NOTES"
-CLAUDE_INSTALLER="$SOURCE_DIR/tooling/install/claude_install.py"
-exec python3 "$CLAUDE_INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+if [ "$RUNTIME" = pi ]; then
+  INSTALLER="$SOURCE_DIR/tooling/install/pi_install.py"
+else
+  INSTALLER="$SOURCE_DIR/tooling/install/claude_install.py"
+fi
+exec python3 "$INSTALLER" --source "$SOURCE_DIR" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}

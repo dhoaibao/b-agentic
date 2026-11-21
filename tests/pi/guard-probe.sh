@@ -23,13 +23,14 @@ fi
 
 work=$(mktemp -d)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
-home="$work/agent"
-mkdir -p "$home/extensions/b-agentic" "$home/b-agentic/hooks" "$home/b-agentic/bin" "$home/agents" "$work/cwd" "$work/h"
-for hook in b-path-guard b-verify-gate b-spec-context b-run-context b-alexandria-guard; do
-  cp "$root/claude/hooks/$hook.mjs" "$home/b-agentic/hooks/"
-done
-cp "$root/claude/bin/b-protected.mjs" "$home/b-agentic/bin/"
-cp "$root/pi/extensions/b-agentic/index.ts" "$root/pi/extensions/b-agentic/guard.mjs" "$home/extensions/b-agentic/"
+mkdir -p "$work/cwd" "$work/h"
+# The agent folder is laid out by the installer itself, so the probe runs against the installed extension and hooks
+# folder. Pi installs the packages in settings.json at startup and starts the MCP servers in mcp.json, so both
+# are removed to keep the probe offline; the specialist-child case writes its own settings below.
+env -u PI_CODING_AGENT_DIR HOME="$work/h" python3 "$root/tooling/install/pi_install.py" -y >"$work/install.log" 2>&1 || { cat "$work/install.log" >&2; fail "the Pi installer failed"; }
+home="$work/h/.pi/agent"
+rm -f "$home/mcp.json"
+jq 'del(.packages)' "$home/settings.json" >"$work/settings.json" && mv "$work/settings.json" "$home/settings.json"
 printf 'SECRET=1\n' >"$work/cwd/.env"
 printf 'EXAMPLE=1\n' >"$work/cwd/.env.example"
 printf 'hello\n' >"$work/cwd/notes.txt"

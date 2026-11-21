@@ -1202,7 +1202,7 @@ run "$home" -y --statusline-only --with=drawio; expect_refused "--statusline-onl
 run "$home" -y --statusline-only --uninstall; expect_refused "--statusline-only with --uninstall"
 # install.sh accepts --runtime=claude (a no-op); every other runtime and --migrate-legacy stay refused (ADR-020).
 run "$home" -y --statusline-only --dry-run --runtime=claude; expect_ok "--runtime=claude is accepted"
-for runtime in opencode both pi codex; do
+for runtime in opencode both codex; do
   run "$home" -y --dry-run --runtime=$runtime; expect_refused "--runtime=$runtime"
   grep -Fq 'ADR-020' <<<"$err$out" || fail "the --runtime=$runtime refusal must point to ADR-020: $err $out"
 done

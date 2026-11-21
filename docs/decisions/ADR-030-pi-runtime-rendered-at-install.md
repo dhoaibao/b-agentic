@@ -2,7 +2,7 @@
 
 - Status: Proposed
 - Date: 2026-11-21
-- Supersedes: none yet; on acceptance (run 5) it supersedes [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Until then those three are unchanged and Claude Code stays the only runtime `install.sh` accepts.
+- Supersedes: none yet; on acceptance (run 5) it supersedes [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Until then those three are unchanged; `install.sh --runtime=pi` is an opt-in install of the Pi runtime under `~/.pi/agent` (run 4) and Claude Code stays the default.
 
 ## Context
 
