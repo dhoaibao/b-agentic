@@ -78,6 +78,8 @@ start_probe hooks-cli env HOOKS_PROBE_PART=cli bash "$ROOT_DIR/tests/hooks/hooks
 start_probe snapshot bash "$ROOT_DIR/tests/snapshot/cli-probe.sh"
 start_probe statusline bash "$ROOT_DIR/tests/statusline/statusline-probe.sh"
 start_probe state bash "$ROOT_DIR/tests/state/state-probe.sh"
+start_probe pi-guard-cases node "$ROOT_DIR/tests/pi/guard-cases.mjs"
+start_probe pi-guard bash "$ROOT_DIR/tests/pi/guard-probe.sh"
 start_probe artifacts bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
 
 if [ "$run_release" -eq 1 ]; then

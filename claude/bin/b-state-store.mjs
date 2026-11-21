@@ -468,11 +468,11 @@ export function freshState(runId, root, baseline) {
 
 export function defaultOwner(args) {
   // Claude Code sets CLAUDE_CODE_SESSION_ID; Pi sets PI_SESSION_ID for its bash tool.
+  // An empty session variable counts as unset, so the next one decides; an
+  // explicit `--owner ""` stays invalid rather than taking the ambient identity.
   const owner =
     args.owner ??
-    process.env.CLAUDE_CODE_SESSION_ID ??
-    process.env.PI_SESSION_ID ??
-    "";
+    (process.env.CLAUDE_CODE_SESSION_ID || process.env.PI_SESSION_ID || "");
   if (!OWNER.test(owner)) {
     throw invalid(
       `pass --owner NAME (letters, digits, . _ : -) or set ${ownerVar()}`,

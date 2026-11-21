@@ -27,6 +27,21 @@ grep -Fq 'or set CLAUDE_CODE_SESSION_ID' "$work/err" || fail "the Claude Code me
   || fail "lock --takeover with --owner: $(cat "$work/err")"
 [ "$(lock_owner)" = "explicit-3" ] || fail "--owner must win over both session variables"
 
+# An empty Claude Code variable counts as unset in both helpers, so the Pi variable still decides.
+(cd "$repoP" && env CLAUDE_CODE_SESSION_ID= PI_SESSION_ID=pi-session-4 "${js[@]}" "$cli" lock --takeover >/dev/null 2>"$work/err") \
+  || fail "lock --takeover with an empty CLAUDE_CODE_SESSION_ID: $(cat "$work/err")"
+[ "$(lock_owner)" = "pi-session-4" ] || fail "an empty CLAUDE_CODE_SESSION_ID must fall through to PI_SESSION_ID in b-state"
+py_owner() { env "$@" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.default_owner({}))"; }
+[ "$(py_owner CLAUDE_CODE_SESSION_ID= PI_SESSION_ID=pi-session-4)" = "pi-session-4" ] || fail "b_run must also take PI_SESSION_ID when the Claude Code variable is empty"
+[ "$(py_owner CLAUDE_CODE_SESSION_ID=claude-session-2 PI_SESSION_ID=pi-session-4)" = "claude-session-2" ] || fail "b_run must keep CLAUDE_CODE_SESSION_ID first"
+rc=0
+(cd "$repoP" && env CLAUDE_CODE_SESSION_ID= PI_SESSION_ID= "${js[@]}" "$cli" lock >/dev/null 2>"$work/err") || rc=$?
+[ "$rc" -eq 2 ] || fail "two empty owner variables must be invalid input: rc=$rc"
+rc=0
+(cd "$repoP" && env CLAUDE_CODE_SESSION_ID=claude-session-5 PI_SESSION_ID=pi-session-5 "${js[@]}" "$cli" lock --takeover --owner "" >/dev/null 2>"$work/err") || rc=$?
+[ "$rc" -eq 2 ] || fail "an explicit empty --owner must stay invalid input, not take the session identity: rc=$rc"
+[ "$(lock_owner)" = "pi-session-4" ] || fail "a refused empty --owner must leave the lock unchanged"
+
 # --- B_AGENTIC_HELPER_DIR: the folder the printed text names -------------------
 pi_dir='~/.pi/agent/b-agentic/bin'
 rc=0
