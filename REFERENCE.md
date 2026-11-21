@@ -79,6 +79,7 @@ touches only `~/.claude` and `~/.claude.json`.
   ([ADR-028](docs/decisions/ADR-028-short-helper-wrappers.md)): `b-state`, `b-run` (`python3 -I -B`), `b-snapshot`, `b-codex-review`,
   and `b-codex-guard` (the secret preflight). Each is a one-line `sh` script, installed owner-executable, that runs its target with
   the same hardening flags and the absolute Bun path; they are owned by the manifest and removed on uninstall.
+  `b-run` and `b-state` print their usage on `help`, `--help` or `-h` (exit 0), a wrong command or argument exits 2 and names the valid ones, and a run outside a git worktree exits 3 naming the folder ([ADR-029](docs/decisions/ADR-029-self-describing-helper-clis.md)).
 - `--update` fast-forwards the checkout (`--ref=<tag-branch-or-commit>` checks
   out a ref) and then syncs. A plain run is already idempotent: unchanged
   inputs write nothing.

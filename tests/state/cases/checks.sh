@@ -127,7 +127,7 @@ grep -Fq 'another b-state command' "$work/err" || fail "a live holder must be na
 printf '{"pid":2147483646,"token":"dead"}\n' >"$d13/mutex"    # a holder that is gone
 refused "$repo13" s1 lock --takeover
 grep -Fq 'delete' "$work/err" || fail "a dead holder must say how to clear it by hand: $(cat "$work/err")"
-refused "$repo13" s1 clear-mutex                  # no recovery command exists: the dead holder still refuses
+invalid "$repo13" s1 clear-mutex                  # no recovery command exists: it is an unknown command, and the dead holder stays
 rm -f "$d13/mutex"
 ok "$repo13" s1 lock --takeover
 [ ! -e "$d13/mutex" ] || fail "the mutex must be released"

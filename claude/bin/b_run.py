@@ -5,10 +5,12 @@ It reads JSON on stdin, validates it against references/artifacts.yaml and the
 cross-artifact rules, renders canonical markdown, and writes it atomically.
 `artifacts.json` keeps each artifact's sha256 and validated data, so `validate`
 re-renders and compares bytes instead of parsing free-form markdown. Run it as
-`python3 -I -B b_run.py <command>`; it needs only the standard library.
+`~/.claude/b-agentic/bin/b-run <command>` (the wrapper that runs `python3 -I -B b_run.py`); it
+needs only the standard library, and it finds the repository from the current folder.
 
 Commands (JSON results on stdout, one-line errors on stderr):
-  schema [KIND]            print the schema, rules, enums and an example
+  help, --help, -h         print this text and exit 0 (reads nothing, writes nothing)
+  schema [KIND]            print the schema, rules, enums, text_rules and an example
   lint KIND                validate stdin without writing (cross rules when a run is active)
   write KIND               validate stdin, render, and write the artifact (main session only)
   validate [--json]        re-render every artifact and compare bytes and hashes
@@ -25,7 +27,7 @@ Commands (JSON results on stdout, one-line errors on stderr):
   prune [--days N]         list those runs; with --apply, delete exactly them (dry run by default)
 
 Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only).
-Exit: 0 ok, 3 refused or not ok, 2 invalid input or state.
+Exit: 0 ok or help, 3 refused or not ok, 2 invalid input or state (a wrong command or argument).
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
 """
@@ -56,6 +58,13 @@ MAX_FILE = 1 << 20
 CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 # Raw HTML in a rendered artifact (an unterminated comment, a tag) could hide criteria from a reader.
 HTML_MARKUP = re.compile(r"<[A-Za-z!/?]")
+# What check_value enforces on every line and text value, printed by `schema` so a draft can follow it before lint.
+TEXT_RULES = [
+    "line and text values are never blank and have no leading or trailing whitespace; limits.line and limits.text cap their length",
+    "a line value is one printable line; a text value may span lines; control characters other than tab are refused",
+    "a less-than sign followed by a letter, !, / or ? is refused as HTML markup: write a placeholder as FILE or {file}, not in angle brackets",
+    "a field marked no_backtick (commands, scope paths) must not contain a backtick",
+]
 TEMP_NAME = re.compile(r"^[A-Za-z0-9._-]+\.\d+\.[0-9a-f]{8,}\.tmp$")
 
 # Same rules, order and semantics as PROTECTED_RULES in b-protected.mjs
@@ -183,8 +192,11 @@ def check_value(spec: dict, value: object, path: str, schema: dict) -> None:
             raise bad("contains control characters" if kind == "text" else "must be one printable line")
         if value != value.strip():
             raise bad("has leading or trailing whitespace")
-        if HTML_MARKUP.search(value):
-            raise bad("must not contain HTML markup")
+        html = HTML_MARKUP.search(value)
+        if html:
+            raise bad(
+                f"must not contain HTML markup (found {html.group(0)!r}); write a placeholder as FILE or {{file}}"
+            )
         if spec.get("no_backtick") and "`" in value:
             raise bad("must not contain a backtick")
     elif kind == "list":
@@ -501,11 +513,19 @@ def git(root: Path | str, *args: str) -> str:
     return done.stdout
 
 
+def _cwd_text() -> str:
+    # A deleted cwd makes getcwd fail; the refusal must stay a refusal, never turn into an invalid-input exit.
+    try:
+        return CONTROL.sub("?", os.getcwd())
+    except OSError:
+        return "unavailable"
+
+
 def repo_root() -> Path:
     try:
         return Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip()).resolve()
     except (Refused, OSError) as exc:
-        raise Refused("not inside a git worktree") from exc
+        raise Refused(f"not inside a git worktree (cwd: {_cwd_text()}); run it from inside the repository") from exc
 
 
 def resolve_run(root: Path, run: str | None) -> tuple[str, Path]:
@@ -752,10 +772,21 @@ def validate_input(kind: str, value: object, ctx: dict, schema: dict, previous: 
 
 def cmd_schema(schema: dict, kind: str | None) -> dict:
     if kind is None:
-        return {"kinds": sorted(schema["kinds"]), "enums": schema["enums"], "limits": schema["limits"]}
+        return {
+            "kinds": sorted(schema["kinds"]),
+            "enums": schema["enums"],
+            "limits": schema["limits"],
+            "text_rules": TEXT_RULES,
+        }
     if kind not in schema["kinds"]:
         raise Invalid(f"unknown kind {kind!r}")
-    return {"kind": kind, "enums": schema["enums"], "limits": schema["limits"], **schema["kinds"][kind]}
+    return {
+        "kind": kind,
+        "enums": schema["enums"],
+        "limits": schema["limits"],
+        **schema["kinds"][kind],
+        "text_rules": TEXT_RULES,
+    }
 
 
 def cmd_lint(schema: dict, kind: str, args: dict) -> dict:
@@ -1697,6 +1728,27 @@ def cmd_prune(args: dict) -> dict:
 # ---- entry --------------------------------------------------------------------
 
 VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days"}
+COMMANDS = (
+    "schema",
+    "lint",
+    "write",
+    "validate",
+    "scope-check",
+    "handoff",
+    "worker-profile",
+    "selftest",
+    "runs",
+    "prune",
+)
+HELP_FLAGS = ("--help", "-h")
+
+
+def arity_error(command: str, schema: dict) -> Invalid:
+    if command in ("lint", "write"):
+        return Invalid(f"{command} needs one KIND: {', '.join(sorted(schema['kinds']))}")
+    if command == "handoff":
+        return Invalid(f"handoff needs one PHASE: {', '.join(HANDOFF_PHASES)}")
+    return Invalid(f"{command} takes no argument; --help prints usage")
 
 
 def parse_args(argv: list[str]) -> tuple[list[str], dict]:
@@ -1706,7 +1758,10 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
     while i < len(argv):
         arg = argv[i]
         i += 1
-        if not arg.startswith("--"):
+        if arg in HELP_FLAGS:
+            # Only a flag the parser reads as a flag asks for help: a value taken by --owner or --out stays a value.
+            options["help"] = True
+        elif not arg.startswith("--"):
             positional.append(arg)
         elif arg[2:] in VALUE_OPTIONS:
             if i >= len(argv):
@@ -1724,8 +1779,11 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
 
 def run(argv: list[str]) -> tuple[int, str]:
     positional, args = parse_args(argv)
+    # Help is settled right after the arguments parse, before the schema, stdin, or the repository are touched.
+    if args.get("help") or positional[:1] == ["help"]:
+        return 0, (__doc__ or "").strip() + "\n"
     if not positional:
-        raise Invalid("missing command")
+        raise Invalid(f"missing command; commands: {', '.join(COMMANDS)}; --help prints usage")
     command, rest = positional[0], positional[1:]
     schema = load_schema()
     if command == "schema":
@@ -1749,8 +1807,10 @@ def run(argv: list[str]) -> tuple[int, str]:
         result = cmd_runs(args)
     elif command == "prune" and not rest:
         result = cmd_prune(args)
+    elif command in COMMANDS:
+        raise arity_error(command, schema)
     else:
-        raise Invalid(f"unknown command: {command}")
+        raise Invalid(f"unknown command: {command}; commands: {', '.join(COMMANDS)}; --help prints usage")
     ok = not (isinstance(result, dict) and result.get("ok") is False)
     return (0 if ok else 3), json.dumps(result, indent=2) + "\n"
 

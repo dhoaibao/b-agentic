@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-11-19
 - Supersedes: none; refines [ADR-018](ADR-018-bun-only-runtime.md) (its rule that every documented command is the long `bun --no-env-file --config=/dev/null <script>` form)
+- Refined by: [ADR-029](ADR-029-self-describing-helper-clis.md) (the wrapped helpers print usage and name the valid commands and the fix in their errors)
 
 ## Context
 

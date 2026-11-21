@@ -16,41 +16,7 @@
 // `history` records every write, and `check` prints `next`, the steps the
 // current phase still owes.
 //
-// Usage: b-state.mjs <command> [args] [--run ID] [--owner NAME]
-//   init <slug> [--replace]             create a run in phase clarify and lock it; refused
-//                                       while another run is unfinished unless the user
-//                                       chose to leave that one (--replace)
-//   show [--history]                    print the state (the latest history entries,
-//                                       or all of them with --history)
-//   approve --commit yes|no --branch-target current|new:<type>/<kebab>
-//           [--size quick|full]
-//                                       hash spec.md, check the flags against the
-//                                       spec's consent block and size, require a
-//                                       clean tree unless commit is no, record
-//                                       consent and AC-n, phase approved; a quick
-//                                       run must be within the quick limits
-//   advance <phase> [--reason R --needs N]
-//                                       move to a phase when its guard passes;
-//                                       `advance review` also needs --trigger T and
-//                                       blocks a quick run; `advance done` from qa
-//                                       ends a run that has no commit consent
-//   unblock <phase> --reason R          leave `blocked` for clarify|implement|fix|verify
-//   record check --cmd C --exit N [--include-ignored P]...
-//   record review (--verdict V --gate codex|reviewer [--gate-reason R] [--trigger T]
-//                  | --low-risk REASON)
-//                                       the gate that ran; a reviewer gate needs the
-//                                       reason Codex was not used, a codex gate has none
-//   record qa --verdict V
-//   record ac AC-n pass|fail|gap|waived
-//   record commit SHA
-//   record step S-n [--by worker|main]  a plan step is applied (phase implement); a step
-//                                       waits for the steps it depends on, and is refused
-//                                       when it changed a path outside the approved scope;
-//                                       a step the plan lists in worker_steps needs --by
-//   check [--takeover]                  verify the state against git, void stale evidence,
-//                                       and print `next`: what the phase still owes
-//   lock [--takeover] | unlock          take or release the run lock
-// Exit: 0 done, 3 refused or not ok, 2 invalid input or state.
+// Usage and the command list live in USAGE below; `help`, `--help` and `-h` print it.
 //
 // This file is the entry: argument parsing, `run` and the dispatch. The rest lives
 // in flat modules beside it, imported one way and never in a cycle: b-state-core
@@ -91,6 +57,59 @@ export {
 export { worktreeTree } from "./b-state-git.mjs";
 export { captureCommitPlan, captureStep } from "./b-state-gates.mjs";
 
+const USAGE = [
+  "Usage: ~/.claude/b-agentic/bin/b-state <command> [args] [--run ID] [--owner NAME]",
+  "  init <slug> [--replace]             create a run in phase clarify and lock it; refused",
+  "                                      while another run is unfinished unless the user",
+  "                                      chose to leave that one (--replace)",
+  "  show [--history]                    print the state (the latest history entries,",
+  "                                      or all of them with --history)",
+  "  approve --commit yes|no --branch-target current|new:<type>/<kebab>",
+  "          [--size quick|full]",
+  "                                      hash spec.md, check the flags against the",
+  "                                      spec's consent block and size, require a",
+  "                                      clean tree unless commit is no, record",
+  "                                      consent and AC-n, phase approved; a quick",
+  "                                      run must be within the quick limits",
+  "  advance <phase> [--reason R --needs N]",
+  "                                      move to a phase when its guard passes;",
+  "                                      `advance review` also needs --trigger T and",
+  "                                      blocks a quick run; `advance done` from qa",
+  "                                      ends a run that has no commit consent",
+  "  unblock <phase> --reason R          leave `blocked` for clarify|implement|fix|verify",
+  "  record check --cmd C --exit N [--include-ignored P]...",
+  "  record review (--verdict V --gate codex|reviewer [--gate-reason R] [--trigger T]",
+  "                 | --low-risk REASON)",
+  "                                      the gate that ran; a reviewer gate needs the",
+  "                                      reason Codex was not used, a codex gate has none",
+  "  record qa --verdict V",
+  "  record ac AC-n pass|fail|gap|waived",
+  "  record commit SHA",
+  "  record step S-n [--by worker|main]  a plan step is applied (phase implement); a step",
+  "                                      waits for the steps it depends on, and is refused",
+  "                                      when it changed a path outside the approved scope;",
+  "                                      a step the plan lists in worker_steps needs --by",
+  "  check [--takeover]                  verify the state against git, void stale evidence,",
+  "                                      and print `next`: what the phase still owes",
+  "  lock [--takeover] | unlock          take or release the run lock",
+  "  worktree add|collect|remove S-n     the git worktree of a parallel worker step (a b-flow batch)",
+  "  help, --help, -h                    print this usage and exit 0 (reads and writes nothing)",
+  "Exit: 0 done or help, 3 refused or not ok, 2 invalid input or state (a wrong command included).",
+].join("\n");
+
+const COMMANDS = [
+  "init",
+  "show",
+  "approve",
+  "advance",
+  "unblock",
+  "record",
+  "check",
+  "lock",
+  "unlock",
+  "worktree",
+];
+
 const VALUE_FLAGS = new Set([
   "run",
   "owner",
@@ -117,6 +136,11 @@ export function parseArgs(argv) {
   const args = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (arg === "--help" || arg === "-h") {
+      // A value taken by an option stays a value; only a standalone flag asks for help.
+      args.help = true;
+      continue;
+    }
     if (!arg.startsWith("--")) {
       args._.push(arg);
       continue;
@@ -135,10 +159,15 @@ export function parseArgs(argv) {
 
 export async function run(argv, cwd = process.cwd(), deps = {}) {
   const args = parseArgs(argv);
+  // Help and the command name are settled right after the arguments parse, before the repository, the run, the mutex or the lock.
+  if (args.help || args._[0] === "help") return USAGE;
   const command = args._[0];
+  if (!command || !COMMANDS.includes(command))
+    throw invalid(
+      `${command ? `unknown command: ${command}` : "missing command"}; commands: ${COMMANDS.join(", ")}; --help prints usage`,
+    );
   const root = await repoRoot(cwd);
   if (command === "init") return cmdInit(root, args);
-  if (!command) throw invalid("missing command");
   const { dir } = await resolveRun(root, args);
   if (command === "show") {
     const state = loadState(dir);
@@ -198,7 +227,11 @@ function isEntryPoint() {
 if (isEntryPoint()) {
   run(process.argv.slice(2)).then(
     (result) => {
-      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      process.stdout.write(
+        typeof result === "string"
+          ? `${result}\n`
+          : `${JSON.stringify(result, null, 2)}\n`,
+      );
       process.exitCode = result?.ok === false ? 3 : 0;
     },
     (error) => {

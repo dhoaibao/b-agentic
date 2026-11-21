@@ -81,7 +81,11 @@ export async function repoRoot(cwd) {
       (await git(cwd, ["rev-parse", "--show-toplevel"])).trim(),
     );
   } catch {
-    throw refuse("not inside a git worktree");
+    // Control characters are masked so a folder name cannot add lines to the message.
+    const where = String(cwd).replace(/[\u0000-\u001f\u007f]/g, "?");
+    throw refuse(
+      `not inside a git worktree (cwd: ${where}); run it from inside the repository`,
+    );
   }
 }
 

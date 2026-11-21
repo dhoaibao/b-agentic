@@ -8,6 +8,33 @@ ok "$repo" s1 init demo
 [ -z "$(git -C "$repo" status --porcelain)" ] || fail ".b-agentic must not appear in git status"
 invalid "$repo" s1 init Bad_Slug
 
+# --- help, command names and the cwd refusal answer before any repository, run, or lock work (ADR-029)
+nogit="$work/nogit"
+mkdir -p "$nogit"
+for help_arg in --help -h help; do
+  ok "$nogit" s1 "$help_arg"
+  grep -Fq 'b-agentic/bin/b-state' <<<"$out" || fail "help ($help_arg) must name the b-state wrapper: $out"
+  grep -Fq 'worktree add|collect|remove' <<<"$out" || fail "help ($help_arg) must list every command: $out"
+done
+state_hash() { sha256sum "$(sfile "$repo")" | cut -d' ' -f1; }
+before=$(state_hash)
+ok "$repo" s1 approve --help
+grep -Fq 'Usage:' <<<"$out" || fail "approve --help must print the usage: $out"
+[ "$before" = "$(state_hash)" ] || fail "--help must not change the state"
+st "$repo" s1 record check --cmd "make test" --exit 0 --include-ignored -h
+grep -Fq 'Usage:' <<<"$out" && fail "an option value that looks like -h must not print usage: $out"
+[ "$before" = "$(state_hash)" ] || fail "a help-shaped option value must not change the state"
+invalid "$repo" s2 status      # s1 holds the lock: the name is still judged first
+grep -Fq 'unknown command: status; commands: init, show, approve' "$work/err" || fail "unknown command must list the commands: $(cat "$work/err")"
+invalid "$repo" s1
+grep -Fq 'missing command; commands: init, show' "$work/err" || fail "missing command must list the commands: $(cat "$work/err")"
+invalid "$nogit" s1 status     # outside git it is a usage error too, not a refusal
+[ ! -e "$(dirname "$(sfile "$repo")")/mutex" ] || fail "an unknown command must leave no mutex"
+[ "$before" = "$(state_hash)" ] || fail "an unknown command must not change the state"
+refused "$nogit" s1 show
+grep -Fq 'not inside a git worktree (cwd: ' "$work/err" || fail "the cwd refusal must name the folder: $(cat "$work/err")"
+grep -Fq 'run it from inside the repository' "$work/err" || fail "the cwd refusal must say how to fix it: $(cat "$work/err")"
+
 # --- approve needs valid, recorded artifacts; consent and branch target are validated
 refused "$repo" s1 approve --commit yes --branch-target current
 run_dir=$(dirname "$(sfile "$repo")")

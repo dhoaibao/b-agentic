@@ -65,6 +65,41 @@ invalid "$repo" schema nope
 invalid "$repo" frobnicate
 [ ! -e "$root/claude/bin/__pycache__" ] || fail "-B must keep bytecode out of the install folder"
 
+# --- help, usage errors, and the cwd refusal tell the caller what to do (ADR-029) ----------------
+nogit="$work/nogit"
+mkdir -p "$nogit"
+for help_args in --help -h help "write spec --help"; do
+  # shellcheck disable=SC2086 # help_args is a deliberate word list.
+  ok "$nogit" $help_args
+  grep -Fq 'b-agentic/bin/b-run' <<<"$out" || fail "help ($help_args) must name the b-run wrapper"
+  grep -Fq 'worker-profile' <<<"$out" || fail "help ($help_args) must list the commands"
+done
+ok "$repo" --help
+# A help-shaped value of an option is a value, not a request for help: the command still runs and fails (no run here).
+br "$repo" write spec --owner --help </dev/null
+if [ "$rc" -eq 0 ] || grep -Fq 'single writer of a b-flow' <<<"$out"; then
+  fail "an option value that looks like --help must not print usage: rc=$rc $out"
+fi
+for usage_case in "frobnicate|unknown command: frobnicate; commands: schema, lint" \
+  "|missing command; commands: schema, lint" \
+  "lint|lint needs one KIND: followups, plan, qa, spec" \
+  "write|write needs one KIND: followups, plan, qa, spec" \
+  "handoff|handoff needs one PHASE: clarify, implement" \
+  "runs extra|runs takes no argument" \
+  "prune extra|prune takes no argument"; do
+  # shellcheck disable=SC2086 # The command part is a deliberate word list.
+  invalid "$repo" ${usage_case%%|*}
+  grep -Fq -- "${usage_case#*|}" "$work/err" || fail "usage error for '${usage_case%%|*}' must say: ${usage_case#*|} (got: $(cat "$work/err"))"
+done
+refused "$nogit" runs
+grep -Fq 'not inside a git worktree (cwd: ' "$work/err" || fail "the cwd refusal must name the folder: $(cat "$work/err")"
+grep -Fq 'run it from inside the repository' "$work/err" || fail "the cwd refusal must say how to fix it: $(cat "$work/err")"
+ok "$repo" schema
+jq -e '.text_rules | length >= 4' <<<"$out" >/dev/null || fail "schema must list the text rules"
+ok "$repo" schema spec
+jq -e '.text_rules | map(select(test("HTML"))) | length == 1' <<<"$out" >/dev/null || fail "schema spec must list the HTML rule"
+jq -e '.fields.criteria and .example and .enums.evidence' <<<"$out" >/dev/null || fail "text_rules must be additive to schema spec"
+
 # --- lint rejects every schema and rule violation without writing --------------------
 lint_bad() { # KIND JQ-EDIT DESCRIPTION
   br "$repo" lint "$1" < <(example "$1" | jq -c "$2")
@@ -99,6 +134,10 @@ lint_bad spec '.consent.push = "yes"' "a push consent field"
 lint_bad spec '.criteria = []' "no criteria"
 lint_bad spec '.behavior.new = ["<!-- hides the criteria"]' "an HTML comment opener"
 lint_bad spec '.request = "first line\n<div>second"' "an HTML tag in the request"
+grep -Fq "found '<d'" "$work/err" || fail "the HTML error must quote the match: $(cat "$work/err")"
+grep -Fq 'write a placeholder as FILE or {file}' "$work/err" || fail "the HTML error must name the fix: $(cat "$work/err")"
+br "$repo" lint spec < <(example spec | jq -c '.request = "a < b and 2 <3"')
+[ "$rc" -eq 0 ] || fail "a bare less-than sign must still lint: $(cat "$work/err")"
 lint_bad spec '.criteria[1].source = "see </details>"' "a closing tag"
 br "$repo" lint spec < <(example spec | jq -c '.criteria[0].command = "pytest tests/test_export.py < in.txt" | .behavior.new = ["a < b is fine"]')
 [ "$rc" -eq 0 ] || fail "a bare < is allowed: $(cat "$work/err")"
