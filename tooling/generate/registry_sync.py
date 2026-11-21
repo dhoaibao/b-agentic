@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Render Claude Code delivery assets from b-agentic's canonical sources."""
+"""Render Claude Code delivery assets from b-agentic's canonical sources.
+
+With `--render pi --out DIR` it renders the opt-in Pi runtime (kernel, skills, prompt templates, agents) into a
+new or empty DIR outside the checkout; the install step calls this, and no Pi file is ever committed. `--check`
+and `--self-test` render Pi in memory and fail on any Pi output error (ADR-030).
+"""
 
 from __future__ import annotations
 
@@ -7,9 +12,11 @@ import argparse
 import itertools
 import json
 import re
+import shutil
 import sys
+import tempfile
 import textwrap
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +37,11 @@ ARTIFACTS_PATH = ROOT / "references" / "artifacts.yaml"
 ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
 # A prompt line that starts with this marker is emitted only for the named runtimes (marker removed).
 RUNTIME_MARKER = re.compile(r"^<!-- runtime: ([a-z]+(?:,[a-z]+)*) --> ")
+# A bare marker line opens a block that closes at the closing line; the lines between them are emitted
+# only for the named runtimes, and both marker lines are always dropped.
+# Marker lines may be indented, so a block inside a Markdown list item keeps the list unbroken.
+RUNTIME_BLOCK_OPEN = re.compile(r"^ *<!-- runtime: ([a-z]+(?:,[a-z]+)*) -->$")
+RUNTIME_BLOCK_CLOSE = re.compile(r"^ *<!-- /runtime -->$")
 
 MAX_KERNEL_BYTES = 12_000
 MAX_KERNEL_LINES = 100
@@ -351,24 +363,46 @@ def mcp_tool_name(server: str, tool: str) -> str:
 
 
 def apply_markers(text: str, runtime: str) -> str:
-    """Keep each runtime-marked line only for its runtime, with the marker removed.
+    """Keep each runtime-marked line or block only for its runtime, with the markers removed.
 
-    Unmarked lines are shared. An unknown runtime name is an error, so a typo cannot silently drop a line.
+    Unmarked lines are shared. An unknown runtime name is an error, so a typo cannot silently drop a line;
+    so is a block that is unterminated, nested, closed twice, or holds a per-line marker.
     """
-    kept: list[str] = []
-    for line in text.split("\n"):
-        match = RUNTIME_MARKER.match(line)
-        if match is None:
-            if "<!-- runtime:" in line:
-                raise ValueError(f"malformed runtime marker (it must start the line): {line[:60]!r}")
-            kept.append(line)
-            continue
-        named = match.group(1).split(",")
+
+    def named_runtimes(group: str, line: str) -> list[str]:
+        named = group.split(",")
         for name in named:
             if name not in RUNTIMES:
                 raise ValueError(f"unknown runtime {name!r} in marker: {line[:60]!r}")
-        if runtime in named:
+        return named
+
+    kept: list[str] = []
+    block: list[str] | None = None
+    for line in text.split("\n"):
+        if RUNTIME_BLOCK_CLOSE.match(line):
+            if block is None:
+                raise ValueError(f"runtime block close with no open block: {line[:60]!r}")
+            block = None
+            continue
+        opened = RUNTIME_BLOCK_OPEN.match(line)
+        if opened is not None:
+            if block is not None:
+                raise ValueError(f"runtime blocks do not nest: {line[:60]!r}")
+            block = named_runtimes(opened.group(1), line)
+            continue
+        match = RUNTIME_MARKER.match(line)
+        if match is None:
+            if "<!-- runtime:" in line or "<!-- /runtime" in line:
+                raise ValueError(f"malformed runtime marker (it must start the line): {line[:60]!r}")
+            if block is None or runtime in block:
+                kept.append(line)
+            continue
+        if block is not None:
+            raise ValueError(f"a per-line runtime marker inside a runtime block: {line[:60]!r}")
+        if runtime in named_runtimes(match.group(1), line):
             kept.append(line[match.end() :])
+    if block is not None:
+        raise ValueError("a runtime block is not closed")
     return "\n".join(kept)
 
 
@@ -1443,6 +1477,301 @@ def validate_worker_regressions(
     return errors
 
 
+PI_SKILL_DESCRIPTION_LIMIT = 1024
+
+
+def render_runtime_kernel(
+    skills: list[dict[str, Any]], policy: dict[str, Any], runtime: str, hits: set[str] | None = None
+) -> str:
+    """The kernel for a non-Claude runtime: its overrides, then its glossary."""
+    return apply_glossary(apply_kernel_overrides(build_kernel(skills, policy, runtime), runtime), runtime, hits)
+
+
+def render_pi_prompt(skill: dict[str, Any]) -> str:
+    """A thin `/b-<name>` prompt template that points at the installed Pi skill."""
+    name = skill["name"]
+    first_sentence = skill["prompt"]["description"].split(". ")[0].rstrip(".") + "."
+    lines = ["---", f"description: {json.dumps(first_sentence, ensure_ascii=False)}"]
+    if skill.get("argument_hint"):
+        lines.append(f"argument-hint: {json.dumps(skill['argument_hint'], ensure_ascii=False)}")
+    lines.extend(
+        [
+            "---",
+            "",
+            f"Read the installed `{RUNTIMES['pi']['config_dir']}/skills/{name}/SKILL.md` and follow it for this request.",
+            "",
+            "Arguments: $ARGUMENTS",
+            "",
+            "<!-- Generated from skills/registry.yaml. Edit that source, not this file. -->",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def pi_mcp_tool_ids(policy: dict[str, Any]) -> dict[str, str]:
+    """Map each classified `mcp__<server>__<tool>` name to the `mcp:<server>/<tool>` form Pi agent tool lists use."""
+    return {
+        mcp_tool_name(server, tool): f"mcp:{server}/{tool}"
+        for server, record in policy["servers"].items()
+        for tool in record["tools"]
+    }
+
+
+def pi_agent_tool_list(agent: dict[str, Any], policy: dict[str, Any]) -> list[str]:
+    """Pi's read tools plus the agent's own MCP allowlist (ADR-023), never an editing or prompting tool."""
+    ids = pi_mcp_tool_ids(policy)
+    names = [*agent_mcp_tools(agent, policy), *agent.get("conditional_tools", [])]
+    return [*RUNTIMES["pi"]["read_only_tools"], *(ids[name] for name in names)]
+
+
+def render_pi_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, Any]], policy: dict[str, Any]) -> str:
+    pi = RUNTIMES["pi"]
+    bound_skills = [
+        skill["name"]
+        for skill in skills
+        if skill["execution"]["mode"] == "subagent" and skill["execution"]["agent"] == name
+    ]
+    skill_list = " or ".join(f"`{skill}`" for skill in bound_skills)
+    return "\n".join(
+        [
+            "---",
+            f"name: {name}",
+            f"description: {json.dumps(agent['description'])}",
+            f"tools: {', '.join(pi_agent_tool_list(agent, policy))}",
+            f"excludeTools: {', '.join(pi['excluded_agent_tools'])}",
+            "systemPromptMode: replace",
+            "inheritProjectContext: true",
+            "inheritGlobalContext: true",
+            "allowNestedSubagents: false",
+            "---",
+            "",
+            f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
+            "",
+            f"Read and execute the named skill from the installed `{pi['config_dir']}/skills/<name>/SKILL.md` for the supplied bounded task. Return that skill's own Output format; do not substitute a profile-specific template. The skill's Delegation boundary directs the main session to delegate; you are the named child, so execute its steps.",
+            "",
+            "Remain read-only. Do not edit, write, commit, stage, run generators or fixers, or ask the user questions. Do not execute external/shared mutation, local upload, lifecycle, or authentication actions; report the required operation to the main session. A returned result is not authority to change files, commit, push, or report task completion. If a required tool is absent, tell the main session rather than bypassing the allowlist.",
+            "",
+            TURN_BUDGET_NOTICE,
+            "",
+            "<!-- Managed by b-agentic. Generated from skills/registry.yaml. Do not edit this file. -->",
+            "",
+        ]
+    )
+
+
+def render_pi_outputs(
+    skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> tuple[dict[str, str], set[str]]:
+    """Every rendered Pi file keyed by its path under the target directory, and the glossary entries that matched."""
+    hits: set[str] = set()
+    outputs = {"kernel.md": render_runtime_kernel(skills, policy, "pi", hits)}
+    for skill in skills:
+        outputs[f"skills/{skill['name']}/SKILL.md"] = render_skill_file(skill, "pi", hits)
+        outputs[f"prompts/{skill['name']}.md"] = render_pi_prompt(skill)
+    for name, agent in agents.items():
+        outputs[f"agents/{name}.md"] = render_pi_agent_file(name, agent, skills, policy)
+    return outputs, hits
+
+
+def pi_output_errors(outputs: dict[str, str], hits: set[str]) -> list[str]:
+    """What a rendered Pi tree must satisfy; the check never writes, so no Pi file lands in the checkout."""
+    pi = RUNTIMES["pi"]
+    errors: list[str] = []
+    for path, text in sorted(outputs.items()):
+        parts = PurePosixPath(path).parts
+        if PurePosixPath(path).is_absolute() or ".." in parts or "." in parts or "\\" in path:
+            errors.append(f"pi output {path!r}: the path must stay inside the target directory")
+        for token in forbidden_hits(text, "pi"):
+            errors.append(f"pi output {path}: forbidden token {token!r}")
+        if "<!-- runtime" in text or "<!-- /runtime" in text:
+            errors.append(f"pi output {path}: unresolved runtime marker")
+    for entry in pi.get("glossary", []):
+        if entry["from"] not in hits:
+            errors.append(f"pi glossary entry matches nothing and has drifted from the prompts: {entry['from'][:70]!r}")
+    kernel = outputs.get("kernel.md", "")
+    if len(kernel.encode()) > MAX_KERNEL_BYTES:
+        errors.append(f"pi kernel exceeds the {MAX_KERNEL_BYTES:,} byte kernel budget")
+    if len(kernel.splitlines()) > MAX_KERNEL_LINES:
+        errors.append(f"pi kernel exceeds the {MAX_KERNEL_LINES} line kernel budget")
+    for path, text in sorted(outputs.items()):
+        if path.startswith("skills/"):
+            description = re.search(r"^description: (.*)$", text, re.M)
+            if description is None or len(description.group(1)) > PI_SKILL_DESCRIPTION_LIMIT:
+                errors.append(f"pi output {path}: description missing or over {PI_SKILL_DESCRIPTION_LIMIT} characters")
+        if path.startswith("agents/"):
+            tools = re.search(r"^tools: (.*)$", text, re.M)
+            listed = {item.strip() for item in tools.group(1).split(",")} if tools else set()
+            if not listed or listed & set(pi["excluded_agent_tools"]):
+                errors.append(f"pi output {path}: an agent must list tools and none of the excluded ones")
+            if f"excludeTools: {', '.join(pi['excluded_agent_tools'])}" not in text:
+                errors.append(f"pi output {path}: an agent must exclude {', '.join(pi['excluded_agent_tools'])}")
+    flow = outputs.get("skills/b-flow/SKILL.md", "")
+    if flow and "--gate reviewer" not in flow:
+        errors.append("pi output skills/b-flow/SKILL.md: the review gate must be recorded as reviewer")
+    if "`record step S-n --by main`" in flow:
+        errors.append(
+            "pi output skills/b-flow/SKILL.md: only a listed worker step takes --by, so an ordinary step is recorded bare"
+        )
+    if "b-worker" in flow or "worker_steps" in outputs.get("skills/b-plan/SKILL.md", ""):
+        errors.append("pi output: worker steps are not available on this runtime")
+    review = outputs.get("skills/b-review/SKILL.md", "")
+    if review and "b-reviewer" not in review:
+        errors.append("pi output skills/b-review/SKILL.md: the review gate must be the b-reviewer subagent")
+    return errors
+
+
+def validate_pi_regressions(
+    skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
+) -> list[str]:
+    errors: list[str] = []
+    if "pi" not in RUNTIMES:
+        return errors
+    outputs, hits = render_pi_outputs(skills, agents, policy)
+    if pi_output_errors(outputs, hits):
+        errors.append("pi regression: the shipped Pi render must pass its output checks")
+    mutations = (
+        (lambda o, h: o.update({"kernel.md": o["kernel.md"] + "\nsee ~/.claude/b-agentic"}), "a leaked Claude path"),
+        (lambda o, h: o.update({"kernel.md": o["kernel.md"] + "\n<!-- runtime: pi -->"}), "an unresolved marker"),
+        (lambda o, h: h.discard(RUNTIMES["pi"]["glossary"][0]["from"]), "a glossary entry that matches nothing"),
+        (lambda o, h: o.update({"kernel.md": o["kernel.md"] + "x" * MAX_KERNEL_BYTES}), "an oversized kernel"),
+        (
+            lambda o, h: o.update(
+                {"agents/b-reviewer.md": o["agents/b-reviewer.md"].replace("tools: ", "tools: edit, ")}
+            ),
+            "an editing agent",
+        ),
+        (
+            lambda o, h: o.update(
+                {"skills/b-flow/SKILL.md": o["skills/b-flow/SKILL.md"].replace("--gate reviewer", "")}
+            ),
+            "a review gate that is not reviewer",
+        ),
+        (
+            lambda o, h: o.update({"skills/b-plan/SKILL.md": o["skills/b-plan/SKILL.md"] + "worker_steps"}),
+            "worker steps",
+        ),
+        (
+            lambda o, h: o.update(
+                {"skills/b-flow/SKILL.md": o["skills/b-flow/SKILL.md"] + "`record step S-n --by main`"}
+            ),
+            "an ordinary step recorded with --by",
+        ),
+        (lambda o, h: o.update({"../escape.md": "x"}), "a path that leaves the target"),
+        (lambda o, h: o.update({"/abs.md": "x"}), "an absolute path"),
+        (
+            lambda o, h: o.update(
+                {"skills/b-review/SKILL.md": o["skills/b-review/SKILL.md"].replace("b-reviewer", "reviewer")}
+            ),
+            "no reviewer subagent",
+        ),
+    )
+    for mutate, why in mutations:
+        broken, broken_hits = dict(outputs), set(hits)
+        mutate(broken, broken_hits)
+        if not pi_output_errors(broken, broken_hits):
+            errors.append(f"pi regression: {why} must fail the output checks")
+    errors.extend(validate_pi_write_path(outputs))
+    return errors
+
+
+def validate_pi_write_path(outputs: dict[str, str]) -> list[str]:
+    """The --render entry point writes exactly the rendered file set, and refuses a checkout, non-empty, or Claude target."""
+    import contextlib
+    import io
+    from unittest import mock
+
+    errors: list[str] = []
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "pi"
+            if write_runtime_tree("pi", target) != 0:
+                errors.append("pi regression: rendering into a new directory must succeed")
+            written = {path.relative_to(target).as_posix() for path in target.rglob("*") if path.is_file()}
+            if written != set(outputs):
+                errors.append("pi regression: the rendered directory must hold exactly the rendered file set")
+            if write_runtime_tree("pi", target) != 2:
+                errors.append("pi regression: a non-empty target directory must be refused")
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "pi"
+            real_write = Path.write_text
+            calls = {"count": 0}
+
+            def failing_write(self: Path, *args: Any, **kwargs: Any) -> int:
+                calls["count"] += 1
+                if calls["count"] == 3:
+                    raise OSError("simulated full disk")
+                return real_write(self, *args, **kwargs)
+
+            with mock.patch.object(Path, "write_text", failing_write):
+                if write_runtime_tree("pi", target) != 1:
+                    errors.append("pi regression: a failed write must fail the render")
+            if target.exists() or any(Path(tmp).iterdir()):
+                errors.append("pi regression: a failed write must leave neither the target nor a staging directory")
+            if write_runtime_tree("pi", target) != 0:
+                errors.append("pi regression: a render must succeed again after a failed one")
+        inside = ROOT / "skills" / "pi-selftest-target"
+        if write_runtime_tree("pi", inside) != 2 or inside.exists():
+            errors.append("pi regression: a target inside the checkout must be refused and left uncreated")
+        if write_runtime_tree("claude", Path(tempfile.gettempdir()) / "pi-selftest-claude") != 2:
+            errors.append("pi regression: the claude runtime must be refused by --render")
+    return errors
+
+
+def write_runtime_tree(runtime: str, out: Path) -> int:
+    """Render one non-Claude runtime into an empty or new directory outside the checkout.
+
+    The files are written into a staging directory beside the target and moved into place only after every
+    write succeeded, so an error leaves the target exactly as it was.
+    """
+    if runtime == "claude" or runtime not in RUNTIMES:
+        print(f"--render takes a non-Claude runtime: {sorted(set(RUNTIMES) - {'claude'})}", file=sys.stderr)
+        return 2
+    target = out.expanduser().resolve()
+    if target == ROOT or ROOT in target.parents:
+        print(f"--out must be outside the checkout: {target}", file=sys.stderr)
+        return 2
+    if target.exists() and (not target.is_dir() or any(target.iterdir())):
+        print(f"--out must be a new or empty directory: {target}", file=sys.stderr)
+        return 2
+    if not target.parent.is_dir():
+        print(f"--out needs an existing parent directory: {target.parent}", file=sys.stderr)
+        return 2
+    skills, agents, workers, policy, capabilities = (
+        load_skills(),
+        load_agents(),
+        load_workers(),
+        load_policy(),
+        load_capabilities(),
+    )
+    errors = canonical_errors(skills, agents, workers, policy, capabilities)
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        return 1
+    outputs, hits = render_pi_outputs(skills, agents, policy)
+    errors = pi_output_errors(outputs, hits)
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        return 1
+    staging: Path | None = None
+    try:
+        staging = Path(tempfile.mkdtemp(prefix=f".{target.name}-render-", dir=target.parent))
+        for relative, text in outputs.items():
+            path = staging / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        if target.exists():
+            target.rmdir()
+        staging.rename(target)
+    except OSError as error:
+        if staging is not None:
+            shutil.rmtree(staging, ignore_errors=True)
+        print(f"render failed and nothing was published: {error}", file=sys.stderr)
+        return 1
+    print(f"Rendered {len(outputs)} {runtime} files into {target}.")
+    return 0
+
+
 def validate_regressions(
     skills: list[dict[str, Any]],
     agents: dict[str, dict[str, Any]],
@@ -1645,12 +1974,23 @@ def validate_regressions(
     if not validate_policy(invalid_policy):
         errors.append("MCP policy regression: retired exposure field must fail")
     errors.extend(validate_runtime_regressions())
+    errors.extend(validate_pi_regressions(skills, agents, policy))
     return errors
 
 
 def validate_runtime_regressions() -> list[str]:
     errors: list[str] = []
-    for bad in ("<!-- runtime: cluade --> text", "text <!-- runtime: claude -->", "<!-- runtime: claude,pi --> text"):
+    for bad in (
+        "<!-- runtime: cluade --> text",
+        "text <!-- runtime: claude -->",
+        "<!-- runtime: claude,cluade --> text",
+        "<!-- runtime: cluade -->\nx\n<!-- /runtime -->",
+        "<!-- runtime: claude -->\nx",
+        "<!-- runtime: claude -->\n<!-- runtime: claude -->\nx\n<!-- /runtime -->\n<!-- /runtime -->",
+        "x\n<!-- /runtime -->",
+        "<!-- runtime: claude -->\n<!-- runtime: claude --> x\n<!-- /runtime -->",
+        "text <!-- /runtime -->",
+    ):
         try:
             apply_markers(bad, "claude")
         except ValueError:
@@ -1658,6 +1998,30 @@ def validate_runtime_regressions() -> list[str]:
         errors.append(f"runtime regression: malformed marker {bad!r} must fail")
     if apply_markers("a\n<!-- runtime: claude --> c\nd", "claude") != "a\nc\nd":
         errors.append("runtime regression: Claude must keep shared and claude lines")
+    indented = "- a\n  <!-- runtime: claude -->\n  - b\n  <!-- /runtime -->\n- d"
+    if apply_markers(indented, "claude") != "- a\n  - b\n- d" or apply_markers(indented, "_other") != "- a\n- d":
+        errors.append("runtime regression: an indented runtime block must work inside a list item")
+    block = "a\n<!-- runtime: claude -->\nb\nc\n<!-- /runtime -->\nd"
+    if apply_markers(block, "claude") != "a\nb\nc\nd":
+        errors.append("runtime regression: Claude must keep a claude block and drop its marker lines")
+    if apply_markers(block, "_other") != "a\nd":
+        errors.append("runtime regression: another runtime must drop a claude block whole")
+    pi = RUNTIMES.get("pi")
+    if pi is not None:
+        if validate_pi_runtime(pi, "runtimes.pi"):
+            errors.append("runtime regression: the shipped pi entry must pass its shape checks")
+        pinned = [*pi["packages"][:-1], pi["packages"][-1] + "@1.2.3"]
+        swapped = [PI_PERMISSION_PACKAGE, PI_CLASSIFIER_PACKAGE]
+        bad_entries = (
+            {**pi, "packages": pinned},
+            {**pi, "packages": swapped},
+            {**pi, "mcp_exposure": {"default": "codemode"}},
+            {**pi, "excluded_agent_tools": ["subagent"]},
+            {key: value for key, value in pi.items() if key != "read_only_tools"},
+        )
+        for bad_pi in bad_entries:
+            if not validate_pi_runtime(bad_pi, "runtimes.pi"):
+                errors.append("runtime regression: a malformed pi entry must fail its shape checks")
     # No runtime carries kernel overrides now, so drift is exercised through a synthetic entry.
     RUNTIMES["_probe"] = {"kernel_overrides": [{"from": "once", "to": "x"}], "forbidden_tokens": ["~/.claude"]}
     try:
@@ -1671,6 +2035,33 @@ def validate_runtime_regressions() -> list[str]:
             errors.append(f"runtime regression: a drifted kernel override must fail on {text!r}")
     finally:
         del RUNTIMES["_probe"]
+    return errors
+
+
+PI_PACKAGE_NAME = re.compile(r"^npm:(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$")
+PI_CLASSIFIER_PACKAGE = "npm:pi-permission-classifier"
+PI_PERMISSION_PACKAGE = "npm:@gotgenes/pi-permission-system"
+
+
+def validate_pi_runtime(config: dict[str, Any], label: str) -> list[str]:
+    """Shape checks for the pi entry: nothing is pinned, agents cannot edit, and the classifier loads first."""
+    errors: list[str] = []
+    for key in ("read_only_tools", "excluded_agent_tools", "allowed_tools", "packages"):
+        non_empty_string_list(config.get(key), f"{label}.{key}", errors)
+    exposure = config.get("mcp_exposure")
+    if not isinstance(exposure, dict) or exposure.get("default") not in {"direct", "deferred"}:
+        errors.append(f"{label}.mcp_exposure: expected {{default: direct or deferred}}")
+    packages = config.get("packages")
+    if isinstance(packages, list) and all(isinstance(item, str) for item in packages):
+        for package in packages:
+            if not PI_PACKAGE_NAME.fullmatch(package):
+                errors.append(f"{label}.packages: {package!r} must be npm:NAME with no version pin")
+        if PI_CLASSIFIER_PACKAGE in packages and PI_PERMISSION_PACKAGE in packages:
+            if packages.index(PI_CLASSIFIER_PACKAGE) > packages.index(PI_PERMISSION_PACKAGE):
+                errors.append(f"{label}.packages: {PI_CLASSIFIER_PACKAGE} must come before {PI_PERMISSION_PACKAGE}")
+    editing, excluded = config.get("editing_tools"), config.get("excluded_agent_tools")
+    if isinstance(editing, list) and isinstance(excluded, list) and not set(editing) <= set(excluded):
+        errors.append(f"{label}.excluded_agent_tools: must include every editing tool")
     return errors
 
 
@@ -1705,19 +2096,23 @@ def validate_runtimes() -> list[str]:
         template = config.get("mcp_tool_format")
         if isinstance(template, str) and not ("{server}" in template and "{tool}" in template):
             errors.append(f"{label}.mcp_tool_format: must contain {{server}} and {{tool}}")
+        if name == "pi":
+            errors.extend(validate_pi_runtime(config, label))
     claude = RUNTIMES["claude"]
     if claude.get("mcp_tool_format") != "mcp__{server}__{tool}":
         errors.append("runtimes.claude: MCP format must be mcp__{server}__{tool}")
     return errors
 
 
-def sync_outputs(check: bool) -> int:
-    skills = load_skills()
-    agents = load_agents()
-    workers = load_workers()
-    policy = load_policy()
-    capabilities = load_capabilities()
-    errors = [
+def canonical_errors(
+    skills: list[dict[str, Any]],
+    agents: dict[str, dict[str, Any]],
+    workers: dict[str, dict[str, Any]],
+    policy: dict[str, Any],
+    capabilities: dict[str, Any],
+) -> list[str]:
+    """Every validator over the canonical sources; --check and --render both run it before they render."""
+    return [
         *validate_skills(skills, agents),
         *validate_workers(workers, agents),
         *validate_contracts(skills),
@@ -1729,9 +2124,24 @@ def sync_outputs(check: bool) -> int:
         *validate_artifacts_schema(),
         *validate_runtimes(),
     ]
+
+
+def sync_outputs(check: bool) -> int:
+    skills = load_skills()
+    agents = load_agents()
+    workers = load_workers()
+    policy = load_policy()
+    capabilities = load_capabilities()
+    errors = canonical_errors(skills, agents, workers, policy, capabilities)
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
+    if "pi" in RUNTIMES:
+        pi_outputs, pi_hits = render_pi_outputs(skills, agents, policy)
+        pi_errors = pi_output_errors(pi_outputs, pi_hits)
+        if pi_errors:
+            print("\n".join(pi_errors), file=sys.stderr)
+            return 1
     outputs = render_outputs(skills, agents, policy, workers)
     stale = [path for path, content in outputs.items() if not path.exists() or path.read_text() != content]
     if check and stale:
@@ -1749,7 +2159,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Render Claude Code assets from canonical b-agentic sources.")
     parser.add_argument("--check", action="store_true", help="fail when generated outputs are stale")
     parser.add_argument("--self-test", action="store_true", help="verify invalid canonical contracts fail validation")
+    parser.add_argument(
+        "--render", metavar="RUNTIME", help="render a non-Claude runtime (pi) into --out, never the checkout"
+    )
+    parser.add_argument("--out", metavar="DIR", help="new or empty directory outside the checkout for --render")
     args = parser.parse_args()
+    if args.render:
+        if not args.out:
+            parser.error("--render needs --out DIR")
+        if args.check or args.self_test:
+            parser.error("--render cannot be combined with --check or --self-test")
+        return write_runtime_tree(args.render, Path(args.out))
+    if args.out:
+        parser.error("--out is only used with --render")
     if args.self_test:
         errors = validate_regressions(load_skills(), load_agents(), load_capabilities(), load_policy(), load_workers())
         if errors:

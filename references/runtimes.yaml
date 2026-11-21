@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Per-runtime vocabulary used when rendering b-agentic's canonical sources: config and state locations, subagent models, editing tools, MCP tool-name format, and the delegation profile check. The claude entry is the identity render (docs/decisions/ADR-020-claude-code-only-again.md); a further runtime would add a glossary, kernel_overrides, and forbidden_tokens entry here.",
+  "description": "Per-runtime vocabulary used when rendering b-agentic's canonical sources: config and state locations, subagent models, editing tools, MCP tool-name format, and the delegation profile check. The claude entry is the identity render (docs/decisions/ADR-020-claude-code-only-again.md); the pi entry adds the glossary, package names, and overrides that render the opt-in Pi runtime into a target directory at install time, never into this tree (docs/decisions/ADR-030-pi-runtime-rendered-at-install.md).",
   "runtimes": {
     "claude": {
       "config_dir": "~/.claude",
@@ -22,6 +22,93 @@
       "arguments_placeholder": "$ARGUMENTS",
       "delegation_unavailable": "A missing or editing-capable agent profile, or `general-purpose` fallback, counts as unavailable.",
       "profile_check": "confirm the effective `{agent}.md` (project `.claude/agents/` over `~/.claude/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `Agent` tool with `subagent_type` `{agent}` and a bounded task naming `{name}`"
+    },
+    "pi": {
+      "config_dir": "~/.pi/agent",
+      "state_dir": "~/.pi/agent/b-agentic",
+      "hook_dir": "$HOME/.pi/agent/b-agentic/hooks",
+      "agent_models": [],
+      "editing_tools": ["edit", "write"],
+      "read_only_tools": ["read", "grep", "find", "ls", "bash"],
+      "excluded_agent_tools": ["edit", "write", "subagent", "ask_user_question"],
+      "allowed_tools": ["subagent", "bg_wait", "ask_user_question"],
+      "mcp_exposure": {"default": "direct"},
+      "mcp_tool_format": "mcp__{server}__{tool}",
+      "arguments_placeholder": "the arguments supplied with the invocation",
+      "delegation_unavailable": "A missing or editing-capable agent profile, or an unknown-agent error, counts as unavailable.",
+      "profile_check": "confirm the effective `{agent}.md` (project `.pi/agents/` over `~/.pi/agent/agents/`) is readable and its parsed frontmatter `tools` value, normalized to a list (comma-separated scalar or YAML sequence), is explicit, non-empty, and contains none of {editing} (a missing, blank, or null `tools` grants every tool), then call the `subagent` tool with `agent` `{agent}` and a task naming `{name}`",
+      "packages": [
+        "npm:pi-permission-classifier",
+        "npm:@gotgenes/pi-permission-system",
+        "npm:pi-subagents",
+        "npm:@juicesharp/rpiv-ask-user-question"
+      ],
+      "glossary": [
+        {
+          "from": "The main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); it uses the `b-reviewer` subagent only when Codex is unavailable or the user chooses it after a refused or void Codex run.",
+          "to": "The main session runs the `b-reviewer` subagent."
+        },
+        {
+          "from": "The `b-reviewer` subagent stands in only when the wrapper exits 4 (Codex unavailable) or the user chooses it after a refusal or void Codex run; call it with",
+          "to": "The `b-reviewer` subagent runs the review; call it with"
+        },
+        {
+          "from": "Reviewer steps (`b-reviewer` child; reached only through the fallback rules above):",
+          "to": "Reviewer steps (`b-reviewer` child):"
+        },
+        {
+          "from": "which gate ran: Codex with the guard result, or `b-reviewer` with the reason Codex was not used",
+          "to": "which gate ran: `b-reviewer`"
+        },
+        {
+          "from": "start each as its own harness background command (`run_in_background`), edit nothing while one runs, wait for every completion notification, then record them one at a time",
+          "to": "run them one at a time in the foreground, recording each as it finishes"
+        },
+        {
+          "from": "its Codex gate runs first, needs no approval, and a guard refusal or wrapper exit 2/3 is a stop where the user may choose `b-reviewer`, and only exit 4 falls back to it on its own.",
+          "to": "the independent review is the read-only `b-reviewer`."
+        },
+        {
+          "from": "--gate codex|reviewer [--gate-reason R] [--trigger T]`: `codex` when the Codex wrapper gave the verdict, `reviewer` with `--gate-reason` naming why Codex was not used (for example exit 4).",
+          "to": "--gate reviewer --gate-reason \"Pi runtime: reviewer gate only\" [--trigger T]`."
+        },
+        {"from": "; a spec carries no Codex consent, because Codex needs no approval (ADR-021)", "to": ""},
+        {"from": "Claude Code asks for approval before it runs", "to": "the permission system asks for approval before it runs"},
+        {"from": "Claude Code entry configured", "to": "Pi MCP entry configured"},
+        {"from": "~/.claude/b-agentic/", "to": "~/.pi/agent/b-agentic/"},
+        {"from": "named `Agent` subagent type", "to": "named agent via the `subagent` tool"},
+        {"from": "its named `Agent` call", "to": "its named `subagent` call"},
+        {"from": "unknown agent type or `general-purpose` fallback", "to": "unknown-agent error or fallback to another agent"},
+        {"from": "AskUserQuestion", "to": "ask_user_question"},
+        {"from": "`Read`", "to": "`read`"},
+        {"from": "`Edit`", "to": "`edit`"},
+        {"from": "`Write`", "to": "`write`"},
+        {"from": "`Grep`", "to": "`grep`"},
+        {"from": "`Glob`", "to": "`find`"},
+        {"from": "CLAUDE_CODE_SESSION_ID", "to": "PI_SESSION_ID"}
+      ],
+      "kernel_overrides": [
+        {"from": "Claude Code Workflow Kernel", "to": "Pi Workflow Kernel"},
+        {"from": ", except a `b-review` Codex gate run that passes its secret guard", "to": ""},
+        {"from": "Claude Code exposes MCP tools as", "to": "Pi exposes MCP tools as"},
+        {
+          "from": "It coordinates read-only children and a `b-worker` per approved worker step, never two in a tree.",
+          "to": "It coordinates only its read-only child sessions, never peer writers."
+        }
+      ],
+      "forbidden_tokens": [
+        "~/.claude",
+        "AskUserQuestion",
+        "Codex",
+        "b-codex",
+        "`Agent`",
+        "subagent_type",
+        "NotebookEdit",
+        "CLAUDE_CODE_SESSION_ID",
+        "run_in_background",
+        "/codex:",
+        "b-worker"
+      ]
     }
   }
 }
