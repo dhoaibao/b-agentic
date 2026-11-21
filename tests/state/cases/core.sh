@@ -88,6 +88,10 @@ ok "$repo" s1 approve --commit yes --branch-target current
 [ "$(phase "$repo")" = approved ] || fail "approve phase"
 ok "$repo" s1 check
 [ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance implement"]' ] || fail "approved must owe advance implement: $out"
+B_AGENTIC_HELPER_DIR='~/.pi/agent/b-agentic/bin' ok "$repo" s1 check
+[ "$(jq -c .next <<<"$out")" = '["~/.pi/agent/b-agentic/bin/b-state advance implement"]' ] || fail "the helper folder override must reach the next line: $out"
+B_AGENTIC_HELPER_DIR='x; rm -rf y' ok "$repo" s1 check
+[ "$(jq -c .next <<<"$out")" = '["~/.claude/b-agentic/bin/b-state advance implement"]' ] || fail "an unsafe helper folder override must be ignored: $out"
 [ "$(jq -c '[.history[].op]' "$(sfile "$repo")")" = '["init","approve"]' ] || fail "every write must add one history entry"
 [ "$(jq -r '.history[1] | .from + ">" + .to + " " + (.detail.spec | length | tostring)' "$(sfile "$repo")")" = "clarify>approved 64" ] \
   || fail "the approval entry must carry the phases and the spec hash"

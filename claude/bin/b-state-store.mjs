@@ -27,6 +27,7 @@ import {
   HINT_RUNS,
   HISTORY_DETAIL,
   HISTORY_OPS,
+  helperDir,
   invalid,
   Invalid,
   MAX_DIRTY,
@@ -35,6 +36,7 @@ import {
   MAX_TEXT,
   now,
   OWNER,
+  ownerVar,
   PHASES,
   QA_VERDICTS,
   refuse,
@@ -465,11 +467,15 @@ export function freshState(runId, root, baseline) {
 }
 
 export function defaultOwner(args) {
-  // Claude Code sets CLAUDE_CODE_SESSION_ID.
-  const owner = args.owner ?? process.env.CLAUDE_CODE_SESSION_ID ?? "";
+  // Claude Code sets CLAUDE_CODE_SESSION_ID; Pi sets PI_SESSION_ID for its bash tool.
+  const owner =
+    args.owner ??
+    process.env.CLAUDE_CODE_SESSION_ID ??
+    process.env.PI_SESSION_ID ??
+    "";
   if (!OWNER.test(owner)) {
     throw invalid(
-      "pass --owner NAME (letters, digits, . _ : -) or set CLAUDE_CODE_SESSION_ID",
+      `pass --owner NAME (letters, digits, . _ : -) or set ${ownerVar()}`,
     );
   }
   return owner;
@@ -515,7 +521,7 @@ export function runsHint(root) {
   }
   const count = names.filter((name) => RUN_ID.test(name)).length;
   if (count <= HINT_RUNS) return "";
-  return `${count} run folders in .b-agentic/runs; list the old finished ones with: ~/.claude/b-agentic/bin/b-run prune`;
+  return `${count} run folders in .b-agentic/runs; list the old finished ones with: ${helperDir()}/b-run prune`;
 }
 
 // The run `active` names when it is not finished; an unreadable one counts.

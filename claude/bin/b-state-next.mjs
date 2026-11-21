@@ -1,5 +1,6 @@
 // The next-step text of the b-state CLI: what the current phase still owes (ADR-009).
 // Imports the core, git, gates and worktree modules.
+import { helperDir } from "./b-state-core.mjs";
 import {
   currentFingerprint,
   missingChecks,
@@ -18,8 +19,8 @@ const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 // only reads: every step it names is still checked by its own guard, and it
 // grants no approval.
 export async function nextSteps(root, state, art, fingerprint = "") {
-  const stateCmd = (rest) => `~/.claude/b-agentic/bin/b-state ${rest}`;
-  const runCmd = (rest) => `~/.claude/b-agentic/bin/b-run ${rest}`;
+  const stateCmd = (rest) => `${helperDir()}/b-state ${rest}`;
+  const runCmd = (rest) => `${helperDir()}/b-run ${rest}`;
   if (state.phase === "blocked") {
     const outgrown = state.size === "quick" && state.review.trigger !== "";
     return [

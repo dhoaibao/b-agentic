@@ -91,6 +91,15 @@ run "$pathguard" ''; expect 0 "empty input must fail open"
 # Run artifacts have a single writer: file-tool writes under .b-agentic are refused, reads pass.
 run "$pathguard" "$(pg Write file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .b-agentic must be blocked"
 guard_guidance "$err" "the .b-agentic refusal"
+# B_AGENTIC_HELPER_DIR names the wrapper folder another runtime installs; an unsafe value is ignored.
+# shellcheck disable=SC2088 # The folder is the literal text ~/... that the guard prints, never expanded.
+B_AGENTIC_HELPER_DIR='~/.pi/agent/b-agentic/bin' run "$pathguard" "$(pg Write file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .b-agentic must be blocked under the override"
+grep -Fq 'written only by ~/.pi/agent/b-agentic/bin/b-run write <kind> and ~/.pi/agent/b-agentic/bin/b-state; read them with Read' <<<"$err" \
+  || fail "the override folder must reach the .b-agentic refusal: $err"
+# shellcheck disable=SC2088 # Same literal ~/... text as above.
+! grep -Fq '~/.claude/b-agentic' <<<"$err" || fail "the override refusal must not name the Claude Code folder: $err"
+B_AGENTIC_HELPER_DIR='x; rm -rf y' run "$pathguard" "$(pg Write file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .b-agentic must be blocked under an unsafe override"
+guard_guidance "$err" "the .b-agentic refusal under an unsafe override"
 run "$pathguard" "$(pg Edit file_path /repo/.b-agentic/runs/20260101-x/state.json)"; expect 2 "Edit under .b-agentic must be blocked"
 run "$pathguard" "$(pg NotebookEdit notebook_path /repo/.b-agentic/n.ipynb)"; expect 2 "NotebookEdit under .b-agentic must be blocked"
 run "$pathguard" "$(pg Write file_path 'C:\\repo\\.b-agentic\\runs\\x\\plan.md')"; expect 2 "a backslash path under .b-agentic must be blocked"

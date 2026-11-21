@@ -6,6 +6,7 @@ import {
   block,
   BRANCH_TARGET,
   CONSENT_DRIFT,
+  helperDir,
   invalid,
   NEXT,
   now,
@@ -111,7 +112,7 @@ export async function cmdApprove(root, dir, state, args) {
   const missing = ["spec", "plan"].filter((kind) => !art.artifacts[kind]);
   if (missing.length > 0)
     throw refuse(
-      `write the missing artifact first: ${missing.map((kind) => `~/.claude/b-agentic/bin/b-run write ${kind}`).join(" and ")}`,
+      `write the missing artifact first: ${missing.map((kind) => `${helperDir()}/b-run write ${kind}`).join(" and ")}`,
     );
   // The consent the user approved is the spec's; the flags only repeat it.
   const specConsent = art.artifacts.spec.consent;
@@ -328,7 +329,7 @@ export async function cmdAdvance(root, dir, state, args) {
     const left = await runWorktrees(root, state, art.artifacts.plan);
     if (left.length > 0)
       throw refuse(
-        `worktrees of this run remain: ${left.map((w) => w.id).join(", ")}; collect and record each step, or run ~/.claude/b-agentic/bin/b-state worktree remove S-n for each`,
+        `worktrees of this run remain: ${left.map((w) => w.id).join(", ")}; collect and record each step, or run ${helperDir()}/b-state worktree remove S-n for each`,
       );
   }
   // Entering implement fixes where the first step starts.

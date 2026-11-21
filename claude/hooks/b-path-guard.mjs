@@ -15,6 +15,17 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isProtected } from "../bin/b-protected.mjs";
 
+// Mirrors helperDir() in claude/bin/b-state-core.mjs; the hook imports no b-state module so a
+// layout that ships only the hook and b-protected.mjs keeps working.
+const HELPER_DIR = "~/.claude/b-agentic/bin";
+function helperDir(env = process.env) {
+  const value = env.B_AGENTIC_HELPER_DIR;
+  if (typeof value !== "string" || !/^[A-Za-z0-9._~/-]+$/.test(value)) {
+    return HELPER_DIR;
+  }
+  return value.replace(/\/+$/, "") || HELPER_DIR;
+}
+
 const PATH_KEYS = ["file_path", "notebook_path", "path"];
 // Search tools take a glob that can name a secret file directly. `pattern` is a
 // path glob only for Glob; for Grep it is a content regex, so it is not checked.
@@ -95,7 +106,7 @@ function main() {
   const owned = agenticWrites(event?.tool_input, event?.tool_name, event?.cwd);
   if (owned.length > 0) {
     process.stderr.write(
-      `b-agentic path guard: ${event.tool_name} refused on ${owned.join(", ")}. Run artifacts under .b-agentic are written only by ~/.claude/b-agentic/bin/b-run write <kind> and ~/.claude/b-agentic/bin/b-state; read them with Read.\n`,
+      `b-agentic path guard: ${event.tool_name} refused on ${owned.join(", ")}. Run artifacts under .b-agentic are written only by ${helperDir()}/b-run write <kind> and ${helperDir()}/b-state; read them with Read.\n`,
     );
     return 2;
   }

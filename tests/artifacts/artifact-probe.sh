@@ -508,6 +508,16 @@ newrun "$dep_repo"
 ok "$dep_repo" handoff clarify
 grep -Fq -- '- spec.md: not written' <<<"$out" || fail "the clarify packet must work before the spec exists: $out"
 grep -Fq -- '- spec.md: not written (`~/.claude/b-agentic/bin/b-run schema spec`)' <<<"$out" || fail "the clarify packet must name the b-run wrapper: $out"
+# shellcheck disable=SC2088 # The folder is the literal text ~/... that the CLI prints, never expanded.
+override_out=$(cd "$dep_repo" && B_AGENTIC_HELPER_DIR='~/.pi/agent/b-agentic/bin' python3 -I -B "$cli" handoff clarify --owner s1)
+grep -Fq -- '- spec.md: not written (`~/.pi/agent/b-agentic/bin/b-run schema spec`)' <<<"$override_out" || fail "the helper folder override must reach the packet: $override_out"
+unsafe_out=$(cd "$dep_repo" && B_AGENTIC_HELPER_DIR='x; rm -rf y' python3 -I -B "$cli" handoff clarify --owner s1)
+grep -Fq -- '(`~/.claude/b-agentic/bin/b-run schema spec`)' <<<"$unsafe_out" || fail "an unsafe helper folder override must be ignored: $unsafe_out"
+# shellcheck disable=SC2088 # Same literal ~/... text as above.
+help_line=$(B_AGENTIC_HELPER_DIR='~/.pi/agent/b-agentic/bin' python3 -I -B "$cli" help | grep -F -- 'b-run <command>')
+grep -Fq '`~/.pi/agent/b-agentic/bin/b-run <command>`' <<<"$help_line" || fail "the help text must name the override folder: $help_line"
+help_line=$(python3 -I -B "$cli" help | grep -F -- 'b-run <command>')
+grep -Fq '`~/.claude/b-agentic/bin/b-run <command>`' <<<"$help_line" || fail "the help text must keep the Claude Code folder: $help_line"
 refused "$dep_repo" handoff implement
 ok "$dep_repo" write spec < <(example spec)
 ok "$dep_repo" write plan < <(example plan | jq -c 'del(.steps[].depends_on)')
@@ -802,7 +812,7 @@ newrun "$owner_repo"
 bo() {
   rc=0
   out=$(cd "$owner_repo" && example spec |
-    env -u CLAUDE_CODE_SESSION_ID "$@" python3 -I -B "$cli" write spec 2>"$work/err") || rc=$?
+    env -u CLAUDE_CODE_SESSION_ID -u PI_SESSION_ID "$@" python3 -I -B "$cli" write spec 2>"$work/err") || rc=$?
 }
 bo CLAUDE_CODE_SESSION_ID=s1
 [ "$rc" -eq 0 ] || fail "CLAUDE_CODE_SESSION_ID must name the owner without --owner: rc=$rc $(cat "$work/err")"
@@ -812,6 +822,15 @@ grep -Fq 'locked by another session' "$work/err" || fail "the lock owner must be
 bo
 [ "$rc" -eq 2 ] || fail "no owner at all must be invalid input (rc=$rc)"
 grep -Fq 'CLAUDE_CODE_SESSION_ID' "$work/err" || fail "the error must name the session variable: $(cat "$work/err")"
+! grep -Fq 'PI_SESSION_ID' "$work/err" || fail "the Claude Code error must not mention the Pi variable: $(cat "$work/err")"
+bo PI_SESSION_ID=s1
+[ "$rc" -eq 0 ] || fail "PI_SESSION_ID must name the owner without --owner: rc=$rc $(cat "$work/err")"
+bo CLAUDE_CODE_SESSION_ID=other PI_SESSION_ID=s1
+[ "$rc" -eq 3 ] || fail "CLAUDE_CODE_SESSION_ID must win over PI_SESSION_ID (rc=$rc)"
+bo B_AGENTIC_HELPER_DIR='~/.pi/agent/b-agentic/bin'
+[ "$rc" -eq 2 ] || fail "no owner under the helper folder override must be invalid input (rc=$rc)"
+grep -Fq 'or set PI_SESSION_ID' "$work/err" || fail "the override error must name the Pi variable: $(cat "$work/err")"
+! grep -Fq 'CLAUDE_CODE_SESSION_ID' "$work/err" || fail "the override error must not name the Claude Code variable: $(cat "$work/err")"
 rc=0
 out=$(cd "$owner_repo" && example spec |
   env CLAUDE_CODE_SESSION_ID=other python3 -I -B "$cli" write spec --owner s1 2>"$work/err") || rc=$?

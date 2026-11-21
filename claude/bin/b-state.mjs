@@ -32,7 +32,7 @@ import {
   cmdInit,
   cmdUnblock,
 } from "./b-state-commands.mjs";
-import { invalid, Refused, SHOW_HISTORY } from "./b-state-core.mjs";
+import { helperDir, invalid, Refused, SHOW_HISTORY } from "./b-state-core.mjs";
 import { repoRoot } from "./b-state-git.mjs";
 import { cmdRecord } from "./b-state-record.mjs";
 import {
@@ -58,7 +58,7 @@ export { worktreeTree } from "./b-state-git.mjs";
 export { captureCommitPlan, captureStep } from "./b-state-gates.mjs";
 
 const USAGE = [
-  "Usage: ~/.claude/b-agentic/bin/b-state <command> [args] [--run ID] [--owner NAME]",
+  `Usage: ${helperDir()}/b-state <command> [args] [--run ID] [--owner NAME]`,
   "  init <slug> [--replace]             create a run in phase clarify and lock it; refused",
   "                                      while another run is unfinished unless the user",
   "                                      chose to leave that one (--replace)",

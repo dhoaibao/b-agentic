@@ -4,6 +4,29 @@ import { createHash } from "node:crypto";
 
 export const STATE_SCHEMA = 1;
 
+// The folder of the wrapper scripts that the printed commands and usage name (ADR-029).
+export const DEFAULT_HELPER_DIR = "~/.claude/b-agentic/bin";
+const SAFE_HELPER_DIR = /^[A-Za-z0-9._~/-]+$/;
+
+// A runtime that installs the wrappers elsewhere sets B_AGENTIC_HELPER_DIR. It only
+// changes printed text, and the model may copy that text into a shell, so a value
+// outside the safe characters is ignored.
+export function helperDir(env = process.env) {
+  const value = env.B_AGENTIC_HELPER_DIR;
+  if (typeof value !== "string" || !SAFE_HELPER_DIR.test(value)) {
+    return DEFAULT_HELPER_DIR;
+  }
+  return value.replace(/\/+$/, "") || DEFAULT_HELPER_DIR;
+}
+
+// The session variable the missing-owner message names: the Claude Code one until a
+// runtime overrides the wrapper folder, which is the signal that Pi runs the helpers.
+export function ownerVar(env = process.env) {
+  return helperDir(env) === DEFAULT_HELPER_DIR
+    ? "CLAUDE_CODE_SESSION_ID"
+    : "PI_SESSION_ID";
+}
+
 export const PHASES = [
   "clarify",
   "approved",

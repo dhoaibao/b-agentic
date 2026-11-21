@@ -54,6 +54,20 @@ ARTIFACTS_SCHEMA = 1
 DEPENDENTS = {"spec": ["plan", "qa"], "plan": ["qa"], "qa": [], "followups": []}
 RUN_ID = re.compile(r"^\d{8}-[a-z0-9][a-z0-9-]{0,40}$")
 OWNER = re.compile(r"^[A-Za-z0-9._:-]{1,80}$")
+# Mirrors helperDir() in b-state-core.mjs: the folder of the wrapper scripts that printed commands name.
+DEFAULT_HELPER_DIR = "~/.claude/b-agentic/bin"
+SAFE_HELPER_DIR = re.compile(r"[A-Za-z0-9._~/-]+")
+
+
+def helper_dir() -> str:
+    # B_AGENTIC_HELPER_DIR only changes printed text, and the model may copy that text into a shell,
+    # so a value outside the safe characters is ignored.
+    value = os.environ.get("B_AGENTIC_HELPER_DIR")
+    if value is None or not SAFE_HELPER_DIR.fullmatch(value):
+        return DEFAULT_HELPER_DIR
+    return value.rstrip("/") or DEFAULT_HELPER_DIR
+
+
 MAX_FILE = 1 << 20
 CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 # Raw HTML in a rendered artifact (an unterminated comment, a tag) could hide criteria from a reader.
@@ -740,9 +754,10 @@ def require_lock(directory: Path, owner: str) -> None:
 
 def default_owner(args: dict) -> str:
     # The same order as b-state.mjs, which takes the lock this owner must hold.
-    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID", "") or os.environ.get("PI_SESSION_ID", "")
     if not OWNER.fullmatch(owner):
-        raise Invalid("pass --owner NAME or set CLAUDE_CODE_SESSION_ID")
+        variable = "CLAUDE_CODE_SESSION_ID" if helper_dir() == DEFAULT_HELPER_DIR else "PI_SESSION_ID"
+        raise Invalid(f"pass --owner NAME or set {variable}")
     return owner
 
 
@@ -1072,8 +1087,7 @@ def _packet_clarify(root: Path, state: dict, data: dict) -> list[str]:
     out += ["", "## Artifacts"]
     for kind in ("spec", "plan"):
         out.append(
-            f"- {kind}.md: "
-            + ("written" if kind in data else f"not written (`~/.claude/b-agentic/bin/b-run schema {kind}`)")
+            f"- {kind}.md: " + ("written" if kind in data else f"not written (`{helper_dir()}/b-run schema {kind}`)")
         )
     if "spec" in data:
         out += ["", "## Acceptance criteria", *_criteria_lines(data["spec"])]
@@ -1789,7 +1803,7 @@ def run(argv: list[str]) -> tuple[int, str]:
     positional, args = parse_args(argv)
     # Help is settled right after the arguments parse, before the schema, stdin, or the repository are touched.
     if args.get("help") or positional[:1] == ["help"]:
-        return 0, (__doc__ or "").strip() + "\n"
+        return 0, (__doc__ or "").strip().replace(DEFAULT_HELPER_DIR, helper_dir()) + "\n"
     if not positional:
         raise Invalid(f"missing command; commands: {', '.join(COMMANDS)}; --help prints usage")
     command, rest = positional[0], positional[1:]

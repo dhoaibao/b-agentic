@@ -7,6 +7,7 @@ import {
   block,
   CONSENT_DRIFT,
   FINGERPRINT,
+  helperDir,
   invalid,
   MAX_CMD,
   MAX_ROUNDS,
@@ -60,7 +61,7 @@ export async function cmdRecord(
   const freshQa = () => {
     if (!art.artifacts.qa || (art.revs.qa ?? 0) <= state.qa.artifact_rev) {
       throw refuse(
-        "write qa.md with ~/.claude/b-agentic/bin/b-run write qa in this QA phase first",
+        `write qa.md with ${helperDir()}/b-run write qa in this QA phase first`,
       );
     }
     return art.artifacts.qa;
@@ -220,12 +221,12 @@ export async function cmdRecord(
         !found.some((item) => item.kind === "blocker")
       ) {
         throw refuse(
-          `write this round's blockers with ~/.claude/b-agentic/bin/b-run write followups first (ids R${round}-<n>, kind blocker)`,
+          `write this round's blockers with ${helperDir()}/b-run write followups first (ids R${round}-<n>, kind blocker)`,
         );
       }
       if (verdict === "READY WITH FOLLOW-UPS" && found.length === 0) {
         throw refuse(
-          `write this round's follow-ups with ~/.claude/b-agentic/bin/b-run write followups first (ids R${round}-<n>)`,
+          `write this round's follow-ups with ${helperDir()}/b-run write followups first (ids R${round}-<n>)`,
         );
       }
       state.review.required = true;
