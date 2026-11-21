@@ -420,8 +420,9 @@ never granted to the specialists), calendar and contact reads are `private-read`
 and ask, and every write asks. Excalidraw's
 `create_view` and draw.io's `open_drawio_*` ask on every call and send diagram
 text to a hosted endpoint or open the draw.io web editor. draw.io runs
-`bunx @drawio/mcp@1.6.3` with `DRAWIO_ICON_SERVICE_URL=off`; the pin freezes only
-the top-level package, and the package runs unsandboxed with your permissions.
+`bunx @drawio/mcp` with `DRAWIO_ICON_SERVICE_URL=off`; the version is not pinned,
+like the other `bunx` servers, and the package and its dependencies run unsandboxed
+with your permissions.
 `list_pages` and `get_page` are `private-read` and always ask: they read any
 `.drawio` or `.xml` path with no directory confinement.
 

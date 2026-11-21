@@ -47,7 +47,7 @@
     "drawio": {
       "type": "stdio",
       "command": "bunx",
-      "args": ["@drawio/mcp@1.6.3"],
+      "args": ["@drawio/mcp"],
       "env": {
         "DRAWIO_ICON_SERVICE_URL": "off"
       }
