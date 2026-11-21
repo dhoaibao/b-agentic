@@ -904,6 +904,47 @@ def validate_codegraph_usage_regression(errors: list[str]) -> None:
                 )
 
 
+# ADR-028: only the wrappers under ~/.claude/b-agentic/bin are runnable commands. b-flow maps the source file names
+# to them in its own text; any other skill or the kernel naming one fails with exit 127 when typed literally.
+SHORT_HELPER_NAME = re.compile(
+    r"(?<![\w./-])(?:b_run\.py|b-state\.mjs|b-candidate-snapshot\.mjs|b-codex-review\.mjs)(?![\w-])"
+)
+LONG_HELPER_FORM = re.compile(r"python3 -I -B|bun --no-env-file")
+WRAPPER_PATH = re.compile(r"~/\.claude/b-agentic/bin/([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)")
+
+
+def helper_name_errors(label: str, text: str, wrappers: set[str]) -> list[str]:
+    """Report short helper names, long wrapper forms, and unknown wrapper paths in one prompt or kernel text."""
+    errors = [
+        f"helper name regression: {label} names {match.group(0)!r}; use the full wrapper path (ADR-028)"
+        for match in SHORT_HELPER_NAME.finditer(text)
+    ]
+    errors += [
+        f"helper name regression: {label} spells out the wrapper command {match.group(0)!r}; name the wrapper (ADR-028)"
+        for match in LONG_HELPER_FORM.finditer(text)
+    ]
+    errors += [
+        f"helper name regression: {label} names unknown wrapper {match.group(1)!r}"
+        for match in WRAPPER_PATH.finditer(text)
+        if match.group(1) not in wrappers
+    ]
+    return errors
+
+
+def validate_helper_name_regression(errors: list[str]) -> None:
+    sys.path.insert(0, str(ROOT / "tooling" / "validate"))
+    try:
+        from shared import WRAPPER_LINES
+    finally:
+        sys.path.pop(0)
+    paths = [
+        ROOT / "references" / "kernel.template.md",
+        *(path for path in sorted((ROOT / "skills").glob("*/prompt.md")) if path.parent.name != "b-flow"),
+    ]
+    for path in paths:
+        errors.extend(helper_name_errors(str(path.relative_to(ROOT)), path.read_text(), set(WRAPPER_LINES)))
+
+
 def validate_requires_markers(errors: list[str]) -> None:
     """Every `<!-- requires:` comment in a skill prompt must be a well-formed marker naming only optional skills."""
     sys.path.insert(0, str(ROOT / "tooling" / "install"))
@@ -1432,6 +1473,7 @@ def main() -> int:
     validate_runtime_contract(skills, errors)
     validate_kernel_consolidation_regression(errors)
     validate_codegraph_usage_regression(errors)
+    validate_helper_name_regression(errors)
     validate_output_shape_regression(errors)
     validate_grounded_claims_regression(errors)
     validate_peer_messaging_regression(errors)

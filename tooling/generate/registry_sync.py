@@ -25,6 +25,7 @@ SETTINGS_TEMPLATE_PATH = CLAUDE_CONFIGS_DIR / "settings.template.json"
 SNAPSHOT_CLI_PATH = CLAUDE_DIR / "bin" / "b-candidate-snapshot.mjs"
 PROTECTED_RULES_PATH = CLAUDE_DIR / "bin" / "b-protected.mjs"
 RUN_CLI_PATH = CLAUDE_DIR / "bin" / "b_run.py"
+STATE_CORE_PATH = CLAUDE_DIR / "bin" / "b-state-core.mjs"
 ARTIFACTS_PATH = ROOT / "references" / "artifacts.yaml"
 ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
 # A prompt line that starts with this marker is emitted only for the named runtimes (marker removed).
@@ -699,6 +700,14 @@ def validate_artifacts_schema() -> list[str]:
     policy = [(pattern, action) for pattern, action in PATH_RULES.items() if pattern != "*"]
     if mirror != policy:
         errors.append(f"{RUN_CLI_PATH.relative_to(ROOT)}: PROTECTED_RULES must match the generated path rules")
+    # The prune hint threshold lives in both CLIs; a drift would make init and prune disagree about the same folder count.
+    state_core = STATE_CORE_PATH.read_text() if STATE_CORE_PATH.is_file() else ""
+    hint_js = re.search(r"export const HINT_RUNS = (\d+);", state_core)
+    hint_py = re.search(r"^HINT_RUNS = (\d+)$", text, re.M)
+    if not hint_js or not hint_py or hint_js.group(1) != hint_py.group(1):
+        errors.append(
+            f"{STATE_CORE_PATH.relative_to(ROOT)} and {RUN_CLI_PATH.relative_to(ROOT)}: HINT_RUNS must be defined and equal"
+        )
     return errors
 
 
