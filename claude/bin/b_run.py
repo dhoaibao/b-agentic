@@ -1757,6 +1757,7 @@ def arity_error(command: str, schema: dict) -> Invalid:
 def parse_args(argv: list[str]) -> tuple[list[str], dict]:
     positional: list[str] = []
     options: dict = {}
+    problem: Invalid | None = None
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -1768,7 +1769,8 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
             positional.append(arg)
         elif arg[2:] in VALUE_OPTIONS:
             if i >= len(argv):
-                raise Invalid(f"{arg} needs a value")
+                problem = problem or Invalid(f"{arg} needs a value")
+                break
             options[arg[2:]] = argv[i]
             i += 1
         elif arg == "--json":
@@ -1776,7 +1778,10 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
         elif arg == "--apply":
             options["apply"] = True
         else:
-            raise Invalid(f"unknown argument: {arg}")
+            problem = problem or Invalid(f"unknown argument: {arg}")
+    # A caller fixing a malformed command asks for help beside the mistake: help is answered, the mistake is not.
+    if problem and not (options.get("help") or positional[:1] == ["help"]):
+        raise problem
     return positional, options
 
 

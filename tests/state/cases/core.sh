@@ -24,6 +24,40 @@ grep -Fq 'Usage:' <<<"$out" || fail "approve --help must print the usage: $out"
 st "$repo" s1 record check --cmd "make test" --exit 0 --include-ignored -h
 grep -Fq 'Usage:' <<<"$out" && fail "an option value that looks like -h must not print usage: $out"
 [ "$before" = "$(state_hash)" ] || fail "a help-shaped option value must not change the state"
+# Help beside a malformed option is still help: the mistake is not answered, the state is not touched.
+for help_case in "approve --bogus --help" "approve --bogus -h" "help --bogus"; do
+  # shellcheck disable=SC2086 # help_case is a deliberate word list.
+  ok "$repo" s1 $help_case
+  grep -Fq 'Usage:' <<<"$out" || fail "'$help_case' must print the usage: $out"
+done
+[ "$before" = "$(state_hash)" ] || fail "help beside a malformed option must not change the state"
+# The valueless option must come last, so these run without the owner the helpers append.
+raw() { rc=0; out=$(cd "$repo" && "${js[@]}" "$cli" "$@" 2>"$work/err") || rc=$?; }
+raw approve --help --owner
+[ "$rc" -eq 0 ] || fail "help beside a valueless option must print the usage: rc=$rc $(cat "$work/err")"
+grep -Fq 'Usage:' <<<"$out" || fail "help beside a valueless option must print the usage: rc=$rc $(cat "$work/err")"
+[ "$before" = "$(state_hash)" ] || fail "help beside a valueless option must not change the state"
+raw record step S-1 --by
+[ "$rc" -eq 2 ] || fail "a valueless option without help must still be a usage error: rc=$rc $(cat "$work/err")"
+grep -Fq -- '--by needs a value' "$work/err" || fail "a valueless option without help must still be a usage error: rc=$rc $(cat "$work/err")"
+invalid "$repo" s1 approve --bogus
+grep -Fq 'unknown argument: --bogus' "$work/err" || fail "a malformed option without help must still be a usage error: $(cat "$work/err")"
+# A deleted current folder is read only when the repository is needed: help and the command name answer as elsewhere.
+gone="$work/gone"
+vanished() { # ARGS...: run b-state from a folder removed after the shell entered it.
+  mkdir -p "$gone"
+  rc=0
+  out=$(cd "$gone" && rmdir "$gone" && "${js[@]}" "$cli" "$@" 2>"$work/err") || rc=$?
+}
+vanished --help
+[ "$rc" -eq 0 ] || fail "help from a deleted folder must print the usage: rc=$rc $out $(cat "$work/err")"
+grep -Fq 'Usage:' <<<"$out" || fail "help from a deleted folder must print the usage: rc=$rc $out $(cat "$work/err")"
+vanished frobnicate
+[ "$rc" -eq 2 ] || fail "an unknown command from a deleted folder must be a usage error: rc=$rc $(cat "$work/err")"
+grep -Fq 'unknown command: frobnicate' "$work/err" || fail "an unknown command from a deleted folder must be a usage error: rc=$rc $(cat "$work/err")"
+vanished show
+[ "$rc" -eq 3 ] || fail "show from a deleted folder must be refused (exit 3): rc=$rc $(cat "$work/err")"
+grep -Fq 'not inside a git worktree (cwd: unavailable); run it from inside the repository' "$work/err" || fail "the deleted-folder refusal must name the fix: $(cat "$work/err")"
 invalid "$repo" s2 status      # s1 holds the lock: the name is still judged first
 grep -Fq 'unknown command: status; commands: init, show, approve' "$work/err" || fail "unknown command must list the commands: $(cat "$work/err")"
 invalid "$repo" s1

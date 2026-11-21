@@ -24,13 +24,16 @@ whose message did not say what to do:
 - `b-run` and `b-state` print their usage on `help`, `--help` and `-h` and exit 0, before any option parsing, schema
   load, stdin read, repository, run, mutex or lock work. The usage names the wrapper under
   `~/.claude/b-agentic/bin/` and lists every command, `worktree` included.
+  A standalone help flag, or `help` as the command, wins over an unknown option or an option missing its value: the
+  caller asking for usage beside a mistake gets usage. A help-shaped value that an option takes stays a value, and a
+  malformed option without a help request is still exit 2.
 - `b-state` judges the command name right after parsing its arguments: an unknown or missing command is exit 2 with the
   command list, in every folder and run state.
 - `b-run` says which argument a known command lacks (`lint needs one KIND: ...`, `handoff needs one PHASE: ...`,
   `runs takes no argument`) and lists the commands for an unknown one.
 - The refusal outside a git worktree stays exit 3 and adds the current folder and `run it from inside the repository`.
-  A vanished current folder still refuses in `b-run`; `b-state` reads its current folder before it dispatches, so there
-  it still exits 2 with the system error (a known gap, not changed here).
+  A vanished current folder is the same refusal in both, with `cwd: unavailable`: `b-state` reads its current folder
+  only when it needs the repository, so help and the command-name check still answer there.
 - The HTML markup error quotes the two matched characters and says to write a placeholder as `FILE` or `{file}`.
   `b-run schema` and `schema KIND` gain an additive `text_rules` list, kept beside the regexes that enforce it.
 - Every command the CLIs print for the model to type names its wrapper: the `b-state` `next` lines, the refusals that
@@ -42,8 +45,9 @@ whose message did not say what to do:
   such as `| tail`, so the exit code it records is that command's own: a pipe reports the last command, and
   `${PIPESTATUS[0]}` is empty in zsh. A pipe the plan's command already contains stays.
 
-Exit codes keep their meaning in each CLI. Two usage cases move: `--help` goes from 2 to 0, and a `b-state` unknown or
-missing command goes from 3 (outside git or when the run or lock refused) to 2.
+Exit codes keep their meaning in each CLI. Three cases move: `--help` goes from 2 to 0 (also beside a malformed option),
+a `b-state` unknown or missing command goes from 3 (outside git or when the run or lock refused) to 2, and a
+`b-state` command that needs the repository, run from a vanished folder, goes from 2 (the system error) to 3.
 
 ## Consequences
 

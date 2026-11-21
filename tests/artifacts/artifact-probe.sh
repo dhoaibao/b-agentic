@@ -75,6 +75,29 @@ for help_args in --help -h help "write spec --help"; do
   grep -Fq 'worker-profile' <<<"$out" || fail "help ($help_args) must list the commands"
 done
 ok "$repo" --help
+# Help beside a malformed option is still help and writes nothing; without help the mistake is a usage error.
+for help_args in "write spec --bogus --help" "write spec --bogus -h" "help --bogus"; do
+  # shellcheck disable=SC2086 # help_args is a deliberate word list.
+  ok "$repo" $help_args </dev/null
+  grep -Fq 'worker-profile' <<<"$out" || fail "'$help_args' must print the usage: $out"
+done
+# The valueless option must come last, so these run without the owner br appends.
+rc=0; out=$(cd "$repo" && python3 -I -B "$cli" write spec --help --out 2>"$work/err" </dev/null) || rc=$?
+[ "$rc" -eq 0 ] || fail "help beside a valueless option must print the usage: rc=$rc $(cat "$work/err")"
+grep -Fq 'worker-profile' <<<"$out" || fail "help beside a valueless option must print the usage: rc=$rc $(cat "$work/err")"
+rc=0; out=$(cd "$repo" && python3 -I -B "$cli" write spec --out 2>"$work/err" </dev/null) || rc=$?
+[ "$rc" -eq 2 ] || fail "a valueless option without help must still be a usage error: rc=$rc $(cat "$work/err")"
+grep -Fq -- '--out needs a value' "$work/err" || fail "a valueless option without help must still be a usage error: rc=$rc $(cat "$work/err")"
+invalid "$repo" write spec --bogus </dev/null
+grep -Fq 'unknown argument: --bogus' "$work/err" || fail "a malformed option without help must still be a usage error: $(cat "$work/err")"
+# A deleted current folder: help answers, and a command that needs the repository is refused, not a system error.
+gone="$work/gone"
+mkdir -p "$gone"; rc=0; out=$(cd "$gone" && rmdir "$gone" && python3 -I -B "$cli" --help 2>"$work/err") || rc=$?
+[ "$rc" -eq 0 ] || fail "help from a deleted folder must print the usage: rc=$rc $(cat "$work/err")"
+grep -Fq 'worker-profile' <<<"$out" || fail "help from a deleted folder must print the usage: rc=$rc $(cat "$work/err")"
+mkdir -p "$gone"; rc=0; out=$(cd "$gone" && rmdir "$gone" && python3 -I -B "$cli" runs 2>"$work/err") || rc=$?
+[ "$rc" -eq 3 ] || fail "runs from a deleted folder must be refused: rc=$rc $(cat "$work/err")"
+grep -Fq 'not inside a git worktree (cwd: unavailable)' "$work/err" || fail "runs from a deleted folder must be refused: rc=$rc $(cat "$work/err")"
 # A help-shaped value of an option is a value, not a request for help: the command still runs and fails (no run here).
 br "$repo" write spec --owner --help </dev/null
 if [ "$rc" -eq 0 ] || grep -Fq 'single writer of a b-flow' <<<"$out"; then

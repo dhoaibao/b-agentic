@@ -134,6 +134,7 @@ const BOOL_FLAGS = new Set(["takeover", "history", "replace"]);
 
 export function parseArgs(argv) {
   const args = { _: [] };
+  let problem = null;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--help" || arg === "-h") {
@@ -149,15 +150,31 @@ export function parseArgs(argv) {
     if (BOOL_FLAGS.has(key)) args[key] = true;
     else if (VALUE_FLAGS.has(key)) {
       const value = argv[++i];
-      if (value === undefined) throw invalid(`--${key} needs a value`);
+      if (value === undefined) {
+        problem ??= invalid(`--${key} needs a value`);
+        break;
+      }
       if (key === "include-ignored") (args[key] ??= []).push(value);
       else args[key] = value;
-    } else throw invalid(`unknown argument: --${key}`);
+    } else problem ??= invalid(`unknown argument: --${key}`);
   }
+  // A caller fixing a malformed command asks for help beside the mistake: help is answered, the mistake is not.
+  if (problem && !(args.help || args._[0] === "help")) throw problem;
   return args;
 }
 
-export async function run(argv, cwd = process.cwd(), deps = {}) {
+// Read only when the repository is needed: a deleted current folder is a refusal, not a raw ENOENT before help.
+function currentFolder() {
+  try {
+    return process.cwd();
+  } catch {
+    throw new Refused(
+      "not inside a git worktree (cwd: unavailable); run it from inside the repository",
+    );
+  }
+}
+
+export async function run(argv, cwd, deps = {}) {
   const args = parseArgs(argv);
   // Help and the command name are settled right after the arguments parse, before the repository, the run, the mutex or the lock.
   if (args.help || args._[0] === "help") return USAGE;
@@ -166,7 +183,7 @@ export async function run(argv, cwd = process.cwd(), deps = {}) {
     throw invalid(
       `${command ? `unknown command: ${command}` : "missing command"}; commands: ${COMMANDS.join(", ")}; --help prints usage`,
     );
-  const root = await repoRoot(cwd);
+  const root = await repoRoot(cwd ?? currentFolder());
   if (command === "init") return cmdInit(root, args);
   const { dir } = await resolveRun(root, args);
   if (command === "show") {
