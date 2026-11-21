@@ -56,12 +56,12 @@ RUN_ID = re.compile(r"^\d{8}-[a-z0-9][a-z0-9-]{0,40}$")
 OWNER = re.compile(r"^[A-Za-z0-9._:-]{1,80}$")
 # Mirrors helperDir() in b-state-core.mjs: the folder of the wrapper scripts that printed commands name.
 DEFAULT_HELPER_DIR = "~/.claude/b-agentic/bin"
-SAFE_HELPER_DIR = re.compile(r"[A-Za-z0-9._~/-]+")
+SAFE_HELPER_DIR = re.compile(r"(?:~/|/)[A-Za-z0-9._~/-]*")
 
 
 def helper_dir() -> str:
     # B_AGENTIC_HELPER_DIR only changes printed text, and the model may copy that text into a shell,
-    # so a value outside the safe characters is ignored.
+    # so a value that is not a ~/ or absolute path of safe characters is ignored.
     value = os.environ.get("B_AGENTIC_HELPER_DIR")
     if value is None or not SAFE_HELPER_DIR.fullmatch(value):
         return DEFAULT_HELPER_DIR
@@ -754,7 +754,10 @@ def require_lock(directory: Path, owner: str) -> None:
 
 def default_owner(args: dict) -> str:
     # The same order as b-state.mjs, which takes the lock this owner must hold.
-    owner = args.get("owner") or os.environ.get("CLAUDE_CODE_SESSION_ID", "") or os.environ.get("PI_SESSION_ID", "")
+    # An explicit --owner, even an empty one, is never replaced by a session variable.
+    owner = args.get("owner")
+    if owner is None:
+        owner = os.environ.get("CLAUDE_CODE_SESSION_ID", "") or os.environ.get("PI_SESSION_ID", "")
     if not OWNER.fullmatch(owner):
         variable = "CLAUDE_CODE_SESSION_ID" if helper_dir() == DEFAULT_HELPER_DIR else "PI_SESSION_ID"
         raise Invalid(f"pass --owner NAME or set {variable}")

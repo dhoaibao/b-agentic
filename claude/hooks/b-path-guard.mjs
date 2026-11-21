@@ -20,7 +20,10 @@ import { isProtected } from "../bin/b-protected.mjs";
 const HELPER_DIR = "~/.claude/b-agentic/bin";
 function helperDir(env = process.env) {
   const value = env.B_AGENTIC_HELPER_DIR;
-  if (typeof value !== "string" || !/^[A-Za-z0-9._~/-]+$/.test(value)) {
+  if (
+    typeof value !== "string" ||
+    !/^(?:~\/|\/)[A-Za-z0-9._~/-]*$/.test(value)
+  ) {
     return HELPER_DIR;
   }
   return value.replace(/\/+$/, "") || HELPER_DIR;

@@ -35,6 +35,10 @@ py_owner() { env "$@" python3 -I -B -c "import sys; sys.path.insert(0, '$root/cl
 [ "$(py_owner CLAUDE_CODE_SESSION_ID= PI_SESSION_ID=pi-session-4)" = "pi-session-4" ] || fail "b_run must also take PI_SESSION_ID when the Claude Code variable is empty"
 [ "$(py_owner CLAUDE_CODE_SESSION_ID=claude-session-2 PI_SESSION_ID=pi-session-4)" = "claude-session-2" ] || fail "b_run must keep CLAUDE_CODE_SESSION_ID first"
 rc=0
+env CLAUDE_CODE_SESSION_ID=claude-session-2 PI_SESSION_ID=pi-session-4 python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; b_run.default_owner({'owner': ''})" >/dev/null 2>&1 || rc=$?
+[ "$rc" -ne 0 ] || fail "b_run must refuse an explicit empty --owner like b-state, not take the session identity"
+[ "$(env CLAUDE_CODE_SESSION_ID=claude-session-2 python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.default_owner({'owner': 'explicit-6'}))")" = "explicit-6" ] || fail "b_run must keep an explicit --owner first"
+rc=0
 (cd "$repoP" && env CLAUDE_CODE_SESSION_ID= PI_SESSION_ID= "${js[@]}" "$cli" lock >/dev/null 2>"$work/err") || rc=$?
 [ "$rc" -eq 2 ] || fail "two empty owner variables must be invalid input: rc=$rc"
 rc=0
@@ -57,7 +61,7 @@ first_line=$(env B_AGENTIC_HELPER_DIR='x; rm -rf y' "${js[@]}" "$cli" help | hea
 [ "$first_line" = "Usage: ~/.claude/b-agentic/bin/b-state <command> [args] [--run ID] [--owner NAME]" ] || fail "an unsafe override must be ignored: $first_line"
 
 # --- the JS and Python helpers agree on every override value ----------------------
-for value in '~/.pi/agent/b-agentic/bin' '~/.pi/agent/b-agentic/bin//' 'x; rm -rf y' '$HOME/x' 'a b' '/' ''; do
+for value in '~/.pi/agent/b-agentic/bin' '~/.pi/agent/b-agentic/bin//' '/opt/b-agentic/bin' 'x; rm -rf y' '$HOME/x' 'a b' '/' '' 'bin' './bin' '../bin' '~' '~x/bin' '/x y'; do
   from_js=$(B_AGENTIC_HELPER_DIR="$value" "${js[@]}" -e "import { helperDir } from '$root/claude/bin/b-state-core.mjs'; console.log(helperDir());")
   from_py=$(B_AGENTIC_HELPER_DIR="$value" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.helper_dir())")
   [ "$from_js" = "$from_py" ] || fail "helperDir and helper_dir disagree for '$value': '$from_js' vs '$from_py'"
