@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import os
 import re
 import shutil
 import sys
@@ -1560,6 +1561,57 @@ def render_pi_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str
     )
 
 
+PI_DEFAULT_TOOLS = ["+grep", "+find", "+ls"]
+PI_MCP_TEMPLATE = CLAUDE_DIR / "configs" / "mcp.base.json"
+
+
+def render_pi_json(data: dict[str, Any]) -> str:
+    return json.dumps(data, indent=2) + "\n"
+
+
+def render_pi_settings() -> dict[str, Any]:
+    """Settings the installer merges into Pi's settings.json: unpinned package names and the search tools."""
+    return {"packages": list(RUNTIMES["pi"]["packages"]), "defaultTools": list(PI_DEFAULT_TOOLS)}
+
+
+def render_pi_permission(policy: dict[str, Any]) -> dict[str, Any]:
+    """The permission-system config the installer merges: protected paths, shell asks and denies, MCP verdicts.
+
+    The shell denies cover the model's own bash tool, which the guard extension does not see. Within a section a
+    later rule wins, so denies follow asks. `skill` and `codemode` have no shipped default in the permission system.
+    """
+    pi = RUNTIMES["pi"]
+    ask, deny = shell_pattern_rules()
+    bash: dict[str, str] = {"*": "allow"}
+    bash.update({pattern: "ask" for pattern in ask})
+    bash.update({pattern: "deny" for pattern in deny})
+    mcp: dict[str, str] = {"*": "ask"}
+    for server, record in policy["servers"].items():
+        for tool, class_name in record["tools"].items():
+            name = pi["mcp_tool_format"].format(server=server, tool=tool.replace("-", "_"))
+            mcp[name] = policy["classes"][class_name]["native_permission"]
+    permission: dict[str, Any] = {tool: "allow" for tool in ("read", "write", "edit", "find", "grep", "ls")}
+    permission.update(
+        {
+            "bash": bash,
+            "path": dict(PATH_RULES),
+            "external_directory": "allow",
+            "skill": "allow",
+            "codemode": "ask",
+            "mcp": mcp,
+        }
+    )
+    permission.update({tool: "allow" for tool in pi["allowed_tools"]})
+    return {"yoloMode": False, "permission": permission}
+
+
+def render_pi_mcp() -> dict[str, Any]:
+    """The MCP servers the installer merges into Pi's mcp.json, all with the runtime's default exposure."""
+    servers = json.loads(PI_MCP_TEMPLATE.read_text())["mcpServers"]
+    exposure = RUNTIMES["pi"]["mcp_exposure"]["default"]
+    return {"mcpServers": {name: {**entry, "exposure": exposure} for name, entry in servers.items()}}
+
+
 def render_pi_outputs(
     skills: list[dict[str, Any]], agents: dict[str, dict[str, Any]], policy: dict[str, Any]
 ) -> tuple[dict[str, str], set[str]]:
@@ -1571,6 +1623,9 @@ def render_pi_outputs(
         outputs[f"prompts/{skill['name']}.md"] = render_pi_prompt(skill)
     for name, agent in agents.items():
         outputs[f"agents/{name}.md"] = render_pi_agent_file(name, agent, skills, policy)
+    outputs["config/settings.json"] = render_pi_json(render_pi_settings())
+    outputs["config/permission.json"] = render_pi_json(render_pi_permission(policy))
+    outputs["config/mcp.json"] = render_pi_json(render_pi_mcp())
     return outputs, hits
 
 
@@ -1618,6 +1673,47 @@ def pi_output_errors(outputs: dict[str, str], hits: set[str]) -> list[str]:
     review = outputs.get("skills/b-review/SKILL.md", "")
     if review and "b-reviewer" not in review:
         errors.append("pi output skills/b-review/SKILL.md: the review gate must be the b-reviewer subagent")
+    errors.extend(pi_config_errors(outputs))
+    return errors
+
+
+def pi_config_errors(outputs: dict[str, str]) -> list[str]:
+    """What the three rendered Pi config files must keep: the installer merges them without checking their meaning."""
+    errors: list[str] = []
+    parsed: dict[str, Any] = {}
+    for name in ("settings", "permission", "mcp"):
+        try:
+            value = json.loads(outputs[f"config/{name}.json"])
+        except (KeyError, ValueError):
+            value = None
+        if isinstance(value, dict):
+            parsed[name] = value
+        else:
+            errors.append(f"pi output config/{name}.json: missing or not a JSON object")
+    settings, mcp = parsed.get("settings"), parsed.get("mcp")
+    if settings is not None and settings.get("packages") != RUNTIMES["pi"]["packages"]:
+        errors.append(
+            "pi output config/settings.json: packages must be the unpinned runtime packages, classifier first"
+        )
+    if mcp is not None and any(
+        entry.get("exposure") != RUNTIMES["pi"]["mcp_exposure"]["default"]
+        for entry in mcp.get("mcpServers", {}).values()
+    ):
+        errors.append("pi output config/mcp.json: every server must carry the runtime's default exposure")
+    permission = parsed.get("permission", {}).get("permission")
+    if "permission" in parsed:
+        if not isinstance(permission, dict):
+            errors.append("pi output config/permission.json: expected a permission object")
+        else:
+            bash = permission.get("bash", {})
+            if permission.get("skill") != "allow" or "codemode" not in permission:
+                errors.append("pi output config/permission.json: skill must be allowed and codemode must carry a rule")
+            if permission.get("path") != PATH_RULES:
+                errors.append("pi output config/permission.json: path rules must equal the shared protected path rules")
+            if any(bash.get(pattern) != "deny" for pattern in ("sudo", "git reset --hard", "git pull")):
+                errors.append(
+                    "pi output config/permission.json: the model's bash tool must deny sudo, reset --hard and pull"
+                )
     return errors
 
 
@@ -1657,6 +1753,20 @@ def validate_pi_regressions(
             ),
             "an ordinary step recorded with --by",
         ),
+        (lambda o, h: o.update({"config/permission.json": "{}"}), "a permission config without its rules"),
+        (
+            lambda o, h: o.update(
+                {"config/permission.json": o["config/permission.json"].replace('"skill": "allow"', '"skill": "ask"')}
+            ),
+            "a permission config that does not allow skills",
+        ),
+        (
+            lambda o, h: o.update(
+                {"config/mcp.json": o["config/mcp.json"].replace('"exposure": "direct"', '"exposure": "deferred"', 1)}
+            ),
+            "an MCP server with another exposure",
+        ),
+        (lambda o, h: o.update({"config/settings.json": "[]"}), "a settings fragment that is not an object"),
         (lambda o, h: o.update({"../escape.md": "x"}), "a path that leaves the target"),
         (lambda o, h: o.update({"/abs.md": "x"}), "an absolute path"),
         (
@@ -1710,6 +1820,18 @@ def validate_pi_write_path(outputs: dict[str, str]) -> list[str]:
                 errors.append("pi regression: a failed write must leave neither the target nor a staging directory")
             if write_runtime_tree("pi", target) != 0:
                 errors.append("pi regression: a render must succeed again after a failed one")
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "pi"
+            target.mkdir()
+            with mock.patch.object(os, "replace", side_effect=OSError("simulated rename failure")):
+                if write_runtime_tree("pi", target) != 1:
+                    errors.append("pi regression: a failed final rename must fail the render")
+            if not target.is_dir() or any(target.iterdir()):
+                errors.append("pi regression: a failed final rename must leave the empty target as it was")
+            if {path.name for path in Path(tmp).iterdir()} != {"pi"}:
+                errors.append("pi regression: a failed final rename must leave no staging directory")
+            if write_runtime_tree("pi", target) != 0 or not (target / "kernel.md").is_file():
+                errors.append("pi regression: a render must replace an existing empty target")
         inside = ROOT / "skills" / "pi-selftest-target"
         if write_runtime_tree("pi", inside) != 2 or inside.exists():
             errors.append("pi regression: a target inside the checkout must be refused and left uncreated")
@@ -1721,8 +1843,8 @@ def validate_pi_write_path(outputs: dict[str, str]) -> list[str]:
 def write_runtime_tree(runtime: str, out: Path) -> int:
     """Render one non-Claude runtime into an empty or new directory outside the checkout.
 
-    The files are written into a staging directory beside the target and moved into place only after every
-    write succeeded, so an error leaves the target exactly as it was.
+    The files are written into a staging directory beside the target and moved into place with one replacing
+    rename only after every write succeeded, so an error leaves the target exactly as it was.
     """
     if runtime == "claude" or runtime not in RUNTIMES:
         print(f"--render takes a non-Claude runtime: {sorted(set(RUNTIMES) - {'claude'})}", file=sys.stderr)
@@ -1760,9 +1882,8 @@ def write_runtime_tree(runtime: str, out: Path) -> int:
             path = staging / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
-        if target.exists():
-            target.rmdir()
-        staging.rename(target)
+        # One rename replaces an empty target atomically, so a failure never leaves the target removed.
+        os.replace(staging, target)
     except OSError as error:
         if staging is not None:
             shutil.rmtree(staging, ignore_errors=True)
