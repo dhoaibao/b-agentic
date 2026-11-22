@@ -31,15 +31,19 @@ main session with `--by main`. Meanwhile `pi-subagents` 0.89.2 natively supports
   errors across both runtimes, require worktree cleanup on `unblock verify`, and extend `b-run worker-profile` (with
   `--step S-n` for worktree `cwd`s) to inspect Pi `.pi/agents`, `.agents`, `~/.pi/agent/agents`, and `~/.agents`
   profiles, Pi `---` frontmatter delimiters, and Pi `subagents.*` discovery/extension/override settings.
+- Enable `parallel_checks` concurrency on Pi via the Pi glossary in `references/runtimes.yaml`: `skills/b-flow/SKILL.md`
+  instructs the model to issue one `bash` tool call per listed check in a single assistant message with no other tool
+  call (relying on Pi's default parallel tool execution, falling back cleanly if any sibling tool or setting forces
+  sequential mode), edit nothing while they run, and record each result with `--from`.
 
 ## Consequences
 
 - Pi and Claude Code share the same `b-flow` `worker_steps` and `parallel_steps` lifecycle (`WORKTREE_CAP = 2`,
   `b-state worktree add|collect|remove`, and `b-state record step S-n --by worker`), with fail-closed NUL-delimited
   worktree enumeration on both runtimes.
-- Owed live check before acceptance: run a real Pi session end-to-end with a `worker_steps` step and a two-step
+- Owed live check before acceptance: run a real Pi session end-to-end with a `worker_steps` step, a two-step
   `parallel_steps` batch (including `subagent_launch`, child `guard.mjs` + `pi-permission-system` enforcement, and
-  `b-state worktree collect`) with real provider models.
+  `b-state worktree collect`), and a `parallel_checks` batch with real provider models.
 
 Evidence: [`references/runtimes.yaml`](../../references/runtimes.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),

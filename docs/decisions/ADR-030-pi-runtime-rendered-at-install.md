@@ -62,7 +62,9 @@ under `tests/pi`):
   named runtime keeps (the marker lines may be indented, so a block inside a Markdown list item keeps the list intact),
   beside the existing per-line markers and the glossary, with at most 10 marker lines in all (8 originally; 3 after [ADR-031](ADR-031-pi-worker-steps.md) made the worker flow shared). On Pi the review gate is the read-only
   `b-reviewer` subagent only and b-flow records `--gate reviewer`; `b-worker`, worker steps, and parallel steps were later
-  enabled on Pi by [ADR-031](ADR-031-pi-worker-steps.md) (originally omitted here); checks that Claude Code runs together run one at a time;
+  enabled on Pi by [ADR-031](ADR-031-pi-worker-steps.md) (originally omitted here); checks that Claude Code runs together
+  were originally run one at a time and were later aligned to parallel `bash` tool calls in one assistant message via
+  [ADR-031](ADR-031-pi-worker-steps.md);
   `AskUserQuestion` becomes `ask_user_question`; no status line, todo, plan mode or sandbox is ported.
 - `--render pi` renders the kernel, skills, prompts, agents and the Pi permission, MCP and settings configuration. The owned
   extension (path guard with `user_bash`, verify gate, context injection, child gating, fail-closed capability checks) and the
