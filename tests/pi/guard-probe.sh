@@ -153,10 +153,13 @@ echo "pi guard probe passed: alexandria"
 # --- user's own bash command (RPC `bash`, as `!` in the terminal) ----------------
 rpc_out="$work/rpc.jsonl"
 # Pi drops commands still queued when stdin reaches EOF, so the feed stays open until the answers arrive.
+# A writable mixed-case folder, so only the guard (not a missing parent) can stop the write on a case-sensitive filesystem.
+mkdir -p "$work/cwd/.B-Agentic"
 ( cd "$work/cwd" && { printf '%s\n' \
     '{"id":"1","type":"bash","command":"cat .env"}' \
     '{"id":"2","type":"bash","command":"echo x > .b-agentic/active"}' \
-    '{"id":"3","type":"bash","command":"cat notes.txt"}'; sleep 6; } \
+    '{"id":"3","type":"bash","command":"cat notes.txt"}' \
+    '{"id":"4","type":"bash","command":"echo x > .B-Agentic/active"}'; sleep 6; } \
   | timeout 60 pi -e "$root/tests/pi/stub-provider.ts" --model probe/probe-1 --mode rpc --no-session \
     >"$rpc_out" 2>"$work/rpc.err" ) || fail "rpc: pi exited non-zero: $(head -c 400 "$work/rpc.err")"
 rpc() { jq -rs --arg id "$1" "map(select(.type == \"response\" and .id == \$id)) | .[0] | $2" "$rpc_out"; }
@@ -165,6 +168,9 @@ rpc 1 .data.output | grep -Fq 'likely-secret path' || fail "user bash cat .env g
 ! rpc 1 .data.output | grep -Fq 'SECRET=1' || fail "user bash cat .env leaked the secret"
 [ "$(rpc 2 .data.exitCode)" = 1 ] || fail "user bash writing .b-agentic must be refused"
 [ ! -e "$work/cwd/.b-agentic/active" ] || fail "the refused user bash command ran"
+[ "$(rpc 4 .data.exitCode)" = 1 ] || fail "user bash writing .B-Agentic must be refused in any letter case"
+rpc 4 .data.output | grep -Fq 'names .b-agentic' || fail "the mixed-case refusal must come from the guard, not from a shell error: $(rpc 4 .data.output)"
+[ ! -e "$work/cwd/.B-Agentic/active" ] || fail "the refused mixed-case user bash command ran"
 [ "$(rpc 3 .data.exitCode)" = 0 ] || fail "an ordinary user bash command must run"
 rpc 3 .data.output | grep -Fq 'hello' || fail "the ordinary user bash command gave no output"
 echo "pi guard probe passed: user bash"

@@ -197,7 +197,10 @@ export function listSearchFiles({ dir, glob, command = "rg" }) {
 // inspection. The check is token-level and narrow on purpose: a user's own
 // shell is not sandboxed, this only stops the two accidents the path guard
 // exists for.
-const NAMES_AGENTIC = /(^|[^A-Za-z0-9_-])\.b-agentic(?![A-Za-z0-9_-])/;
+// Case-insensitive for the same reason as the shared path guard: `.B-Agentic` is the same folder on a
+// case-insensitive filesystem. A name that only starts with it (`.b-agentic.md`) is an ordinary file.
+const NAMES_AGENTIC =
+  /(^|[^A-Za-z0-9_-])\.b-agentic(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])/i;
 const WORD_BREAKS = /[\s'"`;|&<>()=:,]+/;
 
 // `loader` is injectable so tests can simulate a missing or broken hook module.

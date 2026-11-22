@@ -57,8 +57,12 @@ export function blockedPaths(toolInput, toolName) {
 // b-state and b_run.py detect it as a hash mismatch or an unknown file.
 const WRITE_TOOLS = new Set(["Edit", "Write", "NotebookEdit"]);
 
+// Case-insensitive: `.B-Agentic` opens the same folder on a case-insensitive filesystem (macOS, Windows).
 const hasAgentic = (path) =>
-  path.replaceAll("\\", "/").split("/").includes(".b-agentic");
+  path
+    .replaceAll("\\", "/")
+    .split("/")
+    .some((part) => part.toLowerCase() === ".b-agentic");
 
 // The spelling of a path can hide the folder (a symlinked directory, a relative
 // path, `..`), so the nearest existing ancestor is resolved before the check.

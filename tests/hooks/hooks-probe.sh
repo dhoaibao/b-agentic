@@ -91,6 +91,12 @@ run "$pathguard" ''; expect 0 "empty input must fail open"
 # Run artifacts have a single writer: file-tool writes under .b-agentic are refused, reads pass.
 run "$pathguard" "$(pg Write file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .b-agentic must be blocked"
 guard_guidance "$err" "the .b-agentic refusal"
+# The folder is matched in any letter case (a case-insensitive filesystem opens the same folder), but only as a whole component.
+run "$pathguard" "$(pg Write file_path /repo/.B-Agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .B-Agentic must be blocked"
+run "$pathguard" "$(pg Edit file_path /repo/sub/.B-AGENTIC/state.json)"; expect 2 "Edit under .B-AGENTIC must be blocked"
+run "$pathguard" "$(pg Read file_path /repo/.B-Agentic/runs/20260101-x/spec.md)"; expect 0 "Read under .B-Agentic must pass"
+run "$pathguard" "$(pg Write file_path /repo/docs/B-Agentic-notes.md)"; expect 0 "a name that only contains b-agentic must pass"
+run "$pathguard" "$(pg Write file_path /repo/x.B-AGENTIC)"; expect 0 "a name that ends in .B-AGENTIC must pass"
 # B_AGENTIC_HELPER_DIR names the wrapper folder another runtime installs; an unsafe value is ignored.
 # shellcheck disable=SC2088 # The folder is the literal text ~/... that the guard prints, never expanded.
 B_AGENTIC_HELPER_DIR='~/.pi/agent/b-agentic/bin' run "$pathguard" "$(pg Write file_path /repo/.b-agentic/runs/20260101-x/spec.md)"; expect 2 "Write under .b-agentic must be blocked under the override"

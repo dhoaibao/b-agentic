@@ -92,6 +92,21 @@ test(".b-agentic writes are blocked and reads are allowed", async () => {
   );
 });
 
+test(".b-agentic is refused in any letter case, and only as a whole component", async () => {
+  for (const path of [
+    ".B-Agentic/runs/x/spec.md",
+    "sub/.B-AGENTIC/state.json",
+  ]) {
+    for (const tool of ["edit", "write"]) {
+      assert.ok(blocked(await call(tool, { path })), `${tool} on ${path}`);
+    }
+    assert.equal(await call("read", { path }), undefined, `read ${path}`);
+  }
+  for (const path of ["docs/B-Agentic-notes.md", "x.B-AGENTIC"]) {
+    assert.equal(await call("write", { path }), undefined, path);
+  }
+});
+
 test("symlinks and .. cannot hide .b-agentic", async () => {
   mkdirSync(join(work, ".b-agentic", "runs"), { recursive: true });
   symlinkSync(join(work, ".b-agentic"), join(work, "link"));
@@ -368,6 +383,12 @@ test("user_bash refuses secret paths and returns a refusal result", () => {
 test("user_bash refuses .b-agentic unless the command is plain inspection", () => {
   for (const command of [
     "echo x > .b-agentic/active",
+    "echo x > .B-Agentic/active",
+    "echo x > .b-agentic*",
+    "echo x > .b-agentic.*",
+    "echo x > .b-agentic./active",
+    "echo x > .b-agentic.",
+    "rm -rf .B-AGENTIC/runs",
     "rm -rf .b-agentic/runs",
     "sed -i s/a/b/ .b-agentic/runs/x/state.json",
   ]) {
@@ -377,6 +398,9 @@ test("user_bash refuses .b-agentic unless the command is plain inspection", () =
   }
   for (const command of [
     "ls .b-agentic",
+    "ls .B-AGENTIC",
+    "touch .B-Agentic.md",
+    "touch .b-agentic.md",
     "cat .b-agentic/runs/x/spec.md",
     "git status --short",
     "npm test",
