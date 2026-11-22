@@ -23,6 +23,9 @@
       "bun node_modules/.bin/prettier --check",
       "bun node_modules/.bin/markdownlint-cli2"
     ],
+    "**/*.{js,mjs,ts}": [
+      "bun node_modules/.bin/prettier --check"
+    ],
     "**/*.{json,jsonc,yaml,yml}": [
       "bun node_modules/.bin/prettier --check"
     ]
