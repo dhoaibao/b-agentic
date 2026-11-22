@@ -233,6 +233,167 @@ def agent_tools(agent: str) -> list[str]:
     return [tool.strip() for tool in line.removeprefix("tools: ").split(",") if tool.strip()]
 
 
+def pi_push_errors(bash: dict[str, str]) -> list[str]:
+    """Concrete push, PR and destructive commands resolved like Pi does: the last matching rule wins."""
+    errors: list[str] = []
+    for command, expected in {**PUSH_DECISIONS, **DESTRUCTIVE_DECISIONS}.items():
+        for prefix in ("", "rtk "):
+            full = prefix + command
+            actual = None
+            for pattern, verdict in bash.items():
+                if glob_matches(pattern, full):
+                    actual = verdict
+            if actual != expected:
+                errors.append(f"pi shell policy: {full!r} resolves to {actual}, expected {expected}")
+    return errors
+
+
+def pi_permission_errors(permission: dict, policy: dict, agent_tools: dict[str, list[str]]) -> list[str]:
+    """The Pi permission config must carry exactly the policy's MCP verdicts and the shell rules."""
+    from tooling.generate.registry_sync import PATH_RULES, RUNTIMES, shell_pattern_rules
+
+    errors: list[str] = []
+    mcp = permission.get("mcp", {})
+    if mcp.get("*") != "ask":
+        errors.append("pi permission: the mcp default must be ask")
+    expected: dict[str, str] = {}
+    for server, record in policy["servers"].items():
+        for tool, classification in record["tools"].items():
+            name = RUNTIMES["pi"]["mcp_tool_format"].format(server=server, tool=tool.replace("-", "_"))
+            # Pi rewrites dots to underscores and shortens ids over 64 characters; the renderer only maps dashes, so a
+            # name that Pi would rewrite must fail here until the renderer learns that rule.
+            if re.search(r"[^A-Za-z0-9_-]", tool) or len(name) > 64:
+                errors.append(
+                    f"pi permission: {server}:{tool} has a character or length Pi rewrites; extend the renderer first"
+                )
+            if name in expected:
+                errors.append(f"pi permission: {name} collides with another MCP tool after dash replacement")
+            expected[name] = policy["classes"][classification]["native_permission"]
+    for name, verdict in expected.items():
+        if mcp.get(name) != verdict:
+            errors.append(f"pi permission: {name} is {mcp.get(name)!r}, policy says {verdict}")
+    for name in sorted(set(mcp) - set(expected) - {"*"}):
+        errors.append(f"pi permission: {name} is not an MCP tool of the policy")
+    ask, deny = shell_pattern_rules()
+    # Pi uses the last matching rule, so order is part of the policy: the catch-all first, then the asks, then the denies.
+    denied = set(deny)
+    wanted_bash = {
+        "*": "allow",
+        **{pattern: "ask" for pattern in ask if pattern not in denied},
+        **{pattern: "deny" for pattern in deny},
+    }
+    if list(permission.get("bash", {}).items()) != list(wanted_bash.items()):
+        errors.append(
+            "pi permission: the bash rules differ from the shell policy in content or order (catch-all first)"
+        )
+    if next(iter(mcp), None) != "*":
+        errors.append("pi permission: the mcp catch-all must come first")
+    if list(permission.get("path", {}).items()) != list(PATH_RULES.items()):
+        errors.append("pi permission: the path rules differ from the shared protected path rules in content or order")
+    errors.extend(pi_push_errors(permission.get("bash", {})))
+    for agent, tools in agent_tools.items():
+        for tool in tools:
+            # Pi agent files name an MCP tool mcp:<server>/<tool>; the permission id is mcp__<server>__<tool_with_underscores>.
+            if tool.startswith("mcp:"):
+                server, _, name = tool.removeprefix("mcp:").partition("/")
+                permission_id = RUNTIMES["pi"]["mcp_tool_format"].format(server=server, tool=name.replace("-", "_"))
+                if mcp.get(permission_id) != "allow":
+                    errors.append(f"pi agent {agent}: {tool} must be an allowed read tool ({permission_id})")
+    return errors
+
+
+def pi_yolo_errors(config: dict) -> list[str]:
+    return [] if config.get("yoloMode") is False else ["pi permission: the emitted yoloMode must be false"]
+
+
+def pi_mcp_errors(artifact: str) -> list[str]:
+    """The installer consumes the rendered config/mcp.json: it must hold every shipped server, direct."""
+    servers = json.loads((ROOT / "claude" / "configs" / "mcp.base.json").read_text())["mcpServers"]
+    try:
+        pi_mcp = json.loads(artifact)["mcpServers"]
+    except (ValueError, KeyError, TypeError):
+        return ["pi mcp: config/mcp.json is not a JSON object with mcpServers"]
+    errors = []
+    if set(pi_mcp) != set(servers):
+        errors.append("pi mcp: the server set of config/mcp.json differs from claude/configs/mcp.base.json")
+    for name, entry in pi_mcp.items():
+        if name in servers and entry != {**servers[name], "exposure": "direct"}:
+            errors.append(f"pi mcp: {name} must be the shipped definition with exposure direct")
+    return errors
+
+
+def pi_errors(policy: dict) -> list[str]:
+    from tooling.generate.registry_sync import (
+        load_agents,
+        load_skills,
+        render_pi_outputs,
+        render_pi_permission,
+    )
+
+    outputs, _ = render_pi_outputs(load_skills(), load_agents(), policy)
+    permission = json.loads(outputs["config/permission.json"])["permission"]
+    if json.loads(outputs["config/permission.json"]) != render_pi_permission(policy):
+        return ["pi permission: the rendered config differs from render_pi_permission"]
+    agent_tools: dict[str, list[str]] = {}
+    for path, text in outputs.items():
+        if path.startswith("agents/"):
+            line = next((item for item in text.splitlines() if item.startswith("tools: ")), "tools: ")
+            agent_tools[path] = [tool.strip() for tool in line.removeprefix("tools: ").split(",") if tool.strip()]
+    errors = pi_permission_errors(permission, policy, agent_tools)
+    # Pi must never ship with its yolo mode on, whatever the renderer says: check the emitted file itself.
+    emitted = json.loads(outputs["config/permission.json"])
+    errors.extend(pi_yolo_errors(emitted))
+    if not pi_yolo_errors({**emitted, "yoloMode": True}):
+        errors.append("pi permission regression: an enabled yoloMode was not detected")
+    errors.extend(pi_mcp_errors(outputs["config/mcp.json"]))
+    mcp_artifact = json.loads(outputs["config/mcp.json"])
+    del mcp_artifact["mcpServers"][next(iter(mcp_artifact["mcpServers"]))]
+    if not pi_mcp_errors(json.dumps(mcp_artifact)):
+        errors.append("pi mcp regression: a server removed from the emitted config/mcp.json was not detected")
+    # A drifted verdict, a missing shell deny, and a stray tool must each be caught.
+    drifted = json.loads(json.dumps(permission))
+    name = next(key for key, value in drifted["mcp"].items() if key != "*" and value == "allow")
+    drifted["mcp"][name] = "deny"
+    dropped = json.loads(json.dumps(permission))
+    del dropped["bash"]["sudo"]
+    stray = json.loads(json.dumps(permission))
+    stray["mcp"]["mcp__nowhere__tool"] = "allow"
+    ask_after_deny = json.loads(json.dumps(permission))
+    ask_after_deny["bash"]["git push *"] = ask_after_deny["bash"].pop("git push *")
+    mcp_default = json.loads(json.dumps(permission))
+    mcp_default["mcp"]["*"] = "allow"
+    mcp_second = json.loads(json.dumps(permission))
+    mcp_second["mcp"]["*"] = mcp_second["mcp"].pop("*")
+    path_moved = json.loads(json.dumps(permission))
+    path_moved["path"]["*"] = path_moved["path"].pop("*")
+    agent_drift = json.loads(json.dumps(permission))
+    agent_drift["mcp"]["mcp__codegraph__codegraph_explore"] = "ask"
+    long_policy = json.loads(json.dumps(policy))
+    long_policy["servers"][next(iter(long_policy["servers"]))]["tools"]["x" * 70] = "read-only"
+    dotted_policy = json.loads(json.dumps(policy))
+    first_server = next(iter(dotted_policy["servers"]))
+    dotted_policy["servers"][first_server]["tools"]["probe.tool"] = "read-only"
+    moved = json.loads(json.dumps(permission))
+    moved["bash"]["*"] = moved["bash"].pop("*")  # the catch-all allow after every managed ask and deny
+    for label, bad_policy in (("a dotted tool name", dotted_policy), ("a tool id over 64 characters", long_policy)):
+        if not any("rewrites" in error for error in pi_permission_errors(permission, bad_policy, agent_tools)):
+            errors.append(f"pi permission regression: {label} was not detected")
+    for label, candidate in (
+        ("a drifted MCP verdict", drifted),
+        ("a dropped shell deny", dropped),
+        ("a stray MCP tool", stray),
+        ("a catch-all allow moved after the managed denies", moved),
+        ("a bash ask placed after its deny (a bare git push)", ask_after_deny),
+        ("an mcp default that is not ask", mcp_default),
+        ("an mcp catch-all that is not first", mcp_second),
+        ("a path catch-all that is not first", path_moved),
+        ("an agent MCP tool that is not allowed", agent_drift),
+    ):
+        if not pi_permission_errors(candidate, policy, agent_tools):
+            errors.append(f"pi permission regression: {label} was not detected")
+    return errors
+
+
 def main() -> int:
     from tooling.generate.registry_sync import (
         SETTINGS_TEMPLATE_PATH,
@@ -509,10 +670,11 @@ def main() -> int:
         retired = {"directTools", "lifecycle", "description"} & set(entry)
         if retired:
             errors.append(f"{server} carries retired adapter fields: {sorted(retired)}")
+    errors.extend(pi_errors(policy))
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Claude Code MCP operation policy regression passed.")
+    print("Claude Code and Pi MCP operation policy regression passed.")
     return 0
 
 

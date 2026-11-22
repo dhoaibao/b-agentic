@@ -8,6 +8,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+# ADR-030: the canonical prompts carry at most this many runtime marker lines in all, so a second runtime
+# stays a thin overlay instead of forking the prompts.
+MARKER_BUDGET = 10
+MARKER_LINE = ("<!-- runtime:", "<!-- /runtime")
 
 # Each scenario names an observable instruction boundary, independent of tool spelling.
 SCENARIOS = (
@@ -103,27 +107,60 @@ def validate(runtime: str, texts: dict[str, str], skills: list[dict]) -> list[st
 
 ELIGIBILITY = {
     "claude": "contains none of `Edit`, `Write`, `NotebookEdit`",
+    "pi": "contains none of `edit`, `write`",
 }
+
+
+def marker_errors(sources: dict[str, str]) -> list[str]:
+    """The runtime marker lines of the canonical sources must stay within the budget."""
+    count = sum(1 for text in sources.values() for line in text.splitlines() if any(m in line for m in MARKER_LINE))
+    if count > MARKER_BUDGET:
+        return [f"markers: {count} runtime marker lines exceed the budget of {MARKER_BUDGET} (ADR-030)"]
+    return []
+
+
+def pi_texts(skills: list[dict]) -> dict[str, str]:
+    """The Pi kernel and skills rendered in memory, as the installer renders them; nothing is written."""
+    sys.path.insert(0, str(ROOT))
+    from tooling.generate import registry_sync
+
+    outputs, _ = registry_sync.render_pi_outputs(
+        registry_sync.load_skills(), registry_sync.load_agents(), registry_sync.load_policy()
+    )
+    texts = {"kernel": outputs["kernel.md"]}
+    texts.update({skill["name"]: outputs[f"skills/{skill['name']}/SKILL.md"] for skill in skills})
+    return texts
 
 
 def main() -> int:
     skills = json.loads((ROOT / "skills/registry.yaml").read_text())["skills"]
     errors: list[str] = []
-    runtimes = (("claude", "references/kernel.template.md", "skills"),)
+    runtimes = (("claude", "references/kernel.template.md", "skills"), ("pi", "", ""))
     for runtime, kernel, directory in runtimes:
-        paths = {"kernel": ROOT / kernel}
-        paths.update({skill["name"]: ROOT / directory / skill["name"] / "SKILL.md" for skill in skills})
-        missing = [str(path.relative_to(ROOT)) for path in paths.values() if not path.is_file()]
-        if missing:
-            errors.append(f"{runtime}: missing parity surfaces: {', '.join(missing)}")
-            continue
-        texts = {name: path.read_text() for name, path in paths.items()}
+        if runtime == "pi":
+            texts = pi_texts(skills)
+        else:
+            paths = {"kernel": ROOT / kernel}
+            paths.update({skill["name"]: ROOT / directory / skill["name"] / "SKILL.md" for skill in skills})
+            missing = [str(path.relative_to(ROOT)) for path in paths.values() if not path.is_file()]
+            if missing:
+                errors.append(f"{runtime}: missing parity surfaces: {', '.join(missing)}")
+                continue
+            texts = {name: path.read_text() for name, path in paths.items()}
         errors.extend(validate(runtime, texts, skills))
         # Mutating an instruction boundary must fail the matching scenario on the runtime.
         for scenario, surface, clause in SCENARIOS:
             candidate = {**texts, surface: texts[surface].replace(clause, "removed")}
             if not any(f": {scenario} contract missing" in error for error in validate(runtime, candidate, skills)):
                 errors.append(f"{runtime}: parity regression did not detect missing {scenario}")
+    sources = {str(path.relative_to(ROOT)): path.read_text() for path in sorted((ROOT / "skills").glob("*/prompt.md"))}
+    sources["references/kernel.template.md"] = (ROOT / "references/kernel.template.md").read_text()
+    errors.extend(marker_errors(sources))
+    # The budget check must fail on one line over: add the missing lines to a copy and expect it to be caught.
+    shipped = sum(1 for text in sources.values() for line in text.splitlines() if any(m in line for m in MARKER_LINE))
+    over = {**sources, "regression": "\n".join("<!-- runtime: claude -->" for _ in range(MARKER_BUDGET - shipped + 1))}
+    if not marker_errors(over):
+        errors.append("markers: parity regression did not detect an over-budget marker count")
     doc_paths = [ROOT / path for path in DOC_SURFACES]
     missing_docs = [str(path.relative_to(ROOT)) for path in doc_paths if not path.is_file()]
     if missing_docs:
@@ -138,7 +175,7 @@ def main() -> int:
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    print("Runtime instruction parity checks passed (Claude Code; live behavior unverified).")
+    print("Runtime instruction parity checks passed (Claude Code and Pi; live behavior unverified).")
     return 0
 
 
