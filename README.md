@@ -12,7 +12,8 @@ to the read-only `b-reviewer` subagent when Codex is unavailable.
 
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) for Claude Code — managed paths and ownership boundaries.
-- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-020 Claude Code only again](docs/decisions/ADR-020-claude-code-only-again.md) (Claude Code is the only runtime).
+- [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-020 Claude Code only again](docs/decisions/ADR-020-claude-code-only-again.md) (Claude Code is the default runtime).
+- [Pi runtime](pi/README.md) — opt-in second runtime (`./install.sh --runtime=pi`, [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), status Proposed).
 
 ## Install
 

@@ -2,7 +2,7 @@
 
 - Status: Proposed
 - Date: 2026-11-21
-- Supersedes: none yet; on acceptance (run 5) it supersedes [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Until then those three are unchanged; `install.sh --runtime=pi` is an opt-in install of the Pi runtime under `~/.pi/agent` (run 4) and Claude Code stays the default.
+- Supersedes: none yet; on acceptance (see Pending acceptance) it supersedes [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Until then those three are unchanged; `install.sh --runtime=pi` is an opt-in install of the Pi runtime under `~/.pi/agent` and Claude Code stays the default.
 
 ## Context
 
@@ -25,7 +25,8 @@ and `user_bash` hooks, built-in MCP, skills (Agent Skills format), prompt templa
 extension API has no stated stability policy and changed at 1.2.0, 1.5.0 and 1.6.0.
 
 Spike, run on 2026-11-21 against Pi 1.6.0 in an isolated install and agent directory with a scripted offline model and
-the old owned guard unchanged (the probe scripts were not committed; run 3 restores them under `tests/pi`):
+the old owned guard unchanged (the probe scripts were not committed then; the guard probe and the manual spike now live
+under `tests/pi`):
 
 - Guard and packages: the owned guard, pi-subagents 0.89.2, `@gotgenes/pi-permission-system` 42.2.0 and
   `@juicesharp/rpiv-ask-user-question` 2.15.0 load. Synchronous and background subagent children are gated through
@@ -49,7 +50,7 @@ the old owned guard unchanged (the probe scripts were not committed; run 3 resto
 - Nothing is pinned. The floor is Pi 1.6.0, the version the spike ran on; the Pi package entries name npm packages without
   versions (`pi-permission-classifier` before `@gotgenes/pi-permission-system`, `pi-subagents`,
   `@juicesharp/rpiv-ask-user-question`), a pin in that list fails the generator check, and the installer never installs
-  Pi or a package (it will print the Pi version and warn below the floor). A new release can break a guard silently, so
+  Pi or a package (it prints the Pi version and warns below the floor). A new release can break a guard silently, so
   the owned extension fails closed when the API it relies on is missing, and a manual spike script is run after each
   Pi upgrade.
 - The Pi tree is generated at install time and not committed. `tooling/generate/registry_sync.py --render pi --out DIR`
@@ -64,13 +65,14 @@ the old owned guard unchanged (the probe scripts were not committed; run 3 resto
   `b-reviewer` subagent only and b-flow records `--gate reviewer`; there is no `b-worker`, worker step or parallel step
   (the main session applies every step and records it bare; only a step an older plan lists as a worker step takes `--by main`); checks that Claude Code runs together run one at a time;
   `AskUserQuestion` becomes `ask_user_question`; no status line, todo, plan mode or sandbox is ported.
-- Run 2 renders only the kernel, skills, prompts and agents. The Pi permission, MCP and package configuration, the owned
+- `--render pi` renders the kernel, skills, prompts, agents and the Pi permission, MCP and settings configuration. The owned
   extension (path guard with `user_bash`, verify gate, context injection, child gating, fail-closed capability checks) and the
-  installer follow in runs 3 and 4; the shapes of the Pi data in the runtime vocabulary file are validated now.
-- The helpers became runtime-neutral in run 1: `PI_SESSION_ID` is the lock owner when no Claude Code variable is set, and
-  `B_AGENTIC_HELPER_DIR` changes the folder their printed commands name. Two follow-ups from that review are scheduled:
-  align the empty-string owner handling of `b-state` and `b-run` (run 3), and tighten the folder variable to a `~/` or
-  absolute path in the three mirrored copies and the parity probe (run 4, with the wrappers).
+  installer are hand-written; the shapes of the Pi data in the runtime vocabulary file are validated by the generator
+  check, `runtime_parity.py` and `mcp_policy.py`.
+- The helpers became runtime-neutral: `PI_SESSION_ID` is the lock owner when no Claude Code variable is set, and
+  `B_AGENTIC_HELPER_DIR` (a `~/` or absolute path, mirrored in three copies and checked by a parity probe) changes the
+  folder their printed commands name and is the one signal that the helpers run on Pi (no worker steps, no worktrees, gate
+  `reviewer` only). An explicit empty `--owner` is refused by both `b-state` and `b-run`.
 - Kill criterion: remove the Pi runtime, by a new ADR, when it goes unused for four weeks or when two Pi or package
   upgrades break the spike.
 - Acceptance: this ADR becomes Accepted only after the live install check on a real machine and a classifier check with
@@ -89,8 +91,37 @@ the old owned guard unchanged (the probe scripts were not committed; run 3 resto
   the 1024-character description limit; whether Pi reads a `CLAUDE.md` in a subdirectory on demand (it loads the working
   directory and its parents); the exit codes of `--mode json` on a failed response; Pi's own package install with scripts;
   billing and terms of a Claude Pro or Max login in Pi (Pi bills it as extra usage).
-- Helper text for the model still names Codex or `b-worker` in a few `next` lines and refusals; that wording is a run 3 or
-  run 4 follow-up.
+- Known limits, found in review and deferred or accepted by design:
+  - Installer: there is no lock, so two installs started at the same time are not serialized. A config file that is a
+    symlink (the kernel file, the Pi settings and MCP files, the permission config) is written through to its target, even
+    outside `~/.pi/agent`; a link into the agent directory, Pi's own state files, `~/.claude`, `~/.claude.json` or
+    `~/.config/opencode`, and a symlinked managed directory, are refused. A symlinked `~/.pi/agent` root is followed, so
+    the whole install lands at its target, although the installer's own help says only `~/.pi/agent` is written. The
+    Claude installer's guard protects `~/.pi` and where it resolves but not a relocated `~/.pi/agent` root, so a Claude
+    config symlink that resolves there would be written (found in review; it predates this ADR and is not fixed here). Uninstall drops a permission section it leaves empty, and an emptied
+    `permission` object; no rule is lost.
+  - Permission rules: only a literal user catch-all `*` that differs from the shipped one for its section sets the floor
+    for managed rules. A catch-all equal to the shipped one sets none, so an existing MCP `*` of `ask` still gains the
+    managed allows for the managed servers, by design. A pattern that is equivalent
+    but spelled differently (`**`, `* *`) can override a managed deny. The order of rules (last match wins) is assumed
+    from the permission package's README and modelled by the validators, not proven against a live Pi. The validator
+    models only `*` in a pattern and does not reject a `?`, none is rendered; the renderer maps only dashes in MCP tool
+    ids and the validator fails closed on any other character or an id over 64 characters. The install probe's verdict
+    helper matches with `fnmatch`, not Pi's matcher, and does not assert a bare `git push` verdict itself (the
+    `mcp_policy.py` evaluator does).
+  - Guard: it fails closed for `subagent` tool launches only, and the spike proves no more than that and the installed
+    layout: nothing automated shows that the permission package's shell handler is active. If it is missing, the main session's own
+    tools run without its rules, and a project-level MCP override cannot be seen at install time. A slash or RPC launch
+    bypasses the tool hook when child registration fails: Pi 1.6.0 runs extension commands before the `input` event
+    (taken from Pi's documentation as recorded in the run spec, not re-checked), so there is no input-event gate. The
+    `user_bash` check is narrow, and a hidden `.b-agentic.x` spelling passes. The background specialist runner is not
+    probed, because the scripted model cannot drive a detached run (a separate `pi` process).
+  - Helpers: a worktree moved with `git worktree move` to another folder name is not found by the open-worktree guard,
+    which looks up folder-name prefixes; the Claude path reads a newline-delimited worktree list, so a temporary
+    directory with a newline in its name is missed there (Pi reads the NUL-delimited list). Pi's verify refusal lists
+    worktree ids with a plain sort (`S-10` before `S-2`), the step packet of a non-worker step still forbids `b-state`
+    commands although Pi's `next` lines never send a main-session step through it, and four Claude helper strings
+    changed for Pi have no exact test assertion (a reviewer diffed each against `HEAD`; the Claude output is unchanged).
 - Rejected: restoring the earlier tree wholesale (it predates the worker, the verify-gate modes and several ADRs and
   carries about 3,000 committed generated lines); pinning Pi or the packages (the user's decision); committing a generated Pi tree
   (double churn and a tree easy to commit by accident); a separate Pi prompt per skill or a placeholder include (they
@@ -106,3 +137,28 @@ Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_
 [`claude/bin/b-state-core.mjs`](../../claude/bin/b-state-core.mjs),
 [`claude/bin/b_run.py`](../../claude/bin/b_run.py), and
 [`tests/state/cases/owner.sh`](../../tests/state/cases/owner.sh).
+
+### Pending acceptance
+
+This ADR stays Proposed until two checks that nothing automated can do have been run by a person on a real machine, and
+their results are written here:
+
+1. A real install: Pi 1.6.0 or newer and the four packages installed by the user, `./install.sh --runtime=pi`, then a
+   `/b-flow` run end to end on Pi (clarify, approval, implement, verify, the `b-reviewer` gate, QA, commit), and the
+   model's `bash` tool asked to run `sudo true`, which must return a tool result that reports the permission denial and not
+   a shell error (no automated check shows this; a `!` or RPC shell command does not exercise the permission package).
+2. The classifier with a real model and API key:
+   `PI_PROBE_NPM_DIR=DIR PI_SPIKE_CLASSIFIER=1 PI_SPIKE_MODEL=PROVIDER/MODEL tests/pi/spike.sh`. The script prints the
+   verdicts and asserts none; a person reads them and confirms the routine command was judged and allowed and the
+   suspicious one refused.
+
+Optional: settle the billing and terms of a Claude Pro or Max login in Pi through `b-research` (the unverified item above).
+
+On acceptance, one change makes these edits and nothing else:
+
+- This ADR: Status becomes Accepted, the Supersedes line states what it supersedes, and this section records the results.
+- ADR-020 and ADR-027: add a note that ADR-030 supersedes their no-second-runtime decision, keeping their history.
+- ADR-001: note the same on its no-second-runtime lines.
+- `docs/decisions/README.md`: the ADR-030 index line drops "proposed" and "once accepted".
+- `AGENTS.md`, `README.md`, `REFERENCE.md` and `pi/README.md`: drop the "Proposed" status wording and the earlier-removal
+  sentences that no longer hold.

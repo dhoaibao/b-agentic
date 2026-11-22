@@ -2,13 +2,15 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the only runtime, Claude Code, with Codex as the
+This reference defines the default runtime, Claude Code, with Codex as the
 independent reviewer and the read-only `b-reviewer` subagent as its fallback
 ([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
-[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)). It covers
+[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)), and the opt-in
+[Pi runtime](#pi-runtime-opt-in). It covers
 installation, the permission boundary, the review gate, MCP configuration, and
-validation. Second runtimes were removed by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md)
-(the last OpenCode tree is commit `f80281b7`; Pi was last in `ba7bc2db`) and, for Antigravity, by
+validation. OpenCode was removed by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md)
+(the last OpenCode tree is commit `f80281b7`; the earlier Pi tree was last in `ba7bc2db` and is replaced, not restored, by
+the Pi runtime of [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)) and Antigravity by
 [ADR-027](docs/decisions/ADR-027-antigravity-runtime-removed.md) (last tree at `caf570fd`). An install an earlier
 release left under `~/.config/opencode` is never touched: uninstall it from a checkout of
 `f80281b7` (`./install.sh --runtime=opencode --uninstall`) or remove the b-agentic entries there by hand.
@@ -87,8 +89,9 @@ touches only `~/.claude` and `~/.claude.json`.
   did not install, after a backup. Without it such files are kept with a warning.
 - `--uninstall` removes only recorded, unmodified assets and entries and keeps
   `~/.claude/b-agentic/backups`.
-- `--runtime=claude` is accepted as a no-op; any other value is refused with a pointer to ADR-020 and
-  nothing is written.
+- `--runtime=claude` is accepted as a no-op; `--runtime=pi` selects the opt-in
+  [Pi runtime](#pi-runtime-opt-in); any other value is refused with a pointer to ADR-020 and
+  ADR-030 and nothing is written.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -124,6 +127,61 @@ steps. The Codex review gate on Claude Code needs the `codex` CLI, the
 `openai/codex-plugin-cc` plugin, and a Codex login, which the installer prints but
 never runs; without them `b-review` falls back to the `b-reviewer` subagent, which needs
 none of these.
+
+## Pi runtime (opt-in)
+
+Claude Code stays the default. The Pi coding agent is an opt-in second runtime
+([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), status
+Proposed; what ships is described in [pi/README.md](pi/README.md)):
+
+```bash
+./install.sh --runtime=pi [--dry-run] [--force] [--with=ID[,ID]] [--without=ID[,ID]]
+./install.sh --runtime=pi --uninstall
+```
+
+- You install Pi (`@earendil-works/pi-coding-agent`, 1.6.0 or newer, spiked on
+  1.6.0) yourself. Nothing is pinned: not Pi, not the four npm packages named in
+  `settings.json` (`references/runtimes.yaml` lists them). The installer never
+  installs Pi or a package, never uses the network, and runs only `pi --version`,
+  to warn below the floor; Pi installs the packages on its next start.
+- It installs only from a local checkout. `--update`, `--ref`, a clone or piped
+  install, and `--statusline-only` are refused, as is a `PI_CODING_AGENT_DIR` other
+  than `~/.pi/agent` and a `CLAUDE.md` in the agent directory (Pi reads one
+  context file per folder). `~/.claude` and `~/.claude.json` are never touched.
+- The Pi tree (kernel, skills, prompt templates, agents, permission and MCP
+  configuration) is rendered at install time by
+  `registry_sync.py --render pi` into a fresh folder outside the checkout and is
+  never committed. Hand-written parts live in `pi/` (wrappers and the guard
+  extension).
+- Installed under `~/.pi/agent`: `skills/`, `prompts/`, `agents/`,
+  `extensions/b-agentic/`, and `b-agentic/{bin,hooks,references}`; the manifest
+  `b-agentic/install.json`; and entries merged into `AGENTS.md` (kernel block),
+  `settings.json`, `mcp.json`, and `extensions/pi-permission-system/config.json`.
+  Ownership, backups, `--force`, `--dry-run`, `pending` recovery, and
+  `--uninstall` follow the same rules as the Claude Code installer. A config file
+  there that is a symlink is written through to its target, even outside
+  `~/.pi/agent`; a link into the agent directory, Pi's own state files, `~/.claude`,
+  `~/.claude.json` or `~/.config/opencode`, and a symlinked managed directory, are
+  refused. A symlinked `~/.pi/agent` itself is followed, so the whole install
+  lands at its target; the installer's own wording that only `~/.pi/agent` is
+  written means that path as named, not where it resolves.
+- A user catch-all `*` permission rule that differs from the shipped one for its
+  section sets a floor: managed rules looser than it are not installed, with a
+  warning. A catch-all equal to the shipped one sets no floor, so the managed
+  per-tool rules (including the allows for managed MCP servers) install as
+  shipped. The main session's shell rules are enforced by the permission package,
+  not by the guard extension, and no automated check proves that package is
+  active: after an upgrade, confirm by hand: ask the model to run `sudo true`
+  with its `bash` tool and expect a tool result that reports the permission
+  denial, not a shell error (a `!` or RPC shell command does not exercise that
+  package). The guard refuses only `subagent` tool launches whose child
+  session cannot be gated; slash and RPC launches are not covered (see ADR-030).
+- The Pi review gate is the read-only `b-reviewer` subagent only. There is no
+  `b-worker`, parallel step, status line, todo, plan mode, sandbox, or Codex gate
+  on Pi.
+- Known limits and the live checks still owed before acceptance are in the
+  ADR's Consequences. Remove the runtime, by a new ADR, after four weeks unused
+  or two Pi or package upgrades that break `tests/pi/spike.sh`.
 
 ## Kernel and skills
 
@@ -462,7 +520,9 @@ policy and routing checks, the hook probe
 (`tests/snapshot/cli-probe.sh`), the status line probe
 (`tests/statusline/statusline-probe.sh`; the hook and status line probes also run under `bun` when it is installed), and the runtime instruction parity check
 (`tooling/validate/runtime_parity.py`).
-`--release` (CI) adds the sandbox installer probe (`tests/install/claude-install-probe.sh`) and the RTK readiness check.
+The Pi guard cases (`tests/pi/guard-cases.mjs`) run in the same pass, and `tests/pi/guard-probe.sh` drives real Pi when it is installed (it prints a skip line otherwise).
+`--release` (CI) adds the sandbox installer probes (`tests/install/claude-install-probe.sh` and `tests/install/pi-install-probe.sh`) and the RTK readiness check.
+`tests/pi/spike.sh` is the manual check after a Pi or package upgrade and never runs in CI.
 None needs Claude Code, credentials, or a network.
 
 `skills/` and `references/` hold canonical workflow guidance; `claude/` holds
