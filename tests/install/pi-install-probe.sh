@@ -112,6 +112,15 @@ run "$home" -y; expect_ok "fresh install"
 for wrapper in b-run b-snapshot b-state; do
   [ "$(stat -c %a "$agent/b-agentic/bin/$wrapper")" = 700 ] || fail "$wrapper must be owner-executable"
 done
+[ ! -e "$agent/agents/b-worker.md" ] || fail "Pi must not install b-worker.md"
+while IFS=$'\t' read -r agent_name agent_model agent_thinking; do
+  agent_file="$agent/agents/$agent_name.md"
+  [ -f "$agent_file" ] || fail "missing installed Pi agent: $agent_file"
+  frontmatter=$(awk 'NR==1{next} /^---$/{exit} {print}' "$agent_file")
+  grep -Fxq "model: $agent_model" <<<"$frontmatter" || fail "$agent_name missing model: $agent_model"
+  [ -z "$agent_thinking" ] || grep -Fxq "thinking: $agent_thinking" <<<"$frontmatter" \
+    || fail "$agent_name missing thinking: $agent_thinking"
+done < <(jq -r '.runtimes.pi.agents | to_entries[] | [.key, .value.model, (.value.thinking // "")] | @tsv' "$root/references/runtimes.yaml")
 before=$(tree "$home")
 run "$home" -y; expect_ok "second install"
 [ "$before" = "$(tree "$home")" ] || fail "a second install changed files"

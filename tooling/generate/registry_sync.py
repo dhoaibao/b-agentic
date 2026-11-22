@@ -1528,6 +1528,7 @@ def pi_agent_tool_list(agent: dict[str, Any], policy: dict[str, Any]) -> list[st
 
 def render_pi_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str, Any]], policy: dict[str, Any]) -> str:
     pi = RUNTIMES["pi"]
+    pi_agent = pi.get("agents", {}).get(name, {})
     bound_skills = [
         skill["name"]
         for skill in skills
@@ -1545,6 +1546,8 @@ def render_pi_agent_file(name: str, agent: dict[str, Any], skills: list[dict[str
             "inheritProjectContext: true",
             "inheritGlobalContext: true",
             "allowNestedSubagents: false",
+            *([f"model: {pi_agent['model']}"] if "model" in pi_agent else []),
+            *([f"thinking: {pi_agent['thinking']}"] if "thinking" in pi_agent else []),
             "---",
             "",
             f"You are the b-agentic `{name}` subagent. The main session delegates only {skill_list} to you and has already selected the exact skill; do not route again or launch a nested subagent.",
@@ -1663,12 +1666,29 @@ def pi_output_errors(outputs: dict[str, str], hits: set[str]) -> list[str]:
             if description is None or len(description.group(1)) > PI_SKILL_DESCRIPTION_LIMIT:
                 errors.append(f"pi output {path}: description missing or over {PI_SKILL_DESCRIPTION_LIMIT} characters")
         if path.startswith("agents/"):
-            tools = re.search(r"^tools: (.*)$", text, re.M)
-            listed = {item.strip() for item in tools.group(1).split(",")} if tools else set()
+            agent_name = PurePosixPath(path).stem
+            if agent_name not in MANAGED_SUBAGENT_NAMES:
+                errors.append(f"pi output {path}: unexpected Pi agent (expected only {sorted(MANAGED_SUBAGENT_NAMES)})")
+            head, sep, _body = text.partition("\n---\n")
+            frontmatter = (
+                dict(line.split(": ", 1) for line in head.removeprefix("---\n").splitlines() if ": " in line)
+                if sep
+                else {}
+            )
+            listed = {item.strip() for item in frontmatter.get("tools", "").split(",") if item.strip()}
             if not listed or listed & set(pi["excluded_agent_tools"]):
                 errors.append(f"pi output {path}: an agent must list tools and none of the excluded ones")
-            if f"excludeTools: {', '.join(pi['excluded_agent_tools'])}" not in text:
+            if frontmatter.get("excludeTools") != ", ".join(pi["excluded_agent_tools"]):
                 errors.append(f"pi output {path}: an agent must exclude {', '.join(pi['excluded_agent_tools'])}")
+            pi_agent = pi.get("agents", {}).get(agent_name)
+            if isinstance(pi_agent, dict):
+                if frontmatter.get("model") != pi_agent.get("model"):
+                    errors.append(f"pi output {path}: expected model {pi_agent.get('model')!r}")
+                expected_thinking = pi_agent.get("thinking")
+                if expected_thinking is not None and frontmatter.get("thinking") != expected_thinking:
+                    errors.append(f"pi output {path}: expected thinking {expected_thinking!r}")
+                if expected_thinking is None and "thinking" in frontmatter:
+                    errors.append(f"pi output {path}: unexpected thinking field")
     flow = outputs.get("skills/b-flow/SKILL.md", "")
     if flow and "--gate reviewer" not in flow:
         errors.append("pi output skills/b-flow/SKILL.md: the review gate must be recorded as reviewer")
@@ -1753,7 +1773,10 @@ def validate_pi_regressions(
     outputs, hits = render_pi_outputs(skills, agents, policy)
     if pi_output_errors(outputs, hits):
         errors.append("pi regression: the shipped Pi render must pass its output checks")
-    mutations = (
+    reviewer_cfg = RUNTIMES["pi"]["agents"]["b-reviewer"]
+    reviewer_model = reviewer_cfg["model"]
+    alt_model = "other/model" if reviewer_model != "other/model" else "another/model"
+    mutations: list[tuple[Any, str]] = [
         (lambda o, h: o.update({"kernel.md": o["kernel.md"] + "\nsee ~/.claude/b-agentic"}), "a leaked Claude path"),
         (lambda o, h: o.update({"kernel.md": o["kernel.md"] + "\n<!-- runtime: pi -->"}), "an unresolved marker"),
         (lambda o, h: h.discard(RUNTIMES["pi"]["glossary"][0]["from"]), "a glossary entry that matches nothing"),
@@ -1763,6 +1786,26 @@ def validate_pi_regressions(
                 {"agents/b-reviewer.md": o["agents/b-reviewer.md"].replace("tools: ", "tools: edit, ")}
             ),
             "an editing agent",
+        ),
+        (
+            lambda o, h: o.update(
+                {"agents/b-reviewer.md": o["agents/b-reviewer.md"].replace(f"model: {reviewer_model}\n", "")}
+            ),
+            "an agent missing its model",
+        ),
+        (
+            lambda o, h: o.update(
+                {
+                    "agents/b-reviewer.md": o["agents/b-reviewer.md"].replace(
+                        f"model: {reviewer_model}", f"model: {alt_model}"
+                    )
+                }
+            ),
+            "an agent with a drifted model",
+        ),
+        (
+            lambda o, h: o.update({"agents/b-worker.md": o["agents/b-planner.md"]}),
+            "a worker agent rendered for Pi",
         ),
         (
             lambda o, h: o.update(
@@ -1816,12 +1859,67 @@ def validate_pi_regressions(
             ),
             "no reviewer subagent",
         ),
-    )
+    ]
+    reviewer_thinking = reviewer_cfg.get("thinking")
+    if reviewer_thinking is not None:
+        alt_thinking = "low" if reviewer_thinking != "low" else "high"
+        mutations.extend(
+            [
+                (
+                    lambda o, h: o.update(
+                        {
+                            "agents/b-reviewer.md": o["agents/b-reviewer.md"].replace(
+                                f"thinking: {reviewer_thinking}\n", ""
+                            )
+                        }
+                    ),
+                    "an agent missing its thinking level",
+                ),
+                (
+                    lambda o, h: o.update(
+                        {
+                            "agents/b-reviewer.md": o["agents/b-reviewer.md"].replace(
+                                f"thinking: {reviewer_thinking}", f"thinking: {alt_thinking}"
+                            )
+                        }
+                    ),
+                    "an agent with a drifted thinking level",
+                ),
+            ]
+        )
     for mutate, why in mutations:
         broken, broken_hits = dict(outputs), set(hits)
         mutate(broken, broken_hits)
         if not pi_output_errors(broken, broken_hits):
             errors.append(f"pi regression: {why} must fail the output checks")
+    saved_agents = RUNTIMES["pi"]["agents"]
+    try:
+        RUNTIMES["pi"]["agents"] = {**saved_agents, "b-reviewer": {"model": "wrong/model"}}
+        no_thinking = render_pi_agent_file("b-reviewer", agents["b-reviewer"], skills, policy)
+        if "\nthinking: " in no_thinking:
+            errors.append("pi regression: omitted thinking must not emit a thinking line")
+        if pi_output_errors({**outputs, "agents/b-reviewer.md": no_thinking}, hits):
+            errors.append("pi regression: an agent with omitted thinking must pass output checks")
+        injected = no_thinking.replace("\n---\n", "\nthinking: low\n---\n", 1)
+        if not pi_output_errors({**outputs, "agents/b-reviewer.md": injected}, hits):
+            errors.append("pi regression: an unexpected thinking line must fail output checks")
+
+        RUNTIMES["pi"]["agents"] = {**saved_agents, "b-reviewer": {"model": "wrong/model", "thinking": "low"}}
+        low_thinking = render_pi_agent_file("b-reviewer", agents["b-reviewer"], skills, policy)
+        if "\nmodel: wrong/model\n" not in low_thinking or "\nthinking: low\n" not in low_thinking:
+            errors.append("pi regression: low thinking fixture must emit model and thinking lines")
+        if pi_output_errors({**outputs, "agents/b-reviewer.md": low_thinking}, hits):
+            errors.append("pi regression: an agent with model wrong/model and thinking low must pass output checks")
+        if not pi_output_errors(
+            {**outputs, "agents/b-reviewer.md": low_thinking.replace("model: wrong/model", "model: other/model")}, hits
+        ):
+            errors.append("pi regression: drifted model on fixture must fail output checks")
+        if not pi_output_errors(
+            {**outputs, "agents/b-reviewer.md": low_thinking.replace("thinking: low", "thinking: high")}, hits
+        ):
+            errors.append("pi regression: drifted thinking on fixture must fail output checks")
+    finally:
+        RUNTIMES["pi"]["agents"] = saved_agents
     errors.extend(validate_pi_write_path(outputs))
     return errors
 
@@ -2180,10 +2278,32 @@ def validate_runtime_regressions() -> list[str]:
             {**pi, "mcp_exposure": {"default": "codemode"}},
             {**pi, "excluded_agent_tools": ["subagent"]},
             {key: value for key, value in pi.items() if key != "read_only_tools"},
+            {key: value for key, value in pi.items() if key != "agents"},
+            {**pi, "agents": {k: v for k, v in pi["agents"].items() if k != "b-reviewer"}},
+            {**pi, "agents": {**pi["agents"], "b-worker": {"model": "openai/gpt-6.1-terra", "thinking": "high"}}},
+            {**pi, "agents": {**pi["agents"], "b-planner": {"model": "opus", "thinking": "high"}}},
+            {
+                **pi,
+                "agents": {**pi["agents"], "b-planner": {"model": "anthropic/claude-opus-5-5", "thinking": "extreme"}},
+            },
+            {
+                **pi,
+                "agents": {
+                    **pi["agents"],
+                    "b-planner": {"model": "anthropic/claude-opus-5-5", "thinking": "high", "effort": "high"},
+                },
+            },
         )
         for bad_pi in bad_entries:
             if not validate_pi_runtime(bad_pi, "runtimes.pi"):
                 errors.append("runtime regression: a malformed pi entry must fail its shape checks")
+        for valid_cfg in (
+            {"model": "anthropic/claude-opus-5-5"},
+            {"model": "wrong/model", "thinking": "low"},
+        ):
+            valid_pi = {**pi, "agents": {**pi["agents"], "b-reviewer": valid_cfg}}
+            if validate_pi_runtime(valid_pi, "runtimes.pi"):
+                errors.append(f"runtime regression: valid pi reviewer config {valid_cfg!r} must pass shape checks")
     # No runtime carries kernel overrides now, so drift is exercised through a synthetic entry.
     RUNTIMES["_probe"] = {"kernel_overrides": [{"from": "once", "to": "x"}], "forbidden_tokens": ["~/.claude"]}
     try:
@@ -2204,6 +2324,8 @@ PI_PACKAGE_NAME = re.compile(r"^npm:(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._
 PI_CLASSIFIER_PACKAGE = "npm:pi-permission-classifier"
 PI_CLASSIFIER_LINK = "permission-judge"
 PI_PERMISSION_PACKAGE = "npm:@gotgenes/pi-permission-system"
+PI_AGENT_MODEL = re.compile(r"^[^\s/]+/\S+$")
+PI_THINKING_LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
 
 
 def validate_pi_runtime(config: dict[str, Any], label: str) -> list[str]:
@@ -2225,6 +2347,27 @@ def validate_pi_runtime(config: dict[str, Any], label: str) -> list[str]:
     editing, excluded = config.get("editing_tools"), config.get("excluded_agent_tools")
     if isinstance(editing, list) and isinstance(excluded, list) and not set(editing) <= set(excluded):
         errors.append(f"{label}.excluded_agent_tools: must include every editing tool")
+    pi_agents = config.get("agents")
+    if not isinstance(pi_agents, dict):
+        errors.append(f"{label}.agents: expected an object mapping {sorted(MANAGED_SUBAGENT_NAMES)}")
+    else:
+        if set(pi_agents) != MANAGED_SUBAGENT_NAMES:
+            errors.append(f"{label}.agents: keys must be exactly {sorted(MANAGED_SUBAGENT_NAMES)}")
+        for agent_name, entry in pi_agents.items():
+            entry_label = f"{label}.agents.{agent_name}"
+            if not isinstance(entry, dict):
+                errors.append(f"{entry_label}: expected an object")
+                continue
+            extra = set(entry) - {"model", "thinking"}
+            if extra:
+                errors.append(f"{entry_label}: unknown field(s) {sorted(extra)}")
+            model = ensure_string(entry.get("model"), f"{entry_label}.model", errors)
+            if model and not PI_AGENT_MODEL.fullmatch(model):
+                errors.append(f"{entry_label}.model: {model!r} must be provider/model")
+            if "thinking" in entry:
+                thinking = ensure_string(entry.get("thinking"), f"{entry_label}.thinking", errors)
+                if thinking and thinking not in PI_THINKING_LEVELS:
+                    errors.append(f"{entry_label}.thinking: expected one of {sorted(PI_THINKING_LEVELS)}")
     return errors
 
 
