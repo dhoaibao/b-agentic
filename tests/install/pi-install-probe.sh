@@ -97,7 +97,7 @@ expected="$work/expected.txt"
     b-agentic/hooks/b-path-guard.mjs b-agentic/hooks/b-verify-gate.mjs b-agentic/hooks/b-spec-context.mjs \
     b-agentic/hooks/b-run-context.mjs b-agentic/hooks/b-alexandria-guard.mjs \
     b-agentic/references/capabilities.yaml b-agentic/references/mcp_operations.yaml b-agentic/references/artifacts.yaml
-  find "$root/claude/bin" -maxdepth 1 -type f -printf 'b-agentic/bin/%f\n' \
+  (cd "$root/claude/bin" && find . -maxdepth 1 -type f | sed 's|^\./|b-agentic/bin/|') \
     | grep -E '/(b-state(-[a-z]+)?\.mjs|b-candidate-snapshot\.mjs|b-protected\.mjs|b_run\.py)$'
 
 } | sort >"$expected"
@@ -110,7 +110,8 @@ run "$home" -y; expect_ok "fresh install"
 [ -z "$(find "$home" -mindepth 1 -maxdepth 1 -not -name .pi)" ] || fail "an install wrote outside ~/.pi: $(ls -A "$home")"
 [ ! -e "$home/.claude" ] && [ ! -e "$home/.claude.json" ] || fail "a Pi install touched the Claude Code files"
 for wrapper in b-run b-snapshot b-state; do
-  [ "$(stat -c %a "$agent/b-agentic/bin/$wrapper")" = 700 ] || fail "$wrapper must be owner-executable"
+  mode=$(python3 -c 'import os, sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777)[2:])' "$agent/b-agentic/bin/$wrapper")
+  [ "$mode" = 700 ] || fail "$wrapper must be owner-executable (got $mode)"
 done
 [ -f "$agent/agents/b-worker.md" ] || fail "Pi must install b-worker.md"
 while IFS=$'\t' read -r agent_name agent_model agent_thinking; do
