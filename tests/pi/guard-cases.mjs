@@ -27,7 +27,11 @@ const work = mkdtempSync(join(tmpdir(), "pi-guard-"));
 const cases = [];
 const test = (name, fn) => cases.push([name, fn]);
 
-const guard = await createGuard({ hooksDir });
+const guard = await createGuard({
+  hooksDir,
+  // Keep this suite node-only by stubbing ripgrep tree listing on the shared guard.
+  listFiles: () => ["src/index.ts"],
+});
 guard.setChildGateError("");
 const ctx = { cwd: work, hasUI: false };
 const call = (toolName, input, context = ctx) =>
