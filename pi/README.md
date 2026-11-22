@@ -23,7 +23,8 @@ that is a symlink is written through to its target, wherever that is. See the
 ## What ships from this folder
 
 - `bin/b-state`, `bin/b-run`, `bin/b-snapshot`: wrappers that set `B_AGENTIC_HELPER_DIR` to `~/.pi/agent/b-agentic/bin`, so the
-  shared run helpers print Pi paths and take the Pi rules (no worker steps, no worktrees, review gate `reviewer` only), and
+  shared run helpers print Pi paths and take the Pi rules (`b-worker` and worktree steps per
+  [ADR-031](../docs/decisions/ADR-031-pi-worker-steps.md), review gate `reviewer` only), and
   run the Node helpers with bare `node`. `PI_SESSION_ID` is the lock owner.
 - `extensions/b-agentic/`: the guard (`guard.mjs`) and its Pi entry point (`index.ts`). The guard reuses the Claude Code hook
   modules, so both runtimes judge secret paths, `.b-agentic` writes and shell inspection the same way. It also gates the

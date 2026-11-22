@@ -54,16 +54,15 @@ under `tests/pi`):
   the owned extension fails closed when the API it relies on is missing, and a manual spike script is run after each
   Pi upgrade.
 - The Pi tree is generated at install time and not committed. `tooling/generate/registry_sync.py --render pi --out DIR`
-  writes the kernel, 20 skills, 20 prompt templates and 5 agents into a new or empty directory outside the checkout, and
+  writes the kernel, 20 skills, 20 prompt templates and 6 agents (5 read-only specialists plus `b-worker`, per [ADR-031](ADR-031-pi-worker-steps.md)) into a new or empty directory outside the checkout, and
   refuses a Claude render, a directory inside the checkout or a non-empty one. `--check` and `--self-test` render Pi in
   memory and fail on a forbidden Claude token, an unresolved marker, a glossary entry that matches nothing, an over-budget
-  kernel or an agent with an editing tool, so the Pi output is verified without ever living in the repository.
+  kernel or a specialist agent with an editing tool, so the Pi output is verified without ever living in the repository.
 - One set of canonical prompts serves both runtimes. A bare marker line and a closing line fence a block that only the
   named runtime keeps (the marker lines may be indented, so a block inside a Markdown list item keeps the list intact),
-  beside the existing per-line markers and the glossary, with at most 10 marker lines in all (8 today: the review Codex
-  steps and tool line, the worker bullets with their Pi replacement, the worker-step paragraph of the planner). On Pi the review gate is the read-only
-  `b-reviewer` subagent only and b-flow records `--gate reviewer`; there is no `b-worker`, worker step or parallel step
-  (the main session applies every step and records it bare; only a step an older plan lists as a worker step takes `--by main`); checks that Claude Code runs together run one at a time;
+  beside the existing per-line markers and the glossary, with at most 10 marker lines in all (8 originally; 3 after [ADR-031](ADR-031-pi-worker-steps.md) made the worker flow shared). On Pi the review gate is the read-only
+  `b-reviewer` subagent only and b-flow records `--gate reviewer`; `b-worker`, worker steps, and parallel steps were later
+  enabled on Pi by [ADR-031](ADR-031-pi-worker-steps.md) (originally omitted here); checks that Claude Code runs together run one at a time;
   `AskUserQuestion` becomes `ask_user_question`; no status line, todo, plan mode or sandbox is ported.
 - `--render pi` renders the kernel, skills, prompts, agents and the Pi permission, MCP and settings configuration. The owned
   extension (path guard with `user_bash`, verify gate, context injection, child gating, fail-closed capability checks) and the
@@ -71,8 +70,8 @@ under `tests/pi`):
   check, `runtime_parity.py` and `mcp_policy.py`.
 - The helpers became runtime-neutral: `PI_SESSION_ID` is the lock owner when no Claude Code variable is set, and
   `B_AGENTIC_HELPER_DIR` (a `~/` or absolute path, mirrored in three copies and checked by a parity probe) changes the
-  folder their printed commands name and is the one signal that the helpers run on Pi (no worker steps, no worktrees, gate
-  `reviewer` only). An explicit empty `--owner` is refused by both `b-state` and `b-run`.
+  folder their printed commands name and is the signal that the helpers run on Pi (gate
+  `reviewer` only; worker and worktree behavior was later unified with Claude Code in [ADR-031](ADR-031-pi-worker-steps.md)). An explicit empty `--owner` is refused by both `b-state` and `b-run`.
 - The classifier is made eligible at install, not proven. `pi-permission-classifier` enables itself in neither of two
   places: the permission system consults only the links its `authorizerChain` names, and the classifier registers a link
   only when its own config file exists (a config.json in a pi-permission-classifier folder under the agent's extensions

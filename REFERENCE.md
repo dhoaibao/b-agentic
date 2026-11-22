@@ -194,9 +194,9 @@ Proposed; what ships is described in [pi/README.md](pi/README.md)):
   denial, not a shell error (a `!` or RPC shell command does not exercise that
   package). The guard refuses only `subagent` tool launches whose child
   session cannot be gated; slash and RPC launches are not covered (see ADR-030).
-- The Pi review gate is the read-only `b-reviewer` subagent only. There is no
-  `b-worker`, parallel step, status line, todo, plan mode, sandbox, or Codex gate
-  on Pi.
+- The Pi review gate is the read-only `b-reviewer` subagent only; `b-worker`
+  and parallel worktree steps are supported via `subagent` ([ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)).
+  There is no status line, todo, plan mode, sandbox, or Codex gate on Pi.
 - Known limits and the live checks still owed before acceptance are in the
   ADR's Consequences. Remove the runtime, by a new ADR, after four weeks unused
   or two Pi or package upgrades that break `tests/pi/spike.sh`.
@@ -214,8 +214,8 @@ user request and stay model-invocable. `b-flow` is the routing entry
 
 The five specialists are `b-planner`, `b-researcher`, `b-debugger`, `b-auditor`
 (serving both `b-agentic-audit` and `b-audit`), and `b-reviewer`. A sixth profile, `b-worker`, is the one writer child of a `b-flow`
-run ([ADR-015](docs/decisions/ADR-015-step-writer-worker.md)): Claude Code only,
-generated from the registry's separate `workers` map, with `Edit`, `Write`, and `Bash`
+run ([ADR-015](docs/decisions/ADR-015-step-writer-worker.md); also rendered on Pi per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)),
+generated from the registry's separate `workers` map, with edit, write, and bash
 on top of the specialists' reads, no prompt, delegation, or notebook tool, and the
 instruction to apply exactly one approved plan step in place, touch nothing outside the
 scope, the run folder, secrets, or git history, and report. The main session waits for

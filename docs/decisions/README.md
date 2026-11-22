@@ -32,7 +32,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-027](ADR-027-antigravity-runtime-removed.md) for removing the Antigravity runtime again, superseding ADR-025, and
 [ADR-028](ADR-028-short-helper-wrappers.md) for short helper wrappers in place of the long runtime commands, refining ADR-018, and
 [ADR-029](ADR-029-self-describing-helper-clis.md) for self-describing helper CLIs, refining ADR-010 and ADR-028, and
-[ADR-030](ADR-030-pi-runtime-rendered-at-install.md) for the proposed Pi second runtime rendered at install time, superseding ADR-020 and ADR-027 once accepted.
+[ADR-030](ADR-030-pi-runtime-rendered-at-install.md) for the proposed Pi second runtime rendered at install time, superseding ADR-020 and ADR-027 once accepted, and
+[ADR-031](ADR-031-pi-worker-steps.md) for `b-worker` and parallel worktree steps on Pi, superseding ADR-030 in part.
 
 ## Naming
 

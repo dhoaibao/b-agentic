@@ -3,8 +3,8 @@
 **A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
-gates, and keeps the main session responsible for worktree changes (on Claude
-Code, an approved `b-flow` step may be applied by a `b-worker`). It
+gates, and keeps the main session responsible for worktree changes (an approved
+`b-flow` step may be applied by a `b-worker`). It
 installs an always-loaded kernel, skills (also `/b-*` commands in Claude Code),
 read-only specialist agents, safety hooks, and managed MCP configuration.
 Changed-code review runs through Codex (`openai/codex-plugin-cc`) and falls back
