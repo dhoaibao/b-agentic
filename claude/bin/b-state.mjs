@@ -32,7 +32,13 @@ import {
   cmdInit,
   cmdUnblock,
 } from "./b-state-commands.mjs";
-import { helperDir, invalid, Refused, SHOW_HISTORY } from "./b-state-core.mjs";
+import {
+  helperDir,
+  invalid,
+  onPi,
+  Refused,
+  SHOW_HISTORY,
+} from "./b-state-core.mjs";
 import { repoRoot } from "./b-state-git.mjs";
 import { cmdRecord } from "./b-state-record.mjs";
 import {
@@ -43,7 +49,7 @@ import {
   resolveRun,
   takeLock,
 } from "./b-state-store.mjs";
-import { cmdWorktree } from "./b-state-worktree.mjs";
+import { cmdWorktree, requireNoOpenWorktrees } from "./b-state-worktree.mjs";
 
 export {
   STATE_SCHEMA,
@@ -56,6 +62,34 @@ export {
 } from "./b-state-core.mjs";
 export { worktreeTree } from "./b-state-git.mjs";
 export { captureCommitPlan, captureStep } from "./b-state-gates.mjs";
+
+// Pi has no Codex gate, no worker, and no worktree to collect: its usage names only what it can run.
+const PI_USAGE = new Map([
+  [
+    "  record review (--verdict V --gate codex|reviewer [--gate-reason R] [--trigger T]",
+    "  record review (--verdict V --gate reviewer --gate-reason R [--trigger T]",
+  ],
+  [
+    "                                      the gate that ran; a reviewer gate needs the",
+    "                                      Pi has only the reviewer gate, so it always needs",
+  ],
+  [
+    "                                      reason Codex was not used, a codex gate has none",
+    "                                      the reason it ran, and a codex gate is refused",
+  ],
+  [
+    "  record step S-n [--by worker|main]  a plan step is applied (phase implement); a step",
+    "  record step S-n [--by main]         a plan step is applied (phase implement); a step",
+  ],
+  [
+    "                                      a step the plan lists in worker_steps needs --by",
+    "                                      a step the plan lists in worker_steps needs --by main",
+  ],
+  [
+    "  worktree add|collect|remove S-n     the git worktree of a parallel worker step (a b-flow batch)",
+    "  worktree remove S-n                 remove a worker worktree that a Claude Code run left",
+  ],
+]);
 
 const USAGE = [
   `Usage: ${helperDir()}/b-state <command> [args] [--run ID] [--owner NAME]`,
@@ -95,7 +129,9 @@ const USAGE = [
   "  worktree add|collect|remove S-n     the git worktree of a parallel worker step (a b-flow batch)",
   "  help, --help, -h                    print this usage and exit 0 (reads and writes nothing)",
   "Exit: 0 done or help, 3 refused or not ok, 2 invalid input or state (a wrong command included).",
-].join("\n");
+]
+  .map((line) => (onPi() ? (PI_USAGE.get(line) ?? line) : line))
+  .join("\n");
 
 const COMMANDS = [
   "init",
@@ -200,6 +236,7 @@ export async function run(argv, cwd, deps = {}) {
   try {
     const state = loadState(dir);
     if (command === "lock") {
+      if (onPi()) await requireNoOpenWorktrees(root, state);
       takeLock(dir, defaultOwner(args), Boolean(args.takeover));
       return { locked: true };
     }

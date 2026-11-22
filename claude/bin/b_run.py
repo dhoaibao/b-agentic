@@ -68,6 +68,11 @@ def helper_dir() -> str:
     return value.rstrip("/") or DEFAULT_HELPER_DIR
 
 
+def on_pi() -> bool:
+    # Mirrors onPi() in b-state-core.mjs: Pi has no worker, no worktrees, and no Codex gate.
+    return helper_dir() != DEFAULT_HELPER_DIR
+
+
 MAX_FILE = 1 << 20
 CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 # Raw HTML in a rendered artifact (an unterminated comment, a tag) could hide criteria from a reader.
@@ -759,7 +764,7 @@ def default_owner(args: dict) -> str:
     if owner is None:
         owner = os.environ.get("CLAUDE_CODE_SESSION_ID", "") or os.environ.get("PI_SESSION_ID", "")
     if not OWNER.fullmatch(owner):
-        variable = "CLAUDE_CODE_SESSION_ID" if helper_dir() == DEFAULT_HELPER_DIR else "PI_SESSION_ID"
+        variable = "PI_SESSION_ID" if on_pi() else "CLAUDE_CODE_SESSION_ID"
         raise Invalid(f"pass --owner NAME or set {variable}")
     return owner
 
@@ -1115,7 +1120,7 @@ def _packet_implement(root: Path, state: dict, data: dict) -> list[str]:
     for step, needs in zip(plan["steps"], step_needs(plan["steps"])):
         out += [
             f"- {step['id']} [{'recorded' if step['id'] in recorded else 'open'}]: {step['action']}"
-            + (" (worker step)" if step["id"] in applied else ""),
+            + ((" (worker step: record --by main)" if on_pi() else " (worker step)") if step["id"] in applied else ""),
             "  - Paths: " + ", ".join(f"`{p}`" for p in step["paths"]),
             f"  - Done when: {step['done_when']}",
             "  - Depends on: " + (", ".join(needs["depends_on"]) or "none"),
@@ -1161,7 +1166,9 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
     recorded = state.get("steps") or {}
     base = state.get("step_base") or {}
     needs = step_needs(steps)[index]["depends_on"]
-    kind = "worker step" if step_id in plan.get("worker_steps", []) else "main session step"
+    kind = "main session step"
+    if step_id in plan.get("worker_steps", []):
+        kind = "worker step: record --by main" if on_pi() else "worker step"
     out = [
         f"Step: {step_id} ({kind})",
         f"Step base tree: {base.get('tree') or 'not recorded'}",
@@ -1169,7 +1176,7 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
         f"Follow-ups revision: {followups_rev}",
         *(
             [f"Working directory: {where}"]
-            if plan.get("parallel_steps") and (where := _worktree_dir(root, state, step_id))
+            if not on_pi() and plan.get("parallel_steps") and (where := _worktree_dir(root, state, step_id))
             else []
         ),
         "",
@@ -1184,12 +1191,17 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
     out += ["", "## Out of scope", *_bullets(spec["out_of_scope"], "none")]
     out += ["", "## Invariants", *_bullets(plan["invariants"], "none")]
     out += ["", "## Stop conditions", *_bullets(plan["stop_conditions"], "none")]
-    out += [
-        "",
-        "## Boundaries",
-        "- Change nothing outside the scope above; prefer the step's own paths.",
-        "- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command (nor its b-state or b-run wrapper).",
-    ]
+    out += ["", "## Boundaries", "- Change nothing outside the scope above; prefer the step's own paths."]
+    if on_pi() and step_id in plan.get("worker_steps", []):
+        # Pi has no worker: the main session reads this packet, applies the step, and records it itself.
+        out.append(
+            "- Never write under .b-agentic, a likely-secret path, or git history; once the step's done-when check "
+            f"holds, record it with `{helper_dir()}/b-state record step {step_id} --by main`."
+        )
+    else:
+        out.append(
+            "- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command (nor its b-state or b-run wrapper)."
+        )
     return [*out, "", *_tree_lines(root, state)]
 
 
@@ -1460,6 +1472,14 @@ def _agent_files(folder: Path) -> tuple[list[Path], list[str]]:
 
 def cmd_worker_profile(args: dict) -> dict:
     """Check the b-worker profile in effect against the worker's allowlist (read-only)."""
+    if on_pi():
+        # Pi has no worker, so there is no profile to check and no agent folder to read.
+        return {
+            "ok": False,
+            "source": "none",
+            "profiles": 0,
+            "problems": ["Pi has no worker: apply every step in the main session"],
+        }
     root = repo_root()
     policy = read_json(mcp_policy_path(), "mcp_operations.yaml")
     read_only = {
@@ -1806,7 +1826,10 @@ def run(argv: list[str]) -> tuple[int, str]:
     positional, args = parse_args(argv)
     # Help is settled right after the arguments parse, before the schema, stdin, or the repository are touched.
     if args.get("help") or positional[:1] == ["help"]:
-        return 0, (__doc__ or "").strip().replace(DEFAULT_HELPER_DIR, helper_dir()) + "\n"
+        text = (__doc__ or "").strip().replace(DEFAULT_HELPER_DIR, helper_dir())
+        if on_pi():
+            text = text.replace("(default: CLAUDE_CODE_SESSION_ID)", "(default: PI_SESSION_ID)")
+        return 0, text + "\n"
     if not positional:
         raise Invalid(f"missing command; commands: {', '.join(COMMANDS)}; --help prints usage")
     command, rest = positional[0], positional[1:]

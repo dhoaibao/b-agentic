@@ -1,6 +1,6 @@
 // The next-step text of the b-state CLI: what the current phase still owes (ADR-009).
 // Imports the core, git, gates and worktree modules.
-import { helperDir } from "./b-state-core.mjs";
+import { helperDir, onPi } from "./b-state-core.mjs";
 import {
   currentFingerprint,
   missingChecks,
@@ -83,7 +83,9 @@ export async function nextSteps(root, state, art, fingerprint = "") {
           .find((s) => s.id === id)
           .depends_on.every((d) => state.steps[d]),
     );
-    const batch = open.size === 0 ? ready.slice(0, WORKTREE_CAP) : [];
+    // Pi has no worker, so it never batches worktrees: every worker step is applied by the main session.
+    const batch =
+      open.size === 0 && !onPi() ? ready.slice(0, WORKTREE_CAP) : [];
     const batched = batch.length >= 2;
     const grouped = new Set(batched ? batch : []);
     const batchLines = batched
@@ -104,9 +106,11 @@ export async function nextSteps(root, state, art, fingerprint = "") {
       ...owed
         .filter((id) => !grouped.has(id) && !open.has(id))
         .map((id) =>
-          handed.includes(id)
-            ? `hand ${id} to one b-worker with ${runCmd(`handoff implement --step ${id}`)} and wait for its report (or apply it yourself), then ${stateCmd(`record step ${id} --by worker`)} (--by main when the main session applied it)`
-            : `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
+          handed.includes(id) && onPi()
+            ? `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id} --by main`)}`
+            : handed.includes(id)
+              ? `hand ${id} to one b-worker with ${runCmd(`handoff implement --step ${id}`)} and wait for its report (or apply it yourself), then ${stateCmd(`record step ${id} --by worker`)} (--by main when the main session applied it)`
+              : `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
         ),
       stateCmd("advance verify"),
     ];
@@ -168,7 +172,9 @@ export async function nextSteps(root, state, art, fingerprint = "") {
       `run b-review, round ${round}`,
       `${runCmd("write followups")} with this round's findings as R${round}-<n> (each blocker: kind blocker, disposition open)`,
       stateCmd(
-        'record review --verdict "<verdict>" --gate codex|reviewer [--gate-reason R]',
+        onPi()
+          ? 'record review --verdict "<verdict>" --gate reviewer --gate-reason R'
+          : 'record review --verdict "<verdict>" --gate codex|reviewer [--gate-reason R]',
       ),
     ];
   }

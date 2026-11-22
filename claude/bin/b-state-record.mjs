@@ -8,6 +8,7 @@ import {
   CONSENT_DRIFT,
   FINGERPRINT,
   helperDir,
+  onPi,
   invalid,
   MAX_CMD,
   MAX_ROUNDS,
@@ -42,7 +43,12 @@ import {
 } from "./b-state-gates.mjs";
 import { gitOr, isAncestor } from "./b-state-git.mjs";
 import { saveState } from "./b-state-store.mjs";
-import { rawChange, runWorktrees, workerChange } from "./b-state-worktree.mjs";
+import {
+  rawChange,
+  requireNoOpenWorktrees,
+  runWorktrees,
+  workerChange,
+} from "./b-state-worktree.mjs";
 
 // `capture` is how a step's tree is captured; the probes replace it to change
 // the repository at exactly that point.
@@ -191,11 +197,14 @@ export async function cmdRecord(
         throw invalid("unknown review verdict");
       // Which gate gave the verdict, and why the subagent stood in for Codex.
       const gate = args.gate;
+      // Pi has no Codex gate, so a Pi run cannot record one.
+      if (onPi() && gate !== "reviewer")
+        throw invalid("--gate must be reviewer (Pi has no Codex gate)");
       if (!REVIEW_GATES.includes(gate))
         throw invalid(`--gate must be ${REVIEW_GATES.join(" or ")}`);
       if (gate === "reviewer" && args["gate-reason"] === undefined)
         throw invalid(
-          "--gate reviewer needs --gate-reason (why Codex was not used)",
+          `--gate reviewer needs --gate-reason (why ${onPi() ? "the reviewer gate ran" : "Codex was not used"})`,
         );
       if (gate === "codex" && args["gate-reason"] !== undefined)
         throw invalid("--gate-reason goes with --gate reviewer only");
@@ -367,9 +376,18 @@ export async function cmdRecord(
     const by = args.by;
     if (by !== undefined && !["worker", "main"].includes(by))
       throw invalid("--by must be worker or main");
+    // Pi has no worker: its main session applies a worker step and records it --by main.
+    if (onPi() && by === "worker")
+      throw refuse(
+        `Pi has no worker: apply ${id} in the main session and record it --by main`,
+      );
+    // A step recorded while a worker worktree is open would strand that worker's uncollected changes.
+    if (onPi()) await requireNoOpenWorktrees(root, state);
     if (worker && by === undefined)
       throw invalid(
-        `${id} is a worker step: record it with --by worker, or --by main when the main session applied it`,
+        onPi()
+          ? `${id} is a worker step: record it with --by main (Pi has no worker)`
+          : `${id} is a worker step: record it with --by worker, or --by main when the main session applied it`,
       );
     if (!worker && by !== undefined)
       throw refuse(
@@ -377,7 +395,9 @@ export async function cmdRecord(
       );
     if (worker && state.steps[id])
       throw refuse(
-        `${id} is already recorded; a worker step is recorded once, by the main session after its report`,
+        onPi()
+          ? `${id} is already recorded; a worker step is recorded once`
+          : `${id} is already recorded; a worker step is recorded once, by the main session after its report`,
       );
     if (by === "worker" && !state.step_base)
       throw refuse(

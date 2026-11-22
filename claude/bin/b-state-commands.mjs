@@ -10,6 +10,7 @@ import {
   invalid,
   NEXT,
   now,
+  onPi,
   PHASES,
   refuse,
   SIZE_DRIFT,
@@ -60,7 +61,11 @@ import {
   takeLock,
   writeAtomic,
 } from "./b-state-store.mjs";
-import { runWorktrees } from "./b-state-worktree.mjs";
+import {
+  openRunWorktreeIds,
+  requireNoOpenWorktrees,
+  runWorktrees,
+} from "./b-state-worktree.mjs";
 
 export async function cmdInit(root, args) {
   const slug = args._[1];
@@ -326,10 +331,15 @@ export async function cmdAdvance(root, dir, state, args) {
   // A worker's worktree is not part of the candidate: it is collected or
   // removed before the evidence rounds start.
   if (target === "verify" && parallelSteps(art).length > 0) {
-    const left = await runWorktrees(root, state, art.artifacts.plan);
+    // Pi reads the strict listing: a failed git call or a newline in a path must not read as "no worktrees".
+    const left = onPi()
+      ? (await openRunWorktreeIds(root, state)).map((id) => ({ id }))
+      : await runWorktrees(root, state, art.artifacts.plan);
     if (left.length > 0)
       throw refuse(
-        `worktrees of this run remain: ${left.map((w) => w.id).join(", ")}; collect and record each step, or run ${helperDir()}/b-state worktree remove S-n for each`,
+        onPi()
+          ? `worktrees of this run remain: ${left.map((w) => w.id).join(", ")}; Pi cannot collect them, so continue the run in Claude Code to inspect and collect their changes (${helperDir()}/b-state worktree remove S-n force-discards a worktree's uncollected changes)`
+          : `worktrees of this run remain: ${left.map((w) => w.id).join(", ")}; collect and record each step, or run ${helperDir()}/b-state worktree remove S-n for each`,
       );
   }
   // Entering implement fixes where the first step starts.
@@ -351,6 +361,8 @@ export async function cmdAdvance(root, dir, state, args) {
 
 export async function cmdUnblock(root, dir, state, args) {
   if (state.phase !== "blocked") throw refuse("run is not blocked");
+  // Pi continues no run that has open worker worktrees, so it never unblocks one into the evidence rounds.
+  if (onPi()) await requireNoOpenWorktrees(root, state);
   const target = args._[1];
   if (!["clarify", "implement", "fix", "verify"].includes(target)) {
     throw invalid("unblock target must be clarify, implement, fix, or verify");
@@ -402,6 +414,9 @@ export async function cmdCheck(root, dir, state, args) {
   const owner = defaultOwner(args);
   const problems = [];
   const actions = [];
+  // Pi checks the worktrees first: the recovery message is "continue in Claude Code", never a takeover hint.
+  if (onPi() && state.phase !== "done")
+    await requireNoOpenWorktrees(root, state);
   const held = readLock(dir);
   if (held && held.owner !== owner && !args.takeover) {
     return {

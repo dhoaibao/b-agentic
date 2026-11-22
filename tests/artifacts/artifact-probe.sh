@@ -599,6 +599,25 @@ grep -Fxq -- '- S-2 [open]: Cover it with a test (worker step)' <<<"$out" || fai
 dep_state="$(rundir "$dep_repo")/state.json"
 ok "$dep_repo" handoff implement --step S-2
 grep -Fxq 'Step: S-2 (worker step)' <<<"$out" || fail "the step packet must say who applies the step: $out"
+# On Pi the main session applies every step: the packets say --by main and name no worktree, and a worker
+# profile is not ok. The Claude Code packets above and below stay unchanged.
+# shellcheck disable=SC2088 # The folder is the literal text ~/... that the CLI prints, never expanded.
+pi_override='~/.pi/agent/b-agentic/bin'
+B_AGENTIC_HELPER_DIR="$pi_override" ok "$dep_repo" handoff implement --step S-2
+grep -Fxq 'Step: S-2 (worker step: record --by main)' <<<"$out" || fail "the Pi step packet must say the main session records it --by main: $out"
+! grep -Fq 'Working directory' <<<"$out" || fail "the Pi step packet names no worktree: $out"
+grep -Fq 'record step S-2 --by main`' <<<"$out" || fail "the Pi step packet must permit the record command it asks for: $out"
+! grep -Fq 'run no b-state.mjs' <<<"$out" || fail "the Pi worker-step packet must not forbid the b-state wrapper: $out"
+B_AGENTIC_HELPER_DIR="$pi_override" ok "$dep_repo" handoff implement
+grep -Fxq -- '- S-2 [open]: Cover it with a test (worker step: record --by main)' <<<"$out" || fail "the Pi full packet must mark the worker step for --by main: $out"
+B_AGENTIC_HELPER_DIR="$pi_override" refused "$dep_repo" worker-profile
+[ "$(jq -c '[.ok, .source, .profiles]' <<<"$out")" = '[false,"none",0]' ] || fail "worker-profile on Pi is not ok without reading a profile: $out"
+grep -Fq 'Pi has no worker' <<<"$out" || fail "worker-profile on Pi must say why: $out"
+pi_help=$(B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" help | grep -F -- '--owner NAME')
+grep -Fq '(default: PI_SESSION_ID)' <<<"$pi_help" || fail "the Pi help must name PI_SESSION_ID: $pi_help"
+claude_help=$(python3 -I -B "$cli" help | grep -F -- '--owner NAME')
+grep -Fq '(default: CLAUDE_CODE_SESSION_ID)' <<<"$claude_help" || fail "the Claude Code help keeps CLAUDE_CODE_SESSION_ID: $claude_help"
+ok "$dep_repo" handoff implement --step S-2
 grep -Fxq 'Step base tree: not recorded' <<<"$out" || fail "a run without a step base says so: $out"
 grep -Fxq "State revision: $(jq -r .rev "$dep_state")" <<<"$out" || fail "the packet must carry the state revision: $out"
 grep -Fxq 'Follow-ups revision: 0' <<<"$out" || fail "the packet must carry the follow-ups revision: $out"

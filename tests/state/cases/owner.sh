@@ -65,7 +65,12 @@ for value in '~/.pi/agent/b-agentic/bin' '~/.pi/agent/b-agentic/bin//' '/opt/b-a
   from_js=$(B_AGENTIC_HELPER_DIR="$value" "${js[@]}" -e "import { helperDir } from '$root/claude/bin/b-state-core.mjs'; console.log(helperDir());")
   from_py=$(B_AGENTIC_HELPER_DIR="$value" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.helper_dir())")
   [ "$from_js" = "$from_py" ] || fail "helperDir and helper_dir disagree for '$value': '$from_js' vs '$from_py'"
+  pi_js=$(B_AGENTIC_HELPER_DIR="$value" "${js[@]}" -e "import { onPi } from '$root/claude/bin/b-state-core.mjs'; console.log(onPi());")
+  pi_py=$(B_AGENTIC_HELPER_DIR="$value" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(str(b_run.on_pi()).lower())")
+  [ "$pi_js" = "$pi_py" ] || fail "onPi and on_pi disagree for '$value': '$pi_js' vs '$pi_py'"
 done
+[ "$(env -u B_AGENTIC_HELPER_DIR "${js[@]}" -e "import { onPi } from '$root/claude/bin/b-state-core.mjs'; console.log(onPi());")" = false ] || fail "onPi must be false without the override"
+[ "$(B_AGENTIC_HELPER_DIR="$pi_dir" "${js[@]}" -e "import { onPi } from '$root/claude/bin/b-state-core.mjs'; console.log(onPi());")" = true ] || fail "onPi must be true under the Pi override"
 from_js=$(env -u B_AGENTIC_HELPER_DIR "${js[@]}" -e "import { helperDir } from '$root/claude/bin/b-state-core.mjs'; console.log(helperDir());")
 from_py=$(env -u B_AGENTIC_HELPER_DIR python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.helper_dir())")
 [ "$from_js" = "~/.claude/b-agentic/bin" ] && [ "$from_py" = "$from_js" ] || fail "an unset override must give the Claude Code folder in both: '$from_js' vs '$from_py'"

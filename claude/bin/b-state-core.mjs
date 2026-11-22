@@ -19,12 +19,16 @@ export function helperDir(env = process.env) {
   return value.replace(/\/+$/, "") || DEFAULT_HELPER_DIR;
 }
 
-// The session variable the missing-owner message names: the Claude Code one until a
-// runtime overrides the wrapper folder, which is the signal that Pi runs the helpers.
+// Pi runs the helpers when a runtime overrides the wrapper folder. Pi has no worker, no worktrees,
+// and no Codex gate, so this one signal narrows the printed text and the accepted input; it never
+// accepts anything Claude Code refuses. b_run.py mirrors it as on_pi().
+export function onPi(env = process.env) {
+  return helperDir(env) !== DEFAULT_HELPER_DIR;
+}
+
+// The session variable the missing-owner message names.
 export function ownerVar(env = process.env) {
-  return helperDir(env) === DEFAULT_HELPER_DIR
-    ? "CLAUDE_CODE_SESSION_ID"
-    : "PI_SESSION_ID";
+  return onPi(env) ? "PI_SESSION_ID" : "CLAUDE_CODE_SESSION_ID";
 }
 
 export const PHASES = [
