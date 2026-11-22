@@ -25,7 +25,6 @@
         "mcp__brave_search__brave_llm_context",
         "mcp__brave_search__brave_place_search",
         "mcp__firecrawl__firecrawl_developer_search",
-        "mcp__firecrawl__firecrawl_find_tools",
         "mcp__firecrawl__firecrawl_research_search_papers",
         "mcp__firecrawl__firecrawl_research_inspect_paper",
         "mcp__firecrawl__firecrawl_research_read_paper",

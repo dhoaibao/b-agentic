@@ -33,7 +33,7 @@ A read-only audit of the agent profiles found that this costs context on every s
   `mcp__codegraph__codegraph_explore`.
 - **The allowlists.** `b-planner`, `b-reviewer`, and `b-auditor` get CodeGraph and the two
   Context7 tools. `b-debugger` adds `firecrawl_developer_search`. `b-researcher` gets
-  CodeGraph, Context7, the eight Brave tools, `firecrawl_find_tools`,
+  CodeGraph, Context7, the eight Brave tools,
   `firecrawl_developer_search`, and the four `firecrawl_research_*` tools, plus its three
   `conditional-read` Firecrawl tools. The Firecrawl job and usage tools
   (`agent_status`, `check_crawl_status`, `credit_usage`) are dropped: no skill names them,
@@ -55,6 +55,9 @@ A read-only audit of the agent profiles found that this costs context on every s
   its allowlist, so this change does not remove that text.
 - A skill that later needs another MCP tool in a child must add it to that agent's list. A
   missing tool is reported by the child as a missing tool, not a silent failure.
+- `firecrawl_find_tools` was later removed from `b-researcher` because the configured
+  `firecrawl-mcp` does not expose it and Pi refuses to launch an agent naming a missing
+  MCP tool (`references/mcp_operations.yaml` retains its classification unchanged).
 - Rejected: named tool groups (a schema layer for six consumers); dropping only the unused
   Playwright, draw.io, Excalidraw and shadcn tools (about 15% of the saving, and Brave and
   Firecrawl stay in every child); doing nothing until measured (the eager load was already
