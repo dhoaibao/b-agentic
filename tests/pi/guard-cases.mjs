@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import {
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -24,6 +25,8 @@ import {
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const hooksDir = join(root, "claude", "hooks");
 const work = mkdtempSync(join(tmpdir(), "pi-guard-"));
+// Resolve parent symlinks (e.g. macOS /var -> /private/var) to match piResolve.
+const realWork = realpathSync(work);
 const cases = [];
 const test = (name, fn) => cases.push([name, fn]);
 
@@ -160,7 +163,7 @@ test("Pi collapses .. before links apply, and a dangling link resolves to its ta
   symlinkSync(join(work, "deep", "sub"), join(work, "d"));
   symlinkSync(join(work, ".env"), join(work, "envlink"));
   // Pi opens <cwd>/envlink (the .. is collapsed first); the OS order would not.
-  assert.equal(piResolve("d/../envlink", work), join(work, ".env"));
+  assert.equal(piResolve("d/../envlink", work), join(realWork, ".env"));
   const hidden = await call("read", { path: "d/../envlink" });
   assert.ok(blocked(hidden));
   assert.match(hidden.reason, /likely-secret path/);
@@ -171,7 +174,7 @@ test("Pi collapses .. before links apply, and a dangling link resolves to its ta
   );
   assert.equal(
     piResolve("dangling", work),
-    join(work, ".b-agentic", "runs", "created.md"),
+    join(realWork, ".b-agentic", "runs", "created.md"),
   );
   assert.ok(blocked(await call("write", { path: "dangling", content: "x" })));
   symlinkSync(join(work, "no-such-dir", "key.pem"), join(work, "dangling-pem"));
@@ -191,7 +194,7 @@ test("a .. inside a link target applies after the links before it", async () => 
   symlinkSync("toruns/../created.md", join(work, "nested"));
   assert.equal(
     piResolve("nested", work),
-    join(work, ".b-agentic", "created.md"),
+    join(realWork, ".b-agentic", "created.md"),
   );
   assert.ok(blocked(await call("write", { path: "nested", content: "x" })));
 });
@@ -232,7 +235,7 @@ test("a directory grep that would search a likely-secret file is refused", async
   const { result, searched } = await grepWith(["src/a.ts", ".env.local"]);
   assert.ok(blocked(result));
   assert.match(result.reason, /\.env\.local/);
-  assert.equal(searched[0].dir, work);
+  assert.equal(searched[0].dir, realWork);
   for (const name of [
     "weird-1- name.env",
     "foo.env.\nbar",
