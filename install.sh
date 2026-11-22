@@ -75,10 +75,9 @@ done
 [ "$RUNTIME" != pi ] || [ "$STATUSLINE" -eq 0 ] || die '--statusline-only is a Claude Code option and cannot be combined with --runtime=pi'
 [ "$RUNTIME" != pi ] || { [ "$UPDATE" -eq 0 ] && [ -z "$REF" ]; } || die '--update and --ref fetch over the network; --runtime=pi installs only from a local checkout, so update the checkout yourself first'
 
-# Same condition as the Claude Code installer's terminal UI: a terminal, and none of the plain-output modes (the Pi
-# installer never draws one).
+# Same condition as the installer's terminal UI: a terminal, and none of the plain-output modes.
 FANCY=0
-if [ "$RUNTIME" = claude ] && [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ "$DRY_RUN" -eq 0 ] && [ "$UNINSTALL" -eq 0 ] && [ "$YES" -eq 0 ]; then
+if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ "$DRY_RUN" -eq 0 ] && [ "$UNINSTALL" -eq 0 ] && [ "$YES" -eq 0 ]; then
   FANCY=1
 fi
 

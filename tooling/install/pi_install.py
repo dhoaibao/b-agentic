@@ -38,6 +38,7 @@ from typing import Any
 import claude_install as base
 import optional_components
 from claude_install import InstallError, find_block, json_text, merge_unique, read_json, sha256
+from claude_install_ui import Ui
 
 ROOT = base.ROOT
 MANIFEST_SCHEMA = 1
@@ -187,8 +188,11 @@ class Installer:
         force: bool,
         with_ids: list[str] | None = None,
         without_ids: list[str] | None = None,
+        *,
+        ui: Ui | None = None,
     ) -> None:
         self.source = source
+        self.ui = ui or Ui(enabled=False)
         self.components = self.load_components()
         self.with_ids = with_ids or []
         self.without_ids = without_ids or []
@@ -215,9 +219,43 @@ class Installer:
     def warn(self, text: str) -> None:
         self.warnings.append(text)
 
+    @staticmethod
+    def display_text(text: str) -> str:
+        return text.replace(str(base.home_dir()), "~")
+
     def display(self, path: Path | str) -> str:
         text, home = str(path), str(base.home_dir())
         return "~" + text[len(home) :] if text == home or text.startswith(home + os.sep) else text
+
+    def plan_summary(self, plan: dict[str, Any]) -> list[str]:
+        def verb(text: Any, changed: str) -> str:
+            return changed if text is not None else "unchanged"
+
+        files = plan["files"]
+        kernel = plan["kernel"]
+        settings = plan["settings"]
+        permission = plan["permission"]
+        classifier = plan["classifier"]
+        mcp = plan["mcp"]
+        file_parts = [f"{len(files['writes'])} to write", f"{self.counts['unchanged']} unchanged"]
+        if files["removals"]:
+            file_parts.append(f"{len(files['removals'])} to remove")
+        if self.counts["kept"]:
+            file_parts.append(f"{self.counts['kept']} kept")
+        classifier_state = (
+            "created" if classifier["text"] is not None else ("kept" if classifier["target"].exists() else "skipped")
+        )
+        return [
+            self.ui.style(self.display(self.agent_dir), "cyan"),
+            f"  {self.ui.style('files', 'green')}: {', '.join(file_parts)}",
+            f"  {self.ui.style('kernel', 'green')}: AGENTS.md block "
+            f"{verb(kernel['text'], 'updated' if kernel['existed'] else 'written')}",
+            f"  {self.ui.style('settings', 'green')}: settings.json {verb(settings['text'], 'merged')}",
+            f"  {self.ui.style('permission', 'green')}: {PERMISSION_CONFIG} {verb(permission['text'], 'merged')}",
+            f"  {self.ui.style('classifier', 'green')}: {CLASSIFIER_CONFIG} {classifier_state}",
+            f"  {self.ui.style('mcp', 'green')}: mcp.json {verb(mcp['text'], 'merged')}",
+            f"  {self.ui.style('optional', 'green')}: {optional_components.summary(self.components, self.selection)}",
+        ]
 
     # -- optional components ----------------------------------------------------
     def load_components(self) -> dict[str, dict[str, Any]]:
@@ -231,6 +269,14 @@ class Installer:
             self.selection = optional_components.resolve(self.components, manifest, self.with_ids, self.without_ids)
         except ValueError as exc:
             raise InstallError(str(exc)) from exc
+        if self.components and not (self.with_ids or self.without_ids) and self.ui.interactive:
+            options = [(key, component["label"]) for key, component in self.components.items()]
+            picked = self.ui.checklist(
+                "Optional components (unchecked ones are not installed; installed ones that are unchecked are removed)",
+                options,
+                {key for key, on in self.selection.items() if on},
+            )
+            self.selection = {key: key in picked for key in self.components}
 
     def excluded_skills(self) -> set[str]:
         return optional_components.excluded_skills(self.components, self.selection)
@@ -1014,11 +1060,32 @@ class Installer:
         # The probe can take seconds, so it runs before any user file is read for the plan.
         warning = pi_version_warning()
         self.preflight()
-        self.select_components(self.read_manifest())
-        previous, _ = self.validate_destinations()
+        manifest = self.read_manifest()
+        notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
+        for note in notes:
+            if self.ui.fancy:
+                self.ui.step(self.display_text(note))
+            else:
+                print(note)
+        self.ui.step(f"Source: {self.display(self.source)}")
+        self.select_components(manifest)
+        previous, payload = self.validate_destinations()
+        skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
+        agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
+        self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
         plan = self.plan_all(previous)
         if warning:
             self.warn(warning)
+        if self.ui.fancy:
+            self.ui.box("Installation Summary", self.plan_summary(plan))
+            if self.ui.interactive:
+                if not self.ui.confirm("Proceed with installation?", default=True):
+                    raise InstallError(f"installation cancelled; nothing under {self.agent_dir} was changed")
+                # Re-validate and re-plan after the prompt so concurrent edits or new aliases are caught.
+                previous, _ = self.validate_destinations()
+                plan = self.plan_all(previous)
+                if warning:
+                    self.warn(warning)
         files, kernel, settings, permission, mcp, classifier = (
             plan[key] for key in ("files", "kernel", "settings", "permission", "mcp", "classifier")
         )
@@ -1300,7 +1367,27 @@ class Installer:
             )
         return lines
 
+    def report_fancy(self, operation: str) -> None:
+        verb = "Uninstalled" if operation == "uninstall" else "Installed"
+        summary = ", ".join(f"{count} {name}" for name, count in self.counts.items() if count)
+        label = "[dry-run] " if self.dry_run else ""
+        ok = self.ui.glyph["ok"]
+        self.ui.step(f"{label}{'Uninstall' if operation == 'uninstall' else 'Installation'} complete", done=True)
+        lines = [f"{self.ui.style(ok, 'green')} {self.display(self.agent_dir)}", f"  {summary or 'no changes'}"]
+        lines += [f"  {self.display_text(message)}" for message in self.messages]
+        self.ui.box(f"{label}{verb}", lines, tone="green")
+        if self.warnings:
+            self.ui.box(
+                "Warnings", [f"{self.ui.style('!', 'yellow')} {warning}" for warning in self.warnings], tone="yellow"
+            )
+        if operation != "uninstall" and not self.dry_run:
+            self.ui.box("Next steps", [line[2:] if line.startswith("  ") else line for line in self.next_steps()[1:]])
+        self.ui.emit()
+
     def report(self, operation: str) -> None:
+        if self.ui.fancy:
+            self.report_fancy(operation)
+            return
         for message in self.messages:
             print(message)
         for warning in self.warnings:
@@ -1317,7 +1404,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--uninstall", action="store_true", help="remove what the manifest recorded")
     parser.add_argument("--dry-run", action="store_true", help="print the plan and change nothing")
     parser.add_argument("--force", action="store_true", help="replace modified or unmanaged files after a backup")
-    parser.add_argument("-y", "--yes", action="store_true", help="accepted for symmetry; the Pi installer never asks")
+    parser.add_argument("-y", "--yes", action="store_true", help="skip interactive questions and use defaults")
     parser.add_argument("--source", default=str(ROOT), help="b-agentic source checkout (default: this repository)")
     base.add_optional_arguments(parser)
     args = parser.parse_args(argv)
@@ -1331,13 +1418,18 @@ def main(argv: list[str] | None = None) -> int:
         ):
             raise InstallError(f"{source} is not a b-agentic source checkout with the Pi runtime")
         with_ids, without_ids = base.parse_optional_arguments(source, args)
-        installer = Installer(source, args.dry_run, args.force, with_ids, without_ids)
-        if args.uninstall:
-            installer.uninstall()
-            installer.report("uninstall")
-        else:
-            installer.install()
-            installer.report(f"install ({base.source_revision(source) or 'unversioned source'})")
+        ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
+        ui.header()
+        installer = Installer(source, args.dry_run, args.force, with_ids, without_ids, ui=ui)
+        try:
+            if args.uninstall:
+                installer.uninstall()
+                installer.report("uninstall")
+            else:
+                installer.install()
+                installer.report(f"install ({base.source_revision(source) or 'unversioned source'})")
+        finally:
+            ui.close()
     except InstallError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
