@@ -92,7 +92,7 @@ esac
 command -v python3 >/dev/null 2>&1 || die 'python3 is required'
 
 # refuse_protected_dir <dir>: the clone/update destination must not be the home
-# directory or sit under ~/.pi or ~/.config/opencode (trees of removed runtimes that b-agentic never writes), resolving symlinks first.
+# directory or sit under ~/.pi or ~/.config/opencode (the opt-in Pi runtime's tree and a removed runtime's, neither of which a source checkout may live in), resolving symlinks first.
 refuse_protected_dir() {
   python3 - "$1" <<'PY' || die "refusing to use $1 as the source directory (home directory, or under ~/.pi or ~/.config/opencode)"
 import os
