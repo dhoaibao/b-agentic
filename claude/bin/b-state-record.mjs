@@ -43,12 +43,7 @@ import {
 } from "./b-state-gates.mjs";
 import { gitOr, isAncestor } from "./b-state-git.mjs";
 import { saveState } from "./b-state-store.mjs";
-import {
-  rawChange,
-  requireNoOpenWorktrees,
-  runWorktrees,
-  workerChange,
-} from "./b-state-worktree.mjs";
+import { rawChange, runWorktrees, workerChange } from "./b-state-worktree.mjs";
 
 // `capture` is how a step's tree is captured; the probes replace it to change
 // the repository at exactly that point.
@@ -376,18 +371,9 @@ export async function cmdRecord(
     const by = args.by;
     if (by !== undefined && !["worker", "main"].includes(by))
       throw invalid("--by must be worker or main");
-    // Pi has no worker: its main session applies a worker step and records it --by main.
-    if (onPi() && by === "worker")
-      throw refuse(
-        `Pi has no worker: apply ${id} in the main session and record it --by main`,
-      );
-    // A step recorded while a worker worktree is open would strand that worker's uncollected changes.
-    if (onPi()) await requireNoOpenWorktrees(root, state);
     if (worker && by === undefined)
       throw invalid(
-        onPi()
-          ? `${id} is a worker step: record it with --by main (Pi has no worker)`
-          : `${id} is a worker step: record it with --by worker, or --by main when the main session applied it`,
+        `${id} is a worker step: record it with --by worker, or --by main when the main session applied it`,
       );
     if (!worker && by !== undefined)
       throw refuse(
@@ -395,9 +381,7 @@ export async function cmdRecord(
       );
     if (worker && state.steps[id])
       throw refuse(
-        onPi()
-          ? `${id} is already recorded; a worker step is recorded once`
-          : `${id} is already recorded; a worker step is recorded once, by the main session after its report`,
+        `${id} is already recorded; a worker step is recorded once, by the main session after its report`,
       );
     if (by === "worker" && !state.step_base)
       throw refuse(

@@ -291,6 +291,9 @@ def pi_permission_errors(permission: dict, policy: dict, agent_tools: dict[str, 
     if list(permission.get("path", {}).items()) != list(PATH_RULES.items()):
         errors.append("pi permission: the path rules differ from the shared protected path rules in content or order")
     errors.extend(pi_push_errors(permission.get("bash", {})))
+    for tool in RUNTIMES["pi"]["allowed_tools"]:
+        if permission.get(tool) != "allow":
+            errors.append(f"pi permission: {tool} must be allowed")
     for agent, tools in agent_tools.items():
         for tool in tools:
             # Pi agent files name an MCP tool mcp:<server>/<tool>; the permission id is mcp__<server>__<tool_with_underscores>.

@@ -83,14 +83,15 @@ export async function nextSteps(root, state, art, fingerprint = "") {
           .find((s) => s.id === id)
           .depends_on.every((d) => state.steps[d]),
     );
-    // Pi has no worker, so it never batches worktrees: every worker step is applied by the main session.
-    const batch =
-      open.size === 0 && !onPi() ? ready.slice(0, WORKTREE_CAP) : [];
+    const batch = open.size === 0 ? ready.slice(0, WORKTREE_CAP) : [];
     const batched = batch.length >= 2;
     const grouped = new Set(batched ? batch : []);
+    const dispatch = onPi()
+      ? 'one subagent call with workflow parallel and one {agent: "b-worker", task, cwd} entry per step (each step\'s packet, with cwd set to its Working directory)'
+      : "all calls in one message, then end the turn";
     const batchLines = batched
       ? [
-          `these worker steps may run at the same time, each in its own worktree: ${batch.join(", ")}; for each ${stateCmd("worktree add S-n")} and hand it to one b-worker with ${runCmd("handoff implement --step S-n")} (all calls in one message, then end the turn); once every report is in, in plan order for each: ${stateCmd("worktree collect S-n")}, run the apply command it prints, ${stateCmd("record step S-n --by worker")}, ${stateCmd("worktree remove S-n")} (a refusal at any point: apply that step yourself in the main tree, ${stateCmd("record step S-n --by main")}, then ${stateCmd("worktree remove S-n")})`,
+          `these worker steps may run at the same time, each in its own worktree: ${batch.join(", ")}; for each ${stateCmd("worktree add S-n")} and hand it to one b-worker with ${runCmd("handoff implement --step S-n")} (${dispatch}); once every report is in, in plan order for each: ${stateCmd("worktree collect S-n")}, run the apply command it prints, ${stateCmd("record step S-n --by worker")}, ${stateCmd("worktree remove S-n")} (a refusal at any point: apply that step yourself in the main tree, ${stateCmd("record step S-n --by main")}, then ${stateCmd("worktree remove S-n")})`,
         ]
       : [];
     const inProgress =
@@ -106,11 +107,9 @@ export async function nextSteps(root, state, art, fingerprint = "") {
       ...owed
         .filter((id) => !grouped.has(id) && !open.has(id))
         .map((id) =>
-          handed.includes(id) && onPi()
-            ? `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id} --by main`)}`
-            : handed.includes(id)
-              ? `hand ${id} to one b-worker with ${runCmd(`handoff implement --step ${id}`)} and wait for its report (or apply it yourself), then ${stateCmd(`record step ${id} --by worker`)} (--by main when the main session applied it)`
-              : `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
+          handed.includes(id)
+            ? `hand ${id} to one b-worker with ${runCmd(`handoff implement --step ${id}`)} and wait for its report (or apply it yourself), then ${stateCmd(`record step ${id} --by worker`)} (--by main when the main session applied it)`
+            : `apply ${id} inside the approved scope, then ${stateCmd(`record step ${id}`)}`,
         ),
       stateCmd("advance verify"),
     ];

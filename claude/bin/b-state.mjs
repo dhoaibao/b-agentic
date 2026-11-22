@@ -49,7 +49,7 @@ import {
   resolveRun,
   takeLock,
 } from "./b-state-store.mjs";
-import { cmdWorktree, requireNoOpenWorktrees } from "./b-state-worktree.mjs";
+import { cmdWorktree } from "./b-state-worktree.mjs";
 
 export {
   STATE_SCHEMA,
@@ -63,7 +63,7 @@ export {
 export { worktreeTree } from "./b-state-git.mjs";
 export { captureCommitPlan, captureStep } from "./b-state-gates.mjs";
 
-// Pi has no Codex gate, no worker, and no worktree to collect: its usage names only what it can run.
+// Pi has no Codex gate: its usage names only the reviewer gate.
 const PI_USAGE = new Map([
   [
     "  record review (--verdict V --gate codex|reviewer [--gate-reason R] [--trigger T]",
@@ -76,18 +76,6 @@ const PI_USAGE = new Map([
   [
     "                                      reason Codex was not used, a codex gate has none",
     "                                      the reason it ran, and a codex gate is refused",
-  ],
-  [
-    "  record step S-n [--by worker|main]  a plan step is applied (phase implement); a step",
-    "  record step S-n [--by main]         a plan step is applied (phase implement); a step",
-  ],
-  [
-    "                                      a step the plan lists in worker_steps needs --by",
-    "                                      a step the plan lists in worker_steps needs --by main",
-  ],
-  [
-    "  worktree add|collect|remove S-n     the git worktree of a parallel worker step (a b-flow batch)",
-    "  worktree remove S-n                 remove a worker worktree that a Claude Code run left",
   ],
 ]);
 
@@ -236,7 +224,6 @@ export async function run(argv, cwd, deps = {}) {
   try {
     const state = loadState(dir);
     if (command === "lock") {
-      if (onPi()) await requireNoOpenWorktrees(root, state);
       takeLock(dir, defaultOwner(args), Boolean(args.takeover));
       return { locked: true };
     }

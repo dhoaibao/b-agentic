@@ -35,10 +35,15 @@
         "b-auditor": {"model": "openai/gpt-6.2-sol", "thinking": "high"},
         "b-reviewer": {"model": "openai/gpt-6.2-sol", "thinking": "high"}
       },
+      "workers": {
+        "b-worker": {"model": "openai/gpt-6.1-terra", "thinking": "high"}
+      },
       "editing_tools": ["edit", "write"],
       "read_only_tools": ["read", "grep", "find", "ls", "bash"],
       "excluded_agent_tools": ["edit", "write", "subagent", "ask_user_question"],
-      "allowed_tools": ["subagent", "bg_wait", "ask_user_question"],
+      "worker_tools": ["read", "grep", "find", "ls", "bash", "edit", "write"],
+      "worker_excluded_tools": ["subagent", "ask_user_question"],
+      "allowed_tools": ["subagent", "subagent_launch", "bg_wait", "ask_user_question"],
       "mcp_exposure": {"default": "direct"},
       "mcp_tool_format": "mcp__{server}__{tool}",
       "arguments_placeholder": "the arguments supplied with the invocation",
@@ -92,16 +97,28 @@
         {"from": "`Write`", "to": "`write`"},
         {"from": "`Grep`", "to": "`grep`"},
         {"from": "`Glob`", "to": "`find`"},
+        {
+          "from": "First `check` is ok and `b_run.py worker-profile` reports ok;",
+          "to": "First `check` is ok and `b_run.py worker-profile --step S-n` reports ok;"
+        },
+        {
+          "from": "Make one `Agent` call with `subagent_type` `b-worker`, passing that packet and the name of the step's phase skill, reply with one status line, and end the turn: the harness starts the worker in the background, and that is the wait the kernel requires, not background work you continue beside.",
+          "to": "Make one `subagent` call with `agent` `b-worker`, passing that packet and the name of the step's phase skill, reply with one status line, and end the turn: the harness starts the worker in the background, and that is the wait the kernel requires, not background work you continue beside."
+        },
+        {
+          "from": "run `b_run.py worker-profile` once, then `b-state.mjs worktree add S-n` for each,",
+          "to": "run `b-state.mjs worktree add S-n` and `b_run.py worker-profile --step S-n` for each,"
+        },
+        {
+          "from": "and make every `Agent` call in one message with each step's packet (its `Working directory` is that step's own worktree outside the repository), reply with one status line, and end the turn;",
+          "to": "and make one `subagent` call with `workflow` `parallel` and one `{agent: \"b-worker\", task, cwd}` entry per step (with that step's packet and `cwd` set to its `Working directory` outside the repository), reply with one status line, and end the turn;"
+        },
         {"from": "CLAUDE_CODE_SESSION_ID", "to": "PI_SESSION_ID"}
       ],
       "kernel_overrides": [
         {"from": "Claude Code Workflow Kernel", "to": "Pi Workflow Kernel"},
         {"from": ", except a `b-review` Codex gate run that passes its secret guard", "to": ""},
-        {"from": "Claude Code exposes MCP tools as", "to": "Pi exposes MCP tools as"},
-        {
-          "from": "It coordinates read-only children and a `b-worker` per approved worker step, never two in a tree.",
-          "to": "It coordinates only its read-only child sessions, never peer writers."
-        }
+        {"from": "Claude Code exposes MCP tools as", "to": "Pi exposes MCP tools as"}
       ],
       "forbidden_tokens": [
         "~/.claude",
@@ -113,8 +130,7 @@
         "NotebookEdit",
         "CLAUDE_CODE_SESSION_ID",
         "run_in_background",
-        "/codex:",
-        "b-worker"
+        "/codex:"
       ]
     }
   }

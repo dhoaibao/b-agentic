@@ -19,8 +19,8 @@ Commands (JSON results on stdout, one-line errors on stderr):
   handoff PHASE            render the packet that briefs a phase from the run: clarify, implement,
                            verify, review, fix, qa or commit (--out FILE outside the repo);
                            handoff implement --step S-n renders what that one step needs
-  worker-profile           check the b-worker profile in effect (project over user) against the
-                           worker's allowlist; not ok means apply the step in the main session
+  worker-profile [--step S-n]  check the b-worker profile in effect (project over user) against the
+                               worker's allowlist; not ok means apply the step in the main session
   selftest                 validate the schema file's examples against each other
   runs [--days N]          read-only report of .b-agentic/runs: count, bytes, the finished runs older
                            than N days (default 30), and whether the folder is over its hint threshold
@@ -1120,7 +1120,7 @@ def _packet_implement(root: Path, state: dict, data: dict) -> list[str]:
     for step, needs in zip(plan["steps"], step_needs(plan["steps"])):
         out += [
             f"- {step['id']} [{'recorded' if step['id'] in recorded else 'open'}]: {step['action']}"
-            + ((" (worker step: record --by main)" if on_pi() else " (worker step)") if step["id"] in applied else ""),
+            + (" (worker step)" if step["id"] in applied else ""),
             "  - Paths: " + ", ".join(f"`{p}`" for p in step["paths"]),
             f"  - Done when: {step['done_when']}",
             "  - Depends on: " + (", ".join(needs["depends_on"]) or "none"),
@@ -1133,20 +1133,19 @@ def _packet_implement(root: Path, state: dict, data: dict) -> list[str]:
 def _worktree_dir(root: Path, state: dict, step_id: str) -> str | None:
     """The registered worktree b-state.mjs made for this step of this run, if one exists.
 
-    It is found by name in git's own list, built as b-state.mjs builds it, so a worker told to
-    work there reaches the folder the state CLI will collect from.
+    Uses NUL-delimited porcelain listing and fails closed on git errors so paths
+    containing newlines are never split and a failed listing never reads as absent.
     """
-    try:
-        listed = git(root, "worktree", "list", "--porcelain")
-    except Refused:
-        return None
+    listed = git(root, "worktree", "list", "--porcelain", "-z")
     import hashlib
 
     tag = hashlib.sha256(str(root).encode()).hexdigest()[:8]
     name = f"b-agentic-wt-{tag}-{state.get('run_id', '')}-{step_id}"
-    for line in listed.splitlines():
-        if line.startswith("worktree ") and line[len("worktree ") :].rsplit("/", 1)[-1] == name:
-            return line[len("worktree ") :]
+    for field in listed.split("\0"):
+        if field.startswith("worktree "):
+            path = field[len("worktree ") :]
+            if path.rsplit("/", 1)[-1] == name:
+                return path
     return None
 
 
@@ -1168,7 +1167,7 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
     needs = step_needs(steps)[index]["depends_on"]
     kind = "main session step"
     if step_id in plan.get("worker_steps", []):
-        kind = "worker step: record --by main" if on_pi() else "worker step"
+        kind = "worker step"
     out = [
         f"Step: {step_id} ({kind})",
         f"Step base tree: {base.get('tree') or 'not recorded'}",
@@ -1176,7 +1175,7 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
         f"Follow-ups revision: {followups_rev}",
         *(
             [f"Working directory: {where}"]
-            if not on_pi() and plan.get("parallel_steps") and (where := _worktree_dir(root, state, step_id))
+            if plan.get("parallel_steps") and (where := _worktree_dir(root, state, step_id))
             else []
         ),
         "",
@@ -1192,16 +1191,9 @@ def _packet_step(root: Path, state: dict, data: dict, step_id: str, followups_re
     out += ["", "## Invariants", *_bullets(plan["invariants"], "none")]
     out += ["", "## Stop conditions", *_bullets(plan["stop_conditions"], "none")]
     out += ["", "## Boundaries", "- Change nothing outside the scope above; prefer the step's own paths."]
-    if on_pi() and step_id in plan.get("worker_steps", []):
-        # Pi has no worker: the main session reads this packet, applies the step, and records it itself.
-        out.append(
-            "- Never write under .b-agentic, a likely-secret path, or git history; once the step's done-when check "
-            f"holds, record it with `{helper_dir()}/b-state record step {step_id} --by main`."
-        )
-    else:
-        out.append(
-            "- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command (nor its b-state or b-run wrapper)."
-        )
+    out.append(
+        "- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command (nor its b-state or b-run wrapper)."
+    )
     return [*out, "", *_tree_lines(root, state)]
 
 
@@ -1366,6 +1358,22 @@ def cmd_handoff(schema: dict, which: str, args: dict) -> str:
 WORKER_NAME = "b-worker"
 WORKER_NATIVE_TOOLS = frozenset({"Read", "Grep", "Glob", "Edit", "Write", "Bash"})
 WORKER_FRONTMATTER = frozenset({"name", "description", "tools", "model", "effort", "maxTurns"})
+PI_WORKER_NATIVE_TOOLS = frozenset({"read", "grep", "find", "ls", "bash", "edit", "write"})
+PI_WORKER_FRONTMATTER = frozenset(
+    {
+        "name",
+        "description",
+        "tools",
+        "excludeTools",
+        "systemPromptMode",
+        "inheritProjectContext",
+        "inheritGlobalContext",
+        "allowNestedSubagents",
+        "model",
+        "thinking",
+    }
+)
+PI_WORKER_EXCLUDED = ("subagent", "ask_user_question")
 MAX_AGENT_FILES = 2000
 _NAME_LINE = re.compile(r"^(\s*)(\?\s*)?([\"']?)name\3\s*:(.*)$", re.IGNORECASE)
 _PLAIN_LINE = re.compile(r"([A-Za-z][A-Za-z0-9_-]*):(?:[ \t]+(.*))?")
@@ -1383,20 +1391,23 @@ def _scalar(raw: str) -> str | None:
     return value
 
 
-def _profile(stem: str, text: str) -> tuple[bool, dict[str, str], list[str]]:
+def _profile(stem: str, text: str, pi_mode: bool = False) -> tuple[bool, dict[str, str], list[str]]:
     """Whether a file may be the worker profile, with its fields and the problems of reading it."""
     body = text.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n").lstrip()
     lines = body.split("\n")
     candidate = stem.casefold() == WORKER_NAME
     if not lines[0].startswith("---"):
         return candidate, {}, ["the profile has no frontmatter"] if candidate else []
-    end = next((i for i in range(1, len(lines)) if lines[i].strip() in ("---", "...")), None)
+    closers = ("---",) if pi_mode else ("---", "...")
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() in closers), None)
     if lines[0].strip() != "---" or end is None:
         return True, {}, ["the frontmatter cannot be read safely: its opening or its end is not a plain line"]
     region = lines[1:end]
     unclear = False
     names: list[tuple[int, str | None]] = []
     for line in region:
+        if pi_mode and line.strip() == "...":
+            unclear = True
         found = _NAME_LINE.match(line)
         if found:
             value = None if found.group(2) or found.group(3) else _scalar(found.group(4))
@@ -1421,6 +1432,9 @@ def _profile(stem: str, text: str) -> tuple[bool, dict[str, str], list[str]]:
     problems: list[str] = []
     for line in region:
         if not line.strip() or line.startswith("#"):
+            continue
+        if pi_mode and line.strip() == "...":
+            problems.append("non-Pi '...' delimiter line in frontmatter")
             continue
         plain = _PLAIN_LINE.fullmatch(line.rstrip())
         if not plain:
@@ -1452,6 +1466,58 @@ def _worker_problems(fields: dict[str, str], read_only: set[str]) -> list[str]:
     return problems
 
 
+def _pi_worker_problems(fields: dict[str, str], read_only: set[str]) -> list[str]:
+    problems: list[str] = []
+    for key in sorted(set(fields) - PI_WORKER_FRONTMATTER):
+        problems.append(f"frontmatter key {key!r} is not one the Pi worker profile carries")
+    tools = [tool.strip() for tool in fields.get("tools", "").split(",") if tool.strip()]
+    if not tools:
+        problems.append("the tools list is missing or empty: an omitted list grants every tool")
+    for tool in tools:
+        if tool not in PI_WORKER_NATIVE_TOOLS and tool not in read_only:
+            problems.append(f"tool {tool!r} is neither a Pi worker tool nor a read-only MCP tool")
+    excluded = {item.strip() for item in fields.get("excludeTools", "").split(",") if item.strip()}
+    for required in PI_WORKER_EXCLUDED:
+        if required not in excluded:
+            problems.append(f"excludeTools must include {required!r}")
+    if fields.get("allowNestedSubagents") != "false":
+        problems.append("allowNestedSubagents must be 'false'")
+    return problems
+
+
+def _pi_settings_problems(scopes: list[tuple[str, Path]]) -> list[str]:
+    problems: list[str] = []
+    for scope, path in scopes:
+        if not path.exists() and not path.is_symlink():
+            continue
+        try:
+            data = json.loads(read_file(path).decode())
+        except (OSError, Refused, UnicodeDecodeError, ValueError):
+            problems.append(f"{scope} settings {path} could not be read safely")
+            continue
+        subagents = data.get("subagents") if isinstance(data, dict) else None
+        if not isinstance(subagents, dict):
+            continue
+        overrides = subagents.get("agentOverrides")
+        if isinstance(overrides, dict) and WORKER_NAME in overrides:
+            problems.append(f"{scope} settings {path}: subagents.agentOverrides.{WORKER_NAME} overrides the worker")
+        by_provider = subagents.get("agentOverridesByProvider")
+        if isinstance(by_provider, dict) and any(
+            isinstance(entry, dict) and WORKER_NAME in entry for entry in by_provider.values()
+        ):
+            problems.append(f"{scope} settings {path}: subagents.agentOverridesByProvider overrides {WORKER_NAME}")
+        for key in ("agentScanDirs", "agentExcludeDirs", "defaultSubagentOnlyExtensions"):
+            if key in subagents and subagents[key] != []:
+                problems.append(
+                    f"{scope} settings {path}: subagents.{key} alters child discovery or extensions outside the profile"
+                )
+        if "defaultExtensions" in subagents:
+            problems.append(
+                f"{scope} settings {path}: subagents.defaultExtensions alters child extensions outside the profile"
+            )
+    return problems
+
+
 def _agent_files(folder: Path) -> tuple[list[Path], list[str]]:
     """Every markdown file under an agents folder; a link inside it cannot be checked, so it is a problem."""
     files: list[Path] = []
@@ -1472,32 +1538,54 @@ def _agent_files(folder: Path) -> tuple[list[Path], list[str]]:
 
 def cmd_worker_profile(args: dict) -> dict:
     """Check the b-worker profile in effect against the worker's allowlist (read-only)."""
-    if on_pi():
-        # Pi has no worker, so there is no profile to check and no agent folder to read.
-        return {
-            "ok": False,
-            "source": "none",
-            "profiles": 0,
-            "problems": ["Pi has no worker: apply every step in the main session"],
-        }
     root = repo_root()
     policy = read_json(mcp_policy_path(), "mcp_operations.yaml")
+    pi_mode = on_pi()
     read_only = {
-        f"mcp__{server}__{tool}"
+        (f"mcp:{server}/{tool}" if pi_mode else f"mcp__{server}__{tool}")
         for server, record in (policy.get("servers") or {}).items()
         for tool, classification in (record.get("tools") or {}).items()
         if classification == "read-only"
     }
-    # Project agents folders: the working directory and every folder above it up to the repository root.
-    # Which of several profiles the harness would load is not decided here: each one named b-worker must
-    # pass, and two of the same name in one scope are ambiguous.
     here = Path.cwd().resolve()
-    folders = [here, *here.parents] if root == here or root in here.parents else [root]
-    folders = folders[: folders.index(root) + 1]
-    scopes = [("project", folder / ".claude" / "agents") for folder in folders]
-    scopes.append(("user", Path.home() / ".claude" / "agents"))
+    step_id = args.get("step")
+    if step_id is not None:
+        if not re.fullmatch(r"S-[1-9][0-9]*", step_id):
+            raise Invalid("--step must name a plan step like S-1")
+        _, directory = resolve_run(root, args.get("run"))
+        state = read_state(directory)
+        if wt := _worktree_dir(root, state, step_id):
+            here = Path(wt).resolve()
+    # Project agents folders: from the effective launch cwd up to the repository root (or up to HOME
+    # for an isolated worktree outside the repository).
+    if root == here or root in here.parents:
+        all_parents = [here, *here.parents]
+        folders = all_parents[: all_parents.index(root) + 1]
+    else:
+        home_resolved = Path.home().resolve()
+        folders = []
+        for folder in (here, *here.parents):
+            if folder == home_resolved:
+                break
+            folders.append(folder)
+    if pi_mode:
+        pi_home = Path(os.environ.get("PI_CODING_AGENT_DIR") or (Path.home() / ".pi" / "agent")).expanduser()
+        scopes = [
+            item
+            for folder in folders
+            for item in (("project", folder / ".pi" / "agents"), ("project", folder / ".agents"))
+        ]
+        scopes.extend([("user", pi_home / "agents"), ("user", Path.home() / ".agents")])
+        settings_scopes = [("project", folder / ".pi" / "settings.json") for folder in folders]
+        settings_scopes.append(("user", pi_home / "settings.json"))
+    else:
+        scopes = [("project", folder / ".claude" / "agents") for folder in folders]
+        scopes.append(("user", Path.home() / ".claude" / "agents"))
+        settings_scopes = []
     problems: list[str] = []
     found: list[str] = []
+    user_named: list[tuple[str, dict[str, str]]] = []
+    check_profile = _pi_worker_problems if pi_mode else _worker_problems
     for scope, folder in scopes:
         if not folder.is_dir():
             continue
@@ -1511,15 +1599,21 @@ def cmd_worker_profile(args: dict) -> dict:
             except (OSError, Refused, UnicodeDecodeError):
                 problems.append(f"{label} is not a readable regular text file")
                 continue
-            may_be_worker, fields, issues = _profile(path.stem, text)
+            may_be_worker, fields, issues = _profile(path.stem, text, pi_mode=pi_mode)
             if may_be_worker:
                 named.append((label, fields))
                 problems += [f"{label}: {issue}" for issue in issues]
-        if len(named) > 1:
+        if scope == "user":
+            user_named.extend(named)
+        elif len(named) > 1:
             problems.append(f"{scope}: more than one profile may be {WORKER_NAME}: " + ", ".join(n for n, _ in named))
         for label, fields in named:
-            problems += [f"{label}: {issue}" for issue in _worker_problems(fields, read_only)]
+            problems += [f"{label}: {issue}" for issue in check_profile(fields, read_only)]
         found += [scope] * len(named)
+    if len(user_named) > 1:
+        problems.append(f"user: more than one profile may be {WORKER_NAME}: " + ", ".join(n for n, _ in user_named))
+    if pi_mode:
+        problems += _pi_settings_problems(settings_scopes)
     if not found:
         problems.append("no b-worker profile is installed")
     return {"ok": not problems, "source": found[0] if found else "none", "profiles": len(found), "problems": problems}

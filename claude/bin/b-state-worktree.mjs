@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { isProtected } from "./b-candidate-snapshot.mjs";
-import { invalid, onPi, refuse, Refused, SIZE_DRIFT } from "./b-state-core.mjs";
+import { invalid, refuse, Refused, SIZE_DRIFT } from "./b-state-core.mjs";
 import {
   artifactsOk,
   captureStep,
@@ -55,15 +55,21 @@ const markerMessage = (state, id) => `b-agentic worktree ${state.run_id} ${id}`;
 const lines = (bytes) => bytes.toString("utf8").split("\0").filter(Boolean);
 
 // The registered worktrees of this run, found by name in git's own list so a
-// different TMPDIR cannot hide one.
+// different TMPDIR cannot hide one. Uses NUL-delimited output and fails closed.
 export async function runWorktrees(root, state, plan) {
-  const listed = await gitOr(root, ["worktree", "list", "--porcelain"]);
+  let listed;
+  try {
+    listed = await git(root, ["worktree", "list", "--porcelain", "-z"]);
+  } catch {
+    throw refuse(
+      "git worktree list failed, so open worker worktrees cannot be checked",
+    );
+  }
   const prefix = worktreePrefix(root, state);
   const found = [];
-  for (const entry of listed.split("\n\n")) {
-    const line = entry.split("\n").find((l) => l.startsWith("worktree "));
-    if (!line) continue;
-    const path = line.slice("worktree ".length);
+  for (const field of listed.split("\0")) {
+    if (!field.startsWith("worktree ")) continue;
+    const path = field.slice("worktree ".length);
     const name = path.split("/").pop();
     if (!name.startsWith(prefix)) continue;
     const id = name.slice(prefix.length);
@@ -71,40 +77,6 @@ export async function runWorktrees(root, state, plan) {
   }
   const order = plan.step_ids;
   return found.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-}
-
-// The worktrees of this run for Pi's resume guard. Unlike runWorktrees it cannot fail open: git's own
-// failure refuses instead of reading as "none", and the NUL-delimited listing keeps a path with a
-// newline in one piece.
-export async function openRunWorktreeIds(root, state) {
-  let listed;
-  try {
-    listed = await git(root, ["worktree", "list", "--porcelain", "-z"]);
-  } catch {
-    throw refuse(
-      "git worktree list failed, so this run cannot be checked for open worker worktrees: continue the run in Claude Code",
-    );
-  }
-  const prefix = worktreePrefix(root, state);
-  const found = [];
-  for (const field of listed.split("\0")) {
-    if (!field.startsWith("worktree ")) continue;
-    const name = field.slice("worktree ".length).split("/").pop();
-    if (!name.startsWith(prefix)) continue;
-    const id = name.slice(prefix.length);
-    if (/^S-[1-9][0-9]*$/.test(id)) found.push(id);
-  }
-  return found.sort();
-}
-
-// Pi has no worker, so a run with open worker worktrees continues in Claude Code. Every Pi path that
-// resumes, locks, or records a run calls this before any write.
-export async function requireNoOpenWorktrees(root, state) {
-  const left = await openRunWorktreeIds(root, state);
-  if (left.length > 0)
-    throw refuse(
-      `this run has open worker worktrees (${left.join(", ")}) and Pi has no worker: continue the run in Claude Code`,
-    );
 }
 
 // The marker commit a worktree must still be on: the step base tree under a
@@ -278,11 +250,6 @@ export async function cmdWorktree(
   if (!["add", "collect", "remove"].includes(sub ?? ""))
     throw invalid("worktree needs add|collect|remove and a step id");
   if (!/^S-[1-9][0-9]*$/.test(id ?? "")) throw invalid("bad step id");
-  // Pi has no worker, so it makes and collects no worktree; `remove` still clears one a Claude Code run left.
-  if (onPi() && sub !== "remove")
-    throw refuse(
-      `Pi has no worker, so it makes or collects no worker worktree: apply ${id} in the main session and record it --by main`,
-    );
   requireSpecUnchanged(dir, state);
   const art = await artifactsOk(root, state);
   if (!sizeMatches(state, art)) throw refuse(SIZE_DRIFT);
