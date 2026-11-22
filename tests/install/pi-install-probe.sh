@@ -112,7 +112,7 @@ run "$home" -y; expect_ok "fresh install"
 for wrapper in b-run b-snapshot b-state; do
   [ "$(stat -c %a "$agent/b-agentic/bin/$wrapper")" = 700 ] || fail "$wrapper must be owner-executable"
 done
-[ ! -e "$agent/agents/b-worker.md" ] || fail "Pi must not install b-worker.md"
+[ -f "$agent/agents/b-worker.md" ] || fail "Pi must install b-worker.md"
 while IFS=$'\t' read -r agent_name agent_model agent_thinking; do
   agent_file="$agent/agents/$agent_name.md"
   [ -f "$agent_file" ] || fail "missing installed Pi agent: $agent_file"
@@ -120,7 +120,7 @@ while IFS=$'\t' read -r agent_name agent_model agent_thinking; do
   grep -Fxq "model: $agent_model" <<<"$frontmatter" || fail "$agent_name missing model: $agent_model"
   [ -z "$agent_thinking" ] || grep -Fxq "thinking: $agent_thinking" <<<"$frontmatter" \
     || fail "$agent_name missing thinking: $agent_thinking"
-done < <(jq -r '.runtimes.pi.agents | to_entries[] | [.key, .value.model, (.value.thinking // "")] | @tsv' "$root/references/runtimes.yaml")
+done < <(jq -r '(.runtimes.pi.agents + .runtimes.pi.workers) | to_entries[] | [.key, .value.model, (.value.thinking // "")] | @tsv' "$root/references/runtimes.yaml")
 before=$(tree "$home")
 run "$home" -y; expect_ok "second install"
 [ "$before" = "$(tree "$home")" ] || fail "a second install changed files"
@@ -129,7 +129,7 @@ grep -Fq 'unchanged' <<<"$out" || fail "a second install must report unchanged f
 [ "$(jq -c '.packages' "$agent/settings.json")" = '["npm:pi-permission-classifier","npm:@gotgenes/pi-permission-system","npm:pi-subagents","npm:@juicesharp/rpiv-ask-user-question"]' ] \
   || fail "the packages must be the unpinned names with the classifier first: $(jq -c .packages "$agent/settings.json")"
 [ "$(jq -c '.defaultTools' "$agent/settings.json")" = '["+grep","+find","+ls"]' ] || fail "defaultTools must add the search tools"
-jq -e '.permission.skill == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
+jq -e '.permission.skill == "allow" and .permission.subagent == "allow" and .permission.subagent_launch == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
   "$agent/extensions/pi-permission-system/config.json" >/dev/null || fail "the permission config lacks a required rule"
 jq -e '[.mcpServers[].exposure] | all(. == "direct")' "$agent/mcp.json" >/dev/null || fail "every MCP server must carry exposure direct"
 # The classifier judges asks only when the chain names it and its own config exists; neither enables itself.
@@ -216,6 +216,7 @@ run "$home" -y --uninstall; expect_ok "uninstall over user files"
 home=$(fresh_home gone)
 run "$home" -y; expect_ok "install before uninstall"
 run "$home" -y --uninstall; expect_ok "uninstall"
+[ ! -e "$home/.pi/agent/agents/b-worker.md" ] || fail "uninstall must remove b-worker.md"
 [ -z "$(files_under "$home/.pi")" ] || fail "uninstall left files: $(files_under "$home/.pi" | head -3)"
 
 # --- the classifier config belongs to the user once /permission-model has rewritten it --------------------

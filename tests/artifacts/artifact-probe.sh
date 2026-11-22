@@ -599,20 +599,15 @@ grep -Fxq -- '- S-2 [open]: Cover it with a test (worker step)' <<<"$out" || fai
 dep_state="$(rundir "$dep_repo")/state.json"
 ok "$dep_repo" handoff implement --step S-2
 grep -Fxq 'Step: S-2 (worker step)' <<<"$out" || fail "the step packet must say who applies the step: $out"
-# On Pi the main session applies every step: the packets say --by main and name no worktree, and a worker
-# profile is not ok. The Claude Code packets above and below stay unchanged.
+# On Pi the packets match Claude Code for worker steps and worktrees; help still prints PI_SESSION_ID.
 # shellcheck disable=SC2088 # The folder is the literal text ~/... that the CLI prints, never expanded.
 pi_override='~/.pi/agent/b-agentic/bin'
 B_AGENTIC_HELPER_DIR="$pi_override" ok "$dep_repo" handoff implement --step S-2
-grep -Fxq 'Step: S-2 (worker step: record --by main)' <<<"$out" || fail "the Pi step packet must say the main session records it --by main: $out"
-! grep -Fq 'Working directory' <<<"$out" || fail "the Pi step packet names no worktree: $out"
-grep -Fq 'record step S-2 --by main`' <<<"$out" || fail "the Pi step packet must permit the record command it asks for: $out"
-! grep -Fq 'run no b-state.mjs' <<<"$out" || fail "the Pi worker-step packet must not forbid the b-state wrapper: $out"
+grep -Fxq 'Step: S-2 (worker step)' <<<"$out" || fail "the Pi step packet must say worker step: $out"
+grep -Fq -- '- Never write under .b-agentic, a likely-secret path, or git history, and run no b-state.mjs or b_run.py command (nor its b-state or b-run wrapper).' <<<"$out" \
+  || fail "the Pi worker-step packet must forbid the state/run wrappers: $out"
 B_AGENTIC_HELPER_DIR="$pi_override" ok "$dep_repo" handoff implement
-grep -Fxq -- '- S-2 [open]: Cover it with a test (worker step: record --by main)' <<<"$out" || fail "the Pi full packet must mark the worker step for --by main: $out"
-B_AGENTIC_HELPER_DIR="$pi_override" refused "$dep_repo" worker-profile
-[ "$(jq -c '[.ok, .source, .profiles]' <<<"$out")" = '[false,"none",0]' ] || fail "worker-profile on Pi is not ok without reading a profile: $out"
-grep -Fq 'Pi has no worker' <<<"$out" || fail "worker-profile on Pi must say why: $out"
+grep -Fxq -- '- S-2 [open]: Cover it with a test (worker step)' <<<"$out" || fail "the Pi full packet must mark the worker step: $out"
 pi_help=$(B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" help | grep -F -- '--owner NAME')
 grep -Fq '(default: PI_SESSION_ID)' <<<"$pi_help" || fail "the Pi help must name PI_SESSION_ID: $pi_help"
 claude_help=$(python3 -I -B "$cli" help | grep -F -- '--owner NAME')
@@ -822,6 +817,87 @@ out=$(cd "$wp_repo/pkg/inner" && HOME="$wp_home" python3 -I -B "$cli" worker-pro
 rc=0
 out=$(cd "$wp_repo/pkg" && HOME="$wp_home" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?
 [ "$rc" -eq 0 ] && [ "$(jq -r .source <<<"$out")" = user ] || fail "a profile below the working directory is not in effect: rc=$rc $out"
+
+# Pi worker-profile: checks rendered Pi b-worker in ~/.pi/agent/agents, .pi/agents, .agents, and settings overrides.
+pi_wp_home="$work/pi-wphome"
+pi_wp_repo="$work/pi-wprepo"
+make_repo "$pi_wp_repo"
+python3 -I -B "$root/tooling/generate/registry_sync.py" --render pi --out "$work/pi-rendered" >/dev/null || fail "render pi for worker-profile failed"
+pi_wp() { rc=0; out=$(cd "$pi_wp_repo" && HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" worker-profile --owner s1 2>"$work/err") || rc=$?; }
+pi_wp
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = none ] || fail "no Pi profile installed must fail: rc=$rc $out"
+mkdir -p "$pi_wp_home/.pi/agent/agents"
+cp "$work/pi-rendered/agents/b-worker.md" "$pi_wp_home/.pi/agent/agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 0 ] && [ "$(jq -c '[.ok, .source]' <<<"$out")" = '[true,"user"]' ] || fail "rendered Pi worker profile must pass: rc=$rc $out"
+mkdir -p "$pi_wp_repo/.pi/agents"
+sed 's/^tools: /tools: subagent, /' "$work/pi-rendered/agents/b-worker.md" >"$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "Pi project profile adding subagent must fail: rc=$rc $out"
+sed 's/^excludeTools: .*/excludeTools: ask_user_question/' "$work/pi-rendered/agents/b-worker.md" >"$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 3 ] || fail "Pi project profile missing subagent exclusion must fail: rc=$rc $out"
+sed 's/^allowNestedSubagents: false/allowNestedSubagents: true/' "$work/pi-rendered/agents/b-worker.md" >"$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 3 ] || fail "Pi project profile allowing nested subagents must fail: rc=$rc $out"
+rm "$pi_wp_repo/.pi/agents/b-worker.md"
+mkdir -p "$pi_wp_repo/.agents"
+sed 's/^tools: /tools: subagent, /' "$work/pi-rendered/agents/b-worker.md" >"$pi_wp_repo/.agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "legacy .agents/b-worker.md with widened tools must fail: rc=$rc $out"
+rm "$pi_wp_repo/.agents/b-worker.md"
+printf '{"subagents":{"agentOverrides":{"b-worker":{"tools":"bash"}}}}\n' >"$pi_wp_repo/.pi/settings.json"
+pi_wp
+[ "$rc" -eq 3 ] || fail "project settings agentOverrides.b-worker must fail worker-profile: rc=$rc $out"
+rm "$pi_wp_repo/.pi/settings.json"
+printf '{"subagents":{"agentOverridesByProvider":{"openai":{"b-worker":{"model":"openai/gpt-6.1-terra"}}}}}\n' >"$pi_wp_home/.pi/agent/settings.json"
+pi_wp
+[ "$rc" -eq 3 ] || fail "user settings agentOverridesByProvider.openai.b-worker must fail worker-profile: rc=$rc $out"
+printf '{"subagents":{"agentScanDirs":["~/extra-agents"]}}\n' >"$pi_wp_home/.pi/agent/settings.json"
+pi_wp
+[ "$rc" -eq 3 ] || fail "user settings agentScanDirs must fail worker-profile: rc=$rc $out"
+printf '{"subagents":{"agentExcludeDirs":["~/.pi/agent/agents"]}}\n' >"$pi_wp_home/.pi/agent/settings.json"
+pi_wp
+[ "$rc" -eq 3 ] || fail "user settings agentExcludeDirs must fail worker-profile: rc=$rc $out"
+printf '{"subagents":{"defaultExtensions":[]}}\n' >"$pi_wp_home/.pi/agent/settings.json"
+pi_wp
+[ "$rc" -eq 3 ] || fail "user settings defaultExtensions must fail worker-profile: rc=$rc $out"
+rm "$pi_wp_home/.pi/agent/settings.json"
+# A shadowing ~/.agents/b-worker.md alongside ~/.pi/agent/agents/b-worker.md must be refused.
+mkdir -p "$pi_wp_home/.agents"
+cp "$work/pi-rendered/agents/b-worker.md" "$pi_wp_home/.agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 3 ] || fail "a shadowing ~/.agents/b-worker.md must fail worker-profile: rc=$rc $out"
+rm -rf "$pi_wp_home/.agents"
+# Frontmatter ending with '...' is not closed in Pi: any permission field after '...' must be caught and '...' refused.
+printf -- '---\nname: b-worker\ntools: read, edit, write, bash\nexcludeTools: subagent, ask_user_question\nallowNestedSubagents: false\n...\ntools: read, subagent\n---\n\nbody\n' >"$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 3 ] || fail "Pi frontmatter with permission field after '...' must fail worker-profile: rc=$rc $out"
+printf -- '---\nname: b-worker\ntools: read, edit, write, bash\nexcludeTools: subagent, ask_user_question\nallowNestedSubagents: false\n...\n\nbody\n' >"$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 3 ] || fail "Pi frontmatter closed only with '...' must fail worker-profile: rc=$rc $out"
+rm "$pi_wp_repo/.pi/agents/b-worker.md"
+pi_wp
+[ "$rc" -eq 0 ] || fail "Pi worker-profile passes again once overrides are removed: rc=$rc $out"
+# worker-profile --step S-n checks the actual worktree cwd (catching a shadowing profile near the worktree).
+pi_wt_base="$work/pi-wt-base"
+mkdir -p "$pi_wt_base/.pi/agents"
+sed 's/^tools: /tools: subagent, /' "$work/pi-rendered/agents/b-worker.md" >"$pi_wt_base/.pi/agents/b-worker.md"
+newrun "$pi_wp_repo"
+( cd "$pi_wp_repo" && example spec | jq -c '.scope_paths = ["a.txt","b.txt"]' | env HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" write spec --owner s1 >/dev/null )
+( cd "$pi_wp_repo" && example plan | jq -c '.steps = [{id:"S-1",action:"a",paths:["a.txt"],done_when:"d"},{id:"S-2",action:"b",paths:["b.txt"],done_when:"d",depends_on:[]}] | .worker_steps = ["S-1","S-2"] | .parallel_steps = ["S-1","S-2"]' \
+  | env HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" write plan --owner s1 >/dev/null )
+pi_wt_tag=$(printf '%s' "$pi_wp_repo" | sha256sum | cut -c1-8)
+pi_wt_run=$(jq -r .run_id "$(rundir "$pi_wp_repo")/state.json")
+pi_wt_dir="$pi_wt_base/b-agentic-wt-$pi_wt_tag-$pi_wt_run-S-2"
+git -C "$pi_wp_repo" worktree add -q --detach "$pi_wt_dir" HEAD
+rc=0
+out=$(cd "$pi_wp_repo" && HOME="$pi_wp_home" B_AGENTIC_HELPER_DIR="$pi_override" python3 -I -B "$cli" worker-profile --step S-2 --owner s1 2>"$work/err") || rc=$?
+[ "$rc" -eq 3 ] && [ "$(jq -r .source <<<"$out")" = project ] || fail "worker-profile --step S-2 must catch a profile near the worktree cwd: rc=$rc $out"
+git -C "$pi_wp_repo" worktree remove --force "$pi_wt_dir"
+rm -rf "$pi_wt_base/.pi"
+pi_wp
+[ "$rc" -eq 0 ] || fail "Pi worker-profile passes again after worktree cleanup: rc=$rc $out"
 
 # --- the owner: --owner, then CLAUDE_CODE_SESSION_ID -----------------------
 owner_repo="$work/owner"
