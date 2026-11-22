@@ -91,6 +91,7 @@ expected="$work/expected.txt"
   jq -r --argjson optional "$optional" '.skills[].name | select(. as $name | $optional | index($name) | not) | "skills/\(.)/SKILL.md", "prompts/\(.).md"' "$root/skills/registry.yaml"
   (cd "$work/rendered/pi" && find agents -type f)
   printf '%s\n' AGENTS.md settings.json mcp.json extensions/pi-permission-system/config.json \
+    extensions/pi-permission-classifier/config.json \
     extensions/b-agentic/index.ts extensions/b-agentic/guard.mjs \
     b-agentic/install.json b-agentic/bin/b-run b-agentic/bin/b-snapshot b-agentic/bin/b-state \
     b-agentic/hooks/b-path-guard.mjs b-agentic/hooks/b-verify-gate.mjs b-agentic/hooks/b-spec-context.mjs \
@@ -122,6 +123,10 @@ grep -Fq 'unchanged' <<<"$out" || fail "a second install must report unchanged f
 jq -e '.permission.skill == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
   "$agent/extensions/pi-permission-system/config.json" >/dev/null || fail "the permission config lacks a required rule"
 jq -e '[.mcpServers[].exposure] | all(. == "direct")' "$agent/mcp.json" >/dev/null || fail "every MCP server must carry exposure direct"
+# The classifier judges asks only when the chain names it and its own config exists; neither enables itself.
+[ "$(jq -c '.authorizerChain' "$agent/extensions/pi-permission-system/config.json")" = '["permission-judge"]' ] \
+  || fail "the permission config must name the classifier link in authorizerChain"
+[ "$(cat "$agent/extensions/pi-permission-classifier/config.json")" = '{}' ] || fail "the classifier config must be an empty object"
 ! grep -Eq 'npm:[^"]*@[0-9]' "$agent/settings.json" || fail "nothing may be pinned in settings.json"
 [ "$(grep -c . "$calls")" -ge 1 ] || fail "the installer never ran pi --version"
 ! grep -v '^pi --version offline=1$' "$calls" | grep -q . || fail "only 'pi --version' may run, with PI_OFFLINE=1: $(cat "$calls")"
@@ -154,7 +159,9 @@ agent="$home/.pi/agent"
 mkdir -p "$agent/extensions/pi-permission-system" "$agent/skills/mine"
 printf '# mine\n' >"$agent/skills/mine/SKILL.md"
 printf '%s\n' '{"theme":"dark","packages":["npm:pi-subagents@0.88.0","npm:@gotgenes/pi-permission-system","npm:pi-antigravity"],"defaultTools":["read","bash"]}' >"$agent/settings.json"
-printf '%s\n' '{"permission":{"read":"deny","bash":{"*":"ask","ls":"allow"},"skill":"ask"},"custom":1}' >"$agent/extensions/pi-permission-system/config.json"
+printf '%s\n' '{"authorizerChain":["my-link"],"permission":{"read":"deny","bash":{"*":"ask","ls":"allow"},"skill":"ask"},"custom":1}' >"$agent/extensions/pi-permission-system/config.json"
+mkdir -p "$agent/extensions/pi-permission-classifier"
+printf '%s\n' '{"mode":"quick"}' >"$agent/extensions/pi-permission-classifier/config.json"
 printf '%s\n' '{"mcpServers":{"codegraph":{"command":"x"},"mine":{"command":"y"}},"other":1}' >"$agent/mcp.json"
 printf '# my agents\n' >"$agent/AGENTS.md"
 seeded_before=$(canonical_tree "$home")
@@ -169,6 +176,9 @@ perm="$agent/extensions/pi-permission-system/config.json"
   && [ "$(jq -r '.permission.bash["*"]' "$perm")" = ask ] && [ "$(jq -r '.permission.bash.ls' "$perm")" = allow ] \
   || fail "a user permission rule was replaced: $(cat "$perm")"
 grep -Fq 'kept your skill rule' <<<"$err" || fail "a conflicting user rule must warn: $err"
+[ "$(jq -c '.authorizerChain' "$perm")" = '["my-link","permission-judge"]' ] \
+  || fail "the user's authorizerChain links must stay in order with the classifier link appended: $(jq -c .authorizerChain "$perm")"
+[ "$(cat "$agent/extensions/pi-permission-classifier/config.json")" = '{"mode":"quick"}' ] || fail "the user's classifier config was replaced"
 [ "$(verdict bash 'sudo ls')" = deny ] || fail "the managed deny must still decide 'sudo ls' beside the user's catch-all: $(verdict bash 'sudo ls')"
 [ "$(jq -r '.permission.mcp["mcp__codegraph__codegraph_explore"] // "none"' "$perm")" != allow ] || fail "a replaced MCP server must not inherit the managed automatic approvals"
 [ "$(jq -c '.mcpServers.codegraph' "$agent/mcp.json")" = '{"command":"x"}' ] && [ "$(jq -r '.mcpServers.mine.command' "$agent/mcp.json")" = y ] && [ "$(jq -r '.other' "$agent/mcp.json")" = 1 ] \
@@ -187,6 +197,7 @@ grep -Fq 'edited' "$agent/skills/b-plan/SKILL.md" || fail "an edited managed fil
 grep -Fq 'modified since install' <<<"$err" || fail "an edited managed file must warn: $err"
 run "$home" -y --force; expect_ok "forced install"
 ! grep -Fq 'edited' "$agent/skills/b-plan/SKILL.md" || fail "--force must replace an edited managed file"
+[ "$(cat "$agent/extensions/pi-permission-classifier/config.json")" = '{"mode":"quick"}' ] || fail "--force must not replace the user's classifier config"
 find "$agent/b-agentic/backups" -type f -name '*b-plan__SKILL.md' | grep -q . || fail "--force must back the edited file up"
 # An uninstall restores exactly what the user had.
 run "$home" -y --uninstall; expect_ok "uninstall over user files"
@@ -197,6 +208,106 @@ home=$(fresh_home gone)
 run "$home" -y; expect_ok "install before uninstall"
 run "$home" -y --uninstall; expect_ok "uninstall"
 [ -z "$(files_under "$home/.pi")" ] || fail "uninstall left files: $(files_under "$home/.pi" | head -3)"
+
+# --- the classifier config belongs to the user once /permission-model has rewritten it --------------------
+home=$(fresh_home classifier)
+agent="$home/.pi/agent"
+classifier_config="$agent/extensions/pi-permission-classifier/config.json"
+perm="$agent/extensions/pi-permission-system/config.json"
+run "$home" -y; expect_ok "install before the classifier config is edited"
+printf '%s\n' '{"mode":"quick"}' >"$classifier_config"
+run "$home" -y --uninstall; expect_ok "uninstall with an edited classifier config"
+[ "$(cat "$classifier_config")" = '{"mode":"quick"}' ] || fail "an uninstall must keep an edited classifier config"
+grep -Fq 'modified since install' <<<"$err" || fail "keeping an edited classifier config must warn: $err"
+[ ! -e "$perm" ] || fail "uninstall must remove the classifier link and the permission config it created: $(cat "$perm")"
+# A reinstall, even with --force, neither replaces the edited file nor takes it over: a later uninstall leaves it alone.
+home=$(fresh_home classifierforced)
+agent="$home/.pi/agent"
+classifier_config="$agent/extensions/pi-permission-classifier/config.json"
+run "$home" -y; expect_ok "install before a forced reinstall"
+printf '%s\n' '{"mode":"quick"}' >"$classifier_config"
+run "$home" -y --force; expect_ok "forced install over an edited classifier config"
+[ "$(cat "$classifier_config")" = '{"mode":"quick"}' ] || fail "an install must never replace an edited classifier config"
+run "$home" -y --uninstall; expect_ok "uninstall after a forced install"
+[ "$(cat "$classifier_config")" = '{"mode":"quick"}' ] || fail "an edited classifier config must survive a forced install and an uninstall"
+# A link or config the user removed after install comes back on the next install, like a rule or a package.
+home=$(fresh_home restored)
+agent="$home/.pi/agent"
+classifier_config="$agent/extensions/pi-permission-classifier/config.json"
+perm="$agent/extensions/pi-permission-system/config.json"
+run "$home" -y; expect_ok "install before the classifier is switched off"
+jq '.authorizerChain = []' "$perm" >"$work/perm.json" && mv "$work/perm.json" "$perm"
+rm "$classifier_config"
+run "$home" -y; expect_ok "install after the classifier was switched off"
+[ "$(jq -c '.authorizerChain' "$perm")" = '["permission-judge"]' ] || fail "a removed classifier link must come back"
+[ "$(cat "$classifier_config")" = '{}' ] || fail "a deleted classifier config must be created again"
+# A `{}` the user wrote before any install is theirs: it is left alone and survives an uninstall.
+home=$(fresh_home userempty)
+agent="$home/.pi/agent"
+classifier_config="$agent/extensions/pi-permission-classifier/config.json"
+mkdir -p "$(dirname "$classifier_config")"
+printf '{}\n' >"$classifier_config"
+run "$home" -y; expect_ok "install beside a user's empty classifier config"
+run "$home" -y --uninstall; expect_ok "uninstall beside a user's empty classifier config"
+[ -f "$classifier_config" ] || fail "a classifier config the installer did not create must survive an uninstall"
+# Any version spec on the permission system or the classifier (an exact pin, a range, a tag) gets neither the chain nor
+# the file: Pi may load a version that rejects the key or knows only the old link name, and the installer cannot tell.
+for pin in 'npm:@gotgenes/pi-permission-system@20.8.0' 'npm:@gotgenes/pi-permission-system@v20.8.0' \
+  'npm:@gotgenes/pi-permission-system@~20.8.0' 'npm:@gotgenes/pi-permission-system@<20.9.0' \
+  'npm:@gotgenes/pi-permission-system@^20.8.0' 'npm:@gotgenes/pi-permission-system@20.9.0' \
+  'npm:pi-permission-classifier@0.5.2' 'npm:pi-permission-classifier@^0.5.2' 'npm:pi-permission-classifier@latest'; do
+  home=$(fresh_home "pinned-${pin#npm:}")
+  agent="$home/.pi/agent"
+  mkdir -p "$agent"
+  printf '{"packages":["%s"]}\n' "$pin" >"$agent/settings.json"
+  run "$home" -y; expect_ok "install beside $pin"
+  grep -Fq 'left authorizerChain and the classifier config alone' <<<"$err" || fail "a version spec ($pin) must warn that the classifier is left alone: $err"
+  [ "$(jq -c '.authorizerChain // "none"' "$agent/extensions/pi-permission-system/config.json")" = '"none"' ] \
+    || fail "no chain may be written beside $pin"
+  [ ! -e "$agent/extensions/pi-permission-classifier/config.json" ] || fail "no classifier config may be written beside $pin"
+  [ "$(jq -c --arg pin "$pin" '[.packages[] | select(. == $pin)] | length' "$agent/settings.json")" = 1 ] || fail "the user's pin $pin must be kept"
+done
+# A chain recorded by an earlier install is retired when a version spec appears, so the older package never sees it.
+home=$(fresh_home pinretire)
+agent="$home/.pi/agent"
+run "$home" -y; expect_ok "install before a version spec appears"
+jq '.packages |= map(if . == "npm:@gotgenes/pi-permission-system" then "npm:@gotgenes/pi-permission-system@20.8.0" else . end)' \
+  "$agent/settings.json" >"$work/settings.json" && mv "$work/settings.json" "$agent/settings.json"
+run "$home" -y; expect_ok "install after a version spec appeared"
+[ "$(jq -c '.authorizerChain // "none"' "$agent/extensions/pi-permission-system/config.json")" = '"none"' ] || fail "a version spec must retire the chain"
+# A chain the user left empty stays an empty array through an install and an uninstall: it blocks inherited links.
+home=$(fresh_home emptychain)
+agent="$home/.pi/agent"
+mkdir -p "$agent/extensions/pi-permission-system"
+printf '%s\n' '{"authorizerChain":[]}' >"$agent/extensions/pi-permission-system/config.json"
+run "$home" -y; expect_ok "install over an empty authorizerChain"
+[ "$(jq -c '.authorizerChain' "$agent/extensions/pi-permission-system/config.json")" = '["permission-judge"]' ] || fail "the link must be appended to an empty chain"
+run "$home" -y --uninstall; expect_ok "uninstall over an empty authorizerChain"
+[ "$(jq -c '.authorizerChain' "$agent/extensions/pi-permission-system/config.json")" = '[]' ] || fail "the user's empty authorizerChain must survive an uninstall"
+# A chain retired under an older pin is no longer b-agentic's field: an empty array the user writes afterwards is theirs.
+home=$(fresh_home retiredchain)
+agent="$home/.pi/agent"
+perm="$agent/extensions/pi-permission-system/config.json"
+run "$home" -y; expect_ok "install before a pin retires the chain"
+jq '.packages |= map(if . == "npm:@gotgenes/pi-permission-system" then "npm:@gotgenes/pi-permission-system@20.8.0" else . end)' \
+  "$agent/settings.json" >"$work/settings.json" && mv "$work/settings.json" "$agent/settings.json"
+run "$home" -y; expect_ok "install after the user pinned an older permission system"
+[ "$(jq -c '.authorizerChain // "none"' "$perm")" = '"none"' ] || fail "an older pin must retire the chain"
+jq '.packages |= map(sub("@20.8.0$"; ""))' "$agent/settings.json" >"$work/settings.json" && mv "$work/settings.json" "$agent/settings.json"
+jq '.authorizerChain = []' "$perm" >"$work/perm.json" && mv "$work/perm.json" "$perm"
+run "$home" -y; expect_ok "install after the pin was lifted over the user's empty chain"
+run "$home" -y --uninstall; expect_ok "uninstall after the chain was retired and recreated"
+[ "$(jq -c '.authorizerChain' "$perm")" = '[]' ] || fail "an empty chain the user wrote after a retirement must survive an uninstall"
+# A classifier config replaced by a link is never b-agentic's: install keeps it, uninstall leaves the target alone.
+home=$(fresh_home linkedclassifier)
+agent="$home/.pi/agent"
+classifier_config="$agent/extensions/pi-permission-classifier/config.json"
+run "$home" -y; expect_ok "install before the classifier config becomes a link"
+printf '{}\n' >"$work/dotfiles-classifier.json"
+rm "$classifier_config" && ln -s "$work/dotfiles-classifier.json" "$classifier_config"
+run "$home" -y; expect_ok "install beside a linked classifier config"
+run "$home" -y --uninstall; expect_ok "uninstall beside a linked classifier config"
+[ -f "$work/dotfiles-classifier.json" ] || fail "a linked classifier config's target must survive an uninstall"
 
 # --- refusals happen before any write -------------------------------------------------------------------
 home=$(fresh_home refused)
@@ -212,6 +323,22 @@ before=$(tree "$home")
 run "$home" -y; expect_refused "an invalid settings.json"
 [ "$before" = "$(tree "$home")" ] || fail "an install refused for invalid settings.json wrote files"
 rm "$home/.pi/agent/settings.json"
+mkdir -p "$home/.pi/agent/extensions/pi-permission-system"
+printf '%s\n' '{"authorizerChain":"permission-judge"}' >"$home/.pi/agent/extensions/pi-permission-system/config.json"
+before=$(tree "$home")
+run "$home" -y; expect_refused "an authorizerChain that is not an array"
+grep -Fq 'authorizerChain must be an array' <<<"$err" || fail "the refusal must name authorizerChain: $err"
+[ "$before" = "$(tree "$home")" ] || fail "an install refused for a bad authorizerChain wrote files"
+printf '%s\n' '{"authorizerChain":null}' >"$home/.pi/agent/extensions/pi-permission-system/config.json"
+before=$(tree "$home")
+run "$home" -y; expect_refused "a null authorizerChain"
+[ "$before" = "$(tree "$home")" ] || fail "an install refused for a null authorizerChain wrote files"
+jq -n '{authorizerChain: [range(1000) | "link-\(.)"]}' >"$home/.pi/agent/extensions/pi-permission-system/config.json"
+before=$(tree "$home")
+run "$home" -y; expect_refused "an authorizerChain at the entry limit"
+grep -Fq 'at most 1000' <<<"$err" || fail "the refusal must name the entry limit: $err"
+[ "$before" = "$(tree "$home")" ] || fail "an install refused for a full authorizerChain wrote files"
+rm -r "$home/.pi/agent/extensions"
 rc=0
 out=$(env HOME="$home" PI_CODING_AGENT_DIR="$work/elsewhere" PATH="$shims:$PATH" bash "$root/install.sh" --runtime=pi -y 2>"$work/stderr") || rc=$?
 err=$(cat "$work/stderr")

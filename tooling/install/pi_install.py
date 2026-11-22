@@ -16,7 +16,8 @@ states.
 The installer never installs Pi or a package (Pi installs the packages named in settings.json on its next start),
 never contacts the network, and runs `pi --version` only, to warn below the floor. Only the default ~/.pi/agent
 directory is written; ~/.claude and ~/.claude.json are never touched, and Pi's own bin, install, npm, sessions, and
-auth.json stay out of reach because only the managed roots below and four config files are ever written.
+auth.json stay out of reach because only the managed roots below and five config files are ever written. The classifier's own config file is created
+only when it is absent: it is never overwritten, even with --force, because /permission-model keeps its choices there.
 """
 
 from __future__ import annotations
@@ -63,6 +64,15 @@ REFERENCES = ("capabilities.yaml", "mcp_operations.yaml", "artifacts.yaml")
 CLASSIFIER_PACKAGE = "npm:pi-permission-classifier"
 PERMISSION_PACKAGE = "npm:@gotgenes/pi-permission-system"
 PERMISSION_CONFIG = "extensions/pi-permission-system/config.json"
+# The classifier registers a link only when this file exists, and the permission system consults only the links
+# the permission config's `authorizerChain` names; the package enables neither itself.
+CLASSIFIER_CONFIG = "extensions/pi-permission-classifier/config.json"
+CLASSIFIER_CONFIG_TEXT = "{}\n"
+# Before 20.9.0 the permission system rejects the whole config file for the unknown `authorizerChain` key, and before
+# 0.6.0 the classifier registers only its old link name. The installer cannot tell which version Pi will load for a
+# pin or a range, so a package entry that carries any version spec keeps the chain and the classifier config out.
+CHAIN_PACKAGES = (PERMISSION_PACKAGE, CLASSIFIER_PACKAGE)
+MAX_CHAIN = 1000  # the permission system rejects a config array of more entries
 TOP = "@top"  # the section name of a top-level permission-config key such as yoloMode
 PI_PROTECTED = (
     (".claude", "the Claude Code directory"),
@@ -104,6 +114,17 @@ def package_name(entry: Any) -> str | None:
         return None
     match = re.fullmatch(r"(npm:(?:@[^/@]+/)?[^/@]+)(?:@.+)?", source)
     return match.group(1) if match else source
+
+
+def version_spec(entry: Any) -> str | None:
+    """The version part of a packages entry written `npm:name@SPEC` (a pin, a range or a tag); None when unpinned.
+
+    The installer does not read npm semver: Pi accepts ranges and keeps whatever version is already installed, so no
+    spec says which version Pi will load.
+    """
+    source = entry if isinstance(entry, str) else entry.get("source") if isinstance(entry, dict) else None
+    match = re.fullmatch(r"npm:(?:@[^/@]+/)?[^/@]+@(.+)", source) if isinstance(source, str) else None
+    return match.group(1) if match else None
 
 
 def triples(permission: dict[str, Any]) -> list[Triple]:
@@ -184,6 +205,7 @@ class Installer:
         self.backed_up: set[Path] = set()
         self.rendered: dict[str, str] | None = None
         self.kept_servers: set[str] = set()
+        self.chain_problem: str | None = None
         guard(self.agent_dir)
 
     # -- output ---------------------------------------------------------------
@@ -252,6 +274,7 @@ class Installer:
             "settings.json": self.agent_dir / "settings.json",
             "mcp.json": self.agent_dir / "mcp.json",
             "the permission config": self.agent_dir / PERMISSION_CONFIG,
+            "the classifier config": self.agent_dir / CLASSIFIER_CONFIG,
         }
 
     def preflight(self) -> None:
@@ -476,19 +499,43 @@ class Installer:
     def permission_owned(manifest: dict[str, Any]) -> dict[tuple[str, str | None], list[Any]]:
         return triple_values(manifest.get("permission", []), manifest.get("pending", {}).get("permission", []))
 
+    @staticmethod
+    def chain_owned(manifest: dict[str, Any]) -> list[str]:
+        return merge_unique(
+            list(manifest.get("permission_chain", [])), list(manifest.get("pending", {}).get("permission_chain", []))
+        )
+
+    @staticmethod
+    def classifier_owners(manifest: dict[str, Any]) -> set[str]:
+        """Only a committed record counts: an install cut short between creating the file and committing leaves a
+        stray `{}` after an uninstall, which is the safer failure than deleting a file someone else may have made."""
+        committed = manifest.get("classifier_sha256")
+        return {committed} if committed else set()
+
     # -- planning -----------------------------------------------------------------
     def plan_all(self, previous: dict[str, Any]) -> dict[str, Any]:
         self.counts = {name: 0 for name in self.counts}
         self.warnings.clear()
         self.check_context_files()
         self.kept_servers = set()
+        self.chain_problem = self.pinned_too_old()
+        if self.chain_problem:
+            self.warn(self.chain_problem)
         files = self.plan_files(previous)
         kernel = self.plan_kernel(previous)
         settings = self.plan_settings(previous)
         # The MCP plan runs first: it names the servers the user replaced, and those get no automatic approvals.
         mcp = self.plan_mcp(previous)
         permission = self.plan_permission(previous)
-        return {"files": files, "kernel": kernel, "settings": settings, "permission": permission, "mcp": mcp}
+        classifier = self.plan_classifier(previous)
+        return {
+            "files": files,
+            "kernel": kernel,
+            "settings": settings,
+            "permission": permission,
+            "mcp": mcp,
+            "classifier": classifier,
+        }
 
     def plan_files(self, manifest: dict[str, Any]) -> dict[str, Any]:
         recorded: dict[str, str] = {}
@@ -781,13 +828,118 @@ class Installer:
             self.warn(f"kept {kept} of your permission rules in {path} that differ from b-agentic's")
         for section in [name for name, rules in permission.items() if rules == {} and any(s == name for s, _ in owned)]:
             del permission[section]
+        owned_links, chain_created = self.merge_chain(config, wanted_config.get("authorizerChain", []), manifest, path)
         text = json_text(config)
         return {
             "target": target,
             "text": text if not existed or target.read_text() != text else None,
             "record": [list(rule) for rule in record],
+            "chain": owned_links,
+            "chain_created": chain_created,
             "created": bool(manifest.get("created", {}).get("permission", False)) or not existed,
         }
+
+    def pinned_too_old(self) -> str | None:
+        """A reason not to name the classifier in the chain: the user gave a package a version spec."""
+        target = self.config_target(self.agent_dir / "settings.json")
+        packages = read_json(target).get("packages") if target.exists() else None
+        for entry in packages if isinstance(packages, list) else []:
+            if package_name(entry) in CHAIN_PACKAGES and version_spec(entry) is not None:
+                return (
+                    f"{target} gives {package_name(entry)} the version spec {version_spec(entry)}; the classifier needs "
+                    "permission system 20.9.0 or newer and classifier 0.6.0 or newer, and b-agentic cannot tell which "
+                    "version Pi will load, so it left authorizerChain and the classifier config alone; remove the "
+                    "version spec (or add the chain yourself) and install again"
+                )
+        return None
+
+    def merge_chain(
+        self, config: dict[str, Any], wanted: list[str], manifest: dict[str, Any], path: Path
+    ) -> tuple[list[str], bool]:
+        """Append the links b-agentic ships to the user's `authorizerChain`; the user's own links and order stay.
+
+        Only a link this installer added (and that is still there) is recorded, so an uninstall removes nothing the user
+        wrote, and a link the user took out comes back on the next install, as a rule or package would. Also returns
+        whether the field was created by this installer: an empty array the user wrote stays an empty array (it blocks
+        links inherited from a wider config), but a field this installer created goes away with its last link.
+        """
+        present = "authorizerChain" in config
+        chain = config.get("authorizerChain")
+        if present and (not isinstance(chain, list) or not all(isinstance(link, str) and link for link in chain)):
+            raise InstallError(f"{path}: authorizerChain must be an array of non-empty strings")
+        recorded = self.chain_owned(manifest)
+        created = bool(manifest.get("created", {}).get("permission_chain", False)) or not present
+        chain = list(chain or [])
+        if self.chain_problem:
+            wanted = []
+        for link in recorded:
+            if link not in wanted and link in chain:
+                chain.remove(link)  # retired: no longer shipped, or the pinned package cannot use it
+        owned: list[str] = []
+        for link in wanted:
+            if link not in chain:
+                chain.append(link)
+                owned.append(link)
+            elif link in recorded:
+                owned.append(link)
+        if len(chain) > MAX_CHAIN:
+            raise InstallError(
+                f"{path}: authorizerChain would hold {len(chain)} entries; the permission system accepts at most "
+                f"{MAX_CHAIN}, so shorten your list first"
+            )
+        if chain or not created:
+            config["authorizerChain"] = chain
+            return owned, created
+        # The field goes away with its last link, so it is no longer ours: an empty array the user writes later is theirs.
+        config.pop("authorizerChain", None)
+        return owned, False
+
+    def plan_classifier(self, manifest: dict[str, Any]) -> dict[str, Any]:
+        """The classifier's own config: `{}` is written only when the file is absent, never over a file that exists.
+
+        /permission-model keeps the user's judge choices in this file, so an existing one is neither parsed nor
+        replaced (not even with --force). It is recorded, and later removed, only while it is byte for byte the `{}`
+        this installer wrote; a file the user wrote or edited stays theirs.
+        """
+        path = self.agent_dir / CLASSIFIER_CONFIG
+        target = self.config_target(path)
+        wanted = CLASSIFIER_PACKAGE in self.rendered_config("settings")["packages"] and not self.chain_problem
+        digest = sha256(CLASSIFIER_CONFIG_TEXT.encode())
+        owners = self.classifier_owners(manifest)
+        # A link is never owned: it points at a file kept somewhere else (a dotfiles checkout), which may be replaced
+        # or retargeted at any time, and the bytes alone do not say who wrote it.
+        linked = path.is_symlink()
+        if target.exists():
+            owned = digest if wanted and not linked and sha256(target.read_bytes()) in owners else None
+            return {"target": target, "text": None, "sha256": owned}
+        if not wanted:
+            return {"target": target, "text": None, "sha256": None}
+        return {"target": target, "text": CLASSIFIER_CONFIG_TEXT, "sha256": None if linked else digest}
+
+    def create_classifier(self, classifier: dict[str, Any]) -> None:
+        """Create the file only if it is still absent: a file that appears after planning is the user's."""
+        if classifier["text"] is None:
+            return
+        target = classifier["target"]
+        if not self.dry_run:
+            guard(target)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # The whole file is written beside the target and then linked into place, which fails if the target exists:
+            # the final path never holds a partial file and never replaces one that appeared after planning.
+            handle, temporary = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.")
+            try:
+                with os.fdopen(handle, "w") as stream:
+                    stream.write(classifier["text"])
+                os.chmod(temporary, 0o644)
+                try:
+                    os.link(temporary, target)
+                except FileExistsError:
+                    classifier["sha256"] = None
+                    self.warn(f"kept {target}: it appeared while b-agentic was installing")
+                    return
+            finally:
+                os.unlink(temporary)
+        self.say(f"classifier config created at {target}")
 
     @staticmethod
     def remove_rule(config: dict[str, Any], section: str, pattern: str | None, values: list[Any]) -> bool:
@@ -867,13 +1019,14 @@ class Installer:
         plan = self.plan_all(previous)
         if warning:
             self.warn(warning)
-        files, kernel, settings, permission, mcp = (
-            plan[key] for key in ("files", "kernel", "settings", "permission", "mcp")
+        files, kernel, settings, permission, mcp, classifier = (
+            plan[key] for key in ("files", "kernel", "settings", "permission", "mcp", "classifier")
         )
         created = {
             "agents_md": kernel["created"],
             "settings": settings["created"],
             "permission": permission["created"],
+            "permission_chain": permission["chain_created"],
             "mcp": mcp["created"],
         }
         final = {
@@ -884,6 +1037,8 @@ class Installer:
             "files": dict(sorted(files["recorded"].items())),
             "settings": settings["record"],
             "permission": permission["record"],
+            "permission_chain": permission["chain"],
+            "classifier_sha256": classifier["sha256"],
             "mcp": {"servers": mcp["recorded"]},
             "optional_components": dict(self.selection),
         }
@@ -891,10 +1046,20 @@ class Installer:
         # interruption leaves a manifest that recognizes both the old and the new state.
         old_pending = previous.get("pending", {})
         intent = json.loads(json.dumps(previous)) if previous else {"schema": MANIFEST_SCHEMA, "target": "pi"}
-        intent.update({"created": created, "optional_components": dict(self.selection)})
+        # The intent keeps the field marked as created if either the old or the new record says so: a run cut short while
+        # it removes the field must still let an uninstall delete the empty array it leaves behind.
+        old_created = previous.get("created", {}).get("permission_chain", False)
+        intent.update(
+            {
+                "created": {**created, "permission_chain": bool(created["permission_chain"] or old_created)},
+                "optional_components": dict(self.selection),
+            }
+        )
         intent.setdefault("kernel_sha256", None)
         intent.setdefault("files", {})
         intent.setdefault("permission", [])
+        intent.setdefault("permission_chain", [])
+        intent.setdefault("classifier_sha256", None)
         intent.setdefault("mcp", {"servers": {}})
         old_settings = intent.setdefault("settings", {"packages": [], "defaultTools": []})
         for key in ("packages", "defaultTools"):
@@ -910,6 +1075,7 @@ class Installer:
             "kernel": merge_unique(old_pending.get("kernel", []), [kernel["sha256"]] if kernel["sha256"] else []),
             "mcp_servers": pending_servers,
             "permission": merge_unique(old_pending.get("permission", []), permission["record"]),
+            "permission_chain": merge_unique(old_pending.get("permission_chain", []), permission["chain"]),
         }
         if not self.dry_run and self.has_changes(plan):
             self.write_manifest(intent)
@@ -923,6 +1089,8 @@ class Installer:
         # The policy goes first and settings.json last: settings.json is what makes Pi load the packages, so a
         # failed write leaves the new integration inactive instead of running without the managed rules.
         self.write_config(permission, f"permission rules merged in {self.agent_dir / PERMISSION_CONFIG}")
+        self.create_classifier(classifier)
+        final["classifier_sha256"] = classifier["sha256"]
         self.write_config(mcp, f"MCP servers merged in {self.agent_dir / 'mcp.json'}")
         self.write_config(settings, f"settings merged in {self.agent_dir / 'settings.json'}")
         for path in files["removals"]:
@@ -937,7 +1105,7 @@ class Installer:
         return bool(
             plan["files"]["writes"]
             or plan["files"]["removals"]
-            or any(plan[key]["text"] is not None for key in ("kernel", "settings", "permission", "mcp"))
+            or any(plan[key]["text"] is not None for key in ("kernel", "settings", "permission", "mcp", "classifier"))
         )
 
     def write_kernel(self, kernel: dict[str, Any]) -> None:
@@ -973,6 +1141,10 @@ class Installer:
                 f"permission rules removed from {self.agent_dir / PERMISSION_CONFIG}",
             ),
             (self.plan_mcp_removal(manifest), f"MCP servers removed from {self.agent_dir / 'mcp.json'}"),
+            (
+                self.plan_classifier_removal(manifest),
+                f"classifier config removed from {self.agent_dir / CLASSIFIER_CONFIG}",
+            ),
         )
         for plan, message in plans:
             if plan is None:
@@ -1049,14 +1221,23 @@ class Installer:
 
     def plan_permission_removal(self, manifest: dict[str, Any]) -> dict[str, Any] | None:
         owned = self.permission_owned(manifest)
+        links = self.chain_owned(manifest)
         path = self.agent_dir / PERMISSION_CONFIG
         target = self.config_target(path)
-        if not owned or not target.exists():
+        if not (owned or links) or not target.exists():
             return None
         config = read_json(target)
         changed = False
         for (section, pattern), values in owned.items():
             changed = self.remove_rule(config, section, pattern, values) or changed
+        chain = config.get("authorizerChain")
+        if isinstance(chain, list) and any(link in chain for link in links):
+            kept_links = [link for link in chain if link not in links]
+            changed = True
+            if kept_links or not manifest.get("created", {}).get("permission_chain", False):
+                config["authorizerChain"] = kept_links  # an empty array of the user's own stays: it blocks inheritance
+            else:
+                del config["authorizerChain"]
         permission = config.get("permission")
         if isinstance(permission, dict):
             for section in [
@@ -1068,6 +1249,21 @@ class Installer:
         if not changed:
             return None
         return self.removal_plan(target, config, bool(manifest.get("created", {}).get("permission")))
+
+    def plan_classifier_removal(self, manifest: dict[str, Any]) -> dict[str, Any] | None:
+        """The `{}` this installer wrote, only while it is still exactly that; anything else is the user's."""
+        owners = self.classifier_owners(manifest)
+        path = self.agent_dir / CLASSIFIER_CONFIG
+        target = self.config_target(path)
+        if not owners or not target.is_file():
+            return None
+        if path.is_symlink():
+            self.warn(f"kept {path}: it is a link now, so the file it points at is not b-agentic's to remove")
+            return None
+        if sha256(target.read_bytes()) not in owners:
+            self.warn(f"kept {target} (modified since install)")
+            return None
+        return {"target": target, "delete": True}
 
     def plan_mcp_removal(self, manifest: dict[str, Any]) -> dict[str, Any] | None:
         names = self.mcp_names(manifest)
@@ -1093,6 +1289,8 @@ class Installer:
             "the installer never installs Pi or a package.",
             "  2. Start pi: it installs the packages named in "
             f"{self.display(self.agent_dir / 'settings.json')} on its next start (that step needs the network).",
+            "  3. Optional: run /permission-model in Pi to pick the model that judges permission asks; until you do, "
+            "the classifier uses the session's chat model.",
         ]
         if self.components:
             lines.append(

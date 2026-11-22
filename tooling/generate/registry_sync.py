@@ -1605,7 +1605,12 @@ def render_pi_permission(policy: dict[str, Any]) -> dict[str, Any]:
         }
     )
     permission.update({tool: "allow" for tool in pi["allowed_tools"]})
-    return {"yoloMode": False, "permission": permission}
+    config: dict[str, Any] = {"yoloMode": False}
+    if PI_CLASSIFIER_PACKAGE in pi["packages"]:
+        # The permission system consults only the links named here; the classifier package never enables itself.
+        config["authorizerChain"] = [PI_CLASSIFIER_LINK]
+    config["permission"] = permission
+    return config
 
 
 def render_pi_mcp() -> dict[str, Any]:
@@ -1705,6 +1710,12 @@ def pi_config_errors(outputs: dict[str, str]) -> list[str]:
         errors.append("pi output config/mcp.json: every server must carry the runtime's default exposure")
     permission = parsed.get("permission", {}).get("permission")
     if "permission" in parsed:
+        expected_chain = [PI_CLASSIFIER_LINK] if PI_CLASSIFIER_PACKAGE in RUNTIMES["pi"]["packages"] else None
+        if parsed["permission"].get("authorizerChain") != expected_chain:
+            errors.append(
+                f"pi output config/permission.json: authorizerChain must be {expected_chain} "
+                "(the classifier judges asks only when the chain names it)"
+            )
         if not isinstance(permission, dict):
             errors.append("pi output config/permission.json: expected a permission object")
         else:
@@ -1786,6 +1797,16 @@ def validate_pi_regressions(
         (
             lambda o, h: o.update({"config/permission.json": move_ask_after_denies(o["config/permission.json"])}),
             "a bash ask placed after the denies",
+        ),
+        (
+            lambda o, h: o.update(
+                {
+                    "config/permission.json": o["config/permission.json"].replace(
+                        f'"authorizerChain": [\n    "{PI_CLASSIFIER_LINK}"\n  ],\n  ', ""
+                    )
+                }
+            ),
+            "a permission config without the classifier chain",
         ),
         (lambda o, h: o.update({"../escape.md": "x"}), "a path that leaves the target"),
         (lambda o, h: o.update({"/abs.md": "x"}), "an absolute path"),
@@ -2181,6 +2202,7 @@ def validate_runtime_regressions() -> list[str]:
 
 PI_PACKAGE_NAME = re.compile(r"^npm:(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$")
 PI_CLASSIFIER_PACKAGE = "npm:pi-permission-classifier"
+PI_CLASSIFIER_LINK = "permission-judge"
 PI_PERMISSION_PACKAGE = "npm:@gotgenes/pi-permission-system"
 
 

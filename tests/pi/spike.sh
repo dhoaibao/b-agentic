@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Manual spike for the opt-in Pi runtime (ADR-030): run it by hand after every Pi or package upgrade, never in CI.
 # It reuses the guard probe for the cases that need no model (child gating, user_bash, .b-agentic, secret paths),
-# then checks the installed layout against the real packages and, only when asked, shows what the classifier
-# decides with a real model. Everything runs under a temporary HOME and agent folder: the real ~/.pi is never read or
-# written. Nothing is pinned: the versions it prints are the ones under test, for the upgrade log.
+# then checks the installed layout (including the two things that make the classifier eligible to judge an ask:
+# the chain entry and its config file) against the real packages and, only when asked, shows what the classifier
+# decides with a real model. Eligible is not the same as deciding: only a person reading real verdicts shows that.
+# Everything runs under a temporary HOME and agent folder: the real ~/.pi is never read or written. Nothing is
+# pinned: the versions it prints are the ones under test, for the upgrade log.
 #
 #   PI_PROBE_NPM_DIR=DIR    required: a folder holding node_modules with pi-subagents, @gotgenes/pi-permission-system,
 #                           pi-permission-classifier and @juicesharp/rpiv-ask-user-question (an agent folder's `npm` works)
@@ -54,6 +56,12 @@ grep -Fq 'unchanged' "$work/reinstall.log" || fail "a second install must report
 [ "$(jq -r '.packages[0]' "$agent/settings.json")" = "npm:pi-permission-classifier" ] || fail "the classifier must load first"
 jq -e '.permission.skill == "allow" and (.permission | has("codemode"))' "$agent/extensions/pi-permission-system/config.json" >/dev/null \
   || fail "the permission config needs skill allowed and a codemode rule"
+# The classifier never enables itself: the permission system consults only the links its chain names, and the
+# classifier registers a link only when its own config file exists.
+jq -e '(.authorizerChain // []) | index("permission-judge") != null' "$agent/extensions/pi-permission-system/config.json" >/dev/null \
+  || fail "the permission config must name permission-judge in authorizerChain, or the classifier never judges an ask"
+jq -e 'type == "object"' "$agent/extensions/pi-permission-classifier/config.json" >/dev/null \
+  || fail "the classifier config must exist and be a JSON object, or the classifier registers no link"
 note "installer layout ok under a temporary HOME"
 
 # --- 4. the classifier with a real model (opt-in) -----------------------------------------------------------------------------------
