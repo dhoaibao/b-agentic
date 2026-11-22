@@ -74,7 +74,7 @@
         },
         {
           "from": "start each as its own harness background command (`run_in_background`), edit nothing while one runs, wait for every completion notification, then record them one at a time",
-          "to": "run them one at a time in the foreground, recording each as it finishes"
+          "to": "issue one `bash` tool call per check, all in one assistant message with no other tool call (Pi runs the tool calls of one message at the same time), edit nothing while they run, then record them one at a time"
         },
         {
           "from": "its Codex gate runs first, needs no approval, and a guard refusal or wrapper exit 2/3 is a stop where the user may choose `b-reviewer`, and only exit 4 falls back to it on its own.",

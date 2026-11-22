@@ -1761,6 +1761,8 @@ def pi_output_errors(outputs: dict[str, str], hits: set[str]) -> list[str]:
         )
     if flow and ("b-worker" not in flow or "workflow" not in flow):
         errors.append("pi output skills/b-flow/SKILL.md: must include Pi b-worker and parallel workflow guidance")
+    if flow and "one `bash` tool call per check" not in flow:
+        errors.append("pi output skills/b-flow/SKILL.md: must include Pi parallel_checks guidance")
     plan_skill = outputs.get("skills/b-plan/SKILL.md", "")
     if plan_skill and ("worker_steps" not in plan_skill or "parallel_steps" not in plan_skill):
         errors.append("pi output skills/b-plan/SKILL.md: must include worker_steps and parallel_steps guidance")
@@ -1915,6 +1917,16 @@ def validate_pi_regressions(
                 {"skills/b-flow/SKILL.md": o["skills/b-flow/SKILL.md"].replace("b-worker", "implementer")}
             ),
             "Pi b-flow missing b-worker",
+        ),
+        (
+            lambda o, h: o.update(
+                {
+                    "skills/b-flow/SKILL.md": o["skills/b-flow/SKILL.md"].replace(
+                        "one `bash` tool call per check", "one check at a time"
+                    )
+                }
+            ),
+            "Pi b-flow missing parallel_checks guidance",
         ),
         (
             lambda o, h: o.update(
