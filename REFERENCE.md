@@ -135,9 +135,15 @@ Claude Code stays the default. The Pi coding agent is an opt-in second runtime
 Proposed; what ships is described in [pi/README.md](pi/README.md)):
 
 ```bash
-./install.sh --runtime=pi [--dry-run] [--force] [--with=ID[,ID]] [--without=ID[,ID]]
+./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
 ./install.sh --runtime=pi --uninstall
 ```
+
+- On a terminal without `-y`, `--dry-run`, or `--uninstall`, the installer shows
+  the step timeline, optional-component checklist (when neither `--with` nor
+  `--without` is given), summary box, and `Proceed with installation?` confirm
+  (declining leaves `~/.pi/agent` untouched); `-y`, `--dry-run`, `--uninstall`,
+  or a non-terminal stdout keep plain output.
 
 - You install Pi (`@earendil-works/pi-coding-agent`, 1.6.0 or newer, spiked on
   1.6.0) yourself. Nothing is pinned: not Pi, not the four npm packages named in

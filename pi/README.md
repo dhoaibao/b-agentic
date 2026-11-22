@@ -12,12 +12,14 @@ or a package, never uses the network, and runs only `pi --version`, to warn belo
 in `settings.json` on its next start.
 
 ```bash
-./install.sh --runtime=pi [--dry-run] [--force] [--with=ID[,ID]] [--without=ID[,ID]]
+./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
 ./install.sh --runtime=pi --uninstall
 ```
 
-It installs only from a local checkout (no `--update`, `--ref` or clone) and writes under `~/.pi/agent`; a config file there
-that is a symlink is written through to its target, wherever that is. See the
+It installs only from a local checkout (no `--update`, `--ref` or clone) and writes under `~/.pi/agent`; on a terminal
+without `-y`, `--dry-run`, or `--uninstall` it shows the timeline, optional-component checklist, summary, and confirm
+prompt (declining leaves `~/.pi/agent` untouched, and non-terminal or plain flags keep plain output); a config file
+there that is a symlink is written through to its target, wherever that is. See the
 [operational reference](../REFERENCE.md#pi-runtime-opt-in) for the layout, ownership rules and refusals.
 
 ## What ships from this folder
