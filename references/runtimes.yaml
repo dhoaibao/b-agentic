@@ -30,13 +30,13 @@
       "agent_models": [],
       "agents": {
         "b-planner": {"model": "anthropic/claude-opus-5-5", "thinking": "high"},
-        "b-researcher": {"model": "openai/gpt-6.1-terra", "thinking": "high"},
-        "b-debugger": {"model": "anthropic/claude-opus-5-5", "thinking": "high"},
+        "b-researcher": {"model": "antigravity/gemini-4-hydrogen", "thinking": "medium"},
+        "b-debugger": {"model": "antigravity/gemini-4-neon", "thinking": "high"},
         "b-auditor": {"model": "openai/gpt-6.2-sol", "thinking": "high"},
         "b-reviewer": {"model": "openai/gpt-6.2-sol", "thinking": "high"}
       },
       "workers": {
-        "b-worker": {"model": "openai/gpt-6.1-terra", "thinking": "high"}
+        "b-worker": {"model": "antigravity/claude-sonnet-5-5", "thinking": "high"}
       },
       "editing_tools": ["edit", "write"],
       "read_only_tools": ["read", "grep", "find", "ls", "bash"],
