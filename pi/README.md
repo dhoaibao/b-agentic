@@ -41,6 +41,19 @@ permission system, so it loads first), `@gotgenes/pi-permission-system` (the per
 (read-only specialists and the `b-reviewer` gate), and `@juicesharp/rpiv-ask-user-question`. The list lives in
 [`references/runtimes.yaml`](../references/runtimes.yaml).
 
+The classifier enables itself in neither place, so the installer does both: it adds `permission-judge` to the
+`authorizerChain` of the permission config (after your own links) and creates the classifier's `config.json` as `{}` when
+that file is absent. It never replaces an existing one, even with `--force`. With `{}`, by the package's documentation,
+the session's chat model judges each ask; run `/permission-model` in Pi to choose another judge. Pi takes the
+classifier's allow as final, so the model may approve asks that Claude Code puts to you (a push to a named branch, a
+pull request, a tool that changes something outside the project). To switch the judge off, remove every link that names
+it from the effective `authorizerChain`: `permission-judge` and the legacy alias `classifier`; that holds until the next
+install adds the managed link again, and an uninstall removes it for good. A project-level permission config switches
+the judge off for that project only when it sets its own `authorizerChain` (an empty array) and the project is trusted,
+since Pi ignores a project config until then. If your settings give the permission system or the classifier any version
+spec (a pin, a range or a tag), the installer leaves both alone and warns.
+Nothing here shows yet that the classifier decides well: that is a live check owed in ADR-030.
+
 ## Checks
 
 - `python3 tooling/generate/registry_sync.py --check` renders Pi in memory and fails on a Claude-only token, an over-budget

@@ -73,6 +73,16 @@ under `tests/pi`):
   `B_AGENTIC_HELPER_DIR` (a `~/` or absolute path, mirrored in three copies and checked by a parity probe) changes the
   folder their printed commands name and is the one signal that the helpers run on Pi (no worker steps, no worktrees, gate
   `reviewer` only). An explicit empty `--owner` is refused by both `b-state` and `b-run`.
+- The classifier is made eligible at install, not proven. `pi-permission-classifier` enables itself in neither of two
+  places: the permission system consults only the links its `authorizerChain` names, and the classifier registers a link
+  only when its own config file exists (a config.json in a pi-permission-classifier folder under the agent's extensions
+  folder). The rendered permission config therefore carries
+  `authorizerChain: ["permission-judge"]`, which the installer appends to the user's own chain (their links and order stay;
+  only the link it added is recorded and removed on uninstall). The installer creates that config as `{}` only when the
+  file is absent, and never replaces it, not even with `--force`, because `/permission-model` keeps the user's choice of
+  judge there; a `{}` the user wrote is left alone and survives an uninstall. By the package's documentation `{}` means
+  the session's chat model judges. A link or file the user removes comes back on the next install, as a rule or package
+  does. A live test on 2026-11-22 found both steps missing from the earlier installer.
 - Kill criterion: remove the Pi runtime, by a new ADR, when it goes unused for four weeks or when two Pi or package
   upgrades break the spike.
 - Acceptance: this ADR becomes Accepted only after the live install check on a real machine and a classifier check with
@@ -109,6 +119,25 @@ under `tests/pi`):
     ids and the validator fails closed on any other character or an id over 64 characters. The install probe's verdict
     helper matches with `fnmatch`, not Pi's matcher, and does not assert a bare `git push` verdict itself (the
     `mcp_policy.py` evaluator does).
+  - Classifier (from the packages' source and documentation, not observed with a real model): each ask on every surface
+    except `path` and `external_directory` costs a call to the session's chat model (5000 ms by default; on an error the
+    ask goes to the user). The kernel reserves some asks for the user (a push to a named branch, a pull request, a tool
+    that changes something outside the project), but Pi takes a link's allow as final and every verdict mode of the
+    classifier can allow, so on Pi the model may approve them without a prompt. The user accepted this on 2026-11-22
+    by choosing activation at install. To switch the judge off, remove every link that names it from the effective
+    chain: `permission-judge` and the legacy alias `classifier`, which the installed classifier still registers (the
+    installer never removes a link the user wrote). That holds until the next install adds the managed link back (an
+    uninstall removes it for good). Managed denies are unchanged. A project-level permission config replaces the chain
+    only when it sets its own `authorizerChain`, an empty array to switch the judge off for that project, and Pi
+    ignores a project config until the project is trusted; one without the key inherits the global chain. The
+    installer leaves the chain and the classifier config alone, with a warning, when the user's settings give the
+    permission system or the classifier any version spec (a pin, a range or a tag): the permission system before 20.9.0
+    rejects the whole config for the unknown key and the classifier before 0.6.0 knows only the old link name, and no
+    spec says which version Pi will load. It cannot see the version of an unpinned package that was installed
+    earlier, so such a package must be upgraded by hand. An install cut short between creating the classifier config
+    and committing the manifest leaves that file in place after an uninstall, rather than risk deleting a file someone
+    else made. It refuses a chain that is not an array of strings (a null included) and a chain that would pass 1000
+    entries, before any write.
   - Guard: it fails closed for `subagent` tool launches only, and the spike proves no more than that and the installed
     layout: nothing automated shows that the permission package's shell handler is active. If it is missing, the main session's own
     tools run without its rules, and a project-level MCP override cannot be seen at install time. A slash or RPC launch
@@ -147,10 +176,18 @@ their results are written here:
    `/b-flow` run end to end on Pi (clarify, approval, implement, verify, the `b-reviewer` gate, QA, commit), and the
    model's `bash` tool asked to run `sudo true`, which must return a tool result that reports the permission denial and not
    a shell error (no automated check shows this; a `!` or RPC shell command does not exercise the permission package).
-2. The classifier with a real model and API key:
-   `PI_PROBE_NPM_DIR=DIR PI_SPIKE_CLASSIFIER=1 PI_SPIKE_MODEL=PROVIDER/MODEL tests/pi/spike.sh`. The script prints the
-   verdicts and asserts none; a person reads them and confirms the routine command was judged and allowed and the
-   suspicious one refused.
+2. The classifier with a real model, after an install that set the chain entry and created the classifier config:
+   `PI_PROBE_NPM_DIR=DIR PI_SPIKE_CLASSIFIER=1 PI_SPIKE_MODEL=PROVIDER/MODEL tests/pi/spike.sh` with that provider's API
+   key, or by hand in Pi (a command routed to an ask, such as `git push origin feature-x` in a scratch repository without
+   a remote). The script prints the verdicts and asserts none. A person reads them, or the `classifier.decision` entries
+   in the permission review log, and confirms that a routine command was judged and allowed and that a command the model
+   was told to run by a file's content was refused or sent to the user. The spike's layout check shows only that the
+   classifier is eligible to judge (the chain names it and its config exists), not that it decides.
+
+Results so far, 2026-11-22, on a real install of Pi 1.6.0 driven through a terminal by the main session: check 1 passed
+for two `/b-flow` runs in scratch repositories (one with an approval question and a `b-reviewer` round after a review
+trigger) and for `sudo true` (refused by the rule `sudo *`). The same session found the classifier installed but inert,
+because nothing set the chain entry or created its config; the installer now does both. Check 2 is still open.
 
 Optional: settle the billing and terms of a Claude Pro or Max login in Pi through `b-research` (the unverified item above).
 

@@ -156,7 +156,25 @@ Proposed; what ships is described in [pi/README.md](pi/README.md)):
 - Installed under `~/.pi/agent`: `skills/`, `prompts/`, `agents/`,
   `extensions/b-agentic/`, and `b-agentic/{bin,hooks,references}`; the manifest
   `b-agentic/install.json`; and entries merged into `AGENTS.md` (kernel block),
-  `settings.json`, `mcp.json`, and `extensions/pi-permission-system/config.json`.
+  `settings.json`, `mcp.json`, and `extensions/pi-permission-system/config.json`
+  (including `authorizerChain: ["permission-judge"]`, added after your own links);
+  `extensions/pi-permission-classifier/config.json` is created as `{}` only when
+  it is absent, never replaced (not even with `--force`) and removed on uninstall
+  only while it is still that `{}`. The classifier judges an ask only when both
+  exist; `/permission-model` in Pi chooses its judge. With the classifier active,
+  Pi takes its allow as final, so the model may approve asks that Claude Code
+  puts to you (a push to a named branch, a pull request, a tool that changes
+  something outside the project). To switch the judge off, remove every link that
+  names it from the effective chain: `permission-judge` and the legacy alias
+  `classifier`; that holds until the next install adds the managed link again,
+  and an uninstall removes it for good. A project-level permission config
+  replaces the chain only when it sets its own `authorizerChain` (an empty array
+  switches the judge off for that project), and Pi ignores a project config until
+  the project is trusted. The installer leaves the chain and the classifier
+  config alone, with a warning, when your settings give the permission system or
+  the classifier any version spec (a pin, a range or a tag), and refuses an
+  `authorizerChain` that is not an array of strings or would pass 1000 entries.
+  Whether the classifier decides well is still an open live check (see ADR-030).
   Ownership, backups, `--force`, `--dry-run`, `pending` recovery, and
   `--uninstall` follow the same rules as the Claude Code installer. A config file
   there that is a symlink is written through to its target, even outside
