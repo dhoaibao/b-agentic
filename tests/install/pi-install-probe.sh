@@ -630,4 +630,97 @@ wrap b-run help | grep -Fq '~/.pi/agent/b-agentic/bin/b-run' || fail "b-run usag
 lock=$(find "$repo/.b-agentic" -name lock | head -1)
 [ -n "$lock" ] && [ "$(jq -r .owner "$lock")" = pi-probe-1 ] || fail "the lock owner must be the PI_SESSION_ID value: $(cat "$lock" 2>/dev/null)"
 
+# --- terminal UI: header, checklist, summary, and confirm on a pty, reading answers from /dev/tty ------
+cat >"$work/pty-run.py" <<'PY'
+import os, pty, select, signal, subprocess, sys, time
+
+home, *answers = sys.argv[1:]
+env = {k: v for k, v in os.environ.items() if k not in {"NO_COLOR", "PI_CODING_AGENT_DIR", "B_AGENTIC_CLAUDE_DIR"}}
+env.update(HOME=home, TERM="xterm-256color")
+pid, fd = pty.fork()
+if pid == 0:
+    keep = {k: os.environ[k] for k in ("PROBE_ROOT", "PROBE_CMD") if k in os.environ}
+    os.execvpe("bash", ["bash", "-c", os.environ["PROBE_CMD"]], {**env, **keep})
+buf, last, since = b"", time.time(), b""
+while time.time() - last < 20:
+    ready, _, _ = select.select([fd], [], [], 0.3)
+    if ready:
+        try:
+            chunk = os.read(fd, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        buf, since, last = buf + chunk, since + chunk, time.time()
+    elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"Enter confirms" in since):
+        answer = answers.pop(0)
+        if answer.startswith("!"):
+            subprocess.run(answer[1:], shell=True, env=env, check=True)
+            last = time.time()
+        else:
+            os.write(fd, (answer + "\n").encode())
+            last, since = time.time(), b""
+    elif not answers and time.time() - last > 3:
+        break
+deadline = time.time() + 15
+while os.waitpid(pid, os.WNOHANG) == (0, 0):
+    if time.time() > deadline:
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except OSError:
+            os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        sys.stderr.write("pty harness: the command was still running after its answers and was killed; output so far:\n")
+        sys.stderr.write(buf.decode(errors="replace") + "\n")
+        sys.exit(1)
+    time.sleep(0.1)
+sys.stdout.write(buf.decode(errors="replace"))
+PY
+# shellcheck disable=SC2016 # expanded by the child shell, which gets PROBE_ROOT in its environment
+piped_install='echo ignored | bash "$PROBE_ROOT/install.sh" --runtime=pi'
+tui_run() {
+  local home=$1 command=$2
+  shift 2
+  PATH="$shims:$PATH" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
+}
+home=$(fresh_home tui)
+tui_out=$(tui_run "$home" "$piped_install" "" n)
+grep -Fq 'Installation Summary' <<<"$tui_out" || fail "TUI summary box missing: $tui_out"
+grep -Fq '┌' <<<"$tui_out" || fail "TUI header missing: $tui_out"
+if grep -Fq '█' <<<"$tui_out"; then fail "the block-letter logo must not be drawn: $tui_out"; fi
+grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "TUI confirm missing: $tui_out"
+[ -z "$(find "$home" -mindepth 1)" ] || fail "declining the confirm must write nothing under HOME"
+tui_out=$(tui_run "$home" "$piped_install" "" y)
+grep -Fq 'Installed' <<<"$tui_out" || fail "TUI installed box missing: $tui_out"
+grep -Fq 'Next steps' <<<"$tui_out" || fail "TUI next steps box missing: $tui_out"
+[ -f "$home/.pi/agent/b-agentic/install.json" ] || fail "accepting the confirm must install"
+for mode in --dry-run --yes --uninstall; do
+  tui_out=$(tui_run "$home" "$piped_install $mode")
+  if grep -Fq '┌' <<<"$tui_out" || grep -Fq 'Installation Summary' <<<"$tui_out"; then fail "$mode must keep plain output: $tui_out"; fi
+  grep -Fq 'b-agentic ' <<<"$tui_out" || fail "$mode printed no summary: $tui_out"
+done
+home=$(fresh_home tui-alias)
+# shellcheck disable=SC2016 # expanded by the harness shell, whose HOME is the sandbox
+alias_cmd='!mkdir -p "$HOME/.pi/agent" "$HOME/dot" && ln -s "$HOME/dot/shared.json" "$HOME/.pi/agent/settings.json" && ln -s "$HOME/dot/shared.json" "$HOME/.pi/agent/mcp.json"'
+tui_out=$(tui_run "$home" "$piped_install" "" "$alias_cmd" y)
+grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
+[ ! -e "$home/.pi/agent/b-agentic/install.json" ] && [ ! -e "$home/.pi/agent/skills" ] && [ ! -e "$home/dot/shared.json" ] \
+  || fail "a refused alias must leave ~/.pi/agent and external targets untouched"
+home=$(fresh_home tui-checkbox)
+tui_out=$(tui_run "$home" "$piped_install" " " y)
+grep -Fq 'Enter confirms' <<<"$tui_out" || fail "the checkbox list must be shown: $tui_out"
+grep -Fq '[ ] Excalidraw' <<<"$tui_out" || fail "unselected components must show an empty box: $tui_out"
+[ -f "$home/.pi/agent/skills/b-datagrip/SKILL.md" ] || fail "the toggled component must be installed"
+[ ! -e "$home/.pi/agent/skills/b-excalidraw" ] && [ "$(jq -r '.mcpServers | has("excalidraw")' "$home/.pi/agent/mcp.json")" = false ] \
+  || fail "an untouched component must stay absent"
+tui_out=$(tui_run "$home" "$piped_install" "" y)
+[ -f "$home/.pi/agent/skills/b-datagrip/SKILL.md" ] || fail "Enter on a re-sync must keep the installed component"
+tui_out=$(tui_run "$home" "$piped_install" " " y)
+[ ! -e "$home/.pi/agent/skills/b-datagrip" ] || fail "unchecking an installed component must remove it"
+tui_out=$(tui_run "$home" "$piped_install --with=drawio" y)
+if grep -Fq 'Enter confirms' <<<"$tui_out"; then fail "--with must skip the checkbox: $tui_out"; fi
+[ -f "$home/.pi/agent/skills/b-drawio/SKILL.md" ] && [ "$(jq -r '.mcpServers | has("drawio")' "$home/.pi/agent/mcp.json")" = true ] \
+  || fail "--with must install drawio"
+echo "install probe passed: tui"
+
 echo "pi install probe passed"
