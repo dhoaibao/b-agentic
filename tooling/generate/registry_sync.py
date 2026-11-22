@@ -1578,12 +1578,15 @@ def render_pi_permission(policy: dict[str, Any]) -> dict[str, Any]:
     """The permission-system config the installer merges: protected paths, shell asks and denies, MCP verdicts.
 
     The shell denies cover the model's own bash tool, which the guard extension does not see. Within a section a
-    later rule wins, so denies follow asks. `skill` and `codemode` have no shipped default in the permission system.
+    later rule wins, so every ask precedes every deny: a pattern that is both asked and denied (`git push`) is
+    written once, as a deny, after all the asks, because a dict update would keep it at its first, earlier slot and
+    the `git push *` ask would then win. `skill` and `codemode` have no shipped default in the permission system.
     """
     pi = RUNTIMES["pi"]
     ask, deny = shell_pattern_rules()
     bash: dict[str, str] = {"*": "allow"}
-    bash.update({pattern: "ask" for pattern in ask})
+    denied = set(deny)
+    bash.update({pattern: "ask" for pattern in ask if pattern not in denied})
     bash.update({pattern: "deny" for pattern in deny})
     mcp: dict[str, str] = {"*": "ask"}
     for server, record in policy["servers"].items():
@@ -1706,6 +1709,11 @@ def pi_config_errors(outputs: dict[str, str]) -> list[str]:
             errors.append("pi output config/permission.json: expected a permission object")
         else:
             bash = permission.get("bash", {})
+            verdicts = [verdict for pattern, verdict in bash.items() if pattern != "*"]
+            if "deny" in verdicts and "ask" in verdicts[verdicts.index("deny") :]:
+                errors.append(
+                    "pi output config/permission.json: every bash ask must precede every deny (last match wins)"
+                )
             if permission.get("skill") != "allow" or "codemode" not in permission:
                 errors.append("pi output config/permission.json: skill must be allowed and codemode must carry a rule")
             if permission.get("path") != PATH_RULES:
@@ -1715,6 +1723,14 @@ def pi_config_errors(outputs: dict[str, str]) -> list[str]:
                     "pi output config/permission.json: the model's bash tool must deny sudo, reset --hard and pull"
                 )
     return errors
+
+
+def move_ask_after_denies(text: str) -> str:
+    """The same permission config with the `git push *` ask moved behind every deny."""
+    config = json.loads(text)
+    bash = config["permission"]["bash"]
+    bash["git push *"] = bash.pop("git push *")
+    return json.dumps(config, indent=2) + "\n"
 
 
 def validate_pi_regressions(
@@ -1767,6 +1783,10 @@ def validate_pi_regressions(
             "an MCP server with another exposure",
         ),
         (lambda o, h: o.update({"config/settings.json": "[]"}), "a settings fragment that is not an object"),
+        (
+            lambda o, h: o.update({"config/permission.json": move_ask_after_denies(o["config/permission.json"])}),
+            "a bash ask placed after the denies",
+        ),
         (lambda o, h: o.update({"../escape.md": "x"}), "a path that leaves the target"),
         (lambda o, h: o.update({"/abs.md": "x"}), "an absolute path"),
         (
