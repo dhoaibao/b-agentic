@@ -33,37 +33,37 @@ everything else. It never runs vendor installers. A Claude Code run only touches
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
-Three skills and their MCP servers are optional and never installed without a
-choice: DataGrip, Excalidraw, and draw.io. The Notion MCP server is optional too:
-no b-agentic skill uses it, so a fresh install leaves it out (`--with=notion` adds
-it, and an install that already has it keeps it). On a terminal the installer
-shows a checkbox list (nothing checked on a fresh install; installed ones are
-pre-checked). Non-interactively pass `--with=excalidraw,drawio` to add and
-`--without=drawio` to remove; `-y` keeps the recorded choice and otherwise
-installs none.
+Four optional components are never installed without a choice: DataGrip (`b-datagrip`), Excalidraw (`b-excalidraw` + MCP), draw.io (`b-drawio` + MCP), and Notion (MCP only; no b-agentic skill uses it). On a terminal without `-y`, `--dry-run`, or `--uninstall`, both installers show a step timeline, an optional-component checkbox list (pre-checking already-installed components), a summary box, and a confirm prompt before writing. Non-interactively pass `--with=excalidraw,drawio` to add and `--without=drawio` to remove; `-y` keeps the recorded choice and otherwise installs none.
 
 Only want the Claude Code status line? `./install.sh --statusline-only` installs just
 `b-statusline.mjs` and its `settings.json` entry (kept if you already have a status
 line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 `./install.sh` upgrades it to the full setup, and `--uninstall` removes it.
 
+For the opt-in Pi runtime (`./install.sh --runtime=pi`, status Proposed under [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)), run from a local checkout with Pi `1.6.0+` installed. It renders the kernel, skills, prompt templates, agents (including `b-worker` per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)), permission/subagent/MCP config, guard extension, helper wrappers, and vendored Dracula theme (`dracula.json`, set when `"theme"` is absent) into `~/.pi/agent`, and never clones or installs Pi or npm packages itself; see [pi/README.md](pi/README.md).
+
 ## How it works
 
-Each request uses one active skill rather than mixing planning, building,
-validation, and shipping. The main session owns user interaction,
-decisions, verification, and mutations. It delegates bounded planning,
-research, diagnosis, repository audits, and changed-code review to read-only
-subagents; it may hand one approved `b-flow` step at a time
-to the `b-worker` writer. A change that touches security, permissions, contracts,
-configuration, or workflow policy is frozen as a fingerprinted candidate and
+Each request routes to one active skill rather than mixing planning, building,
+validation, and shipping. Changes that route to `b-implement`, `b-frontend`,
+`b-refactor`, or `b-test` run through `b-flow` with file-backed state in
+`.b-agentic/runs/`: a **quick** run for a small, clear change (request is the
+approval; never commits) or a **full** run (clarify, one user approval,
+implement, verify, review, QA, and commit only under recorded consent; never
+pushes or opens a PR).
+
+The main session owns user interaction, decisions, verification, and worktree
+mutations. It delegates bounded planning, research, diagnosis, repository audits,
+and changed-code review to read-only subagents, and may hand approved `b-flow`
+`worker_steps` (including up to two parallel worktree `parallel_steps`) to
+`b-worker`. A change that touches security, permissions, contracts,
+configuration, or workflow policy is frozen as a fingerprinted candidate (`b-snapshot`) and
 reviewed independently; the main session recomputes the fingerprint afterward
-and voids the review if the candidate moved. That reviewer is
-Codex, a different model family, run through a wrapper that checks for secrets
-before anything is sent to OpenAI. If Codex is
-unavailable (plugin missing, signed out, usage limit), the `b-reviewer` subagent
-reviews instead, in a fresh context. It is read-only by its tool list and prompt,
-not a sandbox, and its independence comes from that context and role, not
-necessarily a different model family.
+and voids the review if the candidate moved. On Claude Code that reviewer is
+Codex, run through a wrapper (`b-codex-guard`) that checks for secrets
+before anything is sent to OpenAI, falling back to the read-only `b-reviewer`
+subagent in a fresh context when Codex is unavailable. On Pi the review gate is
+`b-reviewer`.
 
 ## Skills
 
@@ -92,11 +92,12 @@ necessarily a different model family.
 | `b-pr` | Ship | Push the current branch and open a draft PR from its commits |
 <!-- generated:skills-table:end -->
 
-Claude Code discovers the installed `SKILL.md` files, and each is also a command:
-`/b-plan`, `/b-research`, `/b-implement`, `/b-test`, `/b-review`, and so on.
+Claude Code discovers the installed `SKILL.md` files as `/b-*` commands (`/b-plan`, `/b-flow`, `/b-research`, `/b-implement`, `/b-test`, `/b-review`, and so on); Pi installs them as skills and prompt templates.
 
 ## Learn more
 
 - [Operational reference](REFERENCE.md) — lifecycle, permissions, review gate, MCP, and verification.
-- [Configuration layout](claude/configs/README.md) — installed paths and ownership boundaries.
+- [Configuration layout](claude/configs/README.md) — Claude Code installed paths and ownership boundaries.
+- [Pi runtime](pi/README.md) — opt-in Pi install, packages, theme, and checks.
+- [Project guidance](AGENTS.md) — repository architecture, canonical sources, and verification.
 - [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) — evidence-backed architecture decisions.
