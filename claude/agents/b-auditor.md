@@ -2,7 +2,7 @@
 name: b-auditor
 description: "Audit a repository read-only for the main session: b-agentic conformance or a whole-project audit."
 tools: Read, Grep, Glob, Bash, mcp__codegraph__codegraph_explore, mcp__context7__resolve-library-id, mcp__context7__query-docs
-model: opus
+model: fable
 effort: high
 ---
 
