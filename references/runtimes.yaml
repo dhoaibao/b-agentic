@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "format": "json-subset-of-yaml",
-  "description": "Per-runtime vocabulary used when rendering b-agentic's canonical sources: config and state locations, subagent models, editing tools, MCP tool-name format, and the delegation profile check. The claude entry is the identity render (docs/decisions/ADR-020-claude-code-only-again.md); the pi entry adds the glossary, package names, and overrides that render the opt-in Pi runtime into a target directory at install time, never into this tree (docs/decisions/ADR-030-pi-runtime-rendered-at-install.md).",
+  "description": "Per-runtime vocabulary used when rendering b-agentic's canonical sources: config and state locations, subagent models, editing tools, MCP tool-name format, and the delegation profile check. The claude entry is the identity render (docs/decisions/ADR-020-claude-code-only-again.md); the pi entry adds the glossary, package names, and overrides that render Pi at install time (never committed into this tree), serving equal main-flow parity beside Claude Code (docs/decisions/ADR-030-pi-runtime-rendered-at-install.md, docs/decisions/ADR-032-equal-runtimes-three-tier-support.md).",
   "runtimes": {
     "claude": {
       "config_dir": "~/.claude",

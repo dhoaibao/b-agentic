@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Render Claude Code delivery assets from b-agentic's canonical sources.
 
-With `--render pi --out DIR` it renders the opt-in Pi runtime (kernel, skills, prompt templates, agents) into a
+With `--render pi --out DIR` it renders Pi (kernel, skills, prompt templates, agents) into a
 new or empty DIR outside the checkout; the install step calls this, and no Pi file is ever committed. `--check`
-and `--self-test` render Pi in memory and fail on any Pi output error (ADR-030).
+and `--self-test` render Pi in memory and fail on any Pi output error (ADR-030, ADR-032).
 """
 
 from __future__ import annotations
@@ -78,6 +78,7 @@ CODEGRAPH_TOOL = "mcp__codegraph__codegraph_explore"
 WORKER_FORBIDDEN_TOOLS = {"NotebookEdit", "Agent", "Task", "Skill", "AskUserQuestion"}
 WORKER_FORBIDDEN_FIELDS = {"tools", "permission_mode", "isolation", "hooks", "skills", "background"}
 CAPABILITY_KINDS = {"mcp", "agent", "plugin"}
+CAPABILITY_TIERS = {"shared", "adapted", "exclusive"}
 # Likely-secret path gate; the snapshot CLI mirrors everything after "*".
 PATH_RULES = {
     "*": "allow",
@@ -967,14 +968,26 @@ def validate_capabilities(contract: dict[str, Any], policy: dict[str, Any]) -> l
         kind = ensure_string(capability.get("kind"), f"{label}.kind", errors)
         if kind not in CAPABILITY_KINDS:
             errors.append(f"{label}.kind: expected one of {sorted(CAPABILITY_KINDS)}")
+        tier = ensure_string(capability.get("tier"), f"{label}.tier", errors)
+        if tier and tier not in CAPABILITY_TIERS:
+            errors.append(f"{label}.tier: expected one of {sorted(CAPABILITY_TIERS)}")
+        if kind == "agent" and tier == "exclusive":
+            errors.append(f"{label}.tier: agent capabilities may not be exclusive (ADR-032)")
         for field in ("purpose", "owner", "trigger", "readiness", "fallback"):
             ensure_string(capability.get(field), f"{label}.{field}", errors)
         non_empty_string_list(capability.get("prerequisites"), f"{label}.prerequisites", errors)
+        has_runtimes = "runtimes" in capability
         runtimes = capability.get("runtimes")
-        if runtimes is not None and (
-            not isinstance(runtimes, list) or not runtimes or not set(runtimes) <= set(RUNTIMES)
-        ):
+        valid_runtimes = isinstance(runtimes, list) and bool(runtimes) and set(runtimes) <= set(RUNTIMES)
+        if has_runtimes and not valid_runtimes:
             errors.append(f"{label}.runtimes: expected a non-empty subset of {sorted(RUNTIMES)}")
+        if tier == "exclusive":
+            if not valid_runtimes or set(runtimes) == set(RUNTIMES):
+                errors.append(
+                    f"{label}.runtimes: exclusive capabilities require a non-empty proper subset of {sorted(RUNTIMES)}"
+                )
+        elif tier in CAPABILITY_TIERS and has_runtimes:
+            errors.append(f"{label}.runtimes: {tier} capabilities must not carry runtimes")
         signal = capability.get("status_signal")
         if not isinstance(signal, dict) or signal.get("sensitive") is not False:
             errors.append(f"{label}.status_signal: must be a non-sensitive object")
@@ -2358,6 +2371,42 @@ def validate_regressions(
     invalid_capabilities["capabilities"][0].pop("status_signal", None)
     if not validate_capabilities(invalid_capabilities, policy):
         errors.append("capability regression: missing status signal must fail")
+    for why, mutate in (
+        ("missing tier", lambda c: c["capabilities"][0].pop("tier", None)),
+        ("unknown tier", lambda c: c["capabilities"][0].update({"tier": "custom"})),
+        (
+            "exclusive without runtimes",
+            lambda c: (c["capabilities"][1].update({"tier": "exclusive"}), c["capabilities"][1].pop("runtimes", None)),
+        ),
+        (
+            "exclusive with all runtimes",
+            lambda c: c["capabilities"][1].update({"tier": "exclusive", "runtimes": sorted(RUNTIMES)}),
+        ),
+        (
+            "shared with runtimes",
+            lambda c: c["capabilities"][2].update({"tier": "shared", "runtimes": ["claude"]}),
+        ),
+        (
+            "shared with null runtimes",
+            lambda c: c["capabilities"][2].update({"tier": "shared", "runtimes": None}),
+        ),
+        (
+            "adapted with runtimes",
+            lambda c: c["capabilities"][0].update({"tier": "adapted", "runtimes": ["claude"]}),
+        ),
+        (
+            "adapted with null runtimes",
+            lambda c: c["capabilities"][0].update({"tier": "adapted", "runtimes": None}),
+        ),
+        (
+            "exclusive agent capability",
+            lambda c: c["capabilities"][0].update({"tier": "exclusive", "runtimes": ["claude"]}),
+        ),
+    ):
+        candidate_caps = json.loads(json.dumps(capabilities))
+        mutate(candidate_caps)
+        if not validate_capabilities(candidate_caps, policy):
+            errors.append(f"capability regression: {why} must fail")
     invalid_agent_tools = json.loads(json.dumps(agents))
     invalid_agent_tools["b-researcher"]["conditional_tools"].append("mcp__playwright__browser_click")
     if not validate_agent_tools(invalid_agent_tools, policy):

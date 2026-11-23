@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install, sync, or remove b-agentic's Pi assets (opt-in second runtime, ADR-030).
+"""Install, sync, or remove b-agentic's Pi assets (equal main-flow runtime installed via --runtime=pi; ADR-030, ADR-032).
 
 The installer owns only what it records in `~/.pi/agent/b-agentic/install.json`: the skills, prompts, agents,
 owned extension, hooks, helper CLIs, wrappers, and references it copies (by sha256), the kernel block in

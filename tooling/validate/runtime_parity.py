@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-# ADR-030: the canonical prompts carry at most this many runtime marker lines in all, so a second runtime
-# stays a thin overlay instead of forking the prompts.
+# ADR-030, ADR-032: the canonical prompts carry at most this many runtime marker lines in all, so a
+# runtime-adapted overlay stays thin instead of forking the prompts.
 MARKER_BUDGET = 10
 MARKER_LINE = ("<!-- runtime:", "<!-- /runtime")
 
