@@ -1,6 +1,6 @@
 # b-agentic
 
-**A slim personal workflow kernel for Claude Code, with Codex (or a read-only subagent) as the independent reviewer.**
+**A slim personal workflow kernel with equal main-flow parity across Claude Code (default install) and Pi.**
 
 b-agentic routes coding work to focused skills, preserves evidence and review
 gates, and keeps the main session responsible for worktree changes (an approved
@@ -13,7 +13,7 @@ to the read-only `b-reviewer` subagent when Codex is unavailable.
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) for Claude Code — managed paths and ownership boundaries.
 - [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-020 Claude Code only again](docs/decisions/ADR-020-claude-code-only-again.md) (Claude Code is the default runtime).
-- [Pi runtime](pi/README.md) — opt-in second runtime (`./install.sh --runtime=pi`, [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)).
+- [Pi runtime](pi/README.md) — equal main-flow runtime (`./install.sh --runtime=pi`, [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), [ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)).
 
 ## Install
 
@@ -40,7 +40,7 @@ Only want the Claude Code status line? `./install.sh --statusline-only` installs
 line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 `./install.sh` upgrades it to the full setup, and `--uninstall` removes it.
 
-For the opt-in Pi runtime (`./install.sh --runtime=pi`, [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)), run from a local checkout with Pi `1.6.0+` installed. It renders the kernel, skills, prompt templates, agents (including `b-worker` per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)), permission/subagent/MCP config, guard extension, helper wrappers, and vendored Dracula theme (`dracula.json`, set when `"theme"` is absent) into `~/.pi/agent`, and never clones or installs Pi or npm packages itself; see [pi/README.md](pi/README.md).
+For the Pi runtime (`./install.sh --runtime=pi`, equal main-flow parity under [ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md) and rendered at install time per [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)), run from a local checkout with Pi `1.6.0+` installed. It renders the kernel, skills, prompt templates, agents (including `b-worker` per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)), permission/subagent/MCP config, guard extension, helper wrappers, and vendored Dracula theme (`dracula.json`, set when `"theme"` is absent) into `~/.pi/agent`, and never clones or installs Pi or npm packages itself; see [pi/README.md](pi/README.md).
 
 ## How it works
 
@@ -98,6 +98,6 @@ Claude Code discovers the installed `SKILL.md` files as `/b-*` commands (`/b-pla
 
 - [Operational reference](REFERENCE.md) — lifecycle, permissions, review gate, MCP, and verification.
 - [Configuration layout](claude/configs/README.md) — Claude Code installed paths and ownership boundaries.
-- [Pi runtime](pi/README.md) — opt-in Pi install, packages, theme, and checks.
+- [Pi runtime](pi/README.md) — Pi install (`--runtime=pi`), packages, theme, maintenance gate, and checks.
 - [Project guidance](AGENTS.md) — repository architecture, canonical sources, and verification.
 - [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md) — evidence-backed architecture decisions.

@@ -1,10 +1,12 @@
-# Pi runtime (opt-in)
+# Pi runtime
 
-b-agentic runs on Claude Code by default. This folder holds the hand-written parts of the opt-in Pi runtime
-([ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)): the helper wrappers, one
-owned extension, and the vendored Dracula theme. Everything else Pi needs (kernel, skills, prompt templates, agents,
-permission, subagent, and MCP configuration) is rendered from the same sources as the Claude Code files when you
-install, and the rendered tree is never committed.
+b-agentic installs Claude Code by default (`./install.sh`) and treats Pi (`./install.sh --runtime=pi`) as an equal
+first-class runtime across every main flow under the three-tier feature model
+([ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md),
+[ADR-032](../docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)). This folder holds the hand-written parts
+of the Pi runtime: the helper wrappers, one owned extension, and the vendored Dracula theme (a Pi-only Tier 3 extra).
+Everything else Pi needs (kernel, skills, prompt templates, agents, permission, subagent, and MCP configuration) is
+rendered from the same sources as the Claude Code files when you install, and the rendered tree is never committed.
 
 ## Install and remove
 
@@ -21,7 +23,7 @@ It installs only from a local checkout (no `--update`, `--ref` or clone) and wri
 without `-y`, `--dry-run`, or `--uninstall` it shows the timeline, optional-component checklist, summary, and confirm
 prompt (declining leaves `~/.pi/agent` untouched, and non-terminal or plain flags keep plain output); a config file
 there that is a symlink is written through to its target, wherever that is. See the
-[operational reference](../REFERENCE.md#pi-runtime-opt-in) for the layout, ownership rules and refusals.
+[operational reference](../REFERENCE.md#pi-runtime) for the layout, ownership rules and refusals.
 
 ## What ships from this folder
 
@@ -81,8 +83,10 @@ The installer also merges default `pi-subagents` settings (`{"inlineToolDisplay"
   `PI_SPIKE_CLASSIFIER=1 PI_SPIKE_MODEL=PROVIDER/MODEL` adds the classifier check with a real model; it prints the verdicts
   for a person to judge.
 
-## Kill criterion
+## Maintenance gate
 
-Remove this runtime, by a new ADR, after four weeks unused or after two Pi or package upgrades that break the spike. The
-known limits are in
-[ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md#consequences).
+Because Pi and its four npm packages stay unpinned, run `tests/pi/spike.sh` by hand after every Pi or package upgrade
+([ADR-032](../docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)). Any failure blocks claiming Pi main-flow
+parity until fixed; demoting or removing Pi requires a new ADR. Known limits and accepted Pi safety divergences are
+recorded in [ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md#consequences) and
+[ADR-032](../docs/decisions/ADR-032-equal-runtimes-three-tier-support.md#consequences).

@@ -2,11 +2,13 @@
 
 [Back to the public overview](README.md)
 
-This reference defines the default runtime, Claude Code, with Codex as the
-independent reviewer and the read-only `b-reviewer` subagent as its fallback
-([ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
-[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)), and the opt-in
-[Pi runtime](#pi-runtime-opt-in). It covers
+This reference defines b-agentic's equal main-flow runtimes: the default
+`./install.sh` runtime Claude Code (with Codex as the primary reviewer and the
+read-only `b-reviewer` subagent as fallback;
+[ADR-003](docs/decisions/ADR-003-subagent-review-gate.md),
+[ADR-007](docs/decisions/ADR-007-codex-first-review-gate.md)) and the
+[Pi runtime](#pi-runtime) ([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md),
+[ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)). It covers
 installation, the permission boundary, the review gate, MCP configuration, and
 validation. OpenCode was removed by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md)
 (the last OpenCode tree is commit `f80281b7`; the earlier Pi tree was last in `ba7bc2db` and is replaced, not restored, by
@@ -89,8 +91,8 @@ touches only `~/.claude` and `~/.claude.json`.
   did not install, after a backup. Without it such files are kept with a warning.
 - `--uninstall` removes only recorded, unmodified assets and entries and keeps
   `~/.claude/b-agentic/backups`.
-- `--runtime=claude` is accepted as a no-op; `--runtime=pi` selects the opt-in
-  [Pi runtime](#pi-runtime-opt-in); any other value is refused with a pointer to ADR-020 and
+- `--runtime=claude` is accepted as a no-op; `--runtime=pi` selects the
+  [Pi runtime](#pi-runtime); any other value is refused with a pointer to ADR-020 and
   ADR-030 and nothing is written.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
@@ -128,10 +130,18 @@ steps. The Codex review gate on Claude Code needs the `codex` CLI, the
 never runs; without them `b-review` falls back to the `b-reviewer` subagent, which needs
 none of these.
 
-## Pi runtime (opt-in)
+## Pi runtime
 
-Claude Code stays the default. The Pi coding agent is an opt-in second runtime
-([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md); what ships is described in [pi/README.md](pi/README.md)):
+Claude Code stays the `./install.sh` default, while Pi (`--runtime=pi`) has
+equal first-class parity across every `b-agentic` main flow under the three-tier
+feature model ([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md),
+[ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md); what ships is
+described in [pi/README.md](pi/README.md)). Features are classified in
+`references/capabilities.yaml` and ADR-032 as `shared` (Tier 1, identical across
+both), `adapted` (Tier 2, runtime-specific adapters under shared parity
+contracts), or `exclusive` (Tier 3 extras needing no parity: Claude-only Codex
+plugin, status line, `NotebookEdit`, and piped self-update; Pi-only Dracula
+theme, subagent config, classifier, and `/b-*` prompt templates):
 
 ```bash
 ./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
@@ -177,9 +187,10 @@ Claude Code stays the default. The Pi coding agent is an opt-in second runtime
   it is absent, never replaced (not even with `--force`) and removed on uninstall
   only while it is still that `{}`. The classifier judges an ask only when both
   exist; `/permission-model` in Pi chooses its judge. With the classifier active,
-  Pi takes its allow as final, so the model may approve asks that Claude Code
-  puts to you (a push to a named branch, a pull request, a tool that changes
-  something outside the project). To switch the judge off, remove every link that
+  Pi takes its allow as final, so the model may approve asks that Claude Code's
+  native prompts gate (a push to a named branch, a pull request, or an asked
+  MCP/shell call; outside-project mutations rely on kernel approval on both
+  runtimes). To switch the judge off, remove every link that
   names it from the effective chain: `permission-judge` and the legacy alias
   `classifier`; that holds until the next install adds the managed link again,
   and an uninstall removes it for good. A project-level permission config
@@ -209,12 +220,16 @@ Claude Code stays the default. The Pi coding agent is an opt-in second runtime
   denial, not a shell error (a `!` or RPC shell command does not exercise that
   package). The guard refuses only `subagent` tool launches whose child
   session cannot be gated; slash and RPC launches are not covered (see ADR-030).
-- The Pi review gate is the read-only `b-reviewer` subagent only; `b-worker`
-  and parallel worktree steps are supported via `subagent` ([ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)).
-  There is no status line, todo, plan mode, sandbox, or Codex gate on Pi.
-- Known limits are in the
-  ADR's Consequences. Remove the runtime, by a new ADR, after four weeks unused
-  or two Pi or package upgrades that break `tests/pi/spike.sh`.
+- The Pi review gate is the read-only `b-reviewer` subagent (`adapted` Tier 2);
+  `b-worker` and parallel worktree steps are supported via `subagent`
+  ([ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)). Claude-only and
+  Pi-only extras (`b-statusline`, `NotebookEdit`, Codex gate on Claude;
+  `dracula` theme and classifier config on Pi) stay `exclusive` Tier 3 extras
+  with no parity requirement ([ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)).
+- Known limits are in ADR-030's and ADR-032's Consequences. Under the
+  maintenance gate in ADR-032, re-run `tests/pi/spike.sh` after any Pi or
+  package upgrade; any breakage blocks claiming Pi main-flow parity until fixed,
+  and demoting or removing Pi requires a new ADR.
 
 ## Kernel and skills
 

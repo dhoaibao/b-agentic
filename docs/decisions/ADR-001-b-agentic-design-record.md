@@ -23,7 +23,7 @@ non-goal under Consequences, the single-runtime statement in Context, and the
 Pi as an opt-in second runtime that installs under `~/.pi/agent`. The passages
 below describe the default Claude Code runtime; ADR-011 recorded the Pi one, and
 [ADR-019](ADR-019-opencode-second-runtime.md) replaced Pi with OpenCode (`~/.config/opencode`).
-[ADR-020](ADR-020-claude-code-only-again.md) then removed OpenCode, and [ADR-027](ADR-027-antigravity-runtime-removed.md) removed Antigravity. [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) (with worker and parallel worktree steps in [ADR-031](ADR-031-pi-worker-steps.md)) supersedes those no-second-runtime lines by adding Pi as an opt-in second runtime rendered at install time under `~/.pi/agent`; the passages below describe the default Claude Code runtime.
+[ADR-020](ADR-020-claude-code-only-again.md) then removed OpenCode, and [ADR-027](ADR-027-antigravity-runtime-removed.md) removed Antigravity. [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) (with worker and parallel worktree steps in [ADR-031](ADR-031-pi-worker-steps.md)) restored Pi rendered at install time under `~/.pi/agent`, and [ADR-032](ADR-032-equal-runtimes-three-tier-support.md) elevates Claude Code and Pi to equal main-flow runtimes under the three-tier feature model while keeping Claude Code as the default install; the passages below describe the default Claude Code runtime.
 
 Superseded in part by [ADR-002](ADR-002-dual-runtime-support.md): the
 single-runtime statement in Context, the `~/.claude`-only boundary under
@@ -53,10 +53,11 @@ describe the gate as ADR-007 restored it.
 ## Context
 
 b-agentic's default runtime is Claude Code
-([ADR-020](ADR-020-claude-code-only-again.md)), with Pi as an opt-in second
+([ADR-020](ADR-020-claude-code-only-again.md)), and Pi is an equal main-flow
 runtime rendered at install time
 ([ADR-030](ADR-030-pi-runtime-rendered-at-install.md),
-[ADR-031](ADR-031-pi-worker-steps.md)). It ships an always-loaded kernel,
+[ADR-031](ADR-031-pi-worker-steps.md),
+[ADR-032](ADR-032-equal-runtimes-three-tier-support.md)). It ships an always-loaded kernel,
 canonical skills, named read-only specialists, managed MCP configuration,
 hooks and small CLIs, and a merge-safe installer. On Claude Code, Codex, through
 the `openai/codex-plugin-cc` plugin, is the independent changed-code reviewer.
@@ -458,13 +459,19 @@ and [`claude/bin/b-candidate-snapshot.mjs`](../../claude/bin/b-candidate-snapsho
 Accepted residual risks are recorded with each decision above. The intentional
 non-goals follow.
 
-Pi is supported only as an opt-in runtime rendered at install time
-([ADR-030](ADR-030-pi-runtime-rendered-at-install.md)). b-agentic does not
+Claude Code and Pi are equal main-flow runtimes rendered from one canonical
+source tree with Claude Code as the default install
+([ADR-030](ADR-030-pi-runtime-rendered-at-install.md),
+[ADR-032](ADR-032-equal-runtimes-three-tier-support.md)). b-agentic does not
 commit a second runtime tree or maintain a custom permission engine,
-argument-aware MCP gate, or persistent subagent store. It does not ship themes,
+argument-aware MCP gate, or persistent subagent store. On Claude Code, it does
+not ship themes,
 TUI widgets beyond the read-only `b-statusline` status line (refined 2026-11-07),
 notifications, a self-updating command, or third-party extension
-management; Claude Code's own `AskUserQuestion`, todo list, and compaction cover
+management (Pi ships the vendored `dracula` theme and classifier config as
+runtime-exclusive Tier 3 extras under
+[ADR-032](ADR-032-equal-runtimes-three-tier-support.md)); Claude Code's own
+`AskUserQuestion`, todo list, and compaction cover
 what those extensions did. The repository does not promise detached background
 work, authenticated MCP or Codex readiness from configuration, containment of
 Codex's read access, or unbounded orchestration. The one bounded exception is a

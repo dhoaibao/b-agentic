@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-21
+- Note: [ADR-032](ADR-032-equal-runtimes-three-tier-support.md) supersedes the opt-in secondary-runtime framing and the four-weeks-unused kill criterion below; Pi and Claude Code are equal main-flow runtimes under the three-tier model, while Claude Code stays the default install and Pi stays rendered at install time.
 - Supersedes: [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) (no-second-runtime decision), and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Claude Code stays the default runtime and `install.sh --runtime=pi` installs the opt-in Pi runtime under `~/.pi/agent`.
 
 ## Context
@@ -45,7 +46,7 @@ under `tests/pi`):
 
 ## Decision
 
-- Pi is an opt-in second runtime. Claude Code stays the default, and every generated Claude file stays byte-identical:
+- Pi is an opt-in second runtime (later superseded in framing by [ADR-032](ADR-032-equal-runtimes-three-tier-support.md), which establishes equal main-flow status while keeping the `--runtime=pi` install flag and Claude Code default). Claude Code stays the default, and every generated Claude file stays byte-identical:
   the Claude render is the identity render and never applies the glossary or kernel overrides.
 - Nothing is pinned. The floor is Pi 1.6.0, the version the spike ran on; the Pi package entries name npm packages without
   versions (`pi-permission-classifier` before `@gotgenes/pi-permission-system`, `pi-subagents`,
@@ -84,7 +85,7 @@ under `tests/pi`):
   judge there; a `{}` the user wrote is left alone and survives an uninstall. By the package's documentation `{}` means
   the session's chat model judges. A link or file the user removes comes back on the next install, as a rule or package
   does. A live test on 2026-11-22 found both steps missing from the earlier installer.
-- Kill criterion: remove the Pi runtime, by a new ADR, when it goes unused for four weeks or when two Pi or package
+- Kill criterion (superseded by the Maintenance gate in [ADR-032](ADR-032-equal-runtimes-three-tier-support.md)): remove the Pi runtime, by a new ADR, when it goes unused for four weeks or when two Pi or package
   upgrades break the spike.
 - Acceptance: this ADR moved to Accepted on 2026-11-23 after the 2026-11-22 live install and workflow check and the user's 2026-11-23 confirmation of practical Pi use without issues (see Acceptance below).
 

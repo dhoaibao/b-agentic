@@ -33,7 +33,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-028](ADR-028-short-helper-wrappers.md) for short helper wrappers in place of the long runtime commands, refining ADR-018, and
 [ADR-029](ADR-029-self-describing-helper-clis.md) for self-describing helper CLIs, refining ADR-010 and ADR-028, and
 [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) for the Pi second runtime rendered at install time, superseding the no-second-runtime decisions of ADR-020 and ADR-027, and
-[ADR-031](ADR-031-pi-worker-steps.md) for `b-worker` and parallel worktree steps on Pi, superseding ADR-030 in part.
+[ADR-031](ADR-031-pi-worker-steps.md) for `b-worker` and parallel worktree steps on Pi, superseding ADR-030 in part, and
+[ADR-032](ADR-032-equal-runtimes-three-tier-support.md) for equal main-flow runtimes (Claude Code and Pi) and three-tier feature support, superseding ADR-030 in part.
 
 ## Naming
 
