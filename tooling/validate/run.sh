@@ -85,6 +85,7 @@ start_probe artifacts bash "$ROOT_DIR/tests/artifacts/artifact-probe.sh"
 if [ "$run_release" -eq 1 ]; then
   start_probe claude-install bash "$ROOT_DIR/tests/install/claude-install-probe.sh"
   start_probe pi-install bash "$ROOT_DIR/tests/install/pi-install-probe.sh"
+  start_probe all-install bash "$ROOT_DIR/tests/install/all-install-probe.sh"
   if command -v rtk >/dev/null 2>&1; then
     start_probe session-readiness python3 "$ROOT_DIR/tooling/validate/session_readiness.py"
   else

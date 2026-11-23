@@ -282,15 +282,16 @@ class Installer:
         except ValueError as exc:
             raise InstallError(str(exc)) from exc
 
-    def select_components(self, manifest: dict[str, Any]) -> None:
+    def select_components(self, manifest: dict[str, Any], *, label: str | None = None) -> None:
         try:
             self.selection = optional_components.resolve(self.components, manifest, self.with_ids, self.without_ids)
         except ValueError as exc:
             raise InstallError(str(exc)) from exc
         if self.components and not (self.with_ids or self.without_ids) and self.ui.interactive:
             options = [(key, component["label"]) for key, component in self.components.items()]
+            prefix = f"Optional components for {label}" if label else "Optional components"
             picked = self.ui.checklist(
-                "Optional components (unchecked ones are not installed; installed ones that are unchecked are removed)",
+                f"{prefix} (unchecked ones are not installed; installed ones that are unchecked are removed)",
                 options,
                 {key for key, on in self.selection.items() if on},
             )
@@ -1160,36 +1161,40 @@ class Installer:
         )
         return previous, payload
 
-    def install(self) -> None:
+    def prepare_install(
+        self, *, emit_notes: bool = True, checklist_label: str | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any], str | None]:
         # The probe can take seconds, so it runs before any user file is read for the plan.
         warning = pi_version_warning()
         self.preflight()
         manifest = self.read_manifest()
-        notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
-        for note in notes:
-            if self.ui.fancy:
-                self.ui.step(self.display_text(note))
-            else:
-                print(note)
-        self.ui.step(f"Source: {self.display(self.source)}")
-        self.select_components(manifest)
+        if emit_notes:
+            notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
+            for note in notes:
+                if self.ui.fancy:
+                    self.ui.step(self.display_text(note))
+                else:
+                    print(note)
+            self.ui.step(f"Source: {self.display(self.source)}")
+        self.select_components(manifest, label=checklist_label)
         previous, payload = self.validate_destinations()
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
-        self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
+        label = f"Pi: {skill_count} skills" if checklist_label else f"Found {skill_count} skills"
+        self.ui.step(f"{label}, {agent_count} agents, {len(payload)} managed files")
         plan = self.plan_all(previous)
         if warning:
             self.warn(warning)
-        if self.ui.fancy:
-            self.ui.box("Installation Summary", self.plan_summary(plan))
-            if self.ui.interactive:
-                if not self.ui.confirm("Proceed with installation?", default=True):
-                    raise InstallError(f"installation cancelled; nothing under {self.agent_dir} was changed")
-                # Re-validate and re-plan after the prompt so concurrent edits or new aliases are caught.
-                previous, _ = self.validate_destinations()
-                plan = self.plan_all(previous)
-                if warning:
-                    self.warn(warning)
+        return previous, plan, warning
+
+    def replan_install(self, warning: str | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        previous, _ = self.validate_destinations()
+        plan = self.plan_all(previous)
+        if warning:
+            self.warn(warning)
+        return previous, plan
+
+    def apply_install(self, previous: dict[str, Any], plan: dict[str, Any]) -> None:
         files, kernel, settings, permission, mcp, classifier, subagent = (
             plan[key] for key in ("files", "kernel", "settings", "permission", "mcp", "classifier", "subagent")
         )
@@ -1285,6 +1290,17 @@ class Installer:
         if not self.dry_run and (self.has_changes(plan) or previous != final):
             self.write_manifest(final)
 
+    def install(self) -> None:
+        previous, plan, warning = self.prepare_install()
+        if self.ui.fancy:
+            self.ui.box("Installation Summary", self.plan_summary(plan))
+            if self.ui.interactive:
+                if not self.ui.confirm("Proceed with installation?", default=True):
+                    raise InstallError(f"installation cancelled; nothing under {self.agent_dir} was changed")
+                # Re-validate and re-plan after the prompt so concurrent edits or new aliases are caught.
+                previous, plan = self.replan_install(warning)
+        self.apply_install(previous, plan)
+
     @staticmethod
     def has_changes(plan: dict[str, Any]) -> bool:
         return bool(
@@ -1304,12 +1320,14 @@ class Installer:
             self.write_bytes(kernel["target"], kernel["text"].encode())
         self.say(f"kernel block {'updated' if kernel['existed'] else 'written'} in {self.agent_dir / 'AGENTS.md'}")
 
-    def uninstall(self) -> None:
+    def prepare_uninstall(
+        self,
+    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
         self.preflight()
         manifest = self.read_manifest()
         if not manifest:
             self.say("nothing to uninstall: no b-agentic Pi manifest found")
-            return
+            return None
         removals: list[Path] = []
         keys = merge_unique(list(manifest.get("files", {})), list(manifest.get("pending", {}).get("files", {})))
         self.check_aliases(keys)
@@ -1338,6 +1356,15 @@ class Installer:
                 f"subagent config entries removed from {self.agent_dir / SUBAGENT_CONFIG}",
             ),
         )
+        return removals, plans
+
+    def apply_uninstall(
+        self,
+        prepared: tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None,
+    ) -> None:
+        if prepared is None:
+            return
+        removals, plans = prepared
         for plan, message in plans:
             if plan is None:
                 continue
@@ -1365,6 +1392,9 @@ class Installer:
                 self.assets_dir.rmdir()
             elif (self.assets_dir / "backups").is_dir():
                 self.say(f"backups kept in {self.assets_dir / 'backups'}")
+
+    def uninstall(self) -> None:
+        self.apply_uninstall(self.prepare_uninstall())
 
     def removal_plan(self, target: Path, config: dict[str, Any], created: bool) -> dict[str, Any]:
         """A config file after an uninstall edit: deleted when b-agentic created it and nothing else remains."""
@@ -1496,6 +1526,17 @@ class Installer:
             del config[key]
         return self.removal_plan(target, config, bool(manifest.get("created", {}).get("subagent")))
 
+    def refresh_pi_warning(self, installed_vendor: set[str]) -> None:
+        if "pi" not in installed_vendor:
+            return
+        self.warnings = [item for item in self.warnings if not item.startswith("pi is not on PATH")]
+        try:
+            refreshed = pi_version_warning(vendor_tools.find_tool("pi"))
+        except KeyboardInterrupt:
+            refreshed = "pi version check cancelled"
+        if refreshed is not None:
+            self.warnings.append(refreshed)
+
     def next_steps(self) -> list[str]:
         lines = [
             "Next steps:",
@@ -1576,16 +1617,7 @@ def main(argv: list[str] | None = None) -> int:
                 installer.install()
                 if ui.interactive and not args.dry_run:
                     vendor_warnings, installed_vendor = vendor_tools.offer("pi", ui)
-                    if "pi" in installed_vendor:
-                        installer.warnings = [
-                            item for item in installer.warnings if not item.startswith("pi is not on PATH")
-                        ]
-                        try:
-                            refreshed = pi_version_warning(vendor_tools.find_tool("pi"))
-                        except KeyboardInterrupt:
-                            refreshed = "pi version check cancelled"
-                        if refreshed is not None:
-                            installer.warnings.append(refreshed)
+                    installer.refresh_pi_warning(installed_vendor)
                     installer.warnings.extend(vendor_warnings)
                 installer.report(f"install ({base.source_revision(source) or 'unversioned source'})")
         finally:

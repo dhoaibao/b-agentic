@@ -339,7 +339,7 @@ class Installer:
         except ValueError as exc:
             raise InstallError(str(exc)) from exc
 
-    def select_components(self, manifest: dict[str, Any]) -> None:
+    def select_components(self, manifest: dict[str, Any], *, label: str | None = None) -> None:
         """Fix the optional-component selection before any planning: flags, then a checkbox on a
         terminal when no flag was given, over the recorded (or inferred) state."""
         if self.statusline_only:
@@ -350,8 +350,9 @@ class Installer:
             raise InstallError(str(exc)) from exc
         if self.components and not (self.with_ids or self.without_ids) and self.ui.interactive:
             options = [(key, component["label"]) for key, component in self.components.items()]
+            prefix = f"Optional components for {label}" if label else "Optional components"
             picked = self.ui.checklist(
-                "Optional components (unchecked ones are not installed; installed ones that are unchecked are removed)",
+                f"{prefix} (unchecked ones are not installed; installed ones that are unchecked are removed)",
                 options,
                 {key for key, on in self.selection.items() if on},
             )
@@ -927,37 +928,43 @@ class Installer:
         )
         return previous, payload
 
-    def install(self) -> None:
+    def prepare_install(
+        self, *, emit_notes: bool = True, checklist_label: str | None = None
+    ) -> tuple[dict[str, Any], tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]]:
         self.preflight()
         manifest = self.read_manifest()
-        notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
-        for note in notes:
-            if self.ui.fancy:
-                self.ui.step(self.display_text(note))
-            else:
-                print(note)
-        self.ui.step(f"Source: {self.display(self.source)}")
-        self.select_components(manifest)
+        if emit_notes:
+            notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
+            for note in notes:
+                if self.ui.fancy:
+                    self.ui.step(self.display_text(note))
+                else:
+                    print(note)
+            self.ui.step(f"Source: {self.display(self.source)}")
+        self.select_components(manifest, label=checklist_label)
         previous, payload = self.validate_destinations()
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
         if self.statusline_only:
             self.ui.step("Status line only: 1 managed file, no skills, agents, hooks, kernel, or MCP servers")
         else:
-            self.ui.step(f"Found {skill_count} skills, {agent_count} agents, {len(payload)} managed files")
+            label = f"Claude Code: {skill_count} skills" if checklist_label else f"Found {skill_count} skills"
+            self.ui.step(f"{label}, {agent_count} agents, {len(payload)} managed files")
         # Plan everything first: any structural refusal happens before the first write.
-        files, kernel, settings, mcp = self.plan_all(previous)
-        if self.ui.fancy:
-            self.ui.box("Installation Summary", self.plan_summary(files, kernel, settings, mcp))
-            if self.ui.interactive:
-                if not self.ui.confirm("Proceed with installation?", default=True):
-                    raise InstallError(
-                        f"installation cancelled; nothing under {self.claude_dir} or {self.mcp_path} was changed"
-                    )
-                # The prompt may stay open for minutes: plan again from the files as they are now, so
-                # edits made meanwhile are merged rather than overwritten by the earlier snapshot.
-                previous, _ = self.validate_destinations()
-                files, kernel, settings, mcp = self.plan_all(previous)
+        return previous, self.plan_all(previous)
+
+    def replan_install(
+        self,
+    ) -> tuple[dict[str, Any], tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]]:
+        previous, _ = self.validate_destinations()
+        return previous, self.plan_all(previous)
+
+    def apply_install(
+        self,
+        previous: dict[str, Any],
+        planned: tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]],
+    ) -> None:
+        files, kernel, settings, mcp = planned
         final = {
             "schema": MANIFEST_SCHEMA,
             "target": "claude",
@@ -1033,12 +1040,28 @@ class Installer:
             self.counts["removed"] += 1
         self.write_manifest(final)
 
-    def uninstall(self) -> None:
+    def install(self) -> None:
+        previous, planned = self.prepare_install()
+        if self.ui.fancy:
+            self.ui.box("Installation Summary", self.plan_summary(*planned))
+            if self.ui.interactive:
+                if not self.ui.confirm("Proceed with installation?", default=True):
+                    raise InstallError(
+                        f"installation cancelled; nothing under {self.claude_dir} or {self.mcp_path} was changed"
+                    )
+                # The prompt may stay open for minutes: plan again from the files as they are now, so
+                # edits made meanwhile are merged rather than overwritten by the earlier snapshot.
+                previous, planned = self.replan_install()
+        self.apply_install(previous, planned)
+
+    def prepare_uninstall(
+        self,
+    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
         self.preflight()
         manifest = self.read_manifest()
         if not manifest:
             self.say("nothing to uninstall: no b-agentic manifest found")
-            return
+            return None
         # Plan: parse every user file first so a malformed one refuses before any removal.
         removals: list[Path] = []
         keys = merge_unique(list(manifest.get("files", {})), list(manifest.get("pending", {}).get("files", {})))
@@ -1054,11 +1077,21 @@ class Installer:
         kernel_plan = self.plan_kernel_removal(manifest)
         settings_plan = self.plan_settings_removal(manifest.get("settings", {}))
         mcp_plan = self.plan_mcp_removal(manifest)
-        for plan, message in (
+        plans = (
             (kernel_plan, f"kernel block removed from {self.claude_dir / 'CLAUDE.md'}"),
             (settings_plan, f"settings entries removed from {self.claude_dir / 'settings.json'}"),
             (mcp_plan, f"MCP servers removed from {self.mcp_path}"),
-        ):
+        )
+        return removals, plans
+
+    def apply_uninstall(
+        self,
+        prepared: tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None,
+    ) -> None:
+        if prepared is None:
+            return
+        removals, plans = prepared
+        for plan, message in plans:
             if plan is None:
                 continue
             if not self.dry_run:
@@ -1087,6 +1120,9 @@ class Installer:
                 self.assets_dir.rmdir()
             elif (self.assets_dir / "backups").is_dir():
                 self.say(f"backups kept in {self.assets_dir / 'backups'}")
+
+    def uninstall(self) -> None:
+        self.apply_uninstall(self.prepare_uninstall())
 
     def plan_kernel_removal(self, manifest: dict[str, Any]) -> dict[str, Any] | None:
         owners = self.kernel_owners(manifest)

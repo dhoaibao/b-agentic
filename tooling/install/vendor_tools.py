@@ -28,6 +28,12 @@ RUNTIME_TOOLS: dict[str, tuple[tuple[str, str], ...]] = {
         ("rtk", RTK_INSTALL_CMD),
         ("codegraph", CODEGRAPH_INSTALL_CMD),
     ),
+    "all": (
+        ("claude", CLAUDE_INSTALL_CMD),
+        ("pi", PI_INSTALL_CMD),
+        ("rtk", RTK_INSTALL_CMD),
+        ("codegraph", CODEGRAPH_INSTALL_CMD),
+    ),
 }
 
 
@@ -136,7 +142,7 @@ def offer(runtime: str, ui: Ui) -> tuple[list[str], set[str]]:
             if find_tool(name) is not None:
                 installed.add(name)
 
-    if runtime == "claude":
+    if runtime in ("claude", "all"):
         rtk_path = find_tool("rtk")
         if rtk_path is not None:
             try:

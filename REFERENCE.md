@@ -97,8 +97,9 @@ installers write their own binaries (outside `~/.claude`), and `rtk init -g
 - `--uninstall` removes only recorded, unmodified assets and entries and keeps
   `~/.claude/b-agentic/backups`.
 - `--runtime=claude` is accepted as a no-op; `--runtime=pi` selects the
-  [Pi runtime](#pi-runtime); any other value is refused with a pointer to ADR-020 and
-  ADR-030 and nothing is written.
+  [Pi runtime](#pi-runtime); `--runtime=all` installs, syncs, or (`--uninstall`)
+  removes both Claude Code and Pi from a local checkout ([ADR-034](docs/decisions/ADR-034-all-runtimes-install.md));
+  any other value is refused with a pointer to ADR-020 and ADR-030 and nothing is written.
 - Only `~/.claude` is supported for Claude Code. A different `CLAUDE_CONFIG_DIR`
   is refused because the managed hooks, agents, and instructions refer to that path.
 
@@ -160,7 +161,21 @@ theme, subagent config, classifier, and `/b-*` prompt templates):
 ```bash
 ./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
 ./install.sh --runtime=pi --uninstall
+./install.sh --runtime=all [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
+./install.sh --runtime=all --uninstall
 ```
+
+- Under `--runtime=all`, both runtimes are constructed, preflighted, and planned
+  before either writes or removes anything; a refusal in either aborts with both
+  roots unchanged ([ADR-034](docs/decisions/ADR-034-all-runtimes-install.md)).
+  On a terminal without `-y`, `--dry-run`, or `--uninstall`, it shows a
+  runtime-labeled optional-component checklist per runtime, both summary boxes,
+  one `Proceed with installation?` confirm, and deduplicated post-sync `[y/N]`
+  vendor prompts (`claude`, `pi`, `rtk`, `codegraph`, plus the RTK Claude Code
+  hook). It applies the `--runtime=pi` flag restrictions (local checkout only;
+  no `--statusline-only`, `--update`, `--ref`, or piped clone), keeps separate
+  manifests per runtime, and exits `0` on `--uninstall` even when only one (or
+  neither) runtime has a manifest.
 
 - On a terminal without `-y`, `--dry-run`, or `--uninstall`, the installer shows
   the step timeline, optional-component checklist (when neither `--with` nor

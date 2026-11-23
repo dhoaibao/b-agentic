@@ -23,13 +23,11 @@ approved vendor installers write outside `~/.pi/agent`.
 ```bash
 ./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
 ./install.sh --runtime=pi --uninstall
+./install.sh --runtime=all [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
+./install.sh --runtime=all --uninstall
 ```
 
-It installs only from a local checkout (no `--update`, `--ref` or clone) and writes under `~/.pi/agent`; on a terminal
-without `-y`, `--dry-run`, or `--uninstall` it shows the timeline, optional-component checklist, summary, and confirm
-prompt (declining leaves `~/.pi/agent` untouched, and non-terminal or plain flags keep plain output); a config file
-there that is a symlink is written through to its target, wherever that is. See the
-[operational reference](../REFERENCE.md#pi-runtime) for the layout, ownership rules and refusals.
+`--runtime=pi` installs only from a local checkout (no `--update`, `--ref` or clone) and writes under `~/.pi/agent`; `--runtime=all` syncs both Claude Code and Pi from a local checkout (preflighting both before writing either, and deduplicating post-sync vendor prompts; see [ADR-034](../docs/decisions/ADR-034-all-runtimes-install.md)). On a terminal without `-y`, `--dry-run`, or `--uninstall` it shows the timeline, optional-component checklist, summary, and confirm prompt (declining leaves `~/.pi/agent` untouched, and non-terminal or plain flags keep plain output); a config file there that is a symlink is written through to its target, wherever that is. See the [operational reference](../REFERENCE.md#pi-runtime) for the layout, ownership rules and refusals.
 
 ## What ships from this folder
 
