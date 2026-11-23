@@ -27,8 +27,14 @@ The installer needs [Bun](https://bun.sh): Claude Code runs the hooks, status li
 the installer refuses without it. It copies skills, agents, hooks, and CLIs under `~/.claude`, adds the
 kernel to `~/.claude/CLAUDE.md` as a marked block, merges permission rules,
 hooks, and a status line (only when none is configured) into `settings.json` and MCP servers into `~/.claude.json`, and preserves
-everything else. It never runs vendor installers. A Claude Code run only touches `~/.claude` and
-`~/.claude.json`. Piped installs
+everything else. Without an explicit `y` on a post-sync interactive `[y/N]` prompt, it runs no vendor installers
+(skipped under `-y`, `--dry-run`, `--uninstall`, `--statusline-only`, non-terminal stdout, or no `/dev/tty`).
+b-agentic's own Claude sync writes only under `~/.claude` and `~/.claude.json`; interactively after sync, it offers
+`[y/N]` prompts for missing `claude` (`curl -fsSL https://claude.ai/install.sh | bash`), `rtk`
+(`curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`),
+`rtk init -g --hook-only --auto-patch` (adds RTK's hook to `~/.claude/settings.json`), and `codegraph`
+(`curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`), whose `curl` installers
+write outside `~/.claude`. Piped installs
 (`curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash`)
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
@@ -40,7 +46,7 @@ Only want the Claude Code status line? `./install.sh --statusline-only` installs
 line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 `./install.sh` upgrades it to the full setup, and `--uninstall` removes it.
 
-For the Pi runtime (`./install.sh --runtime=pi`, equal main-flow parity under [ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md) and rendered at install time per [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)), run from a local checkout with Pi `1.6.0+` installed. It renders the kernel, skills, prompt templates, agents (including `b-worker` per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)), permission/subagent/MCP config, guard extension, helper wrappers, and vendored Dracula theme (`dracula.json`, set when `"theme"` is absent) into `~/.pi/agent`, and never clones or installs Pi or npm packages itself; see [pi/README.md](pi/README.md).
+For the Pi runtime (`./install.sh --runtime=pi`, equal main-flow parity under [ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md) and rendered at install time per [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)), run from a local checkout with Pi `1.6.0+` (or accept the post-sync `[y/N]` prompt to run `curl -fsSL https://pi.dev/install.sh | sh`). b-agentic's own Pi sync renders the kernel, skills, prompt templates, agents (including `b-worker` per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)), permission/subagent/MCP config, guard extension, helper wrappers, and vendored Dracula theme (`dracula.json`, set when `"theme"` is absent) solely into `~/.pi/agent`; on an interactive terminal (unless `-y`, `--dry-run`, `--uninstall`, non-terminal stdout, or no `/dev/tty`), post-sync `[y/N]` prompts offer missing `pi`, `rtk`, and `codegraph` via their native `curl` scripts (writing outside `~/.pi/agent`, never `rtk init`), while npm packages stay Pi-managed; see [pi/README.md](pi/README.md).
 
 ## How it works
 

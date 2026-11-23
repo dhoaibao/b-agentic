@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-21
-- Note: [ADR-032](ADR-032-equal-runtimes-three-tier-support.md) supersedes the opt-in secondary-runtime framing and the four-weeks-unused kill criterion below; Pi and Claude Code are equal main-flow runtimes under the three-tier model, while Claude Code stays the default install and Pi stays rendered at install time.
+- Note: [ADR-032](ADR-032-equal-runtimes-three-tier-support.md) supersedes the opt-in secondary-runtime framing and the four-weeks-unused kill criterion below; Pi and Claude Code are equal main-flow runtimes under the three-tier model, while Claude Code stays the default install and Pi stays rendered at install time. [ADR-033](ADR-033-opt-in-vendor-tool-installs.md) supersedes the "installer never installs Pi" rule below for explicit `[y/N]` prompts on an interactive terminal after sync.
 - Supersedes: [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) (no-second-runtime decision), and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Claude Code stays the default runtime and `install.sh --runtime=pi` installs the opt-in Pi runtime under `~/.pi/agent`.
 
 ## Context
@@ -51,7 +51,12 @@ under `tests/pi`):
 - Nothing is pinned. The floor is Pi 1.6.0, the version the spike ran on; the Pi package entries name npm packages without
   versions (`pi-permission-classifier` before `@gotgenes/pi-permission-system`, `pi-subagents`,
   `@juicesharp/rpiv-ask-user-question`), a pin in that list fails the generator check, and the installer never installs
-  Pi or a package (it prints the Pi version and warns below the floor). A new release can break a guard silently, so
+  npm packages itself (without an explicit `y` on a post-sync interactive `[y/N]` prompt—superseded in part by
+  [ADR-033](ADR-033-opt-in-vendor-tool-installs.md), which offers `curl -fsSL https://pi.dev/install.sh | sh`,
+  `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`, and
+  `curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh` after sync on an interactive
+  terminal, never `rtk init`, and skipped under `-y`, `--dry-run`, `--uninstall`, non-terminal stdout, or no
+  `/dev/tty`—it prints the Pi version and warns below the floor). A new release can break a guard silently, so
   the owned extension fails closed when the API it relies on is missing, and a manual spike script is run after each
   Pi upgrade.
 - The Pi tree is generated at install time and not committed. `tooling/generate/registry_sync.py --render pi --out DIR`

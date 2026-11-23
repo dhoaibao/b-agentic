@@ -374,8 +374,17 @@ Evidence: [`references/mcp_operations.yaml`](../../references/mcp_operations.yam
 
 `install.sh` installs from the checkout that contains it, or clones to
 `~/.b-agentic-claude` when piped (never `~/.b-agentic`, which keeps serving the
-frozen Pi installer). It never runs vendor installers: missing `rtk`,
-`codegraph`, `bunx`, and `claude` are reported. The installer copies skills, agents,
+frozen Pi installer). Without an explicit `y` on a post-sync interactive `[y/N]`
+prompt (skipped under `-y`, `--dry-run`, `--uninstall`, `--statusline-only`,
+non-terminal stdout, or no `/dev/tty`; superseded in part by
+[ADR-033](ADR-033-opt-in-vendor-tool-installs.md)), it runs no vendor installers:
+missing `rtk`, `codegraph`, `bunx`, and `claude` are reported; interactively, it
+offers `curl -fsSL https://claude.ai/install.sh | bash`,
+`curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`,
+`rtk init -g --hook-only --auto-patch`, and
+`curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`
+(plus `curl -fsSL https://pi.dev/install.sh | sh` on Pi, where vendor installers
+write outside `~/.claude` and `~/.pi/agent`). The installer copies skills, agents,
 hooks, CLIs, and references; replaces the kernel block in the user `CLAUDE.md`; merges
 permission rules and hook entries into the user settings file (plus the status
 line, only when none is configured) and servers into the user MCP file; and records everything in an install manifest. It parses

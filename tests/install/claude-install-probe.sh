@@ -1258,7 +1258,23 @@ env = {k: v for k, v in os.environ.items() if k not in {"NO_COLOR", "CLAUDE_CONF
 env.update(HOME=home, TERM="xterm-256color")
 pid, fd = pty.fork()
 if pid == 0:
-    keep = {k: os.environ[k] for k in ("PROBE_ROOT", "PROBE_CMD", "B_AGENTIC_REPO", "B_AGENTIC_DIR") if k in os.environ}
+    keep = {
+        k: os.environ[k]
+        for k in (
+            "PROBE_ROOT",
+            "PROBE_CMD",
+            "B_AGENTIC_REPO",
+            "B_AGENTIC_DIR",
+            "PROBE_CURL_LOG",
+            "PROBE_CURL_FAIL_URL",
+            "PROBE_BIN_TARGET",
+            "PROBE_RTK_LOG",
+            "PROBE_TRACE_LOG",
+            "PROBE_RTK_BAD_UTF8",
+            "PROBE_RTK_SIGINT",
+        )
+        if k in os.environ
+    }
     os.execvpe("bash", ["bash", "-c", os.environ["PROBE_CMD"]], {**env, **keep})
 buf, last, since = b"", time.time(), b""
 while time.time() - last < 20:
@@ -1273,7 +1289,7 @@ while time.time() - last < 20:
         buf, since, last = buf + chunk, since + chunk, time.time()
     # An answer is typed only once its prompt is on screen: input sent while the installer is still computing
     # (slow on a loaded runner) is flushed by the prompt's terminal-mode switch and the run then waits forever.
-    elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"Enter confirms" in since):
+    elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"[y/N]" in since or b"Enter confirms" in since):
         answer = answers.pop(0)
         if answer.startswith("!"):  # a shell command run while the prompt is open; the prompt stays on screen
             subprocess.run(answer[1:], shell=True, env=env, check=True)
@@ -1286,7 +1302,12 @@ while time.time() - last < 20:
 # Reap the child with a bound: a prompt that never got its answer would otherwise block here until the CI job
 # limit. A child still alive after the grace period is killed and reported with what it printed.
 deadline = time.time() + 15
-while os.waitpid(pid, os.WNOHANG) == (0, 0):
+child_status = None
+while child_status is None:
+    waited_pid, status = os.waitpid(pid, os.WNOHANG)
+    if waited_pid != 0:
+        child_status = status
+        break
     if time.time() > deadline:
         try:
             os.killpg(pid, signal.SIGKILL)
@@ -1298,19 +1319,51 @@ while os.waitpid(pid, os.WNOHANG) == (0, 0):
         sys.exit(1)
     time.sleep(0.1)
 sys.stdout.write(buf.decode(errors="replace"))
+sys.exit(os.waitstatus_to_exitcode(child_status))
 PY
 # shellcheck disable=SC2016 # expanded by the child shell, which gets PROBE_ROOT in its environment
 piped_install='echo ignored | bash "$PROBE_ROOT/install.sh"'
 # shellcheck disable=SC2016
 piped_bootstrap='cat "$PROBE_ROOT/install.sh" | bash -s'
+present_stubs="$work/present-stubs"
+mkdir -p "$present_stubs"
+for tool in claude codegraph; do
+  printf '#!/bin/sh\nexit 0\n' >"$present_stubs/$tool"
+done
+cat >"$present_stubs/rtk" <<'SH'
+#!/bin/sh
+if [ "$1" = "init" ] && [ "$2" = "--show" ]; then
+  printf '[ok] settings.json: RTK hooks configured (PreToolUse)\n'
+fi
+exit 0
+SH
+chmod +x "$present_stubs"/*
+
 # tui_run <home> <command> [answers...]: the command on a pty with the answers typed in order.
 tui_run() {
   local home=$1 command=$2
   shift 2
-  PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
+  PATH="$present_stubs:$PATH" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
 }
+tui_run_refused() {
+  local home=$1 command=$2
+  shift 2
+  local pty_rc=0
+  PATH="$present_stubs:$PATH" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || pty_rc=$?
+  [ "$pty_rc" -ne 0 ] || fail "expected pty command to fail: $command"
+}
+# tui_run_path <home> <path> <command> [answers...]: like tui_run with an explicit PATH.
+tui_run_path() {
+  local home=$1 path=$2 command=$3
+  shift 3
+  PATH="$path" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
+}
+# Harness control: a child emitting expected output and exiting nonzero must fail the harness.
+pty_fail_rc=0
+PROBE_ROOT="$root" PROBE_CMD='printf "Installed\n"; exit 7' python3 "$work/pty-run.py" "$work" >/dev/null || pty_fail_rc=$?
+[ "$pty_fail_rc" -eq 7 ] || fail "pty harness must propagate nonzero child status (got $pty_fail_rc)"
 home=$(fresh_home tui)
-tui_out=$(tui_run "$home" "$piped_install" "" n)
+tui_out=$(tui_run_refused "$home" "$piped_install" "" n)
 grep -Fq 'Installation Summary' <<<"$tui_out" || fail "TUI summary box missing: $tui_out"
 grep -Fq '┌' <<<"$tui_out" || fail "TUI header missing: $tui_out"
 if grep -Fq '█' <<<"$tui_out"; then fail "the block-letter logo must not be drawn: $tui_out"; fi
@@ -1328,20 +1381,20 @@ for mode in --dry-run --yes --uninstall; do
 done
 # Declining a piped bootstrap leaves the Claude configuration untouched.
 home=$(fresh_home tui-bootstrap)
-tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" "" n)
+tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run_refused "$home" "$piped_bootstrap" "" n)
 grep -Fq 'Proceed with installation?' <<<"$tui_out" || fail "bootstrap confirm missing: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] || fail "declining a bootstrap must leave ~/.claude untouched"
 # A destination alias created while the confirm is open is refused before any write.
 home=$(fresh_home tui-alias)
 # shellcheck disable=SC2016 # expanded by the harness shell, whose HOME is the sandbox
 alias_cmd='!mkdir -p "$HOME/.claude" && ln -s "$HOME/.claude/settings.json" "$HOME/.claude.json"'
-tui_out=$(tui_run "$home" "$piped_install" "" "$alias_cmd" y)
+tui_out=$(tui_run_refused "$home" "$piped_install" "" "$alias_cmd" y)
 grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.claude/skills" ] && [ ! -e "$home/.claude/settings.json" ] || fail "a refused alias must leave ~/.claude untouched"
 # The bootstrap's clone/update lines are shown as steps under the header, not printed before it.
 home=$(fresh_home tui-notes)
 for expected in 'Cloning source' 'Updating source'; do
-  tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run "$home" "$piped_bootstrap" "" n)
+  tui_out=$(B_AGENTIC_REPO="$srcrepo" B_AGENTIC_DIR="$home/src" tui_run_refused "$home" "$piped_bootstrap" "" n)
   line=$(grep -nF "$expected" <<<"$tui_out" | head -1 | cut -d: -f1)
   header=$(grep -nF '┌' <<<"$tui_out" | head -1 | cut -d: -f1)
   [ -n "$line" ] && [ -n "$header" ] && [ "$header" -lt "$line" ] || fail "'$expected' must appear after the header: $tui_out"
@@ -1361,6 +1414,211 @@ tui_out=$(tui_run "$home" "$piped_install --with=drawio" y)
 if grep -Fq 'Enter confirms' <<<"$tui_out"; then fail "--with must skip the checkbox: $tui_out"; fi
 opt_present "$home" drawio || fail "--with must install the component"
 echo "install probe passed: tui"
+
+# --- opt-in vendor tool prompts (AC-1, AC-2, AC-3, AC-5, AC-7, AC-8) ---------------------------------
+novendor="$work/novendor-bin"
+mkdir -p "$novendor"
+for util in bash sh env python3 git bun jq cat echo mkdir rm mv cp ln chmod touch tr head cut grep find sort xargs sha256sum dirname basename readlink mktemp sed awk wc ls test '['; do
+  resolved=$(command -v "$util" 2>/dev/null || true)
+  if [ -n "$resolved" ] && [ -x "$resolved" ]; then
+    ln -sf "$resolved" "$novendor/$util"
+  fi
+done
+for forbidden in claude rtk codegraph curl; do
+  if PATH="$novendor" command -v "$forbidden" >/dev/null 2>&1; then
+    fail "novendor PATH must not contain $forbidden"
+  fi
+done
+
+curl_bin="$work/curl-bin"
+mkdir -p "$curl_bin"
+cat >"$curl_bin/curl" <<'SH'
+#!/bin/sh
+echo "curl $*" >>"$PROBE_CURL_LOG"
+if [ -n "${PROBE_TRACE_LOG:-}" ]; then
+  echo "curl $*" >>"$PROBE_TRACE_LOG"
+fi
+url=""
+for arg in "$@"; do
+  case "$arg" in http://*|https://*) url="$arg" ;; esac
+done
+if [ -n "${PROBE_CURL_FAIL_URL:-}" ]; then
+  case "$url" in *"$PROBE_CURL_FAIL_URL"*) printf 'exit 22\n'; exit 0 ;; esac
+fi
+case "$url" in
+  https://claude.ai/install.sh)
+    printf '#!/bin/sh\nmkdir -p "%s"\nprintf "#!/bin/sh\\nexit 0\\n" >"%s/claude"\nchmod +x "%s/claude"\n' \
+      "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET"
+    ;;
+  https://raw.githubusercontent.com/rtk-ai/rtk/*)
+    printf '#!/bin/sh\nmkdir -p "$HOME/.local/bin"\ncat >"$HOME/.local/bin/rtk" <<'"'"'RTK'"'"'\n#!/bin/sh\necho "rtk $*" >>"%s"\nif [ -n "${PROBE_TRACE_LOG:-}" ]; then echo "rtk $*" >>"$PROBE_TRACE_LOG"; fi\nif [ "$1" = init ] && [ "$2" = --show ]; then\n  if [ -n "${PROBE_RTK_BAD_UTF8:-}" ]; then\n    printf "\\377\\376\\375\\n"\n    exit 0\n  fi\n  if [ -n "${PROBE_RTK_SIGINT:-}" ]; then\n    kill -INT $$\n  fi\n  if [ -f "$HOME/.rtk-hook-done" ]; then\n    printf "[ok] settings.json: RTK hooks configured (PreToolUse)\\n"\n  else\n    printf "[--] settings.json: not configured\\n"\n  fi\n  exit 0\nfi\nif [ "$1" = init ] && [ "$2" = -g ] && [ "$3" = --hook-only ] && [ "$4" = --auto-patch ]; then\n  touch "$HOME/.rtk-hook-done"\n  exit 0\nfi\nexit 0\nRTK\nchmod +x "$HOME/.local/bin/rtk"\n' "$PROBE_RTK_LOG"
+    ;;
+  https://raw.githubusercontent.com/colbymchenry/codegraph/*)
+    printf '#!/bin/sh\nmkdir -p "%s"\nprintf "#!/bin/sh\\nexit 0\\n" >"%s/codegraph"\nchmod +x "%s/codegraph"\n' \
+      "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET"
+    ;;
+  *)
+    printf 'exit 99\n'
+    ;;
+esac
+SH
+chmod +x "$curl_bin/curl"
+
+# AC-1: all missing -> manifest exists before first vendor prompt -> accept all -> exact ordered trace.
+home=$(fresh_home vendor-accept)
+vbin="$work/vbin-accept"
+curl_log="$work/curl-accept.log"
+rtk_log="$work/rtk-accept.log"
+trace_log="$work/trace-accept.log"
+: >"$curl_log"; : >"$rtk_log"; : >"$trace_log"
+# shellcheck disable=SC2016
+manifest_check='!test -f "$HOME/.claude/b-agentic/install.json"'
+tui_out=$(PROBE_CURL_LOG="$curl_log" PROBE_BIN_TARGET="$vbin" PROBE_RTK_LOG="$rtk_log" PROBE_TRACE_LOG="$trace_log" \
+  tui_run_path "$home" "$curl_bin:$vbin:$novendor" "$piped_install" "" y "$manifest_check" y y y y)
+expected_trace=$(cat <<'TRACE'
+curl -fsSL https://claude.ai/install.sh
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh
+curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh
+rtk init --show
+rtk init -g --hook-only --auto-patch
+TRACE
+)
+[ "$(cat "$trace_log")" = "$expected_trace" ] || fail "AC-1 ordered trace mismatch: $(cat "$trace_log")"
+grep -Fq '.local/bin' <<<"$tui_out" || fail "AC-1 must warn to add ~/.local/bin to PATH: $tui_out"
+[ -x "$vbin/claude" ] && [ -x "$home/.local/bin/rtk" ] && [ -x "$vbin/codegraph" ] || fail "AC-1 stubs were not installed"
+
+# AC-2: decline (n / Enter) -> no curl or rtk init call, b-agentic installed.
+home=$(fresh_home vendor-decline)
+curl_log="$work/curl-decline.log"
+rtk_log="$work/rtk-decline.log"
+: >"$curl_log"; : >"$rtk_log"
+tui_out=$(PROBE_CURL_LOG="$curl_log" PROBE_BIN_TARGET="$work/vbin-decline" PROBE_RTK_LOG="$rtk_log" \
+  tui_run_path "$home" "$curl_bin:$novendor" "$piped_install" "" y n "" n)
+[ ! -s "$curl_log" ] || fail "AC-2 declining must not call curl: $(cat "$curl_log")"
+[ ! -s "$rtk_log" ] || fail "AC-2 declining must not call rtk: $(cat "$rtk_log")"
+[ -f "$home/.claude/b-agentic/install.json" ] || fail "AC-2 b-agentic must still install"
+
+# AC-3: rtk in ~/.local/bin with hook unconfigured -> prompts once; re-run when configured -> no hook prompt.
+home=$(fresh_home vendor-rtk-hook)
+mkdir -p "$home/.local/bin"
+vbin="$work/vbin-rtk-hook"
+mkdir -p "$vbin"
+printf '#!/bin/sh\nexit 0\n' >"$vbin/claude"
+printf '#!/bin/sh\nexit 0\n' >"$vbin/codegraph"
+chmod +x "$vbin/claude" "$vbin/codegraph"
+rtk_log="$work/rtk-hook-only.log"
+: >"$rtk_log"
+cat >"$home/.local/bin/rtk" <<SH
+#!/bin/sh
+echo "rtk \$*" >>"$rtk_log"
+if [ "\$1" = init ] && [ "\$2" = --show ]; then
+  if [ -f "\$HOME/.rtk-hook-done" ]; then
+    printf '[ok] settings.json: RTK hooks configured (PreToolUse)\n'
+  else
+    printf '[--] settings.json: not configured\n'
+  fi
+  exit 0
+fi
+if [ "\$1" = init ] && [ "\$2" = -g ] && [ "\$3" = --hook-only ] && [ "\$4" = --auto-patch ]; then
+  touch "\$HOME/.rtk-hook-done"
+  exit 0
+fi
+exit 0
+SH
+chmod +x "$home/.local/bin/rtk"
+tui_out=$(tui_run_path "$home" "$curl_bin:$vbin:$novendor" "$piped_install" "" y y)
+grep -Fq 'Configure RTK Claude Code hook' <<<"$tui_out" || fail "AC-3 hook prompt missing when unconfigured: $tui_out"
+grep -Fxq 'rtk init -g --hook-only --auto-patch' "$rtk_log" || fail "AC-3 hook command did not run: $(cat "$rtk_log")"
+: >"$rtk_log"
+tui_out=$(tui_run_path "$home" "$curl_bin:$vbin:$novendor" "$piped_install" "" y)
+if grep -Fq 'Configure RTK Claude Code hook' <<<"$tui_out"; then fail "AC-3 hook prompt must not appear once configured: $tui_out"; fi
+grep -Fxq 'rtk init --show' "$rtk_log" || fail "AC-3 rtk init --show did not run"
+if grep -Fq 'hook-only' "$rtk_log"; then fail "AC-3 must not re-run hook init when configured"; fi
+
+# AC-5: -y, --dry-run, --uninstall, --statusline-only on terminal + non-terminal stdout -> no vendor prompt or curl.
+home=$(fresh_home vendor-modes)
+curl_log="$work/curl-modes.log"
+: >"$curl_log"
+for mode in -y --dry-run --statusline-only --uninstall; do
+  if [ "$mode" = --statusline-only ]; then
+    home_sl=$(fresh_home vendor-sl)
+    tui_out=$(PROBE_CURL_LOG="$curl_log" tui_run_path "$home_sl" "$curl_bin:$novendor" "$piped_install $mode" y)
+  elif [ "$mode" = --uninstall ]; then
+    tui_out=$(PROBE_CURL_LOG="$curl_log" tui_run_path "$home" "$curl_bin:$novendor" "$piped_install $mode")
+  else
+    tui_out=$(PROBE_CURL_LOG="$curl_log" tui_run_path "$home" "$curl_bin:$novendor" "$piped_install $mode")
+  fi
+  if grep -Fq '[y/N]' <<<"$tui_out"; then fail "AC-5 $mode must not show vendor prompts: $tui_out"; fi
+done
+[ ! -s "$curl_log" ] || fail "AC-5 excluded modes must not call curl: $(cat "$curl_log")"
+rc=0
+env -u CLAUDE_CONFIG_DIR -u B_AGENTIC_CLAUDE_DIR -u B_AGENTIC_CLICKUP_MCP HOME="$home" PATH="$curl_bin:$novendor" bash "$root/install.sh" >"$work/non-tty.out" 2>"$work/non-tty.err" || rc=$?
+[ "$rc" -eq 0 ] || fail "AC-5 non-tty install failed: $(cat "$work/non-tty.err")"
+[ ! -s "$curl_log" ] || fail "AC-5 non-tty must not call curl: $(cat "$curl_log")"
+
+# AC-7: curl missing -> warning names skipped tools, all three curl prompts absent, exit 0.
+home=$(fresh_home vendor-nocurl)
+tui_out=$(tui_run_path "$home" "$novendor" "$piped_install" "" y)
+grep -Fq 'curl is not on PATH; skipped offering claude, rtk, codegraph' <<<"$tui_out" || fail "AC-7 missing curl warning absent: $tui_out"
+for skipped in claude rtk codegraph; do
+  if grep -Fq "Install $skipped" <<<"$tui_out"; then fail "AC-7 must not prompt for $skipped when curl is missing: $tui_out"; fi
+done
+[ -f "$home/.claude/b-agentic/install.json" ] || fail "AC-7 b-agentic must complete when curl is missing"
+
+# AC-8: vendor command exits nonzero -> warns with name & status, later prompts still run, exit 0.
+home=$(fresh_home vendor-fail)
+vbin="$work/vbin-fail"
+curl_log="$work/curl-fail.log"
+rtk_log="$work/rtk-fail.log"
+: >"$curl_log"; : >"$rtk_log"
+tui_out=$(PROBE_CURL_LOG="$curl_log" PROBE_CURL_FAIL_URL="rtk-ai/rtk" PROBE_BIN_TARGET="$vbin" PROBE_RTK_LOG="$rtk_log" \
+  tui_run_path "$home" "$curl_bin:$vbin:$novendor" "$piped_install" "" y y y y)
+grep -Fq 'rtk install exited with status 22' <<<"$tui_out" || fail "AC-8 failure warning missing: $tui_out"
+[ -x "$vbin/claude" ] && [ -x "$vbin/codegraph" ] || fail "AC-8 remaining tools must still be offered and installed"
+[ -f "$home/.claude/b-agentic/install.json" ] || fail "AC-8 b-agentic install must remain intact"
+
+# R2-3 regression: invalid UTF-8 from rtk init --show stays non-blocking and manifest stays intact.
+home=$(fresh_home vendor-rtk-utf8)
+vbin="$work/vbin-rtk-utf8"
+curl_log="$work/curl-utf8.log"
+rtk_log="$work/rtk-utf8.log"
+: >"$curl_log"; : >"$rtk_log"
+tui_out=$(PROBE_CURL_LOG="$curl_log" PROBE_BIN_TARGET="$vbin" PROBE_RTK_LOG="$rtk_log" PROBE_RTK_BAD_UTF8=1 \
+  tui_run_path "$home" "$curl_bin:$vbin:$novendor" "$piped_install" "" y y y y n)
+[ -f "$home/.claude/b-agentic/install.json" ] || fail "R2-3 utf8 manifest missing"
+grep -Fxq 'rtk init --show' "$rtk_log" || fail "R2-3 utf8 rtk init --show did not run"
+
+# R2-3 regression: KeyboardInterrupt during rtk init --show is caught and returns cleanly with manifest intact.
+home=$(fresh_home vendor-rtk-sigint)
+mkdir -p "$home/.local/bin"
+vbin="$work/vbin-rtk-sigint"
+mkdir -p "$vbin"
+printf '#!/bin/sh\nexit 0\n' >"$vbin/claude"
+printf '#!/bin/sh\nexit 0\n' >"$vbin/codegraph"
+chmod +x "$vbin/claude" "$vbin/codegraph"
+cat >"$home/.local/bin/rtk" <<'SH'
+#!/bin/sh
+exit 0
+SH
+chmod +x "$home/.local/bin/rtk"
+tui_out=$(PYTHONPATH="$root/tooling/install" HOME="$home" PATH="$vbin:$novendor" python3 - <<'PY'
+import io, vendor_tools
+class StubUi:
+    interactive = True
+    def confirm(self, q, default=False):
+        return True
+    def step(self, t, d=None):
+        pass
+def boom(path):
+    raise KeyboardInterrupt
+vendor_tools.rtk_hook_configured = boom
+w, _ = vendor_tools.offer("claude", StubUi())
+assert any("cancelled" in item for item in w), w
+print("sigint-ok")
+PY
+)
+grep -Fq 'sigint-ok' <<<"$tui_out" || fail "R2-3 sigint check failed: $tui_out"
+echo "install probe passed: vendor tools"
 
 # --- Bun runtime: required, hardened, no node fallback ---------------------------------
 real_bun=$(command -v bun)

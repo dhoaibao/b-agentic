@@ -13,11 +13,17 @@ then records its intent in the manifest as a `pending` section beside the last c
 plan, and commits, so an interruption leaves a manifest from which a retry or an uninstall still recognizes both
 states.
 
-The installer never installs Pi or a package (Pi installs the packages named in settings.json on its next start),
-never contacts the network, and runs `pi --version` only, to warn below the floor. Only the default ~/.pi/agent
-directory is written; ~/.claude and ~/.claude.json are never touched, and Pi's own bin, install, npm, sessions, and
-auth.json stay out of reach because only the managed roots below and six config files are ever written. The classifier's own config file is created
-only when it is absent: it is never overwritten, even with --force, because /permission-model keeps its choices there.
+Without interactive vendor opt-in, the installer never installs Pi or npm packages (Pi installs the packages named in
+settings.json on its next start), never contacts the network, and runs `pi --version` only, to warn below the floor.
+On an interactive terminal (unless `-y`, `--dry-run`, `--uninstall`, or without `/dev/tty`), after syncing `~/.pi/agent`
+it offers per-tool `[y/N]` prompts for missing `pi` (`curl -fsSL https://pi.dev/install.sh | sh`), `rtk`
+(`curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`), and `codegraph`
+(`curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`), never `rtk init`.
+b-agentic's own sync writes only the managed roots under `~/.pi/agent` and six config files there (`~/.claude` and
+`~/.claude.json` are never touched, and Pi's own bin, install, npm, sessions, and auth.json stay untouched by sync);
+approved vendor `curl` installers write their own binaries outside `~/.pi/agent`. The classifier's own config file is
+created only when it is absent: it is never overwritten, even with --force, because /permission-model keeps its choices
+there.
 """
 
 from __future__ import annotations
@@ -37,6 +43,7 @@ from typing import Any
 
 import claude_install as base
 import optional_components
+import vendor_tools
 from claude_install import InstallError, find_block, json_text, merge_unique, read_json, sha256
 from claude_install_ui import Ui
 
@@ -159,23 +166,27 @@ def triple_values(*groups: list[Any]) -> dict[tuple[str, str | None], list[Any]]
     return index
 
 
-def pi_version_warning() -> str | None:
+def pi_version_warning(path: str | None = None) -> str | None:
     """A warning when Pi is missing or older than the floor. Only `pi --version` ever runs, offline."""
     floor = ".".join(map(str, PI_FLOOR))
-    path = shutil.which("pi")
     if path is None:
-        return f"pi is not on PATH; install Pi ({PI_PACKAGE}) {floor} or newer yourself, as the installer never does"
+        path = shutil.which("pi")
+    if path is None:
+        return (
+            f"pi is not on PATH; install Pi ({PI_PACKAGE}) {floor} or newer (interactive runs offer its curl installer)"
+        )
     environment = {**os.environ, "PI_OFFLINE": "1", "PI_SKIP_VERSION_CHECK": "1", "PI_TELEMETRY": "0"}
     try:
         result = subprocess.run(
             [path, "--version"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
             stdin=subprocess.DEVNULL,
             env=environment,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError, UnicodeError):
         return f"could not run {path} --version; b-agentic was spiked on Pi {floor}"
     found = re.search(r"(\d+)\.(\d+)\.(\d+)", result.stdout + result.stderr)
     if found is None:
@@ -1488,8 +1499,8 @@ class Installer:
     def next_steps(self) -> list[str]:
         lines = [
             "Next steps:",
-            f"  1. Install Pi ({PI_PACKAGE}, {'.'.join(map(str, PI_FLOOR))} or newer) yourself if it is not installed; "
-            "the installer never installs Pi or a package.",
+            f"  1. Install Pi ({PI_PACKAGE}, {'.'.join(map(str, PI_FLOOR))} or newer) if it is not installed yet "
+            "(interactive runs offer its native curl installer; Pi still manages its packages).",
             "  2. Start pi: it installs the packages named in "
             f"{self.display(self.agent_dir / 'settings.json')} on its next start (that step needs the network).",
             "  3. Optional: run /permission-model in Pi to pick the model that judges permission asks; until you do, "
@@ -1563,6 +1574,19 @@ def main(argv: list[str] | None = None) -> int:
                 installer.report("uninstall")
             else:
                 installer.install()
+                if ui.interactive and not args.dry_run:
+                    vendor_warnings, installed_vendor = vendor_tools.offer("pi", ui)
+                    if "pi" in installed_vendor:
+                        installer.warnings = [
+                            item for item in installer.warnings if not item.startswith("pi is not on PATH")
+                        ]
+                        try:
+                            refreshed = pi_version_warning(vendor_tools.find_tool("pi"))
+                        except KeyboardInterrupt:
+                            refreshed = "pi version check cancelled"
+                        if refreshed is not None:
+                            installer.warnings.append(refreshed)
+                    installer.warnings.extend(vendor_warnings)
                 installer.report(f"install ({base.source_revision(source) or 'unversioned source'})")
         finally:
             ui.close()

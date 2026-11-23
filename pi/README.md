@@ -10,9 +10,15 @@ rendered from the same sources as the Claude Code files when you install, and th
 
 ## Install and remove
 
-Install Pi yourself (`@earendil-works/pi-coding-agent`, 1.6.0 or newer; nothing is pinned). The installer never installs Pi
-or a package, never uses the network, and runs only `pi --version`, to warn below the floor. Pi installs the packages named
-in `settings.json` on its next start.
+Install Pi yourself (`@earendil-works/pi-coding-agent`, 1.6.0 or newer; nothing is pinned) or accept the post-sync
+`[y/N]` prompt (`curl -fsSL https://pi.dev/install.sh | sh`). Without an explicit `y` on an interactive terminal
+(skipped under `-y`, `--dry-run`, `--uninstall`, non-terminal stdout, or no `/dev/tty`), the installer never installs Pi
+or contacts the network, and runs `pi --version` only, to warn below the floor; it never installs npm packages itself
+(Pi installs the packages named in `settings.json` on its next start). b-agentic's own sync writes only under
+`~/.pi/agent`; interactively after sync, `[y/N]` prompts offer missing `pi` (`curl -fsSL https://pi.dev/install.sh | sh`),
+`rtk` (`curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`), and `codegraph`
+(`curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`), never `rtk init`, and
+approved vendor installers write outside `~/.pi/agent`.
 
 ```bash
 ./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]

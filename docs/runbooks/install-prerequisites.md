@@ -1,10 +1,15 @@
 # Install prerequisites
 
 Install the tools b-agentic expects outside this repository, on Debian/Ubuntu
-Linux. Commands were checked against each project's official docs on 2026-11-09;
-re-check versions before pinning. The installer never runs vendor installers, so
-this is a manual step. Which tool each MCP needs is listed in
-[REFERENCE.md](../../REFERENCE.md).
+Linux. Commands were checked against each project's official docs on 2026-11-09
+(and native `curl` installers for Pi, CodeGraph, Claude Code, and RTK were
+re-checked on 2026-11-23). Re-check versions before pinning. On interactive
+terminal installs (`./install.sh` or `./install.sh --runtime=pi` without `-y`,
+`--dry-run`, `--uninstall`, or `--statusline-only`), the installer offers
+post-sync `[y/N]` prompts to run the native `curl` installers for missing
+`claude`/`pi`, `rtk`, and `codegraph` (plus `rtk init -g --hook-only --auto-patch`
+on Claude Code); `bun`, `node`, `git`, `curl`, and `codex` remain manual steps.
+Which tool each MCP needs is listed in [REFERENCE.md](../../REFERENCE.md).
 
 ## Prerequisites
 
@@ -61,10 +66,11 @@ this is a manual step. Which tool each MCP needs is listed in
    curl -fsSL https://claude.ai/install.sh | bash
    ```
 
-6. Install RTK (Rust Token Killer, `rtk-ai/rtk`).
+6. Install RTK (Rust Token Killer, `rtk-ai/rtk`). The interactive installer
+   offers this script automatically when `rtk` is missing.
 
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+   curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
    export PATH="$HOME/.local/bin:$PATH"
    ```
 
@@ -74,11 +80,20 @@ this is a manual step. Which tool each MCP needs is listed in
    `brew install rtk-ai/tap/rtk` also works.
 
 7. Install CodeGraph (`colbymchenry/codegraph`), then index each project you
-   want graph answers for. Agents never run `codegraph init`; you do.
+   want graph answers for. Agents never run `codegraph init`; you do. The
+   interactive installer offers the native `curl` script when `codegraph` is
+   missing (`npm i -g @colbymchenry/codegraph` is the fallback).
 
    ```bash
-   npm i -g @colbymchenry/codegraph
+   curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh
    cd <project> && codegraph init
+   ```
+
+   For Pi (`--runtime=pi`), install Pi itself with its native script when not
+   using the installer's interactive prompt:
+
+   ```bash
+   curl -fsSL https://pi.dev/install.sh | sh
    ```
 
 8. Set the API keys in your shell environment for the MCP servers you use:

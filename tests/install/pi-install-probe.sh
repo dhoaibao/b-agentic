@@ -164,7 +164,7 @@ out=$(env -u PI_CODING_AGENT_DIR HOME="$home" PATH="$nopi:/usr/bin:/bin" bash "$
 err=$(cat "$work/stderr")
 expect_ok "install without pi"
 grep -Fq 'pi is not on PATH' <<<"$err" || fail "a missing pi must warn: $err"
-grep -Fq 'never does' <<<"$err" || fail "the missing-pi warning must say the installer does not install Pi: $err"
+grep -Fq 'interactive runs offer its curl installer' <<<"$err" || fail "the missing-pi warning must reflect opt-in interactive install: $err"
 ! grep -Eq '^(npm|npx|pnpm|yarn|curl|wget) ' "$calls" || fail "a package manager or download ran: $(cat "$calls")"
 
 # --- user files survive; conflicting rules are kept with a warning --------------------------------------
@@ -723,7 +723,19 @@ env = {k: v for k, v in os.environ.items() if k not in {"NO_COLOR", "PI_CODING_A
 env.update(HOME=home, TERM="xterm-256color")
 pid, fd = pty.fork()
 if pid == 0:
-    keep = {k: os.environ[k] for k in ("PROBE_ROOT", "PROBE_CMD") if k in os.environ}
+    keep = {
+        k: os.environ[k]
+        for k in (
+            "PROBE_ROOT",
+            "PROBE_CMD",
+            "PROBE_CURL_LOG",
+            "PROBE_BIN_TARGET",
+            "PROBE_RTK_LOG",
+            "PROBE_TRACE_LOG",
+            "PROBE_PI_BAD_UTF8",
+        )
+        if k in os.environ
+    }
     os.execvpe("bash", ["bash", "-c", os.environ["PROBE_CMD"]], {**env, **keep})
 buf, last, since = b"", time.time(), b""
 while time.time() - last < 20:
@@ -736,7 +748,7 @@ while time.time() - last < 20:
         if not chunk:
             break
         buf, since, last = buf + chunk, since + chunk, time.time()
-    elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"Enter confirms" in since):
+    elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"[y/N]" in since or b"Enter confirms" in since):
         answer = answers.pop(0)
         if answer.startswith("!"):
             subprocess.run(answer[1:], shell=True, env=env, check=True)
@@ -747,7 +759,12 @@ while time.time() - last < 20:
     elif not answers and time.time() - last > 3:
         break
 deadline = time.time() + 15
-while os.waitpid(pid, os.WNOHANG) == (0, 0):
+child_status = None
+while child_status is None:
+    waited_pid, status = os.waitpid(pid, os.WNOHANG)
+    if waited_pid != 0:
+        child_status = status
+        break
     if time.time() > deadline:
         try:
             os.killpg(pid, signal.SIGKILL)
@@ -759,16 +776,40 @@ while os.waitpid(pid, os.WNOHANG) == (0, 0):
         sys.exit(1)
     time.sleep(0.1)
 sys.stdout.write(buf.decode(errors="replace"))
+sys.exit(os.waitstatus_to_exitcode(child_status))
 PY
+tui_shims="$work/tui-shims"
+mkdir -p "$tui_shims"
+ln -sf "$shims/pi" "$tui_shims/pi"
+for tool in rtk codegraph; do
+  printf '#!/bin/sh\nexit 0\n' >"$tui_shims/$tool"
+done
+chmod +x "$tui_shims"/*
+
 # shellcheck disable=SC2016 # expanded by the child shell, which gets PROBE_ROOT in its environment
 piped_install='echo ignored | bash "$PROBE_ROOT/install.sh" --runtime=pi'
 tui_run() {
   local home=$1 command=$2
   shift 2
-  PATH="$shims:$PATH" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
+  PATH="$tui_shims:$PATH" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
 }
+tui_run_path() {
+  local home=$1 path=$2 command=$3
+  shift 3
+  PATH="$path" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || fail "pty harness failed"
+}
+tui_run_refused() {
+  local home=$1 command=$2
+  shift 2
+  local pty_rc=0
+  PATH="$tui_shims:$PATH" PROBE_ROOT="$root" PROBE_CMD="$command" python3 "$work/pty-run.py" "$home" "$@" || pty_rc=$?
+  [ "$pty_rc" -ne 0 ] || fail "expected pty command to fail: $command"
+}
+pty_fail_rc=0
+PROBE_ROOT="$root" PROBE_CMD='printf "Installed\n"; exit 7' python3 "$work/pty-run.py" "$work" >/dev/null || pty_fail_rc=$?
+[ "$pty_fail_rc" -eq 7 ] || fail "pty harness must propagate nonzero child status (got $pty_fail_rc)"
 home=$(fresh_home tui)
-tui_out=$(tui_run "$home" "$piped_install" "" n)
+tui_out=$(tui_run_refused "$home" "$piped_install" "" n)
 grep -Fq 'Installation Summary' <<<"$tui_out" || fail "TUI summary box missing: $tui_out"
 grep -Fq '┌' <<<"$tui_out" || fail "TUI header missing: $tui_out"
 if grep -Fq '█' <<<"$tui_out"; then fail "the block-letter logo must not be drawn: $tui_out"; fi
@@ -786,7 +827,7 @@ done
 home=$(fresh_home tui-alias)
 # shellcheck disable=SC2016 # expanded by the harness shell, whose HOME is the sandbox
 alias_cmd='!mkdir -p "$HOME/.pi/agent" "$HOME/dot" && ln -s "$HOME/dot/shared.json" "$HOME/.pi/agent/settings.json" && ln -s "$HOME/dot/shared.json" "$HOME/.pi/agent/mcp.json"'
-tui_out=$(tui_run "$home" "$piped_install" "" "$alias_cmd" y)
+tui_out=$(tui_run_refused "$home" "$piped_install" "" "$alias_cmd" y)
 grep -Fq 'resolve to the same file' <<<"$tui_out" || fail "an alias created during the confirm must be refused: $tui_out"
 [ ! -e "$home/.pi/agent/b-agentic/install.json" ] && [ ! -e "$home/.pi/agent/skills" ] && [ ! -e "$home/dot/shared.json" ] \
   || fail "a refused alias must leave ~/.pi/agent and external targets untouched"
@@ -806,5 +847,147 @@ if grep -Fq 'Enter confirms' <<<"$tui_out"; then fail "--with must skip the chec
 [ -f "$home/.pi/agent/skills/b-drawio/SKILL.md" ] && [ "$(jq -r '.mcpServers | has("drawio")' "$home/.pi/agent/mcp.json")" = true ] \
   || fail "--with must install drawio"
 echo "install probe passed: tui"
+
+# --- opt-in vendor tool prompts (AC-4, AC-6) ---------------------------------------------------------
+novendor="$work/novendor-bin"
+mkdir -p "$novendor"
+for util in bash sh env python3 git node jq cat echo mkdir rm mv cp ln chmod touch tr head cut grep find sort xargs sha256sum dirname basename readlink mktemp sed awk wc ls test '['; do
+  resolved=$(command -v "$util" 2>/dev/null || true)
+  if [ -n "$resolved" ] && [ -x "$resolved" ]; then
+    ln -sf "$resolved" "$novendor/$util"
+  fi
+done
+for forbidden in pi rtk codegraph curl; do
+  if PATH="$novendor" command -v "$forbidden" >/dev/null 2>&1; then
+    fail "novendor PATH must not contain $forbidden"
+  fi
+done
+
+curl_bin="$work/curl-bin"
+mkdir -p "$curl_bin"
+cat >"$curl_bin/curl" <<'SH'
+#!/bin/sh
+echo "curl $*" >>"$PROBE_CURL_LOG"
+if [ -n "${PROBE_TRACE_LOG:-}" ]; then
+  echo "curl $*" >>"$PROBE_TRACE_LOG"
+fi
+url=""
+for arg in "$@"; do
+  case "$arg" in http://*|https://*) url="$arg" ;; esac
+done
+case "$url" in
+  https://pi.dev/install.sh)
+    printf '#!/bin/sh\nmkdir -p "%s"\ncat >"%s/pi" <<'"'"'PI'"'"'\n#!/bin/sh\nif [ -n "${PROBE_PI_BAD_UTF8:-}" ]; then\n  printf "\\377\\376\\375\\n"\n  exit 0\nfi\necho 1.6.0\nPI\nchmod +x "%s/pi"\n' \
+      "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET"
+    ;;
+  https://raw.githubusercontent.com/rtk-ai/rtk/*)
+    printf '#!/bin/sh\nmkdir -p "$HOME/.local/bin"\nprintf "#!/bin/sh\\necho rtk \\$* >>\\"%s\\"\\nexit 0\\n" >"$HOME/.local/bin/rtk"\nchmod +x "$HOME/.local/bin/rtk"\n' "$PROBE_RTK_LOG"
+    ;;
+  https://raw.githubusercontent.com/colbymchenry/codegraph/*)
+    printf '#!/bin/sh\nmkdir -p "%s"\nprintf "#!/bin/sh\\nexit 0\\n" >"%s/codegraph"\nchmod +x "%s/codegraph"\n' \
+      "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET" "$PROBE_BIN_TARGET"
+    ;;
+  *)
+    printf 'exit 99\n'
+    ;;
+esac
+SH
+chmod +x "$curl_bin/curl"
+
+# AC-4: Pi interactive install with pi, rtk, codegraph missing -> manifest exists before first vendor prompt -> accept all.
+home=$(fresh_home vendor-pi-accept)
+vbin="$work/vbin-pi"
+curl_log="$work/curl-pi-accept.log"
+rtk_log="$work/rtk-pi-accept.log"
+trace_log="$work/trace-pi-accept.log"
+: >"$curl_log"; : >"$rtk_log"; : >"$trace_log"
+# shellcheck disable=SC2016
+manifest_check='!test -f "$HOME/.pi/agent/b-agentic/install.json"'
+tui_out=$(PROBE_CURL_LOG="$curl_log" PROBE_BIN_TARGET="$vbin" PROBE_RTK_LOG="$rtk_log" PROBE_TRACE_LOG="$trace_log" \
+  tui_run_path "$home" "$curl_bin:$vbin:$novendor" "$piped_install" "" y "$manifest_check" y y y)
+expected_trace=$(cat <<'TRACE'
+curl -fsSL https://pi.dev/install.sh
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh
+curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh
+TRACE
+)
+[ "$(cat "$trace_log")" = "$expected_trace" ] || fail "AC-4 ordered trace mismatch: $(cat "$trace_log")"
+[ ! -s "$rtk_log" ] || fail "AC-4 Pi must never run rtk init: $(cat "$rtk_log")"
+if grep -Fq 'pi is not on PATH' <<<"$tui_out"; then fail "AC-4 stale missing-pi warning must be dropped once pi is installed: $tui_out"; fi
+grep -Fq '.local/bin' <<<"$tui_out" || fail "AC-4 must warn to add ~/.local/bin to PATH: $tui_out"
+[ -x "$vbin/pi" ] && [ -x "$home/.local/bin/rtk" ] && [ -x "$vbin/codegraph" ] || fail "AC-4 stubs were not installed"
+
+# AC-6: -y, --dry-run, --uninstall on terminal + non-terminal stdout -> no vendor prompt or curl; install skip modes warn pi is not on PATH.
+home=$(fresh_home vendor-pi-modes)
+curl_log="$work/curl-pi-modes.log"
+: >"$curl_log"
+for mode in -y --dry-run --uninstall; do
+  tui_out=$(PROBE_CURL_LOG="$curl_log" tui_run_path "$home" "$curl_bin:$novendor" "$piped_install $mode")
+  if grep -Fq '[y/N]' <<<"$tui_out"; then fail "AC-6 $mode must not show vendor prompts: $tui_out"; fi
+  if [ "$mode" != --uninstall ]; then
+    grep -Fq 'pi is not on PATH' <<<"$tui_out" || fail "AC-6 $mode must warn pi is not on PATH: $tui_out"
+  fi
+done
+[ ! -s "$curl_log" ] || fail "AC-6 excluded modes must not call curl: $(cat "$curl_log")"
+rc=0
+env -u PI_CODING_AGENT_DIR HOME="$home" PATH="$curl_bin:$novendor" bash "$root/install.sh" --runtime=pi >"$work/pi-nontty.out" 2>"$work/pi-nontty.err" || rc=$?
+[ "$rc" -eq 0 ] || fail "AC-6 non-tty install failed: $(cat "$work/pi-nontty.err")"
+[ ! -s "$curl_log" ] || fail "AC-6 non-tty must not call curl: $(cat "$curl_log")"
+grep -Fq 'pi is not on PATH' "$work/pi-nontty.err" || fail "AC-6 non-tty must still warn pi is not on PATH: $(cat "$work/pi-nontty.err")"
+
+# R2-3 regression: invalid UTF-8 from refreshed pi --version stays non-blocking and manifest stays intact.
+home=$(fresh_home vendor-pi-utf8)
+vbin="$work/vbin-pi-utf8"
+curl_log="$work/curl-pi-utf8.log"
+rtk_log="$work/rtk-pi-utf8.log"
+: >"$curl_log"; : >"$rtk_log"
+tui_out=$(PROBE_CURL_LOG="$curl_log" PROBE_BIN_TARGET="$vbin" PROBE_RTK_LOG="$rtk_log" PROBE_PI_BAD_UTF8=1 \
+  tui_run_path "$home" "$curl_bin:$vbin:$novendor" "$piped_install" "" y y n n)
+[ -f "$home/.pi/agent/b-agentic/install.json" ] || fail "R2-3 pi utf8 manifest missing"
+grep -Fq 'printed no version' <<<"$tui_out" || fail "R2-3 pi utf8 warning missing: $tui_out"
+
+# R2-3 regression: KeyboardInterrupt during post-install pi_version_warning refresh is caught in pi_install.main.
+home=$(fresh_home vendor-pi-sigint)
+vbin="$work/vbin-pi-sigint"
+mkdir -p "$vbin"
+printf '#!/bin/sh\necho 1.6.0\n' >"$vbin/pi"
+printf '#!/bin/sh\nexit 0\n' >"$vbin/rtk"
+printf '#!/bin/sh\nexit 0\n' >"$vbin/codegraph"
+chmod +x "$vbin"/*
+pi_sigint_rc=0
+pi_sigint_out=$(PYTHONPATH="$root/tooling/install" HOME="$home" PATH="$vbin:$novendor" python3 - "$root" "$home" 2>&1 <<'PY'
+import sys
+from unittest.mock import patch
+import pi_install
+from claude_install_ui import Ui
+root_dir, home_dir = sys.argv[1], sys.argv[2]
+class FakeUi(Ui):
+    def __init__(self):
+        super().__init__(enabled=False)
+    @property
+    def interactive(self):
+        return True
+    def confirm(self, q, default=False, *, say_answer=True):
+        return True
+    def step(self, t, d=None, *, bold=False, done=False):
+        pass
+calls = {"n": 0}
+def fake_warn(path=None):
+    calls["n"] += 1
+    if calls["n"] == 2:
+        raise KeyboardInterrupt
+    return "pi is not on PATH; mock"
+with patch("pi_install.Ui", return_value=FakeUi()), \
+     patch("pi_install.pi_version_warning", side_effect=fake_warn), \
+     patch("pi_install.vendor_tools.offer", return_value=([], {"pi"})), \
+     patch("pi_install.vendor_tools.find_tool", return_value="/mock/pi"):
+    rc = pi_install.main(["--source", root_dir])
+assert rc == 0, rc
+PY
+) || pi_sigint_rc=$?
+[ "$pi_sigint_rc" -eq 0 ] || fail "R2-3 pi_install.main aborted on KeyboardInterrupt: $pi_sigint_out"
+[ -f "$home/.pi/agent/b-agentic/install.json" ] || fail "R2-3 pi sigint manifest missing"
+grep -Fq 'pi version check cancelled' <<<"$pi_sigint_out" || fail "R2-3 pi sigint warning missing: $pi_sigint_out"
+echo "install probe passed: vendor tools"
 
 echo "pi install probe passed"

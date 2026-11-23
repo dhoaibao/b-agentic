@@ -10,16 +10,23 @@
 #   ./install.sh --update                                 fast-forward the checkout, then sync
 #   ./install.sh --uninstall                              remove what the manifest recorded
 #   ./install.sh --runtime=pi [--dry-run] [--force] [-y]  install, sync, or (--uninstall) remove the Pi runtime
-#                                                         under ~/.pi/agent (ADR-030); Pi and its packages are
-#                                                         installed by you, never by this script
+#                                                         under ~/.pi/agent (ADR-030); npm packages stay Pi-managed
 #   curl -fsSL https://raw.githubusercontent.com/dhoaibao/b-agentic/main/install.sh | bash
 #
 # From a checkout the script installs that checkout. When piped, it clones the
 # source to B_AGENTIC_DIR (default ~/.b-agentic-claude, never ~/.b-agentic) first.
-# --dry-run changes nothing, including the clone and the fetch. The script never
-# runs vendor installers. A Claude Code run only touches ~/.claude and ~/.claude.json, and never anything under ~/.pi or
-# ~/.config/opencode (the OpenCode runtime was removed; see docs/decisions/ADR-020-claude-code-only-again.md). A Pi run
-# (--runtime=pi) only touches ~/.pi/agent, never ~/.claude, ~/.claude.json, or the network.
+# --dry-run changes nothing, including the clone and the fetch. Unless you accept an interactive [y/N] prompt after
+# sync (skipped under -y, --dry-run, --uninstall, --statusline-only, non-terminal stdout, or no /dev/tty), the script
+# runs no vendor installers. A Claude Code sync touches only ~/.claude and ~/.claude.json, and never anything under
+# ~/.pi or ~/.config/opencode (the OpenCode runtime was removed; see docs/decisions/ADR-020-claude-code-only-again.md).
+# Post-sync Claude [y/N] prompts offer `curl -fsSL https://claude.ai/install.sh | bash`,
+# `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`,
+# `rtk init -g --hook-only --auto-patch`, and
+# `curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh` (approved vendor scripts
+# install their own binaries outside ~/.claude, and `rtk init` adds the RTK hook to ~/.claude/settings.json).
+# A Pi sync (--runtime=pi) writes only ~/.pi/agent and never touches ~/.claude or ~/.claude.json; post-sync Pi [y/N]
+# prompts offer `curl -fsSL https://pi.dev/install.sh | sh` plus the `rtk` and `codegraph` curl scripts above (never
+# `rtk init`, writing outside ~/.pi/agent).
 # Optional components are never installed without a choice: a terminal shows a checkbox list (nothing
 # checked on a fresh install; installed ones are pre-checked), while -y, --dry-run, or no terminal keeps
 # the recorded choice and otherwise installs none. --with/--without are additive and repeatable.

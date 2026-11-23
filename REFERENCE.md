@@ -29,8 +29,13 @@ git clone https://github.com/dhoaibao/b-agentic.git && cd b-agentic && ./install
 `./install.sh` installs from the checkout that contains it. Piped
 (`curl -fsSL .../install.sh | bash`), it clones the source to
 `~/.b-agentic-claude` first; it never uses `~/.b-agentic`, which may still hold
-a frozen earlier installer. The script never runs vendor installers. A Claude Code run
-touches only `~/.claude` and `~/.claude.json`.
+a frozen earlier installer. Without an explicit `y` on a post-sync interactive
+`[y/N]` prompt, the script runs no vendor installers (`-y`, `--dry-run`,
+`--uninstall`, `--statusline-only`, and non-terminal runs skip them). A Claude
+Code sync touches only `~/.claude` and `~/.claude.json`; approved vendor
+installers write their own binaries (outside `~/.claude`), and `rtk init -g
+--hook-only --auto-patch` adds RTK's `PreToolUse` hook to
+`~/.claude/settings.json`.
 
 - `--dry-run` prints the plan and changes nothing.
 - On a terminal the installer shows a step timeline, a summary box, and asks before
@@ -123,9 +128,18 @@ piped bootstrap honors `--dry-run` before cloning or fetching, runs git with its
 destination overrides cleared, and refuses a source checkout whose worktree or
 git directory is under `~/.pi` or `~/.config/opencode`. Claude Code rewrites `~/.claude.json` while it
 runs, so restart it after an install. The installer reports missing tools (`rtk`,
-`codegraph`, `bunx`, `claude`, and `codex` for the optional Codex gate) and never runs vendor installers; see
+`codegraph`, `bunx`, `claude`, and `codex` for the optional Codex gate), and on
+an interactive full install (`--runtime=claude`, not `-y`, `--dry-run`,
+`--uninstall`, or `--statusline-only`), offers post-sync `[y/N]` prompts for
+missing `claude` (`curl -fsSL https://claude.ai/install.sh | bash`), `rtk`
+(`curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`),
+`rtk init -g --hook-only --auto-patch` (when `rtk` is found and `rtk init --show`
+does not report its `settings.json` hook), and `codegraph`
+(`curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`).
+If `curl` is missing, it warns and skips those prompts; failures warn without
+affecting b-agentic's install or exit status. See
 [install prerequisites](docs/runbooks/install-prerequisites.md) for the manual
-steps. The Codex review gate on Claude Code needs the `codex` CLI, the
+steps (`bun`, `node`, `git`, `codex`, and offline setup). The Codex review gate on Claude Code needs the `codex` CLI, the
 `openai/codex-plugin-cc` plugin, and a Codex login, which the installer prints but
 never runs; without them `b-review` falls back to the `b-reviewer` subagent, which needs
 none of these.
@@ -155,10 +169,20 @@ theme, subagent config, classifier, and `/b-*` prompt templates):
   or a non-terminal stdout keep plain output.
 
 - You install Pi (`@earendil-works/pi-coding-agent`, 1.6.0 or newer, spiked on
-  1.6.0) yourself. Nothing is pinned: not Pi, not the four npm packages named in
-  `settings.json` (`references/runtimes.yaml` lists them). The installer never
-  installs Pi or a package, never uses the network, and runs only `pi --version`,
-  to warn below the floor; Pi installs the packages on its next start.
+  1.6.0) yourself or accept the post-sync `[y/N]` prompt to run its native `curl`
+  installer (`curl -fsSL https://pi.dev/install.sh | sh`). Nothing is pinned: not
+  Pi, not the four npm packages named in `settings.json`
+  (`references/runtimes.yaml` lists them). The installer never installs npm
+  packages itself and runs `pi --version` before syncing to warn below the
+  floor; Pi installs its four packages on its next start. On an interactive
+  terminal (skipped under `-y`, `--dry-run`, `--uninstall`, non-terminal stdout,
+  or no `/dev/tty`), after syncing `~/.pi/agent` it also offers `[y/N]` prompts
+  for missing `pi` (`curl -fsSL https://pi.dev/install.sh | sh`), `rtk`
+  (`curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh`),
+  and `codegraph`
+  (`curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`),
+  never `rtk init` (approved vendor scripts write outside `~/.pi/agent`); if
+  `curl` is missing, it warns and skips.
 - It installs only from a local checkout. `--update`, `--ref`, a clone or piped
   install, and `--statusline-only` are refused, as is a `PI_CODING_AGENT_DIR` other
   than `~/.pi/agent` and a `CLAUDE.md` in the agent directory (Pi reads one

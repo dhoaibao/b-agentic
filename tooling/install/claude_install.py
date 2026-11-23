@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import Any
 
 import optional_components
+import vendor_tools
 from claude_install_ui import Ui
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1295,6 +1296,9 @@ def main(argv: list[str] | None = None) -> int:
                 installer.report("uninstall")
             else:
                 installer.install()
+                if ui.interactive and not args.dry_run and not args.statusline_only:
+                    vendor_warnings, _ = vendor_tools.offer("claude", ui)
+                    installer.warnings.extend(vendor_warnings)
                 installer.report(f"install ({source_revision(source) or 'unversioned source'})")
         finally:
             ui.close()
