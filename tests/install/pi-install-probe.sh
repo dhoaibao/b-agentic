@@ -134,7 +134,7 @@ grep -Fq 'unchanged' <<<"$out" || fail "a second install must report unchanged f
 cmp -s "$root/pi/themes/dracula.json" "$agent/themes/dracula.json" || fail "installed themes/dracula.json must match pi/themes/dracula.json byte for byte"
 [ "$(jq -c '.' "$agent/extensions/subagent/config.json")" = '{"inlineToolDisplay":"summary","asyncWidget":false,"fleetView":false}' ] \
   || fail "fresh install must write the subagent config: $(cat "$agent/extensions/subagent/config.json")"
-jq -e '.permission.skill == "allow" and .permission.subagent == "allow" and .permission.subagent_launch == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
+jq -e '.permission.skill == "allow" and .permission.subagent == "allow" and .permission.subagent_launch == "allow" and .permission.subagents_enable == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
   "$agent/extensions/pi-permission-system/config.json" >/dev/null || fail "the permission config lacks a required rule"
 jq -e '[.mcpServers[].exposure] | all(. == "direct")' "$agent/mcp.json" >/dev/null || fail "every MCP server must carry exposure direct"
 # The classifier judges asks only when the chain names it and its own config exists; neither enables itself.

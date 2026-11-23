@@ -43,7 +43,7 @@
       "excluded_agent_tools": ["edit", "write", "subagent", "ask_user_question"],
       "worker_tools": ["read", "grep", "find", "ls", "bash", "edit", "write"],
       "worker_excluded_tools": ["subagent", "ask_user_question"],
-      "allowed_tools": ["subagent", "subagent_launch", "bg_wait", "ask_user_question"],
+      "allowed_tools": ["subagent", "subagent_launch", "subagents_enable", "bg_wait", "ask_user_question"],
       "mcp_exposure": {"default": "direct"},
       "mcp_tool_format": "mcp__{server}__{tool}",
       "arguments_placeholder": "the arguments supplied with the invocation",

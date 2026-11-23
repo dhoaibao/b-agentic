@@ -350,6 +350,10 @@ test("subagent launches are refused until child gating registers, and when it fa
     toolName: "subagent_launch",
     input: { agent: "b-worker", cwd: work },
   };
+  const enable = {
+    toolName: "subagents_enable",
+    input: {},
+  };
   const fresh = await createGuard({ hooksDir });
   assert.ok(blocked(await fresh.toolCall(solo, ctx)), "starts closed");
   assert.ok(
@@ -357,15 +361,18 @@ test("subagent launches are refused until child gating registers, and when it fa
     "parallel starts closed",
   );
   assert.ok(blocked(await fresh.toolCall(launch, ctx)), "launch starts closed");
+  assert.ok(blocked(await fresh.toolCall(enable, ctx)), "enable starts closed");
   assert.match((await fresh.toolCall(solo, ctx)).reason, /not registered yet/);
   fresh.setChildGateError("");
   assert.equal(await fresh.toolCall(solo, ctx), undefined);
   assert.equal(await fresh.toolCall(parallel, ctx), undefined);
   assert.equal(await fresh.toolCall(launch, ctx), undefined);
+  assert.equal(await fresh.toolCall(enable, ctx), undefined);
   fresh.setChildGateError("registration failed");
   assert.ok(blocked(await fresh.toolCall(solo, ctx)));
   assert.ok(blocked(await fresh.toolCall(parallel, ctx)));
   assert.ok(blocked(await fresh.toolCall(launch, ctx)));
+  assert.ok(blocked(await fresh.toolCall(enable, ctx)));
   assert.equal(
     await fresh.toolCall({ toolName: "bash", input: {} }, ctx),
     undefined,

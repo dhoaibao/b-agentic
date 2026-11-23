@@ -1975,6 +1975,16 @@ def validate_pi_regressions(
         ),
         (
             lambda o, h: o.update(
+                {
+                    "config/permission.json": o["config/permission.json"].replace(
+                        '"subagents_enable": "allow"', '"subagents_enable": "ask"'
+                    )
+                }
+            ),
+            "a permission config that asks for subagents_enable",
+        ),
+        (
+            lambda o, h: o.update(
                 {"skills/b-flow/SKILL.md": o["skills/b-flow/SKILL.md"].replace("--gate reviewer", "")}
             ),
             "a review gate that is not reviewer",
@@ -2493,6 +2503,7 @@ def validate_runtime_regressions() -> list[str]:
             {**pi, "worker_tools": [*pi["worker_tools"], "subagent"]},
             {**pi, "worker_excluded_tools": ["ask_user_question"]},
             {**pi, "allowed_tools": [t for t in pi["allowed_tools"] if t != "subagent_launch"]},
+            {**pi, "allowed_tools": [t for t in pi["allowed_tools"] if t != "subagents_enable"]},
             {**pi, "agents": {k: v for k, v in pi["agents"].items() if k != "b-reviewer"}},
             {key: value for key, value in pi.items() if key != "theme"},
             {**pi, "theme": "a/b"},
@@ -2561,8 +2572,9 @@ def validate_pi_runtime(config: dict[str, Any], label: str) -> list[str]:
         "packages",
     ):
         non_empty_string_list(config.get(key), f"{label}.{key}", errors)
-    if "subagent_launch" not in (config.get("allowed_tools") or []):
-        errors.append(f"{label}.allowed_tools: must include 'subagent_launch'")
+    for required_tool in ("subagent_launch", "subagents_enable"):
+        if required_tool not in (config.get("allowed_tools") or []):
+            errors.append(f"{label}.allowed_tools: must include '{required_tool}'")
     exposure = config.get("mcp_exposure")
     if not isinstance(exposure, dict) or exposure.get("default") not in {"direct", "deferred"}:
         errors.append(f"{label}.mcp_exposure: expected {{default: direct or deferred}}")
