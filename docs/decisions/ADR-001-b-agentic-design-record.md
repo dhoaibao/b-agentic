@@ -23,8 +23,7 @@ non-goal under Consequences, the single-runtime statement in Context, and the
 Pi as an opt-in second runtime that installs under `~/.pi/agent`. The passages
 below describe the default Claude Code runtime; ADR-011 recorded the Pi one, and
 [ADR-019](ADR-019-opencode-second-runtime.md) replaced Pi with OpenCode (`~/.config/opencode`).
-[ADR-020](ADR-020-claude-code-only-again.md) then removed OpenCode, so Claude Code is the
-only runtime again and the passages below describe it without qualification.
+[ADR-020](ADR-020-claude-code-only-again.md) then removed OpenCode, and [ADR-027](ADR-027-antigravity-runtime-removed.md) removed Antigravity. [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) (with worker and parallel worktree steps in [ADR-031](ADR-031-pi-worker-steps.md)) supersedes those no-second-runtime lines by adding Pi as an opt-in second runtime rendered at install time under `~/.pi/agent`; the passages below describe the default Claude Code runtime.
 
 Superseded in part by [ADR-002](ADR-002-dual-runtime-support.md): the
 single-runtime statement in Context, the `~/.claude`-only boundary under
@@ -53,14 +52,17 @@ describe the gate as ADR-007 restored it.
 
 ## Context
 
-b-agentic's only runtime is Claude Code
-([ADR-020](ADR-020-claude-code-only-again.md)). It ships an always-loaded kernel,
+b-agentic's default runtime is Claude Code
+([ADR-020](ADR-020-claude-code-only-again.md)), with Pi as an opt-in second
+runtime rendered at install time
+([ADR-030](ADR-030-pi-runtime-rendered-at-install.md),
+[ADR-031](ADR-031-pi-worker-steps.md)). It ships an always-loaded kernel,
 canonical skills, named read-only specialists, managed MCP configuration,
 hooks and small CLIs, and a merge-safe installer. On Claude Code, Codex, through
 the `openai/codex-plugin-cc` plugin, is the independent changed-code reviewer.
-The earlier Pi and OpenCode runtimes were removed from this repository (the last Pi
+The earlier Pi and OpenCode trees were removed from this repository (the last Pi
 tree is commit `ba7bc2db`, the last OpenCode tree commit `f80281b7`) and nothing here
-generates, installs, or tests them.
+restores those committed trees; Pi returns as an install-time render from `references/runtimes.yaml`.
 
 Evidence: [`references/kernel.template.md`](../../references/kernel.template.md),
 [`skills/registry.yaml`](../../skills/registry.yaml), and
@@ -456,7 +458,9 @@ and [`claude/bin/b-candidate-snapshot.mjs`](../../claude/bin/b-candidate-snapsho
 Accepted residual risks are recorded with each decision above. The intentional
 non-goals follow.
 
-b-agentic does not maintain a second runtime, custom permission engine,
+Pi is supported only as an opt-in runtime rendered at install time
+([ADR-030](ADR-030-pi-runtime-rendered-at-install.md)). b-agentic does not
+commit a second runtime tree or maintain a custom permission engine,
 argument-aware MCP gate, or persistent subagent store. It does not ship themes,
 TUI widgets beyond the read-only `b-statusline` status line (refined 2026-11-07),
 notifications, a self-updating command, or third-party extension

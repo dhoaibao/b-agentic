@@ -13,7 +13,7 @@ to the read-only `b-reviewer` subagent when Codex is unavailable.
 - [Operational reference](REFERENCE.md) — install, lifecycle, safety, review gate, MCP, and validation.
 - [Configuration layout](claude/configs/README.md) for Claude Code — managed paths and ownership boundaries.
 - [Project guidance](AGENTS.md), the [ADR-001 design record](docs/decisions/ADR-001-b-agentic-design-record.md), and [ADR-020 Claude Code only again](docs/decisions/ADR-020-claude-code-only-again.md) (Claude Code is the default runtime).
-- [Pi runtime](pi/README.md) — opt-in second runtime (`./install.sh --runtime=pi`, [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), status Proposed).
+- [Pi runtime](pi/README.md) — opt-in second runtime (`./install.sh --runtime=pi`, [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)).
 
 ## Install
 
@@ -40,7 +40,7 @@ Only want the Claude Code status line? `./install.sh --statusline-only` installs
 line), with no skills, agents, hooks, kernel, or MCP servers. A later plain
 `./install.sh` upgrades it to the full setup, and `--uninstall` removes it.
 
-For the opt-in Pi runtime (`./install.sh --runtime=pi`, status Proposed under [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)), run from a local checkout with Pi `1.6.0+` installed. It renders the kernel, skills, prompt templates, agents (including `b-worker` per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)), permission/subagent/MCP config, guard extension, helper wrappers, and vendored Dracula theme (`dracula.json`, set when `"theme"` is absent) into `~/.pi/agent`, and never clones or installs Pi or npm packages itself; see [pi/README.md](pi/README.md).
+For the opt-in Pi runtime (`./install.sh --runtime=pi`, [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)), run from a local checkout with Pi `1.6.0+` installed. It renders the kernel, skills, prompt templates, agents (including `b-worker` per [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)), permission/subagent/MCP config, guard extension, helper wrappers, and vendored Dracula theme (`dracula.json`, set when `"theme"` is absent) into `~/.pi/agent`, and never clones or installs Pi or npm packages itself; see [pi/README.md](pi/README.md).
 
 ## How it works
 

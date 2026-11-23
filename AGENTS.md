@@ -4,8 +4,7 @@
 
 b-agentic is a slim personal workflow kernel for Claude Code, with
 Codex or a read-only subagent as the independent reviewer, and an opt-in Pi
-runtime ([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md),
-Proposed). It ships the always-loaded kernel, skills that double as commands,
+runtime ([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)). It ships the always-loaded kernel, skills that double as commands,
 managed MCP configuration, read-only specialist agents plus `b-worker`, safety
 hooks, and installer/validation tooling. See the [public overview](README.md)
 and [operational reference](REFERENCE.md).
@@ -24,7 +23,7 @@ and [operational reference](REFERENCE.md).
 ### Canonical sources and change flows
 
 - `skills/registry.yaml` owns skill metadata, routing, phase, execution ownership, optional components, specialist-agent profiles, and `workers` (`b-worker`); each `skills/*/prompt.md` owns its canonical skill body. `tooling/generate/registry_sync.py` renders `SKILL.md` files, agents, the settings template, the `README.md` skills table, and kernel delivery blocks (and renders the Pi tree at install time via `--render pi`), so edit sources and regenerate rather than hand-editing output.
-- `references/kernel.template.md`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, `references/runtimes.yaml`, and `references/artifacts.yaml` own runtime guidance, capability policy, per-runtime vocabulary, and `b-flow` run artifact schemas (canonical sources use Claude Code wording; `references/runtimes.yaml` holds the `claude` entry, which is the identity render, and the opt-in `pi` entry with the `<!-- runtime: NAME[,NAME] -->` marker, glossary, and `kernel_overrides` mechanism). The installer consumes generated output; the [operational reference](REFERENCE.md) documents the installed boundary. Earlier second runtimes were removed by [ADR-008](docs/decisions/ADR-008-claude-code-only.md), by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md) (last OpenCode tree in commit `f80281b7`; the earlier Pi tree was last in `ba7bc2db`), and by [ADR-027](docs/decisions/ADR-027-antigravity-runtime-removed.md) (last Antigravity tree in commit `caf570fd`); Pi returns as an opt-in runtime under [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md) and [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md) (both Proposed), whose generated tree is never committed.
+- `references/kernel.template.md`, `references/mcp_operations.yaml`, `references/capabilities.yaml`, `references/runtimes.yaml`, and `references/artifacts.yaml` own runtime guidance, capability policy, per-runtime vocabulary, and `b-flow` run artifact schemas (canonical sources use Claude Code wording; `references/runtimes.yaml` holds the `claude` entry, which is the identity render, and the opt-in `pi` entry with the `<!-- runtime: NAME[,NAME] -->` marker, glossary, and `kernel_overrides` mechanism). The installer consumes generated output; the [operational reference](REFERENCE.md) documents the installed boundary. Earlier second runtimes were removed by [ADR-008](docs/decisions/ADR-008-claude-code-only.md), by [ADR-020](docs/decisions/ADR-020-claude-code-only-again.md) (last OpenCode tree in commit `f80281b7`; the earlier Pi tree was last in `ba7bc2db`), and by [ADR-027](docs/decisions/ADR-027-antigravity-runtime-removed.md) (last Antigravity tree in commit `caf570fd`); Pi returns as an opt-in runtime under [ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md) and [ADR-031](docs/decisions/ADR-031-pi-worker-steps.md), whose generated tree is never committed.
 
 ### Project constraints and boundaries
 

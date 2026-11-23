@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-19
+- Note: [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) supersedes the no-second-runtime decision below by adding Pi as an opt-in second runtime; the Antigravity removal recorded here still stands.
 - Supersedes: ADR-025 (Antigravity CLI as the second runtime); [ADR-020](ADR-020-claude-code-only-again.md) is Accepted again
 
 ## Context

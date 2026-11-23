@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-17
+- Note: [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) supersedes the no-second-runtime decision below by adding Pi as an opt-in second runtime; the OpenCode removal recorded here still stands.
 - Supersedes: ADR-019 (OpenCode as the second runtime)
 
 ## Context

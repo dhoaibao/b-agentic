@@ -1,7 +1,7 @@
 # Pi runtime (opt-in)
 
 b-agentic runs on Claude Code by default. This folder holds the hand-written parts of the opt-in Pi runtime
-([ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), status Proposed): the helper wrappers, one
+([ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)): the helper wrappers, one
 owned extension, and the vendored Dracula theme. Everything else Pi needs (kernel, skills, prompt templates, agents,
 permission, subagent, and MCP configuration) is rendered from the same sources as the Claude Code files when you
 install, and the rendered tree is never committed.
@@ -61,7 +61,7 @@ install adds the managed link again, and an uninstall removes it for good. A pro
 the judge off for that project only when it sets its own `authorizerChain` (an empty array) and the project is trusted,
 since Pi ignores a project config until then. If your settings give the permission system or the classifier any version
 spec (a pin, a range or a tag), the installer leaves both alone and warns.
-Nothing here shows yet that the classifier decides well: that is a live check owed in ADR-030.
+Standalone classifier verdicts were not itemized separately in the 2026-11-23 acceptance confirmation (see [ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md)).
 
 The installer also merges default `pi-subagents` settings (`{"inlineToolDisplay": "summary", "asyncWidget": false, "fleetView": false}`, defined in [`references/runtimes.yaml`](../references/runtimes.yaml)) key by key into `~/.pi/agent/extensions/subagent/config.json`:
 
@@ -84,5 +84,5 @@ The installer also merges default `pi-subagents` settings (`{"inlineToolDisplay"
 ## Kill criterion
 
 Remove this runtime, by a new ADR, after four weeks unused or after two Pi or package upgrades that break the spike. The
-known limits and the checks still owed before the ADR is accepted are in
+known limits are in
 [ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md#consequences).

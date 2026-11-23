@@ -131,8 +131,7 @@ none of these.
 ## Pi runtime (opt-in)
 
 Claude Code stays the default. The Pi coding agent is an opt-in second runtime
-([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), status
-Proposed; what ships is described in [pi/README.md](pi/README.md)):
+([ADR-030](docs/decisions/ADR-030-pi-runtime-rendered-at-install.md); what ships is described in [pi/README.md](pi/README.md)):
 
 ```bash
 ./install.sh --runtime=pi [--dry-run] [--force] [-y] [--with=ID[,ID]] [--without=ID[,ID]]
@@ -190,7 +189,7 @@ Proposed; what ships is described in [pi/README.md](pi/README.md)):
   config alone, with a warning, when your settings give the permission system or
   the classifier any version spec (a pin, a range or a tag), and refuses an
   `authorizerChain` that is not an array of strings or would pass 1000 entries.
-  Whether the classifier decides well is still an open live check (see ADR-030).
+  Standalone classifier verdicts were not itemized separately in the 2026-11-23 acceptance confirmation (see ADR-030).
   Ownership, backups, `--force`, `--dry-run`, `pending` recovery, and
   `--uninstall` follow the same rules as the Claude Code installer. A config file
   there that is a symlink is written through to its target, even outside
@@ -213,7 +212,7 @@ Proposed; what ships is described in [pi/README.md](pi/README.md)):
 - The Pi review gate is the read-only `b-reviewer` subagent only; `b-worker`
   and parallel worktree steps are supported via `subagent` ([ADR-031](docs/decisions/ADR-031-pi-worker-steps.md)).
   There is no status line, todo, plan mode, sandbox, or Codex gate on Pi.
-- Known limits and the live checks still owed before acceptance are in the
+- Known limits are in the
   ADR's Consequences. Remove the runtime, by a new ADR, after four weeks unused
   or two Pi or package upgrades that break `tests/pi/spike.sh`.
 

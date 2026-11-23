@@ -1,8 +1,8 @@
 # ADR-030: Pi as an opt-in second runtime, rendered at install time
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-21
-- Supersedes: none yet; on acceptance (see Pending acceptance) it supersedes [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Until then those three are unchanged; `install.sh --runtime=pi` is an opt-in install of the Pi runtime under `~/.pi/agent` and Claude Code stays the default.
+- Supersedes: [ADR-020](ADR-020-claude-code-only-again.md) and [ADR-027](ADR-027-antigravity-runtime-removed.md) (no-second-runtime decision), and the no-second-runtime lines of [ADR-001](ADR-001-b-agentic-design-record.md). Claude Code stays the default runtime and `install.sh --runtime=pi` installs the opt-in Pi runtime under `~/.pi/agent`.
 
 ## Context
 
@@ -86,8 +86,7 @@ under `tests/pi`):
   does. A live test on 2026-11-22 found both steps missing from the earlier installer.
 - Kill criterion: remove the Pi runtime, by a new ADR, when it goes unused for four weeks or when two Pi or package
   upgrades break the spike.
-- Acceptance: this ADR becomes Accepted only after the live install check on a real machine and a classifier check with
-  a real model; the status of the three superseded decisions is not touched before then.
+- Acceptance: this ADR moved to Accepted on 2026-11-23 after the 2026-11-22 live install and workflow check and the user's 2026-11-23 confirmation of practical Pi use without issues (see Acceptance below).
 
 ## Consequences
 
@@ -120,7 +119,7 @@ under `tests/pi`):
     ids and the validator fails closed on any other character or an id over 64 characters. The install probe's verdict
     helper matches with `fnmatch`, not Pi's matcher, and does not assert a bare `git push` verdict itself (the
     `mcp_policy.py` evaluator does).
-  - Classifier (from the packages' source and documentation, not observed with a real model): each ask on every surface
+  - Classifier (from the packages' source and documentation; standalone classifier verdicts were not itemized separately in the 2026-11-23 confirmation): each ask on every surface
     except `path` and `external_directory` costs a call to the session's chat model (5000 ms by default; on an error the
     ask goes to the user). The kernel reserves some asks for the user (a push to a named branch, a pull request, a tool
     that changes something outside the project), but Pi takes a link's allow as final and every verdict mode of the
@@ -168,10 +167,9 @@ Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_
 [`claude/bin/b_run.py`](../../claude/bin/b_run.py), and
 [`tests/state/cases/owner.sh`](../../tests/state/cases/owner.sh).
 
-### Pending acceptance
+### Acceptance
 
-This ADR stays Proposed until two checks that nothing automated can do have been run by a person on a real machine, and
-their results are written here:
+This ADR originally specified two live checks before acceptance:
 
 1. A real install: Pi 1.6.0 or newer and the four packages installed by the user, `./install.sh --runtime=pi`, then a
    `/b-flow` run end to end on Pi (clarify, approval, implement, verify, the `b-reviewer` gate, QA, commit), and the
@@ -185,18 +183,23 @@ their results are written here:
    was told to run by a file's content was refused or sent to the user. The spike's layout check shows only that the
    classifier is eligible to judge (the chain names it and its config exists), not that it decides.
 
-Results so far, 2026-11-22, on a real install of Pi 1.6.0 driven through a terminal by the main session: check 1 passed
-for two `/b-flow` runs in scratch repositories (one with an approval question and a `b-reviewer` round after a review
-trigger) and for `sudo true` (refused by the rule `sudo *`). The same session found the classifier installed but inert,
-because nothing set the chain entry or created its config; the installer now does both. Check 2 is still open.
+Results recorded:
 
-Optional: settle the billing and terms of a Claude Pro or Max login in Pi through `b-research` (the unverified item above).
+- **2026-11-22** (real install of Pi 1.6.0 driven through a terminal by the main session): check 1 passed for two
+  `/b-flow` runs in scratch repositories (one with an approval question and a `b-reviewer` round after a review trigger)
+  and for `sudo true` (refused by the rule `sudo *`). The same session found the classifier installed but inert because
+  nothing set the chain entry or created its config; the installer was updated to do both.
+- **2026-11-23** (user-confirmed practical Pi use without issues): accepted on the user's confirmation that the Pi
+  runtime has been used in practice with no issues. Standalone `pi-permission-classifier` verdicts for check 2 were not
+  recorded or itemized separately from general practical use (tracked as a known limit under Classifier above).
 
-On acceptance, one change makes these edits and nothing else:
+Optional (still unverified, not required for acceptance): settle the billing and terms of a Claude Pro or Max login in
+Pi through `b-research` (listed under Consequences above).
 
-- This ADR: Status becomes Accepted, the Supersedes line states what it supersedes, and this section records the results.
-- ADR-020 and ADR-027: add a note that ADR-030 supersedes their no-second-runtime decision, keeping their history.
-- ADR-001: note the same on its no-second-runtime lines.
-- `docs/decisions/README.md`: the ADR-030 index line drops "proposed" and "once accepted".
-- `AGENTS.md`, `README.md`, `REFERENCE.md` and `pi/README.md`: drop the "Proposed" status wording and the earlier-removal
-  sentences that no longer hold.
+The acceptance edits applied across the repository in this change:
+
+- This ADR: Status changed to Accepted, the Supersedes line names the superseded decisions, and this section records the results.
+- ADR-020 and ADR-027: added a `- Note:` header line stating that ADR-030 supersedes their no-second-runtime decision, keeping their history.
+- ADR-001: noted the ADR-030 opt-in Pi runtime on its no-second-runtime lines.
+- `docs/decisions/README.md`: dropped "proposed" and "once accepted" on the ADR-030 index line.
+- `AGENTS.md`, `README.md`, `REFERENCE.md` and `pi/README.md`: dropped the "Proposed" status wording and the open/owed live-check sentences that no longer hold.

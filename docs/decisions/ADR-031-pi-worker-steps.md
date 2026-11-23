@@ -1,6 +1,6 @@
 # ADR-031: Worker steps and parallel worktrees on Pi
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-22
 - Supersedes: [ADR-030](ADR-030-pi-runtime-rendered-at-install.md) in part (the no-`b-worker` and no-worktree constraints on Pi)
 
@@ -41,9 +41,11 @@ main session with `--by main`. Meanwhile `pi-subagents` 0.89.2 natively supports
 - Pi and Claude Code share the same `b-flow` `worker_steps` and `parallel_steps` lifecycle (`WORKTREE_CAP = 2`,
   `b-state worktree add|collect|remove`, and `b-state record step S-n --by worker`), with fail-closed NUL-delimited
   worktree enumeration on both runtimes.
-- Owed live check before acceptance: run a real Pi session end-to-end with a `worker_steps` step, a two-step
-  `parallel_steps` batch (including `subagent_launch`, child `guard.mjs` + `pi-permission-system` enforcement, and
-  `b-state worktree collect`), and a `parallel_checks` batch with real provider models.
+- Acceptance result (2026-11-23, user-confirmed practical Pi use without issues): accepted on the user's confirmation
+  that the Pi runtime has been used in practice with no issues. Standalone live runs of a `worker_steps` step, a
+  two-step `parallel_steps` batch (`subagent_launch`, child `guard.mjs` + `pi-permission-system` enforcement,
+  `b-state worktree collect`), and a `parallel_checks` batch with real provider models were not recorded or itemized
+  separately from general practical use.
 
 Evidence: [`references/runtimes.yaml`](../../references/runtimes.yaml),
 [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
