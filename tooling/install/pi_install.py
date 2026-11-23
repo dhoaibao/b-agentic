@@ -214,7 +214,6 @@ class Installer:
         self.counts = {"written": 0, "unchanged": 0, "kept": 0, "removed": 0}
         self.backed_up: set[Path] = set()
         self.rendered: dict[str, str] | None = None
-        self.kept_servers: set[str] = set()
         self.chain_problem: str | None = None
         guard(self.agent_dir)
 
@@ -607,14 +606,12 @@ class Installer:
         self.counts = {name: 0 for name in self.counts}
         self.warnings.clear()
         self.check_context_files()
-        self.kept_servers = set()
         self.chain_problem = self.pinned_too_old()
         if self.chain_problem:
             self.warn(self.chain_problem)
         files = self.plan_files(previous)
         kernel = self.plan_kernel(previous)
         settings = self.plan_settings(previous)
-        # The MCP plan runs first: it names the servers the user replaced, and those get no automatic approvals.
         mcp = self.plan_mcp(previous)
         permission = self.plan_permission(previous)
         classifier = self.plan_classifier(previous)
@@ -842,9 +839,9 @@ class Installer:
             raise InstallError(f"{path}: permission must be an object")
         wanted_config = self.rendered_config("permission")
         excluded = self.excluded_servers()
-        # Automatic approvals only follow a server b-agentic installs itself: a server the user replaced, one that
-        # is deselected, and one the user manages outside the shipped template (DataGrip) keep the catch-all verdict.
-        approved = set(self.rendered_config("mcp")["mcpServers"]) - excluded - self.kept_servers
+        # Automatic approvals apply to every selected server in the shipped template (including entries the user edited);
+        # deselected optional components and servers without a shipped template (DataGrip) keep the catch-all verdict.
+        approved = set(self.rendered_config("mcp")["mcpServers"]) - excluded
 
         def keeps(rule: Triple) -> bool:
             section, pattern, value = rule
@@ -1093,11 +1090,7 @@ class Installer:
                 servers[name] = entry
                 recorded[name] = entry
             else:
-                self.kept_servers.add(name)
-                self.warn(
-                    f"kept your existing MCP server '{name}' (differs from the managed entry); "
-                    "its tools get no automatic approval"
-                )
+                self.warn(f"kept your existing MCP server '{name}' (differs from the managed entry)")
         for name in self.mcp_names(manifest):
             if name in recorded or name not in servers:
                 continue

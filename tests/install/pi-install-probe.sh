@@ -194,10 +194,11 @@ grep -Fq 'kept your skill rule' <<<"$err" || fail "a conflicting user rule must 
   || fail "the user's authorizerChain links must stay in order with the classifier link appended: $(jq -c .authorizerChain "$perm")"
 [ "$(cat "$agent/extensions/pi-permission-classifier/config.json")" = '{"mode":"quick"}' ] || fail "the user's classifier config was replaced"
 [ "$(verdict bash 'sudo ls')" = deny ] || fail "the managed deny must still decide 'sudo ls' beside the user's catch-all: $(verdict bash 'sudo ls')"
-[ "$(jq -r '.permission.mcp["mcp__codegraph__codegraph_explore"] // "none"' "$perm")" != allow ] || fail "a replaced MCP server must not inherit the managed automatic approvals"
+[ "$(jq -r '.permission.mcp["mcp__codegraph__codegraph_explore"] // "none"' "$perm")" = allow ] || fail "an edited shipped MCP server must keep its managed allow rule"
 [ "$(jq -c '.mcpServers.codegraph' "$agent/mcp.json")" = '{"command":"x"}' ] && [ "$(jq -r '.mcpServers.mine.command' "$agent/mcp.json")" = y ] && [ "$(jq -r '.other' "$agent/mcp.json")" = 1 ] \
   || fail "a user MCP server or key was replaced"
 grep -Fq 'kept your existing MCP server' <<<"$err" || fail "a differing user MCP server must warn: $err"
+! grep -Fq 'no automatic approval' <<<"$err" || fail "differing server warning must not claim no automatic approval: $err"
 [ "$(head -1 "$agent/AGENTS.md")" = '# my agents' ] || fail "the user's AGENTS.md text must stay first"
 grep -Fq '<!-- b-agentic:start -->' "$agent/AGENTS.md" || fail "the kernel block must follow the user's AGENTS.md text"
 [ "$(cat "$agent/skills/mine/SKILL.md")" = '# mine' ] || fail "a user skill changed"
@@ -637,6 +638,23 @@ printf '{"synthetic":"credential"}\n' >"$work/dotfiles/auth.json"
 ln -s "$work/dotfiles/auth.json" "$agent/settings.json"
 run "$home" -y; expect_refused "a settings.json link to a file named auth.json outside the agent directory"
 [ "$(cat "$work/dotfiles/auth.json")" = '{"synthetic":"credential"}' ] || fail "the linked auth.json changed"
+
+# --- edited optional server keeps allow when selected, loses allow when deselected -----------------------------------------
+home=$(fresh_home drawio_edit)
+agent="$home/.pi/agent"
+run "$home" -y --with=drawio; expect_ok "install with drawio"
+perm="$agent/extensions/pi-permission-system/config.json"
+[ "$(jq '[.permission.mcp // {} | to_entries[] | select(.key | startswith("mcp__drawio__")) | select(.value == "allow")] | length' "$perm")" -ge 1 ] \
+  || fail "drawio allow rules must exist when selected"
+jq '.mcpServers.drawio = {"command":"my-drawio"}' "$agent/mcp.json" >"$work/mcp.json.tmp" && mv "$work/mcp.json.tmp" "$agent/mcp.json"
+run "$home" -y; expect_ok "re-install with edited drawio"
+[ "$(jq -c '.mcpServers.drawio' "$agent/mcp.json")" = '{"command":"my-drawio"}' ] || fail "edited drawio entry must be kept"
+[ "$(jq '[.permission.mcp // {} | to_entries[] | select(.key | startswith("mcp__drawio__")) | select(.value == "allow")] | length' "$perm")" -ge 1 ] \
+  || fail "edited drawio must keep allow rules while selected"
+run "$home" -y --without=drawio; expect_ok "deselect edited drawio"
+[ "$(jq -c '.mcpServers.drawio' "$agent/mcp.json")" = '{"command":"my-drawio"}' ] || fail "edited drawio entry must stay kept when deselected"
+[ "$(jq '[.permission.mcp // {} | to_entries[] | select(.key | startswith("mcp__drawio__")) | select(.value == "allow")] | length' "$perm")" -eq 0 ] \
+  || fail "deselected drawio must have no allow rules"
 
 # --- servers outside the shipped template get no automatic approvals ------------------------------------------------------
 home=$(fresh_home datagrip)
