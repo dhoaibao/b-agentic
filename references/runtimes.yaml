@@ -55,6 +55,12 @@
         "npm:pi-subagents",
         "npm:@juicesharp/rpiv-ask-user-question"
       ],
+      "theme": "dracula",
+      "subagent_config": {
+        "inlineToolDisplay": "summary",
+        "asyncWidget": false,
+        "fleetView": false
+      },
       "glossary": [
         {
           "from": "The main session first runs the Codex gate (OpenAI Codex through the `openai/codex-plugin-cc` plugin); it uses the `b-reviewer` subagent only when Codex is unavailable or the user chooses it after a refused or void Codex run.",

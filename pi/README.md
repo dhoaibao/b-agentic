@@ -1,9 +1,10 @@
 # Pi runtime (opt-in)
 
-b-agentic runs on Claude Code by default. This folder holds the two hand-written parts of the opt-in Pi runtime
-([ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), status Proposed): the helper wrappers and one
-owned extension. Everything else Pi needs (kernel, skills, prompt templates, agents, permission and MCP configuration)
-is rendered from the same sources as the Claude Code files when you install, and the rendered tree is never committed.
+b-agentic runs on Claude Code by default. This folder holds the hand-written parts of the opt-in Pi runtime
+([ADR-030](../docs/decisions/ADR-030-pi-runtime-rendered-at-install.md), status Proposed): the helper wrappers, one
+owned extension, and the vendored Dracula theme. Everything else Pi needs (kernel, skills, prompt templates, agents,
+permission, subagent, and MCP configuration) is rendered from the same sources as the Claude Code files when you
+install, and the rendered tree is never committed.
 
 ## Install and remove
 
@@ -37,7 +38,12 @@ there that is a symlink is written through to its target, wherever that is. See 
   tool and expect a tool result that reports the permission denial, not a shell error (a `!` or RPC shell command does not
   exercise that package). Slash and RPC launches of a specialist are not covered by the subagent gate (see ADR-030).
 
-## Packages
+- `themes/dracula.json`: vendored byte-for-byte from `dracula/pi-coding-agent` (MIT License) and installed to
+  `~/.pi/agent/themes/dracula.json` as a sha256-tracked managed file. `settings.json` sets `"theme": "dracula"` only
+  when `"theme"` is absent (existing user themes stay silently untouched; `--uninstall` removes `"theme"` only while
+  it still matches the recorded value).
+
+## Packages and subagent config
 
 Settings name these npm packages without versions, in this order: `pi-permission-classifier` (judges the asks of the
 permission system, so it loads first), `@gotgenes/pi-permission-system` (the permission rules), `pi-subagents`
@@ -56,6 +62,12 @@ the judge off for that project only when it sets its own `authorizerChain` (an e
 since Pi ignores a project config until then. If your settings give the permission system or the classifier any version
 spec (a pin, a range or a tag), the installer leaves both alone and warns.
 Nothing here shows yet that the classifier decides well: that is a live check owed in ADR-030.
+
+The installer also merges default `pi-subagents` settings (`{"inlineToolDisplay": "summary", "asyncWidget": false, "fleetView": false}`, defined in [`references/runtimes.yaml`](../references/runtimes.yaml)) key by key into `~/.pi/agent/extensions/subagent/config.json`:
+
+- User-only keys stay untouched, and differing values for shipped keys stay with a warning naming the key.
+- Only keys added or owned by `b-agentic` are recorded in `b-agentic/install.json`; `--uninstall` removes only those
+  unchanged owned keys and deletes `extensions/subagent/config.json` when `b-agentic` created it and it becomes `{}`.
 
 ## Checks
 

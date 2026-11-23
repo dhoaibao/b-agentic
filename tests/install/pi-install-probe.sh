@@ -91,7 +91,7 @@ expected="$work/expected.txt"
   jq -r --argjson optional "$optional" '.skills[].name | select(. as $name | $optional | index($name) | not) | "skills/\(.)/SKILL.md", "prompts/\(.).md"' "$root/skills/registry.yaml"
   (cd "$work/rendered/pi" && find agents -type f)
   printf '%s\n' AGENTS.md settings.json mcp.json extensions/pi-permission-system/config.json \
-    extensions/pi-permission-classifier/config.json \
+    extensions/pi-permission-classifier/config.json extensions/subagent/config.json themes/dracula.json \
     extensions/b-agentic/index.ts extensions/b-agentic/guard.mjs \
     b-agentic/install.json b-agentic/bin/b-run b-agentic/bin/b-snapshot b-agentic/bin/b-state \
     b-agentic/hooks/b-path-guard.mjs b-agentic/hooks/b-verify-gate.mjs b-agentic/hooks/b-spec-context.mjs \
@@ -130,6 +130,10 @@ grep -Fq 'unchanged' <<<"$out" || fail "a second install must report unchanged f
 [ "$(jq -c '.packages' "$agent/settings.json")" = '["npm:pi-permission-classifier","npm:@gotgenes/pi-permission-system","npm:pi-subagents","npm:@juicesharp/rpiv-ask-user-question"]' ] \
   || fail "the packages must be the unpinned names with the classifier first: $(jq -c .packages "$agent/settings.json")"
 [ "$(jq -c '.defaultTools' "$agent/settings.json")" = '["+grep","+find","+ls"]' ] || fail "defaultTools must add the search tools"
+[ "$(jq -r '.theme' "$agent/settings.json")" = dracula ] || fail "fresh install must set theme dracula: $(jq -c . "$agent/settings.json")"
+cmp -s "$root/pi/themes/dracula.json" "$agent/themes/dracula.json" || fail "installed themes/dracula.json must match pi/themes/dracula.json byte for byte"
+[ "$(jq -c '.' "$agent/extensions/subagent/config.json")" = '{"inlineToolDisplay":"summary","asyncWidget":false,"fleetView":false}' ] \
+  || fail "fresh install must write the subagent config: $(cat "$agent/extensions/subagent/config.json")"
 jq -e '.permission.skill == "allow" and .permission.subagent == "allow" and .permission.subagent_launch == "allow" and (.permission | has("codemode")) and .permission.bash["git reset --hard"] == "deny" and .permission.bash["sudo"] == "deny" and .permission.path["*.env"] == "deny" and .yoloMode == false' \
   "$agent/extensions/pi-permission-system/config.json" >/dev/null || fail "the permission config lacks a required rule"
 jq -e '[.mcpServers[].exposure] | all(. == "direct")' "$agent/mcp.json" >/dev/null || fail "every MCP server must carry exposure direct"
@@ -219,6 +223,67 @@ run "$home" -y; expect_ok "install before uninstall"
 run "$home" -y --uninstall; expect_ok "uninstall"
 [ ! -e "$home/.pi/agent/agents/b-worker.md" ] || fail "uninstall must remove b-worker.md"
 [ -z "$(files_under "$home/.pi")" ] || fail "uninstall left files: $(files_under "$home/.pi" | head -3)"
+
+# --- theme & subagent config ownership, warnings, --force, uninstall, and invalid JSON refusal ---------
+# AC-3: user-changed theme survives uninstall; AC-5: user-changed owned subagent key survives uninstall.
+home=$(fresh_home ownededit)
+agent="$home/.pi/agent"
+run "$home" -y; expect_ok "install before editing theme and subagent key"
+jq '.theme = "light"' "$agent/settings.json" >"$work/s.json" && mv "$work/s.json" "$agent/settings.json"
+jq '.asyncWidget = true' "$agent/extensions/subagent/config.json" >"$work/sub.json" && mv "$work/sub.json" "$agent/extensions/subagent/config.json"
+run "$home" -y --uninstall; expect_ok "uninstall after editing owned theme and subagent key"
+[ "$(jq -r '.theme' "$agent/settings.json")" = light ] || fail "uninstall must keep user-edited theme: $(cat "$agent/settings.json")"
+[ "$(jq -c '.' "$agent/extensions/subagent/config.json")" = '{"asyncWidget":true}' ] \
+  || fail "uninstall must keep user-edited subagent key and drop unchanged owned keys: $(cat "$agent/extensions/subagent/config.json")"
+
+# AC-4: seeded subagent config with differing value + user key preserves both, warns, and uninstall restores it.
+home=$(fresh_home subagentseeded)
+agent="$home/.pi/agent"
+mkdir -p "$agent/extensions/subagent"
+printf '%s\n' '{"asyncWidget":true,"mine":1}' >"$agent/extensions/subagent/config.json"
+run "$home" -y; expect_ok "install over seeded subagent config"
+grep -Fq "kept your subagent setting 'asyncWidget'" <<<"$err" || fail "differing subagent key must warn: $err"
+[ "$(jq -c '{asyncWidget,mine,inlineToolDisplay,fleetView}' "$agent/extensions/subagent/config.json")" = '{"asyncWidget":true,"mine":1,"inlineToolDisplay":"summary","fleetView":false}' ] \
+  || fail "subagent config merge failed: $(cat "$agent/extensions/subagent/config.json")"
+run "$home" -y --uninstall; expect_ok "uninstall over seeded subagent config"
+[ "$(jq -c '.' "$agent/extensions/subagent/config.json")" = '{"asyncWidget":true,"mine":1}' ] \
+  || fail "uninstall must restore seeded subagent config: $(cat "$agent/extensions/subagent/config.json")"
+
+# Pre-existing identical subagent config is unrecorded and stays on uninstall.
+home=$(fresh_home subagentsame)
+agent="$home/.pi/agent"
+mkdir -p "$agent/extensions/subagent"
+printf '%s\n' '{"inlineToolDisplay":"summary","asyncWidget":false,"fleetView":false}' >"$agent/extensions/subagent/config.json"
+run "$home" -y; expect_ok "install over identical subagent config"
+run "$home" -y --uninstall; expect_ok "uninstall over pre-existing identical subagent config"
+[ "$(jq -c '.' "$agent/extensions/subagent/config.json")" = '{"inlineToolDisplay":"summary","asyncWidget":false,"fleetView":false}' ] \
+  || fail "pre-existing identical subagent config must remain unowned and stay on uninstall"
+
+# AC-6: unowned themes/dracula.json is kept with warning, left on uninstall, and replaced only by --force after backup.
+home=$(fresh_home themecustom)
+agent="$home/.pi/agent"
+mkdir -p "$agent/themes"
+printf '{"name":"custom"}\n' >"$agent/themes/dracula.json"
+run "$home" -y; expect_ok "install over unowned themes/dracula.json"
+grep -Fq 'not installed by b-agentic' <<<"$err" || fail "unowned theme file must warn: $err"
+[ "$(cat "$agent/themes/dracula.json")" = '{"name":"custom"}' ] || fail "unowned theme file must be kept"
+run "$home" -y --uninstall; expect_ok "uninstall with unowned themes/dracula.json"
+[ "$(cat "$agent/themes/dracula.json")" = '{"name":"custom"}' ] || fail "uninstall must keep unowned theme file"
+run "$home" -y; expect_ok "reinstall over unowned themes/dracula.json"
+run "$home" -y --force; expect_ok "forced install over unowned themes/dracula.json"
+cmp -s "$root/pi/themes/dracula.json" "$agent/themes/dracula.json" || fail "--force must replace unowned theme file"
+find "$agent/b-agentic/backups" -type f -name '*themes__dracula.json' | grep -q . || fail "--force must back up unowned theme file"
+
+# AC-7: invalid JSON or non-object extensions/subagent/config.json is refused before any writes.
+for bad_subagent in '{invalid' '[]'; do
+  home=$(fresh_home "badsub_${#bad_subagent}")
+  agent="$home/.pi/agent"
+  mkdir -p "$agent/extensions/subagent"
+  printf '%s\n' "$bad_subagent" >"$agent/extensions/subagent/config.json"
+  before=$(tree "$home")
+  run "$home" -y; expect_refused "bad subagent config $bad_subagent"
+  [ "$before" = "$(tree "$home")" ] || fail "refused install for bad subagent config wrote files"
+done
 
 # --- the classifier config belongs to the user once /permission-model has rewritten it --------------------
 home=$(fresh_home classifier)

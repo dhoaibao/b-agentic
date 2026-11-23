@@ -16,7 +16,7 @@ states.
 The installer never installs Pi or a package (Pi installs the packages named in settings.json on its next start),
 never contacts the network, and runs `pi --version` only, to warn below the floor. Only the default ~/.pi/agent
 directory is written; ~/.claude and ~/.claude.json are never touched, and Pi's own bin, install, npm, sessions, and
-auth.json stay out of reach because only the managed roots below and five config files are ever written. The classifier's own config file is created
+auth.json stay out of reach because only the managed roots below and six config files are ever written. The classifier's own config file is created
 only when it is absent: it is never overwritten, even with --force, because /permission-model keeps its choices there.
 """
 
@@ -44,7 +44,7 @@ ROOT = base.ROOT
 MANIFEST_SCHEMA = 1
 PI_FLOOR = (1, 6, 0)
 PI_PACKAGE = "@earendil-works/pi-coding-agent"
-MANAGED_ROOTS = ("skills", "prompts", "agents", "extensions", "b-agentic")
+MANAGED_ROOTS = ("skills", "prompts", "agents", "extensions", "b-agentic", "themes")
 WRAPPERS = ("b-run", "b-snapshot", "b-state")
 WRAPPER_MODE = 0o700
 STRICTNESS = {"allow": 0, "ask": 1, "deny": 2}
@@ -69,6 +69,7 @@ PERMISSION_CONFIG = "extensions/pi-permission-system/config.json"
 # the permission config's `authorizerChain` names; the package enables neither itself.
 CLASSIFIER_CONFIG = "extensions/pi-permission-classifier/config.json"
 CLASSIFIER_CONFIG_TEXT = "{}\n"
+SUBAGENT_CONFIG = "extensions/subagent/config.json"
 # Before 20.9.0 the permission system rejects the whole config file for the unknown `authorizerChain` key, and before
 # 0.6.0 the classifier registers only its old link name. The installer cannot tell which version Pi will load for a
 # pin or a range, so a package entry that carries any version spec keeps the chain and the classifier config out.
@@ -126,6 +127,11 @@ def version_spec(entry: Any) -> str | None:
     source = entry if isinstance(entry, str) else entry.get("source") if isinstance(entry, dict) else None
     match = re.fullmatch(r"npm:(?:@[^/@]+/)?[^/@]+@(.+)", source) if isinstance(source, str) else None
     return match.group(1) if match else None
+
+
+def same_json_value(left: Any, right: Any) -> bool:
+    """Compare decoded JSON values without conflating booleans and integers (False == 0)."""
+    return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
 
 
 def triples(permission: dict[str, Any]) -> list[Triple]:
@@ -237,6 +243,7 @@ class Installer:
         permission = plan["permission"]
         classifier = plan["classifier"]
         mcp = plan["mcp"]
+        subagent = plan["subagent"]
         file_parts = [f"{len(files['writes'])} to write", f"{self.counts['unchanged']} unchanged"]
         if files["removals"]:
             file_parts.append(f"{len(files['removals'])} to remove")
@@ -253,6 +260,7 @@ class Installer:
             f"  {self.ui.style('settings', 'green')}: settings.json {verb(settings['text'], 'merged')}",
             f"  {self.ui.style('permission', 'green')}: {PERMISSION_CONFIG} {verb(permission['text'], 'merged')}",
             f"  {self.ui.style('classifier', 'green')}: {CLASSIFIER_CONFIG} {classifier_state}",
+            f"  {self.ui.style('subagent', 'green')}: {SUBAGENT_CONFIG} {verb(subagent['text'], 'merged')}",
             f"  {self.ui.style('mcp', 'green')}: mcp.json {verb(mcp['text'], 'merged')}",
             f"  {self.ui.style('optional', 'green')}: {optional_components.summary(self.components, self.selection)}",
         ]
@@ -321,6 +329,7 @@ class Installer:
             "mcp.json": self.agent_dir / "mcp.json",
             "the permission config": self.agent_dir / PERMISSION_CONFIG,
             "the classifier config": self.agent_dir / CLASSIFIER_CONFIG,
+            "the subagent config": self.agent_dir / SUBAGENT_CONFIG,
         }
 
     def preflight(self) -> None:
@@ -385,7 +394,13 @@ class Installer:
             }
         finally:
             shutil.rmtree(staging, ignore_errors=True)
-        for required in ("kernel.md", "config/settings.json", "config/permission.json", "config/mcp.json"):
+        for required in (
+            "kernel.md",
+            "config/settings.json",
+            "config/permission.json",
+            "config/mcp.json",
+            "config/subagent.json",
+        ):
             if required not in self.rendered:
                 raise InstallError(f"the rendered Pi tree has no {required}")
         return self.rendered
@@ -436,6 +451,12 @@ class Installer:
             files[f"b-agentic/references/{name}"] = (self.source / "references" / name).read_bytes()
         for name in WRAPPERS:
             files[f"b-agentic/bin/{name}"] = (self.source / "pi" / "bin" / name).read_bytes()
+        theme = self.rendered_config("settings").get("theme")
+        if theme:
+            theme_path = self.source / "pi" / "themes" / f"{theme}.json"
+            if not theme_path.is_file():
+                raise InstallError(f"theme file missing from source checkout: {theme_path}")
+            files[f"themes/{theme}.json"] = theme_path.read_bytes()
         # Skills and prompts call the agents, helpers, and wrappers above, so they are written last: an
         # interrupted upgrade then never publishes a skill that points at a command that was not installed yet.
         files.update(late)
@@ -529,6 +550,12 @@ class Installer:
         return {d for d in [committed, *manifest.get("pending", {}).get("kernel", [])] if d}
 
     @staticmethod
+    def theme_owners(manifest: dict[str, Any]) -> list[str]:
+        committed = manifest.get("settings", {}).get("theme")
+        pending = manifest.get("pending", {}).get("settings_theme", [])
+        return merge_unique([committed] if isinstance(committed, str) and committed else [], pending)
+
+    @staticmethod
     def mcp_candidates(manifest: dict[str, Any], name: str) -> list[Any]:
         committed = manifest.get("mcp", {}).get("servers", {}).get(name)
         pending = manifest.get("pending", {}).get("mcp_servers", {}).get(name, [])
@@ -558,6 +585,23 @@ class Installer:
         committed = manifest.get("classifier_sha256")
         return {committed} if committed else set()
 
+    @staticmethod
+    def subagent_candidates(manifest: dict[str, Any], key: str) -> list[Any]:
+        committed = manifest.get("subagent", {})
+        pending = manifest.get("pending", {}).get("subagent", {}).get(key, [])
+        candidates: list[Any] = [committed[key]] if key in committed else []
+        for value in pending:
+            if not any(same_json_value(value, existing) for existing in candidates):
+                candidates.append(value)
+        return candidates
+
+    @staticmethod
+    def subagent_keys(manifest: dict[str, Any]) -> list[str]:
+        return merge_unique(
+            list(manifest.get("subagent", {})),
+            list(manifest.get("pending", {}).get("subagent", {})),
+        )
+
     # -- planning -----------------------------------------------------------------
     def plan_all(self, previous: dict[str, Any]) -> dict[str, Any]:
         self.counts = {name: 0 for name in self.counts}
@@ -574,6 +618,7 @@ class Installer:
         mcp = self.plan_mcp(previous)
         permission = self.plan_permission(previous)
         classifier = self.plan_classifier(previous)
+        subagent = self.plan_subagent(previous)
         return {
             "files": files,
             "kernel": kernel,
@@ -581,6 +626,7 @@ class Installer:
             "permission": permission,
             "mcp": mcp,
             "classifier": classifier,
+            "subagent": subagent,
         }
 
     def plan_files(self, manifest: dict[str, Any]) -> dict[str, Any]:
@@ -757,11 +803,32 @@ class Installer:
             owned_tools = [
                 item for item in wanted["defaultTools"] if item in tools and (item in missing or item in previous_tools)
             ]
+        wanted_theme = wanted.get("theme")
+        theme_owners = self.theme_owners(manifest)
+        owned_theme: str | None = None
+        if "theme" not in settings:
+            if wanted_theme:
+                settings["theme"] = wanted_theme
+                owned_theme = wanted_theme
+        else:
+            current_theme = settings["theme"]
+            if current_theme == wanted_theme:
+                if current_theme in theme_owners:
+                    owned_theme = current_theme
+            elif current_theme in theme_owners:
+                if wanted_theme:
+                    settings["theme"] = wanted_theme
+                    owned_theme = wanted_theme
+                else:
+                    del settings["theme"]
+        record: dict[str, Any] = {"packages": owned_packages, "defaultTools": owned_tools}
+        if owned_theme is not None:
+            record["theme"] = owned_theme
         text = json_text(settings)
         return {
             "target": target,
             "text": text if not existed or target.read_text() != text else None,
-            "record": {"packages": owned_packages, "defaultTools": owned_tools},
+            "record": record,
             "created": bool(manifest.get("created", {}).get("settings", False)) or not existed,
         }
 
@@ -1046,6 +1113,39 @@ class Installer:
             "created": bool(manifest.get("created", {}).get("mcp", False)) or not existed,
         }
 
+    def plan_subagent(self, manifest: dict[str, Any]) -> dict[str, Any]:
+        path = self.agent_dir / SUBAGENT_CONFIG
+        target = self.config_target(path)
+        existed = target.exists()
+        config = read_json(target)
+        desired = self.rendered_config("subagent")
+        recorded: dict[str, Any] = {}
+        for key, value in desired.items():
+            candidates = self.subagent_candidates(manifest, key)
+            if key not in config:
+                config[key] = value
+                recorded[key] = value
+            elif same_json_value(config[key], value):
+                if candidates:
+                    recorded[key] = value
+            elif any(same_json_value(config[key], candidate) for candidate in candidates):
+                config[key] = value
+                recorded[key] = value
+            else:
+                self.warn(f"kept your subagent setting '{key}' in {path} (differs from b-agentic's)")
+        for key in self.subagent_keys(manifest):
+            if key in recorded or key not in config:
+                continue
+            if any(same_json_value(config[key], candidate) for candidate in self.subagent_candidates(manifest, key)):
+                del config[key]
+        text = json_text(config)
+        return {
+            "target": target,
+            "text": text if not existed or target.read_text() != text else None,
+            "recorded": recorded,
+            "created": bool(manifest.get("created", {}).get("subagent", False)) or not existed,
+        }
+
     # -- operations -----------------------------------------------------------
     def validate_destinations(self) -> tuple[dict[str, Any], list[str]]:
         self.preflight()
@@ -1086,8 +1186,8 @@ class Installer:
                 plan = self.plan_all(previous)
                 if warning:
                     self.warn(warning)
-        files, kernel, settings, permission, mcp, classifier = (
-            plan[key] for key in ("files", "kernel", "settings", "permission", "mcp", "classifier")
+        files, kernel, settings, permission, mcp, classifier, subagent = (
+            plan[key] for key in ("files", "kernel", "settings", "permission", "mcp", "classifier", "subagent")
         )
         created = {
             "agents_md": kernel["created"],
@@ -1095,6 +1195,7 @@ class Installer:
             "permission": permission["created"],
             "permission_chain": permission["chain_created"],
             "mcp": mcp["created"],
+            "subagent": subagent["created"],
         }
         final = {
             "schema": MANIFEST_SCHEMA,
@@ -1107,6 +1208,7 @@ class Installer:
             "permission_chain": permission["chain"],
             "classifier_sha256": classifier["sha256"],
             "mcp": {"servers": mcp["recorded"]},
+            "subagent": subagent["recorded"],
             "optional_components": dict(self.selection),
         }
         # Intent: keep the last committed ownership and list what this run may write as `pending`, so an
@@ -1128,6 +1230,7 @@ class Installer:
         intent.setdefault("permission_chain", [])
         intent.setdefault("classifier_sha256", None)
         intent.setdefault("mcp", {"servers": {}})
+        intent.setdefault("subagent", {})
         old_settings = intent.setdefault("settings", {"packages": [], "defaultTools": []})
         for key in ("packages", "defaultTools"):
             old_settings[key] = merge_unique(old_settings.get(key, []), settings["record"][key])
@@ -1137,12 +1240,22 @@ class Installer:
         pending_servers = {name: list(entries) for name, entries in old_pending.get("mcp_servers", {}).items()}
         for name, entry in mcp["recorded"].items():
             pending_servers[name] = merge_unique(pending_servers.get(name, []), [entry])
+        pending_subagent = {key: list(values) for key, values in old_pending.get("subagent", {}).items()}
+        for key, value in subagent["recorded"].items():
+            values = pending_subagent.setdefault(key, [])
+            if not any(same_json_value(value, existing) for existing in values):
+                values.append(value)
         intent["pending"] = {
             "files": pending_files,
             "kernel": merge_unique(old_pending.get("kernel", []), [kernel["sha256"]] if kernel["sha256"] else []),
             "mcp_servers": pending_servers,
             "permission": merge_unique(old_pending.get("permission", []), permission["record"]),
             "permission_chain": merge_unique(old_pending.get("permission_chain", []), permission["chain"]),
+            "settings_theme": merge_unique(
+                old_pending.get("settings_theme", []),
+                [settings["record"]["theme"]] if settings["record"].get("theme") else [],
+            ),
+            "subagent": pending_subagent,
         }
         if not self.dry_run and self.has_changes(plan):
             self.write_manifest(intent)
@@ -1159,6 +1272,7 @@ class Installer:
         self.create_classifier(classifier)
         final["classifier_sha256"] = classifier["sha256"]
         self.write_config(mcp, f"MCP servers merged in {self.agent_dir / 'mcp.json'}")
+        self.write_config(subagent, f"subagent config merged in {self.agent_dir / SUBAGENT_CONFIG}")
         self.write_config(settings, f"settings merged in {self.agent_dir / 'settings.json'}")
         for path in files["removals"]:
             if not self.dry_run:
@@ -1172,7 +1286,10 @@ class Installer:
         return bool(
             plan["files"]["writes"]
             or plan["files"]["removals"]
-            or any(plan[key]["text"] is not None for key in ("kernel", "settings", "permission", "mcp", "classifier"))
+            or any(
+                plan[key]["text"] is not None
+                for key in ("kernel", "settings", "permission", "mcp", "classifier", "subagent")
+            )
         )
 
     def write_kernel(self, kernel: dict[str, Any]) -> None:
@@ -1211,6 +1328,10 @@ class Installer:
             (
                 self.plan_classifier_removal(manifest),
                 f"classifier config removed from {self.agent_dir / CLASSIFIER_CONFIG}",
+            ),
+            (
+                self.plan_subagent_removal(manifest),
+                f"subagent config entries removed from {self.agent_dir / SUBAGENT_CONFIG}",
             ),
         )
         for plan, message in plans:
@@ -1267,9 +1388,10 @@ class Installer:
 
     def plan_settings_removal(self, manifest: dict[str, Any]) -> dict[str, Any] | None:
         record = manifest.get("settings", {})
+        theme_owners = self.theme_owners(manifest)
         path = self.agent_dir / "settings.json"
         target = self.config_target(path)
-        if not target.exists() or not (record.get("packages") or record.get("defaultTools")):
+        if not target.exists() or not (record.get("packages") or record.get("defaultTools") or theme_owners):
             return None
         settings = read_json(target)
         changed = False
@@ -1282,6 +1404,9 @@ class Installer:
                     settings[key] = kept
                     if kept == []:
                         del settings[key]
+        if "theme" in settings and settings["theme"] in theme_owners:
+            del settings["theme"]
+            changed = True
         if not changed:
             return None
         return self.removal_plan(target, settings, bool(manifest.get("created", {}).get("settings")))
@@ -1348,6 +1473,24 @@ class Installer:
         if servers == {}:
             del config["mcpServers"]
         return self.removal_plan(target, config, bool(manifest.get("created", {}).get("mcp")))
+
+    def plan_subagent_removal(self, manifest: dict[str, Any]) -> dict[str, Any] | None:
+        keys = self.subagent_keys(manifest)
+        target = self.config_target(self.agent_dir / SUBAGENT_CONFIG)
+        if not target.exists() or not keys:
+            return None
+        config = read_json(target)
+        removed = [
+            key
+            for key in keys
+            if key in config
+            and any(same_json_value(config[key], candidate) for candidate in self.subagent_candidates(manifest, key))
+        ]
+        if not removed:
+            return None
+        for key in removed:
+            del config[key]
+        return self.removal_plan(target, config, bool(manifest.get("created", {}).get("subagent")))
 
     def next_steps(self) -> list[str]:
         lines = [

@@ -159,11 +159,21 @@ Proposed; what ships is described in [pi/README.md](pi/README.md)):
   `registry_sync.py --render pi` into a fresh folder outside the checkout and is
   never committed. Hand-written parts live in `pi/` (wrappers and the guard
   extension).
-- Installed under `~/.pi/agent`: `skills/`, `prompts/`, `agents/`,
+- Installed under `~/.pi/agent`: `skills/`, `prompts/`, `agents/`, `themes/`
+  (`themes/dracula.json`, vendored from `dracula/pi-coding-agent`, MIT),
   `extensions/b-agentic/`, and `b-agentic/{bin,hooks,references}`; the manifest
   `b-agentic/install.json`; and entries merged into `AGENTS.md` (kernel block),
-  `settings.json`, `mcp.json`, and `extensions/pi-permission-system/config.json`
+  `settings.json`, `mcp.json`, `extensions/subagent/config.json`, and
+  `extensions/pi-permission-system/config.json`
   (including `authorizerChain: ["permission-judge"]`, added after your own links);
+  in `settings.json`, `"theme": "dracula"` is set only when `"theme"` is absent
+  (an existing user `"theme"` is preserved silently, and `--uninstall` removes it
+  only while it still equals the owned value); in
+  `extensions/subagent/config.json`, `inlineToolDisplay: "summary"`,
+  `asyncWidget: false`, and `fleetView: false` are merged key by key with
+  manifest ownership (user-only keys stay, differing user values stay with a
+  warning, and `--uninstall` removes only unchanged owned keys, deleting the
+  file when `b-agentic` created it and it becomes `{}`);
   `extensions/pi-permission-classifier/config.json` is created as `{}` only when
   it is absent, never replaced (not even with `--force`) and removed on uninstall
   only while it is still that `{}`. The classifier judges an ask only when both

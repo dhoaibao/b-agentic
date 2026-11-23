@@ -1607,6 +1607,7 @@ def render_pi_worker_file(
 
 PI_DEFAULT_TOOLS = ["+grep", "+find", "+ls"]
 PI_MCP_TEMPLATE = CLAUDE_DIR / "configs" / "mcp.base.json"
+PI_THEMES_DIR = ROOT / "pi" / "themes"
 
 
 def render_pi_json(data: dict[str, Any]) -> str:
@@ -1614,8 +1615,17 @@ def render_pi_json(data: dict[str, Any]) -> str:
 
 
 def render_pi_settings() -> dict[str, Any]:
-    """Settings the installer merges into Pi's settings.json: unpinned package names and the search tools."""
-    return {"packages": list(RUNTIMES["pi"]["packages"]), "defaultTools": list(PI_DEFAULT_TOOLS)}
+    """Settings the installer merges into Pi's settings.json: packages, search tools, and default theme."""
+    return {
+        "packages": list(RUNTIMES["pi"]["packages"]),
+        "defaultTools": list(PI_DEFAULT_TOOLS),
+        "theme": RUNTIMES["pi"]["theme"],
+    }
+
+
+def render_pi_subagent() -> dict[str, Any]:
+    """Default pi-subagents extension configuration merged into extensions/subagent/config.json."""
+    return dict(RUNTIMES["pi"]["subagent_config"])
 
 
 def render_pi_permission(policy: dict[str, Any]) -> dict[str, Any]:
@@ -1684,6 +1694,7 @@ def render_pi_outputs(
     outputs["config/settings.json"] = render_pi_json(render_pi_settings())
     outputs["config/permission.json"] = render_pi_json(render_pi_permission(policy))
     outputs["config/mcp.json"] = render_pi_json(render_pi_mcp())
+    outputs["config/subagent.json"] = render_pi_json(render_pi_subagent())
     return outputs, hits
 
 
@@ -1774,10 +1785,10 @@ def pi_output_errors(outputs: dict[str, str], hits: set[str]) -> list[str]:
 
 
 def pi_config_errors(outputs: dict[str, str]) -> list[str]:
-    """What the three rendered Pi config files must keep: the installer merges them without checking their meaning."""
+    """What the rendered Pi config files must keep: the installer merges them without checking their meaning."""
     errors: list[str] = []
     parsed: dict[str, Any] = {}
-    for name in ("settings", "permission", "mcp"):
+    for name in ("settings", "permission", "mcp", "subagent"):
         try:
             value = json.loads(outputs[f"config/{name}.json"])
         except (KeyError, ValueError):
@@ -1786,11 +1797,16 @@ def pi_config_errors(outputs: dict[str, str]) -> list[str]:
             parsed[name] = value
         else:
             errors.append(f"pi output config/{name}.json: missing or not a JSON object")
-    settings, mcp = parsed.get("settings"), parsed.get("mcp")
-    if settings is not None and settings.get("packages") != RUNTIMES["pi"]["packages"]:
-        errors.append(
-            "pi output config/settings.json: packages must be the unpinned runtime packages, classifier first"
-        )
+    settings, mcp, subagent = parsed.get("settings"), parsed.get("mcp"), parsed.get("subagent")
+    if settings is not None:
+        if settings.get("packages") != RUNTIMES["pi"]["packages"]:
+            errors.append(
+                "pi output config/settings.json: packages must be the unpinned runtime packages, classifier first"
+            )
+        if settings.get("theme") != RUNTIMES["pi"]["theme"]:
+            errors.append(f"pi output config/settings.json: theme must be {RUNTIMES['pi']['theme']!r}")
+    if subagent is not None and subagent != RUNTIMES["pi"]["subagent_config"]:
+        errors.append("pi output config/subagent.json: must match runtimes.pi.subagent_config")
     if mcp is not None and any(
         entry.get("exposure") != RUNTIMES["pi"]["mcp_exposure"]["default"]
         for entry in mcp.get("mcpServers", {}).values()
@@ -1970,6 +1986,15 @@ def validate_pi_regressions(
             "an MCP server with another exposure",
         ),
         (lambda o, h: o.update({"config/settings.json": "[]"}), "a settings fragment that is not an object"),
+        (
+            lambda o, h: o.update(
+                {"config/settings.json": o["config/settings.json"].replace('"theme": "dracula"', '"theme": "other"')}
+            ),
+            "a settings fragment with a drifted theme",
+        ),
+        (lambda o, h: o.pop("config/subagent.json", None), "a missing subagent config fragment"),
+        (lambda o, h: o.update({"config/subagent.json": "[]"}), "a subagent config fragment that is not an object"),
+        (lambda o, h: o.update({"config/subagent.json": "{}"}), "a subagent config fragment missing its keys"),
         (
             lambda o, h: o.update({"config/permission.json": move_ask_after_denies(o["config/permission.json"])}),
             "a bash ask placed after the denies",
@@ -2420,6 +2445,13 @@ def validate_runtime_regressions() -> list[str]:
             {**pi, "worker_excluded_tools": ["ask_user_question"]},
             {**pi, "allowed_tools": [t for t in pi["allowed_tools"] if t != "subagent_launch"]},
             {**pi, "agents": {k: v for k, v in pi["agents"].items() if k != "b-reviewer"}},
+            {key: value for key, value in pi.items() if key != "theme"},
+            {**pi, "theme": "a/b"},
+            {**pi, "theme": "system"},
+            {**pi, "theme": "missing-theme"},
+            {key: value for key, value in pi.items() if key != "subagent_config"},
+            {**pi, "subagent_config": []},
+            {**pi, "subagent_config": {}},
             {**pi, "agents": {**pi["agents"], "b-worker": {"model": "openai/gpt-6.1-terra", "thinking": "high"}}},
             {**pi, "agents": {**pi["agents"], "b-planner": {"model": "opus", "thinking": "high"}}},
             {
@@ -2508,6 +2540,35 @@ def validate_pi_runtime(config: dict[str, Any], label: str) -> list[str]:
         and set(worker_tools) & set(worker_excluded)
     ):
         errors.append(f"{label}.worker_tools: must not include any tool in worker_excluded_tools")
+    theme = ensure_string(config.get("theme"), f"{label}.theme", errors)
+    if theme:
+        if "/" in theme or theme == "system":
+            errors.append(f"{label}.theme: {theme!r} must not contain '/' or equal 'system'")
+        else:
+            theme_path = PI_THEMES_DIR / f"{theme}.json"
+            if not theme_path.is_file():
+                errors.append(f"{label}.theme: missing theme file {theme_path.relative_to(ROOT)}")
+            else:
+                try:
+                    theme_data = json.loads(theme_path.read_text())
+                except ValueError as exc:
+                    errors.append(f"{label}.theme: {theme_path.relative_to(ROOT)} is invalid JSON: {exc}")
+                else:
+                    if not isinstance(theme_data, dict) or theme_data.get("name") != theme:
+                        errors.append(
+                            f"{label}.theme: {theme_path.relative_to(ROOT)} must be an object with name {theme!r}"
+                        )
+    subagent_cfg = config.get("subagent_config")
+    if not isinstance(subagent_cfg, dict) or not subagent_cfg:
+        errors.append(f"{label}.subagent_config: expected a non-empty JSON object")
+    else:
+        for cfg_key, cfg_val in subagent_cfg.items():
+            if not isinstance(cfg_key, str) or not cfg_key:
+                errors.append(f"{label}.subagent_config: keys must be non-empty strings")
+            if isinstance(cfg_val, bool):
+                continue
+            if not isinstance(cfg_val, (str, int, float)):
+                errors.append(f"{label}.subagent_config.{cfg_key}: expected a scalar JSON value")
     for field_name, expected_names in (("agents", MANAGED_SUBAGENT_NAMES), ("workers", MANAGED_WORKER_NAMES)):
         pi_entries = config.get(field_name)
         if not isinstance(pi_entries, dict):
