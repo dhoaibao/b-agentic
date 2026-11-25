@@ -22,7 +22,7 @@ Sketch a conceptual, whiteboard, or explanatory technical diagram in Excalidraw 
 - Use `Read` and local discovery for the smallest relevant repository evidence. Select CodeGraph only when a concrete repository-wide architecture, dependency, or call-flow question is central.
 - `mcp__excalidraw__read_me` is a direct read-only tool: call it once per session before the first draw and follow its element syntax.
 - `mcp__excalidraw__create_view` draws the diagram. Set `elements` to the JSON array as a string; Claude Code asks for approval before it runs. The array is limited to 5 MB.
-- The widget opens in the system browser or a native window, not in the terminal. The widget's own tools (export, share link, checkpoints) are not model tools: never call them.
+- The widget opens in the system browser or a native window, not in the terminal. Use only `mcp__excalidraw__read_me` and `mcp__excalidraw__create_view`, whatever other tools the client exposes; never call export, share-link, or checkpoint tools (such as `export_to_excalidraw`, `save_checkpoint`, or `read_checkpoint`).
 - Use native `Write` only for a user-approved source path.
 - Do not fetch URLs or inspect live systems from diagram evidence references.
 
