@@ -381,4 +381,1111 @@ env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$curl_bin:$no
 [ ! -s "$curl_log" ] || fail "excluded modes or non-tty called curl: $(cat "$curl_log")"
 echo "install probe passed: tui-vendor"
 
+# --- Cross-runtime alias refusal: shared symlink target across Claude Code and Pi -----------
+shared="$work/shared-dotfiles.md"
+printf '# shared user notes\n' >"$shared"
+shared_before=$(sha256sum "$shared" | cut -d" " -f1)
+
+# (a) install -y with CLAUDE.md and AGENTS.md both linked to the same dotfiles file.
+home=$(fresh_home alias-install)
+mkdir -p "$home/.claude" "$home/.pi/agent"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+ln -s "$shared" "$home/.pi/agent/AGENTS.md"
+before=$(tree "$home")
+run "$home" -y; expect_refused "cross-runtime alias on install -y"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "cross-runtime install error must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "cross-runtime install error must name Pi AGENTS.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "cross-runtime install refusal modified HOME tree"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "cross-runtime install refusal modified shared target"
+[ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.pi/agent/b-agentic/install.json" ] \
+  || fail "cross-runtime install refusal must write no manifest"
+
+# (b) --uninstall after a clean install, then linking both kernel files to the same dotfiles file.
+home=$(fresh_home alias-uninstall)
+run "$home" -y; expect_ok "clean install before cross-runtime alias uninstall"
+rm -f "$home/.claude/CLAUDE.md" "$home/.pi/agent/AGENTS.md"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+ln -s "$shared" "$home/.pi/agent/AGENTS.md"
+before=$(tree "$home")
+run "$home" --uninstall; expect_refused "cross-runtime alias on --uninstall"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "cross-runtime uninstall error must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "cross-runtime uninstall error must name Pi AGENTS.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "cross-runtime uninstall refusal modified HOME tree"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "cross-runtime uninstall refusal modified shared target"
+
+# (c) interactive Proceed prompt: links created via ! before answering y must be caught by re-plan.
+home=$(fresh_home alias-replan)
+# shellcheck disable=SC2016
+link_both="!mkdir -p \"\$HOME/.claude\" \"\$HOME/.pi/agent\" && ln -sf \"$shared\" \"\$HOME/.claude/CLAUDE.md\" && ln -sf \"$shared\" \"\$HOME/.pi/agent/AGENTS.md\""
+tui_out=$(tui_run_refused "$home" "$shims:$PATH" "$all_cmd" "" "" "$link_both" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "cross-runtime replan error must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "cross-runtime replan error must name Pi AGENTS.md: $tui_out"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "cross-runtime replan refusal modified shared target"
+[ "$(find "$home" \( -type f -o -type l \) | sort)" = "$(printf '%s\n%s\n' "$home/.claude/CLAUDE.md" "$home/.pi/agent/AGENTS.md")" ] \
+  || fail "cross-runtime replan refusal wrote extra files under HOME"
+
+# (d) single-manifest --uninstall: refuse when aliased in either direction, keep unaliased working.
+home=$(fresh_home alias-uninstall-claude-only)
+env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+  bash "$root/install.sh" -y >/dev/null || fail "claude-only install failed"
+mv "$home/.claude/CLAUDE.md" "$shared"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+mkdir -p "$home/.pi/agent"
+ln -s "$shared" "$home/.pi/agent/AGENTS.md"
+before=$(tree "$home")
+shared_claude_before=$(sha256sum "$shared" | cut -d" " -f1)
+run "$home" --uninstall; expect_refused "cross-runtime alias on claude-only --uninstall"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "claude-only alias uninstall must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "claude-only alias uninstall must name Pi AGENTS.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "claude-only alias uninstall refusal modified HOME tree"
+[ "$shared_claude_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "claude-only alias uninstall modified shared target"
+
+printf '# shared user notes\n' >"$shared"
+home=$(fresh_home alias-uninstall-pi-only)
+env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+  bash "$root/install.sh" --runtime=pi -y >/dev/null || fail "pi-only install failed"
+mv "$home/.pi/agent/AGENTS.md" "$shared"
+ln -s "$shared" "$home/.pi/agent/AGENTS.md"
+mkdir -p "$home/.claude"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+before=$(tree "$home")
+shared_pi_before=$(sha256sum "$shared" | cut -d" " -f1)
+run "$home" --uninstall; expect_refused "cross-runtime alias on pi-only --uninstall"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "pi-only alias uninstall must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "pi-only alias uninstall must name Pi AGENTS.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "pi-only alias uninstall refusal modified HOME tree"
+[ "$shared_pi_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "pi-only alias uninstall modified shared target"
+
+home=$(fresh_home uninstall-pi-only-clean)
+env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+  bash "$root/install.sh" --runtime=pi -y >/dev/null || fail "pi-only clean install failed"
+run "$home" --uninstall; expect_ok "unaliased uninstall when only Pi installed"
+[ ! -e "$home/.pi/agent/b-agentic/install.json" ] || fail "Pi must be uninstalled"
+[ ! -e "$home/.claude" ] || fail "Claude dir must not be created when Claude had no manifest"
+
+# (e) mixed-format alias (CLAUDE.md and Pi settings.json linked to Markdown file) before JSON parsing.
+printf '# shared user notes\n' >"$shared"
+home=$(fresh_home alias-mixed-install)
+mkdir -p "$home/.claude" "$home/.pi/agent"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+ln -s "$shared" "$home/.pi/agent/settings.json"
+before=$(tree "$home")
+run "$home" -y; expect_refused "mixed-format cross-runtime alias on install -y"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "mixed-format install error must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi settings.json' <<<"$err" || fail "mixed-format install error must name Pi settings.json: $err"
+[ "$before" = "$(tree "$home")" ] || fail "mixed-format install refusal modified HOME tree"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "mixed-format install refusal modified shared target"
+
+home=$(fresh_home alias-mixed-uninstall)
+run "$home" -y; expect_ok "clean install before mixed-format uninstall"
+rm -f "$home/.claude/CLAUDE.md" "$home/.pi/agent/settings.json"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+ln -s "$shared" "$home/.pi/agent/settings.json"
+before=$(tree "$home")
+run "$home" --uninstall; expect_refused "mixed-format cross-runtime alias on --uninstall"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "mixed-format uninstall error must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi settings.json' <<<"$err" || fail "mixed-format uninstall error must name Pi settings.json: $err"
+[ "$before" = "$(tree "$home")" ] || fail "mixed-format uninstall refusal modified HOME tree"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "mixed-format uninstall refusal modified shared target"
+
+home=$(fresh_home alias-mixed-replan)
+# shellcheck disable=SC2016
+link_mixed="!mkdir -p \"\$HOME/.claude\" \"\$HOME/.pi/agent\" && ln -sf \"$shared\" \"\$HOME/.claude/CLAUDE.md\" && ln -sf \"$shared\" \"\$HOME/.pi/agent/settings.json\""
+tui_out=$(tui_run_refused "$home" "$shims:$PATH" "$all_cmd" "" "" "$link_mixed" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "mixed-format replan error must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi settings.json' <<<"$tui_out" || fail "mixed-format replan error must name Pi settings.json: $tui_out"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "mixed-format replan refusal modified shared target"
+[ "$(find "$home" \( -type f -o -type l \) | sort)" = "$(printf '%s\n%s\n' "$home/.claude/CLAUDE.md" "$home/.pi/agent/settings.json")" ] \
+  || fail "mixed-format replan refusal wrote extra files under HOME"
+
+# (f) config hard-linked to opposite-runtime managed payload (Claude settings.json <-> Pi skills/b-review/SKILL.md).
+for mode in install uninstall; do
+  home=$(fresh_home "alias-payload-config-$mode")
+  run "$home" -y; expect_ok "clean install before payload config $mode"
+  ln -f "$home/.pi/agent/skills/b-review/SKILL.md" "$home/.claude/settings.json"
+  before=$(tree "$home")
+  inode_before=$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)
+  if [ "$mode" = "install" ]; then
+    run "$home" -y; expect_refused "config-to-payload hard link on install -y"
+  else
+    run "$home" --uninstall; expect_refused "config-to-payload hard link on --uninstall"
+  fi
+  grep -Fq 'Claude Code settings.json' <<<"$err" || fail "payload-config $mode error must name Claude Code settings.json: $err"
+  grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$err" || fail "payload-config $mode error must name Pi skills/b-review/SKILL.md: $err"
+  [ "$before" = "$(tree "$home")" ] || fail "payload-config $mode refusal modified HOME tree"
+  [ "$inode_before" = "$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)" ] \
+    || fail "payload-config $mode refusal modified shared inode"
+done
+
+home=$(fresh_home alias-payload-config-replan)
+run "$home" -y; expect_ok "clean install before payload config replan"
+# shellcheck disable=SC2016
+link_payload_cfg="!ln -f \"\$HOME/.pi/agent/skills/b-review/SKILL.md\" \"\$HOME/.claude/settings.json\" && (cd \"\$HOME\" && find . \\( -type f -o -type l \\) -not -path '*/b-agentic/backups/*' -print0 | sort -z | xargs -0 sha256sum >\"$work/replan-cfg.tree\")"
+inode_before=$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)
+tui_out=$(tui_run_refused "$home" "$shims:$PATH" "$all_cmd" "" "" "$link_payload_cfg" y)
+grep -Fq 'Claude Code settings.json' <<<"$tui_out" || fail "payload-config replan error must name Claude Code settings.json: $tui_out"
+grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$tui_out" || fail "payload-config replan error must name Pi skills/b-review/SKILL.md: $tui_out"
+after=$(cd "$home" && find . \( -type f -o -type l \) -not -path '*/b-agentic/backups/*' -print0 | sort -z | xargs -0 sha256sum)
+[ "$(cat "$work/replan-cfg.tree")" = "$after" ] || fail "payload-config replan refusal modified HOME tree"
+[ "$inode_before" = "$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)" ] \
+  || fail "payload-config replan refusal modified shared inode"
+
+# (g) manifest hard-linked to opposite-runtime managed payload (Claude install.json <-> Pi skills/b-review/SKILL.md).
+for mode in install uninstall; do
+  home=$(fresh_home "alias-payload-manifest-$mode")
+  run "$home" -y; expect_ok "clean install before payload manifest $mode"
+  ln -f "$home/.pi/agent/skills/b-review/SKILL.md" "$home/.claude/b-agentic/install.json"
+  before=$(tree "$home")
+  inode_before=$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)
+  if [ "$mode" = "install" ]; then
+    run "$home" -y; expect_refused "manifest-to-payload hard link on install -y"
+  else
+    run "$home" --uninstall; expect_refused "manifest-to-payload hard link on --uninstall"
+  fi
+  grep -Fq 'Claude Code the install manifest' <<<"$err" || fail "payload-manifest $mode error must name Claude Code the install manifest: $err"
+  grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$err" || fail "payload-manifest $mode error must name Pi skills/b-review/SKILL.md: $err"
+  [ "$before" = "$(tree "$home")" ] || fail "payload-manifest $mode refusal modified HOME tree"
+  [ "$inode_before" = "$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)" ] \
+    || fail "payload-manifest $mode refusal modified shared inode"
+done
+
+home=$(fresh_home alias-payload-manifest-replan)
+run "$home" -y; expect_ok "clean install before payload manifest replan"
+# shellcheck disable=SC2016
+link_payload_manifest="!ln -f \"\$HOME/.pi/agent/skills/b-review/SKILL.md\" \"\$HOME/.claude/b-agentic/install.json\" && (cd \"\$HOME\" && find . \\( -type f -o -type l \\) -not -path '*/b-agentic/backups/*' -print0 | sort -z | xargs -0 sha256sum >\"$work/replan-manifest.tree\")"
+inode_before=$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)
+tui_out=$(tui_run_refused "$home" "$shims:$PATH" "$all_cmd" "" "" "$link_payload_manifest" y)
+grep -Fq 'Claude Code the install manifest' <<<"$tui_out" || fail "payload-manifest replan error must name Claude Code the install manifest: $tui_out"
+grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$tui_out" || fail "payload-manifest replan error must name Pi skills/b-review/SKILL.md: $tui_out"
+after=$(cd "$home" && find . \( -type f -o -type l \) -not -path '*/b-agentic/backups/*' -print0 | sort -z | xargs -0 sha256sum)
+[ "$(cat "$work/replan-manifest.tree")" = "$after" ] || fail "payload-manifest replan refusal modified HOME tree"
+[ "$inode_before" = "$(sha256sum "$home/.pi/agent/skills/b-review/SKILL.md" | cut -d" " -f1)" ] \
+  || fail "payload-manifest replan refusal modified shared inode"
+
+# (h) direct cross-root symlinks in both directions across install, uninstall, and replan (R3-1).
+for dir_case in claude-to-pi pi-to-claude; do
+  home=$(fresh_home "alias-direct-install-$dir_case")
+  mkdir -p "$home/.claude" "$home/.pi/agent"
+  if [ "$dir_case" = "claude-to-pi" ]; then
+    ln -s "$home/.pi/agent/AGENTS.md" "$home/.claude/CLAUDE.md"
+  else
+    ln -s "$home/.claude/CLAUDE.md" "$home/.pi/agent/AGENTS.md"
+  fi
+  before=$(tree "$home")
+  run "$home" -y; expect_refused "direct cross-root symlink $dir_case on install -y"
+  grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "direct $dir_case install error must name Claude Code CLAUDE.md: $err"
+  grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "direct $dir_case install error must name Pi AGENTS.md: $err"
+  [ "$before" = "$(tree "$home")" ] || fail "direct $dir_case install refusal modified HOME tree"
+
+  home=$(fresh_home "alias-direct-uninstall-$dir_case")
+  run "$home" -y; expect_ok "clean install before direct $dir_case uninstall"
+  if [ "$dir_case" = "claude-to-pi" ]; then
+    rm -f "$home/.claude/CLAUDE.md"
+    ln -s "$home/.pi/agent/AGENTS.md" "$home/.claude/CLAUDE.md"
+  else
+    rm -f "$home/.pi/agent/AGENTS.md"
+    ln -s "$home/.claude/CLAUDE.md" "$home/.pi/agent/AGENTS.md"
+  fi
+  before=$(tree "$home")
+  target_before=$(sha256sum "$home/.claude/CLAUDE.md" 2>/dev/null || sha256sum "$home/.pi/agent/AGENTS.md")
+  run "$home" --uninstall; expect_refused "direct cross-root symlink $dir_case on --uninstall"
+  grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "direct $dir_case uninstall error must name Claude Code CLAUDE.md: $err"
+  grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "direct $dir_case uninstall error must name Pi AGENTS.md: $err"
+  [ "$before" = "$(tree "$home")" ] || fail "direct $dir_case uninstall refusal modified HOME tree"
+  target_after=$(sha256sum "$home/.claude/CLAUDE.md" 2>/dev/null || sha256sum "$home/.pi/agent/AGENTS.md")
+  [ "$target_before" = "$target_after" ] || fail "direct $dir_case uninstall modified target"
+
+  home=$(fresh_home "alias-direct-replan-$dir_case")
+  if [ "$dir_case" = "claude-to-pi" ]; then
+    # shellcheck disable=SC2016
+    link_direct="!mkdir -p \"\$HOME/.claude\" \"\$HOME/.pi/agent\" && ln -sf \"\$HOME/.pi/agent/AGENTS.md\" \"\$HOME/.claude/CLAUDE.md\" && (cd \"\$HOME\" && find . \\( -type f -o -type l \\) -print0 | sort -z | xargs -0 -r sh -c 'for f; do if [ -L \"\$f\" ]; then printf \"link %s -> %s\\n\" \"\$f\" \"\$(readlink \"\$f\")\"; else sha256sum \"\$f\"; fi; done' _ >\"$work/direct-$dir_case.tree\")"
+  else
+    # shellcheck disable=SC2016
+    link_direct="!mkdir -p \"\$HOME/.claude\" \"\$HOME/.pi/agent\" && ln -sf \"\$HOME/.claude/CLAUDE.md\" \"\$HOME/.pi/agent/AGENTS.md\" && (cd \"\$HOME\" && find . \\( -type f -o -type l \\) -print0 | sort -z | xargs -0 -r sh -c 'for f; do if [ -L \"\$f\" ]; then printf \"link %s -> %s\\n\" \"\$f\" \"\$(readlink \"\$f\")\"; else sha256sum \"\$f\"; fi; done' _ >\"$work/direct-$dir_case.tree\")"
+  fi
+  tui_out=$(tui_run_refused "$home" "$shims:$PATH" "$all_cmd" "" "" "$link_direct" y)
+  grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "direct $dir_case replan error must name Claude Code CLAUDE.md: $tui_out"
+  grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "direct $dir_case replan error must name Pi AGENTS.md: $tui_out"
+  [ "$(cat "$work/direct-$dir_case.tree")" = "$(tree "$home")" ] || fail "direct $dir_case replan refusal modified HOME tree"
+done
+
+# (i) intra-runtime duplicate sharing a target with the other runtime reports cross-runtime pair first (R3-1).
+printf '# shared user notes\n' >"$shared"
+shared_before=$(sha256sum "$shared" | cut -d" " -f1)
+
+home=$(fresh_home alias-dup-install)
+mkdir -p "$home/.claude" "$home/.pi/agent"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+ln -s "$shared" "$home/.claude/settings.json"
+ln -s "$shared" "$home/.pi/agent/AGENTS.md"
+before=$(tree "$home")
+run "$home" -y; expect_refused "local duplicate + cross-runtime alias on install -y"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "dup+cross install must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "dup+cross install must name Pi AGENTS.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "dup+cross install refusal modified HOME tree"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "dup+cross install modified shared target"
+
+home=$(fresh_home alias-dup-uninstall)
+run "$home" -y; expect_ok "clean install before dup+cross uninstall"
+rm -f "$home/.claude/CLAUDE.md" "$home/.claude/settings.json" "$home/.pi/agent/AGENTS.md"
+ln -s "$shared" "$home/.claude/CLAUDE.md"
+ln -s "$shared" "$home/.claude/settings.json"
+ln -s "$shared" "$home/.pi/agent/AGENTS.md"
+before=$(tree "$home")
+run "$home" --uninstall; expect_refused "local duplicate + cross-runtime alias on --uninstall"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "dup+cross uninstall must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "dup+cross uninstall must name Pi AGENTS.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "dup+cross uninstall refusal modified HOME tree"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "dup+cross uninstall modified shared target"
+
+home=$(fresh_home alias-dup-replan)
+# shellcheck disable=SC2016
+link_dup="!mkdir -p \"\$HOME/.claude\" \"\$HOME/.pi/agent\" && ln -sf \"$shared\" \"\$HOME/.claude/CLAUDE.md\" && ln -sf \"$shared\" \"\$HOME/.claude/settings.json\" && ln -sf \"$shared\" \"\$HOME/.pi/agent/AGENTS.md\" && (cd \"\$HOME\" && find . \\( -type f -o -type l \\) -print0 | sort -z | xargs -0 -r sh -c 'for f; do if [ -L \"\$f\" ]; then printf \"link %s -> %s\\n\" \"\$f\" \"\$(readlink \"\$f\")\"; else sha256sum \"\$f\"; fi; done' _ >\"$work/dup-replan.tree\")"
+tui_out=$(tui_run_refused "$home" "$shims:$PATH" "$all_cmd" "" "" "$link_dup" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "dup+cross replan must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "dup+cross replan must name Pi AGENTS.md: $tui_out"
+[ "$(cat "$work/dup-replan.tree")" = "$(tree "$home")" ] || fail "dup+cross replan refusal modified HOME tree"
+[ "$shared_before" = "$(sha256sum "$shared" | cut -d" " -f1)" ] || fail "dup+cross replan modified shared target"
+
+# (j) manifest-free uninstall and --without exclusions ignore unowned hard-linked user files (R3-2).
+home=$(fresh_home unowned-uninstall)
+mkdir -p "$home/.claude/skills/b-plan" "$home/.claude/skills/b-review" \
+         "$home/.pi/agent/skills/b-plan" "$home/.pi/agent/skills/b-review"
+printf '# user claude plan\n' >"$home/.claude/skills/b-plan/SKILL.md"
+ln -f "$home/.claude/skills/b-plan/SKILL.md" "$home/.claude/skills/b-review/SKILL.md"
+printf '# user pi plan\n' >"$home/.pi/agent/skills/b-plan/SKILL.md"
+ln -f "$home/.pi/agent/skills/b-plan/SKILL.md" "$home/.pi/agent/skills/b-review/SKILL.md"
+before=$(tree "$home")
+run "$home" --uninstall; expect_ok "manifest-free uninstall with hard-linked user skills"
+[ "$before" = "$(tree "$home")" ] || fail "manifest-free uninstall modified user files"
+
+home=$(fresh_home excluded-install)
+mkdir -p "$home/.claude/skills/b-drawio" "$home/.claude/skills/b-plan" \
+         "$home/.pi/agent/skills/b-drawio"
+printf '# user claude drawio\n' >"$home/.claude/skills/b-drawio/SKILL.md"
+ln -f "$home/.claude/skills/b-drawio/SKILL.md" "$home/.claude/skills/b-plan/SKILL.md"
+ln -f "$home/.claude/skills/b-drawio/SKILL.md" "$home/.pi/agent/skills/b-drawio/SKILL.md"
+run "$home" -y --without=drawio; expect_ok "install with --without=drawio and unowned hard-linked drawio files"
+[ -f "$home/.claude/b-agentic/install.json" ] && [ -f "$home/.pi/agent/b-agentic/install.json" ] \
+  || fail "--without=drawio install missing manifests"
+
+home=$(fresh_home excluded-replan)
+stub_bin="$work/stub-excluded"
+mkdir -p "$stub_bin"
+cp "$shims/pi" "$stub_bin/pi"
+for tool in claude rtk codegraph; do
+  printf '#!/bin/sh\nexit 0\n' >"$stub_bin/$tool"
+done
+chmod +x "$stub_bin"/*
+# shellcheck disable=SC2016
+link_excluded='!mkdir -p "$HOME/.claude/skills/b-drawio" "$HOME/.claude/skills/b-plan" "$HOME/.pi/agent/skills/b-drawio" && printf "# user drawio\n" >"$HOME/.claude/skills/b-drawio/SKILL.md" && ln -f "$HOME/.claude/skills/b-drawio/SKILL.md" "$HOME/.claude/skills/b-plan/SKILL.md" && ln -f "$HOME/.claude/skills/b-drawio/SKILL.md" "$HOME/.pi/agent/skills/b-drawio/SKILL.md"'
+tui_out=$(tui_run_path "$home" "$stub_bin:$novendor" "$all_cmd --without=drawio" "$link_excluded" y n)
+[ -f "$home/.claude/b-agentic/install.json" ] && [ -f "$home/.pi/agent/b-agentic/install.json" ] \
+  || fail "--without=drawio replan must succeed: $tui_out"
+
+# (k) constructor MCP-file link (~/.claude.json -> ~/.pi/agent/settings.json) on install and uninstall (R4-1).
+home=$(fresh_home alias-mcp-install)
+mkdir -p "$home/.pi/agent"
+printf '{}\n' >"$home/.pi/agent/settings.json"
+ln -s "$home/.pi/agent/settings.json" "$home/.claude.json"
+before=$(tree "$home")
+run "$home" -y; expect_refused ".claude.json -> Pi settings.json on install -y"
+grep -Fq 'Claude Code .claude.json' <<<"$err" || fail "mcp-link install must name Claude Code .claude.json: $err"
+grep -Fq 'Pi settings.json' <<<"$err" || fail "mcp-link install must name Pi settings.json: $err"
+[ "$before" = "$(tree "$home")" ] || fail "mcp-link install refusal modified HOME tree"
+
+home=$(fresh_home alias-mcp-uninstall)
+run "$home" -y; expect_ok "clean install before mcp-link uninstall"
+rm -f "$home/.claude.json"
+ln -s "$home/.pi/agent/settings.json" "$home/.claude.json"
+before=$(tree "$home")
+run "$home" --uninstall; expect_refused ".claude.json -> Pi settings.json on --uninstall"
+grep -Fq 'Claude Code .claude.json' <<<"$err" || fail "mcp-link uninstall must name Claude Code .claude.json: $err"
+grep -Fq 'Pi settings.json' <<<"$err" || fail "mcp-link uninstall must name Pi settings.json: $err"
+[ "$before" = "$(tree "$home")" ] || fail "mcp-link uninstall refusal modified HOME tree"
+
+# (l) symlinked runtime roots in both directions on install and uninstall (R4-1).
+for dir_case in claude-root-to-pi pi-root-to-claude; do
+  for mode in install uninstall; do
+    home=$(fresh_home "alias-root-$dir_case-$mode")
+    if [ "$dir_case" = "claude-root-to-pi" ]; then
+      mkdir -p "$home/.pi/agent"
+      ln -s "$home/.pi/agent" "$home/.claude"
+    else
+      mkdir -p "$home/.claude" "$home/.pi"
+      ln -s "$home/.claude" "$home/.pi/agent"
+    fi
+    before=$(tree "$home")
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "symlinked root $dir_case on install -y"
+    else
+      run "$home" --uninstall; expect_refused "symlinked root $dir_case on --uninstall"
+    fi
+    grep -Fq 'Claude Code ' <<<"$err" || fail "root-link $dir_case $mode must name Claude Code destination: $err"
+    grep -Fq 'Pi ' <<<"$err" || fail "root-link $dir_case $mode must name Pi destination: $err"
+    [ "$before" = "$(tree "$home")" ] || fail "root-link $dir_case $mode refusal modified HOME tree"
+  done
+done
+
+# (m) FIFO at install.json never blocks; known config alias still names both runtimes (R4-2).
+for runtime_dir in ".claude" ".pi/agent"; do
+  for mode in install uninstall; do
+    home=$(fresh_home "fifo-${runtime_dir//\//-}-$mode")
+    mkdir -p "$home/$runtime_dir/b-agentic"
+    mkfifo "$home/$runtime_dir/b-agentic/install.json"
+    rc=0
+    if [ "$mode" = "install" ]; then
+      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        timeout 5 bash "$root/install.sh" --runtime=all -y 2>"$work/stderr") || rc=$?
+    else
+      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        timeout 5 bash "$root/install.sh" --runtime=all --uninstall 2>"$work/stderr") || rc=$?
+    fi
+    err=$(cat "$work/stderr")
+    [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] || fail "FIFO manifest $runtime_dir $mode exited $rc (124=hang): $err"
+    grep -Fq 'must be a regular file' <<<"$err" || fail "FIFO manifest $runtime_dir $mode error: $err"
+
+    # With a known config alias, the cross-runtime diagnostic wins without hanging on the FIFO.
+    mkdir -p "$home/.claude" "$home/.pi/agent"
+    ln -sf "$shared" "$home/.claude/CLAUDE.md"
+    ln -sf "$shared" "$home/.pi/agent/AGENTS.md"
+    rc=0
+    if [ "$mode" = "install" ]; then
+      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        timeout 5 bash "$root/install.sh" --runtime=all -y 2>"$work/stderr") || rc=$?
+    else
+      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        timeout 5 bash "$root/install.sh" --runtime=all --uninstall 2>"$work/stderr") || rc=$?
+    fi
+    err=$(cat "$work/stderr")
+    [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] || fail "FIFO+alias $runtime_dir $mode exited $rc: $err"
+    grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "FIFO+alias $runtime_dir $mode must name Claude Code CLAUDE.md: $err"
+    grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "FIFO+alias $runtime_dir $mode must name Pi AGENTS.md: $err"
+  done
+done
+
+# (n) symlinked b-agentic directory is never read through; known config alias still names both runtimes (R4-2).
+outside_bag="$work/outside-bagentic"
+mkdir -p "$outside_bag"
+printf '{outside-not-json\n' >"$outside_bag/install.json"
+for runtime_dir in ".claude" ".pi/agent"; do
+  for mode in install uninstall; do
+    home=$(fresh_home "symdir-${runtime_dir//\//-}-$mode")
+    mkdir -p "$home/$runtime_dir"
+    ln -s "$outside_bag" "$home/$runtime_dir/b-agentic"
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "symlinked b-agentic dir $runtime_dir $mode"
+    else
+      run "$home" --uninstall; expect_refused "symlinked b-agentic dir $runtime_dir $mode"
+    fi
+    grep -Fq 'is a symlink' <<<"$err" || fail "symlinked b-agentic $runtime_dir $mode must refuse symlink, not parse outside JSON: $err"
+
+    mkdir -p "$home/.claude" "$home/.pi/agent"
+    ln -sf "$shared" "$home/.claude/CLAUDE.md"
+    ln -sf "$shared" "$home/.pi/agent/AGENTS.md"
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "symlinked b-agentic+alias $runtime_dir $mode"
+    else
+      run "$home" --uninstall; expect_refused "symlinked b-agentic+alias $runtime_dir $mode"
+    fi
+    grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "symdir+alias $runtime_dir $mode must name Claude Code CLAUDE.md: $err"
+    grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "symdir+alias $runtime_dir $mode must name Pi AGENTS.md: $err"
+  done
+done
+
+# (o) interactive install allows deselecting unowned hard-linked drawio skills recorded as selected (R4-3).
+home=$(fresh_home interactive-deselect-unowned)
+mkdir -p "$home/.claude/skills/b-drawio" "$home/.pi/agent/skills/b-drawio"
+printf '# pre-existing unowned claude drawio\n' >"$home/.claude/skills/b-drawio/SKILL.md"
+printf '# pre-existing unowned pi drawio\n' >"$home/.pi/agent/skills/b-drawio/SKILL.md"
+env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$stub_bin:$novendor" \
+  bash "$root/install.sh" --runtime=all -y --with=drawio >/dev/null || fail "seed unowned drawio install failed"
+ln -f "$home/.claude/skills/b-drawio/SKILL.md" "$home/.pi/agent/skills/b-drawio/SKILL.md"
+[ "$(jq -r '.optional_components.drawio' "$home/.claude/b-agentic/install.json")" = true ] || fail "Claude manifest should record drawio=true"
+[ "$(jq -r '.files | has("skills/b-drawio/SKILL.md")' "$home/.claude/b-agentic/install.json")" = false ] || fail "Claude unowned drawio should not be in files"
+[ "$(jq -r '.optional_components.drawio' "$home/.pi/agent/b-agentic/install.json")" = true ] || fail "Pi manifest should record drawio=true"
+[ "$(jq -r '.files | has("skills/b-drawio/SKILL.md")' "$home/.pi/agent/b-agentic/install.json")" = false ] || fail "Pi unowned drawio should not be in files"
+tui_out=$(tui_run_path "$home" "$stub_bin:$novendor" "$all_cmd" "jj " "jj " y n)
+[ "$(jq -r '.optional_components.drawio' "$home/.claude/b-agentic/install.json")" = false ] || fail "Claude drawio must be deselected: $tui_out"
+[ "$(jq -r '.optional_components.drawio' "$home/.pi/agent/b-agentic/install.json")" = false ] || fail "Pi drawio must be deselected: $tui_out"
+
+# (p) interactive install selecting two unselected Claude optional skills hard-linked to Pi AGENTS.md names cross-runtime alias (R4-3).
+home=$(fresh_home interactive-select-alias)
+mkdir -p "$home/.claude/skills/b-excalidraw" "$home/.claude/skills/b-drawio" "$home/.pi/agent"
+printf '# shared pi agents\n' >"$home/.pi/agent/AGENTS.md"
+ln -f "$home/.pi/agent/AGENTS.md" "$home/.claude/skills/b-excalidraw/SKILL.md"
+ln -f "$home/.pi/agent/AGENTS.md" "$home/.claude/skills/b-drawio/SKILL.md"
+before=$(tree "$home")
+inode_before=$(sha256sum "$home/.pi/agent/AGENTS.md" | cut -d" " -f1)
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "j j " "")
+grep -Fq 'Claude Code skills/' <<<"$tui_out" || fail "selected-alias error must name Claude Code skill path: $tui_out"
+grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "selected-alias error must name Pi AGENTS.md: $tui_out"
+[ "$before" = "$(tree "$home")" ] || fail "selected-alias refusal modified HOME tree"
+[ "$inode_before" = "$(sha256sum "$home/.pi/agent/AGENTS.md" | cut -d" " -f1)" ] || fail "selected-alias refusal modified shared inode"
+
+# (q) constructor/preflight/manifest checks do not mask payload aliases (R5-1).
+home=$(fresh_home alias-mcp-fresh-payload)
+mkdir -p "$home/.pi/agent/skills/b-review"
+ln -s "$home/.pi/agent/skills/b-review/SKILL.md" "$home/.claude.json"
+before=$(tree "$home")
+run "$home" -y; expect_refused ".claude.json -> Pi b-review SKILL.md on fresh install -y"
+grep -Fq 'Claude Code .claude.json' <<<"$err" || fail "fresh mcp->payload must name Claude Code .claude.json: $err"
+grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$err" || fail "fresh mcp->payload must name Pi skills/b-review/SKILL.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "fresh mcp->payload refusal modified HOME tree"
+
+home=$(fresh_home alias-mcp-uninstall-payload)
+run "$home" -y; expect_ok "clean install before mcp->payload uninstall"
+rm -f "$home/.claude.json"
+ln -s "$home/.pi/agent/skills/b-review/SKILL.md" "$home/.claude.json"
+before=$(tree "$home")
+run "$home" --uninstall; expect_refused ".claude.json -> Pi b-review SKILL.md on --uninstall"
+grep -Fq 'Claude Code .claude.json' <<<"$err" || fail "uninstall mcp->payload must name Claude Code .claude.json: $err"
+grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$err" || fail "uninstall mcp->payload must name Pi skills/b-review/SKILL.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "uninstall mcp->payload refusal modified HOME tree"
+
+home=$(fresh_home alias-cfg-fresh-payload-claude)
+mkdir -p "$home/.claude" "$home/.pi/agent/skills/b-review"
+ln -s "$home/.pi/agent/skills/b-review/SKILL.md" "$home/.claude/CLAUDE.md"
+before=$(tree "$home")
+run "$home" -y; expect_refused "CLAUDE.md -> Pi b-review SKILL.md on fresh install -y"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "fresh CLAUDE.md->payload must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$err" || fail "fresh CLAUDE.md->payload must name Pi skills/b-review/SKILL.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "fresh CLAUDE.md->payload refusal modified HOME tree"
+
+home=$(fresh_home alias-cfg-fresh-payload-pi)
+mkdir -p "$home/.claude/skills/b-review" "$home/.pi/agent"
+ln -s "$home/.claude/skills/b-review/SKILL.md" "$home/.pi/agent/AGENTS.md"
+before=$(tree "$home")
+run "$home" -y; expect_refused "AGENTS.md -> Claude b-review SKILL.md on fresh install -y"
+grep -Fq 'Claude Code skills/b-review/SKILL.md' <<<"$err" || fail "fresh AGENTS.md->payload must name Claude Code skills/b-review/SKILL.md: $err"
+grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "fresh AGENTS.md->payload must name Pi AGENTS.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "fresh AGENTS.md->payload refusal modified HOME tree"
+
+home=$(fresh_home alias-manifest-fresh-payload)
+mkdir -p "$home/.claude/b-agentic" "$home/.pi/agent/skills/b-review"
+printf '# not json\n' >"$home/.pi/agent/skills/b-review/SKILL.md"
+ln -f "$home/.pi/agent/skills/b-review/SKILL.md" "$home/.claude/b-agentic/install.json"
+before=$(tree "$home")
+run "$home" -y; expect_refused "manifest hard-linked to fresh Pi payload on install -y"
+grep -Fq 'Claude Code the install manifest' <<<"$err" || fail "fresh manifest->payload must name Claude Code the install manifest: $err"
+grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$err" || fail "fresh manifest->payload must name Pi skills/b-review/SKILL.md: $err"
+[ "$before" = "$(tree "$home")" ] || fail "fresh manifest->payload refusal modified HOME tree"
+
+home=$(fresh_home alias-manifest-badutf8-replan)
+# shellcheck disable=SC2016
+link_badutf8='!mkdir -p "$HOME/.claude/b-agentic" "$HOME/.pi/agent/skills/b-review" && python3 -c "import os; open(os.path.expanduser(\"~/.pi/agent/skills/b-review/SKILL.md\"), \"wb\").write(b\"\\xff\\xfeinvalid\")" && ln -f "$HOME/.pi/agent/skills/b-review/SKILL.md" "$HOME/.claude/b-agentic/install.json"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$link_badutf8" y)
+grep -Fq 'Claude Code the install manifest' <<<"$tui_out" || fail "bad-utf8 replan must name Claude Code the install manifest: $tui_out"
+grep -Fq 'Pi skills/b-review/SKILL.md' <<<"$tui_out" || fail "bad-utf8 replan must name Pi skills/b-review/SKILL.md: $tui_out"
+
+# (r) Proceed-prompt ancestor redirects (~/.pi -> ~/.claude and ~/.pi/agent -> ~/.claude/pi-agent) refuse protected paths without reading sentinel JSON (R5-2).
+home=$(fresh_home replan-protected-ancestor)
+# shellcheck disable=SC2016
+swap_pi='!mkdir -p "$HOME/.claude/agent/b-agentic" && printf "{sentinel-not-json\n" >"$HOME/.claude/agent/b-agentic/install.json" && ln -s "$HOME/.claude" "$HOME/.pi"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$swap_pi" y)
+grep -Fq 'refusing to write under ' <<<"$tui_out" \
+  || fail "redirected ~/.pi must report protected-path refusal: $tui_out"
+if grep -Fq 'not valid JSON' <<<"$tui_out"; then
+  fail "redirected ~/.pi must not read or parse sentinel install.json: $tui_out"
+fi
+
+home=$(fresh_home replan-protected-agent-dir)
+# shellcheck disable=SC2016
+swap_agent='!mkdir -p "$HOME/.claude/pi-agent/b-agentic" "$HOME/.pi" && printf "{sentinel-not-json\n" >"$HOME/.claude/pi-agent/b-agentic/install.json" && ln -s "$HOME/.claude/pi-agent" "$HOME/.pi/agent"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$swap_agent" y)
+grep -Fq 'refusing to write under the Claude Code directory' <<<"$tui_out" \
+  || fail "redirected ~/.pi/agent must report Claude Code protected-path refusal: $tui_out"
+if grep -Fq 'not valid JSON' <<<"$tui_out"; then
+  fail "redirected ~/.pi/agent must not read or parse sentinel install.json: $tui_out"
+fi
+
+# (s) supported disjoint symlinked runtime roots succeed on install and uninstall (R6-1).
+home=$(fresh_home disjoint-symlink-roots)
+ext_claude="$work/ext-claude-root"
+ext_pi="$work/ext-pi-root"
+mkdir -p "$ext_claude" "$ext_pi" "$home/.pi"
+ln -s "$ext_claude" "$home/.claude"
+ln -s "$ext_pi" "$home/.pi/agent"
+run "$home" -y; expect_ok "disjoint symlinked roots on install -y"
+[ -f "$ext_claude/b-agentic/install.json" ] && [ -f "$ext_pi/b-agentic/install.json" ] \
+  || fail "disjoint symlinked roots must install into targets"
+run "$home" --uninstall; expect_ok "disjoint symlinked roots on --uninstall"
+[ ! -e "$ext_claude/b-agentic/install.json" ] && [ ! -e "$ext_pi/b-agentic/install.json" ] \
+  || fail "disjoint symlinked roots must uninstall cleanly"
+
+# (t) malformed manifest containers (e.g. pending: null) do not mask a known alias or raise AttributeError (R6-2).
+for runtime_dir in ".claude" ".pi/agent"; do
+  for mode in install uninstall; do
+    home=$(fresh_home "badmanifest-${runtime_dir//\//-}-$mode")
+    mkdir -p "$home/$runtime_dir/b-agentic"
+    printf '{"schema":1,"target":"%s","pending":null}\n' "$( [ "$runtime_dir" = ".claude" ] && echo claude || echo pi )" \
+      >"$home/$runtime_dir/b-agentic/install.json"
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "pending:null $runtime_dir $mode without alias"
+    else
+      run "$home" --uninstall; expect_refused "pending:null $runtime_dir $mode without alias"
+    fi
+    grep -Fq 'pending must be an object' <<<"$err" || fail "pending:null must raise InstallError, not AttributeError: $err"
+
+    mkdir -p "$home/.claude" "$home/.pi/agent"
+    ln -sf "$shared" "$home/.claude/CLAUDE.md"
+    ln -sf "$shared" "$home/.pi/agent/AGENTS.md"
+    before=$(tree "$home")
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "pending:null + alias $runtime_dir $mode"
+    else
+      run "$home" --uninstall; expect_refused "pending:null + alias $runtime_dir $mode"
+    fi
+    grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "pending:null+alias must name Claude Code CLAUDE.md: $err"
+    grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "pending:null+alias must name Pi AGENTS.md: $err"
+    [ "$before" = "$(tree "$home")" ] || fail "pending:null+alias $mode modified HOME tree"
+  done
+done
+
+home=$(fresh_home badmanifest-replan)
+# shellcheck disable=SC2016
+link_badmanifest='!mkdir -p "$HOME/.claude/b-agentic" "$HOME/.pi/agent" && printf "{\"schema\":1,\"pending\":null}\n" >"$HOME/.claude/b-agentic/install.json" && ln -sf "'"$shared"'" "$HOME/.claude/CLAUDE.md" && ln -sf "'"$shared"'" "$HOME/.pi/agent/AGENTS.md"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$link_badmanifest" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "pending:null replan must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "pending:null replan must name Pi AGENTS.md: $tui_out"
+
+# (u) unrelated ELOOP symlink loop refuses when alone and does not mask a known cross-runtime alias (R6-3).
+home=$(fresh_home eloop-only)
+mkdir -p "$home/.pi/agent"
+ln -s "$home/.pi/agent/loop-b" "$home/.pi/agent/settings.json"
+ln -s "$home/.pi/agent/settings.json" "$home/.pi/agent/loop-b"
+before=$(tree "$home")
+run "$home" -y; expect_refused "eloop-only on install -y"
+[ "$before" = "$(tree "$home")" ] || fail "eloop-only refusal modified HOME tree"
+
+for mode in install uninstall; do
+  home=$(fresh_home "eloop-alias-$mode")
+  mkdir -p "$home/.claude" "$home/.pi/agent"
+  ln -s "$home/.pi/agent/loop-b" "$home/.pi/agent/settings.json"
+  ln -s "$home/.pi/agent/settings.json" "$home/.pi/agent/loop-b"
+  ln -s "$shared" "$home/.claude/CLAUDE.md"
+  ln -s "$shared" "$home/.pi/agent/AGENTS.md"
+  before=$(tree "$home")
+  if [ "$mode" = "install" ]; then
+    run "$home" -y; expect_refused "eloop+alias on install -y"
+  else
+    run "$home" --uninstall; expect_refused "eloop+alias on --uninstall"
+  fi
+  grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "eloop+alias $mode must name Claude Code CLAUDE.md: $err"
+  grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "eloop+alias $mode must name Pi AGENTS.md: $err"
+  [ "$before" = "$(tree "$home")" ] || fail "eloop+alias $mode modified HOME tree"
+done
+
+home=$(fresh_home eloop-replan)
+# shellcheck disable=SC2016
+link_eloop='!mkdir -p "$HOME/.claude" "$HOME/.pi/agent" && ln -sf "$HOME/.pi/agent/loop-b" "$HOME/.pi/agent/settings.json" && ln -sf "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/loop-b" && ln -sf "'"$shared"'" "$HOME/.claude/CLAUDE.md" && ln -sf "'"$shared"'" "$HOME/.pi/agent/AGENTS.md"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$link_eloop" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "eloop+alias replan must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "eloop+alias replan must name Pi AGENTS.md: $tui_out"
+
+# (v) permission errors on unrelated destinations/manifest parents do not mask a known alias (R7-1).
+perm_probe="$work/perm-check-dir"
+mkdir -p "$perm_probe"
+: >"$perm_probe/sentinel"
+chmod 000 "$perm_probe"
+if python3 -c 'import os, sys; os.stat(sys.argv[1])' "$perm_probe/sentinel" 2>/dev/null; then
+  chmod 700 "$perm_probe"
+  echo "install probe skipped: chmod 000 mode-bit cases (process bypasses directory modes)"
+else
+  chmod 700 "$perm_probe"
+  for target_dir in "extensions" "b-agentic"; do
+    for mode in install uninstall; do
+      home=$(fresh_home "perm-${target_dir}-$mode")
+      mkdir -p "$home/.pi/agent/$target_dir" "$home/.claude"
+      chmod 000 "$home/.pi/agent/$target_dir"
+      if [ "$mode" = "install" ]; then
+        run "$home" -y; expect_refused "EACCES $target_dir $mode without alias"
+      else
+        run "$home" --uninstall; expect_refused "EACCES $target_dir $mode without alias"
+      fi
+
+      ln -sf "$shared" "$home/.claude/CLAUDE.md"
+      ln -sf "$shared" "$home/.pi/agent/AGENTS.md"
+      if [ "$mode" = "install" ]; then
+        run "$home" -y; expect_refused "EACCES+alias $target_dir $mode"
+      else
+        run "$home" --uninstall; expect_refused "EACCES+alias $target_dir $mode"
+      fi
+      chmod 700 "$home/.pi/agent/$target_dir"
+      grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "EACCES+alias $target_dir $mode must name Claude Code CLAUDE.md: $err"
+      grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "EACCES+alias $target_dir $mode must name Pi AGENTS.md: $err"
+    done
+  done
+fi
+
+# Simulate Python 3.12 Path.is_symlink/exists/is_dir raising PermissionError on unrelated files in either runtime.
+PYTHONPATH="$root/tooling/install" ROOT_DIR="$root" WORK_DIR="$work" python3 - <<'PY' || fail "Python 3.12 PermissionError simulation failed"
+import os, shutil
+from pathlib import Path
+import all_install, claude_install
+
+root = Path(os.environ["ROOT_DIR"])
+work = Path(os.environ["WORK_DIR"]) / "py312-perm-sim"
+orig_is_symlink, orig_exists, orig_is_dir = Path.is_symlink, Path.exists, Path.is_dir
+
+for runtime in ("claude", "pi"):
+    for with_alias in (True, False):
+        home = work / f"{runtime}-alias-{with_alias}"
+        shutil.rmtree(home, ignore_errors=True)
+        (home / ".claude" / "b-agentic").mkdir(parents=True)
+        (home / ".pi" / "agent" / "b-agentic").mkdir(parents=True)
+        (home / ".claude" / "settings.json").write_text("{}\n")
+        (home / ".pi" / "agent" / "settings.json").write_text("{}\n")
+        if with_alias:
+            shared = work / "shared.md"
+            shared.write_text("# shared\n")
+            (home / ".claude" / "CLAUDE.md").symlink_to(shared)
+            (home / ".pi" / "agent" / "AGENTS.md").symlink_to(shared)
+        blocked_name = "settings.json"
+        blocked_root = home / (".claude" if runtime == "claude" else ".pi")
+
+        def boom_symlink(self):
+            if self.name == blocked_name and blocked_root in self.parents:
+                raise PermissionError(13, "Permission denied", str(self))
+            return orig_is_symlink(self)
+
+        def boom_exists(self):
+            if self.name == "b-agentic" and blocked_root in self.parents:
+                raise PermissionError(13, "Permission denied", str(self))
+            return orig_exists(self)
+
+        def boom_is_dir(self):
+            if self.name == "b-agentic" and blocked_root in self.parents:
+                raise PermissionError(13, "Permission denied", str(self))
+            return orig_is_dir(self)
+
+        os.environ["HOME"] = str(home)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        os.environ.pop("PI_CODING_AGENT_DIR", None)
+        Path.is_symlink, Path.exists, Path.is_dir = boom_symlink, boom_exists, boom_is_dir
+        try:
+            for args in (["-y", "--source", str(root)], ["--uninstall", "--source", str(root)]):
+                err_text = None
+                try:
+                    c = claude_install.Installer(root, False, False, defer_guards=True)
+                    p = all_install.pi_install.Installer(root, False, False, defer_guards=True)
+                    all_install.precheck_cross_runtime_destinations(c, p, for_uninstall=("--uninstall" in args))
+                except claude_install.InstallError as exc:
+                    err_text = str(exc)
+                if with_alias:
+                    assert err_text and "Claude Code CLAUDE.md" in err_text and "Pi AGENTS.md" in err_text, (
+                        f"{runtime} {args} expected alias error, got {err_text!r}"
+                    )
+                else:
+                    assert err_text and "Permission denied" in err_text, (
+                        f"{runtime} {args} expected deferred permission error, got {err_text!r}"
+                    )
+        finally:
+            Path.is_symlink, Path.exists, Path.is_dir = orig_is_symlink, orig_exists, orig_is_dir
+PY
+
+# (w) malformed manifest values (embedded NUL in files/pending.files and 5000-digit int) defer cleanly (R7-2).
+for runtime_dir in ".claude" ".pi/agent"; do
+  target_val=$( [ "$runtime_dir" = ".claude" ] && echo claude || echo pi )
+  for case_kind in nul-files nul-pending bigint; do
+    for mode in install uninstall; do
+      home=$(fresh_home "badval-${target_val}-${case_kind}-$mode")
+      mkdir -p "$home/$runtime_dir/b-agentic"
+      case "$case_kind" in
+        nul-files)
+          printf '{"schema":1,"target":"%s","files":{"skills/\\u0000bad/SKILL.md":"abc"}}\n' "$target_val" \
+            >"$home/$runtime_dir/b-agentic/install.json"
+          expect_msg="unsafe managed path"
+          ;;
+        nul-pending)
+          printf '{"schema":1,"target":"%s","pending":{"files":{"skills/\\u0000bad/SKILL.md":["abc"]}}}\n' "$target_val" \
+            >"$home/$runtime_dir/b-agentic/install.json"
+          expect_msg="unsafe managed path"
+          ;;
+        bigint)
+          python3 -c "import sys; open(sys.argv[1], 'w').write('{\"schema\":1,\"target\":\"' + sys.argv[2] + '\",\"big\":' + ('9' * 5000) + '}\n')" \
+            "$home/$runtime_dir/b-agentic/install.json" "$target_val"
+          expect_msg="not valid JSON"
+          ;;
+      esac
+      if [ "$mode" = "install" ]; then
+        run "$home" -y; expect_refused "$target_val $case_kind $mode without alias"
+      else
+        run "$home" --uninstall; expect_refused "$target_val $case_kind $mode without alias"
+      fi
+      grep -Fq "$expect_msg" <<<"$err" || fail "$target_val $case_kind $mode expected InstallError ($expect_msg), got: $err"
+
+      mkdir -p "$home/.claude" "$home/.pi/agent"
+      ln -sf "$shared" "$home/.claude/CLAUDE.md"
+      ln -sf "$shared" "$home/.pi/agent/AGENTS.md"
+      before=$(tree "$home")
+      if [ "$mode" = "install" ]; then
+        run "$home" -y; expect_refused "$target_val $case_kind + alias $mode"
+      else
+        run "$home" --uninstall; expect_refused "$target_val $case_kind + alias $mode"
+      fi
+      grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "$target_val $case_kind+alias $mode must name Claude Code CLAUDE.md: $err"
+      grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "$target_val $case_kind+alias $mode must name Pi AGENTS.md: $err"
+      [ "$before" = "$(tree "$home")" ] || fail "$target_val $case_kind+alias $mode modified HOME tree"
+    done
+  done
+done
+
+home=$(fresh_home badval-replan)
+# shellcheck disable=SC2016
+link_badval='!mkdir -p "$HOME/.pi/agent/b-agentic" "$HOME/.claude" && printf "{\"schema\":1,\"target\":\"pi\",\"files\":{\"skills/\\u0000bad/SKILL.md\":\"abc\"}}\n" >"$HOME/.pi/agent/b-agentic/install.json" && ln -sf "'"$shared"'" "$HOME/.claude/CLAUDE.md" && ln -sf "'"$shared"'" "$HOME/.pi/agent/AGENTS.md"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$link_badval" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "badval replan must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "badval replan must name Pi AGENTS.md: $tui_out"
+
+# (x) Pi theme (themes/dracula.json) hard-linked to CLAUDE.md is caught on install -y (--force) and replan (R8-1).
+home=$(fresh_home alias-theme-install)
+mkdir -p "$home/.claude" "$home/.pi/agent/themes"
+printf '# shared theme and claude md\n' >"$home/.pi/agent/themes/dracula.json"
+ln -f "$home/.pi/agent/themes/dracula.json" "$home/.claude/CLAUDE.md"
+before=$(tree "$home")
+inode_before=$(sha256sum "$home/.pi/agent/themes/dracula.json" | cut -d" " -f1)
+run "$home" -y --force; expect_refused "CLAUDE.md <-> Pi themes/dracula.json on install -y --force"
+grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "theme alias install must name Claude Code CLAUDE.md: $err"
+grep -Fq 'Pi themes/dracula.json' <<<"$err" || fail "theme alias install must name Pi themes/dracula.json: $err"
+[ "$before" = "$(tree "$home")" ] || fail "theme alias install refusal modified HOME tree"
+[ "$inode_before" = "$(sha256sum "$home/.pi/agent/themes/dracula.json" | cut -d" " -f1)" ] \
+  || fail "theme alias install refusal modified shared inode"
+
+home=$(fresh_home alias-theme-replan)
+# shellcheck disable=SC2016
+link_theme='!mkdir -p "$HOME/.claude" "$HOME/.pi/agent/themes" && printf "# shared theme\n" >"$HOME/.pi/agent/themes/dracula.json" && ln -f "$HOME/.pi/agent/themes/dracula.json" "$HOME/.claude/CLAUDE.md"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$link_theme" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "theme alias replan must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi themes/dracula.json' <<<"$tui_out" || fail "theme alias replan must name Pi themes/dracula.json: $tui_out"
+[ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.pi/agent/b-agentic/install.json" ] \
+  || fail "theme alias replan refusal wrote manifests"
+
+# (y) RecursionError from deeply nested JSON or long symlink chains defers cleanly (R8-2).
+for runtime_dir in ".claude" ".pi/agent"; do
+  target_val=$( [ "$runtime_dir" = ".claude" ] && echo claude || echo pi )
+  for mode in install uninstall; do
+    home=$(fresh_home "deepjson-${target_val}-$mode")
+    mkdir -p "$home/$runtime_dir/b-agentic"
+    python3 -c "import sys; open(sys.argv[1], 'w').write(('{\"a\":' * 2000) + '{}' + ('}' * 2000))" \
+      "$home/$runtime_dir/b-agentic/install.json"
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "deep JSON $target_val $mode without alias"
+    else
+      run "$home" --uninstall; expect_refused "deep JSON $target_val $mode without alias"
+    fi
+    grep -Eq 'not valid JSON|unsupported schema|not a Pi manifest' <<<"$err" || fail "deep JSON $target_val $mode must raise InstallError, got: $err"
+
+    mkdir -p "$home/.claude" "$home/.pi/agent"
+    ln -sf "$shared" "$home/.claude/CLAUDE.md"
+    ln -sf "$shared" "$home/.pi/agent/AGENTS.md"
+    before=$(tree "$home")
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "deep JSON + alias $target_val $mode"
+    else
+      run "$home" --uninstall; expect_refused "deep JSON + alias $target_val $mode"
+    fi
+    grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "deep JSON+alias $mode must name Claude Code CLAUDE.md: $err"
+    grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "deep JSON+alias $mode must name Pi AGENTS.md: $err"
+    [ "$before" = "$(tree "$home")" ] || fail "deep JSON+alias $mode modified HOME tree"
+  done
+done
+
+PYTHONPATH="$root/tooling/install" ROOT_DIR="$root" WORK_DIR="$work" python3 - <<'PY' || fail "realpath RecursionError simulation failed"
+import os, shutil
+from pathlib import Path
+import all_install, claude_install
+
+root = Path(os.environ["ROOT_DIR"])
+work = Path(os.environ["WORK_DIR"]) / "realpath-recursion-sim"
+orig_realpath = os.path.realpath
+
+for runtime in ("claude", "pi"):
+    for with_alias in (True, False):
+        home = work / f"{runtime}-alias-{with_alias}"
+        shutil.rmtree(home, ignore_errors=True)
+        (home / ".claude" / "b-agentic").mkdir(parents=True)
+        (home / ".pi" / "agent" / "b-agentic").mkdir(parents=True)
+        (home / ".claude" / "settings.json").symlink_to(home / "dangling-claude")
+        (home / ".pi" / "agent" / "settings.json").symlink_to(home / "dangling-pi")
+        if with_alias:
+            shared = work / "shared.md"
+            shared.write_text("# shared\n")
+            (home / ".claude" / "CLAUDE.md").symlink_to(shared)
+            (home / ".pi" / "agent" / "AGENTS.md").symlink_to(shared)
+        blocked_root = str(home / (".claude" if runtime == "claude" else ".pi"))
+
+        def boom_realpath(path, *args, **kwargs):
+            text = os.fspath(path)
+            if "settings.json" in text and text.startswith(blocked_root):
+                raise RecursionError("maximum recursion depth exceeded while resolving symlink")
+            return orig_realpath(path, *args, **kwargs)
+
+        os.environ["HOME"] = str(home)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        os.environ.pop("PI_CODING_AGENT_DIR", None)
+        os.path.realpath = boom_realpath
+        try:
+            for for_uninstall in (False, True):
+                err_text = None
+                try:
+                    c = claude_install.Installer(root, False, False, defer_guards=True)
+                    p = all_install.pi_install.Installer(root, False, False, defer_guards=True)
+                    all_install.precheck_cross_runtime_destinations(c, p, for_uninstall=for_uninstall)
+                except claude_install.InstallError as exc:
+                    err_text = str(exc)
+                if with_alias:
+                    assert err_text and "Claude Code CLAUDE.md" in err_text and "Pi AGENTS.md" in err_text, (
+                        f"{runtime} uninstall={for_uninstall} expected alias error, got {err_text!r}"
+                    )
+                else:
+                    assert err_text and "recursion" in err_text.lower(), (
+                        f"{runtime} uninstall={for_uninstall} expected clean InstallError, got {err_text!r}"
+                    )
+        finally:
+            os.path.realpath = orig_realpath
+PY
+
+PYTHONPATH="$root/tooling/install" ROOT_DIR="$root" WORK_DIR="$work" python3 - <<'PY' || fail "json.loads RecursionError simulation failed"
+import json, os, shutil
+from pathlib import Path
+import all_install, claude_install
+
+root = Path(os.environ["ROOT_DIR"])
+work = Path(os.environ["WORK_DIR"]) / "json-recursion-sim"
+orig_loads = json.loads
+
+for runtime in ("claude", "pi"):
+    for with_alias in (True, False):
+        home = work / f"{runtime}-alias-{with_alias}"
+        shutil.rmtree(home, ignore_errors=True)
+        (home / ".claude" / "b-agentic").mkdir(parents=True)
+        (home / ".pi" / "agent" / "b-agentic").mkdir(parents=True)
+        (home / ".claude" / "b-agentic" / "install.json").write_text("{}\n")
+        (home / ".pi" / "agent" / "b-agentic" / "install.json").write_text("{}\n")
+        if with_alias:
+            shared = work / "shared.md"
+            shared.write_text("# shared\n")
+            (home / ".claude" / "CLAUDE.md").symlink_to(shared)
+            (home / ".pi" / "agent" / "AGENTS.md").symlink_to(shared)
+        os.environ["HOME"] = str(home)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        os.environ.pop("PI_CODING_AGENT_DIR", None)
+        orig_json_loads = claude_install.json.loads
+
+        def runtime_loads(s, *args, **kwargs):
+            if s.strip() == "{}":
+                raise RecursionError("maximum recursion depth exceeded in json")
+            return orig_json_loads(s, *args, **kwargs)
+
+        claude_install.json.loads = runtime_loads
+        try:
+            for for_uninstall in (False, True):
+                err_text = None
+                try:
+                    c = claude_install.Installer(root, False, False, defer_guards=True)
+                    p = all_install.pi_install.Installer(root, False, False, defer_guards=True)
+                    all_install.precheck_cross_runtime_destinations(c, p, for_uninstall=for_uninstall)
+                except claude_install.InstallError as exc:
+                    err_text = str(exc)
+                if with_alias:
+                    assert err_text and "Claude Code CLAUDE.md" in err_text and "Pi AGENTS.md" in err_text, (
+                        f"{runtime} uninstall={for_uninstall} expected alias error, got {err_text!r}"
+                    )
+                else:
+                    assert err_text and "not valid JSON" in err_text, (
+                        f"{runtime} uninstall={for_uninstall} expected InstallError, got {err_text!r}"
+                    )
+        finally:
+            claude_install.json.loads = orig_json_loads
+PY
+
+# (z) manifest edit + config alias introduced during Claude checklist does not mask alias before Pi checklist (R8-3).
+home=$(fresh_home checklist-race-alias)
+# shellcheck disable=SC2016
+race_cmd='!mkdir -p "$HOME/.claude" "$HOME/.pi/agent/b-agentic" && printf "{broken\n" >"$HOME/.pi/agent/b-agentic/install.json" && ln -sf "'"$shared"'" "$HOME/.claude/CLAUDE.md" && ln -sf "'"$shared"'" "$HOME/.pi/agent/AGENTS.md"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "$race_cmd" "" "")
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "checklist-race must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "checklist-race must name Pi AGENTS.md: $tui_out"
+[ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.pi/agent/settings.json" ] \
+  || fail "checklist-race refusal must write no files"
+
+# (aa) manifest is never opened when root resolves to $HOME or manifest aliases same-runtime MCP config (R9-1).
+for runtime in claude pi; do
+  for mode in install uninstall; do
+    home=$(fresh_home "nomonkey-root-${runtime}-$mode")
+    mkdir -p "$home/b-agentic"
+    printf '{sentinel-not-json\n' >"$home/b-agentic/install.json"
+    if [ "$runtime" = "claude" ]; then
+      ln -s "$home" "$home/.claude"
+    else
+      mkdir -p "$home/.pi"
+      ln -s "$home" "$home/.pi/agent"
+    fi
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "root->$HOME $runtime $mode"
+    else
+      run "$home" --uninstall; expect_refused "root->$HOME $runtime $mode"
+    fi
+    grep -Fq 'refusing to manage' <<<"$err" || fail "root->$HOME $runtime $mode must refuse root: $err"
+    if grep -Fq 'not valid JSON' <<<"$err"; then
+      fail "root->$HOME $runtime $mode must not open sentinel install.json: $err"
+    fi
+
+    home=$(fresh_home "nomonkey-mcp-${runtime}-$mode")
+    if [ "$runtime" = "claude" ]; then
+      mkdir -p "$home/.claude/b-agentic"
+      printf '{sentinel-not-json\n' >"$home/.claude.json"
+      ln -f "$home/.claude.json" "$home/.claude/b-agentic/install.json"
+    else
+      mkdir -p "$home/.pi/agent/b-agentic"
+      printf '{sentinel-not-json\n' >"$home/.pi/agent/mcp.json"
+      ln -f "$home/.pi/agent/mcp.json" "$home/.pi/agent/b-agentic/install.json"
+    fi
+    if [ "$mode" = "install" ]; then
+      run "$home" -y; expect_refused "manifest<->mcp $runtime $mode"
+    else
+      run "$home" --uninstall; expect_refused "manifest<->mcp $runtime $mode"
+    fi
+    grep -Fq 'resolve to the same file' <<<"$err" || fail "manifest<->mcp $runtime $mode must report alias: $err"
+    if grep -Fq 'not valid JSON' <<<"$err"; then
+      fail "manifest<->mcp $runtime $mode must not open sentinel install.json: $err"
+    fi
+  done
+done
+
+home=$(fresh_home nomonkey-replan)
+# shellcheck disable=SC2016
+swap_root_home='!mkdir -p "$HOME/b-agentic" && printf "{sentinel-not-json\n" >"$HOME/b-agentic/install.json" && ln -s "$HOME" "$HOME/.claude"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$swap_root_home" y)
+grep -Fq 'refusing to manage' <<<"$tui_out" || fail "replan root->$HOME must report refusing to manage: $tui_out"
+if grep -Fq 'not valid JSON' <<<"$tui_out"; then
+  fail "replan root->$HOME must not open sentinel install.json: $tui_out"
+fi
+
+# (bb) malformed sibling manifest fields/keys do not hide valid aliased files or pending.files entries (R9-2).
+for runtime in claude pi; do
+  if [ "$runtime" = "claude" ]; then
+    mdir=".claude"; mtarget="claude"; opp_dir=".pi/agent"; opp_file="AGENTS.md"; opp_label="Pi AGENTS.md"; self_prefix="Claude Code"
+  else
+    mdir=".pi/agent"; mtarget="pi"; opp_dir=".claude"; opp_file="CLAUDE.md"; opp_label="Claude Code CLAUDE.md"; self_prefix="Pi"
+  fi
+  for case_kind in files-pending-null pending-mcp-null; do
+    for mode in install uninstall; do
+      home=$(fresh_home "partial-manifest-${runtime}-${case_kind}-$mode")
+      mkdir -p "$home/$mdir/b-agentic" "$home/$mdir/skills/b-retired" "$home/$opp_dir"
+      printf '# retired shared\n' >"$home/$mdir/skills/b-retired/SKILL.md"
+      if [ "$case_kind" = "files-pending-null" ]; then
+        printf '{"schema":1,"target":"%s","files":{"skills/b-retired/SKILL.md":"abc","/bad/key":"x"},"pending":null}\n' "$mtarget" \
+          >"$home/$mdir/b-agentic/install.json"
+      else
+        printf '{"schema":1,"target":"%s","files":{"/bad/key":"x"},"pending":{"files":{"skills/b-retired/SKILL.md":["abc"]}},"mcp":null}\n' "$mtarget" \
+          >"$home/$mdir/b-agentic/install.json"
+      fi
+      # Without alias: strict validation error still fires.
+      if [ "$mode" = "install" ]; then
+        run "$home" -y; expect_refused "partial manifest $runtime $case_kind $mode without alias"
+      else
+        run "$home" --uninstall; expect_refused "partial manifest $runtime $case_kind $mode without alias"
+      fi
+      grep -Eq 'must be an object|unsafe managed path' <<<"$err" || fail "partial manifest without alias: $err"
+
+      # With alias to valid entry: cross-runtime diagnostic wins.
+      ln -f "$home/$mdir/skills/b-retired/SKILL.md" "$home/$opp_dir/$opp_file"
+      before=$(tree "$home")
+      if [ "$mode" = "install" ]; then
+        run "$home" -y; expect_refused "partial manifest+alias $runtime $case_kind $mode"
+      else
+        run "$home" --uninstall; expect_refused "partial manifest+alias $runtime $case_kind $mode"
+      fi
+      grep -Fq "$self_prefix skills/b-retired/SKILL.md" <<<"$err" || fail "partial manifest+alias must name $self_prefix skills/b-retired/SKILL.md: $err"
+      grep -Fq "$opp_label" <<<"$err" || fail "partial manifest+alias must name $opp_label: $err"
+      [ "$before" = "$(tree "$home")" ] || fail "partial manifest+alias $mode modified HOME tree"
+    done
+  done
+done
+
+home=$(fresh_home partial-manifest-replan)
+# shellcheck disable=SC2016
+link_partial='!mkdir -p "$HOME/.pi/agent/b-agentic" "$HOME/.pi/agent/skills/b-retired" "$HOME/.claude" && printf "# retired\n" >"$HOME/.pi/agent/skills/b-retired/SKILL.md" && ln -f "$HOME/.pi/agent/skills/b-retired/SKILL.md" "$HOME/.claude/CLAUDE.md" && printf "{\"schema\":1,\"target\":\"pi\",\"files\":{\"/bad\":\"x\"},\"pending\":{\"files\":{\"skills/b-retired/SKILL.md\":[\"abc\"]}},\"mcp\":null}\n" >"$HOME/.pi/agent/b-agentic/install.json"'
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$link_partial" y)
+grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "partial manifest replan must name Claude Code CLAUDE.md: $tui_out"
+grep -Fq 'Pi skills/b-retired/SKILL.md' <<<"$tui_out" || fail "partial manifest replan must name Pi skills/b-retired/SKILL.md: $tui_out"
+
+# (cc) root overrides short-circuit exact defaults and defer RecursionError/unsupported overrides until after pair check (R9-3).
+PYTHONPATH="$root/tooling/install" ROOT_DIR="$root" WORK_DIR="$work" python3 - <<'PY' || fail "override RecursionError check failed"
+import os, shutil
+from pathlib import Path
+import all_install, claude_install
+
+root = Path(os.environ["ROOT_DIR"])
+work = Path(os.environ["WORK_DIR"]) / "override-recursion"
+orig_realpath = os.path.realpath
+
+# 1) Exact default overrides succeed even if realpath raises RecursionError.
+for var, suffix in (("CLAUDE_CONFIG_DIR", ".claude"), ("B_AGENTIC_CLAUDE_DIR", ".claude"), ("PI_CODING_AGENT_DIR", ".pi/agent")):
+    home = work / f"exact-{var}"
+    shutil.rmtree(home, ignore_errors=True)
+    home.mkdir(parents=True)
+    os.environ["HOME"] = str(home)
+    for k in ("CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR", "PI_CODING_AGENT_DIR"):
+        os.environ.pop(k, None)
+    os.environ[var] = str(home / suffix)
+
+    def boom_exact(path, *a, **kw):
+        raise RecursionError("realpath recursion")
+
+    os.path.realpath = boom_exact
+    try:
+        c = claude_install.Installer(root, False, False, defer_guards=True)
+        p = all_install.pi_install.Installer(root, False, False, defer_guards=True)
+        assert c.override_error is None and p.override_error is None, f"{var} exact default must not error"
+    finally:
+        os.path.realpath = orig_realpath
+
+# 2) Non-exact override hitting RecursionError defers until after independent .claude.json <-> Pi settings.json pair check.
+for var in ("CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR", "PI_CODING_AGENT_DIR"):
+    for with_alias in (True, False):
+        home = work / f"bad-{var}-{with_alias}"
+        shutil.rmtree(home, ignore_errors=True)
+        (home / ".pi" / "agent").mkdir(parents=True)
+        (home / ".pi" / "agent" / "settings.json").write_text("{}\n")
+        if with_alias:
+            (home / ".claude.json").symlink_to(home / ".pi" / "agent" / "settings.json")
+        os.environ["HOME"] = str(home)
+        for k in ("CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR", "PI_CODING_AGENT_DIR"):
+            os.environ.pop(k, None)
+        override_path = str(home / "custom-override")
+        os.environ[var] = override_path
+
+        def boom_override(path, *a, **kw):
+            if os.fspath(path) == override_path:
+                raise RecursionError("realpath recursion")
+            return orig_realpath(path, *a, **kw)
+
+        os.path.realpath = boom_override
+        try:
+            for for_uninstall in (False, True):
+                err_text = None
+                try:
+                    c = claude_install.Installer(root, False, False, defer_guards=True)
+                    p = all_install.pi_install.Installer(root, False, False, defer_guards=True)
+                    all_install.precheck_cross_runtime_destinations(c, p, for_uninstall=for_uninstall)
+                except claude_install.InstallError as exc:
+                    err_text = str(exc)
+                if with_alias:
+                    assert err_text and "Claude Code .claude.json" in err_text and "Pi settings.json" in err_text, (
+                        f"{var} uninstall={for_uninstall} expected alias error, got {err_text!r}"
+                    )
+                else:
+                    assert err_text and var in err_text and "cannot resolve directory" in err_text, (
+                        f"{var} uninstall={for_uninstall} expected deferred override error, got {err_text!r}"
+                    )
+        finally:
+            os.path.realpath = orig_realpath
+for k in ("CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR", "PI_CODING_AGENT_DIR"):
+    os.environ.pop(k, None)
+PY
+echo "install probe passed: cross-runtime-alias"
+
 echo "all install probe passed"

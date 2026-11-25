@@ -91,15 +91,32 @@ PI_PROTECTED = (
 Triple = tuple[str, "str | None", Any]
 
 
-def pi_dir() -> Path:
-    """The default ~/.pi/agent directory; any other configured directory is refused."""
+def pi_dir_checked() -> tuple[Path, InstallError | None]:
+    """Return the default ~/.pi/agent directory and any unsupported-override error."""
     default = base.home_dir() / ".pi" / "agent"
     value = os.environ.get("PI_CODING_AGENT_DIR")
-    if value and os.path.realpath(os.path.expanduser(value)) != os.path.realpath(default):
-        raise InstallError(
+    if not value:
+        return default, None
+    expanded = Path(os.path.expanduser(value))
+    if expanded == default:
+        return default, None
+    try:
+        same = os.path.realpath(expanded) == os.path.realpath(default)
+    except (OSError, RecursionError) as exc:
+        return default, InstallError(f"PI_CODING_AGENT_DIR={value}: cannot resolve directory ({exc})")
+    if not same:
+        return default, InstallError(
             f"PI_CODING_AGENT_DIR={value} is not supported: the managed hooks, wrappers, and instructions refer to "
             f"{default}. Unset it to install into {default}."
         )
+    return default, None
+
+
+def pi_dir() -> Path:
+    """The default ~/.pi/agent directory; any other configured directory is refused."""
+    default, error = pi_dir_checked()
+    if error is not None:
+        raise error
     return default
 
 
@@ -107,7 +124,9 @@ def guard(path: Path) -> None:
     base.guard_destination(path, PI_PROTECTED)
 
 
-def safe_relative(relative: str) -> str:
+def safe_relative(relative: Any) -> str:
+    if not isinstance(relative, str) or "\x00" in relative:
+        raise InstallError(f"unsafe managed path: {relative!r}")
     parts = Path(relative).parts
     if Path(relative).is_absolute() or not parts or ".." in parts or parts[0] not in MANAGED_ROOTS:
         raise InstallError(f"unsafe managed path: {relative!r}")
@@ -207,6 +226,7 @@ class Installer:
         without_ids: list[str] | None = None,
         *,
         ui: Ui | None = None,
+        defer_guards: bool = False,
     ) -> None:
         self.source = source
         self.ui = ui or Ui(enabled=False)
@@ -214,7 +234,11 @@ class Installer:
         self.with_ids = with_ids or []
         self.without_ids = without_ids or []
         self.selection: dict[str, bool] = {key: False for key in self.components}
-        self.agent_dir = pi_dir()
+        if defer_guards:
+            self.agent_dir, self.override_error = pi_dir_checked()
+        else:
+            self.agent_dir = pi_dir()
+            self.override_error = None
         self.assets_dir = self.agent_dir / "b-agentic"
         self.manifest_path = self.assets_dir / "install.json"
         self.dry_run = dry_run
@@ -226,7 +250,9 @@ class Installer:
         self.backed_up: set[Path] = set()
         self.rendered: dict[str, str] | None = None
         self.chain_problem: str | None = None
-        guard(self.agent_dir)
+        self.checked_destinations: list[tuple[str, Path]] = []
+        if not defer_guards:
+            guard(self.agent_dir)
 
     # -- output ---------------------------------------------------------------
     def say(self, text: str) -> None:
@@ -345,6 +371,9 @@ class Installer:
 
     def preflight(self) -> None:
         """Validate every directory the run may create or write into, before the first write."""
+        if self.override_error is not None:
+            raise self.override_error
+        guard(self.agent_dir)
         if self.agent_dir.exists() and not self.agent_dir.is_dir():
             raise InstallError(f"{self.agent_dir} exists but is not a directory")
         base.check_directory_chain(self.assets_dir, self.agent_dir, PI_PROTECTED)
@@ -366,6 +395,7 @@ class Installer:
             path = self.agent_dir / safe_relative(relative)
             if not path.is_symlink():  # a user-owned symlinked payload file is left alone
                 destinations.append((relative, path))
+        self.checked_destinations = destinations
         base.check_disjoint(destinations)
 
     def check_context_files(self) -> None:
@@ -535,12 +565,16 @@ class Installer:
         self.say(message)
 
     # -- manifest -------------------------------------------------------------
-    def read_manifest(self) -> dict[str, Any]:
-        manifest = read_json(self.manifest_path)
+    def validate_manifest(self, manifest: dict[str, Any]) -> None:
         if manifest and (manifest.get("schema") != MANIFEST_SCHEMA or manifest.get("target") != "pi"):
             raise InstallError(f"{self.manifest_path} is not a Pi manifest this version understands")
+        base.validate_manifest_containers(manifest, self.manifest_path)
         for relative in [*manifest.get("files", {}), *manifest.get("pending", {}).get("files", {})]:
             safe_relative(relative)
+
+    def read_manifest(self) -> dict[str, Any]:
+        manifest = read_json(self.manifest_path)
+        self.validate_manifest(manifest)
         return manifest
 
     def write_manifest(self, manifest: dict[str, Any]) -> None:
@@ -1152,6 +1186,109 @@ class Installer:
         }
 
     # -- operations -----------------------------------------------------------
+    def payload_relatives(self) -> list[str]:
+        """Relative payload paths for the current selection without rendering or touching temp dirs."""
+        excluded = self.excluded_skills()
+        registry = json.loads((self.source / "skills" / "registry.yaml").read_text())
+        files: list[str] = []
+        for skill in registry["skills"]:
+            name = skill["name"]
+            if not isinstance(name, str) or not base.SKILL_NAME.fullmatch(name):
+                raise InstallError(f"registry skill name is not a safe b-* name: {name!r}")
+            if name not in excluded:
+                files.append(f"skills/{name}/SKILL.md")
+                files.append(f"prompts/{name}.md")
+        for name in sorted(registry.get("agents", {})):
+            files.append(f"agents/{name}.md")
+        for name in sorted(registry.get("workers", {})):
+            files.append(f"agents/{name}.md")
+        files.extend(("extensions/b-agentic/index.ts", "extensions/b-agentic/guard.mjs"))
+        files.extend(f"b-agentic/hooks/{name}" for name in HOOK_FILES)
+        files.extend(
+            f"b-agentic/bin/{path.name}"
+            for path in sorted((self.source / "claude" / "bin").iterdir())
+            if HELPER_FILE.fullmatch(path.name)
+        )
+        files.extend(f"b-agentic/references/{name}" for name in REFERENCES)
+        files.extend(f"b-agentic/bin/{name}" for name in WRAPPERS)
+        theme = (
+            json.loads((self.source / "references" / "runtimes.yaml").read_text())
+            .get("runtimes", {})
+            .get("pi", {})
+            .get("theme")
+        )
+        if theme:
+            files.append(f"themes/{theme}.json")
+        return files
+
+    def cross_runtime_destinations(
+        self,
+        *,
+        for_uninstall: bool,
+        use_current_selection: bool = False,
+        include_unforced_optional: bool = True,
+    ) -> tuple[list[tuple[str, Path]], InstallError | None, dict[str, Any]]:
+        """Collect (label, resolved_target) pairs for cross-runtime comparison without local guards."""
+
+        def raw_target(path: Path) -> Path:
+            try:
+                return Path(os.path.realpath(path)) if path.is_symlink() else path
+            except (OSError, RecursionError):
+                return path
+
+        config_destinations: list[tuple[str, Path]] = [
+            (label, raw_target(path)) for label, path in self.config_paths().items()
+        ]
+        destinations: list[tuple[str, Path]] = [
+            *config_destinations,
+            ("the install manifest", raw_target(self.manifest_path)),
+        ]
+        manifest: dict[str, Any] = {}
+        relatives: list[str] = []
+        should_read, manifest_error = base.safe_manifest_status(
+            self.manifest_path, self.agent_dir, PI_PROTECTED, config_destinations
+        )
+        if should_read:
+            try:
+                raw_manifest = read_json(self.manifest_path)
+            except (InstallError, OSError, RecursionError) as exc:
+                manifest_error = (
+                    exc if isinstance(exc, InstallError) else InstallError(f"cannot read {self.manifest_path}: {exc}")
+                )
+            else:
+                manifest, relatives, manifest_error = base.extract_manifest_for_cross_check(
+                    raw_manifest, safe_relative, self.validate_manifest
+                )
+        if not for_uninstall:
+            if use_current_selection:
+                payload_relatives = self.payload_relatives()
+            else:
+                saved = self.selection
+                try:
+                    manifest_for_selection = manifest if include_unforced_optional else {}
+                    self.selection = optional_components.resolve(
+                        self.components, manifest_for_selection, self.with_ids, self.without_ids
+                    )
+                    payload_relatives = self.payload_relatives()
+                except ValueError as exc:
+                    payload_relatives = []
+                    if manifest_error is None:
+                        manifest_error = InstallError(str(exc))
+                finally:
+                    self.selection = saved
+            relatives = merge_unique(relatives, payload_relatives)
+        for relative in relatives:
+            path = self.agent_dir / safe_relative(relative)
+            try:
+                is_link = path.is_symlink()
+            except OSError as exc:
+                if manifest_error is None:
+                    manifest_error = InstallError(f"cannot inspect {path}: {exc}")
+                continue
+            if not is_link:
+                destinations.append((relative, path))
+        return destinations, manifest_error, manifest
+
     def validate_destinations(self) -> tuple[dict[str, Any], list[str]]:
         self.preflight()
         previous = self.read_manifest()
@@ -1161,13 +1298,23 @@ class Installer:
         )
         return previous, payload
 
-    def prepare_install(
-        self, *, emit_notes: bool = True, checklist_label: str | None = None
-    ) -> tuple[dict[str, Any], dict[str, Any], str | None]:
+    def prepare_component_selection(
+        self,
+        *,
+        emit_notes: bool = True,
+        checklist_label: str | None = None,
+        defer_preflight: bool = False,
+        manifest: dict[str, Any] | None = None,
+    ) -> str | None:
         # The probe can take seconds, so it runs before any user file is read for the plan.
         warning = pi_version_warning()
-        self.preflight()
-        manifest = self.read_manifest()
+        if defer_preflight:
+            if manifest is None:
+                should_read, _ = base.safe_manifest_status(self.manifest_path, self.agent_dir, PI_PROTECTED)
+                manifest = self.read_manifest() if should_read else {}
+        else:
+            self.preflight()
+            manifest = self.read_manifest()
         if emit_notes:
             notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
             for note in notes:
@@ -1177,15 +1324,33 @@ class Installer:
                     print(note)
             self.ui.step(f"Source: {self.display(self.source)}")
         self.select_components(manifest, label=checklist_label)
-        previous, payload = self.validate_destinations()
+        return warning
+
+    def announce_install_counts(self, payload: list[str], *, checklist_label: str | None = None) -> None:
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
         label = f"Pi: {skill_count} skills" if checklist_label else f"Found {skill_count} skills"
         self.ui.step(f"{label}, {agent_count} agents, {len(payload)} managed files")
+
+    def prepare_install_destinations(
+        self, *, emit_notes: bool = True, checklist_label: str | None = None
+    ) -> tuple[dict[str, Any], str | None]:
+        warning = self.prepare_component_selection(emit_notes=emit_notes, checklist_label=checklist_label)
+        previous, payload = self.validate_destinations()
+        self.announce_install_counts(payload, checklist_label=checklist_label)
+        return previous, warning
+
+    def plan_install(self, previous: dict[str, Any], warning: str | None = None) -> dict[str, Any]:
         plan = self.plan_all(previous)
         if warning:
             self.warn(warning)
-        return previous, plan, warning
+        return plan
+
+    def prepare_install(
+        self, *, emit_notes: bool = True, checklist_label: str | None = None
+    ) -> tuple[dict[str, Any], dict[str, Any], str | None]:
+        previous, warning = self.prepare_install_destinations(emit_notes=emit_notes, checklist_label=checklist_label)
+        return previous, self.plan_install(previous, warning), warning
 
     def replan_install(self, warning: str | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
         previous, _ = self.validate_destinations()
@@ -1320,17 +1485,23 @@ class Installer:
             self.write_bytes(kernel["target"], kernel["text"].encode())
         self.say(f"kernel block {'updated' if kernel['existed'] else 'written'} in {self.agent_dir / 'AGENTS.md'}")
 
-    def prepare_uninstall(
-        self,
-    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
+    def prepare_uninstall_destinations(self) -> tuple[dict[str, Any], list[str]] | None:
         self.preflight()
         manifest = self.read_manifest()
         if not manifest:
             self.say("nothing to uninstall: no b-agentic Pi manifest found")
             return None
-        removals: list[Path] = []
         keys = merge_unique(list(manifest.get("files", {})), list(manifest.get("pending", {}).get("files", {})))
         self.check_aliases(keys)
+        return manifest, keys
+
+    def plan_uninstall(
+        self, state: tuple[dict[str, Any], list[str]] | None
+    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
+        if state is None:
+            return None
+        manifest, keys = state
+        removals: list[Path] = []
         for relative in keys:
             path = self.managed_path(relative)
             if path.is_symlink() or not path.exists():
@@ -1357,6 +1528,11 @@ class Installer:
             ),
         )
         return removals, plans
+
+    def prepare_uninstall(
+        self,
+    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
+        return self.plan_uninstall(self.prepare_uninstall_destinations())
 
     def apply_uninstall(
         self,

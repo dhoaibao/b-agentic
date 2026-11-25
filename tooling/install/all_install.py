@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 import claude_install
 import pi_install
@@ -14,6 +15,79 @@ from claude_install import InstallError
 from claude_install_ui import Ui
 
 ROOT = claude_install.ROOT
+
+
+def safe_destination_identity(path: Path) -> tuple[tuple[Any, ...] | None, Exception | None]:
+    try:
+        return claude_install.destination_identity(path), None
+    except (OSError, ValueError, RecursionError) as exc:
+        return None, exc
+
+
+def check_cross_runtime_pairs(
+    claude_dir: Path,
+    mcp_path: Path,
+    agent_dir: Path,
+    claude_destinations: list[tuple[str, Path]],
+    pi_destinations: list[tuple[str, Path]],
+) -> None:
+    """Refuse before any local guard or write if a Claude Code destination and a Pi destination are the same file."""
+    lookup_error: Exception | None = None
+    pi_by_key: dict[tuple[Any, ...], tuple[str, Path]] = {}
+    for label, path in pi_destinations:
+        key, error = safe_destination_identity(path)
+        if error is not None:
+            if lookup_error is None:
+                lookup_error = error
+            continue
+        assert key is not None
+        pi_by_key.setdefault(key, (label, path))
+    for claude_label, claude_path in claude_destinations:
+        key, error = safe_destination_identity(claude_path)
+        if error is not None:
+            if lookup_error is None:
+                lookup_error = error
+            continue
+        if key in pi_by_key:
+            pi_label, pi_path = pi_by_key[key]
+            raise InstallError(
+                f"Claude Code {claude_label} ({claude_path}) and Pi {pi_label} ({pi_path}) "
+                "resolve to the same file; give each its own file before installing or uninstalling; "
+                f"nothing under {claude_dir}, {mcp_path}, or {agent_dir} was changed"
+            )
+    if lookup_error is not None:
+        raise InstallError(f"cannot inspect destination: {lookup_error}") from lookup_error
+
+
+def precheck_cross_runtime_destinations(
+    claude: claude_install.Installer,
+    pi: pi_install.Installer,
+    *,
+    for_uninstall: bool,
+    use_current_selection: bool = False,
+    include_unforced_optional: bool = True,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Check cross-runtime destination identities before local preflights, manifest errors, or config parsing."""
+    claude_destinations, claude_error, claude_manifest = claude.cross_runtime_destinations(
+        for_uninstall=for_uninstall,
+        use_current_selection=use_current_selection,
+        include_unforced_optional=include_unforced_optional,
+    )
+    pi_destinations, pi_error, pi_manifest = pi.cross_runtime_destinations(
+        for_uninstall=for_uninstall,
+        use_current_selection=use_current_selection,
+        include_unforced_optional=include_unforced_optional,
+    )
+    check_cross_runtime_pairs(claude.claude_dir, claude.mcp_path, pi.agent_dir, claude_destinations, pi_destinations)
+    if claude.override_error is not None:
+        raise claude.override_error
+    if pi.override_error is not None:
+        raise pi.override_error
+    if claude_error is not None:
+        raise claude_error
+    if pi_error is not None:
+        raise pi_error
+    return claude_manifest, pi_manifest
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,10 +110,13 @@ def main(argv: list[str] | None = None) -> int:
         with_ids, without_ids = claude_install.parse_optional_arguments(source, args)
         ui = Ui(enabled=not (args.yes or args.dry_run or args.uninstall))
         ui.header()
-        claude = claude_install.Installer(source, args.dry_run, args.force, ui, with_ids, without_ids, False)
-        pi = pi_install.Installer(source, args.dry_run, args.force, with_ids, without_ids, ui=ui)
+        claude = claude_install.Installer(
+            source, args.dry_run, args.force, ui, with_ids, without_ids, False, defer_guards=True
+        )
+        pi = pi_install.Installer(source, args.dry_run, args.force, with_ids, without_ids, ui=ui, defer_guards=True)
         try:
             if args.uninstall:
+                precheck_cross_runtime_destinations(claude, pi, for_uninstall=True)
                 claude_prepared = claude.prepare_uninstall()
                 pi_prepared = pi.prepare_uninstall()
                 claude.apply_uninstall(claude_prepared)
@@ -47,8 +124,26 @@ def main(argv: list[str] | None = None) -> int:
                 claude.report("uninstall")
                 pi.report("uninstall")
             else:
-                claude_previous, claude_plan = claude.prepare_install(emit_notes=True, checklist_label="Claude Code")
-                pi_previous, pi_plan, pi_warning = pi.prepare_install(emit_notes=False, checklist_label="Pi")
+                interactive_checklists = ui.interactive and not (with_ids or without_ids)
+                claude_manifest, pi_manifest = precheck_cross_runtime_destinations(
+                    claude,
+                    pi,
+                    for_uninstall=False,
+                    include_unforced_optional=not interactive_checklists,
+                )
+                claude.prepare_component_selection(
+                    emit_notes=True, checklist_label="Claude Code", defer_preflight=True, manifest=claude_manifest
+                )
+                pi_warning = pi.prepare_component_selection(
+                    emit_notes=False, checklist_label="Pi", defer_preflight=True, manifest=pi_manifest
+                )
+                precheck_cross_runtime_destinations(claude, pi, for_uninstall=False, use_current_selection=True)
+                claude_previous, claude_payload = claude.validate_destinations()
+                claude.announce_install_counts(claude_payload, checklist_label="Claude Code")
+                pi_previous, pi_payload = pi.validate_destinations()
+                pi.announce_install_counts(pi_payload, checklist_label="Pi")
+                claude_plan = claude.plan_all(claude_previous)
+                pi_plan = pi.plan_install(pi_previous, pi_warning)
                 if ui.fancy:
                     ui.box("Installation Summary (Claude Code)", claude.plan_summary(*claude_plan))
                     ui.box("Installation Summary (Pi)", pi.plan_summary(pi_plan))
@@ -58,8 +153,11 @@ def main(argv: list[str] | None = None) -> int:
                                 f"installation cancelled; nothing under {claude.claude_dir}, {claude.mcp_path}, "
                                 f"or {pi.agent_dir} was changed"
                             )
-                        claude_previous, claude_plan = claude.replan_install()
-                        pi_previous, pi_plan = pi.replan_install(pi_warning)
+                        precheck_cross_runtime_destinations(claude, pi, for_uninstall=False, use_current_selection=True)
+                        claude_previous, _ = claude.validate_destinations()
+                        pi_previous, _ = pi.validate_destinations()
+                        claude_plan = claude.plan_all(claude_previous)
+                        pi_plan = pi.plan_install(pi_previous, pi_warning)
                 claude.apply_install(claude_previous, claude_plan)
                 pi.apply_install(pi_previous, pi_plan)
                 if ui.interactive and not args.dry_run:

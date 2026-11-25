@@ -34,6 +34,7 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -129,16 +130,33 @@ def home_dir() -> Path:
     return Path.home()
 
 
-def resolve_claude_dir() -> Path:
-    """The default ~/.claude directory; any other configured directory is refused."""
+def resolve_claude_dir_checked() -> tuple[Path, InstallError | None]:
+    """Return the default ~/.claude directory and any unsupported-override error."""
     default = home_dir() / ".claude"
     for name in ("CLAUDE_CONFIG_DIR", "B_AGENTIC_CLAUDE_DIR"):
         value = os.environ.get(name)
-        if value and os.path.realpath(os.path.expanduser(value)) != os.path.realpath(default):
-            raise InstallError(
+        if not value:
+            continue
+        expanded = Path(os.path.expanduser(value))
+        if expanded == default:
+            continue
+        try:
+            same = os.path.realpath(expanded) == os.path.realpath(default)
+        except (OSError, RecursionError) as exc:
+            return default, InstallError(f"{name}={value}: cannot resolve directory ({exc})")
+        if not same:
+            return default, InstallError(
                 f"{name}={value} is not supported: the managed hooks, agents, and instructions refer to "
                 f"{default}. Unset it to install into {default}."
             )
+    return default, None
+
+
+def resolve_claude_dir() -> Path:
+    """The default ~/.claude directory; any other configured directory is refused."""
+    default, error = resolve_claude_dir_checked()
+    if error is not None:
+        raise error
     return default
 
 
@@ -152,12 +170,19 @@ CLAUDE_INSTALL_PROTECTED = (
 
 def guard_destination(path: Path, protected: tuple[tuple[str, str], ...] = CLAUDE_INSTALL_PROTECTED) -> None:
     """Refuse to touch the other runtime's files, the home directory itself, or the filesystem root."""
-    resolved = Path(os.path.realpath(path))
-    home = home_dir()
-    if resolved in (Path("/"), Path(os.path.realpath(home))):
+    try:
+        resolved = Path(os.path.realpath(path))
+        home = home_dir()
+        home_resolved = Path(os.path.realpath(home))
+        protected_roots = [
+            (description, {home / name, Path(os.path.realpath(home / name))}) for name, description in protected
+        ]
+    except RecursionError as exc:
+        raise InstallError(f"cannot inspect {path}: {exc}") from exc
+    if resolved in (Path("/"), home_resolved):
         raise InstallError(f"refusing to manage {path}")
-    for name, description in protected:
-        for root in {home / name, Path(os.path.realpath(home / name))}:
+    for description, roots in protected_roots:
+        for root in roots:
             if resolved == root or root in resolved.parents:
                 raise InstallError(f"refusing to write under {description}: {path}")
 
@@ -176,12 +201,99 @@ def check_directory_chain(
     guard_destination(path, protected)
 
 
+def safe_manifest_status(
+    path: Path,
+    root: Path,
+    protected: tuple[tuple[str, str], ...],
+    config_destinations: list[tuple[str, Path]] | tuple[tuple[str, Path], ...] = (),
+) -> tuple[bool, InstallError | None]:
+    """Validate runtime root, protected roots, config disjointness, and regular-file status without opening path."""
+    try:
+        guard_destination(root, protected)
+        guard_destination(path, protected)
+    except (InstallError, RecursionError) as exc:
+        return False, exc if isinstance(exc, InstallError) else InstallError(f"cannot inspect {path}: {exc}")
+    try:
+        if root.exists() and not root.is_dir():
+            return False, InstallError(f"{root} exists but is not a directory")
+        relative = path.relative_to(root)
+        current = root
+        for part in relative.parts[:-1]:
+            current = current / part
+            if current.is_symlink():
+                return False, InstallError(f"{current} is a symlink; remove or replace it")
+            if current.exists() and not current.is_dir():
+                return False, InstallError(f"{current} exists but is not a directory")
+        status = os.lstat(path)
+    except (FileNotFoundError, NotADirectoryError):
+        return False, None
+    except (OSError, RecursionError) as exc:
+        return False, InstallError(f"cannot inspect {path}: {exc}")
+    except ValueError:
+        return False, None
+    if not stat.S_ISREG(status.st_mode):
+        return False, InstallError(f"{path} must be a regular file")
+    try:
+        manifest_key = destination_identity(path)
+    except (OSError, ValueError, RecursionError) as exc:
+        return False, InstallError(f"cannot inspect {path}: {exc}")
+    for cfg_label, cfg_path in config_destinations:
+        try:
+            if destination_identity(cfg_path) == manifest_key:
+                return False, InstallError(
+                    f"the install manifest ({path}) and {cfg_label} ({cfg_path}) resolve to the same file; "
+                    "give each its own file before installing or uninstalling"
+                )
+        except (OSError, ValueError, RecursionError):
+            continue
+    return True, None
+
+
+def extract_manifest_for_cross_check(
+    raw: dict[str, Any],
+    safe_rel_fn: Any,
+    validate_fn: Any,
+) -> tuple[dict[str, Any], list[str], InstallError | None]:
+    """Extract valid ownership paths even when sibling manifest fields or keys are malformed."""
+    validation_error: InstallError | None = None
+    try:
+        validate_fn(raw)
+    except InstallError as exc:
+        validation_error = exc
+    valid_files: dict[str, Any] = {}
+    files_obj = raw.get("files")
+    if isinstance(files_obj, dict):
+        for key, value in files_obj.items():
+            try:
+                valid_files[safe_rel_fn(key)] = value
+            except InstallError:
+                continue
+    valid_pending_files: dict[str, Any] = {}
+    pending_obj = raw.get("pending")
+    if isinstance(pending_obj, dict):
+        pending_files = pending_obj.get("files")
+        if isinstance(pending_files, dict):
+            for key, value in pending_files.items():
+                try:
+                    valid_pending_files[safe_rel_fn(key)] = value
+                except InstallError:
+                    continue
+    sanitized: dict[str, Any] = {"files": valid_files, "pending": {"files": valid_pending_files}}
+    if isinstance(raw.get("optional_components"), dict):
+        sanitized["optional_components"] = raw["optional_components"]
+    if isinstance(raw.get("mcp"), dict) and isinstance(raw["mcp"].get("servers"), dict):
+        sanitized["mcp"] = {"servers": raw["mcp"]["servers"]}
+    if isinstance(pending_obj, dict) and isinstance(pending_obj.get("mcp_servers"), dict):
+        sanitized["pending"]["mcp_servers"] = pending_obj["mcp_servers"]
+    return sanitized, merge_unique(list(valid_files), list(valid_pending_files)), validation_error
+
+
 def destination_identity(path: Path) -> tuple[Any, ...]:
     """What a destination really is: its inode when it exists (catches hard links and symlink
     aliases), else its resolved path (catches two names that would create the same file)."""
     try:
         status = os.stat(path)
-    except FileNotFoundError:
+    except (FileNotFoundError, NotADirectoryError):
         return ("path", os.path.realpath(path))
     return ("inode", status.st_dev, status.st_ino)
 
@@ -201,11 +313,27 @@ def check_disjoint(destinations: list[tuple[str, Path]]) -> None:
         seen[key] = (label, path)
 
 
-def safe_relative(relative: str) -> str:
+def safe_relative(relative: Any) -> str:
+    if not isinstance(relative, str) or "\x00" in relative:
+        raise InstallError(f"unsafe managed path: {relative!r}")
     parts = Path(relative).parts
     if Path(relative).is_absolute() or not parts or ".." in parts or parts[0] not in MANAGED_ROOTS:
         raise InstallError(f"unsafe managed path: {relative!r}")
     return relative
+
+
+def validate_manifest_containers(manifest: dict[str, Any], path: Path) -> None:
+    for key in ("files", "pending", "mcp"):
+        if key in manifest and not isinstance(manifest[key], dict):
+            raise InstallError(f"{path}: {key} must be an object")
+    pending = manifest.get("pending", {})
+    if "files" in pending and not isinstance(pending["files"], dict):
+        raise InstallError(f"{path}: pending.files must be an object")
+    if "mcp_servers" in pending and not isinstance(pending["mcp_servers"], dict):
+        raise InstallError(f"{path}: pending.mcp_servers must be an object")
+    mcp = manifest.get("mcp", {})
+    if "servers" in mcp and not isinstance(mcp["servers"], dict):
+        raise InstallError(f"{path}: mcp.servers must be an object")
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -213,7 +341,7 @@ def read_json(path: Path) -> dict[str, Any]:
         return {}
     try:
         value = json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
         raise InstallError(f"{path} is not valid JSON ({exc}); fix or move it, then retry") from exc
     if not isinstance(value, dict):
         raise InstallError(f"{path} must contain a JSON object")
@@ -309,6 +437,8 @@ class Installer:
         with_ids: list[str] | None = None,
         without_ids: list[str] | None = None,
         statusline_only: bool = False,
+        *,
+        defer_guards: bool = False,
     ) -> None:
         self.source = source
         self.statusline_only = statusline_only
@@ -317,7 +447,11 @@ class Installer:
         self.without_ids = without_ids or []
         self.selection: dict[str, bool] = {key: False for key in self.components}
         self.ui = ui if ui is not None else Ui(enabled=False)
-        self.claude_dir = resolve_claude_dir()
+        if defer_guards:
+            self.claude_dir, self.override_error = resolve_claude_dir_checked()
+        else:
+            self.claude_dir = resolve_claude_dir()
+            self.override_error = None
         self.assets_dir = self.claude_dir / "b-agentic"
         self.manifest_path = self.assets_dir / "install.json"
         self.mcp_path = home_dir() / ".claude.json"
@@ -329,8 +463,10 @@ class Installer:
         self.counts = {"written": 0, "unchanged": 0, "kept": 0, "removed": 0}
         self.backed_up: set[Path] = set()
         self._bun: str | None = None
-        guard_destination(self.claude_dir)
-        guard_destination(self.mcp_path)
+        self.checked_destinations: list[tuple[str, Path]] = []
+        if not defer_guards:
+            guard_destination(self.claude_dir)
+            guard_destination(self.mcp_path)
 
     # -- optional components --------------------------------------------------
     def load_components(self) -> dict[str, dict[str, Any]]:
@@ -449,10 +585,15 @@ class Installer:
             path = self.claude_dir / safe_relative(relative)
             if not path.is_symlink():  # a user-owned symlinked payload file is left alone
                 destinations.append((relative, path))
+        self.checked_destinations = destinations
         check_disjoint(destinations)
 
     def preflight(self) -> None:
         """Validate every directory the run may create or write into, before the first write."""
+        if self.override_error is not None:
+            raise self.override_error
+        guard_destination(self.claude_dir)
+        guard_destination(self.mcp_path)
         if self.claude_dir.exists() and not self.claude_dir.is_dir():
             raise InstallError(f"{self.claude_dir} exists but is not a directory")
         check_directory_chain(self.assets_dir, self.claude_dir)
@@ -577,12 +718,16 @@ class Installer:
         return f"{KERNEL_BLOCK_START}\n{kernel}\n{KERNEL_BLOCK_END}"
 
     # -- manifest -------------------------------------------------------------
-    def read_manifest(self) -> dict[str, Any]:
-        manifest = read_json(self.manifest_path)
+    def validate_manifest(self, manifest: dict[str, Any]) -> None:
         if manifest and manifest.get("schema") != MANIFEST_SCHEMA:
             raise InstallError(f"{self.manifest_path} has an unsupported schema; uninstall with the matching version")
+        validate_manifest_containers(manifest, self.manifest_path)
         for relative in [*manifest.get("files", {}), *manifest.get("pending", {}).get("files", {})]:
             safe_relative(relative)
+
+    def read_manifest(self) -> dict[str, Any]:
+        manifest = read_json(self.manifest_path)
+        self.validate_manifest(manifest)
         return manifest
 
     def write_manifest(self, manifest: dict[str, Any]) -> None:
@@ -908,6 +1053,101 @@ class Installer:
         }
 
     # -- operations -----------------------------------------------------------
+    def payload_relatives(self) -> list[str]:
+        """Relative payload paths for the current selection without reading skill or agent bodies."""
+        if self.statusline_only:
+            return [f"b-agentic/bin/{STATUSLINE_SCRIPT}"]
+        registry = json.loads((self.source / "skills" / "registry.yaml").read_text())
+        excluded = self.excluded_skills()
+        files: list[str] = []
+        for path in sorted((self.source / "claude" / "agents").glob("b-*.md")):
+            files.append(f"agents/{path.name}")
+        for folder, patterns in (("bin", ("*.mjs", "*.py")), ("hooks", ("*.mjs",))):
+            for pattern in patterns:
+                for path in sorted((self.source / "claude" / folder).glob(pattern)):
+                    files.append(f"b-agentic/{folder}/{path.name}")
+        for name in WRAPPERS:
+            files.append(f"b-agentic/bin/{name}")
+        for name in ("capabilities.yaml", "mcp_operations.yaml", "kernel.template.md", "artifacts.yaml"):
+            files.append(f"b-agentic/references/{name}")
+        for skill in registry["skills"]:
+            name = skill["name"]
+            if not isinstance(name, str) or not SKILL_NAME.fullmatch(name):
+                raise InstallError(f"registry skill name is not a safe b-* name: {name!r}")
+            if name not in excluded:
+                files.append(f"skills/{name}/SKILL.md")
+        return files
+
+    def cross_runtime_destinations(
+        self,
+        *,
+        for_uninstall: bool,
+        use_current_selection: bool = False,
+        include_unforced_optional: bool = True,
+    ) -> tuple[list[tuple[str, Path]], InstallError | None, dict[str, Any]]:
+        """Collect (label, resolved_target) pairs for cross-runtime comparison without local guards."""
+
+        def raw_target(path: Path) -> Path:
+            try:
+                return Path(os.path.realpath(path)) if path.is_symlink() else path
+            except (OSError, RecursionError):
+                return path
+
+        config_destinations: list[tuple[str, Path]] = [
+            ("CLAUDE.md", raw_target(self.claude_dir / "CLAUDE.md")),
+            ("settings.json", raw_target(self.claude_dir / "settings.json")),
+            (".claude.json", raw_target(self.mcp_path)),
+        ]
+        destinations: list[tuple[str, Path]] = [
+            *config_destinations,
+            ("the install manifest", raw_target(self.manifest_path)),
+        ]
+        manifest: dict[str, Any] = {}
+        relatives: list[str] = []
+        should_read, manifest_error = safe_manifest_status(
+            self.manifest_path, self.claude_dir, CLAUDE_INSTALL_PROTECTED, config_destinations
+        )
+        if should_read:
+            try:
+                raw_manifest = read_json(self.manifest_path)
+            except (InstallError, OSError, RecursionError) as exc:
+                manifest_error = (
+                    exc if isinstance(exc, InstallError) else InstallError(f"cannot read {self.manifest_path}: {exc}")
+                )
+            else:
+                manifest, relatives, manifest_error = extract_manifest_for_cross_check(
+                    raw_manifest, safe_relative, self.validate_manifest
+                )
+        if not for_uninstall:
+            if use_current_selection or self.statusline_only:
+                payload_relatives = self.payload_relatives()
+            else:
+                saved = self.selection
+                try:
+                    manifest_for_selection = manifest if include_unforced_optional else {}
+                    self.selection = optional_components.resolve(
+                        self.components, manifest_for_selection, self.with_ids, self.without_ids
+                    )
+                    payload_relatives = self.payload_relatives()
+                except ValueError as exc:
+                    payload_relatives = []
+                    if manifest_error is None:
+                        manifest_error = InstallError(str(exc))
+                finally:
+                    self.selection = saved
+            relatives = merge_unique(relatives, payload_relatives)
+        for relative in relatives:
+            path = self.claude_dir / safe_relative(relative)
+            try:
+                is_link = path.is_symlink()
+            except OSError as exc:
+                if manifest_error is None:
+                    manifest_error = InstallError(f"cannot inspect {path}: {exc}")
+                continue
+            if not is_link:
+                destinations.append((relative, path))
+        return destinations, manifest_error, manifest
+
     def validate_destinations(self) -> tuple[dict[str, Any], list[str]]:
         """Preflight the destinations and read the manifest; repeated after a prompt, so a change
         made while it was open (an alias, a symlink) is refused rather than planned around."""
@@ -928,11 +1168,21 @@ class Installer:
         )
         return previous, payload
 
-    def prepare_install(
-        self, *, emit_notes: bool = True, checklist_label: str | None = None
-    ) -> tuple[dict[str, Any], tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]]:
-        self.preflight()
-        manifest = self.read_manifest()
+    def prepare_component_selection(
+        self,
+        *,
+        emit_notes: bool = True,
+        checklist_label: str | None = None,
+        defer_preflight: bool = False,
+        manifest: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if defer_preflight:
+            if manifest is None:
+                should_read, _ = safe_manifest_status(self.manifest_path, self.claude_dir, CLAUDE_INSTALL_PROTECTED)
+                manifest = self.read_manifest() if should_read else {}
+        else:
+            self.preflight()
+            manifest = self.read_manifest()
         if emit_notes:
             notes = [line for line in os.environ.get("B_AGENTIC_NOTES", "").splitlines() if line]
             for note in notes:
@@ -942,7 +1192,9 @@ class Installer:
                     print(note)
             self.ui.step(f"Source: {self.display(self.source)}")
         self.select_components(manifest, label=checklist_label)
-        previous, payload = self.validate_destinations()
+        return manifest
+
+    def announce_install_counts(self, payload: list[str], *, checklist_label: str | None = None) -> None:
         skill_count = len({relative.split("/")[1] for relative in payload if relative.startswith("skills/")})
         agent_count = sum(1 for relative in payload if relative.startswith("agents/"))
         if self.statusline_only:
@@ -950,6 +1202,19 @@ class Installer:
         else:
             label = f"Claude Code: {skill_count} skills" if checklist_label else f"Found {skill_count} skills"
             self.ui.step(f"{label}, {agent_count} agents, {len(payload)} managed files")
+
+    def prepare_install_destinations(
+        self, *, emit_notes: bool = True, checklist_label: str | None = None
+    ) -> dict[str, Any]:
+        self.prepare_component_selection(emit_notes=emit_notes, checklist_label=checklist_label)
+        previous, payload = self.validate_destinations()
+        self.announce_install_counts(payload, checklist_label=checklist_label)
+        return previous
+
+    def prepare_install(
+        self, *, emit_notes: bool = True, checklist_label: str | None = None
+    ) -> tuple[dict[str, Any], tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]]:
+        previous = self.prepare_install_destinations(emit_notes=emit_notes, checklist_label=checklist_label)
         # Plan everything first: any structural refusal happens before the first write.
         return previous, self.plan_all(previous)
 
@@ -1054,18 +1319,24 @@ class Installer:
                 previous, planned = self.replan_install()
         self.apply_install(previous, planned)
 
-    def prepare_uninstall(
-        self,
-    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
+    def prepare_uninstall_destinations(self) -> tuple[dict[str, Any], list[str]] | None:
         self.preflight()
         manifest = self.read_manifest()
         if not manifest:
             self.say("nothing to uninstall: no b-agentic manifest found")
             return None
-        # Plan: parse every user file first so a malformed one refuses before any removal.
-        removals: list[Path] = []
         keys = merge_unique(list(manifest.get("files", {})), list(manifest.get("pending", {}).get("files", {})))
         self.check_aliases(keys)
+        return manifest, keys
+
+    def plan_uninstall(
+        self, state: tuple[dict[str, Any], list[str]] | None
+    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
+        if state is None:
+            return None
+        manifest, keys = state
+        # Plan: parse every user file first so a malformed one refuses before any removal.
+        removals: list[Path] = []
         for relative in keys:
             path = self.managed_path(relative)
             if path.is_symlink() or not path.exists():
@@ -1083,6 +1354,11 @@ class Installer:
             (mcp_plan, f"MCP servers removed from {self.mcp_path}"),
         )
         return removals, plans
+
+    def prepare_uninstall(
+        self,
+    ) -> tuple[list[Path], tuple[tuple[dict[str, Any] | None, str], ...]] | None:
+        return self.plan_uninstall(self.prepare_uninstall_destinations())
 
     def apply_uninstall(
         self,
