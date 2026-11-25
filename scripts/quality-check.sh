@@ -54,9 +54,29 @@ run_if_files() {
   "$@"
 }
 
+# ShellCheck dominates this script's runtime and handles each file independently, so it runs one
+# process per file, capped at the CPU count, and prints each file's output in input order.
+# Only portable xargs flags are used (no `wait -n`, no `nproc`) so stock macOS and bash 3.2 work.
+run_shellcheck() {
+  local out jobs status=0 file
+  out="$(mktemp -d)"
+  jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
+  # The inner script must expand in the child shell, not here.
+  # shellcheck disable=SC2016
+  printf '%s\0' "$@" | OUT_DIR="$out" xargs -0 -n1 -P"$jobs" bash -c '
+    file=$1
+    shellcheck --shell=bash --external-sources "$file" >"$OUT_DIR/${file//\//%}" 2>&1
+  ' _ || status=$?
+  for file in "$@"; do
+    cat "$out/${file//\//%}" 2>/dev/null || true
+  done
+  rm -rf "$out"
+  return "$status"
+}
+
 run_if_files 'Prettier' "${#prettier_files[@]}" "${PRETTIER[@]}" --check "${prettier_files[@]}"
 run_if_files 'Ruff lint' "${#python_files[@]}" ruff check "${python_files[@]}"
 run_if_files 'Ruff format check' "${#python_files[@]}" ruff format --check "${python_files[@]}"
-run_if_files 'ShellCheck' "${#shell_files[@]}" shellcheck --shell=bash --external-sources "${shell_files[@]}"
+run_if_files 'ShellCheck' "${#shell_files[@]}" run_shellcheck "${shell_files[@]}"
 run_if_files 'Markdownlint' "${#markdown_files[@]}" "${MARKDOWNLINT[@]}" --config .markdownlint-cli2.jsonc "${markdown_files[@]}"
 printf 'Repository quality checks passed.\n'

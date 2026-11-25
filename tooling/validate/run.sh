@@ -103,12 +103,18 @@ trap 'abort_probes "interrupted (SIGINT)"; exit 130' INT
 trap 'abort_probes "terminated (SIGTERM)"; exit 143' TERM
 trap 'abort_probes "timed out after ${probe_timeout}s"; exit 124' USR1
 
-# The state probe is the longest and CPU-bound (about 40 s alone), and hooks-cli mostly waits on real
-# timeouts, so both run at normal priority and the other probes yield to them.
+# The state probe is CPU-bound (about 40 s alone) and hooks-cli mostly waits on real timeouts. The
+# install probes are long step-by-step scripts with short hang limits (60-110 s alone) and were
+# starved at low priority on CI runners, so all of these run at normal priority and only the short
+# probes yield.
 start_probe() { # NAME COMMAND...
-  local name=$1
+  local name=$1 low_priority
   shift
-  if [ "$name" = state ] || [ "$name" = hooks-cli ] || ! command -v nice >/dev/null 2>&1; then
+  case "$name" in
+    state | hooks-cli | claude-install | pi-install | all-install) low_priority=0 ;;
+    *) low_priority=1 ;;
+  esac
+  if [ "$low_priority" = 0 ] || ! command -v nice >/dev/null 2>&1; then
     "$@" >"$probe_dir/$name.log" 2>&1 &
   else
     nice -n 10 "$@" >"$probe_dir/$name.log" 2>&1 &
