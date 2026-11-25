@@ -380,6 +380,16 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
                 raise Invalid(f"items[{i}].sweep: only a blocker carries a sweep")
             if blocker and item["disposition"] == "fixed" and "sweep" not in item:
                 raise Invalid(f"items[{i}].sweep: required for a fixed blocker")
+            if "blocker_class" in item and not blocker:
+                raise Invalid(f"items[{i}].blocker_class: only a blocker carries a class")
+            if "escaped_from" in item:
+                stages = schema["enums"]["escape_stage"]
+                if item["source"] not in ("review", "qa"):
+                    raise Invalid(f"items[{i}].escaped_from: only a review or qa item carries it")
+                # A review item can only have escaped the stages before review; a qa item can also have escaped review.
+                earlier = stages[: stages.index("review")] if item["source"] == "review" else stages
+                if item["escaped_from"] not in earlier:
+                    raise Invalid(f"items[{i}].escaped_from: must be earlier than the {item['source']} source")
         if previous and not {i["id"] for i in previous["items"]} <= set(ids):
             raise Invalid("items: a rewrite may not drop an id recorded earlier")
         recorded = {i["id"]: i for i in previous["items"]} if previous else {}
@@ -387,6 +397,9 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
             old = recorded.get(item["id"])
             if old and (old.get("kind") != item.get("kind") or old["source"] != item["source"]):
                 raise Invalid(f"items[{i}]: the kind and source of a recorded item may not change")
+            for field in ("blocker_class", "escaped_from"):
+                if old and field in old and old[field] != item.get(field):
+                    raise Invalid(f"items[{i}].{field}: a recorded value may not change or be dropped")
         return True
     raise Invalid(f"unknown kind {kind!r}")
 
@@ -480,6 +493,10 @@ def render(kind: str, data: dict) -> str:
             out.append(f"- {item['id']} [{item['source']}] {item['disposition']}: {item['summary']}")
             if "kind" in item:
                 out.append(f"  - Kind: {item['kind']}")
+            if "blocker_class" in item:
+                out.append(f"  - Class: {item['blocker_class']}")
+            if "escaped_from" in item:
+                out.append(f"  - Escaped from: {item['escaped_from']}")
             if "reason" in item:
                 out.append(f"  - Reason: {item['reason']}")
             if "sweep" in item:

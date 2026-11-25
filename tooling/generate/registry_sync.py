@@ -36,6 +36,9 @@ RUN_CLI_PATH = CLAUDE_DIR / "bin" / "b_run.py"
 STATE_CORE_PATH = CLAUDE_DIR / "bin" / "b-state-core.mjs"
 ARTIFACTS_PATH = ROOT / "references" / "artifacts.yaml"
 ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
+B_REVIEW_PROMPT_PATH = ROOT / "skills" / "b-review" / "prompt.md"
+# Both b-review blocker-class sentences ("... is one of: a, b, or c.") list the classes in the same order as the enum.
+BLOCKER_CLASS_SENTENCE = re.compile(r"is one of: ([^.]+)\.")
 # A prompt line that starts with this marker is emitted only for the named runtimes (marker removed).
 RUNTIME_MARKER = re.compile(r"^<!-- runtime: ([a-z]+(?:,[a-z]+)*) --> ")
 # A bare marker line opens a block that closes at the closing line; the lines between them are emitted
@@ -682,6 +685,21 @@ def validate_snapshot_cli() -> list[str]:
     return errors
 
 
+def blocker_class_errors(classes: Any, prompt: str, label: str) -> list[str]:
+    """Require the blocker_class enum to equal every blocker-class sentence of the b-review prompt (ADR-010)."""
+    sentences = BLOCKER_CLASS_SENTENCE.findall(prompt)
+    if not sentences:
+        return [f"{label}: no blocker class sentence found for the blocker_class enum to match"]
+    errors = []
+    for found in sentences:
+        listed = [re.sub(r"^or ", "", part.strip()) for part in found.split(",")]
+        if listed != classes:
+            errors.append(
+                f"{label}: a blocker class sentence differs from the blocker_class enum in references/artifacts.yaml"
+            )
+    return errors
+
+
 def validate_artifacts_schema() -> list[str]:
     """Keep references/artifacts.yaml, the run CLI, and the path rules in step (ADR-010)."""
     errors: list[str] = []
@@ -728,6 +746,11 @@ def validate_artifacts_schema() -> list[str]:
             errors.append(f"{label}: {kind} needs phases and an example")
         for name, sub in entry.get("fields", {}).items():
             walk(sub, f"{kind}.{name}")
+    review_label = str(B_REVIEW_PROMPT_PATH.relative_to(ROOT))
+    if B_REVIEW_PROMPT_PATH.is_file():
+        errors += blocker_class_errors(enums.get("blocker_class"), B_REVIEW_PROMPT_PATH.read_text(), review_label)
+    else:
+        errors.append(f"{review_label}: missing, so the blocker_class enum cannot be checked")
     if not RUN_CLI_PATH.is_file():
         return [*errors, f"{RUN_CLI_PATH.relative_to(ROOT)}: missing run artifact CLI"]
     text = RUN_CLI_PATH.read_text()
@@ -2434,6 +2457,17 @@ def validate_regressions(
             errors.append(f"agent regression: {why} in mcp_tools must fail")
     errors.extend(validate_snapshot_cli())
     errors.extend(validate_artifacts_schema())
+    if B_REVIEW_PROMPT_PATH.is_file() and ARTIFACTS_PATH.is_file():
+        review_prompt = B_REVIEW_PROMPT_PATH.read_text()
+        class_enum = json.loads(ARTIFACTS_PATH.read_text()).get("enums", {}).get("blocker_class", [])
+        for why, drifted_enum, drifted_prompt in (
+            ("an enum missing a class", class_enum[1:], review_prompt),
+            ("an enum with a reordered class", [*class_enum[1:], class_enum[0]], review_prompt),
+            ("a prompt that drops a class", class_enum, review_prompt.replace("unexpected path, or ", "", 1)),
+            ("a prompt with no class sentence", class_enum, review_prompt.replace("is one of:", "is any of:")),
+        ):
+            if not blocker_class_errors(drifted_enum, drifted_prompt, "self-test"):
+                errors.append(f"blocker class regression: {why} must fail")
     # Playwright's browser_find accepts a `filename` that writes results to disk, so it must
     # never be classed read-only (which makes it eligible for any specialist's mcp_tools allowlist).
     if policy["servers"]["playwright"]["tools"]["browser_find"] == "read-only":

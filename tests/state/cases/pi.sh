@@ -30,6 +30,12 @@ mkdir -p "$repoPI/src"
 printf 'a\n' >"$repoPI/src/a.txt"
 ok "$repoPI" s1 record step S-1
 
+# The runtime recorded at init follows the helper folder override.
+repoPIrt="$work/repoPIrt"
+make_repo "$repoPIrt"
+pi_ok "$repoPIrt" s1 init pi-runtime
+[ "$(jq -r .runtime "$(sfile "$repoPIrt")")" = pi ] || fail "init under the Pi override must record runtime pi"
+
 # Claude Code keeps its own batch dispatch wording; Pi names one parallel-workflow subagent call and ~/.pi/agent/b-agentic/bin.
 ok "$repoPI" s1 check
 jq -e '.next | any(contains("all calls in one message, then end the turn"))' <<<"$out" >/dev/null \

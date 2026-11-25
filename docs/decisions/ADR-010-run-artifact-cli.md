@@ -52,6 +52,23 @@ scope-check` against the spec's scope globs (and `record step` runs it for the p
   later `--low-risk` exception once a review was triggered or held. Blockers found by
   review or QA are recorded in `followups.md` with `kind: blocker` and, once fixed, a
   `sweep` line; the re-review handoff lists them under "Prior review".
+- **Run analytics fields (refined 2026-11-25).** Later audits count what runs
+  record, so two optional `followups` fields and one state field were added. An item may
+  carry `blocker_class` (a blocker only; one of the nine classes of the `b-review`
+  prompt, verbatim, and the generator check keeps the enum equal to that prompt) and
+  `escaped_from` (a review or QA item only; a stage earlier than the item's source, from
+  `spec | plan | implement | verify | review`). A rewrite may add either to an item that
+  had none but never change or drop it, and `followups.md` shows `Class` and
+  `Escaped from` lines only when present, so earlier data renders byte for byte.
+  `state.json` records `runtime` (`claude` or `pi`) at `init` from the wrapper-folder
+  signal behind `onPi()`; an older run carries none and is never given one, and
+  `STATE_SCHEMA` stays 1. Not recorded: the model, which the harness does not hand to
+  the helper, and check duration, because the helper never runs checks (the hidden
+  executor rejected below) and records them in batches; a measured duration would need
+  a harness-side timer and its own decision. The compatibility runs one way: an older
+  helper refuses followups data with the new keys, which matters only if run data is
+  read by an older install, since the helpers and the schema install together and
+  `.b-agentic` is local.
 - **Language split.** `b-state.mjs` stays Node because it shares candidate-fingerprint
   code with the snapshot CLI and the Codex guards; each file under `.b-agentic` still
   has exactly one writer. A Python port is not part of this decision.
@@ -73,7 +90,13 @@ inspection | user-confirmed`; criterion result `pass | fail | gap | waived`
   executor that bypasses permissions); signed artifacts (the key would sit where the
   model can read it); third-party validation libraries (the only install prerequisite
   is `python3`); a Bash ask-tripwire (best effort, more prompts); a Python port of
-  `b-state` now (about 1,250 lines of fail-closed logic to re-review).
+  `b-state` now (about 1,250 lines of fail-closed logic to re-review). For the
+  analytics fields (2026-11-25): a class written as prose in `summary` (not validated,
+  cannot be counted), a class derived from prose at render time (no structured source),
+  a state schema bump (earlier additive fields were added without one, and a bump would
+  make older helpers refuse every new run), a required `blocker_class` (it could block a
+  run mid-review), and self-reported duration or model flags (the helper cannot verify
+  them).
 
 Evidence: [`claude/bin/b_run.py`](../../claude/bin/b_run.py),
 [`references/artifacts.yaml`](../../references/artifacts.yaml),

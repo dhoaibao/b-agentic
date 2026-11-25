@@ -217,6 +217,13 @@ lint_bad followups '.items[0].disposition = "ignored"' "bad disposition"
 lint_bad followups 'del(.items[0].sweep)' "fixed blocker without a sweep"
 lint_bad followups '.items[0].source = "implement"' "blocker from implement"
 lint_bad followups '.items[1].sweep = "x"' "sweep on a non-blocker"
+lint_bad followups '.items[1].blocker_class = "unexpected path"' "a class on a non-blocker"
+lint_bad followups '.items[0].blocker_class = "made up"' "a class outside the b-review list"
+lint_bad followups '.items[2].escaped_from = "plan"' "escaped_from on an implement item"
+lint_bad followups '.items[0].escaped_from = "review"' "a review item that escaped review"
+lint_bad followups '.items[0].escaped_from = "later"' "escaped_from outside the stages"
+br "$repo" lint followups < <(example followups | jq -c '.items[0].source = "qa" | .items[0].escaped_from = "review"')
+[ "$rc" -eq 0 ] || fail "a qa item may have escaped review: $(cat "$work/err")"
 br "$repo" lint spec < <(printf 'not json')
 [ "$rc" -eq 2 ] || fail "non-JSON input must be invalid"
 [ -z "$(ls -A "$repo/.b-agentic" 2>/dev/null)" ] || fail "lint must not create run files"
@@ -272,12 +279,24 @@ ok "$repo" validate
   || fail "the validate summary must give each follow-up's kind and disposition: $out"
 br "$repo" write followups < <(example followups | jq -c '.items = [.items[1]]')
 [ "$rc" -eq 2 ] || fail "dropping a recorded follow-up id must be invalid (rc=$rc)"
-br "$repo" write followups < <(example followups | jq -c 'del(.items[0].kind) | del(.items[0].sweep)')
+br "$repo" write followups < <(example followups | jq -c 'del(.items[0].kind, .items[0].sweep, .items[0].blocker_class, .items[0].escaped_from)')
 [ "$rc" -eq 2 ] || fail "a recorded blocker cannot be rewritten as a follow-up (rc=$rc)"
 br "$repo" write followups < <(example followups | jq -c '.items[2].kind = "blocker" | .items[2].source = "review" | .items[2].disposition = "open" | del(.items[2].reason)')
 [ "$rc" -eq 2 ] || fail "a recorded item cannot become a blocker or change source (rc=$rc)"
 br "$repo" write followups < <(example followups | jq -c '.items[1].disposition = "fixed" | .items[1].reason = "done"')
 [ "$rc" -eq 0 ] || fail "closing a follow-up with a reason is allowed: $(cat "$work/err")"
+# blocker_class and escaped_from: add once, never change or drop.
+br "$repo" write followups < <(example followups | jq -c '.items[0].blocker_class = "correctness regression"')
+[ "$rc" -eq 2 ] || fail "a recorded blocker_class cannot change (rc=$rc)"
+br "$repo" write followups < <(example followups | jq -c 'del(.items[0].blocker_class)')
+[ "$rc" -eq 2 ] || fail "a recorded blocker_class cannot be dropped (rc=$rc)"
+br "$repo" write followups < <(example followups | jq -c 'del(.items[0].escaped_from)')
+[ "$rc" -eq 2 ] || fail "a recorded escaped_from cannot be dropped (rc=$rc)"
+br "$repo" write followups < <(example followups | jq -c '.items[0].escaped_from = "plan"')
+[ "$rc" -eq 2 ] || fail "a recorded escaped_from cannot change (rc=$rc)"
+for line in '  - Class: unexpected path' '  - Escaped from: implement'; do
+  grep -Fq -- "$line" "$run_dir/followups.md" || fail "rendered follow-up line: $line"
+done
 setphase "$repo" qa
 br "$repo" write qa < <(example qa | jq -c '.rows = [.rows[0]]')
 [ "$rc" -eq 2 ] || fail "qa rows must cover every criterion (rc=$rc)"
@@ -288,6 +307,28 @@ br "$repo" write qa < <(example qa | jq -c '.rows[0].command = "unplanned comman
 br "$repo" write qa < <(example qa | jq -c '.rows[0].evidence = "inspection" | .rows[0].source = "x" | del(.rows[0].command)')
 [ "$rc" -eq 2 ] || fail "a qa row must repeat the spec evidence (rc=$rc)"
 setphase "$repo" clarify
+
+# Follow-ups without the new fields render exactly as before: the new lines are purely additive.
+for name in fu-plain fu-fields; do
+  make_repo "$work/$name"
+  newrun "$work/$name"
+  ok "$work/$name" write spec < <(example spec)
+  ok "$work/$name" write plan < <(example plan)
+  setphase "$work/$name" verify
+done
+ok "$work/fu-plain" write followups < <(example followups | jq -c 'del(.items[].blocker_class, .items[].escaped_from)')
+ok "$work/fu-fields" write followups < <(example followups)
+plain_md=$(rundir "$work/fu-plain")/followups.md
+fields_md=$(rundir "$work/fu-fields")/followups.md
+grep -Eq 'Class:|Escaped from:' "$plain_md" && fail "legacy follow-ups must render no Class or Escaped from line"
+[ "$(grep -Fv -e '  - Class: ' -e '  - Escaped from: ' "$fields_md")" = "$(cat "$plain_md")" ] \
+  || fail "the new follow-up lines must be the only difference from the legacy render"
+ok "$work/fu-plain" validate
+# A later rewrite may add escaped_from to an item that had none, once.
+ok "$work/fu-plain" write followups < <(example followups | jq -c 'del(.items[].blocker_class, .items[].escaped_from) | .items[1].escaped_from = "plan"')
+grep -Fq -- '  - Escaped from: plan' "$plain_md" || fail "an added escaped_from must render"
+br "$work/fu-plain" write followups < <(example followups | jq -c 'del(.items[].blocker_class, .items[].escaped_from) | .items[1].escaped_from = "spec"')
+[ "$rc" -eq 2 ] || fail "a recorded escaped_from cannot change (rc=$rc)"
 
 # --- validate detects every bypass ---------------------------------------------------------
 ok "$repo" validate

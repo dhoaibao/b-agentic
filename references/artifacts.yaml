@@ -54,6 +54,24 @@
     "followup_kind": [
       "blocker",
       "followup"
+    ],
+    "blocker_class": [
+      "violated acceptance",
+      "correctness regression",
+      "security/privacy/permission/secret exposure",
+      "data-integrity loss",
+      "broken external contract",
+      "missing/failed/stale required check",
+      "changed or unverifiable snapshot",
+      "unexpected path",
+      "hand-edited generated output"
+    ],
+    "escape_stage": [
+      "spec",
+      "plan",
+      "implement",
+      "verify",
+      "review"
     ]
   },
   "kinds": {
@@ -526,7 +544,10 @@
         "ids look like R<round>-<n>, Q<round>-<n>, or F-<n> and are unique",
         "a reason is required unless the item is open",
         "a blocker comes from review or qa, and a fixed blocker carries a sweep line naming the correction paths, the sibling locations swept, and the regression check",
-        "a rewrite may not drop an id that an earlier version recorded or change that item's kind or source"
+        "a rewrite may not drop an id that an earlier version recorded or change that item's kind or source",
+        "blocker_class is allowed only on a blocker and names one class of the b-review blocker list",
+        "escaped_from is allowed only on a review or qa item and names a stage earlier than the item's source: a review item may name spec, plan, implement, or verify; a qa item may also name review",
+        "a rewrite may add blocker_class or escaped_from to an item that had none, but may not change or drop one an earlier version recorded"
       ],
       "fields": {
         "items": {
@@ -562,6 +583,16 @@
               "sweep": {
                 "type": "line",
                 "optional": true
+              },
+              "blocker_class": {
+                "type": "enum",
+                "enum": "blocker_class",
+                "optional": true
+              },
+              "escaped_from": {
+                "type": "enum",
+                "enum": "escape_stage",
+                "optional": true
               }
             }
           }
@@ -576,7 +607,9 @@
             "disposition": "fixed",
             "reason": "path is now resolved before the scope test",
             "kind": "blocker",
-            "sweep": "src/export.py; swept all path joins in src/; regression: pytest tests/test_export.py"
+            "sweep": "src/export.py; swept all path joins in src/; regression: pytest tests/test_export.py",
+            "blocker_class": "unexpected path",
+            "escaped_from": "implement"
           },
           {
             "id": "R1-2",

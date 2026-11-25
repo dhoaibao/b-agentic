@@ -4,6 +4,10 @@ import { createHash } from "node:crypto";
 
 export const STATE_SCHEMA = 1;
 
+// The runtime whose wrapper ran init, recorded in state.json (see onPi). A run started
+// before the field existed carries none, so it is optional and never filled in later.
+export const RUNTIMES = ["claude", "pi"];
+
 // The folder of the wrapper scripts that the printed commands and usage name (ADR-029).
 export const DEFAULT_HELPER_DIR = "~/.claude/b-agentic/bin";
 const SAFE_HELPER_DIR = /^(?:~\/|\/)[A-Za-z0-9._~/-]*$/;

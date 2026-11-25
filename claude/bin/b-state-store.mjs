@@ -35,6 +35,7 @@ import {
   MAX_STATE_BYTES,
   MAX_TEXT,
   now,
+  onPi,
   OWNER,
   ownerVar,
   PHASES,
@@ -44,6 +45,7 @@ import {
   REVIEW_GATES,
   REVIEW_VERDICTS,
   RUN_ID,
+  RUNTIMES,
   SHA,
   SIZES,
   STATE_SCHEMA,
@@ -257,6 +259,8 @@ function validate(state) {
     if (value !== "" && !FINGERPRINT.test(value)) fail("fingerprint format");
   }
   if (!SIZES.includes(state.size)) fail("size");
+  if (state.runtime !== undefined && !RUNTIMES.includes(state.runtime))
+    fail("runtime");
   const dirty = state.baseline.dirty;
   if (!isObj(dirty) || Object.keys(dirty).length > MAX_DIRTY)
     fail("baseline.dirty");
@@ -431,6 +435,7 @@ export function freshState(runId, root, baseline) {
       dirty: baseline.dirty_paths,
     },
     size: "full",
+    runtime: onPi() ? "pi" : "claude",
     spec: { path: "spec.md", sha256: "", plan_sha256: "", approved_at: "" },
     consent: {
       commit: false,

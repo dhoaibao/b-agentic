@@ -8,6 +8,20 @@ ok "$repo" s1 init demo
 [ -z "$(git -C "$repo" status --porcelain)" ] || fail ".b-agentic must not appear in git status"
 invalid "$repo" s1 init Bad_Slug
 
+# --- runtime: recorded at init, optional for older runs, never an unknown value ------------
+[ "$(jq -r .runtime "$(sfile "$repo")")" = claude ] || fail "init must record runtime claude"
+repoRT="$work/repoRT"
+make_repo "$repoRT"
+ok "$repoRT" s1 init rt
+jq 'del(.runtime)' "$(sfile "$repoRT")" >"$tmp" && cp "$tmp" "$(sfile "$repoRT")"
+ok "$repoRT" s1 show
+[ "$(jq -r .phase <<<"$out")" = clarify ] || fail "a run without runtime must still load: $out"
+[ "$(jq -r '.runtime // "absent"' "$(sfile "$repoRT")")" = absent ] || fail "a legacy run must not be given an invented runtime"
+[ "$(jq -r .schema "$(sfile "$repoRT")")" = 1 ] || fail "the state schema must stay 1"
+jq '.runtime = "vim"' "$(sfile "$repoRT")" >"$tmp" && cp "$tmp" "$(sfile "$repoRT")"
+invalid "$repoRT" s1 show
+grep -Fq 'invalid state: runtime' "$work/err" || fail "an unknown runtime must be named: $(cat "$work/err")"
+
 # --- help, command names and the cwd refusal answer before any repository, run, or lock work (ADR-029)
 nogit="$work/nogit"
 mkdir -p "$nogit"
