@@ -16,6 +16,9 @@ schema="$root/references/artifacts.yaml"
 # Resolve links so paths match what the CLI reports (macOS /var is /private/var).
 work=$(cd "$(mktemp -d)" && pwd -P)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
+# A finished run may append to the run-stats store under the install home (ADR-035): HOME is a throwaway folder.
+export HOME="$work/home"
+mkdir -p "$HOME"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
 
@@ -1192,5 +1195,48 @@ jq -e '.runs == 40 and .over_threshold == false' <<<"$out" >/dev/null || fail "4
 mkrun "$manyrepo" 20261101-run-41 "done" "$new_stamp"
 ok "$manyrepo" runs
 jq -e '.runs == 41 and .over_threshold == true' <<<"$out" >/dev/null || fail "41 runs must be over the threshold: $out"
+
+# --- stats --record: written once per key, honors the off file, one creation across concurrent repositories (ADR-035) ---
+stats_home="$HOME/.claude/b-agentic"
+mkdir -p "$stats_home"
+chmod 700 "$stats_home"
+statsrepos=()
+for name in sa sb sc; do
+  repo="$work/stats-$name"
+  make_repo "$repo"
+  # Distinct root commits give each repository its own key even when the probe makes them in one second.
+  git -C "$repo" commit -q --amend -m "root $name"
+  mkdir -p "$repo/.b-agentic/runs"
+  mkrun "$repo" 20261101-one "done" "$new_stamp"
+  mkrun "$repo" 20261102-two "done" "$new_stamp"
+  mkrun "$repo" 20261103-open clarify "$new_stamp"
+  statsrepos+=("$repo")
+done
+# A line is a numbers-only record: the report reads it back without malformed lines.
+ok "${statsrepos[0]}" stats
+jq -e '.stores.claude.exists == false and .finished_runs == 2 and .missing == 2' <<<"$out" >/dev/null || fail "stats must count the unrecorded finished runs only: $out"
+: >"$stats_home/run-stats.off"
+ok "${statsrepos[0]}" stats --record
+jq -e '.appended == 0 and .skipped.disabled == 1 and .created == false' <<<"$out" >/dev/null || fail "the off file must stop stats --record: $out"
+[ ! -e "$stats_home/run-stats.jsonl" ] || fail "the off file must stop the store from being created"
+rm -f "$stats_home/run-stats.off"
+pids=()
+for repo in "${statsrepos[@]}"; do
+  (cd "$repo" && python3 -I -B "$cli" stats --record --owner s1 >"$work/stats-$(basename "$repo").json") &
+  pids+=($!)
+done
+for pid in "${pids[@]}"; do wait "$pid" || fail "a concurrent stats --record failed"; done
+[ "$(jq -s '[.[] | select(.created == true)] | length' "$work"/stats-stats-*.json)" = 1 ] || fail "the store must be created by exactly one of three concurrent writers"
+[ "$(python3 -I -B -c 'import os, sys; print(format(os.stat(sys.argv[1]).st_mode & 0o777, "o"))' "$stats_home/run-stats.jsonl")" = 600 ] || fail "the store must be 0600"
+[ "$(jq -R -s 'split("\n") | map(select(length > 0) | fromjson | .run) | unique | length' "$stats_home/run-stats.jsonl")" = 6 ] || fail "each of the six finished runs must be written once"
+[ "$(jq -R -s 'split("\n") | map(select(length > 0)) | length' "$stats_home/run-stats.jsonl")" = 6 ] || fail "concurrent writers must leave exactly six lines"
+ok "${statsrepos[0]}" stats --record
+jq -e '.appended == 0 and .already == 2 and .created == false and (has("notice") | not)' <<<"$out" >/dev/null || fail "a second stats --record must write nothing: $out"
+ok "${statsrepos[0]}" stats
+jq -e '.missing == 0 and .repo_lines == 2 and .stores.claude.valid == 6 and .stores.claude.malformed == 0 and .repos == 3' <<<"$out" >/dev/null || fail "the report must count every line: $out"
+ok "${statsrepos[0]}" stats --record --run 20261103-open
+jq -e '.skipped["not-done"] == 1' <<<"$out" >/dev/null || fail "an unfinished run must not be recorded: $out"
+invalid "${statsrepos[0]}" stats --days 3
+invalid "${statsrepos[0]}" stats --run 20261101-one
 
 echo "artifact probe passed"

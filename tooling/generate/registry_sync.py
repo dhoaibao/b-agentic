@@ -39,6 +39,7 @@ ARTIFACT_KINDS = ("spec", "plan", "qa", "followups")
 B_REVIEW_PROMPT_PATH = ROOT / "skills" / "b-review" / "prompt.md"
 # Both b-review blocker-class sentences ("... is one of: a, b, or c.") list the classes in the same order as the enum.
 BLOCKER_CLASS_SENTENCE = re.compile(r"is one of: ([^.]+)\.")
+BLOCKER_CLASS_SENTENCES = 2
 # A prompt line that starts with this marker is emitted only for the named runtimes (marker removed).
 RUNTIME_MARKER = re.compile(r"^<!-- runtime: ([a-z]+(?:,[a-z]+)*) --> ")
 # A bare marker line opens a block that closes at the closing line; the lines between them are emitted
@@ -686,10 +687,14 @@ def validate_snapshot_cli() -> list[str]:
 
 
 def blocker_class_errors(classes: Any, prompt: str, label: str) -> list[str]:
-    """Require the blocker_class enum to equal every blocker-class sentence of the b-review prompt (ADR-010)."""
+    """Require the blocker_class enum to equal both blocker-class sentences of the b-review prompt (ADR-010)."""
     sentences = BLOCKER_CLASS_SENTENCE.findall(prompt)
-    if not sentences:
-        return [f"{label}: no blocker class sentence found for the blocker_class enum to match"]
+    # One sentence per reviewer path (Codex gate and b-reviewer): a reworded or missing one must not go unchecked.
+    if len(sentences) != BLOCKER_CLASS_SENTENCES:
+        return [
+            f"{label}: expected {BLOCKER_CLASS_SENTENCES} blocker class sentences "
+            f"(Codex gate and reviewer) matching the blocker_class enum, found {len(sentences)}"
+        ]
     errors = []
     for found in sentences:
         listed = [re.sub(r"^or ", "", part.strip()) for part in found.split(",")]
@@ -697,6 +702,64 @@ def blocker_class_errors(classes: Any, prompt: str, label: str) -> list[str]:
             errors.append(
                 f"{label}: a blocker class sentence differs from the blocker_class enum in references/artifacts.yaml"
             )
+    return errors
+
+
+STATS_FIELD_TYPES = ("count", "seconds", "enum", "bool", "hexkey", "date", "counts", "object")
+
+
+def run_stats_errors(block: Any, enums: Any, label: str) -> list[str]:
+    """Keep the run_stats field list numeric: no line, text, or unknown type can enter the local store (ADR-035)."""
+    if not isinstance(block, dict):
+        return [f"{label}: run_stats must be an object"]
+    errors: list[str] = []
+    if block.get("version") != 1:
+        errors.append(f"{label}: run_stats.version must be 1")
+    if block.get("field_types") != list(STATS_FIELD_TYPES):
+        errors.append(f"{label}: run_stats.field_types must be exactly {list(STATS_FIELD_TYPES)}")
+    for name in ("max_line", "max_file"):
+        if not isinstance(block.get(name), int) or isinstance(block.get(name), bool) or block[name] < 1:
+            errors.append(f"{label}: run_stats.{name} must be a positive integer")
+    for name in ("store", "off"):
+        if not isinstance(block.get(name), str) or not re.fullmatch(r"[a-z0-9][a-z0-9.-]*", block[name]):
+            errors.append(f"{label}: run_stats.{name} must be a plain file name")
+    named_enums = enums if isinstance(enums, dict) else {}
+
+    def string_list(value: Any) -> bool:
+        return isinstance(value, list) and bool(value) and all(isinstance(item, str) and item for item in value)
+
+    def walk(spec: Any, where: str) -> None:
+        kind = spec.get("type") if isinstance(spec, dict) else None
+        if kind not in STATS_FIELD_TYPES:
+            errors.append(f"{label}: run_stats.{where} has a type outside {list(STATS_FIELD_TYPES)}")
+            return
+        if kind == "enum" and not string_list(spec.get("values")):
+            errors.append(f"{label}: run_stats.{where} needs a list of values")
+        if kind == "hexkey" and not (isinstance(spec.get("length"), int) and spec["length"] > 0):
+            errors.append(f"{label}: run_stats.{where} needs a key length")
+        if kind == "counts":
+            keys, named = spec.get("keys"), spec.get("enum")
+            if (keys is None) == (named is None):
+                errors.append(f"{label}: run_stats.{where} needs exactly one of keys or enum")
+            if keys is not None and not string_list(keys):
+                errors.append(f"{label}: run_stats.{where}.keys must be a list of names")
+            if named is not None and named not in named_enums:
+                errors.append(f"{label}: run_stats.{where} names an unknown enum")
+            if "extra" in spec and not string_list(spec["extra"]):
+                errors.append(f"{label}: run_stats.{where}.extra must be a list of names")
+        if kind == "object":
+            fields = spec.get("fields")
+            if not isinstance(fields, dict) or not fields:
+                errors.append(f"{label}: run_stats.{where} needs fields")
+                return
+            for name, sub in fields.items():
+                walk(sub, f"{where}.{name}")
+
+    fields = block.get("fields")
+    if not isinstance(fields, dict) or not fields:
+        return [*errors, f"{label}: run_stats.fields must list the fields"]
+    for name, sub in fields.items():
+        walk(sub, name)
     return errors
 
 
@@ -746,6 +809,7 @@ def validate_artifacts_schema() -> list[str]:
             errors.append(f"{label}: {kind} needs phases and an example")
         for name, sub in entry.get("fields", {}).items():
             walk(sub, f"{kind}.{name}")
+    errors += run_stats_errors(schema.get("run_stats"), enums, str(label))
     review_label = str(B_REVIEW_PROMPT_PATH.relative_to(ROOT))
     if B_REVIEW_PROMPT_PATH.is_file():
         errors += blocker_class_errors(enums.get("blocker_class"), B_REVIEW_PROMPT_PATH.read_text(), review_label)
@@ -2457,6 +2521,24 @@ def validate_regressions(
             errors.append(f"agent regression: {why} in mcp_tools must fail")
     errors.extend(validate_snapshot_cli())
     errors.extend(validate_artifacts_schema())
+    if ARTIFACTS_PATH.is_file():
+        artifacts = json.loads(ARTIFACTS_PATH.read_text())
+        for why, mutate in (
+            ("a line field", lambda b: b["fields"].update({"note": {"type": "line"}})),
+            ("a text field", lambda b: b["fields"]["review"]["fields"].update({"note": {"type": "text"}})),
+            ("an id field", lambda b: b["fields"].update({"note": {"type": "id"}})),
+            ("an unknown type", lambda b: b["fields"].update({"note": {"type": "blob"}})),
+            ("a counts field without keys", lambda b: b["fields"]["ac"].pop("keys")),
+            ("a counts field naming an unknown enum", lambda b: b["fields"]["escaped_from"].update({"enum": "nope"})),
+            ("an enum without values", lambda b: b["fields"]["size"].pop("values")),
+            ("a hash key without a length", lambda b: b["fields"]["repo"].pop("length")),
+            ("a widened type list", lambda b: b["field_types"].append("text")),
+            ("a store name with a path", lambda b: b.update({"store": "../run-stats.jsonl"})),
+        ):
+            candidate = json.loads(json.dumps(artifacts["run_stats"]))
+            mutate(candidate)
+            if not run_stats_errors(candidate, artifacts["enums"], "self-test"):
+                errors.append(f"run_stats regression: {why} must fail")
     if B_REVIEW_PROMPT_PATH.is_file() and ARTIFACTS_PATH.is_file():
         review_prompt = B_REVIEW_PROMPT_PATH.read_text()
         class_enum = json.loads(ARTIFACTS_PATH.read_text()).get("enums", {}).get("blocker_class", [])
@@ -2465,6 +2547,16 @@ def validate_regressions(
             ("an enum with a reordered class", [*class_enum[1:], class_enum[0]], review_prompt),
             ("a prompt that drops a class", class_enum, review_prompt.replace("unexpected path, or ", "", 1)),
             ("a prompt with no class sentence", class_enum, review_prompt.replace("is one of:", "is any of:")),
+            (
+                "a prompt where only one sentence is reworded",
+                class_enum,
+                review_prompt.replace("is one of:", "is any of:", 1),
+            ),
+            (
+                "a prompt where only one list drifts",
+                class_enum,
+                review_prompt.replace("unexpected path", "documentation gap", 1),
+            ),
         ):
             if not blocker_class_errors(drifted_enum, drifted_prompt, "self-test"):
                 errors.append(f"blocker class regression: {why} must fail")

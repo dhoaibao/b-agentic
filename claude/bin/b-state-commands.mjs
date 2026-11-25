@@ -1,7 +1,9 @@
 // The init, approve, advance, unblock and check commands of the b-state CLI (ADR-009).
 // Imports the core, git, store, gates, worktree and next modules.
+import { execFile } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   block,
   BRANCH_TARGET,
@@ -346,7 +348,47 @@ export async function cmdAdvance(root, dir, state, args) {
     trigger: target === "review" ? state.review.trigger : "",
     fingerprint,
   });
-  return { phase: state.phase };
+  const result = { phase: state.phase };
+  if (state.phase === "done") {
+    const { outcome, notice } = await recordRunStats(root, state);
+    result.run_stats = outcome;
+    if (notice) result.notice = notice;
+  }
+  return result;
+}
+
+const RUN_CLI = fileURLToPath(new URL("./b_run.py", import.meta.url));
+
+// Appends the finished run's numbers-only line to the local run-stats store (ADR-035). It
+// runs after the done state is saved and never fails the advance: any problem is only a
+// missing line that `b-run stats --record` adds later. Returns the outcome (written, already,
+// skipped:<reason>, or failed) and the one-time notice printed when the store is first created.
+function recordRunStats(root, state) {
+  return new Promise((done) => {
+    execFile(
+      "python3",
+      ["-I", "-B", RUN_CLI, "stats", "--record", "--run", state.run_id],
+      { cwd: root, encoding: "utf8", maxBuffer: 1 << 20, timeout: 10_000 },
+      (_error, stdout) => {
+        try {
+          const parsed = JSON.parse(stdout);
+          const reason = Object.keys(parsed.skipped ?? {})[0];
+          const outcome =
+            parsed.appended > 0
+              ? "written"
+              : parsed.already > 0
+                ? "already"
+                : `skipped:${reason ?? "unknown"}`;
+          done({
+            outcome,
+            notice: typeof parsed.notice === "string" ? parsed.notice : "",
+          });
+        } catch {
+          done({ outcome: "failed", notice: "" });
+        }
+      },
+    );
+  });
 }
 
 export async function cmdUnblock(root, dir, state, args) {

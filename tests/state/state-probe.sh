@@ -11,7 +11,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-cases=(core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi)
+cases=(core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi stats)
 
 if [ "$#" -eq 0 ]; then
   logs=$(mktemp -d)
@@ -49,6 +49,10 @@ js=(bun --no-env-file --config=/dev/null)
 if [ "${STATE_PROBE_RUNTIME:-}" = node ]; then js=(node); fi
 work=$(mktemp -d)
 trap 'chmod -R u+rwX "$work" 2>/dev/null; rm -rf "$work"' EXIT
+# A finished run appends to the run-stats store under the install home (ADR-035): HOME is a throwaway
+# folder with no install home, so no probe writes to the real one.
+export HOME="$work/home"
+mkdir -p "$HOME"
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_CEILING_DIRECTORIES="$work"
 

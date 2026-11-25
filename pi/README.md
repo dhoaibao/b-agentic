@@ -75,6 +75,10 @@ The installer also merges default `pi-subagents` settings (`{"inlineToolDisplay"
 - Only keys added or owned by `b-agentic` are recorded in `b-agentic/install.json`; `--uninstall` removes only those
   unchanged owned keys and deletes `extensions/subagent/config.json` when `b-agentic` created it and it becomes `{}`.
 
+## Run stats
+
+A finished `b-flow` run appends one numbers-only line to `~/.pi/agent/b-agentic/run-stats.jsonl` when that folder already exists; `~/.pi/agent/b-agentic/run-stats.off` turns it off. The store is separate from Claude Code's, and the install and uninstall leave both files alone ([ADR-035](../docs/decisions/ADR-035-local-run-stats.md), [operational reference](../REFERENCE.md)).
+
 ## Checks
 
 - `python3 tooling/generate/registry_sync.py --check` renders Pi in memory and fails on a Claude-only token, an over-budget

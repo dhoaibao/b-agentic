@@ -74,6 +74,189 @@
       "review"
     ]
   },
+  "run_stats": {
+    "version": 1,
+    "description": "The only fields b_run.py stats may write to the local run-stats store (ADR-035). Numbers, enums, hashes and a date: no line or text type exists here, so no prose, path, command, branch, commit id, or run slug can reach the store.",
+    "store": "run-stats.jsonl",
+    "off": "run-stats.off",
+    "max_line": 2048,
+    "max_file": 8388608,
+    "field_types": [
+      "count",
+      "seconds",
+      "enum",
+      "bool",
+      "hexkey",
+      "date",
+      "counts",
+      "object"
+    ],
+    "fields": {
+      "v": {
+        "type": "count"
+      },
+      "repo": {
+        "type": "hexkey",
+        "length": 16
+      },
+      "run": {
+        "type": "hexkey",
+        "length": 16
+      },
+      "date": {
+        "type": "date"
+      },
+      "runtime": {
+        "type": "enum",
+        "values": [
+          "claude",
+          "pi"
+        ],
+        "optional": true
+      },
+      "size": {
+        "type": "enum",
+        "values": [
+          "quick",
+          "full"
+        ]
+      },
+      "end": {
+        "type": "enum",
+        "values": [
+          "commit",
+          "qa"
+        ]
+      },
+      "steps": {
+        "type": "count"
+      },
+      "criteria": {
+        "type": "count"
+      },
+      "scope_paths": {
+        "type": "count"
+      },
+      "worker_steps": {
+        "type": "count"
+      },
+      "parallel_steps": {
+        "type": "count"
+      },
+      "dur_s": {
+        "type": "counts",
+        "keys": [
+          "clarify",
+          "approved",
+          "implement",
+          "verify",
+          "review",
+          "fix",
+          "qa",
+          "commit"
+        ]
+      },
+      "total_s": {
+        "type": "seconds"
+      },
+      "history_complete": {
+        "type": "bool"
+      },
+      "review": {
+        "type": "object",
+        "fields": {
+          "rounds": {
+            "type": "count"
+          },
+          "by_gate": {
+            "type": "counts",
+            "keys": [
+              "codex",
+              "reviewer"
+            ]
+          },
+          "low_risk": {
+            "type": "bool"
+          },
+          "verdict": {
+            "type": "enum",
+            "values": [
+              "READY FOR PR",
+              "READY WITH FOLLOW-UPS",
+              "NEEDS FIXES"
+            ],
+            "optional": true
+          }
+        }
+      },
+      "qa": {
+        "type": "object",
+        "fields": {
+          "rounds": {
+            "type": "count"
+          },
+          "verdict": {
+            "type": "enum",
+            "values": [
+              "QA PASS",
+              "QA FAIL",
+              "QA BLOCKED"
+            ],
+            "optional": true
+          }
+        }
+      },
+      "fix_rounds": {
+        "type": "count"
+      },
+      "blocked_count": {
+        "type": "count"
+      },
+      "checks_total": {
+        "type": "count"
+      },
+      "checks_failed": {
+        "type": "count"
+      },
+      "commits": {
+        "type": "count"
+      },
+      "ac": {
+        "type": "counts",
+        "keys": [
+          "pass",
+          "fail",
+          "gap",
+          "waived"
+        ]
+      },
+      "blockers": {
+        "type": "object",
+        "fields": {
+          "review": {
+            "type": "count"
+          },
+          "qa": {
+            "type": "count"
+          },
+          "by_class": {
+            "type": "counts",
+            "enum": "blocker_class",
+            "extra": [
+              "unclassified"
+            ]
+          }
+        }
+      },
+      "escaped_from": {
+        "type": "counts",
+        "enum": "escape_stage",
+        "extra": [
+          "unclassified"
+        ]
+      }
+    }
+  },
   "kinds": {
     "spec": {
       "file": "spec.md",

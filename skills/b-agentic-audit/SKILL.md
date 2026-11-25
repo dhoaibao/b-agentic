@@ -113,6 +113,10 @@ supply its completed origin-freshness evidence:
   recommends the main session list the old finished runs with `~/.claude/b-agentic/bin/b-run prune` and
   ask the user before `prune --apply`; otherwise one checked-and-clean line. A
   missing folder or helper is a one-line note, not an evidence gap. Never run `prune`.
+- `~/.claude/b-agentic/bin/b-run stats` is read-only too (ADR-035): run it once beside `runs` and add
+  its counts (store lines, repositories, this repository's finished runs not yet stored) to the same
+  housekeeping note. When runs are missing, recommend that the user run `b-run stats --record`; never
+  run `--record` yourself. A store that does not exist or is disabled is a one-line note, not a gap.
 
 ## Steps
 

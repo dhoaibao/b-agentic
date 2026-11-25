@@ -31,7 +31,9 @@ but `done` is state a later session may continue.
 - The check runs in two places only, and neither deletes: `b-state.mjs init` adds a one-line `hint`
   when more than 40 run folders exist (a count of names), and `b-audit` and `b-agentic-audit` run
   `runs` and report a housekeeping note that is not a finding and does not change the verdict.
-- A pruned run is deleted fully: no summary or index is kept. Commits stay in git.
+- A pruned run is deleted fully: no summary or index is kept inside the run folder. Commits stay in
+  git. ([ADR-035](ADR-035-local-run-stats.md) keeps a numbers-only line per finished run in a
+  separate local store; the folder is still deleted fully.)
 
 ## Consequences
 

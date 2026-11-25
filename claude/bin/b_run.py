@@ -25,8 +25,12 @@ Commands (JSON results on stdout, one-line errors on stderr):
   runs [--days N]          read-only report of .b-agentic/runs: count, bytes, the finished runs older
                            than N days (default 30), and whether the folder is over its hint threshold
   prune [--days N]         list those runs; with --apply, delete exactly them (dry run by default)
+  stats [--record [--run ID]]  counts of the local run-stats store (ADR-035), read-only; --record
+                           appends the numbers-only line of this repository's finished runs (or one
+                           run) that are not in the store yet; run-stats.off beside it turns it off
 
-Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only).
+Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only),
+--record (stats only).
 Exit: 0 ok or help, 3 refused or not ok, 2 invalid input or state (a wrong command or argument).
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
@@ -1876,6 +1880,503 @@ def cmd_prune(args: dict) -> dict:
     return result
 
 
+# ---- run stats (ADR-035) -------------------------------------------------------
+
+STATS_SALT = "b-agentic-run-stats:v1:"
+# The install home of each runtime, below the user's home: the store lives beside the installed helpers.
+STATS_HOMES = {"claude": (".claude", "b-agentic"), "pi": (".pi", "agent", "b-agentic")}
+STATS_LOCK_SECONDS = 1.0
+
+
+def _stats_block(schema: dict) -> dict:
+    block = schema.get("run_stats")
+    if not isinstance(block, dict):
+        raise Invalid("artifacts.yaml: run_stats is missing")
+    return block
+
+
+def _stats_value(spec: dict, value: object, path: str, schema: dict) -> None:
+    kind = spec["type"]
+
+    def bad(why: str) -> Invalid:
+        return Invalid(f"run_stats.{path}: {why}")
+
+    if kind in ("count", "seconds"):
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 10**9:
+            raise bad("expected a non-negative whole number")
+    elif kind == "bool":
+        if not isinstance(value, bool):
+            raise bad("expected true or false")
+    elif kind == "enum":
+        if value not in spec["values"]:
+            raise bad(f"expected one of {spec['values']}")
+    elif kind == "hexkey":
+        if not isinstance(value, str) or not re.fullmatch(f"[0-9a-f]{{{spec['length']}}}", value):
+            raise bad(f"expected {spec['length']} lowercase hex characters")
+    elif kind == "date":
+        import datetime
+
+        try:
+            if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+                raise ValueError(value)
+            datetime.date.fromisoformat(value)
+        except ValueError as exc:
+            raise bad("expected a YYYY-MM-DD date") from exc
+    elif kind == "counts":
+        names = spec.get("keys") or [*schema["enums"][spec["enum"]], *spec.get("extra", [])]
+        if not isinstance(value, dict) or any(key not in names for key in value):
+            raise bad(f"expected counts keyed by {names}")
+        for key, count in value.items():
+            _stats_value({"type": "count"}, count, f"{path}.{key}", schema)
+    else:
+        _stats_object(spec["fields"], value, path, schema)
+
+
+def _stats_object(fields: dict, value: object, path: str, schema: dict) -> None:
+    prefix = f"{path}." if path else ""
+    if not isinstance(value, dict):
+        raise Invalid(f"run_stats.{path or 'record'}: expected an object")
+    extra = sorted(set(value) - set(fields))
+    if extra:
+        raise Invalid(f"run_stats.{prefix}{extra[0]}: not an allowed field")
+    for name, spec in fields.items():
+        if name not in value:
+            if not spec.get("optional"):
+                raise Invalid(f"run_stats.{prefix}{name}: missing")
+            continue
+        _stats_value(spec, value[name], f"{prefix}{name}", schema)
+
+
+def stats_check(record: dict, schema: dict) -> None:
+    """Refuse any record that is not exactly the numbers the run_stats block allows (ADR-035)."""
+    _stats_object(_stats_block(schema)["fields"], record, "", schema)
+
+
+def stats_repo_key(root: Path) -> str | None:
+    """Hash of the repository's root commits: stable across moves and clones, and it holds no name."""
+    import hashlib
+
+    try:
+        # A shallow clone's boundary commits look like roots, so its key would change when the clone is deepened.
+        if git(root, "rev-parse", "--is-shallow-repository").strip() != "false":
+            return None
+        roots = sorted(git(root, "rev-list", "--max-parents=0", "HEAD").split())
+    except Refused:
+        return None
+    if not roots:
+        return None
+    return hashlib.sha256((STATS_SALT + "\n".join(roots)).encode()).hexdigest()[:16]
+
+
+def _run_started(state: dict) -> str:
+    """When the run was initialised: two worktrees of one repository can finish same-day runs with one id."""
+    history = state.get("history")
+    first = history[0] if isinstance(history, list) and history and isinstance(history[0], dict) else {}
+    return str(first.get("at", ""))
+
+
+def stats_run_key(repo_key: str, state: dict) -> str:
+    import hashlib
+
+    material = f"{STATS_SALT}run:{repo_key}:{state['run_id']}:{_run_started(state)}"
+    return hashlib.sha256(material.encode()).hexdigest()[:16]
+
+
+def _history_seconds(history: list) -> tuple[dict[str, int], int]:
+    """Seconds per phase from the gaps between history entries, each gap given to the phase the run was in."""
+    per_phase: dict[str, int] = {}
+    total = 0
+    previous: tuple[datetime, str] | None = None
+    for entry in history:
+        moment = _updated_at(entry.get("at"))
+        if moment is None:
+            continue
+        if previous is not None:
+            gap = max(0, int((moment - previous[0]).total_seconds()))
+            total += gap
+            per_phase[previous[1]] = per_phase.get(previous[1], 0) + gap
+        previous = (moment, str(entry.get("to", "")))
+    return per_phase, total
+
+
+def stats_record(state: dict, artifacts: dict, repo_key: str, schema: dict) -> dict:
+    """The numbers of one finished run, derived from state.json and artifacts.json only."""
+    block = _stats_block(schema)["fields"]
+    held = artifacts.get("artifacts", {})
+    spec = held.get("spec", {}).get("data", {})
+    plan = held.get("plan", {}).get("data", {})
+    items = held.get("followups", {}).get("data", {}).get("items", [])
+    history = [entry for entry in state.get("history", []) if isinstance(entry, dict)]
+    run_id = str(state["run_id"])
+    per_phase, total = _history_seconds(history)
+    phases = block["dur_s"]["keys"]
+    review, qa = state.get("review", {}), state.get("qa", {})
+    gates: dict[str, int] = {}
+    for entry in history:
+        detail = entry.get("detail", {}) if isinstance(entry.get("detail"), dict) else {}
+        if entry.get("op") == "record review" and detail.get("gate") in block["review"]["fields"]["by_gate"]["keys"]:
+            gates[detail["gate"]] = gates.get(detail["gate"], 0) + 1
+    checks = [e for e in history if e.get("op") == "record check"]
+    classes = schema["enums"]["blocker_class"]
+    stages = schema["enums"]["escape_stage"]
+    by_class: dict[str, int] = {}
+    escaped: dict[str, int] = {}
+    blockers = {"review": 0, "qa": 0}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        is_blocker = item.get("kind") == "blocker"
+        if is_blocker and item.get("source") in blockers:
+            blockers[item["source"]] += 1
+            name = item.get("blocker_class") if item.get("blocker_class") in classes else "unclassified"
+            by_class[name] = by_class.get(name, 0) + 1
+        if item.get("escaped_from") in stages:
+            escaped[item["escaped_from"]] = escaped.get(item["escaped_from"], 0) + 1
+        elif is_blocker:
+            escaped["unclassified"] = escaped.get("unclassified", 0) + 1
+    results: dict[str, int] = {}
+    for entry in state.get("ac", {}).values():
+        status = entry.get("status") if isinstance(entry, dict) else None
+        if status in block["ac"]["keys"]:
+            results[status] = results.get(status, 0) + 1
+    record: dict = {
+        "v": 1,
+        "repo": repo_key,
+        "run": stats_run_key(repo_key, state),
+        "date": f"{run_id[:4]}-{run_id[4:6]}-{run_id[6:8]}",
+        "size": state.get("size", "full"),
+        "end": "commit" if state.get("commits") else "qa",
+        "steps": len(plan.get("steps", [])),
+        "criteria": len(spec.get("criteria", [])),
+        "scope_paths": len(spec.get("scope_paths", [])),
+        "worker_steps": len(plan.get("worker_steps", [])),
+        "parallel_steps": len(plan.get("parallel_steps", [])),
+        "dur_s": {name: seconds for name, seconds in per_phase.items() if name in phases},
+        "total_s": total,
+        "history_complete": state.get("history_dropped") == 0,
+        "review": {
+            "rounds": review.get("round", 0),
+            "by_gate": gates,
+            "low_risk": bool(review.get("low_risk_exception")),
+        },
+        "qa": {"rounds": qa.get("round", 0)},
+        "fix_rounds": sum(1 for e in history if e.get("op") == "advance" and e.get("to") == "fix"),
+        "blocked_count": sum(1 for e in history if e.get("to") == "blocked"),
+        "checks_total": len(checks),
+        "checks_failed": sum(
+            1 for e in checks if isinstance(e.get("detail"), dict) and e["detail"].get("exit") not in (0, None)
+        ),
+        "commits": len(state.get("commits", [])),
+        "ac": results,
+        "blockers": {**blockers, "by_class": by_class},
+        "escaped_from": escaped,
+    }
+    if state.get("runtime") in block["runtime"]["values"]:
+        record["runtime"] = state["runtime"]
+    if review.get("verdict") in block["review"]["fields"]["verdict"]["values"]:
+        record["review"]["verdict"] = review["verdict"]
+    if qa.get("verdict") in block["qa"]["fields"]["verdict"]["values"]:
+        record["qa"]["verdict"] = qa["verdict"]
+    return record
+
+
+def stats_dir(runtime: str) -> Path:
+    return Path.home().joinpath(*STATS_HOMES[runtime])
+
+
+def _stats_shown(runtime: str, name: str) -> str:
+    return "~/" + "/".join((*STATS_HOMES[runtime], name))
+
+
+def _stats_off(dir_fd: int, name: str) -> str | None:
+    """A reason when run-stats.off exists in any form (or cannot be read), None when it is absent."""
+    try:
+        os.lstat(name, dir_fd=dir_fd)
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return "flag-unreadable"
+    return "disabled"
+
+
+def _stats_read_all(fd: int, limit: int) -> bytes:
+    chunks: list[bytes] = []
+    offset = 0
+    while offset < limit:
+        chunk = os.pread(fd, min(1 << 16, limit - offset), offset)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        offset += len(chunk)
+    return b"".join(chunks)
+
+
+def stats_lines(data: bytes) -> list[dict | None]:
+    """Each line of a store as a record, or None for a line that is not a JSON object."""
+    out: list[dict | None] = []
+    for raw in data.split(b"\n"):
+        if not raw.strip():
+            continue
+        try:
+            value = json.loads(raw)
+        except ValueError:
+            out.append(None)
+            continue
+        out.append(value if isinstance(value, dict) else None)
+    return out
+
+
+def _own_private_group(gid: int) -> bool:
+    """True when the user is the only person in that group, by its member list and by the accounts that use it."""
+    import grp
+    import pwd
+
+    try:
+        uid = os.getuid()
+        if set(grp.getgrgid(gid).gr_mem) - {pwd.getpwuid(uid).pw_name}:
+            return False
+        return all(entry.pw_uid == uid for entry in pwd.getpwall() if entry.pw_gid == gid)
+    except (KeyError, OSError):
+        return False
+
+
+def _home_private(info: os.stat_result, dir_fd: int) -> bool:
+    """The install home is the user's, closed to others, and open to a group only when that group is the user's alone."""
+    if info.st_uid != os.getuid() or info.st_mode & 0o002:
+        return False
+    if not info.st_mode & 0o020:
+        return True
+    if info.st_gid != os.getgid() or not _own_private_group(info.st_gid):
+        return False
+    # With an access ACL the group bits are only its mask, so a named entry could let another account write:
+    # a group-writable home is accepted only when no ACL is present, and refused when that cannot be checked.
+    try:
+        return not any(name.startswith("system.posix_acl") for name in os.listxattr(dir_fd))
+    except (AttributeError, OSError):
+        return False
+
+
+def stats_append(runtime: str, block: dict, record: dict, line: bytes) -> dict:
+    """Append one line to the runtime's store, creating it safely on first use. Never raises: a problem is a skip reason."""
+    import fcntl
+    import time
+
+    store, off = block["store"], block["off"]
+    result = {"status": "skipped", "reason": "", "created": False}
+
+    def skip(reason: str) -> dict:
+        result["reason"] = reason
+        return result
+
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    try:
+        dir_fd = os.open(stats_dir(runtime), flags)
+    except FileNotFoundError:
+        return skip("no-install-home")
+    except OSError:
+        return skip("home-not-plain")
+    fd = -1
+    try:
+        if not _home_private(os.fstat(dir_fd), dir_fd):
+            return skip("home-not-private")
+        reason = _stats_off(dir_fd, off)
+        if reason:
+            return skip(reason)
+        # O_NONBLOCK: a FIFO with no writer must not hang the open; the type is checked right after.
+        base = os.O_RDWR | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0)
+        try:
+            fd = os.open(store, base, dir_fd=dir_fd)
+        except FileNotFoundError:
+            try:
+                fd = os.open(store, base | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=dir_fd)
+                result["created"] = True
+            except FileExistsError:
+                try:
+                    fd = os.open(store, base, dir_fd=dir_fd)
+                except OSError:
+                    return skip("store-unopenable")
+            except OSError:
+                return skip("store-uncreatable")
+        except OSError:
+            return skip("store-unopenable")
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
+            return skip("store-not-plain")
+        if info.st_mode & 0o077:
+            return skip("store-loose-mode")
+        if info.st_size + len(line) > block["max_file"]:
+            return skip("store-full")
+        deadline = time.monotonic() + STATS_LOCK_SECONDS
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    return skip("store-busy")
+                time.sleep(0.05)
+        info = os.fstat(fd)
+        size = info.st_size
+        if size + len(line) + 1 > block["max_file"]:
+            return skip("store-full")
+        data = _stats_read_all(fd, size)
+        for known in stats_lines(data):
+            if known and known.get("repo") == record["repo"] and known.get("run") == record["run"]:
+                result["status"] = "already"
+                return result
+        # An interrupted writer can leave a tail without a newline: end it so this line starts on its own.
+        payload = (b"\n" if data and not data.endswith(b"\n") else b"") + line
+        # Checked last, right before the write, so a flag created during the scan above is still honored.
+        reason = _stats_off(dir_fd, off)
+        if reason:
+            return skip(reason)
+        try:
+            written = os.write(fd, payload)
+        except OSError:
+            written = -1
+        if written != len(payload):
+            # A partial line would corrupt the next append: cut the file back to its size before this write.
+            try:
+                os.ftruncate(fd, size)
+            except OSError:
+                pass
+            return skip("short-write")
+        result["status"] = "written"
+        return result
+    except OSError:
+        return skip("io-error")
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        os.close(dir_fd)
+
+
+def _finished_runs(root: Path) -> list[tuple[str, dict, Path]]:
+    """This repository's runs that reached done, as (id, state, folder), oldest first."""
+    base = root / ".b-agentic" / "runs"
+    if not is_plain_dir(root / ".b-agentic") or not is_plain_dir(base):
+        return []
+    found = []
+    for folder in sorted(base.iterdir()):
+        if not RUN_ID.fullmatch(folder.name) or not is_plain_dir(folder):
+            continue
+        try:
+            state = read_state(folder)
+        except (Invalid, Refused):
+            continue
+        if state.get("phase") == "done" and state.get("run_id") == folder.name:
+            found.append((folder.name, state, folder))
+    return found
+
+
+def _stats_report(root: Path, schema: dict) -> dict:
+    block = _stats_block(schema)
+    repo_key = stats_repo_key(root)
+    keys = {run_id: stats_run_key(repo_key, state) for run_id, state, _ in _finished_runs(root)} if repo_key else {}
+    recorded: set[str] = set()
+    repos: set[str] = set()
+    stores: dict[str, dict] = {}
+    for runtime in STATS_HOMES:
+        entry: dict = {"exists": False, "disabled": False, "lines": 0, "valid": 0, "malformed": 0}
+        stores[runtime] = entry
+        try:
+            dir_fd = os.open(stats_dir(runtime), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError:
+            continue
+        try:
+            entry["disabled"] = _stats_off(dir_fd, block["off"]) is not None
+            try:
+                fd = os.open(block["store"], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
+            except OSError:
+                continue
+            try:
+                info = os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode):
+                    continue
+                entry["exists"] = True
+                for record in stats_lines(_stats_read_all(fd, min(info.st_size, block["max_file"]))):
+                    entry["lines"] += 1
+                    try:
+                        if record is None:
+                            raise Invalid("not an object")
+                        stats_check(record, schema)
+                    except Invalid:
+                        entry["malformed"] += 1
+                        continue
+                    entry["valid"] += 1
+                    repos.add(record["repo"])
+                    if record["repo"] == repo_key:
+                        recorded.add(record["run"])
+            finally:
+                os.close(fd)
+        finally:
+            os.close(dir_fd)
+    return {
+        "ok": True,
+        "stores": stores,
+        "repos": len(repos),
+        "repo": repo_key,
+        "repo_lines": len(recorded),
+        "finished_runs": len(keys),
+        "missing": sum(1 for key in keys.values() if key not in recorded),
+    }
+
+
+def cmd_stats(schema: dict, args: dict) -> dict:
+    _only_options("stats", args, {"record", "run"})
+    root = repo_root()
+    if not args.get("record"):
+        if args.get("run"):
+            raise Invalid("stats --run belongs to stats --record")
+        return _stats_report(root, schema)
+    block = _stats_block(schema)
+    repo_key = stats_repo_key(root)
+    runtime = "pi" if on_pi() else "claude"
+    out: dict = {"ok": True, "created": False, "appended": 0, "already": 0, "skipped": {}}
+    if repo_key is None:
+        out["skipped"]["no-repo-key"] = 1
+        return out
+    if args.get("run"):
+        run_id, folder = resolve_run(root, args["run"])
+        runs = [(run_id, read_state(folder), folder)]
+    else:
+        runs = _finished_runs(root)
+    for run_id, state, folder in runs:
+        if state.get("phase") != "done":
+            out["skipped"]["not-done"] = out["skipped"].get("not-done", 0) + 1
+            continue
+        # Each runtime writes only its own runs to its own store, whether it is called live, by name, or as a catch-up.
+        if state.get("runtime", "claude") != runtime:
+            out["skipped"]["other-runtime"] = out["skipped"].get("other-runtime", 0) + 1
+            continue
+        try:
+            record = stats_record(state, load_artifacts(folder), repo_key, schema)
+            stats_check(record, schema)
+            line = (json.dumps(record, separators=(",", ":")) + "\n").encode()
+            if len(line) > block["max_line"]:
+                raise Invalid("line too long")
+        except (Invalid, Refused, KeyError, TypeError, ValueError):
+            out["skipped"]["bad-record"] = out["skipped"].get("bad-record", 0) + 1
+            continue
+        result = stats_append(runtime, block, record, line)
+        if result["created"]:
+            out["created"] = True
+        if result["status"] == "written":
+            out["appended"] += 1
+        elif result["status"] == "already":
+            out["already"] += 1
+        else:
+            out["skipped"][result["reason"]] = out["skipped"].get(result["reason"], 0) + 1
+            # Every skip reason describes the store or its home, not one run: the next run would repeat it.
+            break
+    if out["created"]:
+        out["notice"] = (
+            f"run stats: created {_stats_shown(runtime, block['store'])} (numbers only, no text or paths); "
+            f"create {_stats_shown(runtime, block['off'])} to turn it off"
+        )
+    return out
+
+
 # ---- entry --------------------------------------------------------------------
 
 VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days"}
@@ -1890,6 +2391,7 @@ COMMANDS = (
     "selftest",
     "runs",
     "prune",
+    "stats",
 )
 HELP_FLAGS = ("--help", "-h")
 
@@ -1925,6 +2427,8 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
             options["json"] = True
         elif arg == "--apply":
             options["apply"] = True
+        elif arg == "--record":
+            options["record"] = True
         else:
             problem = problem or Invalid(f"unknown argument: {arg}")
     # A caller fixing a malformed command asks for help beside the mistake: help is answered, the mistake is not.
@@ -1966,6 +2470,8 @@ def run(argv: list[str]) -> tuple[int, str]:
         result = cmd_runs(args)
     elif command == "prune" and not rest:
         result = cmd_prune(args)
+    elif command == "stats" and not rest:
+        result = cmd_stats(schema, args)
     elif command in COMMANDS:
         raise arity_error(command, schema)
     else:

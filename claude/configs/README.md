@@ -25,7 +25,10 @@ a symlinked config file, and never touches `~/.config/opencode` (a removed runti
 earlier release recorded and this one no longer ships is retired on upgrade:
 `settings.json` stops naming a script before the script is deleted, a hook you
 edited is kept and reported, and its script is kept until that entry is gone.
-State written at run time lives in `b-agentic/`. An older install wrote
+State written at run time lives in `b-agentic/`, including the local run-stats store
+(`run-stats.jsonl`, switched off by an empty `run-stats.off` beside it; see
+[ADR-035](../../docs/decisions/ADR-035-local-run-stats.md) and the
+[operational reference](../../REFERENCE.md)); install, sync, and uninstall never touch either file. An older install wrote
 `codex-approved-repos.json`, a per-repository approval for sending a repository
 to Codex (OpenAI); nothing reads it since
 [ADR-021](../../docs/decisions/ADR-021-codex-gate-without-repo-approval.md), and
