@@ -37,25 +37,44 @@ for tool in bash sh env python3 git node jq cat mkdir rm mv cp ln chmod; do
   fi
 done
 
+# stock macOS has no GNU timeout; spawn the child in its own process group so a timeout kills descendants too
+bounded() { # bounded <seconds> <command...>
+  if command -v timeout >/dev/null 2>&1; then timeout -k 2 "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout -k 2 "$@"
+  else perl -e '
+    my $secs = shift;
+    my $pid = fork();
+    die "fork: $!\n" unless defined $pid;
+    if ($pid == 0) {
+      setpgrp(0, 0);
+      exec @ARGV or die "exec: $!\n";
+    }
+    local $SIG{ALRM} = sub {
+      kill "TERM", -$pid;
+      select(undef, undef, undef, 0.2);
+      kill "KILL", -$pid;
+      waitpid($pid, 0);
+      exit 124;
+    };
+    alarm $secs;
+    waitpid($pid, 0);
+    alarm 0;
+    exit(($? & 127) ? 128 + ($? & 127) : ($? >> 8));
+  ' "$@"
+  fi
+}
+
 out="" err="" rc=0
 run() {
   local home=$1
   shift
   rc=0
-  out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+  out=$(bounded 30 env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR PYTHONFAULTHANDLER=1 HOME="$home" PATH="$shims:$PATH" \
     bash "$root/install.sh" --runtime=all "$@" 2>"$work/stderr") || rc=$?
   err=$(cat "$work/stderr")
 }
 expect_ok() { [ "$rc" -eq 0 ] || fail "$1: exit $rc: $err $out"; }
 expect_refused() { [ "$rc" -ne 0 ] || fail "$1 must be refused: $out"; }
-
-# stock macOS has no GNU timeout; the alarm survives exec and bounds the command the same way
-bounded() { # bounded <seconds> <command...>
-  if command -v timeout >/dev/null 2>&1; then timeout "$@"
-  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
-  else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
-  fi
-}
 
 tree() {
   # shellcheck disable=SC2016 # The inner script runs in sh and expands its own variables.
@@ -234,44 +253,84 @@ if pid == 0:
         if k in os.environ
     }
     os.execvpe("bash", ["bash", "-c", os.environ["PROBE_CMD"]], {**env, **keep})
-buf, last, since = b"", time.time(), b""
-while time.time() - last < 20:
-    ready, _, _ = select.select([fd], [], [], 0.3)
-    if ready:
+
+os.set_blocking(fd, False)
+fd_open = True
+
+
+def close_fd() -> None:
+    global fd_open
+    if fd_open:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        fd_open = False
+
+
+def drain_fd() -> bytes:
+    out = bytearray()
+    while fd_open and len(out) < 65536:
         try:
             chunk = os.read(fd, 4096)
+        except BlockingIOError:
+            break
         except OSError:
+            close_fd()
             break
         if not chunk:
+            close_fd()
             break
-        buf, since, last = buf + chunk, since + chunk, time.time()
+        out.extend(chunk)
+    return bytes(out)
+
+
+buf, start, last, since = b"", time.time(), time.time(), b""
+while fd_open and time.time() - last < 20 and time.time() - start < 45:
+    ready, _, _ = select.select([fd], [], [], 0.3)
+    if ready:
+        chunk = drain_fd()
+        if chunk:
+            buf, since, last = buf + chunk, since + chunk, time.time()
     elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"[y/N]" in since or b"Enter confirms" in since):
         answer = answers.pop(0)
         if answer.startswith("!"):
-            subprocess.run(answer[1:], shell=True, env=env, check=True)
+            subprocess.run(answer[1:], shell=True, env=env, check=True, timeout=15)
             last = time.time()
         else:
             os.write(fd, (answer + "\n").encode())
             last, since = time.time(), b""
     elif not answers and time.time() - last > 3:
         break
+
 deadline = time.time() + 15
 child_status = None
 while child_status is None:
+    if fd_open:
+        extra = drain_fd()
+        if extra:
+            buf += extra
     waited_pid, status = os.waitpid(pid, os.WNOHANG)
     if waited_pid != 0:
         child_status = status
         break
     if time.time() > deadline:
+        close_fd()
         try:
             os.killpg(pid, signal.SIGKILL)
         except OSError:
-            os.kill(pid, signal.SIGKILL)
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
         os.waitpid(pid, 0)
         sys.stderr.write("pty harness: command timed out; output so far:\n")
         sys.stderr.write(buf.decode(errors="replace") + "\n")
         sys.exit(1)
     time.sleep(0.1)
+if fd_open:
+    buf += drain_fd()
+    close_fd()
 sys.stdout.write(buf.decode(errors="replace"))
 sys.exit(os.waitstatus_to_exitcode(child_status))
 PY
@@ -735,6 +794,7 @@ for dir_case in claude-root-to-pi pi-root-to-claude; do
   done
 done
 
+echo "install probe: cross-runtime-alias (m)-(p)"
 # (m) FIFO at install.json never blocks; known config alias still names both runtimes (R4-2).
 for runtime_dir in ".claude" ".pi/agent"; do
   for mode in install uninstall; do
@@ -831,6 +891,7 @@ grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "selected-alias error must name Pi
 [ "$before" = "$(tree "$home")" ] || fail "selected-alias refusal modified HOME tree"
 [ "$inode_before" = "$(sha256sum "$home/.pi/agent/AGENTS.md" | cut -d" " -f1)" ] || fail "selected-alias refusal modified shared inode"
 
+echo "install probe: cross-runtime-alias (q)-(t)"
 # (q) constructor/preflight/manifest checks do not mask payload aliases (R5-1).
 home=$(fresh_home alias-mcp-fresh-payload)
 mkdir -p "$home/.pi/agent/skills/b-review"
@@ -957,6 +1018,7 @@ tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "" "" "$link_
 grep -Fq 'Claude Code CLAUDE.md' <<<"$tui_out" || fail "pending:null replan must name Claude Code CLAUDE.md: $tui_out"
 grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "pending:null replan must name Pi AGENTS.md: $tui_out"
 
+echo "install probe: cross-runtime-alias (u)-(x)"
 # (u) unrelated ELOOP symlink loop refuses when alone and does not mask a known cross-runtime alias (R6-3).
 home=$(fresh_home eloop-only)
 mkdir -p "$home/.pi/agent"
@@ -1169,6 +1231,7 @@ grep -Fq 'Pi themes/dracula.json' <<<"$tui_out" || fail "theme alias replan must
 [ ! -e "$home/.claude/b-agentic/install.json" ] && [ ! -e "$home/.pi/agent/b-agentic/install.json" ] \
   || fail "theme alias replan refusal wrote manifests"
 
+echo "install probe: cross-runtime-alias (y)-(cc)"
 # (y) RecursionError from deeply nested JSON or long symlink chains defers cleanly (R8-2).
 for runtime_dir in ".claude" ".pi/agent"; do
   target_val=$( [ "$runtime_dir" = ".claude" ] && echo claude || echo pi )
