@@ -39,32 +39,40 @@ probe_dir=$(mktemp -d)
 probe_names=()
 probe_pids=()
 probe_done=()
+probe_starts=()
 probe_timer_pid=""
 probe_timeout=${B_AGENTIC_PROBE_TIMEOUT:-600}
 
+ci_actions() {
+  [ "${GITHUB_ACTIONS:-}" = "true" ]
+}
+
 stop_timer() {
+  local wait_timer=${1:-1}
   if [ -n "$probe_timer_pid" ]; then
     if command -v pkill >/dev/null 2>&1; then
       pkill -TERM -P "$probe_timer_pid" 2>/dev/null || true
     fi
     kill "$probe_timer_pid" 2>/dev/null || true
-    wait "$probe_timer_pid" 2>/dev/null || true
+    if [ "$wait_timer" -eq 1 ]; then
+      wait "$probe_timer_pid" 2>/dev/null || true
+    fi
     probe_timer_pid=""
   fi
 }
 
 cleanup_probes() {
-  stop_timer
+  stop_timer 0
   rm -rf "$probe_dir"
 }
 
 abort_probes() {
-  local reason=$1 index pid
+  local reason=$1 index pid elapsed
   trap - USR1 INT TERM
-  stop_timer
+  stop_timer 0
   for index in "${!probe_names[@]}"; do
-    [ "${probe_done[$index]:-0}" -eq 0 ] || continue
-    pid=${probe_pids[$index]}
+    [ "${probe_done[index]:-0}" -eq 0 ] || continue
+    pid=${probe_pids[index]}
     if command -v pkill >/dev/null 2>&1; then
       pkill -TERM -P "$pid" 2>/dev/null || true
     fi
@@ -75,8 +83,17 @@ abort_probes() {
     fi
     kill -KILL "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
-    printf -- '--- probe unfinished (%s): %s\n' "$reason" "${probe_names[$index]}" >&2
-    cat "$probe_dir/${probe_names[$index]}.log" >&2 || true
+    elapsed=$((SECONDS - probe_starts[index]))
+    if ci_actions; then
+      printf '::error::probe unfinished (%s): %s (%ss)\n' "$reason" "${probe_names[index]}" "$elapsed" >&2
+      printf '::group::probe unfinished (%s): %s (%ss)\n' "$reason" "${probe_names[index]}" "$elapsed" >&2
+    else
+      printf -- '--- probe unfinished (%s): %s (%ss)\n' "$reason" "${probe_names[index]}" "$elapsed" >&2
+    fi
+    cat "$probe_dir/${probe_names[index]}.log" >&2 || true
+    if ci_actions; then
+      printf '::endgroup::\n' >&2
+    fi
     probe_done[index]=1
   done
 }
@@ -99,9 +116,10 @@ start_probe() { # NAME COMMAND...
   probe_pids+=($!)
   probe_names+=("$name")
   probe_done+=(0)
+  probe_starts+=("$SECONDS")
 }
 finish_probes() {
-  local failed=() index
+  local failed=() index elapsed
   if [ "$probe_timeout" -gt 0 ] 2>/dev/null; then
     (
       exec >/dev/null 2>&1
@@ -111,12 +129,28 @@ finish_probes() {
     probe_timer_pid=$!
   fi
   for index in "${!probe_names[@]}"; do
-    if wait "${probe_pids[$index]}"; then
-      cat "$probe_dir/${probe_names[$index]}.log"
+    if wait "${probe_pids[index]}"; then
+      elapsed=$((SECONDS - probe_starts[index]))
+      if ci_actions; then
+        printf '::group::probe: %s (%ss)\n' "${probe_names[index]}" "$elapsed"
+      fi
+      cat "$probe_dir/${probe_names[index]}.log"
+      if ci_actions; then
+        printf '::endgroup::\n'
+      fi
     else
-      failed+=("${probe_names[$index]}")
-      printf -- '--- probe failed: %s\n' "${probe_names[$index]}" >&2
-      cat "$probe_dir/${probe_names[$index]}.log" >&2
+      elapsed=$((SECONDS - probe_starts[index]))
+      failed+=("${probe_names[index]}")
+      if ci_actions; then
+        printf '::error::probe failed: %s (%ss)\n' "${probe_names[index]}" "$elapsed" >&2
+        printf '::group::probe failed: %s (%ss)\n' "${probe_names[index]}" "$elapsed" >&2
+      else
+        printf -- '--- probe failed: %s (%ss)\n' "${probe_names[index]}" "$elapsed" >&2
+      fi
+      cat "$probe_dir/${probe_names[index]}.log" >&2
+      if ci_actions; then
+        printf '::endgroup::\n' >&2
+      fi
     fi
     probe_done[index]=1
   done
@@ -124,6 +158,7 @@ finish_probes() {
   probe_names=()
   probe_pids=()
   probe_done=()
+  probe_starts=()
   if [ "${#failed[@]}" -gt 0 ]; then
     printf 'validation failed: %s\n' "${failed[*]}" >&2
     exit 1

@@ -737,21 +737,48 @@ if pid == 0:
         if k in os.environ
     }
     os.execvpe("bash", ["bash", "-c", os.environ["PROBE_CMD"]], {**env, **keep})
-buf, last, since = b"", time.time(), b""
-while time.time() - last < 20:
-    ready, _, _ = select.select([fd], [], [], 0.3)
-    if ready:
+os.set_blocking(fd, False)
+fd_open = True
+
+
+def close_fd() -> None:
+    global fd_open
+    if fd_open:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        fd_open = False
+
+
+def drain_fd() -> bytes:
+    out = bytearray()
+    while fd_open and len(out) < 65536:
         try:
             chunk = os.read(fd, 4096)
+        except BlockingIOError:
+            break
         except OSError:
+            close_fd()
             break
         if not chunk:
+            close_fd()
             break
-        buf, since, last = buf + chunk, since + chunk, time.time()
+        out.extend(chunk)
+    return bytes(out)
+
+
+buf, start, last, since = b"", time.time(), time.time(), b""
+while fd_open and time.time() - last < 20 and time.time() - start < 45:
+    ready, _, _ = select.select([fd], [], [], 0.3)
+    if ready:
+        chunk = drain_fd()
+        if chunk:
+            buf, since, last = buf + chunk, since + chunk, time.time()
     elif answers and time.time() - last > 0.5 and (b"[Y/n]" in since or b"[y/N]" in since or b"Enter confirms" in since):
         answer = answers.pop(0)
         if answer.startswith("!"):
-            subprocess.run(answer[1:], shell=True, env=env, check=True)
+            subprocess.run(answer[1:], shell=True, env=env, check=True, timeout=15)
             last = time.time()
         else:
             os.write(fd, (answer + "\n").encode())
@@ -761,20 +788,31 @@ while time.time() - last < 20:
 deadline = time.time() + 15
 child_status = None
 while child_status is None:
+    if fd_open:
+        extra = drain_fd()
+        if extra:
+            buf += extra
     waited_pid, status = os.waitpid(pid, os.WNOHANG)
     if waited_pid != 0:
         child_status = status
         break
     if time.time() > deadline:
+        close_fd()
         try:
             os.killpg(pid, signal.SIGKILL)
         except OSError:
-            os.kill(pid, signal.SIGKILL)
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
         os.waitpid(pid, 0)
         sys.stderr.write("pty harness: the command was still running after its answers and was killed; output so far:\n")
         sys.stderr.write(buf.decode(errors="replace") + "\n")
         sys.exit(1)
     time.sleep(0.1)
+if fd_open:
+    buf += drain_fd()
+    close_fd()
 sys.stdout.write(buf.decode(errors="replace"))
 sys.exit(os.waitstatus_to_exitcode(child_status))
 PY
