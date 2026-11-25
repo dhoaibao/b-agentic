@@ -1975,7 +1975,16 @@ def _run_started(state: dict) -> str:
     return str(first.get("at", ""))
 
 
-def stats_run_key(repo_key: str, state: dict) -> str:
+def stats_run_key(state: dict) -> str:
+    """The run's key: its id and init time only, so a change of the repository's root commits never changes it."""
+    import hashlib
+
+    material = f"{STATS_SALT}run2:{state['run_id']}:{_run_started(state)}"
+    return hashlib.sha256(material.encode()).hexdigest()[:16]
+
+
+def stats_legacy_run_key(repo_key: str, state: dict) -> str:
+    """The key lines carried before ADR-035 dropped the repository key from it: still recognised, never written."""
     import hashlib
 
     material = f"{STATS_SALT}run:{repo_key}:{state['run_id']}:{_run_started(state)}"
@@ -2042,7 +2051,7 @@ def stats_record(state: dict, artifacts: dict, repo_key: str, schema: dict) -> d
     record: dict = {
         "v": 1,
         "repo": repo_key,
-        "run": stats_run_key(repo_key, state),
+        "run": stats_run_key(state),
         "date": f"{run_id[:4]}-{run_id[4:6]}-{run_id[6:8]}",
         "size": state.get("size", "full"),
         "end": "commit" if state.get("commits") else "qa",
@@ -2156,7 +2165,7 @@ def _home_private(info: os.stat_result, dir_fd: int) -> bool:
         return False
 
 
-def stats_append(runtime: str, block: dict, record: dict, line: bytes) -> dict:
+def stats_append(runtime: str, block: dict, record: dict, line: bytes, legacy_run: str = "") -> dict:
     """Append one line to the runtime's store, creating it safely on first use. Never raises: a problem is a skip reason."""
     import fcntl
     import time
@@ -2221,7 +2230,7 @@ def stats_append(runtime: str, block: dict, record: dict, line: bytes) -> dict:
             return skip("store-full")
         data = _stats_read_all(fd, size)
         for known in stats_lines(data):
-            if known and known.get("repo") == record["repo"] and known.get("run") == record["run"]:
+            if known and known.get("run") in (record["run"], legacy_run):
                 result["status"] = "already"
                 return result
         # An interrupted writer can leave a tail without a newline: end it so this line starts on its own.
@@ -2272,8 +2281,17 @@ def _finished_runs(root: Path) -> list[tuple[str, dict, Path]]:
 def _stats_report(root: Path, schema: dict) -> dict:
     block = _stats_block(schema)
     repo_key = stats_repo_key(root)
-    keys = {run_id: stats_run_key(repo_key, state) for run_id, state, _ in _finished_runs(root)} if repo_key else {}
+    keys = (
+        {
+            run_id: (stats_run_key(state), stats_legacy_run_key(repo_key, state))
+            for run_id, state, _ in _finished_runs(root)
+        }
+        if repo_key
+        else {}
+    )
     recorded: set[str] = set()
+    # Rows of this repository stay counted after prune removed the run folder that produced them.
+    mine: set[str] = set()
     repos: set[str] = set()
     stores: dict[str, dict] = {}
     for runtime in STATS_HOMES:
@@ -2305,8 +2323,9 @@ def _stats_report(root: Path, schema: dict) -> dict:
                         continue
                     entry["valid"] += 1
                     repos.add(record["repo"])
+                    recorded.add(record["run"])
                     if record["repo"] == repo_key:
-                        recorded.add(record["run"])
+                        mine.add(record["run"])
             finally:
                 os.close(fd)
         finally:
@@ -2316,9 +2335,9 @@ def _stats_report(root: Path, schema: dict) -> dict:
         "stores": stores,
         "repos": len(repos),
         "repo": repo_key,
-        "repo_lines": len(recorded),
+        "repo_lines": len(mine.union(*(recorded.intersection(pair) for pair in keys.values()))),
         "finished_runs": len(keys),
-        "missing": sum(1 for key in keys.values() if key not in recorded),
+        "missing": sum(1 for pair in keys.values() if not recorded.intersection(pair)),
     }
 
 
@@ -2358,7 +2377,7 @@ def cmd_stats(schema: dict, args: dict) -> dict:
         except (Invalid, Refused, KeyError, TypeError, ValueError):
             out["skipped"]["bad-record"] = out["skipped"].get("bad-record", 0) + 1
             continue
-        result = stats_append(runtime, block, record, line)
+        result = stats_append(runtime, block, record, line, stats_legacy_run_key(repo_key, state))
         if result["created"]:
             out["created"] = True
         if result["status"] == "written":

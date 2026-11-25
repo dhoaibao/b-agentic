@@ -333,6 +333,57 @@ jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "a same-slug run in
 [ "$(lines_of "$stats_store")" = $((before + 2)) ] || fail "two same-slug runs of one repository must leave two lines"
 stats "$work/wtS" | jq -e '.missing == 0' >/dev/null || fail "the worktree's run must count as recorded"
 
+# --- a run's key does not depend on the repository's root commits (AC-1) ---------------------------------------------
+# Merging unrelated history changes the repository key; the finished runs are still recorded, not written again.
+before=$(lines_of "$stats_store")
+stats "$repoS" | jq -e '.missing == 0' >/dev/null || fail "every finished run is recorded before the history changes"
+branchS=$(git -C "$repoS" branch --show-current)
+git -C "$repoS" switch -q --orphan unrelated
+git -C "$repoS" commit -q --allow-empty -m "unrelated root"
+git -C "$repoS" switch -q "$branchS"
+git -C "$repoS" merge -q --allow-unrelated-histories -m "merge unrelated" unrelated
+stats "$repoS" | jq -e '.missing == 0 and .repo != null' >/dev/null || fail "a new root commit must not make recorded runs missing"
+stats "$repoS" --record | jq -e '.appended == 0' >/dev/null || fail "a new root commit must not write recorded runs again"
+[ "$(lines_of "$stats_store")" = "$before" ] || fail "the store must not grow when only the repository key changed"
+
+# --- lines written with the earlier repository-based key still count as recorded (AC-2) -------------------------------
+mv "$stats_store" "$work/new-keys-store"
+store_py "$stats_store" "$repoC" <<'PY' || fail "a line with the earlier run key must count as recorded"
+import json
+import sys
+
+repo = sys.argv[3]
+root = b_run.Path(repo)
+_run_id, state, folder = b_run._finished_runs(root)[0]
+repo_key = b_run.stats_repo_key(root)
+legacy = b_run.stats_legacy_run_key(repo_key, state)
+record = b_run.stats_record(state, b_run.load_artifacts(folder), repo_key, b_run.load_schema())
+record["run"] = legacy
+line = (json.dumps(record, separators=(",", ":")) + "\n").encode()
+os.close(os.open(store, os.O_CREAT | os.O_WRONLY, 0o600))
+os.chmod(store, 0o600)
+assert b_run.stats_append("claude", block, record, line)["status"] == "written"
+PY
+stats "$repoC" | jq -e '.missing == 0 and .repo_lines == 1' >/dev/null || fail "the report must recognise the earlier run key"
+
+# --- a stored row stays counted when its run folder is gone, as after prune ------------------------------------------
+store_py "$stats_store" "$repoC" <<'PY' || fail "a row whose run folder is gone must stay counted"
+import json
+import sys
+
+root = b_run.Path(sys.argv[3])
+_run_id, state, folder = b_run._finished_runs(root)[0]
+repo_key = b_run.stats_repo_key(root)
+record = b_run.stats_record(state, b_run.load_artifacts(folder), repo_key, b_run.load_schema())
+record["run"] = "0123456789abcdef"
+line = (json.dumps(record, separators=(",", ":")) + "\n").encode()
+assert b_run.stats_append("claude", block, record, line)["status"] == "written"
+PY
+stats "$repoC" | jq -e '.repo_lines == 2 and .missing == 0' >/dev/null || fail "repo_lines must keep rows of pruned runs"
+stats "$repoC" --record | jq -e '.appended == 0 and .already == 1' >/dev/null || fail "catch-up must not write a run recorded under the earlier key"
+rm -f "$stats_store"
+mv "$work/new-keys-store" "$stats_store"
+
 # --- other repositories get their own key; the report never names a repository ---------------------------------------
 repoS2="$work/repoS2"
 make_repo "$repoS2"

@@ -50,8 +50,11 @@ decision does.
   QA verdict, fix rounds, blocked count, failed checks, commit count, `AC-n` results, and
   blocker counts by the `blocker_class` and `escape_stage` enums. The repository key is a
   hash of the repository's root commits, so it survives a move and holds no name (a shallow clone has no key, since its boundary commits would change it when deepened, so its runs are not recorded); the run key is a
-  hash of the repository key, the run id and the time the run was initialised (so two worktrees
-  that finish same-day, same-slug runs keep two lines), stored with the run date. Never stored: request,
+  hash of the run id and the time the run was initialised alone (so two worktrees that finish
+  same-day, same-slug runs keep two lines, and a change of the repository's root commits, such as
+  merging unrelated history or rewriting the root, never makes a recorded run look new), stored with
+  the run date. Lines written before this rule hashed the repository key into the run key; a run
+  counts as recorded when the store holds either key, and those lines are never rewritten. Never stored: request,
   summary, or follow-up text, `trigger`, `gate_reason`, branch, commands, paths, commit ids,
   `repo_root`, or the run slug (free text the model writes). The writer checks each record
   against the block, and the generator check refuses a `line` or `text` field there.
@@ -76,6 +79,15 @@ decision does.
 - Run numbers outlive `prune`, and an audit can count blockers, review rounds, and durations across
   repositories without reading any run's prose.
 - A user whose primary group is shared with other accounts, or whose home is writable by such a group, gets no store until the folder is tightened (`chmod 755`); the skip is reported as `skipped:home-not-private`, never silent.
+- Only POSIX ACLs are inspected, and only on a group-writable home. macOS extended ACLs (and an ACL
+  on the store itself) are not, so an ACL the user granted to another account on the install home or
+  the store would go unseen; the content is non-secret counts that nothing trusts, and the user owns
+  every ACL on their own folders.
+- Two limits remain of the repository-independent run key. A line written before it (under the
+  earlier, repository-based key) is recognised only while the repository's root commits are the ones
+  it was written under, so a root change after that line makes a catch-up write the run again. Two
+  repositories whose runs share a date-and-slug id and the same initialisation millisecond would
+  share a key, and the second run would be skipped as recorded.
 - The store is default-on local telemetry. Its content is a fixed numeric list, nothing leaves the
   machine, and the user owns the file, but a user who never reads the docs learns of it from the
   one-time notice.
