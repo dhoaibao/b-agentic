@@ -49,6 +49,14 @@ run() {
 expect_ok() { [ "$rc" -eq 0 ] || fail "$1: exit $rc: $err $out"; }
 expect_refused() { [ "$rc" -ne 0 ] || fail "$1 must be refused: $out"; }
 
+# stock macOS has no GNU timeout; the alarm survives exec and bounds the command the same way
+bounded() { # bounded <seconds> <command...>
+  if command -v timeout >/dev/null 2>&1; then timeout "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
+  else perl -e 'alarm shift; exec @ARGV or die "exec: $!\n"' "$@"
+  fi
+}
+
 tree() {
   # shellcheck disable=SC2016 # The inner script runs in sh and expands its own variables.
   ( cd "$1" && find . \( -type f -o -type l \) -not -path '*/b-agentic/backups/*' -print0 \
@@ -735,14 +743,14 @@ for runtime_dir in ".claude" ".pi/agent"; do
     mkfifo "$home/$runtime_dir/b-agentic/install.json"
     rc=0
     if [ "$mode" = "install" ]; then
-      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
-        timeout 5 bash "$root/install.sh" --runtime=all -y 2>"$work/stderr") || rc=$?
+      out=$(bounded 5 env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        bash "$root/install.sh" --runtime=all -y 2>"$work/stderr") || rc=$?
     else
-      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
-        timeout 5 bash "$root/install.sh" --runtime=all --uninstall 2>"$work/stderr") || rc=$?
+      out=$(bounded 5 env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        bash "$root/install.sh" --runtime=all --uninstall 2>"$work/stderr") || rc=$?
     fi
     err=$(cat "$work/stderr")
-    [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] || fail "FIFO manifest $runtime_dir $mode exited $rc (124=hang): $err"
+    [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 142 ] || fail "FIFO manifest $runtime_dir $mode exited $rc (124/142=hang): $err"
     grep -Fq 'must be a regular file' <<<"$err" || fail "FIFO manifest $runtime_dir $mode error: $err"
 
     # With a known config alias, the cross-runtime diagnostic wins without hanging on the FIFO.
@@ -751,14 +759,14 @@ for runtime_dir in ".claude" ".pi/agent"; do
     ln -sf "$shared" "$home/.pi/agent/AGENTS.md"
     rc=0
     if [ "$mode" = "install" ]; then
-      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
-        timeout 5 bash "$root/install.sh" --runtime=all -y 2>"$work/stderr") || rc=$?
+      out=$(bounded 5 env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        bash "$root/install.sh" --runtime=all -y 2>"$work/stderr") || rc=$?
     else
-      out=$(env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
-        timeout 5 bash "$root/install.sh" --runtime=all --uninstall 2>"$work/stderr") || rc=$?
+      out=$(bounded 5 env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \
+        bash "$root/install.sh" --runtime=all --uninstall 2>"$work/stderr") || rc=$?
     fi
     err=$(cat "$work/stderr")
-    [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] || fail "FIFO+alias $runtime_dir $mode exited $rc: $err"
+    [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && [ "$rc" -ne 142 ] || fail "FIFO+alias $runtime_dir $mode exited $rc (124/142=hang): $err"
     grep -Fq 'Claude Code CLAUDE.md' <<<"$err" || fail "FIFO+alias $runtime_dir $mode must name Claude Code CLAUDE.md: $err"
     grep -Fq 'Pi AGENTS.md' <<<"$err" || fail "FIFO+alias $runtime_dir $mode must name Pi AGENTS.md: $err"
   done
