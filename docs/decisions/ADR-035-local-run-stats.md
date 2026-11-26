@@ -68,6 +68,24 @@ decision does.
   housekeeping note. `b_run.py stats --record` without `--run` adds the missing lines for the
   current repository's finished runs, with the same rules; the user runs it per repository.
   Nothing reads another repository's `.b-agentic` folder.
+- **Summary.** `b_run.py stats --summary [--since YYYY-MM-DD] [--section repo|kit]` is read-only
+  too. From the two stores it prints one compact JSON line of numbers, enum names, hashes, and
+  dates, for an analysis to read, and states no finding, threshold, or warning. `--since` keeps
+  the runs dated on or after that day and counts the rest. Each line is checked as the report checks it. A line
+  of another version `v` and a repeated run key (the first line wins, the Claude Code store first)
+  are counted and left out. A value a line does not have is counted as missing, never read as zero
+  or inferred (a line without `runtime` is not given its store's), and seconds come only from
+  lines with a complete history. Beside an `artifacts.yaml` without the kit fields, a line's kit
+  fields are set aside unchecked and counted, so no line is lost to an older schema. The default
+  output gives the totals and the breakdown by runtime; `--section repo` and `--section kit` give
+  the breakdown by repository key or kit version instead. At most five repository keys and four
+  kit versions (plus the runs without one) are listed and the rest counted, so one output holds at
+  most five blocks of a breakdown and does not grow with the store. The bound is for the reader: an
+  agent's shell tool cuts a long output (Pi keeps its last 50 KB), which would leave broken JSON,
+  and the test holds each output under 30,000 bytes on large synthetic stores. It reads only the
+  stores and their off flags, never a run folder, and writes nothing; a disabled store is still
+  read, as by the report, and a store that fails after it is opened is reported unreadable without
+  hiding the other.
 - **Disclosure.** `advance done` reports the outcome as `run_stats` (`written`, `already`,
   `skipped:<reason>` such as `skipped:disabled`, or `failed`). The first creation adds a one-time
   `notice` naming the file and the off switch, which the `b-flow` done step relays.
@@ -92,9 +110,13 @@ decision does.
   it was written under, so a root change after that line makes a catch-up write the run again. Two
   repositories whose runs share a date-and-slug id and the same initialisation millisecond would
   share a key, and the second run would be skipped as recorded.
-- The store is default-on local telemetry. Its content is a fixed numeric list, nothing leaves the
-  machine, and the user owns the file, but a user who never reads the docs learns of it from the
-  one-time notice.
+- The store is default-on local telemetry. Its content is a fixed numeric list, no helper sends it
+  anywhere, and the user owns the file, but a user who never reads the docs learns of it from the
+  one-time notice. What a command prints to an agent enters that agent's context and so reaches its
+  model provider: counts for the report, and for the summary the numbers, repository keys, kit
+  versions, and dates of every repository in the stores.
+- The summary sees only the stores. A run with one line under the earlier repository-based key and
+  another under the current key is counted twice, since telling them apart needs the run folder.
 - Nothing rotates or deletes the file; the user removes it by hand, as with the verify-gate log.
 - A run that ends blocked, is replaced, or never finishes is not recorded.
 - Rejected: opt-in by creating the file or by an enable command (the user chose on by default);

@@ -77,7 +77,7 @@ The installer also merges default `pi-subagents` settings (`{"inlineToolDisplay"
 
 ## Run stats
 
-A finished `b-flow` run appends one numbers-only line to `~/.pi/agent/b-agentic/run-stats.jsonl` when that folder already exists; `~/.pi/agent/b-agentic/run-stats.off` turns it off. The store is separate from Claude Code's, and the install and uninstall leave both files alone ([ADR-035](../docs/decisions/ADR-035-local-run-stats.md), [operational reference](../REFERENCE.md)).
+A finished `b-flow` run appends one numbers-only line to `~/.pi/agent/b-agentic/run-stats.jsonl` when that folder already exists; `~/.pi/agent/b-agentic/run-stats.off` turns it off. The store is separate from Claude Code's, and the install and uninstall leave both files alone ([ADR-035](../docs/decisions/ADR-035-local-run-stats.md), [operational reference](../REFERENCE.md)). `b-run stats --summary` reads this store and Claude Code's, writes nothing, and prints their numbers as one compact JSON line, over all runs and by runtime; `--section repo` or `--section kit` gives them by repository key or kit version instead, and `--since YYYY-MM-DD` keeps the runs from that day on. Each output is bounded so the shell tool shows it whole.
 
 ## Checks
 

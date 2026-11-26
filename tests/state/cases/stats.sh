@@ -802,6 +802,362 @@ stats "$repoO" | jq -e '.stores.claude.malformed == 1 and .stores.claude.valid =
 rm -f "$stats_store"
 mv "$work/pre-kit-store" "$stats_store"
 
+# --- the summary (ADR-035): numbers only from both stores, over synthetic lines in a HOME of its own ---------------
+sum_home="$work/sum-home"
+sum_claude="$sum_home/.claude/b-agentic"
+sum_pi="$sum_home/.pi/agent/b-agentic"
+cat >"$work/summary_lines.py" <<'PY'
+import json
+
+
+def line(run, **over):
+    """One valid store line; run is a short number turned into a 16-hex key."""
+    record = {
+        "v": 1, "repo": "1" * 16, "run": f"{run:016x}", "date": "2026-11-25", "runtime": "claude",
+        "size": "full", "end": "commit", "steps": 3, "criteria": 2, "scope_paths": 4,
+        "worker_steps": 0, "parallel_steps": 0, "dur_s": {"implement": 100, "review": 50}, "total_s": 150,
+        "history_complete": True,
+        "review": {"rounds": 1, "by_gate": {"codex": 1}, "low_risk": False, "verdict": "READY FOR PR"},
+        "qa": {"rounds": 1, "verdict": "QA PASS"}, "fix_rounds": 0, "blocked_count": 0,
+        "checks_total": 5, "checks_failed": 0, "commits": 1, "ac": {"pass": 2},
+        "blockers": {"review": 0, "qa": 0, "by_class": {}}, "escaped_from": {},
+    }
+    record.update(over)
+    return {name: value for name, value in record.items() if value is not None}
+
+
+def kit(seq, day, commit, dirty=False, changed=False):
+    return {"kit_seq": seq, "kit_date": day, "kit_commit": commit * 40, "kit_dirty": dirty, "kit_changed": changed}
+
+
+def write(path, rows):
+    schema = b_run.load_schema()
+    with open(path, "wb") as handle:
+        for row in rows:
+            if isinstance(row, dict):
+                b_run.stats_check(row, schema)
+                row = json.dumps(row).encode()
+            handle.write(row + b"\n")
+PY
+# sum_store: write the claude and pi stores of the summary HOME from the Python on stdin.
+sum_store() {
+  rm -rf "$sum_home"
+  mkdir -p "$sum_claude" "$sum_pi"
+  { printf 'exec(open(%s).read())\npi_store = %s\n' "'$work/summary_lines.py'" "'$sum_pi/run-stats.jsonl'" && cat; } \
+    | store_py "$sum_claude/run-stats.jsonl" || fail "writing the synthetic stores"
+}
+# summary [ARGS...]: the summary from repoS over the summary HOME, in $out.
+summary() { out=$(HOME="$sum_home" stats "$repoS" --summary "$@") || fail "stats --summary $* failed: $out"; }
+# has JQ MESSAGE: the last summary satisfies the filter.
+has() { jq -e "$1" <<<"$out" >/dev/null || fail "$2: $(jq -c . <<<"$out" | head -c 3000)"; }
+# tree_of DIR: every entry with its type, mode, size, time and content, to show that nothing changed.
+tree_of() {
+  python3 -I -B - "$1" <<'PY'
+import hashlib, os, stat, sys
+
+for folder, folders, files in os.walk(sys.argv[1]):
+    folders.sort()
+    for name in sorted(folders + files):
+        path = os.path.join(folder, name)
+        info = os.lstat(path)
+        content = ""
+        if stat.S_ISREG(info.st_mode) and info.st_mode & 0o400:
+            content = hashlib.sha256(open(path, "rb").read()).hexdigest()
+        print(path, oct(info.st_mode), info.st_size, info.st_mtime_ns, content)
+PY
+}
+
+# Totals, quantiles, histograms and keyed sums over both stores, broken down three ways in three outputs (AC-1).
+sum_store <<'PY'
+write(store, [
+    line(1, review={"rounds": 1, "by_gate": {"codex": 1}, "low_risk": False, "verdict": "READY FOR PR"},
+         **kit(10, "2026-11-20", "a")),
+    line(2, total_s=200, steps=5, dur_s={"implement": 150, "review": 50}, size="quick", end="qa", commits=0,
+         review={"rounds": 1, "by_gate": {}, "low_risk": True}, **kit(10, "2026-11-20", "a", changed=True)),
+    line(3, total_s=300, dur_s={"implement": 200, "verify": 100}, fix_rounds=2, checks_total=20, checks_failed=3,
+         review={"rounds": 2, "by_gate": {"codex": 1, "reviewer": 1}, "low_risk": False, "verdict": "NEEDS FIXES"},
+         ac={"pass": 3, "fail": 1}, blockers={"review": 2, "qa": 1, "by_class": {"data-integrity loss": 3}},
+         escaped_from={"plan": 2, "spec": 1}, **kit(11, "2026-11-22", "b", dirty=True)),
+])
+write(pi_store, [
+    line(4, runtime="pi", repo="2" * 16, total_s=400, dur_s={"review": 400},
+         review={"rounds": 12, "by_gate": {"reviewer": 12}, "low_risk": False, "verdict": "READY FOR PR"},
+         **kit(7, "2026-11-21", "c")),
+])
+PY
+summary
+[ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "the summary must be one compact line"
+has '.ok and .since == null and (.repo | test("^[0-9a-f]{16}$")) and .before_since == 0' "the summary's header"
+has '(keys | sort) == ["all","before_since","by_runtime","ok","repo","since","stores"]' "the summary's top-level keys"
+has '.stores.claude == {status: "read", disabled: false, truncated: false, lines: 3, counted: 3, malformed: 0, unknown_version: 0, duplicates: 0}' "the claude store entry"
+has '.stores.pi.status == "read" and .stores.pi.counted == 1' "the pi store entry"
+has '.all.runs == 4 and .all.counts.review_rounds == {n: 4, sum: 16, min: 1, p50: 1, p90: 12, max: 12, values: {"1": 2, "2": 1, "10+": 1}}' "review rounds"
+has '.all.counts | (keys | length) == 14 and all(.n == 4)' "every stored count has a value per run"
+has '[.all.counts | .steps, .criteria, .scope_paths, .worker_steps, .parallel_steps, .qa_rounds, .fix_rounds, .blocked_count, .checks_total, .checks_failed, .commits, .review_blockers, .qa_blockers | .sum] == [14,8,16,0,0,4,2,0,35,3,3,2,1]' "count sums"
+has '.all.counts.checks_total == {n: 4, sum: 35, min: 5, p50: 5, p90: 20, max: 20, values: {"5": 3, "10+": 1}}' "checks histogram"
+has '.all.seconds.total == {n: 4, sum: 1050, min: 150, p50: 200, p90: 400, max: 400}' "total seconds"
+has '.all.seconds.implement == {n: 3, sum: 450, min: 100, p50: 150, p90: 200, max: 200}' "a phase counts only the runs that were in it"
+has '.all.seconds.review == {n: 3, sum: 500, min: 50, p50: 50, p90: 400, max: 400} and .all.seconds.fix == {n: 0, sum: 0}' "a phase no run was in has no quantile"
+has '.all.sums == {size: {full: 3, quick: 1}, end: {commit: 3, qa: 1}, review_gate: {codex: 2, reviewer: 13},
+  review_verdict: {"NEEDS FIXES": 1, "READY FOR PR": 2}, review_low_risk: {"false": 3, "true": 1}, qa_verdict: {"QA PASS": 4},
+  ac: {fail: 1, pass: 9}, blockers_by_class: {"data-integrity loss": 3}, escaped_from: {plan: 2, spec: 1},
+  kit_dirty: {"false": 3, "true": 1}, kit_changed: {"false": 3, "true": 1}}' "keyed sums"
+has '.all.missing == {runtime: 0, kit: 0, kit_unchecked: 0, kit_changed: 0, review_verdict: 1, qa_verdict: 0, durations: 0}' "missing counts"
+has '(.by_runtime | keys) == ["claude","pi"] and .by_runtime.claude.runs == 3 and .by_runtime.claude.counts.review_rounds.sum == 4 and .by_runtime.pi.counts.review_rounds.sum == 12' "by runtime"
+header=$(jq -cS '{ok, since, repo, stores, before_since}' <<<"$out")
+pi_block=$(jq -c .by_runtime.pi <<<"$out")
+summary --section repo
+has '(keys | sort) == ["before_since","by_repo","ok","repo","since","stores"]' "the repository section's keys"
+[ "$(jq -cS '{ok, since, repo, stores, before_since}' <<<"$out")" = "$header" ] || fail "the repository section has the same header"
+has '[.by_repo.groups[] | [.repo, .runs]] == [["1111111111111111", 3], ["2222222222222222", 1]] and .by_repo.omitted_groups == 0 and .by_repo.omitted_runs == 0' "by repository"
+has "(.by_repo.groups[1] | del(.repo)) == $pi_block" "a group's block holds exactly its runs"
+summary --section kit
+has '(keys | sort) == ["before_since","by_kit","ok","repo","since","stores"]' "the kit section's keys"
+[ "$(jq -cS '{ok, since, repo, stores, before_since}' <<<"$out")" = "$header" ] || fail "the kit section has the same header"
+has '[.by_kit.groups[] | [.runtime, .kit_seq, .kit_date, .kit_commit[:1], .runs]] == [["claude",11,"2026-11-22","b",1],["pi",7,"2026-11-21","c",1],["claude",10,"2026-11-20","a",2]]' "by kit version, newest first"
+has '.by_kit.without_kit.runs == 0 and .by_kit.omitted_groups == 0 and .by_kit.groups[2].seconds.total.sum == 350' "kit groups hold their own numbers"
+
+# Lines that cannot be counted are counted per store and reach no block (AC-2).
+sum_store <<'PY'
+other = line(9, v=2)
+other["new_field"] = "x"
+write(store, [
+    line(1, steps=1), b"not json", b'{"v":1}', b"[" * 100000, b'"text"',
+    json.dumps(other).encode(), json.dumps({"v": 0}).encode(), line(1, steps=100), line(2, steps=2),
+])
+write(pi_store, [line(2, runtime="pi", steps=100), line(3, runtime="pi", steps=4)])
+PY
+summary
+has '.stores.claude | .lines == 9 and .counted == 2 and .malformed == 4 and .unknown_version == 2 and .duplicates == 1' "the claude store's left-out lines"
+has '.stores.pi | .lines == 2 and .counted == 1 and .malformed == 0 and .duplicates == 1' "a key repeated across stores counts once, claude first"
+has '.all.runs == 3 and .all.counts.steps.sum == 7 and .by_runtime.claude.runs == 2 and .by_runtime.pi.runs == 1' "only the first line of a key is used"
+
+# A value a line does not have is counted as missing, never read as zero or guessed (AC-3).
+sum_store <<'PY'
+legacy = line(1, runtime=None, history_complete=False, dur_s={"implement": 999, "fix": 999}, total_s=999,
+              review={"rounds": 1, "by_gate": {}, "low_risk": True}, qa={"rounds": 1},
+              blockers={"review": 2, "qa": 0, "by_class": {"unclassified": 2}}, escaped_from={"unclassified": 2})
+both_dirty = kit(10, "2026-11-20", "a", dirty=True)
+del both_dirty["kit_changed"]
+write(store, [legacy, line(2, **both_dirty)])
+write(pi_store, [])
+PY
+summary
+has '.all.runs == 2 and .by_runtime.unknown.runs == 1 and .by_runtime.claude.runs == 1' "a line without a runtime is not given the store's"
+has '.all.missing == {runtime: 1, kit: 1, kit_unchecked: 0, kit_changed: 2, review_verdict: 1, qa_verdict: 1, durations: 1}' "every gap is counted"
+has '.all.seconds.total == {n: 1, sum: 150, min: 150, p50: 150, p90: 150, max: 150} and .all.seconds.fix == {n: 0, sum: 0} and .all.seconds.implement.sum == 100' "an incomplete history gives no seconds"
+has '.all.sums.blockers_by_class == {unclassified: 2} and .all.sums.escaped_from == {unclassified: 2} and .all.sums.kit_changed == {} and .all.sums.kit_dirty == {"true": 1}' "unclassified stays its own key"
+summary --section kit
+has '.by_kit.without_kit.runs == 1 and (.by_kit.groups | length) == 1' "a line without a kit version is grouped apart"
+
+# An older artifacts.yaml kept beside newer helpers: kit fields are set aside, the line still counts (AC-4).
+sum_store <<'PY'
+write(store, [line(1, **kit(10, "2026-11-20", "a")), line(2)])
+write(pi_store, [])
+PY
+jq 'del(.run_stats.fields.kit_seq, .run_stats.fields.kit_date, .run_stats.fields.kit_commit, .run_stats.fields.kit_dirty, .run_stats.fields.kit_changed)' \
+  "$work/kit-schema" >"$kit_claude/references/artifacts.yaml"
+out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B "$kit_claude/bin/b_run.py" stats --summary) || fail "the summary under an older schema failed"
+has '.stores.claude.malformed == 0 and .stores.claude.counted == 2 and .all.runs == 2' "an older schema must not drop a line"
+has '.all.missing.kit_unchecked == 1 and .all.missing.kit == 2 and .all.sums.kit_dirty == {}' "set-aside kit fields are counted and unused"
+out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B "$kit_claude/bin/b_run.py" stats --summary --section kit) || fail "the kit section under an older schema failed"
+cp "$work/kit-schema" "$kit_claude/references/artifacts.yaml"
+has '.by_kit.groups == [] and .by_kit.without_kit.runs == 2 and .by_kit.without_kit.missing.kit_unchecked == 1' "set-aside kit fields make no kit group"
+
+# Every store state is reported, nothing is waited on or written, and no run folder is read (AC-5).
+sum_state() { # STATE EXPECTED_STATUS: put the claude store into STATE and summarize it.
+  local store="$sum_claude/run-stats.jsonl" before
+  sum_store <<'PY'
+write(store, [line(1)])
+write(pi_store, [line(2, runtime="pi")])
+PY
+  case $1 in
+    plain) ;;
+    no-home) rm -rf "$sum_home/.claude" ;;
+    no-store) rm -f "$store" ;;
+    disabled) : >"$sum_claude/run-stats.off" ;;
+    symlink) mv "$store" "$sum_claude/linked" && ln -s linked "$store" ;;
+    directory) rm -f "$store" && mkdir "$store" ;;
+    fifo) rm -f "$store" && mkfifo "$store" ;;
+    linked-home) mv "$sum_claude" "$sum_home/.claude/real" && ln -s real "$sum_claude" ;;
+    unreadable) chmod 000 "$store" ;;
+    oversized) python3 -I -B -c 'import sys; open(sys.argv[1], "ab").write(b"x" * int(sys.argv[2]))' "$store" "$(jq .run_stats.max_file "$root/references/artifacts.yaml")" ;;
+  esac
+  before=$(tree_of "$sum_home")
+  summary
+  [ "$(tree_of "$sum_home")" = "$before" ] || fail "the summary must change nothing under HOME ($1)"
+  has ".stores.claude.status == \"$2\" and .stores.pi.counted == 1" "the store state ($1)"
+}
+sum_state plain read
+has '.stores.claude.disabled == false and .all.runs == 2' "a plain store"
+sum_state no-home absent
+sum_state no-store absent
+has '.stores.claude.lines == 0 and .all.runs == 1 and .all.seconds.total.n == 1' "an absent store adds nothing"
+sum_state disabled read
+has '.stores.claude.disabled and .stores.claude.counted == 1' "the off flag is reported and the stored lines are read"
+sum_state symlink not-regular
+sum_state directory not-regular
+sum_state fifo not-regular
+sum_state linked-home unreadable
+if [ "$(id -u)" != 0 ]; then sum_state unreadable unreadable; fi
+sum_state oversized read
+has '.stores.claude | .truncated and .counted == 1 and .malformed == 1' "an oversized store is cut at max_file"
+# A failure after the open: the summary reports that store unreadable and keeps the other; plain stats still fails.
+# faulty CALL ARGS...: stats from repoS with os.CALL failing on the claude store only; $out, and stderr in sum-err.
+faulty() {
+  out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B - "$root/claude/bin/b_run.py" "$sum_claude/run-stats.jsonl" "$@" 2>"$work/sum-err" <<'PY'
+import errno
+import importlib.util
+import os
+import sys
+
+cli, store, call, args = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
+spec = importlib.util.spec_from_file_location("b_run", cli)
+b_run = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(b_run)
+target = (os.stat(store).st_dev, os.stat(store).st_ino)
+real_fstat, real_call = os.fstat, getattr(os, call)
+
+
+def failing(fd, *rest):
+    info = real_fstat(fd)
+    if (info.st_dev, info.st_ino) == target:
+        raise OSError(errno.EIO, "injected read failure")
+    return real_call(fd, *rest)
+
+
+setattr(os, call, failing)
+sys.exit(b_run.main(["stats", *args]))
+PY
+  )
+}
+sum_state disabled read
+for call in fstat pread; do
+  faulty "$call" --summary || fail "a failing $call must not stop the summary: $(cat "$work/sum-err")"
+  has '.stores.claude == {status: "unreadable", disabled: true, truncated: false, lines: 0, counted: 0, malformed: 0, unknown_version: 0, duplicates: 0} and .stores.pi.counted == 1 and .all.runs == 1' "a failing $call makes one store unreadable"
+  rc=0
+  faulty "$call" || rc=$?
+  if [ "$rc" -ne 2 ] || [ -n "$out" ] || ! grep -qF 'injected read failure' "$work/sum-err"; then
+    fail "plain stats must still fail on a failing $call: rc=$rc $(cat "$work/sum-err")"
+  fi
+done
+sum_state plain read
+first=$out
+make_repo "$work/repoSum"
+printf 'x\n' >"$work/repoSum/b.txt"
+git -C "$work/repoSum" add b.txt
+git -C "$work/repoSum" commit -qm second --amend
+mkdir -p "$work/repoSum/.b-agentic"
+printf 'not a folder\n' >"$work/repoSum/.b-agentic/runs"
+out=$(HOME="$sum_home" stats "$work/repoSum" --summary) || fail "the summary must not read run folders"
+[ "$(jq -cS 'del(.repo)' <<<"$out")" = "$(jq -cS 'del(.repo)' <<<"$first")" ] || fail "two repositories must differ only in repo"
+[ "$(jq -r .repo <<<"$out")" != "$(jq -r .repo <<<"$first")" ] || fail "the second repository has its own key"
+
+# --since keeps the runs dated on or after the day, old lines included, and invalid use is refused (AC-6).
+sum_store <<'PY'
+write(store, [line(1, date="2026-11-10", runtime=None), line(2, date="2026-11-20"), line(3, date="2026-11-25")])
+write(pi_store, [line(4, date="2026-11-19", runtime="pi")])
+PY
+summary --since 2026-11-20
+has '.since == "2026-11-20" and .all.runs == 2 and .before_since == 2 and .stores.claude.counted == 2 and .stores.pi.counted == 0 and (.by_runtime | keys) == ["claude"]' "--since"
+summary --since 2026-11-20 --section repo
+has '.since == "2026-11-20" and .before_since == 2 and ([.by_repo.groups[].runs] | add) == 2' "--since with the repository section"
+summary --section kit --since 2026-11-20
+has '.since == "2026-11-20" and .before_since == 2 and .by_kit.without_kit.runs == 2' "--since with the kit section"
+summary --since 2026-12-01
+has '.all.runs == 0 and .before_since == 4 and .by_runtime == {} and .all.counts.steps == {n: 0, sum: 0, values: {}}' "an empty summary"
+summary --since 2026-12-01 --section repo
+has '.by_repo == {groups: [], omitted_groups: 0, omitted_runs: 0}' "an empty repository section"
+summary --since 2026-12-01 --section kit
+has '.by_kit.groups == [] and .by_kit.without_kit.runs == 0' "an empty kit section"
+summary
+has '.since == null and .all.runs == 4' "no --since keeps every line"
+# bad_use ARGS...: exit 2 with exactly one line on stderr and nothing on stdout.
+bad_use() {
+  local rc=0
+  out=$(HOME="$sum_home" stats "$repoS" "$@" 2>"$work/sum-err") || rc=$?
+  [ "$rc" -eq 2 ] && [ -z "$out" ] && [ "$(lines_of "$work/sum-err")" = 1 ] || fail "invalid use must exit 2 with one line ($*): rc=$rc $(cat "$work/sum-err")"
+}
+for since in 2026-02-30 20261120 2026-11-2 '' '2026-11-20 ' ２０２６-11-20 yesterday; do
+  bad_use --summary --since "$since"
+done
+bad_use --since 2026-11-01
+bad_use --since 2026-11-01 --record
+bad_use --summary --record
+bad_use --summary --run 20260101-x
+bad_use --summary --run ''
+bad_use --summary --apply
+for section in all runtime Repo ''; do
+  bad_use --summary --section "$section"
+done
+bad_use --summary --section
+bad_use --section repo
+bad_use --section kit --record
+bad_use --summary --section kit --record
+python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF 'stats --summary [--since YYYY-MM-DD] [--section repo|kit]' || fail "help must name the summary and its sections"
+
+# Each output is bounded, under what an agent's shell tool shows, whatever the store holds (AC-7).
+# sum_big ROUNDS: every bucket, key and verdict, over 8 repositories and 18 kit versions, and as many lines with
+# neither a runtime nor a kit version, ROUNDS times.
+sum_big() {
+  sum_store <<PY
+schema = b_run.load_schema()
+fields = schema["run_stats"]["fields"]
+classes = [*schema["enums"]["blocker_class"], "unclassified"]
+stages = [*schema["enums"]["escape_stage"], "unclassified"]
+rows, number = {"claude": [], "pi": []}, 0
+for _ in range($1):
+    for index in range(396):
+        number += 1
+        runtime = "pi" if index % 2 else "claude"
+        # kit_seq and kit_date repeat across versions, so the order needs both.
+        version = index % 9
+        value = index % 11 if index % 11 < 10 else 10**9
+        counts = {name: value for name in (
+            "steps", "criteria", "scope_paths", "worker_steps", "parallel_steps", "fix_rounds", "blocked_count",
+            "checks_total", "checks_failed", "commits")}
+        rows[runtime].append(line(
+            number, runtime=runtime, repo=f"{index % 8:016x}", size=("quick", "full")[index % 2],
+            end=("commit", "qa")[index % 2], dur_s={phase: 10**9 for phase in fields["dur_s"]["keys"]}, total_s=10**9,
+            review={"rounds": value, "by_gate": {"codex": 10**9, "reviewer": 10**9}, "low_risk": bool(index % 2),
+                    "verdict": fields["review"]["fields"]["verdict"]["values"][index % 3]},
+            qa={"rounds": value, "verdict": fields["qa"]["fields"]["verdict"]["values"][index % 3]},
+            ac={name: 10**9 for name in fields["ac"]["keys"]},
+            blockers={"review": value, "qa": value, "by_class": {name: 10**9 for name in classes}},
+            escaped_from={name: 10**9 for name in stages},
+            **counts, **kit(10**9 - version % 3, f"2026-11-{10 + version // 3:02d}", "abcdef012"[version], dirty=bool(index % 2), changed=bool(index % 4)),
+        ))
+        number += 1
+        bare = {name: v for name, v in rows[runtime][-1].items() if not name.startswith("kit_") and name != "runtime"}
+        rows[runtime].append({**bare, "run": f"{number:016x}"})
+write(store, rows["claude"])
+write(pi_store, rows["pi"])
+PY
+}
+# bounded NAME: the last output stays under the bound.
+bounded() {
+  local size
+  size=$(printf '%s' "$out" | wc -c | tr -d ' ')
+  [ "$size" -lt 30000 ] || fail "$1 must stay under 30000 bytes: $size bytes"
+}
+for rounds in 1 2; do
+  sum_big "$rounds"
+  summary
+  bounded "the default output ($rounds)"
+  has ".all.runs == 792 * $rounds" "the big summary counts every run ($rounds)"
+  has '(.all.counts.steps.values | keys) == ["0","1","10+","2","3","4","5","6","7","8","9"]' "every histogram bucket is used ($rounds)"
+  has "(.by_runtime | keys) == [\"claude\",\"pi\",\"unknown\"] and .by_runtime.unknown.runs == 396 * $rounds" "three runtime blocks ($rounds)"
+  summary --section repo
+  bounded "the repository section ($rounds)"
+  has "[.by_repo.groups[] | [.repo[-1:], .runs]] == [[\"0\", 100 * $rounds], [\"1\", 100 * $rounds], [\"2\", 100 * $rounds], [\"3\", 100 * $rounds], [\"4\", 98 * $rounds]]" "five repositories, most runs first ($rounds)"
+  has ".by_repo.omitted_groups == 3 and .by_repo.omitted_runs == 294 * $rounds" "the repositories left out are counted ($rounds)"
+  summary --section kit
+  bounded "the kit section ($rounds)"
+  has '[.by_kit.groups[] | [.runtime, .kit_seq, .kit_date, .kit_commit[:1]]] == [["pi",1000000000,"2026-11-12","0"],["claude",1000000000,"2026-11-12","0"],["pi",999999999,"2026-11-12","1"],["claude",999999999,"2026-11-12","1"]]' "four newest kit versions ($rounds)"
+  has ".by_kit.without_kit.runs == 396 * $rounds" "lines without a kit version are grouped apart ($rounds)"
+  has ".by_kit.omitted_groups == 14 and .by_kit.omitted_runs == 396 * $rounds - ([.by_kit.groups[].runs] | add)" "the kit versions left out are counted ($rounds)"
+done
+
 # --- invalid use -------------------------------------------------------------------------------------------------------------------
 if stats "$repoS" --run "20260101-x" 2>/dev/null; then fail "--run without --record must be refused"; fi
 if stats "$repoS" --apply 2>/dev/null; then fail "stats must refuse --apply"; fi

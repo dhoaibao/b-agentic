@@ -28,9 +28,14 @@ Commands (JSON results on stdout, one-line errors on stderr):
   stats [--record [--run ID]]  counts of the local run-stats store (ADR-035), read-only; --record
                            appends the numbers-only line of this repository's finished runs (or one
                            run) that are not in the store yet; run-stats.off beside it turns it off
+  stats --summary [--since YYYY-MM-DD] [--section repo|kit]  read-only: one compact JSON line of
+                           numbers from both runtimes' stores (ADR-035): totals and distributions with
+                           counts of what is missing or left out, over all runs and by runtime; --section
+                           gives them by repository key or by kit version instead; --since keeps the runs
+                           dated on or after that day
 
 Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only),
---record (stats only).
+--record, --summary, --since DATE and --section NAME (stats only).
 Exit: 0 ok or help, 3 refused or not ok, 2 invalid input or state (a wrong command or argument).
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
@@ -2215,7 +2220,7 @@ def stats_lines(data: bytes) -> list[dict | None]:
             continue
         try:
             value = json.loads(raw)
-        except ValueError:
+        except (ValueError, RecursionError):  # RecursionError: a line nested too deeply to parse
             out.append(None)
             continue
         out.append(value if isinstance(value, dict) else None)
@@ -2365,6 +2370,51 @@ def _finished_runs(root: Path) -> list[tuple[str, dict, Path]]:
     return found
 
 
+def _stats_read_store(runtime: str, block: dict, tolerate_errors: bool = False) -> dict:
+    """One runtime's store, opened read-only: its state, the off flag, and each line when it is a regular file.
+
+    A store that cannot be opened is reported unreadable. A failure after that raises, unless tolerate_errors
+    reports it the same way, so that one bad filesystem does not hide the other runtime's store.
+    """
+    out: dict = {"status": "unreadable", "disabled": False, "truncated": False, "lines": []}
+    try:
+        dir_fd = os.open(stats_dir(runtime), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        out["status"] = "absent"
+        return out
+    except OSError:
+        return out
+    try:
+        out["disabled"] = _stats_off(dir_fd, block["off"]) is not None
+        try:
+            # O_NONBLOCK: a FIFO with no writer must not hang the open; the type is checked right after.
+            fd = os.open(block["store"], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
+        except FileNotFoundError:
+            out["status"] = "absent"
+            return out
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                out["status"] = "not-regular"
+            return out
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                out["status"] = "not-regular"
+                return out
+            data = _stats_read_all(fd, min(info.st_size, block["max_file"]))
+            out["status"] = "read"
+            out["truncated"] = info.st_size > block["max_file"]
+            out["lines"] = stats_lines(data)
+        except OSError:
+            if not tolerate_errors:
+                raise
+        finally:
+            os.close(fd)
+    finally:
+        os.close(dir_fd)
+    return out
+
+
 def _stats_report(root: Path, schema: dict) -> dict:
     block = _stats_block(schema)
     repo_key = stats_repo_key(root)
@@ -2381,41 +2431,24 @@ def _stats_report(root: Path, schema: dict) -> dict:
     repos: set[str] = set()
     stores: dict[str, dict] = {}
     for runtime in STATS_HOMES:
-        entry: dict = {"exists": False, "disabled": False, "lines": 0, "valid": 0, "malformed": 0}
+        read = _stats_read_store(runtime, block)
+        entry: dict = {"exists": read["status"] == "read", "disabled": read["disabled"]}
+        entry.update(lines=0, valid=0, malformed=0)
         stores[runtime] = entry
-        try:
-            dir_fd = os.open(stats_dir(runtime), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        except OSError:
-            continue
-        try:
-            entry["disabled"] = _stats_off(dir_fd, block["off"]) is not None
+        for record in read["lines"]:
+            entry["lines"] += 1
             try:
-                fd = os.open(block["store"], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
-            except OSError:
+                if record is None:
+                    raise Invalid("not an object")
+                stats_check(record, schema)
+            except Invalid:
+                entry["malformed"] += 1
                 continue
-            try:
-                info = os.fstat(fd)
-                if not stat.S_ISREG(info.st_mode):
-                    continue
-                entry["exists"] = True
-                for record in stats_lines(_stats_read_all(fd, min(info.st_size, block["max_file"]))):
-                    entry["lines"] += 1
-                    try:
-                        if record is None:
-                            raise Invalid("not an object")
-                        stats_check(record, schema)
-                    except Invalid:
-                        entry["malformed"] += 1
-                        continue
-                    entry["valid"] += 1
-                    repos.add(record["repo"])
-                    recorded.add(record["run"])
-                    if record["repo"] == repo_key:
-                        mine.add(record["run"])
-            finally:
-                os.close(fd)
-        finally:
-            os.close(dir_fd)
+            entry["valid"] += 1
+            repos.add(record["repo"])
+            recorded.add(record["run"])
+            if record["repo"] == repo_key:
+                mine.add(record["run"])
     return {
         "ok": True,
         "stores": stores,
@@ -2427,8 +2460,256 @@ def _stats_report(root: Path, schema: dict) -> dict:
     }
 
 
+# One output holds at most five blocks of one breakdown (kit versions share them with without_kit), so it
+# does not grow with the store and stays under the roughly 30000 characters an agent's shell tool shows.
+SUMMARY_REPOS = 5
+SUMMARY_KITS = 4
+SUMMARY_SECTIONS = ("repo", "kit")
+SUMMARY_BUCKETS = (*(str(number) for number in range(10)), "10+")
+# The summary's name of each stored count, and where a line holds it.
+SUMMARY_COUNTS = {
+    "steps": ("steps",),
+    "criteria": ("criteria",),
+    "scope_paths": ("scope_paths",),
+    "worker_steps": ("worker_steps",),
+    "parallel_steps": ("parallel_steps",),
+    "review_rounds": ("review", "rounds"),
+    "qa_rounds": ("qa", "rounds"),
+    "fix_rounds": ("fix_rounds",),
+    "blocked_count": ("blocked_count",),
+    "checks_total": ("checks_total",),
+    "checks_failed": ("checks_failed",),
+    "commits": ("commits",),
+    "review_blockers": ("blockers", "review"),
+    "qa_blockers": ("blockers", "qa"),
+}
+
+
+def _summary_numbers(values: list[int]) -> dict:
+    """n, sum, and for a non-empty list the smallest, nearest-rank p50 and p90, and largest value."""
+    ordered = sorted(values)
+    size = len(ordered)
+    out = {"n": size, "sum": sum(ordered)}
+    if size:
+        out["min"] = ordered[0]
+        for percent in (50, 90):
+            out[f"p{percent}"] = ordered[(size * percent + 99) // 100 - 1]
+        out["max"] = ordered[-1]
+    return out
+
+
+def _summary_histogram(values: list[int]) -> dict:
+    found: dict[str, int] = {}
+    for value in values:
+        bucket = str(value) if value < 10 else "10+"
+        found[bucket] = found.get(bucket, 0) + 1
+    return {bucket: found[bucket] for bucket in SUMMARY_BUCKETS if bucket in found}
+
+
+def _summary_block(rows: list[tuple[dict, bool]], phases: list[str]) -> dict:
+    """The numbers of one group of checked lines; each row is a line and whether its kit fields were set aside.
+
+    A value a line does not have is counted in missing and never read as zero. A key a line's keyed counts do not
+    have is a real zero (the writer counts what it found), so those are plain sums.
+    """
+    counts: dict[str, list[int]] = {name: [] for name in SUMMARY_COUNTS}
+    seconds: dict[str, list[int]] = {name: [] for name in ("total", *phases)}
+    names = ("size", "end", "review_gate", "review_verdict", "review_low_risk", "qa_verdict", "ac")
+    sums: dict[str, dict[str, int]] = {
+        name: {} for name in (*names, "blockers_by_class", "escaped_from", "kit_dirty", "kit_changed")
+    }
+    gaps = ("runtime", "kit", "kit_unchecked", "kit_changed", "review_verdict", "qa_verdict", "durations")
+    missing = dict.fromkeys(gaps, 0)
+
+    def add(name: str, key: object, amount: int = 1) -> None:
+        text = ("true" if key else "false") if isinstance(key, bool) else str(key)
+        sums[name][text] = sums[name].get(text, 0) + amount
+
+    def add_all(name: str, keyed: dict) -> None:
+        for key, amount in keyed.items():
+            add(name, key, amount)
+
+    for line, unchecked in rows:
+        for name, path in SUMMARY_COUNTS.items():
+            value = line
+            for part in path:
+                value = value[part]
+            counts[name].append(value)
+        # A trimmed history gives durations that are only a part of the run: they are not used at all.
+        if line["history_complete"]:
+            seconds["total"].append(line["total_s"])
+            for phase, spent in line["dur_s"].items():
+                seconds[phase].append(spent)
+        else:
+            missing["durations"] += 1
+        add("size", line["size"])
+        add("end", line["end"])
+        add("review_low_risk", line["review"]["low_risk"])
+        add_all("review_gate", line["review"]["by_gate"])
+        add_all("ac", line["ac"])
+        add_all("blockers_by_class", line["blockers"]["by_class"])
+        add_all("escaped_from", line["escaped_from"])
+        for name, holder, field in (("review_verdict", "review", "verdict"), ("qa_verdict", "qa", "verdict")):
+            if field in line[holder]:
+                add(name, line[holder][field])
+            else:
+                missing[name] += 1
+        missing["runtime"] += "runtime" not in line
+        missing["kit"] += "kit_seq" not in line
+        missing["kit_unchecked"] += unchecked
+        if "kit_dirty" in line:
+            add("kit_dirty", line["kit_dirty"])
+        if "kit_changed" in line:
+            add("kit_changed", line["kit_changed"])
+        else:
+            missing["kit_changed"] += 1
+    return {
+        "runs": len(rows),
+        "counts": {
+            name: {**_summary_numbers(values), "values": _summary_histogram(values)} for name, values in counts.items()
+        },
+        "seconds": {name: _summary_numbers(values) for name, values in seconds.items()},
+        "sums": {name: dict(sorted(keyed.items())) for name, keyed in sums.items()},
+        "missing": missing,
+    }
+
+
+def _summary_groups(groups: dict, order: list, limit: int, label, phases: list[str]) -> dict:
+    """The first groups of the order up to the limit, each with its identity, and how much the rest held."""
+    listed = order[:limit]
+    return {
+        "groups": [{**label(key), **_summary_block(groups[key], phases)} for key in listed],
+        "omitted_groups": len(order) - len(listed),
+        "omitted_runs": sum(len(groups[key]) for key in order[limit:]),
+    }
+
+
+def _summary_by_runtime(rows: list, phases: list[str]) -> dict:
+    groups: dict = {}
+    for row in rows:
+        # The line's own runtime, never the store it was found in.
+        groups.setdefault(row[0].get("runtime", "unknown"), []).append(row)
+    return {name: _summary_block(groups[name], phases) for name in sorted(groups)}
+
+
+def _summary_by_repo(rows: list, phases: list[str]) -> dict:
+    groups: dict = {}
+    for row in rows:
+        groups.setdefault(row[0]["repo"], []).append(row)
+    order = sorted(groups, key=lambda key: (-len(groups[key]), key))
+    return _summary_groups(groups, order, SUMMARY_REPOS, lambda key: {"repo": key}, phases)
+
+
+def _summary_by_kit(rows: list, phases: list[str]) -> dict:
+    groups: dict = {}
+    without_kit: list = []
+    for row in rows:
+        line = row[0]
+        if "kit_seq" in line:
+            key = (line.get("runtime", "unknown"), line["kit_seq"], line["kit_commit"], line["kit_date"])
+            groups.setdefault(key, []).append(row)
+        else:
+            without_kit.append(row)
+    out = _summary_groups(
+        groups,
+        sorted(groups, key=lambda key: (key[3], key[1], key[0], key[2]), reverse=True),
+        SUMMARY_KITS,
+        lambda key: {"runtime": key[0], "kit_seq": key[1], "kit_commit": key[2], "kit_date": key[3]},
+        phases,
+    )
+    out["without_kit"] = _summary_block(without_kit, phases)
+    return out
+
+
+def _stats_summary(root: Path, schema: dict, since: str | None, section: str | None) -> dict:
+    """Numbers only, from the two stores' checked lines: nothing is written and no run folder is read."""
+    block = _stats_block(schema)
+    fields = block["fields"]
+    phases = fields["dur_s"]["keys"]
+    kit_names = (*KIT_STATS, "kit_changed")
+    # An install can keep an older, user-edited artifacts.yaml beside newer helpers, as in _kit_stats.
+    kit_known = all(name in fields for name in kit_names)
+    rows: list[tuple[dict, bool]] = []
+    seen: set[str] = set()
+    stores: dict[str, dict] = {}
+    before_since = 0
+    for runtime in STATS_HOMES:
+        read = _stats_read_store(runtime, block, tolerate_errors=True)
+        entry = {name: read[name] for name in ("status", "disabled", "truncated")}
+        entry.update(lines=len(read["lines"]), counted=0, malformed=0, unknown_version=0, duplicates=0)
+        stores[runtime] = entry
+        for line in read["lines"]:
+            if line is None:
+                entry["malformed"] += 1
+                continue
+            version = line.get("v")
+            # Another version may mean something else by the same names: it is not checked against this one.
+            if isinstance(version, int) and not isinstance(version, bool) and version != 1:
+                entry["unknown_version"] += 1
+                continue
+            unchecked = False
+            if not kit_known:
+                unchecked = any(name in line for name in kit_names)
+                line = {name: value for name, value in line.items() if name not in kit_names}
+            try:
+                stats_check(line, schema)
+            except Invalid:
+                entry["malformed"] += 1
+                continue
+            if line["run"] in seen:
+                entry["duplicates"] += 1
+                continue
+            seen.add(line["run"])
+            if since is not None and line["date"] < since:
+                before_since += 1
+                continue
+            entry["counted"] += 1
+            rows.append((line, unchecked))
+    out = {
+        "ok": True,
+        "since": since,
+        "repo": stats_repo_key(root),
+        "stores": stores,
+        "before_since": before_since,
+    }
+    if section == "repo":
+        out["by_repo"] = _summary_by_repo(rows, phases)
+    elif section == "kit":
+        out["by_kit"] = _summary_by_kit(rows, phases)
+    else:
+        out["all"] = _summary_block(rows, phases)
+        out["by_runtime"] = _summary_by_runtime(rows, phases)
+    return out
+
+
+def _since_date(value: str) -> str:
+    import datetime
+
+    try:
+        # ASCII digits only: the value is compared as text with the stored dates.
+        if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+            raise ValueError(value)
+        datetime.date.fromisoformat(value)
+    except ValueError as exc:
+        raise Invalid("stats --since needs a real YYYY-MM-DD date") from exc
+    return value
+
+
 def cmd_stats(schema: dict, args: dict) -> dict:
-    _only_options("stats", args, {"record", "run"})
+    _only_options("stats", args, {"record", "run", "summary", "since", "section"})
+    since = None
+    if args.get("summary"):
+        if args.get("record") or "run" in args:
+            raise Invalid("stats --summary does not go with --record or --run")
+        if "since" in args:
+            since = _since_date(args["since"])
+        section = args.get("section")
+        if "section" in args and section not in SUMMARY_SECTIONS:
+            raise Invalid("stats --section is repo or kit")
+        return _stats_summary(repo_root(), schema, since, section)
+    for name in ("since", "section"):
+        if name in args:
+            raise Invalid(f"stats --{name} belongs to stats --summary")
     root = repo_root()
     if not args.get("record"):
         if args.get("run"):
@@ -2485,7 +2766,7 @@ def cmd_stats(schema: dict, args: dict) -> dict:
 
 # ---- entry --------------------------------------------------------------------
 
-VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days"}
+VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days", "since", "section"}
 COMMANDS = (
     "schema",
     "lint",
@@ -2535,6 +2816,8 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
             options["apply"] = True
         elif arg == "--record":
             options["record"] = True
+        elif arg == "--summary":
+            options["summary"] = True
         else:
             problem = problem or Invalid(f"unknown argument: {arg}")
     # A caller fixing a malformed command asks for help beside the mistake: help is answered, the mistake is not.
@@ -2583,7 +2866,10 @@ def run(argv: list[str]) -> tuple[int, str]:
     else:
         raise Invalid(f"unknown command: {command}; commands: {', '.join(COMMANDS)}; --help prints usage")
     ok = not (isinstance(result, dict) and result.get("ok") is False)
-    return (0 if ok else 3), json.dumps(result, indent=2) + "\n"
+    # The summary is read by an agent and has many groups: one compact line keeps it small.
+    compact = command == "stats" and bool(args.get("summary"))
+    shape: dict = {"separators": (",", ":")} if compact else {"indent": 2}
+    return (0 if ok else 3), json.dumps(result, **shape) + "\n"
 
 
 def main(argv: list[str]) -> int:
