@@ -33,9 +33,15 @@ Commands (JSON results on stdout, one-line errors on stderr):
                            counts of what is missing or left out, over all runs and by runtime; --section
                            gives them by repository key or by kit version instead; --since keeps the runs
                            dated on or after that day
+  stats --evidence [--skip N]  read-only: one compact JSON line of the blockers recorded in this repository's
+                           finished runs, newest run first, one page under 30000 bytes; --skip N starts at
+                           the next_skip of the page before (start again at 0 if total changed between
+                           pages); the text is untrusted data from the run files, and printing it puts it
+                           in the agent's context and so in front of its model provider
+                           (for numbers only, use --summary)
 
 Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only),
---record, --summary, --since DATE and --section NAME (stats only).
+--record, --summary, --since DATE, --section NAME, --evidence and --skip N (stats only).
 Exit: 0 ok or help, 3 refused or not ok, 2 invalid input or state (a wrong command or argument).
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
@@ -554,10 +560,10 @@ def is_plain_dir(path: Path) -> bool:
     return path.is_dir() and not path.is_symlink()
 
 
-def git(root: Path | str, *args: str) -> str:
+def git(root: Path | str, *args: str, env: dict[str, str] | None = None) -> str:
     import subprocess
 
-    done = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
+    done = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False, env=env)
     if done.returncode != 0:
         raise Refused("git failed: " + (done.stderr.strip().splitlines() or ["unknown"])[0])
     return done.stdout
@@ -2695,8 +2701,150 @@ def _since_date(value: str) -> str:
     return value
 
 
+# One page of evidence stays under the roughly 30000 characters an agent's shell tool shows.
+EVIDENCE_BUDGET = 28000
+# Three 300-character fields escape to about 11000 bytes; past this only an id, which has no length limit, can
+# have made a blocker larger. Below the page budget, so every page holds at least one blocker.
+EVIDENCE_BLOCKER_MAX = 12000
+EVIDENCE_FIELDS = ("id", "source", "disposition", "blocker_class", "escaped_from", "summary", "reason", "sweep")
+EVIDENCE_SKIPPED = ("not-a-run", "bad-state", "not-done", "invalid")
+
+
+def _compact_line(value: object) -> str:
+    """One compact line of JSON, all ASCII: other characters, and any that could drive a terminal, arrive escaped."""
+    return json.dumps(value, separators=(",", ":")) + "\n"
+
+
+def _evidence_root() -> Path:
+    """The checkout that holds the working directory, whatever the environment or the git config says.
+
+    An inherited GIT_ variable or a core.worktree setting would otherwise point the evidence at another tree's
+    text without a word: the variables are dropped, and git's answer must be the nearest folder, from the
+    working directory up, that holds .git.
+    """
+    env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    try:
+        here = Path.cwd().resolve()
+        root = Path(git(here, "rev-parse", "--show-toplevel", env=env).strip())
+        nearest = next((folder for folder in (here, *here.parents) if os.path.lexists(folder / ".git")), None)
+        if nearest is not None and os.path.samefile(root, nearest):
+            return nearest
+    except (Refused, OSError) as exc:
+        raise Refused("not inside a git worktree; run it from inside the repository") from exc
+    raise Refused("git names a worktree other than the checkout around the working directory; nothing was read")
+
+
+def _open_runs(root: Path) -> int | None:
+    """This repository's runs folder, held open; None when it is absent or a level below the root is not a folder."""
+    try:
+        base = os.open(root / ".b-agentic", OPEN_DIR)
+        try:
+            return os.open("runs", OPEN_DIR, dir_fd=base)
+        finally:
+            os.close(base)
+    except OSError as exc:
+        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):
+            return None
+        raise
+
+
+def _evidence_run(runs_fd: int, name: str, schema: dict) -> tuple[str | None, list[dict]]:
+    """One run folder's blockers, or why the folder is left out. It moves the working directory.
+
+    Run files are untrusted input: a folder is used only when its run is done and every recorded file agrees with
+    its record. That finds damage and stray edits, not a forger: the hashes lie beside the text they cover.
+    The folder is opened without following a link and read from inside, so swapping any name above or at it for a
+    link, after it is opened, cannot bring another tree's files in.
+    """
+    if not RUN_ID.fullmatch(name):
+        return "not-a-run", []
+    try:
+        run_fd = os.open(name, OPEN_DIR, dir_fd=runs_fd)
+    except OSError as exc:
+        return "not-a-run" if exc.errno in (errno.ENOTDIR, errno.ELOOP) else "bad-state", []
+    reason = "bad-state"
+    try:
+        os.fchdir(run_fd)
+        here = Path(".")
+        state = read_state(here)
+        if state["run_id"] != name:
+            return reason, []
+        if state["phase"] != "done":
+            return "not-done", []
+        reason = "invalid"
+        # validate_run asks of its known names only that they are no link or folder. The helpers leave regular
+        # files alone here, so a FIFO or socket under any name means the folder is not as they left it.
+        if any(not stat.S_ISREG(os.lstat(entry).st_mode) for entry in os.listdir(here)):
+            return reason, []
+        data, problems = validate_run(here, schema)
+        if problems:
+            return reason, []
+        items = data.get("followups", {}).get("items", [])
+        return None, [
+            {"run": name, **{field: item.get(field) for field in EVIDENCE_FIELDS}}
+            for item in items
+            if item.get("kind") == "blocker"
+        ]
+    except Exception:  # whatever one folder's files make a reader raise drops that folder alone
+        return reason, []
+    finally:
+        os.close(run_fd)
+
+
+def _stats_evidence(root: Path, schema: dict, skip: int) -> dict:
+    """One page of this repository's blocker text, read live from its run folders; nothing is stored or written."""
+    folders: list[str] = []
+    skipped = dict.fromkeys(EVIDENCE_SKIPPED, 0)
+    found: list[dict] = []
+    runs_fd = _open_runs(root)
+    if runs_fd is not None:
+        back = os.getcwd()
+        try:
+            folders = sorted(os.listdir(runs_fd), reverse=True)
+            for name in folders:
+                reason, blockers = _evidence_run(runs_fd, name, schema)
+                if reason is None:
+                    found.extend(blockers)
+                else:
+                    skipped[reason] += 1
+        finally:
+            os.chdir(back)
+            os.close(runs_fd)
+    printable = [blocker for blocker in found if len(_compact_line(blocker)) - 1 <= EVIDENCE_BLOCKER_MAX]
+
+    def page(shown: int) -> dict:
+        end = skip + shown
+        return {
+            "ok": True,
+            "folders": len(folders),
+            "runs_read": len(folders) - sum(skipped.values()),
+            "skipped": skipped,
+            "total": len(printable),
+            "oversized": len(found) - len(printable),
+            "skip": skip,
+            "shown": shown,
+            "next_skip": end if end < len(printable) else None,
+            "blockers": printable[skip:end],
+        }
+
+    shown = 0
+    while skip + shown < len(printable) and len(_compact_line(page(shown + 1))) <= EVIDENCE_BUDGET:
+        shown += 1
+    return page(shown)
+
+
 def cmd_stats(schema: dict, args: dict) -> dict:
-    _only_options("stats", args, {"record", "run", "summary", "since", "section"})
+    _only_options("stats", args, {"record", "run", "summary", "since", "section", "evidence", "skip"})
+    if args.get("evidence"):
+        for name in ("record", "run", "summary", "since", "section"):
+            if name in args:
+                raise Invalid(f"stats --evidence does not go with --{name}")
+        skip = args.get("skip", "0")
+        if not re.fullmatch(r"[0-9]{1,6}", skip):
+            raise Invalid("stats --skip needs a count of at most six digits")
+        return _stats_evidence(_evidence_root(), schema, int(skip))
+    if "skip" in args:
+        raise Invalid("stats --skip belongs to stats --evidence")
     since = None
     if args.get("summary"):
         if args.get("record") or "run" in args:
@@ -2766,7 +2914,7 @@ def cmd_stats(schema: dict, args: dict) -> dict:
 
 # ---- entry --------------------------------------------------------------------
 
-VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days", "since", "section"}
+VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days", "since", "section", "skip"}
 COMMANDS = (
     "schema",
     "lint",
@@ -2818,6 +2966,8 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
             options["record"] = True
         elif arg == "--summary":
             options["summary"] = True
+        elif arg == "--evidence":
+            options["evidence"] = True
         else:
             problem = problem or Invalid(f"unknown argument: {arg}")
     # A caller fixing a malformed command asks for help beside the mistake: help is answered, the mistake is not.
@@ -2866,10 +3016,10 @@ def run(argv: list[str]) -> tuple[int, str]:
     else:
         raise Invalid(f"unknown command: {command}; commands: {', '.join(COMMANDS)}; --help prints usage")
     ok = not (isinstance(result, dict) and result.get("ok") is False)
-    # The summary is read by an agent and has many groups: one compact line keeps it small.
-    compact = command == "stats" and bool(args.get("summary"))
-    shape: dict = {"separators": (",", ":")} if compact else {"indent": 2}
-    return (0 if ok else 3), json.dumps(result, **shape) + "\n"
+    # The summary and the evidence are read by an agent: one compact line keeps them small, and it is the line
+    # the evidence page was measured as.
+    compact = command == "stats" and bool(args.get("summary") or args.get("evidence"))
+    return (0 if ok else 3), _compact_line(result) if compact else json.dumps(result, indent=2) + "\n"
 
 
 def main(argv: list[str]) -> int:

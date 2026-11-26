@@ -86,6 +86,22 @@ decision does.
   stores and their off flags, never a run folder, and writes nothing; a disabled store is still
   read, as by the report, and a store that fails after it is opened is reported unreadable without
   hiding the other.
+- **Evidence.** `b_run.py stats --evidence [--skip N]` is read-only and gives the text behind the
+  blocker counts, for the repository it runs in only: the checkout around the working directory,
+  with inherited git environment variables ignored and a git setting that names another worktree
+  refused. It reads that repository's run folders live, never a store, and copies nothing into a store, so the numbers-only rule of the store stands.
+  Only blockers are printed: their run and id, source, disposition, class, escape stage, summary,
+  reason, and sweep line; a missing value is null, since most blockers recorded before the class
+  existed have none. A folder counts only when its state says done for its own id, it holds
+  regular files only, and the artifact validation passes in full, so a hand edit of one file, a
+  linked or odd file, or malformed data leaves that folder alone out, counted and not named. Each level is opened
+  without following a link and a run is read from inside its opened folder, so a name swapped for
+  a link during the read cannot bring another repository's files in. The output is one line of
+  printable ASCII, newest run first, and a page stops before 28,000 bytes, under what an agent's
+  shell tool shows; the caller passes `next_skip` back as `--skip`, and starts again from 0 when
+  the total changed between pages, since a folder removed between two calls can skip blockers. A
+  registry of repository paths and reading another repository are not part of this decision; when
+  added, another repository is read only when the caller names it.
 - **Disclosure.** `advance done` reports the outcome as `run_stats` (`written`, `already`,
   `skipped:<reason>` such as `skipped:disabled`, or `failed`). The first creation adds a one-time
   `notice` naming the file and the off switch, which the `b-flow` done step relays.
@@ -115,6 +131,13 @@ decision does.
   one-time notice. What a command prints to an agent enters that agent's context and so reaches its
   model provider: counts for the report, and for the summary the numbers, repository keys, kit
   versions, and dates of every repository in the stores.
+- The evidence puts free text written during this repository's runs into the agent's context and so
+  in front of its model provider. Passing validation shows only that the files agree with each
+  other: the hash lies beside the text it covers, so it shows neither who wrote them nor that the
+  text is true or harmless, and whoever can write a run folder can write one that passes. The
+  state is checked for its phase and run id only; its full rules live in b-state, and a forger of
+  those two fields could forge the rest. The text stays untrusted data and grants nothing. A run
+  written by an older helper that today's validation rejects would be counted as invalid, not read.
 - The summary sees only the stores. A run with one line under the earlier repository-based key and
   another under the current key is counted twice, since telling them apart needs the run folder.
 - Nothing rotates or deletes the file; the user removes it by hand, as with the verify-gate log.
@@ -129,7 +152,12 @@ decision does.
   has no `~/.claude`); a new reference file or an installer prompt (both installers keep fixed
   lists); a `mkdir` of the install home (a runtime tree outside the installer's manifest);
   automatic rotation or deletion ([ADR-024](ADR-024-prune-old-runs.md) rejected it); guard rules
-  protecting the store (the store is not authoritative, the same stance as ADR-009's tripwire).
+  protecting the store (the store is not authoritative, the same stance as ADR-009's tripwire);
+  for the evidence, copying blocker text into the store (free text, kept past a prune), paging by
+  date (whole days cannot split one large run), by run (one run can exceed a page, and the caller
+  would need the ids first), or by a run-and-item cursor (more parsing for little gain), checking
+  only the follow-ups artifact (weaker, and no run here fails the full check), and reading
+  unfinished runs (their follow-ups can still be rewritten).
 
 Evidence: [`claude/bin/b_run.py`](../../claude/bin/b_run.py),
 [`claude/bin/b-state-commands.mjs`](../../claude/bin/b-state-commands.mjs), and

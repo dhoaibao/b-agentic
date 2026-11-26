@@ -1158,6 +1158,319 @@ for rounds in 1 2; do
   has ".by_kit.omitted_groups == 14 and .by_kit.omitted_runs == 396 * $rounds - ([.by_kit.groups[].runs] | add)" "the kit versions left out are counted ($rounds)"
 done
 
+# --- the evidence (ADR-035): the blocker text of this repository's finished runs, read live from synthetic folders ----
+ev_repo="$work/repoE"
+ev_home="$work/ev-home"
+cat >"$work/evidence_runs.py" <<'PY'
+import json
+from pathlib import Path
+
+
+def blocker(number, **over):
+    item = {
+        "id": f"R1-{number}", "source": "review", "kind": "blocker", "disposition": "fixed",
+        "blocker_class": "correctness regression", "escaped_from": "implement",
+        "summary": f"summary {number}", "reason": f"reason {number}", "sweep": f"sweep {number}",
+    }
+    item.update(over)
+    return {name: value for name, value in item.items() if value is not None}
+
+
+def folder(repo, run_id, items=None, phase="done", state_id=None, valid=True):
+    """A run folder as the helpers write it; valid=False skips the check that the fixture itself is sound."""
+    path = Path(repo) / ".b-agentic" / "runs" / run_id
+    path.mkdir(parents=True)
+    state = {"run_id": state_id or run_id, "phase": phase}
+    (path / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    if items is not None:
+        data = {"items": items}
+        body = b_run.render("followups", data)
+        (path / "followups.md").write_bytes(body.encode())
+        entry = {"sha256": b_run.sha(body), "data": data, "rev": 1}
+        recorded = {"schema": 1, "artifacts": {"followups": entry}}
+        (path / "artifacts.json").write_text(json.dumps(recorded), encoding="utf-8")
+        if valid:
+            problems = b_run.validate_run(path, b_run.load_schema())[1]
+            assert not problems, f"{run_id}: {problems}"
+    return path
+PY
+# ev_fixture: a new repoE and an empty HOME, then the Python on stdin writes the run folders.
+ev_fixture() {
+  rm -rf "$ev_repo" "$ev_home"
+  make_repo "$ev_repo"
+  mkdir -p "$ev_home"
+  { printf 'exec(open(%s).read())\nrepo = %s\n' "'$work/evidence_runs.py'" "'$ev_repo'" && cat; } |
+    store_py unused || fail "writing the evidence run folders"
+}
+# evidence [ARGS...]: one page from repoE, in $out, checked to be one line of printable ASCII.
+evidence() {
+  out=$(HOME="$ev_home" stats "$ev_repo" --evidence "$@") || fail "stats --evidence $* failed: $out"
+  [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "a page must be one compact line ($*)"
+  if printf '%s' "$out" | LC_ALL=C grep -q '[^ -~]'; then fail "a page must be printable ASCII ($*)"; fi
+}
+# ev_absent TEXT MESSAGE: the last page does not hold the text.
+ev_absent() {
+  if grep -qF "$1" <<<"$out"; then fail "$2"; fi
+}
+# ev_pages TOTAL: follow next_skip from the first page; every page is bounded and holds something, and the pages
+# together hold TOTAL different blockers, listed in order in ev-ids.
+ev_pages() {
+  local skip=0 next size
+  : >"$work/ev-ids"
+  ev_page_count=0
+  while :; do
+    evidence --skip "$skip"
+    size=$(printf '%s\n' "$out" | wc -c | tr -d ' ')
+    [ "$size" -lt 30000 ] || fail "every page must stay under 30000 bytes (skip $skip): $size bytes"
+    has ".total == $1 and .skip == $skip and .shown >= 1 and .shown == (.blockers | length)" "a page holds at least one blocker (skip $skip)"
+    jq -r '.blockers[] | "\(.run) \(.id)"' <<<"$out" >>"$work/ev-ids"
+    ev_page_count=$((ev_page_count + 1))
+    next=$(jq -r .next_skip <<<"$out")
+    if [ "$next" = null ]; then break; fi
+    [ "$next" -gt "$skip" ] || fail "next_skip must move forward (skip $skip): $next"
+    skip=$next
+  done
+  [ "$(lines_of "$work/ev-ids")" = "$1" ] || fail "paging must print $1 blockers: $(lines_of "$work/ev-ids")"
+  [ "$(sort -u "$work/ev-ids" | wc -l | tr -d ' ')" = "$1" ] || fail "paging must print every blocker once"
+}
+
+# Content and order: the newest run first, a run's blockers as recorded, nine keys, null for what is absent (AC-1, AC-2).
+ev_fixture <<'PY'
+folder(repo, "20261101-a", [blocker(1, blocker_class=None, escaped_from=None)])
+folder(repo, "20261103-b", [
+    blocker(1, id="R2-1", summary="tóm \x85 tắt ‮ \U0001F680"),
+    blocker(1, id="Q1-1", source="qa", escaped_from="review", disposition="rejected", sweep=None),
+    {"id": "R1-9", "source": "review", "disposition": "deferred", "summary": "plain follow-up", "reason": "later"},
+])
+folder(repo, "20261105-c")
+PY
+evidence
+has 'keys_unsorted == ["ok","folders","runs_read","skipped","total","oversized","skip","shown","next_skip","blockers"]' "the evidence header keys"
+has '.ok and .folders == 3 and .runs_read == 3 and .skipped == {"not-a-run": 0, "bad-state": 0, "not-done": 0, invalid: 0}' "every done folder is read"
+has '.total == 3 and .oversized == 0 and .skip == 0 and .shown == 3 and .next_skip == null' "one page holds them all"
+has '[.blockers[] | [.run, .id]] == [["20261103-b","R2-1"],["20261103-b","Q1-1"],["20261101-a","R1-1"]]' "newest run first, recorded order inside a run"
+has 'all(.blockers[]; keys_unsorted == ["run","id","source","disposition","blocker_class","escaped_from","summary","reason","sweep"])' "each blocker holds the nine keys"
+has '.blockers[1] == {run: "20261103-b", id: "Q1-1", source: "qa", disposition: "rejected", blocker_class: "correctness regression", escaped_from: "review", summary: "summary 1", reason: "reason 1", sweep: null}' "a blocker's values"
+has '.blockers[0].summary == "tóm \u0085 tắt ‮ 🚀"' "escaped text decodes to the recorded text"
+has '.blockers[2] == {run: "20261101-a", id: "R1-1", source: "review", disposition: "fixed", blocker_class: null, escaped_from: null, summary: "summary 1", reason: "reason 1", sweep: "sweep 1"}' "an old blocker without a class or stage is printed with null"
+ev_absent 'plain follow-up' "a follow-up that is not a blocker must not be printed"
+
+# The bound and the pages, with the characters that escape longest (AC-3).
+ev_fixture <<'PY'
+wide = "\U0001D518" * 300
+for run_id in ("20261101-x", "20261102-y"):
+    folder(repo, run_id, [blocker(n, summary=wide, reason=wide, sweep=wide) for n in range(1, 31)])
+PY
+evidence
+has '.shown == 2 and .next_skip == 2 and .total == 60' "two of the widest blockers fill a page"
+ev_pages 60
+[ "$ev_page_count" = 30 ] || fail "the widest blockers take 30 pages: $ev_page_count"
+for run_id in 20261102-y 20261101-x; do
+  for ((n = 1; n <= 30; n++)); do printf '%s R1-%s\n' "$run_id" "$n"; done
+done >"$work/ev-want"
+cmp -s "$work/ev-want" "$work/ev-ids" || fail "paging keeps the order"
+ev_fixture <<'PY'
+quotes, slashes, accents = '"' * 300, "\\" * 300, "é" * 300
+folder(repo, "20261101-x", [blocker(n, summary=quotes, reason=slashes, sweep=accents) for n in range(1, 51)])
+folder(repo, "20261102-y", [blocker(n) for n in range(1, 51)])
+PY
+evidence
+size=$(printf '%s\n' "$out" | wc -c | tr -d ' ')
+[ "$size" -gt 20000 ] || fail "a page is filled, not cut to a few blockers: $size bytes"
+ev_pages 100
+evidence --skip 999999
+has '.total == 100 and .skip == 999999 and .shown == 0 and .next_skip == null and .blockers == []' "a skip past the end is an empty page"
+
+# An unfinished run is not read, and a blocker too large for a page is only counted (AC-5).
+ev_fixture <<'PY'
+folder(repo, "20261101-x", [
+    blocker(1, id="R1-" + "1" * 12000, summary="leak-oversized"),
+    blocker(2),
+    blocker(3, id="R1-" + "3" * 11500),
+])
+folder(repo, "20261102-y", [blocker(4, summary="leak-unfinished")], phase="implement")
+folder(repo, "20261103-z", [blocker(5, summary="leak-blocked")], phase="blocked")
+PY
+evidence
+has '.total == 2 and .oversized == 1 and .runs_read == 1 and .skipped["not-done"] == 2 and [.blockers[].id[:4]] == ["R1-2", "R1-3"]' "unfinished runs and an oversized blocker are left out"
+ev_absent 'leak-' "nothing of an unfinished run or an oversized blocker is printed"
+ev_pages 2
+
+# A folder that is not what the helpers wrote drops only itself, and none of its text is printed (AC-4).
+ev_fixture <<'PY'
+import os
+
+
+def bad(run_id, **over):
+    return folder(repo, run_id, [blocker(1, summary=f"leak-{run_id}")], **over)
+
+
+for run_id in ("20261101-good", "20261120-good"):
+    folder(repo, run_id, [blocker(1, summary="visible")])
+with open(bad("20261102-edited-md") / "followups.md", "a", encoding="utf-8") as handle:
+    handle.write("leak-added by hand\n")
+path = bad("20261103-wrong-hash") / "artifacts.json"
+recorded = json.loads(path.read_text(encoding="utf-8"))
+recorded["artifacts"]["followups"]["sha256"] = "0" * 64
+path.write_text(json.dumps(recorded), encoding="utf-8")
+(bad("20261104-malformed") / "artifacts.json").write_text("{leak-malformed", encoding="utf-8")
+(bad("20261105-deep") / "artifacts.json").write_text("[" * 100000, encoding="utf-8")
+with open(bad("20261106-huge") / "artifacts.json", "a", encoding="utf-8") as handle:
+    handle.write(" " * b_run.MAX_FILE)
+path = bad("20261107-linked-file") / "artifacts.json"
+path.rename(Path(repo) / "linked-artifacts")
+path.symlink_to(Path(repo) / "linked-artifacts")
+for run_id, name in (("20261108-fifo-artifacts", "artifacts.json"), ("20261109-fifo-markdown", "followups.md"), ("20261112-fifo-state", "state.json")):
+    path = bad(run_id) / name
+    path.unlink()
+    os.mkfifo(path)
+(bad("20261113-unknown-file") / "extra.txt").write_text("leak-extra\n", encoding="utf-8")
+# A FIFO beside sound files, under names no check reads: an allowed one and a temporary one.
+os.mkfifo(bad("20261117-fifo-mutex") / "mutex")
+os.mkfifo(bad("20261118-fifo-temp") / "followups.md.1.0123456789abcdef.tmp")
+folder(repo, "20261114-control", [blocker(1, summary="leak-control \x01 end")], valid=False)
+(bad("20261115-bad-state") / "state.json").write_text("{leak-state", encoding="utf-8")
+bad("20261116-other-run", state_id="20261101-good")
+# A link to a folder that is sound in every way: only being a link leaves it out.
+target = folder(os.path.join(repo, "elsewhere"), "20261110-linked", [blocker(1, summary="leak-linked")])
+(Path(repo) / ".b-agentic" / "runs" / "20261110-linked").symlink_to(target)
+(Path(repo) / ".b-agentic" / "runs" / "20261111-plain-file").write_text("leak-file\n", encoding="utf-8")
+folder(repo, "notes", [blocker(1, summary="leak-notes")])
+PY
+evidence
+has '.folders == 20 and .runs_read == 2 and .skipped == {"not-a-run": 3, "bad-state": 3, "not-done": 0, invalid: 12}' "each bad folder is counted under its reason"
+has '.total == 2 and [.blockers[] | [.run, .summary]] == [["20261120-good","visible"],["20261101-good","visible"]]' "the sound folders are still printed"
+ev_absent 'leak' "no text of a folder that was left out is printed"
+
+# Reading changes nothing in the repository or under HOME (AC-6).
+before=$(tree_of "$ev_repo" && tree_of "$ev_home")
+evidence
+evidence --skip 1
+[ "$(tree_of "$ev_repo" && tree_of "$ev_home")" = "$before" ] || fail "the evidence must change nothing in the repository or under HOME"
+if [ "$(id -u)" != 0 ]; then
+  chmod 000 "$ev_repo/.b-agentic/runs/20261101-good"
+  evidence
+  chmod 755 "$ev_repo/.b-agentic/runs/20261101-good"
+  has '.runs_read == 1 and .skipped["bad-state"] == 4 and [.blockers[].run] == ["20261120-good"]' "an unreadable folder drops only itself"
+fi
+# A name swapped for a link while the evidence is read cannot bring another tree's text in (AC-4).
+# ev_swap WHEN PATH: run the evidence in-process and, at the first call of WHEN, replace repoE/PATH with a link to
+# the same path in another tree: listdir swaps right after the runs are listed, read_state right before the first read.
+ev_swap() {
+  ev_fixture <<'PY'
+folder(repo, "20261101-x", [blocker(1, summary="inside")])
+folder(repo + "/outside", "20261101-x", [blocker(1, summary="leak-outside")])
+PY
+  out=$(cd "$ev_repo" && HOME="$ev_home" python3 -I -B - "$root/claude/bin/b_run.py" "$ev_repo" "$1" "$2" <<'PY'
+import importlib.util
+import os
+import sys
+
+cli, repo, when, swapped = sys.argv[1:5]
+spec = importlib.util.spec_from_file_location("b_run", cli)
+b_run = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(b_run)
+module = os if when == "listdir" else b_run
+real = getattr(module, when)
+done = []
+
+
+def swap():
+    if not done:
+        done.append(True)
+        path = os.path.join(repo, swapped)
+        os.rename(path, path + ".aside")
+        os.symlink(os.path.join(repo, "outside", swapped), path)
+
+
+def hooked(*args):
+    if when == "read_state":
+        swap()
+    value = real(*args)
+    swap()
+    return value
+
+
+setattr(module, when, hooked)
+code = b_run.main(["stats", "--evidence"])
+if not done:
+    sys.exit("the swap never happened")
+sys.exit(code)
+PY
+  ) || fail "the evidence during a swap failed ($1 $2)"
+  ev_absent 'leak-outside' "a swapped name must not bring another tree's text in ($1 $2)"
+}
+for swapped in .b-agentic .b-agentic/runs .b-agentic/runs/20261101-x; do
+  ev_swap read_state "$swapped"
+  has '.runs_read == 1 and [.blockers[].summary] == ["inside"]' "the folder that was opened is the one read ($swapped)"
+done
+ev_swap listdir .b-agentic/runs
+has '.runs_read == 1 and [.blockers[].summary] == ["inside"]' "the runs folder that was opened is the one read"
+ev_swap listdir .b-agentic/runs/20261101-x
+has '.runs_read == 0 and .skipped["not-a-run"] == 1 and .total == 0' "a folder swapped before it is opened is not followed"
+ev_fixture <<'PY'
+PY
+evidence
+has '.folders == 0 and .runs_read == 0 and .total == 0 and .shown == 0 and .next_skip == null' "a repository without runs"
+ev_fixture <<'PY'
+folder(repo + "/elsewhere", "20261101-x", [blocker(1, summary="leak-linked-base")])
+(Path(repo) / ".b-agentic").symlink_to(Path(repo) / "elsewhere" / ".b-agentic")
+PY
+evidence
+has '.folders == 0 and .total == 0' "a linked run folder base is not read"
+
+# Only the checkout around the working directory is read, whatever the environment or git config names (AC-4).
+ev_other="$work/ev-other"
+ev_linked="$work/ev-linked"
+ev_fixture <<PY
+folder(repo, "20261101-x", [blocker(1, summary="inside")])
+folder("$ev_other/inner", "20261101-x", [blocker(1, summary="leak-inner")])
+folder("$ev_other", "20261101-x", [blocker(1, summary="leak-outer")])
+PY
+make_repo "$ev_other/inner"
+make_repo "$ev_other/elsewhere"
+GIT_WORK_TREE="$ev_other" evidence
+has '[.blockers[].summary] == ["inside"]' "an inherited GIT_WORK_TREE is ignored"
+GIT_DIR="$ev_other/elsewhere/.git" GIT_WORK_TREE="$ev_other" evidence
+has '[.blockers[].summary] == ["inside"]' "an inherited GIT_DIR is ignored"
+mkdir -p "$ev_repo/sub/deeper"
+out=$(HOME="$ev_home" stats "$ev_repo/sub/deeper" --evidence) || fail "the evidence from a subfolder failed: $out"
+has '[.blockers[].summary] == ["inside"]' "a subfolder reads its own checkout"
+git -C "$ev_repo" worktree add -q "$ev_linked" || fail "adding a linked worktree"
+out=$(HOME="$ev_home" stats "$ev_linked" --evidence) || fail "the evidence from a linked worktree failed: $out"
+has '.folders == 0 and .total == 0' "a linked worktree reads its own run folders"
+# ev_refused DIR: git points away from the checkout around DIR: exit 3, one line on stderr, nothing printed.
+ev_refused() {
+  local rc=0
+  out=$(HOME="$ev_home" stats "$1" --evidence 2>"$work/sum-err") || rc=$?
+  if [ "$rc" -ne 3 ] || [ -n "$out" ] || [ "$(lines_of "$work/sum-err")" != 1 ]; then
+    fail "a redirected worktree must be refused ($1): rc=$rc $out $(cat "$work/sum-err")"
+  fi
+}
+# A config pointing elsewhere, and one pointing at a folder above, which still holds the working directory.
+git -C "$ev_repo" config core.worktree "$ev_other"
+ev_refused "$ev_repo"
+git -C "$ev_other/inner" config core.worktree "$ev_other"
+ev_refused "$ev_other/inner"
+rm -rf "$ev_other" "$ev_linked"
+
+# Refused uses of --evidence and --skip, and the help line (AC-7).
+bad_use --evidence --record
+bad_use --evidence --run 20261101-x
+bad_use --evidence --summary
+bad_use --evidence --since 2026-11-01
+bad_use --evidence --section repo
+bad_use --evidence --apply
+bad_use --skip 0
+bad_use --summary --skip 0
+bad_use --record --skip 1
+bad_use --evidence --skip
+for count in -1 '' 1.5 1234567 ' 1' abc １; do
+  bad_use --evidence --skip "$count"
+done
+python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF 'stats --evidence [--skip N]' || fail "help must name the evidence"
+python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF "in front of its model provider" || fail "help must say where printed evidence goes"
+
 # --- invalid use -------------------------------------------------------------------------------------------------------------------
 if stats "$repoS" --run "20260101-x" 2>/dev/null; then fail "--run without --record must be refused"; fi
 if stats "$repoS" --apply 2>/dev/null; then fail "stats must refuse --apply"; fi
