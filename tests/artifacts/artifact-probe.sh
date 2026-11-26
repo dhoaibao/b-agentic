@@ -225,6 +225,13 @@ lint_bad followups '.items[0].blocker_class = "made up"' "a class outside the b-
 lint_bad followups '.items[2].escaped_from = "plan"' "escaped_from on an implement item"
 lint_bad followups '.items[0].escaped_from = "review"' "a review item that escaped review"
 lint_bad followups '.items[0].escaped_from = "later"' "escaped_from outside the stages"
+lint_bad followups 'del(.items[0].blocker_class)' "a new blocker without a class"
+lint_bad followups 'del(.items[0].escaped_from)' "a new blocker without escaped_from"
+lint_bad followups '.items[2].escaped_from = "unknown"' "an unknown stage on an implement item"
+br "$repo" lint followups < <(example followups | jq -c '.items[0].escaped_from = "unknown" | .items[1].escaped_from = "unknown"')
+[ "$rc" -eq 0 ] || fail "a review blocker or follow-up may name an unknown stage: $(cat "$work/err")"
+br "$repo" lint followups < <(example followups | jq -c '.items[0].source = "qa" | .items[0].escaped_from = "unknown"')
+[ "$rc" -eq 0 ] || fail "a qa blocker may name an unknown stage: $(cat "$work/err")"
 br "$repo" lint followups < <(example followups | jq -c '.items[0].source = "qa" | .items[0].escaped_from = "review"')
 [ "$rc" -eq 0 ] || fail "a qa item may have escaped review: $(cat "$work/err")"
 br "$repo" lint spec < <(printf 'not json')
@@ -319,7 +326,30 @@ for name in fu-plain fu-fields; do
   ok "$work/$name" write plan < <(example plan)
   setphase "$work/$name" verify
 done
-ok "$work/fu-plain" write followups < <(example followups | jq -c 'del(.items[].blocker_class, .items[].escaped_from)')
+# Follow-ups recorded before blockers had to name a class and stage. write refuses that input now, so the
+# probe records it the way the older helper did: the same data, its render, and the render's hash.
+seed_legacy() { # REPO
+  python3 -I -B - "$cli" "$(rundir "$1")" <<'PY'
+import importlib.util, json, pathlib, sys
+
+spec = importlib.util.spec_from_file_location("b_run", sys.argv[1])
+cli = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(cli)
+run = pathlib.Path(sys.argv[2])
+recorded = json.loads((run / "artifacts.json").read_text())
+entry = recorded["artifacts"]["followups"]
+for item in entry["data"]["items"]:
+    item.pop("blocker_class", None)
+    item.pop("escaped_from", None)
+body = cli.render("followups", entry["data"])
+(run / "followups.md").write_text(body)
+entry["sha256"] = cli.sha(body)
+(run / "artifacts.json").write_text(json.dumps(recorded))
+PY
+}
+legacy() { example followups | jq -c 'del(.items[].blocker_class, .items[].escaped_from)'; }
+ok "$work/fu-plain" write followups < <(example followups)
+seed_legacy "$work/fu-plain"
 ok "$work/fu-fields" write followups < <(example followups)
 plain_md=$(rundir "$work/fu-plain")/followups.md
 fields_md=$(rundir "$work/fu-fields")/followups.md
@@ -327,11 +357,65 @@ grep -Eq 'Class:|Escaped from:' "$plain_md" && fail "legacy follow-ups must rend
 [ "$(grep -Fv -e '  - Class: ' -e '  - Escaped from: ' "$fields_md")" = "$(cat "$plain_md")" ] \
   || fail "the new follow-up lines must be the only difference from the legacy render"
 ok "$work/fu-plain" validate
-# A later rewrite may add escaped_from to an item that had none, once.
-ok "$work/fu-plain" write followups < <(example followups | jq -c 'del(.items[].blocker_class, .items[].escaped_from) | .items[1].escaped_from = "plan"')
+# A rewrite keeps a recorded blocker that has neither field, and lint in the run agrees with write.
+cp "$plain_md" "$work/plain.md.keep"
+ok "$work/fu-plain" lint followups < <(legacy)
+ok "$work/fu-plain" write followups < <(legacy)
+cmp -s "$plain_md" "$work/plain.md.keep" || fail "a legacy rewrite must render byte for byte as before"
+invalid "$work/fu-plain" lint followups < <(legacy | jq -c '.items = [.items[1]]')
+# A blocker new to that run needs both fields, whatever its source or disposition.
+later='.items += [{id: "Q1-1", source: "qa", summary: "Export is empty", disposition: "deferred", reason: "waits", kind: "blocker"}]'
+for cmd in lint write; do
+  invalid "$work/fu-plain" "$cmd" followups < <(legacy | jq -c "$later")
+  grep -Fq 'blocker_class: required on a new blocker' "$work/err" || fail "$cmd must name the missing class: $(cat "$work/err")"
+  invalid "$work/fu-plain" "$cmd" followups < <(legacy | jq -c "$later | .items[-1].blocker_class = \"violated acceptance\"")
+  grep -Fq 'escaped_from: required on a new blocker' "$work/err" || fail "$cmd must name the missing stage: $(cat "$work/err")"
+done
+cmp -s "$plain_md" "$work/plain.md.keep" || fail "a refused write must change nothing"
+ok "$work/fu-plain" write followups < <(legacy | jq -c "$later | .items[-1].blocker_class = \"violated acceptance\" | .items[-1].escaped_from = \"unknown\"")
+ok "$work/fu-plain" validate
+# A later rewrite may add one field to a recorded item that had none, once.
+added=$(legacy | jq -c "$later | .items[-1].blocker_class = \"violated acceptance\" | .items[-1].escaped_from = \"unknown\" | .items[1].escaped_from = \"plan\"")
+ok "$work/fu-plain" write followups <<<"$added"
 grep -Fq -- '  - Escaped from: plan' "$plain_md" || fail "an added escaped_from must render"
-br "$work/fu-plain" write followups < <(example followups | jq -c 'del(.items[].blocker_class, .items[].escaped_from) | .items[1].escaped_from = "spec"')
-[ "$rc" -eq 2 ] || fail "a recorded escaped_from cannot change (rc=$rc)"
+invalid "$work/fu-plain" write followups < <(jq -c '.items[1].escaped_from = "spec"' <<<"$added")
+ok "$work/fu-plain" write followups < <(jq -c '.items[0].blocker_class = "unexpected path"' <<<"$added")
+added=$(jq -c '.items[0].blocker_class = "unexpected path"' <<<"$added")
+# A recorded unknown may be named once: not dropped, not made a later stage, and then it stays.
+invalid "$work/fu-plain" write followups < <(jq -c 'del(.items[-1].escaped_from)' <<<"$added")
+invalid "$work/fu-plain" write followups < <(jq -c '.items[-1].source = "review"' <<<"$added")
+invalid "$work/fu-plain" write followups < <(jq -c '.items[-1].escaped_from = "later"' <<<"$added")
+named=$(jq -c '.items[-1].escaped_from = "implement"' <<<"$added")
+ok "$work/fu-plain" lint followups <<<"$named"
+ok "$work/fu-plain" write followups <<<"$named"
+invalid "$work/fu-plain" write followups <<<"$added"
+invalid "$work/fu-plain" write followups < <(jq -c '.items[-1].escaped_from = "plan"' <<<"$named")
+ok "$work/fu-plain" validate
+
+# --- a retained older schema beside the newer helper (an install keeps a user-edited artifacts.yaml) -----------
+# old_cli NAME JQ: a copy of the helper beside the schema JQ makes, laid out as an install is.
+old_cli() {
+  mkdir -p "$work/$1/bin" "$work/$1/references"
+  cp "$cli" "$work/$1/bin/b_run.py"
+  jq "$2" "$schema" >"$work/$1/references/artifacts.yaml"
+}
+fields='.kinds.followups.fields.items.items.fields'
+# Before unknown: a stage cannot be said to be unknown, so only the class is required.
+old_cli no-unknown '.enums.escape_stage -= ["unknown"]'
+# Before both fields: neither can be recorded, so neither is required.
+old_cli no-fields "del($fields.blocker_class, $fields.escaped_from)"
+shipped_cli=$cli
+cli="$work/no-unknown/bin/b_run.py"
+br "$repo" lint followups --run absent < <(example followups | jq -c 'del(.items[0].blocker_class)')
+[ "$rc" -eq 2 ] || fail "an older schema with blocker_class still requires it (rc=$rc)"
+br "$repo" lint followups --run absent < <(example followups | jq -c '.items[0].escaped_from = "unknown"')
+[ "$rc" -eq 2 ] || fail "an older schema without unknown still refuses it (rc=$rc)"
+br "$repo" lint followups --run absent < <(example followups | jq -c 'del(.items[0].escaped_from)')
+[ "$rc" -eq 0 ] || fail "an older schema without unknown must not require escaped_from: $(cat "$work/err")"
+cli="$work/no-fields/bin/b_run.py"
+br "$repo" lint followups --run absent < <(example followups | jq -c 'del(.items[0].blocker_class, .items[0].escaped_from)')
+[ "$rc" -eq 0 ] || fail "a schema without the fields must not require them: $(cat "$work/err")"
+cli=$shipped_cli
 
 # --- validate detects every bypass ---------------------------------------------------------
 ok "$repo" validate
@@ -532,7 +616,7 @@ grep -Fq -- '- `pytest tests/test_export.py`: exit 1' <<<"$out" || fail "the lat
 grep -Fq 'Failed verify attempts: 1' <<<"$out" || fail "the verify attempts must be printed: $out"
 jq '.candidate.checks = [] | .attempts.verify = 0 | .steps = {}' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
 setphase "$repo" fix
-ok "$repo" write followups < <(example followups | jq -c '.items += [{id: "R2-1", source: "review", summary: "Flag is undocumented", disposition: "open", kind: "blocker"}]')
+ok "$repo" write followups < <(example followups | jq -c '.items += [{id: "R2-1", source: "review", summary: "Flag is undocumented", disposition: "open", kind: "blocker", blocker_class: "violated acceptance", escaped_from: "implement"}]')
 ok "$repo" handoff fix
 grep -Fq -- '- R2-1: Flag is undocumented' <<<"$(sed -n '/## Open blockers/,/## QA results/p' <<<"$out")" || fail "the open blocker must be listed: $out"
 grep -Fq -- '- R1-1' <<<"$(sed -n '/## Open blockers/,/## QA results/p' <<<"$out")" && fail "a fixed blocker is not open: $out"

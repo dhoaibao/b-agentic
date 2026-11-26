@@ -4,6 +4,8 @@
 - Date: 2026-11-12
 - Supersedes: none (refines the "Run files" and "State helper" bullets of
   [ADR-009](ADR-009-b-flow-automatic-run.md))
+- Superseded in part by: [ADR-038](ADR-038-required-blocker-analytics.md) (the rejected required
+  `blocker_class`, and that a rewrite never changes a recorded `escaped_from`)
 
 ## Context
 

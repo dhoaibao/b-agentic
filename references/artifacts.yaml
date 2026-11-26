@@ -71,7 +71,8 @@
       "plan",
       "implement",
       "verify",
-      "review"
+      "review",
+      "unknown"
     ]
   },
   "run_stats": {
@@ -750,8 +751,9 @@
         "a blocker comes from review or qa, and a fixed blocker carries a sweep line naming the correction paths, the sibling locations swept, and the regression check",
         "a rewrite may not drop an id that an earlier version recorded or change that item's kind or source",
         "blocker_class is allowed only on a blocker and names one class of the b-review blocker list",
-        "escaped_from is allowed only on a review or qa item and names a stage earlier than the item's source: a review item may name spec, plan, implement, or verify; a qa item may also name review",
-        "a rewrite may add blocker_class or escaped_from to an item that had none, but may not change or drop one an earlier version recorded"
+        "escaped_from is allowed only on a review or qa item and names a stage earlier than the item's source, or unknown: a review item may name spec, plan, implement, or verify; a qa item may also name review",
+        "write and lint require blocker_class and escaped_from (unknown when the stage is not known) on a blocker whose id the recorded follow-ups lack; recorded data is not checked against this",
+        "a rewrite may add blocker_class or escaped_from to an item that had none, but may not change or drop one an earlier version recorded, except that a recorded escaped_from unknown may be replaced by a stage"
       ],
       "fields": {
         "items": {

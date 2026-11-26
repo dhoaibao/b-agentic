@@ -39,7 +39,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-034](ADR-034-all-runtimes-install.md) for the `--runtime=all` installer across Claude Code and Pi, extending ADR-030, ADR-032, and ADR-033, and
 [ADR-035](ADR-035-local-run-stats.md) for a local, numbers-only store of finished run metrics, refining ADR-010 and ADR-024, and
 [ADR-036](ADR-036-run-stats-kit-version.md) for recording in each run-stats line the kit version the run started on, superseding ADR-035 in part, and
-[ADR-037](ADR-037-run-stats-repo-registry.md) for a registry of checkout paths so the run evidence of a named repository can be read, superseding ADR-035 in part.
+[ADR-037](ADR-037-run-stats-repo-registry.md) for a registry of checkout paths so the run evidence of a named repository can be read, superseding ADR-035 in part, and
+[ADR-038](ADR-038-required-blocker-analytics.md) for requiring the class and escaped stage on each new blocker, superseding ADR-010 in part.
 
 ## Naming
 

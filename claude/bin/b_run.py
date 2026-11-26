@@ -417,7 +417,7 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
                     raise Invalid(f"items[{i}].escaped_from: only a review or qa item carries it")
                 # A review item can only have escaped the stages before review; a qa item can also have escaped review.
                 earlier = stages[: stages.index("review")] if item["source"] == "review" else stages
-                if item["escaped_from"] not in earlier:
+                if item["escaped_from"] not in (*earlier, "unknown"):
                     raise Invalid(f"items[{i}].escaped_from: must be earlier than the {item['source']} source")
         if previous and not {i["id"] for i in previous["items"]} <= set(ids):
             raise Invalid("items: a rewrite may not drop an id recorded earlier")
@@ -427,7 +427,9 @@ def check_rules(kind: str, data: dict, ctx: dict, schema: dict, previous: dict |
             if old and (old.get("kind") != item.get("kind") or old["source"] != item["source"]):
                 raise Invalid(f"items[{i}]: the kind and source of a recorded item may not change")
             for field in ("blocker_class", "escaped_from"):
-                if old and field in old and old[field] != item.get(field):
+                # An unknown stage may be named once its cause is found; a named stage stays.
+                refined = field == "escaped_from" and old and old.get(field) == "unknown" and field in item
+                if old and field in old and old[field] != item.get(field) and not refined:
                     raise Invalid(f"items[{i}].{field}: a recorded value may not change or be dropped")
         return True
     raise Invalid(f"unknown kind {kind!r}")
@@ -901,7 +903,27 @@ def validate_input(kind: str, value: object, ctx: dict, schema: dict, previous: 
     # Older specs keep their codex consent so they still render the same; new data omits it (ADR-021).
     if kind == "spec" and isinstance(value, dict) and "codex" in value.get("consent", {}):
         raise Invalid("consent.codex is retired (ADR-021); omit it")
-    return check_rules(kind, value, ctx, schema, previous)  # type: ignore[arg-type]
+    crossed = check_rules(kind, value, ctx, schema, previous)  # type: ignore[arg-type]
+    if kind == "followups":
+        require_analytics(value, previous, schema)  # type: ignore[arg-type]
+    return crossed
+
+
+def require_analytics(data: dict, previous: dict | None, schema: dict) -> None:
+    """A blocker new to the run names its class and stage. Input only: older recorded data lacks them."""
+    # An install can keep an older, user-edited artifacts.yaml beside newer helpers, as in _kit_stats:
+    # require only what that schema can record, so a writer never has to invent a stage.
+    fields = schema["kinds"]["followups"]["fields"]["items"]["items"]["fields"]
+    needed = ["blocker_class"] if "blocker_class" in fields else []
+    if "escaped_from" in fields and "unknown" in schema["enums"]["escape_stage"]:
+        needed.append("escaped_from")
+    recorded = {item["id"] for item in previous["items"]} if previous else set()
+    for i, item in enumerate(data["items"]):
+        if item.get("kind") != "blocker" or item["id"] in recorded:
+            continue
+        for field in needed:
+            if field not in item:
+                raise Invalid(f"items[{i}].{field}: required on a new blocker")
 
 
 def cmd_schema(schema: dict, kind: str | None) -> dict:
@@ -931,7 +953,9 @@ def cmd_lint(schema: dict, kind: str, args: dict) -> dict:
         root = repo_root()
         _run, directory = resolve_run(root, args.get("run"))
         ctx, _problems = validate_run(directory, schema, skip=frozenset({kind}))
-        previous = ctx.get(kind) if kind == "followups" else None
+        # validate_run skips the linted kind, so read the recorded follow-ups as write does.
+        if kind == "followups":
+            previous = (load_artifacts(directory)["artifacts"].get(kind) or {}).get("data")
     except (Refused, Invalid):
         pass
     crossed = validate_input(kind, value, ctx, schema, previous)

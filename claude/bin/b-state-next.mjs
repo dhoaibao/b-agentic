@@ -169,7 +169,7 @@ export async function nextSteps(root, state, art, fingerprint = "") {
     return [
       runCmd("handoff review --out <scratch file outside the repo>"),
       `run b-review, round ${round}`,
-      `${runCmd("write followups")} with this round's findings as R${round}-<n> (each blocker: kind blocker, disposition open)`,
+      `${runCmd("write followups")} with this round's findings as R${round}-<n> (each blocker: kind blocker, disposition open, blocker_class, and escaped_from, unknown when not known; omit what ${runCmd("schema followups")} lacks)`,
       stateCmd(
         onPi()
           ? 'record review --verdict "<verdict>" --gate reviewer --gate-reason R'

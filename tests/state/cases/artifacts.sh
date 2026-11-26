@@ -215,7 +215,7 @@ ok "$repoF" s1 advance review --trigger "approval policy"
 # verdict can still read what the round found.
 followups_json() { jq -n --argjson items "$1" '{items: $items}'; }
 r1_note='{"id": "R1-1", "source": "review", "summary": "naming", "disposition": "open"}'
-r1_blocker='{"id": "R1-2", "source": "review", "summary": "unchecked path", "disposition": "open", "kind": "blocker"}'
+r1_blocker='{"id": "R1-2", "source": "review", "summary": "unchecked path", "disposition": "open", "kind": "blocker", "blocker_class": "unexpected path", "escaped_from": "implement"}'
 ok "$repoF" s1 check
 grep -Fq 'R1-<n>' <<<"$(jq -r '.next | join("\n")' <<<"$out")" || fail "review must owe the round's findings: $out"
 refused "$repoF" s1 record review --verdict "NEEDS FIXES" --gate codex
@@ -325,7 +325,7 @@ apply_steps "$repoThird"
 ok "$repoThird" s1 advance verify
 ok "$repoThird" s1 record check --cmd "make test" --exit 0
 ok "$repoThird" s1 advance review --trigger "approval policy"
-followups_json '[{"id": "R1-1", "source": "review", "summary": "x", "disposition": "open", "kind": "blocker"}]' | br "$repoThird" s1 write followups >/dev/null || fail "write followups (third)"
+followups_json '[{"id": "R1-1", "source": "review", "summary": "x", "disposition": "open", "kind": "blocker", "blocker_class": "unexpected path", "escaped_from": "unknown"}]' | br "$repoThird" s1 write followups >/dev/null || fail "write followups (third)"
 jq '.attempts.review_needs_fixes = 2' "$(sfile "$repoThird")" >"$tmp2" && cp "$tmp2" "$(sfile "$repoThird")"
 ok "$repoThird" s1 record review --verdict "NEEDS FIXES" --gate reviewer --gate-reason "codex unavailable: usage limit"
 [ "$(phase "$repoThird")" = blocked ] || fail "the third NEEDS FIXES must block"

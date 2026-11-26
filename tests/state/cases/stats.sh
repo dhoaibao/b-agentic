@@ -193,6 +193,25 @@ jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "the canary run mus
 if grep -Fq zzz "$stats_store"; then fail "a free-text canary reached the store"; fi
 if grep -Eq '[0-9a-f]{40}|"/|/home/|/tmp/' "$stats_store"; then fail "the store holds a commit id or an absolute path"; fi
 
+# --- a blocker whose escape stage is not known is counted under its own key, in a store of its own -------------
+repoU="$work/repoU"
+unknown_home="$work/unknown-home"
+unknown_store="$unknown_home/.claude/b-agentic/run-stats.jsonl"
+mkdir -p "$unknown_home/.claude/b-agentic"
+chmod 700 "$unknown_home/.claude/b-agentic"
+make_repo "$repoU"
+HOME="$unknown_home" ready_run "$repoU" unknown-stage
+jq -n '{items: [{id: "R1-1", source: "review", summary: "x", disposition: "rejected", reason: "y", kind: "blocker",
+  blocker_class: "unexpected path", escaped_from: "unknown"}]}' \
+  | HOME="$unknown_home" br "$repoU" s1 write followups >/dev/null || fail "write followups (unknown stage)"
+HOME="$unknown_home" ok "$repoU" s1 advance "done"
+jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "the run with an unknown stage must be recorded: $out"
+jq -e '.escaped_from == {unknown: 1} and .blockers.by_class == {"unexpected path": 1}' "$unknown_store" >/dev/null \
+  || fail "the line must count the unknown stage apart from unclassified: $(cat "$unknown_store")"
+[ "$(wc -c <"$unknown_store")" -le 2048 ] || fail "the line must stay within max_line"
+out=$(HOME="$unknown_home" stats "$repoU") || fail "stats over the unknown-stage store failed"
+jq -e '.stores.claude | .valid == 1 and .malformed == 0' <<<"$out" >/dev/null || fail "the line must pass the line checks: $out"
+
 # --- blocked, replaced, and unfinished runs add nothing (AC-7) --------------------------------------------
 before=$(lines_of "$stats_store")
 repoB="$work/repoB"
