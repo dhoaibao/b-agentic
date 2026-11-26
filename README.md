@@ -60,7 +60,14 @@ pushes or opens a PR). Each finished run also leaves one numbers-only line
 (counts, durations, review and QA outcomes; no text, paths, or commands) in a
 local file, `~/.claude/b-agentic/run-stats.jsonl` (Pi: `~/.pi/agent/b-agentic/`).
 It is on by default, never leaves your machine, and creating `run-stats.off`
-beside it turns it off ([details](REFERENCE.md)).
+beside it turns it off. The same step remembers where the repository is checked
+out, in `run-stats-repos.jsonl` beside it, so an agent can read that
+repository's blocker text from elsewhere when you name its key with
+`b-run stats --evidence --repo KEY` (clones, forks, and template copies that
+share root commits share a key and are read together). That file holds paths, and only
+`b-run stats --repos` prints them from it; blocker text is printed as written and can
+itself hold paths. What either command prints to an agent reaches its model provider. `run-stats.off` also stops new entries, and deleting the file
+or one of its lines forgets a checkout ([details](REFERENCE.md)).
 
 The main session owns user interaction, decisions, verification, and worktree
 mutations. It delegates bounded planning, research, diagnosis, repository audits,

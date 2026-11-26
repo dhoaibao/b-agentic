@@ -28,7 +28,11 @@ edited is kept and reported, and its script is kept until that entry is gone.
 State written at run time lives in `b-agentic/`, including the local run-stats store
 (`run-stats.jsonl`, switched off by an empty `run-stats.off` beside it; see
 [ADR-035](../../docs/decisions/ADR-035-local-run-stats.md) and the
-[operational reference](../../REFERENCE.md)); install, sync, and uninstall never touch either file. An older install wrote
+[operational reference](../../REFERENCE.md)), and the repository registry beside it
+(`run-stats-repos.jsonl`, the checkout paths that `b-run stats --repos` lists; the same
+off file stops new entries, and deleting a line or the file forgets a checkout; see
+[ADR-037](../../docs/decisions/ADR-037-run-stats-repo-registry.md)); install, sync, and
+uninstall never touch these files. An older install wrote
 `codex-approved-repos.json`, a per-repository approval for sending a repository
 to Codex (OpenAI); nothing reads it since
 [ADR-021](../../docs/decisions/ADR-021-codex-gate-without-repo-approval.md), and

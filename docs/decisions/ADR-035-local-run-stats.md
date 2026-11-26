@@ -2,7 +2,9 @@
 
 - Status: Accepted
 - Superseded in part by: [ADR-036](ADR-036-run-stats-kit-version.md) (the list of stored fields, and
-  the rule that a line never holds a commit id)
+  the rule that a line never holds a commit id) and [ADR-037](ADR-037-run-stats-repo-registry.md)
+  (that nothing reads another repository's run folders, that the evidence is for the current
+  repository only, and the limit of the install-home exception to two paths)
 - Date: 2026-11-25
 - Supersedes: none; refines [ADR-010](ADR-010-run-artifact-cli.md) (what a run records) and [ADR-024](ADR-024-prune-old-runs.md) (a pruned run keeps no summary)
 

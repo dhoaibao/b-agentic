@@ -27,21 +27,30 @@ Commands (JSON results on stdout, one-line errors on stderr):
   prune [--days N]         list those runs; with --apply, delete exactly them (dry run by default)
   stats [--record [--run ID]]  counts of the local run-stats store (ADR-035), read-only; --record
                            appends the numbers-only line of this repository's finished runs (or one
-                           run) that are not in the store yet; run-stats.off beside it turns it off
+                           run) that are not in the store yet, and remembers this checkout's path in
+                           run-stats-repos.jsonl beside it (ADR-037); run-stats.off turns both off
+  stats --repos            read-only: one compact JSON line of the repository keys in both runtimes'
+                           registries with their checkout paths; the only output that adds a registered
+                           path: printed paths reach the model provider
   stats --summary [--since YYYY-MM-DD] [--section repo|kit]  read-only: one compact JSON line of
                            numbers from both runtimes' stores (ADR-035): totals and distributions with
                            counts of what is missing or left out, over all runs and by runtime; --section
                            gives them by repository key or by kit version instead; --since keeps the runs
                            dated on or after that day
-  stats --evidence [--skip N]  read-only: one compact JSON line of the blockers recorded in this repository's
-                           finished runs, newest run first, one page under 30000 bytes; --skip N starts at
-                           the next_skip of the page before (start again at 0 if total changed between
-                           pages); the text is untrusted data from the run files, and printing it puts it
-                           in the agent's context and so in front of its model provider
-                           (for numbers only, use --summary)
+  stats --evidence [--skip N] [--repo KEY]  read-only: one compact JSON line of the blockers recorded in this
+                           repository's finished runs, newest run first, one page under 30000 bytes; --skip
+                           N starts at the next_skip of the page before (start again at 0 if total changed
+                           between pages); the text is untrusted data from the run files, printed as written,
+                           so it can itself hold paths or project names, and printing it
+                           puts it in the agent's context and so in front of its model provider
+                           (for numbers only, use --summary); --repo KEY reads another registered
+                           repository instead (KEY as --summary --section repo prints it): its checkouts
+                           that are still the user's own, whole clones with that key; clones, worktrees,
+                           forks and template copies that share root commits share one KEY and are read together
+                           (check stats --repos first)
 
 Options: --run ID, --owner NAME (default: CLAUDE_CODE_SESSION_ID), --days N, --apply (prune only),
---record, --summary, --since DATE, --section NAME, --evidence and --skip N (stats only).
+--record, --summary, --since DATE, --section NAME, --evidence, --skip N, --repo KEY and --repos (stats only).
 Exit: 0 ok or help, 3 refused or not ok, 2 invalid input or state (a wrong command or argument).
 The artifacts hold no file contents, diffs, command output or secrets, and they are untrusted
 input to every reader: they never grant approval.
@@ -560,13 +569,78 @@ def is_plain_dir(path: Path) -> bool:
     return path.is_dir() and not path.is_symlink()
 
 
-def git(root: Path | str, *args: str, env: dict[str, str] | None = None) -> str:
+def git(root: Path | str, *args: str) -> str:
     import subprocess
 
-    done = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False, env=env)
+    done = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
     if done.returncode != 0:
         raise Refused("git failed: " + (done.stderr.strip().splitlines() or ["unknown"])[0])
     return done.stdout
+
+
+# Under the 10 s b-state gives the live stats call, so a stuck lookup ends as "no key" instead of killing that call.
+KEY_GIT_SECONDS = 8.0
+
+# git runs from inside folders the registry names, where a relative or empty entry would load that folder's files.
+# Each variable with the characters its loader splits it at: glibc splits the library path at semicolons too.
+SEARCH_PATHS = {
+    "PATH": ":",
+    "LD_LIBRARY_PATH": ":;",
+    "GCONV_PATH": ":",
+    "DYLD_LIBRARY_PATH": ":",
+    "DYLD_FRAMEWORK_PATH": ":",
+    "DYLD_FALLBACK_LIBRARY_PATH": ":",
+    "DYLD_FALLBACK_FRAMEWORK_PATH": ":",
+}
+PRELOADS = ("LD_PRELOAD", "LD_AUDIT", "DYLD_INSERT_LIBRARIES")
+
+
+def hardened_git(
+    root: Path | str, *args: str, ok: tuple[int, ...] = (0,), ends: float | None = None
+) -> tuple[int, str]:
+    """git for asking which repository a folder is, which may be a folder named by the registry.
+
+    Nothing inherited (every GIT_ variable is dropped) or held in that folder may pick the program that runs,
+    point git elsewhere, start its filesystem monitor, fetch missing objects, wait for input, or hang. Every
+    failure is a refusal.
+    """
+    import shutil
+    import subprocess
+    import time
+
+    env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_") and name not in PRELOADS}
+    env.setdefault("PATH", os.defpath)
+    for name, separators in SEARCH_PATHS.items():
+        if name in env:
+            entries = re.split(f"[{separators}]", env[name])
+            env[name] = os.pathsep.join(entry for entry in entries if os.path.isabs(entry))
+            if not env[name] and name != "PATH":  # an unset PATH would bring back the system's default one
+                del env[name]
+    env.update({"GIT_NO_LAZY_FETCH": "1", "GIT_OPTIONAL_LOCKS": "0"})
+    program = shutil.which("git", path=env["PATH"]) if env["PATH"] else None
+    if program is None:
+        raise Refused("git was not found in an absolute PATH entry")
+    # Taken at the launch: finding git on a slow search path counts against a shared limit too.
+    seconds = KEY_GIT_SECONDS if ends is None else ends - time.monotonic()
+    if seconds <= 0:
+        raise Refused("git took too long")
+    try:
+        done = subprocess.run(
+            [program, "-c", "core.fsmonitor=false", *args],
+            cwd=root,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            encoding="utf-8",
+            errors="surrogateescape",
+            timeout=seconds,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise Refused("git could not be run, or took too long") from exc
+    if done.returncode not in ok:
+        raise Refused(f"git exited {done.returncode}")
+    return done.returncode, done.stdout
 
 
 def _cwd_text() -> str:
@@ -1986,12 +2060,19 @@ def _kit_group(record: dict) -> None:
 def stats_repo_key(root: Path) -> str | None:
     """Hash of the repository's root commits: stable across moves and clones, and it holds no name."""
     import hashlib
+    import time
+
+    # One limit for both runs: two limits of their own could together outlast the live record's caller.
+    ends = time.monotonic() + KEY_GIT_SECONDS
+
+    def asked(*args: str) -> str:
+        return hardened_git(root, *args, ends=ends)[1]
 
     try:
         # A shallow clone's boundary commits look like roots, so its key would change when the clone is deepened.
-        if git(root, "rev-parse", "--is-shallow-repository").strip() != "false":
+        if asked("rev-parse", "--is-shallow-repository").strip() != "false":
             return None
-        roots = sorted(git(root, "rev-list", "--max-parents=0", "HEAD").split())
+        roots = sorted(asked("rev-list", "--max-parents=0", "HEAD").split())
     except Refused:
         return None
     if not roots:
@@ -2265,10 +2346,30 @@ def _home_private(info: os.stat_result, dir_fd: int) -> bool:
 
 def stats_append(runtime: str, block: dict, record: dict, line: bytes, legacy_run: str = "") -> dict:
     """Append one line to the runtime's store, creating it safely on first use. Never raises: a problem is a skip reason."""
+
+    def recorded(data: bytes) -> bool:
+        return any(known and known.get("run") in (record["run"], legacy_run) for known in stats_lines(data))
+
+    return _locked_append(runtime, block["store"], block["off"], block["max_file"], line, recorded, "store")
+
+
+def _locked_append(
+    runtime: str,
+    store: str,
+    off: str,
+    max_file: int,
+    line: bytes,
+    seen,
+    kind: str,
+    lock_seconds: float = STATS_LOCK_SECONDS,
+) -> dict:
+    """The one writer of a JSONL file in the install home: the run-stats store and the repository registry (kind).
+
+    `seen` says whether the bytes already there make this line a repeat. Never raises.
+    """
     import fcntl
     import time
 
-    store, off = block["store"], block["off"]
     result = {"status": "skipped", "reason": "", "created": False}
 
     def skip(reason: str) -> dict:
@@ -2301,36 +2402,35 @@ def stats_append(runtime: str, block: dict, record: dict, line: bytes, legacy_ru
                 try:
                     fd = os.open(store, base, dir_fd=dir_fd)
                 except OSError:
-                    return skip("store-unopenable")
+                    return skip(f"{kind}-unopenable")
             except OSError:
-                return skip("store-uncreatable")
+                return skip(f"{kind}-uncreatable")
         except OSError:
-            return skip("store-unopenable")
+            return skip(f"{kind}-unopenable")
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
-            return skip("store-not-plain")
+            return skip(f"{kind}-not-plain")
         if info.st_mode & 0o077:
-            return skip("store-loose-mode")
-        if info.st_size + len(line) > block["max_file"]:
-            return skip("store-full")
-        deadline = time.monotonic() + STATS_LOCK_SECONDS
+            return skip(f"{kind}-loose-mode")
+        if info.st_size + len(line) > max_file:
+            return skip(f"{kind}-full")
+        deadline = time.monotonic() + lock_seconds
         while True:
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
             except OSError:
                 if time.monotonic() >= deadline:
-                    return skip("store-busy")
+                    return skip(f"{kind}-busy")
                 time.sleep(0.05)
         info = os.fstat(fd)
         size = info.st_size
-        if size + len(line) + 1 > block["max_file"]:
-            return skip("store-full")
+        if size + len(line) + 1 > max_file:
+            return skip(f"{kind}-full")
         data = _stats_read_all(fd, size)
-        for known in stats_lines(data):
-            if known and known.get("run") in (record["run"], legacy_run):
-                result["status"] = "already"
-                return result
+        if seen(data):
+            result["status"] = "already"
+            return result
         # An interrupted writer can leave a tail without a newline: end it so this line starts on its own.
         payload = (b"\n" if data and not data.endswith(b"\n") else b"") + line
         # Checked last, right before the write, so a flag created during the scan above is still honored.
@@ -2356,6 +2456,136 @@ def stats_append(runtime: str, block: dict, record: dict, line: bytes, legacy_ru
         if fd >= 0:
             os.close(fd)
         os.close(dir_fd)
+
+
+# ---- repository registry (ADR-037) ----------------------------------------------
+# Where each repository key is checked out, one file per runtime beside its store. Unlike the store it holds paths.
+
+REGISTRY = "run-stats-repos.jsonl"
+REGISTRY_MAX_FILE = 1 << 20
+REGISTRY_MAX_LINE = 4096
+REGISTRY_MAX_PATH = 1024
+REPO_KEY = re.compile(r"[0-9a-f]{16}")
+# The registry waits for its lock only while the record call is younger than this: the caller of the live record
+# stops waiting after 10 s, and the store line already written must still be reported.
+REGISTRY_QUICK_SECONDS = 2.0
+
+
+def _registry_path_ok(path: object) -> bool:
+    """An absolute, normalized, printable path of bounded length: the only kind written or believed."""
+    if not isinstance(path, str) or not os.path.isabs(path) or os.path.normpath(path) != path:
+        return False
+    if any(ord(char) < 32 or ord(char) == 127 for char in path):
+        return False
+    try:
+        return len(path.encode("utf-8")) <= REGISTRY_MAX_PATH
+    except UnicodeEncodeError:  # a name that is not UTF-8 reaches Python as lone surrogates
+        return False
+
+
+def _registry_entries(data: bytes) -> tuple[int, list[tuple[str, str]]]:
+    """How many lines the registry bytes hold, and the (key, path) of each sound one, oldest first. The writer
+    and the readers both believe only these.
+    """
+    lines = 0
+    entries: list[tuple[str, str]] = []
+    for raw in data.split(b"\n"):
+        if not raw.strip():
+            continue
+        lines += 1
+        entry = stats_lines(raw)[0] if len(raw) < REGISTRY_MAX_LINE else None
+        if (
+            entry is not None
+            and set(entry) == {"v", "repo", "path"}
+            and type(entry["v"]) is int
+            and entry["v"] == 1
+            and isinstance(entry["repo"], str)
+            and REPO_KEY.fullmatch(entry["repo"])
+            and _registry_path_ok(entry["path"])
+        ):
+            entries.append((entry["repo"], entry["path"]))
+    return lines, entries
+
+
+def _register_checkout(
+    runtime: str, off: str, repo_key: str, root: Path, lock_seconds: float = STATS_LOCK_SECONDS
+) -> tuple[str, bool]:
+    """Remember where this repository is checked out, as (outcome, created). It never raises and never changes
+    what recording the store line returns. It runs no git: the caller's deadline also covers what is already written.
+
+    `root` is the folder the key was looked up in. It is registered only when it is the checkout around the
+    working directory, so no GIT_ variable or git setting picks the path.
+    """
+    try:
+        here = _checkout_here()
+        if here is None or not os.path.samefile(here, root):
+            return "skipped:other-worktree", False
+        path = str(here)
+        line = (json.dumps({"v": 1, "repo": repo_key, "path": path}, separators=(",", ":")) + "\n").encode()
+        if not _registry_path_ok(path) or len(line) > REGISTRY_MAX_LINE:
+            return "skipped:path-unusable", False
+
+        def listed(data: bytes) -> bool:
+            return (repo_key, path) in _registry_entries(data)[1]
+
+        result = _locked_append(runtime, REGISTRY, off, REGISTRY_MAX_FILE, line, listed, "registry", lock_seconds)
+        outcome = f"skipped:{result['reason']}" if result["status"] == "skipped" else result["status"]
+        return outcome, result["created"]
+    except Exception:  # whatever goes wrong here stays here
+        return "failed", False
+
+
+def _read_registry(runtime: str, off: str) -> dict:
+    """One runtime's registry, opened read-only under the rules it is written by: its state, the off flag, and
+    the (key, path) entries of its sound lines, oldest first. A file the writer would not write gives no entry.
+    """
+    out: dict = {
+        "status": "unreadable",
+        "disabled": False,
+        "truncated": False,
+        "lines": 0,
+        "malformed": 0,
+        "entries": [],
+    }
+
+    def ended(status: str) -> dict:
+        out["status"] = status
+        return out
+
+    try:
+        dir_fd = os.open(stats_dir(runtime), OPEN_DIR)
+    except FileNotFoundError:
+        return ended("absent")
+    except OSError:
+        return ended("home-not-plain")
+    try:
+        if not _home_private(os.fstat(dir_fd), dir_fd):
+            return ended("home-not-private")
+        out["disabled"] = _stats_off(dir_fd, off) is not None
+        try:
+            # O_NONBLOCK: a FIFO with no writer must not hang the open; the type is checked right after.
+            fd = os.open(REGISTRY, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
+        except FileNotFoundError:
+            return ended("absent")
+        except OSError as exc:
+            return ended("not-plain" if exc.errno == errno.ELOOP else "unreadable")
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
+                return ended("not-plain")
+            if info.st_mode & 0o077:
+                return ended("loose-mode")
+            data = _stats_read_all(fd, min(info.st_size, REGISTRY_MAX_FILE))
+        finally:
+            os.close(fd)
+    except OSError:
+        return ended("unreadable")
+    finally:
+        os.close(dir_fd)
+    out["truncated"] = info.st_size > REGISTRY_MAX_FILE
+    out["lines"], out["entries"] = _registry_entries(data)
+    out["malformed"] = out["lines"] - len(out["entries"])
+    return ended("read")
 
 
 def _finished_runs(root: Path) -> list[tuple[str, dict, Path]]:
@@ -2715,6 +2945,12 @@ def _compact_line(value: object) -> str:
     return json.dumps(value, separators=(",", ":")) + "\n"
 
 
+def _checkout_here() -> Path | None:
+    """The nearest folder, from the working directory up, that holds .git."""
+    here = Path.cwd().resolve()
+    return next((folder for folder in (here, *here.parents) if os.path.lexists(folder / ".git")), None)
+
+
 def _evidence_root() -> Path:
     """The checkout that holds the working directory, whatever the environment or the git config says.
 
@@ -2722,11 +2958,10 @@ def _evidence_root() -> Path:
     text without a word: the variables are dropped, and git's answer must be the nearest folder, from the
     working directory up, that holds .git.
     """
-    env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
     try:
         here = Path.cwd().resolve()
-        root = Path(git(here, "rev-parse", "--show-toplevel", env=env).strip())
-        nearest = next((folder for folder in (here, *here.parents) if os.path.lexists(folder / ".git")), None)
+        root = Path(hardened_git(here, "rev-parse", "--show-toplevel")[1].strip())
+        nearest = _checkout_here()
         if nearest is not None and os.path.samefile(root, nearest):
             return nearest
     except (Refused, OSError) as exc:
@@ -2734,10 +2969,12 @@ def _evidence_root() -> Path:
     raise Refused("git names a worktree other than the checkout around the working directory; nothing was read")
 
 
-def _open_runs(root: Path) -> int | None:
-    """This repository's runs folder, held open; None when it is absent or a level below the root is not a folder."""
+def _open_runs(state_dir: Path | str, dir_fd: int | None = None) -> int | None:
+    """The runs folder under a checkout's .b-agentic, held open; None when it is absent or either level is not a
+    folder. `dir_fd` names a held checkout that a relative `state_dir` is under.
+    """
     try:
-        base = os.open(root / ".b-agentic", OPEN_DIR)
+        base = os.open(state_dir, OPEN_DIR, dir_fd=dir_fd)
         try:
             return os.open("runs", OPEN_DIR, dir_fd=base)
         finally:
@@ -2748,8 +2985,11 @@ def _open_runs(root: Path) -> int | None:
         raise
 
 
-def _evidence_run(runs_fd: int, name: str, schema: dict) -> tuple[str | None, list[dict]]:
-    """One run folder's blockers, or why the folder is left out. It moves the working directory.
+def _evidence_run(
+    runs_fd: int, name: str, schema: dict, known: dict[tuple[str, str], list[dict]]
+) -> tuple[str | None, str, list[dict]]:
+    """One run folder's start time and blockers, or why the folder is left out. It moves the working directory.
+    A run already in `known` is a "repeat": its artifacts are not read again.
 
     Run files are untrusted input: a folder is used only when its run is done and every recorded file agrees with
     its record. That finds damage and stray edits, not a forger: the hashes lie beside the text they cover.
@@ -2757,68 +2997,89 @@ def _evidence_run(runs_fd: int, name: str, schema: dict) -> tuple[str | None, li
     link, after it is opened, cannot bring another tree's files in.
     """
     if not RUN_ID.fullmatch(name):
-        return "not-a-run", []
+        return "not-a-run", "", []
     try:
         run_fd = os.open(name, OPEN_DIR, dir_fd=runs_fd)
     except OSError as exc:
-        return "not-a-run" if exc.errno in (errno.ENOTDIR, errno.ELOOP) else "bad-state", []
+        return "not-a-run" if exc.errno in (errno.ENOTDIR, errno.ELOOP) else "bad-state", "", []
     reason = "bad-state"
     try:
         os.fchdir(run_fd)
         here = Path(".")
         state = read_state(here)
         if state["run_id"] != name:
-            return reason, []
+            return reason, "", []
         if state["phase"] != "done":
-            return "not-done", []
+            return "not-done", "", []
         reason = "invalid"
+        try:
+            started = _run_started(state)
+        except Invalid:  # a damaged start time costs no blocker; such a run is never taken for a copy
+            started = f"?{len(known)}"
+        if (name, started) in known:
+            return "repeat", started, []
         # validate_run asks of its known names only that they are no link or folder. The helpers leave regular
         # files alone here, so a FIFO or socket under any name means the folder is not as they left it.
         if any(not stat.S_ISREG(os.lstat(entry).st_mode) for entry in os.listdir(here)):
-            return reason, []
+            return reason, "", []
         data, problems = validate_run(here, schema)
         if problems:
-            return reason, []
+            return reason, "", []
         items = data.get("followups", {}).get("items", [])
-        return None, [
-            {"run": name, **{field: item.get(field) for field in EVIDENCE_FIELDS}}
-            for item in items
-            if item.get("kind") == "blocker"
-        ]
+        return (
+            None,
+            started,
+            [
+                {"run": name, **{field: item.get(field) for field in EVIDENCE_FIELDS}}
+                for item in items
+                if item.get("kind") == "blocker"
+            ],
+        )
     except Exception:  # whatever one folder's files make a reader raise drops that folder alone
-        return reason, []
+        return reason, "", []
     finally:
         os.close(run_fd)
 
 
-def _stats_evidence(root: Path, schema: dict, skip: int) -> dict:
-    """One page of this repository's blocker text, read live from its run folders; nothing is stored or written."""
-    folders: list[str] = []
-    skipped = dict.fromkeys(EVIDENCE_SKIPPED, 0)
-    found: list[dict] = []
-    runs_fd = _open_runs(root)
-    if runs_fd is not None:
-        back = os.getcwd()
-        try:
-            folders = sorted(os.listdir(runs_fd), reverse=True)
-            for name in folders:
-                reason, blockers = _evidence_run(runs_fd, name, schema)
-                if reason is None:
-                    found.extend(blockers)
-                else:
-                    skipped[reason] += 1
-        finally:
-            os.chdir(back)
-            os.close(runs_fd)
+def _collect_evidence(
+    runs_fd: int, schema: dict, runs: dict[tuple[str, str], list[dict]], skipped: dict[str, int]
+) -> tuple[int, int]:
+    """Add the finished runs of one held runs folder to `runs`, as (folders, repeats). A run is its id and start
+    time, as the summary tells runs apart: two clones can use one id for two runs. A copy of a run already there
+    is a repeat; a folder that is left out is counted in `skipped`. It moves the working directory.
+    """
+    names = sorted(os.listdir(runs_fd), reverse=True)
+    repeats = 0
+    for name in names:
+        reason, started, blockers = _evidence_run(runs_fd, name, schema, runs)
+        if reason == "repeat":
+            repeats += 1
+        elif reason is not None:
+            skipped[reason] += 1
+        else:
+            runs[name, started] = blockers
+    return len(names), repeats
+
+
+def _evidence_page(
+    folders: int,
+    runs: dict[tuple[str, str], list[dict]],
+    skipped: dict[str, int],
+    skip: int,
+    checkouts: dict | None = None,
+) -> dict:
+    """The page of the runs' blockers that starts at `skip`, newest run id (then start time) first."""
+    found = [blocker for name in sorted(runs, reverse=True) for blocker in runs[name]]
     printable = [blocker for blocker in found if len(_compact_line(blocker)) - 1 <= EVIDENCE_BLOCKER_MAX]
 
     def page(shown: int) -> dict:
         end = skip + shown
         return {
             "ok": True,
-            "folders": len(folders),
-            "runs_read": len(folders) - sum(skipped.values()),
+            "folders": folders,
+            "runs_read": len(runs),
             "skipped": skipped,
+            **({} if checkouts is None else {"checkouts": checkouts}),
             "total": len(printable),
             "oversized": len(found) - len(printable),
             "skip": skip,
@@ -2833,8 +3094,153 @@ def _stats_evidence(root: Path, schema: dict, skip: int) -> dict:
     return page(shown)
 
 
+def _stats_evidence(root: Path, schema: dict, skip: int) -> dict:
+    """One page of this repository's blocker text, read live from its run folders; nothing is stored or written."""
+    folders = 0
+    skipped = dict.fromkeys(EVIDENCE_SKIPPED, 0)
+    runs: dict[tuple[str, str], list[dict]] = {}
+    runs_fd = _open_runs(root / ".b-agentic")
+    if runs_fd is not None:
+        back = os.open(".", os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            folders, _ = _collect_evidence(runs_fd, schema, runs, skipped)
+        finally:
+            os.fchdir(back)
+            os.close(back)
+            os.close(runs_fd)
+    return _evidence_page(folders, runs, skipped, skip)
+
+
+EVIDENCE_CHECKOUTS = 4
+CHECKOUT_SKIPPED = ("gone", "not-owned", "not-a-checkout", "partial", "no-key", "other-key", "same-folder", "not-tried")
+# Exit 0 means the checkout has one of these keys: it could fetch missing objects, which an older git does not stop.
+PARTIAL_CLONE_KEYS = r"^(extensions\.partialclone|remote\..*\.promisor)$"
+
+
+def _open_checkout(path: str, repo_key: str, read: set[tuple[int, int]]) -> tuple[str | None, int]:
+    """Open one registered folder once, move into it, and check it there, so what is checked is what is read.
+
+    A registry line may be stale, and another tree may sit at its path by now. Returns (None, descriptor) for
+    the user's own checkout of `repo_key`, else (why it is left out, -1).
+    """
+    try:
+        fd = os.open(path, OPEN_DIR)
+    except OSError:
+        return "gone", -1
+    reason: str | None = "not-a-checkout"
+    try:
+        info = os.fstat(fd)
+        if info.st_uid != os.getuid():
+            reason = "not-owned"
+        elif (info.st_dev, info.st_ino) in read:
+            reason = "same-folder"
+        else:
+            os.fchdir(fd)
+            top = hardened_git(".", "rev-parse", "--show-toplevel")[1].removesuffix("\n")
+            if os.path.lexists(".git") and os.path.samestat(os.stat(top), info):
+                if hardened_git(".", "config", "--get-regexp", PARTIAL_CLONE_KEYS, ok=(0, 1))[0] == 0:
+                    reason = "partial"
+                else:
+                    found = stats_repo_key(Path("."))
+                    reason = "no-key" if found is None else None if found == repo_key else "other-key"
+    except Exception:  # an error here may name the path, so it never travels further than this count
+        pass
+    if reason is None:
+        return None, fd
+    os.close(fd)
+    return reason, -1
+
+
+def _stats_repo_evidence(repo_key: str, schema: dict, skip: int) -> dict:
+    """One page of another registered repository's blocker text, from every checkout of it that passes the checks."""
+    off = _stats_block(schema)["off"]
+    paths = list(
+        dict.fromkeys(
+            path
+            for runtime in STATS_HOMES
+            for repo, path in reversed(_read_registry(runtime, off)["entries"])
+            if repo == repo_key
+        )
+    )
+    if not paths:
+        raise Refused(
+            f"repository {repo_key} is not registered (stats --record run inside it registers it); nothing was read"
+        )
+    dropped = dict.fromkeys(CHECKOUT_SKIPPED, 0)
+    dropped["not-tried"] = max(0, len(paths) - EVIDENCE_CHECKOUTS)
+    skipped = dict.fromkeys(EVIDENCE_SKIPPED, 0)
+    runs: dict[tuple[str, str], list[dict]] = {}
+    read: set[tuple[int, int]] = set()
+    folders = repeats = 0
+    back = os.open(".", os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for path in paths[:EVIDENCE_CHECKOUTS]:
+            reason, fd = _open_checkout(path, repo_key, read)
+            if reason is not None:
+                dropped[reason] += 1
+                continue
+            runs_fd = None
+            try:
+                runs_fd = _open_runs(".b-agentic", fd)
+                if runs_fd is not None:
+                    count, again = _collect_evidence(runs_fd, schema, runs, skipped)
+                    folders += count
+                    repeats += again
+                info = os.fstat(fd)
+                read.add((info.st_dev, info.st_ino))
+            except OSError:  # its runs cannot be opened or listed
+                dropped["gone"] += 1
+            finally:
+                if runs_fd is not None:
+                    os.close(runs_fd)
+                os.close(fd)
+    finally:
+        os.fchdir(back)
+        os.close(back)
+    if not read:
+        why = ", ".join(f"{name} {count}" for name, count in dropped.items() if count)
+        raise Refused(f"no registered checkout of repository {repo_key} passed the checks ({why}); nothing was read")
+    checkouts = {"registered": len(paths), "read": len(read), "skipped": dropped, "duplicate_runs": repeats}
+    return _evidence_page(folders, runs, skipped, skip, checkouts)
+
+
+REPOS_BUDGET = 28000
+REPOS_PATHS = 4
+
+
+def _stats_repos(schema: dict) -> dict:
+    """The registered repository keys with their paths, the most recently registered first. The only output
+    that holds a path.
+    """
+    off = _stats_block(schema)["off"]
+    registries: dict[str, dict] = {}
+    repos: dict[str, dict[str, None]] = {}  # an insertion-ordered set of paths per key
+    for runtime in STATS_HOMES:
+        read = _read_registry(runtime, off)
+        registries[runtime] = {name: read[name] for name in ("status", "disabled", "truncated", "lines", "malformed")}
+        for repo, path in reversed(read["entries"]):
+            repos.setdefault(repo, {})[path] = None
+    listed = [
+        {"repo": repo, "paths": list(paths)[:REPOS_PATHS], "omitted_paths": max(0, len(paths) - REPOS_PATHS)}
+        for repo, paths in repos.items()
+    ]
+
+    def page(shown: int) -> dict:
+        return {"ok": True, "registries": registries, "repos": listed[:shown], "omitted_repos": len(listed) - shown}
+
+    shown = 0
+    while shown < len(listed) and len(_compact_line(page(shown + 1))) <= REPOS_BUDGET:
+        shown += 1
+    return page(shown)
+
+
 def cmd_stats(schema: dict, args: dict) -> dict:
-    _only_options("stats", args, {"record", "run", "summary", "since", "section", "evidence", "skip"})
+    _only_options("stats", args, {"record", "run", "summary", "since", "section", "evidence", "skip", "repo", "repos"})
+    if args.get("repos"):
+        for name in args:
+            if name not in ("repos", "owner"):  # every command takes --owner
+                raise Invalid(f"stats --repos does not go with --{name}")
+        return _stats_repos(schema)
     if args.get("evidence"):
         for name in ("record", "run", "summary", "since", "section"):
             if name in args:
@@ -2842,9 +3248,14 @@ def cmd_stats(schema: dict, args: dict) -> dict:
         skip = args.get("skip", "0")
         if not re.fullmatch(r"[0-9]{1,6}", skip):
             raise Invalid("stats --skip needs a count of at most six digits")
-        return _stats_evidence(_evidence_root(), schema, int(skip))
-    if "skip" in args:
-        raise Invalid("stats --skip belongs to stats --evidence")
+        if "repo" not in args:
+            return _stats_evidence(_evidence_root(), schema, int(skip))
+        if not REPO_KEY.fullmatch(args["repo"]):
+            raise Invalid("stats --repo needs a repository key: 16 lowercase hex characters")
+        return _stats_repo_evidence(args["repo"], schema, int(skip))
+    for name in ("skip", "repo"):
+        if name in args:
+            raise Invalid(f"stats --{name} belongs to stats --evidence")
     since = None
     if args.get("summary"):
         if args.get("record") or "run" in args:
@@ -2863,12 +3274,16 @@ def cmd_stats(schema: dict, args: dict) -> dict:
         if args.get("run"):
             raise Invalid("stats --run belongs to stats --record")
         return _stats_report(root, schema)
+    import time
+
+    started = time.monotonic()
     block = _stats_block(schema)
     repo_key = stats_repo_key(root)
     runtime = "pi" if on_pi() else "claude"
     out: dict = {"ok": True, "created": False, "appended": 0, "already": 0, "skipped": {}}
     if repo_key is None:
         out["skipped"]["no-repo-key"] = 1
+        out["registry"] = "skipped:no-repo-key"
         return out
     if args.get("run"):
         run_id, folder = resolve_run(root, args["run"])
@@ -2904,17 +3319,28 @@ def cmd_stats(schema: dict, args: dict) -> dict:
             out["skipped"][result["reason"]] = out["skipped"].get(result["reason"], 0) + 1
             # Every skip reason describes the store or its home, not one run: the next run would repeat it.
             break
+    # After the store lines are settled: nothing the registry does can change them or their counts.
+    lock_seconds = STATS_LOCK_SECONDS if time.monotonic() - started < REGISTRY_QUICK_SECONDS else 0.0
+    out["registry"], registry_created = _register_checkout(runtime, block["off"], repo_key, root, lock_seconds)
+    notices = []
     if out["created"]:
-        out["notice"] = (
+        notices.append(
             f"run stats: created {_stats_shown(runtime, block['store'])} (numbers only, no text or paths); "
             f"create {_stats_shown(runtime, block['off'])} to turn it off"
         )
+    if registry_created:
+        notices.append(
+            f"run stats: created {_stats_shown(runtime, REGISTRY)} (it holds repository checkout paths); "
+            f"create {_stats_shown(runtime, block['off'])} to stop new entries"
+        )
+    if notices:
+        out["notice"] = " ".join(notices)
     return out
 
 
 # ---- entry --------------------------------------------------------------------
 
-VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days", "since", "section", "skip"}
+VALUE_OPTIONS = {"run", "owner", "out", "base", "tree", "step", "days", "since", "section", "skip", "repo"}
 COMMANDS = (
     "schema",
     "lint",
@@ -2968,6 +3394,8 @@ def parse_args(argv: list[str]) -> tuple[list[str], dict]:
             options["summary"] = True
         elif arg == "--evidence":
             options["evidence"] = True
+        elif arg == "--repos":
+            options["repos"] = True
         else:
             problem = problem or Invalid(f"unknown argument: {arg}")
     # A caller fixing a malformed command asks for help beside the mistake: help is answered, the mistake is not.
@@ -3016,9 +3444,9 @@ def run(argv: list[str]) -> tuple[int, str]:
     else:
         raise Invalid(f"unknown command: {command}; commands: {', '.join(COMMANDS)}; --help prints usage")
     ok = not (isinstance(result, dict) and result.get("ok") is False)
-    # The summary and the evidence are read by an agent: one compact line keeps them small, and it is the line
-    # the evidence page was measured as.
-    compact = command == "stats" and bool(args.get("summary") or args.get("evidence"))
+    # The summary, the evidence and the repositories are read by an agent: one compact line keeps them small,
+    # and it is the line the bounded outputs were measured as.
+    compact = command == "stats" and bool(args.get("summary") or args.get("evidence") or args.get("repos"))
     return (0 if ok else 3), _compact_line(result) if compact else json.dumps(result, indent=2) + "\n"
 
 

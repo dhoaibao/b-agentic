@@ -1176,11 +1176,13 @@ def blocker(number, **over):
     return {name: value for name, value in item.items() if value is not None}
 
 
-def folder(repo, run_id, items=None, phase="done", state_id=None, valid=True):
+def folder(repo, run_id, items=None, phase="done", state_id=None, valid=True, started=None):
     """A run folder as the helpers write it; valid=False skips the check that the fixture itself is sound."""
     path = Path(repo) / ".b-agentic" / "runs" / run_id
     path.mkdir(parents=True)
     state = {"run_id": state_id or run_id, "phase": phase}
+    if started:
+        state["history"] = [{"op": "init", "at": started}]
     (path / "state.json").write_text(json.dumps(state), encoding="utf-8")
     if items is not None:
         data = {"items": items}
@@ -1454,6 +1456,558 @@ git -C "$ev_other/inner" config core.worktree "$ev_other"
 ev_refused "$ev_other/inner"
 rm -rf "$ev_other" "$ev_linked"
 
+# --- the repository registry (ADR-037) ---------------------------------------------------------------------------------
+# Every repository-key lookup uses a hardened git: nothing inherited steers it, and it cannot hang.
+rg_key_repo="$work/rg-key"
+make_repo "$rg_key_repo"
+rg_log="$work/rg-git-log"
+mkdir -p "$work/rg-fake-git" "$work/rg-slow-git"
+printf '#!/bin/sh\n{ printf "args %%s\\n" "$*"; env | grep "^GIT_" | sort; } >>"%s"\nexec "%s" "$@"\n' "$rg_log" "$(command -v git)" >"$work/rg-fake-git/git"
+printf '#!/bin/sh\nexec sleep 30\n' >"$work/rg-slow-git/git"
+chmod +x "$work/rg-fake-git/git" "$work/rg-slow-git/git"
+rg_want=$(git -C "$rg_key_repo" rev-list --max-parents=0 HEAD | python3 -I -B -c 'import hashlib, sys; print(hashlib.sha256(("b-agentic-run-stats:v1:" + "\n".join(sorted(sys.stdin.read().split()))).encode()).hexdigest()[:16])')
+: >"$rg_log"
+out=$(cd "$rg_key_repo" && printf '%s\n' 'from pathlib import Path' 'print(b_run.stats_repo_key(Path.cwd()))' |
+  GIT_DIR="$work/rg-nowhere" GIT_CONFIG_PARAMETERS="'core.bare'='true'" GIT_TRACE="$work/rg-trace" PATH="$work/rg-fake-git:$PATH" store_py unused) ||
+  fail "the hardened key lookup failed"
+[ "$out" = "$rg_want" ] || fail "a full clone keeps its key under the hardened lookup: $out != $rg_want"
+[ ! -e "$work/rg-trace" ] || fail "an inherited GIT_ variable must not reach git"
+[ "$(grep -c '^args -c core.fsmonitor=false ' "$rg_log")" = 2 ] || fail "both lookups must turn the filesystem monitor off: $(cat "$rg_log")"
+[ "$(grep '^GIT_' "$rg_log" | sort -u | tr '\n' ' ')" = "GIT_NO_LAZY_FETCH=1 GIT_OPTIONAL_LOCKS=0 " ] || fail "git gets only the two set GIT_ variables: $(cat "$rg_log")"
+(cd "$rg_key_repo" && PATH="$work/rg-slow-git:$PATH" store_py unused <<'PY') || fail "a slow git must give no key instead of a hang"
+import time
+from pathlib import Path
+
+b_run.KEY_GIT_SECONDS = 0.5
+start = time.monotonic()
+assert b_run.stats_repo_key(Path.cwd()) is None
+assert time.monotonic() - start < 10, time.monotonic() - start
+PY
+# The two git runs of one key lookup share one limit: each of these is under it, and together they are over it.
+mkdir -p "$work/rg-lagging-git"
+printf '#!/bin/sh\nsleep 1.2\nexec "%s" "$@"\n' "$(command -v git)" >"$work/rg-lagging-git/git"
+chmod +x "$work/rg-lagging-git/git"
+(cd "$rg_key_repo" && PATH="$work/rg-lagging-git:$PATH" RG_WANT="$rg_want" store_py unused <<'PY') || fail "one key lookup must have one time limit"
+from pathlib import Path
+
+assert b_run.stats_repo_key(Path.cwd()) == os.environ["RG_WANT"]
+b_run.KEY_GIT_SECONDS = 2.0
+assert b_run.stats_repo_key(Path.cwd()) is None
+PY
+# Finding git counts against that limit too.
+(cd "$rg_key_repo" && RG_WANT="$rg_want" store_py unused <<'PY') || fail "a slow search for git must count against the limit"
+import shutil
+import time
+from pathlib import Path
+
+real_which = shutil.which
+
+
+def slow_which(*args, **options):
+    time.sleep(1.2)
+    return real_which(*args, **options)
+
+
+shutil.which = slow_which
+assert b_run.stats_repo_key(Path.cwd()) == os.environ["RG_WANT"]
+b_run.KEY_GIT_SECONDS = 2.0
+assert b_run.stats_repo_key(Path.cwd()) is None
+PY
+# A relative or empty search-path entry would run a program, or load a library, from the folder git is asked about.
+mkdir -p "$rg_key_repo/bin"
+rg_marker="$work/rg-planted-ran"
+printf '#!/bin/sh\n: >"%s"\nexit 1\n' "$rg_marker" >"$rg_key_repo/git"
+cp "$rg_key_repo/git" "$rg_key_repo/bin/git"
+chmod +x "$rg_key_repo/git" "$rg_key_repo/bin/git"
+(cd "$rg_key_repo" && RG_WANT="$rg_want" store_py unused <<'PY') || fail "only a git from an absolute PATH entry may run"
+import subprocess
+from pathlib import Path
+
+real_path = os.environ["PATH"]
+real_run = subprocess.run
+seen = []
+
+
+def spy(command, **options):
+    seen.append((command, options["env"]))
+    return real_run(command, **options)
+
+
+subprocess.run = spy
+os.environ.update(
+    PATH=os.pathsep.join(["", ".", "bin", real_path]),
+    LD_LIBRARY_PATH=":lib;also:/rg-absolute-lib;rg-after-semicolon:;/rg-second-lib",
+    GCONV_PATH="gconv:/rg-absolute-gconv",
+    DYLD_LIBRARY_PATH=os.pathsep.join(["lib", "."]),
+    DYLD_FALLBACK_LIBRARY_PATH="lib",
+    LD_PRELOAD="./planted.so",
+    LD_AUDIT="./planted.so",
+)
+assert b_run.stats_repo_key(Path.cwd()) == os.environ["RG_WANT"]
+assert seen, "git was not run"
+for command, env in seen:
+    assert os.path.isabs(command[0]), command
+    assert all(os.path.isabs(entry) for entry in env["PATH"].split(os.pathsep)), env["PATH"]
+    assert env.get("LD_LIBRARY_PATH") == "/rg-absolute-lib:/rg-second-lib", env.get("LD_LIBRARY_PATH")
+    assert env.get("GCONV_PATH") == "/rg-absolute-gconv", env.get("GCONV_PATH")
+    assert not {"DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH", "LD_PRELOAD", "LD_AUDIT"} & set(env), sorted(env)
+count = len(seen)
+os.environ["PATH"] = os.pathsep.join(["", ".", "bin"])
+assert b_run.stats_repo_key(Path.cwd()) is None
+assert len(seen) == count, "no program may start without an absolute PATH entry"
+PY
+[ ! -e "$rg_marker" ] || fail "a git inside the folder must never run"
+rm -rf "${rg_key_repo:?}/git" "${rg_key_repo:?}/bin"
+
+# Recording stats remembers the checkout, once per key and path, and says so when the registry is created.
+rg_home="$work/rg-home"
+rg_claude="$rg_home/.claude/b-agentic"
+rg_pi="$rg_home/.pi/agent/b-agentic"
+rg_file="$rg_claude/run-stats-repos.jsonl"
+rg_store="$rg_claude/run-stats.jsonl"
+mkdir -p "$rg_claude"
+chmod 700 "$rg_claude"
+make_repo "$work/rg-a"
+rg_a=$(cd "$work/rg-a" && pwd -P)
+rg_saved_home=$HOME
+export HOME="$rg_home"
+finish_run "$rg_a" first
+export HOME="$rg_saved_home"
+jq -e '.run_stats == "written" and (.notice | contains("run-stats.jsonl") and contains("~/.claude/b-agentic/run-stats-repos.jsonl") and contains("checkout paths") and contains("run-stats.off"))' <<<"$out" >/dev/null ||
+  fail "the first finished run must create the registry and name it in the notice: $out"
+[ "$(mode_of "$rg_file")" = 600 ] || fail "the registry must be 0600"
+rg_key=$(jq -r .repo "$rg_store")
+jq -e -s --arg key "$rg_key" --arg path "$rg_a" '. == [{v: 1, repo: $key, path: $path}]' "$rg_file" >/dev/null || fail "the registry holds one line for the checkout: $(cat "$rg_file")"
+if grep -qF "$work" "$rg_store"; then fail "no path may enter the store"; fi
+# record_in DIR: stats --record there with the registry HOME, in $out.
+record_in() {
+  out=$(HOME="$rg_home" stats "$1" --record) || fail "stats --record failed ($1): $out"
+}
+record_in "$rg_a"
+has '.appended == 0 and .already == 1 and .registry == "already" and (has("notice") | not)' "a checkout is registered once"
+[ "$(lines_of "$rg_file")" = 1 ] || fail "a second record must add no registry line"
+rm "$rg_file"
+record_in "$rg_a"
+has '.created == false and .registry == "written" and (.notice | contains("run-stats-repos.jsonl")) and (.notice | contains("numbers only") | not)' "a new registry beside an old store is announced alone"
+# The path is the checkout around the working directory, also from a subfolder.
+mkdir -p "$rg_a/sub/deeper"
+record_in "$rg_a/sub/deeper"
+has '.registry == "already"' "a subfolder registers its checkout"
+
+# Nothing about the registry changes what recording the store returns.
+# broken_registry WHAT EXPECTED: with the registry broken, a fresh store still takes the run and the reason is reported.
+broken_registry() {
+  rm -f "$rg_store"
+  record_in "$rg_a"
+  has ".appended == 1 and .already == 0 and .skipped == {} and .registry == \"$2\"" "a $1 registry must not touch the store result"
+  [ "$(lines_of "$rg_store")" = 1 ] || fail "the store line must be written beside a $1 registry"
+}
+rm -f "$rg_file"
+printf 'untouched\n' >"$work/rg-target"
+chmod 600 "$work/rg-target"
+ln -s "$work/rg-target" "$rg_file"
+broken_registry "linked" "skipped:registry-unopenable"
+[ "$(cat "$work/rg-target")" = untouched ] || fail "nothing may be written through a linked registry"
+rm "$rg_file"
+ln "$work/rg-target" "$rg_file"
+broken_registry "hard-linked" "skipped:registry-not-plain"
+[ "$(cat "$work/rg-target")" = untouched ] || fail "nothing may be written through a hard-linked registry"
+rm "$rg_file"
+mkfifo "$rg_file"
+broken_registry "FIFO" "skipped:registry-not-plain"
+rm "$rg_file"
+mkdir "$rg_file"
+broken_registry "folder" "skipped:registry-unopenable"
+rmdir "$rg_file"
+: >"$rg_file"
+chmod 640 "$rg_file"
+broken_registry "loose-mode" "skipped:registry-loose-mode"
+[ ! -s "$rg_file" ] || fail "a loose registry must take no line"
+chmod 600 "$rg_file"
+python3 -I -B -c 'import sys; open(sys.argv[1], "wb").write(b"\n" * (1 << 20))' "$rg_file"
+broken_registry "full" "skipped:registry-full"
+printf 'not json\n{"torn' >"$rg_file"
+broken_registry "torn" "written"
+[ "$(tail -n 1 "$rg_file" | jq -r .path)" = "$rg_a" ] || fail "a torn tail must be ended before the new line"
+[ "$(lines_of "$rg_file")" = 3 ] || fail "the earlier bytes stay and one line is added: $(cat "$rg_file")"
+# A line the readers reject does not count as listed, or the checkout could never be registered again.
+python3 -I -B -c '
+import json, os, sys
+target, key, path = sys.argv[1:4]
+entry = {"v": 1, "repo": key, "path": path}
+rejected = [json.dumps({**entry, "v": 2}), json.dumps({**entry, "extra": 1}), json.dumps(entry) + " " * 5000]
+with open(target, "w") as handle:
+    handle.write("".join(line + "\n" for line in rejected))
+' "$rg_file" "$(jq -r .repo "$rg_store")" "$rg_a" || fail "writing a rejected registry"
+record_in "$rg_a"
+has '.registry == "written"' "a rejected line for this checkout must not hide it"
+record_in "$rg_a"
+has '.registry == "already"' "the sound line added beside the rejected ones is believed"
+[ "$(lines_of "$rg_file")" = 4 ] || fail "one sound line is added to the three rejected ones: $(cat "$rg_file")"
+rm -f "$rg_file" "$rg_store"
+: >"$rg_claude/run-stats.off"
+record_in "$rg_a"
+has '.appended == 0 and .skipped == {disabled: 1} and .registry == "skipped:disabled" and (has("notice") | not)' "the off file stops both files"
+[ ! -e "$rg_file" ] && [ ! -e "$rg_store" ] || fail "the off file must stop the registry from being created"
+rm "$rg_claude/run-stats.off"
+chmod 707 "$rg_claude"
+record_in "$rg_a"
+has '.registry == "skipped:home-not-private"' "a home others can write takes no registry"
+chmod 700 "$rg_claude"
+mkdir -p "$work/rg-empty-home"
+out=$(HOME="$work/rg-empty-home" stats "$rg_a" --record) || fail "stats --record without a home failed: $out"
+has '.registry == "skipped:no-install-home"' "no install home, no registry"
+[ -z "$(ls -A "$work/rg-empty-home")" ] || fail "the registry must never create the install home"
+git clone -q --depth 1 "file://$rg_a" "$work/rg-shallow" || fail "making a shallow clone"
+record_in "$work/rg-shallow"
+has '.registry == "skipped:no-repo-key"' "a shallow clone is not registered"
+[ ! -e "$rg_file" ] || fail "no registry may be created for a clone without a key"
+make_repo "$work/rg-redirect"
+GIT_WORK_TREE="$work/rg-redirect" record_in "$rg_a"
+has '.registry == "skipped:other-worktree"' "a redirected worktree is not registered"
+[ ! -e "$rg_file" ] || fail "a redirected worktree must leave no path behind"
+(cd "$rg_a" && HOME="$rg_home" store_py unused <<'PY') || fail "a busy or failing registry must only be a reason"
+import fcntl
+
+off = block["off"]
+key = b_run.stats_repo_key(b_run.repo_root())
+assert b_run._register_checkout("claude", off, key, b_run.repo_root())[0] == "written"
+fd = os.open(b_run.stats_dir("claude") / b_run.REGISTRY, os.O_RDWR)
+fcntl.flock(fd, fcntl.LOCK_EX)
+assert b_run._register_checkout("claude", off, key, b_run.repo_root()) == ("skipped:registry-busy", False)
+os.close(fd)
+
+
+def boom(*_args):
+    raise RuntimeError("boom")
+
+
+b_run._locked_append = boom
+assert b_run._register_checkout("claude", off, key, b_run.repo_root()) == ("failed", False)
+PY
+# The live record's caller waits 10 s in all, so registering adds no git run, and a late record no lock wait.
+rm -f "$rg_file"
+(cd "$rg_a" && HOME="$rg_home" store_py unused <<'PY') || fail "registration must not run into the caller's deadline"
+import fcntl
+import subprocess
+import time
+
+root = b_run.repo_root()
+key = b_run.stats_repo_key(root)
+real_run = subprocess.run
+
+
+def no_program(*_args, **_options):
+    raise AssertionError("registration must run no program")
+
+
+subprocess.run = no_program
+assert b_run._register_checkout("claude", block["off"], key, root) == ("written", True)
+subprocess.run = real_run
+waits = []
+real_register = b_run._register_checkout
+
+
+def noting(*args):
+    waits.append(args[4])
+    return real_register(*args)
+
+
+b_run._register_checkout = noting
+schema = b_run.load_schema()
+assert b_run.cmd_stats(schema, {"record": True})["registry"] == "already"
+b_run.REGISTRY_QUICK_SECONDS = 0.0
+assert b_run.cmd_stats(schema, {"record": True})["registry"] == "already"
+assert waits == [b_run.STATS_LOCK_SECONDS, 0.0], waits
+fd = os.open(b_run.stats_dir("claude") / b_run.REGISTRY, os.O_RDWR)
+fcntl.flock(fd, fcntl.LOCK_EX)
+start = time.monotonic()
+assert real_register("claude", block["off"], key, root, 0.0) == ("skipped:registry-busy", False)
+assert time.monotonic() - start < b_run.STATS_LOCK_SECONDS / 2, time.monotonic() - start
+os.close(fd)
+PY
+# Each runtime writes its own registry.
+mkdir -p "$rg_pi"
+chmod 700 "$rg_pi"
+rm -f "$rg_file"
+B_AGENTIC_HELPER_DIR="$pi_dir" record_in "$rg_a"
+has '.registry == "written" and (.notice | contains("~/.pi/agent/b-agentic/run-stats-repos.jsonl"))' "Pi writes its own registry"
+[ -f "$rg_pi/run-stats-repos.jsonl" ] && [ ! -e "$rg_file" ] || fail "Pi must not write the Claude Code registry"
+
+# --repos: both registries, the most recently registered first, bounded, and the only output with paths.
+# repos: stats --repos with the registry HOME, in $out, checked to be one bounded line of printable ASCII. It is
+# run outside any repository: it reads only the registries.
+repos() {
+  mkdir -p "$work/rg-outside"
+  out=$(HOME="$rg_home" stats "$work/rg-outside" --repos) || fail "stats --repos failed: $out"
+  [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "--repos must be one compact line"
+  if printf '%s' "$out" | LC_ALL=C grep -q '[^ -~]'; then fail "--repos must be printable ASCII"; fi
+  [ "$(printf '%s\n' "$out" | wc -c | tr -d ' ')" -lt 28001 ] || fail "--repos must stay under 28000 bytes"
+}
+# registry_file FILE: write the Python on stdin's `lines` (a list of bytes or of (key, path) pairs) as a registry.
+registry_file() {
+  { cat && printf '%s\n' 'out = b"".join(x + b"\n" if isinstance(x, bytes) else (json.dumps({"v": 1, "repo": x[0], "path": x[1]}) + "\n").encode() for x in lines)' \
+    'fd = os.open(sys.argv[2], os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)' 'os.write(fd, out)' 'os.fchmod(fd, 0o600)'; } |
+    { printf 'import json\n' && cat; } | store_py "$1" || fail "writing a registry: $1"
+}
+rm -f "$rg_file" "$rg_pi/run-stats-repos.jsonl"
+repos
+has '. == {ok: true, registries: {claude: {status: "absent", disabled: false, truncated: false, lines: 0, malformed: 0}, pi: {status: "absent", disabled: false, truncated: false, lines: 0, malformed: 0}}, repos: [], omitted_repos: 0}' "no registry, no repository"
+registry_file "$rg_file" <<'PY'
+a, b = "a" * 16, "b" * 16
+lines = [(a, "/one"), (b, "/other"), b"not json", b"[1]", (a, "/two"), (a, "/one"),
+    json.dumps({"v": 2, "repo": a, "path": "/v2"}).encode(), json.dumps({"v": True, "repo": a, "path": "/bool"}).encode(),
+    json.dumps({"v": 1, "repo": a, "path": "/extra", "more": 1}).encode(), ("A" * 16, "/upper"), (a, "relative"),
+    (a, "/not/../normal"), (a, "/con\ntrol"), (a, "/" + "p" * 1100), json.dumps({"v": 1, "repo": a, "path": 5}).encode(),
+    (a, "/lone\udcff"), json.dumps({"v": 1, "repo": a, "path": "/long-line"}).encode() + b" " * 5000]
+PY
+registry_file "$rg_pi/run-stats-repos.jsonl" <<'PY'
+lines = [("c" * 16, "/pi-only"), ("a" * 16, "/one"), ("a" * 16, "/tabé"), ("a" * 16, "/four"), ("a" * 16, "/five")]
+PY
+: >"$rg_claude/run-stats.off"
+repos
+rm "$rg_claude/run-stats.off"
+has '.registries.claude == {status: "read", disabled: true, truncated: false, lines: 17, malformed: 13} and .registries.pi == {status: "read", disabled: false, truncated: false, lines: 5, malformed: 0}' "each registry's state and malformed lines"
+has '[.repos[].repo] == ["aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb", "cccccccccccccccc"] and .omitted_repos == 0' "Claude Code first, newest first"
+has '.repos[0] == {repo: "aaaaaaaaaaaaaaaa", paths: ["/one", "/two", "/five", "/four"], omitted_paths: 1}' "four paths a key, each once, newest first"
+chmod 640 "$rg_file"
+repos
+has '.registries.claude.status == "loose-mode" and .registries.claude.lines == 0 and [.repos[].repo] == ["aaaaaaaaaaaaaaaa", "cccccccccccccccc"]' "a loose registry gives no entry"
+chmod 600 "$rg_file"
+mv "$rg_file" "$work/rg-real"
+ln -s "$work/rg-real" "$rg_file"
+repos
+has '.registries.claude.status == "not-plain"' "a linked registry gives no entry"
+rm "$rg_file"
+ln "$work/rg-real" "$rg_file"
+repos
+has '.registries.claude.status == "not-plain"' "a hard-linked registry gives no entry"
+rm "$rg_file"
+mkfifo "$rg_file"
+repos
+has '.registries.claude.status == "not-plain"' "a FIFO registry gives no entry and does not hang"
+rm "$rg_file"
+chmod 707 "$rg_claude"
+repos
+has '.registries.claude.status == "home-not-private"' "a home others can write gives no entry"
+chmod 700 "$rg_claude"
+# The bound, with paths that escape longest, and a file past the size cap.
+registry_file "$rg_file" <<'PY'
+wide = "/" + ("\U0001D518" * 50 + "/") * 5
+lines = [(f"{n:016x}", f"{wide}{n}-{m}") for n in range(40) for m in range(5)]
+PY
+repos
+has '.registries.claude.truncated == false and .omitted_repos > 0 and (.repos | length) >= 2 and (.repos | length) + .omitted_repos == 42 and all(.repos[]; (.paths | length) <= 4)' "keys stop before the bound and the rest are counted"
+[ "$(printf '%s\n' "$out" | wc -c | tr -d ' ')" -gt 15000 ] || fail "--repos is filled up to its bound"
+python3 -I -B -c 'import sys; open(sys.argv[1], "ab").write(b"\n" * (1 << 20))' "$rg_file"
+repos
+has '.registries.claude.truncated and .registries.claude.status == "read"' "an oversized registry is read to its cap and said so"
+for option in --record --summary --evidence "--skip 1" "--repo aaaaaaaaaaaaaaaa" "--since 2026-11-01" "--section repo" --apply "--run 20261101-x"; do
+  # shellcheck disable=SC2086 # the option and its value are two words on purpose.
+  bad_use --repos $option
+done
+python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF 'printed paths reach the model provider' || fail "help must warn where printed paths go"
+
+# --evidence --repo: only the user's own whole checkouts that still have the key are read, and no path leaves.
+rv_work=$(cd "$work" && pwd -P)
+rv="$rv_work/rv"
+rm -rf "$rv" "$rg_home"
+mkdir -p "$rv" "$rg_claude" "$rg_pi" "$work/rg-outside"
+chmod 700 "$rg_claude" "$rg_pi"
+# other_repo DIR: a repository with a root commit of its own (two make_repo of one second share theirs, and a key).
+other_repo() {
+  make_repo "$1"
+  git -C "$1" checkout -q --orphan other
+  git -C "$1" commit -qm "root of $(basename "$1")"
+}
+make_repo "$rv/good"
+git clone -q "file://$rv/good" "$rv/clone" || fail "cloning the good checkout"
+git clone -q "file://$rv/good" "$rv/second" || fail "cloning the good checkout again"
+git clone -q --depth 1 "file://$rv/good" "$rv/shallow" || fail "a shallow clone of the good checkout"
+git clone -q "file://$rv/good" "$rv/partial" || fail "a clone to mark partial"
+git -C "$rv/partial" config remote.origin.promisor true
+git clone -q "file://$rv/good" "$rv/redirected" || fail "a clone to redirect"
+git -C "$rv/redirected" config core.worktree "$rv/good"
+other_repo "$rv/other"
+mkdir -p "$rv/good/sub" "$rv/plain"
+ln -s "$rv/good" "$rv/linked"
+ln -s "$rv" "$rv_work/rv-alias"
+{
+  printf 'exec(open(%s).read())\nrv = %s\n' "'$work/evidence_runs.py'" "'$rv'"
+  cat <<'PY'
+folder(rv + "/good", "20261105-both", [blocker(1, summary="visible both from good")])
+folder(rv + "/good", "20261101-good", [blocker(2, summary="visible good")])
+folder(rv + "/good", "20261103-fix", [blocker(3, summary="leak-unfinished copy")], phase="implement")
+folder(rv + "/clone", "20261105-both", [blocker(1, summary="leak-repeat from clone")])
+folder(rv + "/clone", "20261104-clone", [blocker(4, summary="visible clone")])
+folder(rv + "/clone", "20261103-fix", [blocker(3, summary="visible finished copy")])
+for name in ("shallow", "partial", "redirected", "other", "plain", "good/sub"):
+    folder(rv + "/" + name, "20261101-x", [blocker(1, summary=f"leak-{name}")])
+PY
+} | store_py unused || fail "writing the checkout run folders"
+rv_key=$(cd "$rv/good" && printf '%s\n' 'from pathlib import Path' 'print(b_run.stats_repo_key(Path.cwd()))' | store_py unused)
+# register FILE KEY PATH...: a registry of FILE whose newest entry is the first PATH.
+register() {
+  python3 -I -B -c '
+import json, os, sys
+target, key, paths = sys.argv[1], sys.argv[2], sys.argv[3:]
+fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+os.write(fd, "".join(json.dumps({"v": 1, "repo": key, "path": path}) + "\n" for path in reversed(paths)).encode())
+os.fchmod(fd, 0o600)
+' "$@" || fail "writing a registry: $1"
+}
+# rv_run ARGS...: stats from outside any repository with the registry HOME; sets $out, $rc and $work/rv-err.
+rv_run() {
+  rc=0
+  out=$(HOME="$rg_home" stats "$work/rg-outside" "$@" 2>"$work/rv-err") || rc=$?
+  if printf '%s' "$out" | grep -qF "$rv_work"; then fail "no path may be printed ($*): $out"; fi
+  if grep -qF "$rv_work" "$work/rv-err"; then fail "no path may reach stderr ($*): $(cat "$work/rv-err")"; fi
+}
+# rv_read WHAT: --evidence --repo for the good key succeeds.
+rv_read() {
+  rv_run --evidence --repo "$rv_key"
+  [ "$rc" -eq 0 ] || fail "$1: rc=$rc $(cat "$work/rv-err")"
+  [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "$1: one compact line"
+  if grep -qF 'leak' <<<"$out"; then fail "$1: nothing of a checkout or folder left out may be printed: $out"; fi
+}
+# rv_refused WHAT TEXT: exit 3, one line on stderr holding TEXT, nothing on stdout.
+rv_refused() {
+  rv_run --evidence --repo "$rv_key"
+  if [ "$rc" -ne 3 ] || [ -n "$out" ] || [ "$(lines_of "$work/rv-err")" != 1 ] || ! grep -qF "$2" "$work/rv-err"; then
+    fail "$1: rc=$rc $out $(cat "$work/rv-err")"
+  fi
+}
+rv_file="$rg_claude/run-stats-repos.jsonl"
+rv_refused "a key that is not registered" "is not registered"
+register "$rv_file" "$rv_key" "$rv/missing" "$rv/linked" "$rv/plain" "$rv/good"
+rv_read "gone, linked and plain folders beside a good one"
+has '.checkouts == {registered: 4, read: 1, skipped: {gone: 2, "not-owned": 0, "not-a-checkout": 1, partial: 0, "no-key": 0, "other-key": 0, "same-folder": 0, "not-tried": 0}, duplicate_runs: 0}' "each bad checkout is counted"
+has 'keys_unsorted == ["ok","folders","runs_read","skipped","checkouts","total","oversized","skip","shown","next_skip","blockers"] and [.blockers[].summary] == ["visible both from good", "visible good"] and .skipped["not-done"] == 1' "the good checkout is read"
+register "$rv_file" "$rv_key" "$rv/good/sub" "$rv/redirected" "$rv/partial" "$rv/good"
+rv_read "a subfolder, a redirected worktree and a partial clone"
+has '.checkouts.read == 1 and .checkouts.skipped["not-a-checkout"] == 2 and .checkouts.skipped.partial == 1 and .total == 2' "only the checkout's own top level, whole, is read"
+register "$rv_file" "$rv_key" "$rv/shallow" "$rv/other" "$rv/good" "$rv/missing" "$rv/clone" "$rv/second"
+rv_read "a shallow clone and another repository at a registered path"
+has '.checkouts.registered == 6 and .checkouts.read == 1 and .checkouts.skipped == {gone: 1, "not-owned": 0, "not-a-checkout": 0, partial: 0, "no-key": 1, "other-key": 1, "same-folder": 0, "not-tried": 2}' "four paths are tried and the rest counted"
+register "$rv_file" "$rv_key" "$rv/shallow" "$rv/other" "$rv/missing"
+rv_refused "no checkout passes" "(gone 1, no-key 1, other-key 1)"
+(cd "$work/rg-outside" && HOME="$rg_home" store_py "$rv/good" <<PY) || fail "another owner's folder must be left out"
+real = os.getuid
+os.getuid = lambda: real() + 1
+assert b_run._open_checkout(store, "$rv_key", set()) == ("not-owned", -1)
+PY
+# A path swapped after its checkout was checked cannot bring another tree in: the runs are read from the held folder.
+register "$rv_file" "$rv_key" "$rv/good"
+cp -R "$rv/good" "$rv/good-copy"
+out=$(cd "$work/rg-outside" && HOME="$rg_home" python3 -I -B - "$root/claude/bin/b_run.py" "$rv/good" "$rv/other" "$rv_key" <<'PY'
+import importlib.util
+import os
+import sys
+
+cli, good, other, key = sys.argv[1:5]
+spec = importlib.util.spec_from_file_location("b_run", cli)
+b_run = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(b_run)
+real = b_run.stats_repo_key
+
+
+def swapping(root):
+    found = real(root)
+    os.rename(good, good + ".aside")
+    os.symlink(other, good)
+    return found
+
+
+b_run.stats_repo_key = swapping
+code = b_run.main(["stats", "--evidence", "--repo", key])
+os.unlink(good)
+os.rename(good + ".aside", good)
+sys.exit(code)
+PY
+) || fail "reading during a checkout swap failed: $out"
+has '[.blockers[].summary] == ["visible both from good", "visible good"]' "the held checkout is the one read"
+rm -rf "$rv/good-copy"
+# Several checkouts across both registries: merged newest run first, a folder and a run id read once.
+register "$rv_file" "$rv_key" "$rv/good" "$rv_work/rv-alias/good"
+register "$rg_pi/run-stats-repos.jsonl" "$rv_key" "$rv/clone" "$rv/good"
+rv_before=$(tree_of "$rv" && tree_of "$rg_home")
+rv_read "two clones, one of them reached by two paths"
+has '.checkouts == {registered: 3, read: 2, skipped: {gone: 0, "not-owned": 0, "not-a-checkout": 0, partial: 0, "no-key": 0, "other-key": 0, "same-folder": 1, "not-tried": 0}, duplicate_runs: 1}' "one folder is read once and a repeated run is counted"
+has '[.blockers[] | [.run, .summary]] == [["20261105-both","visible both from good"],["20261104-clone","visible clone"],["20261103-fix","visible finished copy"],["20261101-good","visible good"]]' "runs merge newest first, the first sound copy wins"
+has '.folders == 6 and .runs_read == 4 and .skipped == {"not-a-run": 0, "bad-state": 0, "not-done": 1, invalid: 0} and .total == 4' "the header counts over both checkouts"
+rv_run --evidence --repo "$rv_key" --skip 3
+has '.skip == 3 and .shown == 1 and .next_skip == null and .blockers[0].run == "20261101-good"' "--skip pages the merged runs"
+rg_before_current=$(cd "$rv/good" && HOME="$rg_home" stats "$rv/good" --evidence) || fail "plain evidence in the good checkout"
+jq -e 'has("checkouts") | not' <<<"$rg_before_current" >/dev/null || fail "plain evidence has no checkouts field"
+[ "$(tree_of "$rv" && tree_of "$rg_home")" = "$rv_before" ] || fail "--repos and --evidence --repo must change nothing"
+# Paging a merged set larger than a page prints every blocker once.
+{
+  printf 'exec(open(%s).read())\nrv = %s\n' "'$work/evidence_runs.py'" "'$rv'"
+  cat <<'PY'
+wide = "\U0001D518" * 300
+for checkout, run_id in (("good", "20261201-g"), ("clone", "20261202-c")):
+    folder(rv + "/" + checkout, run_id, [blocker(n, summary=wide, reason=wide, sweep=wide) for n in range(1, 6)])
+PY
+} | store_py unused || fail "writing wide runs in two checkouts"
+rv_skip=0
+: >"$work/rv-ids"
+while :; do
+  rv_run --evidence --repo "$rv_key" --skip "$rv_skip"
+  [ "$(printf '%s\n' "$out" | wc -c | tr -d ' ')" -lt 30000 ] || fail "every merged page stays under 30000 bytes"
+  has '.total == 14 and .shown >= 1' "a merged page holds something"
+  jq -r '.blockers[] | "\(.run) \(.id)"' <<<"$out" >>"$work/rv-ids"
+  rv_skip=$(jq -r .next_skip <<<"$out")
+  [ "$rv_skip" != null ] || break
+done
+[ "$(lines_of "$work/rv-ids")" = 14 ] && [ "$(sort -u "$work/rv-ids" | wc -l | tr -d ' ')" = 14 ] || fail "paging prints every merged blocker once: $(cat "$work/rv-ids")"
+# Two clones can use one folder name for two runs: their start times tell them apart, as in the summary.
+{
+  printf 'exec(open(%s).read())\nrv = %s\n' "'$work/evidence_runs.py'" "'$rv'"
+  cat <<'PY'
+folder(rv + "/good", "20261102-same", [blocker(1, summary="visible same earlier")], started="2026-11-02T01:00:00.000Z")
+folder(rv + "/clone", "20261102-same", [blocker(1, summary="visible same later")], started="2026-11-02T02:00:00.000Z")
+PY
+} | store_py unused || fail "writing two runs with one folder name"
+rv_run --evidence --repo "$rv_key" --skip 13
+has '.total == 16 and [.blockers[].summary] == ["visible same later", "visible same earlier", "visible good"] and .folders == 10 and .runs_read == 8 and .checkouts.duplicate_runs == 1' "two runs with one folder name both print and a copy does not"
+# A copy of a run already read is known from its state alone: its artifacts are not read and checked again.
+(cd "$work/rg-outside" && HOME="$rg_home" store_py unused <<PY) || fail "a copy must not be read in full"
+checked = []
+real_validate = b_run.validate_run
+
+
+def noting(folder, schema):
+    checked.append(folder)
+    return real_validate(folder, schema)
+
+
+b_run.validate_run = noting
+out = b_run.cmd_stats(b_run.load_schema(), {"evidence": True, "repo": "$rv_key"})
+assert (out["runs_read"], out["checkouts"]["duplicate_runs"], len(checked)) == (8, 1, 8), (out["runs_read"], len(checked))
+PY
+# A damaged start time costs no blocker: plain evidence never needed it.
+make_repo "$work/rg-damaged"
+{
+  printf 'exec(open(%s).read())\ndamaged = %s\n' "'$work/evidence_runs.py'" "'$work/rg-damaged'"
+  cat <<'PY'
+path = folder(damaged, "20261110-damaged", [blocker(1, summary="visible despite a damaged start")])
+state = json.loads((path / "state.json").read_text(encoding="utf-8"))
+(path / "state.json").write_text(json.dumps({**state, "started_at": None}), encoding="utf-8")
+PY
+} | store_py unused || fail "writing a run with a damaged start time"
+out=$(HOME="$rg_home" stats "$work/rg-damaged" --evidence) || fail "plain evidence with a damaged start time: $out"
+has '[.blockers[].summary] == ["visible despite a damaged start"] and .runs_read == 1 and .skipped.invalid == 0' "a damaged start time drops no blocker"
+# Refused uses of --repo.
+for key in abc "${rv_key}0" ABCDEF0123456789 'aaaaaaaaaaaaaaa ' '' "$rv/good"; do
+  bad_use --evidence --repo "$key"
+done
+bad_use --repo "$rv_key"
+bad_use --summary --repo "$rv_key"
+bad_use --record --repo "$rv_key"
+bad_use --evidence --repo
+python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF -- '--repo KEY reads another registered' || fail "help must name --repo"
+python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF 'share root commits share one KEY and are read together' || fail "help must say that forks share a key"
+
 # Refused uses of --evidence and --skip, and the help line (AC-7).
 bad_use --evidence --record
 bad_use --evidence --run 20261101-x
@@ -1470,6 +2024,7 @@ for count in -1 '' 1.5 1234567 ' 1' abc １; do
 done
 python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF 'stats --evidence [--skip N]' || fail "help must name the evidence"
 python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF "in front of its model provider" || fail "help must say where printed evidence goes"
+python3 -I -B "$root/claude/bin/b_run.py" --help | grep -qF "printed as written" || fail "help must say that the text itself can hold paths"
 
 # --- invalid use -------------------------------------------------------------------------------------------------------------------
 if stats "$repoS" --run "20260101-x" 2>/dev/null; then fail "--run without --record must be refused"; fi

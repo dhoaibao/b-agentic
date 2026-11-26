@@ -1231,8 +1231,15 @@ for pid in "${pids[@]}"; do wait "$pid" || fail "a concurrent stats --record fai
 [ "$(python3 -I -B -c 'import os, sys; print(format(os.stat(sys.argv[1]).st_mode & 0o777, "o"))' "$stats_home/run-stats.jsonl")" = 600 ] || fail "the store must be 0600"
 [ "$(jq -R -s 'split("\n") | map(select(length > 0) | fromjson | .run) | unique | length' "$stats_home/run-stats.jsonl")" = 6 ] || fail "each of the six finished runs must be written once"
 [ "$(jq -R -s 'split("\n") | map(select(length > 0)) | length' "$stats_home/run-stats.jsonl")" = 6 ] || fail "concurrent writers must leave exactly six lines"
+# The same three writers register their checkouts: one creates the registry, and each leaves one line (ADR-037).
+[ "$(jq -s '[.[] | select(.registry == "written")] | length' "$work"/stats-stats-*.json)" = 3 ] || fail "each concurrent writer must register its checkout: $(cat "$work"/stats-stats-*.json)"
+[ "$(jq -s '[.[] | select((.notice // "") | contains("run-stats-repos.jsonl"))] | length' "$work"/stats-stats-*.json)" = 1 ] || fail "the registry must be created by exactly one of three concurrent writers"
+[ "$(python3 -I -B -c 'import os, sys; print(format(os.stat(sys.argv[1]).st_mode & 0o777, "o"))' "$stats_home/run-stats-repos.jsonl")" = 600 ] || fail "the registry must be 0600"
+jq -e -s 'length == 3 and (map(.repo) | unique | length) == 3 and (map(.path) | unique | length) == 3' "$stats_home/run-stats-repos.jsonl" >/dev/null || fail "the registry must hold one line per key and path: $(cat "$stats_home/run-stats-repos.jsonl")"
+if grep -qF "$work" "$stats_home/run-stats.jsonl"; then fail "no path may enter the store"; fi
 ok "${statsrepos[0]}" stats --record
-jq -e '.appended == 0 and .already == 2 and .created == false and (has("notice") | not)' <<<"$out" >/dev/null || fail "a second stats --record must write nothing: $out"
+jq -e '.appended == 0 and .already == 2 and .created == false and .registry == "already" and (has("notice") | not)' <<<"$out" >/dev/null || fail "a second stats --record must write nothing: $out"
+[ "$(wc -l <"$stats_home/run-stats-repos.jsonl" | tr -d ' ')" = 3 ] || fail "a second stats --record must add no registry line"
 ok "${statsrepos[0]}" stats
 jq -e '.missing == 0 and .repo_lines == 2 and .stores.claude.valid == 6 and .stores.claude.malformed == 0 and .repos == 3' <<<"$out" >/dev/null || fail "the report must count every line: $out"
 ok "${statsrepos[0]}" stats --record --run 20261103-open-sa
