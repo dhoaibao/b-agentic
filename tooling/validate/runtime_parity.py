@@ -30,6 +30,41 @@ SCENARIOS = (
     ),
     ("review identity", "kernel", "A changed candidate needs fresh checks and a new review"),
     ("reviewer authority", "b-review", "is prohibited from editing"),
+    (
+        "recurring root cause",
+        "b-review",
+        "from round 2, before fixing a new blocker that shares a root cause with a blocker fixed in an earlier round, state your judgment, patch or change the design, with its reason; on a patch continue, and stop and ask the user before a design change",
+    ),
+    (
+        "round cap diagnosis",
+        "b-review",
+        "When 3 consecutive `NEEDS FIXES` rounds stop the review, before asking, summarize those rounds' blockers grouped by root cause, name the groups that recurred across rounds",
+    ),
+    (
+        "round cap choices",
+        "b-review",
+        "change the design, narrow the scope, defer with a recorded known limit, or keep patching",
+    ),
+    (
+        "deferral pauses delivery",
+        "b-review",
+        "A deferral records the known limit and pauses delivery: the finding stays a blocker",
+    ),
+    (
+        "flow round diagnosis",
+        "b-flow",
+        "At 3 consecutive `NEEDS FIXES`, ask with the round diagnosis and choices `b-review` names; a design change proposed for a blocker that shares a root cause with a fixed one is also a stop",
+    ),
+    (
+        "flow fix-round judgment",
+        "b-flow",
+        "from round 2, first state `b-review`'s patch-or-design judgment",
+    ),
+    (
+        "flow stop resume",
+        "b-flow",
+        "`unblock` works only on a `blocked` run: after a stop that left the run in its phase, continue there as the user's answer allows",
+    ),
     ("review trigger", "kernel", "Require independent `b-review` review when requested by the user"),
     ("verification", "kernel", "run applicable required checks, and explain the observable result"),
     ("question answer", "b-implement", "Wait for the answer and re-evaluate"),

@@ -450,7 +450,16 @@ findings is void. Main owns the final verdict. `NEEDS FIXES` requires an
 evidenced blocker (acceptance, correctness, security/data/contract, check,
 snapshot, path, or generated-output class); main fixes blockers as a batch, one
 whole defect class at a time, and after 3 consecutive `NEEDS FIXES` rounds asks
-the user. Protected paths require permission before content is hashed. The
+the user. From round 2, before fixing a blocker that shares a root cause with a
+fixed one, main states whether to patch or change the design, continues on a
+patch, and asks before a design change; at the 3-round stop it first groups
+those rounds' blockers by root cause, names the recurring groups, and offers a
+design change, a narrower scope, a deferral with a recorded known limit, or more
+patching. This is prompt guidance that no helper enforces. A deferral pauses
+delivery: the finding stays a blocker, and no required check or safety evidence
+is waived. The design question writes no run state, so the consecutive count
+stands and a resumed session relies on stating the judgment again. Protected
+paths require permission before content is hashed. The
 read-only `b-candidate-snapshot` CLI computes the identity for the whole
 repository as one fingerprint, lists protected paths and submodules without
 hashing or diffing them, excludes git-ignored files unless named with

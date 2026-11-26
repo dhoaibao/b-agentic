@@ -462,7 +462,16 @@ gap and asks; a self-review never substitutes. The sequence is:
    difference from F0 or from the reviewer's F1 voids the review. Main verifies
    each blocker with `Read` and `Grep` before acting, fixes blockers as a batch
    (whole defect class each), and stops to ask the user after 3 consecutive
-   `NEEDS FIXES` rounds.
+   `NEEDS FIXES` rounds. From round 2, before fixing a blocker that shares a root
+   cause with a fixed one, main states whether to patch or change the design,
+   continuing on a patch and asking before a design change. At the 3-round stop it
+   first groups those rounds' blockers by root cause, names the recurring groups,
+   and offers a design change, a narrower scope, a deferral with a recorded known
+   limit, or more patching. A deferral pauses delivery: the finding stays a
+   blocker until a fix, a user-approved scope change that removes it, or evidence
+   that it no longer blocks. Both rules are prompt guidance, apply to either gate
+   on both runtimes, and no helper enforces them; the design question writes no
+   run state, so a resumed session relies on stating the judgment again.
 
 In a `b-flow` run the verdict is recorded with `record review --gate codex|reviewer`;
 a `reviewer` gate also records why Codex was not used (`--gate-reason`, for example

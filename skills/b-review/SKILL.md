@@ -52,6 +52,7 @@ User arguments for the bounded task: $ARGUMENTS
 
 - Do not claim `READY FOR PR` without baseline, unchanged candidate, acceptance, fresh passing required checks, no blockers/material gaps, and a valid independent review.
 - Self-review or generic review cannot substitute for this loaded skill's review gate.
+- Main session, every review round (whichever gate, standalone or in a `b-flow` run): from round 2, before fixing a new blocker that shares a root cause with a blocker fixed in an earlier round, state your judgment, patch or change the design, with its reason; on a patch continue, and stop and ask the user before a design change. When 3 consecutive `NEEDS FIXES` rounds stop the review, before asking, summarize those rounds' blockers grouped by root cause, name the groups that recurred across rounds, and offer these choices: change the design, narrow the scope, defer with a recorded known limit, or keep patching. A deferral records the known limit and pauses delivery: the finding stays a blocker, and work moves toward a ready verdict again only after a fix, a user-approved scope change that removes it, or evidence that it no longer blocks; no deferral waives a failed required check or required safety evidence.
 
 ## Tool guidance
 

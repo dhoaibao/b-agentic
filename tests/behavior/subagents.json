@@ -186,13 +186,31 @@
       "prompt": "The b-review gate has returned NEEDS FIXES three times in a row for one task. Describe what main does next.",
       "must": [
         "Stop instead of starting another review",
+        "Before asking, summarize those rounds' blockers grouped by root cause and name the groups that recurred",
         "Ask the user via AskUserQuestion",
-        "Offer one more round, narrow or split scope, abandon, or accepting remaining risk only for non-safety blockers"
+        "Offer change the design, narrow the scope, defer with a recorded known limit, or keep patching"
       ],
       "avoid": [
         "Start another round silently",
+        "Ask only whether to continue, with no diagnosis",
         "Waive a blocker without the user",
         "Declare ready with an unresolved security blocker or failed required check"
+      ]
+    },
+    {
+      "id": "review-recurring-root-cause",
+      "skill": "b-implement",
+      "observed_failure": "Each review round found a new variant of one defect, and each was patched until a late redesign.",
+      "intended_behavior": "From round 2, before fixing a blocker that shares a root cause with a fixed one, main states patch or change the design.",
+      "prompt": "Review round 2 returned a blocker with the same root cause as a blocker you fixed after round 1. Describe what main does before fixing it.",
+      "must": [
+        "State a judgment, patch or change the design, with its reason",
+        "Continue without asking when the judgment is patch",
+        "Stop and ask the user before a design change"
+      ],
+      "avoid": [
+        "Patch the new variant without stating a judgment",
+        "Change the design without asking the user"
       ]
     },
     {
