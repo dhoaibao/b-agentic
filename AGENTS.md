@@ -40,7 +40,7 @@ and installer/validation tooling. See the [public overview](README.md) and
 
 - `python3 tooling/generate/registry_sync.py --check` — confirm generated delivery assets match canonical sources (add `--self-test` for generator and in-memory Pi render checks).
 - `scripts/validate-skills.sh` — run synchronization, behavior, policy, hook, snapshot, status line, Pi guard, and readiness checks (`--release` adds the sandbox installer probes for Claude Code, Pi, and `--runtime=all`).
-- `scripts/b-agentic-audit.sh` — run ADR traceability and structural suite slimness/token checks (`--skip-preflight` skips live preflight).
+- `scripts/b-agentic-audit.sh` — run ADR traceability and structural suite slimness/token checks (`--skip-preflight` skips the generated-asset sync check and the default validation suite).
 - `bun run quality` — run Prettier, Ruff, ShellCheck, and Markdownlint checks on tracked files when dependencies are installed.
 - `rtk git diff --check` — check changed paths for whitespace errors.
 
