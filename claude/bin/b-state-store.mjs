@@ -16,6 +16,7 @@ import {
   writeSync,
 } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isProtected } from "./b-candidate-snapshot.mjs";
 import {
   AC_ID,
@@ -93,6 +94,43 @@ export function readSmall(path) {
     return buffer.subarray(0, offset);
   } finally {
     closeSync(fd);
+  }
+}
+
+const KIT_FIELDS = ["kit_seq", "kit_date", "kit_commit", "kit_dirty"];
+
+const isDate = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+    return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value)
+  );
+};
+
+const isKit = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  Number.isInteger(value.kit_seq) &&
+  value.kit_seq > 0 &&
+  value.kit_seq <= 1e9 &&
+  isDate(value.kit_date) &&
+  typeof value.kit_commit === "string" &&
+  /^[0-9a-f]{40}$/.test(value.kit_commit) &&
+  typeof value.kit_dirty === "boolean";
+
+// The kit version the installer recorded beside these helpers (ADR-036): all four fields, or null.
+// It describes the helpers only when its target is the run's runtime. It never throws or waits:
+// readSmall opens without blocking and takes only a small regular file, never a link.
+export function readKit(runtime) {
+  try {
+    const path = fileURLToPath(new URL("../install.json", import.meta.url));
+    const manifest = JSON.parse(readSmall(path).toString("utf8"));
+    if (!runtime || manifest?.target !== runtime || !isKit(manifest))
+      return null;
+    return Object.fromEntries(KIT_FIELDS.map((name) => [name, manifest[name]]));
+  } catch {
+    return null;
   }
 }
 
@@ -283,6 +321,17 @@ function validate(state) {
   if (!SIZES.includes(state.size)) fail("size");
   if (state.runtime !== undefined && !RUNTIMES.includes(state.runtime))
     fail("runtime");
+  // The kit versions seen at init and at done (ADR-036): each snapshot is complete or absent.
+  const { kit } = state;
+  if (
+    kit !== undefined &&
+    !(
+      isObj(kit) &&
+      [kit.init, kit.done].every((entry) => entry === undefined || isKit(entry))
+    )
+  ) {
+    fail("kit");
+  }
   // Init timestamp, preserved separately once history passes MAX_HISTORY (ADR-035).
   if (state.started_at !== undefined && !isValidTimestamp(state.started_at))
     fail("started_at");
@@ -468,6 +517,8 @@ export function saveState(dir, state, op, detail = {}) {
 
 export function freshState(runId, root, baseline) {
   const initAt = now();
+  const runtime = onPi() ? "pi" : "claude";
+  const kit = readKit(runtime);
   return {
     schema: STATE_SCHEMA,
     rev: 0,
@@ -480,7 +531,8 @@ export function freshState(runId, root, baseline) {
       dirty: baseline.dirty_paths,
     },
     size: "full",
-    runtime: onPi() ? "pi" : "claude",
+    runtime,
+    ...(kit ? { kit: { init: kit } } : {}),
     started_at: initAt,
     spec: { path: "spec.md", sha256: "", plan_sha256: "", approved_at: "" },
     consent: {

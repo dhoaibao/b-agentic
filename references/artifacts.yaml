@@ -76,7 +76,7 @@
   },
   "run_stats": {
     "version": 1,
-    "description": "The only fields b_run.py stats may write to the local run-stats store (ADR-035). Numbers, enums, hashes and a date: no line or text type exists here, so no prose, path, command, branch, commit id, or run slug can reach the store.",
+    "description": "The only fields b_run.py stats may write to the local run-stats store (ADR-035, ADR-036). Numbers, enums, booleans, hashes and dates: no line or text type exists here, so no prose, path, command, branch, or run slug can reach the store. The only commit id the helpers put in a line is the b-agentic kit's own source commit (kit_commit); the writer checks its format, not its origin, since like every field it comes from the unauthenticated run state.",
     "store": "run-stats.jsonl",
     "off": "run-stats.off",
     "max_line": 2048,
@@ -112,6 +112,27 @@
           "claude",
           "pi"
         ],
+        "optional": true
+      },
+      "kit_seq": {
+        "type": "count",
+        "optional": true
+      },
+      "kit_date": {
+        "type": "date",
+        "optional": true
+      },
+      "kit_commit": {
+        "type": "hexkey",
+        "length": 40,
+        "optional": true
+      },
+      "kit_dirty": {
+        "type": "bool",
+        "optional": true
+      },
+      "kit_changed": {
+        "type": "bool",
         "optional": true
       },
       "size": {

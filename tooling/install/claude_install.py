@@ -118,6 +118,137 @@ def apply_bun_path(template: dict[str, Any], bun: str) -> None:
         status_line["command"] = runtime_command(status_line["command"], bun)
 
 
+KIT_FIELDS = ("kit_seq", "kit_date", "kit_commit", "kit_dirty")
+# What really runs for each runtime, as git pathspecs: the installed sources plus the code that installs
+# them (ADR-036). tooling/validate/kit_paths.py fails when an install reads outside its list or a list names
+# a file no install reads. Never remove an entry: move a path a runtime stops reading to its `retired` list,
+# which keeps counting, so kit_seq never drops for a descendant commit.
+_KIT_SHARED = (
+    "install.sh",
+    "skills/registry.yaml",
+    "claude/configs/mcp.base.json",
+    "references/kernel.template.md",
+    "references/capabilities.yaml",
+    "references/mcp_operations.yaml",
+    "references/artifacts.yaml",
+    "tooling/install/claude_install.py",
+    "tooling/install/claude_install_ui.py",
+    "tooling/install/optional_components.py",
+    "tooling/install/vendor_tools.py",
+    "tooling/install/all_install.py",
+)
+KIT_PATHS: dict[str, dict[str, tuple[str, ...]]] = {
+    "claude": {
+        "paths": _KIT_SHARED
+        + (
+            ":(glob)skills/*/SKILL.md",
+            ":(glob)claude/agents/*.md",
+            "claude/bin",
+            "claude/hooks",
+            "claude/configs/settings.template.json",
+        ),
+        "retired": (),
+    },
+    "pi": {
+        "paths": _KIT_SHARED
+        + (
+            ":(glob)skills/*/prompt.md",
+            ":(glob)claude/bin/b-state*.mjs",
+            "claude/bin/b-candidate-snapshot.mjs",
+            "claude/bin/b-protected.mjs",
+            "claude/bin/b_run.py",
+            "claude/hooks/b-alexandria-guard.mjs",
+            "claude/hooks/b-path-guard.mjs",
+            "claude/hooks/b-run-context.mjs",
+            "claude/hooks/b-spec-context.mjs",
+            "claude/hooks/b-verify-gate.mjs",
+            "references/runtimes.yaml",
+            "pi/bin",
+            "pi/extensions",
+            "pi/themes",
+            "tooling/generate/registry_sync.py",
+            "tooling/install/pi_install.py",
+        ),
+        "retired": (),
+    },
+}
+KIT_EXCLUDE = ":(exclude,glob)**/README.md"
+KIT_GIT_TIMEOUT = 30
+
+
+def kit_pathspecs(runtime: str) -> list[str]:
+    return [*KIT_PATHS[runtime]["paths"], *KIT_PATHS[runtime]["retired"], KIT_EXCLUDE]
+
+
+def kit_version(source: Path, runtime: str) -> dict[str, Any]:
+    """The version of what runs for one runtime, from the source's git history: all four fields, or none.
+
+    Never raises and never fails an install. A source that is not the root of its own full SHA-1 git
+    worktree has no version: nothing is guessed.
+    """
+    # Every GIT_* variable is cleared, so no inherited setting can point git at another repository.
+    env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
+    env.update({"GIT_NO_LAZY_FETCH": "1", "GIT_OPTIONAL_LOCKS": "0", "TZ": "UTC", "LC_ALL": "C"})
+
+    def git(*args: str, ok: tuple[int, ...] = (0,)) -> tuple[int, str]:
+        done = subprocess.run(
+            ["git", "--no-replace-objects", "-c", "core.fsmonitor=false", "-C", str(source), *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            timeout=KIT_GIT_TIMEOUT,
+        )
+        if done.returncode not in ok:
+            raise ValueError(f"git exited {done.returncode}")
+        return done.returncode, done.stdout.strip()
+
+    try:
+        paths = kit_pathspecs(runtime)
+        if Path(git("rev-parse", "--show-toplevel")[1]).resolve() != source.resolve():
+            return {}
+        if git("rev-parse", "--is-shallow-repository")[1] != "false":
+            return {}
+        # A partial clone could fetch missing objects while counting; exit 1 means no such key.
+        pattern = r"^(extensions\.partialclone|remote\..*\.promisor)$"
+        if git("config", "--get-regexp", pattern, ok=(0, 1))[0] == 0:
+            return {}
+        commit = git("rev-list", "-1", "HEAD", "--", *paths)[1]
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            return {}
+        # --full-history: a side-branch merge can never hide a commit, so the count never drops downstream.
+        count = int(git("rev-list", "--count", "--full-history", "HEAD", "--", *paths)[1])
+        date = git("log", "-1", "--no-show-signature", "--date=format-local:%Y-%m-%d", "--format=%cd", commit)[1]
+        if count < 1 or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            return {}
+        dirty = bool(git("status", "--porcelain", "--untracked-files=all", "--", *paths)[1])
+    except (OSError, subprocess.SubprocessError, ValueError, RuntimeError):  # RuntimeError: a path that loops
+        return {}
+    return {"kit_seq": count, "kit_date": date, "kit_commit": commit, "kit_dirty": dirty}
+
+
+def installed_kit(source: Path, runtime: str, read: dict[str, Any], *plans: dict[str, Any]) -> dict[str, Any]:
+    """The version an install records, given the one `read` before it read the source.
+
+    A source that changed since then gives no version: the installed files may come from either state. Kept
+    user content means the installed runtime may differ from the commit, so the version is not clean.
+    """
+    kit = kit_version(source, runtime)
+    if kit != read:
+        return {}
+    if kit and any(plan.get("diverged") for plan in plans):
+        kit["kit_dirty"] = True
+    return kit
+
+
+def drop_kit(manifest: dict[str, Any]) -> bool:
+    """Remove the version from a manifest; True when it held one."""
+    held = [name for name in KIT_FIELDS if name in manifest]
+    for name in held:
+        del manifest[name]
+    return bool(held)
+
+
 class InstallError(Exception):
     """A refusal the user can act on."""
 
@@ -441,6 +572,8 @@ class Installer:
         defer_guards: bool = False,
     ) -> None:
         self.source = source
+        # Sampled before the first source file is read: installed_kit records a version only when it still holds.
+        self.kit_read = {} if dry_run or statusline_only else kit_version(source, "claude")
         self.statusline_only = statusline_only
         self.components = self.load_components()
         self.with_ids = with_ids or []
@@ -774,6 +907,10 @@ class Installer:
         # still owned, so a hook never points at a script this run deleted; a later run removes
         # it once that hook entry is gone.
         hooks_dir = self.assets_dir / "hooks"
+        # A hook this source no longer ships that settings still run, whoever owns the script: not this version.
+        shipped = {script.name for script in (self.source / "claude" / "hooks").glob("*.mjs")}
+        if any(os.path.lexists(hooks_dir / name) for name in settings["named_scripts"] - shipped):
+            files["diverged"] = True
         removals: list[Path] = []
         for path in files["removals"]:
             if path.parent == hooks_dir and path.name in settings["named_scripts"]:
@@ -796,6 +933,7 @@ class Installer:
                 desired[f"b-agentic/bin/{name}"] = wrapper_bytes(
                     name, desired[f"b-agentic/bin/{name}"], self.bun_path()
                 )
+        diverged = False  # something user-owned stays in place of what this source ships
         for relative, data in desired.items():
             path = self.managed_path(relative)
             digest = sha256(data)
@@ -805,6 +943,7 @@ class Installer:
             if path.is_symlink():
                 self.warn(f"left user-owned symlink: {path}")
                 self.counts["kept"] += 1
+                diverged = True
                 if relative in committed:
                     recorded[relative] = committed[relative]
             elif not path.exists():
@@ -831,22 +970,27 @@ class Installer:
                     reason = "modified since install" if owners else "not installed by b-agentic"
                     self.warn(f"kept {path} ({reason}); pass --force to replace it after a backup")
                     self.counts["kept"] += 1
+                    diverged = True
                     if relative in committed:
                         recorded[relative] = committed[relative]
         for relative in merge_unique(list(committed), list(manifest.get("pending", {}).get("files", {}))):
             if relative in desired:
                 continue
             path = self.managed_path(relative)
-            if path.is_symlink() or not path.exists():
+            if path.is_symlink():
+                diverged = True  # a link left where a retired file was may still be loaded
+                continue
+            if not path.exists():
                 continue
             owners = self.file_owners(manifest, relative)
             if sha256(path.read_bytes()) in owners:
                 removals.append(path)
             else:
                 self.warn(f"kept retired file {path} (modified since install)")
+                diverged = True
                 if relative in committed:
                     recorded[relative] = committed[relative]
-        return {"recorded": recorded, "writes": writes, "removals": removals}
+        return {"recorded": recorded, "writes": writes, "removals": removals, "diverged": diverged}
 
     def plan_kernel(self, manifest: dict[str, Any]) -> dict[str, Any]:
         path = self.claude_dir / "CLAUDE.md"
@@ -862,6 +1006,7 @@ class Installer:
         committed = manifest.get("kernel_sha256")
         created = bool(manifest.get("claude_md_created", False)) or not existed
         new_text: str | None
+        diverged = False
         if span is None:
             new_text = text.rstrip("\n") + "\n\n" + block + "\n" if text.strip() else block + "\n"
             owned: str | None = digest
@@ -876,8 +1021,16 @@ class Installer:
                 reason = "modified since install" if owners else "not installed by b-agentic"
                 self.warn(f"kept the kernel block in {path} ({reason}); pass --force to replace it after a backup")
                 self.counts["kept"] += 1
+                diverged = True
                 new_text, owned = None, committed
-        return {"target": target, "text": new_text, "existed": existed, "sha256": owned, "created": created}
+        return {
+            "target": target,
+            "text": new_text,
+            "existed": existed,
+            "sha256": owned,
+            "created": created,
+            "diverged": diverged,
+        }
 
     def plan_settings(self, previous: dict[str, Any]) -> dict[str, Any]:
         path = self.claude_dir / "settings.json"
@@ -1242,11 +1395,14 @@ class Installer:
         }
         if self.statusline_only:
             final["scope"] = STATUSLINE_SCOPE
+        elif not self.dry_run:
+            final.update(installed_kit(self.source, "claude", self.kit_read, files, kernel))
         # Intent: keep the last committed ownership and list what this run may write as `pending`,
         # so an interruption leaves a manifest that recognizes both the old and the new state.
         old_pending = previous.get("pending", {})
         intent = json.loads(json.dumps(previous)) if previous else {"schema": MANIFEST_SCHEMA, "target": "claude"}
         intent.update({"claude_md_created": kernel["created"], "optional_components": dict(self.selection)})
+        drop_kit(intent)  # an interrupted run leaves a mix of two versions, so it claims neither
         if self.statusline_only:
             intent["scope"] = STATUSLINE_SCOPE
         else:
@@ -1367,6 +1523,11 @@ class Installer:
         if prepared is None:
             return
         removals, plans = prepared
+        if not self.dry_run:
+            # Before the first removal: a half-removed kit has no version.
+            manifest = self.read_manifest()
+            if drop_kit(manifest):
+                self.write_manifest(manifest)
         for plan, message in plans:
             if plan is None:
                 continue

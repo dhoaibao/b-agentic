@@ -37,7 +37,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-032](ADR-032-equal-runtimes-three-tier-support.md) for equal main-flow runtimes (Claude Code and Pi) and three-tier feature support, superseding ADR-030 in part, and
 [ADR-033](ADR-033-opt-in-vendor-tool-installs.md) for opt-in interactive `[y/N]` vendor tool installs after sync, superseding ADR-001 and ADR-030 in part, and
 [ADR-034](ADR-034-all-runtimes-install.md) for the `--runtime=all` installer across Claude Code and Pi, extending ADR-030, ADR-032, and ADR-033, and
-[ADR-035](ADR-035-local-run-stats.md) for a local, numbers-only store of finished run metrics, refining ADR-010 and ADR-024.
+[ADR-035](ADR-035-local-run-stats.md) for a local, numbers-only store of finished run metrics, refining ADR-010 and ADR-024, and
+[ADR-036](ADR-036-run-stats-kit-version.md) for recording in each run-stats line the kit version the run started on, superseding ADR-035 in part.
 
 ## Naming
 

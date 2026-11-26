@@ -56,6 +56,7 @@ import {
   freshState,
   isPlainDir,
   layout,
+  readKit,
   readLock,
   runsHint,
   saveState,
@@ -344,6 +345,11 @@ export async function cmdAdvance(root, dir, state, args) {
   if (["review", "qa"].includes(target) && state.phase === "verify")
     state.attempts.verify = 0;
   state.phase = target;
+  // The helpers that finish a run can differ from the ones that started it (ADR-036).
+  if (target === "done") {
+    const kit = readKit(state.runtime);
+    if (kit) state.kit = { ...state.kit, done: kit };
+  }
   saveState(dir, state, "advance", {
     trigger: target === "review" ? state.review.trigger : "",
     fingerprint,

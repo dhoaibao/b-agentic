@@ -1821,3 +1821,154 @@ runpath "$home" "$bun_dir:$nobun_path" -y; expect_ok "install with an unrecorded
 grep -Fq 'with node, which b-agentic no longer supports' <<<"$out$err" || fail "an unrecorded node hook must be reported: $out $err"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Chain")] | length' "$claude/settings.json")" = 1 ] || fail "the user's node hook entry must be kept"
 echo "install probe passed: bun-runtime"
+
+# --- the kit version: counted per runtime from git, all four fields or none (ADR-036) ----------------
+# A private git copy of the source; its commits stay inside the work folder.
+kit_git() { git -C "$kit_src" -c user.name=probe -c user.email=probe@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+kit_commit_change() { printf '\n' >>"$kit_src/$1"; kit_git add -A; kit_git commit -q -m "change $1"; }
+kit_fields() { jq -c '[.kit_seq, .kit_date, .kit_commit, .kit_dirty]' "$kit_manifest"; }
+kit_absent() { jq -e '[has("kit_seq", "kit_date", "kit_commit", "kit_dirty")] | any | not' "$kit_manifest" >/dev/null || fail "$1: no kit field may be recorded: $(cat "$kit_manifest")"; }
+kit_src="$work/kit-src"
+copy_source "$kit_src"
+git -C "$kit_src" init -q
+kit_git add -A
+kit_git commit -q -m base
+home=$(fresh_home kit)
+kit_manifest="$home/.claude/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install from a clean git copy"
+base_fields=$(kit_fields)
+jq -e --arg head "$(kit_git rev-parse HEAD)" '.kit_seq == 1 and .kit_commit == $head and .kit_dirty == false and (.kit_date | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))' "$kit_manifest" >/dev/null || fail "the clean copy's version: $base_fields"
+for other in REFERENCE.md pi/extensions/b-agentic/guard.mjs claude/configs/README.md; do
+  kit_commit_change "$other"
+  run_from "$home" "$kit_src" -y; expect_ok "install after a commit to $other"
+  [ "$(kit_fields)" = "$base_fields" ] || fail "a commit to $other must not change the Claude Code version: $(kit_fields)"
+done
+for own in claude/hooks/b-spec-context.mjs tooling/install/claude_install_ui.py; do
+  previous=$(jq .kit_seq "$kit_manifest")
+  kit_commit_change "$own"
+  run_from "$home" "$kit_src" -y; expect_ok "install after a commit to $own"
+  jq -e --arg head "$(kit_git rev-parse HEAD)" --argjson seq "$((previous + 1))" '.kit_seq == $seq and .kit_commit == $head and .kit_dirty == false' "$kit_manifest" >/dev/null || fail "a commit to $own must count once: $(kit_fields)"
+done
+clean_fields=$(kit_fields)
+printf '\n' >>"$kit_src/claude/hooks/b-spec-context.mjs"
+run_from "$home" "$kit_src" -y; expect_ok "install with an uncommitted runtime change"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "an uncommitted runtime change sets only kit_dirty: $(kit_fields)"
+kit_git checkout -q -- claude/hooks/b-spec-context.mjs
+printf '\n' >>"$kit_src/REFERENCE.md"
+run_from "$home" "$kit_src" -y; expect_ok "install with an uncommitted document change"
+[ "$(kit_fields)" = "$clean_fields" ] || fail "an uncommitted document change keeps the version clean: $(kit_fields)"
+kit_git checkout -q -- REFERENCE.md
+echo "install probe passed: kit-version"
+
+# Kept user content: the version is recorded, but never as clean.
+home=$(fresh_home kit-kept-file)
+kit_manifest="$home/.claude/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before editing a managed file"
+printf 'mine\n' >>"$home/.claude/skills/b-plan/SKILL.md"
+run_from "$home" "$kit_src" -y; expect_ok "install over an edited managed file"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "a kept file records a dirty version: $(kit_fields)"
+home=$(fresh_home kit-kept-block)
+kit_manifest="$home/.claude/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before editing the kernel block"
+sed 's/<!-- b-agentic:start -->/<!-- b-agentic:start -->\
+mine/' "$home/.claude/CLAUDE.md" >"$work/kit-claude.md" && cp "$work/kit-claude.md" "$home/.claude/CLAUDE.md"
+run_from "$home" "$kit_src" -y; expect_ok "install over an edited kernel block"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "a kept kernel block records a dirty version: $(kit_fields)"
+home=$(fresh_home kit-kept-retired-hook)
+kit_manifest="$home/.claude/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before retiring an edited hook"
+plant_old_hook "$home" Notify
+jq '(.hooks.PreToolUse[] | select(.matcher == "Notify") | .hooks[0]) += {timeout: 5}' "$home/.claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$home/.claude/settings.json"
+run_from "$home" "$kit_src" -y; expect_ok "upgrade over an edited retired hook"
+[ -f "$home/.claude/b-agentic/hooks/b-old-hook.mjs" ] || fail "the script the edited hook runs must stay"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "a retired hook that still runs records a dirty version: $(kit_fields)"
+jq 'del(.hooks.PreToolUse[] | select(.matcher == "Notify"))' "$home/.claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$home/.claude/settings.json"
+run_from "$home" "$kit_src" -y; expect_ok "upgrade after the edited hook entry was removed"
+[ "$(kit_fields)" = "$clean_fields" ] || fail "the version is clean again once the retired script is gone: $(kit_fields)"
+# The same for what the retired loop and the manifest do not cover: a link, and a hook script never recorded.
+for survivor in linked-hook unowned-hook linked-skill; do
+  home=$(fresh_home "kit-retired-$survivor")
+  kit_manifest="$home/.claude/b-agentic/install.json"
+  run_from "$home" "$kit_src" -y; expect_ok "install before leaving a $survivor"
+  printf 'mine\n' >"$home/mine"
+  if [ "$survivor" = linked-skill ]; then
+    mkdir -p "$home/.claude/skills/b-gone"
+    ln -s "$home/mine" "$home/.claude/skills/b-gone/SKILL.md"
+    jq '.files["skills/b-gone/SKILL.md"] = ("0" * 64)' "$kit_manifest" >"$work/m.json" && mv "$work/m.json" "$kit_manifest"
+  else
+    plant_old_hook "$home" Notify
+    if [ "$survivor" = linked-hook ]; then
+      rm "$home/.claude/b-agentic/hooks/b-old-hook.mjs"
+      ln -s "$home/mine" "$home/.claude/b-agentic/hooks/b-old-hook.mjs"
+    else
+      jq 'del(.files["b-agentic/hooks/b-old-hook.mjs"]) | del(.settings.hooks[] | select(.hook.command | contains("b-old-hook")))' "$kit_manifest" >"$work/m.json" && mv "$work/m.json" "$kit_manifest"
+    fi
+    jq '(.hooks.PreToolUse[] | select(.matcher == "Notify") | .hooks[0]) += {timeout: 5}' "$home/.claude/settings.json" >"$work/s.json" && mv "$work/s.json" "$home/.claude/settings.json"
+  fi
+  run_from "$home" "$kit_src" -y; expect_ok "upgrade over a $survivor"
+  [ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "a surviving $survivor records a dirty version: $(kit_fields)"
+done
+echo "install probe passed: kit-version-kept"
+
+# A source that changes while an install runs gives no version: the installed files may come from either state.
+kit_py() { # CODE [ARG]: Python with the source copy's installer loaded as c and the source as src.
+  python3 -I -B -c 'import json, sys
+from pathlib import Path
+src = Path(sys.argv[1])
+sys.path.insert(0, str(src / "tooling" / "install"))
+import claude_install as c
+exec(sys.argv[2])' "$kit_src" "$@"
+}
+kit_read=$(kit_py 'print(json.dumps(c.kit_version(src, "claude")))')
+kit_py 'read = json.loads(sys.argv[3]); assert read and c.installed_kit(src, "claude", read) == read' "$kit_read" || fail "an unchanged source keeps its version"
+kit_commit_change claude/hooks/b-spec-context.mjs
+kit_py 'assert c.installed_kit(src, "claude", json.loads(sys.argv[3])) == {}' "$kit_read" || fail "a source that moved to another commit during an install must give no version"
+clean_fields=$(kit_py 'k = c.kit_version(src, "claude"); print(json.dumps([k["kit_seq"], k["kit_date"], k["kit_commit"], k["kit_dirty"]], separators=(",", ":")))')
+echo "install probe passed: kit-version-source-change"
+
+# No version: nothing is guessed.
+git clone -q --depth 1 "file://$kit_src" "$work/kit-shallow"
+copy_source "$work/kit-plain"
+for source in kit-shallow kit-plain; do
+  home=$(fresh_home "$source-home")
+  kit_manifest="$home/.claude/b-agentic/install.json"
+  run_from "$home" "$work/$source" -y; expect_ok "install from $source"
+  kit_absent "$source"
+done
+home=$(fresh_home kit-statusline)
+kit_manifest="$home/.claude/b-agentic/install.json"
+run_from "$home" "$kit_src" --statusline-only -y; expect_ok "status-line-only install"
+kit_absent "a status-line-only install"
+home=$(fresh_home kit-modes)
+kit_manifest="$home/.claude/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before the dry run"
+before=$(tree "$home")
+kit_commit_change claude/hooks/b-spec-context.mjs
+run_from "$home" "$kit_src" --dry-run; expect_ok "dry run"
+[ "$before" = "$(tree "$home")" ] || fail "a dry run must change no file"
+run_from "$home" "$kit_src" --uninstall; expect_ok "uninstall"
+[ ! -e "$kit_manifest" ] || fail "an uninstall leaves no manifest"
+echo "install probe passed: kit-version-absent"
+
+if [ "$(id -u)" = 0 ]; then
+  echo "install probe skipped: kit-version-interrupted (root ignores directory modes)"
+else
+  for mode in update uninstall; do
+    home=$(fresh_home "kit-interrupted-$mode")
+    kit_manifest="$home/.claude/b-agentic/install.json"
+    run_from "$home" "$kit_src" -y; expect_ok "install before the interrupted $mode"
+    jq -e 'has("kit_commit")' "$kit_manifest" >/dev/null || fail "the version before the interrupted $mode"
+    chmod u-w "$home/.claude/skills/b-plan"
+    if [ "$mode" = update ]; then
+      kit_commit_change skills/b-plan/SKILL.md
+      run_from "$home" "$kit_src" -y
+    else
+      run_from "$home" "$kit_src" --uninstall
+    fi
+    chmod u+w "$home/.claude/skills/b-plan"
+    expect_refused "the interrupted $mode"
+    [ -f "$kit_manifest" ] || fail "an interrupted $mode keeps its manifest"
+    kit_absent "an interrupted $mode"
+  done
+  echo "install probe passed: kit-version-interrupted"
+fi

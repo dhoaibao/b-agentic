@@ -12,8 +12,8 @@ pi_dir='~/.pi/agent/b-agentic/bin'
 mode_of() { python3 -I -B -c 'import os, sys; print(format(os.stat(sys.argv[1]).st_mode & 0o777, "o"))' "$1"; }
 lines_of() { python3 -I -B -c 'import sys; print(open(sys.argv[1], "rb").read().count(b"\n"))' "$1"; }
 
-# finish_run REPO SLUG: a quick run through QA to done, then commit its change so the next run starts clean.
-finish_run() {
+# ready_run REPO SLUG: a quick run through QA, one step short of done.
+ready_run() {
   local repo=$1 slug=$2
   ok "$repo" s1 init "$slug"
   quick_spec a.txt no 1 | br "$repo" s1 write spec >/dev/null || fail "write spec ($repo)"
@@ -29,8 +29,12 @@ finish_run() {
   write_qa "$repo" 1 "QA PASS" pass
   ok "$repo" s1 record qa --verdict "QA PASS"
   ok "$repo" s1 record ac AC-1 pass
-  ok "$repo" s1 advance "done"
-  git -C "$repo" commit -qam "run $slug"
+}
+# finish_run REPO SLUG: ready_run to done, then commit its change so the next run starts clean.
+finish_run() {
+  ready_run "$@"
+  ok "$1" s1 advance "done"
+  git -C "$1" commit -qam "run $2"
 }
 # stats REPO ARGS...: the b-run stats command in REPO, with a time limit so a hang fails the shard.
 stats() {
@@ -576,6 +580,227 @@ stats "$repoT" | jq -e '.missing == 0 and .repo_lines == 1' >/dev/null \
 stats "$repoT" --record | jq -e '.appended == 0 and .already == 1' >/dev/null \
   || fail "catch-up must not append a duplicate line after history truncation"
 [ "$(lines_of "$stats_store")" = "$before" ] || fail "store line count must not grow after history truncation"
+
+# --- the kit version (ADR-036): read from install.json beside the running helpers, at init and at done ----------------
+# Two helper copies laid out like install homes, one per runtime; the stores stay under the throwaway HOME.
+kit_claude="$work/kit-claude/b-agentic"
+kit_pi="$work/kit-pi/b-agentic"
+for installed in "$kit_claude" "$kit_pi"; do
+  mkdir -p "$installed/bin" "$installed/references"
+  cp "$root"/claude/bin/*.mjs "$root/claude/bin/b_run.py" "$installed/bin/"
+  cp "$root/references/artifacts.yaml" "$installed/references/"
+done
+kit_a=$(printf '%040d' 0 | tr 0 a)
+kit_b=$(printf '%040d' 0 | tr 0 b)
+kit_c=$(printf '%040d' 0 | tr 0 c)
+# kit_json COMMIT DIRTY: the four fields, in key order.
+kit_json() { jq -cnS --arg commit "$1" --argjson dirty "$2" '{kit_seq: 7, kit_date: "2026-11-20", kit_commit: $commit, kit_dirty: $dirty}'; }
+# kit_set HOME TARGET COMMIT DIRTY: a valid install.json beside that copy's helpers.
+kit_set() {
+  rm -rf "$1/install.json"
+  kit_json "$3" "$4" | jq --arg target "$2" '. + {schema: 1, target: $target}' >"$1/install.json"
+}
+# kit_break HOME STATE: put install.json into a state that must give no kit version.
+kit_break() {
+  local file="$1/install.json"
+  kit_set "$1" claude "$kit_a" false
+  case $2 in
+    missing) rm -f "$file" ;;
+    unreadable) chmod 000 "$file" ;;
+    malformed) printf '{"target":' >"$file" ;;
+    not-an-object) printf 'null\n' >"$file" ;;
+    other-target) kit_set "$1" pi "$kit_a" false ;;
+    partial) jq 'del(.kit_date)' "$file" >"$1/next.json" && mv "$1/next.json" "$file" ;;
+    bad-value) jq '.kit_date = "2026-02-30"' "$file" >"$1/next.json" && mv "$1/next.json" "$file" ;;
+    symlink) mv "$file" "$1/linked.json" && ln -s linked.json "$file" ;;
+    oversized) python3 -I -B -c 'import json, sys; data = json.load(open(sys.argv[1])); data["pad"] = "x" * (1 << 20); json.dump(data, open(sys.argv[1], "w"))' "$file" ;;
+    directory) rm -f "$file" && mkdir "$file" ;;
+    fifo) rm -f "$file" && mkfifo "$file" ;;
+  esac
+}
+kit_states=(missing malformed not-an-object other-target partial bad-value symlink oversized directory fifo)
+# Root reads a mode-000 file, so that case means nothing for it.
+if [ "$(id -u)" != 0 ]; then kit_states+=(unreadable); fi
+# timed REPO ARGS...: the b-state CLI with a time limit, so a helper that waits on install.json fails the shard.
+timed() {
+  local repo=$1
+  shift
+  python3 -I -B - "$repo" "${js[@]}" "$cli" "$@" --owner s1 <<'PY'
+import subprocess
+import sys
+
+try:
+    done = subprocess.run(sys.argv[2:], cwd=sys.argv[1], timeout=30, stdin=subprocess.DEVNULL)
+except subprocess.TimeoutExpired:
+    print("b-state timed out", file=sys.stderr)
+    sys.exit(124)
+sys.exit(done.returncode)
+PY
+}
+# kit_line [STORE]: the kit fields of the store's last line.
+kit_line() { tail -n 1 "${1:-$stats_store}" | jq -cS '{kit_seq, kit_date, kit_commit, kit_dirty, kit_changed} | with_entries(select(.value != null))'; }
+active_state() { printf '%s/.b-agentic/runs/%s/state.json' "$1" "$(cat "$1/.b-agentic/active")"; }
+mv "$stats_store" "$work/pre-kit-store"
+
+# Capture on Claude Code, and each kit_changed case (AC-5).
+repoV="$work/repoV"
+make_repo "$repoV"
+kit_capture() { # SLUG INIT_COMMIT INIT_DIRTY DONE_COMMIT DONE_DIRTY CHANGED(true|false|none)
+  local cli="$kit_claude/bin/b-state.mjs" state expected
+  kit_set "$kit_claude" claude "$2" "$3"
+  ready_run "$repoV" "$1"
+  state=$(active_state "$repoV")
+  [ "$(jq -cS '.kit' "$state")" = "$(jq -cnS --argjson init "$(kit_json "$2" "$3")" '{init: $init}')" ] || fail "init must save the version ($1): $(jq -c .kit "$state")"
+  kit_set "$kit_claude" claude "$4" "$5"
+  ok "$repoV" s1 advance "done"
+  jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "the kit run must be recorded ($1): $out"
+  git -C "$repoV" commit -qam "run $1"
+  [ "$(jq -cS '.kit.done' "$state")" = "$(kit_json "$4" "$5")" ] || fail "done must save the version ($1): $(jq -c .kit "$state")"
+  expected=$(kit_json "$2" "$3")
+  if [ "$6" != none ]; then expected=$(jq -cS --argjson changed "$6" '. + {kit_changed: $changed}' <<<"$expected"); fi
+  [ "$(kit_line)" = "$expected" ] || fail "the line's kit fields ($1): $(kit_line), expected $expected"
+}
+kit_capture kit-same "$kit_a" false "$kit_a" false false
+kit_capture kit-moved "$kit_a" false "$kit_b" false true
+kit_capture kit-dirtied "$kit_a" false "$kit_a" true true
+kit_capture kit-cleaned "$kit_a" true "$kit_a" false true
+kit_capture kit-both-dirty "$kit_a" true "$kit_a" true none
+kit_capture kit-dirty-moved "$kit_a" true "$kit_b" true true
+[ "$(tail -n 1 "$stats_store" | wc -c | tr -d ' ')" -lt "$(jq .run_stats.max_line "$root/references/artifacts.yaml")" ] || fail "a line with the kit fields must stay under max_line"
+
+# A catch-up takes the version from state.json, never from what is installed now (AC-7).
+rm -f "$stats_store"
+kit_set "$kit_claude" claude "$kit_c" false
+(run_cli="$kit_claude/bin/b_run.py" && stats "$repoV" --record) | jq -e '.appended == 6' >/dev/null || fail "catch-up must record the six kit runs"
+jq -s -e --arg c "$kit_c" 'length == 6 and all(.kit_seq == 7 and .kit_commit != $c and (has("kit_changed") or .kit_dirty))' "$stats_store" >/dev/null \
+  || fail "catch-up must keep each run's own version: $(cat "$stats_store")"
+
+# An older artifacts.yaml kept beside newer helpers has no kit fields: the line is written without them.
+cp "$kit_claude/references/artifacts.yaml" "$work/kit-schema"
+jq 'del(.run_stats.fields.kit_seq, .run_stats.fields.kit_date, .run_stats.fields.kit_commit, .run_stats.fields.kit_dirty, .run_stats.fields.kit_changed)' \
+  "$work/kit-schema" >"$kit_claude/references/artifacts.yaml"
+rm -f "$stats_store"
+(run_cli="$kit_claude/bin/b_run.py" && stats "$repoV" --record) | jq -e '.appended == 6 and (.skipped | length) == 0' >/dev/null || fail "an older schema must not drop any run"
+jq -s -e 'length == 6 and all(keys | any(startswith("kit_")) | not)' "$stats_store" >/dev/null || fail "an older schema must get no kit field: $(cat "$stats_store")"
+cp "$work/kit-schema" "$kit_claude/references/artifacts.yaml"
+
+# Pi: the same capture under the Pi helper folder, from install.json beside the Pi helpers (AC-5).
+pi_kit_run() {
+  local cli="$kit_pi/bin/b-state.mjs"
+  make_repo "$work/repoVP"
+  kit_set "$kit_pi" pi "$kit_a" false
+  B_AGENTIC_HELPER_DIR="$pi_dir" ready_run "$work/repoVP" pi-kit
+  B_AGENTIC_HELPER_DIR="$pi_dir" ok "$work/repoVP" s1 advance "done"
+  jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "the Pi kit run must be recorded: $out"
+}
+pi_kit_run
+[ "$(kit_line "$pi_home/run-stats.jsonl")" = "$(kit_json "$kit_a" false | jq -cS '. + {kit_changed: false}')" ] || fail "the Pi line's kit fields: $(kit_line "$pi_home/run-stats.jsonl")"
+jq -e '.kit.init == .kit.done and .runtime == "pi"' "$(active_state "$work/repoVP")" >/dev/null || fail "the Pi run's state must hold both versions"
+
+# An install.json that gives no version never fails or stalls init (AC-6) ...
+repoI="$work/repoI"
+make_repo "$repoI"
+kit_init_cases() {
+  local cli="$kit_claude/bin/b-state.mjs" broken
+  for broken in "${kit_states[@]}"; do
+    kit_break "$kit_claude" "$broken"
+    timed "$repoI" init "init-$broken" --replace >/dev/null || fail "init must succeed with a $broken install.json"
+    jq -e '.phase == "clarify" and (has("kit") | not)' "$(active_state "$repoI")" >/dev/null || fail "a $broken install.json must give no version at init: $(jq -c .kit "$(active_state "$repoI")")"
+  done
+}
+kit_init_cases
+# ... or advance done: the run keeps its init version, and the line says nothing about a change.
+repoD="$work/repoD"
+make_repo "$repoD"
+kit_done_cases() {
+  local cli="$kit_claude/bin/b-state.mjs" broken state
+  kit_set "$kit_claude" claude "$kit_a" false
+  ready_run "$repoD" done-cases
+  state=$(active_state "$repoD")
+  cp -R "$repoD/.b-agentic" "$work/ready-run"
+  for broken in "${kit_states[@]}"; do
+    rm -rf "$repoD/.b-agentic" "$stats_store"
+    cp -R "$work/ready-run" "$repoD/.b-agentic"
+    kit_break "$kit_claude" "$broken"
+    out=$(timed "$repoD" advance "done") || fail "advance done must succeed with a $broken install.json: $out"
+    jq -e '.phase == "done" and .run_stats == "written"' <<<"$out" >/dev/null || fail "the run must finish and be recorded ($broken): $out"
+    jq -e '(.kit | has("done") | not) and (.kit | has("init"))' "$state" >/dev/null || fail "a $broken install.json must give no version at done: $(jq -c .kit "$state")"
+    [ "$(kit_line)" = "$(kit_json "$kit_a" false)" ] || fail "the line keeps only the init version ($broken): $(kit_line)"
+  done
+}
+kit_done_cases
+
+# A run that started without a version never takes one from done or from a later catch-up (AC-7).
+repoO="$work/repoO"
+make_repo "$repoO"
+kit_old_run() {
+  local cli="$kit_claude/bin/b-state.mjs"
+  kit_break "$kit_claude" missing
+  ready_run "$repoO" no-kit
+  kit_set "$kit_claude" claude "$kit_a" false
+  rm -f "$stats_store"
+  ok "$repoO" s1 advance "done"
+  jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "a run without a version must be recorded: $out"
+}
+kit_old_run
+state=$(active_state "$repoO")
+[ "$(jq -cS '.kit' "$state")" = "$(jq -cnS --argjson at_done "$(kit_json "$kit_a" false)" '{"done": $at_done}')" ] || fail "only the done version is saved: $(jq -c .kit "$state")"
+[ "$(kit_line)" = '{}' ] || fail "the line must not take the done version: $(kit_line)"
+kit_catch_up() { # WHAT: record repoO again from an empty store; the line has no kit field.
+  rm -f "$stats_store"
+  (run_cli="$kit_claude/bin/b_run.py" && stats "$repoO" --record) | jq -e '.appended == 1 and (.skipped | length) == 0' >/dev/null || fail "catch-up must record the run ($1)"
+  [ "$(kit_line)" = '{}' ] || fail "catch-up must add no kit field ($1): $(kit_line)"
+}
+kit_catch_up "done version only"
+jq 'del(.kit)' "$state" >"$tmp" && cp "$tmp" "$state"
+kit_catch_up "state from an earlier helper"
+# A malformed version in state.json is refused by b-state and left out of the line, never a skipped run.
+zero_seq='.kit = {init: {kit_seq: 0, kit_date: "2026-11-20", kit_commit: ("a" * 40), kit_dirty: false}}'
+for edit in '.kit = {init: {kit_seq: 7}}' "$zero_seq" '.kit = []' '.kit = {init: "x", done: null}'; do
+  jq "$edit" "$state" >"$tmp" && cp "$tmp" "$state"
+  invalid "$repoO" s1 show
+  kit_catch_up "$edit"
+done
+
+# The store check rejects each malformed kit value (AC-7).
+store_py "$stats_store" <<'PY' || fail "stats_check must reject malformed kit values"
+import json
+
+record = json.loads(open(store, "rb").readline())
+good = {"kit_seq": 7, "kit_date": "2026-11-20", "kit_commit": "a" * 40, "kit_dirty": False, "kit_changed": True}
+schema = b_run.load_schema()
+b_run.stats_check({**record, **good}, schema)
+b_run.stats_check(record, schema)
+bad = {
+    "kit_seq": ["7", -1, 0, True],
+    "kit_date": ["2026-02-30", "20261120", 20261120],
+    "kit_commit": ["a" * 39, "A" * 40, "/home/someone"],
+    "kit_dirty": [0, "false"],
+    "kit_changed": [1, "yes"],
+}
+for name, values in bad.items():
+    for value in values:
+        try:
+            b_run.stats_check({**record, **good, name: value}, schema)
+        except b_run.Invalid:
+            continue
+        raise AssertionError(f"{name}={value!r} was accepted")
+version = {name: good[name] for name in good if name != "kit_changed"}
+b_run.stats_check({**record, **version}, schema)
+partial = [{name: value for name, value in good.items() if name != dropped} for dropped in version]
+partial += [{name: good[name]} for name in good]
+for fields in partial:
+    try:
+        b_run.stats_check({**record, **fields}, schema)
+    except b_run.Invalid:
+        continue
+    raise AssertionError(f"an incomplete kit group was accepted: {sorted(fields)}")
+PY
+bad_line=$(tail -n 1 "$stats_store" | jq -c '. + {kit_commit: "not-a-commit"}')
+printf '%s\n' "$bad_line" >>"$stats_store"
+stats "$repoO" | jq -e '.stores.claude.malformed == 1 and .stores.claude.valid == 1' >/dev/null || fail "a line with a malformed kit value must be counted as malformed"
+rm -f "$stats_store"
+mv "$work/pre-kit-store" "$stats_store"
 
 # --- invalid use -------------------------------------------------------------------------------------------------------------------
 if stats "$repoS" --run "20260101-x" 2>/dev/null; then fail "--run without --record must be refused"; fi

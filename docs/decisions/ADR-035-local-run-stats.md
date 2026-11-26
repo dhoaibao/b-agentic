@@ -1,6 +1,8 @@
 # ADR-035: A local, numbers-only store of finished run metrics
 
 - Status: Accepted
+- Superseded in part by: [ADR-036](ADR-036-run-stats-kit-version.md) (the list of stored fields, and
+  the rule that a line never holds a commit id)
 - Date: 2026-11-25
 - Supersedes: none; refines [ADR-010](ADR-010-run-artifact-cli.md) (what a run records) and [ADR-024](ADR-024-prune-old-runs.md) (a pruned run keeps no summary)
 
@@ -56,7 +58,9 @@ decision does.
   the run date. Lines written before this rule hashed the repository key into the run key; a run
   counts as recorded when the store holds either key, and those lines are never rewritten. Never stored: request,
   summary, or follow-up text, `trigger`, `gate_reason`, branch, commands, paths, commit ids,
-  `repo_root`, or the run slug (free text the model writes). The writer checks each record
+  `repo_root`, or the run slug (free text the model writes). ([ADR-036](ADR-036-run-stats-kit-version.md)
+  adds the kit version fields, one of them the b-agentic kit's own source commit, the only commit id
+  the helpers put in a line.) The writer checks each record
   against the block, and the generator check refuses a `line` or `text` field there.
 - **Reading.** `b_run.py stats` is read-only and prints counts only: lines, valid and malformed
   lines, distinct repositories, this repository's key and lines, its finished runs not yet in the

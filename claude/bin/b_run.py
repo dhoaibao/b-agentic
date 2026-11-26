@@ -1955,6 +1955,21 @@ def _stats_object(fields: dict, value: object, path: str, schema: dict) -> None:
 def stats_check(record: dict, schema: dict) -> None:
     """Refuse any record that is not exactly the numbers the run_stats block allows (ADR-035)."""
     _stats_object(_stats_block(schema)["fields"], record, "", schema)
+    _kit_group(record)
+
+
+KIT_STATS = ("kit_seq", "kit_date", "kit_commit", "kit_dirty")
+
+
+def _kit_group(record: dict) -> None:
+    """The rule across the kit fields (ADR-036): all four or none, a real sequence, kit_changed only beside them."""
+    held = [name for name in KIT_STATS if name in record]
+    if held and len(held) != len(KIT_STATS):
+        raise Invalid("run_stats: the kit fields go all four or none")
+    if held and record["kit_seq"] < 1:
+        raise Invalid("run_stats.kit_seq: expected a positive number")
+    if "kit_changed" in record and not held:
+        raise Invalid("run_stats.kit_changed: needs the kit fields")
 
 
 def stats_repo_key(root: Path) -> str | None:
@@ -2041,6 +2056,44 @@ def _history_seconds(history: list) -> tuple[dict[str, int], int]:
     return per_phase, total
 
 
+def _kit_snapshot(value: object, schema: dict) -> dict | None:
+    """One kit version from state.json: all four fields valid, or nothing."""
+    if not isinstance(value, dict):
+        return None
+    block = _stats_block(schema)["fields"]
+    snapshot = {name: value.get(name) for name in KIT_STATS}
+    try:
+        for name in KIT_STATS:
+            _stats_value(block[name], snapshot[name], name, schema)
+        _kit_group(snapshot)
+    except Invalid:
+        return None
+    return snapshot
+
+
+def _kit_stats(state: dict, schema: dict) -> dict:
+    """The kit fields of a run's line (ADR-036): the version at init, and whether it changed by done.
+
+    Only state.json is read, so a catch-up never takes a version from what is installed now.
+    """
+    kit = state.get("kit")
+    # An install can keep an older, user-edited artifacts.yaml beside newer helpers: then the line is written
+    # without a version instead of being refused.
+    allowed = _stats_block(schema)["fields"]
+    if not isinstance(kit, dict) or any(name not in allowed for name in (*KIT_STATS, "kit_changed")):
+        return {}
+    init, done = _kit_snapshot(kit.get("init"), schema), _kit_snapshot(kit.get("done"), schema)
+    if init is None:
+        return {}
+    if done is not None:
+        if any(init[name] != done[name] for name in ("kit_commit", "kit_dirty")):
+            return {**init, "kit_changed": True}
+        # Two dirty trees at one commit may or may not differ, so that case says nothing.
+        if not init["kit_dirty"]:
+            return {**init, "kit_changed": False}
+    return init
+
+
 def stats_record(state: dict, artifacts: dict, repo_key: str, schema: dict) -> dict:
     """The numbers of one finished run, derived from state.json and artifacts.json only."""
     block = _stats_block(schema)["fields"]
@@ -2119,6 +2172,7 @@ def stats_record(state: dict, artifacts: dict, repo_key: str, schema: dict) -> d
         record["review"]["verdict"] = review["verdict"]
     if qa.get("verdict") in block["qa"]["fields"]["verdict"]["values"]:
         record["qa"]["verdict"] = qa["verdict"]
+    record.update(_kit_stats(state, schema))
     return record
 
 

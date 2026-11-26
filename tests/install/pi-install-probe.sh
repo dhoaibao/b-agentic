@@ -1028,4 +1028,138 @@ PY
 grep -Fq 'pi version check cancelled' <<<"$pi_sigint_out" || fail "R2-3 pi sigint warning missing: $pi_sigint_out"
 echo "install probe passed: vendor tools"
 
+# --- the kit version: counted per runtime from git, all four fields or none (ADR-036) ----------------
+# copy_source <dest>: a private copy of the tracked and untracked source tree.
+copy_source() {
+  mkdir -p "$1"
+  ( cd "$root" && git ls-files -co --exclude-standard -z | while IFS= read -r -d '' file; do if [[ -e "$file" || -L "$file" ]]; then printf '%s\0' "$file"; fi; done | tar --null -T - -cf - ) | tar -xf - -C "$1"
+}
+# run_from <home> <source> [args...]: like run, installing from another source tree.
+run_from() {
+  local home=$1 source=$2
+  shift 2
+  rc=0
+  out=$(env -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" bash "$source/install.sh" --runtime=pi "$@" 2>"$work/stderr") || rc=$?
+  err=$(cat "$work/stderr")
+}
+kit_git() { git -C "$kit_src" -c user.name=probe -c user.email=probe@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+kit_commit_change() { printf '\n' >>"$kit_src/$1"; kit_git add -A; kit_git commit -q -m "change $1"; }
+kit_fields() { jq -c '[.kit_seq, .kit_date, .kit_commit, .kit_dirty]' "$kit_manifest"; }
+kit_absent() { jq -e '[has("kit_seq", "kit_date", "kit_commit", "kit_dirty")] | any | not' "$kit_manifest" >/dev/null || fail "$1: no kit field may be recorded: $(cat "$kit_manifest")"; }
+kit_src="$work/kit-src"
+copy_source "$kit_src"
+git -C "$kit_src" init -q
+kit_git add -A
+kit_git commit -q -m base
+home=$(fresh_home kit)
+kit_manifest="$home/.pi/agent/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install from a clean git copy"
+base_fields=$(kit_fields)
+jq -e --arg head "$(kit_git rev-parse HEAD)" '.kit_seq == 1 and .kit_commit == $head and .kit_dirty == false and (.kit_date | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))' "$kit_manifest" >/dev/null || fail "the clean copy's version: $base_fields"
+for other in REFERENCE.md claude/configs/settings.template.json claude/agents/b-worker.md pi/README.md; do
+  kit_commit_change "$other"
+  run_from "$home" "$kit_src" -y; expect_ok "install after a commit to $other"
+  [ "$(kit_fields)" = "$base_fields" ] || fail "a commit to $other must not change the Pi version: $(kit_fields)"
+done
+for own in pi/extensions/b-agentic/guard.mjs references/runtimes.yaml; do
+  previous=$(jq .kit_seq "$kit_manifest")
+  kit_commit_change "$own"
+  run_from "$home" "$kit_src" -y; expect_ok "install after a commit to $own"
+  jq -e --arg head "$(kit_git rev-parse HEAD)" --argjson seq "$((previous + 1))" '.kit_seq == $seq and .kit_commit == $head and .kit_dirty == false' "$kit_manifest" >/dev/null || fail "a commit to $own must count once: $(kit_fields)"
+done
+clean_fields=$(kit_fields)
+printf '\n' >>"$kit_src/pi/extensions/b-agentic/guard.mjs"
+run_from "$home" "$kit_src" -y; expect_ok "install with an uncommitted runtime change"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "an uncommitted runtime change sets only kit_dirty: $(kit_fields)"
+kit_git checkout -q -- pi/extensions/b-agentic/guard.mjs
+printf '\n' >>"$kit_src/REFERENCE.md"
+run_from "$home" "$kit_src" -y; expect_ok "install with an uncommitted document change"
+[ "$(kit_fields)" = "$clean_fields" ] || fail "an uncommitted document change keeps the version clean: $(kit_fields)"
+kit_git checkout -q -- REFERENCE.md
+echo "install probe passed: kit-version"
+
+# Kept user content: the version is recorded, but never as clean.
+home=$(fresh_home kit-kept-file)
+kit_manifest="$home/.pi/agent/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before editing a managed file"
+printf 'mine\n' >>"$home/.pi/agent/skills/b-plan/SKILL.md"
+run_from "$home" "$kit_src" -y; expect_ok "install over an edited managed file"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "a kept file records a dirty version: $(kit_fields)"
+home=$(fresh_home kit-kept-block)
+kit_manifest="$home/.pi/agent/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before editing the kernel block"
+sed 's/<!-- b-agentic:start -->/<!-- b-agentic:start -->\
+mine/' "$home/.pi/agent/AGENTS.md" >"$work/kit-agents.md" && cp "$work/kit-agents.md" "$home/.pi/agent/AGENTS.md"
+run_from "$home" "$kit_src" -y; expect_ok "install over an edited kernel block"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "a kept kernel block records a dirty version: $(kit_fields)"
+home=$(fresh_home kit-retired-link)
+kit_manifest="$home/.pi/agent/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before leaving a retired link"
+printf 'mine\n' >"$home/mine"
+mkdir -p "$home/.pi/agent/skills/b-gone"
+ln -s "$home/mine" "$home/.pi/agent/skills/b-gone/SKILL.md"
+jq '.files["skills/b-gone/SKILL.md"] = ("0" * 64)' "$kit_manifest" >"$work/m.json" && mv "$work/m.json" "$kit_manifest"
+run_from "$home" "$kit_src" -y; expect_ok "upgrade over a retired link"
+[ "$(kit_fields)" = "$(jq -c '.[3] = true' <<<"$clean_fields")" ] || fail "a retired file left as a link records a dirty version: $(kit_fields)"
+echo "install probe passed: kit-version-kept"
+
+# A source that changes while an install runs gives no version: the installed files may come from either state.
+# The version probe of the fake pi runs after the installer first read the source.
+home=$(fresh_home kit-source-change)
+kit_manifest="$home/.pi/agent/b-agentic/install.json"
+export FAKE_PI_TOUCH="$kit_src/pi/extensions/b-agentic/probe-note.json"
+run_from "$home" "$kit_src" -y; expect_ok "install while the source changes"
+unset FAKE_PI_TOUCH
+[ -f "$kit_src/pi/extensions/b-agentic/probe-note.json" ] || fail "the version probe did not change the source"
+kit_absent "an install during which the source changed"
+rm "$kit_src/pi/extensions/b-agentic/probe-note.json"
+run_from "$home" "$kit_src" -y; expect_ok "install after the source is stable again"
+[ "$(kit_fields)" = "$clean_fields" ] || fail "a stable source records its version again: $(kit_fields)"
+echo "install probe passed: kit-version-source-change"
+
+# No version: nothing is guessed.
+git clone -q --depth 1 "file://$kit_src" "$work/kit-shallow"
+copy_source "$work/kit-plain"
+for source in kit-shallow kit-plain; do
+  home=$(fresh_home "$source-home")
+  kit_manifest="$home/.pi/agent/b-agentic/install.json"
+  run_from "$home" "$work/$source" -y; expect_ok "install from $source"
+  kit_absent "$source"
+done
+home=$(fresh_home kit-modes)
+kit_manifest="$home/.pi/agent/b-agentic/install.json"
+run_from "$home" "$kit_src" -y; expect_ok "install before the dry run"
+before=$(tree "$home")
+kit_commit_change pi/extensions/b-agentic/guard.mjs
+run_from "$home" "$kit_src" --dry-run; expect_ok "dry run"
+[ "$before" = "$(tree "$home")" ] || fail "a dry run must change no file"
+run_from "$home" "$kit_src" -y --uninstall; expect_ok "uninstall"
+[ ! -e "$kit_manifest" ] || fail "an uninstall leaves no manifest"
+echo "install probe passed: kit-version-absent"
+
+if [ "$(id -u)" = 0 ]; then
+  echo "install probe skipped: kit-version-interrupted (root ignores directory modes)"
+else
+  for mode in update uninstall; do
+    home=$(fresh_home "kit-interrupted-$mode")
+    kit_manifest="$home/.pi/agent/b-agentic/install.json"
+    run_from "$home" "$kit_src" -y; expect_ok "install before the interrupted $mode"
+    jq -e 'has("kit_commit")' "$kit_manifest" >/dev/null || fail "the version before the interrupted $mode"
+    chmod u-w "$home/.pi/agent/skills/b-plan"
+    if [ "$mode" = update ]; then
+      # The Pi render drops trailing blank lines, so this change adds text to the installed skill.
+      printf '\nKit probe line.\n' >>"$kit_src/skills/b-plan/prompt.md"
+      kit_commit_change skills/b-plan/prompt.md
+      run_from "$home" "$kit_src" -y
+    else
+      run_from "$home" "$kit_src" -y --uninstall
+    fi
+    chmod u+w "$home/.pi/agent/skills/b-plan"
+    expect_refused "the interrupted $mode"
+    [ -f "$kit_manifest" ] || fail "an interrupted $mode keeps its manifest"
+    kit_absent "an interrupted $mode"
+  done
+  echo "install probe passed: kit-version-interrupted"
+fi
+
 echo "pi install probe passed"

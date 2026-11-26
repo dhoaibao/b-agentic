@@ -229,6 +229,8 @@ class Installer:
         defer_guards: bool = False,
     ) -> None:
         self.source = source
+        # Sampled before the first source file is read: installed_kit records a version only when it still holds.
+        self.kit_read = {} if dry_run else base.kit_version(source, "pi")
         self.ui = ui or Ui(enabled=False)
         self.components = self.load_components()
         self.with_ids = with_ids or []
@@ -678,6 +680,7 @@ class Installer:
         removals: list[Path] = []
         committed = manifest.get("files", {})
         desired = self.payload()
+        diverged = False  # something user-owned stays in place of what this source ships
         for relative, data in desired.items():
             path = self.managed_path(relative)
             digest = sha256(data)
@@ -687,6 +690,7 @@ class Installer:
             if path.is_symlink():
                 self.warn(f"left user-owned symlink: {path}")
                 self.counts["kept"] += 1
+                diverged = True
                 if relative in committed:
                     recorded[relative] = committed[relative]
             elif not path.exists():
@@ -712,21 +716,26 @@ class Installer:
                     reason = "modified since install" if owners else "not installed by b-agentic"
                     self.warn(f"kept {path} ({reason}); pass --force to replace it after a backup")
                     self.counts["kept"] += 1
+                    diverged = True
                     if relative in committed:
                         recorded[relative] = committed[relative]
         for relative in merge_unique(list(committed), list(manifest.get("pending", {}).get("files", {}))):
             if relative in desired:
                 continue
             path = self.managed_path(relative)
-            if path.is_symlink() or not path.exists():
+            if path.is_symlink():
+                diverged = True  # a link left where a retired file was may still be loaded
+                continue
+            if not path.exists():
                 continue
             if sha256(path.read_bytes()) in self.file_owners(manifest, relative):
                 removals.append(path)
             else:
                 self.warn(f"kept retired file {path} (modified since install)")
+                diverged = True
                 if relative in committed:
                     recorded[relative] = committed[relative]
-        return {"recorded": recorded, "writes": writes, "removals": removals}
+        return {"recorded": recorded, "writes": writes, "removals": removals, "diverged": diverged}
 
     def require_executed_slot(self, path: Path, digest: str, owners: set[str]) -> None:
         """The wrappers, helpers, hooks, and extension run each other, so refuse, before anything is written, a
@@ -758,6 +767,7 @@ class Installer:
         committed = manifest.get("kernel_sha256")
         created = bool(manifest.get("created", {}).get("agents_md", False)) or not existed
         new_text: str | None
+        diverged = False
         if span is None:
             new_text = text.rstrip("\n") + "\n\n" + block + "\n" if text.strip() else block + "\n"
             owned: str | None = digest
@@ -771,8 +781,16 @@ class Installer:
                 reason = "modified since install" if owners else "not installed by b-agentic"
                 self.warn(f"kept the kernel block in {path} ({reason}); pass --force to replace it after a backup")
                 self.counts["kept"] += 1
+                diverged = True
                 new_text, owned = None, committed
-        return {"target": target, "text": new_text, "existed": existed, "sha256": owned, "created": created}
+        return {
+            "target": target,
+            "text": new_text,
+            "existed": existed,
+            "sha256": owned,
+            "created": created,
+            "diverged": diverged,
+        }
 
     def plan_settings(self, manifest: dict[str, Any]) -> dict[str, Any]:
         path = self.agent_dir / "settings.json"
@@ -1385,6 +1403,8 @@ class Installer:
             "subagent": subagent["recorded"],
             "optional_components": dict(self.selection),
         }
+        if not self.dry_run:
+            final.update(base.installed_kit(self.source, "pi", self.kit_read, files, kernel))
         # Intent: keep the last committed ownership and list what this run may write as `pending`, so an
         # interruption leaves a manifest that recognizes both the old and the new state.
         old_pending = previous.get("pending", {})
@@ -1398,6 +1418,7 @@ class Installer:
                 "optional_components": dict(self.selection),
             }
         )
+        base.drop_kit(intent)  # an interrupted run leaves a mix of two versions, so it claims neither
         intent.setdefault("kernel_sha256", None)
         intent.setdefault("files", {})
         intent.setdefault("permission", [])
@@ -1541,6 +1562,11 @@ class Installer:
         if prepared is None:
             return
         removals, plans = prepared
+        if not self.dry_run:
+            # Before the first removal: a half-removed kit has no version.
+            manifest = self.read_manifest()
+            if base.drop_kit(manifest):
+                self.write_manifest(manifest)
         for plan, message in plans:
             if plan is None:
                 continue
