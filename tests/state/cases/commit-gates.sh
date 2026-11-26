@@ -85,11 +85,15 @@ ok "$repo12" s1 advance review --trigger "workflow policy"
 [ "$(jq -r .attempts.verify "$(sfile "$repo12")")" = 0 ] || fail "entering review resets the verify attempts"
 
 # --- history is bounded, shown in part, and limited to the allowed facts --------------
-jq '.history = [range(0; 200) | {at: "t", rev: 0, op: "check", from: "verify", to: "verify", detail: {}}]' \
+started_before=$(jq -r .started_at "$(sfile "$repo12")")
+[ -n "$started_before" ] && [ "$started_before" != null ] || fail "repo12 must carry started_at before history cap"
+jq '.history = [.history[0]] + [range(0; 199) | {at: "t", rev: 0, op: "check", from: "verify", to: "verify", detail: {}}]' \
   "$(sfile "$repo12")" >"$tmp" && cp "$tmp" "$(sfile "$repo12")"
 ok "$repo12" s1 advance blocked --reason "probe stop" --needs "nothing"
 [ "$(jq -c '[(.history | length), .history_dropped, .history[-1].detail.reason]' "$(sfile "$repo12")")" = '[200,1,"probe stop"]' ] \
   || fail "history must stay capped and count what it dropped"
+[ "$(jq -r '.started_at == $s and .history[0].op != "init"' --arg s "$started_before" "$(sfile "$repo12")")" = true ] \
+  || fail "started_at must survive once the history cap drops the init entry"
 # A block that replaces another keeps its own reason: unblock later clears the state's copy.
 ok "$repo12" s1 advance blocked --reason "second stop" --needs "a decision"
 [ "$(jq -c '.history[-1] | [.from, .to, .detail.reason, .detail.needs]' "$(sfile "$repo12")")" = '["blocked","blocked","second stop","a decision"]' ] \

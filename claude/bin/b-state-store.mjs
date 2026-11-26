@@ -164,6 +164,28 @@ export async function resolveRun(root, args) {
   return { id, dir };
 }
 
+const ISO_TIMESTAMP =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+
+function isValidTimestamp(value) {
+  if (typeof value !== "string" || value.length > MAX_TEXT) return false;
+  const match = ISO_TIMESTAMP.exec(value);
+  if (!match) return false;
+  if (!Number.isFinite(Date.parse(value))) return false;
+  const [, year, month, day, hour, minute, second] = match.map(Number);
+  if (year < 1) return false;
+  const check = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  check.setUTCFullYear(year);
+  return (
+    check.getUTCFullYear() === year &&
+    check.getUTCMonth() === month - 1 &&
+    check.getUTCDate() === day &&
+    check.getUTCHours() === hour &&
+    check.getUTCMinutes() === minute &&
+    check.getUTCSeconds() === second
+  );
+}
+
 function validate(state) {
   const fail = (what) => {
     throw invalid(`invalid state: ${what}`);
@@ -261,6 +283,9 @@ function validate(state) {
   if (!SIZES.includes(state.size)) fail("size");
   if (state.runtime !== undefined && !RUNTIMES.includes(state.runtime))
     fail("runtime");
+  // Init timestamp, preserved separately once history passes MAX_HISTORY (ADR-035).
+  if (state.started_at !== undefined && !isValidTimestamp(state.started_at))
+    fail("started_at");
   const dirty = state.baseline.dirty;
   if (!isObj(dirty) || Object.keys(dirty).length > MAX_DIRTY)
     fail("baseline.dirty");
@@ -317,6 +342,14 @@ function validate(state) {
     !isInt(state.history_dropped)
   ) {
     fail("history");
+  }
+  if (
+    state.started_at !== undefined &&
+    state.history_dropped === 0 &&
+    state.history[0]?.op === "init" &&
+    state.started_at !== state.history[0].at
+  ) {
+    fail("started_at");
   }
   for (const entry of state.history) {
     if (
@@ -379,6 +412,17 @@ export function loadState(dir) {
       state.baseline.dirty ??= {};
     state.history ??= [];
     state.history_dropped ??= 0;
+    // Backfill only while history[0] is still the init entry; an already-truncated
+    // legacy run keeps no invented start time.
+    if (
+      state.started_at === undefined &&
+      state.history_dropped === 0 &&
+      Array.isArray(state.history) &&
+      state.history[0]?.op === "init" &&
+      isValidTimestamp(state.history[0].at)
+    ) {
+      state.started_at = state.history[0].at;
+    }
   }
   return validate(state);
 }
@@ -423,6 +467,7 @@ export function saveState(dir, state, op, detail = {}) {
 }
 
 export function freshState(runId, root, baseline) {
+  const initAt = now();
   return {
     schema: STATE_SCHEMA,
     rev: 0,
@@ -436,6 +481,7 @@ export function freshState(runId, root, baseline) {
     },
     size: "full",
     runtime: onPi() ? "pi" : "claude",
+    started_at: initAt,
     spec: { path: "spec.md", sha256: "", plan_sha256: "", approved_at: "" },
     consent: {
       commit: false,
@@ -464,10 +510,10 @@ export function freshState(runId, root, baseline) {
     steps: {},
     step_base: null,
     history: [
-      { at: now(), rev: 0, op: "init", from: "", to: "clarify", detail: {} },
+      { at: initAt, rev: 0, op: "init", from: "", to: "clarify", detail: {} },
     ],
     history_dropped: 0,
-    updated_at: now(),
+    updated_at: initAt,
   };
 }
 

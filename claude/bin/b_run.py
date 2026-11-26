@@ -78,6 +78,11 @@ def on_pi() -> bool:
 
 
 MAX_FILE = 1 << 20
+ISO_TIMESTAMP = re.compile(
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]{1,9})?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+    re.ASCII,
+)
 CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 # Raw HTML in a rendered artifact (an unterminated comment, a tag) could hide criteria from a reader.
 HTML_MARKUP = re.compile(r"<[A-Za-z!/?]")
@@ -1968,11 +1973,39 @@ def stats_repo_key(root: Path) -> str | None:
     return hashlib.sha256((STATS_SALT + "\n".join(roots)).encode()).hexdigest()[:16]
 
 
+def _is_valid_timestamp(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) <= 300
+        and bool(ISO_TIMESTAMP.fullmatch(value))
+        and _updated_at(value) is not None
+    )
+
+
+def _safe_key_text(value: object, what: str) -> str:
+    if not isinstance(value, str):
+        raise Invalid(f"invalid {what}")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise Invalid(f"invalid {what}") from exc
+    return value
+
+
 def _run_started(state: dict) -> str:
-    """When the run was initialised: two worktrees of one repository can finish same-day runs with one id."""
+    """When the run was initialised: uses started_at when validated, or the retained init entry's timestamp."""
     history = state.get("history")
     first = history[0] if isinstance(history, list) and history and isinstance(history[0], dict) else {}
-    return str(first.get("at", ""))
+    dropped = state.get("history_dropped")
+    if dropped is None:
+        dropped = 0
+    if dropped == 0 and first.get("op") == "init":
+        return _safe_key_text(first.get("at", ""), "history[0].at")
+    if "started_at" in state:
+        if not _is_valid_timestamp(state["started_at"]):
+            raise Invalid("invalid started_at")
+        return state["started_at"]
+    return _safe_key_text(first.get("at", ""), "history[0].at")
 
 
 def stats_run_key(state: dict) -> str:
@@ -2281,14 +2314,13 @@ def _finished_runs(root: Path) -> list[tuple[str, dict, Path]]:
 def _stats_report(root: Path, schema: dict) -> dict:
     block = _stats_block(schema)
     repo_key = stats_repo_key(root)
-    keys = (
-        {
-            run_id: (stats_run_key(state), stats_legacy_run_key(repo_key, state))
-            for run_id, state, _ in _finished_runs(root)
-        }
-        if repo_key
-        else {}
-    )
+    keys: dict[str, tuple[str, str]] = {}
+    if repo_key:
+        for run_id, state, _ in _finished_runs(root):
+            try:
+                keys[run_id] = (stats_run_key(state), stats_legacy_run_key(repo_key, state))
+            except (Invalid, Refused, KeyError, TypeError, ValueError):
+                continue
     recorded: set[str] = set()
     # Rows of this repository stay counted after prune removed the run folder that produced them.
     mine: set[str] = set()
@@ -2371,13 +2403,14 @@ def cmd_stats(schema: dict, args: dict) -> dict:
         try:
             record = stats_record(state, load_artifacts(folder), repo_key, schema)
             stats_check(record, schema)
+            legacy_key = stats_legacy_run_key(repo_key, state)
             line = (json.dumps(record, separators=(",", ":")) + "\n").encode()
             if len(line) > block["max_line"]:
                 raise Invalid("line too long")
         except (Invalid, Refused, KeyError, TypeError, ValueError):
             out["skipped"]["bad-record"] = out["skipped"].get("bad-record", 0) + 1
             continue
-        result = stats_append(runtime, block, record, line, stats_legacy_run_key(repo_key, state))
+        result = stats_append(runtime, block, record, line, legacy_key)
         if result["created"]:
             out["created"] = True
         if result["status"] == "written":

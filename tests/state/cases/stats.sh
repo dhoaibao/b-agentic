@@ -466,6 +466,117 @@ per_phase, total = b_run._history_seconds(history)
 assert per_phase == {"clarify": 10, "approved": 60} and total == 70, (per_phase, total)
 PY
 
+# --- started_at keeps stats_run_key stable when history truncation drops the init entry -------------------------------
+python3 -I -B - "$run_cli" <<'PY' || fail "_run_started must prefer started_at and keep untruncated keys identical"
+import importlib.util
+import sys
+
+spec = importlib.util.spec_from_file_location("b_run", sys.argv[1])
+b_run = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(b_run)
+
+base = {"run_id": "20261126-demo", "history": [{"at": "2026-11-26T00:00:00.000Z", "op": "init"}]}
+with_started = {**base, "started_at": "2026-11-26T00:00:00.000Z"}
+assert b_run._run_started(with_started) == "2026-11-26T00:00:00.000Z"
+assert b_run._run_started(base) == "2026-11-26T00:00:00.000Z"
+assert b_run.stats_run_key(with_started) == b_run.stats_run_key(base)
+assert b_run.stats_legacy_run_key("0" * 16, with_started) == b_run.stats_legacy_run_key("0" * 16, base)
+truncated = {
+    "run_id": "20261126-demo",
+    "started_at": "2026-11-26T00:00:00.000Z",
+    "history": [{"at": "2026-11-26T00:05:00.000Z", "op": "check"}],
+}
+assert b_run._run_started(truncated) == "2026-11-26T00:00:00.000Z"
+assert b_run.stats_run_key(truncated) == b_run.stats_run_key(base)
+for bad in ("not-a-date", "\ud800", "2026-11-26T00:00:00.001Z"):
+    retained_conflict = {**base, "started_at": bad}
+    assert b_run._run_started(retained_conflict) == "2026-11-26T00:00:00.000Z"
+    assert b_run.stats_run_key(retained_conflict) == b_run.stats_run_key(base)
+    assert b_run.stats_legacy_run_key("0" * 16, retained_conflict) == b_run.stats_legacy_run_key("0" * 16, base)
+non_iso_init = {"run_id": "20261126-demo", "history_dropped": 0, "history": [{"at": "t", "op": "init"}]}
+assert b_run._run_started({**non_iso_init, "started_at": "2026-11-26T00:00:00.001Z"}) == "t"
+assert b_run.stats_run_key({**non_iso_init, "started_at": "2026-11-26T00:00:00.001Z"}) == b_run.stats_run_key(non_iso_init)
+assert b_run.stats_legacy_run_key("0" * 16, {**non_iso_init, "started_at": "2026-11-26T00:00:00.001Z"}) == b_run.stats_legacy_run_key("0" * 16, non_iso_init)
+assert b_run._is_valid_timestamp("0099-01-01T00:00:00Z") and not b_run._is_valid_timestamp("0000-01-01T00:00:00Z")
+assert not b_run._is_valid_timestamp("2026-11-26T00:00:00.000000\u0661Z")
+null_dropped_conflict = {**base, "history_dropped": None, "started_at": "2026-11-26T00:00:00.001Z"}
+assert b_run._run_started(null_dropped_conflict) == "2026-11-26T00:00:00.000Z"
+assert b_run.stats_run_key(null_dropped_conflict) == b_run.stats_run_key(base)
+assert b_run.stats_legacy_run_key("0" * 16, null_dropped_conflict) == b_run.stats_legacy_run_key("0" * 16, base)
+for bad in ("not-a-date", "\ud800", "", None, "2026-11-26T00:00:00.000000\u0661Z"):
+    truncated_bad = {**truncated, "history_dropped": 1, "started_at": bad}
+    try:
+        b_run.stats_run_key(truncated_bad)
+    except b_run.Invalid:
+        pass
+    else:
+        raise AssertionError(f"invalid truncated started_at {bad!r} must raise Invalid")
+PY
+
+repoT="$work/repoT"
+make_repo "$repoT"
+finish_run "$repoT" trunc
+jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "finish_run for repoT must write its line: $out"
+before=$(lines_of "$stats_store")
+tmp=$(mktemp -p "$work")
+# Retained init with invalid or conflicting started_at still preserves the known init key and never aborts or duplicates.
+cp "$(sfile "$repoT")" "$work/repoT-clean.json"
+for bad_val in '"not-a-date"' '"2026-11-26T00:00:00.001Z"'; do
+  jq ".started_at = $bad_val" "$work/repoT-clean.json" >"$tmp" && cp "$tmp" "$(sfile "$repoT")"
+  stats "$repoT" | jq -e '.missing == 0 and .repo_lines == 1' >/dev/null \
+    || fail "retained init with $bad_val started_at must keep matching the recorded key"
+  stats "$repoT" --record | jq -e '.appended == 0 and .already == 1' >/dev/null \
+    || fail "stats --record with retained init and $bad_val started_at must not append a replacement line"
+done
+python3 -I -B - "$work/repoT-clean.json" "$(sfile "$repoT")" <<'PY'
+import json, sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+data["started_at"] = "__SURROGATE__"
+with open(sys.argv[2], "w", encoding="utf-8") as fh:
+    fh.write(json.dumps(data).replace('"__SURROGATE__"', '"\\ud800"'))
+PY
+stats "$repoT" | jq -e '.missing == 0 and .repo_lines == 1' >/dev/null \
+  || fail "retained init with surrogate started_at must not abort stats report"
+stats "$repoT" --record | jq -e '.appended == 0 and .already == 1' >/dev/null \
+  || fail "stats --record with retained init and surrogate started_at must not append"
+# Retained init with explicit history_dropped: null and conflicting started_at still preserves the known init key.
+jq '.history_dropped = null | .started_at = "2026-11-26T00:00:00.001Z"' "$work/repoT-clean.json" >"$tmp" && cp "$tmp" "$(sfile "$repoT")"
+stats "$repoT" | jq -e '.missing == 0 and .repo_lines == 1' >/dev/null \
+  || fail "retained init with null history_dropped must keep matching the recorded key"
+stats "$repoT" --record | jq -e '.appended == 0 and .already == 1' >/dev/null \
+  || fail "stats --record with retained init and null history_dropped must not append"
+# Truncated history with invalid, null, non-ASCII digit, or surrogate started_at must not abort report or append a replacement key.
+for bad_trunc in '"not-a-date"' 'null' '"2026-11-26T00:00:00.000000\u0661Z"'; do
+  jq ".history = .history[1:] | .history_dropped = 1 | .started_at = $bad_trunc" "$work/repoT-clean.json" >"$tmp" && cp "$tmp" "$(sfile "$repoT")"
+  stats "$repoT" | jq -e '.ok == true and .finished_runs == 0' >/dev/null || fail "truncated $bad_trunc started_at must not abort stats report"
+  stats "$repoT" --record | jq -e '.appended == 0 and .skipped["bad-record"] == 1' >/dev/null \
+    || fail "truncated $bad_trunc started_at must be skipped as bad-record"
+done
+python3 -I -B - "$work/repoT-clean.json" "$(sfile "$repoT")" <<'PY'
+import json, sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+data["history"] = data["history"][1:]
+data["history_dropped"] = 1
+data["started_at"] = "__SURROGATE__"
+with open(sys.argv[2], "w", encoding="utf-8") as fh:
+    fh.write(json.dumps(data).replace('"__SURROGATE__"', '"\\ud800"'))
+PY
+stats "$repoT" | jq -e '.ok == true and .finished_runs == 0' >/dev/null || fail "truncated surrogate started_at must not abort stats report"
+stats "$repoT" --record | jq -e '.appended == 0 and .skipped["bad-record"] == 1' >/dev/null \
+  || fail "truncated surrogate started_at must be skipped as bad-record"
+# Truncated history with valid started_at stays matched and never duplicates.
+jq '.history = .history[1:] | .history_dropped = 1' "$work/repoT-clean.json" >"$tmp" && cp "$tmp" "$(sfile "$repoT")"
+[ "$(jq -r '.started_at != .history[0].at' "$(sfile "$repoT")")" = true ] || fail "dropped init entry must leave a later history[0].at"
+stats "$repoT" | jq -e '.missing == 0 and .repo_lines == 1' >/dev/null \
+  || fail "a recorded run whose init entry was truncated must stay matched"
+stats "$repoT" --record | jq -e '.appended == 0 and .already == 1' >/dev/null \
+  || fail "catch-up must not append a duplicate line after history truncation"
+[ "$(lines_of "$stats_store")" = "$before" ] || fail "store line count must not grow after history truncation"
+
 # --- invalid use -------------------------------------------------------------------------------------------------------------------
 if stats "$repoS" --run "20260101-x" 2>/dev/null; then fail "--run without --record must be refused"; fi
 if stats "$repoS" --apply 2>/dev/null; then fail "stats must refuse --apply"; fi

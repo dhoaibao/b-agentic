@@ -22,6 +22,47 @@ jq '.runtime = "vim"' "$(sfile "$repoRT")" >"$tmp" && cp "$tmp" "$(sfile "$repoR
 invalid "$repoRT" s1 show
 grep -Fq 'invalid state: runtime' "$work/err" || fail "an unknown runtime must be named: $(cat "$work/err")"
 
+# --- started_at: set at init, backfilled while init stays in history, optional if already truncated ------------
+[ "$(jq -r '(.started_at | type == "string" and length > 0) and .started_at == .history[0].at' "$(sfile "$repo")")" = true ] \
+  || fail "init must record started_at equal to history[0].at"
+repoSA="$work/repoSA"
+make_repo "$repoSA"
+ok "$repoSA" s1 init sa
+init_at=$(jq -r '.history[0].at' "$(sfile "$repoSA")")
+jq 'del(.started_at)' "$(sfile "$repoSA")" >"$tmp" && cp "$tmp" "$(sfile "$repoSA")"
+ok "$repoSA" s1 advance blocked --reason "backfill" --needs "nothing"
+[ "$(jq -r .started_at "$(sfile "$repoSA")")" = "$init_at" ] \
+  || fail "a write to an untruncated legacy run must backfill started_at from history[0].at"
+jq 'del(.started_at) | .history_dropped = 1' "$(sfile "$repoSA")" >"$tmp" && cp "$tmp" "$(sfile "$repoSA")"
+ok "$repoSA" s1 show
+[ "$(jq -r '.started_at // "absent"' <<<"$out")" = absent ] \
+  || fail "a truncated legacy run must load without an invented started_at: $out"
+for bad_sa in '5' 'null' '""' '"not-a-date"' '"2026-02-31T00:00:00.000Z"' '"0000-01-01T00:00:00Z"' '"2026-11-26T00:00:00.000000\u0661Z"'; do
+  jq ".started_at = $bad_sa" "$(sfile "$repoSA")" >"$tmp" && cp "$tmp" "$(sfile "$repoSA")"
+  invalid "$repoSA" s1 show
+  grep -Fq 'invalid state: started_at' "$work/err" || fail "an invalid started_at ($bad_sa) must be named: $(cat "$work/err")"
+done
+# Years 0001-0099 are valid ISO timestamps in both JS and Python validators.
+jq '.history_dropped = 1 | .started_at = "0099-01-01T00:00:00Z"' "$(sfile "$repoSA")" >"$tmp" && cp "$tmp" "$(sfile "$repoSA")"
+ok "$repoSA" s1 show
+# Unpaired surrogate and conflicting timestamp vs retained init entry must both be refused.
+cp "$(sfile "$repoSA")" "$work/repoSA-clean.json"
+python3 -I -B - "$work/repoSA-clean.json" "$(sfile "$repoSA")" <<'PY'
+import json, sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    data = json.load(fh)
+data["history_dropped"] = 0
+data["started_at"] = "__SURROGATE__"
+with open(sys.argv[2], "w", encoding="utf-8") as fh:
+    fh.write(json.dumps(data).replace('"__SURROGATE__"', '"\\ud800"'))
+PY
+invalid "$repoSA" s1 show
+grep -Fq 'invalid state: started_at' "$work/err" || fail "an unpaired surrogate started_at must be named: $(cat "$work/err")"
+jq '.history_dropped = 0 | .started_at = "2000-01-01T00:00:00.000Z"' "$work/repoSA-clean.json" >"$tmp" && cp "$tmp" "$(sfile "$repoSA")"
+invalid "$repoSA" s1 show
+grep -Fq 'invalid state: started_at' "$work/err" || fail "a conflicting started_at must be named: $(cat "$work/err")"
+
 # --- help, command names and the cwd refusal answer before any repository, run, or lock work (ADR-029)
 nogit="$work/nogit"
 mkdir -p "$nogit"
