@@ -4,20 +4,27 @@
 # Exit contract: 0 done, 3 refused or not ok, 2 invalid input or state.
 #
 # Each file in cases/ is an independent shard with its own work folder and repositories
-# (shared helpers live in lib.sh). With no argument every shard runs at the same time and a
-# failed shard's log is printed; `state-probe.sh <case>` runs one shard in the foreground.
+# (shared helpers live in lib.sh). With no argument every shard runs, at most STATE_PROBE_JOBS
+# (default 4) at the same time, and a failed shard's log is printed; `state-probe.sh <case>` runs
+# one shard in the foreground.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck disable=SC2034 # cli and the other variables are used by the files this script sources.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-cases=(core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi stats budget)
+# stats is by far the longest shard, so it starts first: started late, it would stretch the whole run.
+cases=(stats core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi budget)
 
 if [ "$#" -eq 0 ]; then
+  jobs_cap=${STATE_PROBE_JOBS:-4}
+  [[ "$jobs_cap" =~ ^[1-9][0-9]*$ ]] || { echo "STATE_PROBE_JOBS must be a positive integer: $jobs_cap" >&2; exit 2; }
   logs=$(mktemp -d)
   trap 'rm -rf "$logs"' EXIT
   pids=()
   for name in "${cases[@]}"; do
+    # Polled because macOS bash 3.2 has no `wait -n`. Shards stay direct children, so the
+    # `pkill -P` of an aborted validation run still reaches them.
+    while [ "$(jobs -rp | wc -l)" -ge "$jobs_cap" ]; do sleep 0.2; done
     bash "${BASH_SOURCE[0]}" "$name" >"$logs/$name.log" 2>&1 &
     pids+=($!)
   done
