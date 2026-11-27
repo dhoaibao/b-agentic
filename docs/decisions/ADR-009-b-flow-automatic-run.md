@@ -123,4 +123,5 @@ Evidence: [`references/kernel.template.md`](../../references/kernel.template.md)
 [`skills/b-commit/prompt.md`](../../skills/b-commit/prompt.md),
 [`skills/b-qa/prompt.md`](../../skills/b-qa/prompt.md),
 [`claude/bin/b-candidate-snapshot.mjs`](../../claude/bin/b-candidate-snapshot.mjs),
-[`claude/hooks/b-spec-context.mjs`](../../claude/hooks/b-spec-context.mjs).
+[`claude/hooks/b-spec-context.mjs`](../../claude/hooks/b-spec-context.mjs),
+[`claude/hooks/b-run-context.mjs`](../../claude/hooks/b-run-context.mjs).

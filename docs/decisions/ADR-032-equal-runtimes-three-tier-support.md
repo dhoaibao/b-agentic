@@ -25,9 +25,9 @@ Claude Code stays the default runtime installed by `./install.sh`, and formalize
 - **Three-tier feature model:** every `b-agentic` capability and feature is classified into one of three tiers:
   - `shared` (Tier 1): supported completely across both runtimes from the same canonical sources, schemas, and helpers
     (for example, `skills/*/prompt.md`, `references/artifacts.yaml`, `references/mcp_operations.yaml`, `claude/bin/b-state*.mjs`,
-    `claude/bin/b_run.py`, `claude/bin/b-candidate-snapshot.mjs`, shared hook logic in `claude/hooks/`, the nine
+    `claude/bin/b_run.py`, `claude/bin/b-candidate-snapshot.mjs`, shared hook logic in `claude/hooks/`, the ten
     templated `mcp.*` servers rendered from `claude/configs/mcp.base.json`, and the shared `mcp_operations.yaml` policy
-    covering all ten `mcp.*` capabilities including IDE-managed `mcp.datagrip`).
+    covering all eleven `mcp.*` capabilities including IDE-managed `mcp.datagrip`).
   - `adapted` (Tier 2): features requiring runtime-specific mechanics or adapters to serve the same goal and shared
     contracts (for example, `references/runtimes.yaml` vocabulary and glossary, `pi/extensions/b-agentic/guard.mjs`,
     `pi/bin/*` wrappers, `tooling/install/pi_install.py` vs `tooling/install/claude_install.py`, `agent.b-agentic-subagents`
@@ -84,7 +84,7 @@ Evidence: [`references/capabilities.yaml`](../../references/capabilities.yaml),
   semantics when Pi has no Codex plugin.
 - Dropping `plugin.codex-review` from the `tier` field requirement: leaves an unclassified capability in
   `references/capabilities.yaml`.
-- Marking `mcp.*` capabilities as `adapted`: the nine bundled MCP servers render identically from
+- Marking `mcp.*` capabilities as `adapted`: the ten bundled MCP servers render identically from
   `claude/configs/mcp.base.json` with shared tool names and `mcp_operations.yaml` policy (while `mcp.datagrip` is
   IDE-managed and user-configured on both runtimes under the same shared policy); only installer delivery differs.
 - Rewriting `--runtime=pi` install-flag descriptions to avoid the word "opt-in" everywhere: `--runtime=pi` remains an

@@ -272,12 +272,23 @@ pointer. Per the Claude Code hooks reference (v2.1.322), `SessionStart` output o
 `compact` is added to the context, but issue #15174 reported otherwise, so a
 live check after `/compact` stays a manual acceptance step.
 
+The `b-run-context` hook points a new or compacted session at the active
+`b-flow` run ([ADR-009](ADR-009-b-flow-automatic-run.md)): a `SessionStart`
+hook matched on `startup|resume|clear|compact` prints one line with the
+validated run id, its phase, and its folder, as a pointer that only an explicit
+`/b-flow resume` acts on. It reads the state as untrusted input without
+following symlinks, never writes, sets no `onFailure`, and exits 0 with no
+output on an error or when there is no unfinished run. Per its source note,
+Claude Code can drop this context for `startup` and `fork` sources, so the
+pointer is best effort and the run files stay the record.
+
 Evidence: [`tooling/generate/registry_sync.py`](../../tooling/generate/registry_sync.py),
 [`claude/hooks/b-codex-guard.mjs`](../../claude/hooks/b-codex-guard.mjs) (removed by
 [ADR-003](ADR-003-subagent-review-gate.md), restored as a Bash tripwire by
 [ADR-007](ADR-007-codex-first-review-gate.md)),
 [`claude/hooks/b-verify-gate.mjs`](../../claude/hooks/b-verify-gate.mjs),
 [`claude/hooks/b-spec-context.mjs`](../../claude/hooks/b-spec-context.mjs),
+[`claude/hooks/b-run-context.mjs`](../../claude/hooks/b-run-context.mjs),
 [`claude/hooks/b-path-guard.mjs`](../../claude/hooks/b-path-guard.mjs),
 [`claude/hooks/b-alexandria-guard.mjs`](../../claude/hooks/b-alexandria-guard.mjs) (a fail-closed
 `PreToolUse` hook that asks when the auto-allowed `firecrawl_scrape` carries an `alexandria` argument, which
@@ -290,9 +301,9 @@ the ClickUp guard (removed by [ADR-006](ADR-006-retire-clickup-integration.md)),
 The ClickUp integration and related safety-hook decision in this section were
 superseded by [ADR-006](ADR-006-retire-clickup-integration.md).
 
-Nine base servers are configured in Claude Code's standard `mcpServers` shape:
-six are always installed, and the optional draw.io, Excalidraw, and Notion
-servers are added only after install opt-in. `references/mcp_operations.yaml`
+Ten base servers are configured in Claude Code's standard `mcpServers` shape:
+six are always installed, and the optional draw.io, Excalidraw, Notion, and
+TablePro servers are added only after install opt-in. `references/mcp_operations.yaml`
 classifies every known tool, and each class maps to an allow or ask rule on
 `mcp__<server>__<tool>`; unclassified tools keep Claude Code's approval prompt.
 The retired adapter's lazy and search-exposed modes are gone. The design does not
