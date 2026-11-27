@@ -55,6 +55,7 @@ Only when the user asks agents to talk to each other; peers are independent sess
 - Formal or editable draw.io diagram (cloud/network icons, ER/UML, sequence, .drawio files) -> `b-drawio`.
 - Implement approved or clearly scoped non-UI work (general fallback) -> `b-implement`.
 - Inspect or query DataGrip-configured databases through the DataGrip MCP -> `b-datagrip`.
+- Inspect or query TablePro DBs -> `b-tablepro`.
 - Initialize repo-local agent instruction files -> `b-init`.
 - Mechanical rename, extract, move, inline, simplify, delete dead code -> `b-refactor`.
 - Runtime bug, error, "not working" -> `b-debug`.

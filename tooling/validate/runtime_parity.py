@@ -127,6 +127,61 @@ SCENARIOS = (
         "b-datagrip",
         "Never run a write on a remote or production-like connection without a confirmation that names that connection",
     ),
+    (
+        "TablePro remote write confirmation",
+        "b-tablepro",
+        "Never run a write on a remote or production-like connection without a confirmation that names that connection",
+    ),
+    (
+        "TablePro write request",
+        "b-tablepro",
+        "Run a write only when the user explicitly asks for it and names the connection and intent",
+    ),
+    (
+        "TablePro export confirmation",
+        "b-tablepro",
+        "naming the whole target, tables, format, and per-table row limit",
+    ),
+    (
+        "TablePro stays on the connection's own database",
+        "b-tablepro",
+        "Read rows, export, and run SQL only on the connection's own database",
+    ),
+    (
+        "TablePro confirmation names the target",
+        "b-tablepro",
+        "Every confirmation before a row read, export, or write names the whole target",
+    ),
+    (
+        "TablePro approval is bound to the target",
+        "b-tablepro",
+        "Ask again when any part of the target changes, the schema included",
+    ),
+    (
+        "TablePro qualifies every schema-scoped object",
+        "b-tablepro",
+        "qualify in its SQL every object it names that is not built into the engine",
+    ),
+    (
+        "TablePro remote read is confirmed per target",
+        "b-tablepro",
+        "Before the first row read or SQL statement on each target of a connection that is not local",
+    ),
+    (
+        "TablePro loopback is not proof of locality",
+        "b-tablepro",
+        "A loopback address alone does not make a database local",
+    ),
+    (
+        "TablePro unconfirmed call does not run",
+        "b-tablepro",
+        "declined, unanswered, or cannot be asked means the call does not happen",
+    ),
+    (
+        "TablePro refusal is final",
+        "b-tablepro",
+        "do not retry it, reword the statement to get around it, or switch tools to reach the same effect",
+    ),
 )
 
 

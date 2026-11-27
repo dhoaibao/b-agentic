@@ -35,7 +35,7 @@ Superseded in part by [ADR-006](ADR-006-retire-clickup-integration.md): the
 ClickUp MCP server, skill, and `b-clickup-guard` hook described below are
 history; they were removed.
 
-OpenCode was replaced by Codex in [ADR-004](ADR-004-codex-runtime.md), restored in [ADR-005](ADR-005-opencode-restored.md), and removed again in [ADR-008](ADR-008-claude-code-only.md), which also retired the TablePro component.
+OpenCode was replaced by Codex in [ADR-004](ADR-004-codex-runtime.md), restored in [ADR-005](ADR-005-opencode-restored.md), and removed again in [ADR-008](ADR-008-claude-code-only.md), which also retired the TablePro component; [ADR-041](ADR-041-tablepro-optional-component.md) restored TablePro.
 
 Superseded in part by [ADR-003](ADR-003-subagent-review-gate.md), and
 [ADR-007](ADR-007-codex-first-review-gate.md) then restored the Codex gate on Claude
@@ -342,7 +342,7 @@ unusual spelling can escape it, and it fails open on malformed input. That a hoo
 `ask` overrides the `allow` rule was not exercised live, and the `b-clickup`
 prompt rule against unapproved image references remains the second layer.
 
-Optional components: `b-datagrip`, `b-excalidraw`, `b-drawio`, and the
+Optional components: `b-datagrip`, `b-tablepro`, `b-excalidraw`, `b-drawio`, and the
 skill-less `notion` MCP server, with their MCP servers, routing lines, and `allow`
 permission rules, are declared under `optional_components` in `skills/registry.yaml`. Generated assets stay complete;
 the installers filter them after an explicit choice (checkbox, `--with`/`--without`),
@@ -365,6 +365,11 @@ classify data-modifying CTEs, side-effecting functions, or Redis commands, and
 hooks fail open. The server enforces no read-only mode, so a read-only database
 user remains the hard control. Neither the approval prompt for DataGrip tools nor
 DataGrip's `projectPath` handling is exercised by this repository's checks.
+
+TablePro follows the same split with a shipped loopback template: metadata is
+`conditional-read` and never `read-only`, while `connect`, row reads, exports, and
+every `execute_query` call ask, and `b-tablepro` carries the SQL guardrails
+([ADR-041](ADR-041-tablepro-optional-component.md)).
 
 Evidence: [`references/mcp_operations.yaml`](../../references/mcp_operations.yaml),
 [`claude/configs/mcp.base.json`](../../claude/configs/mcp.base.json), and

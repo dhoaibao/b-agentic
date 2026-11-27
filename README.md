@@ -39,7 +39,7 @@ write outside `~/.claude`. Piped installs
 clone to `~/.b-agentic-claude`. After installing, restart Claude Code. See
 [REFERENCE.md](REFERENCE.md) for flags and lifecycle behavior.
 
-Four optional components are never installed without a choice: DataGrip (`b-datagrip`), Excalidraw (`b-excalidraw` + MCP), draw.io (`b-drawio` + MCP), and Notion (MCP only; no b-agentic skill uses it). On a terminal without `-y`, `--dry-run`, or `--uninstall`, both installers show a step timeline, an optional-component checkbox list (pre-checking already-installed components), a summary box, and a confirm prompt before writing. Non-interactively pass `--with=excalidraw,drawio` to add and `--without=drawio` to remove; `-y` keeps the recorded choice and otherwise installs none.
+Five optional components are never installed without a choice: DataGrip (`b-datagrip`), TablePro (`b-tablepro` + MCP), Excalidraw (`b-excalidraw` + MCP), draw.io (`b-drawio` + MCP), and Notion (MCP only; no b-agentic skill uses it). On a terminal without `-y`, `--dry-run`, or `--uninstall`, both installers show a step timeline, an optional-component checkbox list (pre-checking already-installed components), a summary box, and a confirm prompt before writing. Non-interactively pass `--with=excalidraw,drawio` to add and `--without=drawio` to remove; `-y` keeps the recorded choice and otherwise installs none.
 
 Only want the Claude Code status line? `./install.sh --statusline-only` installs just
 `b-statusline.mjs` and its `settings.json` entry (kept if you already have a status
@@ -95,6 +95,7 @@ subagent in a fresh context when Codex is unavailable. On Pi the review gate is
 | `b-drawio` | Build | Draw formal or editable technical diagrams in draw.io from explicit facts (optional: `--with=drawio`) |
 | `b-implement` | Build | Make the scoped non-UI change from an approved plan or a small direct request |
 | `b-datagrip` | Build | Inspect and query DataGrip databases safely through the DataGrip MCP (optional: `--with=datagrip`) |
+| `b-tablepro` | Build | Inspect and query TablePro databases safely through the TablePro MCP (optional: `--with=tablepro`) |
 | `b-init` | Build | Initialize or refresh repo-local agent instruction docs |
 | `b-refactor` | Build | Rename, extract, move, inline, simplify, or delete behavior-preserving code |
 | `b-debug` | Decide | Confirm the runtime root cause and produce an evidence-backed fix handoff without editing product code |

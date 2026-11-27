@@ -111,17 +111,20 @@ grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text 
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[] | select(.onFailure != null)] | length' "$claude/settings.json")" = 0 ] || fail "the Bash Codex tripwire must fail open so a broken guard cannot block its own repair"
 [ "$(jq -r '[.hooks.PreToolUse[] | select(.matcher == "mcp__firecrawl__firecrawl_scrape") | .hooks[] | select(.command | contains("b-alexandria-guard.mjs")) | select(.onFailure == "block")] | length' "$claude/settings.json")" = 1 ] || fail "the scrape alexandria guard must run exactly once and fail closed"
 [ "$(jq -r '.mcpServers | keys | length' "$home/.claude.json")" = 6 ] || fail "base MCP servers: $(jq -c '.mcpServers | keys' "$home/.claude.json")"
-for server in excalidraw drawio datagrip notion; do
+for server in excalidraw drawio datagrip tablepro notion; do
   [ "$(jq -r --arg s "$server" '.mcpServers | has($s)' "$home/.claude.json")" = false ] || fail "optional MCP server $server must not be installed by default"
 done
-if jq -e '[.permissions.allow[]] | map(select(test("^mcp__(datagrip|excalidraw|drawio|notion)__"))) | length > 0' "$claude/settings.json" >/dev/null; then fail "optional component allow rules must not be installed by default"; fi
+if jq -e '[.permissions.allow[]] | map(select(test("^mcp__(datagrip|tablepro|excalidraw|drawio|notion)__"))) | length > 0' "$claude/settings.json" >/dev/null; then fail "optional component allow rules must not be installed by default"; fi
 [ "$(jq -r '.permissions.ask | index("mcp__datagrip__execute_sql_query") != null' "$claude/settings.json")" = true ] || fail "ask rules of optional servers must stay so a configured server still prompts"
+for tool in connect browse_table count_rows export_data execute_query; do
+  [ "$(jq -r --arg r "mcp__tablepro__$tool" '.permissions.ask | index($r) != null' "$claude/settings.json")" = true ] || fail "the tablepro $tool ask rule must ship without the component"
+done
 [ "$(jq -r '.permissions.ask | index("mcp__notion__notion-calendar-list-events") != null' "$claude/settings.json")" = true ] || fail "notion ask rules must stay so a configured server still prompts"
-for skill in b-datagrip b-excalidraw b-drawio; do
+for skill in b-datagrip b-tablepro b-excalidraw b-drawio; do
   [ ! -e "$claude/skills/$skill" ] || fail "optional skill $skill must not be installed by default"
   if grep -Fq "\`$skill\`" "$claude/CLAUDE.md"; then fail "the kernel must not route to the uninstalled $skill"; fi
 done
-[ "$(jq -c .optional_components "$claude/b-agentic/install.json")" = '{"datagrip":false,"excalidraw":false,"drawio":false,"notion":false}' ] || fail "default selection must be recorded as all off"
+[ "$(jq -c .optional_components "$claude/b-agentic/install.json")" = '{"datagrip":false,"tablepro":false,"excalidraw":false,"drawio":false,"notion":false}' ] || fail "default selection must be recorded as all off"
 [ "$(jq -r '.mcpServers | has("clickup")' "$home/.claude.json")" = false ] || fail "ClickUp must not be installed"
 [ "$(jq -r .target "$claude/b-agentic/install.json")" = claude ] || fail "manifest target"
 grep -Fq '/plugin install codex@openai-codex' <<<"$out" || fail "plugin commands not printed"
@@ -1054,7 +1057,7 @@ opt_absent() {
 }
 home=$(fresh_home optional)
 run "$home" -y; expect_ok "default install"
-for id in datagrip excalidraw drawio notion; do opt_absent "$home" "$id" || fail "$id must be absent by default"; done
+for id in datagrip tablepro excalidraw drawio notion; do opt_absent "$home" "$id" || fail "$id must be absent by default"; done
 run "$home" -y --with=excalidraw,drawio; expect_ok "select two components"
 { opt_present "$home" excalidraw && opt_present "$home" drawio; } || fail "selected components must be installed"
 opt_absent "$home" datagrip || fail "unselected components must stay absent"
@@ -1063,7 +1066,7 @@ run "$home_one" -y --with=drawio; expect_ok "select one component"
 { opt_present "$home_one" drawio && opt_absent "$home_one" excalidraw && opt_absent "$home_one" datagrip; } || fail "an unselected component that ships an MCP server must stay absent"
 run "$home" -y; expect_ok "plain re-run keeps the recorded choice"
 { opt_present "$home" excalidraw && opt_present "$home" drawio; } || fail "a plain re-run must not drop components"
-[ "$(opt_state "$home")" = '{"datagrip":false,"excalidraw":true,"drawio":true,"notion":false}' ] || fail "selection not persisted"
+[ "$(opt_state "$home")" = '{"datagrip":false,"tablepro":false,"excalidraw":true,"drawio":true,"notion":false}' ] || fail "selection not persisted"
 before=$(tree "$home")
 run "$home" -y; expect_ok "idempotent re-run"
 [ "$before" = "$(tree "$home")" ] || fail "re-run changed files"
@@ -1094,7 +1097,7 @@ cp "$work/legacy-manifest.json" "$home/.claude/b-agentic/install.json"
 run "$home" -y; expect_ok "upgrade a manifest without a recorded choice"
 for id in datagrip excalidraw drawio; do opt_present "$home" "$id" || fail "$id must be kept for an existing install"; done
 opt_absent "$home" notion || fail "a component the manifest never owned must stay absent"
-[ "$(opt_state "$home")" = '{"datagrip":true,"excalidraw":true,"drawio":true,"notion":false}' ] || fail "inferred selection must be recorded"
+[ "$(opt_state "$home")" = '{"datagrip":true,"tablepro":false,"excalidraw":true,"drawio":true,"notion":false}' ] || fail "inferred selection must be recorded"
 # Notion shipped in every install before it became optional, so an install that owns it keeps it when
 # its recorded choice has no notion key, and only an explicit --without removes it.
 home=$(fresh_home optional-notion-upgrade)
@@ -1177,13 +1180,58 @@ run "$home" -y --with=drawio; expect_ok "kept-skill install"
 printf 'mine\n' >>"$home/.claude/skills/b-drawio/SKILL.md"
 run "$home" -y --without=drawio; expect_ok "deselect a modified skill"
 python3 "$root/tooling/validate/skill_doctor.py" --home "$home" >"$work/doctor.txt" || fail "a kept modified skill must not fail the doctor: $(cat "$work/doctor.txt")"
+# TablePro: the managed entry and exactly the metadata allow rules, only when selected.
+tablepro_allow() { jq -c '[.permissions.allow[] | select(startswith("mcp__tablepro__")) | sub("^mcp__tablepro__"; "")] | sort' "$1/.claude/settings.json"; }
+tablepro_metadata='["describe_table","get_table_ddl","list_connections","list_databases","list_schemas","list_tables"]'
+home=$(fresh_home optional-tablepro)
+run "$home" -y --with=tablepro; expect_ok "select tablepro"
+opt_present "$home" tablepro || fail "--with=tablepro must install the skill, routing line, server, and allow rules"
+[ "$(jq -cS '.mcpServers.tablepro' "$home/.claude.json")" = "$(jq -cS '.mcpServers.tablepro' "$root/claude/configs/mcp.base.json")" ] || fail "the tablepro entry must equal the managed entry"
+[ "$(tablepro_allow "$home")" = "$tablepro_metadata" ] || fail "exactly the tablepro metadata tools may be allowed: $(tablepro_allow "$home")"
+mcp=$(env -u TABLEPRO_MCP_TOKEN python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
+grep -Fq 'tablepro: blocked: TABLEPRO_MCP_TOKEN environment variable not present' <<<"$mcp" || fail "a referenced but unset tablepro token must block: $mcp"
+jq '.mcpServers.tablepro.headers.Authorization = "Bearer ${PROBE_UNSET_DB_TOKEN}"' "$home/.claude.json" >"$work/tablepro-other.json"
+cp "$work/tablepro-other.json" "$home/.claude.json"
+mcp=$(env -u PROBE_UNSET_DB_TOKEN python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
+grep -Fq 'tablepro: blocked: PROBE_UNSET_DB_TOKEN environment variable not present' <<<"$mcp" || fail "any referenced but unset variable must block: $mcp"
+jq '.mcpServers.tablepro.headers.Authorization = "Bearer ${PROBE_UNSET_DB_TOKEN:-synthetic-default}"' "$home/.claude.json" >"$work/tablepro-default.json"
+cp "$work/tablepro-default.json" "$home/.claude.json"
+mcp=$(env -u PROBE_UNSET_DB_TOKEN python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
+grep -Fq 'tablepro: configured:' <<<"$mcp" || fail "a reference with a default needs no variable: $mcp"
+jq '.mcpServers.tablepro.headers.Authorization = "Bearer synthetic-literal"' "$home/.claude.json" >"$work/tablepro-literal.json"
+cp "$work/tablepro-literal.json" "$home/.claude.json"
+mcp=$(env -u TABLEPRO_MCP_TOKEN python3 "$root/tooling/validate/mcp_doctor.py" --home "$home" --allow-degraded)
+grep -Fq 'tablepro: configured: remote endpoint present; not connected' <<<"$mcp" || fail "an entry without an env reference needs no variable: $mcp"
+if grep -Fq 'synthetic-literal' <<<"$mcp"; then fail "the doctor must not print a header value"; fi
+# A user's own differing entry is kept, selected or not.
+home=$(fresh_home optional-tablepro-user)
+user_entry='{"type":"http","url":"http://127.0.0.1:23508/mcp","headers":{"Authorization":"Bearer synthetic-user"}}'
+printf '{"mcpServers":{"tablepro":%s}}\n' "$user_entry" >"$home/.claude.json"
+run "$home" -y --with=tablepro; expect_ok "select tablepro over a user entry"
+grep -Fq "kept your existing MCP server 'tablepro'" <<<"$err" || fail "a kept user tablepro entry must warn: $err"
+opt_present "$home" tablepro || fail "the skill and allow rules must install beside a user tablepro entry"
+[ "$(jq -c '.mcpServers.tablepro' "$home/.claude.json")" = "$user_entry" ] || fail "the user's tablepro entry changed"
+run "$home" -y --without=tablepro; expect_ok "deselect tablepro"
+[ "$(jq -c '.mcpServers.tablepro' "$home/.claude.json")" = "$user_entry" ] || fail "deselecting changed the user's tablepro entry"
+[ ! -e "$home/.claude/skills/b-tablepro" ] || fail "deselecting must remove the unmodified b-tablepro skill"
+if grep -Fq "\`b-tablepro\`" "$home/.claude/CLAUDE.md"; then fail "deselecting must remove the b-tablepro routing line"; fi
+[ "$(tablepro_allow "$home")" = '[]' ] || fail "deselecting must remove the tablepro allow rules"
+[ "$(jq -r '.permissions.ask | index("mcp__tablepro__execute_query") != null' "$home/.claude/settings.json")" = true ] || fail "tablepro ask rules must stay after deselecting"
+# The two database skills point at each other only when both are installed.
+home=$(fresh_home optional-databases)
+run "$home" -y --with=datagrip; expect_ok "only datagrip"
+if grep -Fq 'b-tablepro' "$home/.claude/skills/b-datagrip/SKILL.md"; then fail "b-datagrip must drop its tablepro reference when tablepro is absent"; fi
+run "$home" -y --with=tablepro; expect_ok "add tablepro"
+for skill in b-datagrip b-tablepro; do
+  cmp -s "$root/skills/$skill/SKILL.md" "$home/.claude/skills/$skill/SKILL.md" || fail "with both database components $skill must keep its generated bytes"
+done
 echo "install probe passed: optional-components"
 
 # Skills never point at an optional sibling that is not installed; a full install keeps the source bytes.
 home=$(fresh_home optional-siblings)
 run "$home" -y; expect_ok "default install"
 for installed in "$home"/.claude/skills/*/SKILL.md; do
-  if grep -Eq '\*\*b-(datagrip|excalidraw|drawio)\*\*' "$installed"; then fail "a default install must not reference an uninstalled optional skill: $installed"; fi
+  if grep -Eq '\*\*b-(datagrip|tablepro|excalidraw|drawio)\*\*' "$installed"; then fail "a default install must not reference an uninstalled optional skill: $installed"; fi
 done
 run "$home" -y --with=drawio; expect_ok "only drawio"
 if grep -Eq '\*\*b-excalidraw\*\*|requires: b-excalidraw' "$home/.claude/skills/b-drawio/SKILL.md"; then fail "b-drawio must drop its excalidraw reference when excalidraw is absent"; fi

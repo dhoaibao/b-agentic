@@ -3,8 +3,8 @@
 #
 # Usage:
 #   ./install.sh [--dry-run] [--force] [-y]               install or sync from this checkout
-#   ./install.sh --with=excalidraw,drawio                 install optional components (datagrip, excalidraw,
-#                                                         drawio, notion); --without=ID removes them
+#   ./install.sh --with=excalidraw,drawio                 install optional components (datagrip, tablepro,
+#                                                         excalidraw, drawio, notion); --without=ID removes them
 #   ./install.sh --statusline-only                        install only the Claude Code status line (a later
 #                                                         full install upgrades it; --uninstall removes it)
 #   ./install.sh --update                                 fast-forward the checkout, then sync

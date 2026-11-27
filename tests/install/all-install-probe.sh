@@ -879,7 +879,7 @@ ln -f "$home/.claude/skills/b-drawio/SKILL.md" "$home/.pi/agent/skills/b-drawio/
 [ "$(jq -r '.files | has("skills/b-drawio/SKILL.md")' "$home/.claude/b-agentic/install.json")" = false ] || fail "Claude unowned drawio should not be in files"
 [ "$(jq -r '.optional_components.drawio' "$home/.pi/agent/b-agentic/install.json")" = true ] || fail "Pi manifest should record drawio=true"
 [ "$(jq -r '.files | has("skills/b-drawio/SKILL.md")' "$home/.pi/agent/b-agentic/install.json")" = false ] || fail "Pi unowned drawio should not be in files"
-tui_out=$(tui_run_path "$home" "$stub_bin:$novendor" "$all_cmd" "jj " "jj " y n)
+tui_out=$(tui_run_path "$home" "$stub_bin:$novendor" "$all_cmd" "jjj " "jjj " y n)
 [ "$(jq -r '.optional_components.drawio' "$home/.claude/b-agentic/install.json")" = false ] || fail "Claude drawio must be deselected: $tui_out"
 [ "$(jq -r '.optional_components.drawio' "$home/.pi/agent/b-agentic/install.json")" = false ] || fail "Pi drawio must be deselected: $tui_out"
 
@@ -891,7 +891,7 @@ ln -f "$home/.pi/agent/AGENTS.md" "$home/.claude/skills/b-excalidraw/SKILL.md"
 ln -f "$home/.pi/agent/AGENTS.md" "$home/.claude/skills/b-drawio/SKILL.md"
 before=$(tree "$home")
 inode_before=$(sha256sum "$home/.pi/agent/AGENTS.md" | cut -d" " -f1)
-tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "j j " "")
+tui_out=$(tui_run_refused "$home" "$stub_bin:$novendor" "$all_cmd" "jj j " "")
 grep -Fq 'Claude Code skills/' <<<"$tui_out" || fail "selected-alias error must name Claude Code skill path: $tui_out"
 grep -Fq 'Pi AGENTS.md' <<<"$tui_out" || fail "selected-alias error must name Pi AGENTS.md: $tui_out"
 [ "$before" = "$(tree "$home")" ] || fail "selected-alias refusal modified HOME tree"

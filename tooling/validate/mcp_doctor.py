@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -23,6 +24,7 @@ SERVERS = (
     "drawio",
     "shadcn",
     "datagrip",
+    "tablepro",
 )
 
 
@@ -58,11 +60,18 @@ def deselected_servers(home: str | None) -> set[str] | None:
     }
 
 
-CREDENTIALS = {
-    "context7": ("CONTEXT7_API_KEY",),
-    "brave_search": ("BRAVE_API_KEY",),
-    "firecrawl": ("FIRECRAWL_API_KEY",),
-}
+ENV_NAME = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def referenced_variables(value: object) -> set[str]:
+    """Every `${NAME}` an entry expands without a default; each must be set, whatever its name."""
+    if isinstance(value, str):
+        return set(ENV_NAME.findall(value))
+    if isinstance(value, dict):
+        value = list(value.values())
+    if isinstance(value, list):
+        return {name for item in value for name in referenced_variables(item)}
+    return set()
 
 
 def configured_path(home: str | None, config: str | None) -> Path:
@@ -80,7 +89,7 @@ def status(server: str, entry: object, optional: set[str]) -> str:
         return "not installed: optional" if server in optional else "missing: config entry not installed"
     if entry.get("disabled") is True:
         return "blocked: server disabled in config"
-    missing = [name for name in CREDENTIALS.get(server, ()) if name not in os.environ]
+    missing = sorted(name for name in referenced_variables(entry) if name not in os.environ)
     if missing:
         variables = ", ".join(missing)
         suffix = "environment variable" if len(missing) == 1 else "environment variables"

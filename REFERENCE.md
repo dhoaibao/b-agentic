@@ -46,7 +46,7 @@ installers write their own binaries (outside `~/.claude`), and `rtk init -g
   cloned or updated the source checkout by then, because the summary needs it.
 - The kernel's "Peer agent messaging" section applies only when the user asks agents to talk to each other and adds no other rules: `herdr` skill under `HERDR_ENV=1`, otherwise `hc --skill` if `hc` is on `PATH`.
 - Optional components (`optional_components` in `skills/registry.yaml`: `datagrip`,
-  `excalidraw`, `drawio`, `notion`) are installed only after a choice. Each is its skill, its kernel routing
+  `tablepro`, `excalidraw`, `drawio`, `notion`) are installed only after a choice. Each is its skill, its kernel routing
   line, its `mcp__<server>__*` permission rules, and its MCP server
   entry (DataGrip's entry stays IDE-managed, so `datagrip` covers only the skill, routing line, and
   rules; `notion` has no skill because no b-agentic skill uses it, so it covers only the server entry
@@ -573,8 +573,8 @@ external/shared actions.
 ## MCP and readiness
 
 `claude/configs/mcp.base.json` configures CodeGraph, Context7, Brave Search,
-Firecrawl, Playwright, shadcn, and the optional Notion, Excalidraw, and draw.io entries
-(installed only when selected, see the install options). Tools are addressed as
+Firecrawl, Playwright, shadcn, and the optional Notion, TablePro, Excalidraw, and
+draw.io entries (installed only when selected, see the install options). Tools are addressed as
 `mcp__<server>__<tool>`. Credentials are `${VAR}` references; the installer
 collects none.
 
@@ -590,6 +590,7 @@ collects none.
 | draw.io      | `bunx`, approved `open_drawio_*` calls, default browser (optional)   |
 | shadcn       | `bunx`, project `components.json`                                    |
 | DataGrip     | IDE-managed: DataGrip with MCP Server enabled; no b-agentic template |
+| TablePro     | TablePro running with MCP enabled; `TABLEPRO_MCP_TOKEN`              |
 
 Notion is the official hosted server and reaches the user's whole private
 workspace, so workspace reads are `conditional-read` (allowed in the main session,
@@ -614,8 +615,30 @@ write. The server enforces no read-only mode, so use a read-only database user
 for sensitive connections; other `mcp__datagrip__*` tools stay unclassified and
 keep the approval prompt.
 
+TablePro's MCP server is served by the application on loopback, so the optional
+`tablepro` component ships an `http://127.0.0.1:23508/mcp` entry whose
+`Authorization` header only references `TABLEPRO_MCP_TOKEN`. An entry you already
+have that differs is kept with a warning. Whether Pi expands that reference in a
+header has not been checked live. Connection, database, schema, table, and DDL
+metadata tools are `conditional-read`; `connect`, `browse_table`, `count_rows`,
+`export_data`, and every `execute_query` call ask, because a permission rule
+cannot see the `read_only` argument. The `b-tablepro` skill runs in the main
+session, keeps SQL read-only and row-limited by default, confirms before the first
+read of each target on a non-local connection, asks before any write, and never
+retries a refusal. Row reads, exports, and SQL stay on the connection's own database; another
+database is used for structure only. It also asks the user itself before `connect`
+and before every export,
+each confirmation of a read, export, or write naming the connection, database,
+and schema it covers, because on Pi an active permission classifier may resolve an `ask` rule without a
+prompt (see the Pi limits in
+[ADR-032](docs/decisions/ADR-032-equal-runtimes-three-tier-support.md)); other row
+reads on a local connection have no such question. TablePro's External Clients
+level, Safe Mode, and write approval are further gates, so use a least-privilege
+database user for sensitive connections.
+
 `scripts/mcp-doctor.sh --allow-degraded` reports local launcher, configuration,
-and environment-variable presence only. It never reads credential values, starts
+and environment-variable presence only. It requires every variable the configured
+entry references as `${NAME}` without a default, and no other. It never reads credential values, starts
 servers, authenticates, or navigates a browser. Configured does not mean
 connected or usable. `scripts/skill-doctor.sh` checks the installed skill and
 specialist payload and the kernel block. RTK remains a prerequisite for

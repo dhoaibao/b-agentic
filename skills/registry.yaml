@@ -60,6 +60,7 @@
   },
   "optional_components": {
     "datagrip": {"label": "DataGrip (b-datagrip; the DataGrip MCP entry stays user-managed)", "skills": ["b-datagrip"], "mcp_servers": ["datagrip"]},
+    "tablepro": {"label": "TablePro (b-tablepro + tablepro MCP)", "skills": ["b-tablepro"], "mcp_servers": ["tablepro"]},
     "excalidraw": {"label": "Excalidraw (b-excalidraw + excalidraw MCP)", "skills": ["b-excalidraw"], "mcp_servers": ["excalidraw"]},
     "drawio": {"label": "draw.io (b-drawio + drawio MCP)", "skills": ["b-drawio"], "mcp_servers": ["drawio"]},
     "notion": {"label": "Notion (notion MCP; no b-agentic skill uses it)", "skills": [], "mcp_servers": ["notion"]}
@@ -263,6 +264,27 @@
       },
       "prompt": {
         "description": "Inspect and query DataGrip-configured databases through the DataGrip MCP with read-only SQL by default, explicit row limits, named-connection confirmation for remote databases, and approval before any write, DDL, or connection change. Use for schema inspection, table previews, and ad-hoc SQL; unlike b-implement and b-debug, it does not edit application code or diagnose runtime failures."
+      }
+    },
+    {
+      "name": "b-tablepro",
+      "execution": {"mode": "main"},
+      "contract": {"role": "utility"},
+      "phase": "Build",
+      "use": "Inspect and query TablePro databases safely through the TablePro MCP",
+      "argument_hint": "[connection and question]",
+      "routing": {
+        "intent": "Inspect or query TablePro DBs",
+        "triggers": [
+          "TablePro",
+          "TablePro connection",
+          "TablePro database",
+          "TablePro schema",
+          "run SQL in TablePro"
+        ]
+      },
+      "prompt": {
+        "description": "Inspect and query TablePro-configured databases through the TablePro MCP with read-only SQL by default, explicit row limits, named-connection confirmation for remote databases, and approval before opening a connection or running any write or DDL. Use for schema inspection, table previews, exports, and ad-hoc SQL; unlike b-implement and b-debug, it does not edit application code or diagnose runtime failures."
       }
     },
     {

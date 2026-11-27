@@ -678,6 +678,28 @@ run "$home" -y --without=drawio; expect_ok "deselect edited drawio"
 [ "$(jq '[.permission.mcp // {} | to_entries[] | select(.key | startswith("mcp__drawio__")) | select(.value == "allow")] | length' "$perm")" -eq 0 ] \
   || fail "deselected drawio must have no allow rules"
 
+# --- TablePro: the entry and the metadata approvals exist only while the component is selected ---------------------------
+home=$(fresh_home tablepro)
+agent="$home/.pi/agent"
+perm="$agent/extensions/pi-permission-system/config.json"
+tablepro_allow() { jq -c '[.permission.mcp // {} | to_entries[] | select((.key | startswith("mcp__tablepro__")) and .value == "allow") | .key | sub("^mcp__tablepro__"; "")] | sort' "$perm"; }
+run "$home" -y; expect_ok "default install without tablepro"
+[ "$(jq -r '.mcpServers | has("tablepro")' "$agent/mcp.json")" = false ] || fail "tablepro must not be installed by default"
+[ "$(tablepro_allow)" = '[]' ] || fail "a default install must allow no tablepro tool"
+run "$home" -y --with=tablepro; expect_ok "select tablepro"
+[ "$(jq -cS '.mcpServers.tablepro' "$agent/mcp.json")" = "$(jq -cS '.mcpServers.tablepro + {exposure: "direct"}' "$root/claude/configs/mcp.base.json")" ] \
+  || fail "the Pi tablepro entry must be the template entry with direct exposure"
+[ "$(tablepro_allow)" = '["describe_table","get_table_ddl","list_connections","list_databases","list_schemas","list_tables"]' ] \
+  || fail "exactly the tablepro metadata tools may be allowed: $(tablepro_allow)"
+for tool in connect browse_table count_rows export_data execute_query; do
+  [ "$(jq -r --arg t "mcp__tablepro__$tool" '.permission.mcp[$t]' "$perm")" = ask ] || fail "tablepro $tool must ask"
+done
+[ -f "$agent/skills/b-tablepro/SKILL.md" ] || fail "the b-tablepro skill must be installed when selected"
+run "$home" -y --without=tablepro; expect_ok "deselect tablepro"
+[ "$(jq -r '.mcpServers | has("tablepro")' "$agent/mcp.json")" = false ] || fail "deselecting must remove the managed tablepro entry"
+[ "$(tablepro_allow)" = '[]' ] || fail "a deselected tablepro must have no allow rules"
+[ ! -e "$agent/skills/b-tablepro" ] || fail "deselecting must remove the b-tablepro skill"
+
 # --- servers outside the shipped template get no automatic approvals ------------------------------------------------------
 home=$(fresh_home datagrip)
 agent="$home/.pi/agent"

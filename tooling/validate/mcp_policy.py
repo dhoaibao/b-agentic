@@ -22,8 +22,11 @@ EXPECTED_SERVERS = {
     "drawio",
     "shadcn",
     "datagrip",
+    "tablepro",
 }
 IDE_MANAGED_SERVERS = {"datagrip"}
+TABLEPRO_URL = "http://127.0.0.1:23508/mcp"
+TABLEPRO_AUTHORIZATION = "Bearer ${TABLEPRO_MCP_TOKEN}"
 EXPECTED_CLASSES = {
     "read-only",
     "conditional-read",
@@ -490,6 +493,15 @@ def main() -> int:
             errors.append(f"{name} returns database rows or changes database state and must ask")
     if "mcp__datagrip__execute_tool" in allow or "mcp__datagrip__execute_tool" in ask:
         errors.append("mcp__datagrip__execute_tool is unclassified and must keep the runtime approval prompt")
+    for name in ("connect", "browse_table", "count_rows", "export_data", "execute_query"):
+        if f"mcp__tablepro__{name}" in allow or f"mcp__tablepro__{name}" not in ask:
+            errors.append(f"mcp__tablepro__{name} opens a connection, returns database rows, or runs SQL and must ask")
+    metadata = ("list_connections", "list_databases", "list_schemas", "list_tables", "describe_table", "get_table_ddl")
+    tablepro = servers.get("tablepro", {}).get("tools", {})
+    if {tool for tool, classification in tablepro.items() if classification == "conditional-read"} != set(metadata):
+        errors.append("exactly the TablePro metadata tools must be classed conditional-read")
+    if any(classification == "read-only" for classification in tablepro.values()):
+        errors.append("no TablePro tool may be classed read-only: that class feeds the specialist profiles")
     for pattern in (
         "Bash(git push *)",
         "Bash(rtk git push *)",
@@ -624,6 +636,8 @@ def main() -> int:
             errors.append(f"{agent} must not receive private Notion workspace tools")
         if any(tool.startswith("mcp__datagrip__") for tool in tools):
             errors.append(f"{agent} must not receive private DataGrip database tools")
+        if any(tool.startswith("mcp__tablepro__") for tool in tools):
+            errors.append(f"{agent} must not receive private TablePro database tools")
         if any(tool in ask or tool in deny for tool in tools if tool.startswith("mcp__")):
             errors.append(f"{agent} must not list a tool that asks or is denied")
         if agent == "b-researcher":
@@ -646,8 +660,8 @@ def main() -> int:
         errors.append("b-worker must expose the CodeGraph explore tool")
     if WORKER_FORBIDDEN_TOOLS & set(worker):
         errors.append("b-worker must not receive a notebook, prompt, skill, or delegation tool")
-    if any(tool.startswith(("mcp__notion__", "mcp__datagrip__")) for tool in worker):
-        errors.append("b-worker must not receive private Notion or DataGrip tools")
+    if any(tool.startswith(("mcp__notion__", "mcp__datagrip__", "mcp__tablepro__")) for tool in worker):
+        errors.append("b-worker must not receive private Notion, DataGrip, or TablePro tools")
     if any(tool in ask or tool in deny for tool in worker_mcp):
         errors.append("b-worker must not list a tool that asks or is denied")
     if research_tools.intersection(worker):
@@ -659,7 +673,9 @@ def main() -> int:
     for server, entry in mcp.get("mcpServers", {}).items():
         kind = entry.get("type")
         if kind == "http":
-            if not str(entry.get("url", "")).startswith("https://"):
+            # TablePro serves its MCP endpoint from the local application, over loopback only.
+            local = server == "tablepro" and entry.get("url") == TABLEPRO_URL
+            if not local and not str(entry.get("url", "")).startswith("https://"):
                 errors.append(f"{server} must use an https URL")
         elif kind == "stdio":
             if not isinstance(entry.get("command"), str) or not isinstance(entry.get("args"), list):
@@ -670,6 +686,10 @@ def main() -> int:
             for key, value in entry.get(field, {}).items():
                 if key.endswith(("_KEY", "_TOKEN", "_ID")) and not ENV_REFERENCE.fullmatch(str(value)):
                     errors.append(f"{server}.{field}.{key} must reference an environment variable, not store a value")
+        if server == "tablepro" and (
+            entry.get("url") != TABLEPRO_URL or entry.get("headers") != {"Authorization": TABLEPRO_AUTHORIZATION}
+        ):
+            errors.append("tablepro must use its loopback URL and only the TABLEPRO_MCP_TOKEN environment reference")
         retired = {"directTools", "lifecycle", "description"} & set(entry)
         if retired:
             errors.append(f"{server} carries retired adapter fields: {sorted(retired)}")

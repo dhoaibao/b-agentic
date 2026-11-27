@@ -7,13 +7,25 @@
       "id": "datagrip-schema-inspection",
       "prompt": "Inspect the database schema of my DataGrip connection and list its tables.",
       "expected_skill": "b-datagrip",
-      "forbidden_skills": ["b-implement", "b-debug"]
+      "forbidden_skills": ["b-implement", "b-debug", "b-tablepro"]
     },
     {
       "id": "datagrip-sql-query",
       "prompt": "Run SQL in DataGrip to preview table data from the orders table.",
       "expected_skill": "b-datagrip",
-      "forbidden_skills": ["b-implement", "b-debug"]
+      "forbidden_skills": ["b-implement", "b-debug", "b-tablepro"]
+    },
+    {
+      "id": "tablepro-schema-inspection",
+      "prompt": "List database tables in TablePro.",
+      "expected_skill": "b-tablepro",
+      "forbidden_skills": ["b-implement", "b-debug", "b-datagrip"]
+    },
+    {
+      "id": "tablepro-sql-query",
+      "prompt": "Query the database in TablePro and list its tables.",
+      "expected_skill": "b-tablepro",
+      "forbidden_skills": ["b-implement", "b-debug", "b-datagrip"]
     },
     {
       "id": "plan-vs-implement",
