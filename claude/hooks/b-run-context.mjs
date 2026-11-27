@@ -125,12 +125,18 @@ function main() {
 function readFileSyncStdin() {
   const chunks = [];
   const buffer = Buffer.alloc(65536);
+  const pause = new Int32Array(new SharedArrayBuffer(4));
   for (;;) {
     let length;
     try {
       length = readSync(0, buffer, 0, buffer.length, null);
     } catch (error) {
-      if (error?.code === "EAGAIN") continue;
+      if (error?.code === "EAGAIN") {
+        // Non-blocking stdin with no data yet. readFileSync(0) would throw here
+        // and drop the pointer, so retry, sleeping to leave the CPU idle.
+        Atomics.wait(pause, 0, 0, 10);
+        continue;
+      }
       if (error?.code === "EOF") break;
       throw error;
     }

@@ -679,6 +679,27 @@ rrun "$(rc_in "$work/r5")"; rquiet "a symlinked .b-agentic must not be followed"
 before=$(tree_id "$work/r1")
 rrun "$(rc_in "$work/r1")"
 [ "$before" = "$(tree_id "$work/r1")" ] || fail "run context must not write"
+# a late payload on non-blocking stdin still gets the pointer, without spinning on EAGAIN.
+python3 -I - "$(rc_in "$work/r1")" "${js[@]}" "$runctx" <<'PY' || fail "run context must wait idly for non-blocking stdin"
+import os, resource, subprocess, sys, time
+
+payload, argv = sys.argv[1].encode(), sys.argv[2:]
+read_end, write_end = os.pipe()
+os.set_blocking(read_end, False)
+hook = subprocess.Popen(argv, stdin=read_end, stdout=subprocess.PIPE)
+os.close(read_end)
+time.sleep(1)
+try:
+    os.write(write_end, payload)
+except BrokenPipeError:
+    sys.exit("the hook closed stdin before the payload arrived")
+os.close(write_end)
+out, _ = hook.communicate(timeout=10)
+usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+cpu = usage.ru_utime + usage.ru_stime
+if hook.returncode != 0 or b"run context" not in out or cpu >= 0.5:
+    sys.exit(f"exit {hook.returncode}, cpu {cpu:.2f}s, stdout {out!r}")
+PY
 echo "hooks probe passed: run-context"
 
 fi
