@@ -67,13 +67,13 @@ installers write their own binaries (outside `~/.claude`), and `rtk init -g
   install upgrades it in place (dropping the scope). It is refused over a full install, and cannot combine with
   `--with`, `--without`, or `--uninstall`.
 - The status line also adds a compaction hint, only where the project records a b-flow run
-  (`.b-agentic/active`). Claude Code's docs name no percentage for compacting by hand, so the hint uses token
-  counts. A finished run (`done`) or a just-approved run (`approved`) at 200k tokens or 80% of the window or more
-  shows `/compact or /clear` or `/compact before implement`, because the run state on disk already holds what a
-  compaction would drop. These two hints show only in the session that holds the run's lock (the lock owner
-  equals the status line's `session_id`), so a later unrelated conversation does not see them; from 80% it
-  still shows `near auto-compact: /compact soon`. In any other phase, or a blocked run, it only warns from 80%: finish the phase, then
-  compact. It is read-only and fixed text; any read error shows nothing. The model cannot run `/compact`, so
+  (`.b-agentic/active`). Claude Code's docs name no percentage for compacting by hand; every hint starts at 40% of
+  the context window, whatever the token count, and is yellow below 80% and red from 80%. A finished run (`done`)
+  or a just-approved run (`approved`) shows `/compact or /clear` or `/compact before implement`, because the run
+  state on disk already holds what a compaction would drop. These two hints show only in the session that holds the
+  run's lock (the lock owner equals the status line's `session_id`), so a later unrelated conversation does not see
+  them; it shows `context high: /compact soon` instead. In any other phase, or a blocked run, the hint says to
+  finish the phase, then compact. It is read-only and fixed text; any read error shows nothing. The model cannot run `/compact`, so
   this is a hint for you, not an automatic step. To check whether a change saved tokens, follow
   [Measure token cost](docs/runbooks/measure-token-cost.md).
 - Bun is required ([ADR-018](docs/decisions/ADR-018-bun-only-runtime.md)): Claude Code runs the managed hooks

@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 // b-agentic status line for Claude Code. Reads the status JSON on stdin and prints one line:
 // model and effort, repo and git branch, context used, session cost, the prompt cache hit ratio,
-// and the 5-hour and weekly limits as coloured percents with time to reset. Where a b-flow run is
-// recorded it also adds a short compaction hint, chosen from the run phase and the context size.
+// and the 5-hour and weekly limits as coloured percents with time to reset, the weekly one beside
+// the budget up to the current day. Where a b-flow run is recorded it also adds a short compaction
+// hint, chosen from the run phase and the context size.
 // Read-only: it writes nothing and never touches the network; it reads only the stdin JSON,
 // .git/HEAD, and the phase and lock owner of the run in .b-agentic.
 import {
@@ -91,9 +92,9 @@ export const RUN_PHASES = [
   "done",
   "blocked",
 ];
-// Claude Code's docs name no percentage for compacting by hand. 200k tokens is the size at which
-// they start compacting an idle session; 80% is where the context percent already turns red.
-export const HEAVY_TOKENS = 200_000;
+// Claude Code's docs name no percentage for compacting by hand. Hints start at 40% of the window
+// and turn red at 80%, where the context percent does.
+export const HINT_PERCENT = 40;
 export const NEAR_LIMIT_PERCENT = 80;
 
 // Run files are untrusted project content and the status line must always print, so they are read
@@ -197,20 +198,24 @@ export function runPhase(start, sessionId = null) {
 }
 
 // A fixed hint, or null. A break is where the run state on disk already holds what a compaction
-// would drop: a finished run, or a run just approved. Mid-run it only warns near the limit.
-export function compactHint(phase, usedTokens, percent) {
-  if (phase == null) return null;
-  const near = percent >= NEAR_LIMIT_PERCENT;
-  const heavy = usedTokens >= HEAVY_TOKENS || near;
-  if (phase === "done" && heavy)
-    return paint(near ? "31" : "33", "run done: /compact or /clear");
-  if (phase === "approved" && heavy)
-    return paint(near ? "31" : "33", "plan on disk: /compact before implement");
-  if (phase === OTHER_SESSION && near)
-    return paint("31", "near auto-compact: /compact soon");
-  if (phase !== "done" && phase !== "approved" && near)
-    return paint("31", "near auto-compact: finish this phase, then /compact");
-  return null;
+// would drop: a finished run, or a run just approved. Mid-run it says to finish the phase first.
+export function compactHint(phase, percent) {
+  if (phase == null || !(percent >= HINT_PERCENT)) return null;
+  const color = percent >= NEAR_LIMIT_PERCENT ? "31" : "33";
+  if (phase === "done") return paint(color, "run done: /compact or /clear");
+  if (phase === "approved")
+    return paint(color, "plan on disk: /compact before implement");
+  if (phase === OTHER_SESSION)
+    return paint(color, "context high: /compact soon");
+  return paint(color, "context high: finish this phase, then /compact");
+}
+
+// Percent of the weekly limit that an even pace allows by the end of the current day. A day is
+// 24 hours counted from the start of the window, seven days before its reset.
+export function weekBudget(resetsAt, now = Date.now() / 1000) {
+  if (!Number.isFinite(resetsAt)) return null;
+  const day = Math.floor((now - resetsAt) / 86400) + 8;
+  return Math.floor((Math.min(7, Math.max(1, day)) * 100) / 7);
 }
 
 export function render(
@@ -246,7 +251,7 @@ export function render(
     parts.push(
       `${dim("context")} ${pct(context.used_percentage)} ${dim(`(${tokens(used)}/${tokens(context.context_window_size ?? 0)})`)}`,
     );
-    const hint = compactHint(phase, used, context.used_percentage);
+    const hint = compactHint(phase, context.used_percentage);
     if (hint !== null) parts.push(hint);
   }
   const cost = input.cost?.total_cost_usd;
@@ -269,7 +274,9 @@ export function render(
       limit.resets_at == null
         ? ""
         : ` ${dim(`· ${left(limit.resets_at, now)}`)}`;
-    parts.push(`${dim(label)} ${pct(limit.used_percentage)}${reset}`);
+    const budget = label === "week" ? weekBudget(limit.resets_at, now) : null;
+    const allowed = budget === null ? "" : dim(`/${budget}%`);
+    parts.push(`${dim(label)} ${pct(limit.used_percentage)}${allowed}${reset}`);
   }
   return parts.join("   ");
 }
