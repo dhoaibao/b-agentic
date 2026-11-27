@@ -43,5 +43,7 @@ and installer/validation tooling. See the [public overview](README.md) and
 - `scripts/b-agentic-audit.sh` — run ADR traceability and structural suite slimness/token checks (`--skip-preflight` skips the generated-asset sync check and the default validation suite).
 - `bun run quality` — run Prettier, Ruff, ShellCheck, and Markdownlint checks on tracked files when dependencies are installed.
 - `rtk git diff --check` — check changed paths for whitespace errors.
+- While editing, run only the checks for what changed, such as one probe script under `tests/`, one state shard (`bash tests/state/state-probe.sh <case>`), or one `tooling/validate/` script. Run the required checks on the final candidate, cheap ones first and the full suite last; never skip or weaken one to save time.
+- The full suite is costly, so a new plan runs it once per candidate: `scripts/validate-skills.sh --release` already includes the default run, so list it alone when the installer probes are needed, and run the audit with `--skip-preflight` when the suite runs on its own. An approved plan's checks still run as listed.
 
 <!-- b-init-managed:end -->
