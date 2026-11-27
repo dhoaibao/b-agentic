@@ -432,7 +432,13 @@ Routine skill-prompt wording is not automatically policy. Direct tests/docs and
 faithfully regenerated outputs count with their source. A bounded, clear,
 verified low-risk change may skip review with its reason reported. Failed
 checks or unexpected paths block completion; ambiguous acceptance goes to the
-user.
+user. To spend less on costly checks, prompt guidance that no helper enforces
+sets timing, order, and duplicate runs only: a plan lists no check another listed
+check already covers (unless an `AC-n` or a repository rule needs that command),
+`b-flow` settles the candidate before running its checks cheapest first and the
+heaviest last, and a fix batch passes its related checks before `verify`. Every
+approved check still runs, and a repository's full-suite choice stays in its
+`AGENTS.md`.
 The gate is the plugin's adversarial review, run by `b-codex-review` in the
 foreground while nothing edits. Main launches the wrapper as a harness
 background command and waits for it, because the harness kills foreground

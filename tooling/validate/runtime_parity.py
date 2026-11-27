@@ -65,6 +65,26 @@ SCENARIOS = (
         "b-flow",
         "`unblock` works only on a `blocked` run: after a stop that left the run in its phase, continue there as the user's answer allows",
     ),
+    (
+        "plan check overlap",
+        "b-plan",
+        "Do not list a check whose work another listed check already covers, unless an `AC-n` or a repository rule needs that exact command",
+    ),
+    (
+        "flow settled candidate",
+        "b-flow",
+        "settle the candidate first: every edit, docs included, done and its related checks passed",
+    ),
+    (
+        "flow check order",
+        "b-flow",
+        "cheapest first and the heaviest last (a batch listed to run together counts as one check; `next` names what is owed, not the order to run it in)",
+    ),
+    (
+        "flow fix batch checks",
+        "b-flow",
+        "Fix the whole batch, failed QA criteria included, and pass the checks related to it before `advance verify`; that narrow run is no plan check and never full coverage",
+    ),
     ("review trigger", "kernel", "Require independent `b-review` review when requested by the user"),
     ("verification", "kernel", "run applicable required checks, and explain the observable result"),
     ("question answer", "b-implement", "Wait for the answer and re-evaluate"),
