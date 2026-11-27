@@ -1398,6 +1398,13 @@ def _review_gate(review: dict) -> str:
     return f"{gate} ({reason})" if reason else gate
 
 
+MISSING_WAY_REQUEST = (
+    "For each fixed blocker below, check its stated invariant (Reason) and listed ways (Sweep) for a missing way. "
+    "A missing way is a blocker only with evidence, in an existing blocker class, and within the limit on new "
+    "blockers in already-reviewed code."
+)
+
+
 def _packet_review_qa(which: str, root: Path, state: dict, data: dict) -> list[str]:
     out: list[str] = []
     candidate = state.get("candidate") or {}
@@ -1429,6 +1436,9 @@ def _packet_review_qa(which: str, root: Path, state: dict, data: dict) -> list[s
             f"Consecutive NEEDS FIXES: {int(attempts.get('review_needs_fixes', 0))}",
         ]
         blockers = [i for i in data.get("followups", {}).get("items", []) if i.get("kind") == "blocker"]
+        if any(i["disposition"] == "fixed" for i in blockers):
+            # The Codex gate reads only this packet, never b-review, so the request travels in it.
+            out.append(MISSING_WAY_REQUEST)
         for i in blockers:
             out.append(f"- {i['id']} {i['disposition']}: {i['summary']}")
             out.append(f"  - Reason: {i.get('reason', 'none recorded')}")

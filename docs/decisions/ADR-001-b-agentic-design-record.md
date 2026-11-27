@@ -461,7 +461,15 @@ fixed one, main states whether to patch or change the design, continues on a
 patch, and asks before a design change; at the 3-round stop it first groups
 those rounds' blockers by root cause, names the recurring groups, and offers a
 design change, a narrower scope, a deferral with a recorded known limit, or more
-patching. This is prompt guidance that no helper enforces. A deferral pauses
+patching. For every fixed blocker, main also states the invariant it violated,
+lists the ways it can be broken (another input or environment form, another
+entry or exit path, state changing midway, old data or configuration, at least),
+and checks each, because a site search alone follows the code and not the ways
+an invariant breaks. A re-review checks the list for a missing way under the
+same blocker classes and limits, and the review packet asks for that check when
+it lists a fixed blocker, since Codex reads only the focus text. Whether this
+reduces recurring blockers is unproven. This is prompt guidance that no helper
+enforces. A deferral pauses
 delivery: the finding stays a blocker, and no required check or safety evidence
 is waived. The design question writes no run state, so the consecutive count
 stands and a resumed session relies on stating the judgment again. Protected

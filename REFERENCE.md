@@ -473,6 +473,20 @@ gap and asks; a self-review never substitutes. The sequence is:
    that it no longer blocks. Both rules are prompt guidance, apply to either gate
    on both runtimes, and no helper enforces them; the design question writes no
    run state, so a resumed session relies on stating the judgment again.
+   For every fixed blocker, main also states the invariant it violated, lists the
+   ways it can be broken (looking at least for another input or environment form,
+   another entry or exit path, state changing midway, and old data or
+   configuration), and checks each, beside the search for similar code sites; a
+   simple blocker may list one or two. A `b-flow` run keeps the invariant in the
+   follow-up's `reason` line and the ways in its `sweep` line (300 characters
+   each), and its `fix` phase passes the related checks before `write followups`.
+   A re-review checks each list for a missing way, which is a blocker only with
+   evidence and within the blocker classes and the limit on new blockers in
+   already-reviewed code. When the prior review lists a fixed blocker, the
+   `b-run handoff review` packet prints that request, since Codex reads only the
+   focus text; a focus written by hand needs it added. This too is prompt
+   guidance: no helper checks a list, and whether the rule reduces recurring
+   blockers is unproven.
 
 In a `b-flow` run the verdict is recorded with `record review --gate codex|reviewer`;
 a `reviewer` gate also records why Codex was not used (`--gate-reason`, for example

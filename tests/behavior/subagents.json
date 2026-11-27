@@ -167,6 +167,7 @@
       "prompt": "The b-review gate returned NEEDS FIXES with two blockers, each citing one file, and the same defect class also exists in a generated file, a validator clause, and docs. Describe how main corrects and re-submits.",
       "must": [
         "Fix both blockers as one batch",
+        "State each blocker's violated invariant, list the ways it can be broken, and check each",
         "Sweep sibling locations across canonical source, generated outputs, validators, fixtures, and docs",
         "Keep the diff limited to the finding's paths and record other ideas as follow-ups",
         "Run each finding's regression check and the repository checks before re-review",

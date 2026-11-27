@@ -1257,6 +1257,7 @@ def validate_cross_skill_contracts(errors: list[str]) -> None:
                 "For a re-review, the handoff carries prior finding IDs, dispositions, correction paths, and the main session's sibling-sweep scope and regression-check results",
                 "After 3 consecutive `NEEDS FIXES` rounds, stop and ask the user.",
                 "Corrections must return as a reverified, frozen candidate for another review.",
+                "It also carries each fixed blocker's violated invariant and listed ways, with a request to check those lists for a missing way: the packet `b-run handoff review` renders for a `b-flow` run already holds that request, so add it yourself to a focus you write by hand, and classify a reported missing way as the Rules and this step allow.",
                 "In an indexed project, use `codegraph_explore` (read-only) on changed symbols to find callers or tests the candidate did not update",
             ),
         },

@@ -242,6 +242,9 @@ ok "$repoF" s1 check
 [ "$(jq -r '.next[0]' <<<"$out")" = "~/.claude/b-agentic/bin/b-run handoff fix" ] || fail "fix must start from its packet: $out"
 grep -Fq 'open blockers' <<<"$(jq -r '.next[1]' <<<"$out")" || fail "fix must owe the open blockers: $out"
 grep -Fq 'R1-2' <<<"$(jq -r '.next[1]' <<<"$out")" || fail "fix must name the open blocker: $out"
+grep -Fq 'pass the checks related to them' <<<"$(jq -r '.next[1]' <<<"$out")" || fail "fix must owe the related checks before the follow-ups: $out"
+grep -Fq 'violated invariant' <<<"$(jq -r '.next[2]' <<<"$out")" || fail "fix follow-ups must name the violated invariant: $out"
+grep -Fq 'sweep line for every fixed blocker, with the ways checked in brief' <<<"$(jq -r '.next[2]' <<<"$out")" || fail "fix follow-ups must name the ways in the sweep line: $out"
 grep -Fq 'R1-1' <<<"$(jq -r '.next[1]' <<<"$out")" && fail "fix must not list a follow-up as a blocker: $out"
 # A fix round corrects findings and owes no plan step: the cursor is kept and verify is open.
 refused "$repoF" s1 record step S-1

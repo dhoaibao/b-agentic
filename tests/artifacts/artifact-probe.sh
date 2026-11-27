@@ -658,6 +658,14 @@ grep -Fq 'Consecutive NEEDS FIXES: 1' <<<"$out" || fail "re-review consecutive c
 grep -Fq -- '- R1-1 fixed: Unchecked path escapes the scope' <<<"$out" || fail "the prior blocker must be listed: $out"
 grep -Fq 'Sweep: src/export.py; swept all path joins' <<<"$out" || fail "the sweep scope must be listed: $out"
 grep -Fq -- '- F-1' <<<"$(sed -n '/Prior review/,/Earlier follow-ups/p' <<<"$out")" && fail "only blockers belong in the prior review section"
+# The request for the missing-way check travels in the packet, and only when a blocker was fixed.
+way_request='check its stated invariant (Reason) and listed ways (Sweep) for a missing way'
+grep -Fq "$way_request" <<<"$(sed -n '/Prior review/,/Earlier follow-ups/p' <<<"$out")" || fail "a re-review must ask for the missing-way check: $out"
+ok "$repo" write followups < <(example followups | jq '(.items[] | select(.id == "R1-1")).disposition = "open"')
+ok "$repo" handoff review
+grep -Fq -- '- R1-1 open' <<<"$out" || fail "the open blocker must be listed: $out"
+grep -Fq "$way_request" <<<"$out" && fail "with no fixed blocker there is no list to check: $out"
+ok "$repo" write followups < <(example followups)
 jq '.review.round = 0 | .review.trigger = "" | .attempts.review_needs_fixes = 0' "$state_file" >"$tmp" && cp "$tmp" "$state_file"
 ok "$repo" handoff qa
 grep -Fq 'QA handoff' <<<"$out" || fail "qa packet header"

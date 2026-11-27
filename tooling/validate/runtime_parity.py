@@ -81,9 +81,35 @@ SCENARIOS = (
         "cheapest first and the heaviest last (a batch listed to run together counts as one check; `next` names what is owed, not the order to run it in)",
     ),
     (
+        "flow fix invariant",
+        "b-flow",
+        "then fix the recorded open blockers inside scope as a batch, whole class each, stating each one's violated invariant and checking the ways it can be broken as `b-review`'s Rules say",
+    ),
+    (
         "flow fix batch checks",
         "b-flow",
-        "Fix the whole batch, failed QA criteria included, and pass the checks related to it before `advance verify`; that narrow run is no plan check and never full coverage",
+        "Fix the whole batch, failed QA criteria included, and pass the checks related to it before `write followups`; that narrow run is no plan check and never full coverage. Then `write followups` again",
+    ),
+    (
+        "flow fix record",
+        "b-flow",
+        "every blocker gets a disposition and reason (a fixed blocker's reason names its violated invariant), every fixed blocker a `sweep` line (correction paths, sweep scope, the ways checked in brief, regression check)",
+    ),
+    ("flow fix verify", "b-flow", "and the other findings a disposition and reason; then `advance verify`"),
+    (
+        "fix invariant ways",
+        "b-review",
+        "Main session, every fixed blocker (whichever gate, standalone or in a `b-flow` run): state the invariant it violated, list the ways that invariant can be broken, looking at least for another input or environment form, another entry or exit path, state changing midway, and old data or configuration, and check each; the search for similar code sites stays. A simple blocker may list only one or two ways. In a `b-flow` run the invariant goes in the follow-up's `reason` line and the ways, very briefly, in its `sweep` line. A re-review also checks the list: a missing way is a blocker only with evidence and only within the blocker classes and the limit on new blockers in already-reviewed code; verdict rules do not change.",
+    ),
+    (
+        "reviewer missing way",
+        "b-review",
+        "Also check each fixed blocker's stated invariant and listed ways (in a `b-flow` packet, its `Reason` and `Sweep` lines) for a missing way, which blocks only as the Rules and this step allow",
+    ),
+    (
+        "implement fix ways",
+        "b-implement",
+        "name each blocker's violated invariant, list and check the ways it can be broken as **b-review**'s Rules say, fix its whole defect class",
     ),
     ("review trigger", "kernel", "Require independent `b-review` review when requested by the user"),
     ("verification", "kernel", "run applicable required checks, and explain the observable result"),

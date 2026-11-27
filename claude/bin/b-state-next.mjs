@@ -228,8 +228,8 @@ export async function nextSteps(root, state, art, fingerprint = "") {
     }
     if (open.length > 0) {
       steps.push(
-        `fix the open blockers inside the approved scope, whole class each: ${open.join(", ")}`,
-        `${runCmd("write followups")} with a disposition and reason for each, and a sweep line for every fixed blocker`,
+        `fix the open blockers inside the approved scope, whole class each, and pass the checks related to them: ${open.join(", ")}`,
+        `${runCmd("write followups")} with a disposition and reason for each (a fixed blocker's reason names its violated invariant), and a sweep line for every fixed blocker, with the ways checked in brief`,
       );
     }
     return [runCmd("handoff fix"), ...steps, stateCmd("advance verify")];
