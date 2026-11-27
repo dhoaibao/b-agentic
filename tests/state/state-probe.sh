@@ -11,7 +11,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-cases=(core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi stats)
+cases=(core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi stats budget)
 
 if [ "$#" -eq 0 ]; then
   logs=$(mktemp -d)

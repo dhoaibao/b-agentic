@@ -91,8 +91,9 @@ otherwise approved, unattended run.
   outside the approved scope, on a finding that would change approved behavior or
   `AC-n`, on an `AC-n` without evidence, on a protected file, and on any destructive,
   external, or native-permission prompt. Evidenced in-scope blockers are fixed as a
-  whole class; other findings go to `followups.md`. There is no Stop-hook
-  auto-continue.
+  whole class; other findings go to `followups.md`. A run also stops on a time
+  budget, which counts no round ([ADR-039](ADR-039-run-time-budget-stop.md)). There
+  is no Stop-hook auto-continue.
 - **Commit consent exception.** Commit consent recorded in the approved spec counts as
   the explicit commit request for that run's QA-passed fingerprint only. It does not
   extend to another candidate, another run, push, or PR. Outside `/b-flow` the explicit

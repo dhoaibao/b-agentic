@@ -22,6 +22,7 @@ import {
   AC_ID,
   AC_STATUSES,
   BRANCH_TARGET,
+  BUDGET_PHASES,
   CONTROL,
   DIRTY_DIGEST,
   FINGERPRINT,
@@ -47,6 +48,7 @@ import {
   REVIEW_VERDICTS,
   RUN_ID,
   RUNTIMES,
+  secondsBetween,
   SHA,
   SIZES,
   STATE_SCHEMA,
@@ -332,6 +334,21 @@ function validate(state) {
   ) {
     fail("kit");
   }
+  // The time budget (ADR-039); a run approved before it has none and is never time-stopped.
+  const { budget } = state;
+  if (
+    budget !== undefined &&
+    !(
+      isObj(budget) &&
+      isInt(budget.stop_at_s) &&
+      isObj(budget.phase_s) &&
+      Object.entries(budget.phase_s).every(
+        ([phase, seconds]) => BUDGET_PHASES.includes(phase) && isInt(seconds),
+      )
+    )
+  ) {
+    fail("budget");
+  }
   // Init timestamp, preserved separately once history passes MAX_HISTORY (ADR-035).
   if (state.started_at !== undefined && !isValidTimestamp(state.started_at))
     fail("started_at");
@@ -489,6 +506,12 @@ export function saveState(dir, state, op, detail = {}) {
   }
   state.rev += 1;
   state.updated_at = now();
+  // The time since the last write belongs to the phase the run was in on disk (ADR-039).
+  if (state.budget && BUDGET_PHASES.includes(current.phase)) {
+    state.budget.phase_s[current.phase] =
+      (state.budget.phase_s[current.phase] ?? 0) +
+      secondsBetween(current.updated_at, state.updated_at);
+  }
   const blockedAnew =
     state.phase === "blocked" &&
     (current.phase !== "blocked" ||

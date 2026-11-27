@@ -7,13 +7,18 @@ import { fileURLToPath } from "node:url";
 import {
   block,
   BRANCH_TARGET,
+  BUDGET_PHASES,
+  BUDGET_REASON,
+  BUDGET_WINDOW_S,
   CONSENT_DRIFT,
+  countedSeconds,
   helperDir,
   invalid,
   NEXT,
   now,
   PHASES,
   refuse,
+  secondsBetween,
   SIZE_DRIFT,
   SIZES,
   SLUG,
@@ -47,7 +52,7 @@ import {
   worktreeBaseline,
   worktreeTree,
 } from "./b-state-git.mjs";
-import { nextSteps } from "./b-state-next.mjs";
+import { nextSteps, timeReport } from "./b-state-next.mjs";
 import {
   acquireMutex,
   activeUnfinished,
@@ -56,6 +61,7 @@ import {
   freshState,
   isPlainDir,
   layout,
+  loadState,
   readKit,
   readLock,
   runsHint,
@@ -162,6 +168,8 @@ export async function cmdApprove(root, dir, state, args) {
   // A new approval is a new plan: none of its steps is applied yet.
   state.steps = {};
   state.step_base = null;
+  // The budget measures the whole run, so a re-approval keeps what it counted (ADR-039).
+  state.budget ??= { phase_s: {}, stop_at_s: BUDGET_WINDOW_S };
   state.ac = Object.fromEntries(
     ids.map((id) => [id, { status: "pending", fingerprint: "" }]),
   );
@@ -183,11 +191,10 @@ export async function cmdAdvance(root, dir, state, args) {
   if (target === "blocked") {
     if (state.phase === "done")
       throw refuse("a finished run cannot be blocked");
-    block(
-      state,
-      text(args.reason, "--reason"),
-      text(args.needs ?? "user decision", "--needs"),
-    );
+    const reason = text(args.reason, "--reason");
+    if (reason === BUDGET_REASON)
+      throw refuse("that reason is reserved for the run time budget");
+    block(state, reason, text(args.needs ?? "user decision", "--needs"));
     saveState(dir, state, "advance");
     return { phase: state.phase };
   }
@@ -397,13 +404,129 @@ function recordRunStats(root, state) {
   });
 }
 
+// The phases a time stop interrupts. Not clarify or blocked, which are not counted, and
+// not commit or done: once commits begin, the run finishes.
+const TIME_STOPPABLE = [
+  "approved",
+  "implement",
+  "verify",
+  "review",
+  "fix",
+  "qa",
+];
+
+// The next stop comes a full window after the user's latest decision.
+const openWindow = (state) => {
+  state.budget.stop_at_s = countedSeconds(state.budget) + BUDGET_WINDOW_S;
+};
+
+// The run time budget (ADR-039). It runs after a successful check, advance or record
+// call, inside the same mutex: the call's own result stays recorded, then a run past
+// its mark is blocked for the user. It only acts when the helper is called.
+export async function applyTimeStop(root, dir, command, result) {
+  if (
+    !["check", "advance", "record"].includes(command) ||
+    result.ok === false
+  ) {
+    return result;
+  }
+  const state = loadState(dir);
+  if (!state.budget || !TIME_STOPPABLE.includes(state.phase)) return result;
+  // A review may be running until its verdict is recorded, and a blocked run
+  // would refuse that verdict.
+  if (command === "check" && state.phase === "review" && !state.review.verdict)
+    return result;
+  const live = BUDGET_PHASES.includes(state.phase)
+    ? secondsBetween(state.updated_at, now())
+    : 0;
+  if (countedSeconds(state.budget) + live < state.budget.stop_at_s)
+    return result;
+  // The stop waits only for a worktree that is known to exist: parallel workers are
+  // still out, and their records need the phase they started in. When the artifacts
+  // or the worktrees cannot be read, the run stops all the same: a stop loses
+  // nothing, and a skipped one could let the run commit without the user.
+  let art;
+  let workersOut = false;
+  try {
+    art = await artifactsOk(root, state);
+    workersOut =
+      parallelSteps(art).length > 0 &&
+      (await runWorktrees(root, state, art.artifacts.plan)).length > 0;
+  } catch {
+    // Nothing is known to be out.
+  }
+  if (workersOut) return result;
+  block(state, BUDGET_REASON, "user decision");
+  saveState(dir, state, "advance");
+  return {
+    ...result,
+    ok: false,
+    phase: state.phase,
+    blocked: state.blocked,
+    time_stop: {
+      note: "this command's own result is recorded; the run then stopped on its time budget",
+      ...timeReport(state, art),
+    },
+  };
+}
+
+// Whether HEAD sits on a commit the run recorded.
+async function recordedHead(root, state, head) {
+  for (const sha of [...state.commits, ...state.prior_commits])
+    if ((await gitOr(root, ["rev-parse", sha])) === head) return true;
+  return false;
+}
+
+// Back to the phase the time stop interrupted. Nothing is voided and no counter
+// resets: the tree gates and the next check judge the candidate as always.
+async function continueStopped(root, dir, state, reason) {
+  if (state.blocked.reason !== BUDGET_REASON || !state.budget) {
+    throw refuse(
+      "unblock continue leaves only a run stopped by its time budget",
+    );
+  }
+  // The checkout must still be the one check accepts: continuing elsewhere could
+  // take the run's evidence into a commit on another branch.
+  const here = await worktreeBaseline(root);
+  if (state.repo_root !== root || state.branch !== here.branch) {
+    throw refuse(
+      "repository root or branch differs from the run: switch back, then continue",
+    );
+  }
+  if (
+    here.head !== state.baseline.head &&
+    !(await recordedHead(root, state, here.head))
+  ) {
+    throw refuse("HEAD moved outside the recorded commits");
+  }
+  requireSpecUnchanged(dir, state);
+  const art = await artifactsOk(root, state);
+  if (!sizeMatches(state, art)) throw refuse(SIZE_DRIFT);
+  if (!consentMatches(state, art)) throw refuse(CONSENT_DRIFT);
+  const phase = state.blocked.from;
+  if (!TIME_STOPPABLE.includes(phase))
+    throw refuse("the run was not stopped in a phase it can continue");
+  // A step base that was current until the stop stays current. Any other write
+  // leaves it stale, so the step gate still sees it.
+  if (state.step_base?.rev === state.rev - 1)
+    state.step_base = { ...state.step_base, rev: state.rev + 1 };
+  state.blocked = { reason: "", needs: "", from: "" };
+  state.phase = phase;
+  openWindow(state);
+  saveState(dir, state, "unblock", { reason });
+  return { phase: state.phase };
+}
+
 export async function cmdUnblock(root, dir, state, args) {
   if (state.phase !== "blocked") throw refuse("run is not blocked");
   const target = args._[1];
-  if (!["clarify", "implement", "fix", "verify"].includes(target)) {
-    throw invalid("unblock target must be clarify, implement, fix, or verify");
+  if (!["continue", "clarify", "implement", "fix", "verify"].includes(target)) {
+    throw invalid(
+      "unblock target must be continue, clarify, implement, fix, or verify",
+    );
   }
   const reason = text(args.reason, "--reason");
+  if (target === "continue") return continueStopped(root, dir, state, reason);
   // A quick run that met a review trigger has outgrown the request that
   // approved it: the only way on is a new approval, as a full run.
   const outgrown = state.size === "quick" && state.review.trigger !== "";
@@ -454,6 +577,9 @@ export async function cmdUnblock(root, dir, state, args) {
   // The steps start again from the tree as it is now; only implement has steps.
   state.step_base =
     target === "implement" ? await newStepBase(root, state) : null;
+  // One user decision is never followed at once by a time stop.
+  if (state.budget && countedSeconds(state.budget) >= state.budget.stop_at_s)
+    openWindow(state);
   saveState(dir, state, "unblock", { reason });
   return { phase: state.phase };
 }
@@ -487,6 +613,16 @@ export async function cmdCheck(root, dir, state, args) {
   const wasBlockedFor = blockedFor(state);
   let artifactProblem = "";
   let fingerprint = "";
+  // A time-stopped run keeps its reason: another one would take `unblock continue`
+  // away, over a failure that may pass. The problem is still reported, continue
+  // repeats the spec and artifact gates, and the next check judges the rest.
+  const timeStopped =
+    state.phase === "blocked" && state.blocked.reason === BUDGET_REASON;
+  const blockRun = (reason, needs) => {
+    if (timeStopped) return;
+    block(state, reason, needs);
+    changed = true;
+  };
   // A branch the run was approved to create is not a branch change, but it is
   // adopted only after every other check below has passed: a refused check
   // must never persist branch authority (spec hash, artifacts, and the state's
@@ -502,16 +638,14 @@ export async function cmdCheck(root, dir, state, args) {
     (state.branch !== baseline.branch && !adoptable)
   ) {
     problems.push("repository root or branch differs from the run");
-    block(state, "repository root or branch changed", "user decision");
-    changed = true;
+    blockRun("repository root or branch changed", "user decision");
   } else if (
     state.phase !== "clarify" &&
     (specHash(dir) !== state.spec.sha256 ||
       (state.spec.plan_sha256 && planHash(dir) !== state.spec.plan_sha256))
   ) {
     problems.push("spec.md or plan.md changed after approval");
-    block(state, "spec or plan changed after approval", "re-approval");
-    changed = true;
+    blockRun("spec or plan changed after approval", "re-approval");
   } else if (
     state.phase !== "clarify" &&
     (artifactProblem = await artifactsPromise.then(
@@ -528,8 +662,7 @@ export async function cmdCheck(root, dir, state, args) {
       ? artifactProblem
       : "run artifacts changed outside b_run.py";
     problems.push(problem);
-    block(state, problem, drift ? "re-approval" : "user decision");
-    changed = true;
+    blockRun(problem, drift ? "re-approval" : "user decision");
   } else {
     if (adoptable) {
       state.branch = baseline.branch;
@@ -538,10 +671,7 @@ export async function cmdCheck(root, dir, state, args) {
     }
     let headMoved = false;
     if (baseline.head !== state.baseline.head) {
-      const known = [];
-      for (const sha of [...state.commits, ...state.prior_commits])
-        known.push(await gitOr(root, ["rev-parse", sha]));
-      if (known.includes(baseline.head)) {
+      if (await recordedHead(root, state, baseline.head)) {
         state.baseline.head = baseline.head;
         headMoved = true;
         why ||= "HEAD moved to a recorded commit";
@@ -553,8 +683,7 @@ export async function cmdCheck(root, dir, state, args) {
         );
       } else {
         problems.push("HEAD moved outside the recorded commits");
-        block(state, "HEAD moved outside the run", "user decision");
-        changed = true;
+        blockRun("HEAD moved outside the run", "user decision");
       }
     }
     const plan = state.commit_plan;
@@ -573,8 +702,7 @@ export async function cmdCheck(root, dir, state, args) {
         )) !== plan.tree
       ) {
         problems.push("the working tree changed after commits began");
-        block(state, "candidate changed after commits began", "user decision");
-        changed = true;
+        blockRun("candidate changed after commits began", "user decision");
       }
     } else if (["verify", "review", "qa", "commit"].includes(state.phase)) {
       // Evidence-bearing phases: any recorded result for another candidate is
@@ -620,15 +748,23 @@ export async function cmdCheck(root, dir, state, args) {
   const stillBlocked =
     wasBlockedFor !== null && wasBlockedFor === blockedFor(state) && !why;
   if (changed && !stillBlocked) saveState(dir, state, "check", { reason: why });
-  if (state.phase === "clarify") {
+  // The report of a time stop names the open blockers, whatever else was found.
+  if (state.phase === "clarify" || timeStopped) {
     art = await artifactsPromise.catch(() => null);
   }
-  return {
+  const result = {
     ok: state.phase !== "blocked",
     phase: state.phase,
     problems,
     actions,
-    next: await nextSteps(root, state, art, fingerprint),
     blocked: state.phase === "blocked" ? state.blocked : undefined,
+  };
+  // The time stop comes before the next lines: those read git's worktree list, and a
+  // failure there must not refuse a check that is past the mark.
+  const checked = await applyTimeStop(root, dir, "check", result);
+  const guided = checked === result ? state : loadState(dir);
+  return {
+    ...checked,
+    next: await nextSteps(root, guided, art, fingerprint),
   };
 }

@@ -234,6 +234,10 @@
       "blocked_count": {
         "type": "count"
       },
+      "time_stops": {
+        "type": "count",
+        "optional": true
+      },
       "checks_total": {
         "type": "count"
       },

@@ -1,6 +1,12 @@
 // The next-step text of the b-state CLI: what the current phase still owes (ADR-009).
 // Imports the core, git, gates and worktree modules.
-import { helperDir, onPi } from "./b-state-core.mjs";
+import {
+  BUDGET_REASON,
+  BUDGET_WINDOW_S,
+  countedSeconds,
+  helperDir,
+  onPi,
+} from "./b-state-core.mjs";
 import {
   currentFingerprint,
   missingChecks,
@@ -14,6 +20,21 @@ import { runWorktrees, WORKTREE_CAP } from "./b-state-worktree.mjs";
 
 const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 
+const openBlockers = (followups) =>
+  (followups?.items ?? [])
+    .filter((item) => item.kind === "blocker" && item.disposition === "open")
+    .map((item) => item.id);
+
+// What the user needs to decide on a time-stopped run (ADR-039): where the counted
+// time went, the review rounds held, and the blockers still open (null when the
+// artifacts could not be read, which is not the same as none).
+export const timeReport = (state, art) => ({
+  counted_s: countedSeconds(state.budget),
+  phase_s: state.budget.phase_s,
+  review_rounds: state.review.round,
+  open_blockers: art ? openBlockers(art.artifacts.followups) : null,
+});
+
 // What the current phase still owes, derived from the state and the validated
 // artifacts alone, so a session with no memory of the run can continue it. It
 // only reads: every step it names is still checked by its own guard, and it
@@ -21,6 +42,23 @@ const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 export async function nextSteps(root, state, art, fingerprint = "") {
   const stateCmd = (rest) => `${helperDir()}/b-state ${rest}`;
   const runCmd = (rest) => `${helperDir()}/b-run ${rest}`;
+  if (
+    state.phase === "blocked" &&
+    state.blocked.reason === BUDGET_REASON &&
+    state.budget
+  ) {
+    const report = timeReport(state, art);
+    const phases = Object.entries(report.phase_s)
+      .map(([phase, seconds]) => `${phase} ${seconds}s`)
+      .join(", ");
+    return [
+      `ask the user: ${state.blocked.reason} (needs: ${state.blocked.needs})`,
+      `report to the user: ${report.counted_s}s counted since approval, without clarify and blocked time (${phases}); review rounds: ${report.review_rounds}; open blockers: ${report.open_blockers ? report.open_blockers.join(", ") || "none" : "unknown, the run artifacts could not be read"}`,
+      stateCmd(
+        `unblock continue --reason R (back to ${state.blocked.from} with its evidence; the next stop is ${BUDGET_WINDOW_S / 60} counted minutes later), or unblock <clarify|implement|fix|verify> --reason R (a changed spec needs clarify and a new approval)`,
+      ),
+    ];
+  }
   if (state.phase === "blocked") {
     const outgrown = state.size === "quick" && state.review.trigger !== "";
     return [
@@ -179,9 +217,7 @@ export async function nextSteps(root, state, art, fingerprint = "") {
   }
   if (state.phase === "fix") {
     const steps = [];
-    const open = (followups?.items ?? [])
-      .filter((item) => item.kind === "blocker" && item.disposition === "open")
-      .map((item) => item.id);
+    const open = openBlockers(followups);
     const failed = Object.entries(state.ac)
       .filter(([, entry]) => ["fail", "gap"].includes(entry.status))
       .map(([id]) => id);

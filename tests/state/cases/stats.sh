@@ -212,6 +212,31 @@ jq -e '.escaped_from == {unknown: 1} and .blockers.by_class == {"unexpected path
 out=$(HOME="$unknown_home" stats "$repoU") || fail "stats over the unknown-stage store failed"
 jq -e '.stores.claude | .valid == 1 and .malformed == 0' <<<"$out" >/dev/null || fail "the line must pass the line checks: $out"
 
+# --- the line counts the run time budget's stops apart from other blocks (ADR-039), in a store of its own -------
+repoTS="$work/repoTS"
+stops_home="$work/stops-home"
+stops_store="$stops_home/.claude/b-agentic/run-stats.jsonl"
+mkdir -p "$stops_home/.claude/b-agentic"
+chmod 700 "$stops_home/.claude/b-agentic"
+make_repo "$repoTS"
+HOME="$stops_home" ready_run "$repoTS" time-stops
+jq '.budget.phase_s.implement = .budget.stop_at_s' "$(sfile "$repoTS")" >"$tmp" && cp "$tmp" "$(sfile "$repoTS")"
+HOME="$stops_home" st "$repoTS" s1 check
+[ "$rc" -eq 3 ] || fail "the run past its mark must stop: $out"
+HOME="$stops_home" ok "$repoTS" s1 unblock continue --reason "more time"
+HOME="$stops_home" ok "$repoTS" s1 advance blocked --reason "probe" --needs "nothing"
+HOME="$stops_home" ok "$repoTS" s1 unblock verify --reason "probe"
+HOME="$stops_home" ok "$repoTS" s1 record check --cmd "make test" --exit 0
+HOME="$stops_home" ok "$repoTS" s1 record review --low-risk "one-line change, no trigger"
+HOME="$stops_home" ok "$repoTS" s1 advance qa
+write_qa "$repoTS" 1 "QA PASS" pass
+HOME="$stops_home" ok "$repoTS" s1 record qa --verdict "QA PASS"
+HOME="$stops_home" ok "$repoTS" s1 record ac AC-1 pass
+HOME="$stops_home" ok "$repoTS" s1 advance "done"
+jq -e '.run_stats == "written"' <<<"$out" >/dev/null || fail "the time-stopped run must be recorded: $out"
+jq -e '.time_stops == 1 and .blocked_count == 2' "$stops_store" >/dev/null \
+  || fail "the line must count one time stop among two blocks: $(cat "$stops_store")"
+
 # --- blocked, replaced, and unfinished runs add nothing (AC-7) --------------------------------------------
 before=$(lines_of "$stats_store")
 repoB="$work/repoB"
@@ -837,7 +862,7 @@ def line(run, **over):
         "worker_steps": 0, "parallel_steps": 0, "dur_s": {"implement": 100, "review": 50}, "total_s": 150,
         "history_complete": True,
         "review": {"rounds": 1, "by_gate": {"codex": 1}, "low_risk": False, "verdict": "READY FOR PR"},
-        "qa": {"rounds": 1, "verdict": "QA PASS"}, "fix_rounds": 0, "blocked_count": 0,
+        "qa": {"rounds": 1, "verdict": "QA PASS"}, "fix_rounds": 0, "blocked_count": 0, "time_stops": 0,
         "checks_total": 5, "checks_failed": 0, "commits": 1, "ac": {"pass": 2},
         "blockers": {"review": 0, "qa": 0, "by_class": {}}, "escaped_from": {},
     }
@@ -911,7 +936,7 @@ has '(keys | sort) == ["all","before_since","by_runtime","ok","repo","since","st
 has '.stores.claude == {status: "read", disabled: false, truncated: false, lines: 3, counted: 3, malformed: 0, unknown_version: 0, duplicates: 0}' "the claude store entry"
 has '.stores.pi.status == "read" and .stores.pi.counted == 1' "the pi store entry"
 has '.all.runs == 4 and .all.counts.review_rounds == {n: 4, sum: 16, min: 1, p50: 1, p90: 12, max: 12, values: {"1": 2, "2": 1, "10+": 1}}' "review rounds"
-has '.all.counts | (keys | length) == 14 and all(.n == 4)' "every stored count has a value per run"
+has '.all.counts | (keys | length) == 15 and all(.n == 4)' "every stored count has a value per run"
 has '[.all.counts | .steps, .criteria, .scope_paths, .worker_steps, .parallel_steps, .qa_rounds, .fix_rounds, .blocked_count, .checks_total, .checks_failed, .commits, .review_blockers, .qa_blockers | .sum] == [14,8,16,0,0,4,2,0,35,3,3,2,1]' "count sums"
 has '.all.counts.checks_total == {n: 4, sum: 35, min: 5, p50: 5, p90: 20, max: 20, values: {"5": 3, "10+": 1}}' "checks histogram"
 has '.all.seconds.total == {n: 4, sum: 1050, min: 150, p50: 200, p90: 400, max: 400}' "total seconds"
@@ -921,7 +946,7 @@ has '.all.sums == {size: {full: 3, quick: 1}, end: {commit: 3, qa: 1}, review_ga
   review_verdict: {"NEEDS FIXES": 1, "READY FOR PR": 2}, review_low_risk: {"false": 3, "true": 1}, qa_verdict: {"QA PASS": 4},
   ac: {fail: 1, pass: 9}, blockers_by_class: {"data-integrity loss": 3}, escaped_from: {plan: 2, spec: 1},
   kit_dirty: {"false": 3, "true": 1}, kit_changed: {"false": 3, "true": 1}}' "keyed sums"
-has '.all.missing == {runtime: 0, kit: 0, kit_unchecked: 0, kit_changed: 0, review_verdict: 1, qa_verdict: 0, durations: 0}' "missing counts"
+has '.all.missing == {runtime: 0, kit: 0, kit_unchecked: 0, kit_changed: 0, review_verdict: 1, qa_verdict: 0, durations: 0, time_stops: 0}' "missing counts"
 has '(.by_runtime | keys) == ["claude","pi"] and .by_runtime.claude.runs == 3 and .by_runtime.claude.counts.review_rounds.sum == 4 and .by_runtime.pi.counts.review_rounds.sum == 12' "by runtime"
 header=$(jq -cS '{ok, since, repo, stores, before_since}' <<<"$out")
 pi_block=$(jq -c .by_runtime.pi <<<"$out")
@@ -954,7 +979,7 @@ has '.all.runs == 3 and .all.counts.steps.sum == 7 and .by_runtime.claude.runs =
 # A value a line does not have is counted as missing, never read as zero or guessed (AC-3).
 sum_store <<'PY'
 legacy = line(1, runtime=None, history_complete=False, dur_s={"implement": 999, "fix": 999}, total_s=999,
-              review={"rounds": 1, "by_gate": {}, "low_risk": True}, qa={"rounds": 1},
+              time_stops=None, review={"rounds": 1, "by_gate": {}, "low_risk": True}, qa={"rounds": 1},
               blockers={"review": 2, "qa": 0, "by_class": {"unclassified": 2}}, escaped_from={"unclassified": 2})
 both_dirty = kit(10, "2026-11-20", "a", dirty=True)
 del both_dirty["kit_changed"]
@@ -963,7 +988,8 @@ write(pi_store, [])
 PY
 summary
 has '.all.runs == 2 and .by_runtime.unknown.runs == 1 and .by_runtime.claude.runs == 1' "a line without a runtime is not given the store's"
-has '.all.missing == {runtime: 1, kit: 1, kit_unchecked: 0, kit_changed: 2, review_verdict: 1, qa_verdict: 1, durations: 1}' "every gap is counted"
+has '.all.missing == {runtime: 1, kit: 1, kit_unchecked: 0, kit_changed: 2, review_verdict: 1, qa_verdict: 1, durations: 1, time_stops: 1}' "every gap is counted"
+has '.all.counts.time_stops == {n: 1, sum: 0, min: 0, p50: 0, p90: 0, max: 0, values: {"0": 1}}' "a line without time_stops is not read as zero stops"
 has '.all.seconds.total == {n: 1, sum: 150, min: 150, p50: 150, p90: 150, max: 150} and .all.seconds.fix == {n: 0, sum: 0} and .all.seconds.implement.sum == 100' "an incomplete history gives no seconds"
 has '.all.sums.blockers_by_class == {unclassified: 2} and .all.sums.escaped_from == {unclassified: 2} and .all.sums.kit_changed == {} and .all.sums.kit_dirty == {"true": 1}' "unclassified stays its own key"
 summary --section kit
@@ -982,6 +1008,14 @@ has '.all.missing.kit_unchecked == 1 and .all.missing.kit == 2 and .all.sums.kit
 out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B "$kit_claude/bin/b_run.py" stats --summary --section kit) || fail "the kit section under an older schema failed"
 cp "$work/kit-schema" "$kit_claude/references/artifacts.yaml"
 has '.by_kit.groups == [] and .by_kit.without_kit.runs == 2 and .by_kit.without_kit.missing.kit_unchecked == 1' "set-aside kit fields make no kit group"
+
+# The same for time_stops: an older schema sets the newer count aside and keeps the line.
+jq 'del(.run_stats.fields.time_stops)' "$work/kit-schema" >"$kit_claude/references/artifacts.yaml"
+out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B "$kit_claude/bin/b_run.py" stats --summary) || fail "the summary under a schema without time_stops failed"
+has '.stores.claude.malformed == 0 and .all.runs == 2 and .all.counts.time_stops == {n: 0, sum: 0, values: {}} and .all.missing.time_stops == 2' "a schema without time_stops must not drop a line"
+out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B "$kit_claude/bin/b_run.py" stats) || fail "the report under a schema without time_stops failed"
+cp "$work/kit-schema" "$kit_claude/references/artifacts.yaml"
+has '.stores.claude.malformed == 0 and .stores.claude.valid == 2' "the report must not call a line with time_stops malformed"
 
 # Every store state is reported, nothing is waited on or written, and no run folder is read (AC-5).
 sum_state() { # STATE EXPECTED_STATUS: put the claude store into STATE and summarize it.

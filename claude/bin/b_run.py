@@ -1997,6 +1997,8 @@ def cmd_prune(args: dict) -> dict:
 # ---- run stats (ADR-035) -------------------------------------------------------
 
 STATS_SALT = "b-agentic-run-stats:v1:"
+# The reason b-state-core.mjs BUDGET_REASON gives the run time budget's block (ADR-039).
+BUDGET_REASON = "run time budget reached"
 # The install home of each runtime, below the user's home: the store lives beside the installed helpers.
 STATS_HOMES = {"claude": (".claude", "b-agentic"), "pi": (".pi", "agent", "b-agentic")}
 STATS_LOCK_SECONDS = 1.0
@@ -2065,6 +2067,13 @@ def stats_check(record: dict, schema: dict) -> None:
     """Refuse any record that is not exactly the numbers the run_stats block allows (ADR-035)."""
     _stats_object(_stats_block(schema)["fields"], record, "", schema)
     _kit_group(record)
+
+
+def _stats_known(line: dict, fields: dict) -> dict:
+    """The line without time_stops when this schema does not list it: the other runtime's newer helper may count it."""
+    if "time_stops" in fields:
+        return line
+    return {name: value for name, value in line.items() if name != "time_stops"}
 
 
 KIT_STATS = ("kit_seq", "kit_date", "kit_commit", "kit_dirty")
@@ -2282,6 +2291,15 @@ def stats_record(state: dict, artifacts: dict, repo_key: str, schema: dict) -> d
         "blockers": {**blockers, "by_class": by_class},
         "escaped_from": escaped,
     }
+    # An install can keep an older, user-edited artifacts.yaml beside newer helpers, as in _kit_stats.
+    if "time_stops" in block:
+        record["time_stops"] = sum(
+            1
+            for e in history
+            if e.get("to") == "blocked"
+            and isinstance(e.get("detail"), dict)
+            and e["detail"].get("reason") == BUDGET_REASON
+        )
     if state.get("runtime") in block["runtime"]["values"]:
         record["runtime"] = state["runtime"]
     if review.get("verdict") in block["review"]["fields"]["verdict"]["values"]:
@@ -2700,7 +2718,7 @@ def _stats_report(root: Path, schema: dict) -> dict:
             try:
                 if record is None:
                     raise Invalid("not an object")
-                stats_check(record, schema)
+                stats_check(_stats_known(record, block["fields"]), schema)
             except Invalid:
                 entry["malformed"] += 1
                 continue
@@ -2737,6 +2755,7 @@ SUMMARY_COUNTS = {
     "qa_rounds": ("qa", "rounds"),
     "fix_rounds": ("fix_rounds",),
     "blocked_count": ("blocked_count",),
+    "time_stops": ("time_stops",),
     "checks_total": ("checks_total",),
     "checks_failed": ("checks_failed",),
     "commits": ("commits",),
@@ -2778,7 +2797,7 @@ def _summary_block(rows: list[tuple[dict, bool]], phases: list[str]) -> dict:
     sums: dict[str, dict[str, int]] = {
         name: {} for name in (*names, "blockers_by_class", "escaped_from", "kit_dirty", "kit_changed")
     }
-    gaps = ("runtime", "kit", "kit_unchecked", "kit_changed", "review_verdict", "qa_verdict", "durations")
+    gaps = ("runtime", "kit", "kit_unchecked", "kit_changed", "review_verdict", "qa_verdict", "durations", "time_stops")
     missing = dict.fromkeys(gaps, 0)
 
     def add(name: str, key: object, amount: int = 1) -> None:
@@ -2791,6 +2810,10 @@ def _summary_block(rows: list[tuple[dict, bool]], phases: list[str]) -> dict:
 
     for line, unchecked in rows:
         for name, path in SUMMARY_COUNTS.items():
+            # Lines written before the run time budget hold no count of its stops.
+            if name == "time_stops" and name not in line:
+                missing[name] += 1
+                continue
             value = line
             for part in path:
                 value = value[part]
@@ -2911,6 +2934,7 @@ def _stats_summary(root: Path, schema: dict, since: str | None, section: str | N
             if not kit_known:
                 unchecked = any(name in line for name in kit_names)
                 line = {name: value for name, value in line.items() if name not in kit_names}
+            line = _stats_known(line, fields)
             try:
                 stats_check(line, schema)
             except Invalid:

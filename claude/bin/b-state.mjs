@@ -31,6 +31,7 @@ import {
   cmdCheck,
   cmdInit,
   cmdUnblock,
+  applyTimeStop,
 } from "./b-state-commands.mjs";
 import {
   helperDir,
@@ -99,6 +100,10 @@ const USAGE = [
   "                                      blocks a quick run; `advance done` from qa",
   "                                      ends a run that has no commit consent",
   "  unblock <phase> --reason R          leave `blocked` for clarify|implement|fix|verify",
+  "  unblock continue --reason R         return a time-stopped run to its phase, keeping",
+  "                                      its evidence and counters; 45 counted minutes",
+  "                                      after approval (not clarify or blocked time),",
+  "                                      check, advance or record stops the run",
   "  record check --cmd C --exit N [--include-ignored P]...",
   "  record review (--verdict V --gate codex|reviewer [--gate-reason R] [--trigger T]",
   "                 | --low-risk REASON)",
@@ -235,17 +240,27 @@ export async function run(argv, cwd, deps = {}) {
     if (command === "check") {
       const result = await cmdCheck(root, dir, state, args);
       // Resume takes the lock only when the run is still the caller's to continue.
-      if (result.ok !== false || state.phase === "blocked") {
+      // A time-stopped check wrote the run too, so its session holds the lock.
+      if (
+        result.ok !== false ||
+        result.time_stop ||
+        state.phase === "blocked"
+      ) {
         takeLock(dir, defaultOwner(args), Boolean(args.takeover));
       }
       return result;
     }
     requireLock(dir, args);
     if (command === "approve") return await cmdApprove(root, dir, state, args);
-    if (command === "advance") return await cmdAdvance(root, dir, state, args);
+    if (command === "advance") {
+      const result = await cmdAdvance(root, dir, state, args);
+      return await applyTimeStop(root, dir, command, result);
+    }
     if (command === "unblock") return await cmdUnblock(root, dir, state, args);
-    if (command === "record")
-      return await cmdRecord(root, dir, state, args, deps);
+    if (command === "record") {
+      const result = await cmdRecord(root, dir, state, args, deps);
+      return await applyTimeStop(root, dir, command, result);
+    }
     if (command === "worktree")
       return await cmdWorktree(root, dir, state, args, deps);
     throw invalid(`unknown command: ${command}`);

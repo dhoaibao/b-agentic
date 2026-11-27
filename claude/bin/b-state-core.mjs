@@ -78,6 +78,39 @@ export const AC_STATUSES = ["pending", "pass", "fail", "gap", "waived"];
 
 export const MAX_ROUNDS = 3;
 
+// The run time budget (ADR-039): the first stop comes this many counted seconds after
+// approval, and every later one this many after the user's decision.
+export const BUDGET_WINDOW_S = 2700;
+
+// Reserved: `unblock continue` leaves only a block with this reason, and `advance blocked`
+// refuses it, so no other block can be passed off as a time stop.
+export const BUDGET_REASON = "run time budget reached";
+
+// The phases whose time counts. Clarify is the user's, and a blocked run is already
+// stopped for them.
+export const BUDGET_PHASES = [
+  "approved",
+  "implement",
+  "verify",
+  "review",
+  "fix",
+  "qa",
+  "commit",
+];
+
+// Whole seconds between two timestamps, counted by the second boundaries between them:
+// consecutive intervals add up exactly, however often the state is written.
+export function secondsBetween(from, to) {
+  const start = Math.floor(Date.parse(from) / 1000);
+  const end = Math.floor(Date.parse(to) / 1000);
+  return Number.isFinite(start) && Number.isFinite(end)
+    ? Math.max(0, end - start)
+    : 0;
+}
+
+export const countedSeconds = (budget) =>
+  Object.values(budget.phase_s).reduce((sum, value) => sum + value, 0);
+
 // Run folders past which init suggests `b_run.py prune` (it never deletes); b_run.py HINT_RUNS holds the same value.
 export const HINT_RUNS = 40;
 

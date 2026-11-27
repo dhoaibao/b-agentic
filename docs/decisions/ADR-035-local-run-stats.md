@@ -62,7 +62,8 @@ decision does.
   summary, or follow-up text, `trigger`, `gate_reason`, branch, commands, paths, commit ids,
   `repo_root`, or the run slug (free text the model writes). ([ADR-036](ADR-036-run-stats-kit-version.md)
   adds the kit version fields, one of them the b-agentic kit's own source commit, the only commit id
-  the helpers put in a line.) The writer checks each record
+  the helpers put in a line.) ([ADR-039](ADR-039-run-time-budget-stop.md) adds `time_stops`,
+  the number of times the run's time budget blocked it.) The writer checks each record
   against the block, and the generator check refuses a `line` or `text` field there.
 - **Reading.** `b_run.py stats` is read-only and prints counts only: lines, valid and malformed
   lines, distinct repositories, this repository's key and lines, its finished runs not yet in the
