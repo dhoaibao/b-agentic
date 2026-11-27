@@ -22,6 +22,7 @@ and installer/validation tooling. See the [public overview](README.md) and
 ### Documentation
 
 - Create and update project docs by the roles in [docs/README.md](docs/README.md) and the naming and templates in each docs folder's README; search for an existing doc first.
+- Record deferred work worth keeping, such as open follow-ups, undecided designs, or an evaluation baseline, in a [docs/specs/](docs/specs/README.md) spec: session memory, `.b-agentic/runs/`, and stashes stay on one machine. Keep other repositories' names and text, local paths, and stored data out of it.
 
 ### Canonical sources and change flows
 
