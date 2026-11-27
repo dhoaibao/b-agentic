@@ -5,7 +5,7 @@
 #
 # Each file in cases/ is an independent shard with its own work folder and repositories
 # (shared helpers live in lib.sh). With no argument every shard runs, at most STATE_PROBE_JOBS
-# (default 4) at the same time, and a failed shard's log is printed; `state-probe.sh <case>` runs
+# (default 2) at the same time, and a failed shard's log is printed; `state-probe.sh <case>` runs
 # one shard in the foreground.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck disable=SC2034 # cli and the other variables are used by the files this script sources.
@@ -16,7 +16,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cases=(stats core commit-gates checks commit-plan artifacts steps quick worker worktree owner pi budget)
 
 if [ "$#" -eq 0 ]; then
-  jobs_cap=${STATE_PROBE_JOBS:-4}
+  jobs_cap=${STATE_PROBE_JOBS:-2}
   [[ "$jobs_cap" =~ ^[1-9][0-9]*$ ]] || { echo "STATE_PROBE_JOBS must be a positive integer: $jobs_cap" >&2; exit 2; }
   logs=$(mktemp -d)
   trap 'rm -rf "$logs"' EXIT
