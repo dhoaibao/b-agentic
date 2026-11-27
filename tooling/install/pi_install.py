@@ -67,7 +67,9 @@ HOOK_FILES = (
     "b-run-context.mjs",
     "b-alexandria-guard.mjs",
 )
-HELPER_FILE = re.compile(r"^(?:b-state(?:-[a-z]+)?\.mjs|b-candidate-snapshot\.mjs|b-protected\.mjs|b_run\.py)$")
+HELPER_FILE = re.compile(
+    r"^(?:b-state(?:-[a-z]+)?\.mjs|b-candidate-snapshot\.mjs|b-protected\.mjs|b_run(?:_lib)?\.py)$"
+)
 REFERENCES = ("capabilities.yaml", "mcp_operations.yaml", "artifacts.yaml")
 CLASSIFIER_PACKAGE = "npm:pi-permission-classifier"
 PERMISSION_PACKAGE = "npm:@gotgenes/pi-permission-system"
@@ -500,6 +502,7 @@ class Installer:
             if not theme_path.is_file():
                 raise InstallError(f"theme file missing from source checkout: {theme_path}")
             files[f"themes/{theme}.json"] = theme_path.read_bytes()
+        files = base.run_cli_payload(files, "b-agentic/bin/")
         # Skills and prompts call the agents, helpers, and wrappers above, so they are written last: an
         # interrupted upgrade then never publishes a skill that points at a command that was not installed yet.
         files.update(late)
@@ -1237,7 +1240,7 @@ class Installer:
         )
         if theme:
             files.append(f"themes/{theme}.json")
-        return files
+        return base.run_cli_order(files, "b-agentic/bin/")
 
     def cross_runtime_destinations(
         self,

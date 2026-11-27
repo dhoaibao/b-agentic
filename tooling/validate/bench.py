@@ -173,6 +173,10 @@ def main():
                 state, shim_env, str(repo), log, git_lines.setdefault(f"b-state-check/{runtime}", [])
             )
         py = sys.executable or "python3"
+        # An install ships this bytecode with the CLI (ADR-040), so the target is for a run that has it.
+        module = str(BIN / "b_run_lib.py")
+        compile_args = ["-I", "-m", "compileall", "-q", "-f", "--invalidation-mode", "checked-hash", module]
+        subprocess.run([py, *compile_args], check=True)
         medians["b_run-startup/py"] = median_ms(
             [py, "-I", "-B", str(BIN / "b_run.py"), "schema", "spec"], None, env, str(repo), args.reps
         )

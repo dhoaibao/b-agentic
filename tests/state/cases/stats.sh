@@ -53,6 +53,8 @@ except subprocess.TimeoutExpired:
 sys.exit(done.returncode)
 PY
 }
+# The CLI's source: the cases that call its functions load it, and the ones that run it use the b_run.py launcher.
+run_lib="$root/claude/bin/b_run_lib.py"
 # store_py ARGS...: run the Python on stdin with b_run loaded as b_run and the store path as the first argument.
 store_py() {
   python3 -I -B -c '
@@ -66,7 +68,7 @@ spec.loader.exec_module(b_run)
 block = b_run._stats_block(b_run.load_schema())
 store = sys.argv[2]
 exec(sys.stdin.read())
-' "$run_cli" "$@"
+' "$run_lib" "$@"
 }
 
 repoS="$work/repoS"
@@ -498,7 +500,7 @@ stats "$work/shallowS" --record | jq -e '.appended == 0 and .skipped["no-repo-ke
 
 # --- phase durations come from the history timestamps, which end in Z ------------------------------------------------------
 jq -e '.dur_s | length > 0' <(head -1 "$stats_store") >/dev/null || fail "a recorded line must carry phase durations"
-python3 -I -B - "$run_cli" <<'PY' || fail "durations must be read from timestamps that end in Z"
+python3 -I -B - "$run_lib" <<'PY' || fail "durations must be read from timestamps that end in Z"
 import importlib.util
 import sys
 
@@ -515,7 +517,7 @@ assert per_phase == {"clarify": 10, "approved": 60} and total == 70, (per_phase,
 PY
 
 # --- started_at keeps stats_run_key stable when history truncation drops the init entry -------------------------------
-python3 -I -B - "$run_cli" <<'PY' || fail "_run_started must prefer started_at and keep untruncated keys identical"
+python3 -I -B - "$run_lib" <<'PY' || fail "_run_started must prefer started_at and keep untruncated keys identical"
 import importlib.util
 import sys
 
@@ -631,7 +633,7 @@ kit_claude="$work/kit-claude/b-agentic"
 kit_pi="$work/kit-pi/b-agentic"
 for installed in "$kit_claude" "$kit_pi"; do
   mkdir -p "$installed/bin" "$installed/references"
-  cp "$root"/claude/bin/*.mjs "$root/claude/bin/b_run.py" "$installed/bin/"
+  cp "$root"/claude/bin/*.mjs "$root/claude/bin/b_run.py" "$run_lib" "$installed/bin/"
   cp "$root/references/artifacts.yaml" "$installed/references/"
 done
 kit_a=$(printf '%040d' 0 | tr 0 a)
@@ -1058,7 +1060,7 @@ has '.stores.claude | .truncated and .counted == 1 and .malformed == 1' "an over
 # A failure after the open: the summary reports that store unreadable and keeps the other; plain stats still fails.
 # faulty CALL ARGS...: stats from repoS with os.CALL failing on the claude store only; $out, and stderr in sum-err.
 faulty() {
-  out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B - "$root/claude/bin/b_run.py" "$sum_claude/run-stats.jsonl" "$@" 2>"$work/sum-err" <<'PY'
+  out=$(cd "$repoS" && HOME="$sum_home" python3 -I -B - "$run_lib" "$sum_claude/run-stats.jsonl" "$@" 2>"$work/sum-err" <<'PY'
 import errno
 import importlib.util
 import os
@@ -1416,7 +1418,7 @@ ev_swap() {
 folder(repo, "20261101-x", [blocker(1, summary="inside")])
 folder(repo + "/outside", "20261101-x", [blocker(1, summary="leak-outside")])
 PY
-  out=$(cd "$ev_repo" && HOME="$ev_home" python3 -I -B - "$root/claude/bin/b_run.py" "$ev_repo" "$1" "$2" <<'PY'
+  out=$(cd "$ev_repo" && HOME="$ev_home" python3 -I -B - "$run_lib" "$ev_repo" "$1" "$2" <<'PY'
 import importlib.util
 import os
 import sys
@@ -1952,7 +1954,7 @@ PY
 # A path swapped after its checkout was checked cannot bring another tree in: the runs are read from the held folder.
 register "$rv_file" "$rv_key" "$rv/good"
 cp -R "$rv/good" "$rv/good-copy"
-out=$(cd "$work/rg-outside" && HOME="$rg_home" python3 -I -B - "$root/claude/bin/b_run.py" "$rv/good" "$rv/other" "$rv_key" <<'PY'
+out=$(cd "$work/rg-outside" && HOME="$rg_home" python3 -I -B - "$run_lib" "$rv/good" "$rv/other" "$rv_key" <<'PY'
 import importlib.util
 import os
 import sys

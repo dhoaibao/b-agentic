@@ -94,6 +94,10 @@ run "$home" -y; expect_ok "fresh --runtime=all -y"
 [ -f "$home/.pi/agent/AGENTS.md" ] || fail "Pi AGENTS.md missing"
 [ -f "$home/.pi/agent/settings.json" ] || fail "Pi settings.json missing"
 [ -f "$home/.pi/agent/mcp.json" ] || fail "Pi mcp.json missing"
+for assets in "$home/.claude/b-agentic" "$home/.pi/agent/b-agentic"; do
+  grep -q '^# code object from .*__pycache__/b_run_lib.*\.pyc' <<<"$(HOME="$home" python3 -I -B -v "$assets/bin/b_run.py" schema spec 2>&1 >/dev/null)" \
+    || fail "the CLI installed in $assets must load its installed bytecode"
+done
 if grep -Eq '^(npm|npx|pnpm|yarn|curl|wget) ' "$calls"; then
   fail "fresh install called a package manager or downloader: $(cat "$calls")"
 fi
@@ -212,6 +216,8 @@ run "$home" --uninstall; expect_ok "--runtime=all --uninstall"
   || fail "Pi manifest or skills left behind after uninstall"
 [ -d "$home/.claude/b-agentic/backups" ] && [ -d "$home/.pi/agent/b-agentic/backups" ] \
   || fail "backups must be kept on uninstall"
+[ ! -e "$home/.claude/b-agentic/bin" ] && [ ! -e "$home/.pi/agent/b-agentic/bin" ] \
+  || fail "uninstall must leave no helper folder or __pycache__"
 
 home=$(fresh_home uninstall-claude-only)
 env -u CLAUDE_CONFIG_DIR -u PI_CODING_AGENT_DIR HOME="$home" PATH="$shims:$PATH" \

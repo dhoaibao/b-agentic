@@ -98,7 +98,9 @@ expected="$work/expected.txt"
     b-agentic/hooks/b-run-context.mjs b-agentic/hooks/b-alexandria-guard.mjs \
     b-agentic/references/capabilities.yaml b-agentic/references/mcp_operations.yaml b-agentic/references/artifacts.yaml
   (cd "$root/claude/bin" && find . -maxdepth 1 -type f | sed 's|^\./|b-agentic/bin/|') \
-    | grep -E '/(b-state(-[a-z]+)?\.mjs|b-candidate-snapshot\.mjs|b-protected\.mjs|b_run\.py)$'
+    | grep -E '/(b-state(-[a-z]+)?\.mjs|b-candidate-snapshot\.mjs|b-protected\.mjs|b_run(_lib)?\.py)$'
+  # The run CLI's bytecode is built at install for the installing Python (ADR-040), so no source file names it.
+  printf 'b-agentic/bin/__pycache__/b_run_lib.%s.pyc\n' "$(python3 -I -c 'import sys; print(sys.implementation.cache_tag)')"
 
 } | sort >"$expected"
 
@@ -114,6 +116,11 @@ for wrapper in b-run b-snapshot b-state; do
   [ "$mode" = 700 ] || fail "$wrapper must be owner-executable (got $mode)"
 done
 [ -f "$agent/agents/b-worker.md" ] || fail "Pi must install b-worker.md"
+cli_pyc="b-agentic/bin/__pycache__/b_run_lib.$(python3 -I -c 'import sys; print(sys.implementation.cache_tag)').pyc"
+[ "$(jq -r --arg f "$cli_pyc" '.files[$f] // ""' "$agent/b-agentic/install.json")" = "$(sha256sum "$agent/$cli_pyc" | cut -d' ' -f1)" ] \
+  || fail "install.json must record the CLI bytecode"
+grep -q '^# code object from .*__pycache__/b_run_lib.*\.pyc' <<<"$(HOME="$home" python3 -I -B -v "$agent/b-agentic/bin/b_run.py" schema spec 2>&1 >/dev/null)" \
+  || fail "the installed CLI must load its installed bytecode"
 while IFS=$'\t' read -r agent_name agent_model agent_thinking; do
   agent_file="$agent/agents/$agent_name.md"
   [ -f "$agent_file" ] || fail "missing installed Pi agent: $agent_file"
@@ -224,6 +231,21 @@ run "$home" -y; expect_ok "install before uninstall"
 run "$home" -y --uninstall; expect_ok "uninstall"
 [ ! -e "$home/.pi/agent/agents/b-worker.md" ] || fail "uninstall must remove b-worker.md"
 [ -z "$(files_under "$home/.pi")" ] || fail "uninstall left files: $(files_under "$home/.pi" | head -3)"
+[ ! -e "$home/.pi/agent/b-agentic/bin" ] || fail "uninstall left the helper folder"
+
+# --- a modified CLI bytecode is refused like every file the installed commands run (ADR-040) --------------
+home=$(fresh_home cli-bytecode)
+run "$home" -y; expect_ok "bytecode install"
+bytecode="$home/.pi/agent/$cli_pyc"
+printf 'x' >>"$bytecode"
+cp "$bytecode" "$work/pyc.edited"
+run "$home" -y; expect_refused "install over a modified pyc"
+grep -Fq "$cli_pyc" <<<"$err" || fail "the refusal must name the pyc: $err"
+cmp -s "$bytecode" "$work/pyc.edited" || fail "a refused install must leave the pyc as it was"
+run "$home" -y --force; expect_ok "forced install over a modified pyc"
+! cmp -s "$bytecode" "$work/pyc.edited" || fail "--force must replace a modified pyc"
+run "$home" -y --uninstall; expect_ok "uninstall after the bytecode case"
+[ ! -e "$home/.pi/agent/b-agentic/bin" ] || fail "uninstall left the helper folder"
 
 # --- theme & subagent config ownership, warnings, --force, uninstall, and invalid JSON refusal ---------
 # AC-3: user-changed theme survives uninstall; AC-5: user-changed owned subagent key survives uninstall.

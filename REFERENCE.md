@@ -110,6 +110,7 @@ What it manages, all recorded in `~/.claude/b-agentic/install.json`:
 | Skills (also `/b-<name>` commands) | `skills/b-*/SKILL.md`                                                                |
 | Specialists                        | `agents/b-*.md`                                                                      |
 | Hooks and CLIs                     | `b-agentic/hooks/*.mjs`, `b-agentic/bin/*.mjs`, `b-agentic/bin/*.py`                 |
+| Run CLI bytecode, built at install | `b-agentic/bin/__pycache__/b_run_lib.<tag>.pyc`                                      |
 | References                         | `b-agentic/references/`                                                              |
 | Kernel                             | block between `<!-- b-agentic:start -->` and `<!-- b-agentic:end -->` in `CLAUDE.md` |
 | Permissions, hooks, status line    | entries merged into `settings.json`                                                  |

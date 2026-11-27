@@ -29,7 +29,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
+import marshal
 import os
 import re
 import shlex
@@ -71,6 +73,48 @@ BUN_COMMAND = " ".join(("bun", *BUN_FLAGS))
 # and installs it owner-executable, because the default new-file mode is not executable.
 WRAPPERS = ("b-codex-guard", "b-codex-review", "b-run", "b-snapshot", "b-state")
 WRAPPER_MODE = 0o700
+
+
+# The run CLI: b_run.py is a launcher that imports b_run_lib.py, so Python can use the bytecode installed with it
+# (ADR-040).
+RUN_CLI_LAUNCHER = "b_run.py"
+RUN_CLI_MODULE = "b_run_lib.py"
+
+
+def run_cli_bytecode_path() -> str | None:
+    """Where Python looks for the module's bytecode, relative to its folder; None when it caches none."""
+    tag = sys.implementation.cache_tag
+    return f"__pycache__/{Path(RUN_CLI_MODULE).stem}.{tag}.pyc" if tag else None
+
+
+def checked_hash_bytecode(source: bytes) -> bytes:
+    """A checked-hash pyc (PEP 552, flags 3): Python uses it only while the source still has this hash, whatever
+    its size and time say. It is built in memory from the bytes being installed, so no repository pyc is shipped."""
+    try:
+        code = compile(source, RUN_CLI_MODULE, "exec", dont_inherit=True, optimize=0)
+    except (SyntaxError, ValueError) as exc:
+        raise InstallError(f"claude/bin/{RUN_CLI_MODULE} does not compile: {exc}") from exc
+    header = importlib.util.MAGIC_NUMBER + (3).to_bytes(4, "little") + importlib.util.source_hash(source)
+    return header + marshal.dumps(code)
+
+
+def run_cli_order(relatives: list[str], folder: str) -> list[str]:
+    """The payload paths with the run CLI's last: module, bytecode, launcher. Files are written in this order, so
+    an interrupted upgrade never leaves a new launcher without the module it imports."""
+    module, launcher = f"{folder}{RUN_CLI_MODULE}", f"{folder}{RUN_CLI_LAUNCHER}"
+    if module not in relatives or launcher not in relatives:
+        raise InstallError(f"claude/bin must ship both {RUN_CLI_LAUNCHER} and {RUN_CLI_MODULE}")
+    bytecode = run_cli_bytecode_path()
+    tail = [module, *([f"{folder}{bytecode}"] if bytecode else []), launcher]
+    return [relative for relative in relatives if relative not in (module, launcher)] + tail
+
+
+def run_cli_payload(files: dict[str, bytes], folder: str) -> dict[str, bytes]:
+    """The payload with the module's bytecode added, in the run CLI's write order."""
+    bytecode = run_cli_bytecode_path()
+    added = {f"{folder}{bytecode}": checked_hash_bytecode(files[f"{folder}{RUN_CLI_MODULE}"])} if bytecode else {}
+    merged = {**files, **added}
+    return {relative: merged[relative] for relative in run_cli_order(list(files), folder)}
 
 
 def wrapper_bytes(name: str, data: bytes, bun: str) -> bytes:
@@ -157,6 +201,7 @@ KIT_PATHS: dict[str, dict[str, tuple[str, ...]]] = {
             "claude/bin/b-candidate-snapshot.mjs",
             "claude/bin/b-protected.mjs",
             "claude/bin/b_run.py",
+            "claude/bin/b_run_lib.py",
             "claude/hooks/b-alexandria-guard.mjs",
             "claude/hooks/b-path-guard.mjs",
             "claude/hooks/b-run-context.mjs",
@@ -839,6 +884,7 @@ class Installer:
             files[f"b-agentic/bin/{name}"] = (self.source / "claude" / "bin" / name).read_bytes()
         for name in ("capabilities.yaml", "mcp_operations.yaml", "kernel.template.md", "artifacts.yaml"):
             files[f"b-agentic/references/{name}"] = (self.source / "references" / name).read_bytes()
+        files = run_cli_payload(files, "b-agentic/bin/")
         files.update(skills)
         return files
 
@@ -1223,6 +1269,7 @@ class Installer:
             files.append(f"b-agentic/bin/{name}")
         for name in ("capabilities.yaml", "mcp_operations.yaml", "kernel.template.md", "artifacts.yaml"):
             files.append(f"b-agentic/references/{name}")
+        files = run_cli_order(files, "b-agentic/bin/")
         for skill in registry["skills"]:
             name = skill["name"]
             if not isinstance(name, str) or not SKILL_NAME.fullmatch(name):

@@ -117,7 +117,7 @@ export async function worktreeBaseline(root) {
 }
 
 // The identity of one path's content, without keeping the content: the same
-// rule as path_digest in b_run.py, which compares against it.
+// rule as path_digest in b_run_lib.py, which compares against it.
 //
 // The read never leaves the tree: a link anywhere above the path makes it
 // unidentifiable (""), and the path itself is opened without following a link.

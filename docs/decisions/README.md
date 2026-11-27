@@ -41,7 +41,8 @@ ADRs: why a choice was made over its alternatives. See
 [ADR-036](ADR-036-run-stats-kit-version.md) for recording in each run-stats line the kit version the run started on, superseding ADR-035 in part, and
 [ADR-037](ADR-037-run-stats-repo-registry.md) for a registry of checkout paths so the run evidence of a named repository can be read, superseding ADR-035 in part, and
 [ADR-038](ADR-038-required-blocker-analytics.md) for requiring the class and escaped stage on each new blocker, superseding ADR-010 in part, and
-[ADR-039](ADR-039-run-time-budget-stop.md) for stopping a run on a time budget until the user decides, refining ADR-009 and ADR-035.
+[ADR-039](ADR-039-run-time-budget-stop.md) for stopping a run on a time budget until the user decides, refining ADR-009 and ADR-035, and
+[ADR-040](ADR-040-precompiled-run-cli.md) for shipping the run CLI as a launcher and a module with checked-hash bytecode, refining ADR-010 and ADR-028.
 
 ## Naming
 

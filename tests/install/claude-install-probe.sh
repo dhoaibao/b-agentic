@@ -75,13 +75,20 @@ claude="$home/.claude"
 [ -f "$claude/agents/b-reviewer.md" ] || fail "the b-reviewer specialist must be installed"
 [ -f "$claude/agents/b-worker.md" ] || fail "the b-worker writer profile must be installed"
 cmp -s "$root/claude/agents/b-worker.md" "$claude/agents/b-worker.md" || fail "the installed b-worker profile differs from the source"
-for file in bin/b-state bin/b-run bin/b-snapshot bin/b-codex-review bin/b-codex-guard bin/b-candidate-snapshot.mjs bin/b-protected.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-alexandria-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
+for file in bin/b-state bin/b-run bin/b-snapshot bin/b-codex-review bin/b-codex-guard bin/b-candidate-snapshot.mjs bin/b-protected.mjs bin/b-codex-review.mjs bin/b-codex-verdict.mjs bin/b-statusline.mjs bin/b-state.mjs bin/b_run.py bin/b_run_lib.py references/artifacts.yaml hooks/b-run-context.mjs hooks/b-path-guard.mjs hooks/b-codex-guard.mjs hooks/b-alexandria-guard.mjs hooks/b-verify-gate.mjs hooks/b-spec-context.mjs references/kernel.template.md references/mcp_operations.yaml references/capabilities.yaml; do
   [ -f "$claude/b-agentic/$file" ] || fail "missing b-agentic/$file"
 done
 for module in "$root"/claude/bin/b-state-*.mjs; do
   [ -f "$claude/b-agentic/bin/$(basename "$module")" ] || fail "missing b-agentic/bin/$(basename "$module")"
 done
 cmp -s "$root/skills/b-plan/SKILL.md" "$claude/skills/b-plan/SKILL.md" || fail "skill content differs from source"
+# The run CLI's bytecode (ADR-040): installed for this Python, recorded as ours, and what the installed CLI loads.
+cli_pyc="b-agentic/bin/__pycache__/b_run_lib.$(python3 -I -c 'import sys; print(sys.implementation.cache_tag)').pyc"
+[ -f "$claude/$cli_pyc" ] || fail "missing $cli_pyc"
+[ "$(jq -r --arg f "$cli_pyc" '.files[$f] // ""' "$claude/b-agentic/install.json")" = "$(sha256sum "$claude/$cli_pyc" | cut -d' ' -f1)" ] \
+  || fail "install.json must record the CLI bytecode"
+grep -q '^# code object from .*__pycache__/b_run_lib.*\.pyc' <<<"$(HOME="$home" python3 -I -B -v "$claude/b-agentic/bin/b_run.py" schema spec 2>&1 >/dev/null)" \
+  || fail "the installed CLI must load its installed bytecode"
 grep -Fq '<!-- b-agentic:start -->' "$claude/CLAUDE.md" || fail "kernel block missing"
 grep -Fq 'Claude Code Workflow Kernel' "$claude/CLAUDE.md" || fail "kernel text missing"
 [ "$(jq -r '.permissions.deny | index("Bash(git pull *)") != null' "$claude/settings.json")" = true ] || fail "deny rule missing"
@@ -138,12 +145,37 @@ run "$home" --uninstall; expect_ok "uninstall"
 [ ! -e "$claude/skills" ] || fail "skills left after uninstall: $(ls "$claude/skills")"
 [ ! -e "$claude/CLAUDE.md" ] || fail "created CLAUDE.md must be removed"
 [ ! -e "$claude/b-agentic/install.json" ] || fail "manifest left"
+[ ! -e "$claude/b-agentic/bin" ] || fail "uninstall left the helper folder: $(find "$claude/b-agentic/bin" | head -3)"
 [ "$(jq -c . "$claude/settings.json")" = '{}' ] || fail "settings entries left: $(cat "$claude/settings.json")"
 [ "$(jq -c . "$home/.claude.json")" = '{}' ] || fail "MCP servers left: $(cat "$home/.claude.json")"
 [ "$pi_before" = "$(tree "$home/.pi")" ] || fail "uninstall changed the Pi tree"
 run "$home" --uninstall; expect_ok "second uninstall"
 grep -Fq 'nothing to uninstall' <<<"$out" || fail "second uninstall should be a no-op"
 echo "install probe passed: uninstall"
+
+# --- the run CLI's bytecode follows the managed-file rules (ADR-040) ---------------------
+home=$(fresh_home cli-bytecode)
+run "$home"; expect_ok "bytecode install"
+bytecode="$home/.claude/$cli_pyc"
+manifest="$home/.claude/b-agentic/install.json"
+# A pyc left by the Python an earlier install ran with is retired like any file this source no longer ships.
+old_pyc="b-agentic/bin/__pycache__/b_run_lib.cpython-00.pyc"
+printf 'old bytecode\n' >"$home/.claude/$old_pyc"
+jq --arg f "$old_pyc" --arg digest "$(sha256sum "$home/.claude/$old_pyc" | cut -d' ' -f1)" '.files[$f] = $digest' "$manifest" >"$work/manifest.next"
+cp "$work/manifest.next" "$manifest"
+run "$home"; expect_ok "install after a Python change"
+[ ! -e "$home/.claude/$old_pyc" ] || fail "the other Python's pyc must be retired"
+[ -f "$bytecode" ] || fail "the current pyc must stay"
+printf 'x' >>"$bytecode"
+cp "$bytecode" "$work/pyc.edited"
+run "$home"; expect_ok "install over a modified pyc"
+cmp -s "$bytecode" "$work/pyc.edited" || fail "a modified pyc must be kept"
+grep -Fq "$cli_pyc (modified since install)" <<<"$err" || fail "a modified pyc must warn: $err"
+run "$home" --force; expect_ok "forced install over a modified pyc"
+! cmp -s "$bytecode" "$work/pyc.edited" || fail "--force must replace a modified pyc"
+run "$home" --uninstall; expect_ok "uninstall after the bytecode cases"
+[ ! -e "$home/.claude/b-agentic/bin" ] || fail "uninstall left the helper folder"
+echo "install probe passed: cli bytecode"
 
 # --- user-owned content survives install and uninstall -----------------------------
 home=$(fresh_home owned)
@@ -1123,6 +1155,9 @@ cp -p "$work/b-codex-review.saved" "$doctor_bin/b-codex-review"
 mv "$doctor_bin/b_run.py" "$work/b_run.py.saved"
 doctor_flags "a missing b_run.py" "b-agentic/bin/b_run.py"
 mv "$work/b_run.py.saved" "$doctor_bin/b_run.py"
+mv "$doctor_bin/b_run_lib.py" "$work/b_run_lib.py.saved"
+doctor_flags "a missing b_run_lib.py" "b-agentic/bin/b_run_lib.py"
+mv "$work/b_run_lib.py.saved" "$doctor_bin/b_run_lib.py"
 mv "$home/.claude/b-agentic/references/artifacts.yaml" "$work/artifacts.yaml.saved"
 doctor_flags "a missing artifacts.yaml" "b-agentic/references/artifacts.yaml"
 mv "$work/artifacts.yaml.saved" "$home/.claude/b-agentic/references/artifacts.yaml"

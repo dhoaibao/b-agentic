@@ -7,6 +7,8 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cli="$root/claude/bin/b_run.py"
+# The CLI's source: cli is the launcher, so the cases that call the CLI's functions load this file.
+cli_lib="$root/claude/bin/b_run_lib.py"
 state_cli="$root/claude/bin/b-state.mjs"
 # The runtime that runs the CLI under test: bun with the hardening flags the installer writes (ADR-018), or
 # node (ARTIFACT_PROBE_RUNTIME=node), which the CLIs stay runnable under but no runtime installs them with.
@@ -66,7 +68,88 @@ ok "$repo" schema spec
 jq -e '.fields.criteria and .example and .enums.evidence' <<<"$out" >/dev/null || fail "schema spec must show fields, example, and enums"
 invalid "$repo" schema nope
 invalid "$repo" frobnicate
-[ ! -e "$root/claude/bin/__pycache__" ] || fail "-B must keep bytecode out of the install folder"
+
+# --- the launcher and its bytecode (ADR-040): running writes none, and a pyc is used only while the source matches ---
+# A copy laid out as an install is, so the repository's own claude/bin/__pycache__ (run.sh compiles into it) plays no part.
+kit="$work/bytecode"
+mkdir -p "$kit/bin" "$kit/references"
+cp "$cli" "$cli_lib" "$kit/bin/"
+cp "$schema" "$kit/references/artifacts.yaml"
+kit_run() { python3 -I -B "$kit/bin/b_run.py" schema spec; }
+# Python's own account of where the module's code came from; empty when it compiled the source.
+kit_pyc() { python3 -I -B -v "$kit/bin/b_run.py" schema spec 2>&1 >/dev/null | grep '^# code object from .*b_run_lib.*\.pyc' || true; }
+kit_compile() { python3 -I -m compileall -q --invalidation-mode checked-hash "$kit/bin/b_run_lib.py"; }
+# kit_error: the exit code and stderr of a run with no command.
+kit_error() { rc=0; python3 -I -B "$kit/bin/b_run.py" >/dev/null 2>"$work/err" || rc=$?; }
+plain=$(kit_run) || fail "the launcher failed without bytecode"
+[ ! -e "$kit/bin/__pycache__" ] || fail "-B must keep bytecode out of the install folder"
+[ "$(python3 -I "$kit/bin/b_run.py" schema spec)" = "$plain" ] || fail "a run without -B changed the output"
+[ ! -e "$kit/bin/__pycache__" ] || fail "the launcher must write no bytecode, even without -B"
+kit_compile
+[ -n "$(kit_pyc)" ] || fail "the checked-hash pyc was not loaded"
+[ "$(kit_run)" = "$plain" ] || fail "the pyc changed the output"
+pyc=$(printf '%s' "$kit"/bin/__pycache__/b_run_lib.*.pyc)
+cp "$pyc" "$work/pyc.built"
+# An edit that keeps the size and the modification time: a timestamp pyc would still run the old code.
+python3 -I -B - "$kit/bin/b_run_lib.py" <<'PY' || fail "the same-size edit could not be made"
+import os, pathlib, sys
+
+path = pathlib.Path(sys.argv[1])
+before, data = path.stat(), path.read_bytes()
+assert data.count(b"missing command; commands:") == 1
+path.write_bytes(data.replace(b"missing command; commands:", b"MISSING command; commands:"))
+os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
+assert (path.stat().st_size, path.stat().st_mtime_ns) == (before.st_size, before.st_mtime_ns)
+PY
+kit_error
+{ [ "$rc" -eq 2 ] && grep -Fq 'MISSING command' "$work/err"; } || fail "an edited source must run instead of its old pyc (rc=$rc): $(cat "$work/err")"
+cmp -s "$pyc" "$work/pyc.built" || fail "a run must not rewrite a stale pyc"
+python3 -I "$kit/bin/b_run.py" schema spec >/dev/null || fail "a run without -B failed over a stale pyc"
+cmp -s "$pyc" "$work/pyc.built" || fail "a run without -B must not rewrite a stale pyc"
+cp "$cli_lib" "$kit/bin/b_run_lib.py"
+# A pyc of another kind is never loaded, even while it matches: the default loader would take it, and a timestamp or
+# unchecked one can then run old code.
+for mode in TIMESTAMP UNCHECKED_HASH; do
+  python3 -I -B - "$kit/bin/b_run_lib.py" "$pyc" "$mode" <<'PY' || fail "the $mode pyc could not be built"
+import py_compile, sys
+
+py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True, invalidation_mode=py_compile.PycInvalidationMode[sys.argv[3]])
+PY
+  cp "$pyc" "$work/pyc.built"
+  [ "$(kit_run)" = "$plain" ] || fail "a $mode pyc changed the output"
+  [ -z "$(kit_pyc)" ] || fail "a $mode pyc must not be loaded"
+  cmp -s "$pyc" "$work/pyc.built" || fail "a run must not rewrite a $mode pyc"
+done
+# A valid header over a payload that is cut short or is not code: the source is compiled instead.
+for payload in cut not-code; do
+  kit_compile
+  python3 -I -B - "$pyc" "$payload" <<'PY' || fail "the $payload pyc could not be built"
+import marshal, pathlib, sys
+
+path = pathlib.Path(sys.argv[1])
+data = path.read_bytes()
+path.write_bytes(data[:200] if sys.argv[2] == "cut" else data[:16] + marshal.dumps(1))
+PY
+  cp "$pyc" "$work/pyc.built"
+  [ "$(kit_run)" = "$plain" ] || fail "a $payload pyc must fall back to the source"
+  cmp -s "$pyc" "$work/pyc.built" || fail "a run must not rewrite a $payload pyc"
+done
+kit_compile
+printf '\0\0\0\0' | dd of="$pyc" bs=1 count=4 conv=notrunc 2>/dev/null
+cp "$pyc" "$work/pyc.built"
+[ "$(kit_run)" = "$plain" ] || fail "a pyc of another Python must fall back to the source"
+[ -z "$(kit_pyc)" ] || fail "a pyc with another magic number must not be loaded"
+cmp -s "$pyc" "$work/pyc.built" || fail "a run must not rewrite a pyc of another Python"
+# A build that cannot replace the pyc fails, and run.sh leaves that failure to set -e: otherwise its checks would
+# load a pyc the run did not build.
+rm "$pyc"
+ln -s "$work/pyc.built" "$pyc"
+if kit_compile >/dev/null 2>&1; then fail "a pyc that cannot be built must fail the compile"; fi
+grep -Eq '^python3 -I -m compileall .*/b_run_lib\.py"$' "$root/tooling/validate/run.sh" || fail "run.sh must stop when the compile fails"
+rm "$pyc"
+rm "$kit/bin/b_run_lib.py"
+kit_error
+{ [ "$rc" -eq 2 ] && [ "$(wc -l <"$work/err" | tr -d ' ')" = 1 ]; } || fail "a missing module must be one line and exit 2 (rc=$rc): $(cat "$work/err")"
 
 # --- help, usage errors, and the cwd refusal tell the caller what to do (ADR-029) ----------------
 nogit="$work/nogit"
@@ -329,7 +412,7 @@ done
 # Follow-ups recorded before blockers had to name a class and stage. write refuses that input now, so the
 # probe records it the way the older helper did: the same data, its render, and the render's hash.
 seed_legacy() { # REPO
-  python3 -I -B - "$cli" "$(rundir "$1")" <<'PY'
+  python3 -I -B - "$cli_lib" "$(rundir "$1")" <<'PY'
 import importlib.util, json, pathlib, sys
 
 spec = importlib.util.spec_from_file_location("b_run", sys.argv[1])
@@ -396,7 +479,7 @@ ok "$work/fu-plain" validate
 # old_cli NAME JQ: a copy of the helper beside the schema JQ makes, laid out as an install is.
 old_cli() {
   mkdir -p "$work/$1/bin" "$work/$1/references"
-  cp "$cli" "$work/$1/bin/b_run.py"
+  cp "$cli" "$cli_lib" "$work/$1/bin/"
   jq "$2" "$schema" >"$work/$1/references/artifacts.yaml"
 }
 fields='.kinds.followups.fields.items.items.fields'
@@ -1211,7 +1294,7 @@ import os
 import sys
 
 sys.path.insert(0, sys.argv[1])
-import b_run
+import b_run_lib as b_run
 
 repo, target = sys.argv[2], sys.argv[3]
 base = os.path.join(repo, ".b-agentic")
@@ -1242,7 +1325,7 @@ import os
 import sys
 
 sys.path.insert(0, sys.argv[1])
-import b_run
+import b_run_lib as b_run
 
 repo = sys.argv[2]
 runs = os.path.join(repo, ".b-agentic", "runs")

@@ -25,7 +25,7 @@ export function helperDir(env = process.env) {
 
 // Pi runs the helpers when a runtime overrides the wrapper folder. Pi has no Codex gate,
 // uses PI_SESSION_ID for locks, and launches parallel b-worker steps through one parallel
-// workflow call. b_run.py mirrors it as on_pi().
+// workflow call. b_run_lib.py mirrors it as on_pi().
 export function onPi(env = process.env) {
   return helperDir(env) !== DEFAULT_HELPER_DIR;
 }
@@ -111,7 +111,7 @@ export function secondsBetween(from, to) {
 export const countedSeconds = (budget) =>
   Object.values(budget.phase_s).reduce((sum, value) => sum + value, 0);
 
-// Run folders past which init suggests `b_run.py prune` (it never deletes); b_run.py HINT_RUNS holds the same value.
+// Run folders past which init suggests `b_run.py prune` (it never deletes); b_run_lib.py HINT_RUNS holds the same value.
 export const HINT_RUNS = 40;
 
 export const RUN_ID = /^\d{8}-[a-z0-9][a-z0-9-]{0,40}$/;

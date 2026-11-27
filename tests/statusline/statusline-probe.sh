@@ -171,7 +171,7 @@ grep -Eq 'run done|plan on disk|near auto-compact' <<<"$(hint_line hint-linkbase
 # Every copy of the run id pattern must stay equal to the state helper's.
 [ "$("${js[@]}" -e 'import { readFileSync } from "node:fs"; import { RUN_ID as a } from "'"$cli"'"; import { RUN_ID as core } from "'"$root"'/claude/bin/b-state-core.mjs";
 const hook = readFileSync("'"$root"'/claude/hooks/b-run-context.mjs", "utf8").match(/const RUN_ID = \/(.+)\/;/)?.[1];
-const py = readFileSync("'"$root"'/claude/bin/b_run.py", "utf8").match(/^RUN_ID = re\.compile\(r"(.+)"\)$/m)?.[1];
+const py = readFileSync("'"$root"'/claude/bin/b_run_lib.py", "utf8").match(/^RUN_ID = re\.compile\(r"(.+)"\)$/m)?.[1];
 console.log([a.source, hook, py].every((source) => source === core.source))')" = true ] || fail "every RUN_ID copy must equal the b-state run id pattern"
 
 # A valid state the writer accepts (up to 1 MiB) must still read; a larger file is dropped.

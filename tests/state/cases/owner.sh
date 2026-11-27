@@ -31,13 +31,13 @@ grep -Fq 'or set CLAUDE_CODE_SESSION_ID' "$work/err" || fail "the Claude Code me
 (cd "$repoP" && env CLAUDE_CODE_SESSION_ID= PI_SESSION_ID=pi-session-4 "${js[@]}" "$cli" lock --takeover >/dev/null 2>"$work/err") \
   || fail "lock --takeover with an empty CLAUDE_CODE_SESSION_ID: $(cat "$work/err")"
 [ "$(lock_owner)" = "pi-session-4" ] || fail "an empty CLAUDE_CODE_SESSION_ID must fall through to PI_SESSION_ID in b-state"
-py_owner() { env "$@" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.default_owner({}))"; }
+py_owner() { env "$@" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run_lib as b_run;print(b_run.default_owner({}))"; }
 [ "$(py_owner CLAUDE_CODE_SESSION_ID= PI_SESSION_ID=pi-session-4)" = "pi-session-4" ] || fail "b_run must also take PI_SESSION_ID when the Claude Code variable is empty"
 [ "$(py_owner CLAUDE_CODE_SESSION_ID=claude-session-2 PI_SESSION_ID=pi-session-4)" = "claude-session-2" ] || fail "b_run must keep CLAUDE_CODE_SESSION_ID first"
 rc=0
-env CLAUDE_CODE_SESSION_ID=claude-session-2 PI_SESSION_ID=pi-session-4 python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; b_run.default_owner({'owner': ''})" >/dev/null 2>&1 || rc=$?
+env CLAUDE_CODE_SESSION_ID=claude-session-2 PI_SESSION_ID=pi-session-4 python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run_lib as b_run;b_run.default_owner({'owner': ''})" >/dev/null 2>&1 || rc=$?
 [ "$rc" -ne 0 ] || fail "b_run must refuse an explicit empty --owner like b-state, not take the session identity"
-[ "$(env CLAUDE_CODE_SESSION_ID=claude-session-2 python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.default_owner({'owner': 'explicit-6'}))")" = "explicit-6" ] || fail "b_run must keep an explicit --owner first"
+[ "$(env CLAUDE_CODE_SESSION_ID=claude-session-2 python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run_lib as b_run;print(b_run.default_owner({'owner': 'explicit-6'}))")" = "explicit-6" ] || fail "b_run must keep an explicit --owner first"
 rc=0
 (cd "$repoP" && env CLAUDE_CODE_SESSION_ID= PI_SESSION_ID= "${js[@]}" "$cli" lock >/dev/null 2>"$work/err") || rc=$?
 [ "$rc" -eq 2 ] || fail "two empty owner variables must be invalid input: rc=$rc"
@@ -63,16 +63,16 @@ first_line=$(env B_AGENTIC_HELPER_DIR='x; rm -rf y' "${js[@]}" "$cli" help | hea
 # --- the JS and Python helpers agree on every override value ----------------------
 for value in '~/.pi/agent/b-agentic/bin' '~/.pi/agent/b-agentic/bin//' '/opt/b-agentic/bin' 'x; rm -rf y' '$HOME/x' 'a b' '/' '' 'bin' './bin' '../bin' '~' '~x/bin' '/x y'; do
   from_js=$(B_AGENTIC_HELPER_DIR="$value" "${js[@]}" -e "import { helperDir } from '$root/claude/bin/b-state-core.mjs'; console.log(helperDir());")
-  from_py=$(B_AGENTIC_HELPER_DIR="$value" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.helper_dir())")
+  from_py=$(B_AGENTIC_HELPER_DIR="$value" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run_lib as b_run;print(b_run.helper_dir())")
   [ "$from_js" = "$from_py" ] || fail "helperDir and helper_dir disagree for '$value': '$from_js' vs '$from_py'"
   pi_js=$(B_AGENTIC_HELPER_DIR="$value" "${js[@]}" -e "import { onPi } from '$root/claude/bin/b-state-core.mjs'; console.log(onPi());")
-  pi_py=$(B_AGENTIC_HELPER_DIR="$value" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(str(b_run.on_pi()).lower())")
+  pi_py=$(B_AGENTIC_HELPER_DIR="$value" python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run_lib as b_run;print(str(b_run.on_pi()).lower())")
   [ "$pi_js" = "$pi_py" ] || fail "onPi and on_pi disagree for '$value': '$pi_js' vs '$pi_py'"
 done
 [ "$(env -u B_AGENTIC_HELPER_DIR "${js[@]}" -e "import { onPi } from '$root/claude/bin/b-state-core.mjs'; console.log(onPi());")" = false ] || fail "onPi must be false without the override"
 [ "$(B_AGENTIC_HELPER_DIR="$pi_dir" "${js[@]}" -e "import { onPi } from '$root/claude/bin/b-state-core.mjs'; console.log(onPi());")" = true ] || fail "onPi must be true under the Pi override"
 from_js=$(env -u B_AGENTIC_HELPER_DIR "${js[@]}" -e "import { helperDir } from '$root/claude/bin/b-state-core.mjs'; console.log(helperDir());")
-from_py=$(env -u B_AGENTIC_HELPER_DIR python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run; print(b_run.helper_dir())")
+from_py=$(env -u B_AGENTIC_HELPER_DIR python3 -I -B -c "import sys; sys.path.insert(0, '$root/claude/bin'); import b_run_lib as b_run;print(b_run.helper_dir())")
 [ "$from_js" = "~/.claude/b-agentic/bin" ] && [ "$from_py" = "$from_js" ] || fail "an unset override must give the Claude Code folder in both: '$from_js' vs '$from_py'"
 
 # --- no command outside a git worktree ---------------------------------------

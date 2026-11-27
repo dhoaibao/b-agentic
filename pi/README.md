@@ -35,6 +35,9 @@ approved vendor installers write outside `~/.pi/agent`.
   shared run helpers print Pi paths and take the Pi rules (`b-worker` and worktree steps per
   [ADR-031](../docs/decisions/ADR-031-pi-worker-steps.md), review gate `reviewer` only), and
   run the Node helpers with bare `node`. `PI_SESSION_ID` is the lock owner.
+- The shared helpers from `claude/bin`, with the run CLI's checked-hash bytecode that the installer builds into
+  `bin/__pycache__/` ([ADR-040](../docs/decisions/ADR-040-precompiled-run-cli.md)). A bytecode file edited since install is
+  refused like every file the wrappers run.
 - `extensions/b-agentic/`: the guard (`guard.mjs`) and its Pi entry point (`index.ts`). The guard reuses the Claude Code hook
   modules, so both runtimes judge secret paths, `.b-agentic` writes and shell inspection the same way. It also gates the
   user's `!` shell commands for `.b-agentic` and secret paths, refuses a `subagent` tool launch whose child session cannot

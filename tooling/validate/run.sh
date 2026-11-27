@@ -18,6 +18,11 @@ for tool in bun node; do
   command -v "$tool" >/dev/null 2>&1 || { printf 'error: %s is required to run the validation suite\n' "$tool" >&2; exit 1; }
 done
 
+# Almost every probe runs the run CLI many times: compiled once here, each run loads it instead of compiling its
+# source again. The pyc stays in the ignored claude/bin/__pycache__ and is used only while the source matches (ADR-040).
+# A failed build must stop the suite: the checks may not load a pyc this run did not build, which no fingerprint covers.
+python3 -I -m compileall -q -f --invalidation-mode checked-hash "$ROOT_DIR/claude/bin/b_run_lib.py"
+
 python3 "$ROOT_DIR/tooling/generate/registry_sync.py" --self-test --check
 python3 "$ROOT_DIR/tooling/validate/capabilities.py" --self-test
 python3 "$ROOT_DIR/tooling/validate/decision_design.py" --self-test

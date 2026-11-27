@@ -35,7 +35,8 @@ change nothing this runtime runs.
   - Claude Code: `skills/*/SKILL.md`, `claude/agents/*.md`, `claude/bin`, `claude/hooks`, and
     `claude/configs/settings.template.json`.
   - Pi: `skills/*/prompt.md`, the `b-state*.mjs`, `b-candidate-snapshot.mjs`, `b-protected.mjs`,
-    and `b_run.py` files of `claude/bin`, the five hooks Pi installs, `references/runtimes.yaml`,
+    `b_run.py` and `b_run_lib.py` files of `claude/bin` (the last since
+    [ADR-040](ADR-040-precompiled-run-cli.md)), the five hooks Pi installs, `references/runtimes.yaml`,
     `pi/bin`, `pi/extensions`, `pi/themes`, `tooling/generate/registry_sync.py`, and
     `tooling/install/pi_install.py`.
   - [`tooling/validate/kit_paths.py`](../../tooling/validate/kit_paths.py), part of the default
