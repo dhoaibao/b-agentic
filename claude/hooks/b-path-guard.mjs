@@ -7,10 +7,12 @@
 // Contract: stdin is the hook JSON; exit 2 with a stderr reason blocks the
 // call and exit 0 lets it continue. Under Claude Code the registered hook sets
 // `onFailure: "block"`, so a crash, timeout, or other unexpected exit also
-// blocks. It reads only path and glob strings, never file content, and fails
-// open on malformed input (exit 0) so it cannot wedge the session. It checks the names a tool call carries, not the files a directory
-// search would visit; Claude Code's own deny rules cover that best effort.
-import { readFileSync, realpathSync } from "node:fs";
+// blocks. Hook input it cannot read before its deadline also blocks. It reads
+// only path and glob strings, never file content, and fails open on malformed
+// input (exit 0) so it cannot wedge the session. It checks the names a tool call
+// carries, not the files a directory search would visit; Claude Code's own deny
+// rules cover that best effort.
+import { readSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isProtected } from "../bin/b-protected.mjs";
@@ -103,10 +105,46 @@ export function agenticWrites(toolInput, toolName, cwd) {
   );
 }
 
+// Stdin may be non-blocking with no data yet (EAGAIN), so the read retries,
+// sleeping, until a deadline; any other read error or the deadline throws. No
+// size cap: a truncated Write would parse as malformed and be allowed.
+const STDIN_DEADLINE_MS = 5000;
+function readStdin() {
+  const chunks = [];
+  const buffer = Buffer.alloc(65536);
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  const deadline = performance.now() + STDIN_DEADLINE_MS;
+  for (;;) {
+    let length;
+    try {
+      length = readSync(0, buffer, 0, buffer.length, null);
+    } catch (error) {
+      if (error?.code === "EOF") break;
+      if (error?.code !== "EAGAIN" || performance.now() >= deadline) {
+        throw error;
+      }
+      Atomics.wait(pause, 0, 0, 10);
+      continue;
+    }
+    if (length === 0) break;
+    chunks.push(Buffer.from(buffer.subarray(0, length)));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 function main() {
+  let raw;
+  try {
+    raw = readStdin();
+  } catch (error) {
+    process.stderr.write(
+      `b-agentic path guard: tool call refused because the hook input could not be read (${error?.code ?? "read error"}). Retry the call.\n`,
+    );
+    return 2;
+  }
   let event;
   try {
-    event = JSON.parse(readFileSync(0, "utf8"));
+    event = JSON.parse(raw);
   } catch {
     return 0;
   }

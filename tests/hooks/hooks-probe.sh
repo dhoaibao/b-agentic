@@ -702,6 +702,96 @@ if hook.returncode != 0 or b"run context" not in out or cpu >= 0.5:
 PY
 echo "hooks probe passed: run-context"
 
+# --- hook stdin ----------------------------------------------------------------
+# Non-blocking stdin that is late, split, or never written: the path guard judges
+# the whole payload or blocks, the Codex guard and run context fail open, and
+# every wait ends at the deadline without spinning.
+python3 -I - "$pathguard" "$codexguard" "$runctx" "${js[@]}" <<'PY' || fail "hooks must read non-blocking stdin under a deadline"
+import json, os, resource, subprocess, sys, time
+
+pathguard, codexguard, runctx = sys.argv[1:4]
+js = sys.argv[4:]
+failures = []
+
+
+def start(script):
+    read_end, write_end = os.pipe()
+    os.set_blocking(read_end, False)
+    hook = subprocess.Popen(js + [script], stdin=read_end, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    os.close(read_end)
+    return hook, write_end
+
+
+def cpu():
+    usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return usage.ru_utime + usage.ru_stime
+
+
+def finish(hook):
+    try:
+        out, err = hook.communicate(timeout=15)
+    except subprocess.TimeoutExpired:
+        hook.kill()
+        out, err = hook.communicate()
+        return "hung", out, err
+    return hook.returncode, out, err
+
+
+def late(label, script, tool_input, code, reason=b"", tool="Read", split=False):
+    data = json.dumps({"tool_name": tool, "cwd": "/repo", "tool_input": tool_input}).encode()
+    parts = [data[: len(data) // 2], data[len(data) // 2 :]] if split else [data]
+    before = cpu()
+    hook, write_end = start(script)
+    delivered = True
+    try:
+        for part in parts:
+            time.sleep(0.5)
+            view = memoryview(part)
+            while view:
+                view = view[os.write(write_end, view) :]
+    except BrokenPipeError:
+        delivered = False
+    os.close(write_end)
+    got, _, err = finish(hook)
+    spent = cpu() - before
+    if not delivered or got != code or reason not in err or spent >= 0.8:
+        failures.append(f"{label}: delivered {delivered}, exit {got}, cpu {spent:.2f}s, stderr {err[:300]!r}")
+
+
+secret = {"file_path": "/nonexistent-dir/.env"}
+plain = {"file_path": "/repo/src/app.ts"}
+late("path guard, late secret Read", pathguard, secret, 2, b"likely-secret path")
+late("path guard, late ordinary Read", pathguard, plain, 0)
+late("path guard, split secret Read", pathguard, secret, 2, b"likely-secret path", split=True)
+late("path guard, split ordinary Read", pathguard, plain, 0, split=True)
+# Over 4 MiB takes more than 64 pipe reads: a capped read would truncate it into malformed input.
+big = dict(secret, content="x" * (6 * 1024 * 1024))
+late("path guard, split large secret Write", pathguard, big, 2, b"likely-secret path", tool="Write", split=True)
+late("codex guard, late ls", codexguard, {"command": "ls"}, 0, tool="Bash")
+
+# Never written, with the write end held open; the three run together.
+before = cpu()
+began = time.monotonic()
+waiting = [
+    ("path guard", start(pathguard), 2, b"could not be read"),
+    ("codex guard", start(codexguard), 0, b""),
+    ("run context", start(runctx), 0, b""),
+]
+for label, (hook, write_end), code, reason in waiting:
+    got, out, err = finish(hook)
+    waited = time.monotonic() - began
+    os.close(write_end)
+    if got != code or reason not in err or out or not 4 <= waited < 12:
+        failures.append(f"{label}, never written: exit {got}, after {waited:.1f}s, stdout {out!r}, stderr {err[:300]!r}")
+spent = cpu() - before
+if spent >= 1.5:
+    failures.append(f"never-written waits must be idle: cpu {spent:.2f}s")
+
+if failures:
+    sys.exit("\n".join(failures))
+PY
+echo "hooks probe passed: hook-stdin"
+
 fi
 
 # The hook sections are done; the verdict mapper and the review wrapper are the cli part.

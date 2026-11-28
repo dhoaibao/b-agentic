@@ -550,7 +550,7 @@ Whether the pointer reaches the model after a live `/compact` is not covered by 
 `b-run-context` is a second `SessionStart` hook, matched on `startup|resume|clear|compact`: when `.b-agentic/active` names a run whose `state.json` is not finished, it prints one line with the run id and phase. It is a pointer only (an explicit `/b-flow resume` is the only way a run continues), reads with `O_NOFOLLOW`, never writes, sets no `onFailure`, and prints nothing on any error. Claude Code drops `SessionStart` context intermittently for `startup` and `fork` sources (issues #10373 and #93458), so the pointer is best effort; the run files are the record.
 The file-tool
 guard sets `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that crashes, times out, or
-cannot start blocks the call, and malformed input still fails open by design. To recover from a
+cannot start blocks the call, as does hook input it cannot read before its 5-second deadline, while malformed input still fails open by design. To recover from a
 guard that fails closed (for example a missing `bun` or hook script), repair or reinstall: Bash is
 not fail-closed and still works. The Bash Codex tripwire deliberately sets no `onFailure`: it runs
 on every Bash call, so a broken copy that blocked Bash would also block its own repair; the

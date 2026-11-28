@@ -8,8 +8,8 @@
 // and the state file it reads is untrusted input that grants no approval. It
 // never injects file content beyond the validated id and phase, never writes,
 // and never follows symlinks. With no run, a finished run, another event or
-// source, malformed input, or any error it prints nothing and exits 0, so it
-// can never wedge a session.
+// source, malformed input, input it cannot read before its deadline, or any
+// error it prints nothing and exits 0, so it can never wedge a session.
 //
 // Known limit: Claude Code drops SessionStart context intermittently for
 // `startup` and `fork` sources (anthropics/claude-code#10373, #93458), so this
@@ -122,18 +122,21 @@ function main() {
   return 0;
 }
 
+const STDIN_DEADLINE_MS = 5000;
 function readFileSyncStdin() {
   const chunks = [];
   const buffer = Buffer.alloc(65536);
   const pause = new Int32Array(new SharedArrayBuffer(4));
+  const deadline = performance.now() + STDIN_DEADLINE_MS;
   for (;;) {
     let length;
     try {
       length = readSync(0, buffer, 0, buffer.length, null);
     } catch (error) {
-      if (error?.code === "EAGAIN") {
+      if (error?.code === "EAGAIN" && performance.now() < deadline) {
         // Non-blocking stdin with no data yet. readFileSync(0) would throw here
-        // and drop the pointer, so retry, sleeping to leave the CPU idle.
+        // and drop the pointer, so retry until the deadline, sleeping to leave
+        // the CPU idle.
         Atomics.wait(pause, 0, 0, 10);
         continue;
       }

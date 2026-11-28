@@ -19,9 +19,10 @@
 //                      Evaluate the current repository (and the review range of
 //                      <ref>); JSON on stdout, exit 0 when allowed and 3 when
 //                      refused.
+// In hook mode, input it cannot read before its deadline allows the call.
 // It reads path names only, never file content.
 import { execFileSync } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { readSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 // The snapshot CLI is loaded only when a guarded command needs a scan, so the
@@ -414,8 +415,41 @@ export async function judgeCommand(command, cwd) {
   };
 }
 
+// Stdin may be non-blocking with no data yet (EAGAIN), so the read retries,
+// sleeping, until a deadline; any other read error or the deadline throws.
+const STDIN_DEADLINE_MS = 5000;
+function readStdin() {
+  const chunks = [];
+  const buffer = Buffer.alloc(65536);
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  const deadline = performance.now() + STDIN_DEADLINE_MS;
+  for (;;) {
+    let length;
+    try {
+      length = readSync(0, buffer, 0, buffer.length, null);
+    } catch (error) {
+      if (error?.code === "EOF") break;
+      if (error?.code !== "EAGAIN" || performance.now() >= deadline) {
+        throw error;
+      }
+      Atomics.wait(pause, 0, 0, 10);
+      continue;
+    }
+    if (length === 0) break;
+    chunks.push(Buffer.from(buffer.subarray(0, length)));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 async function hook() {
-  const raw = readFileSync(0, "utf8");
+  let raw;
+  try {
+    raw = readStdin();
+  } catch {
+    // A tripwire fails open (ADR-007): blocking every Bash call would also block
+    // its own repair.
+    return 0;
+  }
   let event = null;
   try {
     event = JSON.parse(raw);

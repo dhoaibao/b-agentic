@@ -165,6 +165,7 @@ the kernel's secret-file rule and the Claude Code deny rules, which is an accept
 residual risk (`--tools Grep Glob` restores the dedicated tools). The file-tool path
 guard sets `onFailure: "block"` (Claude Code 2.1.295 or later), so a guard that
 crashes, times out, or cannot start blocks the call instead of letting it through;
+hook input it cannot read before its 5-second deadline blocks too, while
 malformed input still fails open by design. The Bash `b-codex-guard` tripwire
 deliberately sets no `onFailure` and fails open ([ADR-007](ADR-007-codex-first-review-gate.md)).
 If the path guard fails closed (for example `bun` or the hook script is missing),
